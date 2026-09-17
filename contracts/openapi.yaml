@@ -886,7 +886,7 @@ paths:
   /api/catalog/ex-runs:
     get:
       tags: [catalog]
-      summary: Ex-search (or mEx-search) runs for a subject
+      summary: Ex-search, mEx-search or reciprocity-search runs for a subject
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       parameters:
         - in: query
@@ -896,7 +896,7 @@ paths:
         - in: query
           name: kind
           required: false
-          schema: { type: string, enum: [ex, mex] }
+          schema: { type: string, enum: [ex, mex, recip] }
       responses:
         "200":
           content:
@@ -911,7 +911,7 @@ paths:
   /api/catalog/ex-runs/{run}/results:
     get:
       tags: [catalog]
-      summary: Full results table (every montage/current-split scored) of one ex/mEx run
+      summary: Full results table (every montage/current-split scored) of one ex/mEx/recip run
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       parameters:
         - in: path
@@ -925,7 +925,7 @@ paths:
         - in: query
           name: kind
           required: true
-          schema: { type: string, enum: [ex, mex] }
+          schema: { type: string, enum: [ex, mex, recip] }
       responses:
         "200":
           content:
@@ -4818,7 +4818,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [pre, sim, flex, flex_adaptive, flex_pareto, ex, mex]
+          enum: [pre, sim, flex, flex_adaptive, flex_pareto, ex, mex, recip]
           description: >-
             Every kind that runs one independent job per subject. `pre` expands into the
             per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the subject

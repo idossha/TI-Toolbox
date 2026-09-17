@@ -1777,7 +1777,7 @@
         "tags": [
           "catalog"
         ],
-        "summary": "Ex-search (or mEx-search) runs for a subject",
+        "summary": "Ex-search, mEx-search or reciprocity-search runs for a subject",
         "security": [
           {
             "cookieAuth": []
@@ -1803,7 +1803,8 @@
               "type": "string",
               "enum": [
                 "ex",
-                "mex"
+                "mex",
+                "recip"
               ]
             }
           }
@@ -1835,7 +1836,7 @@
         "tags": [
           "catalog"
         ],
-        "summary": "Full results table (every montage/current-split scored) of one ex/mEx run",
+        "summary": "Full results table (every montage/current-split scored) of one ex/mEx/recip run",
         "security": [
           {
             "cookieAuth": []
@@ -1869,7 +1870,8 @@
               "type": "string",
               "enum": [
                 "ex",
-                "mex"
+                "mex",
+                "recip"
               ]
             }
           }
@@ -10126,7 +10128,8 @@
               "flex_adaptive",
               "flex_pareto",
               "ex",
-              "mex"
+              "mex",
+              "recip"
             ],
             "description": "Every kind that runs one independent job per subject. `pre` expands into the per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the subject report is an attachment of the last stage job, never a job of its own; the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead."
           },

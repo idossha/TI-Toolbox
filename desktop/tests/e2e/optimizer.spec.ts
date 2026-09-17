@@ -354,7 +354,7 @@ test("duplicate, then re-point the copy: two subjects, two rows, each with its O
   await setOptSubject(page, second, "101");
 
   await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("2", { timeout: 15_000 });
-  await expect(page.locator('[data-testid^="plan-cell-ernie-"]')).toHaveCount(3); // Flex · Ex · mEx columns
+  await expect(page.locator('[data-testid^="plan-cell-ernie-"]')).toHaveCount(4); // Flex · Ex · mEx · Recip columns
   await expect(page.getByTestId("plan-cell-ernie-flex")).toBeVisible();
   await expect(page.getByTestId("plan-cell-101-flex")).toBeVisible();
 

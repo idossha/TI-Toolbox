@@ -1420,12 +1420,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ex-search (or mEx-search) runs for a subject */
+        /** Ex-search, mEx-search or reciprocity-search runs for a subject */
         get: {
             parameters: {
                 query: {
                     subject: string;
-                    kind?: "ex" | "mex";
+                    kind?: "ex" | "mex" | "recip";
                 };
                 header?: never;
                 path?: never;
@@ -1466,12 +1466,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Full results table (every montage/current-split scored) of one ex/mEx run */
+        /** Full results table (every montage/current-split scored) of one ex/mEx/recip run */
         get: {
             parameters: {
                 query: {
                     subject: string;
-                    kind: "ex" | "mex";
+                    kind: "ex" | "mex" | "recip";
                 };
                 header?: never;
                 path: {
@@ -5985,7 +5985,7 @@ export interface components {
              * @description Every kind that runs one independent job per subject. `pre` expands into the per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the subject report is an attachment of the last stage job, never a job of its own; the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead.
              * @enum {string}
              */
-            kind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex";
+            kind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "recip";
             config: components["schemas"]["PipelineConfig"];
             subject_ids: string[];
             /** @description Optional per-subject configs, for a workflow whose config depends on the subject (an ROI resolved against that subject's own atlas, a subject-specific leadfield path) or that runs several jobs for one subject (the Simulator's one job per (subject, montage)). Entries are matched to subject_ids by subject_id; a subject with no entry uses `config`. Whatever is sent, the server forces each generated config's subject_id to its own subject, so a config can never carry another subject's id. */
@@ -7040,10 +7040,14 @@ export interface components {
          *     leadfield_hdf : str
          *         Leadfield HDF5 to read -- an absolute path, or a filename relative to
          *         the subject's ``leadfields`` directory.
-         *     target : PointTarget or RoiTarget
-         *         Where the reciprocity source sits.  :class:`PointTarget` is one
-         *         coordinate (plus an optional inclusion radius); :class:`RoiTarget`
-         *         reuses the exhaustive search's ROI inputs unchanged.
+         *     target : PointTarget or FlexConfig.SphericalROI or FlexConfig.AtlasROI or FlexConfig.SubcorticalROI
+         *         Where the reciprocity source sits, as a ``_type``-discriminated
+         *         object.  :class:`PointTarget` is one coordinate plus an optional
+         *         inclusion radius; the three ROI forms are the very dataclasses
+         *         flex-search already uses, so a client builds one ROI object for every
+         *         optimizer.  A cortical ``AtlasROI`` (a FreeSurfer ``.annot`` surface
+         *         region) is accepted by the type but rejected by the runner, which has
+         *         only the leadfield's volume elements to work with.
          *     direction : list of float or None
          *         Target field direction ``[dx, dy, dz]`` in the target's space, or
          *         ``None`` to maximise envelope amplitude in any direction.  Normalised
@@ -7090,7 +7094,7 @@ export interface components {
             /** Leadfield Hdf */
             leadfield_hdf: string;
             /** Target */
-            target: components["schemas"]["PointTarget"] | components["schemas"]["RoiTarget"];
+            target: components["schemas"]["PointTarget"] | components["schemas"]["SphericalROI"] | components["schemas"]["RecipConfigAtlasROI"] | components["schemas"]["SubcorticalROI"];
             /**
              * Direction
              * @default null
@@ -9115,80 +9119,46 @@ export interface components {
             _type: "PointTarget";
         };
         /**
-         * RoiTarget
-         * @description An ROI target, using the exhaustive search's ROI inputs unchanged.
+         * AtlasROI
+         * @description Cortical surface ROI from a FreeSurfer annotation atlas.
+         *
+         *     Each of *atlas_path*, *label*, *hemisphere* accepts either a single
+         *     value (one region) or a list (a union of several regions evaluated as
+         *     one combined target).  Because ``.annot`` files are per-hemisphere,
+         *     carrying a per-region *hemisphere* (and matching *atlas_path*) allows a
+         *     target that spans **both** hemispheres, or even different atlases.
+         *     Scalars broadcast to the number of labels; lists must match its length.
          *
          *     Attributes
          *     ----------
-         *     roi_names : list of str or None
-         *         ROI CSV filenames under the subject's ``rois`` directory, whose
-         *         spherical masks are OR-folded into one region.  ``None`` or ``[]``
-         *         means "no spherical centers", which then requires *roi_atlas*.
-         *     roi_atlas : list of ExConfig.AtlasROI or None
-         *         Volumetric atlas or mask ROI(s) unioned with the spherical
-         *         centers.
-         *     roi_radius : float
-         *         Spherical radius in mm around each CSV center.
-         *     roi_coordinate_space : str
-         *         Space of the CSV centers -- ``"subject"`` (default) or ``"mni"``.
+         *     atlas_path : str or list of str
+         *         Path(s) to the FreeSurfer ``.annot`` annotation file(s).
+         *     label : int or list of int
+         *         Integer label index/indices within the annotation atlas.
+         *     hemisphere : str or list of str
+         *         Hemisphere(s) to use (``"lh"`` or ``"rh"``), one per label.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *label* is empty, or *atlas_path*\/*hemisphere* is a list whose
+         *         length neither equals 1 nor the number of labels.
          */
-        RoiTarget: {
+        RecipConfigAtlasROI: {
+            /** Atlas Path */
+            atlas_path: string | string[];
+            /** Label */
+            label: number | number[];
             /**
-             * Roi Names
-             * @default null
+             * Hemisphere
+             * @default lh
              */
-            roi_names: string[] | null;
-            /**
-             * Roi Atlas
-             * @default null
-             */
-            roi_atlas: components["schemas"]["RecipConfigAtlasROI"][] | null;
-            /**
-             * Roi Radius
-             * @default 3
-             */
-            roi_radius: number;
-            /**
-             * Roi Coordinate Space
-             * @default subject
-             * @enum {string}
-             */
-            roi_coordinate_space: "subject" | "mni";
+            hemisphere: string | string[];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            _type: "RoiTarget";
-        };
-        /**
-         * AtlasROI
-         * @description Volumetric atlas or mask ROI, unioned with the spherical center(s).
-         *
-         *     Attributes
-         *     ----------
-         *     atlas_path : str
-         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
-         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
-         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
-         *     label : int or None
-         *         Integer label to select within the atlas (elements are
-         *         included where the voxel value equals *label*).  ``None``
-         *         treats the whole file as a binary mask (voxel value ``> 0``).
-         */
-        RecipConfigAtlasROI: {
-            /** Atlas Path */
-            atlas_path: string;
-            /**
-             * Label
-             * @default null
-             */
-            label: number | null;
-            /**
-             * Atlas Space
-             * @default subject
-             * @enum {string}
-             */
-            atlas_space: "subject" | "mni";
+            _type: "AtlasROI";
         };
         /**
          * AnalysisMode

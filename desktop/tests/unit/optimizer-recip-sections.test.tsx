@@ -84,8 +84,9 @@ describe("the reciprocity Search section", () => {
   it("states the candidate ceiling, and restates it when the channel count changes", () => {
     render();
     expect(cost()).toBe("top 40 pairs · 2 channels · at most 780 candidates");
-    act(() => segment("4").click());
+    act(() => segment("4 (mTI)").click());
     expect(form.nChannels).toBe(4);
-    expect(cost()).toBe("top 12 pairs · 4 channels · at most 495 candidates");
+    // C(20,4) is 4 845, over the runner's 1 000-candidate cap, so the line states the cap.
+    expect(cost()).toBe("top 20 pairs · 4 channels · at most 1,000 candidates");
   });
 });

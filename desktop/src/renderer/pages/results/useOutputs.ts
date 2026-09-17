@@ -19,7 +19,6 @@ import {
   getExRuns,
   getFlexRuns,
   getGroupCatalog,
-  getRecipRuns,
   getReports,
   getSimulationsFor,
   type Analysis,
@@ -81,7 +80,7 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
     queries: wanted.map((id) => ({ queryKey: ["results-ex-runs", id, "mex"], queryFn: () => getExRuns(id, "mex") })),
   });
   const recip = useQueries({
-    queries: wanted.map((id) => ({ queryKey: ["results-recip-runs", id], queryFn: () => getRecipRuns(id) })),
+    queries: wanted.map((id) => ({ queryKey: ["results-ex-runs", id, "recip"], queryFn: () => getExRuns(id, "recip") })),
   });
   const reports = useQueries({
     queries: wanted.map((id) => ({ queryKey: ["results-reports", id], queryFn: () => getReports(id) })),

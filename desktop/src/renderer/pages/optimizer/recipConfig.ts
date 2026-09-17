@@ -29,51 +29,43 @@
  *     union resolves to. The saved-CSV ex target is therefore not offered here: it is not one of
  *     those shapes, and it is the one ex form with no `_type` of its own.
  */
+import type { components } from "../../api/schema";
 import type { RoiConfig } from "../_shared/roi";
 
-/**
- * TODO(lane A): drop these local types and read `components["schemas"]["RecipConfig"]` once the
- * `"recip"` job kind lands in `contracts/openapi.yaml` and `npm run gen` regenerates
- * `api/schema.d.ts`. Nothing else in the page types the kind.
- */
-export const RECIP_KIND = "recip";
-
+/** The generated contract (`contracts/openapi.yaml` -> `npm run gen`), not a local restatement. */
+export type RecipConfigBody = components["schemas"]["RecipConfig"];
 /** A point target: a coordinate, its space, and the radius of the element set around it. */
-export interface RecipPointTarget {
-  _type: "PointTarget";
-  xyz: [number, number, number];
-  space: "subject" | "mni";
-  radius_mm: number;
-}
+export type RecipPointTarget = components["schemas"]["PointTarget"];
+/** Point, or one of the `_type`-discriminated ROI configs every optimizer already speaks. */
+export type RecipTarget = RecipConfigBody["target"];
 
-/** An ROI target — the existing ROI config shapes, unchanged. */
-export type RecipTarget = RecipPointTarget | RoiConfig;
-
-export interface RecipConfigBody {
-  subject_id: string;
-  leadfield_hdf: string;
-  target: RecipTarget;
-  direction: [number, number, number] | null;
-  objective: RecipObjective;
-  focality_weight: number;
-  n_channels: number;
-  current_mA: number;
-  top_k: number | null;
-  gm_subsample: number;
-  run_name: string | null;
-}
-
-export type RecipObjective = "intensity" | "focality";
+export type RecipObjective = RecipConfigBody["objective"];
 export type RecipTargetMode = "point" | "roi";
-export type RecipChannels = 2 | 3 | 4;
+/**
+ * 2 or 4 — **not** 3. `RecipConfig.__post_init__` rejects an odd count
+ * (`tit/opt/config.py::VALID_RECIP_CHANNELS`) because the verified envelope,
+ * `tit.calc.get_TI_vectors`, is defined for an even number of channels only. The wire type is a
+ * plain integer, so this is the one place the renderer holds that rule.
+ */
+export type RecipChannels = 2 | 4;
 
 /**
- * Default `top_k` per channel count, from the brief §7 — chosen so the candidate enumeration stays
- * under ~5 s for two channels and ~2 min for four with the mTI kernel. The form sends `null` for
- * "use the runner's table"; the cost line still has to state the number the user will get, so the
- * table is mirrored here and nowhere else.
+ * Default `top_k` per channel count — a mirror of `tit/opt/config.py::DEFAULT_TOP_K`, measured on
+ * ernie's EEG10-10 net: 40 pairs give 780 two-channel combinations (580 electrode-disjoint), and
+ * 20 pairs give 150 disjoint four-channel montages, where 12 left only 4 because the top of the
+ * map crowds onto the same few electrodes.
+ *
+ * The form sends `null` for "use the runner's table"; the cost line still has to state the number
+ * the user will actually get, which is the only reason the table is mirrored here.
  */
-export const RECIP_DEFAULT_TOP_K: Record<RecipChannels, number> = { 2: 40, 3: 16, 4: 12 };
+export const RECIP_DEFAULT_TOP_K: Record<RecipChannels, number> = { 2: 40, 4: 20 };
+
+/**
+ * Hard ceiling on evaluated candidates (`tit/opt/config.py::MAX_RECIP_CANDIDATES`), whatever
+ * `top_k` allows. Candidates are generated in reciprocity-rank order, so the ones past the cap are
+ * the ones the map already ranked worst.
+ */
+export const MAX_RECIP_CANDIDATES = 1000;
 
 export interface RecipFormState {
   targetMode: RecipTargetMode;
@@ -141,7 +133,8 @@ export function recipFormErrors(form: RecipFormState): string[] {
   if (form.objective === "focality" && !(form.focalityWeight >= 0 && form.focalityWeight <= 1)) {
     errors.push("The focality weight must be between 0 and 1.");
   }
-  if (!(form.nChannels >= 2 && form.nChannels <= 4)) errors.push("Choose between 2 and 4 channels.");
+  // Odd channel counts are rejected by the runner, not merely out of range.
+  if (form.nChannels !== 2 && form.nChannels !== 4) errors.push("Choose 2 or 4 channels.");
   if (!(form.currentMa > 0)) errors.push("The per-channel current must be greater than 0 mA.");
   if (form.topK !== null && !(Number.isInteger(form.topK) && form.topK >= form.nChannels)) {
     errors.push(`Top-k must be a whole number of at least ${form.nChannels} (one pair per channel).`);
@@ -217,7 +210,7 @@ export function recipFormFromConfig(config: RecipConfigBody): RecipFormState {
       : base.direction,
     objective: config.objective,
     focalityWeight: config.focality_weight,
-    nChannels: (config.n_channels === 3 || config.n_channels === 4 ? config.n_channels : 2) as RecipChannels,
+    nChannels: config.n_channels === 4 ? 4 : 2,
     currentMa: config.current_mA,
     topK: config.top_k,
     gmSubsample: config.gm_subsample,

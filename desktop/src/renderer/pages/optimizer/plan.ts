@@ -64,8 +64,7 @@ export function jobsForRow(
     const roi = row.recip.targetMode === "roi" ? roiToConfig(row.roi, resolve.atlas(row.subjectId, row.roi)) : undefined;
     const config = buildRecipConfig(row.subjectId, hdf, row.recip, roi, row.runName);
     if (!config) return [];
-    // TODO(lane A): drop the cast once "recip" is in the generated `JobGroupRequest["kind"]`.
-    return [{ rowId: row.id, kind: "recip" as GroupKind, stage: "recip", subject: row.subjectId, label: rowTargetLabel(row), config }];
+    return [{ rowId: row.id, kind: "recip", stage: "recip", subject: row.subjectId, label: rowTargetLabel(row), config }];
   }
   // Two pairs is the two-channel TI search, four is the multipolar mTI one — the same inference the
   // Simulator makes from a montage's pairs, and the only thing that decides `ex` from `mex`.

@@ -36,8 +36,8 @@ const OBJECTIVE_HELP =
 
 const TOP_K_HELP =
   "How many of the best reciprocity pairs are combined into channel candidates. Left empty it follows " +
-  "the runner's defaults (40 pairs for 2 channels, 16 for 3, 12 for 4), chosen so the enumeration stays " +
-  "quick. Raising it widens the candidate set combinatorially.";
+  "the runner's defaults (40 pairs for 2 channels, 20 for 4), chosen so the disjoint combinations are " +
+  "worth evaluating. Raising it widens the candidate set combinatorially, up to the runner's cap of 1000.";
 
 function HelpButton({ label, text }: { label: string; text: string }) {
   return (
@@ -164,14 +164,15 @@ export function RecipSearchSection({ form, onChange }: { form: RecipFormState; o
           />
         </Field>
       )}
-      <Field label="Channels" help="Two channels is classic TI; three or four build a multipolar (mTI) envelope.">
+      <Field label="Channels" help="Two channels is classic TI; four build a multipolar (mTI) envelope. Odd counts have no verified envelope.">
         <SegmentedControl
           value={String(form.nChannels)}
           onValueChange={(v) => onChange({ nChannels: Number(v) as RecipChannels })}
+          /* 2 or 4: the verified envelope is defined for an even number of channels only
+             (`tit.calc.get_TI_vectors`), so 3 is not a choice the runner would accept. */
           options={[
-            { value: "2", label: "2" },
-            { value: "3", label: "3" },
-            { value: "4", label: "4" },
+            { value: "2", label: "2 (TI)" },
+            { value: "4", label: "4 (mTI)" },
           ]}
           aria-label="Channels"
         />

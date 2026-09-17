@@ -1,25 +1,46 @@
 /**
  * The reciprocity form <-> wire mapping (`pages/optimizer/recipConfig.ts`).
  *
- * The contract this checks is the frozen one in the lane brief, field for field — the runner reads
- * `target._type`, `direction`, `objective`, `focality_weight`, `n_channels`, `current_mA`, `top_k`
- * and `gm_subsample`, and a renamed field here is a run that silently does something else. It is
- * NOT validated against `contracts/generated/config.schema.json` the way `optimizer-ex.test.ts`
- * validates `ExConfig`: `RecipConfig` is lane A's and is not in that schema yet. Swap the shape
- * assertions below for a schema validation once `npm run gen` has run.
+ * Every built config is validated against `contracts/generated/config.schema.json`'s `RecipConfig`
+ * — the same Ajv setup, and for the same reason, as `optimizer-ex.test.ts` (see its header for why
+ * the whole schema document is added once and one `$def` resolved from it, rather than compiling
+ * the isolated `$def` through `forms/ajvResolver.ts`). A renamed or mistyped field is then a red
+ * test rather than a run that quietly does something else.
+ *
+ * The rules the schema cannot state are asserted directly: `n_channels` is a plain integer on the
+ * wire, but `RecipConfig.__post_init__` accepts 2 or 4 only, and `top_k`/`focality_weight` have
+ * bounds the runner enforces.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import Ajv2020 from "ajv/dist/2020";
+import type { ErrorObject } from "ajv";
+import type { JSONSchema } from "../../src/renderer/forms/schema";
 import {
   buildRecipConfig,
   defaultRecipFormState,
   recipFormErrors,
   recipFormFromConfig,
   recipTopK,
+  MAX_RECIP_CANDIDATES,
   RECIP_DEFAULT_TOP_K,
   type RecipFormState,
 } from "../../src/renderer/pages/optimizer/recipConfig";
 import { recipCost } from "../../src/renderer/pages/optimizer/cost";
 import type { RoiConfig } from "../../src/renderer/pages/_shared/roi";
+
+const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
+const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as JSONSchema;
+const ajv = new Ajv2020({ allErrors: true, strict: false, useDefaults: true });
+ajv.addSchema(schemaDoc, "schema.json");
+
+function validate(defName: string, values: Record<string, unknown>): ErrorObject[] {
+  const fn = ajv.getSchema(`schema.json#/$defs/${defName}`);
+  if (!fn) throw new Error(`No $defs/${defName} in contracts/generated/config.schema.json`);
+  fn(values);
+  return (fn.errors ?? []) as ErrorObject[];
+}
 
 const HDF = "/mnt/000/derivatives/SimNIBS/sub-ernie/leadfields/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5";
 
@@ -36,7 +57,7 @@ const thalamus: RoiConfig = {
 };
 
 describe("the recip wire config", () => {
-  it("builds the brief's example spec from the point form", () => {
+  it("builds the contract's example spec from the point form, and it validates", () => {
     const config = buildRecipConfig("ernie", HDF, pointForm(), undefined, "");
     expect(config).toEqual({
       subject_id: "ernie",
@@ -51,12 +72,25 @@ describe("the recip wire config", () => {
       gm_subsample: 100000,
       run_name: null,
     });
+    expect(validate("RecipConfig", config as unknown as Record<string, unknown>)).toEqual([]);
   });
 
-  it("sends an ROI target as the ROI config itself, unchanged", () => {
+  it("sends an ROI target as the ROI config itself, unchanged, and it validates", () => {
     const config = buildRecipConfig("ernie", HDF, pointForm({ targetMode: "roi" }), thalamus, "thal");
     expect(config?.target).toBe(thalamus);
     expect(config?.run_name).toBe("thal");
+    expect(validate("RecipConfig", config as unknown as Record<string, unknown>)).toEqual([]);
+  });
+
+  it("validates the four-channel, directional, focality shape too", () => {
+    const config = buildRecipConfig(
+      "ernie",
+      HDF,
+      pointForm({ nChannels: 4, directionMode: "vector", direction: { x: 0, y: 0, z: 1 }, objective: "focality", focalityWeight: 0.4, topK: 24 }),
+      undefined,
+      "run",
+    );
+    expect(validate("RecipConfig", config as unknown as Record<string, unknown>)).toEqual([]);
   });
 
   it("refuses to build a target it cannot resolve", () => {
@@ -83,7 +117,7 @@ describe("the recip wire config", () => {
       direction: { x: 0, y: 1, z: -1 },
       objective: "focality",
       focalityWeight: 0.35,
-      nChannels: 3,
+      nChannels: 4,
       currentMa: 1.5,
       topK: 20,
       gmSubsample: 50000,
@@ -97,6 +131,13 @@ describe("the recip wire config", () => {
     const config = buildRecipConfig("ernie", HDF, form, thalamus, "")!;
     expect(recipFormFromConfig(config).targetMode).toBe("roi");
   });
+
+  it("reads an out-of-vocabulary channel count back as two", () => {
+    // `n_channels` is a plain integer on the wire; the runner rejects 3, and the form cannot hold
+    // it, so a hand-written spec carrying one restores as the default rather than a dead segment.
+    const config = { ...buildRecipConfig("ernie", HDF, pointForm(), undefined, "")!, n_channels: 3 };
+    expect(recipFormFromConfig(config).nChannels).toBe(2);
+  });
 });
 
 describe("recip form validation", () => {
@@ -104,7 +145,7 @@ describe("recip form validation", () => {
     expect(recipFormErrors(pointForm())).toEqual([]);
   });
 
-  it("names each rule the contract states", () => {
+  it("names each rule the runner enforces", () => {
     expect(recipFormErrors(pointForm({ point: { x: undefined, y: 1, z: 1, radius: 5 } }))).toEqual([
       "Enter the target's X, Y, Z and radius.",
     ]);
@@ -119,11 +160,17 @@ describe("recip form validation", () => {
     ]);
     expect(recipFormErrors(pointForm({ currentMa: 0 }))).toEqual(["The per-channel current must be greater than 0 mA."]);
     // top_k must leave at least one pair per channel.
-    expect(recipFormErrors(pointForm({ nChannels: 3, topK: 2 }))).toEqual([
-      "Top-k must be a whole number of at least 3 (one pair per channel).",
+    expect(recipFormErrors(pointForm({ nChannels: 4, topK: 3 }))).toEqual([
+      "Top-k must be a whole number of at least 4 (one pair per channel).",
     ]);
-    expect(recipFormErrors(pointForm({ nChannels: 3, topK: 3 }))).toEqual([]);
+    expect(recipFormErrors(pointForm({ nChannels: 4, topK: 4 }))).toEqual([]);
     expect(recipFormErrors(pointForm({ gmSubsample: 0 }))).toEqual(["The grey-matter subsample must be a positive whole number."]);
+  });
+
+  it("rejects an odd channel count, which has no verified envelope", () => {
+    // Cast: the form type cannot express 3, which is the point — this guards a config arriving
+    // from outside the form (a restored session, a future import).
+    expect(recipFormErrors({ ...pointForm(), nChannels: 3 as unknown as 2 })).toEqual(["Choose 2 or 4 channels."]);
   });
 
   it("ignores the focality weight while the objective is intensity", () => {
@@ -132,18 +179,21 @@ describe("recip form validation", () => {
 });
 
 describe("the recip cost line", () => {
-  it("follows the runner's default top-k table per channel count", () => {
-    expect(RECIP_DEFAULT_TOP_K).toEqual({ 2: 40, 3: 16, 4: 12 });
+  it("mirrors tit/opt/config.py's default top-k table", () => {
+    expect(RECIP_DEFAULT_TOP_K).toEqual({ 2: 40, 4: 20 });
     expect(recipTopK(pointForm())).toBe(40);
-    expect(recipTopK(pointForm({ nChannels: 4 }))).toBe(12);
-    expect(recipTopK(pointForm({ nChannels: 4, topK: 20 }))).toBe(20);
+    expect(recipTopK(pointForm({ nChannels: 4 }))).toBe(20);
+    expect(recipTopK(pointForm({ nChannels: 4, topK: 30 }))).toBe(30);
   });
 
-  it("states the candidate ceiling, C(top_k, channels)", () => {
-    // C(40,2) = 780, C(16,3) = 560, C(12,4) = 495 — computed here, not read off the implementation.
+  it("states the candidate ceiling, C(top_k, channels), capped at the runner's limit", () => {
+    // C(40,2) = 780 — computed here, not read off the implementation.
     expect(recipCost(pointForm()).combinations).toBe(780);
-    expect(recipCost(pointForm({ nChannels: 3 })).combinations).toBe(560);
-    expect(recipCost(pointForm({ nChannels: 4 })).combinations).toBe(495);
     expect(recipCost(pointForm()).line).toBe("top 40 pairs · 2 channels · at most 780 candidates");
+    // C(20,4) = 4 845, above MAX_RECIP_CANDIDATES, so the line states the cap the runner applies.
+    expect(recipCost(pointForm({ nChannels: 4 })).combinations).toBe(MAX_RECIP_CANDIDATES);
+    expect(recipCost(pointForm({ nChannels: 4 })).line).toBe("top 20 pairs · 4 channels · at most 1,000 candidates");
+    // C(8,4) = 70 stays under the cap.
+    expect(recipCost(pointForm({ nChannels: 4, topK: 8 })).combinations).toBe(70);
   });
 });

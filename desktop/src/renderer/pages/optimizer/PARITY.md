@@ -189,36 +189,52 @@ the Ex form.
       Focality, and an intensity run sends `focality_weight: 0` even if a weight was typed and the
       objective then switched back (`optimizer-recip.test.ts`). The Jobs table's Goal cell — a dash
       for Ex/mEx, which have no objective — carries this choice for a recip row.
-- [x] **Channels** 2–4 and the per-channel current, in the same Search section.
-- [x] **Advanced** (collapsible) — the `top_k` override (empty = the runner's table 2→40, 3→16,
-      4→12) and the grey-matter subsample.
+- [x] **Channels** 2 or 4 (see below) and the per-channel current, in the same Search section.
+- [x] **Advanced** (collapsible) — the `top_k` override (empty = the runner's table 2→40, 4→20)
+      and the grey-matter subsample.
 - [x] **Cost read-out** — `recipCost()` in the same `cost.ts` the other two methods read, printed
       beside the control and in the row's line 2: `top 40 pairs · 2 channels · at most 780
-      candidates`. "At most" is the honest word: the ceiling is `C(top_k, channels)` and the runner
-      drops every candidate that shares an electrode between channels, which depends on which pairs
-      the map ranked.
+      candidates`. "At most" is the honest word: the ceiling is `C(top_k, channels)` capped at
+      `MAX_RECIP_CANDIDATES`, and the runner drops every candidate that shares an electrode between
+      channels, which depends on which pairs the map ranked.
 - [x] **Results** — `recip-search/` runs are their own group, "Reciprocity runs", in the Results
       outputs tree, inside the existing Ex/mEx filter segment (one segment for every leadfield
       search).
 
-### Deviations and readings of the contract
+### Deviations and readings of the contract — resolved 2026-09-17 (post-merge)
 
-1. **`project_dir` is not sent.** No desktop config carries one — the server injects the open
-   project — so sending the brief's example field would be the renderer inventing a container path.
-2. **An ROI target travels as the existing `_type`-discriminated ROI config** (`SubcorticalROI` /
-   `SphericalROI` / `AtlasROI`, i.e. `roiToConfig()`'s output verbatim), which is what "the existing
-   ROI specs reused unchanged" resolves to inside a `_type` union. The consequence: the ex-search
-   **saved-CSV** target is not offered for recip — it is the one ex target shape with no `_type`.
-3. **The kind is typed locally as `"recip"`** (`recipConfig.ts`, `plan.ts`), with a `TODO(lane A)`
-   on each site, until `npm run gen` regenerates `api/schema.d.ts`. `contracts/` was not touched.
-4. **Recip runs are listed through `GET /api/catalog/ex-runs?kind=recip`** with a plain `fetch`
-   that returns `[]` on a refusal (`results/api.ts`), for the reason `getGroupStats` does the same:
-   the route's `kind` enum is generated from a contract another lane owns, and Results must not
-   break on a server that does not know the kind yet. They preview as their artifacts (figures, CSV,
-   JSON) rather than through `/ex-runs/{run}/results`, whose `kind` is `ex | mex`.
-5. **No `RecipConfig` schema validation in the unit test.** `optimizer-ex.test.ts` validates against
-   `contracts/generated/config.schema.json`; `RecipConfig` is not in it yet, so the mapping test
-   asserts the wire shape field by field instead. Swap it once the schema is regenerated.
+Both lanes are merged, `contracts/generated/` and `api/schema.d.ts` are regenerated, and every
+provisional reading below is now settled against the real contract.
+
+1. **`project_dir` is not sent** — unchanged and correct: `RecipConfig` does not carry one. The
+   server resolves the open project, as it does for every other config.
+2. **An ROI target travels as the existing `_type`-discriminated ROI config** — confirmed by the
+   generated schema: `RecipConfig.target` is `PointTarget | SphericalROI | AtlasROI |
+   SubcorticalROI`, i.e. `roiToConfig()`'s output verbatim. The ex-search **saved-CSV** target
+   therefore stays out of recip's ROI modes (`subcortical · spherical · mask`), because it is not
+   one of those shapes.
+3. **The local `"recip"` types and casts are gone.** `recipConfig.ts` now reads
+   `components["schemas"]["RecipConfig"]` / `["PointTarget"]`, and `plan.ts` submits the kind
+   without a cast — `JobGroupRequest.kind` lists `recip` (the server's `GROUP_KINDS` already did;
+   the enum was completed under DECISIONS ADR 32's amendment).
+4. **Recip runs list through the typed `getExRuns(subject, "recip")`.** The separate tolerant
+   `fetch` is deleted: `GET /api/catalog/ex-runs` accepts `kind=recip` in the contract as well as
+   in `catalog_v1.py`. They still preview as their artifacts, which is where the reciprocity map
+   and candidate-landscape figures are.
+5. **The mapping test validates against `contracts/generated/config.schema.json`**, the same Ajv
+   setup `optimizer-ex.test.ts` uses, in addition to asserting the example spec field by field.
+
+### Two facts the wire type cannot state, held in the form
+
+- **Channels are 2 or 4, never 3.** `n_channels` is a plain integer on the wire, but
+  `RecipConfig.__post_init__` rejects an odd count (`VALID_RECIP_CHANNELS`): the verified envelope
+  `tit.calc.get_TI_vectors` is defined for an even number of channels only. The segmented control
+  offers `2 (TI)` and `4 (mTI)`, `RecipChannels = 2 | 4`, and a config arriving from outside the
+  form with 3 reads back as 2.
+- **The default `top_k` table is `{2: 40, 4: 20}`** (`tit/opt/config.py::DEFAULT_TOP_K`) and the
+  runner evaluates at most `MAX_RECIP_CANDIDATES = 1000` candidates. Both are mirrored in
+  `recipConfig.ts` so the cost line states the number the user will really get: `top 20 pairs ·
+  4 channels · at most 1,000 candidates`, not the raw `C(20, 4) = 4 845`.
 
 ### Open contract item — one group per kind
 

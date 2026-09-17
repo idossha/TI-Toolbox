@@ -28,7 +28,8 @@ export async function getFlexRuns(subject: string): Promise<FlexRun[]> {
   return unwrap(await api.GET("/api/catalog/flex-runs", { params: { query: { subject } } }), "/api/catalog/flex-runs");
 }
 
-export async function getExRuns(subject: string, kind: "ex" | "mex"): Promise<ExRun[]> {
+/** `ex`, `mex` and `recip` runs all list through this one route (`catalog_v1.py::ex_runs`). */
+export async function getExRuns(subject: string, kind: "ex" | "mex" | "recip"): Promise<ExRun[]> {
   return unwrap(await api.GET("/api/catalog/ex-runs", { params: { query: { subject, kind } } }), "/api/catalog/ex-runs");
 }
 
@@ -37,26 +38,6 @@ export async function getExRunResults(run: string, subject: string, kind: "ex" |
     await api.GET("/api/catalog/ex-runs/{run}/results", { params: { path: { run }, query: { subject, kind } } }),
     `/api/catalog/ex-runs/${run}/results`,
   );
-}
-
-/**
- * `recip-search/` runs, through the ex-runs listing with `kind=recip`.
- *
- * Read with `fetch` rather than the typed client, and tolerant of a 4xx, for the reason
- * `getGroupStats` above is: the `recip` kind is newer than the checked-in
- * `contracts/generated/openapi.json`, and regenerating that file touches contracts another lane
- * owns. A server that does not know the kind yet reports "no runs" rather than failing the whole
- * Results tree.
- *
- * TODO(lane A): fold into `getExRuns` once `kind` accepts `recip` in the generated schema.
- */
-export async function getRecipRuns(subject: string): Promise<ExRun[]> {
-  const res = await fetch(`/api/catalog/ex-runs?subject=${encodeURIComponent(subject)}&kind=recip`, {
-    credentials: "same-origin",
-    headers: { accept: "application/json" },
-  });
-  if (!res.ok) return [];
-  return (await res.json()) as ExRun[];
 }
 
 export async function getAnalyses(subject: string, simulation: string): Promise<Analysis[]> {

@@ -64,8 +64,8 @@ export interface SubjectCatalog {
   /** Keyed by simulation name — `GET /api/catalog/analyses?subject=&simulation=` is per simulation. */
   analyses: Record<string, Analysis[]>;
   reports: Report[];
-  /** `recip-search/` runs. Optional while the `recip` job kind is still landing (lane A): a
-   *  catalog that does not report them yet reads as "this subject has none", not as a crash. */
+  /** `recip-search/` runs, from `GET /api/catalog/ex-runs?kind=recip`. Optional so a fixture
+   *  written before reciprocity existed still builds a tree. */
   recipRuns?: ExRun[];
 }
 
@@ -137,10 +137,9 @@ function exNode(subject: string, run: ExRun, kind: "ex" | "mex"): OutputNode {
 }
 
 /**
- * One `recip-search/<run>/` directory. It is listed like an ex run — same `ExRun` shape, since the
- * runner writes the same `montage.json` / results CSV / figures — but previews as its artifacts
- * rather than through `GET /api/catalog/ex-runs/{run}/results`, whose `kind` is `ex | mex` and is
- * a contract another lane owns.
+ * One `recip-search/<run>/` directory. Listed like an ex run — same `ExRun` shape, since the runner
+ * writes the same `montage.json`, results CSV and figures — and previewed as its artifacts, which
+ * is where its reciprocity map and candidate-landscape figures live.
  */
 function recipNode(subject: string, run: ExRun): OutputNode {
   return {

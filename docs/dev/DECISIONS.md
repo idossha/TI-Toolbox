@@ -935,7 +935,8 @@ browser-only deployment (a shared remote server) becomes a supported product.
 existing leadfield with no FEM solve and no exhaustive sweep. Electrode *i*'s leadfield column at
 the target is, by reciprocity, the scalp potential a unit dipole at the target would produce at
 *i*, so every pair is ranked in one vectorised difference; only the top `top_k` pairs (40 at two
-channels, 12 at four) are combined and scored. The engine is pure NumPy plus `h5py` — SimNIBS is
+channels, 20 at four — `tit/opt/config.py::DEFAULT_TOP_K`) are combined and scored, up to the
+`MAX_RECIP_CANDIDATES` ceiling of 1 000. The engine is pure NumPy plus `h5py` — SimNIBS is
 imported only for MNI point transforms — and the envelope comes from `tit.calc.get_TI_vectors` /
 `get_TI_dir`, never a local reimplementation or a recursive nTI. The target is a `_type`-discriminated
 union: `PointTarget` (xyz, space, radius_mm), or one of the ROI dataclasses flex-search already
@@ -961,3 +962,12 @@ candidate set is bounded by `top_k`, so reciprocity search is not exhaustive by 
 
 **Revisit if:** an odd-channel envelope is published and verified in `tit.calc`, or the top-`k`
 truncation is shown to miss the exhaustive optimum on a real head by more than a few percent.
+
+**Amendment, 2026-09-17 (same decision, contract completion):** `recip` also joins the two
+`openapi.yaml` enums that had been left behind while the server already accepted it —
+`JobGroupRequest.kind` (`tit/jobs/plans.py::GROUP_KINDS` lists `recip`, so the Optimizer can queue a
+reciprocity group like any other search) and the `kind` query parameter of
+`GET /api/catalog/ex-runs` and `/ex-runs/{run}/results` (`catalog_v1.py` accepts `ex`, `mex` and
+`recip` on both). No behaviour changes; the contract now states what the app does, and
+`desktop/src/renderer/api/schema.d.ts` was regenerated, which also picked up the target union the
+earlier generation had missed.
