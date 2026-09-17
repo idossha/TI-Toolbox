@@ -125,3 +125,26 @@ def atlas_roi_entries(
             cleaned = cleaned_label_mask(path, int(target.label), output_dir)
         entries.append((cleaned, 1) if cleaned else (path, target.label))
     return entries
+
+
+def confirm_mni_atlas_targets(config, m2m_path: str, out_dir: str) -> list:
+    """Write ``roi_confirmation.{png,json}`` for every MNI atlas target.
+
+    Called before the search starts, so the artefact exists even if the run is
+    cancelled — the whole point is to let a person check the ROI landed where
+    they meant before waiting for a result.
+    """
+    from tit.roi_confirmation import confirm_rois
+
+    entries = [
+        {
+            "atlas_path": target.atlas_path,
+            "label": target.label,
+            "space": "mni",
+        }
+        for target in (getattr(config, "roi_atlas", None) or [])
+        if str(getattr(target, "atlas_space", "subject")).lower() == "mni"
+    ]
+    if not entries:
+        return []
+    return confirm_rois(entries, m2m=m2m_path, out_dir=out_dir)

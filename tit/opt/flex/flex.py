@@ -136,6 +136,24 @@ def _validate_roi_input(label: str, roi) -> None:
         _require_file(Path(path), f"{label} atlas")
 
 
+def confirm_mni_roi(config, pm, out_dir: str) -> list:
+    """Write ``roi_confirmation.{png,json}`` for an MNI-space volume ROI."""
+    from tit.roi_confirmation import confirm_rois
+
+    roi = getattr(config, "roi", None)
+    if roi is None or str(getattr(roi, "atlas_space", "subject")).lower() != "mni":
+        return []
+    paths = roi.atlas_path if isinstance(roi.atlas_path, list) else [roi.atlas_path]
+    labels = roi.label if isinstance(roi.label, list) else [roi.label]
+    if len(paths) == 1 and len(labels) > 1:
+        paths = paths * len(labels)
+    entries = [
+        {"atlas_path": path, "label": label, "space": "mni"}
+        for path, label in zip(paths, labels)
+    ]
+    return confirm_rois(entries, m2m=pm.m2m(config.subject_id), out_dir=out_dir)
+
+
 def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     """Inner implementation of :func:`run_flex_search` (unwrapped)."""
     from .manifest import write_manifest
@@ -166,6 +184,12 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
         base_folder = os.path.join(flex_root, dirname)
 
     os.makedirs(base_folder, exist_ok=True)
+
+    # An MNI ROI is transformed into this subject BEFORE any optimisation runs,
+    # and the transform leaves a picture and a JSON behind: a misplaced ROI is
+    # the one error here that no later number can reveal (tit/roi_confirmation.py).
+    confirm_mni_roi(config, pm, base_folder)
+
     fvals = np.full(n, float("inf"))
 
     folders = [os.path.join(base_folder, f"{i:02d}") for i in range(n)]
