@@ -949,3 +949,43 @@ installed TI-Toolbox app; a developer who wants the old behaviour types `--brows
 renderer (`desktop/out/renderer`) is still required because the container serves it as
 `TIT_STATIC_DIR`. **Revisit if:** Vite HMR inside Electron (`ELECTRON_RENDERER_URL`) becomes the
 default dev renderer, at which point the built-renderer precondition can be dropped.
+
+## 2026-09-17 — Detached islands in `labeling.nii.gz` are upstream, and are removed at the ROI
+
+**Diagnosis first.** A user reported Left-Putamen rendering with a detached blob and grey debris
+far from the putamen. Measured in the container on the packaged Ernie head model
+(`scipy.ndimage.label`, 26-connectivity, per label of `m2m_ernie/segmentation/labeling.nii.gz`):
+
+| region | components | voxels | minor | minor % | farthest minor centroid |
+|---|---|---|---|---|---|
+| Left-Putamen | 10 | 6109 | 77 | 1.26 % | 38.2 mm |
+| Right-Thalamus-Proper | 13 | 7346 | 70 | 0.95 % | 44.3 mm |
+| Right-Putamen | 3 | 5727 | 3 | 0.05 % | 13.2 mm |
+| Left-Hippocampus | 2 | 4298 | 2 | 0.05 % | 19.4 mm |
+
+Left-Putamen is one 6032-voxel body, one 67-voxel blob 36.9 mm away, and seven specks of one or
+two voxels 22–38 mm away — exactly the screenshot. **Verdict: upstream charm labeling, not our
+pipeline.** `tit/scene/volume_surfaces.py` was doing its job: it crops to the label's bounding box
+and runs marching cubes over every voxel of the label, islands included. The left/right asymmetry
+(10 components against 3 for the same structure in the same subject) is what rules out a
+systematic bug of ours; a crop or affine defect would not be lateralised.
+
+**Decision:** the cleanup lives in `tit/atlas/islands.py` and is applied to the ROI *mask*, not to
+the picture. A connected component is kept when it has at least `max(5 % of the largest component,
+50 voxels)` voxels; the ratio distinguishes a genuinely bipartite structure from debris, and the
+50-voxel floor keeps a small region (Ernie's Optic-Chiasm is 90 voxels) from collapsing to one
+component. Removed voxel counts are logged. `TIT_ROI_KEEP_ISLANDS=1` disables it everywhere.
+It is applied in flex (`_subcortical_mask_lists`), ex/mEx (`atlas_roi_entries`), the analyzer's
+voxel ROI and `volume_surfaces.surfaces`, so the pane draws the voxels that will be optimised and
+measured. A label that is already one body is untouched and no file is written, so the common case
+is byte-identical to before.
+
+**Why not leave it:** the islands were never only cosmetic. 77 voxels sitting 37 mm outside the
+putamen are averaged into the ROI field and into a focality denominator exactly like the other
+6032. **Cost:** a subcortical ROI with islands now differs, by ~1 % of its voxels, from what the
+same config produced before; flex and ex write a small derived `.nii` under
+`<masks>/.prepared/` for those labels. **Known gap:** the *packaged* reference guide
+(`tit/scene/guide/`) was frozen from Ernie before this change, so the bundled subcortical preview
+still shows the islands until `python -m tit.scene.guide_build --project <ernie project>` is re-run
+and its assets committed. **Revisit if:** a subject's segmentation is legitimately multi-component
+at these ratios, or SimNIBS fixes the labeling upstream.

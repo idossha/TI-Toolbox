@@ -112,5 +112,16 @@ def atlas_roi_entries(
             from tit.opt.masks import prepare_mask
 
             path = prepare_mask(path, "mni", m2m_path, output_dir)
-        entries.append(path if target.label is None else (path, target.label))
+        if target.label is None:
+            entries.append(path)
+            continue
+        # A subcortical label with detached islands becomes a cleaned binary mask, so
+        # ex-search ranks montages on the same voxels flex and the analyzer use and the
+        # scene pane draws (tit/atlas/islands.py).
+        cleaned = None
+        if output_dir:
+            from tit.atlas.islands import cleaned_label_mask
+
+            cleaned = cleaned_label_mask(path, int(target.label), output_dir)
+        entries.append((cleaned, 1) if cleaned else (path, target.label))
     return entries

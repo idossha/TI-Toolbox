@@ -477,7 +477,36 @@ def _subcortical_mask_lists(roi_spec: FlexConfig.SubcorticalROI, config=None):
     for path in paths:
         if not path or not os.path.isfile(path):
             raise FileNotFoundError(f"Volume atlas file not found: {path}")
-    return [space] * n, list(paths), list(labels)
+    paths, labels = _without_islands(list(paths), list(labels), config)
+    return [space] * n, paths, labels
+
+
+def _without_islands(paths: list, labels: list, config) -> tuple[list, list]:
+    """Swap any label that has detached islands for a cleaned binary mask of itself.
+
+    A label whose region is already one connected body is left exactly as it was —
+    same path, same label value, no file written (``tit/atlas/islands.py`` explains
+    the threshold and the Ernie measurements behind it).  Without a config there is
+    no subject directory to write into, so the raw atlas is used unchanged.
+    """
+    if config is None:
+        return paths, labels
+    from tit import get_path_manager
+    from tit.atlas.islands import cleaned_label_mask
+
+    try:
+        out = os.path.join(get_path_manager().masks(config.subject_id), ".prepared")
+    except RuntimeError:
+        # No project directory (a plan built outside a run, or a unit test): there is
+        # nowhere to put a derived mask, so the raw atlas label is used as before.
+        log.debug("No project directory; using the raw atlas labels unchanged")
+        return paths, labels
+    new_paths, new_labels = [], []
+    for path, label in zip(paths, labels):
+        cleaned = cleaned_label_mask(path, int(label), out)
+        new_paths.append(cleaned or path)
+        new_labels.append(1 if cleaned else label)
+    return new_paths, new_labels
 
 
 def _configure_subcortical_roi(opt, config: FlexConfig) -> None:

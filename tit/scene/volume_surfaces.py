@@ -69,6 +69,7 @@ def surfaces(
     shear and reflection, maps marching-cubes coordinates to world millimetres.
     """
     from skimage.measure import marching_cubes
+    from tit.atlas.islands import keep_main_components
     from tit.scene.simplify import simplify_to_budget
 
     if (
@@ -109,6 +110,12 @@ def surfaces(
     offset = 0
     for value in ids:
         mask = data == value
+        if atlas:
+            # The same cleanup the search and the analysis apply, so the pane draws
+            # exactly the mask that will be optimised and measured (tit/atlas/islands.py).
+            mask, _, _ = keep_main_components(
+                mask, what=names.get(value, f"label {value}")
+            )
         occupied = np.where(mask)
         lower = np.array([axis.min() for axis in occupied])
         upper = np.array([axis.max() + 1 for axis in occupied])
@@ -150,5 +157,5 @@ def surfaces(
         "labels": labels,
         "entries": entries,
         "space": "subject-ras",
-        "note": "Display surfaces only; search and analysis use the original target. Default display filtering does not change the target selection.",
+        "note": "Display surfaces only; the geometry is approximate, but the voxels are the ones search and analysis use, including the detached-island cleanup. Default display filtering does not change the target selection.",
     }

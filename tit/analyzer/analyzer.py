@@ -704,9 +704,14 @@ class Analyzer:
 
         regions = region if isinstance(region, list) else [region]
         ids = [self._find_voxel_region_id(atlas_arr, atlas_path, r) for r in regions]
+        from tit.atlas.islands import keep_main_components
+
         region_mask_raw = np.zeros_like(atlas_arr, dtype=bool)
-        for rid in ids:
-            region_mask_raw = region_mask_raw | (atlas_arr == rid)
+        for rid, name in zip(ids, regions):
+            # Per label, not on the union: a union of two structures is legitimately
+            # disconnected, and each of them separately is what has islands.
+            one, _, _ = keep_main_components(atlas_arr == rid, what=str(name))
+            region_mask_raw = region_mask_raw | one
         region_name = "+".join(regions)
         region_labels = list(regions)
 
