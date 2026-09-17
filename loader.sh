@@ -67,8 +67,10 @@ done
 [ "$explicit_desktop" = 0 ] || { [ "$explicit_browser" = 0 ] && [ "$open_browser" = 1 ]; } || die '--desktop cannot be combined with --browser or --no-open'
 case "$running_action" in ""|attach|recreate) ;; *) die "--existing must be attach or recreate" ;; esac
 if [ -z "$ui" ]; then
-    # The desktop app is the default UI; --browser, --no-open and a --dev checkout opt out.
-    if [ "$explicit_browser" = 1 ] || [ "$open_browser" = 0 ] || [ -n "$repo" ]; then ui=browser; else ui=desktop; fi
+    # The desktop app is the default UI; only --browser and --no-open opt out. --dev changes
+    # where the server and renderer code comes from, never which UI the developer sees
+    # (docs/dev/DECISIONS.md, 2026-09-17).
+    if [ "$explicit_browser" = 1 ] || [ "$open_browser" = 0 ]; then ui=browser; else ui=desktop; fi
 fi
 # The desktop app owns the project: with no --project it opens its own project page, exactly
 # as a Dock launch does, so neither the prompt nor the project requirement applies here.

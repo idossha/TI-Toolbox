@@ -9,6 +9,10 @@ if [ -n "${TIT_ELECTRON_EXECUTABLE:-}" ]; then
     command_args=("$TIT_ELECTRON_EXECUTABLE")
 elif [ -x "$repo/desktop/node_modules/.bin/electron" ] && [ -f "$repo/desktop/out/main/index.js" ]; then
     command_args=("$repo/desktop/node_modules/.bin/electron" "$repo/desktop")
+elif [ -n "${TIT_DEV_REPO_DIR:-}" ] && [ -x /Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox ]; then
+    # A checkout without a built Electron still gets the desktop UI, never the browser.
+    printf 'TI-Toolbox: no Electron in desktop/node_modules; using the installed app. For the\n  developer build run: npm --prefix %s/desktop ci && npm --prefix %s/desktop run build\n' "$repo" "$repo" >&2
+    command_args=(/Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox)
 elif [ -x /Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox ]; then
     command_args=(/Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox)
 elif [ -x "$HOME/Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox" ]; then

@@ -927,3 +927,25 @@ same binary. **Cost:** first run downloads ~120 MB, and the download can only wo
 release with those assets is published; until then every user-mode run falls back to the browser.
 **Revisit if:** a signed release cannot be produced for a supported platform, or a genuinely
 browser-only deployment (a shared remote server) becomes a supported product.
+
+## 2026-09-17 — `--dev` changes the source of the code, never the UI
+
+**Decision:** `--dev [DIR]` (and `TIT_DEV_REPO_DIR` / `TIT_DEV=1`) no longer implies the browser.
+`loader.sh` and `tit/cli.py::wants_desktop` resolve `ui=desktop` unless `--browser` or `--no-open`
+is explicit, in dev mode exactly as in user mode. A checkout still takes Electron from
+`desktop/node_modules` via `dev/launch-electron.sh`; when that is absent the helper now falls back
+to the *installed desktop app* with `TIT_DEV_REPO_DIR` and `TIT_STATIC_DIR` set, printing the
+`npm --prefix desktop ci && npm --prefix desktop run build` line it would have preferred, rather
+than dropping to a browser tab. `--print-config` stays byte-identical between the two loaders in
+dev mode, including the `--dev` with no `--project` case (the app opens its own project page).
+
+**Why:** `loader.sh`'s `|| [ -n "$repo" ]` and `wants_desktop`'s `or root is not None` meant every
+developer ran a *different product* from every user: no native TetraVox open
+(`window.tit.openNativeTetravox`), no container GPU probe (`stack.ts::probeContainerGpu`), no Apple
+GPU consent, no native file dialogs. Defects in exactly that surface could not be found by the
+people writing it, which contradicts the 2026-09-15 "one experience" decision that this amends.
+**Cost:** `bash loader.sh --dev` now needs either a built `desktop/out/main` + `node_modules` or an
+installed TI-Toolbox app; a developer who wants the old behaviour types `--browser`. The built
+renderer (`desktop/out/renderer`) is still required because the container serves it as
+`TIT_STATIC_DIR`. **Revisit if:** Vite HMR inside Electron (`ELECTRON_RENDERER_URL`) becomes the
+default dev renderer, at which point the built-renderer precondition can be dropped.

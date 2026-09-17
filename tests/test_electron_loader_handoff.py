@@ -167,8 +167,12 @@ def test_dev_handoff_preserves_checkout_and_renderer(tmp_path):
     assert result.stdout == f"{tmp_path}|/ti-toolbox/desktop/out/rendererTI-Toolbox closed.\n"
 
 
-def test_bash_dev_loader_opens_the_browser_like_the_user_loader(tmp_path):
-    """The dev shim must not change the UI: one launch model for users and developers."""
+def test_bash_dev_loader_never_chooses_the_ui(tmp_path):
+    """The dev shim must not change the UI: one launch model for users and developers.
+
+    It sets ``TIT_DEV_REPO_DIR`` and nothing else; ``loader.sh`` alone decides ``ui``,
+    and since 2026-09-17 ``--dev`` resolves to the desktop app just like a user run.
+    """
     root = HELPER.parent.parent
     (tmp_path / "tit").mkdir()
     (tmp_path / "tit" / "launch.py").touch()

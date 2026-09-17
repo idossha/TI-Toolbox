@@ -227,3 +227,45 @@ def test_dev_checkout_keeps_the_electron_helper(tmp_path):
     )
     assert bash.stdout == python.stdout
     assert resolved(bash) == ""
+
+
+def test_dev_uses_the_desktop_ui_like_a_user_run(tmp_path):
+    """``--dev`` changes the *source* of the code, never which UI is opened.
+
+    Before 2026-09-17 both loaders silently switched a checkout to the browser, so a
+    developer never exercised the Electron-only surface (native TetraVox open, GPU probe,
+    file dialogs) that every user gets.
+    """
+    env = environment(tmp_path, TIT_RELEASE_BASE_URL="file:///nonexistent")
+    bash, python = run_loaders(tmp_path, ["--print-config", "--dev", str(ROOT)], env)
+    assert bash.stdout == python.stdout, (bash.stdout, python.stdout)
+    assert "ui        desktop" in bash.stdout, bash.stdout
+
+    # ...and --browser still opts out, from a checkout too.
+    bash, python = run_loaders(
+        tmp_path, ["--print-config", "--dev", str(ROOT), "--browser"], env
+    )
+    assert bash.stdout == python.stdout, (bash.stdout, python.stdout)
+    assert "ui        browser" in bash.stdout, bash.stdout
+
+
+def test_dev_without_a_project_reaches_the_apps_own_project_page(tmp_path):
+    """No --project in dev mode is the Dock launch, not an error, in both loaders."""
+    env = environment(tmp_path, TIT_RELEASE_BASE_URL="file:///nonexistent")
+    results = [
+        subprocess.run(
+            command + [str(ROOT / script), "--dev", str(ROOT), "--print-config"],
+            capture_output=True,
+            text=True,
+            env=env,
+            stdin=subprocess.DEVNULL,
+        )
+        for command, script in (
+            (["bash"], "loader.sh"),
+            ([sys.executable], "loader.py"),
+        )
+    ]
+    for result in results:
+        assert result.returncode == 0, result.stderr
+        assert "ui        desktop" in result.stdout
+    assert results[0].stdout == results[1].stdout

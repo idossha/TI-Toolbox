@@ -494,15 +494,17 @@ def run_dev_web(root: Path, args: argparse.Namespace) -> int:
     return subprocess.run(["npm", "run", "dev:web"], cwd=str(desktop), env=env).returncode
 
 
-def wants_desktop(args: argparse.Namespace, root: Path | None) -> bool:
+def wants_desktop(args: argparse.Namespace) -> bool:
     """The desktop app is the default UI; the browser is the fallback and the opt-out.
 
-    ``--browser`` and ``--no-open`` mean the browser explicitly, and a ``--dev`` checkout
-    keeps its historical browser default (developers ask for Electron with ``--desktop``).
+    ``--browser`` and ``--no-open`` mean the browser explicitly. ``--dev`` does *not*:
+    it changes only where the server and renderer code comes from, so developers see the
+    same window users do (docs/dev/DECISIONS.md, 2026-09-17).  loader.sh resolves ``ui``
+    the same way.
     """
     if args.desktop:
         return True
-    if args.browser or args.no_open or root is not None:
+    if args.browser or args.no_open:
         return False
     return (os.environ.get("TIT_LAUNCH_UI") or "desktop") == "desktop"
 
@@ -517,7 +519,7 @@ def desktop_without_project(args: argparse.Namespace) -> bool:
     """
     if args.project or args.stop or args.status or args.logs or args.build or args.web:
         return False
-    return wants_desktop(args, dev_repo(args))
+    return wants_desktop(args)
 
 
 def _run_desktop(
@@ -574,7 +576,7 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
         if root is None:
             raise LaunchError("--build and --web need --dev; add --dev [DIR]")
         return build_image(root, args.image) if args.build else run_dev_web(root, args)
-    desktop = wants_desktop(args, root)
+    desktop = wants_desktop(args)
     if args.print_config:
         project = resolve_project(args.project) if args.project else ""
         executable = (

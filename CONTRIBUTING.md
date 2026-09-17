@@ -60,14 +60,14 @@ requires an explicit Attach or Recreate choice; Attach keeps its existing projec
 mounts unchanged. Configuration differences never authorize automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
 recreate changes its token; a plain restart preserves the token but still interrupts its processes.
 
-The standard manual test entry point is `bash loader.sh --dev` (or `python3 loader.py --dev`). It mounts the present checkout over the container code and enables server reload; everything else — flags, ports, container names, attach/stop semantics — is identical to a user launch, except that `--dev` keeps the browser default and uses the Electron in `desktop/node_modules` rather than downloading the released app (a user launch downloads and checksum-verifies it on first run). Add `--desktop` for Electron when you need Apple GPU consent; browser sessions cannot install host software. `dev/loader/loader_dev.{sh,py}` remain as thin shims that only select a checkout through `TIT_DEV_REPO_DIR`.
+The standard manual test entry point is `bash loader.sh --dev` (or `python3 loader.py --dev`). It mounts the present checkout over the container code and enables server reload; everything else — flags, ports, container names, attach/stop semantics — is identical to a user launch, including the UI: `--dev` opens the same Electron window, taking Electron from `desktop/node_modules` rather than downloading the released app (a user launch downloads and checksum-verifies it on first run), and falling back to the installed app if the checkout has no Electron built. Developers therefore always exercise the Electron-only surface — native TetraVox open, the container GPU probe, Apple GPU consent, file dialogs. Add `--browser` when you explicitly want a browser tab; browser sessions cannot install host software. `dev/loader/loader_dev.{sh,py}` remain as thin shims that only select a checkout through `TIT_DEV_REPO_DIR`.
 
 Choose the execution mode explicitly:
 
 | Mode | Command | Code used |
 |---|---|---|
 | Run the built image | `bash loader.sh` or `python3 loader.py` | Image contents |
-| Develop inside Docker | `bash loader.sh --dev` or `python3 loader.py --dev` | The launched checkout/worktree mounted at `/ti-toolbox` |
+| Develop inside Docker | `bash loader.sh --dev` or `python3 loader.py --dev` | The launched checkout/worktree mounted at `/ti-toolbox`, in the Electron window |
 | Desktop development | From `desktop/`: `npm run dev` | Local Electron/renderer build + mounted backend after project selection |
 | Docker + live frontend | From `desktop/`: `npm run dev:web` | Mounted backend + Vite frontend |
 | Host-only development | From `desktop/`: `npm run dev:host` | Local Python API + Vite browser; no container |

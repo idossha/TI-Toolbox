@@ -47,9 +47,12 @@ prints one reason and falls back to the browser; `--desktop` makes that failure 
 and `--browser` or `--no-open` skips the download. Both loaders keep the resolution in one function
 named `resolve_desktop_executable`, and `--print-config` reports the outcome as
 `desktop_executable` without touching the network. `--dev [DIR]` (equivalently
-`TIT_DEV_REPO_DIR`, or `TIT_DEV=1`) keeps the browser default and takes Electron from
-`desktop/node_modules`; it switches only the *source* of the server and renderer: the
-checkout is mounted at `/ti-toolbox`, the server reloads, and its built renderer is served.
+`TIT_DEV_REPO_DIR`, or `TIT_DEV=1`) switches only the *source* of the server and renderer: the
+checkout is mounted at `/ti-toolbox`, the server reloads, and its built renderer is served. It
+does **not** change the UI — a checkout opens the same Electron window a user gets, taking
+Electron from `desktop/node_modules` and, when that is absent, the installed desktop app with
+`TIT_DEV_REPO_DIR` set (`dev/launch-electron.sh` prints the `npm ci && npm run build` line it
+would have preferred). Only `--browser` and `--no-open` select the browser.
 Flags, port selection, container naming/hash, attach/recreate and stop semantics are identical in
 both modes, so every entry point can attach to and stop the same container. `--print-config` output is byte-identical between `loader.sh` and `loader.py`.
 Standalone downloads keep the loader and `docker-compose.yml` together. Regular users need no checkout.
