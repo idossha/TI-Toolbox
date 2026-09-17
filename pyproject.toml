@@ -56,6 +56,14 @@ include = ["tit*"]
   "guide/labels/*",
   "guide/legends/*",
   "guide/nets/*",
+  # The second guide: the MNI152 template head the targeting panes draw for an
+  # MNI-space ROI (docs/dev/DECISIONS.md, 2026-09-17).
+  "guide-mni/manifest.json",
+  "guide-mni/PROVENANCE.md",
+  "guide-mni/surfaces/*",
+  "guide-mni/labels/*",
+  "guide-mni/legends/*",
+  "guide-mni/nets/*",
 ]
 
 [tool.setuptools.dynamic]

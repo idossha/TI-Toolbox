@@ -307,7 +307,18 @@ export function ScenePane({
     [onAtlasChange, manifestData],
   );
 
-  const atlasPart = (manifestData?.atlases.find((entry) => entry.id === effectiveAtlas) as { kind?: string } | undefined)?.kind === "subcortical" ? "subcortical" : "gm";
+  /**
+   * Which surface part carries the drawn atlas' per-vertex labels.
+   *
+   * The manifest says so (`atlases[].aligned_to`), because an MNI guide packages one surface per
+   * atlas volume — CIT168's regions are not Morel's geometry — and a hard-coded `"subcortical"`
+   * would draw one atlas' anatomy with another's labels. `kind` is the fallback for the older
+   * manifests that carry no `aligned_to`.
+   */
+  const atlasEntry = manifestData?.atlases.find((entry) => entry.id === effectiveAtlas) as
+    | { kind?: string; aligned_to?: string }
+    | undefined;
+  const atlasPart = atlasEntry?.aligned_to ?? (atlasEntry?.kind === "subcortical" ? "subcortical" : "gm");
 
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
@@ -379,7 +390,7 @@ export function ScenePane({
     if (gmData?.indices) {
       out.push({
         id: atlasPart,
-        label: atlasPart === "subcortical" ? "Subcortical regions" : "GM",
+        label: atlasPart === "gm" ? "GM" : atlasPart === "subcortical" ? "Subcortical regions" : "Atlas regions",
         positions: gmData.positions,
         indices: gmData.indices,
         labels: alignment.aligned ? (labelData?.labels ?? null) : null,

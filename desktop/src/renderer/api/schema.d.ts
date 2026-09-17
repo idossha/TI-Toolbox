@@ -4389,8 +4389,8 @@ export interface paths {
                             bbox?: number[] | null;
                             focus_bbox?: number[] | null;
                             parts: {
-                                /** @enum {string} */
-                                id: "skin" | "gm" | "subcortical";
+                                /** @description `skin`, `gm`, `subcortical`, or `atlas-<file>` — the MNI guide packages one surface per atlas volume, and `atlases[].aligned_to` names which part carries a given atlas' labels. */
+                                id: string;
                                 /** @enum {string} */
                                 kind: "surface";
                                 triangles: number;
@@ -4414,8 +4414,8 @@ export interface paths {
                                 id: string;
                                 /** @enum {string} */
                                 kind?: "cortical" | "subcortical";
-                                /** @enum {string} */
-                                aligned_to?: "gm" | "subcortical";
+                                /** @description the `parts[].id` this atlas' per-vertex labels are aligned to */
+                                aligned_to?: string;
                                 hemispheres: ("lh" | "rh")[];
                                 regions: number;
                                 url: string;
@@ -4469,7 +4469,7 @@ export interface paths {
         get: {
             parameters: {
                 query: {
-                    part: "skin" | "gm" | "subcortical";
+                    part: string;
                     format?: "tvsc" | "gii";
                     /** @description Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`. */
                     guide?: "default" | "mni";

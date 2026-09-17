@@ -112,3 +112,24 @@ def test_ernie_left_putamen_loses_exactly_its_measured_islands():
     cleaned, removed, dropped = islands.keep_main_components(mask, what="Left-Putamen")
     assert int(cleaned.sum()) == 6032
     assert (removed, dropped) == (77, 9)
+
+
+def test_a_region_smaller_than_the_floor_is_never_emptied():
+    """The floor must not be able to delete a whole region.
+
+    Measured 2026-09-17 while building the MNI guide: Morel's
+    Mammillothalamic tract is 43 voxels in two pieces, and the flat 50-voxel
+    floor removed both, so the surface build died on an empty mask and the ROI
+    a user selected would have had no voxels at all.
+    """
+    import numpy as np
+
+    from tit.atlas.islands import keep_main_components
+
+    mask = np.zeros((20, 20, 20), dtype=bool)
+    mask[2:5, 2:5, 2:6] = True   # 36 voxels, the largest component
+    mask[15:16, 15:16, 15:18] = True  # 3 voxels, 20 mm away
+    cleaned, removed, dropped = keep_main_components(mask, what="tiny-region")
+    assert cleaned.sum() == 36
+    assert removed == 3
+    assert dropped == 1

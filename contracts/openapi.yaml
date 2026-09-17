@@ -2991,7 +2991,12 @@ paths:
                       type: object
                       required: [id, kind, triangles, vertices, bytes, fingerprint, url]
                       properties:
-                        id: { type: string, enum: [skin, gm, subcortical] }
+                        id:
+                          type: string
+                          description: >-
+                            `skin`, `gm`, `subcortical`, or `atlas-<file>` — the MNI guide packages
+                            one surface per atlas volume, and `atlases[].aligned_to` names which
+                            part carries a given atlas' labels.
                         kind: { type: string, enum: [surface] }
                         triangles: { type: integer }
                         vertices: { type: integer }
@@ -3026,7 +3031,9 @@ paths:
                       properties:
                         id: { type: string }
                         kind: { type: string, enum: [cortical, subcortical] }
-                        aligned_to: { type: string, enum: [gm, subcortical] }
+                        aligned_to:
+                          type: string
+                          description: the `parts[].id` this atlas' per-vertex labels are aligned to
                         hemispheres:
                           type: array
                           items: { type: string, enum: [lh, rh] }
@@ -3067,7 +3074,7 @@ paths:
         - in: query
           name: part
           required: true
-          schema: { type: string, enum: [skin, gm, subcortical] }
+          schema: { type: string }
         - in: query
           name: format
           required: false

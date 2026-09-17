@@ -93,11 +93,25 @@ def _union(boxes: list[list[float]]) -> list[float] | None:
     return box
 
 
-def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
-    """Freeze reference label boundaries alongside their matching reference skin.
+def build_label_volume(
+    source: Path,
+    lut: Path,
+    out: Path,
+    *,
+    part_id: str,
+    atlas_id: str,
+    select_all: bool = False,
+) -> tuple[dict, dict]:
+    """Freeze one label volume as a pickable surface plus its legend.
 
-    Only the developer build reads the label volume. Runtime requests reuse the
+    Only the developer build reads a label volume.  Runtime requests reuse the
     same compact binary surface and legend API as cortical atlas requests.
+
+    *select_all* keeps every label the volume contains rather than the
+    subcortical subset :func:`tit.scene.volume_surfaces.default_visible` would
+    show.  It is what a packaged MNI atlas wants: its whole point is that the
+    user picks any of its regions, and the "is this name a deep structure"
+    heuristic exists for a per-subject ``labeling.nii.gz``, not for CIT168.
     """
     import nibabel as nib
     import numpy as np
@@ -105,16 +119,19 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
     from tit.scene import gifti, tvsc
     from tit.scene.volume_surfaces import surfaces
 
-    source = Path(pm.m2m(subject)) / "segmentation" / "labeling.nii.gz"
-    lut = source.with_name("labeling_LUT.txt")
     rows = build.parse_lut_text(lut.read_text())
     names = {row["id"]: row["name"] for row in rows}
-    result = surfaces(nib.load(str(source)), names, [], atlas_name=source.name)
+    image = nib.load(str(source))
+    selected: list[int] = []
+    if select_all:
+        data = image.get_fdata(dtype=np.float32)
+        selected = [int(v) for v in np.unique(data) if v != 0]
+    result = surfaces(image, names, selected, atlas_name=source.name)
     positions = np.asarray(result["positions"], dtype=np.float32).reshape(-1, 3)
     indices = np.asarray(result["indices"], dtype=np.uint32).reshape(-1, 3)
     labels = np.asarray(result["labels"], dtype=np.uint16)
     if not len(indices):
-        raise ValueError("Reference labeling has no subcortical regions")
+        raise ValueError(f"{source.name} has no regions to draw")
     kept = {entry["id"] for entry in result["entries"]}
     legend = [
         {**row, "label": row["id"], "hemi": "", "color": row["color"] or "#808080"}
@@ -123,7 +140,7 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
     ]
     surface_blob = tvsc.encode(positions, indices)
     if len(surface_blob) > build.MAX_BYTES or len(indices) > build.MAX_TRIANGLES:
-        raise ValueError("Reference subcortical surface exceeds the guide budget")
+        raise ValueError(f"{source.name} surface exceeds the guide budget")
 
     def write_blobs(directory: str, name: str, blobs: dict) -> dict:
         files = {}
@@ -138,13 +155,12 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
 
     surface_files = write_blobs(
         "surfaces",
-        "subcortical",
+        part_id,
         {
             "tvsc": surface_blob,
             "gii": gifti.encode_surface(positions, indices),
         },
     )
-    atlas_id = source.name
     label_files = write_blobs(
         "labels",
         atlas_id,
@@ -157,13 +173,13 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
     )
     bbox = positions.min(axis=0).tolist() + positions.max(axis=0).tolist()
     part = {
-        "id": "subcortical",
+        "id": part_id,
         "kind": "surface",
         "triangles": len(indices),
         "vertices": len(positions),
         "bytes": len(surface_blob),
-        "fingerprint": f"guide-{guide.GUIDE_VERSION}-subcortical",
-        "url": "/api/guide/surface?part=subcortical",
+        "fingerprint": f"guide-{guide.GUIDE_VERSION}-{part_id}",
+        "url": f"/api/guide/surface?part={part_id}",
         "simplified": True,
         "within_budget": True,
         "bbox": bbox,
@@ -176,7 +192,7 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
         {
             "atlas": atlas_id,
             "space": guide.GUIDE_SPACE,
-            "aligned_to": "subcortical",
+            "aligned_to": part_id,
             "vertices": len(positions),
             "radius_mm": 0,
             "labelled_fraction": 1,
@@ -188,7 +204,7 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
         "id": atlas_id,
         "kind": "subcortical",
         "hemispheres": [],
-        "aligned_to": "subcortical",
+        "aligned_to": part_id,
         "regions": len(legend),
         "url": f"/api/guide/regions?atlas={atlas_id}",
         "files": label_files,
@@ -200,8 +216,95 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
     return part, atlas
 
 
-def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any]:
-    """Build every guide asset and write ``out/manifest.json``. Returns it."""
+def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
+    """The subject's own ``labeling.nii.gz`` as the guide's subcortical layer."""
+    source = Path(pm.m2m(subject)) / "segmentation" / "labeling.nii.gz"
+    return build_label_volume(
+        source,
+        source.with_name("labeling_LUT.txt"),
+        out,
+        part_id="subcortical",
+        atlas_id=source.name,
+    )
+
+
+def build_mni_atlases(out: Path) -> tuple[list[dict], list[dict]]:
+    """Every packaged MNI atlas that fits the guide budget, as label surfaces.
+
+    Skipped with a printed reason rather than a failure: an atlas with more than
+    the 256 regions ``volume_surfaces`` draws (Glasser's 360 cortical parcels) or
+    with no colour table is not a reason to have no MNI guide at all.  What it
+    costs is that that atlas cannot be *picked in the pane*; it is still
+    selectable in the ROI picker's list, which reads the catalog, not the guide.
+    """
+    from tit.atlas.constants import MNI_ATLAS_FILES, mni_resources_dir
+    from tit.opt.roi_spec import _find_volume_lut
+
+    root = Path(mni_resources_dir())
+    parts: list[dict] = []
+    atlases: list[dict] = []
+    for name in MNI_ATLAS_FILES:
+        source = root / name
+        if not source.is_file():
+            print(f"skip {name}: not packaged in {root}")
+            continue
+        lut = _find_volume_lut(str(source), "mni")
+        if lut is None:
+            print(f"skip {name}: no colour table beside it")
+            continue
+        try:
+            part, atlas = build_label_volume(
+                source,
+                Path(lut),
+                out,
+                part_id=f"atlas-{name}",
+                atlas_id=name,
+                select_all=True,
+            )
+        except ValueError as exc:
+            print(f"skip {name}: {exc}")
+            continue
+        parts.append(part)
+        atlases.append(atlas)
+    return parts, atlases
+
+
+def _tag_urls(body: Any, guide_id: str) -> Any:
+    """Append ``&guide=<id>`` to every ``/api/guide/*`` url in *body*, in place.
+
+    The packaged manifest's own urls are what the gate test fetches and what a
+    client follows, so a second guide whose urls omitted its id would advertise
+    the *first* guide's bytes under its own part names.
+    """
+    if guide_id == guide.DEFAULT_GUIDE:
+        return body
+    if isinstance(body, dict):
+        for key, value in body.items():
+            if key == "url" and isinstance(value, str) and value.startswith("/api/guide/"):
+                body[key] = f"{value}{'&' if '?' in value else '?'}guide={guide_id}"
+            else:
+                _tag_urls(value, guide_id)
+    elif isinstance(body, list):
+        for item in body:
+            _tag_urls(item, guide_id)
+    return body
+
+
+def generate(
+    project: str,
+    subject: str,
+    out: Path,
+    label: str,
+    *,
+    atlas_source: str = "subject",
+    guide_id: str = "default",
+) -> dict[str, Any]:
+    """Build every guide asset and write ``out/manifest.json``. Returns it.
+
+    *atlas_source* is ``"subject"`` for the anatomy guide (the subject's own
+    cortical parcellations and ``labeling.nii.gz``) or ``"mni"`` for the MNI152
+    guide, whose atlases are the packaged MNI volumes in ``resources/atlas/``.
+    """
     from tit import catalog
     from tit.paths import get_path_manager
 
@@ -244,7 +347,9 @@ def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any
         )
 
     atlases: list[dict[str, Any]] = []
-    for entry in catalog.atlases(pm, subject, kind="cortical") or []:
+    for entry in (
+        [] if atlas_source == "mni" else (catalog.atlases(pm, subject, kind="cortical") or [])
+    ):
         atlas_id = str(entry["id"])
         hemispheres = sorted(build.annot_paths(pm, subject, atlas_id))
         if not hemispheres:
@@ -284,9 +389,16 @@ def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any
             }
         )
 
-    subcortical, atlas = build_subcortical(pm, subject, out)
-    parts.append(subcortical)
-    atlases.append(atlas)
+    if atlas_source == "mni":
+        mni_parts, mni_atlases = build_mni_atlases(out)
+        if not mni_atlases:
+            raise SystemExit("No packaged MNI atlas could be built into the guide")
+        parts.extend(mni_parts)
+        atlases.extend(mni_atlases)
+    else:
+        subcortical, atlas = build_subcortical(pm, subject, out)
+        parts.append(subcortical)
+        atlases.append(atlas)
 
     nets: list[dict[str, Any]] = []
     for net_name in sorted(pm.list_eeg_caps(subject)):
@@ -330,7 +442,7 @@ def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any
         "volumes": [],
         "cache": {"state": "ready", "built_ms": 0.0},
         "provenance": {
-            "source": "SimNIBS example dataset, subject 'ernie'",
+            "source": f"SimNIBS example dataset, subject {subject!r}",
             "source_url": "https://github.com/simnibs/example-dataset",
             "license": "GPL-3.0-or-later",
             "notes": "See tit/scene/guide/PROVENANCE.md.",
@@ -341,6 +453,17 @@ def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any
             "seconds": round(time.perf_counter() - started, 1),
         },
     }
+    # The legends were written before the manifest, so their own urls are
+    # re-tagged on disk rather than only in memory.
+    for legend_path in sorted((out / "legends").glob("*.json")):
+        body = json.loads(legend_path.read_text(encoding="utf-8"))
+        _write_json(legend_path, _tag_urls(body, guide_id))
+    for atlas in manifest["atlases"]:
+        atlas["legend_meta"] = {
+            "bytes": (out / atlas["legend_file"]).stat().st_size,
+            "sha256": sha256_of(out / atlas["legend_file"]),
+        }
+    _tag_urls(manifest, guide_id)
     _write_json(out / guide.MANIFEST_NAME, manifest)
     return manifest
 
@@ -353,8 +476,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--subject", default="ernie")
     parser.add_argument("--out", default=str(guide.GUIDE_DIR))
     parser.add_argument("--label", default="Ernie (SimNIBS example head)")
+    parser.add_argument(
+        "--atlases",
+        choices=("subject", "mni"),
+        default="subject",
+        help="subject: the head's own parcellations; mni: the packaged MNI atlases",
+    )
+    parser.add_argument(
+        "--guide-id",
+        choices=tuple(guide.GUIDE_DIRS),
+        default=guide.DEFAULT_GUIDE,
+        help="which packaged guide this is; every url is tagged with it",
+    )
     args = parser.parse_args(argv)
-    manifest = generate(args.project, args.subject, Path(args.out), args.label)
+    manifest = generate(
+        args.project,
+        args.subject,
+        Path(args.out),
+        args.label,
+        atlas_source=args.atlases,
+        guide_id=args.guide_id,
+    )
     total = (
         sum(
             f["bytes"]
