@@ -448,6 +448,9 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await setOptSubject(page, row, "ernie");
   await setOptCell(page, row, "method", "Ex");
 
+  // Choosing Ex fills the leadfield by itself: the subject's first computed matrix, no click.
+  await expect(row).toHaveAttribute("data-net", "GSN-HydroCel-185");
+
   // The cell states the fact — a 2 GB matrix, from tests/fixtures/leadfields.json — and offers the
   // nets without a matrix for explicit generation.
   const cell = row.locator('td[data-cell="net"]').getByRole("combobox");
@@ -466,8 +469,8 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await picker.getByRole("button", { name: "Done", exact: true }).click();
 
   await setOptSubject(page, row, "101");
-  await cell.click();
-  await page.getByRole("option", { name: "GSN-HydroCel-185 — no leadfield" }).click();
+  // No computed matrix for 101: the row takes its first EEG net by itself and offers to generate.
+  await expect(row).toHaveAttribute("data-net", "GSN-HydroCel-185");
   await expect(row.locator('td[data-cell="goal"]').getByRole("button", { name: "Generate leadfield" })).toBeEnabled();
   expect((await row.boundingBox())!.height).toBeLessThanOrEqual(65);
   await expect(row.locator('td[data-cell="net"]').getByRole("button", { name: "Generate leadfield" })).toHaveCount(0);

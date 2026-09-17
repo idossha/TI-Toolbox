@@ -63,7 +63,7 @@ import {
 import { TargetPreview } from "../_shared/scene/TargetPreview";
 import { useOpenInViewer } from "../../app/openInViewer";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
-import { leadfieldPathFor } from "./nets";
+import { leadfieldPathFor, defaultNet } from "./nets";
 import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
 import { automaticRunName, flexOutputFolder, jobsForRow, rowFormReason, type OptimizerJobSpec } from "./plan";
 import {
@@ -73,6 +73,7 @@ import {
   OPT_METHOD_LABEL,
   rowPlanKind,
   type OptimizerRow,
+  isFlexMethod,
 } from "./rows";
 import "./optimizer.css";
 
@@ -190,6 +191,20 @@ function OptimizerPage() {
   modelled.forEach((id, i) => {
     leadfieldsBySubject[id] = leadfieldQueries[i]?.data;
   });
+
+  // An Ex/mEx row with no net yet takes the subject's first computed leadfield as soon as the
+  // listing arrives; with none computed it takes the first EEG net, so the row shows "Generate
+  // leadfield" instead of an empty cell the user has to discover.
+  const leadfieldsLoaded = modelled.map((id) => (leadfieldsBySubject[id] ? "1" : "0")).join("");
+  useEffect(() => {
+    const filled = rows.map((r) => {
+      if (isFlexMethod(r.method) || !r.subjectId || r.net !== null || !leadfieldsBySubject[r.subjectId]) return r;
+      const net = defaultNet(leadfieldsBySubject[r.subjectId], netsBySubject[r.subjectId]);
+      return net ? { ...r, net } : r;
+    });
+    if (filled.some((r, i) => r !== rows[i])) setRows(filled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, leadfieldsLoaded]);
 
   // The page starts with one row on the shell's subject: a table whose first act is "press Add
   // job" would make the page's own subject a thing to discover (the Simulator's own seeding).
