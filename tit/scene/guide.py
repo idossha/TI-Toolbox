@@ -60,6 +60,18 @@ GUIDE_VERSION = 2
 #: Where the packaged assets live, relative to this file.
 GUIDE_DIR = Path(__file__).resolve().parent / "guide"
 
+#: The second packaged guide: the MNI152 template head, drawn when a row's ROI
+#: says ``space: "mni"`` (`docs/dev/DECISIONS.md § 2026-09-17`). Same shape,
+#: same routes, same reader — only the anatomy and the atlases differ, so the
+#: pane needs a guide id and nothing else.
+MNI_GUIDE_DIR = Path(__file__).resolve().parent / "guide-mni"
+
+#: ``guide id -> packaged directory``. ``default`` is the subject-anatomy guide
+#: (Ernie); ``mni`` is the template. A client may name only these.
+GUIDE_DIRS: dict[str, Path] = {"default": GUIDE_DIR, "mni": MNI_GUIDE_DIR}
+
+DEFAULT_GUIDE = "default"
+
 MANIFEST_NAME = "manifest.json"
 
 
@@ -83,14 +95,21 @@ class GuideAsset:
         return int(self.meta.get("bytes", 0))
 
 
-def guide_dir() -> Path:
-    """The packaged guide directory, overridable for tests.
+def guide_dir(guide_id: str = DEFAULT_GUIDE) -> Path:
+    """The packaged directory for *guide_id*, overridable for tests.
 
-    ``TIT_GUIDE_DIR`` exists so a test can point at a tiny fixture guide
-    instead of the real ~15 MB one; nothing in the app sets it.
+    ``TIT_GUIDE_DIR`` / ``TIT_GUIDE_MNI_DIR`` exist so a test can point at a
+    tiny fixture guide instead of the real ~20 MB ones; nothing in the app sets
+    them.
     """
-    override = os.environ.get("TIT_GUIDE_DIR")
-    return Path(override).resolve() if override else GUIDE_DIR
+    if guide_id not in GUIDE_DIRS:
+        raise GuideUnavailable(
+            f"there is no packaged guide {guide_id!r}; there is: "
+            f"{', '.join(sorted(GUIDE_DIRS))}."
+        )
+    env = "TIT_GUIDE_DIR" if guide_id == DEFAULT_GUIDE else "TIT_GUIDE_MNI_DIR"
+    override = os.environ.get(env)
+    return Path(override).resolve() if override else GUIDE_DIRS[guide_id]
 
 
 def _read_manifest(root: Path) -> dict[str, Any]:
@@ -117,14 +136,14 @@ def _manifest_cached(root: str, stamp: tuple[int, int]) -> dict[str, Any]:
     return _read_manifest(Path(root))
 
 
-def manifest() -> dict[str, Any]:
+def manifest(guide_id: str = DEFAULT_GUIDE) -> dict[str, Any]:
     """The guide manifest, read once per (path, mtime) pair.
 
     Cached on the manifest's own size+mtime rather than for ever: the file is
     immutable in an installation, but a developer regenerating it must not
     have to restart the server to see the new one.
     """
-    root = guide_dir()
+    root = guide_dir(guide_id)
     try:
         stat = (root / MANIFEST_NAME).stat()
     except OSError as exc:
@@ -136,8 +155,8 @@ def manifest() -> dict[str, Any]:
     return _manifest_cached(str(root), (stat.st_size, int(stat.st_mtime_ns)))
 
 
-def _entry(section: str, key: str, value: str) -> dict[str, Any]:
-    body = manifest()
+def _entry(section: str, key: str, value: str, guide_id: str = DEFAULT_GUIDE) -> dict[str, Any]:
+    body = manifest(guide_id)
     for entry in body.get(section, []):
         if entry.get(key) == value:
             return entry
@@ -147,8 +166,8 @@ def _entry(section: str, key: str, value: str) -> dict[str, Any]:
     )
 
 
-def _asset(rel: str, meta: dict[str, Any]) -> GuideAsset:
-    root = guide_dir()
+def _asset(rel: str, meta: dict[str, Any], guide_id: str = DEFAULT_GUIDE) -> GuideAsset:
+    root = guide_dir(guide_id)
     # `rel` never comes from a client: it is read out of the packaged manifest.
     # The resolve()/is_relative_to() pair is here so a hand-edited manifest
     # still cannot make the server read outside its own package directory.
@@ -158,46 +177,46 @@ def _asset(rel: str, meta: dict[str, Any]) -> GuideAsset:
     return GuideAsset(path=path, meta=meta)
 
 
-def part_ids() -> list[str]:
-    return [str(part["id"]) for part in manifest().get("parts", [])]
+def part_ids(guide_id: str = DEFAULT_GUIDE) -> list[str]:
+    return [str(part["id"]) for part in manifest(guide_id).get("parts", [])]
 
 
-def atlas_ids() -> list[str]:
-    return [str(atlas["id"]) for atlas in manifest().get("atlases", [])]
+def atlas_ids(guide_id: str = DEFAULT_GUIDE) -> list[str]:
+    return [str(atlas["id"]) for atlas in manifest(guide_id).get("atlases", [])]
 
 
-def net_names() -> list[str]:
-    return [str(net["name"]) for net in manifest().get("nets", [])]
+def net_names(guide_id: str = DEFAULT_GUIDE) -> list[str]:
+    return [str(net["name"]) for net in manifest(guide_id).get("nets", [])]
 
 
-def surface(part: str, fmt: str = "tvsc") -> GuideAsset:
+def surface(part: str, fmt: str = "tvsc", guide_id: str = DEFAULT_GUIDE) -> GuideAsset:
     """The packaged surface bytes for *part* in *fmt* (``tvsc`` or ``gii``)."""
-    entry = _entry("parts", "id", part)
+    entry = _entry("parts", "id", part, guide_id)
     files = entry.get("files", {})
     if fmt not in files:
         raise GuideUnavailable(
             f"the guide's {part!r} surface is not packaged as {fmt!r}; "
             f"available: {', '.join(sorted(files)) or 'nothing'}."
         )
-    return _asset(files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt})
+    return _asset(files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt}, guide_id)
 
 
-def labels(atlas: str, fmt: str = "gii") -> GuideAsset:
+def labels(atlas: str, fmt: str = "gii", guide_id: str = DEFAULT_GUIDE) -> GuideAsset:
     """The packaged per-vertex label payload for *atlas*."""
-    entry = _entry("atlases", "id", atlas)
+    entry = _entry("atlases", "id", atlas, guide_id)
     files = entry.get("files", {})
     if fmt not in files:
         raise GuideUnavailable(
             f"the guide's {atlas!r} labels are not packaged as {fmt!r}; "
             f"available: {', '.join(sorted(files)) or 'nothing'}."
         )
-    return _asset(files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt})
+    return _asset(files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt}, guide_id)
 
 
-def legend(atlas: str) -> dict[str, Any]:
+def legend(atlas: str, guide_id: str = DEFAULT_GUIDE) -> dict[str, Any]:
     """``{atlas, space, legend:[…], url, …}`` for one packaged atlas."""
-    entry = _entry("atlases", "id", atlas)
-    asset = _asset(entry["legend_file"], entry)
+    entry = _entry("atlases", "id", atlas, guide_id)
+    asset = _asset(entry["legend_file"], entry, guide_id)
     try:
         body = json.loads(asset.path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -207,10 +226,10 @@ def legend(atlas: str) -> dict[str, Any]:
     return body
 
 
-def electrodes(net: str) -> dict[str, Any]:
+def electrodes(net: str, guide_id: str = DEFAULT_GUIDE) -> dict[str, Any]:
     """``{net, space, electrodes:[{name, world}]}`` for one packaged EEG net."""
-    entry = _entry("nets", "name", net)
-    asset = _asset(entry["file"], entry)
+    entry = _entry("nets", "name", net, guide_id)
+    asset = _asset(entry["file"], entry, guide_id)
     try:
         body = json.loads(asset.path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -218,25 +237,35 @@ def electrodes(net: str) -> dict[str, Any]:
     return body
 
 
-def iter_assets() -> list[tuple[str, GuideAsset]]:
+def installed_guide_ids() -> list[str]:
+    """Guide ids whose package is actually present, in catalogue order.
+
+    The MNI guide is built by the same developer tool as the Ernie one, so a
+    checkout mid-rebuild can have one and not the other; asking the filesystem
+    is what stops the pane offering a space whose anatomy is not installed.
+    """
+    return [gid for gid in GUIDE_DIRS if (guide_dir(gid) / MANIFEST_NAME).is_file()]
+
+
+def iter_assets(guide_id: str = DEFAULT_GUIDE) -> list[tuple[str, GuideAsset]]:
     """Every file the manifest references, as ``(relative path, asset)``.
 
     The gate test walks this to prove nothing the manifest advertises is
     missing from the package.
     """
-    body = manifest()
+    body = manifest(guide_id)
     out: list[tuple[str, GuideAsset]] = []
     for part in body.get("parts", []):
         for fmt, rel in part.get("files", {}).items():
             if fmt.endswith("_meta"):
                 continue
-            out.append((rel, _asset(rel, part)))
+            out.append((rel, _asset(rel, part, guide_id)))
     for atlas in body.get("atlases", []):
         for fmt, rel in atlas.get("files", {}).items():
             if fmt.endswith("_meta"):
                 continue
-            out.append((rel, _asset(rel, atlas)))
-        out.append((atlas["legend_file"], _asset(atlas["legend_file"], atlas)))
+            out.append((rel, _asset(rel, atlas, guide_id)))
+        out.append((atlas["legend_file"], _asset(atlas["legend_file"], atlas, guide_id)))
     for net in body.get("nets", []):
-        out.append((net["file"], _asset(net["file"], net)))
+        out.append((net["file"], _asset(net["file"], net, guide_id)))
     return out

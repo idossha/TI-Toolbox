@@ -55,6 +55,11 @@ export interface SphericalRoiValue {
 
 export interface CorticalRoiValue {
   mode: "cortical";
+  /**
+   * Which anatomy the atlas (and the scene pane beside it) is in. Cortical parcellations only
+   * exist per subject today, so `"mni"` is carried rather than offered — see `roiSpace`.
+   */
+  space: RoiSpace;
   /** Atlas id from `GET /api/catalog/atlases?kind=cortical` (e.g. "DK40"). */
   atlas: string | undefined;
   regions: RoiRegion[];
@@ -62,7 +67,9 @@ export interface CorticalRoiValue {
 
 export interface SubcorticalRoiValue {
   mode: "subcortical";
-  atlasSpace: RoiSpace;
+  /** Renamed from `atlasSpace` (2026-09-17): every mode now carries one `space`, so the two
+   *  Subject | MNI controls (above the pane and inside the picker) read and write one field. */
+  space: RoiSpace;
   /** Atlas id from `GET /api/catalog/atlases?kind=subcortical`. */
   atlas: string | undefined;
   regions: RoiRegion[];
@@ -96,14 +103,49 @@ export function emptyRoi(mode: RoiMode, space: RoiSpace = "subject"): RoiValue {
     case "spherical":
       return { mode, spheres: [emptySphereRow()], space, volumetric: false, tissues: "GM" };
     case "cortical":
-      return { mode, atlas: undefined, regions: [] };
+      return { mode, space, atlas: undefined, regions: [] };
     case "subcortical":
-      return { mode, atlasSpace: "subject", atlas: "labeling.nii.gz", regions: [], tissues: "GM" };
+      return { mode, space, atlas: space === "mni" ? undefined : "labeling.nii.gz", regions: [], tissues: "GM" };
     case "mask":
       return { mode, path: "", space, tissues: "GM" };
     case "saved":
       return { mode, selected: [], combine: false, radius: 3.0, space };
   }
+}
+
+/**
+ * The one space the row's ROI is in — every mode carries it, so the two Subject | MNI controls
+ * (above the scene pane and inside the ROI picker) are two views of a single value rather than
+ * two fields that can disagree (`docs/dev/DECISIONS.md § 2026-09-17`).
+ */
+export function roiSpace(value: RoiValue): RoiSpace {
+  return value.space;
+}
+
+/**
+ * The same value in *space*, with whatever cannot survive the move dropped.
+ *
+ * An atlas id and its region labels are space-specific — `labeling.nii.gz` is a subject file and
+ * `CIT168_labeling_MNI152NLin2009cAsym.nii.gz` is a packaged MNI one — so switching space clears
+ * the atlas and its regions. Coordinates, radii, mask paths and saved-ROI names are *reinterpreted*
+ * in the new space, which is exactly what the user asking for MNI means, so they are kept.
+ * `spaceChangeNote` is the sentence the UI says about what was dropped.
+ */
+export function withRoiSpace(value: RoiValue, space: RoiSpace): RoiValue {
+  if (value.space === space) return value;
+  if (value.mode === "cortical" || value.mode === "subcortical") {
+    return { ...value, space, atlas: undefined, regions: [] } as RoiValue;
+  }
+  return { ...value, space } as RoiValue;
+}
+
+/** One sentence naming what changing to *space* discards, or `null` when nothing is lost. */
+export function spaceChangeNote(value: RoiValue, space: RoiSpace): string | null {
+  if (value.space === space) return null;
+  if (value.mode !== "cortical" && value.mode !== "subcortical") return null;
+  if (value.atlas === undefined && value.regions.length === 0) return null;
+  const where = space === "mni" ? "MNI" : "subject";
+  return `${value.atlas ?? "The atlas"} and its ${value.regions.length} selected region(s) have no ${where}-space equivalent, so the selection was cleared.`;
 }
 
 /** True once the value has enough to build a valid ROI config (see `roiToConfig`). */
@@ -174,6 +216,6 @@ export function roiToConfig(value: RoiValue, atlasLookup: (atlas: string) => Atl
     atlas_path: value.regions.map(() => atlas.path),
     label: value.regions.map((r) => r.id),
     tissues: value.tissues,
-    atlas_space: value.atlasSpace,
+    atlas_space: value.space,
   };
 }

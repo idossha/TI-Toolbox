@@ -17,10 +17,15 @@
  *  - **The pane never holds the selection.** `pairs` and `regions` are the page's state; a pick
  *    calls the page's writer and the new value comes back down through the same `toggleRegion` the
  *    form's own chips call. A pane with its own copy is a pane that can disagree with the form.
- *  - **What it draws is the fixed guide, never the selected subject.** No query is keyed on a
- *    subject, so ticking a second subject costs zero requests and zero remounts, and a pane on a
- *    project whose head models do not exist yet still shows anatomy. Its space is `guide-ras`: the
- *    pane names electrodes, nets and regions, and **never produces a coordinate**.
+ *  - **What it draws is the head the row names.** Superseded 2026-09-06→2026-09-17: the pane used
+ *    to draw the packaged guide and never the selected subject. It now draws the active row's own
+ *    subject when the row's ROI is in subject space, and the packaged MNI152 guide when it is in
+ *    MNI space, because the whole point of the pane is to show *what will be optimised* — and
+ *    charm's islands, an atlas the subject does not have, and an MNI atlas warped into a different
+ *    head are all invisible on a stand-in. The guide remains the fallback for a subject with no
+ *    head model or a build still running, and the pane says which it is drawing in one sentence.
+ *    A guide's space is `guide-ras`, so while one is drawn the pane still **never produces a
+ *    coordinate**.
  *  - **An electrode's colour is its whole state** — neutral grey in no channel, its channel's
  *    Okabe-Ito hue when placed. No ring, no outline, no second glyph.
  *  - **Every failure is a sentence, not an error box** — the server's own `detail` verbatim, and a
@@ -45,7 +50,7 @@ import { Skeleton } from "../../../ui/Feedback";
 import { Button } from "../../../ui/Button";
 import { Select } from "../../../ui/Select";
 import { ChannelLegend } from "../../../ui/ChannelLegend";
-import { SceneError, type GuideManifest, type SceneLegendRow, type SceneManifest } from "./api";
+import { SceneError, type GuideId, type GuideManifest, type SceneLegendRow, type SceneManifest } from "./api";
 import {
   DEFAULT_OPACITY,
   SCENE_PALETTE,
@@ -104,6 +109,12 @@ export interface ScenePaneProps {
    * its own hint rather than showing an error.
    */
   subject?: string | null;
+  /**
+   * Which packaged guide stands in when no subject is drawn: `"default"` (subject anatomy) or
+   * `"mni"` (the MNI152 template). Passing `"mni"` also stops the pane from drawing a subject at
+   * all — an MNI-space ROI is chosen on the template, and the run transforms it per subject.
+   */
+  guide?: GuideId;
   /**
    * A click on the anatomy reports the world point under the cursor, in the drawn subject's own
    * millimetres. Honoured **only** while a subject is being drawn (see `subject`).
@@ -168,6 +179,8 @@ export interface ScenePaneDebug {
   state: "loading" | "ready" | "error";
   /** The guide the pane drew, e.g. `"ernie"`, or `null` when it drew a research subject. */
   guide: string | null;
+  /** WHICH packaged guide that was — `"default"` or `"mni"` — or `null` for a research subject. */
+  guideId: GuideId | null;
   /** The drawn manifest's own coordinate space: `"guide-ras"`, or `"subject-ras"` for a subject. */
   space: string | null;
   message: string | null;
@@ -220,6 +233,7 @@ const CANVAS_MODE: Record<SceneGesture, "montage" | "target" | "inspect"> = {
 export function ScenePane({
   mode,
   subject = null,
+  guide = "default",
   onPlace,
   placedMarkers,
   originalPositions,
@@ -248,9 +262,11 @@ export function ScenePane({
    * still building — until then, and for ever if the subject has no head model, the guide is what
    * the pane shows, so a page that asks for a subject is never left with an empty stage.
    */
-  const subjectManifest = useSceneManifest(subject);
-  const guideManifest = useGuideManifest();
-  const drawnSubject = subject && subjectManifest.data && !subjectManifest.data.building ? subject : null;
+  // In MNI space the template IS the anatomy the user is choosing on, so no subject is requested.
+  const wantedSubject = guide === "mni" ? null : subject;
+  const subjectManifest = useSceneManifest(wantedSubject);
+  const guideManifest = useGuideManifest(guide);
+  const drawnSubject = wantedSubject && subjectManifest.data && !subjectManifest.data.building ? wantedSubject : null;
   const manifest = drawnSubject ? subjectManifest : guideManifest;
   const manifestData = manifest.data as GuideManifest | SceneManifest | undefined;
   const guideId = drawnSubject ? null : (guideManifest.data?.guide?.id ?? null);
@@ -295,7 +311,7 @@ export function ScenePane({
 
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
-  const allGuideRequests = useGuideSurfaceRequests(drawnSubject ? undefined : guideManifest.data);
+  const allGuideRequests = useGuideSurfaceRequests(drawnSubject ? undefined : guideManifest.data, guide);
   const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || part.id === atlasPart), [allGuideRequests, atlasPart]);
   const guideSurfaces = useGuideSurfaces(guideRequests);
   const subjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
@@ -307,17 +323,17 @@ export function ScenePane({
    *  not an error — the montage still works perfectly well from the form. */
   const netListed = mode === "montage" && !!net && (manifestData?.nets.some((entry) => entry.name === net) ?? false);
   const netMissing = mode === "montage" && !!net && !!manifestData && !netListed;
-  const guideElectrodes = useGuideElectrodes(!drawnSubject && netListed ? net : null);
+  const guideElectrodes = useGuideElectrodes(!drawnSubject && netListed ? net : null, guide);
   const subjectElectrodes = useSceneElectrodes(drawnSubject, netListed ? net : null);
   const electrodes = drawnSubject ? subjectElectrodes : guideElectrodes;
-  const guideRegionsQuery = useGuideRegions(drawnSubject ? null : effectiveAtlas);
+  const guideRegionsQuery = useGuideRegions(drawnSubject ? null : effectiveAtlas, guide);
   const subjectRegionsQuery = useSceneRegions(drawnSubject, effectiveAtlas);
   const regionsQuery = drawnSubject ? subjectRegionsQuery : guideRegionsQuery;
   const legend = useMemo<SceneLegendRow[]>(
     () => (regionsQuery.data ? (regionsQuery.data.legend as SceneLegendRow[]) : []),
     [regionsQuery.data],
   );
-  const guideLabels = useGuideLabels(drawnSubject ? null : effectiveAtlas, legend.length > 0);
+  const guideLabels = useGuideLabels(drawnSubject ? null : effectiveAtlas, legend.length > 0, guide);
   const subjectLabels = useSceneLabels(drawnSubject, effectiveAtlas, legend.length > 0);
   const labels = drawnSubject ? subjectLabels : guideLabels;
 
@@ -531,7 +547,12 @@ export function ScenePane({
       // here could not.
       return error instanceof SceneError ? error.message : (error?.message ?? "The scene could not be loaded.");
     }
-    if (state === "loading") return "Loading the guide head model…";
+    if (state === "loading")
+      return drawnSubject
+        ? `Loading ${drawnSubject}'s head model…`
+        : guide === "mni"
+          ? "Loading the MNI152 template…"
+          : "Loading the guide head model…";
     return null;
   })();
 
@@ -610,10 +631,16 @@ export function ScenePane({
     // past for ever.
     if (gesture === "place") return "";
     if (showingPlacements) return `${placedMarkers.length} placed positions${drawnSubject ? ` on ${drawnSubject}` : ""}.`;
-    if (subject && !drawnSubject) {
-      return subjectManifest.error
-        ? `${subject} has no head model to draw yet — showing the reference head instead.`
-        : `Building ${subject}'s head model for the preview — showing the reference head meanwhile.`;
+    if (guide === "mni") return "MNI152 template — the ROI is chosen here and transformed into each subject before the job runs.";
+    if (wantedSubject && !drawnSubject) {
+      // Three states, each a sentence, never an error box: the server's own 404 detail names the
+      // missing file, and a build in progress says so rather than looking broken.
+      if (subjectManifest.error) {
+        return subjectManifest.error instanceof SceneError
+          ? `${subjectManifest.error.message} Showing the reference head instead.`
+          : `${wantedSubject} has no head model to draw yet — showing the reference head instead.`;
+      }
+      return `Building ${wantedSubject}'s head model for the preview — showing the reference head meanwhile.`;
     }
     if (drawnSubject) return `${drawnSubject}'s own head model.`;
     return "Reference anatomy — a guide for choosing names, not this subject's head.";
@@ -627,6 +654,7 @@ export function ScenePane({
       gesture,
       subject: drawnSubject,
       guide: guideId,
+      guideId: drawnSubject ? null : guide,
       space: manifestData?.space ?? null,
       net: mode === "montage" ? net : null,
       atlas: effectiveAtlas,
@@ -652,7 +680,7 @@ export function ScenePane({
     return () => {
       if (window.__scenePane === handle) delete window.__scenePane;
     };
-  }, [pageActive, mode, gesture, drawnSubject, guideId, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
+  }, [pageActive, mode, gesture, drawnSubject, guideId, guide, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
 
   const atlasOptions = useMemo(
     () => (manifestData?.atlases ?? []).map((entry) => ({ value: String(entry.id), label: entry.id === "labeling.nii.gz" ? "Subcortical (labeling.nii.gz)" : String(entry.id) })),

@@ -2939,6 +2939,15 @@ paths:
         `atlases[]` have the same shape as the scene manifest's, so one pane component consumes
         either.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           content:
@@ -2953,6 +2962,21 @@ paths:
                     properties:
                       id: { type: string, description: the source subject the guide was derived from }
                       label: { type: string }
+                  guide_id:
+                    type: string
+                    enum: [default, mni]
+                    description: which packaged guide answered this request
+                  guides:
+                    type: array
+                    description: >-
+                      every packaged guide this installation actually has, in catalogue order —
+                      the pane's Subject | MNI switch offers only what is listed here
+                    items:
+                      type: object
+                      required: [id, label]
+                      properties:
+                        id: { type: string, enum: [default, mni] }
+                        label: { type: string }
                   guide_version: { type: integer }
                   space: { type: string, enum: [guide-ras] }
                   bbox:
@@ -3048,6 +3072,14 @@ paths:
           name: format
           required: false
           schema: { type: string, enum: [tvsc, gii], default: tvsc }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           description: TVSC1 or GIfTI binary
@@ -3080,6 +3112,14 @@ paths:
           name: format
           required: false
           schema: { type: string, enum: [gii], default: gii }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           description: GIfTI binary with a label array and label table
@@ -3104,6 +3144,14 @@ paths:
           name: atlas
           required: true
           schema: { type: string }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           content:
@@ -3156,6 +3204,14 @@ paths:
           name: net
           required: true
           schema: { type: string }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           content:

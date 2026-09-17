@@ -14,7 +14,7 @@ export function targetPreviewRoi(roi: RoiValue | undefined): TargetPreviewRoi | 
   if (roi?.mode === "mask")
     return /\.nii(\.gz)?$/i.test(roi.path.trim()) ? { kind: "mask", path: roi.path.trim(), space: roi.space } : null;
   if (roi?.mode === "subcortical")
-    return roi.atlas && roi.regions.length ? { kind: "subcortical", atlas: roi.atlas, labels: roi.regions.map((region) => region.id), space: roi.atlasSpace } : null;
+    return roi.atlas && roi.regions.length ? { kind: "subcortical", atlas: roi.atlas, labels: roi.regions.map((region) => region.id), space: roi.space } : null;
   if (roi?.mode === "spherical" && roi.spheres.length && roi.spheres.every((sphere) =>
     [sphere.x, sphere.y, sphere.z, sphere.radius].every((value) => typeof value === "number" && Number.isFinite(value)) && sphere.radius! > 0,
   )) return { kind: "spherical", space: roi.space, spheres: roi.spheres.map((sphere) => ({ center: [sphere.x!, sphere.y!, sphere.z!], radius: sphere.radius! })) };

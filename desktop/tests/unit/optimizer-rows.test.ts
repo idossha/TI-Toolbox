@@ -26,7 +26,7 @@ import type { RoiValue } from "../../src/renderer/pages/_shared/roi";
  * about itself in the table's second line, and the column resolver whose whole contract is that
  * the widths sum to the container so the table can never scroll sideways.
  */
-const cortical: RoiValue = { mode: "cortical", atlas: "DK40", regions: [{ id: 1, name: "insula", hemi: "lh" }] };
+const cortical: RoiValue = { mode: "cortical", space: "subject", atlas: "DK40", regions: [{ id: 1, name: "insula", hemi: "lh" }] };
 
 describe("the method vocabulary", () => {
   it("offers exactly two methods — a search is free-placement or exhaustive", () => {

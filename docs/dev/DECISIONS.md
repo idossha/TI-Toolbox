@@ -989,3 +989,50 @@ same config produced before; flex and ex write a small derived `.nii` under
 still shows the islands until `python -m tit.scene.guide_build --project <ernie project>` is re-run
 and its assets committed. **Revisit if:** a subject's segmentation is legitimately multi-component
 at these ratios, or SimNIBS fixes the labeling upstream.
+
+## 2026-09-17 — One space, two controls; the pane draws the subject, or MNI152
+
+**Supersedes the 2026-09-06 native-panes rule "what it draws is the fixed guide, never the selected
+subject" (R4).** That rule bought three things — a pane that paints on a project with no head
+model, no cache-cold 184 MB extraction on every subject tick, and no subject-RAS coordinate picked
+off someone else's anatomy — and cost the one thing the pane exists for: showing *what will
+actually be optimised*. charm's islands, an atlas a subject does not have, and an MNI atlas warped
+into this particular head are all invisible on a stand-in. The user's decision (2026-09-17) is that
+the pane draws the head the row names.
+
+**1. One value, two controls.** Every `RoiValue` mode carries one `space: "subject" | "mni"`;
+`SubcorticalRoiValue.atlasSpace` is renamed to it and `CorticalRoiValue` gains it. The Subject | MNI
+segmented control appears **twice** — above the scene pane (`TargetPreview`) and inside the ROI
+picker's panel — and both are the same `<RoiSpaceControl>` reading and writing that one field, on
+the Optimizer and on the Analyzer. *Failure it prevents:* two fields let a user set MNI above the
+pane, leave the picker saying Subject, and get a job that ran on whichever one the config builder
+happened to read. Switching space clears an atlas and its regions (they are space-specific) and
+says so in one sentence; coordinates, radii, mask paths and saved-ROI names are kept, because
+reinterpreting them in the new space is exactly what asking for MNI means.
+
+**2. Subject space draws the row's subject.** `<ScenePane subject=…>` already existed for the
+Simulator's free-hand placement; the targeting panes now pass it. Three states, each a sentence,
+never an error box: *building* (the scene routes' own 202, polled), *no head model yet* (the
+packaged guide is drawn and the server's 404 detail is quoted verbatim), *error* (verbatim). The
+islands cleanup applies to the drawn subcortical surfaces, so the putamen debris is gone in subject
+mode by construction rather than by a second fix.
+
+**3. MNI space draws MNI152.** A second packaged guide, `tit/scene/guide-mni/`, built by the same
+`tit.scene.guide_build` from the `mni152` example head, carrying the MNI152 skin and grey matter
+and the shipped MNI atlases as pickable label surfaces. `tit.scene.guide` and `/api/guide/*` gain
+one `guide` id (`default` | `mni`), checked against a dict the server wrote itself; there is still
+no `subject` parameter anywhere in those routes. The manifest answers `guide_id` and `guides[]`, so
+the pane offers only the anatomy this installation actually has.
+
+**4. MNI at job start.** Every runner that accepts an MNI ROI (flex, ex/mEx, recip, analyzer)
+transforms it into the subject with `mni2subject` *first*, then writes `roi_confirmation.png` (three
+orthogonal slices of the subject-space mask on the subject T1 at its centroid) and
+`roi_confirmation.json` (centroid in subject RAS, voxel count, GM overlap fraction) into the job's
+own output directory, and prints one line. *Failure it prevents:* a silently misplaced ROI is the
+one error in this pipeline that no later number can reveal — every metric downstream is
+self-consistently wrong.
+
+**Cost:** the targeting panes now issue per-subject scene requests, so ticking a new subject can
+cost a cold build (the 202 state is what makes that legible); the installation carries a second
+packaged guide. **Revisit if:** the per-subject build cost on a large cohort makes the pane feel
+slow enough that a "draw the guide instead" preference is worth having.

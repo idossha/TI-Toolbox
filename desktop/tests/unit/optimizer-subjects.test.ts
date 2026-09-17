@@ -39,7 +39,7 @@ const MEX_BUCKETS = {
 function flexRow(subject: string, extra: Partial<OptimizerRow> = {}): OptimizerRow {
   return {
     ...emptyOptimizerRow({ subjectId: subject, method: "flex" }),
-    roi: { mode: "cortical", atlas: "DK40", regions: [{ id: 1, name: "bankssts", hemi: "lh" }] },
+    roi: { mode: "cortical", space: "subject", atlas: "DK40", regions: [{ id: 1, name: "bankssts", hemi: "lh" }] },
     ...extra,
   };
 }
@@ -123,7 +123,7 @@ describe("jobsForRow — one row, its own subject's paths", () => {
   it("resolves a subcortical target's atlas_path per subject, never one subject's for all", () => {
     const roi: RoiValue = {
       mode: "subcortical",
-      atlasSpace: "subject",
+      space: "subject",
       atlas: "aparc.DKTatlas+aseg.mgz",
       regions: [{ id: 17, name: "Left-Hippocampus" }],
       tissues: "GM",

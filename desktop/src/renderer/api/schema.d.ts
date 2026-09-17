@@ -4351,7 +4351,10 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`. */
+                    guide?: "default" | "mni";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -4369,6 +4372,17 @@ export interface paths {
                                 id: string;
                                 label: string;
                             };
+                            /**
+                             * @description which packaged guide answered this request
+                             * @enum {string}
+                             */
+                            guide_id?: "default" | "mni";
+                            /** @description every packaged guide this installation actually has, in catalogue order — the pane's Subject | MNI switch offers only what is listed here */
+                            guides?: {
+                                /** @enum {string} */
+                                id: "default" | "mni";
+                                label: string;
+                            }[];
                             guide_version?: number;
                             /** @enum {string} */
                             space: "guide-ras";
@@ -4457,6 +4471,8 @@ export interface paths {
                 query: {
                     part: "skin" | "gm" | "subcortical";
                     format?: "tvsc" | "gii";
+                    /** @description Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`. */
+                    guide?: "default" | "mni";
                 };
                 header?: never;
                 path?: never;
@@ -4521,6 +4537,8 @@ export interface paths {
                 query: {
                     atlas: string;
                     format?: "gii";
+                    /** @description Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`. */
+                    guide?: "default" | "mni";
                 };
                 header?: never;
                 path?: never;
@@ -4581,6 +4599,8 @@ export interface paths {
             parameters: {
                 query: {
                     atlas: string;
+                    /** @description Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`. */
+                    guide?: "default" | "mni";
                 };
                 header?: never;
                 path?: never;
@@ -4654,6 +4674,8 @@ export interface paths {
             parameters: {
                 query: {
                     net: string;
+                    /** @description Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`. */
+                    guide?: "default" | "mni";
                 };
                 header?: never;
                 path?: never;

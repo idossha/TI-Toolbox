@@ -83,7 +83,10 @@ def test_no_route_takes_a_subject() -> None:
     for endpoint in endpoints:
         params = set(inspect.signature(endpoint).parameters)
         assert "subject" not in params, endpoint.__name__
-        assert params <= {"part", "atlas", "net", "format", "if_none_match"}
+        # `guide_id` (wire name `?guide=`) names WHICH packaged guide — `default` or `mni` — and
+        # is checked against a dict the server wrote itself, so it cannot couple the pane to a
+        # project the way a `subject` would (2026-09-17).
+        assert params <= {"part", "atlas", "net", "format", "if_none_match", "guide_id"}
 
 
 def test_manifest_ids_are_fetchable(client: TestClient) -> None:

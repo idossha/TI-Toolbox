@@ -162,18 +162,30 @@ export type GuideElectrodes = GuideElectrodesBody;
 /** The guide is never "building": it ships built. Kept so `<ScenePane>` reads one shape. */
 export type GuideManifestPart = GuideManifestBody["parts"][number];
 
-export async function getGuideManifest(): Promise<GuideManifest> {
-  const { body } = await getJson<GuideManifest>("/api/guide/manifest", "no-store");
+/**
+ * Which packaged guide a request wants: the subject-anatomy head (`"default"`) or the MNI152
+ * template (`"mni"`). Two guides, one shape, one pane — the space switch above the pane is
+ * nothing more than which of these the guide hooks are asked for
+ * (`docs/dev/DECISIONS.md § 2026-09-17`).
+ */
+export type GuideId = "default" | "mni";
+
+/** `&guide=mni`, or nothing at all for the default — so every existing URL is byte-identical. */
+const guideParam = (guide: GuideId | undefined): string => (guide && guide !== "default" ? `&guide=${guide}` : "");
+
+export async function getGuideManifest(guide?: GuideId): Promise<GuideManifest> {
+  const suffix = guide && guide !== "default" ? `?guide=${guide}` : "";
+  const { body } = await getJson<GuideManifest>(`/api/guide/manifest${suffix}`, "no-store");
   return body;
 }
 
-export async function getGuideRegions(atlas: string): Promise<GuideRegions> {
-  const { body } = await getJson<GuideRegions>(`/api/guide/regions?atlas=${q(atlas)}`);
+export async function getGuideRegions(atlas: string, guide?: GuideId): Promise<GuideRegions> {
+  const { body } = await getJson<GuideRegions>(`/api/guide/regions?atlas=${q(atlas)}${guideParam(guide)}`);
   return body;
 }
 
-export async function getGuideElectrodes(net: string): Promise<GuideElectrodes> {
-  const { body } = await getJson<GuideElectrodes>(`/api/guide/electrodes?net=${q(net)}`);
+export async function getGuideElectrodes(net: string, guide?: GuideId): Promise<GuideElectrodes> {
+  const { body } = await getJson<GuideElectrodes>(`/api/guide/electrodes?net=${q(net)}${guideParam(guide)}`);
   return body;
 }
 
@@ -191,12 +203,12 @@ export async function getGuideTvsc(url: string): Promise<Tvsc1 | null> {
   return parseTvsc1(await res.arrayBuffer());
 }
 
-export function guideSurfaceUrl(part: string): string {
-  return `/api/guide/surface?part=${q(part)}&format=tvsc`;
+export function guideSurfaceUrl(part: string, guide?: GuideId): string {
+  return `/api/guide/surface?part=${q(part)}&format=tvsc${guideParam(guide)}`;
 }
 
-export function guideLabelsUrl(atlas: string): string {
-  return `/api/guide/labels?atlas=${q(atlas)}&format=tvsc`;
+export function guideLabelsUrl(atlas: string, guide?: GuideId): string {
+  return `/api/guide/labels?atlas=${q(atlas)}&format=tvsc${guideParam(guide)}`;
 }
 
 export type { Tvsc1 };
