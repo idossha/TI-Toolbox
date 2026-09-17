@@ -325,6 +325,35 @@ def test_four_channel_path_uses_the_mti_envelope():
     assert all(record["roi_mean"] > 0 for record in records)
 
 
+def test_the_candidate_cap_keeps_the_best_ranked_ones():
+    from tit.opt.recip.engine import evaluate_candidates
+
+    leadfield = np.zeros((8, 2, 3))
+    leadfield[1:, :, 0] = np.arange(1, 8)[:, None] * 1e-3
+    leadfield[1:, :, 1] = np.arange(1, 8)[:, None] * 5e-4
+    pairs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [1, 2], [3, 4]])
+
+    capped = evaluate_candidates(
+        leadfield,
+        pairs,
+        np.array([0]),
+        np.array([1]),
+        2,
+        1.0,
+        None,
+        0.0,
+        max_candidates=3,
+    )
+    everything = evaluate_candidates(
+        leadfield, pairs, np.array([0]), np.array([1]), 2, 1.0, None, 0.0
+    )
+
+    assert len(capped) == 3
+    assert len(everything) > 3
+    # Enumeration is in rank order, so the cap keeps a prefix.
+    assert [r["pairs"] for r in capped] == [r["pairs"] for r in everything[:3]]
+
+
 def test_a_direction_selects_the_directional_envelope():
     from tit.calc import get_TI_dir
     from tit.opt.recip.engine import evaluate_candidates

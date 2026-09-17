@@ -466,11 +466,12 @@ def _plan_recip(
 
     The exact candidate count depends on which electrodes the reciprocity map
     ranks highest (combinations sharing an electrode are dropped), which needs
-    the leadfield; the plan reports the enumeration's upper bound instead.
+    the leadfield; the plan reports the enumeration's upper bound instead,
+    capped where the runner itself caps.
     """
     from math import comb
 
-    from tit.opt.config import DEFAULT_TOP_K
+    from tit.opt.config import DEFAULT_TOP_K, MAX_RECIP_CANDIDATES
 
     subjects = subject_ids or ([config.subject_id] if config.subject_id else [])
     jobs: list[PlanJob] = []
@@ -491,7 +492,9 @@ def _plan_recip(
     top_k = config.top_k or DEFAULT_TOP_K[config.n_channels]
     return jobs, {
         "search_space": {
-            "n_combinations": comb(top_k, config.n_channels),
+            "n_combinations": min(
+                comb(top_k, config.n_channels), MAX_RECIP_CANDIDATES
+            ),
             "top_k": top_k,
             "n_channels": config.n_channels,
         }

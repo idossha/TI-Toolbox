@@ -168,6 +168,7 @@ def evaluate_candidates(
     current_mA: float,
     direction: np.ndarray | None,
     focality_weight: float,
+    max_candidates: int | None = None,
     progress=None,
 ) -> list[dict]:
     """Metrics for every disjoint montage built from *pairs*.
@@ -182,6 +183,10 @@ def evaluate_candidates(
     roi_pos, background_pos : np.ndarray
         Positions within the evaluation subset of the ROI elements and of the
         non-ROI grey-matter elements.
+    max_candidates : int, optional
+        Stop after this many candidates. They are enumerated in reciprocity-rank
+        order, so the ones dropped are the worst-ranked. ``None`` uses
+        :data:`tit.opt.config.MAX_RECIP_CANDIDATES`.
     progress : callable, optional
         Called as ``progress(index, total)`` after each candidate.
 
@@ -191,8 +196,14 @@ def evaluate_candidates(
         One record per candidate: ``pairs`` (index pairs), ``roi_mean``,
         ``roi_max``, ``roi_min``, ``gm_mean``, ``gm_p95``, ``focality_tf``.
     """
+    from tit.opt.config import MAX_RECIP_CANDIDATES
+
+    if max_candidates is None:
+        max_candidates = MAX_RECIP_CANDIDATES
     pair_fields = (leadfield[pairs[:, 0]] - leadfield[pairs[:, 1]]) * current_mA
-    combinations = list(candidate_combinations(pairs, n_channels))
+    combinations = list(
+        itertools.islice(candidate_combinations(pairs, n_channels), max_candidates)
+    )
     records = []
     for index, combination in enumerate(combinations, start=1):
         depth = envelope([pair_fields[i] for i in combination], direction)

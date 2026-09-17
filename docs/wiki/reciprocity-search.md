@@ -36,7 +36,7 @@ Reciprocity search is **not exhaustive by construction** — it only ever evalua
 | `objective` | **Intensity** (rank by ROI mean) or **Focality** (rank by `roi_mean^(1+w) / p95` of non-ROI grey matter, with weight *w*) |
 | `n_channels` | 2 (TI) or 4 (mTI). The contract allows 2–4, but 3 is refused: the verified envelope is defined for an even number of channels. |
 | `current_mA` | current per channel |
-| `top_k` | how many reciprocity-ranked pairs to combine. Empty uses 40 (2 channels) or 12 (4 channels). |
+| `top_k` | how many reciprocity-ranked pairs to combine. Empty uses 40 (2 channels) or 20 (4 channels). At most 1 000 candidates are ever evaluated, worst-ranked first to go. |
 | `gm_subsample` | grey-matter elements sampled outside the ROI for the background percentile (default 100 000, fixed seed) |
 
 An ROI target uses the **mean** field over the ROI, never a single centroid element — in the validation study the centroid variant ranked 75th among candidate montages where the ROI-mean variant ranked 3rd.
@@ -60,9 +60,30 @@ The metrics are **leadfield estimates with point electrodes**, exactly like ex-s
 
 ## Worked example: ernie's thalamus
 
-Subject `ernie`, net EEG10-10 (71 electrodes, 2 485 pairs), target both thalami (`labeling.nii.gz`, labels 10 and 49), 2 channels at 1 mA each, no direction constraint.
+Subject `ernie`, net EEG10-10 (76 electrodes, 2 850 pairs, reference Cz), target both thalami (`labeling.nii.gz`, labels 10 and 49), 2 channels at 1 mA each, no direction constraint.
 
-<!-- ERNIE-NUMBERS -->
+The target resolves to 14 484 mesh elements, centroid `(2.2, 10.4, 17.3)` mm. The whole run — reading the leadfield for the 114 484 evaluation elements, ranking all 2 850 pairs, and scoring every montage — takes **36 s** end to end in the v3.0.0 container on an emulated Apple-silicon Mac:
+
+| Stage | Time |
+|---|---|
+| leadfield subset read (114 484 elements × 76 electrodes) | 19.3 s |
+| reciprocity map over 2 850 pairs | **0.021 s** |
+| 580 two-channel candidates evaluated | 11.2 s (0.019 s each) |
+
+Top of `candidates.csv`, at 1 mA per channel:
+
+| Rank | Montage | ROI mean | ROI max | non-ROI GM p95 |
+|---|---|---|---|---|
+| 1 | Fz–I1 / F2–Iz | **246.7 mV/m** | 619.3 mV/m | 292.9 mV/m |
+| 2 | Fz–Iz / F2–I2 | 245.9 mV/m | 575.6 mV/m | 292.1 mV/m |
+| 3 | Fz–I1 / F2–I2 | 244.9 mV/m | 584.8 mV/m | 283.2 mV/m |
+
+The exhaustive search over all 2 850 pairs on the same leadfield finds 246.7 mV/m — the same montage family, after minutes of sweeping instead of 11 seconds.
+
+Two variations on the same target:
+
+- **Focality** (weight 0.5) picks F1–I1 / F2–PO10 instead: ROI mean 235.1 mV/m with the background p95 down to 260.5 mV/m — less dose in the target, less everywhere else.
+- **Four channels** (mTI, default `top_k` = 20 → 150 disjoint montages, 24.9 s) picks F2–I1 / Fz–PO9 / AFz–I2 / F1–Iz at 339.1 mV/m ROI mean, 388.4 mV/m background p95.
 
 ## Related
 

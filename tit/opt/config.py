@@ -1300,9 +1300,18 @@ _RECIP_TARGET_CLASSES: dict[str, type] = {}
 VALID_RECIP_CHANNELS: tuple[int, ...] = (2, 4)
 
 #: Reciprocity-ranked pairs kept per channel count when ``top_k`` is unset.
-#: Chosen so the combinatorial stage stays small: 780 candidates at 2
-#: channels, and 495 four-channel combinations before the disjointness filter.
-DEFAULT_TOP_K: dict[int, int] = {2: 40, 3: 16, 4: 12}
+#: Measured on ernie's EEG10-10 net (2 850 pairs): 40 pairs give 780 two-channel
+#: combinations, 580 of them electrode-disjoint; 20 pairs give 150 disjoint
+#: four-channel montages, where 12 pairs -- the top of the map crowd onto the
+#: same few electrodes -- leave only 4.
+DEFAULT_TOP_K: dict[int, int] = {2: 40, 3: 16, 4: 20}
+
+#: Hard ceiling on evaluated candidates, whatever ``top_k`` allows. The
+#: combinations grow as ``top_k`` choose ``n_channels`` (40 pairs would be
+#: 12 066 disjoint four-channel montages at ~1 s each), and they are generated
+#: in reciprocity-rank order, so the ones past the cap are the ones the map
+#: already ranked worst.
+MAX_RECIP_CANDIDATES = 1000
 
 
 @dataclass

@@ -175,8 +175,10 @@ FIXED_MIN: dict[str, float] = {
     "sim": (0.8 + 1.4) / EMULATION_FACTOR,
     "ex": 2.0 / EMULATION_FACTOR,
     "mex": 2.0 / EMULATION_FACTOR,
-    #: leadfield subset read plus the reciprocity map itself (milliseconds).
-    "recip": (5.0 / 60.0) / EMULATION_FACTOR,
+    #: leadfield subset read (~19 s for 114 k elements over 76 electrodes) plus
+    #: the mesh read; the reciprocity map itself is 14 ms. Measured on ernie's
+    #: EEG10-10 net in the emulated v3.0.0 image, 2026-09-17.
+    "recip": (21.0 / 60.0) / EMULATION_FACTOR,
     "flex": 1.0 / EMULATION_FACTOR,
     "flex_adaptive": 1.0 / EMULATION_FACTOR,
     "flex_pareto": 1.0 / EMULATION_FACTOR,
@@ -196,12 +198,13 @@ PER_UNIT_MIN: dict[str, float] = {
     "flex_adaptive": 12.0 / EMULATION_FACTOR,
     "flex_pareto": 12.0 / EMULATION_FACTOR,
 }
-#: Native minutes per reciprocity candidate, by channel count: the 2-channel
-#: Grossman closed form is ~0.02 s on the evaluation subset, while the 4-channel
-#: mTI envelope runs a direction search and costs ~1 s.
+#: Native minutes per reciprocity candidate, by channel count. Measured on the
+#: same run as ``FIXED_MIN["recip"]`` over a 114 k-element evaluation subset:
+#: 0.019 s for the 2-channel Grossman closed form, 0.166 s for the 4-channel
+#: mTI envelope's direction search.
 RECIP_PER_CANDIDATE_MIN: dict[int, float] = {
     2: (0.02 / 60.0) / EMULATION_FACTOR,
-    4: (1.0 / 60.0) / EMULATION_FACTOR,
+    4: (0.17 / 60.0) / EMULATION_FACTOR,
 }
 
 #: An anisotropic (DTI) conductivity model costs more per solve than the isotropic default.
