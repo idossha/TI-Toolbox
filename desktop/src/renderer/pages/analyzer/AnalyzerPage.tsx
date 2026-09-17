@@ -246,7 +246,7 @@ export function AnalyzerPage() {
             field: row.field,
             analysisType: roi.mode as AnalysisType,
             coordinateSpace:
-              roi.mode === "spherical" ? roi.space : roi.mode === "subcortical" ? roi.atlasSpace : "subject",
+              roi.space,
             roiValue: roi,
             sphere: roi.mode === "spherical" ? (roi.spheres[0] ?? EMPTY_SPHERE) : EMPTY_SPHERE,
           });

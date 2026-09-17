@@ -2939,6 +2939,15 @@ paths:
         `atlases[]` have the same shape as the scene manifest's, so one pane component consumes
         either.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           content:
@@ -2953,6 +2962,21 @@ paths:
                     properties:
                       id: { type: string, description: the source subject the guide was derived from }
                       label: { type: string }
+                  guide_id:
+                    type: string
+                    enum: [default, mni]
+                    description: which packaged guide answered this request
+                  guides:
+                    type: array
+                    description: >-
+                      every packaged guide this installation actually has, in catalogue order —
+                      the pane's Subject | MNI switch offers only what is listed here
+                    items:
+                      type: object
+                      required: [id, label]
+                      properties:
+                        id: { type: string, enum: [default, mni] }
+                        label: { type: string }
                   guide_version: { type: integer }
                   space: { type: string, enum: [guide-ras] }
                   bbox:
@@ -2967,7 +2991,12 @@ paths:
                       type: object
                       required: [id, kind, triangles, vertices, bytes, fingerprint, url]
                       properties:
-                        id: { type: string, enum: [skin, gm, subcortical] }
+                        id:
+                          type: string
+                          description: >-
+                            `skin`, `gm`, `subcortical`, or `atlas-<file>` — the MNI guide packages
+                            one surface per atlas volume, and `atlases[].aligned_to` names which
+                            part carries a given atlas' labels.
                         kind: { type: string, enum: [surface] }
                         triangles: { type: integer }
                         vertices: { type: integer }
@@ -3002,7 +3031,9 @@ paths:
                       properties:
                         id: { type: string }
                         kind: { type: string, enum: [cortical, subcortical] }
-                        aligned_to: { type: string, enum: [gm, subcortical] }
+                        aligned_to:
+                          type: string
+                          description: the `parts[].id` this atlas' per-vertex labels are aligned to
                         hemispheres:
                           type: array
                           items: { type: string, enum: [lh, rh] }
@@ -3043,11 +3074,19 @@ paths:
         - in: query
           name: part
           required: true
-          schema: { type: string, enum: [skin, gm, subcortical] }
+          schema: { type: string }
         - in: query
           name: format
           required: false
           schema: { type: string, enum: [tvsc, gii], default: tvsc }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           description: TVSC1 or GIfTI binary
@@ -3080,6 +3119,14 @@ paths:
           name: format
           required: false
           schema: { type: string, enum: [gii], default: gii }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           description: GIfTI binary with a label array and label table
@@ -3104,6 +3151,14 @@ paths:
           name: atlas
           required: true
           schema: { type: string }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           content:
@@ -3156,6 +3211,14 @@ paths:
           name: net
           required: true
           schema: { type: string }
+        - in: query
+          name: guide
+          required: false
+          description: >-
+            Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni`
+            (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means
+            `default`.
+          schema: { type: string, enum: [default, mni], default: default }
       responses:
         "200":
           content:

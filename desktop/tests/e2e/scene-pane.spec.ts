@@ -359,6 +359,9 @@ test("bundled subcortical atlas and target settings synchronize without subject 
   await expect(host).toHaveAttribute("data-state", "ready");
   const state = await page.evaluate(() => ({ parts: window.__scenePane?.parts.map(p => p.id), space: window.__scenePane?.space }));
   expect(state.parts).toEqual(["subcortical", "skin"]);
+  // Still the guide, even after 2026-09-17's "draw the row's own subject": a subject's scene
+  // carries no subcortical atlas (only the packaged guide freezes a surface for
+  // `labeling.nii.gz`), so the pane falls back rather than show unpickable cortex.
   expect(state.space).toBe("guide-ras");
   await expect(host.getByRole("button", { name: /Peel|Isolate|Reset visibility/ })).toHaveCount(0);
   const picked = await page.evaluate(() => {

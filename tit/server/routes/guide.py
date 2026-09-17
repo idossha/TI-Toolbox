@@ -35,6 +35,18 @@ from tit.scene import guide
 
 router = APIRouter()
 
+#: Human labels for the packaged guides, for the pane's space switch.
+GUIDE_LABELS = {"default": "Subject anatomy", "mni": "MNI152 template"}
+
+
+def _installed() -> list[dict[str, str]]:
+    """Every guide this installation actually has, in catalogue order."""
+    return [
+        {"id": gid, "label": GUIDE_LABELS.get(gid, gid)}
+        for gid in guide.installed_guide_ids()
+    ]
+
+
 #: Immutable payload, content-addressed by ETag: a year, publicly cacheable.
 IMMUTABLE_CACHE_CONTROL = "private, max-age=31536000, immutable"
 
@@ -48,9 +60,34 @@ def _unavailable(exc: guide.GuideUnavailable) -> HTTPException:
     return HTTPException(status_code=404, detail=str(exc))
 
 
-def _manifest() -> dict[str, Any]:
+#: The one client-supplied string these routes take besides a part/atlas/net
+#: id. It is a membership test against a dict the server wrote itself, so a
+#: traversal segment cannot survive it.
+def _guide_id(value: str | None) -> str:
+    guide_id = value or guide.DEFAULT_GUIDE
+    if guide_id not in guide.GUIDE_DIRS:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"There is no packaged guide {guide_id!r}; there is: "
+                f"{', '.join(sorted(guide.GUIDE_DIRS))}."
+            ),
+        )
+    return guide_id
+
+
+#: ``?guide=`` on every route here. The parameter is named ``guide_id`` in
+#: Python so it cannot shadow this module inside a handler.
+GuideQuery = Query(
+    None,
+    alias="guide",
+    description="Which packaged guide: 'default' (subject anatomy) or 'mni' (MNI152 template).",
+)
+
+
+def _manifest(guide_id: str = guide.DEFAULT_GUIDE) -> dict[str, Any]:
     try:
-        return guide.manifest()
+        return guide.manifest(guide_id)
     except guide.GuideUnavailable as exc:
         raise _unavailable(exc) from exc
 
@@ -98,14 +135,15 @@ def _json_response(body: Any, *, cache_control: str = IMMUTABLE_CACHE_CONTROL) -
     "/api/guide/manifest",
     summary="Everything the fixed guide scene contains (no subject, no build, no cache state)",
 )
-def manifest() -> Any:
+def manifest(guide_id: str | None = GuideQuery) -> Any:
     """The packaged manifest, minus the per-file bookkeeping a client never uses.
 
     ``files``/``*_meta``/``sha256`` describe the *package* (the gate test reads
     them off disk); what crosses the wire is the same shape the scene manifest
     has, so one pane component can consume either.
     """
-    body = _manifest()
+    guide_id = _guide_id(guide_id)
+    body = _manifest(guide_id)
     parts = [
         {k: v for k, v in part.items() if k != "files"}
         for part in body.get("parts", [])
@@ -125,6 +163,10 @@ def manifest() -> Any:
     return _json_response(
         {
             "guide": body.get("guide", {}),
+            # Which packaged guide answered, and which ones this installation
+            # has — the pane's Subject | MNI switch offers only what is here.
+            "guide_id": guide_id,
+            "guides": _installed(),
             "guide_version": body.get("guide_version", guide.GUIDE_VERSION),
             "space": body.get("space", guide.GUIDE_SPACE),
             "bbox": body.get("bbox"),
@@ -157,11 +199,12 @@ def manifest() -> Any:
 def surface(
     part: str = Query(...),
     format: str = Query("tvsc"),
+    guide_id: str | None = GuideQuery,
     if_none_match: str | None = Header(None, alias="If-None-Match"),
 ) -> Response:
     fmt = _format(format)
     try:
-        asset = guide.surface(part, fmt)
+        asset = guide.surface(part, fmt, _guide_id(guide_id))
     except guide.GuideUnavailable as exc:
         raise _unavailable(exc) from exc
     return _bytes_response(asset, if_none_match)
@@ -184,11 +227,12 @@ def surface(
 def labels(
     atlas: str = Query(...),
     format: str = Query("gii"),
+    guide_id: str | None = GuideQuery,
     if_none_match: str | None = Header(None, alias="If-None-Match"),
 ) -> Response:
     fmt = _format(format)
     try:
-        asset = guide.labels(atlas, fmt)
+        asset = guide.labels(atlas, fmt, _guide_id(guide_id))
     except guide.GuideUnavailable as exc:
         raise _unavailable(exc) from exc
     return _bytes_response(asset, if_none_match)
@@ -198,9 +242,9 @@ def labels(
     "/api/guide/regions",
     summary="One packaged atlas' legend plus the URL of its label payload",
 )
-def regions(atlas: str = Query(...)) -> Any:
+def regions(atlas: str = Query(...), guide_id: str | None = GuideQuery) -> Any:
     try:
-        body = guide.legend(atlas)
+        body = guide.legend(atlas, _guide_id(guide_id))
     except guide.GuideUnavailable as exc:
         raise _unavailable(exc) from exc
     return _json_response({**body, "cache": {"state": "ready", "built_ms": 0.0}})
@@ -210,8 +254,8 @@ def regions(atlas: str = Query(...)) -> Any:
     "/api/guide/electrodes",
     summary="One packaged EEG net's electrode positions in the guide's own space",
 )
-def electrodes(net: str = Query(...)) -> Any:
+def electrodes(net: str = Query(...), guide_id: str | None = GuideQuery) -> Any:
     try:
-        return _json_response(guide.electrodes(net))
+        return _json_response(guide.electrodes(net, _guide_id(guide_id)))
     except guide.GuideUnavailable as exc:
         raise _unavailable(exc) from exc

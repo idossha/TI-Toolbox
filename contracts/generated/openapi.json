@@ -5743,6 +5743,22 @@
             "bearerAuth": []
           }
         ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "guide",
+            "required": false,
+            "description": "Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "default",
+                "mni"
+              ],
+              "default": "default"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5772,6 +5788,37 @@
                         },
                         "label": {
                           "type": "string"
+                        }
+                      }
+                    },
+                    "guide_id": {
+                      "type": "string",
+                      "enum": [
+                        "default",
+                        "mni"
+                      ],
+                      "description": "which packaged guide answered this request"
+                    },
+                    "guides": {
+                      "type": "array",
+                      "description": "every packaged guide this installation actually has, in catalogue order \u2014 the pane's Subject | MNI switch offers only what is listed here",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "label"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "enum": [
+                              "default",
+                              "mni"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          }
                         }
                       }
                     },
@@ -5818,11 +5865,7 @@
                         "properties": {
                           "id": {
                             "type": "string",
-                            "enum": [
-                              "skin",
-                              "gm",
-                              "subcortical"
-                            ]
+                            "description": "`skin`, `gm`, `subcortical`, or `atlas-<file>` \u2014 the MNI guide packages one surface per atlas volume, and `atlases[].aligned_to` names which part carries a given atlas' labels."
                           },
                           "kind": {
                             "type": "string",
@@ -5915,10 +5958,7 @@
                           },
                           "aligned_to": {
                             "type": "string",
-                            "enum": [
-                              "gm",
-                              "subcortical"
-                            ]
+                            "description": "the `parts[].id` this atlas' per-vertex labels are aligned to"
                           },
                           "hemispheres": {
                             "type": "array",
@@ -6016,12 +6056,7 @@
             "name": "part",
             "required": true,
             "schema": {
-              "type": "string",
-              "enum": [
-                "skin",
-                "gm",
-                "subcortical"
-              ]
+              "type": "string"
             }
           },
           {
@@ -6035,6 +6070,20 @@
                 "gii"
               ],
               "default": "tvsc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "guide",
+            "required": false,
+            "description": "Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "default",
+                "mni"
+              ],
+              "default": "default"
             }
           }
         ],
@@ -6100,6 +6149,20 @@
               ],
               "default": "gii"
             }
+          },
+          {
+            "in": "query",
+            "name": "guide",
+            "required": false,
+            "description": "Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "default",
+                "mni"
+              ],
+              "default": "default"
+            }
           }
         ],
         "responses": {
@@ -6150,6 +6213,20 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "guide",
+            "required": false,
+            "description": "Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "default",
+                "mni"
+              ],
+              "default": "default"
             }
           }
         ],
@@ -6281,6 +6358,20 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "guide",
+            "required": false,
+            "description": "Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "default",
+                "mni"
+              ],
+              "default": "default"
             }
           }
         ],

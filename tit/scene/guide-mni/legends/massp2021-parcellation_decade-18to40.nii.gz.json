@@ -1,0 +1,228 @@
+{
+ "atlas": "massp2021-parcellation_decade-18to40.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "atlas-massp2021-parcellation_decade-18to40.nii.gz",
+ "vertices": 50034,
+ "radius_mm": 0,
+ "labelled_fraction": 1,
+ "legend": [
+  {
+   "id": 1,
+   "name": "Striatum-left",
+   "color": "#be8f19",
+   "label": 1,
+   "hemi": ""
+  },
+  {
+   "id": 2,
+   "name": "Striatum-right",
+   "color": "#76b3fe",
+   "label": 2,
+   "hemi": ""
+  },
+  {
+   "id": 3,
+   "name": "Subthalamic-Nucleus-left",
+   "color": "#fc0957",
+   "label": 3,
+   "hemi": ""
+  },
+  {
+   "id": 4,
+   "name": "Subthalamic-Nucleus-right",
+   "color": "#50f1fd",
+   "label": 4,
+   "hemi": ""
+  },
+  {
+   "id": 5,
+   "name": "Substantia-Nigra-left",
+   "color": "#06a7c5",
+   "label": 5,
+   "hemi": ""
+  },
+  {
+   "id": 6,
+   "name": "Substantia-Nigra-right",
+   "color": "#14fd7e",
+   "label": 6,
+   "hemi": ""
+  },
+  {
+   "id": 7,
+   "name": "Red-Nucleus-left",
+   "color": "#d17361",
+   "label": 7,
+   "hemi": ""
+  },
+  {
+   "id": 8,
+   "name": "Red-Nucleus-right",
+   "color": "#b0d444",
+   "label": 8,
+   "hemi": ""
+  },
+  {
+   "id": 9,
+   "name": "Globus-Pallidus-pars-interna-left",
+   "color": "#bc7358",
+   "label": 9,
+   "hemi": ""
+  },
+  {
+   "id": 10,
+   "name": "Globus-Pallidus-pars-interna-right",
+   "color": "#9a7907",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "Globus-Pallidus-pars-externa-left",
+   "color": "#22e000",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "Globus-Pallidus-pars-externa-right",
+   "color": "#96b3e9",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "Thalamus-left",
+   "color": "#6cb3fc",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 14,
+   "name": "Thalamus-right",
+   "color": "#db8546",
+   "label": 14,
+   "hemi": ""
+  },
+  {
+   "id": 15,
+   "name": "Lateral-Ventricle-left",
+   "color": "#808186",
+   "label": 15,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "Lateral-Ventricle-right",
+   "color": "#70b45c",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "Third-Ventricle",
+   "color": "#a36367",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "Fourth-Ventricle",
+   "color": "#ca9b70",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 19,
+   "name": "Amygdala-left",
+   "color": "#468b8c",
+   "label": 19,
+   "hemi": ""
+  },
+  {
+   "id": 20,
+   "name": "Amygdala-right",
+   "color": "#2ff7a9",
+   "label": 20,
+   "hemi": ""
+  },
+  {
+   "id": 21,
+   "name": "Internal-Capsule-left",
+   "color": "#666b3a",
+   "label": 21,
+   "hemi": ""
+  },
+  {
+   "id": 22,
+   "name": "Internal-Capsule-right",
+   "color": "#ddf385",
+   "label": 22,
+   "hemi": ""
+  },
+  {
+   "id": 23,
+   "name": "Ventral-Tegmental-Area-left",
+   "color": "#fdb86f",
+   "label": 23,
+   "hemi": ""
+  },
+  {
+   "id": 24,
+   "name": "Ventral-Tegmental-Area-right",
+   "color": "#7ce75c",
+   "label": 24,
+   "hemi": ""
+  },
+  {
+   "id": 25,
+   "name": "Fornix",
+   "color": "#409796",
+   "label": 25,
+   "hemi": ""
+  },
+  {
+   "id": 26,
+   "name": "Periaqueductal-Gray-left",
+   "color": "#6a8622",
+   "label": 26,
+   "hemi": ""
+  },
+  {
+   "id": 27,
+   "name": "Periaqueductal-Gray-right",
+   "color": "#1c24b4",
+   "label": 27,
+   "hemi": ""
+  },
+  {
+   "id": 28,
+   "name": "Pedunculopontine-Nucleus-left",
+   "color": "#68405e",
+   "label": 28,
+   "hemi": ""
+  },
+  {
+   "id": 29,
+   "name": "Pedunculopontine-Nucleus-right",
+   "color": "#6995b9",
+   "label": 29,
+   "hemi": ""
+  },
+  {
+   "id": 30,
+   "name": "Claustrum-left",
+   "color": "#cee464",
+   "label": 30,
+   "hemi": ""
+  },
+  {
+   "id": 31,
+   "name": "Claustrum-right",
+   "color": "#05b76f",
+   "label": 31,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=massp2021-parcellation_decade-18to40.nii.gz&guide=mni"
+}

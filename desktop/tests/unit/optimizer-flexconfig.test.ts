@@ -71,7 +71,7 @@ describe("roiToConfig", () => {
     const value = emptyRoi("subcortical");
     if (value.mode !== "subcortical") throw new Error("unreachable");
     value.atlas = "CIT168";
-    value.atlasSpace = "mni";
+    value.space = "mni";
     value.regions = [
       { id: 1, name: "Putamen" },
       { id: 2, name: "Caudate" },

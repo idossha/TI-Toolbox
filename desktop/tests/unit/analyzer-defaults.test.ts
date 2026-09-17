@@ -55,12 +55,13 @@ function validate(
 
 const corticalRoi: RoiValue = {
   mode: "cortical",
+  space: "subject",
   atlas: "DK40",
   regions: [{ id: 29, name: "insula", hemi: "lh" }],
 };
 const subcorticalRoi: RoiValue = {
   mode: "subcortical",
-  atlasSpace: "mni",
+  space: "mni",
   atlas: "CIT168",
   regions: [{ id: 1, name: "CIT168_Pu_Putamen" }],
   tissues: "GM",
@@ -79,7 +80,7 @@ describe("Analyzer page configs validate against contracts/generated/config.sche
       analysisType: "spherical",
       coordinateSpace: "subject",
       sphere: { x: -12.4, y: -18.2, z: 7.9, radius: 5 },
-      roiValue: { mode: "cortical", atlas: undefined, regions: [] },
+      roiValue: { mode: "cortical", space: "subject", atlas: undefined, regions: [] },
     });
     expect(validate("AnalyzerConfig", config)).toMatchObject({
       valid: true,
@@ -99,7 +100,7 @@ describe("Analyzer page configs validate against contracts/generated/config.sche
       analysisType: "spherical",
       coordinateSpace: "mni",
       sphere: { x: -42, y: 32, z: 28, radius: 8 },
-      roiValue: { mode: "cortical", atlas: undefined, regions: [] },
+      roiValue: { mode: "cortical", space: "subject", atlas: undefined, regions: [] },
     });
     expect(config).toMatchObject({
       field: "hf_peak",
@@ -141,6 +142,7 @@ describe("Analyzer page configs validate against contracts/generated/config.sche
   it("multiple selected regions combine into a region list", () => {
     const multi: RoiValue = {
       mode: "cortical",
+      space: "subject",
       atlas: "DK40",
       regions: [
         { id: 29, name: "insula", hemi: "lh" },
@@ -204,7 +206,7 @@ describe("Analyzer page configs validate against contracts/generated/config.sche
       analysisType: "spherical",
       coordinateSpace: "subject",
       sphere: { x: -11.8, y: -17.6, z: 8.3, radius: 5 },
-      roiValue: { mode: "cortical", atlas: undefined, regions: [] },
+      roiValue: { mode: "cortical", space: "subject", atlas: undefined, regions: [] },
     });
     expect(config).toMatchObject({
       mode: "group",
@@ -324,8 +326,9 @@ describe("a row's own target", () => {
   });
 
   it("two names are printed, more than two become a count, and combine is stated in a word", () => {
-    const two: RoiValue = {
+    const two: Extract<RoiValue, { mode: "cortical" }> = {
       mode: "cortical",
+      space: "subject",
       atlas: "DK40",
       regions: [
         { id: 28, name: "superiorfrontal", hemi: "lh" },
@@ -362,6 +365,7 @@ describe("a row's own target", () => {
     // "Combine regions into one ROI" off: one analysis per region.
     const multi: RoiValue = {
       mode: "cortical",
+      space: "subject",
       atlas: "DK40",
       regions: [
         { id: 29, name: "insula", hemi: "lh" },
@@ -401,7 +405,7 @@ describe("the tissue suffix on a row's target line", () => {
 
 describe("Analyzer visual target entry", () => {
   it("allows the first atlas pick on a new row", () => {
-    expect(corticalSceneRoi(emptyAnalyzerRow().roi)).toEqual({ mode: "cortical", atlas: undefined, regions: [] });
+    expect(corticalSceneRoi(emptyAnalyzerRow().roi)).toEqual({ mode: "cortical", space: "subject", atlas: undefined, regions: [] });
   });
   it("keeps existing cortical selections", () => {
     expect(corticalSceneRoi(corticalRoi)).toBe(corticalRoi);

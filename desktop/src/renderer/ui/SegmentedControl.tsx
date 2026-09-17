@@ -17,6 +17,9 @@ export interface SegmentedControlProps<T extends string = string> {
   size?: "sm" | "md";
   disabled?: boolean;
   "aria-label": string;
+  /** Test hook — two of these controls are the same value on the targeting pages, and a spec has
+   *  to be able to name which one it is driving. */
+  "data-testid"?: string;
   className?: string;
 }
 
@@ -35,6 +38,7 @@ export function SegmentedControl<T extends string = string>({
   size = "md",
   disabled,
   "aria-label": ariaLabel,
+  "data-testid": testId,
   className,
 }: SegmentedControlProps<T>) {
   return (
@@ -46,6 +50,7 @@ export function SegmentedControl<T extends string = string>({
       }}
       disabled={disabled}
       aria-label={ariaLabel}
+      data-testid={testId}
       className={cn("segmented", size === "sm" && "segmented-sm", className)}
     >
       {options.map((option) => (

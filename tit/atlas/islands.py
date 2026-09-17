@@ -74,7 +74,9 @@ def keep_main_components(mask, *, what: str = "region"):
     generous, so nothing is split on a diagonal touch).  Returns
     ``(cleaned_mask, removed_voxels, removed_components)``; an empty mask, a
     single-component mask, or a disabled cleanup returns the input unchanged with
-    ``(mask, 0, 0)``.  *what* only names the region in the log line.
+    ``(mask, 0, 0)``.  The largest component is *always* kept, even when it is
+    below the absolute floor, so this can never empty a region.  *what* only
+    names the region in the log line.
     """
     import numpy as np
 
@@ -93,6 +95,12 @@ def keep_main_components(mask, *, what: str = "region"):
     largest = int(sizes.max())
     threshold = max(MIN_VOXELS, largest * MIN_FRACTION_OF_LARGEST)
     keep = sizes >= threshold
+    # The largest component always survives, whatever the floor says. Measured
+    # 2026-09-17 while building the MNI guide: Morel's Mammillothalamic tract is
+    # 43 voxels in two pieces, so a flat 50-voxel floor deleted the *whole
+    # region* and the surface build died on an empty mask. A cleanup that can
+    # empty an ROI is worse than the islands it removes.
+    keep[int(np.argmax(sizes))] = True
     cleaned = keep[labelled]
     removed = int(mask.sum() - cleaned.sum())
     dropped = int(count - keep[1:].sum())

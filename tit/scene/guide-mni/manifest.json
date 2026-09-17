@@ -1,0 +1,373 @@
+{
+ "guide": {
+  "id": "MNI152",
+  "label": "MNI152 template"
+ },
+ "guide_version": 2,
+ "builder_version": "4",
+ "space": "guide-ras",
+ "bbox": [
+  -88.216,
+  -118.604,
+  -172.711,
+  88.655,
+  100.248,
+  100.06
+ ],
+ "focus_bbox": [
+  -88.216,
+  -118.604,
+  -65.591,
+  88.655,
+  89.12,
+  100.06
+ ],
+ "parts": [
+  {
+   "id": "skin",
+   "kind": "surface",
+   "triangles": 128450,
+   "vertices": 64161,
+   "bytes": 2311364,
+   "fingerprint": "guide-2-skin",
+   "url": "/api/guide/surface?part=skin&guide=mni",
+   "simplified": false,
+   "within_budget": true,
+   "max_deviation_mm": 0.0,
+   "bbox": [
+    -88.216,
+    -118.604,
+    -172.711,
+    88.655,
+    100.248,
+    100.06
+   ],
+   "focus_bbox": [
+    -88.216,
+    -118.604,
+    -65.591,
+    88.655,
+    89.12,
+    100.06
+   ],
+   "files": {
+    "tvsc": "surfaces/skin.tvsc",
+    "tvsc_meta": {
+     "bytes": 2311364,
+     "sha256": "b2c081845a95b7832f87206a44be93a5f3edbcf286f234f651ef32e0dfa26f79"
+    },
+    "gii": "surfaces/skin.gii",
+    "gii_meta": {
+     "bytes": 2185444,
+     "sha256": "755ffac1fcbbc183d5a01dde848d966027537ce1f2dbd90468eb96f201abbbf1"
+    }
+   }
+  },
+  {
+   "id": "gm",
+   "kind": "surface",
+   "triangles": 145184,
+   "vertices": 66544,
+   "bytes": 2540768,
+   "fingerprint": "guide-2-gm",
+   "url": "/api/guide/surface?part=gm&guide=mni",
+   "simplified": true,
+   "within_budget": true,
+   "max_deviation_mm": 6.7468,
+   "bbox": [
+    -70.032,
+    -106.451,
+    -65.592,
+    71.533,
+    72.558,
+    81.101
+   ],
+   "focus_bbox": [
+    -70.032,
+    -106.451,
+    -65.54,
+    71.533,
+    72.558,
+    81.101
+   ],
+   "files": {
+    "tvsc": "surfaces/gm.tvsc",
+    "tvsc_meta": {
+     "bytes": 2540768,
+     "sha256": "e21e20109ffe90cb41c69aa5157a9e5b1bdf57bbe4471deb1e9df24651c80cd3"
+    },
+    "gii": "surfaces/gm.gii",
+    "gii_meta": {
+     "bytes": 2313860,
+     "sha256": "25bc861af08fc90552b28ab4a908b42845b98938b58663fd7cd122f5da37f55d"
+    }
+   }
+  },
+  {
+   "id": "atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+   "kind": "surface",
+   "triangles": 47141,
+   "vertices": 23488,
+   "bytes": 847580,
+   "fingerprint": "guide-2-atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+   "url": "/api/guide/surface?part=atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz&guide=mni",
+   "simplified": true,
+   "within_budget": true,
+   "bbox": [
+    -38.0,
+    -39.5,
+    -21.5,
+    38.0,
+    27.0,
+    28.5
+   ],
+   "focus_bbox": [
+    -38.0,
+    -39.5,
+    -21.5,
+    38.0,
+    27.0,
+    28.5
+   ],
+   "files": {
+    "tvsc": "surfaces/atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 847580,
+     "sha256": "7387939066e5a43808a653242c405c2d3041cf87f92a64355bbf89c0f36a02ca"
+    },
+    "gii": "surfaces/atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz.gii",
+    "gii_meta": {
+     "bytes": 321683,
+     "sha256": "f1fa179becc1538b6691f36025c30673f4e14449c94833fa95b9d4f6935eecef"
+    }
+   }
+  },
+  {
+   "id": "atlas-MorelMNI152_labeling_1mm.nii.gz",
+   "kind": "surface",
+   "triangles": 48146,
+   "vertices": 23967,
+   "bytes": 865388,
+   "fingerprint": "guide-2-atlas-MorelMNI152_labeling_1mm.nii.gz",
+   "url": "/api/guide/surface?part=atlas-MorelMNI152_labeling_1mm.nii.gz&guide=mni",
+   "simplified": true,
+   "within_budget": true,
+   "bbox": [
+    -28.5,
+    -36.5,
+    -15.5,
+    30.5,
+    -0.5,
+    18.5
+   ],
+   "focus_bbox": [
+    -28.5,
+    -36.5,
+    -15.5,
+    30.5,
+    -0.5,
+    18.5
+   ],
+   "files": {
+    "tvsc": "surfaces/atlas-MorelMNI152_labeling_1mm.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 865388,
+     "sha256": "7908adbaa30c34dd6c2f6433fe059602c66a1194c338c4b3d69b54b19fd54571"
+    },
+    "gii": "surfaces/atlas-MorelMNI152_labeling_1mm.nii.gz.gii",
+    "gii_meta": {
+     "bytes": 317963,
+     "sha256": "ae5c55458c47d923dc48e5833f9f04a325a90fd01c994225c7a4583db968941b"
+    }
+   }
+  },
+  {
+   "id": "atlas-massp2021-parcellation_decade-18to40.nii.gz",
+   "kind": "surface",
+   "triangles": 100541,
+   "vertices": 50034,
+   "bytes": 1806932,
+   "fingerprint": "guide-2-atlas-massp2021-parcellation_decade-18to40.nii.gz",
+   "url": "/api/guide/surface?part=atlas-massp2021-parcellation_decade-18to40.nii.gz&guide=mni",
+   "simplified": true,
+   "within_budget": true,
+   "bbox": [
+    -38.5,
+    -59.75,
+    -44.25,
+    38.25,
+    30.75,
+    29.25
+   ],
+   "focus_bbox": [
+    -38.5,
+    -59.75,
+    -44.25,
+    38.25,
+    30.75,
+    29.25
+   ],
+   "files": {
+    "tvsc": "surfaces/atlas-massp2021-parcellation_decade-18to40.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 1806932,
+     "sha256": "0d3ceaec65d87e471b7d387f4da580eb19699521e59f33c217a755d678fc72ff"
+    },
+    "gii": "surfaces/atlas-massp2021-parcellation_decade-18to40.nii.gz.gii",
+    "gii_meta": {
+     "bytes": 725948,
+     "sha256": "7ac32662ee6bac90169d9f2dd828c2d852113e8841ab1b4026254c120313e7d0"
+    }
+   }
+  }
+ ],
+ "nets": [
+  {
+   "name": "EEG10-10_Cutini_2011.csv",
+   "electrodes": 60,
+   "url": "/api/guide/electrodes?net=EEG10-10_Cutini_2011.csv&guide=mni",
+   "file": "nets/EEG10-10_Cutini_2011.csv.json",
+   "bytes": 7028,
+   "sha256": "ea7b4bea2181dfbcaa783681067f2bea84502c2d17ad5c4e1b968e41fa768de6"
+  },
+  {
+   "name": "EEG10-10_Neuroelectrics.csv",
+   "electrodes": 62,
+   "url": "/api/guide/electrodes?net=EEG10-10_Neuroelectrics.csv&guide=mni",
+   "file": "nets/EEG10-10_Neuroelectrics.csv.json",
+   "bytes": 7253,
+   "sha256": "33dc8f92261dc96d54902896386d92e8ab0cb9d38e7dcda49de5affdfc60ea2b"
+  },
+  {
+   "name": "EEG10-10_UI_Jurak_2007.csv",
+   "electrodes": 75,
+   "url": "/api/guide/electrodes?net=EEG10-10_UI_Jurak_2007.csv&guide=mni",
+   "file": "nets/EEG10-10_UI_Jurak_2007.csv.json",
+   "bytes": 8797,
+   "sha256": "d0e2a69506c944be46f865440548bf875c983e13cd210042e111d27017c2e421"
+  },
+  {
+   "name": "EEG10-20_Okamoto_2004.csv",
+   "electrodes": 18,
+   "url": "/api/guide/electrodes?net=EEG10-20_Okamoto_2004.csv&guide=mni",
+   "file": "nets/EEG10-20_Okamoto_2004.csv.json",
+   "bytes": 2161,
+   "sha256": "6b3d4ebf1ddf328c8f9f01aae8f68bb1cd0e46768de7e4563ed5359187a20f39"
+  },
+  {
+   "name": "EEG10-20_extended_SPM12.csv",
+   "electrodes": 342,
+   "url": "/api/guide/electrodes?net=EEG10-20_extended_SPM12.csv&guide=mni",
+   "file": "nets/EEG10-20_extended_SPM12.csv.json",
+   "bytes": 40134,
+   "sha256": "7e53b606a596151c280f17988de4b9a19bcd2356086df08ec142d7765c108b28"
+  },
+  {
+   "name": "easycap_BC_TMS64_X21.csv",
+   "electrodes": 63,
+   "url": "/api/guide/electrodes?net=easycap_BC_TMS64_X21.csv&guide=mni",
+   "file": "nets/easycap_BC_TMS64_X21.csv.json",
+   "bytes": 7332,
+   "sha256": "1ad206a366e09bf0631c2fac4de10fd3aaeaa5689196b8b9edb38cd1477ffe5a"
+  }
+ ],
+ "atlases": [
+  {
+   "id": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+   "kind": "subcortical",
+   "hemispheres": [],
+   "aligned_to": "atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+   "regions": 16,
+   "url": "/api/guide/regions?atlas=CIT168_labeling_MNI152NLin2009cAsym.nii.gz&guide=mni",
+   "files": {
+    "tvsc": "labels/CIT168_labeling_MNI152NLin2009cAsym.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 328864,
+     "sha256": "752bc1afa981c3f0f4736518bd77ddf6fde9cfb032478f1ed404b54689328ff0"
+    },
+    "gii": "labels/CIT168_labeling_MNI152NLin2009cAsym.nii.gz.gii",
+    "gii_meta": {
+     "bytes": 324624,
+     "sha256": "c3a27be4a6d770bdf994d78eaaed65f7a8e588b032f3262e216b10ea92467a36"
+    }
+   },
+   "legend_file": "legends/CIT168_labeling_MNI152NLin2009cAsym.nii.gz.json",
+   "legend_meta": {
+    "bytes": 2209,
+    "sha256": "9d6bf786018e37d540eed6590f10e9e3fe342e8f224e2e7b344c04e049be3d50"
+   },
+   "source_sha256": "48b6187e4a051aedb7f32d058fd3211df2e96fbe369c80793e6f7b293ff98a23",
+   "lut_sha256": "bc983f3d9152608ea8fead0eb25f77837883c140d7795894aab972fda0cbaf6c"
+  },
+  {
+   "id": "MorelMNI152_labeling_1mm.nii.gz",
+   "kind": "subcortical",
+   "hemispheres": [],
+   "aligned_to": "atlas-MorelMNI152_labeling_1mm.nii.gz",
+   "regions": 74,
+   "url": "/api/guide/regions?atlas=MorelMNI152_labeling_1mm.nii.gz&guide=mni",
+   "files": {
+    "tvsc": "labels/MorelMNI152_labeling_1mm.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 335572,
+     "sha256": "6fb20e000a240eeef1bbd8269824d552a8c08225fc87b9b8b997953fd1cbf6c2"
+    },
+    "gii": "labels/MorelMNI152_labeling_1mm.nii.gz.gii",
+    "gii_meta": {
+     "bytes": 329772,
+     "sha256": "0cc5466134cbfe9cef8d2825190921eb855a337293cf0bc816f507de5f99f281"
+    }
+   },
+   "legend_file": "legends/MorelMNI152_labeling_1mm.nii.gz.json",
+   "legend_meta": {
+    "bytes": 9833,
+    "sha256": "0f5cda9d1bc5cf95a17137a1b6c5bcd149b8d54dcdf6119068f3d818a8b4ae61"
+   },
+   "source_sha256": "c1015f2cd87275321a72cbe5520549669b89aea8e30f4f139ce89aed406f7b25",
+   "lut_sha256": "abb80d71094bed7d8b26e7ff19ac2ebe4a1e4ae055d6680b85fe3951f040bdd4"
+  },
+  {
+   "id": "massp2021-parcellation_decade-18to40.nii.gz",
+   "kind": "subcortical",
+   "hemispheres": [],
+   "aligned_to": "atlas-massp2021-parcellation_decade-18to40.nii.gz",
+   "regions": 31,
+   "url": "/api/guide/regions?atlas=massp2021-parcellation_decade-18to40.nii.gz&guide=mni",
+   "files": {
+    "tvsc": "labels/massp2021-parcellation_decade-18to40.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 700508,
+     "sha256": "f5786ecf1fc1ec98eafcf6398112f5ce6b40450c1b60b4551d4a4a8fba0ebcfe"
+    },
+    "gii": "labels/massp2021-parcellation_decade-18to40.nii.gz.gii",
+    "gii_meta": {
+     "bytes": 730882,
+     "sha256": "a59a98a956b22873ad62987dd1e2a7a61d3c33b065c11d213388ddc16c814b08"
+    }
+   },
+   "legend_file": "legends/massp2021-parcellation_decade-18to40.nii.gz.json",
+   "legend_meta": {
+    "bytes": 3747,
+    "sha256": "1230085731da09736b31f4a2875e52e656775e6e1410d20f2a06820c679d3da8"
+   },
+   "source_sha256": "c959b270fda3e7c1df7bc30728b10d9d748c5d6d3f4eca49c4dfd03739142ab0",
+   "lut_sha256": "e8e5e86c2f3afd8c6e80eef8be548693d8fe5315979f4314447cda0203e49bc5"
+  }
+ ],
+ "volumes": [],
+ "cache": {
+  "state": "ready",
+  "built_ms": 0.0
+ },
+ "provenance": {
+  "source": "SimNIBS example dataset, subject 'MNI152'",
+  "source_url": "https://github.com/simnibs/example-dataset",
+  "license": "GPL-3.0-or-later",
+  "notes": "See tit/scene/guide/PROVENANCE.md."
+ },
+ "generated": {
+  "subject": "MNI152",
+  "generator": "tit.scene.guide_build",
+  "seconds": 52.2
+ }
+}

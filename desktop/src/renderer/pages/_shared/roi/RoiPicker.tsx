@@ -41,6 +41,8 @@ import "./roi.css";
 import {
   emptyRoi,
   emptySphereRow,
+  spaceChangeNote,
+  withRoiSpace,
   type RoiMode,
   type RoiRegion,
   type RoiSpace,
@@ -54,10 +56,44 @@ const TISSUE_OPTIONS = [
   { value: "both", label: "GM + WM (both)" },
 ];
 
-const SPACE_OPTIONS = [
+export const SPACE_OPTIONS = [
   { value: "subject", label: "Subject" },
   { value: "mni", label: "MNI" },
 ];
+
+/**
+ * The Subject | MNI segmented control, bound to the ROI's own `space`.
+ *
+ * There are **two** of these on a targeting page — one above the scene pane, one inside the ROI
+ * picker's panel — and they are deliberately the same component reading and writing the same
+ * `RoiValue.space`, so they cannot drift. The failure that prevents: a user sets MNI above the
+ * pane, the picker still says Subject, and the job runs on whichever field the config builder
+ * happened to read.
+ */
+export function RoiSpaceControl({ value, onChange, label = "Space", disabled, id }: {
+  value: RoiValue;
+  onChange: (value: RoiValue) => void;
+  label?: string;
+  disabled?: boolean;
+  id?: string;
+}) {
+  return (
+    <SegmentedControl
+      aria-label={label}
+      data-testid={id}
+      value={value.space}
+      disabled={disabled}
+      options={SPACE_OPTIONS}
+      onValueChange={(next) => {
+        const space = next as RoiSpace;
+        if (space === value.space) return;
+        const note = spaceChangeNote(value, space);
+        onChange(withRoiSpace(value, space));
+        if (note) notify.info(note);
+      }}
+    />
+  );
+}
 
 /** Canonical ROI-type order across every picker on the site (DESIGN QA vocabulary pass).
  *  `saved` leads because it is the ex/mEx default; it is absent from flex's `modes`, so flex's
@@ -85,8 +121,8 @@ export interface RoiPickerProps {
   onChange: (value: RoiValue) => void;
   modes: RoiMode[];
   subject: string | undefined;
-  /** Seeds the coordinate/atlas space for a freshly-created value; the value's own `space` /
-   *  `atlasSpace` field is the source of truth once set (see `types.ts`). */
+  /** Seeds the space for a freshly-created value; the value's own `space` field is the source of
+   *  truth once set (see `types.ts`), and it is what both Subject | MNI controls write. */
   space?: RoiSpace;
   disabled?: boolean;
   /** Renders "Open T1 in viewer" in spherical mode; omit to hide it (e.g. for a non-ROI picker
@@ -103,7 +139,9 @@ export interface RoiPickerProps {
 export function RoiPicker({ value, onChange, modes, subject, space = "subject", disabled, onOpenViewer, allowCombine, showMaskTissues }: RoiPickerProps) {
   function setMode(mode: RoiMode) {
     if (mode === value.mode) return;
-    onChange(emptyRoi(mode, space));
+    // The row's own space survives a mode change: `space` is a property of the target the user is
+    // describing, not of the way they are describing it. The prop only seeds a fresh value.
+    onChange(emptyRoi(mode, value.space ?? space));
   }
 
   return (
@@ -427,8 +465,8 @@ function CorticalPanel({
   disabled?: boolean;
 }) {
   const atlases = useQuery({
-    queryKey: ["atlases", subject, "cortical"],
-    queryFn: () => getAtlases(subject as string, "cortical"),
+    queryKey: ["atlases", subject, "cortical", value.space],
+    queryFn: () => getAtlases(subject as string, "cortical", value.space),
     enabled: subject !== undefined,
   });
   const lhRegions = useQuery({
@@ -482,6 +520,12 @@ function CorticalPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <Field label="Space" help="Which anatomy the atlas and the 3D pane are in. The same control sits above the pane; both write the row's one space.">
+        <RoiSpaceControl value={value} onChange={onChange} label="Atlas space" id="roi-picker-space" disabled={disabled} />
+      </Field>
+      {value.space === "mni" && (atlases.data ?? []).length === 0 && !atlases.isFetching && (
+        <Callout kind="info">TI-Toolbox ships no MNI-space cortical parcellation. Choose Subcortical for the packaged MNI atlases, or switch back to Subject.</Callout>
+      )}
       <Field label="Atlas" required help="FreeSurfer surface atlas (.annot) whose parcellation the regions below come from.">
         {atlases.isFetching ? (
           <Skeleton height={32} />
@@ -534,12 +578,12 @@ function SubcorticalPanel({
   disabled?: boolean;
 }) {
   const atlases = useQuery({
-    queryKey: ["atlases", subject, "subcortical", value.atlasSpace],
-    queryFn: () => getAtlases(subject as string, "subcortical", value.atlasSpace),
+    queryKey: ["atlases", subject, "subcortical", value.space],
+    queryFn: () => getAtlases(subject as string, "subcortical", value.space),
     enabled: subject !== undefined,
   });
   const regions = useQuery({
-    queryKey: ["atlas-regions", subject, value.atlas],
+    queryKey: ["atlas-regions", subject, value.atlas, value.space],
     queryFn: () => getAtlasRegions(subject as string, value.atlas as string),
     enabled: subject !== undefined && value.atlas !== undefined,
   });
@@ -549,13 +593,8 @@ function SubcorticalPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      <Field label="Space" help="Space the volume atlas is defined in. An MNI atlas is transformed into this subject's anatomy before the search runs.">
-        <SegmentedControl
-          aria-label="Atlas space"
-          value={value.atlasSpace}
-          onValueChange={(v) => onChange({ ...value, atlasSpace: v as RoiSpace, atlas: undefined, regions: [] })}
-          options={SPACE_OPTIONS}
-        />
+      <Field label="Space" help="Space the volume atlas is defined in. An MNI atlas is transformed into this subject's anatomy before the search runs. The same control sits above the 3D pane; both write the row's one space.">
+        <RoiSpaceControl value={value} onChange={onChange} label="Atlas space" id="roi-picker-space" disabled={disabled} />
       </Field>
       <Field label="Tissue type" help="Tissue compartment(s) to include when evaluating the volume ROI.">
         <Select value={value.tissues} onValueChange={(v) => onChange({ ...value, tissues: v as TissueKind })} options={TISSUE_OPTIONS} disabled={disabled} />

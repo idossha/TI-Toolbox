@@ -27,6 +27,7 @@ import {
   type GuideElectrodes,
   type GuideManifest,
   type GuideRegions,
+  type GuideId,
 } from "./api";
 
 /** `Retry-After` on a scene 202 is one second (`tit/server/routes/scene.py::RETRY_AFTER_S`). */
@@ -133,24 +134,24 @@ export function useSceneLabels(subject: string | null, atlas: string | null, rea
  */
 const GUIDE_QUERY = { staleTime: Infinity, gcTime: Infinity, retry: retryScene } as const;
 
-export function useGuideManifest(): UseQueryResult<GuideManifest> {
+export function useGuideManifest(guide: GuideId = "default"): UseQueryResult<GuideManifest> {
   // The catalog can change when the installation or mounted checkout is updated.
-  return useQuery({ queryKey: ["guide", "manifest"], queryFn: getGuideManifest, ...GUIDE_QUERY, staleTime: 0 });
+  return useQuery({ queryKey: ["guide", "manifest", guide], queryFn: () => getGuideManifest(guide), ...GUIDE_QUERY, staleTime: 0 });
 }
 
-export function useGuideElectrodes(net: string | null): UseQueryResult<GuideElectrodes> {
+export function useGuideElectrodes(net: string | null, guide: GuideId = "default"): UseQueryResult<GuideElectrodes> {
   return useQuery({
-    queryKey: ["guide", "electrodes", net],
-    queryFn: () => getGuideElectrodes(net as string),
+    queryKey: ["guide", "electrodes", guide, net],
+    queryFn: () => getGuideElectrodes(net as string, guide),
     enabled: !!net,
     ...GUIDE_QUERY,
   });
 }
 
-export function useGuideRegions(atlas: string | null): UseQueryResult<GuideRegions> {
+export function useGuideRegions(atlas: string | null, guide: GuideId = "default"): UseQueryResult<GuideRegions> {
   return useQuery({
-    queryKey: ["guide", "regions", atlas],
-    queryFn: () => getGuideRegions(atlas as string),
+    queryKey: ["guide", "regions", guide, atlas],
+    queryFn: () => getGuideRegions(atlas as string, guide),
     enabled: !!atlas,
     ...GUIDE_QUERY,
   });
@@ -167,7 +168,9 @@ export function useGuideRegions(atlas: string | null): UseQueryResult<GuideRegio
 export function useGuideSurfaces(parts: { id: string; url: string }[]): UseQueryResult<Tvsc1 | null>[] {
   return useQueries({
     queries: parts.map((part) => ({
-      queryKey: ["guide", "surface", part.id],
+      // The URL carries the guide id, so it is what keys the cache — two guides' `skin` are two
+      // different bodies and must never share an entry.
+      queryKey: ["guide", "surface", part.url],
       queryFn: () => getGuideTvsc(part.url),
       ...GUIDE_QUERY,
     })),
@@ -176,10 +179,10 @@ export function useGuideSurfaces(parts: { id: string; url: string }[]): UseQuery
 
 /** The per-vertex atlas labels aligned to `gm`, as TVSC1. Enabled only once the legend is in hand:
  *  labels with no legend can highlight a region the pane cannot name. */
-export function useGuideLabels(atlas: string | null, ready: boolean): UseQueryResult<Tvsc1 | null> {
+export function useGuideLabels(atlas: string | null, ready: boolean, guide: GuideId = "default"): UseQueryResult<Tvsc1 | null> {
   return useQuery({
-    queryKey: ["guide", "labels", atlas],
-    queryFn: () => getGuideTvsc(guideLabelsUrl(atlas as string)),
+    queryKey: ["guide", "labels", guide, atlas],
+    queryFn: () => getGuideTvsc(guideLabelsUrl(atlas as string, guide)),
     enabled: !!atlas && ready,
     ...GUIDE_QUERY,
   });
@@ -187,14 +190,14 @@ export function useGuideLabels(atlas: string | null, ready: boolean): UseQueryRe
 
 /** `parts[]` reduced to what `useGuideSurfaces` needs, memoised so the query list is stable —
  *  a fresh array every render would re-key every surface query on every render. */
-export function useGuideSurfaceRequests(manifest: GuideManifest | undefined): { id: string; url: string }[] {
+export function useGuideSurfaceRequests(manifest: GuideManifest | undefined, guide: GuideId = "default"): { id: string; url: string }[] {
   return useMemo(
     () =>
       (manifest?.parts ?? []).map((part) => ({
         id: String(part.id),
         // The packaged manifest's `url` has no `format`, and TVSC1 is what this renderer reads.
-        url: guideSurfaceUrl(String(part.id)),
+        url: guideSurfaceUrl(String(part.id), guide),
       })),
-    [manifest],
+    [manifest, guide],
   );
 }

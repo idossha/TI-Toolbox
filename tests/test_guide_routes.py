@@ -83,12 +83,27 @@ def test_no_route_takes_a_subject() -> None:
     for endpoint in endpoints:
         params = set(inspect.signature(endpoint).parameters)
         assert "subject" not in params, endpoint.__name__
-        assert params <= {"part", "atlas", "net", "format", "if_none_match"}
+        # `guide_id` (wire name `?guide=`) names WHICH packaged guide — `default` or `mni` — and
+        # is checked against a dict the server wrote itself, so it cannot couple the pane to a
+        # project the way a `subject` would (2026-09-17).
+        assert params <= {"part", "atlas", "net", "format", "if_none_match", "guide_id"}
 
 
-def test_manifest_ids_are_fetchable(client: TestClient) -> None:
-    """Every id the manifest advertises resolves over HTTP, at its own url."""
-    body = client.get("/api/guide/manifest", headers=BEARER).json()
+import pytest
+
+
+@pytest.mark.parametrize("guide_id", ["default", "mni"])
+def test_manifest_ids_are_fetchable(client: TestClient, guide_id: str) -> None:
+    """Every id the manifest advertises resolves over HTTP, at its own url.
+
+    Both packaged guides, because an MNI manifest whose urls omitted `?guide=mni`
+    would advertise its own part names against the *other* guide's bytes — which
+    is a scrambled head, not an error.
+    """
+    query = "" if guide_id == "default" else f"?guide={guide_id}"
+    body = client.get(f"/api/guide/manifest{query}", headers=BEARER).json()
+    assert body["guide_id"] == guide_id
+    assert guide_id in [entry["id"] for entry in body["guides"]]
     for part in body["parts"]:
         response = client.get(part["url"], headers=BEARER)
         assert response.status_code == 200, part["url"]

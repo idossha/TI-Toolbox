@@ -110,7 +110,7 @@ interface AtlasKey {
 function atlasKeyOf(subject: string, roi: RoiValue): AtlasKey | null {
   if (!subject) return null;
   if (roi.mode === "cortical") return { subject, kind: "cortical", space: undefined };
-  if (roi.mode === "subcortical") return { subject, kind: "subcortical", space: roi.atlasSpace };
+  if (roi.mode === "subcortical") return { subject, kind: "subcortical", space: roi.space };
   return null;
 }
 

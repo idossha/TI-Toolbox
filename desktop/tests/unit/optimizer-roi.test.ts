@@ -61,7 +61,7 @@ describe("exTargets", () => {
   it("builds an atlas-only target with the atlas's resolved path, not its id", () => {
     const value: RoiValue = {
       mode: "subcortical",
-      atlasSpace: "subject",
+      space: "subject",
       atlas: "CIT168",
       regions: [{ id: 10, name: "L-Thal" }, { id: 11, name: "R-Thal" }],
       tissues: "GM",
@@ -77,7 +77,7 @@ describe("exTargets", () => {
   });
 
   it("has no target while the atlas has not resolved — which is what disables Run", () => {
-    const value: RoiValue = { mode: "subcortical", atlasSpace: "subject", atlas: "CIT168", regions: [{ id: 10, name: "x" }], tissues: "GM" };
+    const value: RoiValue = { mode: "subcortical", space: "subject", atlas: "CIT168", regions: [{ id: 10, name: "x" }], tissues: "GM" };
     expect(exTargets(value, noAtlas, true)).toEqual([]);
   });
 

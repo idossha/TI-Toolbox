@@ -173,3 +173,21 @@ else about the submission is unchanged (one `subject_configs` entry per job, eac
 subject id, which the server then forces). A `JobGroupRequest` that admitted mixed kinds — or a
 group-of-groups — would make one Run click one request again; until then the page states what it
 did ("Queued 3 searches in 2 groups (ex, flex)") instead of implying an atomic batch.
+
+## Beyond parity: one ROI space, two controls (2026-09-17)
+
+- [x] Every ROI mode carries one `space: "subject" | "mni"` (`_shared/roi/types.ts`);
+      `SubcorticalRoiValue.atlasSpace` was renamed to it and `CorticalRoiValue` gained it.
+- [x] The **Subject | MNI** segmented control appears twice — above the scene pane
+      (`_shared/scene/TargetPreview.tsx`) and inside the ROI picker's panel — and both are the same
+      `<RoiSpaceControl>` writing that one field. `desktop/tests/e2e/scene-space.spec.ts` and
+      `tests/unit/roi-space.test.tsx` pin that they cannot drift.
+- [x] Subject space draws the **row's own subject** through `/api/scene/*`, falling back to the
+      packaged guide (with a sentence) while charm runs, when there is no head model, or when the
+      subject's scene has no surface for the named atlas — `labeling.nii.gz` is one such case.
+- [x] MNI space draws the packaged MNI152 guide (`/api/guide/*?guide=mni`) and lists only the
+      shipped MNI atlases.
+- [x] Changing space clears an atlas selection that has no equivalent and says so; coordinates,
+      radii, mask paths and saved-ROI names are kept and reinterpreted.
+- [x] An MNI ROI is transformed into the subject at job start and the run folder gets
+      `roi_confirmation.png` + `.json` (`tit/roi_confirmation.py`), shown in the job's Artifacts tab.

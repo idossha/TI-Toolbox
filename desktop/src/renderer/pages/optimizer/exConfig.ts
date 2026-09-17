@@ -138,9 +138,9 @@ export function exTargets(
       {
         roiName: `${roi.atlas}_${n}region${n === 1 ? "" : "s"}`,
         roiNames: [],
-        roiAtlas: roi.regions.map((r) => ({ atlas_path: atlas.path, label: r.id, atlas_space: roi.atlasSpace })),
+        roiAtlas: roi.regions.map((r) => ({ atlas_path: atlas.path, label: r.id, atlas_space: roi.space })),
         radius: 3.0,
-        space: roi.atlasSpace,
+        space: roi.space,
       },
     ];
   }
@@ -239,7 +239,7 @@ export function savedTargets(names: string[], combine: boolean, radius = 3.0, sp
 export function atlasTarget(atlasId: string, atlasPath: string, labels: number[], space: "subject" | "mni" = "subject"): ExTarget {
   const value: RoiValue = {
     mode: "subcortical",
-    atlasSpace: space,
+    space,
     atlas: atlasId,
     regions: labels.map((id) => ({ id, name: String(id) })),
     tissues: "GM",

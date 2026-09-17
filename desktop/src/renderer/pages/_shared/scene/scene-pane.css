@@ -226,3 +226,24 @@
     min-height: 360px;
   }
 }
+
+/* The Subject | MNI switch above the pane (2026-09-17). It is the same value the ROI picker's own
+   switch writes, so it is laid out like a pane header control rather than like a form field. */
+.scene-pane-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.scene-pane-space {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+}
+
+.scene-pane-wrap > .scene-pane-host {
+  flex: 1 1 auto;
+  min-height: 0;
+}

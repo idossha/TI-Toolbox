@@ -454,6 +454,22 @@ class Analyzer:
             track_operation(const.TELEMETRY_OP_ANALYSIS),
             tempfile.TemporaryDirectory() as scratch,
         ):
+            if coordinate_space == "mni":
+                # The MNI mask is transformed into this subject BEFORE it is
+                # measured, and the transform leaves roi_confirmation.{png,json}
+                # beside the results: a misplaced ROI is invisible in every
+                # number this analysis produces (tit/roi_confirmation.py).
+                from tit.roi_confirmation import confirm_roi
+
+                confirm_roi(
+                    atlas_path=mask_path,
+                    space="mni",
+                    m2m=str(self.m2m_path),
+                    out_dir=self._resolve_output_dir(
+                        analysis_type="mask", region_name=region_name
+                    ),
+                    name=region_name,
+                )
             prepared = prepare_mask(
                 mask_path, coordinate_space, str(self.m2m_path), scratch, binary=True
             )

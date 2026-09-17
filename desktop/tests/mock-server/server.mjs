@@ -2551,14 +2551,29 @@ const guideRoot = join(here, "../../../tit/scene/guide");
 const subcorticalPart = JSON.parse(readFileSync(join(guideRoot, "manifest.json"), "utf8")).parts.find(p => p.id === "subcortical");
 const subcorticalLegend = JSON.parse(readFileSync(join(guideRoot, "legends/labeling.nii.gz.json"), "utf8"));
 const GUIDE_ATLASES = ["DK40", "HCP_MMP1", "labeling.nii.gz"];
+/**
+ * The MNI152 guide (`?guide=mni`, 2026-09-17): the same shapes, different anatomy and a different
+ * atlas list. The bytes are the Ernie fixtures on purpose — what a spec checks here is that the
+ * pane asks for the MNI guide and lists only MNI atlases, not what MNI152 looks like.
+ */
+const MNI_GUIDE_ATLASES = ["CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "massp2021-parcellation_decade-18to40.nii.gz"];
+const guideIdOf = (ctx) => (ctx.url.searchParams.get("guide") === "mni" ? "mni" : "default");
+const atlasesFor = (guideId) => (guideId === "mni" ? MNI_GUIDE_ATLASES : GUIDE_ATLASES);
+const INSTALLED_GUIDES = [
+  { id: "default", label: "Subject anatomy" },
+  { id: "mni", label: "MNI152 template" },
+];
 const GUIDE_NETS = Object.keys(NET_SIZES);
 
 route("GET", "/api/guide/manifest", (ctx) => {
+  const guideId = guideIdOf(ctx);
   json(
     ctx.res,
     200,
     {
-      guide: { id: "ernie", label: "Ernie (SimNIBS example head)" },
+      guide: guideId === "mni" ? { id: "MNI152", label: "MNI152 template" } : { id: "ernie", label: "Ernie (SimNIBS example head)" },
+      guide_id: guideId,
+      guides: INSTALLED_GUIDES,
       guide_version: 2,
       // Never "subject-ras": the pane keys click-to-config off this value.
       space: "guide-ras",
@@ -2583,14 +2598,17 @@ route("GET", "/api/guide/manifest", (ctx) => {
         electrodes: NET_SIZES[name] ?? 128,
         url: `/api/guide/electrodes?net=${encodeURIComponent(name)}`,
       })),
-      atlases: GUIDE_ATLASES.map((id) => ({
-        id,
-        kind: id === "labeling.nii.gz" ? "subcortical" : "cortical",
-        aligned_to: id === "labeling.nii.gz" ? "subcortical" : "gm",
-        hemispheres: id === "labeling.nii.gz" ? [] : ["lh", "rh"],
-        regions: id === "labeling.nii.gz" ? subcorticalLegend.legend.length : (sceneLegendFor(id) ?? []).length,
-        url: `/api/guide/regions?atlas=${encodeURIComponent(id)}`,
-      })),
+      atlases: atlasesFor(guideId).map((id) => {
+        const volumetric = guideId === "mni" || id === "labeling.nii.gz";
+        return {
+          id,
+          kind: volumetric ? "subcortical" : "cortical",
+          aligned_to: volumetric ? "subcortical" : "gm",
+          hemispheres: volumetric ? [] : ["lh", "rh"],
+          regions: volumetric ? subcorticalLegend.legend.length : (sceneLegendFor(id) ?? []).length,
+          url: `/api/guide/regions?atlas=${encodeURIComponent(id)}${guideId === "mni" ? "&guide=mni" : ""}`,
+        };
+      }),
       volumes: [],
       provenance: {
         source: "SimNIBS example dataset, subject 'ernie'",
@@ -2628,19 +2646,23 @@ route("GET", "/api/guide/surface", (ctx) => {
 
 route("GET", "/api/guide/labels", (ctx) => {
   const atlas = ctx.url.searchParams.get("atlas");
-  if (!GUIDE_ATLASES.includes(atlas)) {
-    return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${GUIDE_ATLASES.join(", ")}.` });
+  const known = atlasesFor(guideIdOf(ctx));
+  if (!known.includes(atlas)) {
+    return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${known.join(", ")}.` });
   }
-  if (atlas === "labeling.nii.gz") return guideBytes(ctx, readFileSync(join(guideRoot, "labels/labeling.nii.gz.tvsc")), '"guide-subcortical-labels"');
+  if (guideIdOf(ctx) === "mni" || atlas === "labeling.nii.gz") return guideBytes(ctx, readFileSync(join(guideRoot, "labels/labeling.nii.gz.tvsc")), '"guide-subcortical-labels"');
   guideBytes(ctx, sceneParts.gm.bytes, `"guide-labels-${atlas}"`);
 });
 
 route("GET", "/api/guide/regions", (ctx) => {
   const atlas = ctx.url.searchParams.get("atlas");
-  if (!GUIDE_ATLASES.includes(atlas)) {
-    return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${GUIDE_ATLASES.join(", ")}.` });
+  const guideId = guideIdOf(ctx);
+  const known = atlasesFor(guideId);
+  if (!known.includes(atlas)) {
+    return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${known.join(", ")}.` });
   }
-  if (atlas === "labeling.nii.gz") return json(ctx.res, 200, { ...subcorticalLegend, url: `/api/guide/labels?atlas=${atlas}`, cache: { state: "ready", built_ms: 0 } });
+  if (guideId === "mni" || atlas === "labeling.nii.gz")
+    return json(ctx.res, 200, { ...subcorticalLegend, atlas, url: `/api/guide/labels?atlas=${encodeURIComponent(atlas)}${guideId === "mni" ? "&guide=mni" : ""}`, cache: { state: "ready", built_ms: 0 } });
   json(ctx.res, 200, {
     atlas,
     space: "guide-ras",
