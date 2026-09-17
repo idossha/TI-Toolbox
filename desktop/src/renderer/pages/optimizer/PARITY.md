@@ -165,6 +165,61 @@ global copy of each; a search now owns its own, because one row of the Jobs tabl
 This does not lose 2.5.0 parity: 2.5.0's "Global Parameters" box was per *tab*, which is per
 method, which is per row.
 
+## 2026-09-17 — Reciprocity search (lane B of the `recip` build)
+
+A **third method**, `Recip`, beside Flex and Ex in the Method column. It has no PyQt predecessor,
+so there is nothing to keep parity *with*; what follows is what it adds and where each control
+lives. The Python runner and the `"recip"` job kind are lane A's (`tit/opt/recip/`,
+`contracts/openapi.yaml`); this lane consumed the frozen JSON contract only.
+
+Why a third method rather than an Ex option: reciprocity **does not search**. Electrode *i*'s
+leadfield column at the target is the scalp potential a unit dipole there would produce at *i*, so
+the pair ranking is read off that map and only the top-k pairs are combined into channels. It
+therefore has no electrode buckets, no pool and no current sweep — the three controls that *are*
+the Ex form.
+
+- [x] **Leadfield** — the same `LeadfieldStrip` gate the Ex methods use, unchanged (the row editor
+      renders it for every non-flex method), with the same net inference from `nets.ts`.
+- [x] **Target** — a `Point | ROI` segmented control (`RecipSections.tsx`). Point is the shared
+      `CoordinateInput` with a radius and a subject/MNI segment (`PointTarget`); ROI is the one
+      shared `RoiPicker`, in the modes `subcortical · spherical · mask`.
+- [x] **Direction** — `Any direction | Along a vector`; the vector is three components in the
+      target's space, normalised by the runner. Absent = `direction: null`.
+- [x] **Objective** — `Intensity | Focality`. The intensity-preference slider exists **only** for
+      Focality, and an intensity run sends `focality_weight: 0` even if a weight was typed and the
+      objective then switched back (`optimizer-recip.test.ts`). The Jobs table's Goal cell — a dash
+      for Ex/mEx, which have no objective — carries this choice for a recip row.
+- [x] **Channels** 2–4 and the per-channel current, in the same Search section.
+- [x] **Advanced** (collapsible) — the `top_k` override (empty = the runner's table 2→40, 3→16,
+      4→12) and the grey-matter subsample.
+- [x] **Cost read-out** — `recipCost()` in the same `cost.ts` the other two methods read, printed
+      beside the control and in the row's line 2: `top 40 pairs · 2 channels · at most 780
+      candidates`. "At most" is the honest word: the ceiling is `C(top_k, channels)` and the runner
+      drops every candidate that shares an electrode between channels, which depends on which pairs
+      the map ranked.
+- [x] **Results** — `recip-search/` runs are their own group, "Reciprocity runs", in the Results
+      outputs tree, inside the existing Ex/mEx filter segment (one segment for every leadfield
+      search).
+
+### Deviations and readings of the contract
+
+1. **`project_dir` is not sent.** No desktop config carries one — the server injects the open
+   project — so sending the brief's example field would be the renderer inventing a container path.
+2. **An ROI target travels as the existing `_type`-discriminated ROI config** (`SubcorticalROI` /
+   `SphericalROI` / `AtlasROI`, i.e. `roiToConfig()`'s output verbatim), which is what "the existing
+   ROI specs reused unchanged" resolves to inside a `_type` union. The consequence: the ex-search
+   **saved-CSV** target is not offered for recip — it is the one ex target shape with no `_type`.
+3. **The kind is typed locally as `"recip"`** (`recipConfig.ts`, `plan.ts`), with a `TODO(lane A)`
+   on each site, until `npm run gen` regenerates `api/schema.d.ts`. `contracts/` was not touched.
+4. **Recip runs are listed through `GET /api/catalog/ex-runs?kind=recip`** with a plain `fetch`
+   that returns `[]` on a refusal (`results/api.ts`), for the reason `getGroupStats` does the same:
+   the route's `kind` enum is generated from a contract another lane owns, and Results must not
+   break on a server that does not know the kind yet. They preview as their artifacts (figures, CSV,
+   JSON) rather than through `/ex-runs/{run}/results`, whose `kind` is `ex | mex`.
+5. **No `RecipConfig` schema validation in the unit test.** `optimizer-ex.test.ts` validates against
+   `contracts/generated/config.schema.json`; `RecipConfig` is not in it yet, so the mapping test
+   asserts the wire shape field by field instead. Swap it once the schema is regenerated.
+
 ### Open contract item — one group per kind
 
 `POST /api/jobs/groups` carries a single `kind` (`tit/jobs/plans.py::GROUP_KINDS`), so a table

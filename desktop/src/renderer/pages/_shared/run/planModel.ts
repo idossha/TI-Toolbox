@@ -9,7 +9,7 @@
  */
 import type { components } from "../../../api/schema";
 
-export type PlanKind = "pre" | "sim" | "flex" | "ex" | "mex" | "analyzer";
+export type PlanKind = "pre" | "sim" | "flex" | "ex" | "mex" | "recip" | "analyzer";
 export type PlanChip = "new" | "skip" | "overwrite" | "blocked" | "wait";
 
 /** `PlanJob` widened with the `stage`/`label` fields `tit/jobs/plans.py` already carries but the

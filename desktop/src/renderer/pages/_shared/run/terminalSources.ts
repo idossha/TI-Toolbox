@@ -178,6 +178,13 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
     { id: "search", label: "Evaluate every electrode triple", detail: "Exhaustive multi-pair sweep; combinatorially larger than an ex-search.", minutes: 30 },
     { id: "write", label: "Write the ranked results", detail: "Ranked CSV plus a mesh for each of the top multi-pair montages.", minutes: 3 },
   ],
+  recip: [
+    { id: "leadfield", label: "Load the leadfield", detail: "Reads the precomputed per-electrode fields for the selected EEG net.", minutes: 2 },
+    { id: "roi", label: "Resolve the target", detail: "The elements around the point, or the ROI, whose mean field the pick is read from.", minutes: 1 },
+    { id: "map", label: "Rank the pairs by reciprocity", detail: "One pass over the leadfield columns at the target; no FEM solve and no search.", minutes: 1 },
+    { id: "search", label: "Evaluate the channel candidates", detail: "Combines the top pairs into channels and scores each envelope on the ROI and grey matter.", minutes: 2 },
+    { id: "write", label: "Write the result", detail: "Best montage, ranked candidates CSV, the reciprocity map and the run's figures.", minutes: 1 },
+  ],
   analyzer: [
     { id: "load", label: "Load the simulation field", detail: "Reads the selected run's mesh or NIfTI and the chosen output field.", minutes: 1 },
     { id: "roi", label: "Build the ROI mask", detail: "Atlas region, subcortical label or sphere, in the space you picked.", minutes: 1 },

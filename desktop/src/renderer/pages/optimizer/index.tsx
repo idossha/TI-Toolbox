@@ -81,6 +81,7 @@ const PLAN_STAGES: PlanStage[] = [
   { id: "flex", label: "Flex" },
   { id: "ex", label: "Ex" },
   { id: "mex", label: "mEx" },
+  { id: "recip", label: "Recip" },
 ];
 
 function useDebounced<T>(value: T, delayMs: number): T {
@@ -182,7 +183,7 @@ function OptimizerPage() {
 
   // Leadfields are only fetched once the table actually has an Ex/mEx row: a 3 GB HDF5 listing is
   // a directory read, but a page with no exhaustive search has nothing to do with the answer.
-  const wantsLeadfields = rows.some((r) => r.method === "ex");
+  const wantsLeadfields = rows.some((r) => r.method === "ex" || r.method === "recip");
   const leadfieldQueries = useQueries({
     queries: modelled.map((id) => ({ queryKey: ["leadfields", id], queryFn: () => getLeadfields(id), enabled: wantsLeadfields, staleTime: 60_000 })),
   });
@@ -289,7 +290,7 @@ function OptimizerPage() {
     // §4.7 rule 3: the disabled sentence states the TABLE being empty before it states anything
     // about subjects — an empty table is not a subject problem.
     if (rows.length === 0) return "Add a search job.";
-    if (runnableRows.length === 0) return "Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.";
+    if (runnableRows.length === 0) return "Complete a job: choose a subject, a target, and (for Ex, mEx and Recip) a leadfield.";
     if (subjectsBlocked) return subjectsBlocked;
     for (const [i, row] of runnableRows.entries()) {
       const reason = rowFormReason(row);
@@ -448,7 +449,7 @@ function OptimizerPage() {
       rightPane={
         <RunPanel
           kind={planKind}
-          jobKinds={["flex", "ex", "mex"]}
+          jobKinds={["flex", "ex", "mex", "recip"]}
           plan={plan}
           /* Summary columns (Flex · Ex · mEx), so a cell counts its jobs. */
           cellDetail="counts"
@@ -507,9 +508,10 @@ function OptimizerPage() {
               <Popover trigger={<IconButton aria-label="About search jobs" icon={<Info size={13} />} variant="ghost" size="sm" />}>
                 <div style={{ maxWidth: 360 }} className="text-dense">
                   One row is one search. Each row picks its own subject and its own method — flex over free
-                  electrode positions, or an exhaustive two-channel (Ex) or four-pair (mEx) search over a
-                  precomputed leadfield — and carries its own target, goal and parameters. Duplicate a row to
-                  run the same search on another subject.
+                  electrode positions, an exhaustive two-channel (Ex) or four-pair (mEx) search over a
+                  precomputed leadfield, or a reciprocity read of that same leadfield (Recip), which picks the
+                  montage in seconds without searching — and carries its own target, goal and parameters.
+                  Duplicate a row to run the same search on another subject.
                 </div>
               </Popover>
             }

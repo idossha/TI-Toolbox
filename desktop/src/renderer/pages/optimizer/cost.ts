@@ -5,6 +5,7 @@
  */
 import type { ExFormState, MExFormState } from "./exConfig";
 import { EX_BUCKET_KEYS, MEX_BUCKET_KEYS } from "./exConfig";
+import { recipTopK, type RecipFormState } from "./recipConfig";
 import type { FlexFormState } from "./flexConfig";
 import { sweepCombinationCount, jobKindFor } from "./flexConfig";
 
@@ -94,6 +95,35 @@ export function mexCost(form: MExFormState): SearchCost {
     // net's mirror map), so the number is stated as the unpruned ceiling and said to be one.
     line: `${n(electrodes)} electrodes · 4 pairs · ${n(montages)} combinations${form.symmetricBucket ? " before symmetry" : ""}`,
   };
+}
+
+/**
+ * Reciprocity's cost, which is **not** a search: the reciprocity map is one pass over the leadfield
+ * columns, and the only enumeration is the channel combinations built from the top-k pairs.
+ *
+ * `C(top_k, n_channels)` is the ceiling, not the count: the runner drops every combination that
+ * shares an electrode between channels, and how many that removes depends on which pairs the map
+ * ranked — a fact the client does not have. The line says "at most" for exactly that reason, the
+ * same honesty `mexCost` states about symmetry pruning.
+ */
+export function recipCost(form: RecipFormState): SearchCost {
+  const topK = recipTopK(form);
+  const montages = choose(topK, form.nChannels);
+  return {
+    electrodes: form.nChannels * 2,
+    splits: 1,
+    montages,
+    combinations: montages,
+    line: `top ${n(topK)} pairs · ${form.nChannels} channels · at most ${n(montages)} candidate${montages === 1 ? "" : "s"}`,
+  };
+}
+
+/** Binomial coefficient, exact for the small (k ≤ 40, n ≤ 4) numbers this page asks for. */
+function choose(k: number, n: number): number {
+  if (!Number.isFinite(k) || !Number.isFinite(n) || n < 0 || k < n) return 0;
+  let out = 1;
+  for (let i = 0; i < n; i++) out = (out * (k - i)) / (i + 1);
+  return Math.round(out);
 }
 
 export interface FlexCost {

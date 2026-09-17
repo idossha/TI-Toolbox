@@ -165,9 +165,10 @@ test("one page, one jobs table: no page-level subject set and no global search f
   await expect(optRows(page)).toHaveCount(1);
   await expect(optRows(page).first()).toHaveAttribute("data-subject", "ernie");
   await expect(optRows(page).first()).toHaveAttribute("data-method", "flex");
-  // Two methods, not five: the kind a row submits as is derived from its editor, never picked here.
+  // Three methods, not six: the kind a row submits as is derived from its editor, never picked
+  // here (Recip is a method of its own because it does not search — see PARITY.md 2026-09-17).
   await optRows(page).first().locator('td[data-cell="method"]').getByRole("combobox").click();
-  await expect(page.getByRole("option")).toHaveText(["Flex", "Ex"]);
+  await expect(page.getByRole("option")).toHaveText(["Flex", "Ex", "Recip"]);
   await page.keyboard.press("Escape");
 
   // §2.3 / §8: no page header; shape A is work pane + run panel + action bar.

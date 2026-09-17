@@ -14,14 +14,15 @@ import type { GroupKind } from "../_shared/run";
 import type { FlexConfigWire } from "./api";
 import { buildFlexConfig } from "./flexConfig";
 import { buildExConfig, buildMExConfig, exTargets, EX_BUCKET_KEYS, MEX_BUCKET_KEYS, type ExTarget } from "./exConfig";
-import { OPT_METHOD_LABEL, rowJobKind, rowStage, type OptimizerRow } from "./rows";
+import { buildRecipConfig, recipFormErrors } from "./recipConfig";
+import { OPT_METHOD_LABEL, rowJobKind, rowStage, rowTargetLabel, type OptimizerRow } from "./rows";
 
 /** One planned/submitted job: which row it came from, its kind, its subject and its wire config. */
 export interface OptimizerJobSpec {
   rowId: string;
   kind: GroupKind;
   /** The plan grid's column — the family, not the individual run. */
-  stage: "flex" | "ex" | "mex";
+  stage: "flex" | "ex" | "mex" | "recip";
   subject: string;
   label: string;
   config: unknown;
@@ -57,6 +58,15 @@ export function jobsForRow(
   }
   const hdf = resolve.leadfield(row.subjectId, row.net);
   if (!hdf) return [];
+  if (row.method === "recip") {
+    // The ROI half of a recip target is the same `_type`-discriminated ROI config flex sends;
+    // a point target needs no resolution at all, which is the whole point of the method.
+    const roi = row.recip.targetMode === "roi" ? roiToConfig(row.roi, resolve.atlas(row.subjectId, row.roi)) : undefined;
+    const config = buildRecipConfig(row.subjectId, hdf, row.recip, roi, row.runName);
+    if (!config) return [];
+    // TODO(lane A): drop the cast once "recip" is in the generated `JobGroupRequest["kind"]`.
+    return [{ rowId: row.id, kind: "recip" as GroupKind, stage: "recip", subject: row.subjectId, label: rowTargetLabel(row), config }];
+  }
   // Two pairs is the two-channel TI search, four is the multipolar mTI one — the same inference the
   // Simulator makes from a montage's pairs, and the only thing that decides `ex` from `mex`.
   const kind = rowJobKind(row);
@@ -86,6 +96,7 @@ export function rowFormReason(row: OptimizerRow): string | null {
     if (form.visualizeSkinElectrodes && !form.skinVisualizationNet) return "Select a visualization EEG net.";
     return null;
   }
+  if (row.method === "recip") return recipFormErrors(row.recip)[0] ?? null;
   if (row.exPairs === 2) {
     if (row.ex.electrodeMode === "bucketed" && EX_BUCKET_KEYS.some((k) => (row.ex.buckets[k] ?? []).length === 0)) {
       return "Fill in every electrode bucket.";

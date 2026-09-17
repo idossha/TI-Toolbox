@@ -32,9 +32,11 @@ import { RoiPicker, type RoiValue } from "../_shared/roi";
 import type { EegNet, Leadfield } from "./api";
 import { GOAL_OPTIONS, ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
+import { RecipAdvancedSection, RecipSearchSection, RecipTargetSection } from "./RecipSections";
+import type { RecipObjective } from "./recipConfig";
 import { formatBytes } from "./exConfig";
 import { electrodesForNet, leadfieldPathFor, netKey, netOptions } from "./nets";
-import { isFlexMethod, OPT_METHODS, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
+import { isFlexMethod, OPT_METHODS, optimizerMethodSummary, rowTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
 import type { OptGoal } from "./flexConfig";
 import "./optimizer.css";
 
@@ -265,7 +267,7 @@ export function OptimizerJobRows({
           </thead>
           {rows.map((row, i) => {
             const goal = rowGoal(row);
-            const target = optimizerTargetLabel(row.roi);
+            const target = rowTargetLabel(row);
             const detail = optimizerMethodSummary(row);
             const line2 = `${target} · ${detail}`;
             const active = activeRowId === row.id;
@@ -358,6 +360,18 @@ export function OptimizerJobRows({
                       >
                         {generationState ?? "Generate leadfield"}
                       </Button>
+                    ) : row.method === "recip" ? (
+                      /* Recip ranks candidates by an objective, so this cell is that choice —
+                         the same place a flex row states its goal. */
+                      <Select
+                        value={row.recip.objective}
+                        onValueChange={(v) => patch(row.id, { recip: { ...row.recip, objective: v as RecipObjective } })}
+                        options={[
+                          { value: "intensity", label: "intensity" },
+                          { value: "focality", label: "focality" },
+                        ]}
+                        aria-label="Objective"
+                      />
                     ) : goal === null ? (
 
                       // Ex/mEx enumerate montages and rank them by the ROI field; there is no goal
@@ -492,6 +506,7 @@ function RowEditor({
   const patchFlex = (p: Partial<typeof row.flex>) => onChange({ ...row, flex: { ...row.flex, ...p } });
   const patchEx = (p: Partial<typeof row.ex>) => onChange({ ...row, ex: { ...row.ex, ...p } });
   const patchMex = (p: Partial<typeof row.mex>) => onChange({ ...row, mex: { ...row.mex, ...p } });
+  const patchRecip = (p: Partial<typeof row.recip>) => onChange({ ...row, recip: { ...row.recip, ...p } });
   const electrodes = electrodesForNet(nets, row.net);
   const method = OPT_METHODS.find((m) => m.value === row.method);
 
@@ -559,6 +574,19 @@ function RowEditor({
           />
         )}
 
+        {row.method === "recip" ? (
+          <section className="optimizer-row-target" data-testid="opt-row-target">
+            <RecipTargetSection
+              form={row.recip}
+              onChange={patchRecip}
+              roi={row.roi}
+              onRoiChange={(roi: RoiValue) => onChange({ ...row, roi })}
+              roiModes={roiModesFor(row.method)}
+              subject={row.subjectId || undefined}
+              onOpenViewer={onOpenViewer}
+            />
+          </section>
+        ) : (
         <section className="optimizer-row-target" data-testid="opt-row-target">
           <FormSection title="Target">
             <div className="optimizer-span">
@@ -575,6 +603,7 @@ function RowEditor({
             </div>
           </FormSection>
         </section>
+        )}
 
         {isFlexMethod(row.method) && (
           <>
@@ -603,6 +632,12 @@ function RowEditor({
                 <MExCarrierSection form={row.mex} onChange={patchMex} />
               </>
             )}
+          </>
+        )}
+        {row.method === "recip" && (
+          <>
+            <RecipSearchSection form={row.recip} onChange={patchRecip} />
+            <RecipAdvancedSection form={row.recip} onChange={patchRecip} />
           </>
         )}
       </div>

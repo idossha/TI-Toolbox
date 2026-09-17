@@ -26,7 +26,8 @@ import { emptyRoi, isRoiComplete, type RoiRegion, type RoiValue } from "../_shar
 import type { PlanKind } from "../_shared/run";
 import { defaultFlexFormState, jobKindFor, type FlexFormState, type OptGoal } from "./flexConfig";
 import { defaultExFormState, defaultMExFormState, type ExFormState, type MExFormState } from "./exConfig";
-import { exCost, mexCost } from "./cost";
+import { defaultRecipFormState, isRecipPointComplete, type RecipFormState } from "./recipConfig";
+import { exCost, mexCost, recipCost } from "./cost";
 
 /**
  * The **two** things a row can be. A method is the kind of *search* — free electrode positions, or
@@ -40,17 +41,18 @@ import { exCost, mexCost } from "./cost";
  * how many electrode pairs a montage has. A select that also let the kind be *chosen* would be a
  * second control able to disagree with the first.
  */
-export type OptMethod = "flex" | "ex";
+export type OptMethod = "flex" | "ex" | "recip";
 
 /** What actually goes on the wire, and to `POST /api/plan/{kind}`. Never chosen directly. */
-export type OptJobKind = "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex";
+export type OptJobKind = "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "recip";
 
 export const OPT_METHODS: { value: OptMethod; label: string; title: string }[] = [
   { value: "flex", label: "Flex", title: "Differential-evolution search over free electrode positions" },
   { value: "ex", label: "Ex", title: "Exhaustive search over a precomputed leadfield — two pairs (TI) or four (mTI)" },
+  { value: "recip", label: "Recip", title: "Reciprocity: the best electrode pairs read straight off the leadfield at the target — seconds, no search" },
 ];
 
-export const OPT_METHOD_LABEL: Record<OptMethod, string> = { flex: "Flex", ex: "Ex" };
+export const OPT_METHOD_LABEL: Record<OptMethod, string> = { flex: "Flex", ex: "Ex", recip: "Recip" };
 
 /** The Flex family shares one form, one ROI vocabulary and one plan shape. */
 export function isFlexMethod(method: OptMethod): boolean {
@@ -68,17 +70,18 @@ export function isFlexMethod(method: OptMethod): boolean {
  */
 export function rowJobKind(row: OptimizerRow): OptJobKind {
   if (row.method === "flex") return jobKindFor(row.flex);
+  if (row.method === "recip") return "recip";
   return row.exPairs === 4 ? "mex" : "ex";
 }
 
 /** `PlanKind` for `POST /api/plan/{kind}` and the run panel's step list. */
 export function rowPlanKind(row: OptimizerRow): PlanKind {
-  return row.method === "flex" ? "flex" : (rowJobKind(row) as "ex" | "mex");
+  return row.method === "flex" ? "flex" : (rowJobKind(row) as "ex" | "mex" | "recip");
 }
 
 /** The plan grid's column for a row: the three families the panel counts per subject. */
-export function rowStage(row: OptimizerRow): "flex" | "ex" | "mex" {
-  return row.method === "flex" ? "flex" : (rowJobKind(row) as "ex" | "mex");
+export function rowStage(row: OptimizerRow): "flex" | "ex" | "mex" | "recip" {
+  return row.method === "flex" ? "flex" : (rowJobKind(row) as "ex" | "mex" | "recip");
 }
 
 /**
@@ -110,6 +113,7 @@ export interface OptimizerRow {
   flex: FlexFormState;
   ex: ExFormState;
   mex: MExFormState;
+  recip: RecipFormState;
   /** `ExConfig.run_name` / the flex output folder suffix. Blank = the runner's timestamp. */
   runName: string;
 }
@@ -124,7 +128,11 @@ export function newOptimizerRowId(): string {
 /** The ROI modes a method can express — Flex targets anatomy, Ex/mEx target saved CSVs or a
  *  volumetric atlas (there is no cortical ex-search target: the leadfield is volumetric). */
 export function roiModesFor(method: OptMethod): ("cortical" | "subcortical" | "spherical" | "saved" | "mask")[] {
-  return isFlexMethod(method) ? ["cortical", "subcortical", "spherical", "mask"] : ["saved", "subcortical", "mask"];
+  if (isFlexMethod(method)) return ["cortical", "subcortical", "spherical", "mask"];
+  // Recip's ROI target travels as one of the `_type`-discriminated ROI configs (`recipConfig.ts`),
+  // so the saved-CSV mode — the one ex target shape with no `_type` of its own — is not offered.
+  if (method === "recip") return ["subcortical", "spherical", "mask"];
+  return ["saved", "subcortical", "mask"];
 }
 
 /** A blank row, seeded from the row before it (the "+ Add job" gesture 2.5.0's cards had). */
@@ -136,11 +144,12 @@ export function emptyOptimizerRow(seed?: Partial<OptimizerRow>): OptimizerRow {
     method,
     exPairs: seed?.exPairs ?? 2,
     net: seed?.net ?? null,
-    roi: seed?.roi ?? emptyRoi(isFlexMethod(method) ? "cortical" : "saved"),
+    roi: seed?.roi ?? emptyRoi(defaultRoiModeFor(method)),
     nonRoi: seed?.nonRoi ?? emptyRoi("cortical"),
     flex: seed?.flex ?? defaultFlexFormState(),
     ex: seed?.ex ?? defaultExFormState(),
     mex: seed?.mex ?? defaultMExFormState(),
+    recip: seed?.recip ?? defaultRecipFormState(),
     runName: seed?.runName ?? "",
   };
 }
@@ -150,11 +159,17 @@ export function emptyOptimizerRow(seed?: Partial<OptimizerRow>): OptimizerRow {
  * cortical parcellation, and carrying one across would leave a row that looks configured and
  * cannot be planned. Within the Flex family the target survives (all three take the same ROI).
  */
+/** The ROI mode a method's target starts in — the first entry of its own vocabulary. */
+export function defaultRoiModeFor(method: OptMethod): "cortical" | "subcortical" | "saved" {
+  if (isFlexMethod(method)) return "cortical";
+  return method === "recip" ? "subcortical" : "saved";
+}
+
 export function withMethod(row: OptimizerRow, method: OptMethod): OptimizerRow {
   if (method === row.method) return row;
   // A saved CSV is not a cortical parcellation: carrying a target across families would leave a
   // row that looks configured and can never be planned.
-  return { ...row, method, roi: emptyRoi(method === "flex" ? "cortical" : "saved") };
+  return { ...row, method, roi: emptyRoi(defaultRoiModeFor(method)) };
 }
 
 /** The goal a row optimises. Ex/mEx rank montages by ROI field and have no goal of their own. */
@@ -172,6 +187,7 @@ export function rowVariantLabel(row: OptimizerRow): string {
     const kind = rowJobKind(row);
     return kind === "flex_adaptive" ? "adaptive" : kind === "flex_pareto" ? "multi-threshold" : "";
   }
+  if (row.method === "recip") return `${row.recip.nChannels} channels (${row.recip.nChannels === 2 ? "TI" : "mTI"})`;
   return `${row.exPairs * 2} electrodes (${row.exPairs === 4 ? "mTI" : "TI"})`;
 }
 
@@ -189,9 +205,16 @@ export const GOAL_LABEL: Record<OptGoal, string> = {
  */
 export function isRunnableOptimizerRow(row: OptimizerRow, hasLeadfield: (row: OptimizerRow) => boolean): boolean {
   if (!row.subjectId) return false;
-  if (!isRoiComplete(row.roi)) return false;
-  if (row.method === "ex" && !hasLeadfield(row)) return false;
+  // Recip's target is a point OR an ROI; every other method only knows the shared ROI value.
+  if (row.method === "recip" ? !isRecipTargetComplete(row) : !isRoiComplete(row.roi)) return false;
+  // Ex, mEx and Recip all read a precomputed leadfield, so all three need one for this subject.
+  if (!isFlexMethod(row.method) && !hasLeadfield(row)) return false;
   return true;
+}
+
+/** A recip row has a target once its point is filled in, or its ROI is complete. */
+export function isRecipTargetComplete(row: OptimizerRow): boolean {
+  return row.recip.targetMode === "point" ? isRecipPointComplete(row.recip) : isRoiComplete(row.roi);
 }
 
 /** `lh.insula` — the hemisphere is part of a cortical region's identity. */
@@ -240,6 +263,20 @@ export function optimizerTargetLabel(roi: RoiValue): string {
 }
 
 /**
+ * The target of a ROW, which is not always its `RoiValue`: a reciprocity row can be aimed at a bare
+ * coordinate, and line 2 must state that rather than the ROI the row is not using.
+ */
+export function rowTargetLabel(row: OptimizerRow): string {
+  if (row.method === "recip" && row.recip.targetMode === "point") {
+    const { x, y, z, radius } = row.recip.point;
+    if (x === undefined || y === undefined || z === undefined) return "Choose a target…";
+    const space = row.recip.pointSpace === "mni" ? " MNI" : "";
+    return `Point @ ${x},${y},${z}${space}${radius ? ` · r${radius}` : ""}`;
+  }
+  return optimizerTargetLabel(row.roi);
+}
+
+/**
  * The **essentials** of the search, for the rest of line 2 — never what line 1 already says.
  *
  *  * Flex: `goal mean · 2 pairs · 1 mA · ratio 1:1`. The derived variant qualifies the goal, since
@@ -261,6 +298,16 @@ export function optimizerMethodSummary(row: OptimizerRow): string {
       "2 pairs",
       `${form.currentMA} mA`,
       `ratio ${form.optimizeCurrentRatio ? `sweep ${form.ratioLevels}` : "1:1"}`,
+    ].join(" · ");
+  }
+  if (row.method === "recip") {
+    const form = row.recip;
+    return [
+      rowVariantLabel(row),
+      `${form.currentMa} mA`,
+      form.directionMode === "vector" ? "directional" : "any direction",
+      form.objective === "focality" ? `focality w=${form.focalityWeight}` : "intensity",
+      recipCost(form).line,
     ].join(" · ");
   }
   if (row.exPairs === 2) {
