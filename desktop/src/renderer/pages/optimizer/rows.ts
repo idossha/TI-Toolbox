@@ -124,7 +124,7 @@ export function newOptimizerRowId(): string {
 /** The ROI modes a method can express — Flex targets anatomy, Ex/mEx target saved CSVs or a
  *  volumetric atlas (there is no cortical ex-search target: the leadfield is volumetric). */
 export function roiModesFor(method: OptMethod): ("cortical" | "subcortical" | "spherical" | "saved" | "mask")[] {
-  return isFlexMethod(method) ? ["cortical", "subcortical", "spherical", "mask"] : ["saved", "subcortical", "mask"];
+  return isFlexMethod(method) ? ["cortical", "subcortical", "spherical", "mask"] : ["subcortical", "saved", "mask"];
 }
 
 /** A blank row, seeded from the row before it (the "+ Add job" gesture 2.5.0's cards had). */
@@ -136,7 +136,7 @@ export function emptyOptimizerRow(seed?: Partial<OptimizerRow>): OptimizerRow {
     method,
     exPairs: seed?.exPairs ?? 2,
     net: seed?.net ?? null,
-    roi: seed?.roi ?? emptyRoi(isFlexMethod(method) ? "cortical" : "saved"),
+    roi: seed?.roi ?? emptyRoi(isFlexMethod(method) ? "cortical" : "subcortical"),
     nonRoi: seed?.nonRoi ?? emptyRoi("cortical"),
     flex: seed?.flex ?? defaultFlexFormState(),
     ex: seed?.ex ?? defaultExFormState(),
@@ -154,7 +154,7 @@ export function withMethod(row: OptimizerRow, method: OptMethod): OptimizerRow {
   if (method === row.method) return row;
   // A saved CSV is not a cortical parcellation: carrying a target across families would leave a
   // row that looks configured and can never be planned.
-  return { ...row, method, roi: emptyRoi(method === "flex" ? "cortical" : "saved") };
+  return { ...row, method, roi: emptyRoi(method === "flex" ? "cortical" : "subcortical") };
 }
 
 /** The goal a row optimises. Ex/mEx rank montages by ROI field and have no goal of their own. */

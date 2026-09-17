@@ -40,7 +40,7 @@ describe("the method vocabulary", () => {
   it("offers each family only the ROI modes it can express", () => {
     expect(roiModesFor("flex")).toEqual(["cortical", "subcortical", "spherical", "mask"]);
     // There is no cortical ex-search target: the leadfield is volumetric.
-    expect(roiModesFor("ex")).toEqual(["saved", "subcortical", "mask"]);
+    expect(roiModesFor("ex")).toEqual(["subcortical", "saved", "mask"]);
   });
 
   it("clears the target when the family changes, and is a no-op otherwise", () => {
@@ -48,7 +48,7 @@ describe("the method vocabulary", () => {
     expect(withMethod(row, "flex")).toBe(row);
     // A saved CSV is not a cortical parcellation: carrying one across would leave a row that looks
     // configured and can never be planned.
-    expect(withMethod(row, "ex").roi).toMatchObject({ mode: "saved", selected: [] });
+    expect(withMethod(row, "ex").roi).toMatchObject({ mode: "subcortical", regions: [] });
   });
 
   it("has no goal for an exhaustive search — it ranks every montage by the ROI field", () => {
