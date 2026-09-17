@@ -178,3 +178,51 @@ one line per snapshot; with Tetravox uninstalled the jobs still succeed.
 A first (everything else is verified through the dev desktop loop). Then B and C in parallel
 (independent files). Then D (depends on B's pane refactor and C's mask cleanup). Then E (depends on
 D's confirmation hook). Commit after each lane; run the full gate (`docs/dev/TESTING.md`) at the end.
+
+## Lane D — revised 2026-09-17 (user decisions)
+
+Status before this revision: lanes A, B, C landed on `main` (6ab45638..961a8fb5). Lane D not started.
+
+Decisions:
+1. **One value, two controls.** The row's ROI carries a single `space: "subject" | "mni"` (the
+   `RoiSpace` already on spherical/saved/mask; cortical gains it, subcortical's `atlasSpace` is
+   renamed to it). The Subject | MNI segmented control appears **both** above the scene pane and
+   inside the ROI picker's panels, and both read and write that one field. Changing either
+   updates the other instantly. Same on Optimizer and Analyzer.
+2. **Subject space renders the selected subject, not Ernie.** The pane draws the active row's
+   subject from the existing per-subject scene routes (`/api/scene/manifest|surface|labels|
+   regions`, cached builds in `tit/scene/build.py`; the routes already answer a "building"
+   payload). States, each a sentence: building (with progress, keep the last drawn subject
+   greyed), no head model yet (fall back to the packaged guide and say so), error verbatim.
+   Switching subjects re-fetches; the selection (regions) is preserved when the atlas exists for
+   the new subject. Islands cleanup (`tit/atlas/islands.py`) applies to the drawn subcortical
+   surfaces, so the putamen debris disappears in subject mode by construction.
+3. **MNI space renders MNI152.** Ship, under `resources/` (or `tit/scene/guide-mni/`, built by
+   `guide_build.py` and frozen with a PROVENANCE.md like the Ernie guide): MNI152 skin, GM
+   surfaces and the shipped MNI atlases as pickable label surfaces. Source: the
+   `mni152/headmodel` example part (`python -m tit.examples --project <scratch> mni152`,
+   licence already cleared in the example-data repo). Rebuild the Ernie guide at the same time
+   from `ernie/headmodel` so the packaged fallback no longer shows islands.
+4. **Atlas set must be appropriate.** Before adding atlases, survey what FSL (`$FSLDIR/data/
+   atlases`: Harvard-Oxford cortical+subcortical, MNI structural, JHU white-matter, Juelich,
+   Talairach, Cerebellum-MNIflirt, Thalamus/Striatum connectivity) and Brainstorm (MNI
+   templates: AAL2/AAL3, Brodmann, Hammers, Neuromorphometrics, Julich-Brain, Schaefer,
+   Desikan/Destrieux via template FreeSurfer) ship in MNI space. Write a table in
+   `resources/atlas/README.md`: atlas, space (MNI152NLin6Asym vs NLin2009cAsym — must match
+   our template `MNI152_T1_1mm.nii.gz` and SimNIBS's mni2subject warps, resample/verify),
+   labels count, licence, **GPL-3 redistribution allowed yes/no**, and decision. Ship only
+   what is redistributable (Schaefer/Yeo MIT, Harvard-Oxford is FSL-licence: check, AAL:
+   academic-only, Neuromorphometrics: not redistributable, Julich-Brain CC BY-NC-SA: no).
+   Anything not redistributable but valuable becomes a `tit.examples`-style optional
+   download part, never bundled. Keep today's four (CIT168, Morel, Glasser, MASSP) unless
+   their licences fail the same check.
+5. **MNI at job start = mni2subject + visual confirmation**, as in the original Lane D:
+   every runner (flex, ex/mex, recip, analyzer) transforms first, writes
+   `roi_confirmation.png` (three orthogonal slices of the subject-space mask on the subject
+   T1 at the mask centroid, matplotlib/nilearn inside the container) and a JSON with centroid,
+   voxel count and GM overlap, prints one terminal line, and the desktop shows the PNG in the
+   job's results row. Tetravox snapshots (lane E) stay deferred.
+6. Verification: e2e (headless, one run at a time) asserting the two controls stay in sync on
+   both pages, subject mode draws the fixture subject, MNI mode lists only MNI atlases; a
+   container run of one flex search and one analyzer job with an MNI subcortical ROI on Ernie
+   producing the confirmation artefacts; screenshots of both pane modes in the PR notes.
