@@ -142,6 +142,10 @@ function JobConsoleSource({
           items={filtered}
           rowHeight={18}
           followTail={follow}
+          // Scrolling back to read something turns Follow off, the way every terminal does it —
+          // otherwise the next line of a running job snaps the view to the bottom again and the
+          // line being read is unreachable until the job ends. The switch turns it back on.
+          onScrollAwayFromTail={() => onFollowChange(false)}
           getRowKey={(line, i) => line.key ?? `i${i}`}
           renderRow={(line) => (
             <div className={cn("job-console-line", line.level === "error" && "job-console-line-error", line.level === "warning" && "job-console-line-warning", line.level === "debug" && "job-console-line-debug")}>

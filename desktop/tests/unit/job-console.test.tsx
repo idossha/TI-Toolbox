@@ -3,10 +3,14 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** The last list rendered, so a test can play the scroll the real `VirtualList` would report. */
+const lastList: { followTail?: boolean; onScrollAwayFromTail?: () => void } = {};
 vi.mock("../../src/renderer/ui/VirtualList", () => ({
-  VirtualList: <T,>({ items, renderRow, className }: { items: T[]; renderRow: (item: T, index: number) => React.ReactNode; className?: string }) => (
-    <div className={className}>{items.map((item, index) => <React.Fragment key={index}>{renderRow(item, index)}</React.Fragment>)}</div>
-  ),
+  VirtualList: <T,>({ items, renderRow, className, followTail, onScrollAwayFromTail }: { items: T[]; renderRow: (item: T, index: number) => React.ReactNode; className?: string; followTail?: boolean; onScrollAwayFromTail?: () => void }) => {
+    lastList.followTail = followTail;
+    lastList.onScrollAwayFromTail = onScrollAwayFromTail;
+    return <div className={className}>{items.map((item, index) => <React.Fragment key={index}>{renderRow(item, index)}</React.Fragment>)}</div>;
+  },
 }));
 
 import { JobConsole, type JobLogLine } from "../../src/renderer/ui/Jobs";
@@ -73,5 +77,23 @@ describe("JobConsole clear", () => {
     expect((container.querySelector('[aria-label="Filter log lines"]') as HTMLInputElement).value).toBe("");
     expect(container.querySelector('[aria-label="Follow tail"]')?.getAttribute("aria-checked")).toBe("false");
     expect(renderedLines()).toEqual(["second source"]);
+  });
+});
+
+describe("JobConsole follow", () => {
+  it("turns Follow off when the reader scrolls back, and the switch turns it on again", async () => {
+    await render("job:first", [{ seq: 1, text: "one" }]);
+    expect(lastList.followTail).toBe(true);
+
+    await act(async () => lastList.onScrollAwayFromTail!());
+    expect(container.querySelector('[aria-label="Follow tail"]')?.getAttribute("aria-checked")).toBe("false");
+    expect(lastList.followTail).toBe(false);
+
+    // New output must not re-pin the tail behind the reader's back.
+    await render("job:first", [{ seq: 1, text: "one" }, { seq: 2, text: "two" }]);
+    expect(lastList.followTail).toBe(false);
+
+    await click('[aria-label="Follow tail"]');
+    expect(lastList.followTail).toBe(true);
   });
 });

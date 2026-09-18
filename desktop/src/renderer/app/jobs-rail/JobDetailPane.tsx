@@ -40,6 +40,21 @@ import { jobFolder, viewerLinkForArtifact } from "./artifacts";
 
 type ConfirmKind = "stop" | "force" | "delete";
 
+/** How many lines of the log the Summary tab's console excerpt shows. */
+export const EXCERPT_LINES = 40;
+
+/**
+ * The Summary excerpt's react-query key. The `live`/`final` segment is load-bearing, not
+ * decoration (the Raw log tab's own query carries the same one): when a job reaches a terminal
+ * state its 3-second poll simply stops, so without a key change the excerpt froze on whatever the
+ * last tick had fetched — up to three seconds BEFORE the job ended, missing its final lines and
+ * its traceback, for as long as the pane stayed open. A new key refetches once on `done`, then
+ * holds.
+ */
+export function excerptQueryKey(jobId: string | undefined, finished: boolean): (string | number | undefined)[] {
+  return ["job-log", jobId, "excerpt", EXCERPT_LINES, finished ? "final" : "live"];
+}
+
 export interface JobDetailPaneProps {
   job: JobStatus | undefined;
   /** Jump the pane to another job (a "waiting on" link, or a deleted job clearing the selection). */
@@ -84,11 +99,12 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
   // lines and always on at `page` density (unlike the Raw log tab's `logTail`, which grows on
   // demand): a live-refetching excerpt for a running job so the pane keeps painting content, not a
   // frozen snapshot from the moment the job was selected.
+  const jobFinished = !!job && TERMINAL_STATES.includes(job.state);
   const excerptQuery = useQuery({
-    queryKey: ["job-log", jobId, "excerpt", 40],
-    queryFn: () => getJobLog(jobId!, 40),
+    queryKey: excerptQueryKey(jobId, jobFinished),
+    queryFn: () => getJobLog(jobId!, EXCERPT_LINES),
     enabled: !!jobId && density === "page",
-    refetchInterval: job && !TERMINAL_STATES.includes(job.state) ? 3000 : false,
+    refetchInterval: jobFinished ? false : 3000,
   });
 
   const invalidateJobs = () => queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -181,7 +197,7 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
       />
       {density === "page" && (
         <div className="job-detail-console" data-testid="job-detail-console">
-          <div className="job-detail-console-head text-eyebrow">Console · last 40 lines</div>
+          <div className="job-detail-console-head text-eyebrow">Console · last {EXCERPT_LINES} lines</div>
           {excerptQuery.isLoading && <Skeleton rows={8} />}
           {excerptQuery.isError && (
             <InlineError message="Could not load the console excerpt." onAction={() => void excerptQuery.refetch()} />

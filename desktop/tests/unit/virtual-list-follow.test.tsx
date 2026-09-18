@@ -28,15 +28,23 @@ beforeEach(() => {
   root = createRoot(container);
 });
 afterEach(async () => {
+  scrollAway = undefined;
   await act(async () => root.unmount());
   container.remove();
   observers.clear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
+let scrollAway: (() => void) | undefined;
 async function render(items: number[], followTail = true): Promise<HTMLDivElement> {
   await act(async () => root.render(
-    <VirtualList items={items} rowHeight={18} followTail={followTail} renderRow={(item) => <span>{item}</span>} />,
+    <VirtualList
+      items={items}
+      rowHeight={18}
+      followTail={followTail}
+      onScrollAwayFromTail={scrollAway}
+      renderRow={(item) => <span>{item}</span>}
+    />,
   ));
   return container.querySelector<HTMLDivElement>(".virtual-list")!;
 }
@@ -78,6 +86,34 @@ describe("VirtualList Follow tail", () => {
     await render(lines);
     expect(viewport.scrollTop).toBe(270);
   });
+  /**
+   * A reader who scrolls back to look at something must be able to keep looking at it. While the
+   * list only pinned the tail, the next chunk of a running job's output snapped the view straight
+   * back down — the line being read was unreachable until the job ended.
+   */
+  it("reports a scroll away from the tail, and not its own scrolling", async () => {
+    const away = vi.fn();
+    scrollAway = away;
+    const viewport = await render(lines);
+    expect(viewport.scrollTop).toBe(270);
+    // Its own follow scroll (and the one appending output triggers) lands at the bottom.
+    await act(async () => viewport.dispatchEvent(new Event("scroll")));
+    await render([...lines, 20]);
+    await act(async () => viewport.dispatchEvent(new Event("scroll")));
+    expect(away).not.toHaveBeenCalled();
+
+    await scroll(viewport, 36);
+    expect(away).toHaveBeenCalled();
+  });
+
+  it("stays quiet when Follow is already off", async () => {
+    const away = vi.fn();
+    scrollAway = away;
+    const viewport = await render(lines, false);
+    await scroll(viewport, 36);
+    expect(away).not.toHaveBeenCalled();
+  });
+
   it("follows viewport resizing only while enabled", async () => {
     const viewport = await render(lines);
     viewportHeight = 180;

@@ -49,6 +49,20 @@ export interface JobsStreamOptions {
 
 const OPEN = 1;
 
+/**
+ * How many events are kept per SUBSCRIBED job — i.e. per open console, since `subscribeJob` is
+ * only called by a UI that is showing that job's log and `unsubscribeJob` drops the whole ring.
+ *
+ * It used to be 500, which tore a hole in the middle of every long transcript: the console merges
+ * this ring with ONE REST snapshot taken when it opened, so as soon as more than 500 events had
+ * arrived after that snapshot the two stopped overlapping and every line between them disappeared
+ * until the job finished and the final fetch healed it. Real jobs are far longer than 500 events —
+ * Dataset 000's `987ec23a26b4400c/events.jsonl` is 7851 — so this was the normal case for a
+ * simulation, not an edge case. The cap remains only as a memory bound, at a size no real job is
+ * expected to reach; the same transcript is already held in full by the REST backlog beside it.
+ */
+export const MAX_EVENTS_PER_JOB = 50_000;
+
 /** Reference-equal per id, so an unchanged snapshot does not wake every subscriber. */
 function sameJobs(a: Record<string, JobStatus>, b: Record<string, JobStatus>): boolean {
   const keys = Object.keys(a);
@@ -80,7 +94,7 @@ export class JobsStream {
 
   constructor(opts: JobsStreamOptions) {
     this.url = opts.url;
-    this.maxEventsPerJob = opts.maxEventsPerJob ?? 500;
+    this.maxEventsPerJob = opts.maxEventsPerJob ?? MAX_EVENTS_PER_JOB;
     this.baseDelayMs = opts.baseDelayMs ?? 1000;
     this.maxDelayMs = opts.maxDelayMs ?? 30_000;
     this.WebSocketImpl = opts.WebSocketImpl ?? (WebSocket as unknown as new (url: string) => WebSocketLike);

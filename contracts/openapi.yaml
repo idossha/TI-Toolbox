@@ -31,13 +31,13 @@ info:
 
     `/ws/jobs`: a client connects once and multiplexes every job it cares about over one socket.
     Client -> server messages are a `JobsWsClientMessage`: `{"subscribe": {"<job_id>": <since_seq>}}`
-    to start (or resume, from `since_seq` exclusive) streaming a job's events, or
+    to start (or resume, from `since_seq` inclusive) streaming a job's events, or
     `{"unsubscribe": ["<job_id>", ...]}` to stop. Server -> client messages are a
     `JobsWsServerMessage`: `{"type": "job", "job": <JobStatus>}` is pushed for *every* job on every
     state transition (queued/running/succeeded/... ) regardless of subscription, so the jobs rail
     can render every live job without subscribing to each one individually; `{"type": "event",
     "job_id": "...", "event": <Event>}` is pushed only for jobs the client has subscribed to, in
-    `seq` order, starting at `since_seq + 1`. Auth via the `tit_session` cookie or `?token=`
+    `seq` order, starting at `since_seq` itself (`since_seq: 0` replays the whole log). Auth via the `tit_session` cookie or `?token=`
     (checked once at connect, same-origin rule as `/ws/system`).
 
     Path parameters are named `id` uniformly wherever this document has one resource-scoped path
@@ -1416,7 +1416,10 @@ paths:
         - in: query
           name: since
           required: false
-          schema: { type: integer, minimum: 0 }
+          description: >-
+            Inclusive: every event with `seq >= since` is returned, so `0` (the default) is the
+            whole history. Negative values are rejected with 422.
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
         "200":
           content:
