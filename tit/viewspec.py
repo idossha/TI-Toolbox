@@ -1957,10 +1957,9 @@ _STATS_KEYS = (
 def stats_cache_dir() -> str | None:
     """Where the on-disk statistics sidecars live, or ``None`` with no project open.
 
-    ``<project>/code/ti-toolbox/viewer/cache``. Beside the scene documents the Viewer already
-    writes, for the same reason they live there: the project is the unit people copy and archive,
-    and a window computed from a file belongs with that file's project rather than in a home
-    directory that does not travel with it.
+    ``<project>/.ti-toolbox/cache/stats``. In the project rather than in a home directory --
+    the project is the unit people copy and archive, and a window computed from a file belongs
+    with that file's project -- but hidden, because it is regenerable and not a result.
     """
     try:
         project = get_path_manager().project_dir
@@ -1968,7 +1967,7 @@ def stats_cache_dir() -> str | None:
         return None
     if not project:
         return None
-    directory = os.path.join(str(project), "code", "ti-toolbox", "viewer", "cache")
+    directory = get_path_manager().viewer_stats_cache()
     if not is_within(str(project), directory):
         return None
     return os.path.realpath(directory)
@@ -2047,7 +2046,7 @@ def _write_stats_sidecar(
     }
     temporary = None
     try:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
+        get_path_manager().ensure_cache("stats")
         candidate = os.path.join(
             os.path.dirname(target), f".stats-{secrets.token_hex(16)}.partial"
         )

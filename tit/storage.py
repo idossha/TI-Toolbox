@@ -71,6 +71,7 @@ KIND_LABELS: dict[str, str] = {
     "reports": "Reports",
     "viewer": "Viewer scenes",
     "toolbox": "Toolbox state",
+    "cache": "Rebuildable cache",
     "other": "Other",
 }
 
@@ -178,6 +179,9 @@ def kind_prefixes(pm: Any | None = None) -> list[tuple[str, str]]:
         (pm.ti_toolbox(), "toolbox"),
         (os.path.join(_root(pm), "code", "ti-toolbox", "viewer"), "viewer"),
         (os.path.join(_root(pm), "code"), "toolbox"),
+        # The dot-directory: everything in it is regenerable, and a user
+        # deciding what to delete should see exactly that.
+        (pm.dot_dir(), "cache"),
     ]
 
     for sid in _subjects(pm):
@@ -357,11 +361,8 @@ def _attribute(
 
 
 def cache_path(pm: Any | None = None) -> str:
-    """``<project>/code/ti-toolbox/cache/storage.json``."""
-    pm = pm or get_path_manager()
-    return os.path.join(
-        os.path.dirname(pm.config_dir()), "cache", CACHE_NAME
-    )
+    """``<project>/.ti-toolbox/cache/storage/storage.json`` (from the PathManager)."""
+    return (pm or get_path_manager()).storage_cache()
 
 
 def load_cache(pm: Any | None = None) -> ProjectStorage | None:
@@ -377,7 +378,7 @@ def save_cache(result: ProjectStorage, pm: Any | None = None) -> None:
     """Write atomically: a half-written cache would be read as a real scan."""
     path = cache_path(pm)
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        (pm or get_path_manager()).ensure_cache("storage")
         tmp = f"{path}.tmp-{os.getpid()}"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(result.to_dict(), fh)

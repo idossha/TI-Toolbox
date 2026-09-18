@@ -533,7 +533,7 @@ export interface paths {
         };
         /**
          * What the project is using on disk, by output kind
-         * @description A full walk of the project, which on a large volume takes minutes -- so it is cached on disk (`code/ti-toolbox/cache/storage.json`) and refreshed in a background thread. This route never blocks on the walk: it answers from the cache immediately, starts a refresh when that cache is older than ten minutes (or `refresh=true`), and sets `scanning` while one is running. A project never scanned answers with zeros and `scanning: true`.
+         * @description A full walk of the project, which on a large volume takes minutes -- so it is cached on disk (`.ti-toolbox/cache/storage/storage.json`) and refreshed in a background thread. This route never blocks on the walk: it answers from the cache immediately, starts a refresh when that cache is older than ten minutes (or `refresh=true`), and sets `scanning` while one is running. A project never scanned answers with zeros and `scanning: true`.
          */
         get: {
             parameters: {

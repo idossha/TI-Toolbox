@@ -2,7 +2,7 @@
 
 Layout, exactly as decision S2 freezes it::
 
-    <project>/derivatives/ti-toolbox/scene_cache/sub-<id>/
+    <project>/.ti-toolbox/cache/scene/sub-<id>/
         skin.<fingerprint>.tvsc  skin.<fingerprint>.gii  + skin.<fingerprint>.json
         gm.<fingerprint>.tvsc    gm.<fingerprint>.gii    + gm.<fingerprint>.json
         labels-DK40.<fingerprint>.{tvsc,gii}             + labels-DK40.<fingerprint>.json
@@ -34,11 +34,10 @@ Concurrency, and the failure each measure prevents:
   *process* (a second uvicorn worker, a stray CLI) builds at the same time:
   the lock is an efficiency measure, the atomic rename is the correctness one.
 
-The directory is bookkeeping, not a BIDS entity, so it is added to the
-project's ``.bidsignore`` the same way ``code/ti-toolbox/jobs/`` is
-(:func:`tit.jobs.registry.ensure_bidsignore`); the helper is duplicated here
-rather than imported so :mod:`tit.scene` never has to import
-:mod:`tit.jobs`.
+The directory is regenerable bookkeeping, not a BIDS entity, so it lives in
+the project's one dot-directory (``.ti-toolbox/cache/``), which
+:mod:`tit.paths` owns, creates lazily and lists in the project's
+``.bidsignore``.
 """
 
 from __future__ import annotations
@@ -50,7 +49,14 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from tit.paths import is_within, validate_subject_id
+from tit.paths import (
+    DOT_BIDSIGNORE_LINE,
+    ensure_bidsignore as _ensure_project_bidsignore,
+    ensure_cache_dir,
+    is_within,
+    scene_cache_dir_for,
+    validate_subject_id,
+)
 
 __all__ = [
     "BIDSIGNORE_LINE",
@@ -66,10 +72,10 @@ __all__ = [
     "subject_lock",
 ]
 
-#: Same convention as ``tit.jobs.registry.BIDSIGNORE_LINE``: a generated cache
-#: of scene payloads is server bookkeeping, and bids-validator would flag every
-#: ``.tvsc`` in it as an unrecognised data file.
-BIDSIGNORE_LINE = "derivatives/ti-toolbox/scene_cache/"
+#: The whole dot-directory, not this cache alone: every regenerable file the
+#: toolbox writes now lives under it, and bids-validator would otherwise flag
+#: each ``.tvsc`` as an unrecognised data file. Owned by :mod:`tit.paths`.
+BIDSIGNORE_LINE = DOT_BIDSIGNORE_LINE
 
 _LOCKS: dict[tuple[str, str], threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
@@ -98,17 +104,10 @@ def _cache_path(project_dir: str | os.PathLike[str], path: Path) -> Path:
 
 
 def cache_dir(project_dir: str | os.PathLike[str], subject_id: str) -> Path:
-    """``<project>/derivatives/ti-toolbox/scene_cache/sub-<id>/``."""
+    """``<project>/.ti-toolbox/cache/scene/sub-<id>/`` -- from :mod:`tit.paths`."""
     validate_subject_id(subject_id)
     return _cache_path(
-        project_dir,
-        (
-            Path(project_dir)
-            / "derivatives"
-            / "ti-toolbox"
-            / "scene_cache"
-            / f"sub-{subject_id}"
-        ),
+        project_dir, Path(scene_cache_dir_for(str(project_dir), subject_id))
     )
 
 
@@ -119,22 +118,10 @@ def ensure_bidsignore(project_dir: str | os.PathLike[str]) -> None:
     that file by hand, so rewriting it would throw away their entries.
     """
     try:
-        target = _cache_path(project_dir, Path(project_dir) / ".bidsignore")
+        _cache_path(project_dir, Path(project_dir) / ".bidsignore")
     except PermissionError:
         return  # Bookkeeping is optional; an outward link must never be followed.
-    try:
-        existing = target.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        existing = []
-    if BIDSIGNORE_LINE in existing:
-        return
-    lines = [*existing, BIDSIGNORE_LINE] if existing else [BIDSIGNORE_LINE]
-    try:
-        target.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    except OSError:
-        # A read-only project must not stop a scene from being served; the
-        # only consequence is a bids-validator warning the user can silence.
-        pass
+    _ensure_project_bidsignore(str(project_dir))
 
 
 def fingerprint(sources: list[str | os.PathLike[str]], version: str = "") -> str:
@@ -240,8 +227,10 @@ def publish(
     """Write ``blob``/``meta`` atomically and delete this key's stale entries."""
     root = cache_dir(project_dir, subject_id)
     blob_path, sidecar_path = artifact_paths(project_dir, subject_id, key, fp, ext)
+    # Creates the directory, drops the dot-directory README, migrates any
+    # legacy cache and lists .ti-toolbox/ in .bidsignore -- all once per project.
+    ensure_cache_dir(str(project_dir), "scene", f"sub-{subject_id}")
     root.mkdir(parents=True, exist_ok=True)
-    ensure_bidsignore(project_dir)
     stamp = f"{os.getpid()}-{os.urandom(16).hex()}"
     tmp_blob = blob_path.with_name(blob_path.name + f".tmp-{stamp}")
     tmp_sidecar = sidecar_path.with_name(sidecar_path.name + f".tmp-{stamp}")

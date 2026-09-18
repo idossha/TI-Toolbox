@@ -67,7 +67,7 @@ def test_scene_cache_outward_directory_is_refused(tmp_path, operation):
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "gm.old.tvsc").write_bytes(b"keep")
-    root = project / "derivatives" / "ti-toolbox" / "scene_cache" / "sub-ernie"
+    root = project / ".ti-toolbox" / "cache" / "scene" / "sub-ernie"
     root.parent.mkdir(parents=True)
     root.symlink_to(outside, target_is_directory=True)
     with pytest.raises(PermissionError):
@@ -89,7 +89,7 @@ def test_scene_cache_rejects_outward_parent_with_leaf_back_inside(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "sub-ernie").symlink_to(inside, target_is_directory=True)
-    parent = project / "derivatives" / "ti-toolbox" / "scene_cache"
+    parent = project / ".ti-toolbox" / "cache" / "scene"
     parent.parent.mkdir(parents=True)
     parent.symlink_to(outside, target_is_directory=True)
     with pytest.raises(PermissionError):

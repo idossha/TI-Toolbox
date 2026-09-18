@@ -42,7 +42,7 @@ def test_flex_whole_mask_and_complement_share_prepared_geometry(tmp_path, monkey
         "/mask.nii",
         "mni",
         pm.m2m("s"),
-        str(tmp_path / "derivatives/SimNIBS/sub-s/m2m_s/masks/.prepared"),
+        str(tmp_path / ".ti-toolbox/cache/masks/sub-s"),
         binary=True,
     )
     assert roi.mask_space == complement.mask_space == ["subject"]

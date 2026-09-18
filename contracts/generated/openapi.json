@@ -53,7 +53,7 @@
     },
     {
       "name": "scene",
-      "description": "the slim scene service the 3D panes read: two extracted surfaces, an EEG net's electrode positions, per-vertex atlas labels and a label volume's legend, cached under derivatives/ti-toolbox/scene_cache/ (401/403/404 implied globally -- see the auth/jail note in this document's top-level description). It is a *form control's* data source, not a viewer: no slicing, colormaps, field overlays or screenshots live here (docs/dev/DECISIONS.md \u00a7 2026-09-04 (Scene service and retained pages), decision S1)."
+      "description": "the slim scene service the 3D panes read: two extracted surfaces, an EEG net's electrode positions, per-vertex atlas labels and a label volume's legend, cached under .ti-toolbox/cache/scene/ (401/403/404 implied globally -- see the auth/jail note in this document's top-level description). It is a *form control's* data source, not a viewer: no slicing, colormaps, field overlays or screenshots live here (docs/dev/DECISIONS.md \u00a7 2026-09-04 (Scene service and retained pages), decision S1)."
     },
     {
       "name": "guide",
@@ -544,7 +544,7 @@
           "system"
         ],
         "summary": "What the project is using on disk, by output kind",
-        "description": "A full walk of the project, which on a large volume takes minutes -- so it is cached on disk (`code/ti-toolbox/cache/storage.json`) and refreshed in a background thread. This route never blocks on the walk: it answers from the cache immediately, starts a refresh when that cache is older than ten minutes (or `refresh=true`), and sets `scanning` while one is running. A project never scanned answers with zeros and `scanning: true`.",
+        "description": "A full walk of the project, which on a large volume takes minutes -- so it is cached on disk (`.ti-toolbox/cache/storage/storage.json`) and refreshed in a background thread. This route never blocks on the walk: it answers from the cache immediately, starts a refresh when that cache is older than ten minutes (or `refresh=true`), and sets `scanning` while one is running. A project never scanned answers with zeros and `scanning: true`.",
         "security": [
           {
             "cookieAuth": []

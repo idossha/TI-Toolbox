@@ -466,7 +466,7 @@ def _subcortical_mask_lists(roi_spec: FlexConfig.SubcorticalROI, config=None):
             roi_spec.atlas_path,
             roi_spec.atlas_space,
             pm.m2m(config.subject_id),
-            os.path.join(pm.masks(config.subject_id), ".prepared"),
+            pm.ensure_cache("masks", f"sub-{config.subject_id}"),
             binary=True,
         )
         return ["subject"], [path], [1]

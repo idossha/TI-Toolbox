@@ -139,7 +139,174 @@ def is_within(root: str, path: str) -> bool:
     """``True`` if *path* resolves inside *root* (containment check for created directories)."""
     root_real = os.path.realpath(root)
     candidate = os.path.realpath(path)
-    return candidate == root_real or candidate.startswith(root_real.rstrip(os.sep) + os.sep)
+    return candidate == root_real or candidate.startswith(
+        root_real.rstrip(os.sep) + os.sep
+    )
+
+
+# ============================================================================
+# THE PROJECT DOT-DIRECTORY  (docs/dev/DECISIONS.md § 2026-09-17)
+# ============================================================================
+#
+# Everything the toolbox can rebuild from the project's own data lives under one
+# hidden directory at the project root, so what a user sees in their project is
+# only their data and their results.
+
+#: The one hidden directory TI-Toolbox writes regenerable state into.
+DOT_DIR_NAME = ".ti-toolbox"
+
+#: What ``.bidsignore`` must list so bids-validator ignores the whole tree.
+DOT_BIDSIGNORE_LINE = ".ti-toolbox/"
+
+_DOT_README = """\
+This directory is TI-Toolbox scratch space.
+
+Everything under cache/ is regenerable from the project's own data:
+
+  cache/scene/sub-<id>/   surface payloads the viewer panes stream (.tvsc/.gii)
+  cache/masks/sub-<id>/   ROI masks warped into subject space for the optimizer
+  cache/stats/            per-volume intensity statistics for viewer windowing
+  cache/storage/          the project disk-usage scan shown on the Overview page
+
+Deleting this directory is safe at any time; the next run rebuilds what it
+needs. Nothing here is a scientific output, and nothing here is BIDS.
+"""
+
+#: ``(legacy path relative to the project, new path relative to the project)``.
+#: Migrated by renaming on first access -- a rename within one filesystem is
+#: instant whatever the directory holds, so no cache is ever rebuilt needlessly.
+#: Per-subject prepared-mask directories are migrated separately, by
+#: :func:`migrate_legacy_caches`, because their legacy home is inside ``m2m_*``.
+LEGACY_CACHE_MOVES: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (
+        ("derivatives", "ti-toolbox", "scene_cache"),
+        (DOT_DIR_NAME, "cache", "scene"),
+    ),
+    (
+        ("code", "ti-toolbox", "viewer", "cache"),
+        (DOT_DIR_NAME, "cache", "stats"),
+    ),
+    (
+        ("code", "ti-toolbox", "cache"),
+        (DOT_DIR_NAME, "cache", "storage"),
+    ),
+)
+
+#: Projects whose legacy caches have already been looked at in this process.
+_MIGRATED: set[str] = set()
+
+
+def dot_dir(project_dir: str) -> str:
+    """``<project>/.ti-toolbox`` (not created)."""
+    return os.path.join(project_dir, DOT_DIR_NAME)
+
+
+def cache_dir(project_dir: str, *parts: str) -> str:
+    """``<project>/.ti-toolbox/cache/<parts...>`` (not created)."""
+    for part in parts:
+        if not part or part in (".", "..") or "/" in part or "\\" in part:
+            raise ValueError(f"invalid cache path component: {part!r}")
+    return os.path.join(dot_dir(project_dir), "cache", *parts)
+
+
+def scene_cache_dir_for(project_dir: str, sid: str) -> str:
+    """``<project>/.ti-toolbox/cache/scene/sub-<id>/`` (not created)."""
+    return cache_dir(project_dir, "scene", f"sub-{validate_subject_id(sid)}")
+
+
+def mask_cache_dir_for(project_dir: str, sid: str) -> str:
+    """``<project>/.ti-toolbox/cache/masks/sub-<id>/`` (not created)."""
+    return cache_dir(project_dir, "masks", f"sub-{validate_subject_id(sid)}")
+
+
+def ensure_bidsignore(project_dir: str) -> None:
+    """Append :data:`DOT_BIDSIGNORE_LINE` to the project's ``.bidsignore`` once.
+
+    Idempotent, and never rewrites a line a user put there by hand. A failure
+    (read-only project, for instance) is swallowed: the only consequence is a
+    bids-validator warning, and refusing to serve a scene over it would be worse.
+    """
+    target = os.path.join(project_dir, ".bidsignore")
+    try:
+        with open(target, encoding="utf-8") as fh:
+            existing = fh.read().splitlines()
+    except OSError:
+        existing = []
+    if DOT_BIDSIGNORE_LINE in existing:
+        return
+    lines = [*existing, DOT_BIDSIGNORE_LINE] if existing else [DOT_BIDSIGNORE_LINE]
+    try:
+        with open(target, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+    except OSError:
+        pass
+
+
+def migrate_legacy_caches(project_dir: str) -> list[tuple[str, str]]:
+    """Move pre-``.ti-toolbox`` cache locations into the dot-directory.
+
+    Each move is a plain rename, and only ever when the destination does not
+    exist yet, so a half-migrated project can never overwrite a fresh cache. A
+    rename that fails (cross-device, permissions, another process mid-move) is
+    ignored: the legacy directory is then simply left where it is and the new
+    cache is rebuilt, which costs time but never correctness.
+
+    Returns the ``(old, new)`` pairs actually moved -- for tests and logging.
+    """
+    moved: list[tuple[str, str]] = []
+    pairs = [
+        (os.path.join(project_dir, *old), os.path.join(project_dir, *new))
+        for old, new in LEGACY_CACHE_MOVES
+    ]
+    simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+    try:
+        subjects = sorted(os.listdir(simnibs_dir))
+    except OSError:
+        subjects = []
+    for entry in subjects:
+        if not entry.startswith("sub-") or not is_valid_subject_id(entry[4:]):
+            continue
+        sid = entry[4:]
+        pairs.append(
+            (
+                os.path.join(simnibs_dir, entry, f"m2m_{sid}", "masks", ".prepared"),
+                cache_dir(project_dir, "masks", entry),
+            )
+        )
+    for old, new in pairs:
+        if not os.path.exists(old) or os.path.exists(new):
+            continue
+        try:
+            os.makedirs(os.path.dirname(new), exist_ok=True)
+            os.rename(old, new)
+        except OSError:
+            continue
+        moved.append((old, new))
+    return moved
+
+
+def ensure_cache_dir(project_dir: str, *parts: str) -> str:
+    """Create ``<project>/.ti-toolbox/cache/<parts...>`` and return it.
+
+    The first call for a project also migrates the legacy cache locations,
+    drops the README that says the tree is disposable, and lists the
+    dot-directory in ``.bidsignore``.
+    """
+    target = cache_dir(project_dir, *parts)
+    if project_dir not in _MIGRATED:
+        _MIGRATED.add(project_dir)
+        migrate_legacy_caches(project_dir)
+        try:
+            os.makedirs(dot_dir(project_dir), exist_ok=True)
+            readme = os.path.join(dot_dir(project_dir), "README")
+            if not os.path.exists(readme):
+                with open(readme, "w", encoding="utf-8") as fh:
+                    fh.write(_DOT_README)
+        except OSError:
+            pass
+        ensure_bidsignore(project_dir)
+    os.makedirs(target, exist_ok=True)
+    return target
 
 
 class PathManager:
@@ -261,6 +428,42 @@ class PathManager:
     def jobs_dir(self) -> str:
         """Path to ``<project>/code/ti-toolbox/jobs/`` (job server state)."""
         return os.path.join(self._root(), "code", "ti-toolbox", "jobs")
+
+    # ------------------------------------------------------------------
+    # The dot-directory: regenerable caches, one place, hidden
+    # ------------------------------------------------------------------
+
+    def dot_dir(self) -> str:
+        """Path to ``<project>/.ti-toolbox/`` (not created)."""
+        return dot_dir(self._root())
+
+    def cache_root(self) -> str:
+        """Path to ``<project>/.ti-toolbox/cache/`` (not created)."""
+        return cache_dir(self._root())
+
+    def cache(self, *parts: str) -> str:
+        """Path to ``<project>/.ti-toolbox/cache/<parts...>`` (not created)."""
+        return cache_dir(self._root(), *parts)
+
+    def ensure_cache(self, *parts: str) -> str:
+        """Create and return a cache directory, migrating legacy locations once."""
+        return ensure_cache_dir(self._root(), *parts)
+
+    def scene_cache(self, sid: str) -> str:
+        """Path to the scene-payload cache for *sid* (``cache/scene/sub-<id>/``)."""
+        return self.cache("scene", f"sub-{validate_subject_id(sid)}")
+
+    def mask_cache(self, sid: str) -> str:
+        """Path to the prepared-ROI-mask cache for *sid* (``cache/masks/sub-<id>/``)."""
+        return self.cache("masks", f"sub-{validate_subject_id(sid)}")
+
+    def viewer_stats_cache(self) -> str:
+        """Path to the viewer's per-volume statistics sidecars (``cache/stats/``)."""
+        return self.cache("stats")
+
+    def storage_cache(self) -> str:
+        """Path to the project disk-usage scan (``cache/storage/storage.json``)."""
+        return os.path.join(self.cache("storage"), "storage.json")
 
     def montage_config(self) -> str:
         """Path to the ``montage_list.json`` configuration file."""
@@ -452,7 +655,9 @@ class PathManager:
 
     def logs(self, sid: str) -> str:
         """Path to per-subject log directory for *sid*."""
-        return os.path.join(self.ti_toolbox(), "logs", f"sub-{validate_subject_id(sid)}")
+        return os.path.join(
+            self.ti_toolbox(), "logs", f"sub-{validate_subject_id(sid)}"
+        )
 
     def tissue_analysis_output(self, sid: str) -> str:
         """Path to tissue-analysis output directory for *sid*."""

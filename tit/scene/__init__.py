@@ -14,7 +14,7 @@ What it does do: extract the two surfaces a pane draws (skin tag 1005, grey
 matter tag 1002) out of a 184 MB head mesh, get grey matter under the §S3
 budget, carry an atlas' per-vertex labels onto the surface it actually serves,
 read an EEG net's electrode coordinates, and cache all of it under
-``derivatives/ti-toolbox/scene_cache/``.
+``.ti-toolbox/cache/scene/``.
 
 Module map, split along the line the host test suite can cross:
 

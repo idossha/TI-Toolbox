@@ -903,17 +903,38 @@ class TestSubjectIdGrammar:
 
     def test_rejects_separators_traversal_and_non_strings(self, tmp_path):
         pm = PathManager(str(tmp_path))
-        for bad in ("../../../outside", "..", "a/b", "a\\b", "", " ", "001 ", ".hidden",
-                    "a" * 65, None, 7, ["001"]):
+        for bad in (
+            "../../../outside",
+            "..",
+            "a/b",
+            "a\\b",
+            "",
+            " ",
+            "001 ",
+            ".hidden",
+            "a" * 65,
+            None,
+            7,
+            ["001"],
+        ):
             with pytest.raises(ValueError, match="subject id"):
                 pm.sub(bad)
 
     def test_every_subject_path_helper_is_guarded(self, tmp_path):
         pm = PathManager(str(tmp_path))
         helpers = [
-            pm.sub, pm.m2m, pm.bids_subject, pm.bids_anat, pm.bids_dwi,
-            pm.sourcedata_subject, pm.fastsurfer_subject, pm.freesurfer_subject,
-            pm.qsiprep_subject, pm.qsirecon_subject, pm.logs, pm.tissue_analysis_output,
+            pm.sub,
+            pm.m2m,
+            pm.bids_subject,
+            pm.bids_anat,
+            pm.bids_dwi,
+            pm.sourcedata_subject,
+            pm.fastsurfer_subject,
+            pm.freesurfer_subject,
+            pm.qsiprep_subject,
+            pm.qsirecon_subject,
+            pm.logs,
+            pm.tissue_analysis_output,
         ]
         for helper in helpers:
             with pytest.raises(ValueError, match="subject id"):
@@ -933,4 +954,121 @@ def test_containment_accepts_filesystem_root_and_rejects_sibling_prefix(tmp_path
     filesystem_root = pathlib.Path(tmp_path.anchor)
     assert is_within(str(filesystem_root), str(tmp_path))
     assert is_within(str(filesystem_root), str(filesystem_root))
-    assert not is_within(str(tmp_path), str(tmp_path.with_name(tmp_path.name + "-other")))
+    assert not is_within(
+        str(tmp_path), str(tmp_path.with_name(tmp_path.name + "-other"))
+    )
+
+
+# ---------------------------------------------------------------------------
+# The project dot-directory (.ti-toolbox/) — every cache path and its migration
+# ---------------------------------------------------------------------------
+
+
+class TestDotDirectory:
+    """``.ti-toolbox/`` is the single home for everything regenerable."""
+
+    def test_every_cache_path(self, tmp_path):
+        import tit.paths as paths
+
+        root = _make_project(tmp_path)
+        pm = PathManager(root)
+        dot = os.path.join(root, ".ti-toolbox")
+        assert pm.dot_dir() == dot
+        assert pm.cache_root() == os.path.join(dot, "cache")
+        assert pm.cache("scene") == os.path.join(dot, "cache", "scene")
+        assert pm.scene_cache("101") == os.path.join(dot, "cache", "scene", "sub-101")
+        assert pm.mask_cache("101") == os.path.join(dot, "cache", "masks", "sub-101")
+        assert pm.viewer_stats_cache() == os.path.join(dot, "cache", "stats")
+        assert pm.storage_cache() == os.path.join(
+            dot, "cache", "storage", "storage.json"
+        )
+        assert paths.scene_cache_dir_for(root, "101") == pm.scene_cache("101")
+        assert paths.mask_cache_dir_for(root, "101") == pm.mask_cache("101")
+
+    def test_cache_paths_reject_traversal(self, tmp_path):
+        pm = PathManager(_make_project(tmp_path))
+        for bad in ("..", "", "a/b"):
+            with pytest.raises(ValueError):
+                pm.cache(bad)
+        with pytest.raises(ValueError):
+            pm.scene_cache("../../etc")
+
+    def test_nothing_is_created_until_ensure(self, tmp_path):
+        root = _make_project(tmp_path)
+        pm = PathManager(root)
+        pm.scene_cache("101")
+        assert not os.path.exists(pm.dot_dir())
+
+    def test_ensure_creates_readme_and_bidsignore(self, tmp_path):
+        import tit.paths as paths
+
+        root = _make_project(tmp_path)
+        paths._MIGRATED.discard(root)
+        pm = PathManager(root)
+        target = pm.ensure_cache("scene", "sub-101")
+        assert os.path.isdir(target)
+        readme = os.path.join(pm.dot_dir(), "README")
+        assert "regenerable" in open(readme).read()
+        assert ".ti-toolbox/" in open(os.path.join(root, ".bidsignore")).read()
+
+    def test_bidsignore_keeps_existing_lines(self, tmp_path):
+        import tit.paths as paths
+
+        root = _make_project(tmp_path)
+        with open(os.path.join(root, ".bidsignore"), "w") as fh:
+            fh.write("*_ct.nii.gz\n")
+        paths.ensure_bidsignore(root)
+        paths.ensure_bidsignore(root)
+        lines = open(os.path.join(root, ".bidsignore")).read().splitlines()
+        assert lines == ["*_ct.nii.gz", ".ti-toolbox/"]
+
+    def test_legacy_caches_are_moved_not_rebuilt(self, tmp_path):
+        import tit.paths as paths
+
+        root = _make_project(tmp_path)
+        paths._MIGRATED.discard(root)
+        old_scene = pathlib.Path(root, "derivatives", "ti-toolbox", "scene_cache")
+        (old_scene / "sub-101").mkdir(parents=True)
+        (old_scene / "sub-101" / "gm.abc.tvsc").write_bytes(b"payload")
+        old_stats = pathlib.Path(root, "code", "ti-toolbox", "viewer", "cache")
+        old_stats.mkdir(parents=True)
+        (old_stats / "deadbeef.stats.json").write_text("{}")
+        old_storage = pathlib.Path(root, "code", "ti-toolbox", "cache")
+        old_storage.mkdir(parents=True)
+        (old_storage / "storage.json").write_text("{}")
+        prepared = pathlib.Path(
+            root, "derivatives", "SimNIBS", "sub-101", "m2m_101", "masks", ".prepared"
+        )
+        prepared.mkdir(parents=True)
+        (prepared / "roi.nii.gz").write_bytes(b"mask")
+
+        pm = PathManager(root)
+        pm.ensure_cache("scene")
+
+        assert (
+            pathlib.Path(pm.scene_cache("101"), "gm.abc.tvsc").read_bytes()
+            == b"payload"
+        )
+        assert pathlib.Path(pm.viewer_stats_cache(), "deadbeef.stats.json").is_file()
+        assert pathlib.Path(pm.storage_cache()).is_file()
+        assert pathlib.Path(pm.mask_cache("101"), "roi.nii.gz").read_bytes() == b"mask"
+        assert not old_scene.exists()
+        assert not prepared.exists()
+
+    def test_migration_never_overwrites_a_new_cache(self, tmp_path):
+        import tit.paths as paths
+
+        root = _make_project(tmp_path)
+        old_scene = pathlib.Path(root, "derivatives", "ti-toolbox", "scene_cache")
+        old_scene.mkdir(parents=True)
+        (old_scene / "stale").write_text("old")
+        new_scene = pathlib.Path(root, ".ti-toolbox", "cache", "scene")
+        new_scene.mkdir(parents=True)
+        assert paths.migrate_legacy_caches(root) == []
+        assert (old_scene / "stale").is_file()
+
+    def test_migration_on_a_project_with_no_legacy_cache_is_a_noop(self, tmp_path):
+        import tit.paths as paths
+
+        root = _make_project(tmp_path)
+        assert paths.migrate_legacy_caches(root) == []

@@ -928,6 +928,60 @@ release with those assets is published; until then every user-mode run falls bac
 **Revisit if:** a signed release cannot be produced for a supported platform, or a genuinely
 browser-only deployment (a shared remote server) becomes a supported product.
 
+## 2026-09-17 — One hidden directory for everything the toolbox can rebuild
+
+**Decision:** Every regenerable file TI-Toolbox writes into a project now lives under one
+dot-directory at the project root, `.ti-toolbox/`, created lazily by `tit.paths` and nowhere else:
+
+```
+<project>/.ti-toolbox/
+    README                     says the tree is regenerable and safe to delete
+    cache/scene/sub-<id>/      surface payloads the viewer panes stream (.tvsc/.gii + sidecars)
+    cache/masks/sub-<id>/      MNI ROI masks warped into subject space for flex-search
+    cache/stats/               per-volume intensity statistics for viewer windowing
+    cache/storage/storage.json the project disk-usage scan behind the Overview page
+```
+
+`PathManager` is the single source: `dot_dir()`, `cache_root()`, `cache(*parts)`,
+`ensure_cache(*parts)`, `scene_cache(sid)`, `mask_cache(sid)`, `viewer_stats_cache()`,
+`storage_cache()`, plus the project-dir-taking `scene_cache_dir_for` / `mask_cache_dir_for` for
+callers that hold a path rather than a manager. `tit.scene.cache`, `tit.viewspec`, `tit.storage`
+and `tit.opt.flex.utils` all resolve their directory through it; none of them joins a cache path by
+hand any more. `ensure_cache` is the only creator — it migrates legacy locations, writes the
+README, and appends `.ti-toolbox/` to the project's `.bidsignore` so bids-validator ignores the
+whole tree (the old per-cache `derivatives/ti-toolbox/scene_cache/` line in existing projects is
+harmless and left alone).
+
+What each thing the toolbox writes is, and where it stays:
+
+| Written | Class | Location |
+|---|---|---|
+| `sub-*/`, `sourcedata/`, `derivatives/{SimNIBS,fastsurfer,freesurfer,qsiprep,qsirecon}` | user output | unchanged |
+| `derivatives/ti-toolbox/{reports,stats,tissue_analysis,nilearn_visuals,nifti_average,visual_exports,logs,notes.txt}` | user output | unchanged |
+| `code/ti-toolbox/config/` (settings, montages, `project_status.json`, `.initialized`) | project state a user may want to read and copy | unchanged |
+| `code/ti-toolbox/jobs/` (spec/status/events/stdout per job) | project state — the run history | unchanged; already `.bidsignore`d, and under `code/`, not a scientific-output tree, so nothing moves and no job history is touched |
+| `code/ti-toolbox/notebooks/`, `code/ti-toolbox/viewer/{scenes,presets,compositions,*.tetravox.json}` | user output — a person opens these | unchanged |
+| `derivatives/ti-toolbox/scene_cache/` | cache | → `.ti-toolbox/cache/scene/` |
+| `m2m_<id>/masks/.prepared/` | cache | → `.ti-toolbox/cache/masks/sub-<id>/` |
+| `code/ti-toolbox/viewer/cache/` | cache | → `.ti-toolbox/cache/stats/` |
+| `code/ti-toolbox/cache/storage.json` | cache | → `.ti-toolbox/cache/storage/storage.json` |
+| `<ex-search run>/masks/` prepared masks, `<atlas>_labels.txt` sidecars beside their volume | cache, but provenance of the run/volume it sits in | left in place; they are part of what a user copies with the result |
+
+**Migration:** on first `ensure_cache` for a project, each legacy location is *moved* — a plain
+`os.rename`, so a 60 GB scene cache migrates instantly and nothing is rebuilt — and only when the
+destination does not exist. A rename that fails (cross-device, read-only, a race) is ignored: the
+legacy directory stays where it is and the new cache is rebuilt, which costs time, never
+correctness. Nothing is deleted. Existing projects need no user action.
+
+**Why:** a user opening their project saw six directories of toolbox bookkeeping mixed in with
+their data, and one of them (`derivatives/ti-toolbox/scene_cache/`, 61 MB on Dataset 000 and
+unbounded on a large one) sat inside the derivatives tree that is supposed to hold scientific
+output. A single hidden, self-describing, deletable directory makes "what may I delete" answerable
+without documentation, and the disk-usage page now attributes it to its own **Rebuildable cache**
+kind. **Cost:** one more path family in `PathManager`, and a hidden directory is easy for a user to
+miss when archiving — which is the point, but it does mean a `cp` that skips dotfiles drops the
+caches (harmless) along with `.bidsignore` (not). **Revisit if:** a cache must outlive the project
+directory (then it belongs in the user config dir), or a second tool needs to read these payloads.
 ## 2026-09-17 — `--dev` changes the source of the code, never the UI
 
 **Decision:** `--dev [DIR]` (and `TIT_DEV_REPO_DIR` / `TIT_DEV=1`) no longer implies the browser.
