@@ -35,9 +35,8 @@ It runs against the SimNIBS example subject `ernie`, fetched into your own proje
 Opening a project in the app sets the project root. In code, `get_path_manager` does the same:
 it is the single object that knows where everything in a BIDS project lives.
 
-**Edit one line:** set `PROJECT` below to a folder on your machine (any empty folder works), or
-export `TIT_PROJECT_DIR` before starting the kernel. Everything else in the notebook derives
-from it.
+**Edit one line:** set `PROJECT` below to a folder on your machine (any empty folder works).
+Everything else in the notebook derives from it.
 
 `fetch_ernie` downloads both parts of the `ernie` example dataset once — its raw T1/T2
 (`ernie/nifti`) and its finished head model (`ernie/headmodel`), about 630 MB together, GPL-3.0 — so
@@ -45,12 +44,11 @@ every later cell has a head model. Each part is skipped if already present. Same
 the app's *Add example data?* chooser.
 
 ```python
-import os
 from tit import get_path_manager
 from tit.examples import fetch_ernie
 from tit.pre import discover_subjects
 
-PROJECT = os.environ.get("TIT_PROJECT_DIR") or "/path/to/your/project"   # <-- edit me (or set TIT_PROJECT_DIR)
+PROJECT = "/path/to/your/project"   # <-- edit me
 SUBJECT = "ernie"
 
 pm = get_path_manager(PROJECT)

@@ -135,9 +135,11 @@ def test_every_attribute_read_off_pm_and_the_result_exists() -> None:
     assert set(re.findall(r"\bresult\.([A-Za-z_][A-Za-z0-9_]*)", source)) <= flex_fields
 
 
-def test_the_project_root_is_the_env_or_one_edited_line() -> None:
+def test_the_project_root_is_one_edited_line() -> None:
+    """The runner (dev/run_example_notebook.sh) substitutes this exact placeholder."""
     source = "\n".join(_code_cells())
-    assert 'os.environ.get("TIT_PROJECT_DIR")' in source
+    assert 'PROJECT = "/path/to/your/project"' in source
+    assert "os.environ" not in source
     assert "edit me" in source
     assert "/Users/" not in source and "C:\\" not in source and "/mnt/" not in source
 

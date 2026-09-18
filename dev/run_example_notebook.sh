@@ -4,7 +4,8 @@
 # What it does
 #   Runs `tit/server/examples/example_workflow.ipynb` with `jupyter nbconvert --execute` in a
 #   fresh container of the release image, with this checkout mounted read-only as the `tit`
-#   that runs (PYTHONPATH=/ti-toolbox) and an empty project directory as TIT_PROJECT_DIR. That
+#   that runs (PYTHONPATH=/ti-toolbox) and an empty project directory substituted for the
+#   notebook's `/path/to/your/project` placeholder. That
 #   is exactly the situation of a user who just installed the toolbox and opened the seeded
 #   example: cell 1 downloads ernie (~630 MB, once -- pass a --project that already has it to
 #   skip the download), the flex cell runs its reduced search, the simulator runs one TI FEM
@@ -46,7 +47,8 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || { echo "cannot run: image $IMAG
 [ -n "$PROJECT" ] || PROJECT="$(mktemp -d "${TMPDIR:-/tmp}/tit-example-nb-project.XXXXXX")"
 [ -n "$OUT_DIR" ] || OUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tit-example-nb-out.XXXXXX")"
 mkdir -p "$PROJECT" "$OUT_DIR"
-cp "$REPO_ROOT/tit/server/examples/example_workflow.ipynb" "$OUT_DIR/example_workflow.ipynb"
+# The notebook's one edited line is a literal path; the runner edits it the way a user would.
+sed 's#/path/to/your/project#/mnt/project#' "$REPO_ROOT/tit/server/examples/example_workflow.ipynb" > "$OUT_DIR/example_workflow.ipynb"
 
 echo "image:   $IMAGE"
 echo "project: $PROJECT"
@@ -59,7 +61,6 @@ docker run --rm --entrypoint bash \
   -v "$PROJECT:/mnt/project" \
   -v "$OUT_DIR:/mnt/out" \
   -e PYTHONPATH=/ti-toolbox \
-  -e TIT_PROJECT_DIR=/mnt/project \
   -w /mnt/out \
   "$IMAGE" -c 'simnibs_python -m jupyter nbconvert --to notebook --execute \
       --ExecutePreprocessor.timeout=-1 --ExecutePreprocessor.kernel_name=python3 \
