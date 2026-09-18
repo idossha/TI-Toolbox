@@ -41,8 +41,13 @@ function pickerSwitch(root: Locator): Locator {
 /** Every atlas the picker's own atlas combobox offers, with the popover closed again. */
 async function atlasOptions(root: Locator, label: string): Promise<string[]> {
   await field(label, root).locator(".combobox-trigger").click();
+  const listbox = page.getByRole("listbox");
+  await expect(listbox).toBeVisible();
   const names = (await page.getByRole("option").allInnerTexts()).map((t) => t.trim());
+  // Close the listbox only: a second Escape after it has already gone would reach the editor
+  // dialog and close it too, and the test's Done click would then time out.
   await page.keyboard.press("Escape");
+  await expect(listbox).toHaveCount(0);
   return names;
 }
 

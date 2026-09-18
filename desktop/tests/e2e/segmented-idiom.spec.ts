@@ -137,7 +137,9 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
   // `ui/CoordinateInput` — the request FIX-D called the one that matters most. It is reached from
   // the ROI picker's own "Add ROI" dialog, so before this the dialog's space radios and the
   // picker's space segment were two idioms one click apart. The picker is inside the row editor
-  // now, so this is a dialog opened from a dialog.
+  // now, so this is a dialog opened from a dialog. A fresh Ex row starts on a subcortical target
+  // (so the scene pane draws); "Add ROI" lives in the Saved panel, which is opted into first.
+  await exEditor.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Saved", exact: true }).click();
   await exEditor.getByRole("button", { name: /Add ROI/i }).first().click();
   const dialog = page.getByRole("dialog").filter({ hasText: "Add new ROI" });
   await expect(dialog).toBeVisible();
