@@ -29,7 +29,6 @@ import { ActionBar } from "../../ui/Chrome";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState } from "../../ui/Feedback";
 import { notify, notifySubmitError } from "../../ui/Toast";
-import { missingInputLines } from "../../api/client";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { subjectsBlockedReason } from "../_shared/subjects";
@@ -299,10 +298,14 @@ export function AnalyzerPage() {
         setStartedJobIds(outcome.acceptedIds);
       }
       const receipt = batchReceipt(outcome);
+      // The same input can be missing for several rows (one head model, N analyses): name it once.
       const missing = outcome.rejected.flatMap((entry) => entry.missing ?? []);
+      const uniqueMissing = missing.filter(
+        (m, i) => missing.findIndex((o) => o.what === m.what && o.expected_path === m.expected_path) === i,
+      );
       if (outcome.rejected.length === 0) notify.success(receipt);
-      else if (missing.length > 0) notify.blocked(receipt, missingInputLines(missing));
-      else notify.error(receipt);
+      else if (uniqueMissing.length > 0) notify.blocked(receipt, uniqueMissing);
+      else notify.error(receipt, outcome.rejected.map((entry) => entry.message).join("\n\n"));
     } catch (error) {
       notifySubmitError("Could not queue the analysis job(s).", error);
     } finally {

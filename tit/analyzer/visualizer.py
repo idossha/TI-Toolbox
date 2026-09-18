@@ -198,12 +198,13 @@ def save_histogram(
     n_bins: int = 100,
     dpi: int = 150,
 ) -> Path | None:
-    """Write ``histogram.png``: the field's distribution in the ROI against grey matter.
+    """Write ``histogram.png``: the whole-head field distribution with the ROI's contribution.
 
-    Two weighted histograms on shared bins -- the whole grey matter (area- or
-    volume-weighted) and the ROI on top of it -- with the ROI's mean and the
-    focality cutoffs (50/75/90/95 % of the GM 99.9th percentile) as vertical
-    lines.  One PNG at *dpi*, sized to stay legible as a thumbnail.
+    One weighted histogram of the whole grey matter (area- or volume-weighted),
+    each bar coloured by the fraction of it that lies inside the ROI (rainbow,
+    blue -> red, with a colour bar), the ROI mean and the focality cutoffs
+    (50/75/90/95 % of the GM 99.9th percentile) as vertical lines, and a stats
+    box.  One PNG at *dpi*.
 
     Parameters
     ----------
@@ -219,7 +220,7 @@ def save_histogram(
     roi_mean : float or None, optional
         Drawn as a vertical line.
     region_name : str or None, optional
-        Named in the title and the legend.
+        Named in the title.
     unit_label : str, optional
         The y-axis label when weights are given.
     n_bins : int, optional
@@ -257,88 +258,104 @@ def save_histogram(
 
     weighted = gm_w is not None
     y_label = unit_label if weighted else "Elements"
-    edges = np.histogram_bin_edges(gm, bins=n_bins)
-    gm_hist, _ = np.histogram(gm, bins=edges, weights=gm_w)
+    gm_hist, edges = np.histogram(gm, bins=n_bins, weights=gm_w)
     roi_hist, _ = np.histogram(roi, bins=edges, weights=roi_w)
     centers = (edges[:-1] + edges[1:]) / 2
     width = float(edges[1] - edges[0])
-    roi_label = f"ROI ({region_name})" if region_name else "ROI"
+
+    # Fraction of each bar that lies in the ROI; the colour scale tops out at the
+    # 95th percentile of the non-zero fractions so a few pure-ROI bins do not
+    # wash the rest out.
+    roi_fraction = np.divide(
+        roi_hist, gm_hist, out=np.zeros_like(gm_hist, dtype=float), where=gm_hist > 0
+    )
+    non_zero = roi_fraction[roi_fraction > 0]
+    max_fraction = float(max(np.percentile(non_zero, 95), 0.01)) if non_zero.size else 0.01
+    normalized = np.clip(roi_fraction / max_fraction, 0, 1)
 
     rc = {
         "font.family": "sans-serif",
         "font.sans-serif": ["DejaVu Sans", "Liberation Sans", "sans-serif"],
-        "font.size": 11,
         "text.usetex": False,
     }
     with plt.rc_context(rc):
-        fig, ax = plt.subplots(figsize=(9, 5.5))
-        ax.bar(
-            centers,
-            gm_hist,
-            width=width,
-            color="#9aa5b1",
-            edgecolor="none",
-            label="Grey matter",
-        )
-        ax.bar(
-            centers,
-            roi_hist,
-            width=width,
-            color="#d1495b",
-            edgecolor="none",
-            alpha=0.9,
-            label=roi_label,
-        )
+        fig, ax = plt.subplots(figsize=(14, 10))
+        cmap = plt.get_cmap("rainbow")
+        colors = cmap(normalized)
+        colors[:, 3] = 0.7
+        ax.bar(centers, gm_hist, width=width, color=colors, edgecolor="black")
 
+        # Focality cutoffs: one legend entry each, the threshold and the number of
+        # elements at or above it. The "of GM 99.9th pct" is said once, in the
+        # legend title, not on every line.
         p999 = float(np.percentile(gm, 99.9))
         for frac, color in zip(
-            (0.5, 0.75, 0.9, 0.95), ("#f4a261", "#e76f51", "#c1440e", "#7a1f00")
+            (0.5, 0.75, 0.9, 0.95), ("red", "darkred", "crimson", "maroon")
         ):
             t = frac * p999
             if edges[0] <= t <= edges[-1]:
+                count = int(np.count_nonzero(gm >= t))
                 ax.axvline(
                     t,
                     color=color,
                     linestyle="--",
-                    linewidth=1.3,
-                    label=f"{int(frac * 100)}% of GM 99.9th pct ({t:.2f} V/m)",
+                    linewidth=2,
+                    label=f"{int(frac * 100)}%: {t:.2f} V/m, {count:,} elements",
                 )
         if roi_mean is not None and edges[0] <= float(roi_mean) <= edges[-1]:
             ax.axvline(
                 float(roi_mean),
-                color="#1b6f3a",
-                linewidth=2.2,
-                label=f"ROI mean ({float(roi_mean):.2f} V/m)",
+                color="green",
+                linewidth=3,
+                label=f"ROI mean: {float(roi_mean):.2f} V/m",
+            )
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(
+                loc="upper left",
+                bbox_to_anchor=(0.02, 0.98),
+                frameon=True,
+                fontsize=11,
+                title="Cutoffs (% of GM 99.9th percentile)",
+                title_fontsize=11,
             )
 
-        ax.set_yscale("log")
-        ax.set_xlabel("Field strength (V/m)")
-        ax.set_ylabel(y_label + " (log)")
-        title = "Field distribution: ROI vs grey matter"
+        ax.set_xlabel("Field Strength (V/m)", fontsize=14)
+        ax.set_ylabel(y_label, fontsize=14)
+        ax.tick_params(axis="both", which="major", labelsize=12)
+        title = "Whole-Head Field Distribution with ROI Contribution"
         if region_name:
-            title += f" \u2014 {region_name}"
-        ax.set_title(title)
-        ax.grid(True, alpha=0.25)
-        ax.legend(loc="upper right", frameon=True, fontsize=9)
+            title += f"\nROI: {region_name}"
+        ax.set_title(title, fontsize=14)
+        ax.grid(True, alpha=0.3)
+
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, 1))
+        sm.set_array([])
+        cbar = fig.colorbar(sm, ax=ax, shrink=0.7, pad=0.02, aspect=25)
+        cbar.set_label(
+            f"ROI Contribution Fraction\n(Blue->Green->Red, max={max_fraction:.3f})",
+            fontsize=12,
+        )
 
         stats = (
-            f"GM  mean {float(np.average(gm, weights=gm_w)):.2f}  "
-            f"max {float(gm.max()):.2f}  99.9% {p999:.2f} V/m\n"
-            f"ROI mean {float(np.average(roi, weights=roi_w)):.2f}  "
-            f"max {float(roi.max()):.2f} V/m  n={roi.size:,}"
+            "Whole Head:\n"
+            f"Max: {float(gm.max()):.2f} V/m\n"
+            f"Mean: {float(np.average(gm, weights=gm_w)):.2f} V/m\n"
+            f"99.9%ile: {p999:.2f} V/m\n"
+            f"Elements: {gm.size:,}\n\n"
+            "ROI:\n"
+            f"Mean: {float(np.average(roi, weights=roi_w)):.2f} V/m\n"
+            f"Max: {float(roi.max()):.2f} V/m\n"
+            f"Elements: {roi.size:,}"
         )
         ax.text(
-            0.99,
-            0.02,
+            0.98,
+            0.98,
             stats,
             transform=ax.transAxes,
-            fontsize=8.5,
-            ha="right",
-            va="bottom",
-            family="monospace",
-            bbox=dict(
-                boxstyle="round", facecolor="white", alpha=0.85, edgecolor="#cccccc"
-            ),
+            fontsize=11,
+            verticalalignment="top",
+            horizontalalignment="right",
+            bbox=dict(boxstyle="square", facecolor="lightyellow"),
         )
 
         output_dir = Path(output_dir)

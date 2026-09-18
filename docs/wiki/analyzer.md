@@ -252,7 +252,7 @@ field-distribution histogram and **exactly one scene**:
 | `analysis.json` | the target and settings the run used |
 | `roi_overlay.msh` + `.msh.opt` (mesh) | the central surface with `<field>_ROI` node data: the field at the ROI's nodes, exactly `0` everywhere else (and `TI_normal_ROI` when the run had a normal field) |
 | `roi_overlay.nii.gz` (voxel) | the field, zero outside the ROI, on the field's own grid |
-| `histogram.png` | the field's distribution in the ROI against the whole grey matter — area-weighted (mesh) or volume-weighted (voxel) histograms on shared bins, log y-axis, with the ROI mean and the focality cutoffs (50/75/90/95 % of the GM 99.9th percentile) marked |
+| `histogram.png` | the whole-grey-matter field distribution — area-weighted (mesh) or volume-weighted (voxel) — with every bar coloured by the fraction of it inside the ROI (blue → red, colour bar), the ROI mean and the focality cutoffs (50/75/90/95 % of the GM 99.9th percentile) marked, and a whole-head / ROI stats box |
 | `scene.tetravox.json` | a Tetravox scene of the overlay: in voxel space the field over your `T1.nii.gz`; in mesh space the whole cortex translucent with the ROI's field coloured on top, cursor on the ROI, colour bar on |
 | `scene.png` | a picture of that scene, when Tetravox is installed on the machine running the app |
 

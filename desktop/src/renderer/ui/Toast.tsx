@@ -6,7 +6,8 @@ import { Dialog } from "./Overlay";
 /** Auto-dismiss for every toast, success or blocked; sonner already pauses this on hover. */
 const TOAST_DURATION = 4000;
 
-type MissingDialogState = { message: string; missing: readonly MissingInput[] } | null;
+/** What the "Details" dialog shows: a missing-input list, or a long message verbatim. */
+type MissingDialogState = { message: string; missing?: readonly MissingInput[]; text?: string } | null;
 
 /**
  * `ToastHost` mounts once at the app root; `notify.blocked`'s "Details" action needs to open a
@@ -54,7 +55,8 @@ export function ToastHost() {
         }}
         title={missingDialog?.message ?? "Missing inputs"}
       >
-        {missingDialog && (
+        {missingDialog?.text && <pre className="toast-details-text">{missingDialog.text}</pre>}
+        {missingDialog?.missing && (
           <ul className="missing-inputs-list">
             {missingDialog.missing.map((m, i) => (
               <li key={i}>
@@ -74,16 +76,28 @@ export const notify = {
   success(message: string) {
     toast.success(message, { duration: TOAST_DURATION });
   },
-  /** Persists until dismissed; pass `details` for a "Details" expandable action. */
+  /**
+   * Self-dismisses like every other toast. A long message is clamped to its first line with a
+   * "Details" button that opens the whole text (plus `details`, when given) in the shared
+   * `Dialog`, where it stays until closed and can be read and copied.
+   */
   error(message: string, details?: string) {
-    toast.error(message, {
-      duration: Infinity,
-      action: details
-        ? {
-            label: "Details",
-            onClick: () => toast.message(details, { duration: 8000 }),
-          }
-        : undefined,
+    const [title, ...rest] = message.split("\n");
+    const short = (title ?? message).length > 80 ? `${(title ?? message).slice(0, 77).trimEnd()}…` : (title ?? message);
+    const clipped = short !== message || rest.length > 0;
+    const text = [message, details].filter(Boolean).join("\n\n");
+    const id = toast.error(short, {
+      duration: TOAST_DURATION,
+      action:
+        clipped || details
+          ? {
+              label: "Details",
+              onClick: () => {
+                toast.dismiss(id);
+                openMissingDialog?.({ message: short, text });
+              },
+            }
+          : undefined,
     });
   },
   info(message: string) {

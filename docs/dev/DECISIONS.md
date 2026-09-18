@@ -1442,8 +1442,8 @@ the maintainer's decision, not an agent's.
 
 **Decision.** An analysis leaves `results.csv`, `analysis.json`, the overlay it computed from
 (`roi_overlay.msh` + `.opt`, or `roi_overlay.nii.gz`), **one** `histogram.png`
-(`tit.analyzer.visualizer.save_histogram`: the ROI's field distribution against the whole grey
-matter, area- or volume-weighted, 150 dpi PNG) and **one** `scene.tetravox.json`
+(`tit.analyzer.visualizer.save_histogram`: the whole-head distribution with bars coloured by
+ROI contribution fraction, as the old PDF drew it, area- or volume-weighted, 150 dpi PNG) and **one** `scene.tetravox.json`
 (`tit/analyzer/scene.py`) that points at that overlay: the field masked to the ROI over the
 anatomy, cursor on the ROI, colour bar on. The analyzer's `roi.tetravox.json` (ROI only, no
 field) and `roi_field.tetravox.json` (the whole unmasked field with a threshold, voxel only), the

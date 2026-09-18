@@ -1795,6 +1795,18 @@ kbd.kbd {
   white-space: nowrap;
 }
 
+/* A long error message, opened from the toast's Details button (Toast.tsx ToastHost). */
+.toast-details-text {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  max-height: 50vh;
+  overflow: auto;
+  color: var(--ink-2);
+}
+
 /* The full missing-input list, opened from the toast's Details button (Toast.tsx ToastHost). */
 .missing-inputs-list {
   margin: 0;
