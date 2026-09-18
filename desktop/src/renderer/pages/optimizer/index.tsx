@@ -153,14 +153,8 @@ function OptimizerPage() {
   const launchViewer = useOpenInViewer();
   const queryClient = useQueryClient();
   const { id: shellSubject, subjects: projectSubjects } = useSubject();
+  // Finished leadfield jobs refresh `["leadfields"]` through app/jobs/invalidation.ts.
   const jobsStream = useJobsStream();
-  const completedLeadfields = Object.values(jobsStream.jobs)
-    .filter((job) => job.kind === "leadfield" && job.state === "succeeded")
-    .map((job) => job.id).sort().join(",");
-  useEffect(() => {
-    if (completedLeadfields) void queryClient.invalidateQueries({ queryKey: ["leadfields"] });
-  }, [completedLeadfields, queryClient]);
-
 
   // `usePageSession` for everything the user decided (lane N2): the page unmounts on every
   // navigation, and a table of assembled jobs is exactly the thing a step onto Results must not

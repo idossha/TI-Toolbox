@@ -10,6 +10,7 @@ import { KeyboardSheet } from "./KeyboardSheet";
 import { QuickNotesHost } from "./QuickNotesHost";
 import { JobsRail, RUNNING_STATES } from "./jobs-rail/JobsRail";
 import { useJobsStream } from "./jobs/useJobsStream";
+import { useJobCompletionInvalidation } from "./jobs/invalidation";
 import { useGlobalShortcuts } from "./keyboard";
 import { useConnection } from "./connection";
 import { clearPageSession } from "./pageSession";
@@ -57,6 +58,7 @@ export function Shell({ pages }: { pages: readonly ResolvedPage[] }) {
   /** `/results` -> `results`; the catch-all redirect means this is always a real page id. */
   const activePageId = location.pathname.replace(/^\//, "").split("/")[0] ?? "";
   const { jobs } = useJobsStream();
+  useJobCompletionInvalidation();
   const connection = useConnection(unauthenticated);
   const projectKey = projectQuery.data
     ? [projectQuery.data.name, projectQuery.data.host_path ?? "", projectQuery.data.container_path].join("\u0000")
