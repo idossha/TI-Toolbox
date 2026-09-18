@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildJob, PLATE_LIMIT, pngFor, renderPlatesForJob, roiScenes } from "./roiPlates";
+import { buildJob, PLATE_LIMIT, pngFor, renderPlatesForJob, roiScenes, sceneHasMesh, summariseResult } from "./roiPlates";
 
 const SCENE = "/mnt/project/derivatives/SimNIBS/sub-101/flex-search/run/roi.tetravox.json";
 const HOST_SCENE = "/Users/x/project/derivatives/SimNIBS/sub-101/flex-search/run/roi.tetravox.json";
@@ -8,6 +8,16 @@ const HOST_DIR = "/Users/x/project/derivatives/SimNIBS/sub-101/flex-search/run";
 function hostOf(containerPath: string): string {
   return containerPath.replace("/mnt/project", "/Users/x/project");
 }
+
+const VOLUME_SCENE_TEXT = JSON.stringify({ version: 2, datasets: [{ id: "ds0", kind: "volume" }] });
+const MESH_SCENE_TEXT = JSON.stringify({ version: 2, datasets: [{ id: "ds0", kind: "mesh" }] });
+const RESULT_TEXT = JSON.stringify({
+  ok: true,
+  outputs: [{ action: 0, type: "screenshot", files: ["roi.png"], ms: 122 }],
+  timings: { totalMs: 4776 },
+  warnings: [],
+  errors: [],
+});
 
 function deps(overrides: Partial<Parameters<typeof renderPlatesForJob>[1]> = {}) {
   const written = new Map<string, string>();
@@ -24,6 +34,11 @@ function deps(overrides: Partial<Parameters<typeof renderPlatesForJob>[1]> = {})
       toHostPath: async (path: string) => hostOf(path),
       viewerExecutable: async () => "/Applications/Tetravox.app/Contents/MacOS/Tetravox",
       writeFileText: async (path: string, text: string) => void written.set(path, text),
+      readFileText: async (path: string) => {
+        if (path === HOST_SCENE) return VOLUME_SCENE_TEXT;
+        if (path.endsWith("/job-result.json")) return RESULT_TEXT;
+        throw new Error(`ENOENT: ${path}`);
+      },
       removeFile: async (path: string) => void removed.push(path),
       run: async (executable: string, args: string[]) => {
         ran.push({ executable, args });
@@ -49,7 +64,7 @@ describe("roiScenes", () => {
 describe("pngFor", () => {
   it("names the picture after the scene it comes from", () => {
     expect(pngFor(SCENE)).toBe("roi.png");
-    expect(pngFor("/a/roi_field.tetravox.json")).toBe("roi_field.png");
+    expect(pngFor("/a/Analyses/Mesh/run/scene.tetravox.json")).toBe("scene.png");
   });
 });
 
@@ -68,6 +83,30 @@ describe("buildJob", () => {
     expect(job.actions[0]!.view).toBe("figure");
     expect(job.actions[0]!.figure.panels).toEqual(["axial", "coronal", "sagittal"]);
   });
+
+  it("adds the 3D pane only when the scene has a mesh or surface to draw in it", () => {
+    const panelsOf = (text: string | undefined) =>
+      (buildJob(HOST_SCENE, text) as { actions: { figure: { panels: string[]; columns: number } }[] }).actions[0]!
+        .figure;
+    expect(panelsOf(VOLUME_SCENE_TEXT)).toMatchObject({ panels: ["axial", "coronal", "sagittal"], columns: 3 });
+    expect(panelsOf(MESH_SCENE_TEXT)).toMatchObject({
+      panels: ["view3d", "axial", "coronal", "sagittal"],
+      columns: 2,
+    });
+    expect(panelsOf(undefined).panels).toHaveLength(3);
+    expect(sceneHasMesh("not json")).toBe(false);
+    expect(sceneHasMesh(JSON.stringify({ datasets: [{ kind: "surface" }] }))).toBe(true);
+  });
+});
+
+describe("summariseResult", () => {
+  it("turns Tetravox's trace into one log line", () => {
+    expect(summariseResult(RESULT_TEXT)).toBe("ok; roi.png; 4776 ms");
+    expect(summariseResult(JSON.stringify({ ok: false, errors: ["boom"] }))).toBe(
+      'failed; no file; ? ms; 1 error(s): ["boom"]',
+    );
+    expect(summariseResult("{")).toBeNull();
+  });
 });
 
 describe("renderPlatesForJob", () => {
@@ -82,8 +121,10 @@ describe("renderPlatesForJob", () => {
     const [, jobPath, , outDir] = d.ran[0]!.args;
     expect(outDir).toBe(HOST_DIR);
     expect(JSON.parse(d.written.get(jobPath!)!).scene).toEqual({ path: HOST_SCENE });
-    // The document is derived from the scene in one line and is never left behind.
-    expect(d.removed).toEqual([jobPath]);
+    // The document is derived from the scene in one line and is never left behind, and neither
+    // is Tetravox's own trace: it is logged and removed.
+    expect(d.removed).toEqual([jobPath, `${HOST_DIR}/job-result.json`]);
+    expect(d.logged.join("\n")).toContain("roi.tetravox.json -> ok; roi.png; 4776 ms");
   });
 
   it("does nothing at all when the job left no scene", async () => {
@@ -118,7 +159,7 @@ describe("renderPlatesForJob", () => {
       },
     });
     await expect(renderPlatesForJob("job-1", d.value)).resolves.toEqual({ rendered: [], skipped: [SCENE] });
-    expect(d.removed).toHaveLength(1);
+    expect(d.removed).toHaveLength(2);
   });
 
   it("skips a scene outside the mounted project", async () => {
