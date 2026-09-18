@@ -1348,9 +1348,12 @@ GPL-3 project can pass on. The survey in `resources/atlas/README.md` already nam
 **Decisions.**
 
 1. **The Morel atlas is deleted, not moved.** `resources/atlas/MorelMNI152_labeling_1mm.nii.gz`,
-   its LUT, and its `parts`/`atlases` entries and files in `tit/scene/guide-mni/` are gone; the
-   guide manifest was edited by hand and the guide was *not* rebuilt (that needs the
-   `mni152/headmodel` example part in the container). The manifest gains a `not_shipped` list
+   its LUT, and its `parts`/`atlases` entries and files in `tit/scene/guide-mni/` are gone; the guide was
+   then rebuilt (`guide_build.py --atlases mni` against the `mni152/headmodel` example part in
+   the container) — skin, gm, CIT168, MASSP and every net came out byte-identical, and the
+   Harvard-Oxford (cortical and subcortical) and Cerebellum surfaces were added, so the MNI
+   pane can draw them; Schaefer's 400 parcels exceed the 256-region surface budget and it is
+   picker-only. The manifest gains a `not_shipped` list
    with the sentence a user must read, and `tit.atlas.manifest.not_shipped_message` /
    `check_shipped` are called at every boundary that resolves an MNI atlas name —
    `tit.opt.masks.validate_mask` (so `prepare_mask`, hence flex/ex/mEx and the analyzer's mask
@@ -1383,8 +1386,8 @@ GPL-3 project can pass on. The survey in `resources/atlas/README.md` already nam
    `resources/atlas/README.md` list the new atlases and the not-shipped note.
 
 **What did not change.** The interactive atlas browser on the wiki page still shows CIT168,
-Glasser and MASSP only (`dev/build_atlas_assets.py` was not re-run for the new files), and the
-MNI targeting pane draws CIT168 and MASSP only. Both are follow-ups, not regressions.
+Glasser and MASSP only (`dev/build_atlas_assets.py` was not re-run for the new files); a
+follow-up, not a regression.
 
 **Not done.** Harvard-Oxford, Cerebellum-MNIfnirt and Schaefer 2018 were **not** added. Schaefer's
 MIT licence was re-verified from `ThomasYeoLab/CBIG/LICENSE.md`; the FSL licence page is a

@@ -33,18 +33,21 @@ of record.**
 |---|---|---|
 | `CIT168_labeling_MNI152NLin2009cAsym.nii.gz` | 16 | CC BY 4.0 (OSF), NeuroVault CC0 |
 | `massp2021-parcellation_decade-18to40.nii.gz` | 31 | CC BY 4.0 (figshare 19646328) |
+| `HarvardOxford-cort-maxprob-thr25-1mm.nii.gz` | 48 | CC BY-SA 4.0 (FSL licence page) |
+| `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz` | 21 | CC BY-SA 4.0 (FSL licence page) |
+| `Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz` | 28 | CC BY-SA 4.0 (FSL licence page) |
 
 The Morel thalamus surfaces that were packaged here on 2026-09-17 were removed the same day, with
-the atlas itself (CC BY-NC-SA; `resources/atlas/README.md § Not shipped`). Their `parts` and
-`atlases` entries were deleted from `manifest.json` by hand; the rest of the guide was not rebuilt.
+the atlas itself (CC BY-NC-SA; `resources/atlas/README.md § Not shipped`). The guide was then
+rebuilt with the command under *Regenerating* (same head model, same builder): `skin`, `gm`, the
+CIT168 and MASSP surfaces and every net came out byte-identical (sha256 unchanged in
+`manifest.json`), and the three atlases above were added.
 
 `MNI_Glasser_HCP_v1.0.nii.gz` is **not** packaged here: it is a 360-parcel cortical parcellation and
 `tit/scene/volume_surfaces.py` draws at most 256 regions. It is still selectable in the ROI picker,
 which reads the atlas catalog rather than this guide; it simply cannot be *clicked* in the pane.
-The Harvard-Oxford, Cerebellum and Schaefer atlases added on 2026-09-17 are not packaged here
-either: the guide was not rebuilt (that needs the `mni152/headmodel` example part in the
-container, see *Regenerating*). They are selectable in the picker; they cannot yet be clicked in
-the MNI pane.
+`Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz` is skipped for the same reason
+(400 parcels); it is selectable in the picker and not clickable in the pane.
 
 ## Space
 
@@ -65,4 +68,4 @@ simnibs_python -m tit.scene.guide_build \
     --label "MNI152 template" --atlases mni --guide-id mni
 ```
 
-Packaged total: 15.23 MB (smaller than the 21 MB Ernie guide).
+Packaged total: 25.97 MB (the 21 MB Ernie guide plus three more atlases).
