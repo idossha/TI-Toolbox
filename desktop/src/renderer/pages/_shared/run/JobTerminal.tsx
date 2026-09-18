@@ -24,6 +24,7 @@ import { useJobsModel } from "../../../app/jobs-rail/model";
 import { elapsedLabel } from "../../../app/jobs-rail/format";
 import { type JobStatus } from "../../../app/jobs-rail/api";
 import { reveal } from "../../../app/jobs-rail/reveal";
+import { jobFolder } from "../../../app/jobs-rail/artifacts";
 import "./run.css";
 
 function toFollowable(job: JobStatus, now: number): FollowableJob {
@@ -85,6 +86,16 @@ export function JobTerminal({
     [followable, kinds, subjects, pinnedJobId, startedJobIds],
   );
   const jobId = job?.id;
+  // `job` (from `resolveFollowedJob`) is a `FollowableJob`, which drops `artifacts` in
+  // `toFollowable` above — it only ever carried `logPath`, which is why this pane used to reveal
+  // `code/ti-toolbox/jobs/<id>/` (the job's bookkeeping record) instead of its real output folder.
+  // The full `JobStatus` `jobFolder()` needs is right there in `all`, so look it up by id rather
+  // than growing `FollowableJob` for one field only this pane uses.
+  const rawJob = useMemo(() => all.find((j) => j.id === jobId), [all, jobId]);
+  const folder = useMemo(() => (rawJob ? jobFolder(rawJob) : null), [rawJob]);
+  // `jobFolder()` itself falls back to the log's directory when the job has written no artifacts
+  // yet, so `folder` alone can't say which folder it is. The label needs to.
+  const hasArtifact = !!rawJob?.artifacts.some((a) => a.path);
 
   const { lines } = useJobLogEvents(jobId, job?.state);
 
@@ -138,10 +149,14 @@ export function JobTerminal({
             sourceKey={`job:${job.id}`}
             lines={lines}
             onRevealLogFile={
-              job.logPath || onRevealLogFile
-                ? () => (onRevealLogFile ? onRevealLogFile(job.id) : reveal(job.logPath as string))
+              folder || job.logPath || onRevealLogFile
+                ? () =>
+                    onRevealLogFile
+                      ? onRevealLogFile(job.id)
+                      : reveal((folder ?? job.logPath) as string)
                 : undefined
             }
+            revealLabel={hasArtifact ? "Show the job's output folder" : "Reveal log file"}
           />
         ) : (
           <div className="job-terminal-empty" data-testid="job-terminal-empty">

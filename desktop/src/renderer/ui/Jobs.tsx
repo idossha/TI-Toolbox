@@ -62,11 +62,19 @@ export function JobConsole({
   sourceKey,
   lines,
   onRevealLogFile,
+  revealLabel,
 }: {
   /** Stable identity of the job or file; changing it restores the complete new transcript. */
   sourceKey: string;
   lines: JobLogLine[];
   onRevealLogFile?: () => void;
+  /**
+   * The folder button's aria-label/tooltip. Defaults to "Reveal log file" for a caller that never
+   * passed one, but every job terminal now reveals the job's own output folder (the artifact
+   * directory `jobFolder()` derives, not `code/ti-toolbox/jobs/<id>/`) and should say so — "Reveal
+   * log file" stays accurate only for the genuine fallback: a job with no artifacts yet.
+   */
+  revealLabel?: string;
 }) {
   const [follow, setFollow] = useState(true);
 
@@ -77,6 +85,7 @@ export function JobConsole({
       follow={follow}
       onFollowChange={setFollow}
       onRevealLogFile={onRevealLogFile}
+      revealLabel={revealLabel}
     />
   );
 }
@@ -86,11 +95,13 @@ function JobConsoleSource({
   follow,
   onFollowChange,
   onRevealLogFile,
+  revealLabel,
 }: {
   lines: JobLogLine[];
   follow: boolean;
   onFollowChange: (follow: boolean) => void;
   onRevealLogFile?: () => void;
+  revealLabel?: string;
 }) {
   const [filter, setFilter] = useState("");
   const [clearedThrough, setClearedThrough] = useState<number | null>(null);
@@ -128,7 +139,11 @@ function JobConsoleSource({
             onClick={clear}
           />
           {onRevealLogFile && (
-            <IconButton aria-label="Reveal log file" icon={<FolderOpen size={14} />} onClick={onRevealLogFile} />
+            <IconButton
+              aria-label={revealLabel ?? "Reveal log file"}
+              icon={<FolderOpen size={14} />}
+              onClick={onRevealLogFile}
+            />
           )}
         </div>
       </div>
