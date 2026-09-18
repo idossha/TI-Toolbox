@@ -23,6 +23,7 @@ export function VirtualList<T>({
   className,
   style,
   followTail = false,
+  onScrollAwayFromTail,
 }: {
   items: T[];
   rowHeight: number;
@@ -33,6 +34,16 @@ export function VirtualList<T>({
   style?: CSSProperties;
   /** When true, stays scrolled to the bottom as items are appended. */
   followTail?: boolean;
+  /**
+   * Called once when, with `followTail` on, the viewport ends up more than a row above the bottom
+   * — i.e. the reader scrolled back to look at something. The owner turns Follow off; otherwise the
+   * next chunk of output yanks the view back down and the line they were reading is unreachable
+   * while the job keeps printing.
+   *
+   * Only a scroll the component did not perform can reach this: every scroll this component makes
+   * lands exactly at the bottom, which is not "away from the tail".
+   */
+  onScrollAwayFromTail?: () => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -54,6 +65,20 @@ export function VirtualList<T>({
     observer.observe(viewport);
     return () => observer.disconnect();
   }, [followTail]);
+
+  const awayRef = useRef(onScrollAwayFromTail);
+  awayRef.current = onScrollAwayFromTail;
+  useLayoutEffect(() => {
+    const viewport = parentRef.current;
+    if (!followTail || !viewport) return;
+    const onScroll = (): void => {
+      const distance = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
+      // One row of slack: a fractional row height leaves a sub-pixel distance at the true bottom.
+      if (distance > rowHeight) awayRef.current?.();
+    };
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", onScroll);
+  }, [followTail, rowHeight]);
 
   return (
     <div
@@ -82,7 +107,7 @@ export function VirtualList<T>({
   );
 }
 
-/** Follow is explicit: new output follows even if a prior scroll moved away from the tail. */
+/** Follow pins the tail; a reader who scrolls away turns it off through `onScrollAwayFromTail`. */
 function scrollToBottom(viewport: HTMLDivElement): void {
   // Assign only the vertical offset; long log lines must keep their horizontal position.
   viewport.scrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
