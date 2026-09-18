@@ -403,6 +403,39 @@
   color: var(--warning);
 }
 
+/* A long text output (CONDENSED_AFTER_LINES in Outputs.tsx) is a box of fixed
+   height that scrolls, its max-height set inline from the output font size. */
+.nb-output__body--condensed {
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-1);
+}
+
+.nb-output__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.nb-output__toggle {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.nb-output__toggle:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
 .nb-output__error {
   padding: var(--space-1) var(--space-2);
   border-left: 2px solid var(--danger);
