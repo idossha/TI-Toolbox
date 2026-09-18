@@ -478,7 +478,7 @@ function Preview({
     pending = flexSummary.isPending && flexRows.length === 0;
     sections = [
       { kind: "header", rows: flexRows },
-      { kind: "custom", title: "Evaluated candidates", content: <CandidateBrowser key={`${subject}:flex:${node.label}`} subject={subject} kind="flex" run={node.label} /> },
+      { kind: "custom", title: "Evaluated candidates", testid: "results-candidates", content: <CandidateBrowser key={`${subject}:flex:${node.label}`} subject={subject} kind="flex" run={node.label} /> },
       flexElectrodes.length > 0 && {
         kind: "table" as const,
         title: "Final electrode positions",
@@ -498,7 +498,7 @@ function Preview({
         testid: "results-summary-ex",
         content: <BucketList buckets={exSummary?.buckets ?? []} />,
       },
-      { kind: "custom", title: "Evaluated candidates", content: <CandidateBrowser key={`${subject}:${preview.type === "exRun" ? preview.kind : "ex"}:${node.label}`} subject={subject} kind={preview.type === "exRun" ? preview.kind : "ex"} run={preview.type === "exRun" ? preview.run : node.label} /> },
+      { kind: "custom", title: "Evaluated candidates", testid: "results-candidates", content: <CandidateBrowser key={`${subject}:${preview.type === "exRun" ? preview.kind : "ex"}:${node.label}`} subject={subject} kind={preview.type === "exRun" ? preview.kind : "ex"} run={preview.type === "exRun" ? preview.run : node.label} /> },
       { kind: "figures", figures },
       filesSection(),
     ];

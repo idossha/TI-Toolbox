@@ -100,7 +100,14 @@ test("Viewer settings show native installation status", async () => {
   await connect();
   await openSettings();
   await page.getByRole("tab", { name: "Viewer", exact: true }).click();
-  await expect(page.getByTestId("native-tetravox")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Install TetraVox", exact: true })).toBeEnabled();
-  await expect(page.getByText("TetraVox opens in its own native window.")).toBeVisible();
+  // Settings ▸ Viewer is the TetraVox card (`pages/settings/TetravoxCard.tsx`, 2026-09-15): the
+  // status chip in its header, then Version and Location rows laid out like the other settings
+  // cards. Nothing installed: the chip says so, the Version row says so, Install is offered, and
+  // Locate… is the override for a person who prefers their own copy.
+  const card = page.locator(".card", { has: page.locator(".card-title", { hasText: "TetraVox" }) });
+  await expect(card).toBeVisible();
+  await expect(card.locator(".card-header")).toContainText("Not installed");
+  await expect(card.getByRole("button", { name: "Install TetraVox", exact: true })).toBeEnabled();
+  await expect(card.getByRole("button", { name: "Locate…", exact: true })).toBeEnabled();
+  await expect(card.getByRole("button", { name: "Launch TetraVox", exact: true })).toHaveCount(0);
 });
