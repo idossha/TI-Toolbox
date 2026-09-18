@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 import psutil
 
 import tit as _tit_pkg
+from tit.cpu import JOB_CPUS_ENV
 from tit.jobs.processes import send_kill, send_terminate, spawn_kwargs
 
 logger = logging.getLogger(__name__)
@@ -168,6 +169,11 @@ def runner_env(
         for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS"):
             env[name] = threads
         env["TI_NIFTI_WORKERS"] = threads
+        # The same number, named rather than inferred, for code that picks a *worker count*
+        # rather than a thread count (`tit.opt.ex.parallel.resolve_n_jobs`,
+        # `tit.opt.flex`): a solver's "use every core" default must not exceed -- or fall
+        # short of -- the CPUs the plan showed the user. See `tit.cpu.job_cpus`.
+        env[JOB_CPUS_ENV] = threads
     return env
 
 

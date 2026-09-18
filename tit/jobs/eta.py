@@ -20,7 +20,8 @@ Every estimate has the same shape::
 * ``mesh_scale`` is the subject's head mesh measured against ernie's, using the ``.msh`` file
   size as a cheap proxy for the element count (a stat() call, not a parse), clamped so a missing
   or unusual mesh cannot produce an absurd number.
-* ``system.factor`` folds in the two machine facts that matter: how many cores the container has,
+* ``system.factor`` folds in the two machine facts that matter: how many cores the container may
+  actually use (:func:`tit.cpu.effective_cpus` -- the cgroup limit, not the host's core count),
   and whether it is running emulated (an amd64 image under Rosetta on Apple Silicon, which is
   where every constant below was measured).
 
@@ -60,6 +61,8 @@ import platform
 from dataclasses import dataclass, asdict
 from functools import lru_cache
 from typing import Any
+
+from tit.cpu import effective_cpus
 
 # --------------------------------------------------------------------------- system
 
@@ -123,7 +126,7 @@ def _cpu_factor(cpus: int) -> float:
 @lru_cache(maxsize=1)
 def detect_system() -> SystemProfile:
     """This machine's :class:`SystemProfile` (cached -- it cannot change under us)."""
-    cpus = os.cpu_count() or 1
+    cpus = effective_cpus()
     emulated = _is_emulated(platform.machine(), _cpuinfo())
     factor = _cpu_factor(cpus) * (EMULATION_FACTOR if emulated else 1.0)
     return SystemProfile(cpus=cpus, emulated=emulated, factor=round(factor, 3))
@@ -178,7 +181,8 @@ FIXED_MIN: dict[str, float] = {
     "flex": 1.0 / EMULATION_FACTOR,
     "flex_adaptive": 1.0 / EMULATION_FACTOR,
     "flex_pareto": 1.0 / EMULATION_FACTOR,
-    "analyzer": 2.0 / EMULATION_FACTOR,
+    # No "analyzer": there is no measured analyzer baseline, and `eta_minutes` returns None for
+    # it. A constant here would only look like a model.
 }
 #: Native minutes per unit of the thing that drives the kind (see the module docstring).
 PER_UNIT_MIN: dict[str, float] = {

@@ -503,6 +503,15 @@ budget. Chip precedence is `blocked > wait > overwrite > skip > new`. Blocked-ch
 matches prose warnings because the wire plan lacks structured per-cell blockers; it is a preview
 limitation, not server admission authority. The terminal header identifies the actual job and state.
 
+Resource and duration figures are the run's own. CPU counts come from
+[`tit/cpu.py`](../../tit/cpu.py) — the container's cgroup/cpuset limit, not the host's core count —
+and the job runner exports the admitted budget as `TIT_JOB_CPUS` alongside the OpenMP/MKL/Numba
+thread variables, which every "use all cores" default reads, so the panel's CPU figure is the
+number the solver receives. `parallel_subjects` is clamped to what the scheduler budget admits, with
+a warning. The duration tile is an estimate from the per-kind models documented in
+[`tit/jobs/eta.py`](../../tit/jobs/eta.py), calibrated against [BENCHMARKS](BENCHMARKS.md); it is
+labelled `≈` with its basis in the tooltip, and a kind with no measured baseline shows no number.
+
 The Viewer Menu's subject/space tree and editable composition share selection. Meshes, surfaces,
 volumes and attachments retain server-classified kinds, filenames and size. Native TetraVox owns
 camera/layer controls. TI reports installation and launch errors; opening Settings checks the local

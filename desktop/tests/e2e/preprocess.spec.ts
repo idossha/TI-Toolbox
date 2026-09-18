@@ -78,6 +78,9 @@ test("the plan is a subject x stage matrix of chips, with one legend and no free
   await expect(grid.getByTestId("plan-stat-cpus")).toBeVisible();
   await expect(grid.getByTestId("plan-stat-mem")).toBeVisible();
   await expect(grid.getByTestId("plan-stat-waits")).toBeVisible();
+  // The duration estimate is a tile like any other, and always says what it is based on.
+  await expect(grid.getByTestId("plan-stat-eta")).toBeVisible();
+  await expect(grid.getByTestId("plan-stat-eta")).toHaveAttribute("title", /Estimate for this machine|No measured basis/);
 
   // FXU1: the columns are every stage THIS configuration runs, in `plan_preprocessing`'s G1..G6
   // order, whether or not the plan returned a job for one — so the grid is a matrix, not a strip.

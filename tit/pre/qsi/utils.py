@@ -804,7 +804,10 @@ def get_inherited_dood_resources() -> tuple[int, int]:
     """
     cpu_limit, mem_limit_bytes = get_container_resource_limits()
 
-    cpus = cpu_limit or (os.cpu_count() or 1)
+    from tit.cpu import effective_cpus
+
+    # No cgroup limit still does not mean "every core the host has": affinity and cpuset count.
+    cpus = cpu_limit or effective_cpus()
 
     if mem_limit_bytes is None:
         mem_limit_bytes = _get_total_mem_bytes_from_proc()

@@ -95,9 +95,9 @@ def get_container_resource_limits() -> tuple[int | None, int | None]:
 
 def available_threads() -> int:
     """Count CPUs usable by this process, including container quotas and affinity."""
-    count = os.cpu_count() or 1
-    if hasattr(os, "sched_getaffinity"):
-        count = min(count, len(os.sched_getaffinity(0)))
+    from tit.cpu import effective_cpus
+
+    count = effective_cpus()
     limit, _ = get_container_resource_limits()
     return max(1, min(count, limit) if limit else count)
 

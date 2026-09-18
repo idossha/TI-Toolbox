@@ -20,12 +20,12 @@ off each job's live status.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
 import psutil
 
+from tit.cpu import effective_cpus
 from tit.jobs import locks
 from tit.jobs.spec import Cost, JobSpec, JobStatus, WaitingOn
 
@@ -163,7 +163,7 @@ def discover_budget() -> Cost:
     except (
         Exception
     ):  # pragma: no cover - defensive; qsi utils is another lane's module
-        cpus = float(os.cpu_count() or 1)
+        cpus = float(effective_cpus())
         mem_gb = 8.0
     try:
         available_gb = psutil.virtual_memory().available / (1024**3)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from tit.cpu import effective_cpus
 from tit.jobs.spec import Cost
 from tit.surfer_settings import effective_threads
 
@@ -97,6 +98,16 @@ def default_cost(kind: str, config: dict[str, Any] | None = None) -> Cost:
     mem = _num(config.get("memory_gb"))
     if mem is None:
         mem = _num(config.get("mem_gb"))
+
+    if kind in ("ex", "mex"):
+        # The exhaustive searches fork one worker per CPU: `n_jobs < 1` means "the budget this
+        # job was admitted with" (tit.opt.ex.parallel.resolve_n_jobs), so the plan must show
+        # that budget, not the 2-cpu placeholder. Before this it said 2 while the run forked
+        # `os.cpu_count() - 1` workers.
+        n_jobs = _num(config.get("n_jobs"))
+        if n_jobs is not None and n_jobs >= 1:
+            return Cost(cpus=int(n_jobs), mem_gb=base.mem_gb)
+        return Cost(cpus=max(1, effective_cpus() - 1), mem_gb=base.mem_gb)
 
     if kind == "sim":
         n_montages = _n_montages(config)

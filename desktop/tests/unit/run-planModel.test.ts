@@ -17,7 +17,9 @@ import {
   type PlanCell,
   type PlanJob,
   type PlanResult,
+  type PlanStats,
 } from "../../src/renderer/pages/_shared/run/planModel";
+import { etaBasis } from "../../src/renderer/pages/_shared/run/PlanGrid";
 
 function job(over: Partial<PlanJob> & { subject: string; output_dir: string }): PlanJob {
   return { kind: "pre", exists: false, will_overwrite: false, ...over };
@@ -265,5 +267,31 @@ describe("a report is an attachment of its job, never a plan row", () => {
     expect(plan.stages.map((s) => s.id)).not.toContain("report");
     expect(planDigest(plan)).toBe("1 job · 1 CPU · 3 GB");
     expect(planCounts(plan).jobs).toBe(1);
+  });
+});
+
+
+describe("etaBasis — an estimate never stands on its own", () => {
+  const stats = (etaMinutes: number | null, system: PlanStats["system"] = null): PlanStats => ({
+    jobs: 1,
+    cpus: 2,
+    memoryGb: 6,
+    etaMinutes,
+    system,
+    waits: 0,
+  });
+
+  it("says there is no basis rather than showing a number", () => {
+    expect(etaBasis(stats(null))).toMatch(/No measured basis/);
+  });
+
+  it("names the machine the estimate was computed for", () => {
+    const basis = etaBasis(stats(25, { cpus: 4, emulated: true, factor: 3 }));
+    expect(basis).toContain("4 CPUs, emulated");
+    expect(basis).toContain("BENCHMARKS.md");
+  });
+
+  it("does not claim emulation on a native machine", () => {
+    expect(etaBasis(stats(25, { cpus: 12, emulated: false, factor: 1 }))).not.toContain("emulated");
   });
 });
