@@ -49,6 +49,7 @@ rationale below consolidates later amendments without treating superseded design
 | 30 | 2026-09-07 | External audit response: the six scientific corrections, the server hardening, one release workflow | live |
 | 31 | 2026-09-15 | One TetraVox resolution order (configured, managed, system, PATH) and feed-verified managed updates | amends the install half of 2026-09-13 |
 | 32 | 2026-09-17 | A plan's CPUs, threads and duration are the run's: one CPU detector, one budget env var, one estimate model per kind | live |
+| 33 | 2026-09-18 | Path validation at the boundary: one name grammar, one lexical join, one physical containment check; CodeQL alerts resolved by shape, not suppression | amends 30 |
 
 ## Runtime and distribution
 
@@ -198,6 +199,46 @@ in-flight live updates. Quit policy applies to every owned backend and awaits ca
 add-only reconnect left stale jobs; backend-specific quit could discard work silently.
 **Cost.** Stricter inputs and less aggressive admission. Filesystem containment is not a sandbox
 against malicious concurrent local mutation. **Revisit if.** Multi-user trust or storage ownership changes.
+
+### 2026-09-18 — Path validation at the boundary; CodeQL alerts (ADR 33, amends 30)
+
+**Decision.** Every user-supplied value that becomes a path component passes through one of three
+functions in `tit/paths.py`, and CodeQL must be able to see it. `validate_subject_id` (existing)
+and the new `validate_name` are the allowlists: one grammar for subject ids, one for everything
+else (simulation, run, montage, ROI, atlas, EEG net, analysis, stats names — letters, digits,
+`._-`, an inner space for v2's legacy names, never a leading dot, never a separator, ≤ 128).
+`resolve_under(root, *parts)` is the lexical join every `PathManager` accessor uses
+(`normpath` + `startswith(root/)`, no filesystem access, symlinks not followed);
+`resolve_within(jail, path)` is the physical check at the I/O boundary (`realpath` +
+`startswith(realpath(jail)/)`, returning the resolved path so what is checked is what is opened);
+`resolve_leaf_within` is its write/delete form, which resolves the parent and keeps the leaf so an
+alias is replaced rather than its target. Request values are validated by pydantic before a route
+body runs (`tit.server.schemas.SubjectId` / `EntityName`, as `Annotated[..., Query()]` so FastAPI
+keeps the validator; a bare `T = Query(...)` silently drops it): a path-shaped value is a 422
+naming the rule, never a 404 from deep inside a listing. Boolean helpers (`is_within`,
+`_project_paths_safe`) stay for callers that only ask; anything that then *opens* uses the
+returning form. No `# lgtm`, no `# noqa`, no CodeQL path exclusions.
+
+**Why.** 178 open `py/path-injection` alerts and one `py/polynomial-redos`. Every one traced to a
+FastAPI request value (subject, simulation, run, name, atlas, net, notebook name, viewer preset
+name, a layer path in a body) reaching `open`/`listdir`/`stat` through `PathManager` or
+`tit.catalog`. The code already had the checks — `validate_subject_id`, `is_within`,
+`Path.resolve().is_relative_to`, `_source_path`'s `resolved == root or resolved.startswith(...)`
+— but in shapes CodeQL does not recognise as barriers: a regex allowlist is not one; a boolean
+helper's result is not one; `is_relative_to` is not modelled; an `or` around the `startswith`
+guard breaks it. The only recognised idiom is *normalise (or realpath), then `startswith` on that
+same value in the true branch*, so the sanitizers are written in exactly that shape and return
+the guarded value. Two findings were real: `POST /api/view/args` stat'ed every layer `path` and
+probed every `attachments` entry from the body before jailing (an existence oracle), and the
+mask-upload filename regex backtracked quadratically on a run of dots.
+
+**Cost.** `PathManager.simulation`/`*_run`/`stats_output` now raise `ValueError` for a name with
+a separator or a leading dot where they used to return a path that later failed to exist; routes
+return 422 rather than 404 for such names (four tests updated). Local CodeQL is the proof:
+`codeql database analyze … PathInjection.ql PolynomialReDoS.ql` went 178 + 1 → 0 + 0 on this
+checkout. **Revisit if.** A legitimate project name falls outside `NAME_RE` (widen the grammar in
+one place and add it to `tests/test_request_name_validation.py`'s Dataset 000 walk), or CodeQL's
+Python barrier set gains regex validation.
 
 ### 2026-09-06/09 — UI consistency without duplicate state
 

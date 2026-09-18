@@ -23,6 +23,13 @@ project-path rules do not belong in TypeScript. Pipelines expose typed configura
 manager. [`contracts/openapi.yaml`](../../contracts/openapi.yaml) is the hand-written wire contract;
 generated schemas and renderer types are build outputs.
 
+A request value that names a subject or an on-disk entity is validated by pydantic before a route
+runs (`tit.server.schemas.SubjectId` / `EntityName`); `PathManager` joins every user name through
+`tit.paths.resolve_under`, and a read, listing or write at a jail boundary goes through
+`resolve_within` / `resolve_leaf_within` and uses the path they return. The contract, and the
+shapes CodeQL recognises, are in
+[`dev/security/SECURITY_MASTER_DOCUMENT.md`](../../dev/security/SECURITY_MASTER_DOCUMENT.md#the-path-sanitizer-contract-v3) (ADR 33).
+
 The core container has no Qt GUI, X11 display or FreeSurfer installation. Dedicated viewing uses
 native TetraVox on the host GPU; surface run previews use the application's WebGL2 renderer and volumetric previews open in TetraVox (§7).
 Dependency versions belong in the package manifests, lockfile and container blueprint, not prose
