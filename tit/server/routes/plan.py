@@ -190,6 +190,42 @@ def _plan_cost(
     return PlanCost(cpus=cost.cpus, mem_gb=cost.mem_gb, eta_minutes=eta, system=system)
 
 
+def clamp_parallel_subjects(
+    kind: str,
+    raw_config: dict[str, Any],
+    requested: int,
+    warnings: list[str],
+) -> int:
+    """*requested* subject-DAGs at once, reduced to what the scheduler could actually admit.
+
+    A plan that says "4 subjects in parallel x 8 CPU each" on a 12-CPU container is a promise of
+    32 cores that do not exist: the scheduler admits jobs against
+    :func:`tit.jobs.scheduler.discover_budget`, so the 4th DAG simply waits. The plan says what
+    will happen instead, and says why in a warning.
+    """
+    if requested <= 1:
+        return max(1, requested)
+    try:
+        from tit.jobs.costs import default_cost
+        from tit.jobs.scheduler import discover_budget
+
+        cost = default_cost(kind, raw_config)
+        budget = discover_budget()
+    except Exception:  # pragma: no cover - defensive; never fail a plan over an estimate
+        return requested
+    by_cpu = int(budget.cpus // cost.cpus) if cost.cpus > 0 else requested
+    by_mem = int(budget.mem_gb // cost.mem_gb) if cost.mem_gb > 0 else requested
+    allowed = max(1, min(by_cpu, by_mem))
+    if allowed >= requested:
+        return requested
+    warnings.append(
+        f"parallel_subjects={requested} does not fit this container's budget "
+        f"({budget.cpus:g} CPU / {budget.mem_gb:.0f} GB at {cost.cpus:g} CPU / "
+        f"{cost.mem_gb:g} GB per stage); {allowed} will run at once and the rest will queue"
+    )
+    return allowed
+
+
 def _plan_eta(
     kind: str,
     raw_config: dict[str, Any],
@@ -964,7 +1000,10 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
 
     parallel = 1
     if kind == "pre" and resolved is not None:
-        parallel = resolved.get("parallel_subjects", 1)
+        parallel = clamp_parallel_subjects(
+            kind, body.config, resolved.get("parallel_subjects", 1), warnings
+        )
+        resolved["parallel_subjects"] = parallel
     cost = _plan_cost(
         kind, body.config, resolved=resolved, jobs=jobs, parallel=parallel
     )

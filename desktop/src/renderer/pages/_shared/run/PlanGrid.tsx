@@ -13,7 +13,8 @@ import { RefetchBar } from "../../../ui/Chrome";
 import { Callout, EmptyState, InlineError, Skeleton } from "../../../ui/Feedback";
 import { Popover } from "../../../ui/Overlay";
 import { Chip, type SemanticKind } from "../../../ui/Status";
-import { cellChipCounts, type PlanCell, type PlanChip, type PlanModel } from "./planModel";
+import { cellChipCounts, type PlanCell, type PlanChip, type PlanModel, type PlanStats } from "./planModel";
+import { durationLabel } from "./terminalSources";
 import "./run.css";
 
 export type ChipKind = SemanticKind;
@@ -87,9 +88,22 @@ function CountsCell({ cell }: { cell: PlanCell }) {
   );
 }
 
-function StatTile({ id, label, value, tone }: { id: string; label: string; value: string; tone?: "warning" }) {
+/**
+ * What the "Est." tile's tooltip says. An estimate never stands on its own: it names the machine
+ * it was computed for (`PlanCost.system` — the CPUs the container may actually use, and whether
+ * it is emulated) and where the constants come from. With no model, it says so instead of
+ * dressing up a guess.
+ */
+export function etaBasis(stats: PlanStats): string {
+  if (stats.etaMinutes === null) return "No measured basis for this job kind — no estimate is given.";
+  const sys = stats.system;
+  const machine = sys ? `${sys.cpus} CPU${sys.cpus === 1 ? "" : "s"}${sys.emulated ? ", emulated" : ""}` : "this machine";
+  return `Estimate for this machine (${machine}), from measured ernie runs — see docs/dev/BENCHMARKS.md. Not a guarantee.`;
+}
+
+function StatTile({ id, label, value, tone, hint = "per job" }: { id: string; label: string; value: string; tone?: "warning"; hint?: string }) {
   return (
-    <div className="plan-stat" data-testid={`plan-stat-${id}`} title="per job">
+    <div className="plan-stat" data-testid={`plan-stat-${id}`} title={hint}>
       <span className="plan-stat-label">{label}</span>
       <span className={tone === "warning" ? "plan-stat-value plan-stat-value-warning" : "plan-stat-value"}>{value}</span>
     </div>
@@ -194,7 +208,15 @@ export function PlanGrid({
             <StatTile id="jobs" label="Jobs" value={String(plan.stats.jobs)} />
             <StatTile id="cpus" label="CPUs" value={String(plan.stats.cpus)} />
             <StatTile id="mem" label="Mem" value={`${plan.stats.memoryGb} GB`} />
-            <StatTile id="waits" label="Waits" value={String(plan.stats.waits)} tone={plan.stats.waits > 0 ? "warning" : undefined} />
+            <StatTile id="waits" label="Waits" value={String(plan.stats.waits)} tone={plan.stats.waits > 0 ? "warning" : undefined} hint="jobs that will queue behind a lock" />
+            {/* An estimate, labelled as one, with its basis in the tooltip — and a dash, never a
+                number, for a kind the server has no measured model for (`tit/jobs/eta.py`). */}
+            <StatTile
+              id="eta"
+              label="Est."
+              value={plan.stats.etaMinutes === null ? "—" : `≈ ${durationLabel(plan.stats.etaMinutes)}`}
+              hint={etaBasis(plan.stats)}
+            />
           </div>
 
           {plan.subjects.length > 0 && plan.stages.length > 0 ? (

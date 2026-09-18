@@ -24,6 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
+from tit.cpu import job_cpus
 from tit.opt.config import FlexConfig, FlexResult, _as_list
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
@@ -182,7 +183,10 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
 
         recorder = getattr(opt, "_candidate_recorder", None)
         try:
-            opt.run(cpus=config.cpus)
+            # An explicit `cpus` wins; otherwise the CPU budget the plan admitted this job
+            # with (TIT_JOB_CPUS), so SimNIBS gets the number the plan panel showed rather
+            # than its own internal default. See `tit.cpu.job_cpus`.
+            opt.run(cpus=config.cpus or job_cpus())
             if recorder is not None:
                 recorder.finalize(opt)
         finally:

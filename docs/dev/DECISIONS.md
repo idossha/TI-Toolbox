@@ -48,6 +48,7 @@ rationale below consolidates later amendments without treating superseded design
 | 29 | 2026-09-06 | **The embed is restored, baked in the image, on the Viewer's own two sub-pages.** Nothing installs Tetravox on the host | superseded by native TetraVox decision, 2026-09-13 |
 | 30 | 2026-09-07 | External audit response: the six scientific corrections, the server hardening, one release workflow | live |
 | 31 | 2026-09-15 | One TetraVox resolution order (configured, managed, system, PATH) and feed-verified managed updates | amends the install half of 2026-09-13 |
+| 32 | 2026-09-17 | A plan's CPUs, threads and duration are the run's: one CPU detector, one budget env var, one estimate model per kind | live |
 
 ## Runtime and distribution
 
@@ -927,3 +928,46 @@ same binary. **Cost:** first run downloads ~120 MB, and the download can only wo
 release with those assets is published; until then every user-mode run falls back to the browser.
 **Revisit if:** a signed release cannot be produced for a supported platform, or a genuinely
 browser-only deployment (a shared remote server) becomes a supported product.
+
+
+## 2026-09-17 — The plan's numbers are the run's numbers (ADR row 32)
+
+**Decision.** Three rules, one each for the three kinds of number the plan panel shows.
+
+1. **CPUs come from the container, not the host.** `tit/cpu.py` is the only answer to "how many
+   CPUs may this process use": cgroup v2 `cpu.max`, then cgroup v1 `cpu.cfs_quota_us` /
+   `cpu.cfs_period_us`, then the effective cpuset, then `os.sched_getaffinity`, then
+   `os.cpu_count()`, smallest wins, never below 1. `tit.jobs.eta`, `tit.jobs.scheduler`,
+   `tit.surfer_settings`, `tit.pre.qsi.utils` and `tit.opt.ex.parallel` all call it. Memory is
+   unchanged: it already came from the cgroup limit clamped by what is available.
+2. **A solver receives what the plan promised.** The runner exports the admitted budget as
+   `TIT_JOB_CPUS` beside the `OMP_NUM_THREADS`/`MKL_NUM_THREADS`/`NUMBA_NUM_THREADS` it already
+   set, and every "use all the cores" default now reads it: `tit.opt.ex.parallel.resolve_n_jobs`
+   (`n_jobs=-1`, the UI default, forked `os.cpu_count() - 1` workers behind a plan that said
+   "2 CPU") and `tit.opt.flex` (SimNIBS got `cpus=None` behind the same "2 CPU"). The ex/mEx
+   plan cost therefore reports the worker count the run will actually fork, and
+   `POST /api/plan/pre` clamps `parallel_subjects` to what the scheduler's budget could admit,
+   with a warning, so a plan never multiplies a per-stage cost into cores that do not exist.
+3. **One documented estimate model per kind, or no number.** The models stay where they were
+   written down (`tit/jobs/eta.py`'s module docstring) — `minutes = (fixed + per_unit × units) ×
+   mesh_scale × system.factor / parallel`, with `units` the electrodes in the cap (leadfield),
+   electrode pairs (sim), evaluated combinations (ex/mEx), multistart runs × DE budget (flex) or
+   the stage list (pre) — and `tests/test_plan_accuracy.py` now checks each one against the
+   measured run it was calibrated on, including the two-carrier SESSION of 366.46 s in
+   [BENCHMARKS](BENCHMARKS.md#2026-09-13--flex-non-roi-observation-ernie-volume-smoke). Kinds with
+   no measured baseline (analyzer, stats, FreeSurfer preprocessing) return `None` and the panel's
+   new **Est.** tile shows a dash; where there is a number it is prefixed `≈` and its tooltip names
+   the machine it was computed for and the benchmark page it came from.
+
+**Why.** Every one of these numbers was read by a user deciding whether to press Run, and each was
+wrong in a different direction: `os.cpu_count()` inside a container reports the Docker VM's cores
+regardless of `--cpus`, the exhaustive searches oversubscribed the container by five times what
+the plan showed, and a `parallel_subjects` request inflated the previewed cost by a factor the
+scheduler would never admit.
+
+**Cost.** An ex/mEx job now declares (truthfully) most of the container's CPUs, so two of them
+queue rather than thrash. `tit/cpu.py` is one more module every layer imports.
+
+**Revisit if** the constants drift from the machine they were measured on — the calibration tests
+fail rather than the estimates quietly lying — or if per-job CPU limits (cgroups per job, not per
+container) ever become real, at which point `TIT_JOB_CPUS` becomes an enforcement point.

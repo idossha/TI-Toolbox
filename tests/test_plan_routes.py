@@ -617,8 +617,21 @@ def test_plan_pre_default_parallel_subjects_is_one(
     assert body["resolved"]["parallel_subjects"] == 1
 
 
+@pytest.fixture()
+def roomy_budget(monkeypatch: pytest.MonkeyPatch):
+    """A budget big enough that `clamp_parallel_subjects` never reduces the request.
+
+    Without it these assertions would depend on the cores of whichever machine runs the suite.
+    """
+    from tit.jobs.spec import Cost
+
+    monkeypatch.setattr(
+        "tit.jobs.scheduler.discover_budget", lambda: Cost(cpus=256.0, mem_gb=512.0)
+    )
+
+
 def test_plan_pre_honours_parallel_subjects_in_summary_and_cost(
-    client: TestClient, project: Path
+    client: TestClient, project: Path, roomy_budget: None
 ) -> None:
     serial = client.post(
         "/api/plan/pre",
@@ -1129,3 +1142,30 @@ def test_analyzer_mask_plan_matches_runtime_output_directory(client, project):
     )
     assert planned == runtime
     assert "mask_target_mni" in planned
+
+
+def test_plan_pre_clamps_parallel_subjects_to_the_container_budget(
+    client: TestClient, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A plan never promises more cores than the scheduler could admit at once."""
+    from tit.jobs.spec import Cost
+
+    monkeypatch.setattr(
+        "tit.jobs.scheduler.discover_budget", lambda: Cost(cpus=4.0, mem_gb=64.0)
+    )
+    body = client.post(
+        "/api/plan/pre",
+        json={
+            "config": _pre_config(),
+            "subject_ids": ["001", "002", "003"],
+            "parallel_subjects": 3,
+        },
+        headers=BEARER,
+    ).json()
+    lanes = body["resolved"]["parallel_subjects"]
+    per_stage_cpus = body["cost"]["cpus"] / lanes
+    assert lanes < 3
+    # The plan multiplies one stage's cost by the lanes it will actually get, so a request for
+    # more lanes than fit no longer inflates the previewed cost.
+    assert lanes * per_stage_cpus == pytest.approx(body["cost"]["cpus"])
+    assert any("budget" in w for w in body["warnings"])
