@@ -1,0 +1,57 @@
+{
+  "subject_id": "ernie",
+  "goal": "focality_tf",
+  "postproc": "max_TI",
+  "current_mA": 2.0,
+  "electrode": {
+    "shape": "ellipse",
+    "dimensions": [
+      8.0,
+      8.0
+    ],
+    "gel_thickness": 4.0
+  },
+  "roi": {
+    "_type": "SubcorticalROI",
+    "atlas_path": "/mnt/000/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/labeling.nii.gz",
+    "label": [
+      10,
+      49
+    ],
+    "tissues": "GM",
+    "atlas_space": "subject"
+  },
+  "anisotropy_type": "scalar",
+  "aniso_maxratio": 10.0,
+  "aniso_maxcond": 2.0,
+  "non_roi_method": "everything_else",
+  "non_roi": null,
+  "thresholds": null,
+  "intensity_weight": 1.0,
+  "optimize_current_ratio": false,
+  "ratio_total_mA": null,
+  "ratio_levels": 21,
+  "eeg_net": null,
+  "enable_mapping": false,
+  "disable_mapping_simulation": false,
+  "observe_background": false,
+  "output_folder": "/mnt/000/derivatives/SimNIBS/sub-ernie/flex-search/study_thalamus_tf_w1",
+  "run_final_electrode_simulation": true,
+  "n_multistart": 1,
+  "max_iterations": 1000,
+  "population_size": 15,
+  "tolerance": 0.0001,
+  "mutation": null,
+  "recombination": null,
+  "cpus": null,
+  "min_electrode_distance": 5.0,
+  "detailed_results": false,
+  "visualize_valid_skin_region": true,
+  "skin_visualization_net": null,
+  "skin_region_margin_mm": 0.0,
+  "avoid_landmark_regions": true,
+  "mode": "flex",
+  "adaptive": null,
+  "pareto": null,
+  "project_dir": "/mnt/000"
+}
