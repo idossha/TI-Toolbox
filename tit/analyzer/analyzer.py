@@ -19,6 +19,7 @@ tit.analyzer.field_selector : Automatic field file resolution.
 
 import hashlib
 import logging
+import re
 import tempfile
 import time
 from dataclasses import asdict, dataclass
@@ -1442,6 +1443,19 @@ class Analyzer:
     # Voxel atlas helpers
     # ------------------------------------------------------------------
 
+    # SimNIBS surface atlas id -> the FreeSurfer/FastSurfer volume parcellation
+    # carrying the same regions, in search order. The desktop's cortical picker
+    # names the atlas by its surface id in every space, so a voxel analysis of
+    # "DK40" reads the DKT volume. HCP_MMP1 has no volume counterpart.
+    _SURFACE_ATLAS_VOLUMES = {
+        "DK40": (
+            "aparc.DKTatlas+aseg.deep.mgz",
+            "aparc.DKTatlas+aseg.deep.nii.gz",
+            "aparc.DKTatlas+aseg.mgz",
+        ),
+        "a2009s": ("aparc.a2009s+aseg.mgz",),
+    }
+
     def _resolve_voxel_atlas(self, atlas: str) -> Path:
         """Find the atlas NIfTI/MGZ file for voxel-space analysis."""
         if Path(atlas).is_file():
@@ -1450,6 +1464,18 @@ class Analyzer:
         fs_mri = Path(self._pm.fastsurfer_mri(self.subject_id))
         legacy_mri = Path(self._pm.freesurfer_mri(self.subject_id))
         seg_dir = Path(self._pm.segmentation(self.subject_id))
+        if atlas in self._SURFACE_ATLAS_VOLUMES:
+            for name in self._SURFACE_ATLAS_VOLUMES[atlas]:
+                for mri in (fs_mri, legacy_mri):
+                    if (mri / name).exists():
+                        return mri / name
+            raise FileNotFoundError(
+                f"Atlas {atlas!r} has no volume parcellation for subject "
+                f"{self.subject_id}: none of "
+                f"{', '.join(self._SURFACE_ATLAS_VOLUMES[atlas])} found in "
+                f"{fs_mri} or {legacy_mri}. Run FastSurfer/recon-all for this "
+                "subject or analyze in mesh space."
+            )
         candidates = [
             fs_mri / atlas,
             legacy_mri / atlas,
@@ -1652,7 +1678,18 @@ class Analyzer:
         lut = resolve_lut_for_atlas(str(atlas_path))
         stats = compute_segstats(str(atlas_path), lut)
 
-        region_lower = region.lower()
+        region_lower = region_stripped.lower()
+        # A surface-style name ("lh.insula") is spelled "ctx-lh-insula" in the
+        # DKT volume and "ctx_lh_G_insular_short" in the a2009s one; try the
+        # exact volume spellings before falling back to substring matching.
+        hemi_match = re.fullmatch(r"(lh|rh)[._-](.+)", region_lower)
+        if hemi_match:
+            hemi, name = hemi_match.groups()
+            exact = {f"ctx-{hemi}-{name}", f"ctx_{hemi}_{name}"}
+            for stat in stats:
+                if stat.name.lower() in exact:
+                    return stat.seg_id
+
         for stat in stats:
             if region_lower in stat.name.lower():
                 return stat.seg_id

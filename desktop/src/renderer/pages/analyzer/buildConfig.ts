@@ -23,7 +23,9 @@ export function roiToAnalyzerFields(value: RoiValue): {
   // `spherical` has no atlas/region, and `saved` (the ex/mEx mode B3 added to the shared
   // picker) is not an analyzer target at all — both resolve to "no atlas, no region".
   if (value.mode !== "cortical" && value.mode !== "subcortical") return { atlas: null, region: null };
-  const names = value.regions.map((r) => r.name);
+  // `lh.insula`, never bare `insula`: the runner reads a bare cortical name as BOTH hemispheres
+  // (`Analyzer._resolve_mesh_region`), so dropping `hemi` would silently double the ROI.
+  const names = value.regions.map((r) => (r.hemi ? `${r.hemi}.${r.name}` : r.name));
   return {
     atlas: value.atlas ?? null,
     region: names.length <= 1 ? (names[0] ?? null) : names,

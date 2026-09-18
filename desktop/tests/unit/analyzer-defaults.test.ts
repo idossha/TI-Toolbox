@@ -129,7 +129,7 @@ describe("Analyzer page configs validate against contracts/generated/config.sche
     });
     expect(config).toMatchObject({
       atlas: "DK40",
-      region: "insula",
+      region: "lh.insula",
       center: null,
       radius: null,
     });
@@ -162,7 +162,7 @@ describe("Analyzer page configs validate against contracts/generated/config.sche
       sphere: EMPTY_SPHERE,
       roiValue: multi,
     });
-    expect(config.region).toEqual(["insula", "insula"]);
+    expect(config.region).toEqual(["lh.insula", "rh.insula"]);
     expect(validate("AnalyzerConfig", config)).toMatchObject({
       valid: true,
       errors: [],

@@ -652,6 +652,77 @@ class TestResolveVoxelAtlas:
         result = a._resolve_voxel_atlas("ThalamicNuclei.v13.T1.mgz")
         assert result == legacy
 
+    def test_surface_atlas_id_maps_to_dkt_volume(self, tmp_path):
+        # The desktop names the cortical atlas "DK40" in every space; in
+        # voxel space that is the FastSurfer DKT parcellation.
+        a = _make_analyzer(space="voxel")
+        a._pm.fastsurfer_mri.return_value = str(tmp_path / "fastsurfer_mri")
+        a._pm.freesurfer_mri.return_value = str(tmp_path / "fs_mri")
+        a._pm.segmentation.return_value = str(tmp_path / "seg")
+        (tmp_path / "fastsurfer_mri").mkdir()
+        deep = tmp_path / "fastsurfer_mri" / "aparc.DKTatlas+aseg.deep.mgz"
+        deep.touch()
+
+        assert a._resolve_voxel_atlas("DK40") == deep
+
+    def test_surface_atlas_id_falls_back_to_recon_all_volume(self, tmp_path):
+        a = _make_analyzer(space="voxel")
+        a._pm.fastsurfer_mri.return_value = str(tmp_path / "fastsurfer_mri")
+        a._pm.freesurfer_mri.return_value = str(tmp_path / "fs_mri")
+        a._pm.segmentation.return_value = str(tmp_path / "seg")
+        (tmp_path / "fs_mri").mkdir()
+        legacy = tmp_path / "fs_mri" / "aparc.a2009s+aseg.mgz"
+        legacy.touch()
+
+        assert a._resolve_voxel_atlas("a2009s") == legacy
+
+    def test_surface_atlas_id_without_volume_names_the_files(self, tmp_path):
+        a = _make_analyzer(space="voxel")
+        a._pm.fastsurfer_mri.return_value = str(tmp_path / "fastsurfer_mri")
+        a._pm.freesurfer_mri.return_value = str(tmp_path / "fs_mri")
+        a._pm.segmentation.return_value = str(tmp_path / "seg")
+        with pytest.raises(FileNotFoundError, match="aparc.DKTatlas"):
+            a._resolve_voxel_atlas("DK40")
+
+
+class TestFindVoxelRegionId:
+    """Surface-style names ("lh.insula") resolve to the volume's ctx labels."""
+
+    def _stats(self, names):
+        # MagicMock(name=...) names the mock itself, so set .name afterwards.
+        stats = []
+        for i, n in names:
+            m = MagicMock(seg_id=i)
+            m.name = n
+            stats.append(m)
+        return stats
+
+    def test_hemisphere_name_prefers_exact_ctx_label(self):
+        stats = self._stats([
+            (1035, "ctx-lh-insula"),
+            (2035, "ctx-rh-insula"),
+            (3035, "wm-lh-insula"),
+        ])
+        with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
+             patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
+            from tit.analyzer.analyzer import Analyzer
+            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "rh.insula") == 2035
+            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "lh.insula") == 1035
+
+    def test_a2009s_underscore_spelling(self):
+        stats = self._stats([(11118, "ctx_lh_G_insular_short")])
+        with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
+             patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
+            from tit.analyzer.analyzer import Analyzer
+            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "lh.G_insular_short") == 11118
+
+    def test_substring_fallback_still_works(self):
+        stats = self._stats([(17, "Left-Hippocampus")])
+        with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
+             patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
+            from tit.analyzer.analyzer import Analyzer
+            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "hippocampus") == 17
+
 
 class TestCombinedCortexMesh:
     """Combined ROI: _cortex_mesh unions multiple atlas regions."""
