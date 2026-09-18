@@ -1,0 +1,186 @@
+TI-Toolbox — third-party data notices
+=====================================
+
+TI-Toolbox itself is licensed under the GNU General Public License v3.0 (see
+LICENSE). The brain atlases and the MNI template it redistributes in
+`resources/atlas/` are other people's data, each under its own licence. This
+file lists every one of them with its copyright holder, licence, the
+attribution it requires and what to cite. It is the human-readable copy of
+`resources/atlas/manifest.json`; `resources/atlas/README.md` records the
+sources, checksums and the survey behind the choices, and
+`docs/wiki/atlases.md` is the user-facing page.
+
+Redistributing TI-Toolbox (source, wheel or Docker image) redistributes these
+files; keep this NOTICE with them.
+
+
+1. CIT168 subcortical atlas
+---------------------------
+File:       CIT168_labeling_MNI152NLin2009cAsym.nii.gz (+ _LUT.txt)
+Copyright:  Wolfgang M. Pauli, Amanda N. Nili, J. Michael Tyszka (2018)
+Licence:    Creative Commons Attribution 4.0 International (CC BY 4.0)
+            https://creativecommons.org/licenses/by/4.0/  (OSF https://osf.io/jkzwp/)
+Changes:    the deterministic label map shipped here was derived by TI-Toolbox
+            from the authors' probabilistic masks (winner-takes-highest
+            probability, threshold 0.05); the probability maps are not shipped.
+Attribution: Pauli W. M., Nili A. N., Tyszka J. M. (2018), CC BY 4.0.
+Citation:   Pauli W. M., Nili A. N., Tyszka J. M. A high-resolution
+            probabilistic in vivo atlas of human subcortical brain nuclei.
+            Scientific Data 5, 180063 (2018). https://doi.org/10.1038/sdata.2018.63
+
+
+2. MASSP 2021 subcortical parcellation
+--------------------------------------
+File:       massp2021-parcellation_decade-18to40.nii.gz (+ massp2021_labels.txt)
+Copyright:  Pierre-Louis Bazin and co-authors, University of Amsterdam
+Licence:    Creative Commons Attribution 4.0 International (CC BY 4.0)
+            https://doi.org/10.21942/uva.19646328
+Attribution: Bazin P.-L. et al., MASSP 2021 parcellation, figshare/UvA, CC BY 4.0.
+Citation:   Bazin P.-L., Alkemade A., Mulder M. J., Henry A. G., Forstmann B. U.
+            Multi-contrast anatomical subcortical structures parcellation.
+            eLife 9:e59430 (2020). Atlas release: https://doi.org/10.21942/uva.19646328
+
+
+3. Glasser HCP-MMP1.0 cortical parcellation (MNI volume)
+--------------------------------------------------------
+File:       MNI_Glasser_HCP_v1.0.nii.gz (+ MNI_Glasser_HCP_v1.0.txt,
+            HCP-Multi-Modal-Parcellation-1.0.xml, Glasser_2016_Table.xlsx)
+Copyright:  Human Connectome Project, WU-Minn Consortium
+Licence:    WU-Minn HCP Consortium Open Access Data Use Terms
+            https://www.humanconnectome.org/study/hcp-young-adult/document/wu-minn-hcp-consortium-open-access-data-use-terms
+            Clause 4: "I may redistribute original WU-Minn HCP Open Access data
+            and any derived data as long as the data are redistributed under
+            these same Data Use Terms." This copy is redistributed under those
+            same terms.
+Attribution (clause 5a, verbatim, required in any publication or presentation
+that uses it):
+            "Data were provided [in part] by the Human Connectome Project,
+            WU-Minn Consortium (Principal Investigators: David Van Essen and
+            Kamil Ugurbil; 1U54MH091657) funded by the 16 NIH Institutes and
+            Centers that support the NIH Blueprint for Neuroscience Research;
+            and by the McDonnell Center for Systems Neuroscience at Washington
+            University."
+Citation:   Glasser M. F. et al. A multi-modal parcellation of human cerebral
+            cortex. Nature 536, 171-178 (2016). https://doi.org/10.1038/nature18933
+
+
+4. MNI152 T1 1 mm template (MNI152NLin6Asym, FSL standard space)
+----------------------------------------------------------------
+File:       MNI152_T1_1mm.nii.gz
+Copyright:  Copyright (C) 1993-2009 Louis Collins, McConnell Brain Imaging
+            Centre, Montreal Neurological Institute, McGill University.
+Licence (verbatim):
+            "Permission to use, copy, modify, and distribute this software and
+            its documentation for any purpose and without fee is hereby granted,
+            provided that the above copyright notice appear in all copies. The
+            authors and McGill University make no representations about the
+            suitability of this software for any purpose. It is provided 'as is'
+            without express or implied warranty. The authors are not responsible
+            for any data/information loss or other type of damage arising from
+            the use of this software."
+Citation:   Fonov V., Evans A. C., Botteron K., Almli C. R., McKinstry R. C.,
+            Collins D. L. Unbiased average age-appropriate atlases for pediatric
+            studies. NeuroImage 54(1):313-327 (2011);
+            Grabner G. et al. Symmetric atlasing and model based segmentation:
+            an application to the hippocampus in older adults. MICCAI 2006,
+            LNCS 4191:58-66.
+
+
+5. Harvard-Oxford cortical and subcortical structural atlases
+-------------------------------------------------------------
+Files:      HarvardOxford-cort-maxprob-thr25-1mm.nii.gz,
+            HarvardOxford-sub-maxprob-thr25-1mm.nii.gz (+ their _LUT.txt, which
+            TI-Toolbox generated from FSL's HarvardOxford-Cortical.xml /
+            HarvardOxford-Subcortical.xml; the volumes are unmodified)
+Copyright:  Harvard Center for Morphometric Analysis (CMA), Massachusetts
+            General Hospital; distributed with FSL by the University of Oxford
+Licence:    Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+            https://creativecommons.org/licenses/by-sa/4.0/
+            FSL licence page (https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html):
+            "The Cerebellum and Harvard-Oxford atlases, whilst not being the
+            property of Oxford, are released under the CC BY-SA 4.0 licence."
+            Share-alike: the atlas files and the LUTs derived from FSL's XML
+            remain CC BY-SA 4.0.
+Attribution: Harvard-Oxford structural atlases, Harvard Center for Morphometric
+            Analysis, distributed with FSL, CC BY-SA 4.0.
+Citations:  Desikan R. S. et al. An automated labeling system for subdividing
+            the human cerebral cortex on MRI scans into gyral based regions of
+            interest. NeuroImage 31(3):968-980 (2006).
+            https://doi.org/10.1016/j.neuroimage.2006.01.021
+            Frazier J. A. et al. Structural brain magnetic resonance imaging of
+            limbic and thalamic volumes in pediatric bipolar disorder.
+            Am J Psychiatry 162(7):1256-1265 (2005).
+            https://doi.org/10.1176/appi.ajp.162.7.1256
+            Makris N. et al. Decreased volume of left and total anterior insular
+            lobule in schizophrenia. Schizophr Res 83(2-3):155-171 (2006).
+            https://doi.org/10.1016/j.schres.2005.11.020
+            Goldstein J. M. et al. Hypothalamic abnormalities in schizophrenia:
+            sex effects and genetic vulnerability. Biol Psychiatry 61(8):935-945
+            (2007). https://doi.org/10.1016/j.biopsych.2006.06.027
+
+
+6. Cerebellum-MNIfnirt probabilistic atlas (Diedrichsen 2009)
+-------------------------------------------------------------
+File:       Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz (+ _LUT.txt generated
+            from FSL's Cerebellum_MNIfnirt.xml; the volume is unmodified)
+Copyright:  Jörn Diedrichsen and co-authors; distributed with FSL
+Licence:    Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+            https://creativecommons.org/licenses/by-sa/4.0/ — by the same FSL
+            licence sentence quoted under 5.
+Attribution: Probabilistic cerebellar atlas, J. Diedrichsen et al., distributed
+            with FSL, CC BY-SA 4.0.
+Citation:   Diedrichsen J., Balsters J. H., Flavell J., Cussans E., Ramnani N.
+            A probabilistic MR atlas of the human cerebellum. NeuroImage
+            46(1):39-46 (2009). https://doi.org/10.1016/j.neuroimage.2009.01.045
+
+
+7. Schaefer 2018 cortical parcellation, 400 parcels, 7 networks
+---------------------------------------------------------------
+Files:      Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz,
+            Schaefer2018_400Parcels_7Networks_order.txt (both unmodified, from
+            https://github.com/ThomasYeoLab/CBIG at commit
+            35b5664bec8822e2f77da5e090e96f91d0095be6)
+Copyright:  Copyright (c) 2016 Computational Brain Imaging Group (CBIG)
+Licence:    MIT License (CBIG LICENSE.md), verbatim:
+            "Permission is hereby granted, free of charge, to any person
+            obtaining a copy of this software and associated documentation files
+            (the "Software"), to deal in the Software without restriction,
+            including without limitation the rights to use, copy, modify, merge,
+            publish, distribute, sublicense, and/or sell copies of the Software,
+            and to permit persons to whom the Software is furnished to do so,
+            subject to the following conditions:
+            The above copyright notice and this permission notice shall be
+            included in all copies or substantial portions of the Software.
+            THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+            EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+            MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+            NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+            BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+            ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+            CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+            SOFTWARE."
+Citation:   Schaefer A., Kong R., Gordon E. M., Laumann T. O., Zuo X.-N.,
+            Holmes A. J., Eickhoff S. B., Yeo B. T. T. Local-global parcellation
+            of the human cerebral cortex from intrinsic functional connectivity
+            MRI. Cerebral Cortex 28(9):3095-3114 (2018).
+            https://doi.org/10.1093/cercor/bhx179
+
+
+Also in resources/atlas/, not an atlas volume
+--------------------------------------------
+FreeSurferColorLUT.txt and ThalamicNuclei_LUT.txt are colour lookup tables
+(id -> name -> colour) taken from FreeSurfer's distribution/ directory, used to
+name the labels of a user's own FreeSurfer or FastSurfer outputs. FreeSurfer is
+Copyright (C) The General Hospital Corporation (Boston, MA); the tables are
+redistributed under the FreeSurfer Software License
+(https://surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferSoftwareLicense). No
+FreeSurfer binary, atlas volume or subject data is redistributed.
+
+
+Not shipped
+-----------
+The Morel thalamic nuclei atlas (Zenodo record 13918589; (C) University of
+Zurich and ETH Zurich, Andras Jakab, Remi Blanc and Gabor Szekely; CC BY-NC-SA
+4.0) was removed on 2026-09-17 because its non-commercial clause is incompatible
+with redistribution by a GPL-3 project. See resources/atlas/README.md,
+"Not shipped".

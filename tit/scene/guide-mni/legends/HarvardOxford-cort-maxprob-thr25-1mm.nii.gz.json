@@ -1,0 +1,347 @@
+{
+ "atlas": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "atlas-HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+ "vertices": 52557,
+ "radius_mm": 0,
+ "labelled_fraction": 1,
+ "legend": [
+  {
+   "id": 1,
+   "name": "Frontal-Pole",
+   "color": "#f25454",
+   "label": 1,
+   "hemi": ""
+  },
+  {
+   "id": 2,
+   "name": "Insular-Cortex",
+   "color": "#5482f2",
+   "label": 2,
+   "hemi": ""
+  },
+  {
+   "id": 3,
+   "name": "Superior-Frontal-Gyrus",
+   "color": "#b0f254",
+   "label": 3,
+   "hemi": ""
+  },
+  {
+   "id": 4,
+   "name": "Middle-Frontal-Gyrus",
+   "color": "#f254de",
+   "label": 4,
+   "hemi": ""
+  },
+  {
+   "id": 5,
+   "name": "Inferior-Frontal-Gyrus-pars-triangularis",
+   "color": "#54f2d7",
+   "label": 5,
+   "hemi": ""
+  },
+  {
+   "id": 6,
+   "name": "Inferior-Frontal-Gyrus-pars-opercularis",
+   "color": "#f2a954",
+   "label": 6,
+   "hemi": ""
+  },
+  {
+   "id": 7,
+   "name": "Precentral-Gyrus",
+   "color": "#7c54f2",
+   "label": 7,
+   "hemi": ""
+  },
+  {
+   "id": 8,
+   "name": "Temporal-Pole",
+   "color": "#5bf254",
+   "label": 8,
+   "hemi": ""
+  },
+  {
+   "id": 9,
+   "name": "Superior-Temporal-Gyrus-anterior-division",
+   "color": "#f25489",
+   "label": 9,
+   "hemi": ""
+  },
+  {
+   "id": 10,
+   "name": "Superior-Temporal-Gyrus-posterior-division",
+   "color": "#54b7f2",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "Middle-Temporal-Gyrus-anterior-division",
+   "color": "#e5f254",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "Middle-Temporal-Gyrus-posterior-division",
+   "color": "#d154f2",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "Middle-Temporal-Gyrus-temporooccipital-part",
+   "color": "#54f2a3",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 14,
+   "name": "Inferior-Temporal-Gyrus-anterior-division",
+   "color": "#f27554",
+   "label": 14,
+   "hemi": ""
+  },
+  {
+   "id": 15,
+   "name": "Inferior-Temporal-Gyrus-posterior-division",
+   "color": "#5462f2",
+   "label": 15,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "Inferior-Temporal-Gyrus-temporooccipital-part",
+   "color": "#90f254",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "Postcentral-Gyrus",
+   "color": "#f254be",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "Superior-Parietal-Lobule",
+   "color": "#54ecf2",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 19,
+   "name": "Supramarginal-Gyrus-anterior-division",
+   "color": "#f2ca54",
+   "label": 19,
+   "hemi": ""
+  },
+  {
+   "id": 20,
+   "name": "Supramarginal-Gyrus-posterior-division",
+   "color": "#9c54f2",
+   "label": 20,
+   "hemi": ""
+  },
+  {
+   "id": 21,
+   "name": "Angular-Gyrus",
+   "color": "#54f26e",
+   "label": 21,
+   "hemi": ""
+  },
+  {
+   "id": 22,
+   "name": "Lateral-Occipital-Cortex-superior-division",
+   "color": "#f25468",
+   "label": 22,
+   "hemi": ""
+  },
+  {
+   "id": 23,
+   "name": "Lateral-Occipital-Cortex-inferior-division",
+   "color": "#5496f2",
+   "label": 23,
+   "hemi": ""
+  },
+  {
+   "id": 24,
+   "name": "Intracalcarine-Cortex",
+   "color": "#c4f254",
+   "label": 24,
+   "hemi": ""
+  },
+  {
+   "id": 25,
+   "name": "Frontal-Medial-Cortex",
+   "color": "#f154f2",
+   "label": 25,
+   "hemi": ""
+  },
+  {
+   "id": 26,
+   "name": "Juxtapositional-Lobule-Cortex-(formerly-Supplementary-Motor-Cortex)",
+   "color": "#54f2c3",
+   "label": 26,
+   "hemi": ""
+  },
+  {
+   "id": 27,
+   "name": "Subcallosal-Cortex",
+   "color": "#f29554",
+   "label": 27,
+   "hemi": ""
+  },
+  {
+   "id": 28,
+   "name": "Paracingulate-Gyrus",
+   "color": "#6754f2",
+   "label": 28,
+   "hemi": ""
+  },
+  {
+   "id": 29,
+   "name": "Cingulate-Gyrus-anterior-division",
+   "color": "#6ff254",
+   "label": 29,
+   "hemi": ""
+  },
+  {
+   "id": 30,
+   "name": "Cingulate-Gyrus-posterior-division",
+   "color": "#f2549d",
+   "label": 30,
+   "hemi": ""
+  },
+  {
+   "id": 31,
+   "name": "Precuneous-Cortex",
+   "color": "#54cbf2",
+   "label": 31,
+   "hemi": ""
+  },
+  {
+   "id": 32,
+   "name": "Cuneal-Cortex",
+   "color": "#f2eb54",
+   "label": 32,
+   "hemi": ""
+  },
+  {
+   "id": 33,
+   "name": "Frontal-Orbital-Cortex",
+   "color": "#bd54f2",
+   "label": 33,
+   "hemi": ""
+  },
+  {
+   "id": 34,
+   "name": "Parahippocampal-Gyrus-anterior-division",
+   "color": "#54f28f",
+   "label": 34,
+   "hemi": ""
+  },
+  {
+   "id": 35,
+   "name": "Parahippocampal-Gyrus-posterior-division",
+   "color": "#f26154",
+   "label": 35,
+   "hemi": ""
+  },
+  {
+   "id": 36,
+   "name": "Lingual-Gyrus",
+   "color": "#5476f2",
+   "label": 36,
+   "hemi": ""
+  },
+  {
+   "id": 37,
+   "name": "Temporal-Fusiform-Cortex-anterior-division",
+   "color": "#a4f254",
+   "label": 37,
+   "hemi": ""
+  },
+  {
+   "id": 38,
+   "name": "Temporal-Fusiform-Cortex-posterior-division",
+   "color": "#f254d2",
+   "label": 38,
+   "hemi": ""
+  },
+  {
+   "id": 39,
+   "name": "Temporal-Occipital-Fusiform-Cortex",
+   "color": "#54f2e4",
+   "label": 39,
+   "hemi": ""
+  },
+  {
+   "id": 40,
+   "name": "Occipital-Fusiform-Gyrus",
+   "color": "#f2b654",
+   "label": 40,
+   "hemi": ""
+  },
+  {
+   "id": 41,
+   "name": "Frontal-Operculum-Cortex",
+   "color": "#8854f2",
+   "label": 41,
+   "hemi": ""
+  },
+  {
+   "id": 42,
+   "name": "Central-Opercular-Cortex",
+   "color": "#54f25a",
+   "label": 42,
+   "hemi": ""
+  },
+  {
+   "id": 43,
+   "name": "Parietal-Operculum-Cortex",
+   "color": "#f2547d",
+   "label": 43,
+   "hemi": ""
+  },
+  {
+   "id": 44,
+   "name": "Planum-Polare",
+   "color": "#54aaf2",
+   "label": 44,
+   "hemi": ""
+  },
+  {
+   "id": 45,
+   "name": "Heschl's-Gyrus-(includes-H1-and-H2)",
+   "color": "#d8f254",
+   "label": 45,
+   "hemi": ""
+  },
+  {
+   "id": 46,
+   "name": "Planum-Temporale",
+   "color": "#dd54f2",
+   "label": 46,
+   "hemi": ""
+  },
+  {
+   "id": 47,
+   "name": "Supracalcarine-Cortex",
+   "color": "#54f2af",
+   "label": 47,
+   "hemi": ""
+  },
+  {
+   "id": 48,
+   "name": "Occipital-Pole",
+   "color": "#f28154",
+   "label": 48,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=HarvardOxford-cort-maxprob-thr25-1mm.nii.gz&guide=mni"
+}

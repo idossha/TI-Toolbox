@@ -376,7 +376,7 @@ export function ScenePane({
    * Which surface part carries the drawn atlas' per-vertex labels.
    *
    * The manifest says so (`atlases[].aligned_to`), because an MNI guide packages one surface per
-   * atlas volume — CIT168's regions are not Morel's geometry — and a hard-coded `"subcortical"`
+   * atlas volume — CIT168's regions are not MASSP's geometry — and a hard-coded `"subcortical"`
    * would draw one atlas' anatomy with another's labels. `kind` is the fallback for the older
    * manifests that carry no `aligned_to`.
    */

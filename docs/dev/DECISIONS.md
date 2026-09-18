@@ -1337,7 +1337,58 @@ which was read as a failed registration.
    redistribute; the manifest carries `"redistribution": "no (CC BY-NC-SA)"`, and the README and
    the wiki say it must move to an optional user-fetched download before the next release. It is
    **not** removed here — removing a shipped atlas changes what existing configurations resolve,
-   and that is the maintainer's call.
+   and that is the maintainer's call. *(Reversed the same day: see the next entry.)*
+
+## 2026-09-17 — Morel is removed; Harvard-Oxford, Cerebellum and Schaefer are added; a NOTICE file
+
+**Context.** The previous entry left the Morel thalamus atlas shipped under a CC BY-NC-SA licence
+and named it the maintainer's call. The maintainer made it: remove it now rather than carry a
+non-redistributable file into the v3.0.0 image, and fill the gap with atlases whose licences a
+GPL-3 project can pass on. The survey in `resources/atlas/README.md` already named the candidates.
+
+**Decisions.**
+
+1. **The Morel atlas is deleted, not moved.** `resources/atlas/MorelMNI152_labeling_1mm.nii.gz`,
+   its LUT, and its `parts`/`atlases` entries and files in `tit/scene/guide-mni/` are gone; the guide was
+   then rebuilt (`guide_build.py --atlases mni` against the `mni152/headmodel` example part in
+   the container) — skin, gm, CIT168, MASSP and every net came out byte-identical, and the
+   Harvard-Oxford (cortical and subcortical) and Cerebellum surfaces were added, so the MNI
+   pane can draw them; Schaefer's 400 parcels exceed the 256-region surface budget and it is
+   picker-only. The manifest gains a `not_shipped` list
+   with the sentence a user must read, and `tit.atlas.manifest.not_shipped_message` /
+   `check_shipped` are called at every boundary that resolves an MNI atlas name —
+   `tit.opt.masks.validate_mask` (so `prepare_mask`, hence flex/ex/mEx and the analyzer's mask
+   path), `validate_mask_paths`, `tit.opt.roi_spec.resolve_volume_atlas_path`, and the
+   target-preview route — so a configuration that still names it fails with *"The Morel atlas is
+   no longer shipped (CC BY-NC-SA); see docs/wiki/atlases.md"* and never with "file not found".
+   The name survives only in the not-shipped notes (`resources/atlas/README.md`,
+   `manifest.json § not_shipped`, `tit/scene/guide-mni/PROVENANCE.md`);
+   `tests/test_atlas_manifest.py::TestNotShipped` greps `tit/` and `resources/` for it. The path
+   to reinstating it as an optional download is written in the README's *Not shipped* section.
+
+2. **Four label volumes are added, all on the template's own grid.** Harvard-Oxford cortical
+   (48) and subcortical (21) maximum-probability maps at threshold 25, 1 mm, and the
+   Cerebellum-MNIfnirt map (28), taken unmodified from the NeuroDebian `fsldata` 5.0.7-2 packages
+   (URLs and sha256 in the manifest), CC BY-SA 4.0 by the FSL licence page's own sentence; and
+   Schaefer 2018 400 parcels / 7 networks, 1 mm, from ThomasYeoLab/CBIG at commit `35b5664b`
+   (MIT, `LICENSE.md` re-read). Each header was checked in the container against the shipped
+   `MNI152_T1_1mm.nii.gz`: 182×218×182, 1 mm, identical sform — so they are MNI152NLin6Asym and
+   need no template correction; the manifest records that under `grid`, and the test re-derives
+   it from the NIfTI headers with no nibabel. The FSL LUTs are generated from FSL's XML with
+   ids = XML index + 1 (what a `maxprob` image encodes), names hyphenated, colours ours; the
+   Schaefer LUT is CBIG's own, so `roi_spec._find_volume_lut` now asks the manifest for a shipped
+   atlas's `labels` file before falling back to the stem rules. Total added: 8 files (4 volumes, 4 LUTs), 680 KB.
+
+3. **A repository-root `NOTICE` carries every third-party data notice.** Copyright holder,
+   licence, required attribution (the HCP clause-5a acknowledgement verbatim, the MNI/McGill
+   notice verbatim, CBIG's MIT text verbatim) and citation for CIT168, MASSP, Glasser, the
+   MNI152 template and the four new files, plus the FreeSurfer colour tables. `LICENSE` points at
+   it in one line and the README has a Licence section. `docs/wiki/atlases.md` and
+   `resources/atlas/README.md` list the new atlases and the not-shipped note.
+
+**What did not change.** The interactive atlas browser on the wiki page still shows CIT168,
+Glasser and MASSP only (`dev/build_atlas_assets.py` was not re-run for the new files); a
+follow-up, not a regression.
 
 **Not done.** Harvard-Oxford, Cerebellum-MNIfnirt and Schaefer 2018 were **not** added. Schaefer's
 MIT licence was re-verified from `ThomasYeoLab/CBIG/LICENSE.md`; the FSL licence page is a

@@ -567,11 +567,11 @@ def test_unknown_atlas_falls_back_instead_of_dropping_the_overlay(
 
 def test_atlas_selects_a_bundled_mni_atlas(pm: PathManager, tmp_path: Path) -> None:
     resources = Path(viewspec.mni_resources_dir())
-    (resources / "MorelMNI152_labeling_1mm.nii.gz").write_bytes(b"other-atlas")
+    (resources / "massp2021-parcellation_decade-18to40.nii.gz").write_bytes(b"other-atlas")
 
     default = viewspec.build_view("subject", subject="ernie", space="mni")
     chosen = viewspec.build_view(
-        "subject", subject="ernie", space="mni", atlas="MorelMNI152_labeling_1mm.nii.gz"
+        "subject", subject="ernie", space="mni", atlas="massp2021-parcellation_decade-18to40.nii.gz"
     )
     assert default is not None and chosen is not None
     assert any(
@@ -579,22 +579,22 @@ def test_atlas_selects_a_bundled_mni_atlas(pm: PathManager, tmp_path: Path) -> N
         for layer in default["layers"]
     )
     assert any(
-        layer["path"].endswith("MorelMNI152_labeling_1mm.nii.gz") for layer in chosen["layers"]
+        layer["path"].endswith("massp2021-parcellation_decade-18to40.nii.gz") for layer in chosen["layers"]
     )
 
 
 def test_group_view_honors_the_requested_mni_atlas(pm: PathManager) -> None:
     resources = Path(viewspec.mni_resources_dir())
-    (resources / "MorelMNI152_labeling_1mm.nii.gz").write_bytes(b"other-atlas")
+    (resources / "massp2021-parcellation_decade-18to40.nii.gz").write_bytes(b"other-atlas")
 
     default = viewspec.build_view("group")
-    chosen = viewspec.build_view("group", atlas="MorelMNI152_labeling_1mm.nii.gz")
+    chosen = viewspec.build_view("group", atlas="massp2021-parcellation_decade-18to40.nii.gz")
     assert default is not None and chosen is not None
     assert [layer["path"] for layer in default["layers"]] != [
         layer["path"] for layer in chosen["layers"]
     ]
     assert any(
-        layer["path"].endswith("MorelMNI152_labeling_1mm.nii.gz") for layer in chosen["layers"]
+        layer["path"].endswith("massp2021-parcellation_decade-18to40.nii.gz") for layer in chosen["layers"]
     )
 
 

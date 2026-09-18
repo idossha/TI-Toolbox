@@ -1,0 +1,158 @@
+{
+ "atlas": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "atlas-HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+ "vertices": 42821,
+ "radius_mm": 0,
+ "labelled_fraction": 1,
+ "legend": [
+  {
+   "id": 1,
+   "name": "Left-Cerebral-White-Matter",
+   "color": "#f25454",
+   "label": 1,
+   "hemi": ""
+  },
+  {
+   "id": 2,
+   "name": "Left-Cerebral-Cortex",
+   "color": "#5482f2",
+   "label": 2,
+   "hemi": ""
+  },
+  {
+   "id": 3,
+   "name": "Left-Lateral-Ventrical",
+   "color": "#b0f254",
+   "label": 3,
+   "hemi": ""
+  },
+  {
+   "id": 4,
+   "name": "Left-Thalamus",
+   "color": "#f254de",
+   "label": 4,
+   "hemi": ""
+  },
+  {
+   "id": 5,
+   "name": "Left-Caudate",
+   "color": "#54f2d7",
+   "label": 5,
+   "hemi": ""
+  },
+  {
+   "id": 6,
+   "name": "Left-Putamen",
+   "color": "#f2a954",
+   "label": 6,
+   "hemi": ""
+  },
+  {
+   "id": 7,
+   "name": "Left-Pallidum",
+   "color": "#7c54f2",
+   "label": 7,
+   "hemi": ""
+  },
+  {
+   "id": 8,
+   "name": "Brain-Stem",
+   "color": "#5bf254",
+   "label": 8,
+   "hemi": ""
+  },
+  {
+   "id": 9,
+   "name": "Left-Hippocampus",
+   "color": "#f25489",
+   "label": 9,
+   "hemi": ""
+  },
+  {
+   "id": 10,
+   "name": "Left-Amygdala",
+   "color": "#54b7f2",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "Left-Accumbens",
+   "color": "#e5f254",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "Right-Cerebral-White-Matter",
+   "color": "#d154f2",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "Right-Cerebral-Cortex",
+   "color": "#54f2a3",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 14,
+   "name": "Right-Lateral-Ventricle",
+   "color": "#f27554",
+   "label": 14,
+   "hemi": ""
+  },
+  {
+   "id": 15,
+   "name": "Right-Thalamus",
+   "color": "#5462f2",
+   "label": 15,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "Right-Caudate",
+   "color": "#90f254",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "Right-Putamen",
+   "color": "#f254be",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "Right-Pallidum",
+   "color": "#54ecf2",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 19,
+   "name": "Right-Hippocampus",
+   "color": "#f2ca54",
+   "label": 19,
+   "hemi": ""
+  },
+  {
+   "id": 20,
+   "name": "Right-Amygdala",
+   "color": "#9c54f2",
+   "label": 20,
+   "hemi": ""
+  },
+  {
+   "id": 21,
+   "name": "Right-Accumbens",
+   "color": "#54f26e",
+   "label": 21,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=HarvardOxford-sub-maxprob-thr25-1mm.nii.gz&guide=mni"
+}

@@ -8,7 +8,7 @@ permalink: /wiki/atlases/
 
 Atlases reach TI-Toolbox two different ways, and the distinction matters when you define an ROI:
 
-- **[MNI-space atlases](#mni-space-atlases)** are _shipped with the toolbox_ as ready-to-use NIfTI volumes in `resources/atlas/`. They are the same four volumes for every user, and SimNIBS transforms a selected label into your subject's space at run time.
+- **[MNI-space atlases](#mni-space-atlases)** are _shipped with the toolbox_ as ready-to-use NIfTI volumes in `resources/atlas/`. They are the same seven volumes for every user, and SimNIBS transforms a selected label into your subject's space at run time.
 - **[Subject-space atlases](#subject-space-atlases)** are _generated per subject_ during preprocessing by SimNIBS `charm`/`subject_atlas` and FastSurfer or optional FreeSurfer. Existing FreeSurfer outputs are also read. Nothing is shipped — they only exist once you have run the pipeline on a head model. The browser below uses the `ernie` example subject so you can see what they look like.
 
 Both families are queried through the same ROI picker used in flex-search, ex-search, and the analyzer.
@@ -23,14 +23,21 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
 
 # MNI-Space Atlases
 
-TI-Toolbox ships four atlases as MNI-space NIfTI volumes:
+TI-Toolbox ships seven atlases as MNI-space NIfTI volumes:
 
-| Atlas              | Regions | Native space                                     |
-| ------------------ | ------- | ------------------------------------------------ |
-| CIT168 Subcortical | 16      | MNI152NLin2009cAsym                              |
-| Morel Thalamus     | 74      | MNI152, FSL-aligned 182x218x182 1mm grid         |
-| Glasser HCP-MMP1.0 | 360     | FreeSurfer-conformed 256x256x256 1mm grid        |
-| MASSP Subcortical  | 31      | ICBM152 2009b nonlinear asymmetric, hi-res 0.5mm |
+| Atlas                                   | Regions | Native space                                        |
+| --------------------------------------- | ------- | --------------------------------------------------- |
+| CIT168 Subcortical                      | 16      | MNI152NLin2009cAsym                                 |
+| Glasser HCP-MMP1.0                      | 360     | FreeSurfer-conformed 256x256x256 1mm grid           |
+| MASSP Subcortical                       | 31      | ICBM152 2009b nonlinear asymmetric, hi-res 0.5mm    |
+| Harvard-Oxford cortical                 | 48      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
+| Harvard-Oxford subcortical              | 21      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
+| Cerebellum-MNIfnirt (Diedrichsen 2009)  | 28      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
+| Schaefer 2018, 400 parcels / 7 networks | 400     | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
+
+The four FSL-grid atlases sit on exactly the grid SimNIBS's `mni2subject` warps assume (their
+headers were checked against the shipped `MNI152_T1_1mm.nii.gz`), so they need no template
+correction; see [Which MNI template](#which-mni-template-and-how-far-off) for the other three.
 
 Every one of them is a **label volume**, including Glasser: that is a cortical parcellation, but it
 is distributed as a NIfTI, so you target it through the ROI picker's **Subcortical** mode, not the
@@ -50,7 +57,9 @@ TI-Toolbox, these are the terms you are redistributing under. Each row is also m
 | CIT168 Subcortical | CC BY 4.0 | Yes | Pauli W. M., Nili A. N., Tyszka J. M. *Scientific Data* 5:180063 (2018). [doi:10.1038/sdata.2018.63](https://doi.org/10.1038/sdata.2018.63) |
 | MASSP 2021 Subcortical | CC BY 4.0 | Yes | Bazin P.-L. et al. *eLife* 9:e59430 (2020); atlas release [doi:10.21942/uva.19646328](https://doi.org/10.21942/uva.19646328) |
 | Glasser HCP-MMP1.0 | WU-Minn HCP Open Access Data Use Terms | Yes, **under those same terms** | Glasser M. F. et al. *Nature* 536:171-178 (2016). [doi:10.1038/nature18933](https://doi.org/10.1038/nature18933) |
-| Morel Thalamus | **CC BY-NC-SA 4.0** | **No — non-commercial** | Krauth A. et al. *NeuroImage* 49(3):2053-2062 (2010); Jakab A. et al. *AJNR* 33(11):2110-2116 (2012) |
+| Harvard-Oxford cortical / subcortical | CC BY-SA 4.0 ([FSL licence page](https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html)) | Yes, share-alike | Desikan R. S. et al. *NeuroImage* 31:968-980 (2006); Frazier J. A. et al. *Am J Psychiatry* 162:1256-1265 (2005); Makris N. et al. *Schizophr Res* 83:155-171 (2006) |
+| Cerebellum-MNIfnirt | CC BY-SA 4.0 (same FSL sentence) | Yes, share-alike | Diedrichsen J. et al. *NeuroImage* 46:39-46 (2009). [doi:10.1016/j.neuroimage.2009.01.045](https://doi.org/10.1016/j.neuroimage.2009.01.045) |
+| Schaefer 2018 400/7 | MIT (CBIG) | Yes | Schaefer A. et al. *Cerebral Cortex* 28:3095-3114 (2018). [doi:10.1093/cercor/bhx179](https://doi.org/10.1093/cercor/bhx179) |
 | MNI152 T1 1mm template | MNI/McGill permissive (any purpose, without fee, keep the notice) | Yes | Copyright (C) 1993-2009 Louis Collins, McConnell Brain Imaging Centre, MNI, McGill University |
 
 Using Glasser also carries an acknowledgement: *"Data were provided [in part] by the Human
@@ -59,10 +68,22 @@ Connectome Project, WU-Minn Consortium (Principal Investigators: David Van Essen
 Neuroscience Research; and by the McDonnell Center for Systems Neuroscience at Washington
 University."*
 
-**Morel is a known problem.** Its CC BY-NC-SA licence forbids commercial use, which TI-Toolbox's own
-GPL-3 licence cannot promise you. It is still shipped today so that no existing configuration
-breaks, and it will move to an optional download you fetch from
-[Zenodo](https://doi.org/10.5281/zenodo.13918589) yourself before the next release.
+The full notices, with copyright holders, are in the repository's `NOTICE` file.
+
+### Not shipped
+
+**Morel thalamus atlas** (`MorelMNI152_labeling_1mm.nii.gz`, 74 nuclei) was shipped until
+2026-09-17 and has been removed. Its licence is **CC BY-NC-SA 4.0** ([Zenodo record
+13918589](https://doi.org/10.5281/zenodo.13918589); (C) University of Zurich and ETH Zurich, Andras
+Jakab, Remi Blanc and Gabor Szekely), which forbids commercial use — a promise TI-Toolbox's own
+GPL-3 licence cannot make for you, so a GPL-3 project cannot redistribute it. A configuration that
+still names it stops with *"The Morel atlas is no longer shipped (CC BY-NC-SA); see
+docs/wiki/atlases.md"*; pick another thalamic target (Harvard-Oxford subcortical or MASSP both label
+the thalamus; neither subdivides it into nuclei) or, if your own use is non-commercial, fetch the
+atlas from Zenodo yourself and import it as a custom NIfTI mask. The plan for bringing it back as an
+optional, user-fetched download is recorded in `resources/atlas/README.md § Not shipped`. Cite,
+if you use it: Krauth A. et al. *NeuroImage* 49(3):2053-2062 (2010); Jakab A. et al. *AJNR*
+33(11):2110-2116 (2012).
 
 ## Which MNI template, and how far off
 
@@ -87,14 +108,13 @@ is accepted rather than corrected. Every optimization and analysis writes a **RO
 (`roi_plate.png`) showing the mask that will actually be used on your subject's own T1 — look at it
 before you trust a deep target.
 
-Pick an atlas from the dropdown to load it over the MNI152 template. Click any row in a label table below to jump the crosshair to that region's centroid — the viewer switches atlases automatically if needed. Only the template and the currently selected atlas are ever loaded.
+Pick an atlas from the dropdown to load it over the MNI152 template. The browser shows CIT168, Glasser and MASSP; the Harvard-Oxford, Cerebellum and Schaefer atlases are described below and offered in the ROI picker, but are not yet in this browser. Click any row in a label table below to jump the crosshair to that region's centroid — the viewer switches atlases automatically if needed. Only the template and the currently selected atlas are ever loaded.
 
 <div class="atlas-viewer" data-space="mni">
   <div class="atlas-controls">
     <label for="atlas-select-mni">Atlas:</label>
     <select id="atlas-select-mni" class="atlas-select" data-space="mni">
       <option value="cit168">CIT168 Subcortical</option>
-      <option value="morel">Morel Thalamus</option>
       <option value="glasser">Glasser HCP-MMP1.0</option>
       <option value="massp">MASSP Subcortical</option>
     </select>
@@ -143,43 +163,6 @@ One consequence for the viewer: because a bilateral label spans both hemispheres
 
 <br>
 
-## Morel Thalamus Atlas
-
-> **License: CC BY-NC-SA 4.0 (Attribution-NonCommercial-ShareAlike).** &copy; University of Zurich and ETH Zurich; Andras Jakab, Remi Blanc, Gabor Szekely. This is the only one of the four shipped atlases with a non-permissive license — republishing or reusing it commercially is not permitted without separate arrangement with the copyright holders.
-
-Source: Morel Atlas of the Human Thalamus, MNI152 space, voxelized version. Zenodo doi:[10.5281/zenodo.13918589](https://doi.org/10.5281/zenodo.13918589).
-
-Cite: Jakab et al. _AJNR_ 33(11):2110-2116 (2012); Krauth et al. _NeuroImage_ 49(3):2053-2062 (2010).
-
-The source LUT declares 76 labels (38 nuclei/structures per hemisphere), but 2 of them — ids 27 and 127, both "sPf" (subparafascicular nucleus) — have zero voxels in the shipped volume after the source atlas's overlap-resolution rule. The table lists the 74 labels that are actually present.
-
-This is the only one of the four atlases natively on the same 182x218x182 1mm grid as the shipped MNI152 template, so it required no resampling.
-
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-mni-morel" placeholder="Filter Morel regions by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.mni.atlases.morel.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-mni-morel" data-space="mni" data-atlas="morel">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (MNI, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.mni.atlases.morel.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-
-<br>
-
 ## Glasser HCP-MMP1.0 Atlas
 
 Glasser MF, Coalson TS, Robinson EC, et al. A multi-modal parcellation of human cerebral cortex. _Nature_ 536(7615):171-178 (2016). doi:[10.1038/nature18933](https://doi.org/10.1038/nature18933).
@@ -213,7 +196,7 @@ Glasser MF, Coalson TS, Robinson EC, et al. A multi-modal parcellation of human 
 
 ## MASSP Subcortical Parcellation
 
-31 labels, natively at 0.5mm resolution in ICBM152 2009b nonlinear-asymmetric hi-res space — the highest native resolution of the four shipped atlases. It was resampled onto the 1mm template grid for the viewer.
+31 labels, natively at 0.5mm resolution in ICBM152 2009b nonlinear-asymmetric hi-res space — the highest native resolution of the shipped atlases. It was resampled onto the 1mm template grid for the viewer.
 
 <div class="atlas-table-tools">
   <input type="text" class="atlas-filter" data-target="table-mni-massp" placeholder="Filter MASSP regions by name or id…">
@@ -238,9 +221,47 @@ Glasser MF, Coalson TS, Robinson EC, et al. A multi-modal parcellation of human 
 </table>
 </div>
 
----
+## Harvard-Oxford Cortical and Subcortical Atlases
 
-<br>
+The FSL structural atlases from the Harvard Center for Morphometric Analysis, shipped as the
+maximum-probability maps at the 25 % threshold, 1 mm (`HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`,
+48 cortical labels; `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz`, 21 subcortical labels). The files
+are FSL's own, unmodified (NeuroDebian `fsl-harvard-oxford-atlases` 5.0.7-2); the label names come
+from FSL's XML, with ids = XML index + 1 as FSL's `maxprob` images encode them.
+
+Licence CC BY-SA 4.0 — the FSL licence page states that "The Cerebellum and Harvard-Oxford atlases,
+whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence".
+
+The subcortical map labels the thalamus, caudate, putamen, pallidum, hippocampus, amygdala,
+accumbens and brain stem per hemisphere, plus whole-hemisphere cortex / white matter and the
+ventricles (kept so the file is unmodified; they are not TI targets). Both maps are natively on the
+FSL 182x218x182 1 mm grid, the same grid as the shipped template.
+
+## Cerebellum-MNIfnirt Atlas
+
+Diedrichsen J., Balsters J. H., Flavell J., Cussans E., Ramnani N. A probabilistic MR atlas of the
+human cerebellum. _NeuroImage_ 46(1):39-46 (2009).
+doi:[10.1016/j.neuroimage.2009.01.045](https://doi.org/10.1016/j.neuroimage.2009.01.045).
+
+The FNIRT-normalised maximum-probability map at the 25 % threshold, 1 mm
+(`Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz`, 28 labels: lobules I-IV to X, left / right /
+vermis). CC BY-SA 4.0 by the same FSL sentence as Harvard-Oxford. Natively on the FSL 1 mm grid.
+
+## Schaefer 2018 Atlas (400 parcels, 7 networks)
+
+Schaefer A., Kong R., Gordon E. M., Laumann T. O., Zuo X.-N., Holmes A. J., Eickhoff S. B.,
+Yeo B. T. T. Local-global parcellation of the human cerebral cortex from intrinsic functional
+connectivity MRI. _Cerebral Cortex_ 28(9):3095-3114 (2018).
+doi:[10.1093/cercor/bhx179](https://doi.org/10.1093/cercor/bhx179).
+
+`Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz` from ThomasYeoLab/CBIG (MIT), with
+CBIG's own LUT. 400 cortical parcels — 1-200 left, 201-400 right — each named by its Yeo 7-network
+membership (`7Networks_LH_Vis_1`, `7Networks_RH_Default_PFCdPFCm_3`, …). Its header matches the
+shipped FSL `MNI152_T1_1mm.nii.gz` exactly, so it is on the MNI152NLin6Asym grid. Like Glasser it is
+a cortical parcellation distributed as a label volume, so you target it through the picker's
+**Subcortical** mode.
+
+---
 
 # Subject-Space Atlases
 
