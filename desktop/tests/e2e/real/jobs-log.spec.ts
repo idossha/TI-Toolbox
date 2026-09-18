@@ -75,13 +75,24 @@ test("the Raw log of a job that finished long ago is not empty", async () => {
   await expect(excerpt).toBeVisible();
   await expect(excerpt.locator("pre")).not.toHaveText("(no output yet)", { timeout: 30_000 });
 
-  // And the Raw log is the log — this is what came up empty while `since=-1` was being sent.
+  // And the Raw log is the log. The RENDERED lines alone do not prove the fix — that tab falls
+  // back to reading the log file when the event stream yields nothing, which is exactly what
+  // masked the 422 — so watch the request itself: the console's backlog must be accepted by the
+  // real server. `useJobLogEvents` is also what the run pages' Terminal uses, and that one has no
+  // file fallback at all.
+  const eventRequests: number[] = [];
+  page.on("response", (response) => {
+    if (response.url().includes(`/api/jobs/${job.id}/events`)) eventRequests.push(response.status());
+  });
   await detail.getByRole("tab", { name: "Raw log", exact: true }).click();
   const console_ = detail.getByTestId("job-detail-rawlog");
   await expect(console_).toBeVisible();
   const rendered = console_.locator(".job-console-line");
   await expect(rendered.first()).toBeVisible({ timeout: 30_000 });
   expect(await rendered.count()).toBeGreaterThan(1);
+  await expect.poll(() => eventRequests.length, { timeout: 30_000 }).toBeGreaterThan(0);
+  expect(eventRequests, "the console's event backlog must be a request this server accepts").toContain(200);
+  expect(eventRequests).not.toContain(422);
 
   // Follow starts on and holds the tail; scrolling back releases it, the switch takes it back.
   const lines = console_.locator(".job-console-lines");
