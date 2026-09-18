@@ -30,7 +30,7 @@ rationale below consolidates later amendments without treating superseded design
 | 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
 | 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
 | 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
-| 14 | 2026-08-27 | Preload bridge budget, **13** top-level entries, no growth without an ADR line | live |
+| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **22** since the native TetraVox surface of 2026-09-13 (status, install, open) and its 2026-09-15 amendment (locate, clear path, check update, update, progress) and the FastSurfer host API. `smoke.spec.ts` enforces the exact list | live, amended 2026-09-15 |
 | 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
 | 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
 | 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
@@ -203,8 +203,9 @@ against malicious concurrent local mutation. **Revisit if.** Multi-user trust or
 
 **Decision.** Keep shared controls, selection and region-toggle models. Terminal Clear uses a
 watermark, never deletes logs; pages do not auto-pin completed jobs. Overview replaces Subject
-Info. The rail uses digits 0–9, Settings uses its own shortcut, and the preload budget is 13 host
-entries including `saveFile`, not a viewer launcher. Computational extensions use the common
+Info. The rail uses digits 0–9, Settings uses its own shortcut, and the preload budget was 13 host
+entries including `saveFile`, not a viewer launcher (the 2026-09-13/15 native TetraVox decisions
+raised it to 22; ADR row 14). Computational extensions use the common
 inputs/plan/terminal layout; controls share a left-aligned label column.
 
 **Why.** Parallel page conventions produced inaccessible controls, mismatched selections and

@@ -246,6 +246,7 @@
     "output_fields": [
       "TI_max"
     ],
+    "map_to_mni": false,
     "map_to_fsavg": false
   }
 }

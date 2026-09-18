@@ -183,8 +183,11 @@ test("an ex run previews its search config and paginated evaluated candidates", 
   // Its four electrode buckets.
   await expect(page.getByTestId("results-summary-ex")).toContainText("F7 FT7 T7 F5 FC5 AF7 F3");
 
+  // The metric columns are named by what they measure (`candidates/model.ts` METRIC_LABELS): the
+  // ROI mean, and the non-ROI exposure it is traded against.
   const table = page.getByTestId("candidate-browser").locator(".candidate-table");
-  await expect(table.getByRole("table")).toContainText("Target mean");
+  await expect(table.getByRole("table")).toContainText("ROI mean (V/m)");
+  await expect(table.getByRole("table")).toContainText("Non-ROI p95 (V/m)");
   await expect(table.getByRole("row")).toHaveCount(51); // header + one page
   await expect(page.getByTestId("candidate-browser")).toContainText("of 60");
 });
@@ -195,8 +198,8 @@ test("selecting an ex-search run and an analysis swaps the preview for their tab
 
   await page.getByTestId("results-node-ex:ernie:ex_L_Insula_20260812_090000").click();
   await expect(page.getByTestId("candidate-browser").locator(".candidate-table")).toBeVisible();
-  // Candidate metrics retain named target/background definitions.
-  await expect(page.getByTestId("candidate-browser").locator(".candidate-table").getByRole("table")).toContainText("Target mean");
+  // Candidate metrics keep their named ROI / non-ROI definitions.
+  await expect(page.getByTestId("candidate-browser").locator(".candidate-table").getByRole("table")).toContainText("ROI mean (V/m)");
   // The run's own artifacts, from the same cached list read the tree was built from.
   await expect(page.getByText("Final output")).toBeVisible();
   await expect(page.getByText("Ranked montages plot")).toBeVisible();

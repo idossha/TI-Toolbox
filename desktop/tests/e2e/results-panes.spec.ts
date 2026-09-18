@@ -203,8 +203,10 @@ test("every kind paints the same section order", async () => {
   const ex = await sectionOrder();
   expect(ex[0]).toBe("results-header-block");
   expect(ex.at(-1)).toBe("results-files-section");
-  expect(ex.indexOf("results-ex-table")).toBeGreaterThan(0);
-  expect(ex.indexOf("results-summary-ex")).toBeGreaterThan(ex.indexOf("results-ex-table"));
+  // Since `23914d61` the ranked table is the evaluated-candidates browser, and it follows the
+  // electrode buckets: what the search was allowed to pick from, then what it picked.
+  expect(ex.indexOf("results-summary-ex")).toBeGreaterThan(0);
+  expect(ex.indexOf("results-candidates")).toBeGreaterThan(ex.indexOf("results-summary-ex"));
 
   await page.getByTestId("results-node-flex:ernie:flex_Thalamus_20260810_101500").click();
   const flex = await sectionOrder();

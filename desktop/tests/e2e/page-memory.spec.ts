@@ -347,10 +347,25 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   page.off("pageerror", recordError);
 });
 
-test("Results deep links replace the retained viewer selection without remounting the page", async () => {
+test("Results' Open in viewer launches natively and leaves the retained Viewer page untouched", async () => {
   test.skip(TOKEN !== "mock-token", "the named simulations come from the mock catalog");
+  // Since the 2026-09-13 decision (managed native TetraVox) Results' "Open in viewer" writes the
+  // scene and hands it to the native application; it no longer navigates to the Viewer page with
+  // a deep link. The retention property this file is about therefore reads the other way round:
+  // the launch must not disturb the Viewer page a person already has open — same panel node, same
+  // source bar — and must not move them off Results.
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:open");
+    ipcMain.handle("tit:tetravox:open", (_event, path: string) => {
+      (globalThis as unknown as { launchedScene: string }).launchedScene = path;
+      return { ok: true };
+    });
+  });
   await gotoPage(page, "viewer");
+  await expectPage(page, "viewer");
   const viewerPanel = page.locator('[data-page-panel="viewer"]');
+  await expect(page.getByTestId("viewer-source-bar")).toBeVisible();
+  const viewerSource = await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents();
   const viewerNode = await viewerPanel.elementHandle();
   await gotoPage(page, "results");
   await page.getByTestId("results-subject-filter").fill("");
@@ -358,18 +373,18 @@ test("Results deep links replace the retained viewer selection without remountin
   await page.getByTestId("results-tree-filter").fill("");
   await page.getByRole("radiogroup", { name: "Output kind" }).getByRole("radio", { name: "All", exact: true }).click();
   await page.getByTestId("results-node-simulation:ernie:docs_example").click();
+  const written = page.waitForResponse((r) => r.url().endsWith("/api/view/open") && r.request().postDataJSON()?.dry_run !== true);
   await page.getByTestId("results-open-in-viewer").click();
+  const payload = await (await written).json();
+  await expect.poll(() => app.evaluate(() => (globalThis as unknown as { launchedScene: string }).launchedScene)).toBe(payload.scene_path ?? payload.path);
+  await expectPage(page, "results");
+  await expect(viewerPanel).toBeHidden();
+  await gotoPage(page, "viewer");
   await expectPage(page, "viewer");
-  // The deep link now also opens (`?open=1`, 2026-09-07), so this lands on the Tetravox sub-page.
-  // What this test is about is the *retention* of the page, so come back to the Menu and read the
-  // draft the link pre-filled — which is still the assertion, and is still what a person sees when
-  // they navigate back to the Menu themselves.
-  await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 20_000 });
-  // The Menu behind it carries the link's selection — the tree offers the simulation it named.
-  await expect(page.getByTestId("viewer-tree-sim-docs_example")).toHaveCount(1, { timeout: 15_000 });
   expect(await viewerPanel.evaluate((current, previous) => current === previous, viewerNode)).toBe(true);
+  expect(await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents()).toEqual(viewerSource);
   await awayAndBack("viewer");
-  await expect(page.getByTestId("viewer-tree-sim-docs_example")).toHaveCount(1);
+  expect(await viewerPanel.evaluate((current, previous) => current === previous, viewerNode)).toBe(true);
 });
 
 test("a subject's Results action updates an already visited Results tab", async () => {

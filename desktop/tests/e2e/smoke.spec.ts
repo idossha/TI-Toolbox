@@ -138,22 +138,27 @@ test("launcher connects and the shell renders its chrome around the landing page
 
   // The bridge includes host-side text export, while keeping the token out of the renderer.
   //
-  // A fourteenth, `viewer`, existed for a few hours on 2026-09-06: V3 made viewing a
-  // host-installed Tetravox desktop app, which needed a route through main to launch. The
-  // maintainer reversed that ("We should not install Tetravox on the host machine — forbidden");
-  // the viewer is an `<iframe src="/tetravox/">` served by this app's own server again, opening a
-  // scene is not a host action, and the entry went with it. ADR row 14's budget is 13, and this
-  // list enforces the boundary. Native FastSurfer adds the explicitly consented host runtime
-  // API described in the Apple GPU decision; it does not restore host Tetravox installation.
+  // This list IS the preload budget of ADR row 14: every top-level entry of `window.tit`, and
+  // nothing may join it without a line in docs/dev/DECISIONS.md. The budget was 13 host entries
+  // when the viewer was an iframe served by this app's own server. The 2026-09-13 decision made
+  // viewing a managed native TetraVox (status/install/open), and the 2026-09-15 amendment added the
+  // detect-or-download surface (locate, clear the located path, check for and apply a feed-verified
+  // update, and the download progress stream) — all of them TetraVox entries, none of them a live
+  // control channel into the running viewer. `fastsurfer` is the explicitly consented host runtime
+  // API of the Apple GPU decision. Twenty-two, matching the ADR's table.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
+    "checkNativeTetravoxUpdate",
+    "clearNativeTetravoxPath",
     "connect",
     "fastsurfer",
     "getSettings",
     "installNativeTetravox",
+    "locateNativeTetravox",
     "nativeTetravoxStatus",
     "notify",
+    "onNativeTetravoxProgress",
     "openExternal",
     "openNativeTetravox",
     "openPath",
@@ -164,6 +169,7 @@ test("launcher connects and the shell renders its chrome around the landing page
     "setSettings",
     "showItemInFolder",
     "stack",
+    "updateNativeTetravox",
   ]);
   const settings = await page.evaluate(() => (window as unknown as { tit: { getSettings(): Promise<unknown> } }).tit.getSettings());
   expect(JSON.stringify(settings)).not.toContain(TOKEN);

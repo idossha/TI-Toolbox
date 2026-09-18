@@ -105,15 +105,20 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
     "Rectangle",
   ]);
 
-  // Threshold mode appears only for the threshold form of the focality goal.
+  // Threshold mode appears only for the threshold form of the focality goal. Since `43b44ec0` the
+  // goal list names both forms ("Threshold-free focality" / "Threshold-based focality"); the
+  // threshold-free form must NOT show the segment, the threshold-based one must.
   await field("Goal", editor).getByRole("combobox").click();
-  await page.getByRole("option", { name: "Focality", exact: true }).click();
+  await page.getByRole("option", { name: "Threshold-free focality", exact: true }).click();
+  await expect(field("Threshold mode", editor)).toHaveCount(0);
+  await field("Goal", editor).getByRole("combobox").click();
+  await page.getByRole("option", { name: "Threshold-based focality", exact: true }).click();
   const thresholdMode = field("Threshold mode", editor).locator(".segmented");
   await expect(thresholdMode).toHaveCount(1);
   expect(await thresholdMode.getByRole("radio").allTextContents()).toEqual([
-    "Manual thresholds",
-    "Adaptive (single run)",
-    "Pareto sweep",
+    "Fixed thresholds",
+    "Adaptive thresholds",
+    "Multi-threshold",
   ]);
   await noRadioGroup(editor);
   await closeOptEditor(page);
@@ -153,12 +158,18 @@ test("Settings' existing-output policy and theme are segments", async () => {
   await gotoPage(page, "settings", "Settings");
   await expectPage(page, "settings");
 
-  // Replace remains a project-gated choice even when the local execution preference exists.
+  // "Replace and rerun" is the one, always-available control for replacing existing outputs
+  // (`1075fb1c`, 2026-09-15: the project-level "Allow unsafe overrides" gate is gone; a run that
+  // would touch outputs still asks first). Skip is the default; Replace is a real choice.
   const policy = page.locator('[data-page-active="true"] .segmented[aria-label="Existing outputs"]');
   await expect(policy).toBeVisible();
   expect(await policy.getByRole("radio").allTextContents()).toEqual(["Skip existing outputs", "Replace and rerun"]);
   await expect(policy.getByRole("radio", { name: "Skip existing outputs", exact: true })).toBeChecked();
-  await expect(policy.getByRole("radio", { name: "Replace and rerun", exact: true })).toBeDisabled();
+  await expect(policy.getByRole("radio", { name: "Replace and rerun", exact: true })).toBeEnabled();
+  await policy.getByRole("radio", { name: "Replace and rerun", exact: true }).click();
+  await expect(policy.getByRole("radio", { name: "Replace and rerun", exact: true })).toBeChecked();
+  await policy.getByRole("radio", { name: "Skip existing outputs", exact: true }).click();
+  await expect(policy.getByRole("radio", { name: "Skip existing outputs", exact: true })).toBeChecked();
   await noRadioGroup();
 
   await gotoPage(page, "settings", "Settings");
