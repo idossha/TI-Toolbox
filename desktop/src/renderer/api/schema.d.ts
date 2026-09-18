@@ -2202,7 +2202,61 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-                /** @description unknown kind, malformed body, or a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages) */
+                /** @description unknown kind, malformed body, a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages), or -- as a MissingInputs body -- a required input file that is not on disk; no job record is created */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MissingInputs"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a job's required inputs without submitting it
+         * @description The same sweep POST /api/jobs and /api/jobs/groups run before creating a job (m2m folder, EEG net CSV, simulation outputs, atlas volumes, ROI CSVs, leadfield, ...); an empty `missing` means nothing was found absent, not that the job will succeed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["JobSpec"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            missing: components["schemas"]["MissingInput"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description unknown kind or malformed body */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -2249,12 +2303,14 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-                /** @description unsupported kind, malformed body, or a config that does not deserialize for the kind */
+                /** @description unsupported kind, malformed body, a config that does not deserialize for the kind, or -- as a MissingInputs body -- a required input file of any planned job that is not on disk; no job record is created */
                 422: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["MissingInputs"];
+                    };
                 };
             };
         };
@@ -6028,6 +6084,18 @@ export interface components {
             overwrite?: boolean;
             /** @description Per-group concurrency cap: at most this many of the group's per-subject jobs run at once. Enforced by the scheduler (tit.jobs), not by the number of jobs submitted -- every subject's job is created immediately with state "queued" and the scheduler releases them onto runners this-many-at-a-time as earlier ones finish. */
             parallel_subjects: number;
+        };
+        /** @description One input a job needs that is not on disk (tit.jobs.preflight): what it is, the named path it was expected at, and how to produce it. */
+        MissingInput: {
+            what: string;
+            expected_path: string | null;
+            how_to_fix: string;
+        };
+        /** @description The 422 body a submission gets when its inputs are not all on disk. */
+        MissingInputs: {
+            /** @enum {string} */
+            detail: "Missing inputs";
+            missing: components["schemas"]["MissingInput"][];
         };
         JobGroupResult: {
             group_id: string;

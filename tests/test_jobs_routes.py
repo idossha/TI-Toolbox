@@ -56,8 +56,26 @@ def _reset_job_manager():
     bootstrap.reset_manager()
 
 
+def seed_head_model(project: Path, subject_id: str, electrodes=("E1", "E2", "E3", "E4")) -> None:
+    """The inputs `tit.jobs.preflight` requires of a `sim` job: m2m folder, head mesh, EEG net.
+
+    Submission now refuses a job whose inputs are not on disk (422 "Missing inputs"), so the
+    subjects these tests submit for need a head model, even though the fake runner never reads it.
+    """
+    pm = get_path_manager(str(project))
+    m2m = Path(pm.m2m(subject_id))
+    m2m.mkdir(parents=True, exist_ok=True)
+    (m2m / f"{subject_id}.msh").write_bytes(b"")
+    eeg = Path(pm.eeg_positions(subject_id))
+    eeg.mkdir(parents=True, exist_ok=True)
+    rows = "".join(f"Electrode,{i},0,0,{name}\n" for i, name in enumerate(electrodes))
+    (eeg / "GSN-HydroCel-185.csv").write_text(rows)
+
+
 @pytest.fixture()
 def project(tmp_path: Path) -> Path:
+    for subject_id in ("001", "002", "003", "ernie"):
+        seed_head_model(tmp_path, subject_id)
     return tmp_path
 
 
@@ -870,7 +888,7 @@ def test_existing_sim_without_explicit_overwrite_is_rejected(client):
 
 def test_pre_dti_replacement_does_not_confuse_existing_head_with_tensor(client):
     head = Path(get_path_manager().m2m("001"))
-    head.mkdir(parents=True)
+    head.mkdir(parents=True, exist_ok=True)
     (head / "001.msh").write_text("keep")
     response = client.post(
         "/api/jobs/groups",
@@ -932,3 +950,78 @@ def test_ws_backfill_drains_in_order_without_per_event_thread_hops(monkeypatch):
                 await task
 
     asyncio.run(receive())
+
+
+# ---------------------------------------------------------------------------------------------
+# missing inputs are refused at submission (tit.jobs.preflight)
+# ---------------------------------------------------------------------------------------------
+
+
+def _voxel_dk40_analysis(subject_id: str = "001") -> dict:
+    return {
+        "mode": "single",
+        "subject_id": subject_id,
+        "simulation": "L_Insula",
+        "space": "voxel",
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "region": "lh.insula",
+    }
+
+
+def test_submit_refuses_a_job_whose_inputs_are_missing_and_creates_no_record(
+    client: TestClient, project: Path
+) -> None:
+    """The real case: analyzer, voxel, cortical DK40, on a subject with no simulation output and
+    no FastSurfer parcellation. Every missing input is named with its path and a fix, and no
+    job record exists afterwards."""
+    pm = get_path_manager()
+    r = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={"kind": "analyzer", "config": _voxel_dk40_analysis(), "subject_ids": ["001"]},
+    )
+    assert r.status_code == 422, r.text
+    body = r.json()
+    assert body["detail"] == "Missing inputs"
+    paths = [m["expected_path"] for m in body["missing"]]
+    assert pm.simulation("001", "L_Insula") in paths
+    assert str(Path(pm.fastsurfer_mri("001")) / "aparc.DKTatlas+aseg.deep.mgz") in paths
+    assert all({"what", "expected_path", "how_to_fix"} <= set(m) for m in body["missing"])
+    assert any("FastSurfer" in m["how_to_fix"] for m in body["missing"])
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
+def test_group_submission_is_refused_when_one_subject_lacks_an_input(client: TestClient) -> None:
+    pm = get_path_manager()
+    r = client.post(
+        "/api/jobs/groups",
+        headers=BEARER,
+        json={
+            "kind": "sim",
+            "config": _sim_config("001"),
+            "subject_ids": ["001", "no-head"],
+            "parallel_subjects": 1,
+        },
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == "Missing inputs"
+    assert [m["expected_path"] for m in r.json()["missing"]] == [pm.m2m("no-head")]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
+def test_preflight_route_reports_without_submitting(client: TestClient, project: Path) -> None:
+    pm = get_path_manager()
+    body = {"kind": "analyzer", "config": _voxel_dk40_analysis(), "subject_ids": ["001"]}
+    r = client.post("/api/jobs/preflight", headers=BEARER, json=body)
+    assert r.status_code == 200
+    assert pm.simulation("001", "L_Insula") in [m["expected_path"] for m in r.json()["missing"]]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+    ok = client.post(
+        "/api/jobs/preflight",
+        headers=BEARER,
+        json={"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]},
+    )
+    assert ok.json() == {"missing": []}
+    bad = client.post("/api/jobs/preflight", headers=BEARER, json={"kind": "nope", "config": {}})
+    assert bad.status_code == 422

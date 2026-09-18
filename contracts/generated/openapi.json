@@ -2708,7 +2708,69 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "unknown kind, malformed body, or a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages)"
+            "description": "unknown kind, malformed body, a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages), or -- as a MissingInputs body -- a required input file that is not on disk; no job record is created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingInputs"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/preflight": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Check a job's required inputs without submitting it",
+        "description": "The same sweep POST /api/jobs and /api/jobs/groups run before creating a job (m2m folder, EEG net CSV, simulation outputs, atlas volumes, ROI CSVs, leadfield, ...); an empty `missing` means nothing was found absent, not that the job will succeed.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobSpec"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "missing"
+                  ],
+                  "properties": {
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MissingInput"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "description": "unknown kind or malformed body"
           }
         }
       }
@@ -2751,7 +2813,14 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "unsupported kind, malformed body, or a config that does not deserialize for the kind"
+            "description": "unsupported kind, malformed body, a config that does not deserialize for the kind, or -- as a MissingInputs body -- a required input file of any planned job that is not on disk; no job record is created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingInputs"
+                }
+              }
+            }
           }
         }
       }
@@ -10281,6 +10350,51 @@
             "type": "integer",
             "minimum": 1,
             "description": "Per-group concurrency cap: at most this many of the group's per-subject jobs run at once. Enforced by the scheduler (tit.jobs), not by the number of jobs submitted -- every subject's job is created immediately with state \"queued\" and the scheduler releases them onto runners this-many-at-a-time as earlier ones finish."
+          }
+        }
+      },
+      "MissingInput": {
+        "type": "object",
+        "description": "One input a job needs that is not on disk (tit.jobs.preflight): what it is, the named path it was expected at, and how to produce it.",
+        "required": [
+          "what",
+          "expected_path",
+          "how_to_fix"
+        ],
+        "properties": {
+          "what": {
+            "type": "string"
+          },
+          "expected_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "how_to_fix": {
+            "type": "string"
+          }
+        }
+      },
+      "MissingInputs": {
+        "type": "object",
+        "description": "The 422 body a submission gets when its inputs are not all on disk.",
+        "required": [
+          "detail",
+          "missing"
+        ],
+        "properties": {
+          "detail": {
+            "type": "string",
+            "enum": [
+              "Missing inputs"
+            ]
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingInput"
+            }
           }
         }
       },

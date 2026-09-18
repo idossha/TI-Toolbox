@@ -414,6 +414,29 @@ Sources: [`overwrite_policy.py`](../../tit/server/overwrite_policy.py),
 [`ExistingOutputsDialog.tsx`](../../desktop/src/renderer/pages/_shared/run/ExistingOutputsDialog.tsx),
 [`JobDetailPane.tsx`](../../desktop/src/renderer/app/jobs-rail/JobDetailPane.tsx).
 
+### Missing inputs are refused at submission
+
+A job is never queued when a file it needs is not on disk. `POST /api/jobs` and
+`POST /api/jobs/groups` run `tit.jobs.preflight.preflight(kind, config, project_dir)` after the
+config-shape check and before any job record exists; a non-empty result is HTTP 422
+`{detail: "Missing inputs", missing: [{what, expected_path, how_to_fix}]}`, and
+`POST /api/jobs/preflight` returns the same list without submitting. The sweep is one small
+checker per kind, filesystem existence and name-correctness only (no SimNIBS import, no mesh or
+volume loaded), built on `PathManager` and the runner's own resolution rules so the two cannot
+disagree: the analyzer's `select_field_file` and `Analyzer._SURFACE_ATLAS_VOLUMES` (a voxel
+analysis of the surface atlas id `DK40` needs FastSurfer's DKT volume; the mesh analysis needs no
+parcellation), the flex mapping-net rule, `ExConfig`'s `.csv` suffixing, the stats/nilearn MNI
+NIfTI patterns, `tit.pre.preflight` for preprocessing. Each finding names the input, the exact
+path it was expected at and what produces it ("run FastSurfer for sub-101", "run the L_Insula
+simulation first", "analyze in mesh space instead"). A `pre` group is checked with the whole
+group's flags, not per stage, because an early stage supplies what a later one needs. The
+desktop turns the body into one persistent notice, one line per input (`notifySubmitError`,
+`notify.blocked`); `ApiError.missing` carries the list. Kinds with nothing on disk to check
+(`project_init`, `report`, `tools`, whose arguments are jailed separately) return nothing.
+
+Sources: [`preflight.py`](../../tit/jobs/preflight.py), [`jobs.py`](../../tit/server/routes/jobs.py),
+[`client.ts`](../../desktop/src/renderer/api/client.ts), [`Toast.tsx`](../../desktop/src/renderer/ui/Toast.tsx).
+
 ## 11. Interface design
 
 The interface supports configuring scientific work, monitoring expensive computations and reaching

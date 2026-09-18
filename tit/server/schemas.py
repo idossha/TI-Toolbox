@@ -754,3 +754,24 @@ class ProjectSummary(BaseModel):
     identity: ProjectIdentity
     storage: SummaryStorage
     activity: ProjectActivity
+
+
+class MissingInput(BaseModel):
+    """One input a job needs that is not on disk (``tit.jobs.preflight.MissingInput``)."""
+
+    what: str
+    expected_path: str | None
+    how_to_fix: str
+
+
+class MissingInputs(BaseModel):
+    """The 422 body a job submission gets when its required inputs are not all on disk."""
+
+    detail: Literal["Missing inputs"]
+    missing: list[MissingInput]
+
+
+class PreflightResult(BaseModel):
+    """``POST /api/jobs/preflight``: the sweep's findings, without submitting."""
+
+    missing: list[MissingInput]

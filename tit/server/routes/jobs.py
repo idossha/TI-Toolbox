@@ -13,13 +13,14 @@ import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse
-from tit.server.schemas import SubjectId
+from fastapi.responses import JSONResponse, PlainTextResponse
+from tit.server.schemas import MissingInputs, PreflightResult, SubjectId
 from starlette.concurrency import run_in_threadpool
 
 from tit.jobs.bootstrap import get_manager
 from tit.jobs.config_check import check_job_config
 from tit.jobs.manager import JobManager
+from tit.jobs.preflight import preflight
 from tit.jobs.spec import JOB_KINDS, JOB_STATES
 from tit.paths import is_valid_subject_id
 from tit.server.overwrite_policy import check_overwrite_permission
@@ -95,7 +96,62 @@ def _check_freesurfer_inputs(
         )
 
 
-@router.post("/api/jobs", status_code=201, summary="Submit one job")
+def _missing_inputs(
+    manager: JobManager, jobs: list[tuple[str, dict[str, Any], list[str]]]
+) -> JSONResponse | None:
+    """HTTP 422 ``{detail: "Missing inputs", missing: [...]}``, or ``None`` when every job's
+    required inputs are on disk.
+
+    Runs the :mod:`tit.jobs.preflight` sweep over each ``(kind, config, subject_ids)`` before
+    anything is persisted: a job whose required file is not on disk used to be accepted and
+    then die minutes later inside the runner (an analyzer job in voxel space whose subject
+    has no FastSurfer parcellation, say). A ``pre`` config carries its subjects in the body,
+    not the config, so they are merged in for that kind.
+    """
+    missing = []
+    for kind, config, subject_ids in jobs:
+        if kind == "pre" and subject_ids and not config.get("subject_ids"):
+            config = {**config, "subject_ids": subject_ids}
+        for item in preflight(kind, config, manager.project_dir):
+            if item not in missing:
+                missing.append(item)
+    if not missing:
+        return None
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Missing inputs", "missing": [m.to_dict() for m in missing]},
+    )
+
+
+@router.post(
+    "/api/jobs/preflight",
+    response_model=PreflightResult,
+    summary="Check a job's required inputs without submitting it",
+)
+def preflight_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    kind = body.get("kind")
+    if kind not in JOB_KINDS:
+        raise HTTPException(
+            status_code=422, detail=f"invalid or missing kind: {kind!r}"
+        )
+    config = body.get("config")
+    if not isinstance(config, dict):
+        raise HTTPException(status_code=422, detail="config must be an object")
+    subject_ids = _checked_subject_ids(body.get("subject_ids") or [])
+    if kind == "pre" and subject_ids and not config.get("subject_ids"):
+        config = {**config, "subject_ids": subject_ids}
+    found = preflight(kind, config, _manager(request).project_dir)
+    return {"missing": [m.to_dict() for m in found]}
+
+
+@router.post(
+    "/api/jobs",
+    status_code=201,
+    summary="Submit one job",
+    responses={
+        422: {"model": MissingInputs, "description": "missing inputs or a bad body"}
+    },
+)
 def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     kind = body.get("kind")
     if kind not in JOB_KINDS:
@@ -115,6 +171,9 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     _check_freesurfer_inputs(kind, config, subject_ids)
+    refused = _missing_inputs(_manager(request), [(kind, config, subject_ids)])
+    if refused is not None:
+        return refused
     check_overwrite_permission(
         kind, config, subject_ids, overwrite=bool(body.get("overwrite", False))
     )
@@ -136,6 +195,9 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
     "/api/jobs/groups",
     status_code=201,
     summary="Submit one job per subject with a shared group id and a scheduler-enforced cap",
+    responses={
+        422: {"model": MissingInputs, "description": "missing inputs or a bad body"}
+    },
 )
 def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Submit a per-subject job group (R3).
@@ -187,8 +249,16 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
     if kind == "pre":
         planned = _plan_pre_group(config, subject_ids)
         _check_freesurfer_inputs(kind, config, subject_ids)
+        # The whole group's flags at once: an early stage (DICOM conversion) supplies what a
+        # later one (charm) needs, which a per-stage sweep could not know.
+        refused = _missing_inputs(_manager(request), [(kind, config, subject_ids)])
     else:
         planned = _plan_generic_group(kind, config, subject_ids, body, tags, overwrite)
+        refused = _missing_inputs(
+            _manager(request), [(j.kind, j.config, j.subject_ids) for j in planned]
+        )
+    if refused is not None:
+        return refused
     for job in planned:
         check_overwrite_permission(
             job.kind, job.config, job.subject_ids, overwrite=job.overwrite
