@@ -1,0 +1,26 @@
+# FreeSurfer-style colour lookup table for HarvardOxford-sub-maxprob-thr25-1mm.nii.gz
+# Source: FSL HarvardOxford-Subcortical.xml (NeuroDebian fsldata 5.0.7-2); label value = XML index + 1, 0 = background.
+# Names are FSL's, whitespace-stripped, spaces replaced by hyphens. Colours are TI-Toolbox's own.
+# No. LabelName R G B A
+0 Background 0 0 0 0
+1 Left-Cerebral-White-Matter 242 84 84 0
+2 Left-Cerebral-Cortex 84 130 242 0
+3 Left-Lateral-Ventrical 176 242 84 0
+4 Left-Thalamus 242 84 222 0
+5 Left-Caudate 84 242 215 0
+6 Left-Putamen 242 169 84 0
+7 Left-Pallidum 124 84 242 0
+8 Brain-Stem 91 242 84 0
+9 Left-Hippocampus 242 84 137 0
+10 Left-Amygdala 84 183 242 0
+11 Left-Accumbens 229 242 84 0
+12 Right-Cerebral-White-Matter 209 84 242 0
+13 Right-Cerebral-Cortex 84 242 163 0
+14 Right-Lateral-Ventricle 242 117 84 0
+15 Right-Thalamus 84 98 242 0
+16 Right-Caudate 144 242 84 0
+17 Right-Putamen 242 84 190 0
+18 Right-Pallidum 84 236 242 0
+19 Right-Hippocampus 242 202 84 0
+20 Right-Amygdala 156 84 242 0
+21 Right-Accumbens 84 242 110 0

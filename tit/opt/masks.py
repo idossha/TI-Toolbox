@@ -9,6 +9,9 @@ def validate_mask(path: str):
     import nibabel as nib
     import numpy as np
 
+    from tit.atlas.manifest import check_shipped
+
+    check_shipped(path)
     try:
         image = nib.load(path)
     except nib.filebasedimages.ImageFileError as exc:
@@ -98,7 +101,12 @@ def validate_mask_paths(config) -> None:
         roi = getattr(config, field, None)
         if roi is not None and getattr(roi, "label", "") is None:
             paths.append((f"{field}.atlas_path", roi.atlas_path))
+    from tit.atlas.manifest import not_shipped_message
+
     for field, path in paths:
+        retired = not_shipped_message(path)
+        if retired:
+            raise ValueError(f"{field}: {retired}")
         if not Path(path).is_file():
             raise ValueError(
                 f"{field}: mask is not accessible in the container: {path}. "

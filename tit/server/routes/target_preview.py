@@ -76,11 +76,15 @@ def _input(pm, path):
 
 def _atlas(pm, subject, roi):
     from tit.atlas.constants import MNI_ATLAS_FILES, mni_resources_dir
+    from tit.atlas.manifest import not_shipped_message
     from tit.atlas.voxel import VoxelAtlasManager
     from tit.server.routes.files import _resolve_jailed
 
     if roi.space == "mni":
         root = Path(mni_resources_dir())
+        retired = not_shipped_message(roi.atlas)
+        if retired:
+            raise HTTPException(404, retired)
         if roi.atlas not in MNI_ATLAS_FILES:
             raise HTTPException(404, "Target preview unavailable: unknown MNI atlas")
         return _resolve_jailed(str(root / roi.atlas), [root])

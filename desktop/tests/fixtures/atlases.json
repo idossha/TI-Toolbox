@@ -76,6 +76,42 @@
         "kind": "volume",
         "template": "MNI152NLin2009cAsym",
         "license": "WU-Minn HCP Open Access Data Use Terms"
+      },
+      {
+        "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford subcortical (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+        "name": "Cerebellum MNIfnirt (Diedrichsen, maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+        "name": "Schaefer 2018, 400 parcels, 7 networks (1 mm)",
+        "path": "/ti-toolbox/resources/atlas/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "MIT"
       }
     ]
   },
@@ -149,6 +185,42 @@
         "kind": "volume",
         "template": "MNI152NLin2009cAsym",
         "license": "WU-Minn HCP Open Access Data Use Terms"
+      },
+      {
+        "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford subcortical (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+        "name": "Cerebellum MNIfnirt (Diedrichsen, maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+        "name": "Schaefer 2018, 400 parcels, 7 networks (1 mm)",
+        "path": "/ti-toolbox/resources/atlas/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "MIT"
       }
     ]
   },
@@ -193,6 +265,42 @@
         "kind": "volume",
         "template": "MNI152NLin2009cAsym",
         "license": "WU-Minn HCP Open Access Data Use Terms"
+      },
+      {
+        "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford subcortical (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+        "name": "Cerebellum MNIfnirt (Diedrichsen, maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "CC BY-SA 4.0"
+      },
+      {
+        "id": "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+        "name": "Schaefer 2018, 400 parcels, 7 networks (1 mm)",
+        "path": "/ti-toolbox/resources/atlas/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin6Asym",
+        "license": "MIT"
       }
     ]
   }

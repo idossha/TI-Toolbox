@@ -264,6 +264,9 @@ def resolve_volume_atlas_path(
         matching :meth:`tit.atlas.voxel.VoxelAtlasManager.list_atlases`.
     """
     if str(atlas_space).lower() == "mni":
+        from tit.atlas.manifest import check_shipped
+
+        check_shipped(atlas_filename)
         return os.path.join(_mni_atlas_dir(), atlas_filename)
     if atlas_filename == "labeling.nii.gz":
         return os.path.join(seg_dir, atlas_filename)
@@ -485,6 +488,15 @@ def _find_volume_lut(atlas_path: str, atlas_space: str) -> Path | None:
         # the bundled FreeSurferColorLUT instead (see resolve_volume_label_names).
         return None
 
+    from tit.atlas.manifest import mni_atlas_entry
+
+    described = mni_atlas_entry(atlas.name)
+    if described and described.get("labels"):
+        # The manifest names a shipped atlas's LUT; the stem rules below are the
+        # fallback for a volume it does not describe.
+        lut_path = atlas.with_name(described["labels"])
+        if lut_path.is_file():
+            return lut_path
     stem = _strip_nifti_suffix(atlas.name)
     candidates = [
         atlas.with_name(f"{stem}_LUT.txt"),

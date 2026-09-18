@@ -5,7 +5,6 @@ bundled SimNIBS example subject (ernie).
 Writes, deterministically and idempotently:
   - docs/assets/atlas/mni152_t1_1mm.nii.gz   (MNI template, uint8, 5-bit quantised)
   - docs/assets/atlas/cit168.nii.gz          (resampled onto the MNI template grid, order=0)
-  - docs/assets/atlas/morel.nii.gz           (resampled onto the MNI template grid, order=0)
   - docs/assets/atlas/glasser.nii.gz         (resampled onto the MNI template grid, order=0)
   - docs/assets/atlas/massp.nii.gz           (resampled onto the MNI template grid, order=0)
   - docs/assets/atlas/ernie_t1.nii.gz        (ernie subject T1, uint8, 5-bit quantised)
@@ -17,19 +16,17 @@ Writes, deterministically and idempotently:
 
 Every label volume is nearest-neighbour resampled (nibabel.processing.
 resample_from_to, order=0) onto the exact voxel grid of that space's
-template -- MNI152_T1_1mm.nii.gz for the four MNI atlases, the ernie
+template -- MNI152_T1_1mm.nii.gz for the three MNI atlases, the ernie
 example subject's own T1.nii.gz for the four subject atlases -- so a
 browser can overlay any atlas on its matching template with a single
-shared affine. Morel already ships on the MNI template grid, and CHARM /
-subject-space MASSP already ship on the ernie T1 grid; the resample is
-still applied to them for a uniform code path (a no-op there).
+shared affine. CHARM / subject-space MASSP already ship on the ernie T1
+grid; the resample is still applied to them for a uniform code path (a
+no-op there). The Harvard-Oxford, Cerebellum and Schaefer atlases added
+on 2026-09-17 are not in the browser yet.
 
-Two known data defects in resources/atlas/ are handled explicitly, not
-silently patched into the source files:
+One known data defect in resources/atlas/ is handled explicitly, not
+silently patched into the source file:
 
-  - Morel's LUT declares labels 27 and 127 (sPf) but they have zero voxels in
-    the shipped volume. Only labels actually present in the written volume
-    are emitted (expected: 74, not the LUT's 76).
   - MNI_Glasser_HCP_v1.0.txt is missing the row for label 1050 (R-MIP), so
     Glasser names are sourced from HCP-Multi-Modal-Parcellation-1.0.xml
     instead (complete, 361 <label> entries). The XML's "L_"/"R_" + underscore
@@ -113,25 +110,6 @@ ATLASES = [
             "doi:10.1038/sdata.2018.63. Source: NeuroVault collection 3145. Deterministic "
             "label map derived locally by winner-takes-highest-probability, threshold 0.05; "
             "the probabilistic source masks are not shipped."
-        ),
-    ),
-    dict(
-        key="morel",
-        display_name="Morel Thalamus Atlas",
-        src_path=ATLAS_DIR / "MorelMNI152_labeling_1mm.nii.gz",
-        lut_path=ATLAS_DIR / "MorelMNI152_labeling_1mm_LUT.txt",
-        out_filename="morel.nii.gz",
-        native_space="MNI152, FSL-aligned 182x218x182 1mm grid (same grid as the shipped template)",
-        out_dtype=np.uint16,
-        expected_label_count=74,
-        provenance=(
-            "Morel Atlas of the Human Thalamus, MNI152 space, voxelized version. Zenodo "
-            "doi:10.5281/zenodo.13918589. (C) University of Zurich and ETH Zurich, Andras "
-            "Jakab, Remi Blanc and Gabor Szekely. License: CC BY-NC-SA 4.0 (non-commercial, "
-            "share-alike). Recommended citations: Jakab A, Blanc R, Berenyi E, Szekely G. "
-            "AJNR 33(11):2110-2116 (2012); Krauth A, et al. NeuroImage 49(3):2053-2062 (2010). "
-            "Labels 27 and 127 (sPf) are declared in the LUT but have zero voxels after the "
-            "source atlas's overlap rule (first listed label wins) and are omitted here."
         ),
     ),
     dict(

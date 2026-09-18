@@ -143,45 +143,6 @@
    }
   },
   {
-   "id": "atlas-MorelMNI152_labeling_1mm.nii.gz",
-   "kind": "surface",
-   "triangles": 48146,
-   "vertices": 23967,
-   "bytes": 865388,
-   "fingerprint": "guide-2-atlas-MorelMNI152_labeling_1mm.nii.gz",
-   "url": "/api/guide/surface?part=atlas-MorelMNI152_labeling_1mm.nii.gz&guide=mni",
-   "simplified": true,
-   "within_budget": true,
-   "bbox": [
-    -28.5,
-    -36.5,
-    -15.5,
-    30.5,
-    -0.5,
-    18.5
-   ],
-   "focus_bbox": [
-    -28.5,
-    -36.5,
-    -15.5,
-    30.5,
-    -0.5,
-    18.5
-   ],
-   "files": {
-    "tvsc": "surfaces/atlas-MorelMNI152_labeling_1mm.nii.gz.tvsc",
-    "tvsc_meta": {
-     "bytes": 865388,
-     "sha256": "7908adbaa30c34dd6c2f6433fe059602c66a1194c338c4b3d69b54b19fd54571"
-    },
-    "gii": "surfaces/atlas-MorelMNI152_labeling_1mm.nii.gz.gii",
-    "gii_meta": {
-     "bytes": 317963,
-     "sha256": "ae5c55458c47d923dc48e5833f9f04a325a90fd01c994225c7a4583db968941b"
-    }
-   }
-  },
-  {
    "id": "atlas-massp2021-parcellation_decade-18to40.nii.gz",
    "kind": "surface",
    "triangles": 100541,
@@ -298,33 +259,6 @@
    },
    "source_sha256": "48b6187e4a051aedb7f32d058fd3211df2e96fbe369c80793e6f7b293ff98a23",
    "lut_sha256": "bc983f3d9152608ea8fead0eb25f77837883c140d7795894aab972fda0cbaf6c"
-  },
-  {
-   "id": "MorelMNI152_labeling_1mm.nii.gz",
-   "kind": "subcortical",
-   "hemispheres": [],
-   "aligned_to": "atlas-MorelMNI152_labeling_1mm.nii.gz",
-   "regions": 74,
-   "url": "/api/guide/regions?atlas=MorelMNI152_labeling_1mm.nii.gz&guide=mni",
-   "files": {
-    "tvsc": "labels/MorelMNI152_labeling_1mm.nii.gz.tvsc",
-    "tvsc_meta": {
-     "bytes": 335572,
-     "sha256": "6fb20e000a240eeef1bbd8269824d552a8c08225fc87b9b8b997953fd1cbf6c2"
-    },
-    "gii": "labels/MorelMNI152_labeling_1mm.nii.gz.gii",
-    "gii_meta": {
-     "bytes": 329772,
-     "sha256": "0cc5466134cbfe9cef8d2825190921eb855a337293cf0bc816f507de5f99f281"
-    }
-   },
-   "legend_file": "legends/MorelMNI152_labeling_1mm.nii.gz.json",
-   "legend_meta": {
-    "bytes": 9833,
-    "sha256": "0f5cda9d1bc5cf95a17137a1b6c5bcd149b8d54dcdf6119068f3d818a8b4ae61"
-   },
-   "source_sha256": "c1015f2cd87275321a72cbe5520549669b89aea8e30f4f139ce89aed406f7b25",
-   "lut_sha256": "abb80d71094bed7d8b26e7ff19ac2ebe4a1e4ae055d6680b85fe3951f040bdd4"
   },
   {
    "id": "massp2021-parcellation_decade-18to40.nii.gz",

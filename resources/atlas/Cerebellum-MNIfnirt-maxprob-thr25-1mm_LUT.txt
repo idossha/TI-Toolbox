@@ -1,0 +1,33 @@
+# FreeSurfer-style colour lookup table for Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz
+# Source: FSL Cerebellum_MNIfnirt.xml (NeuroDebian fsldata 5.0.7-2); label value = XML index + 1, 0 = background.
+# Names are FSL's, whitespace-stripped, spaces replaced by hyphens. Colours are TI-Toolbox's own.
+# No. LabelName R G B A
+0 Background 0 0 0 0
+1 Left-I-IV 242 84 84 0
+2 Right-I-IV 84 130 242 0
+3 Left-V 176 242 84 0
+4 Right-V 242 84 222 0
+5 Left-VI 84 242 215 0
+6 Vermis-VI 242 169 84 0
+7 Right-VI 124 84 242 0
+8 Left-Crus-I 91 242 84 0
+9 Vermis-Crus-I 242 84 137 0
+10 Right-Crus-I 84 183 242 0
+11 Left-Crus-II 229 242 84 0
+12 Vermis-Crus-II 209 84 242 0
+13 Right-Crus-II 84 242 163 0
+14 Left-VIIb 242 117 84 0
+15 Vermis-VIIb 84 98 242 0
+16 Right-VIIb 144 242 84 0
+17 Left-VIIIa 242 84 190 0
+18 Vermis-VIIIa 84 236 242 0
+19 Right-VIIIa 242 202 84 0
+20 Left-VIIIb 156 84 242 0
+21 Vermis-VIIIb 84 242 110 0
+22 Right-VIIIb 242 84 104 0
+23 Left-IX 84 150 242 0
+24 Vermis-IX 196 242 84 0
+25 Right-IX 241 84 242 0
+26 Left-X 84 242 195 0
+27 Vermis-X 242 149 84 0
+28 Right-X 103 84 242 0

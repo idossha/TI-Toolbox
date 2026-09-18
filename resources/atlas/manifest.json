@@ -1,5 +1,5 @@
 {
-  "$comment": "One source of truth for every atlas TI-Toolbox ships in MNI space. tit/atlas/manifest.py is the only reader; tit/atlas/constants.py, tit/catalog.py and the ROI picker all resolve through it, so an atlas is described in exactly one place. Fields: file (basename in this directory), kind ('volume' | 'surface' -- what targeting flow the UI must route it to), template (the MNI template the atlas is defined in), labels (sidecar LUT/label table), license, attribution, redistribution ('yes' | 'no (<reason>)'), citation. See README.md for the full survey and docs/wiki/atlases.md for the user-facing page.",
+  "$comment": "One source of truth for every atlas TI-Toolbox ships in MNI space. tit/atlas/manifest.py is the only reader; tit/atlas/constants.py, tit/catalog.py and the ROI picker all resolve through it, so an atlas is described in exactly one place. Fields: file (basename in this directory), kind ('volume' | 'surface' -- what targeting flow the UI must route it to), template (the MNI template the atlas is defined in), grid (shape and world origin of the shipped volume, verified against MNI152_T1_1mm.nii.gz where it claims the same grid), labels (sidecar LUT/label table), license, attribution, redistribution ('yes' | 'no (<reason>)'), citation, source (exact URL and sha256 of what was fetched, where recorded). 'not_shipped' lists atlases that were removed: a configuration that still names one fails with that entry's reason. See README.md for the full survey and docs/wiki/atlases.md for the user-facing page.",
   "version": 1,
   "atlases": [
     {
@@ -46,19 +46,153 @@
       "note": "A cortical parcellation distributed as a label volume, so its kind is 'volume': it is targeted through the subcortical/volumetric flow, not through the surface (.annot) flow."
     },
     {
-      "id": "MorelMNI152_labeling_1mm.nii.gz",
-      "file": "MorelMNI152_labeling_1mm.nii.gz",
-      "name": "Morel thalamic nuclei",
+      "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+      "file": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+      "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
       "kind": "volume",
       "template": "MNI152NLin6Asym",
-      "labels": "MorelMNI152_labeling_1mm_LUT.txt",
-      "regions": 74,
-      "license": "CC BY-NC-SA 4.0",
-      "license_url": "https://doi.org/10.5281/zenodo.13918589",
-      "attribution": "(C) University of Zurich and ETH Zurich, Andras Jakab, Remi Blanc and Gabor Szekely. CC BY-NC-SA 4.0.",
-      "redistribution": "no (CC BY-NC-SA)",
-      "citation": "Krauth A. et al. A mean three-dimensional atlas of the human thalamus. NeuroImage 49(3):2053-2062 (2010); Jakab A. et al. AJNR 33(11):2110-2116 (2012).",
-      "note": "Non-commercial licence: this file must move to an optional user-fetched download before the next release. It is still shipped and still selectable, so no existing configuration breaks. See DECISIONS.md 2026-09-17."
+      "grid": {
+        "shape": [
+          182,
+          218,
+          182
+        ],
+        "voxel_mm": 1.0,
+        "origin_ras": [
+          90.0,
+          -126.0,
+          -72.0
+        ],
+        "same_as_template_volume": true
+      },
+      "labels": "HarvardOxford-cort-maxprob-thr25-1mm_LUT.txt",
+      "regions": 48,
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html",
+      "attribution": "Harvard-Oxford cortical structural atlas, Harvard Center for Morphometric Analysis (CMA), distributed with FSL, CC BY-SA 4.0.",
+      "redistribution": "yes (share-alike: the atlas file and its LUT stay CC BY-SA 4.0)",
+      "citation": "Desikan R. S. et al. An automated labeling system for subdividing the human cerebral cortex on MRI scans into gyral based regions of interest. NeuroImage 31(3):968-980 (2006). https://doi.org/10.1016/j.neuroimage.2006.01.021",
+      "source": {
+        "url": "http://neuro.debian.net/debian/pool/non-free/f/fsldata/fsl-harvard-oxford-atlases_5.0.7-2_all.deb",
+        "sha256": "235a9be15b8061caf2ab9caaaab41ffacaf025232b0507259f660218a01249b4",
+        "member": "usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "labels_from": "usr/share/data/harvard-oxford-atlases/HarvardOxford-Cortical.xml (sha256 b8eb5ba5e787a4d3b442f75041f533f31b278a83e467bd2ab22438c1cff36581)"
+      },
+      "note": "FSL licence page: 'The Cerebellum and Harvard-Oxford atlases, whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence.' The file is byte-identical to FSL's; the LUT is generated from FSL's XML (label value = XML index + 1).",
+      "file_sha256": "109ab2c5b4958185ee061f75aa38c9afc37de273e0b2e02288f4ab12693b60d8",
+      "labels_sha256": "93a18a484f401c50684a6dd196eff2045d626b85cfb72324b095d01628202741"
+    },
+    {
+      "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+      "file": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+      "name": "Harvard-Oxford subcortical (maxprob, thr25, 1 mm)",
+      "kind": "volume",
+      "template": "MNI152NLin6Asym",
+      "grid": {
+        "shape": [
+          182,
+          218,
+          182
+        ],
+        "voxel_mm": 1.0,
+        "origin_ras": [
+          90.0,
+          -126.0,
+          -72.0
+        ],
+        "same_as_template_volume": true
+      },
+      "labels": "HarvardOxford-sub-maxprob-thr25-1mm_LUT.txt",
+      "regions": 21,
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html",
+      "attribution": "Harvard-Oxford subcortical structural atlas, Harvard Center for Morphometric Analysis (CMA), distributed with FSL, CC BY-SA 4.0.",
+      "redistribution": "yes (share-alike: the atlas file and its LUT stay CC BY-SA 4.0)",
+      "citation": "Frazier J. A. et al. Structural brain magnetic resonance imaging of limbic and thalamic volumes in pediatric bipolar disorder. Am J Psychiatry 162(7):1256-1265 (2005). https://doi.org/10.1176/appi.ajp.162.7.1256; Makris N. et al. Decreased volume of left and total anterior insular lobule in schizophrenia. Schizophr Res 83(2-3):155-171 (2006). https://doi.org/10.1016/j.schres.2005.11.020",
+      "source": {
+        "url": "http://neuro.debian.net/debian/pool/non-free/f/fsldata/fsl-harvard-oxford-atlases_5.0.7-2_all.deb",
+        "sha256": "235a9be15b8061caf2ab9caaaab41ffacaf025232b0507259f660218a01249b4",
+        "member": "usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+        "labels_from": "usr/share/data/harvard-oxford-atlases/HarvardOxford-Subcortical.xml (sha256 576f825bcc51e2afaa5411aef85858091fcaf823e27415f9f263fbca4743ba8b)"
+      },
+      "note": "FSL licence page: 'The Cerebellum and Harvard-Oxford atlases, whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence.' The file is byte-identical to FSL's; the LUT is generated from FSL's XML (label value = XML index + 1).",
+      "file_sha256": "b5b26dfbe147976021639d2f52d7e0c79a1fe6c46e840c8005251ec7f09fe149",
+      "labels_sha256": "b22ced902ac7a63ed3e4752e1b1d5980b263c311e515bc0cab282cf2ebaf49ae"
+    },
+    {
+      "id": "Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+      "file": "Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+      "name": "Cerebellum MNIfnirt (Diedrichsen, maxprob, thr25, 1 mm)",
+      "kind": "volume",
+      "template": "MNI152NLin6Asym",
+      "grid": {
+        "shape": [
+          182,
+          218,
+          182
+        ],
+        "voxel_mm": 1.0,
+        "origin_ras": [
+          90.0,
+          -126.0,
+          -72.0
+        ],
+        "same_as_template_volume": true
+      },
+      "labels": "Cerebellum-MNIfnirt-maxprob-thr25-1mm_LUT.txt",
+      "regions": 28,
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html",
+      "attribution": "Probabilistic cerebellar atlas, J. Diedrichsen et al., distributed with FSL, CC BY-SA 4.0.",
+      "redistribution": "yes (share-alike: the atlas file and its LUT stay CC BY-SA 4.0)",
+      "citation": "Diedrichsen J., Balsters J. H., Flavell J., Cussans E., Ramnani N. A probabilistic MR atlas of the human cerebellum. NeuroImage 46(1):39-46 (2009). https://doi.org/10.1016/j.neuroimage.2009.01.045",
+      "source": {
+        "url": "http://neuro.debian.net/debian/pool/non-free/f/fsldata/fsl-bangor-cerebellar-atlas_5.0.7-2_all.deb",
+        "sha256": "fad71fd734674ff57d0dfb28e7c5fc38b42491a559d3b579b1301f64a1f73acf",
+        "member": "usr/share/data/bangor-cerebellar-atlas/Cerebellum/Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+        "labels_from": "usr/share/data/bangor-cerebellar-atlas/Cerebellum_MNIfnirt.xml (sha256 7972423c1284d57e49d353a46ea178143d7881de8d6fd2a8c2cba819f6b55380)"
+      },
+      "note": "FSL licence page: 'The Cerebellum and Harvard-Oxford atlases, whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence.' The file is byte-identical to FSL's; the LUT is generated from FSL's XML (label value = XML index + 1).",
+      "file_sha256": "d480851962fe0b219356f8c263b1d3b36a64c5869328bdbd4022d3b0b292bd74",
+      "labels_sha256": "f295d3a96e46527c9f4cc91a89d2d6b4c2cdd6d136b76a52c5546fe0368d10e0"
+    },
+    {
+      "id": "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+      "file": "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+      "name": "Schaefer 2018, 400 parcels, 7 networks (1 mm)",
+      "kind": "volume",
+      "template": "MNI152NLin6Asym",
+      "grid": {
+        "shape": [
+          182,
+          218,
+          182
+        ],
+        "voxel_mm": 1.0,
+        "origin_ras": [
+          90.0,
+          -126.0,
+          -72.0
+        ],
+        "same_as_template_volume": true
+      },
+      "labels": "Schaefer2018_400Parcels_7Networks_order.txt",
+      "regions": 400,
+      "license": "MIT",
+      "license_url": "https://github.com/ThomasYeoLab/CBIG/blob/35b5664bec8822e2f77da5e090e96f91d0095be6/LICENSE.md",
+      "attribution": "Copyright (c) 2016 Computational Brain Imaging Group (CBIG), MIT License.",
+      "redistribution": "yes",
+      "citation": "Schaefer A., Kong R., Gordon E. M., Laumann T. O., Zuo X.-N., Holmes A. J., Eickhoff S. B., Yeo B. T. T. Local-global parcellation of the human cerebral cortex from intrinsic functional connectivity MRI. Cerebral Cortex 28(9):3095-3114 (2018). https://doi.org/10.1093/cercor/bhx179",
+      "source": {
+        "url": "https://raw.githubusercontent.com/ThomasYeoLab/CBIG/35b5664bec8822e2f77da5e090e96f91d0095be6/stable_projects/brain_parcellation/Schaefer2018_LocalGlobal/Parcellations/MNI/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+        "sha256": "abb8032840af30603995fd59634fd6bcd816088870de9061bbf90ad42c408d4d",
+        "labels_url": "https://raw.githubusercontent.com/ThomasYeoLab/CBIG/35b5664bec8822e2f77da5e090e96f91d0095be6/stable_projects/brain_parcellation/Schaefer2018_LocalGlobal/Parcellations/MNI/freeview_lut/Schaefer2018_400Parcels_7Networks_order.txt",
+        "labels_sha256": "f62cdc9de9696e11bda9fe1cd51fc013b1da27ba180d2dcead8f3fd94bf3cbc1",
+        "commit": "35b5664bec8822e2f77da5e090e96f91d0095be6"
+      },
+      "note": "A cortical parcellation distributed as a label volume, so its kind is 'volume' (like Glasser). CBIG's 'FSLMNI152_1mm' volume: header checked against MNI152_T1_1mm.nii.gz -- same 182x218x182 shape and affine, so it is on the FSL MNI152NLin6Asym grid, which is also the template SimNIBS's mni2subject warps assume.",
+      "file_sha256": "abb8032840af30603995fd59634fd6bcd816088870de9061bbf90ad42c408d4d",
+      "labels_sha256": "f62cdc9de9696e11bda9fe1cd51fc013b1da27ba180d2dcead8f3fd94bf3cbc1"
     }
   ],
   "template_volume": {
@@ -67,5 +201,15 @@
     "license": "MNI/McGill permissive: use, copy, modify and distribute for any purpose and without fee, provided the copyright notice appears in all copies.",
     "attribution": "Copyright (C) 1993-2009 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University.",
     "redistribution": "yes"
-  }
+  },
+  "not_shipped": [
+    {
+      "id": "MorelMNI152_labeling_1mm.nii.gz",
+      "name": "Morel thalamic nuclei",
+      "reason": "CC BY-NC-SA",
+      "message": "The Morel atlas is no longer shipped (CC BY-NC-SA); see docs/wiki/atlases.md",
+      "upstream": "https://doi.org/10.5281/zenodo.13918589",
+      "removed": "2026-09-17"
+    }
+  ]
 }

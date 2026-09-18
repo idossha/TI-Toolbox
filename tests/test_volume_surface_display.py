@@ -26,7 +26,5 @@ def test_whole_head_nuisance_hidden(name):
 
 
 def test_dedicated_atlas_context_preserves_nucleus_abbreviations():
-    assert default_visible(
-        "Morel_Left_AD_Anterodorsal_nucleus", "MorelMNI152_labeling_1mm.nii.gz"
-    )
-    assert not default_visible("Background", "MorelMNI152_labeling_1mm.nii.gz")
+    assert default_visible("Left-AV", "ThalamicNuclei.v13.T1.mgz")
+    assert not default_visible("Background", "ThalamicNuclei.v13.T1.mgz")

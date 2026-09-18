@@ -720,5 +720,93 @@
         "name": "CIT168_STH_Subthalamic_nucleus"
       }
     ]
+  },
+  "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz": {
+    "both": [
+      {
+        "id": 1,
+        "name": "Left-Cerebral-White-Matter"
+      },
+      {
+        "id": 2,
+        "name": "Left-Cerebral-Cortex"
+      },
+      {
+        "id": 3,
+        "name": "Left-Lateral-Ventrical"
+      },
+      {
+        "id": 4,
+        "name": "Left-Thalamus"
+      },
+      {
+        "id": 5,
+        "name": "Left-Caudate"
+      },
+      {
+        "id": 6,
+        "name": "Left-Putamen"
+      },
+      {
+        "id": 7,
+        "name": "Left-Pallidum"
+      },
+      {
+        "id": 8,
+        "name": "Brain-Stem"
+      },
+      {
+        "id": 9,
+        "name": "Left-Hippocampus"
+      },
+      {
+        "id": 10,
+        "name": "Left-Amygdala"
+      },
+      {
+        "id": 11,
+        "name": "Left-Accumbens"
+      },
+      {
+        "id": 12,
+        "name": "Right-Cerebral-White-Matter"
+      },
+      {
+        "id": 13,
+        "name": "Right-Cerebral-Cortex"
+      },
+      {
+        "id": 14,
+        "name": "Right-Lateral-Ventricle"
+      },
+      {
+        "id": 15,
+        "name": "Right-Thalamus"
+      },
+      {
+        "id": 16,
+        "name": "Right-Caudate"
+      },
+      {
+        "id": 17,
+        "name": "Right-Putamen"
+      },
+      {
+        "id": 18,
+        "name": "Right-Pallidum"
+      },
+      {
+        "id": 19,
+        "name": "Right-Hippocampus"
+      },
+      {
+        "id": 20,
+        "name": "Right-Amygdala"
+      },
+      {
+        "id": 21,
+        "name": "Right-Accumbens"
+      }
+    ]
   }
 }

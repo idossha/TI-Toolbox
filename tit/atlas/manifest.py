@@ -101,6 +101,32 @@ def mni_atlas_files(directory: str | None = None) -> list[str]:
     return [entry["file"] for entry in mni_atlas_entries(directory)]
 
 
+def not_shipped_message(atlas: str, directory: str | None = None) -> str | None:
+    """The one-sentence reason *atlas* is no longer shipped, or ``None``.
+
+    An atlas that was removed from the repository (a licence that forbids
+    redistribution, for instance) is listed under ``not_shipped`` in the
+    manifest with the sentence a user should read.  *atlas* may be a bare
+    filename or a full path; only its basename is compared.  A configuration
+    that still names such an atlas must fail with that sentence rather than
+    with "file not found".
+    """
+    from tit.atlas.constants import mni_resources_dir
+
+    name = os.path.basename(str(atlas))
+    for entry in _load(directory or mni_resources_dir()).get("not_shipped", []):
+        if entry.get("id") == name:
+            return entry.get("message") or f"The {name} atlas is no longer shipped."
+    return None
+
+
+def check_shipped(atlas: str) -> None:
+    """Raise ``ValueError`` with the manifest's sentence if *atlas* was removed."""
+    message = not_shipped_message(atlas)
+    if message:
+        raise ValueError(message)
+
+
 def mni_atlas_entry(
     atlas_id: str, directory: str | None = None
 ) -> dict[str, Any] | None:

@@ -25,7 +25,7 @@ def default_visible(name: str, atlas_name: str = "") -> bool:
     ):
         return False
     if atlas_name.startswith(
-        ("CIT168", "Morel", "massp2021", "ThalamicNuclei", "hippoAmygLabels")
+        ("CIT168", "massp2021", "ThalamicNuclei", "hippoAmygLabels")
     ):
         return True
     return any(

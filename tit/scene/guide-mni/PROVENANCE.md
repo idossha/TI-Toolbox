@@ -27,24 +27,31 @@ Each `surfaces/atlas-<file>.*` is a marching-cubes surface of one packaged MNI l
 `resources/atlas/`, and `labels/<file>.*` carries its per-vertex label values. The volumes
 themselves are the ones already shipped there; nothing new is redistributed by this directory that
 `resources/atlas/` does not already redistribute. **`resources/atlas/README.md` is the licence table
-of record**, including the open question it records about the Morel atlas.
+of record.**
 
 | Packaged here | Regions drawn | Licence (see `resources/atlas/README.md`) |
 |---|---|---|
 | `CIT168_labeling_MNI152NLin2009cAsym.nii.gz` | 16 | CC BY 4.0 (OSF), NeuroVault CC0 |
-| `MorelMNI152_labeling_1mm.nii.gz` | 74 | CC BY-NC-SA 4.0 — **open question**, see the README |
 | `massp2021-parcellation_decade-18to40.nii.gz` | 31 | CC BY 4.0 (figshare 19646328) |
+
+The Morel thalamus surfaces that were packaged here on 2026-09-17 were removed the same day, with
+the atlas itself (CC BY-NC-SA; `resources/atlas/README.md § Not shipped`). Their `parts` and
+`atlases` entries were deleted from `manifest.json` by hand; the rest of the guide was not rebuilt.
 
 `MNI_Glasser_HCP_v1.0.nii.gz` is **not** packaged here: it is a 360-parcel cortical parcellation and
 `tit/scene/volume_surfaces.py` draws at most 256 regions. It is still selectable in the ROI picker,
 which reads the atlas catalog rather than this guide; it simply cannot be *clicked* in the pane.
+The Harvard-Oxford, Cerebellum and Schaefer atlases added on 2026-09-17 are not packaged here
+either: the guide was not rebuilt (that needs the `mni152/headmodel` example part in the
+container, see *Regenerating*). They are selectable in the picker; they cannot yet be clicked in
+the MNI pane.
 
 ## Space
 
 The head is the MNI152 template, so these millimetres are MNI152 millimetres — but note that the
 atlases packaged on it are not all defined in the *same* MNI152: CIT168 is MNI152NLin2009cAsym,
-MASSP is MNI152NLin2009bAsym, Morel is MNI152NLin6Asym (which is also the template SimNIBS's
-`mni2subject` warps assume). The measured global difference between the NLin6Asym and NLin2009cAsym
+MASSP is MNI152NLin2009bAsym, while the head itself is MNI152NLin6Asym (which is also the template
+SimNIBS's `mni2subject` warps assume). The measured global difference between the NLin6Asym and NLin2009cAsym
 templates is ~1.3 mm (brain-mask centroids), with larger local differences at small deep nuclei.
 `resources/atlas/README.md` carries the table and the recommendation.
 
@@ -58,4 +65,4 @@ simnibs_python -m tit.scene.guide_build \
     --label "MNI152 template" --atlases mni --guide-id mni
 ```
 
-Packaged total: 17.08 MB (smaller than the 21 MB Ernie guide).
+Packaged total: 15.23 MB (smaller than the 21 MB Ernie guide).

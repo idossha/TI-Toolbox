@@ -96,9 +96,9 @@ def keep_main_components(mask, *, what: str = "region"):
     threshold = max(MIN_VOXELS, largest * MIN_FRACTION_OF_LARGEST)
     keep = sizes >= threshold
     # The largest component always survives, whatever the floor says. Measured
-    # 2026-09-17 while building the MNI guide: Morel's Mammillothalamic tract is
-    # 43 voxels in two pieces, so a flat 50-voxel floor deleted the *whole
-    # region* and the surface build died on an empty mask. A cleanup that can
+    # 2026-09-17 while building the MNI guide: a thalamic atlas's mammillothalamic
+    # tract was 43 voxels in two pieces, so a flat 50-voxel floor deleted the
+    # *whole region* and the surface build died on an empty mask. A cleanup that can
     # empty an ROI is worse than the islands it removes.
     keep[int(np.argmax(sizes))] = True
     cleaned = keep[labelled]
