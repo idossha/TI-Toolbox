@@ -40,11 +40,7 @@ under "Cite this repository" in the sidebar.
 
 ## Licence
 
-TI-Toolbox is GPL-3.0 ([LICENSE](LICENSE)). The brain atlases and the MNI152 template it ships in
-`resources/atlas/` are third-party data under their own licences (CC BY, CC BY-SA, MIT, HCP Open
-Access terms); [NOTICE](NOTICE) lists each one with its copyright holder, licence, required
-attribution and citation, and the [Brain Atlases](https://idossha.github.io/TI-Toolbox/wiki/atlases/)
-wiki page explains what to cite.
+TI-Toolbox is GPL-3.0 ([LICENSE](LICENSE)).
 
 ## AI coding agents
 
