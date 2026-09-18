@@ -1437,3 +1437,34 @@ client-rendered app and could not be re-fetched, so the CC BY-SA 4.0 claim for H
 Cerebellum still rests only on the 2026-09-17 survey in `resources/atlas/README.md`. Adding them
 also means committing tens of megabytes of binaries to the repository and the image, which needs
 the maintainer's decision, not an agent's.
+
+## 2026-09-18 — An analysis folder is data plus one scene (amends "One scene per target")
+
+**Decision.** An analysis leaves `results.csv`, `analysis.json`, the overlay it computed from
+(`roi_overlay.msh` + `.opt`, or `roi_overlay.nii.gz`) and **one** `scene.tetravox.json`
+(`tit/analyzer/scene.py`) that points at that overlay: the field masked to the ROI over the
+anatomy, cursor on the ROI, colour bar on. The analyzer's `roi.tetravox.json` (ROI only, no
+field) and `roi_field.tetravox.json` (the whole unmasked field with a threshold, voxel only), the
+matplotlib `histogram_histogram.pdf` and the second screenshot are gone; the host pass renders one
+`scene.png` and removes Tetravox's `job-result.json` trace after logging it. Optimizers keep their
+`roi.tetravox.json`: it is their target confirmation, written before the search.
+
+**Why.** Maintainer: minimalism, one logical picture per operation, scenes that point at the
+operation's own outputs. The ROI-only scene repeated what the field scene showed; the field scene
+drew the *whole* field volume and hid it with a threshold, which is not "the ROI's field"; a mesh
+analysis had no field scene at all, and a bare `roi_overlay.msh` opened as a flat single-colour
+surface because Tetravox ignores `View[n].Visible` on open. The intent now travels in the scene:
+the overlay's `<field>_ROI` node data (exactly `0` outside the ROI) coloured with the zeros hidden,
+over the same mesh once more at 25 % opacity, `peel` transparency, the 3D pane large.
+
+**Cost.** The overlay mesh drops the simulation's own whole-surface view (49 MB from 55; the field is
+in the simulation's own file). A mesh `hide` threshold must carry a finite `hi` — Tetravox 0.5.2
+floors the ramp at 1e-6 of `hi − lo`, so an open `hi` (3.4e38) hides the whole layer; the scene
+writes twice the ROI max. `tit.plotting.plot_whole_head_roi_histogram` is removed with its module.
+
+**Revisit if** Tetravox colours 2D mesh contours by field (the mesh scene's slice panes then show
+the ROI's field, not only its outline), or a per-analysis histogram is asked for again — it would
+be a Tetravox `stats` result, not a PDF.
+
+Verified in the dev container on `ernie` / `L_Insula` / `lh.insula` (DK40), mesh and voxel; both
+scenes rendered headless with Tetravox 0.5.2 `--job`.

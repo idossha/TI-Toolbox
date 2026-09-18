@@ -12,13 +12,16 @@ look at, written at the **start** of the run, for every ROI, in every space.
 What it leaves behind is **one file per target**::
 
     roi.tetravox.json         the scene: the subject's own T1 plus the ROI layer
-    roi_field.tetravox.json   (analyzer only) the same, plus the field it measured
+
+(An analysis writes no ROI-only scene: its one ``scene.tetravox.json`` shows the
+field masked to the ROI over the anatomy -- :mod:`tit.analyzer.scene`, built on
+the same helpers.)
 
 A scene is the format Tetravox's own *File ▸ Save Scene* writes and *Open in
 Tetravox* reads, so the artefact is the viewer's own document, not a picture of
 one.  It is a few kilobytes and it **references files that already exist** — the
 subject's ``m2m/T1.nii.gz``, the atlas the target names, the hemisphere's central
-surface and its ``.annot``, the analyzer's own ``TI_max`` volume.  Nothing is
+surface and its ``.annot``.  Nothing is
 rasterised, resampled or duplicated to make it, with exactly one exception: an
 **MNI** target is not the ROI that runs, so the transformed mask is written once,
 as a compressed ``uint8`` ``roi_mask.nii.gz`` on the *atlas's* voxel grid (about
@@ -68,7 +71,7 @@ The optional picture
 --------------------
 There is no renderer in this module and no matplotlib.  On a desktop with
 Tetravox installed, ``desktop/src/main/roiPlates.ts`` runs it once per scene when
-the job finishes and writes ``roi.png`` / ``roi_field.png`` beside it.  No
+the job finishes and writes ``<scene>.png`` beside it.  No
 Tetravox, no PNG — the scene is still there and *Open in Tetravox* still works.
 """
 
@@ -119,21 +122,8 @@ PALETTE = ["#4caf50", "#e69f00", "#56b4e9", "#cc79a7", "#009e73", "#d55e00"]
 PANEL_PX = 533
 PANEL_ASPECT = 0.75
 
-#: Colormap for the field inside the ROI.  Same perceptually-uniform family as
-#: viridis, but its dark-to-warm ramp separates the field from the grey T1.
-FIELD_COLORMAP = "inferno"
-
-#: threshold.lo as a fraction of the field's p99.9 inside the ROI (never of its
-#: max: a whole-brain TI field's max is one cortical voxel and 20 % of it hides
-#: the field).
-FIELD_FLOOR_FRACTION = 0.20
-
-#: What a field's colour bar is labelled with.
-FIELD_UNIT = "V/m"
-
-#: The one artefact per target, and the analyzer's second one.
+#: The one artefact per target.
 SCENE_NAME = "roi.tetravox.json"
-FIELD_SCENE_NAME = "roi_field.tetravox.json"
 SCENE_SUFFIX = ".tetravox.json"
 
 #: The one legitimate intermediate: an MNI target's transformed mask.
@@ -154,6 +144,8 @@ _PANEL_AXES = {
     "coronal": (0, 2, ("L", "R", "I", "S")),
     "sagittal": (1, 2, ("A", "P", "I", "S")),
 }
+
+
 def enabled() -> bool:
     return os.environ.get(DISABLE_ENV, "").strip().lower() not in ("1", "true", "yes")
 
@@ -540,7 +532,9 @@ def plan_spheres(spheres, *, names=None) -> FramingPlan:
     return plan
 
 
-def plan_surface(groups, *, names=None, span_limit_mm: float = SPAN_LIMIT_MM) -> FramingPlan:
+def plan_surface(
+    groups, *, names=None, span_limit_mm: float = SPAN_LIMIT_MM
+) -> FramingPlan:
     """The same framing for a **cortical** target, from its surface vertices.
 
     *groups* is one ``(N, 3)`` array of world-millimetre vertices per region --
@@ -606,6 +600,11 @@ _SLICE_AXES = (
     ("coronal", (0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),
     ("sagittal", (-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
 )
+#: The pane order of each Tetravox layout this module writes.
+LAYOUT_CELLS = {
+    "2x2": ["axial", "coronal", "sagittal", "view3d"],
+    "1+3": ["view3d", "axial", "coronal", "sagittal"],
+}
 _DEFAULT_THRESHOLD = {
     "lo": None,
     "hi": None,
@@ -660,7 +659,12 @@ def _volume_bounds(path: str):
     image = nib.load(str(path))
     shape = np.asarray(image.shape[:3], dtype=float)
     corners = np.array(
-        [[i, j, k] for i in (-0.5, shape[0] - 0.5) for j in (-0.5, shape[1] - 0.5) for k in (-0.5, shape[2] - 0.5)]
+        [
+            [i, j, k]
+            for i in (-0.5, shape[0] - 0.5)
+            for j in (-0.5, shape[1] - 0.5)
+            for k in (-0.5, shape[2] - 0.5)
+        ]
     )
     world = nib.affines.apply_affine(image.affine, corners)
     return [float(v) for v in world.min(axis=0)], [float(v) for v in world.max(axis=0)]
@@ -742,7 +746,6 @@ def build_scene(
     roi_layers: list[dict],
     plan: FramingPlan,
     meta: dict,
-    field: dict | None = None,
 ) -> dict:
     """The ViewSpec for one target.  Pure but for reading volume headers.
 
@@ -755,25 +758,14 @@ def build_scene(
         plan: the framing -- its first row gives the cursor and the zoom.
         meta: what goes in the scene's ``meta`` block (the numbers the terminal
             line prints, so nothing is lost by dropping the JSON sidecar).
-        field: ``{"path": ..., "lo": ..., "hi": ...}`` for the field-in-ROI scene.
     """
     datasets: list[dict] = []
-    layers: list[dict] = []
-
+    layers: list[dict] = [anatomy_layer(anatomy)]
     datasets.append(_dataset(0, anatomy, scene_dir, "volume"))
-    layers.append(
-        _volume_layer(
-            0,
-            "ds0",
-            os.path.basename(anatomy),
-            scale={"kind": "linear", "lo": 0.0, "hi": _upper_window(anatomy)},
-        )
-    )
 
     # A label volume is listed twice and styled twice: a VolumeLayer has one
     # opacity and one `labelMode`, so a 40 % fill under an opaque outline is two
-    # layers over one dataset.  A field, when there is one, goes *between* them so
-    # the outline stays on top -- layer order is the order of `layers`.
+    # layers over one dataset.
     fills: list[dict] = []
     outlines: list[dict] = []
     for entry in roi_layers:
@@ -792,7 +784,9 @@ def build_scene(
                     sidecars={
                         # Relative to the **surface's** own directory: the one path
                         # in a scene that is never re-rooted (Tetravox section 4.6).
-                        "fields": [{"path": os.path.relpath(annot, os.path.dirname(path))}]
+                        "fields": [
+                            {"path": os.path.relpath(annot, os.path.dirname(path))}
+                        ]
                     },
                 )
             )
@@ -853,49 +847,57 @@ def build_scene(
                 f"ds{index}",
                 os.path.basename(path),
                 labelMode="outline",
-                # Wider when a field is drawn under it: the 40 % fill is invisible
-                # beneath an inferno overlay, so the edge is the only thing left
-                # saying where the ROI is.
-                outlineWidthPx=3 if field else 2,
+                outlineWidthPx=2,
                 **common,
             )
         )
     layers.extend(fills)
-
-    if field is not None:
-        index = len(datasets)
-        datasets.append(_dataset(index, field["path"], scene_dir, "volume"))
-        layers.append(
-            _volume_layer(
-                index,
-                f"ds{index}",
-                os.path.basename(field["path"]),
-                colormap=FIELD_COLORMAP,
-                opacity=0.85,
-                scale={"kind": "linear", "lo": field["lo"], "hi": field["hi"]},
-                # `clamp` (the default) paints every voxel below `lo` in the
-                # colormap's bottom colour, which is a black wash over the T1.
-                threshold={
-                    "lo": field["lo"],
-                    "hi": None,
-                    "symmetric": False,
-                    "mode": "hide",
-                    "softEdge": 0.0,
-                },
-                showColorbar=True,
-            )
-        )
     layers.extend(outlines)
 
+    row = plan.rows[0]
+    return assemble_scene(
+        datasets=datasets,
+        layers=layers,
+        cursor=[float(v) for v in row.cursor_ras],
+        mm_per_px=float(row.mm_per_px),
+        bounds=_volume_bounds(anatomy),
+        meta=meta,
+    )
+
+
+def anatomy_layer(anatomy: str, index: int = 0, dataset_id: str = "ds0") -> dict:
+    """The grey T1 under everything, windowed so the brain is not washed out."""
+    return _volume_layer(
+        index,
+        dataset_id,
+        os.path.basename(anatomy),
+        scale={"kind": "linear", "lo": 0.0, "hi": _upper_window(anatomy)},
+    )
+
+
+def assemble_scene(
+    *,
+    datasets: list[dict],
+    layers: list[dict],
+    cursor: list[float],
+    mm_per_px: float,
+    bounds,
+    meta: dict,
+    layout: str = "2x2",
+    transparency: str = "twoPhase",
+) -> dict:
+    """A version-2 ViewSpec around *layers*: the panes framed on *cursor*.
+
+    Shared by the ROI scene and the analysis scene (:mod:`tit.analyzer.scene`),
+    so both frame the same way.  *bounds* is the ``(lo, hi)`` world box the
+    slice cameras are centred against and the 3D camera is fitted to.
+    """
     # Re-id the layers in the order they were finally stacked, so a reader of the
     # file sees layer0 at the bottom and nothing has to be sorted to draw it.
     for position, layer in enumerate(layers):
         layer["id"] = f"layer{position}"
 
-    row = plan.rows[0]
-    cursor = [float(v) for v in row.cursor_ras]
-    mm_per_px = float(row.mm_per_px)
-    lo, hi = _volume_bounds(anatomy)
+    lo, hi = bounds
     centre = [(lo[i] + hi[i]) / 2.0 for i in range(3)]
     offset = [cursor[i] - centre[i] for i in range(3)]
     radius = max(1.0, 0.5 * math.dist(lo, hi))
@@ -942,13 +944,13 @@ def build_scene(
             },
             "showSlicePlanes": False,
         },
-        "layout": {"kind": "2x2", "cells": ["axial", "coronal", "sagittal", "view3d"]},
+        "layout": {"kind": layout, "cells": LAYOUT_CELLS[layout]},
         "cursor": cursor,
         "radiological": False,
         "background": list(_BACKGROUND),
         "lighting": dict(_LIGHTING),
         "annotations": dict(_ANNOTATIONS),
-        "transparency": {"mode": "twoPhase"},
+        "transparency": {"mode": transparency},
         # Not engine state, and deliberately the only sidecar: every number the
         # retired `roi_plate.json` carried lives here, in the file the user opens.
         "meta": meta,
@@ -963,8 +965,6 @@ def write_roi_scene(
     plan: FramingPlan,
     meta: dict,
     title: str = "",
-    field: dict | None = None,
-    name: str | None = None,
 ) -> dict | None:
     """Write one ROI scene and announce it.  Never raises.
 
@@ -974,7 +974,7 @@ def write_roi_scene(
     """
     if not enabled():
         return None
-    name = name or (FIELD_SCENE_NAME if field else SCENE_NAME)
+    name = SCENE_NAME
     destination = Path(out_dir)
     try:
         destination.mkdir(parents=True, exist_ok=True)
@@ -991,7 +991,6 @@ def write_roi_scene(
             roi_layers=roi_layers,
             plan=plan,
             meta=meta,
-            field=field,
         )
         path = destination / name
         path.write_text(json.dumps(scene, indent=1) + "\n", encoding="utf-8")
@@ -999,7 +998,9 @@ def write_roi_scene(
         x, y, z = (round(v, 2) for v in plan.cursor_ras)
         overlap = meta.get("gm_overlap")
         overlap_text = (
-            "GM overlap unknown" if overlap is None else f"GM overlap {overlap * 100:.0f} %"
+            "GM overlap unknown"
+            if overlap is None
+            else f"GM overlap {overlap * 100:.0f} %"
         )
         print(
             f"ROI {title}: {meta.get('voxels', 0)} {meta.get('unit', 'voxels')}, "

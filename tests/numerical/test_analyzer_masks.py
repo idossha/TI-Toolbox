@@ -62,6 +62,45 @@ def test_voxel_mask_resamples_positive_membership_and_retains_volume(
     assert list(tmp_path.glob("*.csv"))
 
 
+def test_a_visualized_voxel_analysis_writes_exactly_four_files(tmp_path, monkeypatch):
+    """The folder is data plus one scene: results, analysis.json, the overlay, the scene."""
+    import json
+
+    import nibabel as nib
+
+    from tit.analyzer import visualizer
+
+    analyzer, mask = analyzer_fixture(tmp_path, monkeypatch, "voxel")
+    # The host suite imports the visualizer under its nibabel mock before this
+    # directory swaps the real one in; the overlay must really be written here.
+    monkeypatch.setattr(visualizer, "nib", nib)
+    out = tmp_path / "out"
+    monkeypatch.setattr(analyzer, "_resolve_output_dir", lambda **kw: str(out))
+    analyzer.tissue_type = "GM"
+    analyzer.m2m_path = tmp_path / "m2m_subject"
+    analyzer.m2m_path.mkdir()
+    nib.save(
+        nib.Nifti1Image(np.full((3, 4, 5), 100.0, np.float32), nib.load(analyzer.field_path).affine),
+        analyzer.m2m_path / "T1.nii.gz",
+    )
+
+    analyzer.analyze_mask(str(mask), visualize=True)
+
+    assert sorted(p.name for p in out.iterdir()) == [
+        "analysis.json",
+        "results.csv",
+        "roi_overlay.nii.gz",
+        "scene.tetravox.json",
+    ]
+    scene = json.loads((out / "scene.tetravox.json").read_text())
+    assert [d["name"] for d in scene["datasets"]] == ["T1.nii.gz", "roi_overlay.nii.gz"]
+    field_layer = scene["layers"][1]
+    assert field_layer["threshold"]["mode"] == "hide"
+    # One ROI voxel of value 9: the bar tops out there and the cursor sits on it.
+    assert field_layer["scale"]["hi"] == pytest.approx(9.0)
+    assert scene["cursor"] == pytest.approx([12.0, 26.0, 42.0])
+
+
 def test_mesh_mask_samples_subject_nodes_and_retains_surface_area(
     tmp_path, monkeypatch
 ):

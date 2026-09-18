@@ -52,7 +52,6 @@ logger = logging.getLogger(__name__)
 GM_TISSUE_LABEL = 2
 
 from tit.figures.roi_plate import (  # noqa: E402  - re-exported for callers
-    FIELD_SCENE_NAME,
     MNI_MASK_NAME,
     PALETTE,
     SCENE_NAME,
@@ -183,9 +182,7 @@ def _coarsen(image, voxel_mm: float):
     affine[:3, :3] = image.affine[:3, :3] * factor
     # Keep the corner of the first voxel where it was, so the coarse grid covers
     # exactly the volume the fine one did rather than sliding half a voxel.
-    affine[:3, 3] = nib.affines.apply_affine(
-        image.affine, (factor - 1.0) / 2.0
-    )
+    affine[:3, 3] = nib.affines.apply_affine(image.affine, (factor - 1.0) / 2.0)
     return resample_from_to(image, (tuple(shape), affine), order=0)
 
 
@@ -241,8 +238,6 @@ def confirm_roi(
     label: int | None | list[int | None] = None,
     name: str | list[str] = "",
     sphere: tuple | None = None,
-    field_path: str | None = None,
-    field_name: str | None = None,
 ) -> dict | None:
     """Write the ROI scene for one target and return its ``meta`` block.
 
@@ -255,9 +250,6 @@ def confirm_roi(
         name: what to call this ROI.
         sphere: ``(centre_ras, radius_mm)`` when the ROI is a sphere, so the
             framing uses the sphere the user typed rather than its rasterisation.
-        field_path: when given, the **field** scene is written instead — the
-            analysis's own field volume with the ROI over it and a threshold.
-        field_name: the file the field scene is titled after.
 
     Returns:
         The ``meta`` block as written, or ``None`` when the scene was switched off
@@ -273,8 +265,6 @@ def confirm_roi(
             "space": sp,
             "name": nm,
             "sphere": sphere,
-            "field_path": field_path,
-            "field_name": field_name,
         }
         for p, lb, sp, nm in zip(*_broadcast(atlas_path, label, space, name))
     ]
@@ -317,7 +307,6 @@ def _write(entries, *, m2m: str, out_dir: str) -> dict | None:
     import numpy as np
 
     from tit.figures.roi_plate import (
-        FIELD_FLOOR_FRACTION,
         plan_framing,
         plan_spheres,
         plan_surface,
@@ -331,9 +320,13 @@ def _write(entries, *, m2m: str, out_dir: str) -> dict | None:
     if not Path(anatomy).is_file():
         raise FileNotFoundError(f"{anatomy} is needed to draw the ROI on")
 
-    spheres = [e["sphere"] for e in entries if e.get("sphere") and not e.get("atlas_path")]
+    spheres = [
+        e["sphere"] for e in entries if e.get("sphere") and not e.get("atlas_path")
+    ]
     if spheres and len(spheres) == len(entries):
-        return _sphere_scene(entries, spheres, m2m=m2m, destination=destination, anatomy=anatomy)
+        return _sphere_scene(
+            entries, spheres, m2m=m2m, destination=destination, anatomy=anatomy
+        )
 
     names = [
         entry.get("name")
@@ -400,7 +393,9 @@ def _write(entries, *, m2m: str, out_dir: str) -> dict | None:
                 voxel_mm = max(
                     float(
                         np.max(
-                            nib.load(str(entries[i]["atlas_path"])).header.get_zooms()[:3]
+                            nib.load(str(entries[i]["atlas_path"])).header.get_zooms()[
+                                :3
+                            ]
                         )
                     )
                     for i in mni_indices
@@ -485,7 +480,7 @@ def _write(entries, *, m2m: str, out_dir: str) -> dict | None:
         "framing": plan.as_dict(),
     }
 
-    scene = write_roi_scene(
+    return write_roi_scene(
         out_dir=str(destination),
         anatomy=anatomy,
         roi_layers=roi_layers,
@@ -493,34 +488,6 @@ def _write(entries, *, m2m: str, out_dir: str) -> dict | None:
         meta=meta,
         title=title,
     )
-
-    # The field scene is written in the **same pass**, not after the analysis
-    # finishes: the field it shows is the analyzer's input file, which exists
-    # before a single number is computed, and writing it here means the ROI is
-    # resolved once rather than twice (an MNI target's transform is not cheap).
-    field_path = entries[0].get("field_path")
-    if scene is not None and field_path:
-        field = _field_window(field_path, world, FIELD_FLOOR_FRACTION)
-        if field is not None:
-            field_meta = dict(meta)
-            field_meta["field"] = {
-                "file": str(field_path),
-                "unit": "V/m",
-                "max_in_roi": field.pop("max_in_roi"),
-                "p99_9_in_roi": field["hi"],
-                "threshold_floor": field["lo"],
-            }
-            write_roi_scene(
-                out_dir=str(destination),
-                anatomy=anatomy,
-                roi_layers=roi_layers,
-                plan=plan,
-                meta=field_meta,
-                title=f"{Path(field_path).name} in {title}",
-                field=field,
-            )
-            meta["field"] = field_meta["field"]
-    return scene
 
 
 def _sphere_scene(entries, spheres, *, m2m, destination, anatomy) -> dict | None:
@@ -535,7 +502,7 @@ def _sphere_scene(entries, spheres, *, m2m, destination, anatomy) -> dict | None
     """
     import numpy as np
 
-    from tit.figures.roi_plate import FIELD_FLOOR_FRACTION, plan_spheres, write_roi_scene
+    from tit.figures.roi_plate import plan_spheres, write_roi_scene
 
     names = [e.get("name") or f"sphere {i + 1}" for i, e in enumerate(entries)]
     plan = plan_spheres(spheres, names=names)
@@ -562,7 +529,7 @@ def _sphere_scene(entries, spheres, *, m2m, destination, anatomy) -> dict | None
         ],
         "framing": plan.as_dict(),
     }
-    scene = write_roi_scene(
+    return write_roi_scene(
         out_dir=str(destination),
         anatomy=anatomy,
         roi_layers=[],
@@ -570,29 +537,6 @@ def _sphere_scene(entries, spheres, *, m2m, destination, anatomy) -> dict | None
         meta=meta,
         title=title,
     )
-    field_path = entries[0].get("field_path")
-    if scene is not None and field_path:
-        field = _field_window(field_path, world, FIELD_FLOOR_FRACTION)
-        if field is not None:
-            field_meta = dict(meta)
-            field_meta["field"] = {
-                "file": str(field_path),
-                "unit": "V/m",
-                "max_in_roi": field.pop("max_in_roi"),
-                "p99_9_in_roi": field["hi"],
-                "threshold_floor": field["lo"],
-            }
-            write_roi_scene(
-                out_dir=str(destination),
-                anatomy=anatomy,
-                roi_layers=[],
-                plan=plan,
-                meta=field_meta,
-                title=f"{Path(field_path).name} in {title}",
-                field=field,
-            )
-            meta["field"] = field_meta["field"]
-    return scene
 
 
 def cortical_entries(m2m: str, atlas: str, regions) -> list[dict]:
@@ -680,36 +624,3 @@ def _label_values_annot(annot_path: str, label) -> list[int]:
         return [packed(label)]
     indices = sorted({int(v) for v in np.unique(vertex_labels) if v > 0})[:64]
     return [packed(i) for i in indices]
-
-
-def _field_window(field_path, world, floor_fraction) -> dict | None:
-    """The field's display window **inside** the ROI, read at the ROI's own points.
-
-    Sampled from the analysis's own volume, never from a copy of it masked to the
-    ROI: the scene points at the file the table came from, so a reader can check
-    the picture against the numbers and know it is the same data.  Sampling at
-    points rather than intersecting grids is what lets a cortical target -- whose
-    ROI is a set of surface vertices and no volume at all -- have a field scene.
-    """
-    import nibabel as nib
-    import numpy as np
-    from scipy.ndimage import map_coordinates
-
-    if world is None or not len(world):
-        return None
-    image = nib.load(str(field_path))
-    volume = np.squeeze(np.asarray(image.dataobj, dtype=np.float32))
-    if volume.ndim != 3:
-        return None
-    ijk = nib.affines.apply_affine(np.linalg.inv(image.affine), np.asarray(world))
-    inside = map_coordinates(volume, ijk.T, order=1, mode="constant", cval=0.0)
-    inside = inside[np.isfinite(inside)]
-    if not inside.size:
-        return None
-    hi = float(np.percentile(inside, 99.9))
-    return {
-        "path": str(field_path),
-        "lo": round(floor_fraction * hi, 6),
-        "hi": round(hi, 6),
-        "max_in_roi": round(float(np.nanmax(inside)), 6),
-    }

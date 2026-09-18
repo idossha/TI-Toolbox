@@ -346,6 +346,58 @@ def test_scene_cursor_comes_from_a_spherical_analysis(pm: PathManager) -> None:
     assert scene["cursor"] == [10.0, -20.0, 30.0]
 
 
+def test_scene_cursor_comes_from_the_analysis_scene_for_any_analysis_type(
+    pm: PathManager,
+) -> None:
+    """A cortical analysis has `center: null`; its own scene.tetravox.json has the cursor."""
+    import json as _json
+
+    analysis_dir = os.path.join(
+        pm.simulation("ernie", "L_Insula"), "Analyses", "Voxel", "cortical_lh.insula_DK40"
+    )
+    os.makedirs(analysis_dir)
+    Path(analysis_dir, "roi_overlay.nii.gz").write_bytes(b"roi")
+    Path(analysis_dir, "analysis.json").write_text(
+        _json.dumps({"analysis_type": "cortical", "center": None})
+    )
+    Path(analysis_dir, "scene.tetravox.json").write_text(
+        _json.dumps({"version": 2, "cursor": [-33.8, 24.86, 18.16]})
+    )
+    scene = scene_for(
+        "analysis", subject="ernie", simulation="L_Insula", analysis="cortical_lh.insula_DK40"
+    )
+    assert scene["cursor"] == [-33.8, 24.86, 18.16]
+
+
+def test_analysis_view_of_a_mesh_analysis_colours_the_overlay_by_its_roi_field(
+    pm: PathManager,
+) -> None:
+    """`roi_overlay.msh` names no field in its basename; results.csv says which it holds."""
+    analysis_dir = os.path.join(
+        pm.simulation("ernie", "L_Insula"), "Analyses", "Mesh", "cortical_lh.insula_DK40"
+    )
+    os.makedirs(analysis_dir)
+    mesh = Path(analysis_dir, "roi_overlay.msh")
+    mesh.write_bytes(b"$MeshFormat")
+    Path(analysis_dir, "roi_overlay.msh.opt").write_text("// opt")
+    Path(analysis_dir, "results.csv").write_text(
+        "Metric,Value\nfield_name,TI_max\nroi_max,0.1279\n"
+    )
+    Path(analysis_dir, "analysis.json").write_text('{"analysis_type": "cortical"}')
+
+    scene = scene_for(
+        "analysis", subject="ernie", simulation="L_Insula", analysis="cortical_lh.insula_DK40"
+    )
+    layer = layers_by_kind(scene, "mesh")[0]
+    assert layer["name"] == "roi_overlay.msh"
+    assert layer["colorMode"] == "field"
+    assert layer["field"] == {"source": "node", "name": "TI_max_ROI", "component": "mag"}
+    assert layer["scale"] == {"kind": "linear", "lo": 0.0, "hi": 0.1279}
+    assert layer["threshold"]["mode"] == "hide"
+    assert layer["threshold"]["lo"] > 0
+    assert "opt" in dataset_of(scene, layer)["sidecars"]
+
+
 def test_scene_mesh_clip_plane_offset_tracks_the_cursor(pm: PathManager) -> None:
     import json as _json
 

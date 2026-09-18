@@ -203,34 +203,6 @@ def test_several_targets_are_one_scene_in_one_directory(tmp_path, m2m):
     assert colours["7"] != colours["8"], "a union shows one colour per region"
 
 
-def test_a_field_target_gets_a_second_scene_naming_the_field_file(tmp_path, m2m):
-    """No `_field-in-roi.nii`: the field scene points at the file the table came from."""
-    affine = np.diag([1.0, 1.0, 1.0, 1.0])
-    affine[:3, 3] = [-6.0, -6.0, -6.0]
-    mask = np.zeros((12, 12, 12), dtype=np.uint8)
-    mask[8:10, 4:6, 2:4] = 1
-    path = _volume(tmp_path / "a.nii.gz", mask, affine)
-    field = np.zeros((12, 12, 12), dtype=np.float32)
-    field[8:10, 4:6, 2:4] = np.linspace(0.1, 0.5, 8).reshape(2, 2, 2)
-    field_path = _volume(tmp_path / "TI_max.nii.gz", field, affine)
-    out = tmp_path / "run"
-
-    roi_confirmation.confirm_rois(
-        [{"atlas_path": path, "space": "subject", "field_path": field_path}],
-        m2m=str(m2m),
-        out_dir=str(out),
-    )
-
-    assert _listing(out) == {SCENE, roi_confirmation.FIELD_SCENE_NAME}
-    scene = json.loads((out / roi_confirmation.FIELD_SCENE_NAME).read_text())
-    field_layer = [la for la in scene["layers"] if la["name"] == "TI_max.nii.gz"][0]
-    assert field_layer["colormap"] == "inferno"
-    # `clamp` (the default) would paint a black wash over the whole T1.
-    assert field_layer["threshold"]["mode"] == "hide"
-    assert field_layer["threshold"]["lo"] == pytest.approx(0.2 * field_layer["scale"]["hi"])
-    assert scene["meta"]["field"]["file"] == field_path
-
-
 def test_a_sphere_target_is_the_cursor_and_no_file(tmp_path, m2m):
     """A sphere names no file, so the scene references none: T1 and a crosshair."""
     out = tmp_path / "run"

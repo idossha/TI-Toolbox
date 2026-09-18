@@ -241,14 +241,22 @@ When `space="voxel"`, the `Analyzer` handles NIfTI format files and integrates w
 
 ---
 
-### Statistical Analysis Visualization
+### What an analysis writes
 
-<div class="image-row">
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram">
-    <em>Region-of-interest histogram analysis for left hemisphere insula showing field distribution within target areas</em>
-  </div>
-</div>
+One folder per analysis, under `Analyses/<Mesh|Voxel>/<name>/`, holding the data and **exactly
+one scene**:
+
+| File | What it is |
+|---|---|
+| `results.csv` | every statistic in the [AnalysisResult](#analysisresult-fields), one row each |
+| `analysis.json` | the target and settings the run used |
+| `roi_overlay.msh` + `.msh.opt` (mesh) | the central surface with `<field>_ROI` node data: the field at the ROI's nodes, exactly `0` everywhere else (and `TI_normal_ROI` when the run had a normal field) |
+| `roi_overlay.nii.gz` (voxel) | the field, zero outside the ROI, on the field's own grid |
+| `scene.tetravox.json` | a Tetravox scene of the overlay: in voxel space the field over your `T1.nii.gz`; in mesh space the whole cortex translucent with the ROI's field coloured on top, cursor on the ROI, colour bar on |
+| `scene.png` | a picture of that scene, when Tetravox is installed on the machine running the app |
+
+The scene is a few kilobytes and points at the overlay and the T1 — nothing is copied. Open it
+from the job's **Results** row (*Open in Tetravox*) or by double-clicking the file.
 
 ### AnalysisResult Fields
 
@@ -327,7 +335,7 @@ application window. Both mesh-based analysis types are supported:
 >
 > Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
-There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`. A whole-head field-distribution histogram is generated as a by-product of every analysis (mesh or voxel), alongside the ROI-specific outputs.
+There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`; the whole-GM statistics (`gm_mean`, `gm_max`, the percentiles and focality areas) come with every analysis.
 
 
 ## Custom NIfTI mask targets

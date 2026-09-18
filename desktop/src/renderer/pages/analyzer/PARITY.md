@@ -193,15 +193,16 @@ and field — refused on the Run button, never silently resolved to the first ro
       shipped MNI atlases.
 - [x] Changing space clears an atlas selection that has no equivalent and says so; coordinates,
       radii, mask paths and saved-ROI names are kept and reinterpreted.
-- [x] The ROI is resolved into the subject at job start — in **every** space, not only MNI — and the
-      run folder gets **one** file, `roi.tetravox.json` (`tit/figures/roi_plate.py`, called through
+- [x] An optimizer's ROI is resolved into the subject at job start — in **every** space, not only
+      MNI — and the run folder gets **one** file, `roi.tetravox.json` (`tit/figures/roi_plate.py`, called through
       `tit/roi_confirmation.py`): a TetraVox scene naming the subject's T1 and the atlas, mask or
       `.annot` the target came from, with the cursor on the ROI and the zoom set so it fills the
       view, and the centroid, voxel count, GM overlap and framing rule in its `meta` block. Its
       Artifacts row offers **Open in TetraVox**, which opens the file itself. On a desktop with
       TetraVox, `desktop/src/main/roiPlates.ts` also photographs it into `roi.png` beside it when
       the job finishes; without TetraVox there is no picture and the scene still opens.
-- [x] A voxel analysis also leaves `roi_field.tetravox.json`: the same framing with the analysis's
-      **own** field volume drawn in inferno under the ROI's outline, thresholded to the ROI's range.
-      A mesh analysis does not — a mesh field has no voxels, and a picture drawn from a different
-      file than the table came from would contradict it.
+- [x] An analysis leaves **one** scene, `scene.tetravox.json` (`tit/analyzer/scene.py`), not the
+      optimizer's ROI-only one: the overlay the analysis computed from (`roi_overlay.nii.gz`, or
+      `roi_overlay.msh` with its `<field>_ROI` node data) drawn in inferno over the T1 or over the
+      same cortex translucent, zeros hidden, cursor on the ROI. The host photographs it into
+      `scene.png`.

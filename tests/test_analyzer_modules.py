@@ -6,7 +6,7 @@ Covers coverage gaps in:
 - tit/analyzer/field_selector.py  (select_field_file, _select_mesh, _select_voxel)
 - tit/analyzer/group.py           (GroupResult, run_group_analysis, _build_summary_df)
 - tit/analyzer/visualizer.py      (save_mesh_roi_overlay, save_nifti_roi_overlay,
-                                    save_histogram, save_results_csv)
+                                    save_results_csv)
 """
 
 import csv
@@ -694,9 +694,14 @@ class TestSaveMeshRoiOverlay:
         assert result == tmp_path / "roi_overlay.msh"
         mock_mesh.write.assert_called_once_with(str(result))
         mock_mesh.add_node_field.assert_called_once()
-        # Check the opt file was written
-        opt_file = Path(f"{result}.opt")
-        assert opt_file.exists()
+        # The surface's own field is dropped: the only node data left is the ROI's,
+        # so View[0] of the .opt is the ROI field and is visible.
+        assert mock_mesh.nodedata == []
+        assert mock_mesh.elmdata == []
+        opt = Path(f"{result}.opt").read_text()
+        assert "View[0].Visible = 1;" in opt
+        assert "View[0].CustomMax = 2.0;" in opt
+        assert "View[2]" not in opt
 
     @pytest.mark.unit
     @patch("tit.analyzer.visualizer.get_path_manager")
@@ -765,45 +770,6 @@ class TestSaveNiftiRoiOverlay:
         save_call = nib.save.call_args
         saved_img = save_call[0][0]
         nib.Nifti1Image.assert_called_once()
-
-
-class TestSaveHistogram:
-    """save_histogram delegates to plotting module."""
-
-    @pytest.mark.unit
-    @patch("tit.analyzer.visualizer.get_path_manager")
-    def test_returns_path_on_success(self, mock_gpm, tmp_path):
-        mock_gpm.return_value.ensure.return_value = str(tmp_path)
-
-        with patch(
-            "tit.plotting.focality.plot_whole_head_roi_histogram",
-            return_value=str(tmp_path / "hist.pdf"),
-        ):
-            result = visualizer.save_histogram(
-                whole_head_values=np.array([1.0, 2.0, 3.0]),
-                roi_values=np.array([1.0, 2.0]),
-                output_dir=tmp_path,
-                roi_mean=1.5,
-            )
-
-        assert result == tmp_path / "hist.pdf"
-
-    @pytest.mark.unit
-    @patch("tit.analyzer.visualizer.get_path_manager")
-    def test_returns_none_when_plotter_declines(self, mock_gpm, tmp_path):
-        mock_gpm.return_value.ensure.return_value = str(tmp_path)
-
-        with patch(
-            "tit.plotting.focality.plot_whole_head_roi_histogram",
-            return_value=None,
-        ):
-            result = visualizer.save_histogram(
-                whole_head_values=np.array([]),
-                roi_values=np.array([]),
-                output_dir=tmp_path,
-            )
-
-        assert result is None
 
 
 class TestSaveResultsCsv:

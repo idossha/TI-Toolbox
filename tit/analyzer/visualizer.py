@@ -1,9 +1,9 @@
 """Stateless visualization and output helpers for the analyzer pipeline.
 
 Module-level functions that write output artifacts (mesh overlays,
-NIfTI overlays, histograms, CSV, metadata JSON) without any shared mutable
-state.  These are package-internal; the public API is
-:class:`~tit.analyzer.Analyzer`.
+NIfTI overlays, CSV, metadata JSON) without any shared mutable state.
+The scene that shows an overlay is :mod:`tit.analyzer.scene`.  These are
+package-internal; the public API is :class:`~tit.analyzer.Analyzer`.
 
 See Also
 --------
@@ -39,10 +39,12 @@ def save_mesh_roi_overlay(
 ) -> Path:
     """Write .msh + .msh.opt overlay with ROI field highlighted.
 
-    Loads a fresh surface mesh copy, zeros everything outside the ROI, and
-    writes both the mesh and a Gmsh options file for colour-map / range /
-    transparency.  When *normal_mesh_path* is given the TI_normal field is
-    added as a second (initially hidden) view.
+    Loads a fresh surface mesh copy, drops its own data (the whole-surface
+    field is the simulation's file, not this analysis's), adds ``<field>_ROI``
+    -- the field at the ROI's nodes and exactly ``0`` everywhere else -- and
+    writes both the mesh and a Gmsh options file for colour-map / range.
+    When *normal_mesh_path* is given ``TI_normal_ROI`` is added as a second
+    (initially hidden) view.
 
     Parameters
     ----------
@@ -71,6 +73,7 @@ def save_mesh_roi_overlay(
 
     region_mesh = simnibs.read_msh(str(surface_mesh_path))
     region_mesh.elmdata = []
+    region_mesh.nodedata = []
 
     roi_data = np.zeros(region_mesh.nodes.nr)
     roi_data[roi_mask] = field_values[roi_mask]
@@ -114,31 +117,25 @@ Mesh.SurfaceEdges = 0;
 Mesh.Points = 0;
 Mesh.Lines = 0;
 
-// View[0]: whole-surface field (initially hidden, toggle in Gmsh)
-View[0].Visible = 0;
+// View[0]: the field inside the ROI (zero outside it)
+View[0].Visible = 1;
+View[0].ColormapNumber = 1;
+View[0].RangeType = 2;
+View[0].CustomMin = 0;
+View[0].CustomMax = {max_value};
+View[0].ShowScale = 1;
+View[0].ColormapAlpha = 1;
+View[0].ColormapAlphaPower = 0.08;
 
-// View[1]: primary ROI field
-View[1].Visible = 1;
-View[1].ColormapNumber = 1;
+// View[1]: TI_normal inside the ROI (initially hidden)
+View[1].Visible = 0;
+View[1].ColormapNumber = 2;
 View[1].RangeType = 2;
 View[1].CustomMin = 0;
-View[1].CustomMax = {max_value};
+View[1].CustomMax = {normal_max_value};
 View[1].ShowScale = 1;
 View[1].ColormapAlpha = 1;
 View[1].ColormapAlphaPower = 0.08;
-
-// View[2]: TI_normal ROI field (initially hidden)
-View[2].Visible = 0;
-View[2].ColormapNumber = 2;
-View[2].RangeType = 2;
-View[2].CustomMin = 0;
-View[2].CustomMax = {normal_max_value};
-View[2].ShowScale = 1;
-View[2].ColormapAlpha = 1;
-View[2].ColormapAlphaPower = 0.08;
-
-// View[1] max value: {max_value:.6f}
-// View[2] max value: {normal_max_value:.6f}
 """)
 
 
@@ -184,62 +181,7 @@ def save_nifti_roi_overlay(
 
 
 # ---------------------------------------------------------------------------
-# 3. Histogram
-# ---------------------------------------------------------------------------
-
-
-def save_histogram(
-    whole_head_values: np.ndarray,
-    roi_values: np.ndarray,
-    output_dir: Path,
-    whole_head_weights: np.ndarray | None = None,
-    roi_weights: np.ndarray | None = None,
-    roi_mean: float | None = None,
-) -> Path | None:
-    """Generate focality histogram PDF.
-
-    Delegates to :func:`tit.plotting.focality.plot_whole_head_roi_histogram`.
-    Returns the PDF path or ``None`` if the plotter declines (empty data).
-
-    Parameters
-    ----------
-    whole_head_values : numpy.ndarray
-        Field values for the whole GM surface/volume.
-    roi_values : numpy.ndarray
-        Field values inside the ROI.
-    output_dir : pathlib.Path
-        Directory where the histogram PDF is written.
-    whole_head_weights : numpy.ndarray or None, optional
-        Per-element areas/volumes for the whole-head distribution.
-    roi_weights : numpy.ndarray or None, optional
-        Per-element areas/volumes for the ROI distribution.
-    roi_mean : float or None, optional
-        ROI mean value, drawn as a vertical line on the histogram.
-
-    Returns
-    -------
-    pathlib.Path or None
-        Path to the histogram PDF, or ``None`` if data was empty.
-    """
-    from tit.plotting.focality import plot_whole_head_roi_histogram
-
-    result = plot_whole_head_roi_histogram(
-        output_dir=str(output_dir),
-        whole_head_field_data=whole_head_values,
-        roi_field_data=roi_values,
-        whole_head_element_sizes=whole_head_weights,
-        roi_element_sizes=roi_weights,
-        filename="histogram",
-        roi_field_value=roi_mean,
-    )
-
-    if result is not None:
-        logger.info("Saved histogram: %s", result)
-    return Path(result) if result is not None else None
-
-
-# ---------------------------------------------------------------------------
-# 4. Results CSV
+# 3. Results CSV
 # ---------------------------------------------------------------------------
 
 
@@ -276,7 +218,7 @@ def save_results_csv(result: dict[str, Any], output_dir: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# 5. Analysis metadata
+# 4. Analysis metadata
 # ---------------------------------------------------------------------------
 
 

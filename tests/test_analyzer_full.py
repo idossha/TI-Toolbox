@@ -905,60 +905,60 @@ class TestMainRegionsKey:
 
 
 class TestVisualizeMesh:
-    """Lines 648-658: _visualize_mesh calls save helpers."""
+    """_visualize_mesh writes the overlay, then the one scene that points at it."""
 
-    @patch("tit.analyzer.analyzer.save_histogram")
-    @patch("tit.analyzer.analyzer.save_mesh_roi_overlay")
-    def test_calls_save_helpers(self, mock_overlay, mock_hist):
+    @patch("tit.analyzer.scene.write_mesh_scene")
+    @patch("tit.analyzer.analyzer.save_analysis_metadata")
+    @patch("tit.analyzer.analyzer.save_mesh_roi_overlay", return_value=Path("/tmp/out/roi_overlay.msh"))
+    def test_overlay_then_scene(self, mock_overlay, mock_meta, mock_scene):
         a = _make_analyzer(space="mesh")
         a._surface_mesh_path = Path("/fake/central.msh")
         surface = MagicMock()
+        surface.nodes.node_coord = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
         values = np.array([1.0, 2.0])
         roi_mask = np.array([True, False])
         result = MagicMock()
-        result.roi_mean = 1.0
+        result.region_name = "lh.insula"
+        result.normal_max = 0.5
 
-        a._visualize_mesh(
-            surface,
-            values,
-            roi_mask,
-            "/tmp/out",
-            result,
-            np.array([1.0, 2.0]),
-            np.array([1.0, 1.0]),
-            np.array([1.0]),
-            np.array([1.0]),
-        )
+        a._visualize_mesh(surface, values, roi_mask, "/tmp/out", result, analysis_type="cortical")
 
         mock_overlay.assert_called_once()
-        mock_hist.assert_called_once()
+        kwargs = mock_scene.call_args.kwargs
+        assert kwargs["mesh"] == "/tmp/out/roi_overlay.msh"
+        assert kwargs["field_name"] == "TI_max"
+        assert kwargs["region_name"] == "lh.insula"
+        assert kwargs["normal_max"] == 0.5
+        np.testing.assert_array_equal(kwargs["roi_values"], np.array([1.0]))
+        np.testing.assert_array_equal(kwargs["roi_coords"], np.array([[0.0, 0.0, 0.0]]))
+        mock_meta.assert_called_once()
 
 
 class TestVisualizeVoxel:
-    """Lines 678-688: _visualize_voxel calls save helpers."""
+    """_visualize_voxel writes the overlay, then the one scene that points at it."""
 
-    @patch("tit.analyzer.analyzer.save_histogram")
-    @patch("tit.analyzer.analyzer.save_nifti_roi_overlay")
-    def test_calls_save_helpers(self, mock_overlay, mock_hist):
+    @patch("tit.analyzer.scene.write_voxel_scene")
+    @patch("tit.analyzer.analyzer.save_analysis_metadata")
+    @patch(
+        "tit.analyzer.analyzer.save_nifti_roi_overlay",
+        return_value=Path("/tmp/out/roi_overlay.nii.gz"),
+    )
+    def test_overlay_then_scene(self, mock_overlay, mock_meta, mock_scene):
         a = _make_analyzer(space="voxel")
         field_arr = np.ones((2, 2, 2))
         roi_mask = np.ones_like(field_arr, dtype=bool)
-        gm_mask = roi_mask.copy()
         affine = np.eye(4)
         result = MagicMock()
-        result.roi_mean = 1.0
+        result.region_name = "lh.insula"
 
-        a._visualize_voxel(
-            field_arr,
-            roi_mask,
-            gm_mask,
-            affine,
-            "/tmp/out",
-            result,
-        )
+        a._visualize_voxel(field_arr, roi_mask, affine, "/tmp/out", result, analysis_type="cortical")
 
         mock_overlay.assert_called_once()
-        mock_hist.assert_called_once()
+        kwargs = mock_scene.call_args.kwargs
+        assert kwargs["overlay"] == "/tmp/out/roi_overlay.nii.gz"
+        assert kwargs["anatomy"].endswith("T1.nii.gz")
+        assert kwargs["roi_values"].shape == (8,)
+        mock_meta.assert_called_once()
 
 
 class TestFieldPlumbing:

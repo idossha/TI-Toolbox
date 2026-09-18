@@ -358,6 +358,13 @@ def _electrode_overlay_layer(pm, sid: str, sim: str) -> dict[str, Any] | None:
 def _analysis_layer(
     pm, sid: str, sim: str, analysis_name: str
 ) -> dict[str, Any] | None:
+    """The one overlay an analysis wrote: ``roi_overlay.nii.gz`` or ``roi_overlay.msh``.
+
+    A mesh analysis carries its field as the ``<field>_ROI`` node data of the
+    overlay (zero outside the ROI), so the layer names that field explicitly and
+    hides the zeros -- the basename ``roi_overlay.msh`` says nothing about which
+    field it holds, and ``results.csv`` is where the analysis wrote it down.
+    """
     for space_dir in ("Voxel", "Mesh"):
         candidate = resolve_under(
             pm.simulation(sid, sim), "Analyses", space_dir, analysis_name
@@ -370,8 +377,31 @@ def _analysis_layer(
             nifti = matches[0] if matches else None
         if nifti:
             return _layer(nifti, colormap="jet", opacity=0.6)
+        mesh = os.path.join(candidate, "roi_overlay.msh")
+        if os.path.isfile(mesh):
+            results = _analysis_results(os.path.join(candidate, "results.csv"))
+            field = results.get("field_name") or "TI_max"
+            layer = _layer(mesh, kind="label", colormap="jet", opacity=1.0)
+            layer["mesh_field"] = {"source": "node", "name": f"{field}_ROI"}
+            try:
+                layer["cal_max"] = float(results["roi_max"])
+            except (KeyError, ValueError, TypeError):
+                pass
+            return layer
         return None
     return None
+
+
+def _analysis_results(csv_path: str) -> dict[str, str]:
+    """``results.csv`` (``Metric,Value`` rows) as a dict; empty when unreadable."""
+    import csv
+
+    try:
+        with open(csv_path, encoding="utf-8", newline="") as handle:
+            rows = list(csv.reader(handle))
+    except (OSError, csv.Error):
+        return {}
+    return {row[0]: row[1] for row in rows[1:] if len(row) >= 2}
 
 
 #: What the Viewer page's "Also open" checkboxes name, and the only extra
@@ -430,40 +460,44 @@ def _scene_title(
 
 
 def _analysis_cursor(pm, sid: str, sim: str, analysis_name: str) -> list[float] | None:
-    """The centre of a *spherical* analysis, as a starting cursor.
+    """Where an analysis's own scene put its cursor, else a sphere's centre.
 
-    ``analysis.json`` is the only place the server can source an initial
-    cursor from, and only for ``analysis_type: "spherical"`` -- a cortical or
-    atlas-region analysis has ``center: null``
-    (``tit/analyzer/config.py``), so those keep the volume's own centre.
+    ``scene.tetravox.json`` (``tit/analyzer/scene.py``) carries the cursor the
+    analyzer placed on its ROI, in every analysis type.  Before it existed --
+    or with the scene switched off -- ``analysis.json``'s ``center`` is the one
+    other source, and only for ``analysis_type: "spherical"``; a cortical
+    analysis has ``center: null``, so it keeps the volume's own centre.
     """
     import json
 
     for space_dir in ("Voxel", "Mesh"):
-        try:
-            config = resolve_within(
-                pm.project_dir,
-                resolve_under(
-                    pm.simulation(sid, sim),
-                    "Analyses",
-                    space_dir,
-                    analysis_name,
-                    "analysis.json",
-                ),
-            )
-        except ValueError:
-            continue
-        if not os.path.isfile(config):
-            continue
-        try:
-            with open(config, encoding="utf-8") as f:
-                data = json.load(f)
-            center = data.get("center")
-            if isinstance(center, (list, tuple)) and len(center) == 3:
-                return [float(v) for v in center]
-        except (OSError, ValueError, TypeError):
-            return None
-        return None
+        for name, key in (
+            ("scene.tetravox.json", "cursor"),
+            ("analysis.json", "center"),
+        ):
+            # Checked per file: the link that escapes the project is the file's, not the folder's.
+            try:
+                path = resolve_within(
+                    pm.project_dir,
+                    resolve_under(
+                        pm.simulation(sid, sim),
+                        "Analyses",
+                        space_dir,
+                        analysis_name,
+                        name,
+                    ),
+                )
+            except ValueError:
+                continue
+            if not os.path.isfile(path):
+                continue
+            try:
+                with open(path, encoding="utf-8") as f:
+                    point = json.load(f).get(key)
+                if isinstance(point, (list, tuple)) and len(point) == 3:
+                    return [float(v) for v in point]
+            except (OSError, ValueError, TypeError, AttributeError):
+                return None
     return None
 
 
@@ -2794,6 +2828,24 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
             scale, threshold = _mesh_scale_and_threshold(
                 _bounds_for_mesh(name, field_volumes)
             )
+            mesh_field = layer.get("mesh_field")
+            if mesh_field:
+                # The layer named its own node/element field (an analysis overlay's
+                # `<field>_ROI`): colour by it from 0 to the value the analysis
+                # reported, and hide the exact zeros outside the ROI.
+                field_name = str(mesh_field["name"])
+                scale = {
+                    "kind": "linear",
+                    "lo": 0.0,
+                    "hi": float(layer.get("cal_max") or 1.0),
+                }
+                threshold = {
+                    "lo": 1e-6,
+                    "hi": None,
+                    "symmetric": False,
+                    "mode": "hide",
+                    "softEdge": 0.0,
+                }
             layers.append(
                 {
                     **base_fields,
@@ -2803,7 +2855,9 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                     **(
                         {
                             "field": {
-                                "source": "elm",
+                                "source": (
+                                    str(mesh_field["source"]) if mesh_field else "elm"
+                                ),
                                 "name": field_name,
                                 "component": "mag",
                             }

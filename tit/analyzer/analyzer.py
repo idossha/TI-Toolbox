@@ -31,7 +31,6 @@ from tit.analyzer.field_selector import select_field_file
 from tit.atlas.segstats import compute_segstats, resolve_lut_for_atlas
 from tit.analyzer.visualizer import (
     save_analysis_metadata,
-    save_histogram,
     save_mesh_roi_overlay,
     save_nifti_roi_overlay,
     save_results_csv,
@@ -309,7 +308,7 @@ class Analyzer:
             coordinates are transformed to subject space via SimNIBS
             ``mni2subject_coords``.
         visualize : bool, optional
-            Generate overlay, histogram, and CSV artifacts.
+            Write the ROI overlay, its scene, and ``analysis.json``.
 
         Returns
         -------
@@ -356,7 +355,7 @@ class Analyzer:
         coordinate_space : str, optional
             ``"subject"`` (default) or ``"MNI"``, applied to every sphere.
         visualize : bool, optional
-            Generate overlay, histogram, and CSV artifacts.
+            Write the ROI overlay, its scene, and ``analysis.json``.
 
         Returns
         -------
@@ -403,7 +402,7 @@ class Analyzer:
             combined ROI. Bare names like ``"cuneus"`` expand to both
             hemispheres in mesh mode.
         visualize : bool, optional
-            Generate overlay, histogram, and CSV artifacts.
+            Write the ROI overlay, its scene, and ``analysis.json``.
 
         Returns
         -------
@@ -455,21 +454,6 @@ class Analyzer:
             track_operation(const.TELEMETRY_OP_ANALYSIS),
             tempfile.TemporaryDirectory() as scratch,
         ):
-            # The ROI is resolved into this subject BEFORE it is measured, and
-            # leaves roi.tetravox.json beside the results -- in every space,
-            # because a subject mask off by a slice is as invisible in the
-            # numbers as a bad MNI transform (tit/roi_confirmation.py).
-            self._roi_scene(
-                entries=[
-                    {
-                        "atlas_path": str(mask_path),
-                        "space": coordinate_space,
-                        "name": region_name,
-                    }
-                ],
-                analysis_type="mask",
-                region_name=region_name,
-            )
             prepared = prepare_mask(
                 mask_path, coordinate_space, str(self.m2m_path), scratch, binary=True
             )
@@ -544,10 +528,8 @@ class Analyzer:
         node_areas = self._node_areas(surface)
 
         mask = np.zeros(len(coords), dtype=bool)
-        subject_spheres = []
         for x, y, z, radius in spheres:
             center_arr = self._maybe_transform_coords((x, y, z), coordinate_space)
-            subject_spheres.append((*[float(v) for v in center_arr], float(radius)))
             mask |= np.linalg.norm(coords - center_arr, axis=1) <= radius
 
         if len(spheres) > 1:
@@ -558,7 +540,6 @@ class Analyzer:
                 len(mask),
             )
 
-        self._sphere_scene(subject_spheres, spheres, coordinate_space)
         return self._analyze_mesh_roi(
             surface,
             values,
@@ -631,7 +612,6 @@ class Analyzer:
             len(mask),
         )
 
-        self._cortex_scene(atlas, region_labels, region_name)
         return self._analyze_mesh_roi(
             surface,
             values,
@@ -667,13 +647,10 @@ class Analyzer:
         # ||A (v - c)|| (SCI-05): the header-zoom form assumes orthogonal voxel
         # axes and yields the wrong ellipsoid for any sheared affine.
         sphere_mask = np.zeros(shape[:3], dtype=bool)
-        subject_spheres = []
         for cx, cy, cz, radius in spheres:
             center_arr = self._maybe_transform_coords((cx, cy, cz), coordinate_space)
-            subject_spheres.append((*[float(v) for v in center_arr], float(radius)))
             voxel_center = np.dot(inv_affine, np.append(center_arr, 1))[:3]
             sphere_mask |= _world_distance_grid(affine, voxel_center, shape) <= radius
-        self._sphere_scene(subject_spheres, spheres, coordinate_space)
 
         if len(spheres) > 1:
             logger.info(
@@ -742,7 +719,6 @@ class Analyzer:
             region_values[one & (region_values == 0)] = index
         region_name = "+".join(regions)
         region_labels = list(regions)
-        self._cortex_scene(atlas, region_labels, region_name)
 
         positive_mask = field_arr > 0
         tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
@@ -851,10 +827,6 @@ class Analyzer:
                 roi_mask,
                 out_dir,
                 result,
-                surface_pos,
-                surface_areas,
-                roi_pos,
-                roi_areas,
                 analysis_type=analysis_type,
                 region_labels=kwargs.get("region_labels"),
                 atlas=kwargs.get("atlas"),
@@ -927,7 +899,6 @@ class Analyzer:
             self._visualize_voxel(
                 field_arr,
                 roi_mask,
-                analysis_mask,
                 affine,
                 out_dir,
                 result,
@@ -1100,10 +1071,6 @@ class Analyzer:
         roi_mask,
         out_dir,
         result,
-        gm_values,
-        gm_areas,
-        roi_values,
-        roi_areas,
         *,
         analysis_type: str = "cortical",
         region_labels: list[str] | None = None,
@@ -1111,8 +1078,10 @@ class Analyzer:
         spheres: list | None = None,
         coordinate_space: str | None = None,
     ) -> None:
+        from tit.analyzer.scene import write_mesh_scene
+
         out = Path(out_dir)
-        save_mesh_roi_overlay(
+        overlay = save_mesh_roi_overlay(
             surface_mesh_path=self._surface_mesh_path,
             field_values=values,
             roi_mask=roi_mask,
@@ -1120,13 +1089,20 @@ class Analyzer:
             output_dir=out,
             normal_mesh_path=self._normal_mesh_path(),
         )
-        save_histogram(
-            whole_head_values=gm_values,
-            roi_values=roi_values,
-            output_dir=out,
-            whole_head_weights=gm_areas,
-            roi_weights=roi_areas,
-            roi_mean=result.roi_mean,
+        write_mesh_scene(
+            out_dir=str(out),
+            mesh=str(overlay),
+            roi_coords=surface.nodes.node_coord[roi_mask],
+            node_coords=surface.nodes.node_coord,
+            roi_values=values[roi_mask],
+            field_name=self.field_name,
+            region_name=result.region_name,
+            normal_max=result.normal_max,
+            meta={
+                "roi": result.region_name,
+                "space": "mesh",
+                "analysis_type": analysis_type,
+            },
         )
         save_analysis_metadata(
             out,
@@ -1147,7 +1123,6 @@ class Analyzer:
         self,
         field_arr,
         roi_mask,
-        analysis_mask,
         affine,
         out_dir,
         result,
@@ -1158,20 +1133,29 @@ class Analyzer:
         spheres: list | None = None,
         coordinate_space: str | None = None,
     ) -> None:
+        from tit.analyzer.scene import write_voxel_scene
+
         out = Path(out_dir)
-        save_nifti_roi_overlay(
+        overlay = save_nifti_roi_overlay(
             field_data=field_arr,
             roi_mask=roi_mask,
             output_dir=out,
             affine=affine,
         )
-        tissue_values = field_arr[analysis_mask]
-        roi_values = field_arr[roi_mask]
-        save_histogram(
-            whole_head_values=tissue_values,
-            roi_values=roi_values,
-            output_dir=out,
-            roi_mean=result.roi_mean,
+        write_voxel_scene(
+            out_dir=str(out),
+            anatomy=str(Path(self.m2m_path) / "T1.nii.gz"),
+            overlay=str(overlay),
+            roi_mask=roi_mask,
+            affine=affine,
+            roi_values=field_arr[roi_mask],
+            field_name=self.field_name,
+            region_name=result.region_name,
+            meta={
+                "roi": result.region_name,
+                "space": "voxel",
+                "analysis_type": analysis_type,
+            },
         )
         save_analysis_metadata(
             out,
@@ -1198,80 +1182,6 @@ class Analyzer:
         """Name a spherical ROI: one sphere keeps the classic name."""
         parts = [f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}" for x, y, z, r in spheres]
         return "+".join(parts)
-
-    # ------------------------------------------------------------------
-    # ROI scenes (tit/figures/roi_plate.py, tit/roi_confirmation.py)
-    # ------------------------------------------------------------------
-
-    def _roi_scene(self, *, entries, analysis_type, region_name, **dir_kwargs) -> None:
-        """Write this analysis's ROI scene, before it runs.  Never raises.
-
-        The field is passed in with the target rather than added afterwards: it
-        is this analysis's *input* volume and exists before a single number is
-        computed, so both scenes are written in one pass and the ROI is resolved
-        once.  A mesh field has no voxels to sample, so it gets the ROI scene
-        only -- a field picture drawn from a different file than the table came
-        from would be a picture that contradicts it.
-        """
-        try:
-            from tit.roi_confirmation import confirm_rois
-
-            out_dir = self._resolve_output_dir(
-                analysis_type=analysis_type, region_name=region_name, **dir_kwargs
-            )
-            field = str(self.field_path)
-            if not field.endswith((".nii", ".nii.gz")):
-                field = None
-            for entry in entries:
-                entry.setdefault("field_path", field)
-            confirm_rois(entries, m2m=str(self.m2m_path), out_dir=out_dir)
-        except Exception as exc:  # noqa: BLE001 - never fail a job over a check
-            logger.warning("ROI scene could not be written: %s", exc)
-
-    def _sphere_scene(self, subject_spheres, spheres, coordinate_space) -> None:
-        """The ROI scene for a spherical target: the centres the user typed.
-
-        Not the rasterisation of them -- a sphere names no file, the centre and
-        the radius are what was typed, and they are what the framing and ``meta``
-        carry.
-        """
-        self._roi_scene(
-            entries=[
-                {
-                    "sphere": ((float(x), float(y), float(z)), float(r)),
-                    "name": f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}",
-                }
-                for x, y, z, r in subject_spheres
-            ],
-            analysis_type="spherical",
-            region_name=self._sphere_region_name(spheres),
-            coordinate_space=coordinate_space,
-        )
-
-    def _cortex_scene(self, atlas, region_labels, region_name) -> None:
-        """The ROI scene for a cortical target: the ``.annot`` itself.
-
-        The hemisphere's central surface with its parcellation attached and only
-        the target's labels visible -- the same file the analysis measured, not a
-        rasterisation of it.  When no region name resolves to a label of a
-        ``.annot`` this subject has, there is no scene and one log line.
-        """
-        from tit.roi_confirmation import cortical_entries
-
-        try:
-            entries = cortical_entries(str(self.m2m_path), str(atlas), region_labels)
-        except Exception as exc:  # noqa: BLE001 - never fail a job over a check
-            logger.warning("cortical ROI scene could not be resolved: %s", exc)
-            return
-        if not entries:
-            return
-        self._roi_scene(
-            entries=entries,
-            analysis_type="cortical",
-            region_name=region_name,
-            atlas=atlas,
-            region_labels=region_labels,
-        )
 
     def _resolve_output_dir(
         self,
