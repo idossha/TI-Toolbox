@@ -26,6 +26,7 @@ import {
 } from "./model";
 import { AddExampleData, SwitchProject } from "./ProjectControls";
 import { ProjectInsights } from "./ProjectInsights";
+import { RecentJobs } from "./RecentJobs";
 import "./overview.css";
 
 /**
@@ -304,6 +305,8 @@ function OverviewPage() {
             </span>
           ))}
         </p>
+
+        <RecentJobs />
         </div>
         <ProjectInsights />
         </div>
