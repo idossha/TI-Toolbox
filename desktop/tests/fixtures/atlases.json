@@ -1,33 +1,199 @@
 {
   "ernie": {
     "cortical": [
-      { "id": "DK40", "name": "Desikan-Killiany (DK40)", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.DK40.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
-      { "id": "HCP_MMP1", "name": "HCP Multi-Modal Parcellation (HCP_MMP1)", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.HCP_MMP1.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
-      { "id": "a2009s", "name": "Destrieux (a2009s)", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.a2009s.annot", "hemispheres": ["lh", "rh"], "space": "subject" }
+      {
+        "id": "DK40",
+        "name": "Desikan-Killiany (DK40)",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.DK40.annot",
+        "hemispheres": [
+          "lh",
+          "rh"
+        ],
+        "space": "subject",
+        "kind": "surface"
+      },
+      {
+        "id": "HCP_MMP1",
+        "name": "HCP Multi-Modal Parcellation (HCP_MMP1)",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.HCP_MMP1.annot",
+        "hemispheres": [
+          "lh",
+          "rh"
+        ],
+        "space": "subject",
+        "kind": "surface"
+      },
+      {
+        "id": "a2009s",
+        "name": "Destrieux (a2009s)",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.a2009s.annot",
+        "hemispheres": [
+          "lh",
+          "rh"
+        ],
+        "space": "subject",
+        "kind": "surface"
+      },
+      {
+        "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+        "name": "Glasser HCP-MMP1.0 cortical parcellation",
+        "path": "/ti-toolbox/resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "WU-Minn HCP Open Access Data Use Terms"
+      }
     ],
     "subcortical": [
-      { "id": "aparc.DKTatlas+aseg", "name": "DKT + aseg subcortical", "path": "/mnt/example/derivatives/freesurfer/sub-ernie/mri/aparc.DKTatlas+aseg.mgz", "space": "subject" },
-      { "id": "labeling.nii.gz", "name": "Custom subject mask", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/masks/labeling.nii.gz", "space": "subject" },
-      { "id": "CIT168", "name": "CIT168 subcortical atlas (MNI)", "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "space": "mni" }
+      {
+        "id": "aparc.DKTatlas+aseg",
+        "name": "DKT + aseg subcortical",
+        "path": "/mnt/example/derivatives/freesurfer/sub-ernie/mri/aparc.DKTatlas+aseg.mgz",
+        "space": "subject",
+        "kind": "volume"
+      },
+      {
+        "id": "labeling.nii.gz",
+        "name": "Custom subject mask",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/masks/labeling.nii.gz",
+        "space": "subject",
+        "kind": "volume"
+      },
+      {
+        "id": "CIT168",
+        "name": "CIT168 subcortical atlas (MNI)",
+        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "CC BY 4.0"
+      },
+      {
+        "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+        "name": "Glasser HCP-MMP1.0 cortical parcellation",
+        "path": "/ti-toolbox/resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "WU-Minn HCP Open Access Data Use Terms"
+      }
     ]
   },
   "101": {
     "cortical": [
-      { "id": "DK40", "name": "Desikan-Killiany (DK40)", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.DK40.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
-      { "id": "HCP_MMP1", "name": "HCP Multi-Modal Parcellation (HCP_MMP1)", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.HCP_MMP1.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
-      { "id": "a2009s", "name": "Destrieux (a2009s)", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.a2009s.annot", "hemispheres": ["lh", "rh"], "space": "subject" }
+      {
+        "id": "DK40",
+        "name": "Desikan-Killiany (DK40)",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.DK40.annot",
+        "hemispheres": [
+          "lh",
+          "rh"
+        ],
+        "space": "subject",
+        "kind": "surface"
+      },
+      {
+        "id": "HCP_MMP1",
+        "name": "HCP Multi-Modal Parcellation (HCP_MMP1)",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.HCP_MMP1.annot",
+        "hemispheres": [
+          "lh",
+          "rh"
+        ],
+        "space": "subject",
+        "kind": "surface"
+      },
+      {
+        "id": "a2009s",
+        "name": "Destrieux (a2009s)",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.a2009s.annot",
+        "hemispheres": [
+          "lh",
+          "rh"
+        ],
+        "space": "subject",
+        "kind": "surface"
+      },
+      {
+        "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+        "name": "Glasser HCP-MMP1.0 cortical parcellation",
+        "path": "/ti-toolbox/resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "WU-Minn HCP Open Access Data Use Terms"
+      }
     ],
     "subcortical": [
-      { "id": "aparc.DKTatlas+aseg", "name": "DKT + aseg subcortical", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/aparc.DKTatlas+aseg.mgz", "space": "subject" },
-      { "id": "CIT168", "name": "CIT168 subcortical atlas (MNI)", "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "space": "mni" }
+      {
+        "id": "aparc.DKTatlas+aseg",
+        "name": "DKT + aseg subcortical",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/aparc.DKTatlas+aseg.mgz",
+        "space": "subject",
+        "kind": "volume"
+      },
+      {
+        "id": "CIT168",
+        "name": "CIT168 subcortical atlas (MNI)",
+        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "CC BY 4.0"
+      },
+      {
+        "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+        "name": "Glasser HCP-MMP1.0 cortical parcellation",
+        "path": "/ti-toolbox/resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "WU-Minn HCP Open Access Data Use Terms"
+      }
     ]
   },
   "MNI152": {
     "cortical": [
-      { "id": "DK40", "name": "Desikan-Killiany (DK40)", "path": "/mnt/example/derivatives/SimNIBS/sub-MNI152/m2m_MNI152/segmentation/lh.DK40.annot", "hemispheres": ["lh", "rh"], "space": "subject" }
+      {
+        "id": "DK40",
+        "name": "Desikan-Killiany (DK40)",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-MNI152/m2m_MNI152/segmentation/lh.DK40.annot",
+        "hemispheres": [
+          "lh",
+          "rh"
+        ],
+        "space": "subject",
+        "kind": "surface"
+      },
+      {
+        "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+        "name": "Glasser HCP-MMP1.0 cortical parcellation",
+        "path": "/ti-toolbox/resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "WU-Minn HCP Open Access Data Use Terms"
+      }
     ],
     "subcortical": [
-      { "id": "CIT168", "name": "CIT168 subcortical atlas (MNI)", "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "space": "mni" }
+      {
+        "id": "CIT168",
+        "name": "CIT168 subcortical atlas (MNI)",
+        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "CC BY 4.0"
+      },
+      {
+        "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+        "name": "Glasser HCP-MMP1.0 cortical parcellation",
+        "path": "/ti-toolbox/resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz",
+        "space": "mni",
+        "kind": "volume",
+        "template": "MNI152NLin2009cAsym",
+        "license": "WU-Minn HCP Open Access Data Use Terms"
+      }
     ]
   }
 }

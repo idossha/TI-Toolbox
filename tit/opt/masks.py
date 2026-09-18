@@ -49,10 +49,27 @@ def prepare_mask(
     if binary:
         image = nib.Nifti1Image((image.get_fdata() > 0).astype(np.uint8), image.affine)
     if space == "mni":
+        import warnings
+
         from simnibs.utils.file_finder import SubjectFiles
         from simnibs.utils.region_of_interest import mni_mask_to_sub
 
-        image = mni_mask_to_sub(image, SubjectFiles(subpath=m2m))
+        # SimNIBS samples the deformation field with `cval=np.inf`
+        # (`transformations.volumetric_nonlinear`, SimNIBS 4.6), so every target
+        # voxel outside the warp's field of view -- the corners of the subject's
+        # own T1 grid, on every subject -- arrives as inf and the next line,
+        # `iM[:3, :3].dot(voxvals)`, multiplies it by a zero off-diagonal term
+        # and gets NaN. numpy reports that as
+        # "RuntimeWarning: invalid value encountered in dot" at
+        # transformations.py:147. Those voxels then sample as background, which
+        # is what they should be. It is noise from outside the head, not a
+        # failed registration, and it was read as one; the result is checked
+        # below instead.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="invalid value encountered in dot"
+            )
+            image = mni_mask_to_sub(image, SubjectFiles(subpath=m2m))
         if not (image.get_fdata() > 0).any():
             raise ValueError(
                 "MNI mask does not overlap the subject after transformation"

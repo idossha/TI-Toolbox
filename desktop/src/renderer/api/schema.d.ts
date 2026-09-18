@@ -5680,10 +5680,16 @@ export interface components {
             electrodes: string[];
             n: number;
         };
+        /** @description `kind` says what the atlas *file* is -- "surface" for a FreeSurfer `.annot` parcellation, "volume" for a label volume -- and therefore which targeting flow can read it. It is not a claim about anatomy: the Glasser HCP-MMP1.0 cortical parcellation ships as a label volume and is `kind: volume`. For MNI space the list and every entry's kind, template, license and citation come from `resources/atlas/manifest.json`, so `?kind=cortical` never returns a volume and `?kind=subcortical` never returns a surface. */
         Atlas: {
             id: string;
             name: string;
             path: string;
+            /** @enum {string} */
+            kind?: "surface" | "volume";
+            template?: string;
+            license?: string;
+            citation?: string;
             hemispheres?: ("lh" | "rh")[];
         };
         /** @description For a cortical (surface/annotation) atlas, `id` is the FreeSurfer `.annot` label index -- exactly the integer `FlexConfig.AtlasROI.label` / `ExConfig`'s equivalent needs, not a display string -- and `hemi` is that region's own hemisphere ("lh"/"rh"), since one `.annot` file is per-hemisphere and a cortical ROI can union regions across both. For a subcortical (volumetric) atlas, `id` is the voxel label value in that atlas's NIfTI and `hemi` is `null` (volumetric atlases are not inherently split by hemisphere). */

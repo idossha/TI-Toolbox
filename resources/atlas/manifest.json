@@ -1,0 +1,71 @@
+{
+  "$comment": "One source of truth for every atlas TI-Toolbox ships in MNI space. tit/atlas/manifest.py is the only reader; tit/atlas/constants.py, tit/catalog.py and the ROI picker all resolve through it, so an atlas is described in exactly one place. Fields: file (basename in this directory), kind ('volume' | 'surface' -- what targeting flow the UI must route it to), template (the MNI template the atlas is defined in), labels (sidecar LUT/label table), license, attribution, redistribution ('yes' | 'no (<reason>)'), citation. See README.md for the full survey and docs/wiki/atlases.md for the user-facing page.",
+  "version": 1,
+  "atlases": [
+    {
+      "id": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+      "file": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+      "name": "CIT168 subcortical nuclei",
+      "kind": "volume",
+      "template": "MNI152NLin2009cAsym",
+      "labels": "CIT168_labeling_MNI152NLin2009cAsym_LUT.txt",
+      "regions": 16,
+      "license": "CC BY 4.0",
+      "license_url": "https://osf.io/jkzwp/",
+      "attribution": "Pauli W. M., Nili A. N., Tyszka J. M. (2018), CC BY 4.0.",
+      "redistribution": "yes",
+      "citation": "Pauli W. M., Nili A. N., and Tyszka J. M. A high-resolution probabilistic in vivo atlas of human subcortical brain nuclei. Scientific Data 5, 180063 (2018). https://doi.org/10.1038/sdata.2018.63"
+    },
+    {
+      "id": "massp2021-parcellation_decade-18to40.nii.gz",
+      "file": "massp2021-parcellation_decade-18to40.nii.gz",
+      "name": "MASSP 2021 subcortical parcellation",
+      "kind": "volume",
+      "template": "MNI152NLin2009bAsym",
+      "labels": "massp2021_labels.txt",
+      "regions": 31,
+      "license": "CC BY 4.0",
+      "license_url": "https://doi.org/10.21942/uva.19646328",
+      "attribution": "Bazin P.-L. et al., MASSP 2021 parcellation, figshare/UvA, CC BY 4.0.",
+      "redistribution": "yes",
+      "citation": "Bazin P.-L., Alkemade A., Mulder M. J., Henry A. G., Forstmann B. U. Multi-contrast anatomical subcortical structures parcellation. eLife 9:e59430 (2020). Atlas release: https://doi.org/10.21942/uva.19646328"
+    },
+    {
+      "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+      "file": "MNI_Glasser_HCP_v1.0.nii.gz",
+      "name": "Glasser HCP-MMP1.0 cortical parcellation",
+      "kind": "volume",
+      "template": "MNI152NLin2009cAsym",
+      "labels": "MNI_Glasser_HCP_v1.0.txt",
+      "regions": 360,
+      "license": "WU-Minn HCP Open Access Data Use Terms",
+      "license_url": "https://www.humanconnectome.org/study/hcp-young-adult/document/wu-minn-hcp-consortium-open-access-data-use-terms",
+      "attribution": "Data were provided [in part] by the Human Connectome Project, WU-Minn Consortium (Principal Investigators: David Van Essen and Kamil Ugurbil; 1U54MH091657) funded by the 16 NIH Institutes and Centers that support the NIH Blueprint for Neuroscience Research; and by the McDonnell Center for Systems Neuroscience at Washington University.",
+      "redistribution": "yes (under the same HCP Open Access Data Use Terms)",
+      "citation": "Glasser M. F. et al. A multi-modal parcellation of human cerebral cortex. Nature 536, 171-178 (2016). https://doi.org/10.1038/nature18933",
+      "note": "A cortical parcellation distributed as a label volume, so its kind is 'volume': it is targeted through the subcortical/volumetric flow, not through the surface (.annot) flow."
+    },
+    {
+      "id": "MorelMNI152_labeling_1mm.nii.gz",
+      "file": "MorelMNI152_labeling_1mm.nii.gz",
+      "name": "Morel thalamic nuclei",
+      "kind": "volume",
+      "template": "MNI152NLin6Asym",
+      "labels": "MorelMNI152_labeling_1mm_LUT.txt",
+      "regions": 74,
+      "license": "CC BY-NC-SA 4.0",
+      "license_url": "https://doi.org/10.5281/zenodo.13918589",
+      "attribution": "(C) University of Zurich and ETH Zurich, Andras Jakab, Remi Blanc and Gabor Szekely. CC BY-NC-SA 4.0.",
+      "redistribution": "no (CC BY-NC-SA)",
+      "citation": "Krauth A. et al. A mean three-dimensional atlas of the human thalamus. NeuroImage 49(3):2053-2062 (2010); Jakab A. et al. AJNR 33(11):2110-2116 (2012).",
+      "note": "Non-commercial licence: this file must move to an optional user-fetched download before the next release. It is still shipped and still selectable, so no existing configuration breaks. See DECISIONS.md 2026-09-17."
+    }
+  ],
+  "template_volume": {
+    "file": "MNI152_T1_1mm.nii.gz",
+    "template": "MNI152NLin6Asym",
+    "license": "MNI/McGill permissive: use, copy, modify and distribute for any purpose and without fee, provided the copyright notice appears in all copies.",
+    "attribution": "Copyright (C) 1993-2009 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University.",
+    "redistribution": "yes"
+  }
+}

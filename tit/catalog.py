@@ -896,10 +896,25 @@ def eeg_nets(pm: PathManager, sid: str) -> list[dict] | None:
 def atlases(
     pm: PathManager, sid: str, space: str | None = None, kind: str | None = None
 ) -> list[dict] | None:
-    """Atlases available to *sid*; ``None`` if the subject is unknown."""
+    """Atlases available to *sid*; ``None`` if the subject is unknown.
+
+    Every entry carries ``kind``: ``"surface"`` for a FreeSurfer ``.annot``
+    parcellation, ``"volume"`` for a label volume. For MNI space the list, its
+    order and each entry's kind, template and licence come from
+    ``resources/atlas/manifest.json`` (:mod:`tit.atlas.manifest`) rather than
+    from a filename list, so an atlas is only ever offered to the targeting mode
+    that can read it: the cortical mode asks for ``kind="cortical"`` and gets
+    surfaces, the subcortical mode asks for ``kind="subcortical"`` and gets
+    volumes. Before the manifest existed nothing recorded the kind of an MNI
+    atlas and the subcortical mode was handed every shipped MNI file whatever it
+    was.
+    """
+    from tit.atlas.manifest import KIND_FOR_MODE, kind_for_path, mni_atlas_entries
+
     if sid not in subject_ids(pm):
         return None
     space = (space or "subject").lower()
+    wanted = KIND_FOR_MODE.get(kind) if kind else None
     out: list[dict] = []
 
     if kind in (None, "cortical") and space == "subject":
@@ -914,41 +929,58 @@ def atlases(
                     "id": name,
                     "name": name,
                     "path": lh_path or "",
+                    "kind": "surface",
                     "hemispheres": ["lh", "rh"],
                 }
             )
 
-    if kind in (None, "subcortical"):
-        if space == "mni":
-            for path in VoxelAtlasManager.detect_mni_atlases(mni_resources_dir()):
-                name = os.path.basename(path)
-                out.append({"id": name, "name": name, "path": path})
-        else:
-            seg_dir = os.path.join(pm.m2m(sid), "segmentation")
-            voxel_mgr = VoxelAtlasManager(
-                fastsurfer_mri_dir=(
-                    pm.fastsurfer_mri(sid)
-                    if _project_paths_safe(pm, pm.fastsurfer_mri(sid))
-                    else ""
-                ),
-                freesurfer_mri_dir=(
-                    pm.freesurfer_mri(sid)
-                    if _project_paths_safe(pm, pm.freesurfer_mri(sid))
-                    else ""
-                ),
-                seg_dir=seg_dir if _project_paths_safe(pm, seg_dir) else "",
-                masks_dir=(
-                    pm.masks(sid) if _project_paths_safe(pm, pm.masks(sid)) else ""
-                ),
+    if space == "mni":
+        # The manifest decides, not the mode: a volume atlas is offered to the
+        # subcortical/volumetric flow and a surface one to the cortical flow,
+        # and neither mode is ever handed an atlas it cannot read.
+        for entry in mni_atlas_entries(mni_resources_dir()):
+            if wanted is not None and entry["kind"] != wanted:
+                continue
+            out.append(
+                {
+                    "id": entry["id"],
+                    "name": entry.get("name") or entry["id"],
+                    "path": entry["path"],
+                    "kind": entry["kind"],
+                    "template": entry.get("template", ""),
+                    "license": entry.get("license", ""),
+                    "citation": entry.get("citation", ""),
+                }
             )
-            for display_name, path in voxel_mgr.list_atlases():
-                if not _project_paths_safe(pm, path):
-                    continue
-                entry: dict = {"id": display_name, "name": display_name, "path": path}
-                hemi = VOXEL_ATLASES.get(display_name)
-                if hemi in ("lh", "rh"):
-                    entry["hemispheres"] = [hemi]
-                out.append(entry)
+    elif kind in (None, "subcortical"):
+        seg_dir = os.path.join(pm.m2m(sid), "segmentation")
+        voxel_mgr = VoxelAtlasManager(
+            fastsurfer_mri_dir=(
+                pm.fastsurfer_mri(sid)
+                if _project_paths_safe(pm, pm.fastsurfer_mri(sid))
+                else ""
+            ),
+            freesurfer_mri_dir=(
+                pm.freesurfer_mri(sid)
+                if _project_paths_safe(pm, pm.freesurfer_mri(sid))
+                else ""
+            ),
+            seg_dir=seg_dir if _project_paths_safe(pm, seg_dir) else "",
+            masks_dir=(pm.masks(sid) if _project_paths_safe(pm, pm.masks(sid)) else ""),
+        )
+        for display_name, path in voxel_mgr.list_atlases():
+            if not _project_paths_safe(pm, path):
+                continue
+            entry: dict = {
+                "id": display_name,
+                "name": display_name,
+                "path": path,
+                "kind": kind_for_path(path),
+            }
+            hemi = VOXEL_ATLASES.get(display_name)
+            if hemi in ("lh", "rh"):
+                entry["hemispheres"] = [hemi]
+            out.append(entry)
 
     return out
 

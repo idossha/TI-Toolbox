@@ -1972,3 +1972,46 @@ def test_delete_freehand_rejects_outward_symlink(client, project, parent_link):
     )
     assert response.status_code == 404
     assert protected.read_text() == '{"electrode_positions": {}}'
+
+
+def test_mni_atlas_list_is_the_manifest_and_carries_its_kind(
+    client: TestClient,
+) -> None:
+    """Every MNI atlas offered is described in the manifest, with its kind.
+
+    The defect this pins: the MNI list was a bare filename list with no record of
+    whether a file was a surface parcellation or a label volume, so the ROI
+    picker could not route an atlas to the right targeting flow.
+    """
+    from tit.atlas.manifest import mni_atlas_entry, mni_atlas_files
+
+    response = client.get(
+        "/api/catalog/atlases",
+        params={"subject": "ernie", "space": "mni"},
+        headers=BEARER,
+    )
+    assert response.status_code == 200
+    rows = response.json()
+    assert [row["id"] for row in rows] == mni_atlas_files()
+    for row in rows:
+        entry = mni_atlas_entry(row["id"])
+        assert entry is not None
+        assert row["kind"] == entry["kind"]
+        assert row["template"] == entry["template"]
+        assert row["license"] == entry["license"]
+
+
+def test_mni_cortical_mode_is_offered_no_volume_atlas(client: TestClient) -> None:
+    """`kind=cortical` asks for a surface; no shipped MNI atlas is one."""
+    volumes = client.get(
+        "/api/catalog/atlases",
+        params={"subject": "ernie", "space": "mni", "kind": "subcortical"},
+        headers=BEARER,
+    ).json()
+    surfaces = client.get(
+        "/api/catalog/atlases",
+        params={"subject": "ernie", "space": "mni", "kind": "cortical"},
+        headers=BEARER,
+    ).json()
+    assert volumes and all(row["kind"] == "volume" for row in volumes)
+    assert surfaces == []

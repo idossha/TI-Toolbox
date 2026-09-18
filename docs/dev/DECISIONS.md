@@ -1109,3 +1109,69 @@ error telling them to run a command the loader could run itself. **Cost:** a `--
 take a minute on its first run while npm builds, and `TIT_DEV_NO_BUILD=1` is a new thing to know
 when running `npm run dev` beside it. **Revisit if:** the renderer moves to Vite HMR inside
 Electron by default, which would remove the built-bundle precondition altogether.
+
+## 2026-09-17 — An atlas manifest with a kind, one documented MNI transform, and the licence table
+
+**Context.** Two user reports, and one thing behind both: nothing in the repository said what a
+shipped MNI atlas *is*. The MNI list was `MNI_ATLAS_FILES`, four filenames in
+`tit/atlas/constants.py`, so the ROI picker could not tell a surface parcellation from a label
+volume and offered every packaged MNI atlas to whichever mode asked; and flex-search, having no
+reason to treat an MNI label specially, passed SimNIBS the whole multi-label atlas with
+`mask_space="mni"` and let it warp internally. Every MNI run also printed
+`RuntimeWarning: invalid value encountered in dot` from `simnibs/utils/transformations.py:147`,
+which was read as a failed registration.
+
+**Decisions.**
+
+1. **`resources/atlas/manifest.json` is the one description of every shipped MNI atlas** — file,
+   `kind` (`volume` | `surface`), template space, labels/LUT file, licence, required attribution,
+   `redistribution`, citation. `tit/atlas/manifest.py` is the only reader; `MNI_ATLAS_FILES` and
+   `DEFAULT_MNI_ATLAS` survive as lazy re-exports resolved from it (lazy because reading a file at
+   import time trips `dev/route_import_guard.py`). `GET /api/catalog/atlases` serves the MNI list
+   from the manifest with `kind` on every row and filters by the asking mode; subject-space atlases
+   carry the same `kind`, still detected from the extension. `kind` describes the **file**, not the
+   anatomy: Glasser HCP-MMP1.0 is a cortical parcellation distributed as a label volume, so it is
+   `volume` and is targeted through the subcortical/volumetric flow. All four shipped MNI atlases
+   are volumes; a surface one would route to the cortical flow without further change.
+
+2. **An MNI atlas label is warped into the subject by TI-Toolbox, once, before anything else.**
+   `tit/opt/flex/utils.py::_mni_labels_to_subject` binarises the label, calls
+   `tit.opt.masks.prepare_mask` (SimNIBS `mni_mask_to_sub`, nearest-neighbour), cleans islands in
+   *subject* space, and hands on a subject-space binary NIfTI with mask value 1 — byte-for-byte the
+   shape a subject-space target already produced. The transform is now the only difference between
+   an MNI target and a subject one. Before this the island cleanup ran on the atlas in MNI voxels
+   and the ROI confirmation plate, which documents itself as making "the same `prepare_mask` call
+   the runner makes", transformed a different thing from the search.
+
+3. **The `dot` RuntimeWarning is noise and is suppressed at our one call site.** SimNIBS samples
+   the deformation field with `cval=np.inf` (`transformations.volumetric_nonlinear`, SimNIBS 4.6,
+   line 142), so every target voxel outside the warp's field of view — the corners of any subject's
+   T1 grid — arrives as infinity, is multiplied by a zero off-diagonal term on line 147 and becomes
+   NaN, then samples as background, which is correct. `prepare_mask` filters exactly that message
+   and checks the *result* (a mask that does not overlap the subject is still an error).
+
+4. **The template mismatch is accepted and measured, not corrected.** SimNIBS's warps target
+   `file_finder.Templates().mni_volume` = FSL's `MNI152_T1_1mm.nii.gz` = **MNI152NLin6Asym**;
+   `charm` writes `m2m_<id>/toMNI/{MNI2Conform_nonl,Conform2MNI_nonl}.nii.gz` against it, and
+   `mni_mask_to_sub` uses `conf2mni_nonl`. CIT168 and Glasser are MNI152NLin2009cAsym and MASSP is
+   2009b, about 1.3 mm from NLin6Asym globally. We do **not** ship a TemplateFlow
+   2009c→NLin6 resampling step. Measured on `ernie`, warped-label centroid against `charm`'s own
+   `labeling.nii.gz` centroid for the same structure: CIT168 putamen **1.05 mm**, CIT168 caudate
+   **2.20 mm**, MASSP thalamus left **2.00 mm**, right **1.19 mm**. That is the same order as the
+   disagreement between two segmentations of one structure, so a second interpolation would cost
+   more than it buys. The ROI plate every job writes is the per-run check that replaces it.
+   (MASSP *Striatum*-left against charm's Left-Putamen is 6.75 mm and is not a transform error —
+   striatum is putamen **plus** caudate.)
+
+5. **Morel stays shipped and stays flagged.** It is CC BY-NC-SA 4.0, which a GPL-3 project cannot
+   redistribute; the manifest carries `"redistribution": "no (CC BY-NC-SA)"`, and the README and
+   the wiki say it must move to an optional user-fetched download before the next release. It is
+   **not** removed here — removing a shipped atlas changes what existing configurations resolve,
+   and that is the maintainer's call.
+
+**Not done.** Harvard-Oxford, Cerebellum-MNIfnirt and Schaefer 2018 were **not** added. Schaefer's
+MIT licence was re-verified from `ThomasYeoLab/CBIG/LICENSE.md`; the FSL licence page is a
+client-rendered app and could not be re-fetched, so the CC BY-SA 4.0 claim for Harvard-Oxford and
+Cerebellum still rests only on the 2026-09-17 survey in `resources/atlas/README.md`. Adding them
+also means committing tens of megabytes of binaries to the repository and the image, which needs
+the maintainer's decision, not an agent's.

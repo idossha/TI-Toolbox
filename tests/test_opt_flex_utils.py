@@ -418,7 +418,14 @@ class TestConfigureSubcorticalROI:
         assert roi_mock.mask_path == [str(atlas_file)]
         assert roi_mock.mask_value == [11]
 
-    def test_mni_subcortical(self, tmp_path):
+    def test_mni_subcortical_without_a_project_leaves_the_warp_to_simnibs(
+        self, tmp_path
+    ):
+        """No project directory: nowhere to write the transformed mask.
+
+        With one, the label is transformed here instead -- see
+        ``TestMniLabelsToSubject``.
+        """
         from tit.opt.flex.utils import configure_roi
 
         atlas_file = tmp_path / "mni_atlas.nii.gz"
@@ -967,3 +974,106 @@ class TestUnionConfigValidation:
     def test_subcortical_atlas_length_mismatch_raises(self):
         with pytest.raises(ValueError, match="atlas_path"):
             SubcorticalROI(atlas_path=["/a.nii.gz", "/b.nii.gz"], label=[1, 2, 3])
+
+
+@pytest.mark.unit
+class TestMniLabelsToSubject:
+    """An MNI label target becomes the same thing a subject-space target is.
+
+    The defect: flex handed SimNIBS ``mask_space="mni"`` and the whole
+    multi-label atlas, so SimNIBS warped the atlas internally and the island
+    cleanup above ran on the atlas in *MNI* voxels -- not on the mask the search
+    would use. The ROI confirmation plate meanwhile documented itself as making
+    "the same ``prepare_mask`` call the runner makes", which was not true for an
+    MNI label. After this, exactly one step differs between MNI and subject
+    targets, and both end as a subject-space binary NIfTI with mask value 1.
+    """
+
+    def test_label_is_selected_then_transformed_then_mask_value_is_one(
+        self, tmp_path, monkeypatch
+    ):
+        import numpy as np
+        from tit.opt.flex import utils
+
+        atlas = tmp_path / "atlas.nii.gz"
+        atlas.write_text("fake")
+        calls = {}
+
+        class _Image:
+            affine = np.eye(4)
+            dataobj = np.array([[[0, 11, 12]]])
+
+        saved = {}
+
+        class _Nib:
+            @staticmethod
+            def load(path):
+                return _Image()
+
+            @staticmethod
+            def save(image, path):
+                saved["path"] = path
+                saved["data"] = np.asarray(image.dataobj)
+
+            @staticmethod
+            def Nifti1Image(data, affine):
+                return type("I", (), {"dataobj": data, "affine": affine})()
+
+        monkeypatch.setitem(__import__("sys").modules, "nibabel", _Nib)
+
+        class _PM:
+            def m2m(self, sid):
+                return f"/m2m_{sid}"
+
+            def masks(self, sid):
+                return str(tmp_path / "masks")
+
+        monkeypatch.setattr("tit.get_path_manager", lambda: _PM())
+
+        def _prepare(source, space, m2m, out, binary=False):
+            calls.update(source=source, space=space, m2m=m2m, binary=binary)
+            return str(tmp_path / "subject-mask.nii")
+
+        monkeypatch.setattr("tit.opt.masks.prepare_mask", _prepare)
+
+        config = _make_config(roi=SubcorticalROI(atlas_path=str(atlas), label=11))
+        paths, labels, space = utils._mni_labels_to_subject([str(atlas)], [11], config)
+
+        assert space == "subject"
+        assert labels == [1]
+        assert paths == [str(tmp_path / "subject-mask.nii")]
+        # The label was binarised *before* the transform, so nearest-neighbour
+        # resampling cannot pull in the neighbouring label 12.
+        assert saved["data"].tolist() == [[[0, 1, 0]]]
+        assert calls["space"] == "mni"
+        assert calls["m2m"] == f"/m2m_{config.subject_id}"
+        assert calls["binary"] is True
+
+    def test_an_absent_label_is_an_error_not_an_empty_target(
+        self, tmp_path, monkeypatch
+    ):
+        import numpy as np
+        from tit.opt.flex import utils
+
+        class _Image:
+            affine = np.eye(4)
+            dataobj = np.array([[[0, 11]]])
+
+        class _Nib:
+            @staticmethod
+            def load(path):
+                return _Image()
+
+        monkeypatch.setitem(__import__("sys").modules, "nibabel", _Nib)
+
+        class _PM:
+            def m2m(self, sid):
+                return "/m2m"
+
+            def masks(self, sid):
+                return str(tmp_path / "masks")
+
+        monkeypatch.setattr("tit.get_path_manager", lambda: _PM())
+        config = _make_config(roi=SubcorticalROI(atlas_path="a.nii.gz", label=99))
+        with pytest.raises(ValueError, match="no voxels with label 99"):
+            utils._mni_labels_to_subject(["a.nii.gz"], [99], config)

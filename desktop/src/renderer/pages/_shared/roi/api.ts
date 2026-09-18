@@ -10,9 +10,23 @@ import type { components } from "../../../api/schema";
 export type Atlas = components["schemas"]["Atlas"];
 export type Region = components["schemas"]["Region"];
 
+/** What each targeting mode can read: cortical needs a surface parcellation, subcortical a volume. */
+export const ATLAS_KIND_FOR_MODE = { cortical: "surface", subcortical: "volume" } as const;
+
+/**
+ * Atlases this subject can target in *space*, for one mode.
+ *
+ * The server filters by `kind` from `resources/atlas/manifest.json` — the MNI list used to be a
+ * bare filename list with no record of whether a file was a surface or a volume, so the
+ * subcortical mode was handed every packaged MNI atlas whatever it was. The second filter here is
+ * deliberate belt-and-braces: a server that predates the manifest, or a hand-added atlas with no
+ * `kind`, must never put an atlas the mode cannot read in the dropdown.
+ */
 export async function getAtlases(subject: string, kind: "cortical" | "subcortical", space?: "subject" | "mni"): Promise<Atlas[]> {
   const path = "/api/catalog/atlases";
-  return unwrap(await api.GET(path, { params: { query: { subject, kind, space } } }), path);
+  const atlases = await unwrap(await api.GET(path, { params: { query: { subject, kind, space } } }), path);
+  const wanted = ATLAS_KIND_FOR_MODE[kind];
+  return (atlases ?? []).filter((a) => a.kind === undefined || a.kind === wanted);
 }
 
 export async function getAtlasRegions(subject: string, atlas: string, hemi?: "lh" | "rh" | "both"): Promise<Region[]> {

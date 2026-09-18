@@ -8930,6 +8930,7 @@
           "name",
           "path"
         ],
+        "description": "`kind` says what the atlas *file* is -- \"surface\" for a FreeSurfer `.annot` parcellation, \"volume\" for a label volume -- and therefore which targeting flow can read it. It is not a claim about anatomy: the Glasser HCP-MMP1.0 cortical parcellation ships as a label volume and is `kind: volume`. For MNI space the list and every entry's kind, template, license and citation come from `resources/atlas/manifest.json`, so `?kind=cortical` never returns a volume and `?kind=subcortical` never returns a surface.",
         "properties": {
           "id": {
             "type": "string"
@@ -8938,6 +8939,22 @@
             "type": "string"
           },
           "path": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "surface",
+              "volume"
+            ]
+          },
+          "template": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "citation": {
             "type": "string"
           },
           "hemispheres": {

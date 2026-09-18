@@ -84,7 +84,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-from tit.atlas import DEFAULT_MNI_ATLAS, MNI_ATLAS_DIR, MNI_TEMPLATE, VoxelAtlasManager
+from tit.atlas import MNI_ATLAS_DIR, MNI_TEMPLATE, VoxelAtlasManager
 from tit.catalog import (
     VIEW_ATTACHMENT_KINDS,
     classify_view_file,
@@ -92,6 +92,20 @@ from tit.catalog import (
 )
 from tit.atlas.constants import mni_resources_dir
 from tit.paths import get_path_manager, is_within
+
+
+def __getattr__(name):
+    """Resolve ``DEFAULT_MNI_ATLAS`` on first use, not at import.
+
+    It comes from ``resources/atlas/manifest.json``, i.e. from a file, and this
+    module is imported by server route modules that must do no I/O at import
+    time (``dev/route_import_guard.py``).
+    """
+    if name == "DEFAULT_MNI_ATLAS":
+        from tit.atlas import constants
+
+        return constants.DEFAULT_MNI_ATLAS
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 _VIEW_KINDS = ("subject", "simulation", "analysis", "group", "custom")
 

@@ -477,8 +477,67 @@ def _subcortical_mask_lists(roi_spec: FlexConfig.SubcorticalROI, config=None):
     for path in paths:
         if not path or not os.path.isfile(path):
             raise FileNotFoundError(f"Volume atlas file not found: {path}")
+    if space == "mni":
+        paths, labels, space = _mni_labels_to_subject(list(paths), list(labels), config)
     paths, labels = _without_islands(list(paths), list(labels), config)
     return [space] * n, paths, labels
+
+
+def _mni_labels_to_subject(paths: list, labels: list, config) -> tuple[list, list, str]:
+    """Turn each (MNI atlas, label) into one binary NIfTI mask in subject space.
+
+    After this, an MNI target and a subject-space target are the *same thing* to
+    everything downstream: a subject-space binary NIfTI with mask value 1. Only
+    this one step differs between the two, and it is the same
+    :func:`tit.opt.masks.prepare_mask` call the ROI confirmation plate
+    (:mod:`tit.roi_confirmation`) already documents itself as making -- which
+    was not true before: flex handed SimNIBS ``mask_space="mni"`` and let it
+    warp the whole multi-label atlas internally, so the island cleanup below ran
+    on the atlas in *MNI* voxels rather than on the mask the search would use,
+    and the plate and the run transformed different things.
+
+    The label is selected *before* the transform, exactly as the plate does:
+    ``prepare_mask`` resamples with nearest-neighbour interpolation, so a binary
+    mask stays binary and cannot pick up a neighbouring nucleus's value.
+
+    Without a project directory (a plan built outside a run, or a unit test)
+    there is nowhere to write the derived masks, so the atlas and its MNI space
+    are returned unchanged and SimNIBS does the transform as before.
+    """
+    import nibabel as nib
+    import numpy as np
+
+    from tit import get_path_manager
+    from tit.opt.masks import prepare_mask
+
+    try:
+        pm = get_path_manager()
+        m2m = pm.m2m(config.subject_id)
+        out = os.path.join(pm.masks(config.subject_id), ".prepared")
+    except (AttributeError, RuntimeError):
+        log.debug("No project directory; leaving the MNI transform to SimNIBS")
+        return paths, labels, "mni"
+
+    os.makedirs(out, exist_ok=True)
+    new_paths, new_labels = [], []
+    for path, label in zip(paths, labels):
+        image = nib.load(path)
+        data = np.asarray(image.dataobj)
+        binary = (np.rint(data).astype(np.int64) == int(label)).astype(np.uint8)
+        if not binary.any():
+            raise ValueError(f"{path} has no voxels with label {label}")
+        selected = os.path.join(out, f"mni-label-{int(label)}.nii")
+        nib.save(nib.Nifti1Image(binary, image.affine), selected)
+        subject = prepare_mask(selected, "mni", m2m, out, binary=True)
+        log.info(
+            "Transformed label %d of %s into subject space: %s",
+            int(label),
+            os.path.basename(path),
+            os.path.basename(subject),
+        )
+        new_paths.append(subject)
+        new_labels.append(1)
+    return new_paths, new_labels, "subject"
 
 
 def _without_islands(paths: list, labels: list, config) -> tuple[list, list]:

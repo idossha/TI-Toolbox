@@ -524,7 +524,7 @@ function CorticalPanel({
         <RoiSpaceControl value={value} onChange={onChange} label="Atlas space" id="roi-picker-space" disabled={disabled} />
       </Field>
       {value.space === "mni" && (atlases.data ?? []).length === 0 && !atlases.isFetching && (
-        <Callout kind="info">TI-Toolbox ships no MNI-space cortical parcellation. Choose Subcortical for the packaged MNI atlases, or switch back to Subject.</Callout>
+        <Callout kind="info">Every atlas TI-Toolbox ships in MNI space is a label volume (see <code>resources/atlas/manifest.json</code>), including the Glasser HCP-MMP1.0 cortical parcellation. Choose Subcortical to target them, or switch back to Subject for this subject&rsquo;s own surface parcellations.</Callout>
       )}
       <Field label="Atlas" required help="FreeSurfer surface atlas (.annot) whose parcellation the regions below come from.">
         {atlases.isFetching ? (

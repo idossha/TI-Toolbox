@@ -57,14 +57,24 @@ MNI_ATLAS_DIR = resolve_resource_path("atlas")
 
 MNI_TEMPLATE = "MNI152_T1_1mm.nii.gz"
 
-MNI_ATLAS_FILES = [
-    "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
-    "MorelMNI152_labeling_1mm.nii.gz",
-    "MNI_Glasser_HCP_v1.0.nii.gz",
-    "massp2021-parcellation_decade-18to40.nii.gz",
-]
+# ``MNI_ATLAS_FILES`` and ``DEFAULT_MNI_ATLAS`` are no longer written here: the
+# shipped MNI atlases, their kind (surface vs volume), template space, LUT,
+# licence and citation all live in ``resources/atlas/manifest.json`` and are read
+# by :mod:`tit.atlas.manifest`.  They stay importable from this module under
+# their old names, resolved lazily on first access so that reading the manifest
+# cannot run while this module is still being imported.
+_MANIFEST_NAMES = ("MNI_ATLAS_FILES", "DEFAULT_MNI_ATLAS")
 
-DEFAULT_MNI_ATLAS = MNI_ATLAS_FILES[0]
+
+def __getattr__(name):
+    if name in _MANIFEST_NAMES:
+        from tit.atlas.manifest import mni_atlas_files
+
+        files = mni_atlas_files()
+        if name == "MNI_ATLAS_FILES":
+            return files
+        return files[0] if files else ""
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def mni_resources_dir() -> str:

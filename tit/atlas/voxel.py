@@ -6,7 +6,6 @@ import re
 from tit.atlas.constants import (
     FASTSURFER_ATLAS_FILES,
     FREESURFER_ATLAS_FILES,
-    MNI_ATLAS_FILES,
     MASK_EXTENSIONS,
 )
 from tit.atlas.segstats import (
@@ -195,19 +194,21 @@ class VoxelAtlasManager:
     def detect_mni_atlases(atlas_dir: str) -> list[str]:
         """Detect available MNI atlases in an assets directory.
 
+        The list, its order and every atlas's kind/licence come from
+        ``resources/atlas/manifest.json`` (:mod:`tit.atlas.manifest`); a
+        manifest entry whose file is absent is skipped.
+
         Args:
             atlas_dir: Path to the atlas resources directory.
 
         Returns:
             List of full paths to found MNI atlas files.
         """
+        from tit.atlas.manifest import mni_atlas_entries
+
         if not os.path.isdir(atlas_dir):
             return []
-        return [
-            os.path.join(atlas_dir, p)
-            for p in MNI_ATLAS_FILES
-            if os.path.isfile(os.path.join(atlas_dir, p))
-        ]
+        return [entry["path"] for entry in mni_atlas_entries(atlas_dir)]
 
     def find_labeling_lut(self) -> str | None:
         """Find the LUT file for the SimNIBS labeling atlas.

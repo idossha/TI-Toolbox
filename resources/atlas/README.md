@@ -1,5 +1,16 @@
 # Atlas Resources
 
+`manifest.json` is the one description of every atlas shipped here: for each one, the file, its
+**kind** (`volume` or `surface` — which targeting flow can read it), its template space, its
+labels/LUT file, its licence, the attribution it requires, whether it may be redistributed, and
+what to cite. :mod:`tit.atlas.manifest` is the only reader; `tit/atlas/constants.py`,
+`tit/catalog.py` and the desktop ROI picker all resolve through it, so the ROI picker in MNI mode
+offers a volume atlas to the subcortical flow and a surface atlas to the cortical flow and never
+the wrong one. `tests/test_atlas_manifest.py` fails if an atlas here is undescribed, or described
+and not shipped, or missing its LUT or a licence field.
+
+The prose below stays as the survey and the working notes; the manifest is what the code reads.
+
 This directory stores MNI-space atlas resources used by TI-Toolbox workflows. Label maps are distributed with FreeSurfer-style lookup tables when region colors/names are needed (`ID Name R G B A`).
 
 ## CIT168 Subcortical Atlas
@@ -116,8 +127,18 @@ shift: it is a ~1 mm global term plus local nonlinear differences that are large
 nuclei. For a cortical TI target that is negligible against the focality of the field; for
 thalamic/basal-ganglia targeting it is of the order of the structure itself, and the
 `tpl-MNI152NLin6Asym_from-MNI152NLin2009cAsym_mode-image_xfm.h5` transform should be applied first.
-**No such correction is applied today**; the `roi_confirmation.png` every MNI job writes
-(`tit/roi_confirmation.py`) is what lets a user see where a target actually landed.
+**No such correction is applied today**, and as of 2026-09-17 that is a decision rather than an
+omission: measured on `ernie`, warping a CIT168 or MASSP label into subject space and comparing its
+centroid against `charm`'s own `labeling.nii.gz` label for the same structure gives 1.05 mm
+(CIT168 putamen), 2.20 mm (CIT168 caudate), 2.00 mm (MASSP thalamus left) and 1.19 mm (MASSP
+thalamus right) — the same order as the disagreement between two segmentations of one structure.
+See `docs/dev/DECISIONS.md § 2026-09-17 (Atlas manifest, the MNI target transform, and atlas
+licences)`. The ROI plate (`roi_plate.png`) every job writes (`tit/roi_confirmation.py`) is what
+lets a user see where a target actually landed.
+
+`tit.opt.flex` transforms an MNI atlas label into the subject *itself* (`prepare_mask`, one
+documented warp) rather than handing SimNIBS the whole atlas with `mask_space="mni"`, so the
+island cleanup and the confirmation plate operate on the same subject-space mask the search does.
 
 ### What is shipped today
 

@@ -32,6 +32,61 @@ TI-Toolbox ships four atlases as MNI-space NIfTI volumes:
 | Glasser HCP-MMP1.0 | 360     | FreeSurfer-conformed 256x256x256 1mm grid        |
 | MASSP Subcortical  | 31      | ICBM152 2009b nonlinear asymmetric, hi-res 0.5mm |
 
+Every one of them is a **label volume**, including Glasser: that is a cortical parcellation, but it
+is distributed as a NIfTI, so you target it through the ROI picker's **Subcortical** mode, not the
+**Cortical** mode. The picker knows which is which because each atlas declares it in
+`resources/atlas/manifest.json`, and it will not offer you an atlas the mode you are in cannot read.
+TI-Toolbox ships no MNI-space *surface* parcellation; the Cortical mode's atlases are your own
+subject's, built by preprocessing.
+
+## Licence, attribution and citation
+
+Atlases are other people's data. If you publish work that used one, cite it; if you redistribute
+TI-Toolbox, these are the terms you are redistributing under. Each row is also machine-readable in
+`resources/atlas/manifest.json`.
+
+| Atlas | Licence | May be redistributed | Cite |
+| --- | --- | --- | --- |
+| CIT168 Subcortical | CC BY 4.0 | Yes | Pauli W. M., Nili A. N., Tyszka J. M. *Scientific Data* 5:180063 (2018). [doi:10.1038/sdata.2018.63](https://doi.org/10.1038/sdata.2018.63) |
+| MASSP 2021 Subcortical | CC BY 4.0 | Yes | Bazin P.-L. et al. *eLife* 9:e59430 (2020); atlas release [doi:10.21942/uva.19646328](https://doi.org/10.21942/uva.19646328) |
+| Glasser HCP-MMP1.0 | WU-Minn HCP Open Access Data Use Terms | Yes, **under those same terms** | Glasser M. F. et al. *Nature* 536:171-178 (2016). [doi:10.1038/nature18933](https://doi.org/10.1038/nature18933) |
+| Morel Thalamus | **CC BY-NC-SA 4.0** | **No — non-commercial** | Krauth A. et al. *NeuroImage* 49(3):2053-2062 (2010); Jakab A. et al. *AJNR* 33(11):2110-2116 (2012) |
+| MNI152 T1 1mm template | MNI/McGill permissive (any purpose, without fee, keep the notice) | Yes | Copyright (C) 1993-2009 Louis Collins, McConnell Brain Imaging Centre, MNI, McGill University |
+
+Using Glasser also carries an acknowledgement: *"Data were provided [in part] by the Human
+Connectome Project, WU-Minn Consortium (Principal Investigators: David Van Essen and Kamil Ugurbil;
+1U54MH091657) funded by the 16 NIH Institutes and Centers that support the NIH Blueprint for
+Neuroscience Research; and by the McDonnell Center for Systems Neuroscience at Washington
+University."*
+
+**Morel is a known problem.** Its CC BY-NC-SA licence forbids commercial use, which TI-Toolbox's own
+GPL-3 licence cannot promise you. It is still shipped today so that no existing configuration
+breaks, and it will move to an optional download you fetch from
+[Zenodo](https://doi.org/10.5281/zenodo.13918589) yourself before the next release.
+
+## Which MNI template, and how far off
+
+SimNIBS warps between MNI and your subject with the deformation fields `charm` wrote into
+`m2m_<id>/toMNI/`, and those were computed against **FSL's `MNI152_T1_1mm.nii.gz`, i.e.
+MNI152NLin6Asym**. CIT168 and Glasser are defined in MNI152NLin2009cAsym and MASSP in 2009b, so
+their labels travel through a warp that targets a slightly different template. The templates differ
+by roughly **1.3 mm** globally.
+
+Measured on the `ernie` example subject, against `charm`'s own subcortical segmentation
+(`m2m_ernie/segmentation/labeling.nii.gz`) for the same structure:
+
+| Target | Distance between centroids |
+| --- | --- |
+| CIT168 putamen vs charm Left+Right-Putamen | 1.05 mm |
+| CIT168 caudate vs charm Left+Right-Caudate | 2.20 mm |
+| MASSP thalamus (left) vs charm Left-Thalamus | 2.00 mm |
+| MASSP thalamus (right) vs charm Right-Thalamus | 1.19 mm |
+
+That is the same order as the disagreement between two segmentations of the same structure, and it
+is accepted rather than corrected. Every optimization and analysis writes a **ROI plate**
+(`roi_plate.png`) showing the mask that will actually be used on your subject's own T1 — look at it
+before you trust a deep target.
+
 Pick an atlas from the dropdown to load it over the MNI152 template. Click any row in a label table below to jump the crosshair to that region's centroid — the viewer switches atlases automatically if needed. Only the template and the currently selected atlas are ever loaded.
 
 <div class="atlas-viewer" data-space="mni">
