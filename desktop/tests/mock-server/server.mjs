@@ -3332,9 +3332,16 @@ route("DELETE", "/api/jobs/:id", (ctx) => {
 route("GET", "/api/jobs/:id/events", (ctx) => {
   const job = jobRegistry.get(ctx.params.id);
   if (!job) return json(ctx.res, 404, { detail: "unknown job" });
+  // `since` is INCLUSIVE and must be >= 0, exactly like the real server
+  // (`tit/jobs/tailer.py::read_events` keeps `seq >= since`; FastAPI rejects a negative with 422).
+  // Filtering `seq > since` and defaulting to -1 is what let the renderer ship a `since=-1` default
+  // that every real server answered with HTTP 422.
   const sinceParam = ctx.url.searchParams.get("since");
-  const since = sinceParam === null ? -1 : Number(sinceParam);
-  json(ctx.res, 200, job.events.filter((e) => e.seq > since));
+  const since = sinceParam === null ? 0 : Number(sinceParam);
+  if (!Number.isInteger(since) || since < 0) {
+    return json(ctx.res, 422, { detail: [{ type: "greater_than_equal", loc: ["query", "since"], msg: "Input should be greater than or equal to 0" }] });
+  }
+  json(ctx.res, 200, job.events.filter((e) => e.seq >= since));
 });
 route("GET", "/api/jobs/:id/log", (ctx) => {
   const job = jobRegistry.get(ctx.params.id);
@@ -3993,7 +4000,9 @@ server.on("upgrade", (req, socket, head) => {
           const job = jobRegistry.get(jobId);
           if (job) {
             for (const ev of job.events) {
-              if (ev.seq > sinceSeq) ws.send(JSON.stringify({ type: "event", job_id: jobId, event: ev }));
+              // Inclusive, like the real server's `manager.subscribe_events(since=...)`: a client
+              // resuming from the next seq it wants must receive that seq, not the one after it.
+              if (ev.seq >= sinceSeq) ws.send(JSON.stringify({ type: "event", job_id: jobId, event: ev }));
             }
           }
         }

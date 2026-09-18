@@ -57,8 +57,16 @@ export async function listJobs(filters: { state?: JobState; subject?: string; ki
   return unwrap(await api.GET("/api/jobs", { params: { query: filters } }), "/api/jobs");
 }
 
-/** Full event history for a job (`since: -1` = from the start) — used by the console's "load earlier". */
-export async function getJobEvents(id: string, since = -1): Promise<JobEvent[]> {
+/**
+ * Full event history for a job — the console's backlog, merged with the socket's live tail.
+ *
+ * `since` is INCLUSIVE and the contract's minimum is 0 (`tit/jobs/tailer.py::read_events` keeps
+ * every event with `seq >= since`), so `since: 0` is "from the start". It used to default to `-1`,
+ * which the mock server happened to accept (it filtered `seq > since`) but the real server rejects
+ * with HTTP 422 — every console reading a real job therefore got no backlog at all, and a job that
+ * had already finished (so nothing is streamed over `/ws/jobs` either) showed an empty terminal.
+ */
+export async function getJobEvents(id: string, since = 0): Promise<JobEvent[]> {
   return unwrap(await api.GET("/api/jobs/{id}/events", { params: { path: { id }, query: { since } } }), `/api/jobs/${id}/events`);
 }
 

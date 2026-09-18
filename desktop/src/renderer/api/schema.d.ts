@@ -2336,6 +2336,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    /** @description Inclusive: every event with `seq >= since` is returned, so `0` (the default) is the whole history. Negative values are rejected with 422. */
                     since?: number;
                 };
                 header?: never;
