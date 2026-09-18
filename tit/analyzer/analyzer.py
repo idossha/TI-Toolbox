@@ -31,6 +31,7 @@ from tit.analyzer.field_selector import select_field_file
 from tit.atlas.segstats import compute_segstats, resolve_lut_for_atlas
 from tit.analyzer.visualizer import (
     save_analysis_metadata,
+    save_histogram,
     save_mesh_roi_overlay,
     save_nifti_roi_overlay,
     save_results_csv,
@@ -308,7 +309,7 @@ class Analyzer:
             coordinates are transformed to subject space via SimNIBS
             ``mni2subject_coords``.
         visualize : bool, optional
-            Write the ROI overlay, its scene, and ``analysis.json``.
+            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
 
         Returns
         -------
@@ -355,7 +356,7 @@ class Analyzer:
         coordinate_space : str, optional
             ``"subject"`` (default) or ``"MNI"``, applied to every sphere.
         visualize : bool, optional
-            Write the ROI overlay, its scene, and ``analysis.json``.
+            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
 
         Returns
         -------
@@ -402,7 +403,7 @@ class Analyzer:
             combined ROI. Bare names like ``"cuneus"`` expand to both
             hemispheres in mesh mode.
         visualize : bool, optional
-            Write the ROI overlay, its scene, and ``analysis.json``.
+            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
 
         Returns
         -------
@@ -827,6 +828,10 @@ class Analyzer:
                 roi_mask,
                 out_dir,
                 result,
+                surface_pos,
+                surface_areas,
+                roi_pos,
+                roi_areas,
                 analysis_type=analysis_type,
                 region_labels=kwargs.get("region_labels"),
                 atlas=kwargs.get("atlas"),
@@ -899,6 +904,7 @@ class Analyzer:
             self._visualize_voxel(
                 field_arr,
                 roi_mask,
+                analysis_mask,
                 affine,
                 out_dir,
                 result,
@@ -1071,6 +1077,10 @@ class Analyzer:
         roi_mask,
         out_dir,
         result,
+        gm_values,
+        gm_areas,
+        roi_values,
+        roi_areas,
         *,
         analysis_type: str = "cortical",
         region_labels: list[str] | None = None,
@@ -1104,6 +1114,16 @@ class Analyzer:
                 "analysis_type": analysis_type,
             },
         )
+        save_histogram(
+            whole_head_values=gm_values,
+            roi_values=roi_values,
+            output_dir=out,
+            whole_head_weights=gm_areas,
+            roi_weights=roi_areas,
+            roi_mean=result.roi_mean,
+            region_name=result.region_name,
+            unit_label="Area (mm\u00b2)",
+        )
         save_analysis_metadata(
             out,
             {
@@ -1123,6 +1143,7 @@ class Analyzer:
         self,
         field_arr,
         roi_mask,
+        analysis_mask,
         affine,
         out_dir,
         result,
@@ -1156,6 +1177,19 @@ class Analyzer:
                 "space": "voxel",
                 "analysis_type": analysis_type,
             },
+        )
+        voxel_vol = voxel_volume_mm3(affine)
+        tissue_values = field_arr[analysis_mask]
+        roi_values = field_arr[roi_mask]
+        save_histogram(
+            whole_head_values=tissue_values,
+            roi_values=roi_values,
+            output_dir=out,
+            whole_head_weights=np.full(tissue_values.shape, voxel_vol),
+            roi_weights=np.full(roi_values.shape, voxel_vol),
+            roi_mean=result.roi_mean,
+            region_name=result.region_name,
+            unit_label="Volume (mm\u00b3)",
         )
         save_analysis_metadata(
             out,

@@ -1438,14 +1438,18 @@ Cerebellum still rests only on the 2026-09-17 survey in `resources/atlas/README.
 also means committing tens of megabytes of binaries to the repository and the image, which needs
 the maintainer's decision, not an agent's.
 
-## 2026-09-18 — An analysis folder is data plus one scene (amends "One scene per target")
+## 2026-09-18 — An analysis folder is data, one histogram and one scene (amends "One scene per target")
 
 **Decision.** An analysis leaves `results.csv`, `analysis.json`, the overlay it computed from
-(`roi_overlay.msh` + `.opt`, or `roi_overlay.nii.gz`) and **one** `scene.tetravox.json`
+(`roi_overlay.msh` + `.opt`, or `roi_overlay.nii.gz`), **one** `histogram.png`
+(`tit.analyzer.visualizer.save_histogram`: the ROI's field distribution against the whole grey
+matter, area- or volume-weighted, 150 dpi PNG) and **one** `scene.tetravox.json`
 (`tit/analyzer/scene.py`) that points at that overlay: the field masked to the ROI over the
 anatomy, cursor on the ROI, colour bar on. The analyzer's `roi.tetravox.json` (ROI only, no
 field) and `roi_field.tetravox.json` (the whole unmasked field with a threshold, voxel only), the
-matplotlib `histogram_histogram.pdf` and the second screenshot are gone; the host pass renders one
+600-dpi `histogram_histogram.pdf` (replaced by the PNG the same day — the histogram itself is
+not optional, a folder without it fails `tests/numerical/test_analyzer_masks.py`) and the second
+screenshot are gone; the host pass renders one
 `scene.png` and removes Tetravox's `job-result.json` trace after logging it. Optimizers keep their
 `roi.tetravox.json`: it is their target confirmation, written before the search.
 
@@ -1460,11 +1464,12 @@ over the same mesh once more at 25 % opacity, `peel` transparency, the 3D pane l
 **Cost.** The overlay mesh drops the simulation's own whole-surface view (49 MB from 55; the field is
 in the simulation's own file). A mesh `hide` threshold must carry a finite `hi` — Tetravox 0.5.2
 floors the ramp at 1e-6 of `hi − lo`, so an open `hi` (3.4e38) hides the whole layer; the scene
-writes twice the ROI max. `tit.plotting.plot_whole_head_roi_histogram` is removed with its module.
+writes twice the ROI max. `tit.plotting.plot_whole_head_roi_histogram` is removed with its module; the histogram lives in
+the analyzer's own visualizer.
 
 **Revisit if** Tetravox colours 2D mesh contours by field (the mesh scene's slice panes then show
-the ROI's field, not only its outline), or a per-analysis histogram is asked for again — it would
-be a Tetravox `stats` result, not a PDF.
+the ROI's field, not only its outline), or Tetravox grows a `stats` result that could replace the
+matplotlib PNG.
 
 Verified in the dev container on `ernie` / `L_Insula` / `lh.insula` (DK40), mesh and voxel; both
 scenes rendered headless with Tetravox 0.5.2 `--job`.

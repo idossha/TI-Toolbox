@@ -1,7 +1,8 @@
 """Stateless visualization and output helpers for the analyzer pipeline.
 
 Module-level functions that write output artifacts (mesh overlays,
-NIfTI overlays, CSV, metadata JSON) without any shared mutable state.
+NIfTI overlays, the field-distribution histogram, CSV, metadata JSON)
+without any shared mutable state.
 The scene that shows an overlay is :mod:`tit.analyzer.scene`.  These are
 package-internal; the public API is :class:`~tit.analyzer.Analyzer`.
 
@@ -181,7 +182,177 @@ def save_nifti_roi_overlay(
 
 
 # ---------------------------------------------------------------------------
-# 3. Results CSV
+# 3. Histogram
+# ---------------------------------------------------------------------------
+
+
+def save_histogram(
+    whole_head_values: np.ndarray,
+    roi_values: np.ndarray,
+    output_dir: Path,
+    whole_head_weights: np.ndarray | None = None,
+    roi_weights: np.ndarray | None = None,
+    roi_mean: float | None = None,
+    region_name: str | None = None,
+    unit_label: str = "Area (mm\u00b2)",
+    n_bins: int = 100,
+    dpi: int = 150,
+) -> Path | None:
+    """Write ``histogram.png``: the field's distribution in the ROI against grey matter.
+
+    Two weighted histograms on shared bins -- the whole grey matter (area- or
+    volume-weighted) and the ROI on top of it -- with the ROI's mean and the
+    focality cutoffs (50/75/90/95 % of the GM 99.9th percentile) as vertical
+    lines.  One PNG at *dpi*, sized to stay legible as a thumbnail.
+
+    Parameters
+    ----------
+    whole_head_values : numpy.ndarray
+        Field values over the whole grey matter surface / volume.
+    roi_values : numpy.ndarray
+        Field values inside the ROI.
+    output_dir : pathlib.Path
+        Directory the PNG is written to.
+    whole_head_weights, roi_weights : numpy.ndarray or None, optional
+        Per-node areas (mm^2) or per-voxel volumes (mm^3).  Both or neither;
+        without them the histogram counts elements.
+    roi_mean : float or None, optional
+        Drawn as a vertical line.
+    region_name : str or None, optional
+        Named in the title and the legend.
+    unit_label : str, optional
+        The y-axis label when weights are given.
+    n_bins : int, optional
+        Bins over the whole-GM range (default 100).
+    dpi : int, optional
+        Output resolution (default 150).
+
+    Returns
+    -------
+    pathlib.Path or None
+        ``<output_dir>/histogram.png``, or ``None`` when either input is empty.
+    """
+    from tit.plotting._common import (
+        SaveFigOptions,
+        ensure_headless_matplotlib_backend,
+        savefig_close,
+    )
+
+    gm = np.asarray(whole_head_values, dtype=float).ravel()
+    roi = np.asarray(roi_values, dtype=float).ravel()
+    gm_ok = np.isfinite(gm)
+    roi_ok = np.isfinite(roi)
+    gm_w = roi_w = None
+    if whole_head_weights is not None and roi_weights is not None:
+        gm_w = np.broadcast_to(np.asarray(whole_head_weights, float), gm.shape)[gm_ok]
+        roi_w = np.broadcast_to(np.asarray(roi_weights, float), roi.shape)[roi_ok]
+    gm = gm[gm_ok]
+    roi = roi[roi_ok]
+    if gm.size == 0 or roi.size == 0:
+        logger.warning("Histogram skipped: empty ROI or grey-matter distribution")
+        return None
+
+    ensure_headless_matplotlib_backend()
+    import matplotlib.pyplot as plt
+
+    weighted = gm_w is not None
+    y_label = unit_label if weighted else "Elements"
+    edges = np.histogram_bin_edges(gm, bins=n_bins)
+    gm_hist, _ = np.histogram(gm, bins=edges, weights=gm_w)
+    roi_hist, _ = np.histogram(roi, bins=edges, weights=roi_w)
+    centers = (edges[:-1] + edges[1:]) / 2
+    width = float(edges[1] - edges[0])
+    roi_label = f"ROI ({region_name})" if region_name else "ROI"
+
+    rc = {
+        "font.family": "sans-serif",
+        "font.sans-serif": ["DejaVu Sans", "Liberation Sans", "sans-serif"],
+        "font.size": 11,
+        "text.usetex": False,
+    }
+    with plt.rc_context(rc):
+        fig, ax = plt.subplots(figsize=(9, 5.5))
+        ax.bar(
+            centers,
+            gm_hist,
+            width=width,
+            color="#9aa5b1",
+            edgecolor="none",
+            label="Grey matter",
+        )
+        ax.bar(
+            centers,
+            roi_hist,
+            width=width,
+            color="#d1495b",
+            edgecolor="none",
+            alpha=0.9,
+            label=roi_label,
+        )
+
+        p999 = float(np.percentile(gm, 99.9))
+        for frac, color in zip(
+            (0.5, 0.75, 0.9, 0.95), ("#f4a261", "#e76f51", "#c1440e", "#7a1f00")
+        ):
+            t = frac * p999
+            if edges[0] <= t <= edges[-1]:
+                ax.axvline(
+                    t,
+                    color=color,
+                    linestyle="--",
+                    linewidth=1.3,
+                    label=f"{int(frac * 100)}% of GM 99.9th pct ({t:.2f} V/m)",
+                )
+        if roi_mean is not None and edges[0] <= float(roi_mean) <= edges[-1]:
+            ax.axvline(
+                float(roi_mean),
+                color="#1b6f3a",
+                linewidth=2.2,
+                label=f"ROI mean ({float(roi_mean):.2f} V/m)",
+            )
+
+        ax.set_yscale("log")
+        ax.set_xlabel("Field strength (V/m)")
+        ax.set_ylabel(y_label + " (log)")
+        title = "Field distribution: ROI vs grey matter"
+        if region_name:
+            title += f" \u2014 {region_name}"
+        ax.set_title(title)
+        ax.grid(True, alpha=0.25)
+        ax.legend(loc="upper right", frameon=True, fontsize=9)
+
+        stats = (
+            f"GM  mean {float(np.average(gm, weights=gm_w)):.2f}  "
+            f"max {float(gm.max()):.2f}  99.9% {p999:.2f} V/m\n"
+            f"ROI mean {float(np.average(roi, weights=roi_w)):.2f}  "
+            f"max {float(roi.max()):.2f} V/m  n={roi.size:,}"
+        )
+        ax.text(
+            0.99,
+            0.02,
+            stats,
+            transform=ax.transAxes,
+            fontsize=8.5,
+            ha="right",
+            va="bottom",
+            family="monospace",
+            bbox=dict(
+                boxstyle="round", facecolor="white", alpha=0.85, edgecolor="#cccccc"
+            ),
+        )
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        out_path = output_dir / "histogram.png"
+        fig.tight_layout()
+        savefig_close(fig, str(out_path), fmt="png", opts=SaveFigOptions(dpi=dpi))
+
+    logger.info("Saved histogram: %s", out_path)
+    return out_path
+
+
+# ---------------------------------------------------------------------------
+# 4. Results CSV
 # ---------------------------------------------------------------------------
 
 
@@ -218,7 +389,7 @@ def save_results_csv(result: dict[str, Any], output_dir: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# 4. Analysis metadata
+# 5. Analysis metadata
 # ---------------------------------------------------------------------------
 
 

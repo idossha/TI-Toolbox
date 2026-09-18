@@ -905,12 +905,13 @@ class TestMainRegionsKey:
 
 
 class TestVisualizeMesh:
-    """_visualize_mesh writes the overlay, then the one scene that points at it."""
+    """_visualize_mesh writes the overlay, the one scene that points at it, and the histogram."""
 
+    @patch("tit.analyzer.analyzer.save_histogram")
     @patch("tit.analyzer.scene.write_mesh_scene")
     @patch("tit.analyzer.analyzer.save_analysis_metadata")
     @patch("tit.analyzer.analyzer.save_mesh_roi_overlay", return_value=Path("/tmp/out/roi_overlay.msh"))
-    def test_overlay_then_scene(self, mock_overlay, mock_meta, mock_scene):
+    def test_overlay_then_scene(self, mock_overlay, mock_meta, mock_scene, mock_hist):
         a = _make_analyzer(space="mesh")
         a._surface_mesh_path = Path("/fake/central.msh")
         surface = MagicMock()
@@ -920,8 +921,14 @@ class TestVisualizeMesh:
         result = MagicMock()
         result.region_name = "lh.insula"
         result.normal_max = 0.5
+        result.roi_mean = 1.0
+        gm_values, gm_areas = np.array([1.0, 2.0]), np.array([3.0, 4.0])
+        roi_values, roi_areas = np.array([1.0]), np.array([3.0])
 
-        a._visualize_mesh(surface, values, roi_mask, "/tmp/out", result, analysis_type="cortical")
+        a._visualize_mesh(
+            surface, values, roi_mask, "/tmp/out", result,
+            gm_values, gm_areas, roi_values, roi_areas, analysis_type="cortical",
+        )
 
         mock_overlay.assert_called_once()
         kwargs = mock_scene.call_args.kwargs
@@ -932,33 +939,52 @@ class TestVisualizeMesh:
         np.testing.assert_array_equal(kwargs["roi_values"], np.array([1.0]))
         np.testing.assert_array_equal(kwargs["roi_coords"], np.array([[0.0, 0.0, 0.0]]))
         mock_meta.assert_called_once()
+        hist = mock_hist.call_args.kwargs
+        assert hist["output_dir"] == Path("/tmp/out")
+        assert hist["roi_mean"] == 1.0
+        assert hist["region_name"] == "lh.insula"
+        np.testing.assert_array_equal(hist["whole_head_weights"], gm_areas)
+        np.testing.assert_array_equal(hist["roi_weights"], roi_areas)
 
 
 class TestVisualizeVoxel:
-    """_visualize_voxel writes the overlay, then the one scene that points at it."""
+    """_visualize_voxel writes the overlay, the one scene that points at it, and the histogram."""
 
+    @patch("tit.analyzer.analyzer.save_histogram")
     @patch("tit.analyzer.scene.write_voxel_scene")
     @patch("tit.analyzer.analyzer.save_analysis_metadata")
     @patch(
         "tit.analyzer.analyzer.save_nifti_roi_overlay",
         return_value=Path("/tmp/out/roi_overlay.nii.gz"),
     )
-    def test_overlay_then_scene(self, mock_overlay, mock_meta, mock_scene):
+    def test_overlay_then_scene(self, mock_overlay, mock_meta, mock_scene, mock_hist):
         a = _make_analyzer(space="voxel")
         field_arr = np.ones((2, 2, 2))
         roi_mask = np.ones_like(field_arr, dtype=bool)
-        affine = np.eye(4)
+        roi_mask[0, 0, 0] = False
+        analysis_mask = np.ones_like(field_arr, dtype=bool)
+        affine = np.diag([2.0, 2.0, 2.0, 1.0])
         result = MagicMock()
         result.region_name = "lh.insula"
+        result.roi_mean = 1.0
 
-        a._visualize_voxel(field_arr, roi_mask, affine, "/tmp/out", result, analysis_type="cortical")
+        a._visualize_voxel(
+            field_arr, roi_mask, analysis_mask, affine, "/tmp/out", result, analysis_type="cortical"
+        )
 
         mock_overlay.assert_called_once()
         kwargs = mock_scene.call_args.kwargs
         assert kwargs["overlay"] == "/tmp/out/roi_overlay.nii.gz"
         assert kwargs["anatomy"].endswith("T1.nii.gz")
-        assert kwargs["roi_values"].shape == (8,)
+        assert kwargs["roi_values"].shape == (7,)
         mock_meta.assert_called_once()
+        # Every voxel weighs its own volume (mm^3 from the affine): 8 GM, 7 ROI.
+        hist = mock_hist.call_args.kwargs
+        assert hist["whole_head_values"].shape == (8,)
+        assert hist["roi_values"].shape == (7,)
+        np.testing.assert_allclose(hist["whole_head_weights"], np.full(8, 8.0))
+        np.testing.assert_allclose(hist["roi_weights"], np.full(7, 8.0))
+        assert hist["roi_mean"] == 1.0
 
 
 class TestFieldPlumbing:

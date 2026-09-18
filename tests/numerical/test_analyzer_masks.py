@@ -62,8 +62,9 @@ def test_voxel_mask_resamples_positive_membership_and_retains_volume(
     assert list(tmp_path.glob("*.csv"))
 
 
-def test_a_visualized_voxel_analysis_writes_exactly_four_files(tmp_path, monkeypatch):
-    """The folder is data plus one scene: results, analysis.json, the overlay, the scene."""
+def test_a_visualized_voxel_analysis_writes_exactly_five_files(tmp_path, monkeypatch):
+    """The folder is data plus one scene plus the histogram: results, analysis.json,
+    the overlay, the scene, histogram.png."""
     import json
 
     import nibabel as nib
@@ -88,10 +89,16 @@ def test_a_visualized_voxel_analysis_writes_exactly_four_files(tmp_path, monkeyp
 
     assert sorted(p.name for p in out.iterdir()) == [
         "analysis.json",
+        "histogram.png",
         "results.csv",
         "roi_overlay.nii.gz",
         "scene.tetravox.json",
     ]
+    png = (out / "histogram.png").read_bytes()
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    # 150 dpi on a 9 x 5.5 in figure (tight bbox trims a little): wider than 1000 px.
+    width = int.from_bytes(png[16:20], "big")
+    assert 1000 < width < 1500
     scene = json.loads((out / "scene.tetravox.json").read_text())
     assert [d["name"] for d in scene["datasets"]] == ["T1.nii.gz", "roi_overlay.nii.gz"]
     field_layer = scene["layers"][1]

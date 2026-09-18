@@ -6,7 +6,7 @@ Covers coverage gaps in:
 - tit/analyzer/field_selector.py  (select_field_file, _select_mesh, _select_voxel)
 - tit/analyzer/group.py           (GroupResult, run_group_analysis, _build_summary_df)
 - tit/analyzer/visualizer.py      (save_mesh_roi_overlay, save_nifti_roi_overlay,
-                                    save_results_csv)
+                                    save_histogram, save_results_csv)
 """
 
 import csv
@@ -770,6 +770,47 @@ class TestSaveNiftiRoiOverlay:
         save_call = nib.save.call_args
         saved_img = save_call[0][0]
         nib.Nifti1Image.assert_called_once()
+
+
+class TestSaveHistogram:
+    """save_histogram writes one histogram.png, or nothing for empty input."""
+
+    @pytest.mark.unit
+    def test_writes_histogram_png(self, tmp_path):
+        # matplotlib is mocked on the host; the save is what is under test here,
+        # the picture itself is checked in tests/numerical/test_analyzer_masks.py.
+        def fake_save(fig, output_file, *, fmt=None, opts=None):
+            assert fmt == "png"
+            assert opts.dpi == 150
+            Path(output_file).write_bytes(b"\x89PNG")
+            return output_file
+
+        with (
+            patch("tit.plotting._common.savefig_close", side_effect=fake_save),
+            patch("matplotlib.pyplot.subplots", return_value=(MagicMock(), MagicMock())),
+        ):
+            result = visualizer.save_histogram(
+                whole_head_values=np.array([1.0, 2.0, 3.0, np.nan]),
+                roi_values=np.array([1.0, 2.0]),
+                output_dir=tmp_path,
+                whole_head_weights=np.array([1.0, 1.0, 2.0, 1.0]),
+                roi_weights=np.array([1.0, 1.0]),
+                roi_mean=1.5,
+                region_name="lh.insula",
+            )
+
+        assert result == tmp_path / "histogram.png"
+        assert result.exists()
+
+    @pytest.mark.unit
+    def test_returns_none_for_empty_input(self, tmp_path):
+        result = visualizer.save_histogram(
+            whole_head_values=np.array([]),
+            roi_values=np.array([]),
+            output_dir=tmp_path,
+        )
+        assert result is None
+        assert not (tmp_path / "histogram.png").exists()
 
 
 class TestSaveResultsCsv:
