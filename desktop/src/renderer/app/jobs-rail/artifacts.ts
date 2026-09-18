@@ -42,9 +42,16 @@ export function viewableKind(path: string): "mesh" | "volume" | "surface" | "sce
   return null;
 }
 
-/** The folder every one of a job's artifacts is in — its own directory, from any path it wrote. */
+/**
+ * The job's actual output directory — e.g. `derivatives/SimNIBS/sub-<id>/Simulations/<montage>/`
+ * for a simulation job, the analysis folder for an analyzer job, the flex/ex search folder for an
+ * optimizer job — taken from the first artifact the job reported, never from `log_path`.
+ * `log_path` always points at `code/ti-toolbox/jobs/<id>/`, the job's own bookkeeping record, not
+ * where its science outputs live, so it is only a last resort for a job that has written nothing
+ * yet (queued, or failed before its first artifact).
+ */
 export function jobFolder(job: JobStatus): string | null {
-  const candidate = job.log_path ?? job.artifacts.find((a) => a.path)?.path ?? null;
+  const candidate = job.artifacts.find((a) => a.path)?.path ?? job.log_path ?? null;
   if (!candidate) return null;
   const cut = candidate.lastIndexOf("/");
   return cut > 0 ? candidate.slice(0, cut) : null;

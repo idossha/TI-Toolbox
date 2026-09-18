@@ -22,6 +22,7 @@ import { JobConsole } from "../../ui/Jobs";
 import { splitLogText, type JobLogLine } from "../jobs/logLines";
 import { useJobLogEvents } from "../jobs/useJobLogEvents";
 import { getJobLog, TERMINAL_STATES, type JobStatus } from "./api";
+import { jobFolder } from "./artifacts";
 import { reveal } from "./reveal";
 
 function fileToLogLines(text: string): JobLogLine[] {
@@ -46,14 +47,17 @@ export function JobRawLog({ job }: { job: JobStatus }) {
   const fileLines = useMemo(() => (file.data ? fileToLogLines(file.data) : []), [file.data]);
 
   const lines = eventLines.length > 0 ? eventLines : fileLines;
-  const logPath = job.log_path ?? undefined;
+  // The toolbar's folder icon reveals the job's actual output directory (see `jobFolder`), not
+  // `job.log_path`'s `code/ti-toolbox/jobs/<id>/` bookkeeping record — falling back to that only
+  // when the job has written no artifacts yet.
+  const target = jobFolder(job) ?? job.log_path ?? undefined;
 
   return (
     <div className="job-detail-rawlog" data-testid="job-detail-rawlog">
       <JobConsole
         sourceKey={`job:${jobId}`}
         lines={lines}
-        onRevealLogFile={logPath ? () => reveal(logPath) : undefined}
+        onRevealLogFile={target ? () => reveal(target) : undefined}
       />
     </div>
   );

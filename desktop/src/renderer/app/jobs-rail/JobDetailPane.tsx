@@ -221,15 +221,18 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
         </span>
         {job.liveness && <LivenessBadge state={job.liveness} />}
         <span className="job-detail-id mono text-caption">id {job.id}</span>
-        {/* ONE folder for the whole pane, in its header — the job's own directory. Every artifact
-            a job writes lives there, so the per-row folder icons the artifact list used to carry
-            were N buttons that all opened the same place (maintainer review). */}
-        {logPath && (
+        {/* ONE folder for the whole pane, in its header — the job's actual output directory
+            (`folder`, from `jobFolder()`: derivatives/SimNIBS/.../Simulations/<montage>/ for a
+            sim, the analysis folder for an analyzer, the flex/ex search folder for an optimizer),
+            not `code/ti-toolbox/jobs/<id>/`, which is the job's own bookkeeping record and where
+            `logPath` always points. Falls back to `logPath` only for a job with no artifacts yet
+            (queued, or failed before writing anything). */}
+        {(folder ?? logPath) && (
           <IconButton
-            aria-label="Show the job folder"
+            aria-label="Show the job's output folder"
             data-testid="job-detail-reveal"
             icon={<FolderOpen size={14} />}
-            onClick={() => reveal(logPath)}
+            onClick={() => reveal((folder ?? logPath) as string)}
           />
         )}
         {headerControls}

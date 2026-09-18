@@ -64,15 +64,17 @@ describe("viewableKind", () => {
 });
 
 describe("jobFolder", () => {
-  it("is the job's own directory, taken from a path the job already reported", () => {
-    expect(jobFolder(job())).toBe(JOB_DIR);
+  it("is the job's actual output directory, taken from its first artifact — not the bookkeeping `jobs/<id>/` log path", () => {
+    const OUTPUT_DIR = "/mnt/project/derivatives/SimNIBS/sub-ernie/Simulations/montage_1";
+    const j = job({ artifacts: [{ path: `${OUTPUT_DIR}/TI_max.nii.gz`, kind: "volume" }] });
+    expect(jobFolder(j)).toBe(OUTPUT_DIR);
   });
 
-  it("falls back to an artifact when there is no log path", () => {
-    expect(jobFolder(job({ log_path: null }))).toBe(JOB_DIR);
+  it("falls back to the job's log path when it has written no artifacts yet", () => {
+    expect(jobFolder(job({ artifacts: [] }))).toBe(JOB_DIR);
   });
 
-  it("is null for a job that has written nothing", () => {
+  it("is null for a job that has written nothing and has no log path either", () => {
     expect(jobFolder(job({ log_path: null, artifacts: [] }))).toBeNull();
   });
 });
