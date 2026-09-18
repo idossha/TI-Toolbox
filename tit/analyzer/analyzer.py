@@ -329,13 +329,11 @@ class Analyzer:
 
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
-            result = dispatch[self.space](
+            return dispatch[self.space](
                 [(center[0], center[1], center[2], radius)],
                 coordinate_space,
                 visualize,
             )
-            self._field_plate_after()
-            return result
 
     def analyze_spheres(
         self,
@@ -382,9 +380,7 @@ class Analyzer:
 
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
-            result = dispatch[self.space](spheres, coordinate_space, visualize)
-            self._field_plate_after()
-            return result
+            return dispatch[self.space](spheres, coordinate_space, visualize)
 
     def analyze_cortex(
         self,
@@ -429,9 +425,7 @@ class Analyzer:
 
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
-            result = dispatch[self.space](atlas, region, visualize)
-            self._field_plate_after()
-            return result
+            return dispatch[self.space](atlas, region, visualize)
 
     def analyze_mask(
         self,
@@ -461,17 +455,19 @@ class Analyzer:
             tempfile.TemporaryDirectory() as scratch,
         ):
             # The ROI is resolved into this subject BEFORE it is measured, and
-            # leaves roi_plate.{png,json} beside the results -- in every space,
+            # leaves roi.tetravox.json beside the results -- in every space,
             # because a subject mask off by a slice is as invisible in the
             # numbers as a bad MNI transform (tit/roi_confirmation.py).
-            plate_dir = self._resolve_output_dir(
-                analysis_type="mask", region_name=region_name
-            )
-            self._roi_plate(
-                mask_path=mask_path,
-                space=coordinate_space,
-                out_dir=plate_dir,
-                name=region_name,
+            self._roi_scene(
+                entries=[
+                    {
+                        "atlas_path": str(mask_path),
+                        "space": coordinate_space,
+                        "name": region_name,
+                    }
+                ],
+                analysis_type="mask",
+                region_name=region_name,
             )
             prepared = prepare_mask(
                 mask_path, coordinate_space, str(self.m2m_path), scratch, binary=True
@@ -499,7 +495,6 @@ class Analyzer:
                     analysis_type="mask",
                     visualize=visualize,
                 )
-                self._roi_field_plate(plate_dir)
                 return result
             img = nib.load(str(self.field_path))
             field_arr = self._squeeze_4d(img.get_fdata())
@@ -530,7 +525,6 @@ class Analyzer:
                 analysis_type="mask",
                 visualize=visualize,
             )
-            self._roi_field_plate(plate_dir)
             return result
 
     # ------------------------------------------------------------------
@@ -563,13 +557,7 @@ class Analyzer:
                 len(mask),
             )
 
-        self._last_plate_dir = self._plate_from_geometry(
-            analysis_type="spherical",
-            region_name=self._sphere_region_name(spheres),
-            points=coords[mask],
-            spheres=subject_spheres,
-            coordinate_space=coordinate_space,
-        )
+        self._sphere_scene(subject_spheres, spheres, coordinate_space)
         return self._analyze_mesh_roi(
             surface,
             values,
@@ -642,13 +630,7 @@ class Analyzer:
             len(mask),
         )
 
-        self._last_plate_dir = self._plate_from_geometry(
-            analysis_type="cortical",
-            region_name=region_name,
-            points=surface.nodes.node_coord[mask],
-            atlas=atlas,
-            region_labels=region_labels,
-        )
+        self._cortex_scene(atlas, region_labels, region_name)
         return self._analyze_mesh_roi(
             surface,
             values,
@@ -690,14 +672,7 @@ class Analyzer:
             subject_spheres.append((*[float(v) for v in center_arr], float(radius)))
             voxel_center = np.dot(inv_affine, np.append(center_arr, 1))[:3]
             sphere_mask |= _world_distance_grid(affine, voxel_center, shape) <= radius
-        self._last_plate_dir = self._plate_from_geometry(
-            analysis_type="spherical",
-            region_name=self._sphere_region_name(spheres),
-            mask=sphere_mask,
-            affine=affine,
-            spheres=subject_spheres,
-            coordinate_space=coordinate_space,
-        )
+        self._sphere_scene(subject_spheres, spheres, coordinate_space)
 
         if len(spheres) > 1:
             logger.info(
@@ -766,15 +741,7 @@ class Analyzer:
             region_values[one & (region_values == 0)] = index
         region_name = "+".join(regions)
         region_labels = list(regions)
-        self._last_plate_dir = self._plate_from_geometry(
-            analysis_type="cortical",
-            region_name=region_name,
-            mask=region_values,
-            affine=affine,
-            names=[str(r) for r in regions],
-            atlas=atlas,
-            region_labels=region_labels,
-        )
+        self._cortex_scene(atlas, region_labels, region_name)
 
         positive_mask = field_arr > 0
         tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
@@ -1232,140 +1199,77 @@ class Analyzer:
         return "+".join(parts)
 
     # ------------------------------------------------------------------
-    # ROI plates (tit/figures/roi_plate.py)
+    # ROI scenes (tit/figures/roi_plate.py, tit/roi_confirmation.py)
     # ------------------------------------------------------------------
 
-    def _roi_plate(self, *, mask_path, space, out_dir, name, sphere=None) -> None:
-        """The ROI plate for this analysis's target, written before it runs."""
-        from tit.roi_confirmation import confirm_roi
+    def _roi_scene(self, *, entries, analysis_type, region_name, **dir_kwargs) -> None:
+        """Write this analysis's ROI scene, before it runs.  Never raises.
 
-        confirm_roi(
-            atlas_path=str(mask_path),
-            space=space,
-            m2m=str(self.m2m_path),
-            out_dir=out_dir,
-            name=name,
-            sphere=sphere,
-        )
-
-    def _plate_from_geometry(
-        self,
-        *,
-        analysis_type: str,
-        region_name: str,
-        mask=None,
-        affine=None,
-        points=None,
-        names=None,
-        spheres=None,
-        **dir_kwargs,
-    ) -> str | None:
-        """Write the ROI plate for a sphere or cortical target, before it is measured.
-
-        The target arrives as either a boolean voxel *mask* on the field's
-        grid (voxel analyses) or the *points* of the surface nodes it covers
-        (mesh analyses); both are put on the subject's T1 grid — nearest
-        neighbour for a mask, one-voxel growth kept inside grey matter for
-        nodes, the same rasterisation the search's cortical targets use — so
-        every analysis leaves the same ``roi_plate.{png,json}`` the mask
-        analysis does. Never raises: a job must not fail over a picture.
+        The field is passed in with the target rather than added afterwards: it
+        is this analysis's *input* volume and exists before a single number is
+        computed, so both scenes are written in one pass and the ROI is resolved
+        once.  A mesh field has no voxels to sample, so it gets the ROI scene
+        only -- a field picture drawn from a different file than the table came
+        from would be a picture that contradicts it.
         """
-        import tempfile
-
         try:
-            import nibabel as nib
-            from nibabel.processing import resample_from_to
-            from scipy import ndimage
-
-            from tit.roi_confirmation import GM_TISSUE_LABEL
-
-            plate_dir = self._resolve_output_dir(
-                analysis_type=analysis_type, region_name=region_name, **dir_kwargs
-            )
-            tissues = nib.load(str(Path(self.m2m_path) / "final_tissues.nii.gz"))
-            grid = np.squeeze(np.asarray(tissues.dataobj))
-            if spheres:
-                # A sphere is framed as the sphere the user typed, inside grey
-                # matter — not as the sulcal fragments its surface patch makes.
-                on_grid = np.zeros(grid.shape, dtype=np.int16)
-                for index, (x, y, z, r) in enumerate(spheres, start=1):
-                    centre = np.dot(np.linalg.inv(tissues.affine), [x, y, z, 1.0])[:3]
-                    inside = _world_distance_grid(tissues.affine, centre, grid.shape) <= float(r)
-                    on_grid[inside & (grid == GM_TISSUE_LABEL) & (on_grid == 0)] = index
-            elif mask is not None:
-                src = nib.Nifti1Image(np.asarray(mask, dtype=np.int16), affine)
-                on_grid = np.asarray(
-                    resample_from_to(src, (grid.shape, tissues.affine), order=0).dataobj
-                ).astype(np.int16)
-            else:
-                ijk = np.rint(
-                    nib.affines.apply_affine(np.linalg.inv(tissues.affine), np.asarray(points, dtype=float))
-                ).astype(int)
-                inside = np.all((ijk >= 0) & (ijk < np.array(grid.shape)), axis=1)
-                on_grid = np.zeros(grid.shape, dtype=bool)
-                on_grid[tuple(ijk[inside].T)] = True
-                on_grid = ndimage.binary_dilation(on_grid, iterations=1) & (grid == GM_TISSUE_LABEL)
             from tit.roi_confirmation import confirm_rois
 
-            with tempfile.TemporaryDirectory(prefix="roi-geom-") as scratch:
-                values = [int(v) for v in np.unique(on_grid) if v > 0]
-                if not values:
-                    raise ValueError(f"{region_name}: the target covers no voxel of the T1 grid")
-                sphere = None
-                if spheres and len(spheres) == 1:
-                    x, y, z, r = spheres[0]
-                    sphere = ((float(x), float(y), float(z)), float(r))
-                if sphere is not None:
-                    # One typed sphere: framed by the sphere rule, never split
-                    # into the grey-matter fragments it covers.
-                    path = str(Path(scratch) / "sphere.nii")
-                    nib.save(nib.Nifti1Image(np.asarray(on_grid > 0, dtype=np.uint8), tissues.affine), path)
-                    self._roi_plate(mask_path=path, space="subject", out_dir=plate_dir, name=region_name, sphere=sphere)
-                    return plate_dir
-                # One file per region value: the confirmation unions them into
-                # one plate and keeps each region's own colour and count.
-                entries = []
-                for index, value in enumerate(values):
-                    path = str(Path(scratch) / f"target-{value}.nii")
-                    part = np.asarray(on_grid == value, dtype=np.uint8)
-                    nib.save(nib.Nifti1Image(part, tissues.affine), path)
-                    label = names[index] if isinstance(names, list) and index < len(names) else region_name
-                    entries.append({"atlas_path": path, "space": "subject", "name": label, "sphere": sphere})
-                confirm_rois(entries, m2m=str(self.m2m_path), out_dir=plate_dir)
-            return plate_dir
+            out_dir = self._resolve_output_dir(
+                analysis_type=analysis_type, region_name=region_name, **dir_kwargs
+            )
+            field = str(self.field_path)
+            if not field.endswith((".nii", ".nii.gz")):
+                field = None
+            for entry in entries:
+                entry.setdefault("field_path", field)
+            confirm_rois(entries, m2m=str(self.m2m_path), out_dir=out_dir)
         except Exception as exc:  # noqa: BLE001 - never fail a job over a check
-            logger.warning("ROI plate could not be written: %s", exc)
-            return None
+            logger.warning("ROI scene could not be written: %s", exc)
 
-    def _field_plate_after(self) -> None:
-        """The field-in-ROI plate for the analysis that just ran, if it left a mask."""
-        plate_dir = getattr(self, "_last_plate_dir", None)
-        self._last_plate_dir = None
-        if plate_dir:
-            self._roi_field_plate(plate_dir)
+    def _sphere_scene(self, subject_spheres, spheres, coordinate_space) -> None:
+        """The ROI scene for a spherical target: the centres the user typed.
 
-    def _roi_field_plate(self, out_dir) -> None:
-        """The same framing with the field drawn inside the ROI, at the end.
-
-        Only when the field this analysis measured exists as a **volume**: a
-        mesh field has no voxels to mask, and a plate drawn from a different
-        file than the table came from would be a picture that contradicts it.
+        Not the rasterisation of them -- a sphere names no file, the centre and
+        the radius are what was typed, and they are what the framing and ``meta``
+        carry.
         """
-        from pathlib import Path as _Path
+        self._roi_scene(
+            entries=[
+                {
+                    "sphere": ((float(x), float(y), float(z)), float(r)),
+                    "name": f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}",
+                }
+                for x, y, z, r in subject_spheres
+            ],
+            analysis_type="spherical",
+            region_name=self._sphere_region_name(spheres),
+            coordinate_space=coordinate_space,
+        )
 
-        from tit.figures.roi_plate import write_roi_plate
-        from tit.roi_confirmation import MASK_NAME
+    def _cortex_scene(self, atlas, region_labels, region_name) -> None:
+        """The ROI scene for a cortical target: the ``.annot`` itself.
 
-        field = _Path(str(self.field_path))
-        mask = _Path(out_dir) / MASK_NAME
-        if not mask.is_file() or field.suffix not in (".nii", ".gz"):
+        The hemisphere's central surface with its parcellation attached and only
+        the target's labels visible -- the same file the analysis measured, not a
+        rasterisation of it.  When no region name resolves to a label of a
+        ``.annot`` this subject has, there is no scene and one log line.
+        """
+        from tit.roi_confirmation import cortical_entries
+
+        try:
+            entries = cortical_entries(str(self.m2m_path), str(atlas), region_labels)
+        except Exception as exc:  # noqa: BLE001 - never fail a job over a check
+            logger.warning("cortical ROI scene could not be resolved: %s", exc)
             return
-        write_roi_plate(
-            mask_path=str(mask),
-            m2m=str(self.m2m_path),
-            out_dir=str(out_dir),
-            field_path=str(field),
-            title=f"{field.stem} in the ROI",
+        if not entries:
+            return
+        self._roi_scene(
+            entries=entries,
+            analysis_type="cortical",
+            region_name=region_name,
+            atlas=atlas,
+            region_labels=region_labels,
         )
 
     def _resolve_output_dir(

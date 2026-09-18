@@ -26,9 +26,13 @@ import type { ViewerLink } from "../openInViewer";
  * suffix test already refuses it — the early return says so out loud, because "the row next to the
  * mesh also offered Tetravox" is exactly the confusion this list is being cleaned up to remove.
  */
-export function viewableKind(path: string): "mesh" | "volume" | "surface" | null {
+export function viewableKind(path: string): "mesh" | "volume" | "surface" | "scene" | null {
   const lowered = path.toLowerCase();
   if (lowered.endsWith(".opt")) return null;
+  // A saved scene is the one artifact that needs no scene built for it: it *is* one. Every
+  // optimization and analysis leaves an `roi.tetravox.json` naming the ROI it is about
+  // (`tit/roi_confirmation.py`), and that row is the one a person most wants this button on.
+  if (lowered.endsWith(".tetravox.json")) return "scene";
   if (lowered.endsWith(".msh")) return "mesh";
   if (lowered.endsWith(".nii") || lowered.endsWith(".nii.gz") || lowered.endsWith(".mgz")) return "volume";
   if (lowered.endsWith(".gii") || lowered.endsWith(".surf.gii")) {

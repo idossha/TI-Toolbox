@@ -1,4 +1,4 @@
-"""Framing rules for the ROI plate, on synthetic masks with known geometry.
+"""Framing rules for the ROI scene, on synthetic masks with known geometry.
 
 Real libraries only (``tests/numerical``): the host suite mocks nibabel and
 scipy, and every assertion here is about what those two actually compute.
@@ -199,32 +199,69 @@ def test_two_spheres_follow_the_multi_region_rule():
 # --------------------------------------------------------------------------- #
 
 
-def test_an_empty_mask_is_a_reported_failure_not_a_plate(tmp_path):
+def test_an_empty_mask_is_a_reported_failure_not_a_scene(tmp_path):
     plan = roi_plate.plan_framing(_grid(), AFFINE)
     assert plan.rule == "empty"
     assert plan.empty
     assert "no non-zero voxels" in plan.reason
 
-    import nibabel as nib
-
-    mask_path = tmp_path / "empty.nii.gz"
-    nib.save(nib.Nifti1Image(_grid(), AFFINE), str(mask_path))
     out = tmp_path / "out"
-    summary = roi_plate.write_roi_plate(
-        mask_path=str(mask_path), m2m=str(tmp_path), out_dir=str(out), title="Nowhere"
+    assert (
+        roi_plate.write_roi_scene(
+            out_dir=str(out),
+            anatomy=str(tmp_path / "T1.nii.gz"),
+            roi_layers=[],
+            plan=plan,
+            meta={},
+            title="Nowhere",
+        )
+        is None
     )
-
-    assert summary is not None
-    assert summary["image"] is None
-    assert summary["cursor_rule"] == "empty"
-    assert "error" in summary
-    assert not (out / roi_plate.PLATE_PNG).exists()
-    written = json.loads((out / roi_plate.PLATE_JSON).read_text())
-    assert written["error"] == summary["error"]
+    # No scene, and nothing else either: an empty transform is a failure to read
+    # in the terminal, not a directory of files describing nothing.
+    assert list(out.iterdir()) == []
 
 
 # --------------------------------------------------------------------------- #
-# the plate itself
+# a cortical target is framed from its vertices, with no rasterisation
+# --------------------------------------------------------------------------- #
+
+
+def test_a_cortical_target_is_framed_from_its_surface_vertices():
+    rng = np.random.default_rng(0)
+    patch = rng.uniform(-5.0, 5.0, size=(400, 3)) + np.array([20.0, -30.0, 40.0])
+    plan = roi_plate.plan_surface([patch], names=["lh.superiorfrontal"])
+
+    assert plan.rule == "single"
+    assert plan.regions[0].name == "lh.superiorfrontal"
+    assert plan.regions[0].voxels == 400
+    # The cursor is one of the vertices, never a point invented between them.
+    assert any(np.allclose(plan.cursor_ras, vertex) for vertex in patch)
+    assert plan.rows[0].mm_per_px > 0
+
+
+def test_two_hemispheres_of_a_cortical_target_share_one_framing():
+    rng = np.random.default_rng(1)
+    left = rng.uniform(-4.0, 4.0, size=(200, 3)) + np.array([-15.0, 0.0, 30.0])
+    right = rng.uniform(-4.0, 4.0, size=(200, 3)) + np.array([15.0, 0.0, 30.0])
+    plan = roi_plate.plan_surface([left, right], names=["lh.x", "rh.x"])
+
+    assert plan.rule == "union"
+    assert plan.regions[0].color != plan.regions[1].color
+
+
+def test_a_sphere_is_framed_on_the_centre_and_radius_that_were_typed():
+    plan = roi_plate.plan_spheres([((10.0, -20.0, 30.0), 8.0)], names=["target"])
+
+    assert plan.rule == "sphere"
+    assert plan.cursor_ras == pytest.approx([10.0, -20.0, 30.0])
+    # 16 mm across; the binding axis is the panel's short one (aspect 0.75), so
+    # the view is 16/0.75 mm tall at 60 % fill, plus 4 mm of margin on each side.
+    assert plan.rows[0].width_mm == pytest.approx((16.0 / 0.75) / 0.6 + 8.0, abs=0.01)
+
+
+# --------------------------------------------------------------------------- #
+# the scene itself
 # --------------------------------------------------------------------------- #
 
 
@@ -243,159 +280,116 @@ def _write_subject(tmp_path, mask):
     return str(m2m), str(mask_path)
 
 
-def test_the_matplotlib_plate_and_its_sidecar_and_its_request(tmp_path, monkeypatch):
-    monkeypatch.delenv(roi_plate.TETRAVOX_ENV, raising=False)
-    monkeypatch.setattr(roi_plate, "tetravox_executable", lambda: None)
+def test_the_scene_is_one_file_that_references_only_files_that_exist(tmp_path):
     mask = _box(_grid(), (40, 40, 40), (50, 50, 50))
     m2m, mask_path = _write_subject(tmp_path, mask)
     out = tmp_path / "run"
+    plan = roi_plate.plan_framing(mask, AFFINE, names=["Synthetic box"])
 
-    summary = roi_plate.write_roi_plate(
-        mask_path=mask_path,
-        m2m=m2m,
+    meta = roi_plate.write_roi_scene(
         out_dir=str(out),
-        title="Synthetic box",
-        extra={"gm_overlap": 0.87},
-    )
-
-    assert summary["renderer"] == "matplotlib"
-    assert summary["cursor_rule"] == "single"
-    assert summary["voxels"] == 1000
-    assert summary["gm_overlap"] == 0.87
-    assert summary["voxels_by_region"] == {"Synthetic box": 1000}
-    assert (out / roi_plate.PLATE_PNG).stat().st_size > 5000
-    request = json.loads((out / f"roi_plate{roi_plate.REQUEST_SUFFIX}").read_text())
-    assert request["tetravox"] is True
-    assert request["png"] == roi_plate.PLATE_PNG
-    assert len(request["rows"]) == 1
-
-    job = roi_plate.build_job(request)
-    assert (
-        job["scene"]["files"][1] == job["scene"]["files"][-1]
-    ), "fill and outline are two layers"
-    zooms = [
-        a["mmPerPx"]
-        for a in job["actions"]
-        if a.get("type") == "set" and "mmPerPx" in a
-    ]
-    assert len(zooms) == 3 and len(set(zooms)) == 1
-    shot = [a for a in job["actions"] if a["type"] == "screenshot"][0]
-    assert shot["figure"]["panels"] == ["axial", "coronal", "sagittal"]
-
-
-def test_a_field_plate_carries_its_window_and_a_colour_bar(tmp_path, monkeypatch):
-    import nibabel as nib
-
-    monkeypatch.setattr(roi_plate, "tetravox_executable", lambda: None)
-    mask = _box(_grid(), (40, 40, 40), (50, 50, 50))
-    m2m, mask_path = _write_subject(tmp_path, mask)
-    field = np.zeros(mask.shape, dtype=np.float32)
-    field[mask > 0] = np.linspace(0.0, 0.4, int(mask.sum()))
-    field_path = tmp_path / "TI_max.nii.gz"
-    nib.save(nib.Nifti1Image(field, AFFINE), str(field_path))
-    out = tmp_path / "run"
-
-    summary = roi_plate.write_roi_plate(
-        mask_path=mask_path,
-        m2m=m2m,
-        out_dir=str(out),
-        field_path=str(field_path),
+        anatomy=f"{m2m}/T1.nii.gz",
+        roi_layers=[{"kind": "volume", "path": mask_path, "labels": {1: "#4caf50"}}],
+        plan=plan,
+        meta={"roi": "Synthetic box", "voxels": 1000, "gm_overlap": 0.87},
         title="Synthetic box",
     )
 
-    assert summary["image"] == roi_plate.FIELD_PLATE_PNG
-    assert summary["field"]["colormap"] == "inferno"
-    assert summary["field"]["p99_9_in_roi"] == pytest.approx(0.4, abs=0.01)
-    assert summary["field"]["threshold_floor"] == pytest.approx(
-        roi_plate.FIELD_FLOOR_FRACTION * summary["field"]["p99_9_in_roi"]
-    )
-    assert (out / roi_plate.FIELD_PLATE_PNG).stat().st_size > 5000
-    job = roi_plate.build_job(
-        json.loads((out / f"roi_field_plate{roi_plate.REQUEST_SUFFIX}").read_text())
-    )
-    field_layer = [
-        a
-        for a in job["actions"]
-        if a.get("type") == "set" and a.get("patch", {}).get("colormap") == "inferno"
-    ][0]
-    # `clamp` (the default) would paint a black wash over the whole T1.
-    assert field_layer["patch"]["threshold"]["mode"] == "hide"
+    assert meta["voxels"] == 1000
+    assert [p.name for p in out.iterdir()] == [roi_plate.SCENE_NAME]
+
+    scene = json.loads((out / roi_plate.SCENE_NAME).read_text())
+    assert scene["version"] == 2
+    for dataset in scene["datasets"]:
+        assert (out / dataset["path"]).resolve().is_file()
+    assert scene["meta"]["gm_overlap"] == 0.87
+    # Fill under outline, two layers over one dataset (a VolumeLayer has one
+    # opacity and one labelMode, so 40 % under an opaque edge needs two).
+    roi_ids = [la["datasetId"] for la in scene["layers"] if la["datasetId"] == "ds1"]
+    assert roi_ids == ["ds1", "ds1"]
+    fill, outline = [la for la in scene["layers"] if la["datasetId"] == "ds1"]
+    assert (fill["opacity"], fill["labelMode"]) == (0.4, "fill")
+    assert (outline["opacity"], outline["labelMode"]) == (1.0, "outline")
+    assert scene["layers"][-1] is outline, "the outline stays on top"
 
 
-def test_a_per_region_plate_is_matplotlib_only_and_says_why(tmp_path, monkeypatch):
-    monkeypatch.setattr(roi_plate, "tetravox_executable", lambda: None)
-    mask = _grid()
-    _box(mask, (20, 45, 45), (30, 55, 55))
-    _box(mask, (80, 45, 45), (86, 55, 55))
+def test_the_camera_centres_the_roi_and_the_zoom_fills_the_panel(tmp_path):
+    # A box far from the volume's centre: the in-plane offset is what proves the
+    # ROI is centred rather than the head.
+    mask = _box(_grid(), (10, 10, 10), (20, 20, 20))
     m2m, mask_path = _write_subject(tmp_path, mask)
     out = tmp_path / "run"
+    plan = roi_plate.plan_framing(mask, AFFINE)
 
-    summary = roi_plate.write_roi_plate(mask_path=mask_path, m2m=m2m, out_dir=str(out))
+    roi_plate.write_roi_scene(
+        out_dir=str(out),
+        anatomy=f"{m2m}/T1.nii.gz",
+        roi_layers=[{"kind": "volume", "path": mask_path, "labels": {1: "#4caf50"}}],
+        plan=plan,
+        meta={},
+    )
+    scene = json.loads((out / roi_plate.SCENE_NAME).read_text())
 
-    assert summary["cursor_rule"] == "per-region"
-    request = json.loads((out / f"roi_plate{roi_plate.REQUEST_SUFFIX}").read_text())
-    assert request["tetravox"] is False
-    assert "one cursor per row" in request["tetravox_reason"]
-    assert (
-        roi_plate.run_tetravox(
-            out / f"roi_plate{roi_plate.REQUEST_SUFFIX}", executable="/does/not/matter"
-        )
-        is False
+    # The T1 spans -50.5..49.5 mm, so its centre is -0.5; the cursor is at -35.5.
+    axial = [s for s in scene["slices"] if s["id"] == "axial"][0]
+    assert axial["camera"]["center"] == pytest.approx([-35.0, -35.0], abs=0.6)
+    # Sagittal draws (y, z) with anterior to the left: right = -y.
+    sagittal = [s for s in scene["slices"] if s["id"] == "sagittal"][0]
+    assert sagittal["camera"]["center"] == pytest.approx([35.0, -35.0], abs=0.6)
+    assert axial["camera"]["mmPerPx"] == pytest.approx(plan.rows[0].mm_per_px, rel=1e-4)
+
+
+def test_a_cortical_scene_attaches_the_annot_to_the_surface(tmp_path):
+    surfaces = tmp_path / "m2m" / "surfaces"
+    surfaces.mkdir(parents=True)
+    (surfaces / "lh.central.gii").write_bytes(b"")
+    segmentation = tmp_path / "m2m" / "segmentation"
+    segmentation.mkdir()
+    annot = segmentation / "lh.sub_DK40.annot"
+    annot.write_bytes(b"")
+    m2m, _ = _write_subject(tmp_path, _box(_grid(), (40, 40, 40), (50, 50, 50)))
+    plan = roi_plate.plan_surface(
+        [np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])], names=["lh.cuneus"]
     )
 
+    roi_plate.write_roi_scene(
+        out_dir=str(tmp_path / "run"),
+        anatomy=f"{m2m}/T1.nii.gz",
+        roi_layers=[
+            {
+                "kind": "surface",
+                "path": str(surfaces / "lh.central.gii"),
+                "annot": str(annot),
+                "labels": {5: "#4caf50"},
+            }
+        ],
+        plan=plan,
+        meta={},
+    )
+    scene = json.loads((tmp_path / "run" / roi_plate.SCENE_NAME).read_text())
+    surface = scene["datasets"][1]
+    assert surface["kind"] == "surface"
+    # Relative to the *surface's* own directory -- the one path in a scene that
+    # is never re-rooted, so it survives host and container alike.
+    assert surface["sidecars"]["fields"] == [{"path": "../segmentation/lh.sub_DK40.annot"}]
+    layer = scene["layers"][1]
+    assert layer["kind"] == "surface"
+    assert layer["colorMode"] == "annotation"
+    assert layer["annotation"]["name"] == "lh.sub_DK40.annot"
+    assert layer["annotation"]["visibleLabels"] == [5]
 
-def test_the_plate_can_be_switched_off(tmp_path, monkeypatch):
+
+def test_the_scene_can_be_switched_off(tmp_path, monkeypatch):
     monkeypatch.setenv(roi_plate.DISABLE_ENV, "1")
     m2m, mask_path = _write_subject(tmp_path, _box(_grid(), (40, 40, 40), (50, 50, 50)))
     assert (
-        roi_plate.write_roi_plate(
-            mask_path=mask_path, m2m=m2m, out_dir=str(tmp_path / "run")
+        roi_plate.write_roi_scene(
+            out_dir=str(tmp_path / "run"),
+            anatomy=f"{m2m}/T1.nii.gz",
+            roi_layers=[],
+            plan=roi_plate.plan_framing(_box(_grid(), (40, 40, 40), (50, 50, 50)), AFFINE),
+            meta={},
         )
         is None
     )
-
-
-# --------------------------------------------------------------------------- #
-# Ernie's own labelling (env-gated, like tests/numerical/test_roi_islands.py)
-# --------------------------------------------------------------------------- #
-
-LABELING = os.environ.get("TIT_TEST_LABELING", "")
-
-
-@pytest.mark.skipif(
-    not LABELING, reason="set TIT_TEST_LABELING to a subject labeling.nii.gz"
-)
-@pytest.mark.parametrize(
-    "labels,expected_rule",
-    [((10,), "single"), ((10, 49), "union")],
-)
-def test_real_thalamus_plate(tmp_path, labels, expected_rule):
-    """Left thalamus, and the Left+Right union, from a real segmentation."""
-    import nibabel as nib
-
-    monkey = os.environ.get(roi_plate.TETRAVOX_ENV)
-    assert monkey is None or os.path.isfile(monkey)
-    image = nib.as_closest_canonical(nib.load(LABELING))
-    data = np.rint(np.squeeze(np.asarray(image.dataobj))).astype(np.int32)
-    mask = np.zeros(data.shape, dtype=np.int16)
-    for label in labels:
-        mask[data == label] = label
-    assert mask.any(), f"labels {labels} are not in {LABELING}"
-    mask_path = tmp_path / "roi.nii.gz"
-    nib.save(nib.Nifti1Image(mask, image.affine), str(mask_path))
-    out = tmp_path / "plate"
-
-    summary = roi_plate.write_roi_plate(
-        mask_path=str(mask_path),
-        m2m=os.path.dirname(os.path.dirname(LABELING)),
-        out_dir=str(out),
-        names={10: "Left-Thalamus", 49: "Right-Thalamus"},
-        title="+".join(str(label) for label in labels),
-    )
-
-    assert summary is not None
-    assert summary["cursor_rule"] == expected_rule
-    assert summary["voxels"] > 1000
-    assert len(summary["voxels_by_region"]) == len(labels)
-    assert summary["zoom_mm_per_px"] > 0
-    assert (out / summary["image"]).stat().st_size > 10000
+    assert not (tmp_path / "run").exists()

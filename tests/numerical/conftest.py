@@ -17,9 +17,10 @@ import sys
 
 import pytest
 
-# matplotlib is here for the ROI plate (tit/figures/roi_plate.py): the mock
-# answers any attribute, so `from matplotlib.colors import to_rgba` raises
-# "matplotlib is not a package" and the plate silently degrades to no picture.
+# matplotlib is real here for the tests in this directory that draw: nothing in
+# `tit/figures` needs it any more (the ROI artefact is a scene file, not a
+# picture), but the host suite's mock answers any attribute, which turns a real
+# `from matplotlib.x import y` into an unhelpful "not a package" error.
 _REAL_PACKAGES = (
     "numpy",
     "scipy",

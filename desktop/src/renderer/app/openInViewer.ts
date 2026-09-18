@@ -38,6 +38,12 @@ export function useOpenInViewer(): (link: ViewerLink) => void {
     requests.add(key);
     void (async () => {
       try {
+        // A `*.tetravox.json` artifact is already a scene: opening it means opening it, not asking
+        // the server to compose a second one around it.
+        if (path?.toLowerCase().endsWith(".tetravox.json")) {
+          await openNativeScene(path);
+          return;
+        }
         const written = await openView(kind, { subject, simulation, field, path }, path ? { files: [path] } : {});
         await openNativeScene(written.path);
       } catch (error) {

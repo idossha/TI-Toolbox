@@ -1,33 +1,33 @@
 /**
- * The host-side Tetravox pass over a finished job's ROI plates (options doc § O1).
+ * The optional host-side picture of a finished job's ROI scenes.
  *
- * The container that runs `tit` cannot run Tetravox — it is a host GPU application. So the job
- * writes its ROI plate with matplotlib the moment it starts (`tit/figures/roi_plate.py`), and drops
- * two files beside it: a `*.plate-request.json` saying what was drawn, and a `*.tetravox-job.json`
- * — the finished `--job` document, written by the same Python that decided the framing, so nothing
- * here has a second opinion about what the plate looks like.
+ * The job itself writes one small `*.tetravox.json` scene per target (`tit/roi_confirmation.py`):
+ * the subject's T1, the ROI layer, the cursor and the zoom, all pointing at files that already
+ * exist. That scene is the artefact. This module is the *extra*: when Tetravox is installed on this
+ * machine, each scene is photographed once into `roi.png` / `roi_field.png` beside it, so a person
+ * scrolling the job's folder sees the ROI without opening anything.
  *
- * This module does exactly three things per request: map the document's absolute **container**
- * paths to host paths, run Tetravox offscreen, and let it overwrite the PNG in place. The scene
- * twin the document's `save-scene` writes lands beside it. If Tetravox is absent, or refuses, or
- * times out, the matplotlib plate that is already on disk stays and one line goes to the log — a
- * picture never fails a job, and it never blanks one either.
+ * No Tetravox, a refusal or a timeout: one log line, and nothing is lost — the scene is still there
+ * and **Open in Tetravox** still works. A picture never fails a job and never blanks one.
+ *
+ * The `--job` document is built here, from the scene, at the moment of the run and **never
+ * persisted**: it is three lines of JSON that say "open this scene and photograph it", and a file of
+ * it beside the scene would be one more artefact for the person to wonder about — which is exactly
+ * what this change removed. The scene addresses its data with paths relative to itself, so there is
+ * nothing to re-root either: the same file works in the container that wrote it and on this host.
  */
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile, unlink } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 import { log } from "./log";
 
-/** How long one plate may take. A 1600x1200 three-panel capture is ~8-10 s on a warm app. */
+/** How long one capture may take. A 1600x1200 three-panel figure is ~8-10 s on a warm app. */
 export const PLATE_TIMEOUT_MS = 120_000;
 
-/** At most this many plates per job, so a 40-target batch cannot occupy the GPU for an hour. */
+/** At most this many scenes per job, so a 40-target batch cannot occupy the GPU for an hour. */
 export const PLATE_LIMIT = 8;
 
-export interface TetravoxJobDocument {
-  scene?: { files?: string[] };
-  actions?: unknown[];
-}
+const SCENE_SUFFIX = ".tetravox.json";
 
 export interface PlateRunnerDeps {
   /** Absolute container paths of everything the job produced. */
@@ -38,46 +38,63 @@ export interface PlateRunnerDeps {
   viewerExecutable(): Promise<string | undefined>;
   /** Run it. Resolves with the exit code; rejects only on a spawn failure. */
   run?(executable: string, args: string[]): Promise<number>;
-  readFileText?(path: string): Promise<string>;
   writeFileText?(path: string, text: string): Promise<void>;
+  removeFile?(path: string): Promise<void>;
   logLine?(level: "info" | "warn", message: string): void;
 }
 
-const REQUEST_SUFFIX = ".plate-request.json";
-const JOB_SUFFIX = ".tetravox-job.json";
-
-/** The plate requests among a job's artifacts, de-duplicated and capped. */
-export function plateRequests(paths: string[]): string[] {
+/** The ROI scenes among a job's artifacts, de-duplicated and capped. */
+export function roiScenes(paths: string[]): string[] {
   const seen = new Set<string>();
   for (const path of paths) {
-    if (path.endsWith(REQUEST_SUFFIX)) seen.add(path);
+    if (path.endsWith(SCENE_SUFFIX)) seen.add(path);
   }
   return [...seen].sort().slice(0, PLATE_LIMIT);
 }
 
-/** The job document that belongs to a request, by construction of the Python side's names. */
-export function jobDocumentFor(requestPath: string): string {
-  return requestPath.slice(0, -REQUEST_SUFFIX.length) + JOB_SUFFIX;
+/** The PNG a scene is photographed into: its own name with the suffix swapped. */
+export function pngFor(scenePath: string): string {
+  return basename(scenePath).slice(0, -SCENE_SUFFIX.length) + ".png";
 }
 
 /**
- * Every absolute path in *document* mapped to the host, or `null` when one of them does not map.
+ * The `--job` document that photographs one saved scene.
  *
- * All or nothing: a document with one unmapped dataset would render a plate missing a layer, which
- * is worse than the matplotlib plate it would have overwritten.
+ * `scene.path` restores everything the scene carries — layers, colours, thresholds, the cursor and
+ * the camera (Tetravox `docs/AUTOMATION.md` §2.1) — so this document decides nothing about how the
+ * ROI looks. It only says which three panels to lay out and how big. `out` is a bare name under
+ * `--out`, which is the scene's own directory.
  */
-export async function toHostDocument(
-  document: TetravoxJobDocument,
-  toHostPath: (path: string) => Promise<string | null>,
-): Promise<TetravoxJobDocument | null> {
-  const files = document.scene?.files ?? [];
-  const mapped: string[] = [];
-  for (const file of files) {
-    const host = await toHostPath(file);
-    if (!host) return null;
-    mapped.push(host);
-  }
-  return { ...document, scene: { ...document.scene, files: mapped } };
+export function buildJob(scenePath: string): unknown {
+  return {
+    version: 1,
+    scene: { path: scenePath },
+    window: { width: 1600, height: 1200 },
+    actions: [
+      {
+        type: "screenshot",
+        out: pngFor(scenePath),
+        view: "figure",
+        width: 533,
+        dpi: 300,
+        background: "white",
+        include: {
+          colorbar: true,
+          orientationLabels: true,
+          crosshair: true,
+          scaleBar: true,
+          cornerInfo: true,
+        },
+        figure: {
+          panels: ["axial", "coronal", "sagittal"],
+          columns: 3,
+          gutterMm: 3,
+          labels: "upper",
+          background: "white",
+        },
+      },
+    ],
+  };
 }
 
 function defaultRun(executable: string, args: string[]): Promise<number> {
@@ -108,63 +125,62 @@ export interface PlateRunResult {
   skipped: string[];
 }
 
-/**
- * Render every ROI plate request a finished job left behind. Never throws.
- */
+/** Photograph every ROI scene a finished job left behind. Never throws. */
 export async function renderPlatesForJob(jobId: string, deps: PlateRunnerDeps): Promise<PlateRunResult> {
   const say = deps.logLine ?? ((level: "info" | "warn", message: string) => log(level, message));
-  const read = deps.readFileText ?? ((path: string) => readFile(path, "utf8"));
   const write = deps.writeFileText ?? ((path: string, text: string) => writeFile(path, text, "utf8"));
+  const remove = deps.removeFile ?? ((path: string) => unlink(path));
   const run = deps.run ?? defaultRun;
   const result: PlateRunResult = { rendered: [], skipped: [] };
 
-  let requests: string[];
+  let scenes: string[];
   try {
-    requests = plateRequests(await deps.artifactPaths(jobId));
+    scenes = roiScenes(await deps.artifactPaths(jobId));
   } catch (error) {
-    say("warn", `roi plates: could not list job ${jobId}'s artifacts: ${String(error)}`);
+    say("warn", `roi scenes: could not list job ${jobId}'s artifacts: ${String(error)}`);
     return result;
   }
-  if (!requests.length) return result;
+  if (!scenes.length) return result;
 
   const executable = await deps.viewerExecutable();
   if (!executable) {
-    say("info", `roi plates: no Tetravox on this machine; ${requests.length} plate(s) stay as drawn`);
-    return { rendered: [], skipped: requests };
+    say("info", `roi scenes: no Tetravox on this machine; ${scenes.length} scene(s) get no picture`);
+    return { rendered: [], skipped: scenes };
   }
 
-  for (const request of requests) {
-    const documentPath = await deps.toHostPath(jobDocumentFor(request));
-    if (!documentPath) {
-      result.skipped.push(request);
-      say("warn", `roi plates: ${basename(request)} is outside the mounted project`);
+  for (const scene of scenes) {
+    const hostScene = await deps.toHostPath(scene);
+    if (!hostScene) {
+      result.skipped.push(scene);
+      say("warn", `roi scenes: ${basename(scene)} is outside the mounted project`);
       continue;
     }
+    const outDir = dirname(hostScene);
+    // The document is a temporary beside the scene, removed whatever happens: it is derived from
+    // the scene in one line and is not something anybody should find in a results folder.
+    const documentPath = join(outDir, `.${basename(hostScene)}.job.json`);
     try {
-      const document = JSON.parse(await read(documentPath)) as TetravoxJobDocument;
-      const hosted = await toHostDocument(document, deps.toHostPath);
-      if (!hosted) {
-        result.skipped.push(request);
-        say("warn", `roi plates: ${basename(request)} names a file outside the mounted project`);
-        continue;
-      }
-      const outDir = dirname(documentPath);
-      const hostedPath = join(outDir, basename(documentPath).replace(JOB_SUFFIX, ".tetravox-job.host.json"));
-      await write(hostedPath, JSON.stringify(hosted, null, 1));
-      const code = await run(executable, ["--job", hostedPath, "--out", outDir, "--quiet"]);
+      await write(documentPath, JSON.stringify(buildJob(hostScene), null, 1));
+      const code = await run(executable, ["--job", documentPath, "--out", outDir, "--quiet"]);
       if (code === 0) {
-        result.rendered.push(request);
+        result.rendered.push(scene);
       } else {
-        result.skipped.push(request);
-        say("warn", `roi plates: Tetravox exited ${code} for ${basename(request)}; the drawn plate stands`);
+        result.skipped.push(scene);
+        say("warn", `roi scenes: Tetravox exited ${code} for ${basename(scene)}; no picture, the scene stands`);
       }
     } catch (error) {
-      result.skipped.push(request);
-      say("warn", `roi plates: ${basename(request)} could not be rendered: ${String(error)}`);
+      result.skipped.push(scene);
+      say("warn", `roi scenes: ${basename(scene)} could not be photographed: ${String(error)}`);
+    } finally {
+      try {
+        await remove(documentPath);
+      } catch {
+        // Nothing was written, or it is already gone.
+      }
     }
   }
   if (result.rendered.length) {
-    say("info", `roi plates: Tetravox redrew ${result.rendered.length} plate(s) for job ${jobId}`);
+    say("info", `roi scenes: Tetravox photographed ${result.rendered.length} scene(s) for job ${jobId}`);
   }
   return result;
 }

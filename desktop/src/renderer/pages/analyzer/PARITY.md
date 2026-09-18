@@ -194,10 +194,14 @@ and field — refused on the Run button, never silently resolved to the first ro
 - [x] Changing space clears an atlas selection that has no equivalent and says so; coordinates,
       radii, mask paths and saved-ROI names are kept and reinterpreted.
 - [x] The ROI is resolved into the subject at job start — in **every** space, not only MNI — and the
-      run folder gets `roi_plate.png` + `roi_plate.json` (`tit/figures/roi_plate.py`, called through
-      `tit/roi_confirmation.py`), shown in the job's Artifacts tab: three panels with the ROI centred
-      and filling the view, the framing rule and the per-region voxel counts in the JSON. On a
-      desktop with TetraVox, `desktop/src/main/roiPlates.ts` redraws the PNG with it when the job
-      finishes.
-- [x] A mask analysis also leaves `roi_field_plate.png` when it finishes: the same framing with the
-      measured field masked to the ROI in inferno, with a colour bar.
+      run folder gets **one** file, `roi.tetravox.json` (`tit/figures/roi_plate.py`, called through
+      `tit/roi_confirmation.py`): a TetraVox scene naming the subject's T1 and the atlas, mask or
+      `.annot` the target came from, with the cursor on the ROI and the zoom set so it fills the
+      view, and the centroid, voxel count, GM overlap and framing rule in its `meta` block. Its
+      Artifacts row offers **Open in TetraVox**, which opens the file itself. On a desktop with
+      TetraVox, `desktop/src/main/roiPlates.ts` also photographs it into `roi.png` beside it when
+      the job finishes; without TetraVox there is no picture and the scene still opens.
+- [x] A voxel analysis also leaves `roi_field.tetravox.json`: the same framing with the analysis's
+      **own** field volume drawn in inferno under the ROI's outline, thresholded to the ROI's range.
+      A mesh analysis does not — a mesh field has no voxels, and a picture drawn from a different
+      file than the table came from would contradict it.

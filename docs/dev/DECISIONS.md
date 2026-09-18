@@ -1036,7 +1036,7 @@ self-consistently wrong.
 cost a cold build (the 202 state is what makes that legible); the installation carries a second
 packaged guide. **Revisit if:** the per-subject build cost on a large cohort makes the pane feel
 slow enough that a "draw the guide instead" preference is worth having.
-## 2026-09-17 — ROI plates: framing rules, two renderers, host-side TetraVox pass
+## 2026-09-17 — ROI plates: framing rules, two renderers, host-side TetraVox pass *(superseded the same day — see “One scene per target”)*
 
 **Decision:** `tit/figures/roi_plate.py` replaces the MNI-only matplotlib confirmation
 (`tit/roi_confirmation.py`, which is now its caller). Three parts:
@@ -1085,6 +1085,78 @@ one extra GPU process per job on the host. **Revisit if:** a batch of many targe
 per-job TetraVox pass (capped at 8 plates) contend with the user's own window, or if TetraVox
 gains a `figure` whose panels may each carry their own cursor — a per-region plate is matplotlib
 only today for exactly that reason.
+
+## 2026-09-17 — One scene per target: `roi.tetravox.json` and nothing else
+
+**Supersedes “ROI plates: framing rules, two renderers, host-side TetraVox pass”** (above, same
+day). That design left, per target, `roi_mask.nii` (125 MB), `roi_plate_roi.nii` (125 MB),
+`roi_plate.png`, `roi_plate.json`, `roi_plate.plate-request.json` and `roi_plate.tetravox-job.json`
+beside an analysis's own four files. Maintainer, on seeing one such directory: *“We are saving too
+much information … only create a simple `.json` scene compatible with Tetravox and TI-Toolbox's
+architecture, quick and lightweight, that points to the existing outputs inherent to the operations
+themselves.”*
+
+**Decision:** every optimizer and analyzer target leaves **one file**, `roi.tetravox.json` — a
+Tetravox `ViewSpec` v2, the same format *File ▸ Save Scene* writes and *Open in Tetravox* reads —
+and the analyzer's field target leaves a second, `roi_field.tetravox.json`. Four consequences:
+
+**1. The scene references files that already exist.** The subject's `m2m/T1.nii.gz`; for a
+subcortical or mask target the **atlas or mask the user named**, with `visibleLabels` and
+`labelColors` selecting and colouring the target's labels; for a cortical target the hemisphere's
+`surfaces/<hemi>.central.gii` with the `.annot` attached through `sidecars.fields` and
+`annotation.visibleLabels` selecting the region; for the field scene the analysis's **own**
+`TI_max` volume with the threshold the ROI's p99.9 sets. Nothing is rasterised, resampled or copied
+to make any of it. `_annot_mask` is gone: a cortical cursor comes from the labelled vertices of the
+central surface, in memory, and no file is written to get it.
+
+**2. `visibleLabels` on a `.annot` names the packed FreeSurfer id, not the dense index.**
+`read_annot` returns an index into the colortable and that is what selects the vertices;
+`crates/tvx-mesh-io/src/freesurfer.rs` builds `LabelEntry.id` as `r | g << 8 | b << 16` and
+`layers/mesh.ts::buildLabelPalette` matches on **that**. Sending the dense index matches no entry,
+every label's alpha goes to zero, and the parcellation renders as nothing at all — which is exactly
+what the first cortical scene did.
+
+**3. One legitimate intermediate, and only for MNI.** An MNI target is not the ROI that runs and
+exists in no file the user has, so the transformed mask is written once — compressed `uint8` on the
+**atlas's** voxel grid, not the subject's 0.5 mm conform grid. CIT168 label 1 into sub-101:
+**15.9 KB**, against the 125 MB the same mask cost on the T1 grid.
+
+**4. Paths are relative to the scene.** That is the one addressing correct both in the container
+that writes the scene and on the host that opens it, so nothing re-roots anything: `roiPlates.ts`
+no longer rewrites a document, and *Open in Tetravox* on the artifact row opens the file directly
+(`viewableKind` returns `"scene"` for `*.tetravox.json`; `useOpenInViewer` skips `openView` for one).
+
+**What was deleted.** The matplotlib renderer, `roi_plate.json`, `*.plate-request.json`,
+`*.tetravox-job.json`, `roi_plate_roi.nii`, `roi_mask.nii` on the T1 grid and `*_field-in-roi.nii`.
+The numbers the sidecar carried — centroid, voxel count, GM overlap, framing rule, per-region counts
+— are in the scene's own `meta` block (Tetravox's `parseScene` checks `version`, `datasets` and
+`layers` and carries every other key through) and in the one terminal line, which stays.
+`plan_framing` stays: it is small, pure and the reason the ROI is centred and fills the view.
+
+**The picture is optional and host-side.** `desktop/src/main/roiPlates.ts` builds a three-line
+`--job` document *from the scene, at that moment, never persisted*, runs Tetravox offscreen and
+writes `roi.png` / `roi_field.png` beside the scene. No Tetravox, a non-zero exit or a timeout: one
+log line, and the scene is still there. The PNG is not in the job's artifact list — the server has
+no endpoint to add one after a job ends — but it is in the job's own folder, which *Open folder*
+reaches.
+
+**Verified in the container** (`idossha/ti-toolbox:v3.0.0`, Dataset 000, sub-101) for a subcortical
+label, a bilateral cortical `.annot`, an MNI CIT168 label, a sphere and a mask analysis with its
+field; each directory held the operation's own outputs plus the scene(s), and all five scenes were
+then rendered by the installed Tetravox 0.5.2 with `--job`.
+
+**What Tetravox cannot draw yet.** A **sphere** target: `ViewSpec` has no marker or sphere layer
+(`sphere` exists only inside a mesh `IsolateSpec`), so a spherical ROI's scene is the T1 with the
+crosshair on the centre and the zoom set by the radius, and the smallest addition that would fix it
+is a points/sphere layer kind with a centre, a radius and a colour. A cortical target's regions all
+take the `.annot`'s **own** colours rather than one palette colour per region, because
+`SurfaceLayer.annotation` has no `labelColors`; the smallest addition is that field, mirroring
+`VolumeLayer.labelColors`.
+
+**Cost:** a mask analysis writes two small JSON files instead of one picture, so a person who wants
+to *see* the ROI without a viewer needs Tetravox installed. **Revisit if:** that turns out to matter
+for a headless or CI reader — the answer would be a Tetravox CLI render in the container, not a
+second renderer in Python.
 
 ## 2026-09-17 — One loader, `--dev` is a bind mount, `loader_dev` is gone
 

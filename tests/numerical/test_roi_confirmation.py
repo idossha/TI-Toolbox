@@ -1,4 +1,4 @@
-"""The MNI ROI confirmation artefact, on synthetic volumes with real nibabel.
+"""The ROI scene artefact, on synthetic volumes with real nibabel.
 
 The claims under test are geometric — a centroid in the subject's own
 millimetres, a voxel count, a grey-matter overlap fraction — so they need real
@@ -67,6 +67,17 @@ def identity_transform(monkeypatch):
     return passthrough
 
 
+SCENE = roi_confirmation.SCENE_NAME
+
+
+def _scene(out: Path) -> dict:
+    return json.loads((out / SCENE).read_text())
+
+
+def _listing(out: Path) -> set[str]:
+    return {p.name for p in out.iterdir()}
+
+
 def test_reports_the_centroid_in_subject_millimetres_and_the_gm_overlap(tmp_path, m2m):
     affine = np.diag([1.0, 1.0, 1.0, 1.0])
     affine[:3, 3] = [-6.0, -6.0, -6.0]
@@ -77,18 +88,19 @@ def test_reports_the_centroid_in_subject_millimetres_and_the_gm_overlap(tmp_path
     path = _volume(tmp_path / "atlas.nii.gz", atlas, affine)
 
     out = tmp_path / "run"
-    summary = roi_confirmation.confirm_roi(
+    meta = roi_confirmation.confirm_roi(
         atlas_path=path, space="mni", m2m=str(m2m), out_dir=str(out), label=7, name="Test-Region"
     )
 
-    assert summary is not None
-    assert summary["voxels"] == 8
+    assert meta is not None
+    assert meta["voxels"] == 8
     # Voxel centroid (8.5, 4.5, 2.5) through the affine -> (2.5, -1.5, -3.5).
-    assert summary["centroid_ras"] == [2.5, -1.5, -3.5]
-    assert summary["gm_overlap"] == 1.0
-    assert summary["label"] == 7
-    written = json.loads((out / roi_confirmation.JSON_NAME).read_text())
-    assert written == summary
+    assert meta["centroid_ras"] == [2.5, -1.5, -3.5]
+    assert meta["gm_overlap"] == 1.0
+    assert meta["label"] == [7]
+    # An MNI target is the one case with an intermediate, and it is the only one.
+    assert _listing(out) == {SCENE, roi_confirmation.MNI_MASK_NAME}
+    assert _scene(out)["meta"] == meta
 
 
 def test_gm_overlap_is_a_fraction_when_the_roi_straddles_the_boundary(tmp_path, m2m):
@@ -97,16 +109,18 @@ def test_gm_overlap_is_a_fraction_when_the_roi_straddles_the_boundary(tmp_path, 
     atlas = np.zeros((12, 12, 12), dtype=np.uint16)
     atlas[5:7, 4:6, 2:4] = 3  # half in white matter, half in grey
     path = _volume(tmp_path / "atlas.nii.gz", atlas, affine)
-    summary = roi_confirmation.confirm_roi(
+    meta = roi_confirmation.confirm_roi(
         atlas_path=path, space="mni", m2m=str(m2m), out_dir=str(tmp_path / "run"), label=3
     )
-    assert summary is not None
-    assert summary["gm_overlap"] == 0.5
+    assert meta is not None
+    assert meta["gm_overlap"] == 0.5
 
 
-def test_a_subject_space_roi_is_confirmed_too(tmp_path, m2m):
-    """The check is no longer for MNI ROIs only: a subject mask off by a slice
-    is as invisible in the numbers as a bad transform."""
+def test_a_subject_space_target_writes_the_scene_and_nothing_else(tmp_path, m2m):
+    """The whole point of the change: the scene points at the file the user named.
+
+    A subject-space ROI needs no intermediate at all, so the directory holds one
+    file, and the dataset it names is the mask that was passed in."""
     affine = np.diag([1.0, 1.0, 1.0, 1.0])
     affine[:3, 3] = [-6.0, -6.0, -6.0]
     mask = np.zeros((12, 12, 12), dtype=np.uint8)
@@ -114,20 +128,29 @@ def test_a_subject_space_roi_is_confirmed_too(tmp_path, m2m):
     path = _volume(tmp_path / "a.nii.gz", mask, affine)
     out = tmp_path / "run"
 
-    summary = roi_confirmation.confirm_roi(
+    meta = roi_confirmation.confirm_roi(
         atlas_path=path, space="subject", m2m=str(m2m), out_dir=str(out), name="Hand-drawn"
     )
 
-    assert summary is not None
-    assert summary["space"] == "subject"
-    assert summary["voxels"] == 8
-    assert summary["cursor_rule"] == "single"
-    assert (out / roi_confirmation.MASK_NAME).is_file()
-    assert (out / roi_confirmation.JSON_NAME).is_file()
+    assert meta is not None
+    assert meta["space"] == "subject"
+    assert meta["voxels"] == 8
+    assert meta["rule"] == "single"
+    assert _listing(out) == {SCENE}
+
+    scene = _scene(out)
+    names = [d["name"] for d in scene["datasets"]]
+    assert names == ["T1.nii.gz", "a.nii.gz"]
+    for dataset in scene["datasets"]:
+        resolved = (out / dataset["path"]).resolve()
+        assert resolved.is_file(), f"{dataset['path']} does not exist"
+    # The cursor is on the ROI, and the ROI is what the camera is centred on.
+    assert scene["cursor"] == pytest.approx(meta["cursor_ras"], abs=0.01)
+    assert all(slice_["camera"]["mmPerPx"] > 0 for slice_ in scene["slices"])
 
 
 def test_a_failure_is_a_log_line_and_never_an_exception(tmp_path, m2m, caplog):
-    """A job must not die because a picture could not be drawn."""
+    """A job must not die because an artefact could not be written."""
     out = tmp_path / "run"
     assert (
         roi_confirmation.confirm_roi(
@@ -146,9 +169,9 @@ def test_the_env_switch_turns_the_whole_artefact_off(tmp_path, m2m, monkeypatch)
     assert roi_confirmation.confirm_roi(atlas_path=path, space="mni", m2m=str(m2m), out_dir=str(tmp_path / "r")) is None
 
 
-def test_several_targets_are_one_union_plate_in_one_directory(tmp_path, m2m):
-    """A search treats a union of regions as one target, so the confirmation
-    is one mask, one plate and one directory — never ``roi_2/``."""
+def test_several_targets_are_one_scene_in_one_directory(tmp_path, m2m):
+    """A search treats a union of regions as one target, so the confirmation is
+    one scene and one directory — never ``roi_2/`` — with one colour per region."""
     affine = np.diag([1.0, 1.0, 1.0, 1.0])
     affine[:3, 3] = [-6.0, -6.0, -6.0]
     atlas = np.zeros((12, 12, 12), dtype=np.uint16)
@@ -156,20 +179,70 @@ def test_several_targets_are_one_union_plate_in_one_directory(tmp_path, m2m):
     atlas[8:10, 6:8, 2:4] = 8
     path = _volume(tmp_path / "atlas.nii.gz", atlas, affine)
     out = tmp_path / "run"
-    summaries = roi_confirmation.confirm_rois(
+    written = roi_confirmation.confirm_rois(
         [
-            {"atlas_path": path, "label": 7, "space": "mni", "name": "seven"},
-            {"atlas_path": path, "label": 8, "space": "mni", "name": "eight"},
+            {"atlas_path": path, "label": 7, "space": "subject", "name": "seven"},
+            {"atlas_path": path, "label": 8, "space": "subject", "name": "eight"},
         ],
         m2m=str(m2m),
         out_dir=str(out),
     )
-    assert len(summaries) == 1
-    assert summaries[0]["roi"] == "seven + eight"
-    assert set(summaries[0]["voxels_by_region"]) == {"seven", "eight"}
-    assert (out / roi_confirmation.JSON_NAME).is_file()
+    assert len(written) == 1
+    assert written[0]["roi"] == "seven + eight"
+    assert set(written[0]["regions"]) == {"seven", "eight"}
+    assert _listing(out) == {SCENE}
     assert not (out / "roi_2").exists()
-    import nibabel as nib
 
-    mask = np.asarray(nib.load(str(out / roi_confirmation.MASK_NAME)).dataobj)
-    assert set(np.unique(mask)) == {0, 1, 2}
+    scene = _scene(out)
+    # One dataset for the atlas, listed once and styled twice (fill and outline).
+    atlas_layers = [la for la in scene["layers"] if la["name"] == "atlas.nii.gz"]
+    assert len(atlas_layers) == 2
+    assert {la["labelMode"] for la in atlas_layers} == {"fill", "outline"}
+    assert atlas_layers[0]["visibleLabels"] == [7, 8]
+    colours = atlas_layers[0]["labelColors"]
+    assert colours["7"] != colours["8"], "a union shows one colour per region"
+
+
+def test_a_field_target_gets_a_second_scene_naming_the_field_file(tmp_path, m2m):
+    """No `_field-in-roi.nii`: the field scene points at the file the table came from."""
+    affine = np.diag([1.0, 1.0, 1.0, 1.0])
+    affine[:3, 3] = [-6.0, -6.0, -6.0]
+    mask = np.zeros((12, 12, 12), dtype=np.uint8)
+    mask[8:10, 4:6, 2:4] = 1
+    path = _volume(tmp_path / "a.nii.gz", mask, affine)
+    field = np.zeros((12, 12, 12), dtype=np.float32)
+    field[8:10, 4:6, 2:4] = np.linspace(0.1, 0.5, 8).reshape(2, 2, 2)
+    field_path = _volume(tmp_path / "TI_max.nii.gz", field, affine)
+    out = tmp_path / "run"
+
+    roi_confirmation.confirm_rois(
+        [{"atlas_path": path, "space": "subject", "field_path": field_path}],
+        m2m=str(m2m),
+        out_dir=str(out),
+    )
+
+    assert _listing(out) == {SCENE, roi_confirmation.FIELD_SCENE_NAME}
+    scene = json.loads((out / roi_confirmation.FIELD_SCENE_NAME).read_text())
+    field_layer = [la for la in scene["layers"] if la["name"] == "TI_max.nii.gz"][0]
+    assert field_layer["colormap"] == "inferno"
+    # `clamp` (the default) would paint a black wash over the whole T1.
+    assert field_layer["threshold"]["mode"] == "hide"
+    assert field_layer["threshold"]["lo"] == pytest.approx(0.2 * field_layer["scale"]["hi"])
+    assert scene["meta"]["field"]["file"] == field_path
+
+
+def test_a_sphere_target_is_the_cursor_and_no_file(tmp_path, m2m):
+    """A sphere names no file, so the scene references none: T1 and a crosshair."""
+    out = tmp_path / "run"
+    written = roi_confirmation.confirm_rois(
+        [{"sphere": ((2.0, -1.0, -3.0), 3.0), "name": "target"}],
+        m2m=str(m2m),
+        out_dir=str(out),
+    )
+    assert len(written) == 1
+    assert written[0]["rule"] == "sphere"
+    assert written[0]["spheres"] == [{"centre_ras": [2.0, -1.0, -3.0], "radius_mm": 3.0}]
+    assert _listing(out) == {SCENE}
+    scene = _scene(out)
+    assert [d["name"] for d in scene["datasets"]] == ["T1.nii.gz"]
+    assert scene["cursor"] == pytest.approx([2.0, -1.0, -3.0])
