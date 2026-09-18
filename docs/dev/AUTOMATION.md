@@ -29,6 +29,7 @@ release image tags are immutable. Publication modes and credentials are covered 
 | [Smoke harness](../../dev/smoke.sh) | Discover a stack and execute selected checks with output cleanup manifests |
 | [Contract guard](../../dev/contracts_check.py) | Detect generated-schema drift; regenerate through the desktop `gen` script |
 | [Import guard](../../dev/route_import_guard.py) | Prevent heavy scientific imports at server route import time |
+| [Example notebook](../../dev/run_example_notebook.sh) | Execute the seeded example notebook in the image against a fresh project; `dev/render_example_notebook.py` regenerates its wiki page |
 | [Docs server](../serve.sh) | Local preview; full site/API generation is in [docs README](../README.md) |
 
 ## Monitoring and recovery

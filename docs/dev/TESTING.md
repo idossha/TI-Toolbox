@@ -76,6 +76,15 @@ regenerates outputs in a temporary directory and checks byte drift against the a
 Fix drift with `cd desktop && npm run gen`; never hand-edit generated output. Contract warnings
 must be reported rather than counted as zero.
 
+The packaged example notebook (`tit/server/examples/example_workflow.ipynb`, the one source;
+`examples/notebooks/` symlinks to it and `docs/wiki/example-notebook.md` is rendered from it by
+`dev/render_example_notebook.py`) is guarded two ways. `tests/test_example_notebook_api.py`, in the
+host suite, resolves every import, keyword argument and `pm.` attribute of every cell against the
+real `tit` API and checks the wiki page has not drifted. `dev/run_example_notebook.sh` executes the
+notebook in the release image against a fresh project (downloads ernie, runs the reduced flex
+search, one TI FEM solve and the analyzer); it is the run that proves the notebook works and is
+run before a release, not on every CI push, because it needs a real solve.
+
 ### Hidden end-to-end tests
 
 Serialize every Playwright run under the shared `/tmp/tit-e2e.lock` and coordinate build ownership;

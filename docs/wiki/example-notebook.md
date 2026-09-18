@@ -19,6 +19,8 @@ whatever project folder you point `PROJECT` at. The notebook lives at
 repository and is also seeded into every project as `examples/example_workflow.ipynb` on the
 Notebooks page.
 
+<!-- generated from tit/server/examples/example_workflow.ipynb by dev/render_example_notebook.py; do not edit below -->
+
 # TI-Toolbox in eight cells
 
 Everything the app does, it does by calling the `tit` Python API. This notebook walks the app
@@ -26,8 +28,7 @@ page by page — Project, Pre-processing, Optimizer, Simulator, Analyzer — and
 each page's **Run** button makes. Nothing here is a helper we wrote for the notebook; every line
 is the public API.
 
-It runs against the SimNIBS example subject `ernie`, fetched into your own project by cell 1,
-inside the TI-Toolbox container.
+It runs against the SimNIBS example subject `ernie`, fetched into your own project by cell 1, inside the TI-Toolbox container.
 
 ## 1. Pick the project (app ▸ the project you opened)
 
@@ -38,11 +39,10 @@ it is the single object that knows where everything in a BIDS project lives.
 export `TIT_PROJECT_DIR` before starting the kernel. Everything else in the notebook derives
 from it.
 
-`fetch_ernie` downloads both parts of the `ernie` dataset once (`ernie/nifti` and
-`ernie/headmodel`, 627 MB together, GPL-3.0) so every later cell has a head model. Each part is
-skipped if already present. Same as ticking them in *Add example data?* or in *Help ▸ Example
-data* — see [Example Data]({{ site.baseurl }}/wiki/example-data/) for the MNI152 dataset and the
-`python -m tit.examples` command line.
+`fetch_ernie` downloads both parts of the `ernie` example dataset once — its raw T1/T2
+(`ernie/nifti`) and its finished head model (`ernie/headmodel`), about 630 MB together, GPL-3.0 — so
+every later cell has a head model. Each part is skipped if already present. Same as ticking them in
+the app's *Add example data?* chooser.
 
 ```python
 import os
@@ -80,8 +80,9 @@ else:
 Flex-search searches electrode positions freely on the scalp. The form fields on the Optimizer
 page map one-to-one onto `FlexConfig`: the goal dropdown, the current in mA, the electrode
 geometry, and the target ROI — here a 10 mm sphere at an MNI coordinate, so no atlas file is
-needed. The solver settings are **reduced for the example** so the cell finishes in minutes; leave
-them out for the app's defaults.
+needed. The solver settings are **reduced for the example** (one restart, a handful of generations) so the
+cell finishes in minutes; leave them out for the app's defaults. Every run lands in a new folder
+under `flex-search/`, so re-running never overwrites an earlier search.
 
 ```python
 from tit.opt import FlexConfig, run_flex_search
@@ -102,18 +103,26 @@ result = run_flex_search(flex)
 print(result.best_value, result.output_folder)
 ```
 
-## 4. Choose a montage (app ▸ Simulator ▸ the montage dropdown)
+## 4. Choose a montage (app ▸ Simulator ▸ the montage list)
 
-The Simulator page's montage dropdown is the project's montage list. `list_montage_names` reads
-exactly that file, and `load_montages` turns a chosen name into the object the simulator takes.
+The Simulator page's montage dropdown is the project's own montage list, `montage_list.json`,
+which starts empty in a new project. The page's **Add montage** button is `upsert_montage`; it
+writes the montage under an EEG net and is safe to re-run. The net must be one of the caps in the
+head model's `eeg_positions/` — the example head ships the standard 10-10 cap, so the four electrodes
+below are 10-10 names. `list_montage_names` reads the file back and `load_montages` turns a chosen
+name into the object the simulator takes.
 
 ```python
-from tit.sim import list_montage_names, load_montages
+from tit.sim import upsert_montage, list_montage_names, load_montages
 
-NET = "GSN-HydroCel-185.csv"
+NET = "EEG10-10_UI_Jurak_2007.csv"
+MONTAGE = "L_Insula"
+
+upsert_montage(eeg_net=NET, montage_name=MONTAGE, mode="U",
+               electrode_pairs=[["F7", "TP7"], ["FT7", "P7"]])
 print(list_montage_names(NET, mode="U"))
 
-montages = load_montages(montage_names=["L_Insula"], eeg_net=NET, include_flex=False)
+montages = load_montages(montage_names=[MONTAGE], eeg_net=NET, include_flex=False)
 print(montages[0].name, montages[0].electrode_pairs)
 ```
 
@@ -121,7 +130,8 @@ print(montages[0].name, montages[0].electrode_pairs)
 
 Two electrode pairs means a TI simulation; four or more means mTI, and the API picks for you.
 Every other field on the page — conductivity, current per pair, electrode shape and size — is a
-field of `SimulationConfig`.
+field of `SimulationConfig`. `overwrite=True` replaces an earlier run of the same montage, so the
+cell can be run again. A single FEM solve takes a few minutes.
 
 ```python
 from tit.sim import SimulationConfig, run_simulation
@@ -137,18 +147,21 @@ sim = SimulationConfig(
 )
 run_simulation(sim, overwrite=True)
 
-print(pm.simulation(SUBJECT, montages[0].name))
+print(pm.simulation(SUBJECT, MONTAGE))
 ```
 
 ## 6. Analyze (app ▸ Analyzer ▸ Run)
 
 The Analyzer page asks for a simulation, a space (mesh or voxel) and a region. `analyze_cortex`
 takes an atlas name and a region name and returns the numbers the page's results table shows.
+Cortical region names carry the hemisphere (`lh.insula`, `rh.insula`); a bare name is both. Mesh
+space needs only the head model; voxel space additionally needs the subject's FastSurfer volume
+parcellation, which the example head does not ship.
 
 ```python
 from tit.analyzer import Analyzer
 
-analyzer = Analyzer(subject_id=SUBJECT, simulation="L_Insula", space="mesh")
+analyzer = Analyzer(subject_id=SUBJECT, simulation=MONTAGE, space="mesh")
 roi = analyzer.analyze_cortex(atlas="DK40", region="lh.insula")
 
 print(roi.region_name, roi.roi_mean, roi.roi_max, roi.roi_focality)
@@ -158,7 +171,7 @@ print(roi.region_name, roi.roi_mean, roi.roi_max, roi.roi_focality)
 
 The example project has one subject, so there is no group to compare here. With several subjects, the
 Statistics page calls `tit.stats.run_group_comparison` on a `GroupComparisonConfig` — see the
-[Scripting]({{ site.baseurl }}/wiki/scripting/) page for that one snippet.
+[Scripting](https://idossha.github.io/TI-Toolbox/wiki/scripting/) page for that one snippet.
 
 ## 8. Where the results land
 
@@ -167,8 +180,8 @@ Every path below is derived from the project root by `pm`; nothing is typed by h
 ```python
 print("head model      ", pm.m2m(SUBJECT))
 print("simulations     ", pm.simulations(SUBJECT))
-print("this simulation ", pm.simulation(SUBJECT, "L_Insula"))
+print("this simulation ", pm.simulation(SUBJECT, MONTAGE))
 print("flex-search     ", pm.flex_search(SUBJECT))
-print("analyses        ", pm.analysis_dir(SUBJECT, "L_Insula", "mesh"))
+print("analyses        ", pm.analysis_dir(SUBJECT, MONTAGE, "mesh"))
 print("logs            ", pm.logs(SUBJECT))
 ```
