@@ -11,7 +11,7 @@ Decision S2 in three rules, each with the failure it prevents:
 
 * **The server extracts; the browser never sees the mesh.** ``ernie.msh`` is
   184 MB. What crosses the wire is 1.4 MB of skin and 2.6 MB of grey matter.
-* **Everything is cached under ``derivatives/ti-toolbox/scene_cache/``**,
+* **Everything is cached under ``.ti-toolbox/cache/scene/``**,
   keyed by a fingerprint of its source files (:mod:`tit.scene.cache`), so the
   second pane open is a file read. ``X-Scene-Build-Ms`` reports what the
   artifact being served cost to build and ``X-Scene-Cache: hit|miss`` says

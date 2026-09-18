@@ -98,10 +98,10 @@ def test_publish_then_find_returns_the_bytes_and_the_sidecar(project: Path) -> N
     assert found.meta == published.meta
 
 
-def test_cache_lives_under_derivatives_ti_toolbox(project: Path) -> None:
-    """§2.2's path, spelled out -- other tooling globs for it."""
+def test_cache_lives_under_the_project_dot_directory(project: Path) -> None:
+    """The path, spelled out -- other tooling globs for it."""
     cache.publish(project, "ernie", "skin", "f0", b"x", {})
-    expected = project / "derivatives" / "ti-toolbox" / "scene_cache" / "sub-ernie"
+    expected = project / ".ti-toolbox" / "cache" / "scene" / "sub-ernie"
     assert expected.is_dir()
     assert (expected / "skin.f0.tvsc").is_file()
     assert (expected / "skin.f0.json").is_file()
