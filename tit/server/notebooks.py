@@ -36,6 +36,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from tit.paths import resolve_leaf_within
+
 #: Relative to the project root. The pipeline exports here too.
 NOTEBOOK_SUBDIR = Path("code") / "ti-toolbox" / "notebooks"
 
@@ -119,19 +121,15 @@ def notebook_path(project_root: str | Path, name: str) -> Path:
 def _checked_notebook_entry(project_root: str | Path, name: str) -> Path:
     """Check a trusted relative entry, preserving its leaf for replace/unlink."""
     directory = os.path.realpath(notebooks_dir(project_root))
-    named_path = os.path.join(directory, name)
     # Resolve parent symlinks, but retain the leaf: save/delete must replace or
-    # unlink a notebook alias, not mutate the file that alias points to.
-    parent = os.path.realpath(os.path.dirname(named_path))
-    entry = os.path.abspath(os.path.join(parent, os.path.basename(named_path)))
-    if entry == directory or entry.startswith(directory.rstrip(os.sep) + os.sep):
-        target = os.path.realpath(entry)
-        # Reads follow the leaf, so its target must independently stay jailed.
-        if target == directory or target.startswith(directory.rstrip(os.sep) + os.sep):
-            return Path(entry)
-    raise NotebookError(
-        "bad-name", f"{name!r} resolves outside the notebook directory."
-    )
+    # unlink a notebook alias, not mutate the file that alias points to. Reads
+    # follow the leaf, so its target must independently stay jailed.
+    try:
+        return Path(resolve_leaf_within(directory, os.path.join(directory, name)))
+    except ValueError as error:
+        raise NotebookError(
+            "bad-name", f"{name!r} resolves outside the notebook directory."
+        ) from error
 
 
 @dataclass(frozen=True)
@@ -285,11 +283,15 @@ def read_notebook(project_root: str | Path, name: str) -> dict[str, Any]:
     try:
         notebook = nbformat.read(str(path), as_version=4)
     except Exception as error:
-        raise NotebookError("bad-notebook", f"{path.name} is not a readable notebook: {error}") from error
+        raise NotebookError(
+            "bad-notebook", f"{path.name} is not a readable notebook: {error}"
+        ) from error
     return dict(notebook)
 
 
-def write_notebook(project_root: str | Path, name: str, content: dict[str, Any]) -> Path:
+def write_notebook(
+    project_root: str | Path, name: str, content: dict[str, Any]
+) -> Path:
     """Write one notebook, validating it first.
 
     Validation is not ceremony: what arrives here came from a browser, and a

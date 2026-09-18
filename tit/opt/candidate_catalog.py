@@ -8,6 +8,8 @@ import json
 import math
 from pathlib import Path
 
+from tit.paths import resolve_within
+
 _FIELDS = {
     "roi_mean": "roi_mean",
     "roi_p99_9": "roi_p99_9",
@@ -51,9 +53,10 @@ def _termination(manifest: dict) -> dict:
 
 
 def _safe(root: Path, path: Path) -> Path:
-    resolved = path.resolve()
-    if not resolved.is_relative_to(root.resolve()):
-        raise ValueError("Candidate reference escapes the project.")
+    try:
+        resolved = Path(resolve_within(str(root), str(path)))
+    except ValueError as exc:
+        raise ValueError("Candidate reference escapes the project.") from exc
     if resolved.is_file() and resolved.stat().st_size > _MAX_BYTES:
         raise ValueError("Candidate file exceeds the supported size.")
     return resolved

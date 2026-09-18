@@ -53,7 +53,7 @@ from typing import Any
 
 import numpy as np
 
-from tit.paths import PathManager, is_within
+from tit.paths import PathManager, resolve_within
 from tit.scene import cache, gifti, tvsc
 from tit.scene.simplify import simplify_to_budget
 
@@ -167,10 +167,12 @@ def source_path(pm: PathManager, path: str | Path) -> Path | None:
     Scene builders serve project-derived HTTP payloads; standalone scientific readers
     elsewhere retain their own input policy.
     """
-    resolved = os.path.realpath(path)
-    if not pm.project_dir or not is_within(pm.project_dir, resolved):
+    if not pm.project_dir:
         return None
-    return Path(resolved)
+    try:
+        return Path(resolve_within(pm.project_dir, str(path)))
+    except ValueError:
+        return None
 
 
 def head_mesh_path(pm: PathManager, sid: str) -> Path:

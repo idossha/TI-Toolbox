@@ -84,6 +84,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from tit.jobs.spec import JobKind
+from tit.server.schemas import SubjectId
 from tit.paths import PathManager, get_path_manager
 from tit.server.routes.validate import ALL_KINDS, KindNotConfigurable, cls_for
 
@@ -101,7 +102,7 @@ router = APIRouter()
 
 class PlanRequest(BaseModel):
     config: dict[str, Any]
-    subject_ids: list[str] | None = None
+    subject_ids: list[SubjectId] | None = None
     overwrite: bool = False
     #: contracts/openapi.yaml's MontageSources -- kind=sim only. Top-level field, per the
     #: frozen contract (``{flex: [{subject?, run, electrode_type?, eeg_net?}], freehand:
@@ -211,7 +212,9 @@ def clamp_parallel_subjects(
 
         cost = default_cost(kind, raw_config)
         budget = discover_budget()
-    except Exception:  # pragma: no cover - defensive; never fail a plan over an estimate
+    except (
+        Exception
+    ):  # pragma: no cover - defensive; never fail a plan over an estimate
         return requested
     by_cpu = int(budget.cpus // cost.cpus) if cost.cpus > 0 else requested
     by_mem = int(budget.mem_gb // cost.mem_gb) if cost.mem_gb > 0 else requested

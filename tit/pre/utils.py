@@ -30,7 +30,7 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from tit.paths import get_path_manager, is_within, validate_subject_id
+from tit.paths import get_path_manager, is_within, resolve_under, validate_subject_id
 
 DATASET_TEMPLATES = {
     "root": "root.dataset_description.json",
@@ -219,7 +219,7 @@ def _find_anat_files(subject_id: str) -> tuple[Path | None, Path | None]:
 def _find_nifti(directory: Path, stem: str) -> Path | None:
     """Return the first ``.nii.gz`` or ``.nii`` file matching *stem*."""
     for ext in (".nii.gz", ".nii"):
-        path = directory / f"{stem}{ext}"
+        path = Path(resolve_under(str(directory), f"{stem}{ext}"))
         if path.exists():
             return path
     return None

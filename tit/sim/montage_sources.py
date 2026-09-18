@@ -44,7 +44,7 @@ import os
 import re
 from typing import Any
 
-from tit.paths import PathManager
+from tit.paths import PathManager, resolve_within
 from tit.sim.config import Montage
 
 __all__ = [
@@ -72,10 +72,10 @@ def _source_name(name: str, field: str) -> str:
 def _source_path(pm: PathManager, path: str) -> str:
     """Resolve project-owned montage inputs and mapping outputs before file I/O."""
     if pm.project_dir:
-        root = os.path.realpath(pm.project_dir)
-        resolved = os.path.realpath(path)
-        if resolved == root or resolved.startswith(root.rstrip(os.sep) + os.sep):
-            return resolved
+        try:
+            return resolve_within(pm.project_dir, path)
+        except ValueError:
+            pass
     raise ValueError("Montage source paths must remain inside the project")
 
 

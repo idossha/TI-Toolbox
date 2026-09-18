@@ -91,7 +91,7 @@ from tit.catalog import (
     surface_attachments,
 )
 from tit.atlas.constants import mni_resources_dir
-from tit.paths import get_path_manager, is_within
+from tit.paths import get_path_manager, is_within, resolve_under, resolve_within
 
 
 def __getattr__(name):
@@ -106,6 +106,7 @@ def __getattr__(name):
 
         return constants.DEFAULT_MNI_ATLAS
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 _VIEW_KINDS = ("subject", "simulation", "analysis", "group", "custom")
 
@@ -189,7 +190,7 @@ def _layer(
 
 def _subject_t1_layer(pm, sid: str, space: str) -> dict[str, Any] | None:
     name = f"T1_{sid}_MNI.nii.gz" if space == "mni" else "T1.nii.gz"
-    path = os.path.join(pm.m2m(sid), name)
+    path = resolve_under(pm.m2m(sid), name)
     return _layer(path) if os.path.isfile(path) else None
 
 
@@ -326,7 +327,7 @@ def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
     makes the layer visible.
     """
     for mode in _MODE_DIRS:
-        mesh = os.path.join(sim_dir, mode, "mesh", f"grey_{sim}_TI.msh")
+        mesh = resolve_under(sim_dir, mode, "mesh", f"grey_{sim}_TI.msh")
         if os.path.isfile(mesh):
             return _layer(
                 mesh, kind="label", colormap="jet", opacity=1.0, visible=False
@@ -358,7 +359,7 @@ def _analysis_layer(
     pm, sid: str, sim: str, analysis_name: str
 ) -> dict[str, Any] | None:
     for space_dir in ("Voxel", "Mesh"):
-        candidate = os.path.join(
+        candidate = resolve_under(
             pm.simulation(sid, sim), "Analyses", space_dir, analysis_name
         )
         if not os.path.isdir(candidate):
@@ -439,14 +440,20 @@ def _analysis_cursor(pm, sid: str, sim: str, analysis_name: str) -> list[float] 
     import json
 
     for space_dir in ("Voxel", "Mesh"):
-        config = os.path.join(
-            pm.simulation(sid, sim),
-            "Analyses",
-            space_dir,
-            analysis_name,
-            "analysis.json",
-        )
-        if not is_within(pm.project_dir, config) or not os.path.isfile(config):
+        try:
+            config = resolve_within(
+                pm.project_dir,
+                resolve_under(
+                    pm.simulation(sid, sim),
+                    "Analyses",
+                    space_dir,
+                    analysis_name,
+                    "analysis.json",
+                ),
+            )
+        except ValueError:
+            continue
+        if not os.path.isfile(config):
             continue
         try:
             with open(config, encoding="utf-8") as f:
@@ -740,9 +747,7 @@ def _layers_from_files(
     us.  A path that does not resolve is dropped rather than refused, so one
     stale row in a restored preset does not cost a person the whole scene.
     """
-    by_path = {
-        layer["path"]: layer for layer in (defaults or {}).get("layers", [])
-    }
+    by_path = {layer["path"]: layer for layer in (defaults or {}).get("layers", [])}
     layers: list[dict[str, Any]] = []
     seen: set[str] = set()
     for raw in files:
@@ -1138,6 +1143,7 @@ def viewer_candidates(
 #  2. **No voxel is read.** The tree is drawn on every keystroke in the Menu; it is `os.listdir`
 #     and `os.stat`, nothing more. Windows are decided later, by `build_view`, from the sidecar.
 
+
 #: Stable id for a node: the container path. Not an index and not a display name -- a composition
 #: saved today has to resolve against a project that has since gained or lost files, and the only
 #: thing that survives that is what the file is called.
@@ -1178,9 +1184,13 @@ def _tree_node(
     node = {
         "id": path,
         "name": os.path.basename(path),
-        "label": label or _scene_display_name(
+        "label": label
+        or _scene_display_name(
             os.path.basename(path),
-            role=_scene_role(path, "heat" if _scene_field_name(os.path.basename(path)) else "grayscale"),
+            role=_scene_role(
+                path,
+                "heat" if _scene_field_name(os.path.basename(path)) else "grayscale",
+            ),
             field_name=_scene_field_name(os.path.basename(path)),
         ),
         "path": path,
@@ -1204,16 +1214,15 @@ def _tree_node(
                 "reason": reason,
             }
             for attachment in surface_attachments(
-                path, extra_dirs=attachment_dirs,
+                path,
+                extra_dirs=attachment_dirs,
                 project_root=get_path_manager().project_dir,
             )
         ]
     return node
 
 
-def _anatomy_branch(
-    pm, subject: str, space: str
-) -> list[dict[str, Any]]:
+def _anatomy_branch(pm, subject: str, space: str) -> list[dict[str, Any]]:
     """T1, T2, the head mesh, the reconstruction surfaces and the atlases.
 
     ``default_on`` marks the T1 (in subject space) or the MNI template (in MNI space): a scene
@@ -1233,7 +1242,9 @@ def _anatomy_branch(
         # `<subject>.msh` is the head model itself, and its stem is the subject id -- a row
         # labelled "101" says nothing about what it is. Everything else reads fine as its stem.
         stem = _scene_stem(name)
-        label = f"Head mesh ({stem})" if _scene_is_mesh(name) and stem == sid_stem else stem
+        label = (
+            f"Head mesh ({stem})" if _scene_is_mesh(name) and stem == sid_stem else stem
+        )
         out.append(
             _tree_node(
                 candidate,
@@ -1279,9 +1290,7 @@ def _anatomy_branch(
     return out
 
 
-def _simulation_branch(
-    pm, subject: str, simulation: str, space: str
-) -> dict[str, Any]:
+def _simulation_branch(pm, subject: str, simulation: str, space: str) -> dict[str, Any]:
     """One simulation's own outputs, split into what a person picks between.
 
     ``fields`` are the NIfTI volumes, ``meshes`` the tetrahedral ``.msh`` outputs, ``surfaces``
@@ -1311,7 +1320,9 @@ def _simulation_branch(
                     continue
                 if not path.endswith((".nii", ".nii.gz", ".mgz", ".msh", ".gii")):
                     continue
-                if not _in_space(os.path.basename(path), space, is_mesh=_scene_is_mesh(path)):
+                if not _in_space(
+                    os.path.basename(path), space, is_mesh=_scene_is_mesh(path)
+                ):
                     continue
                 node = _tree_node(
                     path,
@@ -1357,9 +1368,7 @@ def _in_space(name: str, space: str, *, is_mesh: bool) -> bool:
     return True
 
 
-def _analysis_branch(
-    pm, subject: str, simulation: str
-) -> list[dict[str, Any]]:
+def _analysis_branch(pm, subject: str, simulation: str) -> list[dict[str, Any]]:
     """The analyzer outputs under one simulation: ROI masks, spheres, group and statistic maps."""
     sim_dir = pm.simulation(subject, simulation)
     out: list[dict[str, Any]] = []
@@ -1369,9 +1378,7 @@ def _analysis_branch(
             if not os.path.isdir(run):
                 continue
             nodes = [
-                _tree_node(
-                    path, attachment_dirs=(run,)
-                )
+                _tree_node(path, attachment_dirs=(run,))
                 for path in sorted(glob.glob(os.path.join(run, "*")))
                 if os.path.isfile(path)
                 and path.endswith((".nii", ".nii.gz", ".mgz", ".msh", ".gii"))
@@ -1421,24 +1428,17 @@ def viewer_tree(
 
     chosen = set(simulations or [])
     all_sims = pm.list_simulations(subject) or []
-    sims = [
-        _simulation_branch(pm, subject, name, space)
-        for name in sorted(all_sims)
-    ]
+    sims = [_simulation_branch(pm, subject, name, space) for name in sorted(all_sims)]
     analyses: list[dict[str, Any]] = []
     for name in sorted(all_sims):
         if chosen and name not in chosen:
             continue
-        analyses.extend(
-            _analysis_branch(pm, subject, name)
-        )
+        analyses.extend(_analysis_branch(pm, subject, name))
 
     return {
         "subject": subject,
         "space": space,
-        "anatomy": _anatomy_branch(
-            pm, subject, space
-        ),
+        "anatomy": _anatomy_branch(pm, subject, space),
         "simulations": sims,
         "analyses": analyses,
         "available": True,
@@ -1478,9 +1478,9 @@ def _percentiles_from_array(
 #: Bounded and process-local on purpose. It is a memoisation of a pure function of file bytes, not
 #: a cache of anything a user can see, so it needs no invalidation hook and no persistence; a
 #: restart simply pays the first read again.
-_PERCENTILE_CACHE: "OrderedDict[tuple[str, int, int, float, float], tuple[float, float] | None]" = (
-    OrderedDict()
-)
+_PERCENTILE_CACHE: (
+    "OrderedDict[tuple[str, int, int, float, float], tuple[float, float] | None]"
+) = OrderedDict()
 _PERCENTILE_CACHE_MAX = 256
 _PERCENTILE_LOCK = threading.Lock()
 
@@ -1528,9 +1528,7 @@ _STATS_PERCENTILE_KEYS: dict[float, str] = {
 
 def _stats_can_answer(lo: float, hi: float) -> bool:
     """Whether :func:`_volume_stats` computes both ends of this window."""
-    return (
-        float(lo) in _STATS_PERCENTILE_KEYS and float(hi) in _STATS_PERCENTILE_KEYS
-    )
+    return float(lo) in _STATS_PERCENTILE_KEYS and float(hi) in _STATS_PERCENTILE_KEYS
 
 
 def _percentiles_from_stats(
@@ -2151,7 +2149,9 @@ def _volume_stats(path: str) -> dict[str, float] | None:
             stats["max_x"] = float(world[0])
             stats["max_y"] = float(world[1])
             stats["max_z"] = float(world[2])
-    except Exception:  # noqa: BLE001 - a missing hotspot is a default cursor, not a failure
+    except (
+        Exception
+    ):  # noqa: BLE001 - a missing hotspot is a default cursor, not a failure
         pass
     _stats_cache[path] = (st.st_mtime, st.st_size, stats)
     _write_stats_sidecar(path, st, stats)
@@ -2193,7 +2193,9 @@ def _read_volume_bounds(path: str) -> tuple[list[float], list[float]] | None:
         image = nib.load(path)
         shape = tuple(int(n) for n in image.shape[:3])
         affine = np.asarray(image.affine, dtype=float)
-    except Exception:  # noqa: BLE001 - an unmeasurable volume just does not vote on the fit
+    except (
+        Exception
+    ):  # noqa: BLE001 - an unmeasurable volume just does not vote on the fit
         return None
     if len(shape) < 3 or any(n <= 0 for n in shape):
         return None
@@ -2208,7 +2210,10 @@ def _read_volume_bounds(path: str) -> tuple[list[float], list[float]] | None:
     world = (affine @ np.asarray(corners, dtype=float).T).T[:, :3]
     if not bool(np.all(np.isfinite(world))):
         return None
-    return ([float(v) for v in world.min(axis=0)], [float(v) for v in world.max(axis=0)])
+    return (
+        [float(v) for v in world.min(axis=0)],
+        [float(v) for v in world.max(axis=0)],
+    )
 
 
 def _scene_bounds(paths: list[str]) -> tuple[list[float], list[float]] | None:
@@ -2550,9 +2555,7 @@ def _attachment_field_name(path: str) -> str:
     return os.path.basename(path)
 
 
-def _surface_layer(
-    name: str, attachments: list[str], index: int
-) -> dict[str, Any]:
+def _surface_layer(name: str, attachments: list[str], index: int) -> dict[str, Any]:
     """The ``kind: "surface"`` half of a layer — Tetravox 0.4.0's own schema (§4.4, §7.4).
 
     **One colour source at a time**, which is the engine's rule and not ours: ``solid`` for a bare
@@ -2798,7 +2801,13 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                     "colorMode": "field" if field_name else "solid",
                     "solidColor": [0.78, 0.78, 0.8, 1.0],
                     **(
-                        {"field": {"source": "elm", "name": field_name, "component": "mag"}}
+                        {
+                            "field": {
+                                "source": "elm",
+                                "name": field_name,
+                                "component": "mag",
+                            }
+                        }
                         if field_name
                         else {}
                     ),
@@ -2915,7 +2924,10 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
             dict(
                 s,
                 camera=(
-                    {"center": [0.0, 0.0], "mmPerPx": _fit_mm_per_px(bounds, _FIT_PANE_PX)}
+                    {
+                        "center": [0.0, 0.0],
+                        "mmPerPx": _fit_mm_per_px(bounds, _FIT_PANE_PX),
+                    }
                     if bounds is not None
                     else dict(s["camera"])
                 ),
@@ -3079,9 +3091,9 @@ def resolve_jailed(raw_path: str) -> Path | None:
         return None
     for root in jail_roots():
         canonical_root = os.path.realpath(root)
-        # Include the separator so a sibling such as project-copy cannot match.
         if resolved == canonical_root:
-            return Path(canonical_root) if os.path.isfile(canonical_root) else None
+            return None  # a root is a directory, never a servable file
+        # Include the separator so a sibling such as project-copy cannot match.
         if resolved.startswith(canonical_root.rstrip(os.sep) + os.sep):
             return Path(resolved) if os.path.isfile(resolved) else None
     return None

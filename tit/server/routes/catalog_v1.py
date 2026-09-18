@@ -13,9 +13,10 @@ pass that would reject real data.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
+from tit.server.schemas import EntityName, SubjectId
 
 from tit import catalog
 from tit.paths import get_path_manager
@@ -37,12 +38,12 @@ def _or_404(value: Any, detail: str = "Not found") -> Any:
 
 
 @router.get("/api/catalog/subjects/{id}", summary="One subject's full detail")
-def subject_detail(id: str) -> dict:
+def subject_detail(id: SubjectId) -> dict:
     return _or_404(catalog.subject_detail(_pm(), id), f"Unknown subject: {id}")
 
 
 @router.get("/api/catalog/simulations/{name}", summary="One simulation's full detail")
-def simulation_detail(name: str, subject: str = Query(...)) -> dict:
+def simulation_detail(name: EntityName, subject: Annotated[SubjectId, Query()]) -> dict:
     return _or_404(
         catalog.simulation_detail(_pm(), subject, name),
         f"Unknown subject/simulation: {subject}/{name}",
@@ -53,7 +54,9 @@ def simulation_detail(name: str, subject: str = Query(...)) -> dict:
     "/api/catalog/simulations/{name}/figures",
     summary="Pictures a simulation saved of itself (the montage visualisation)",
 )
-def simulation_figures(name: str, subject: str = Query(...)) -> list[dict]:
+def simulation_figures(
+    name: EntityName, subject: Annotated[SubjectId, Query()]
+) -> list[dict]:
     return _or_404(
         catalog.simulation_figures(_pm(), subject, name),
         f"Unknown subject or simulation: {subject}/{name}",
@@ -65,7 +68,7 @@ def simulation_figures(name: str, subject: str = Query(...)) -> list[dict]:
     summary="Electrode overlay NIfTI presence for one simulation, per TI/mTI mode",
 )
 def electrode_overlays(
-    subject: str = Query(...), simulation: str = Query(...)
+    subject: Annotated[SubjectId, Query()], simulation: Annotated[EntityName, Query()]
 ) -> list[dict]:
     return _or_404(
         catalog.electrode_overlays(_pm(), subject, simulation),
@@ -89,7 +92,7 @@ def montages() -> dict:
     summary="Create or overwrite one montage",
 )
 def put_montage(
-    net: str, kind: str, name: str, body: dict = Body(...)
+    net: EntityName, kind: str, name: EntityName, body: dict = Body(...)
 ) -> list[list[str]]:
     if kind not in ("uni_polar", "multi_polar"):
         raise HTTPException(
@@ -109,7 +112,7 @@ def put_montage(
     status_code=204,
     summary="Delete one montage",
 )
-def delete_montage(net: str, kind: str, name: str) -> None:
+def delete_montage(net: EntityName, kind: str, name: EntityName) -> None:
     if kind not in ("uni_polar", "multi_polar"):
         raise HTTPException(
             status_code=422, detail="kind must be uni_polar or multi_polar"
@@ -124,7 +127,7 @@ def delete_montage(net: str, kind: str, name: str) -> None:
 
 
 @router.get("/api/catalog/eeg-nets", summary="EEG nets available to a subject")
-def eeg_nets(subject: str = Query(...)) -> list[dict]:
+def eeg_nets(subject: Annotated[SubjectId, Query()]) -> list[dict]:
     return _or_404(catalog.eeg_nets(_pm(), subject), f"Unknown subject: {subject}")
 
 
@@ -135,7 +138,7 @@ def eeg_nets(subject: str = Query(...)) -> list[dict]:
     "/api/catalog/atlases", summary="Atlases available to a subject in a given space"
 )
 def atlases(
-    subject: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
     space: str | None = Query(None),
     kind: str | None = Query(None),
 ) -> list[dict]:
@@ -146,8 +149,8 @@ def atlases(
 
 @router.get("/api/catalog/atlases/regions", summary="Regions of one atlas")
 def atlas_regions(
-    subject: str = Query(...),
-    atlas: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
+    atlas: Annotated[EntityName, Query()],
     hemi: str | None = Query(None),
 ) -> list[dict]:
     return _or_404(
@@ -158,7 +161,7 @@ def atlas_regions(
 
 @router.get("/api/catalog/nifti/labels", summary="Integer labels of a NIfTI volume")
 def nifti_labels(
-    subject: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
     path: str | None = Query(None),
 ) -> list[dict]:
     """Browse the labels of a segmentation volume (the sub-cortical exporter's picker).
@@ -177,14 +180,14 @@ def nifti_labels(
 
 
 @router.get("/api/catalog/rois", summary="Saved ROIs for a subject")
-def rois(subject: str = Query(...)) -> list[dict]:
+def rois(subject: Annotated[SubjectId, Query()]) -> list[dict]:
     return _or_404(catalog.list_rois(_pm(), subject), f"Unknown subject: {subject}")
 
 
 @router.post(
     "/api/catalog/rois", status_code=201, summary="Save a new ROI for a subject"
 )
-def create_roi(subject: str = Query(...), body: dict = Body(...)) -> dict:
+def create_roi(subject: Annotated[SubjectId, Query()], body: dict = Body(...)) -> dict:
     if subject not in catalog.subject_ids(_pm()):
         raise HTTPException(status_code=404, detail=f"Unknown subject: {subject}")
     for field in ("name", "x", "y", "z"):
@@ -199,7 +202,7 @@ def create_roi(subject: str = Query(...), body: dict = Body(...)) -> dict:
 @router.delete(
     "/api/catalog/rois/{name}", status_code=204, summary="Delete one saved ROI"
 )
-def delete_roi(name: str, subject: str = Query(...)) -> None:
+def delete_roi(name: EntityName, subject: Annotated[SubjectId, Query()]) -> None:
     if subject not in catalog.subject_ids(_pm()):
         raise HTTPException(status_code=404, detail=f"Unknown subject: {subject}")
     if not catalog.delete_roi(_pm(), subject, name):
@@ -210,7 +213,7 @@ def delete_roi(name: str, subject: str = Query(...)) -> None:
 
 
 @router.get("/api/catalog/leadfields", summary="Precomputed leadfields for a subject")
-def leadfields(subject: str = Query(...)) -> list[dict]:
+def leadfields(subject: Annotated[SubjectId, Query()]) -> list[dict]:
     return _or_404(
         catalog.list_leadfields(_pm(), subject), f"Unknown subject: {subject}"
     )
@@ -220,7 +223,7 @@ def leadfields(subject: str = Query(...)) -> list[dict]:
 
 
 @router.get("/api/catalog/flex-runs", summary="Flex-search runs for a subject")
-def flex_runs(subject: str = Query(...)) -> list[dict]:
+def flex_runs(subject: Annotated[SubjectId, Query()]) -> list[dict]:
     return _or_404(catalog.flex_runs(_pm(), subject), f"Unknown subject: {subject}")
 
 
@@ -229,7 +232,9 @@ def flex_runs(subject: str = Query(...)) -> list[dict]:
     summary="Map one flex-search run's optimised positions onto an EEG net",
 )
 def flex_run_mapping(
-    run: str, subject: str = Query(...), eeg_net: str = Query(...)
+    run: EntityName,
+    subject: Annotated[SubjectId, Query()],
+    eeg_net: Annotated[EntityName, Query()],
 ) -> dict:
     """Return the run's electrodes as *eeg_net*'s labels, mapping if needed.
 
@@ -258,7 +263,9 @@ def flex_run_mapping(
 @router.get(
     "/api/catalog/ex-runs", summary="Ex-search (or mEx-search) runs for a subject"
 )
-def ex_runs(subject: str = Query(...), kind: str = Query("ex")) -> list[dict]:
+def ex_runs(
+    subject: Annotated[SubjectId, Query()], kind: str = Query("ex")
+) -> list[dict]:
     if kind not in ("ex", "mex"):
         raise HTTPException(status_code=422, detail="kind must be ex or mex")
     return _or_404(catalog.ex_runs(_pm(), subject, kind), f"Unknown subject: {subject}")
@@ -267,7 +274,9 @@ def ex_runs(subject: str = Query(...), kind: str = Query("ex")) -> list[dict]:
 @router.get(
     "/api/catalog/ex-runs/{run}/results", summary="Full results table of one ex/mEx run"
 )
-def ex_run_results(run: str, subject: str = Query(...), kind: str = Query(...)) -> dict:
+def ex_run_results(
+    run: EntityName, subject: Annotated[SubjectId, Query()], kind: str = Query(...)
+) -> dict:
     if kind not in ("ex", "mex"):
         raise HTTPException(status_code=422, detail="kind must be ex or mex")
     return _or_404(
@@ -280,7 +289,9 @@ def ex_run_results(run: str, subject: str = Query(...), kind: str = Query(...)) 
 
 
 @router.get("/api/catalog/analyses", summary="Analyzer runs for one subject/simulation")
-def analyses(subject: str = Query(...), simulation: str = Query(...)) -> list[dict]:
+def analyses(
+    subject: Annotated[SubjectId, Query()], simulation: Annotated[EntityName, Query()]
+) -> list[dict]:
     return _or_404(
         catalog.analyses(_pm(), subject, simulation),
         f"Unknown subject or simulation: {subject}/{simulation}",
@@ -292,7 +303,9 @@ def analyses(subject: str = Query(...), simulation: str = Query(...)) -> list[di
     summary="Summary statistics table of one analysis",
 )
 def analysis_summary(
-    name: str, subject: str = Query(...), simulation: str = Query(...)
+    name: EntityName,
+    subject: Annotated[SubjectId, Query()],
+    simulation: Annotated[EntityName, Query()],
 ) -> dict:
     return _or_404(
         catalog.analysis_summary(_pm(), subject, simulation, name),
@@ -304,7 +317,7 @@ def analysis_summary(
 
 
 @router.get("/api/catalog/reports", summary="Generated HTML reports for a subject")
-def reports(subject: str = Query(...)) -> list[dict]:
+def reports(subject: Annotated[SubjectId, Query()]) -> list[dict]:
     return _or_404(catalog.reports(_pm(), subject), f"Unknown subject: {subject}")
 
 
@@ -315,7 +328,7 @@ def reports(subject: str = Query(...)) -> list[dict]:
     "/api/catalog/freehand",
     summary="Saved free-hand electrode configurations for a subject",
 )
-def freehand(subject: str = Query(...)) -> list[dict]:
+def freehand(subject: Annotated[SubjectId, Query()]) -> list[dict]:
     return _or_404(
         catalog.freehand_configs(_pm(), subject), f"Unknown subject: {subject}"
     )
@@ -325,7 +338,9 @@ def freehand(subject: str = Query(...)) -> list[dict]:
     "/api/catalog/freehand/{name}",
     summary="Create or overwrite one free-hand electrode configuration",
 )
-def put_freehand(name: str, subject: str = Query(...), body: dict = Body(...)) -> dict:
+def put_freehand(
+    name: EntityName, subject: Annotated[SubjectId, Query()], body: dict = Body(...)
+) -> dict:
     if subject not in catalog.subject_ids(_pm()):
         raise HTTPException(status_code=404, detail=f"Unknown subject: {subject}")
     try:
@@ -343,7 +358,7 @@ def put_freehand(name: str, subject: str = Query(...), body: dict = Body(...)) -
     status_code=204,
     summary="Delete one saved free-hand electrode configuration",
 )
-def delete_freehand(name: str, subject: str = Query(...)) -> None:
+def delete_freehand(name: EntityName, subject: Annotated[SubjectId, Query()]) -> None:
     try:
         deleted = catalog.delete_freehand_config(_pm(), subject, name)
     except ValueError as exc:
@@ -364,7 +379,7 @@ def group() -> dict:
     "/api/catalog/group/stats/{name}",
     summary="One group-statistics run: its inputs, its outcome and its files",
 )
-def group_stats(name: str, type: str = Query(...)) -> dict:
+def group_stats(name: EntityName, type: Annotated[EntityName, Query()]) -> dict:
     """Detail for one ``derivatives/ti-toolbox/stats/<type>/<name>/`` run.
 
     ``group()`` above lists these by name and path only, which is all the Results tree
@@ -402,9 +417,9 @@ def subject_info() -> dict:
     "/api/catalog/optimization-candidates", summary="Rank saved optimization candidates"
 )
 def optimization_candidates(
-    subject: str = Query(...),
-    kind: str = Query(...),
-    run: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
+    kind: Annotated[str, Query()],
+    run: Annotated[EntityName, Query()],
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     sort: str = Query("roi_mean"),
@@ -428,9 +443,9 @@ def optimization_candidates(
 )
 def optimization_candidate(
     candidate_id: str,
-    subject: str = Query(...),
-    kind: str = Query(...),
-    run: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
+    kind: Annotated[str, Query()],
+    run: Annotated[EntityName, Query()],
 ) -> dict:
     from tit.opt.candidate_catalog import candidate_detail
 
@@ -448,9 +463,9 @@ def optimization_candidate(
 )
 def optimization_candidate_mapping(
     candidate_id: str,
-    subject: str = Query(...),
-    run: str = Query(...),
-    eeg_net: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
+    run: Annotated[EntityName, Query()],
+    eeg_net: Annotated[EntityName, Query()],
 ) -> dict:
     from tit.opt.candidate_catalog import candidate_mapping
 

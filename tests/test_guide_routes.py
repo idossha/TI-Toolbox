@@ -142,7 +142,8 @@ def test_unknown_ids_and_formats_are_readable_failures(client: TestClient) -> No
         "/api/guide/surface?part=gm&format=obj": 400,
         "/api/guide/labels?atlas=NoSuchAtlas": 404,
         "/api/guide/regions?atlas=NoSuchAtlas": 404,
-        "/api/guide/electrodes?net=../../etc/passwd": 404,
+        "/api/guide/electrodes?net=../../etc/passwd": 422,  # refused at the boundary
+        "/api/guide/electrodes?net=NoSuchNet.csv": 404,
     }
     for url, status in cases.items():
         response = client.get(url, headers=BEARER)

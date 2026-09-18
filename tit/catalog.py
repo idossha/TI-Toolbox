@@ -32,7 +32,13 @@ from typing import Any
 from tit.atlas.constants import VOXEL_ATLASES, mni_resources_dir
 from tit.atlas.mesh import MeshAtlasManager
 from tit.atlas.voxel import VoxelAtlasManager, parse_region_label
-from tit.paths import PathManager, is_valid_subject_id, is_within, natural_key
+from tit.paths import (
+    PathManager,
+    is_valid_subject_id,
+    is_within,
+    natural_key,
+    resolve_within,
+)
 
 # NOTE: tit.opt.ex.roi (used by list_rois) is imported lazily inside the
 # function that needs it, never at module level -- tit/opt/__init__.py
@@ -732,10 +738,13 @@ def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None
     sim_dir = pm.simulation(sid, sim)
     out: list[dict] = []
     for mode in _MODE_DIRS:
-        path = os.path.join(
-            sim_dir, mode, "montage_imgs", f"{sim}_highlighted_visualization.png"
+        path = _jailed(
+            pm,
+            os.path.join(
+                sim_dir, mode, "montage_imgs", f"{sim}_highlighted_visualization.png"
+            ),
         )
-        if _project_paths_safe(pm, path) and os.path.isfile(path):
+        if path and os.path.isfile(path):
             out.append(
                 {
                     "path": path,
@@ -1223,6 +1232,20 @@ def _project_paths_safe(pm: PathManager, *paths: str) -> bool:
     )
 
 
+def _jailed(pm: PathManager, path: str) -> str | None:
+    """*path* resolved inside the project, or ``None`` (outward link, or no project).
+
+    The returning form of :func:`_project_paths_safe`: what comes back is the
+    resolved path that was checked, and that is what gets opened.
+    """
+    if not pm.project_dir:
+        return None
+    try:
+        return resolve_within(pm.project_dir, path)
+    except ValueError:
+        return None
+
+
 def as_float(value: Any, field_name: str) -> float:
     """Coerce *value* to ``float``; raises ``ValueError`` naming the field on failure.
 
@@ -1286,9 +1309,9 @@ def create_roi(pm: PathManager, sid: str, roi: dict) -> dict:
     roi_dir = pm.rois(sid)
     filename = f"{name}.csv"
     base_name = name
-    roi_path = os.path.join(roi_dir, filename)
-    roi_list = os.path.join(roi_dir, "roi_list.txt")
-    if not _project_paths_safe(pm, roi_path, roi_list):
+    roi_path = _jailed(pm, os.path.join(roi_dir, filename))
+    roi_list = _jailed(pm, os.path.join(roi_dir, "roi_list.txt"))
+    if roi_path is None or roi_list is None:
         raise ValueError("ROI paths must remain inside the project")
     os.makedirs(roi_dir, exist_ok=True)
 
@@ -1319,9 +1342,9 @@ def delete_roi(pm: PathManager, sid: str, name: str) -> bool:
         return False
     roi_dir = pm.rois(sid)
     filename = name if name.endswith(".csv") else f"{name}.csv"
-    roi_path = os.path.join(roi_dir, filename)
-    roi_list = os.path.join(roi_dir, "roi_list.txt")
-    if not _project_paths_safe(pm, roi_path, roi_list):
+    roi_path = _jailed(pm, os.path.join(roi_dir, filename))
+    roi_list = _jailed(pm, os.path.join(roi_dir, "roi_list.txt"))
+    if roi_path is None or roi_list is None:
         return False
     existed = os.path.isfile(roi_path)
     if existed:
@@ -1790,14 +1813,15 @@ def reports(pm: PathManager, sid: str) -> list[dict] | None:
     """Generated HTML reports for *sid*; ``None`` if the subject is unknown."""
     if sid not in subject_ids(pm):
         return None
-    root = os.path.join(pm.reports(), f"sub-{sid}")
-    if not _project_paths_safe(pm, root) or not os.path.isdir(root):
+    root = _jailed(pm, os.path.join(pm.reports(), f"sub-{sid}"))
+    if root is None or not os.path.isdir(root):
         return []
-    return [
-        _report_entry(os.path.join(root, name), sid)
-        for name in sorted(os.listdir(root))
-        if name.endswith(".html") and _project_paths_safe(pm, os.path.join(root, name))
-    ]
+    entries = []
+    for name in sorted(os.listdir(root)):
+        path = _jailed(pm, os.path.join(root, name)) if name.endswith(".html") else None
+        if path:
+            entries.append(_report_entry(path, sid))
+    return entries
 
 
 def find_report_path(pm: PathManager, report_id: str) -> str | None:
@@ -1807,8 +1831,8 @@ def find_report_path(pm: PathManager, report_id: str) -> str | None:
     sid, stem = report_id.split("/", 1)
     if any(c in stem for c in ("/", "\\", "..")):
         return None
-    path = os.path.join(pm.reports(), f"sub-{sid}", f"{stem}.html")
-    return path if _project_paths_safe(pm, path) and os.path.isfile(path) else None
+    path = _jailed(pm, os.path.join(pm.reports(), f"sub-{sid}", f"{stem}.html"))
+    return path if path and os.path.isfile(path) else None
 
 
 # ── freehand (stim_configs) ──────────────────────────────────────────────────
@@ -1864,8 +1888,8 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
             "name must match ^[A-Za-z0-9_-]{1,64}$ (no path separators or '..')"
         )
     stim_dir = os.path.join(pm.m2m(sid), "stim_configs")
-    path = os.path.join(stim_dir, f"{name}.json")
-    if not _project_paths_safe(pm, path):
+    path = _jailed(pm, os.path.join(stim_dir, f"{name}.json"))
+    if path is None:
         raise ValueError("Free-hand config path must remain inside the project")
     os.makedirs(stim_dir, exist_ok=True)
     positions = {
@@ -1899,8 +1923,8 @@ def delete_freehand_config(pm: PathManager, sid: str, name: str) -> bool:
         raise ValueError("name must match ^[A-Za-z0-9_-]{1,64}$")
     if sid not in subject_ids(pm):
         return False
-    path = os.path.join(pm.m2m(sid), "stim_configs", f"{name}.json")
-    if not _project_paths_safe(pm, path) or not os.path.isfile(path):
+    path = _jailed(pm, os.path.join(pm.m2m(sid), "stim_configs", f"{name}.json"))
+    if path is None or not os.path.isfile(path):
         return False
     try:
         os.unlink(path)
@@ -2142,8 +2166,8 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
     """
     if "/" in analysis_type or "/" in name or ".." in (analysis_type, name):
         return None
-    run_dir = os.path.join(pm.ti_toolbox(), "stats", analysis_type, name)
-    if not _project_paths_safe(pm, run_dir) or not os.path.isdir(run_dir):
+    run_dir = _jailed(pm, os.path.join(pm.ti_toolbox(), "stats", analysis_type, name))
+    if run_dir is None or not os.path.isdir(run_dir):
         return None
 
     try:
@@ -2153,8 +2177,8 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
 
     artifacts: list[dict] = []
     for filename in names:
-        path = os.path.join(run_dir, filename)
-        if not _project_paths_safe(pm, path) or not os.path.isfile(path):
+        path = _jailed(pm, os.path.join(run_dir, filename))
+        if path is None or not os.path.isfile(path):
             continue
         if filename.endswith(".nii.gz") or filename.endswith(".nii"):
             kind = "nifti"
@@ -2183,8 +2207,7 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
     )
 
     log_path = _stats_log_path(run_dir)
-    if log_path and not _project_paths_safe(pm, log_path):
-        log_path = None
+    log_path = _jailed(pm, log_path) if log_path else None
     parsed = {
         "config": [],
         "results": [],
@@ -2201,12 +2224,8 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
             pass
 
     clusters = parsed["clusters"]
-    csv_path = os.path.join(run_dir, "significant_clusters.csv")
-    if (
-        clusters is None
-        and _project_paths_safe(pm, csv_path)
-        and os.path.isfile(csv_path)
-    ):
+    csv_path = _jailed(pm, os.path.join(run_dir, "significant_clusters.csv"))
+    if clusters is None and csv_path and os.path.isfile(csv_path):
         try:
             clusters = _read_csv_table(csv_path)
         except OSError:

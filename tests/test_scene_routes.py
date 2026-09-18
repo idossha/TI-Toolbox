@@ -316,12 +316,13 @@ def test_a_subject_the_project_does_not_have_says_what_it_does_have(
 def test_a_subject_id_that_is_a_path_is_refused_before_any_stat(
     client: TestClient,
 ) -> None:
-    """The gate builds ``m2m_<id>/`` paths, so the id is checked first."""
+    """The gate builds ``m2m_<id>/`` paths, so the id is checked first -- by the
+    request validator (``SubjectId``), before the route body runs at all."""
     response = client.get(
         "/api/scene/manifest?subject=../../../../etc", headers=BEARER
     )
-    assert response.status_code == 404
-    assert "etc" in response.json()["detail"]
+    assert response.status_code == 422
+    assert "etc" in response.text
 
 
 def test_every_scene_json_response_matches_the_contract_schema(
@@ -428,9 +429,13 @@ def test_an_atlas_the_subject_lacks_is_404_not_500(client: TestClient) -> None:
     assert "NotAnAtlas" in response.json()["detail"]
 
 
-def test_an_unknown_net_is_404(client: TestClient) -> None:
+def test_a_path_shaped_net_is_422_and_an_unknown_net_is_404(client: TestClient) -> None:
     response = client.get(
         "/api/scene/electrodes?subject=ernie&net=../../etc/passwd", headers=BEARER
+    )
+    assert response.status_code == 422
+    response = client.get(
+        "/api/scene/electrodes?subject=ernie&net=NoSuchNet.csv", headers=BEARER
     )
     assert response.status_code == 404
 

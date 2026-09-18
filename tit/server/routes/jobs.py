@@ -10,10 +10,11 @@ the concurrency cap it carries is enforced by the scheduler, never by client-sid
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
+from tit.server.schemas import SubjectId
 from starlette.concurrency import run_in_threadpool
 
 from tit.jobs.bootstrap import get_manager
@@ -57,7 +58,7 @@ def _manager(request: Request) -> JobManager:
 def list_jobs(
     request: Request,
     state: str | None = Query(default=None),
-    subject: str | None = Query(default=None),
+    subject: Annotated[SubjectId | None, Query()] = None,
     kind: str | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1),
 ) -> list[dict[str, Any]]:

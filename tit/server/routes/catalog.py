@@ -7,11 +7,13 @@ only maps them to responses.
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, HTTPException, Query
 
 from tit import catalog
 from tit.paths import get_path_manager
-from tit.server.schemas import SimulationList, SubjectList
+from tit.server.schemas import SimulationList, SubjectId, SubjectList
 
 router = APIRouter()
 
@@ -36,7 +38,7 @@ def subjects() -> SubjectList:
     summary="Simulations of one subject",
     responses={404: {"description": "unknown subject"}},
 )
-def simulations(subject: str = Query(...)) -> SimulationList:
+def simulations(subject: Annotated[SubjectId, Query()]) -> SimulationList:
     found = catalog.list_simulations(get_path_manager(), subject)
     if found is None:
         raise HTTPException(status_code=404, detail=f"Unknown subject: {subject}")

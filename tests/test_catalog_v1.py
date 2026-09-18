@@ -899,7 +899,10 @@ def test_atlas_regions_rejects_unadvertised_external_path(
         params={"subject": "ernie", "atlas": atlas},
         headers=BEARER,
     )
-    assert response.status_code == 404
+    # A path-shaped atlas name is refused at the boundary (422, ``EntityName``)
+    # before the catalog is asked; the file outside is never read either way.
+    assert response.status_code == 422
+    assert "invalid name" in response.text
 
 
 @pytest.mark.parametrize("hemi", ["/outside/lh", "../../lh", "*", "lh\n"])

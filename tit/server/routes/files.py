@@ -19,11 +19,14 @@ import stat
 from email.utils import formatdate
 from pathlib import Path
 
+from typing import Annotated
+
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
+from tit.server.schemas import SubjectId
 
 from tit import catalog
-from tit.paths import get_path_manager
+from tit.paths import get_path_manager, resolve_under, resolve_within
 from tit.viewspec import jail_roots, raw_jail_roots
 
 router = APIRouter()
@@ -89,11 +92,10 @@ def _resolve_jailed(raw_path: str, roots: list[Path] | None = None) -> Path:
         raise HTTPException(status_code=404, detail="Not found") from exc
     for root in roots or jail_roots():
         canonical_root = os.path.realpath(root)
-        # Include the separator so a sibling such as project-copy cannot match.
         if resolved == canonical_root:
-            if not os.path.isfile(canonical_root):
-                raise HTTPException(status_code=404, detail="Not found")
-            return Path(canonical_root)
+            # A root is a directory, never a servable file.
+            raise HTTPException(status_code=404, detail="Not found")
+        # Include the separator so a sibling such as project-copy cannot match.
         if resolved.startswith(canonical_root.rstrip(os.sep) + os.sep):
             if not os.path.isfile(resolved):
                 raise HTTPException(status_code=404, detail="Not found")
@@ -343,26 +345,26 @@ def csv_file(path: str = Query(...)) -> dict:
     },
 )
 async def upload_mask(
-    request: Request, name: str = Query(...), subject: str = Query(...)
+    request: Request,
+    name: Annotated[str, Query()],
+    subject: Annotated[SubjectId, Query()],
 ) -> dict:
     """Store a validated mask under this subject; coordinate space is chosen per job."""
-    import re
     import tempfile
 
     from starlette.concurrency import run_in_threadpool
 
-    # Reserve 13 bytes for the collision-avoidance suffix within a 255-byte filename.
-    if len(name) > 242 or not re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9_. -]*\.nii(?:\.gz)?", name
-    ):
+    if not _is_simple_mask_filename(name):
         raise HTTPException(422, "Choose a .nii or .nii.gz file with a simple filename")
     pm = get_path_manager()
     if subject not in catalog.subject_ids(pm):
         raise HTTPException(404, "Unknown subject")
-    directory = Path(pm.masks(subject)) / "imported"
-    root = Path(pm.project_dir).resolve()
-    if not directory.resolve().is_relative_to(root):
-        raise HTTPException(403, "Mask directory escapes the project")
+    try:
+        directory = Path(
+            resolve_within(pm.project_dir, resolve_under(pm.masks(subject), "imported"))
+        )
+    except ValueError as exc:
+        raise HTTPException(403, "Mask directory escapes the project") from exc
     directory.mkdir(parents=True, exist_ok=True)
     # Imports stay outside atlas autodiscovery: their coordinate space is explicit in the job.
     suffix = ".nii.gz" if name.endswith(".nii.gz") else ".nii"
@@ -384,6 +386,36 @@ async def upload_mask(
     except (OSError, ValueError, EOFError) as exc:
         raise HTTPException(422, f"Invalid NIfTI mask: {exc}") from exc
     return {"path": str(destination)}
+
+
+_MASK_STEM_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_. -"
+)
+
+
+def _is_simple_mask_filename(name: str) -> bool:
+    """``<stem>.nii`` or ``<stem>.nii.gz``: stem starts alphanumeric, plain characters only.
+
+    A character-set walk rather than a regex: the previous
+    ``[A-Za-z0-9][A-Za-z0-9_. -]*\\.nii`` backtracked quadratically on a long
+    run of dots (py/polynomial-redos), and a 10 000-character filename is
+    exactly what a hostile client sends. Reserves 13 bytes for the
+    collision-avoidance suffix within a 255-byte filename.
+    """
+    if len(name) > 242:
+        return False
+    for suffix in (".nii.gz", ".nii"):
+        if name.endswith(suffix):
+            stem = name[: -len(suffix)]
+            break
+    else:
+        return False
+    return (
+        bool(stem)
+        and stem[0].isalnum()
+        and stem.isascii()
+        and set(stem) <= _MASK_STEM_CHARS
+    )
 
 
 def _finish_mask_upload(

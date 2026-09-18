@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from tit import catalog
 from tit.paths import get_path_manager
 from tit.scene import build, cache
+from tit.server.schemas import EntityName, SubjectId
 
 router = APIRouter()
 
@@ -32,7 +33,7 @@ class MaskTarget(PreviewModel):
 
 class AtlasTarget(PreviewModel):
     kind: Literal["subcortical"]
-    atlas: str
+    atlas: EntityName
     space: Literal["subject", "mni"]
     labels: list[int] = Field(min_length=1, max_length=10000)
 
@@ -56,7 +57,7 @@ class SavedTarget(PreviewModel):
 
 
 class TargetPreviewRequest(PreviewModel):
-    subject: str
+    subject: SubjectId
     roi: Annotated[
         MaskTarget | AtlasTarget | SphereTarget | SavedTarget,
         Field(discriminator="kind"),

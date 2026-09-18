@@ -17,7 +17,7 @@ import time
 from typing import Any
 
 from tit.jobs.spec import JobSpec, JobStatus
-from tit.paths import is_within
+from tit.paths import resolve_leaf_within
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +36,16 @@ BIDSIGNORE_LINE = "code/ti-toolbox/jobs/"
 
 
 def _storage_path(project_dir: str, path: str) -> str:
-    """Check resolved targets, retaining the final entry for replace/unlink semantics."""
-    resolved = os.path.realpath(path)
-    if not is_within(project_dir, resolved) or resolved == os.path.realpath(
-        project_dir
-    ):
-        raise PermissionError("Job storage path escapes the project directory")
-    # Resolve parent aliases, but do not turn replacing/deleting a final symlink into
-    # replacing/deleting its target. Reads/appends still follow a checked final link.
-    return os.path.join(os.path.realpath(os.path.dirname(path)), os.path.basename(path))
+    """Check resolved targets, retaining the final entry for replace/unlink semantics.
+
+    Parent aliases are resolved, but replacing/deleting a final symlink must not
+    become replacing/deleting its target; reads/appends still follow a checked
+    final link (:func:`tit.paths.resolve_leaf_within`).
+    """
+    try:
+        return resolve_leaf_within(project_dir, path)
+    except ValueError as exc:
+        raise PermissionError("Job storage path escapes the project directory") from exc
 
 
 def jobs_root(project_dir: str) -> str:

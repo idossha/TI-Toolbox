@@ -144,6 +144,111 @@ def is_within(root: str, path: str) -> bool:
     )
 
 
+#: The grammar of every other user-supplied name that becomes one path component:
+#: simulation, run, montage, ROI, atlas, EEG net, notebook, viewer preset and scene
+#: names. Wider than :data:`SUBJECT_ID_RE` -- a dot is allowed inside, so
+#: ``EEG10-10_Cutini_2011.csv`` and ``MNI_Glasser_HCP_v1.0`` pass, and so is an inner
+#: space, because v2 wrote flex runs and EEG nets with spaces in their names and those
+#: projects must keep opening -- but a name can never start with a dot or a space (no
+#: hidden files, no ``..``), never contain a separator, NUL, tab or newline, and is
+#: capped at 128 characters. New names created through the API are held to the
+#: stricter ``tit.catalog.is_safe_name``.
+NAME_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._ -]{0,127}$")
+
+
+def is_valid_name(value: object) -> bool:
+    """``True`` if *value* may be used as a single path component."""
+    return isinstance(value, str) and bool(NAME_RE.match(value)) and ".." not in value
+
+
+def validate_name(value: object, what: str = "name") -> str:
+    """Return *value* unchanged, or raise ``ValueError`` naming the rule it broke.
+
+    *what* names the field in the message (``"simulation"``, ``"montage"``, ...).
+    This is the allowlist half of the sanitizer contract (see
+    ``dev/security/SECURITY_MASTER_DOCUMENT.md``); :func:`resolve_under` is the
+    containment half, applied where the component becomes a path.
+    """
+    if not is_valid_name(value):
+        raise ValueError(
+            f"invalid {what} {value!r}: letters, digits, '.', '_', '-' and inner "
+            f"spaces only, not starting with '.', at most 128 characters"
+        )
+    return value  # type: ignore[return-value]
+
+
+def resolve_under(root: str, *parts: str) -> str:
+    """Join *parts* under *root* and return the path, or raise if it escapes *root*.
+
+    The lexical half of the sanitizer contract: the normalised join must start
+    with ``<root>/``, so ``..``, an absolute part and an empty result are all
+    refused. Pure string work, no filesystem access, which is why every
+    :class:`PathManager` accessor can afford it. Symlinks are not followed here:
+    a subject directory linked from another disk keeps resolving for scripts,
+    and it is :func:`resolve_within` -- at the I/O boundary -- that decides
+    whether the link may be read.
+
+    Raises ``ValueError``, the same class :func:`validate_subject_id` and
+    :func:`validate_name` raise, so one ``except ValueError`` at a route
+    boundary covers all three.
+
+    Examples
+    --------
+    >>> resolve_under("/p", "derivatives", "sub-01")
+    '/p/derivatives/sub-01'
+    >>> resolve_under("/p", "../etc/passwd")
+    Traceback (most recent call last):
+    ValueError: path '/etc/passwd' escapes '/p'
+    """
+    root_norm = os.path.normpath(root)
+    candidate = os.path.normpath(os.path.join(root_norm, *parts))
+    if not candidate.startswith(root_norm.rstrip(os.sep) + os.sep):
+        raise ValueError(f"path {candidate!r} escapes {root_norm!r}")
+    return candidate
+
+
+def resolve_within(jail: str, path: str) -> str:
+    """*path* with symlinks resolved, or raise if it then lies outside *jail*.
+
+    The physical half of the sanitizer contract, applied right before a read,
+    listing or write: ``realpath(path)`` must start with ``realpath(jail)/``.
+    A symlink planted inside the project therefore cannot lead outside it,
+    while a project-local link (a run directory linked from elsewhere in the
+    same project) still works. The value returned is the resolved path, so
+    what is checked is exactly what is opened. Equal to :func:`is_within` in
+    what it accepts, but it returns the path and raises ``ValueError``.
+
+    Examples
+    --------
+    >>> resolve_within("/p", "/p/derivatives/x")  # doctest: +SKIP
+    '/p/derivatives/x'
+    """
+    jail_real = os.path.realpath(jail)
+    resolved = os.path.realpath(path)
+    if not resolved.startswith(jail_real.rstrip(os.sep) + os.sep):
+        raise ValueError(f"path {path!r} resolves outside {jail_real!r}")
+    return resolved
+
+
+def resolve_leaf_within(jail: str, path: str) -> str:
+    """*path* with its parent resolved and its leaf kept, or raise if either escapes *jail*.
+
+    For writes and deletes: :func:`resolve_within` follows the leaf, so
+    replacing or unlinking what it returns would touch the *target* of a
+    planted link instead of the link itself. This form resolves only the
+    parent, keeps the leaf's own name, and checks both the entry and what the
+    leaf points at, so the caller replaces or unlinks the alias -- never the
+    file behind it.
+    """
+    jail_real = os.path.realpath(jail)
+    parent = os.path.realpath(os.path.dirname(path))
+    entry = os.path.normpath(os.path.join(parent, os.path.basename(path)))
+    if not entry.startswith(jail_real.rstrip(os.sep) + os.sep):
+        raise ValueError(f"path {path!r} resolves outside {jail_real!r}")
+    resolve_within(jail_real, entry)
+    return entry
+
+
 # ============================================================================
 # THE PROJECT DOT-DIRECTORY  (docs/dev/DECISIONS.md § 2026-09-17)
 # ============================================================================
@@ -387,6 +492,10 @@ class PathManager:
             raise RuntimeError("Project directory not set")
         return root
 
+    def _under(self, root: str, *parts: str) -> str:
+        """:func:`resolve_under`; every accessor that places a user name joins through it."""
+        return resolve_under(root, *parts)
+
     # ------------------------------------------------------------------
     # Project-level paths (zero args)
     # ------------------------------------------------------------------
@@ -566,7 +675,12 @@ class PathManager:
         str
             Absolute path to the output directory.
         """
-        return os.path.join(self.ti_toolbox(), "stats", analysis_type, analysis_name)
+        return self._under(
+            self.ti_toolbox(),
+            "stats",
+            validate_name(analysis_type, "analysis type"),
+            validate_name(analysis_name, "analysis name"),
+        )
 
     def logs_group(self) -> str:
         """Path to group-analysis log directory."""
@@ -597,13 +711,11 @@ class PathManager:
         str
             Absolute path to the subject's SimNIBS directory.
         """
-        return os.path.join(
-            self._root(), "derivatives", "SimNIBS", f"sub-{validate_subject_id(sid)}"
-        )
+        return self._under(self.simnibs(), f"sub-{validate_subject_id(sid)}")
 
     def m2m(self, sid: str) -> str:
         """Path to the ``m2m_{sid}`` head-model directory for *sid*."""
-        return os.path.join(self.sub(sid), f"m2m_{sid}")
+        return self._under(self.sub(sid), f"m2m_{sid}")
 
     def eeg_positions(self, sid: str) -> str:
         """Path to the EEG electrode-position directory for *sid*."""
@@ -655,23 +767,21 @@ class PathManager:
 
     def logs(self, sid: str) -> str:
         """Path to per-subject log directory for *sid*."""
-        return os.path.join(
-            self.ti_toolbox(), "logs", f"sub-{validate_subject_id(sid)}"
-        )
+        return self._under(self.ti_toolbox(), "logs", f"sub-{validate_subject_id(sid)}")
 
     def tissue_analysis_output(self, sid: str) -> str:
         """Path to tissue-analysis output directory for *sid*."""
-        return os.path.join(
+        return self._under(
             self.ti_toolbox(), "tissue_analysis", f"sub-{validate_subject_id(sid)}"
         )
 
     def bids_subject(self, sid: str) -> str:
         """Path to ``<project>/sub-{sid}/`` (raw BIDS subject root)."""
-        return os.path.join(self._root(), f"sub-{validate_subject_id(sid)}")
+        return self._under(self._root(), f"sub-{validate_subject_id(sid)}")
 
     def bids_datatype(self, sid: str, datatype: str) -> str:
         """Path to ``<project>/sub-{sid}/{datatype}/`` for any BIDS datatype."""
-        return os.path.join(self.bids_subject(sid), datatype)
+        return self._under(self.bids_subject(sid), validate_name(datatype, "datatype"))
 
     def bids_anat(self, sid: str) -> str:
         """Path to ``<project>/sub-{sid}/anat/``."""
@@ -683,11 +793,11 @@ class PathManager:
 
     def sourcedata_subject(self, sid: str) -> str:
         """Path to ``sourcedata/sub-{sid}/``."""
-        return os.path.join(self.sourcedata(), f"sub-{validate_subject_id(sid)}")
+        return self._under(self.sourcedata(), f"sub-{validate_subject_id(sid)}")
 
     def fastsurfer_subject(self, sid: str) -> str:
         """Path to ``derivatives/fastsurfer/sub-{sid}/``."""
-        return os.path.join(self.fastsurfer(), f"sub-{validate_subject_id(sid)}")
+        return self._under(self.fastsurfer(), f"sub-{validate_subject_id(sid)}")
 
     def fastsurfer_mri(self, sid: str) -> str:
         """Path to ``derivatives/fastsurfer/sub-{sid}/mri/``.
@@ -699,7 +809,7 @@ class PathManager:
 
     def freesurfer_subject(self, sid: str) -> str:
         """Path to ``derivatives/freesurfer/sub-{sid}/`` (legacy, read-only)."""
-        return os.path.join(self.freesurfer(), f"sub-{validate_subject_id(sid)}")
+        return self._under(self.freesurfer(), f"sub-{validate_subject_id(sid)}")
 
     def freesurfer_mri(self, sid: str) -> str:
         """Path to ``derivatives/freesurfer/sub-{sid}/mri/`` (legacy, read-only)."""
@@ -707,11 +817,11 @@ class PathManager:
 
     def qsiprep_subject(self, sid: str) -> str:
         """Path to ``derivatives/qsiprep/sub-{sid}/``."""
-        return os.path.join(self.qsiprep(), f"sub-{validate_subject_id(sid)}")
+        return self._under(self.qsiprep(), f"sub-{validate_subject_id(sid)}")
 
     def qsirecon_subject(self, sid: str) -> str:
         """Path to ``derivatives/qsirecon/sub-{sid}/``."""
-        return os.path.join(self.qsirecon(), f"sub-{validate_subject_id(sid)}")
+        return self._under(self.qsirecon(), f"sub-{validate_subject_id(sid)}")
 
     def ex_search(self, sid: str) -> str:
         """Path to exhaustive-search results for *sid*."""
@@ -731,7 +841,7 @@ class PathManager:
 
     def simulation(self, sid: str, sim: str) -> str:
         """Path to a named simulation directory for *sid*."""
-        return os.path.join(self.simulations(sid), sim)
+        return self._under(self.simulations(sid), validate_name(sim, "simulation"))
 
     def sim_fsaverage(self, sid: str, sim: str) -> str:
         """Path to the fsaverage field-map cache for a simulation.
@@ -747,7 +857,7 @@ class PathManager:
 
     def ti_mesh(self, sid: str, sim: str) -> str:
         """Path to the TI mesh file (``{sim}_TI.msh``)."""
-        return os.path.join(self.simulation(sid, sim), "TI", "mesh", f"{sim}_TI.msh")
+        return self._under(self.simulation(sid, sim), "TI", "mesh", f"{sim}_TI.msh")
 
     def ti_mesh_dir(self, sid: str, sim: str) -> str:
         """Path to the TI mesh directory."""
@@ -755,7 +865,7 @@ class PathManager:
 
     def ti_central_surface(self, sid: str, sim: str) -> str:
         """Path to the TI central cortical surface mesh."""
-        return os.path.join(
+        return self._under(
             self.simulation(sid, sim), "TI", "mesh", "surfaces", f"{sim}_TI_central.msh"
         )
 
@@ -765,7 +875,7 @@ class PathManager:
         mTI runs write their own central surface under ``mTI/mesh/surfaces/``;
         the ``TI/mesh/surfaces/`` copy is written only by 2-pair TI runs.
         """
-        return os.path.join(
+        return self._under(
             self.simulation(sid, sim),
             "mTI",
             "mesh",
@@ -803,19 +913,21 @@ class PathManager:
 
     def sourcedata_dicom(self, sid: str, modality: str) -> str:
         """Path to DICOM source data for *sid* and *modality*."""
-        return os.path.join(self.sourcedata_subject(sid), modality, "dicom")
+        return self._under(
+            self.sourcedata_subject(sid), validate_name(modality, "modality"), "dicom"
+        )
 
     def ex_search_run(self, sid: str, run: str) -> str:
         """Path to a specific exhaustive-search run directory."""
-        return os.path.join(self.ex_search(sid), run)
+        return self._under(self.ex_search(sid), validate_name(run, "run"))
 
     def m_ex_search_run(self, sid: str, run: str) -> str:
         """Path to a specific multipolar exhaustive-search run directory."""
-        return os.path.join(self.m_ex_search(sid), run)
+        return self._under(self.m_ex_search(sid), validate_name(run, "run"))
 
     def flex_search_run(self, sid: str, name: str) -> str:
         """Path to a specific flex-search run directory."""
-        return os.path.join(self.flex_search(sid), name)
+        return self._under(self.flex_search(sid), validate_name(name, "run"))
 
     def flex_electrode_positions(self, sid: str, name: str) -> str:
         """Path to ``electrode_positions.json`` for a flex-search run."""

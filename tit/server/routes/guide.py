@@ -27,9 +27,10 @@ Three rules, each with the failure it prevents:
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
+from tit.server.schemas import EntityName
 
 from tit.scene import guide
 
@@ -120,7 +121,9 @@ def _bytes_response(asset: guide.GuideAsset, if_none_match: str | None) -> Respo
     )
 
 
-def _json_response(body: Any, *, cache_control: str = IMMUTABLE_CACHE_CONTROL) -> Response:
+def _json_response(
+    body: Any, *, cache_control: str = IMMUTABLE_CACHE_CONTROL
+) -> Response:
     return Response(
         content=json.dumps(body),
         media_type="application/json",
@@ -225,7 +228,7 @@ def surface(
     },
 )
 def labels(
-    atlas: str = Query(...),
+    atlas: Annotated[EntityName, Query()],
     format: str = Query("gii"),
     guide_id: str | None = GuideQuery,
     if_none_match: str | None = Header(None, alias="If-None-Match"),
@@ -242,7 +245,9 @@ def labels(
     "/api/guide/regions",
     summary="One packaged atlas' legend plus the URL of its label payload",
 )
-def regions(atlas: str = Query(...), guide_id: str | None = GuideQuery) -> Any:
+def regions(
+    atlas: Annotated[EntityName, Query()], guide_id: str | None = GuideQuery
+) -> Any:
     try:
         body = guide.legend(atlas, _guide_id(guide_id))
     except guide.GuideUnavailable as exc:
@@ -254,7 +259,9 @@ def regions(atlas: str = Query(...), guide_id: str | None = GuideQuery) -> Any:
     "/api/guide/electrodes",
     summary="One packaged EEG net's electrode positions in the guide's own space",
 )
-def electrodes(net: str = Query(...), guide_id: str | None = GuideQuery) -> Any:
+def electrodes(
+    net: Annotated[EntityName, Query()], guide_id: str | None = GuideQuery
+) -> Any:
     try:
         return _json_response(guide.electrodes(net, _guide_id(guide_id)))
     except guide.GuideUnavailable as exc:

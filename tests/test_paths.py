@@ -960,6 +960,181 @@ def test_containment_accepts_filesystem_root_and_rejects_sibling_prefix(tmp_path
 
 
 # ---------------------------------------------------------------------------
+# The sanitizer contract: validate_name / resolve_under / resolve_within
+# ---------------------------------------------------------------------------
+
+
+class TestNameGrammar:
+    """One grammar for every non-subject name that becomes a path component."""
+
+    ACCEPTED = (
+        "Thalamus_example",
+        "L_Insula",
+        "20260917_181936_951_1",
+        "smoke_study_thalamus_tf_w0",
+        "GSN-HydroCel-185.csv",
+        "EEG10-10_Cutini_2011.csv",
+        "MNI_Glasser_HCP_v1.0",
+        "labeling.nii.gz",
+        "legacy.run with spaces",
+        "a",
+        "a" * 128,
+    )
+    REJECTED = (
+        "",
+        ".",
+        "..",
+        "../x",
+        "a/b",
+        "a\\b",
+        "/etc/passwd",
+        ".hidden",
+        " leading-space",
+        "a..b",
+        "a\x00b",
+        "a\tb",
+        "a\nb",
+        "caf\u00e9",
+        "a" * 129,
+        None,
+        7,
+        ["a"],
+    )
+
+    def test_accepts_real_names(self):
+        from tit.paths import validate_name
+
+        for name in self.ACCEPTED:
+            assert validate_name(name) == name
+
+    def test_rejects_traversal_separators_hidden_and_non_strings(self):
+        from tit.paths import validate_name
+
+        for bad in self.REJECTED:
+            with pytest.raises(ValueError, match="invalid montage"):
+                validate_name(bad, "montage")
+
+
+class TestResolveUnder:
+    """Lexical containment: no filesystem, no ``..``, no absolute part, never the root."""
+
+    def test_joins_clean_parts(self):
+        from tit.paths import resolve_under
+
+        assert resolve_under("/p", "derivatives", "sub-01") == "/p/derivatives/sub-01"
+        assert resolve_under("/p/", "a") == "/p/a"
+        assert resolve_under("/p", "a", "b.nii.gz") == "/p/a/b.nii.gz"
+
+    def test_rejects_traversal_absolute_and_empty(self):
+        from tit.paths import resolve_under
+
+        for parts in (
+            ("../etc/passwd",),
+            ("a", "..", ".."),
+            ("/etc/passwd",),
+            ("",),
+            (".",),
+            ("a/../..",),
+            ("..",),
+        ):
+            with pytest.raises(ValueError, match="escapes"):
+                resolve_under("/p", *parts)
+
+    def test_a_sibling_prefix_is_not_inside(self):
+        from tit.paths import resolve_under
+
+        with pytest.raises(ValueError, match="escapes"):
+            resolve_under("/p", "../p-other/x")
+
+    def test_filesystem_root(self):
+        from tit.paths import resolve_under
+
+        assert resolve_under("/", "tmp", "x") == "/tmp/x"
+
+    def test_unicode_parts_are_kept_verbatim(self):
+        from tit.paths import resolve_under
+
+        assert resolve_under("/p", "caf\u00e9") == "/p/caf\u00e9"
+
+    def test_path_manager_refuses_a_traversing_simulation_or_run_name(self, tmp_path):
+        pm = PathManager(str(tmp_path))
+        for helper in (pm.simulation, pm.flex_search_run, pm.ex_search_run):
+            for bad in ("../../evil", "a/b", "..", ".hidden", ""):
+                with pytest.raises(ValueError):
+                    helper("001", bad)
+        assert pm.simulation("001", "L_Insula").endswith(
+            os.path.join("sub-001", "Simulations", "L_Insula")
+        )
+        assert pm.ti_mesh("001", "L_Insula").endswith("L_Insula_TI.msh")
+
+
+class TestResolveWithin:
+    """Physical containment: symlinks followed, the resolved path is what comes back."""
+
+    def test_inside_and_outside(self, tmp_path):
+        from tit.paths import resolve_within
+
+        root = tmp_path / "project"
+        (root / "a").mkdir(parents=True)
+        inside = root / "a" / "f.txt"
+        inside.write_text("x")
+        assert resolve_within(str(root), str(inside)) == str(inside.resolve())
+        with pytest.raises(ValueError, match="resolves outside"):
+            resolve_within(str(root), str(tmp_path / "other"))
+        with pytest.raises(ValueError, match="resolves outside"):
+            resolve_within(str(root), str(root))  # the jail itself is not a file in it
+
+    def test_symlink_escape_is_refused_and_inward_link_kept(self, tmp_path):
+        from tit.paths import resolve_within
+
+        root = tmp_path / "project"
+        root.mkdir()
+        outside = tmp_path / "outside.txt"
+        outside.write_text("secret")
+        (root / "link").symlink_to(outside)
+        with pytest.raises(ValueError, match="resolves outside"):
+            resolve_within(str(root), str(root / "link"))
+        (root / "real.txt").write_text("ok")
+        (root / "alias").symlink_to(root / "real.txt")
+        assert resolve_within(str(root), str(root / "alias")) == str(root / "real.txt")
+
+    def test_missing_leaf_is_still_contained(self, tmp_path):
+        from tit.paths import resolve_within
+
+        assert resolve_within(str(tmp_path), str(tmp_path / "not-yet")) == str(
+            tmp_path.resolve() / "not-yet"
+        )
+
+
+class TestResolveLeafWithin:
+    """The write/delete form keeps the leaf so an alias is replaced, never its target."""
+
+    def test_leaf_kept_parent_resolved(self, tmp_path):
+        from tit.paths import resolve_leaf_within
+
+        root = tmp_path / "project"
+        (root / "real-dir").mkdir(parents=True)
+        (root / "dir-alias").symlink_to(root / "real-dir")
+        got = resolve_leaf_within(str(root), str(root / "dir-alias" / "leaf.json"))
+        assert got == str(root.resolve() / "real-dir" / "leaf.json")
+
+    def test_outward_parent_or_leaf_target_is_refused(self, tmp_path):
+        from tit.paths import resolve_leaf_within
+
+        root = tmp_path / "project"
+        root.mkdir()
+        (root / "out-dir").symlink_to(tmp_path)
+        with pytest.raises(ValueError, match="resolves outside"):
+            resolve_leaf_within(str(root), str(root / "out-dir" / "x"))
+        (tmp_path / "secret").write_text("s")
+        (root / "leaf").symlink_to(tmp_path / "secret")
+        with pytest.raises(ValueError, match="resolves outside"):
+            resolve_leaf_within(str(root), str(root / "leaf"))
+        with pytest.raises(ValueError, match="resolves outside"):
+            resolve_leaf_within(str(root), str(root / ".." / "x"))
+
+
+# ---------------------------------------------------------------------------
 # The project dot-directory (.ti-toolbox/) — every cache path and its migration
 # ---------------------------------------------------------------------------
 

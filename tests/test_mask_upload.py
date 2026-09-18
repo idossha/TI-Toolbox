@@ -95,3 +95,37 @@ def test_upload_rejects_oversized_filename_before_validation(client, monkeypatch
 
     monkeypatch.setattr("tit.opt.masks.validate_mask", unexpected_validation)
     assert post(client, name="0" * 10000 + ".nii").status_code == 422
+
+
+@pytest.mark.parametrize(
+    "name, accepted",
+    [
+        ("mask.nii", True),
+        ("Left Hippocampus v2.nii.gz", True),
+        ("a.b.c.nii", True),
+        (".nii", False),
+        ("-mask.nii", False),
+        ("mask.NII", False),
+        ("mask.nii.gz.txt", False),
+        ("ma\u00e9sk.nii", False),
+        ("mask\x00.nii", False),
+        ("mask.nii\n", False),
+    ],
+)
+def test_simple_mask_filename_grammar(name, accepted):
+    from tit.server.routes.files import _is_simple_mask_filename
+
+    assert _is_simple_mask_filename(name) is accepted
+
+
+def test_filename_check_is_linear_on_adversarial_input():
+    """A long run of dots must be refused in milliseconds, not by backtracking."""
+    import time
+
+    from tit.server.routes.files import _is_simple_mask_filename
+
+    hostile = "a" + "." * 100_000 + "!"
+    started = time.perf_counter()
+    assert _is_simple_mask_filename(hostile) is False
+    assert _is_simple_mask_filename(hostile[:242] + ".nii") is False
+    assert time.perf_counter() - started < 0.05

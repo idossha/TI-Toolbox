@@ -39,9 +39,10 @@ import json
 import os
 import re
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
+from tit.server.schemas import EntityName, SubjectId
 
 from tit import viewspec
 from tit.server.routes.viewers import (
@@ -137,7 +138,7 @@ def _now() -> str:
 )
 def viewer_tree(
     request: Request,
-    subject: str | None = Query(None),
+    subject: Annotated[SubjectId | None, Query()] = None,
     space: str | None = Query(None),
     simulations: list[str] | None = Query(None),
 ) -> dict[str, Any]:
@@ -514,8 +515,8 @@ _DEFAULT_NAME_SAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 @router.get("/api/viewer/scenes/suggest/name", summary="A default name for a new scene")
 def suggest_scene_name(
-    subject: str | None = Query(None),
-    simulation: str | None = Query(None),
+    subject: Annotated[SubjectId | None, Query()] = None,
+    simulation: Annotated[EntityName | None, Query()] = None,
     field: str | None = Query(None),
 ) -> dict[str, Any]:
     """``<subject>_<sim>_<field>_<date>`` — what the Save field is pre-filled with.

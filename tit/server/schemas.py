@@ -6,9 +6,26 @@ be diffed against it by ``dev/contracts_check.py``.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+
+from tit.paths import validate_name, validate_subject_id
+
+# ── request-side name grammars ─────────────────────────────────────────────────
+#
+# The boundary half of the path-validation contract (docs/dev/DECISIONS.md
+# § 2026-09-18): a request value that names a subject or an on-disk entity is
+# checked by pydantic before the route body runs, so an invalid one is a 422
+# with the rule it broke and never reaches `PathManager`. Neither annotation
+# changes the JSON schema, so `contracts/openapi.yaml` is untouched.
+
+#: ``sub-<id>``: letters, digits, ``_``, ``-``; starts alphanumeric; at most 64.
+SubjectId = Annotated[str, AfterValidator(validate_subject_id)]
+
+#: One path component -- simulation, run, montage, ROI, atlas, EEG net, analysis
+#: name: ``tit.paths.NAME_RE``; a dot is allowed inside, never first.
+EntityName = Annotated[str, AfterValidator(validate_name)]
 
 
 class Health(BaseModel):
@@ -184,7 +201,9 @@ class ExampleDataPart(BaseModel):
     dataset: str = Field(description="the dataset this part belongs to")
     part: str = Field(description="the part id within the dataset, e.g. headmodel")
     title: str
-    meaning: str = Field(description="one line: what this part lets you do the moment it lands")
+    meaning: str = Field(
+        description="one line: what this part lets you do the moment it lands"
+    )
     subject: str = Field(description="the BIDS subject label the files land under")
     bytes: int = Field(description="sum of the file sizes")
     files: list[ExampleDataFile]
@@ -217,12 +236,21 @@ class ExampleDataStatus(BaseModel):
     part: str
     installed: bool = Field(description="every verify path of the part is on disk")
     bytes: int = Field(description="sum of the file sizes")
-    downloading: bool = Field(default=False, description="this part is being fetched right now")
-    queued: bool = Field(default=False, description="this part is waiting behind the running one")
-    received: int = Field(default=0, description="bytes fetched so far; 0 unless downloading")
-    total: int = Field(default=0, description="bytes the running fetch expects; 0 unless downloading")
+    downloading: bool = Field(
+        default=False, description="this part is being fetched right now"
+    )
+    queued: bool = Field(
+        default=False, description="this part is waiting behind the running one"
+    )
+    received: int = Field(
+        default=0, description="bytes fetched so far; 0 unless downloading"
+    )
+    total: int = Field(
+        default=0, description="bytes the running fetch expects; 0 unless downloading"
+    )
     error: str | None = Field(
-        default=None, description="the message the last failed fetch of this part ended with"
+        default=None,
+        description="the message the last failed fetch of this part ended with",
     )
 
 
@@ -243,7 +271,8 @@ class ProjectStatus(BaseModel):
     )
     example_subjects: list[str] | None = None
     example_samples: list[str] | None = Field(
-        default=None, description="tit.examples DATASET/PART ids installed into this project"
+        default=None,
+        description="tit.examples DATASET/PART ids installed into this project",
     )
 
 

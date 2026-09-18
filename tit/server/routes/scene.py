@@ -40,10 +40,11 @@ import os
 import threading
 import time
 from urllib.parse import quote
-from typing import Any, Callable
+from typing import Annotated, Any, Callable
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
+from tit.server.schemas import EntityName, SubjectId
 
 from tit import catalog
 from tit.paths import get_path_manager, natural_key
@@ -339,7 +340,8 @@ def _known_atlas(pm, subject: str, atlas: str) -> str:
     },
 )
 def manifest(
-    subject: str = Query(...), wait: float = Query(0.0, ge=0.0, le=MAX_WAIT_S)
+    subject: Annotated[SubjectId, Query()],
+    wait: float = Query(0.0, ge=0.0, le=MAX_WAIT_S),
 ) -> Any:
     pm = _pm()
     _scene_subject(pm, subject)
@@ -477,7 +479,7 @@ def manifest(
     },
 )
 def surface(
-    subject: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
     part: str = Query(...),
     format: str = Query("tvsc"),
     wait: float = Query(0.0, ge=0.0, le=MAX_WAIT_S),
@@ -521,8 +523,8 @@ def surface(
     },
 )
 def labels(
-    subject: str = Query(...),
-    atlas: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
+    atlas: Annotated[EntityName, Query()],
     format: str = Query("tvsc"),
     wait: float = Query(0.0, ge=0.0, le=MAX_WAIT_S),
     if_none_match: str | None = Header(None, alias="If-None-Match"),
@@ -558,8 +560,8 @@ def labels(
     },
 )
 def regions(
-    subject: str = Query(...),
-    atlas: str = Query(...),
+    subject: Annotated[SubjectId, Query()],
+    atlas: Annotated[EntityName, Query()],
     wait: float = Query(0.0, ge=0.0, le=MAX_WAIT_S),
 ) -> Any:
     pm = _pm()
@@ -614,7 +616,9 @@ def regions(
     "/api/scene/electrodes",
     summary="One EEG net's electrode positions in the surfaces' world space",
 )
-def electrodes(subject: str = Query(...), net: str = Query(...)) -> dict:
+def electrodes(
+    subject: Annotated[SubjectId, Query()], net: Annotated[EntityName, Query()]
+) -> dict:
     pm = _pm()
     _scene_subject(pm, subject)
     directory = build.source_path(pm, pm.eeg_positions(subject))
@@ -632,7 +636,9 @@ def electrodes(subject: str = Query(...), net: str = Query(...)) -> dict:
     "/api/scene/volume-legend",
     summary="The label volume's id -> name/colour legend",
 )
-def volume_legend(subject: str = Query(...), id: str = Query("labeling")) -> dict:
+def volume_legend(
+    subject: Annotated[SubjectId, Query()], id: str = Query("labeling")
+) -> dict:
     pm = _pm()
     _scene_subject(pm, subject)
     try:

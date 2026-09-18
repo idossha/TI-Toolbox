@@ -1,8 +1,10 @@
 """Content identity for replaying recorded placements on their original head mesh."""
 
 import hashlib
-from pathlib import Path
 import re
+from pathlib import Path
+
+from tit.paths import resolve_within
 
 
 def sha256_file(path: Path) -> str:
@@ -23,9 +25,14 @@ def verify_subject_mesh(pm, subject: str, expected_sha256: str) -> Path:
         r"[0-9a-f]{64}", expected_sha256
     ):
         raise ValueError("Recorded head mesh SHA-256 is invalid.")
-    path = (Path(pm.m2m(subject)) / f"{subject}.msh").resolve()
-    if not path.is_relative_to(Path(pm.project_dir).resolve()):
-        raise ValueError("Replay head mesh escapes the selected project.")
+    try:
+        path = Path(
+            resolve_within(
+                pm.project_dir, str(Path(pm.m2m(subject)) / f"{subject}.msh")
+            )
+        )
+    except ValueError as exc:
+        raise ValueError("Replay head mesh escapes the selected project.") from exc
     if not path.is_file():
         raise ValueError("The recorded candidate's subject head mesh is missing.")
     if sha256_file(path) != expected_sha256:

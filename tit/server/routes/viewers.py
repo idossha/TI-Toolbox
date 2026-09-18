@@ -58,20 +58,20 @@ import json
 import os
 import re
 import secrets
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from tit import viewspec
 from tit.catalog import classify_view_file
-from tit.server.schemas import ViewerOpen, ViewSpec
+from tit.server.schemas import EntityName, SubjectId, ViewerOpen, ViewSpec
 
 router = APIRouter()
 
 
-def _jail_viewspec_layers(spec: dict[str, Any]) -> None:
-    """Resolve every layer's ``path`` against :func:`viewspec.jail_roots`, in place.
+def _jail_viewspec_layers(spec: dict[str, Any]) -> dict[str, Any]:
+    """*spec* with every layer's ``path`` resolved against :func:`viewspec.jail_roots`.
 
     ``spec`` (``body.viewspec``) is client-supplied at preview time -- a
     layer's ``path`` is not necessarily one this server generated, so it
@@ -80,7 +80,14 @@ def _jail_viewspec_layers(spec: dict[str, Any]) -> None:
     (ra_14 finding 11). The raw string is replaced with its resolved
     absolute form so a later symlink swap can't matter, and so every
     resulting Freeview arg is guaranteed to start with ``/`` -- never ``-``.
+    A layer's optional ``lut`` and ``attachments`` are files too: an absolute
+    ``lut`` must be jailed, and an attachment outside the jail is dropped
+    rather than probed.
+
+    Returns a new document rather than mutating the one that arrived: what
+    goes on to be resolved is built here from checked paths only.
     """
+    layers = []
     for layer in spec.get("layers", []):
         raw = layer.get("path")
         resolved = viewspec.resolve_jailed(raw) if isinstance(raw, str) else None
@@ -89,7 +96,29 @@ def _jail_viewspec_layers(spec: dict[str, Any]) -> None:
                 status_code=403,
                 detail=f"Layer path escapes the project/resources jail: {raw!r}",
             )
-        layer["path"] = str(resolved)
+        jailed = {**layer, "path": str(resolved)}
+        lut = layer.get("lut")
+        if isinstance(lut, str) and os.path.isabs(lut):
+            lut_resolved = viewspec.resolve_jailed(lut)
+            if lut_resolved is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Layer LUT escapes the project/resources jail: {lut!r}",
+                )
+            jailed["lut"] = str(lut_resolved)
+        attachments = [
+            str(kept)
+            for kept in (
+                viewspec.resolve_jailed(item)
+                for item in layer.get("attachments", [])
+                if isinstance(item, str)
+            )
+            if kept is not None
+        ]
+        if "attachments" in layer:
+            jailed["attachments"] = attachments
+        layers.append(jailed)
+    return {**spec, "layers": layers}
 
 
 def _reject_option_like_args(args: list[str]) -> None:
@@ -117,21 +146,23 @@ def _reject_option_like_args(args: list[str]) -> None:
 )
 def view(
     kind: str,
-    subject: str | None = Query(None),
-    simulation: str | None = Query(None),
+    subject: Annotated[SubjectId | None, Query()] = None,
+    simulation: Annotated[EntityName | None, Query()] = None,
     space: str | None = Query(None),
     field: str | None = Query(None),
-    analysis: str | None = Query(None),
-    atlas: str | None = Query(
-        None,
-        description=(
-            "Which atlas overlay to build (R5). An id from "
-            "GET /api/catalog/atlases for the same subject and space, or a "
-            "bundled MNI atlas basename. Absent keeps the server's own "
-            "choice, which is what every caller did before this parameter "
-            "existed; an unknown id falls back to that same choice."
+    analysis: Annotated[EntityName | None, Query()] = None,
+    atlas: Annotated[
+        EntityName | None,
+        Query(
+            description=(
+                "Which atlas overlay to build (R5). An id from "
+                "GET /api/catalog/atlases for the same subject and space, or a "
+                "bundled MNI atlas basename. Absent keeps the server's own "
+                "choice, which is what every caller did before this parameter "
+                "existed; an unknown id falls back to that same choice."
+            ),
         ),
-    ),
+    ] = None,
     roi: str | None = Query(None),
     path: str | None = Query(None),
 ) -> dict[str, Any]:
@@ -171,7 +202,7 @@ def view_args(body: dict[str, Any]) -> dict[str, Any]:
     spec = body.get("viewspec")
     if not isinstance(spec, dict):
         raise HTTPException(status_code=422, detail="body.viewspec is required")
-    _jail_viewspec_layers(spec)
+    spec = _jail_viewspec_layers(spec)
     viewspec.resolve_percentiles(spec)
     # The same finishing step GET /api/view/{kind} runs, so an edited spec's
     # argv and its scene can never be built by two different sets of rules.
@@ -240,24 +271,31 @@ def viewer_scene_dir() -> str:
 
 
 def checked_viewer_path(path: str) -> str:
-    """Reject stored paths resolving outside the project, including pre-existing symlinks."""
-    from tit.paths import get_path_manager, is_within
+    """*path* with its parent resolved, or 403 if it or its leaf's target leaves the project.
+
+    The leaf is kept as named (:func:`tit.paths.resolve_leaf_within`), so a
+    delete or replace acts on a stored alias rather than on what it points to.
+    """
+    from tit.paths import get_path_manager, resolve_leaf_within
 
     root = get_path_manager().project_dir
-    if not root or not is_within(root, path):
+    try:
+        if not root:
+            raise ValueError("project directory not set")
+        return resolve_leaf_within(root, path)
+    except ValueError as exc:
         raise HTTPException(
             status_code=403, detail="Viewer storage must remain inside the project"
-        )
-    return path
+        ) from exc
 
 
 def atomic_viewer_write(target: str, content: bytes) -> None:
     """Replace a whole document without following a predictable temporary-file symlink."""
-    checked_viewer_path(target)
-    directory = os.path.realpath(checked_viewer_path(os.path.dirname(target)))
-    os.makedirs(directory, exist_ok=True)
-    target = os.path.join(directory, os.path.basename(target))
-    checked_viewer_path(target)
+    target = checked_viewer_path(target)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    # Re-check now that the directory exists: its resolved form is what the leaf joins.
+    target = checked_viewer_path(target)
+    directory = os.path.dirname(target)
     temporary = None
     try:
         candidate = os.path.join(directory, f".viewer-{secrets.token_hex(16)}.partial")
@@ -266,7 +304,7 @@ def atomic_viewer_write(target: str, content: bytes) -> None:
         with open(candidate, "xb") as handle:
             temporary = candidate
             handle.write(content)
-        checked_viewer_path(target)
+        target = checked_viewer_path(target)
         os.replace(temporary, target)
     finally:
         if temporary is not None:
@@ -466,10 +504,15 @@ def _scene_files(
         path = dataset.get("path")
         if not isinstance(container, str) or not isinstance(path, str):
             continue
-        try:
-            size: int | None = os.path.getsize(container)
-        except OSError:
-            size = None
+        # Stat only what the jail would serve: a size is a fact about a file, and a
+        # path outside the project is not one this route may confirm exists.
+        jailed = viewspec.resolve_jailed(container)
+        size: int | None = None
+        if jailed is not None:
+            try:
+                size = os.path.getsize(jailed)
+            except OSError:
+                size = None
         rows.append(
             {
                 "id": dataset.get("id"),
@@ -638,8 +681,8 @@ def view_open(
     summary='Every file this subject/simulation offers the Viewer\'s "+ Add…"',
 )
 def viewer_candidates(
-    subject: str | None = Query(None),
-    simulation: str | None = Query(None),
+    subject: Annotated[SubjectId | None, Query()] = None,
+    simulation: Annotated[EntityName | None, Query()] = None,
     space: str | None = Query(None),
 ) -> dict[str, Any]:
     """A read: it opens nothing and writes nothing.
