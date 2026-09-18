@@ -1,21 +1,29 @@
 // @vitest-environment jsdom
 /**
  * A submission the server refused with HTTP 422 `{detail: "Missing inputs", missing: [...]}`
- * (`tit.jobs.preflight`) reaches the user as one blocking notice with one line per input:
- * what · where it was expected · how to produce it. Never a bare "Could not queue".
+ * (`tit.jobs.preflight`) reaches the user as a short, self-dismissing toast (title + the first
+ * input's `what`) with a "Details" button opening the full per-input list — what, expected path,
+ * how to fix — in the shared Dialog. Never a bare "Could not queue".
  */
 import React from "react";
+import { act } from "react-dom/test-utils";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
 vi.mock("sonner", () => ({
   Toaster: () => null,
-  toast: Object.assign(vi.fn(), { error: toastError, success: vi.fn(), message: vi.fn() }),
+  toast: Object.assign(vi.fn(), {
+    error: toastError,
+    success: vi.fn(),
+    message: vi.fn(),
+    dismiss: vi.fn(),
+  }),
 }));
 
 import { ApiError, createApi, missingInputLines, unwrap } from "../../src/renderer/api/client";
-import { notifySubmitError } from "../../src/renderer/ui/Toast";
+import { notifySubmitError, ToastHost } from "../../src/renderer/ui/Toast";
 import { batchReceipt, submitBatch } from "../../src/renderer/pages/analyzer/submitBatch";
 
 const BASE = "http://test";
@@ -49,6 +57,29 @@ async function submitRefused(): Promise<unknown> {
   }
 }
 
+let container: HTMLDivElement | null = null;
+let root: Root | null = null;
+
+function mountToastHost() {
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  act(() => {
+    root!.render(React.createElement(ToastHost));
+  });
+}
+
+afterEach(() => {
+  if (root && container) {
+    act(() => {
+      root!.unmount();
+    });
+    container.remove();
+  }
+  root = null;
+  container = null;
+});
+
 describe("missing-inputs notice", () => {
   it("the 422 body becomes an ApiError carrying the list and a line-per-input message", async () => {
     const error = (await submitRefused()) as ApiError;
@@ -64,17 +95,45 @@ describe("missing-inputs notice", () => {
     expect(lines[1]).toBe(`${MISSING[1]!.what} · ${MISSING[1]!.how_to_fix}`);
   });
 
-  it("notifySubmitError renders the list as a persistent blocking notice", async () => {
+  it("notifySubmitError renders a short toast: title, the first input's `what`, and a Details action", async () => {
     toastError.mockClear();
     notifySubmitError("Could not queue the analysis.", await submitRefused());
     expect(toastError).toHaveBeenCalledTimes(1);
-    const [message, options] = toastError.mock.calls[0] as [string, { duration: number; description: React.ReactElement }];
+    const [message, options] = toastError.mock.calls[0] as [
+      string,
+      { duration: number; description: React.ReactElement; action: { label: string; onClick: () => void } },
+    ];
     expect(message).toBe("Could not queue the analysis. Missing inputs:");
-    expect(options.duration).toBe(Infinity);
+    expect(options.duration).toBe(4000);
     const html = renderToStaticMarkup(options.description);
-    expect(html.match(/<li>/g)).toHaveLength(2);
-    expect(html).toContain("aparc.DKTatlas+aseg.deep.mgz");
-    expect(html).toContain("analyze in mesh space instead");
+    expect(html).toContain("volume parcellation for atlas");
+    expect(options.action.label).toBe("Details");
+  });
+
+  it("Details opens the full list in the shared Dialog and dismisses the toast", async () => {
+    toastError.mockClear();
+    mountToastHost();
+    notifySubmitError("Could not queue the analysis.", await submitRefused());
+    const [, options] = toastError.mock.calls[0] as [string, { action: { onClick: () => void } }];
+    act(() => {
+      options.action.onClick();
+    });
+    // Radix Dialog portals into document.body, not into the mount container.
+    const html = document.body.innerHTML;
+    expect(html).toContain(MISSING[0]!.what);
+    expect(html).toContain(MISSING[0]!.expected_path);
+    expect(html).toContain(MISSING[0]!.how_to_fix);
+    expect(html).toContain(MISSING[1]!.what);
+    expect(html).toContain(MISSING[1]!.how_to_fix);
+  });
+
+  it("the toast auto-dismisses after its duration (sonner handles the timer itself)", async () => {
+    toastError.mockClear();
+    notifySubmitError("Could not queue the analysis.", await submitRefused());
+    const [, options] = toastError.mock.calls[0] as [string, { duration: number }];
+    // notify.blocked hands sonner a finite duration rather than Infinity, so the toast is not
+    // pinned open; sonner itself owns dismissal (and hover-pause) on that timer.
+    expect(options.duration).toBe(4000);
   });
 
   it("any other failure stays a plain error with the server's detail", () => {

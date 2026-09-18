@@ -1787,15 +1787,45 @@ kbd.kbd {
   z-index: var(--z-toast) !important;
 }
 
-/* A refused submission's missing-input list (notify.blocked): one readable line per input. */
-[data-sonner-toaster] .toast-lines {
-  margin: 4px 0 0;
-  padding-left: 16px;
+/* A refused submission's toast (notify.blocked): the first input's `what`, one line, ellipsised. */
+[data-sonner-toaster] .toast-line-clamp {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The full missing-input list, opened from the toast's Details button (Toast.tsx ToastHost). */
+.missing-inputs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+  max-height: 50vh;
+  overflow: auto;
+}
+.missing-inputs-list li {
   display: grid;
   gap: 4px;
-  max-height: 40vh;
-  overflow: auto;
+}
+.missing-inputs-list li + li {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.missing-input-what {
+  color: var(--ink);
+}
+.missing-input-path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  user-select: text;
   overflow-wrap: anywhere;
+}
+.missing-input-fix {
+  color: var(--ink-2);
+  font-size: 12px;
 }
 
 /* ---------- Charts ---------- */
