@@ -31,7 +31,7 @@ import { SegmentedControl } from "../../../ui/SegmentedControl";
 import { SelectionPicker, type SelectionItem } from "../../../ui/SelectionList";
 import { Button } from "../../../ui/Button";
 import { HelpIcon } from "../../../ui/HelpPopover";
-import { notify } from "../../../ui/Toast";
+import { notify, notifySubmitError } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
@@ -292,8 +292,8 @@ function VisualExporterPanel() {
       for (const config of configs) jobs.trackJob(await createBlenderJob(config, [subjectId]));
       const n = configs.length;
       notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName)}`);
-    } catch {
-      notify.error("Could not queue the export job.");
+    } catch (error) {
+      notifySubmitError("Could not queue the export job.", error);
     } finally {
       setSubmitting(false);
     }

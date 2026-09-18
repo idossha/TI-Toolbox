@@ -14,15 +14,36 @@ export type Simulation = components["schemas"]["Simulation"];
 export type SystemSnapshot = components["schemas"]["SystemSnapshot"];
 export type ProjectStorage = components["schemas"]["ProjectStorage"];
 
+export type MissingInput = components["schemas"]["MissingInput"];
+
 export class ApiError extends Error {
+  /** The 422 "Missing inputs" list a job submission was refused with (`tit.jobs.preflight`). */
+  public readonly missing?: MissingInput[];
+
   constructor(
     public readonly status: number,
     public readonly path: string,
     message?: string,
+    missing?: MissingInput[],
   ) {
     super(message ?? `${path} failed with HTTP ${status}`);
     this.name = "ApiError";
+    if (missing?.length) this.missing = missing;
   }
+}
+
+/** One line per refused input: what · where it was expected · how to produce it. */
+export function missingInputLines(missing: readonly MissingInput[]): string[] {
+  return missing.map((m) => [m.what, m.expected_path ? `expected at ${m.expected_path}` : null, m.how_to_fix].filter(Boolean).join(" · "));
+}
+
+function isMissingInputs(body: unknown): body is components["schemas"]["MissingInputs"] {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    (body as { detail?: unknown }).detail === "Missing inputs" &&
+    Array.isArray((body as { missing?: unknown }).missing)
+  );
 }
 
 type UnauthorizedListener = () => void;
@@ -59,7 +80,13 @@ export function unwrap<T>(
   path: string,
 ): T {
   if (result.response.ok && result.data !== undefined) return result.data;
-  throw new ApiError(result.response.status, path);
+  const body = result.error;
+  if (isMissingInputs(body)) {
+    // The submission was refused before any job existed; the message names every input.
+    throw new ApiError(result.response.status, path, `Missing inputs:\n${missingInputLines(body.missing).join("\n")}`, body.missing);
+  }
+  const detail = typeof body === "object" && body !== null ? (body as { detail?: unknown }).detail : undefined;
+  throw new ApiError(result.response.status, path, typeof detail === "string" && detail.trim() ? detail : undefined);
 }
 
 export async function getVersion(client = api): Promise<Version> {

@@ -15,7 +15,7 @@ import { Button } from "../../../ui/Button";
 import { HelpIcon } from "../../../ui/HelpPopover";
 import { AlertDialog } from "../../../ui/Overlay";
 import { ExistingOutputsDialog } from "../../_shared/run/ExistingOutputsDialog";
-import { notify } from "../../../ui/Toast";
+import { notify, notifySubmitError } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
@@ -169,8 +169,8 @@ function NiftiGroupAveragePanel() {
       jobs.trackJob(job);
       notify.success(`Queued: NIfTI group average "${config.output_name}"`);
       setConfirmOpen(false);
-    } catch {
-      notify.error("Could not queue the group-averaging job.");
+    } catch (error) {
+      notifySubmitError("Could not queue the group-averaging job.", error);
     } finally {
       setSubmitting(false);
     }

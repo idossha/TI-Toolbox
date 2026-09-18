@@ -14,7 +14,7 @@ import { NumberInput } from "../../../ui/NumberInput";
 import { Button } from "../../../ui/Button";
 import { EmptyState } from "../../../ui/Feedback";
 import { ExistingOutputsDialog } from "../../_shared/run/ExistingOutputsDialog";
-import { notify } from "../../../ui/Toast";
+import { notify, notifySubmitError } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
@@ -155,8 +155,8 @@ function SourcePanel() {
       const job = await createSourceJob({ ...forwardConfig, forward: { ...forwardConfig.forward!, overwrite } }, selected, overwrite);
       jobs.trackJob(job);
       notify.success(selected.length === 1 ? `Queued: forward solution for ${selected[0]}` : `Queued ${selected.length} forward-solution jobs`);
-    } catch {
-      notify.error("Could not queue the forward-solution job.");
+    } catch (error) {
+      notifySubmitError("Could not queue the forward-solution job.", error);
     } finally {
       setFwdRunning(false);
       setFwdConfirm(false);

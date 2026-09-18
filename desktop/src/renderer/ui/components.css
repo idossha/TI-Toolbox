@@ -1787,6 +1787,17 @@ kbd.kbd {
   z-index: var(--z-toast) !important;
 }
 
+/* A refused submission's missing-input list (notify.blocked): one readable line per input. */
+[data-sonner-toaster] .toast-lines {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+  max-height: 40vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Charts ---------- */
 .sparkline-wrap {
   width: 100%;

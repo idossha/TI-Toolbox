@@ -16,7 +16,7 @@ import { Checkbox } from "../../../ui/Toggle";
 import { SegmentedControl } from "../../../ui/SegmentedControl";
 import { Button } from "../../../ui/Button";
 import { HelpIcon } from "../../../ui/HelpPopover";
-import { notify } from "../../../ui/Toast";
+import { notify, notifySubmitError } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
@@ -223,8 +223,8 @@ function ClusterPermutationPanel() {
       const job = await createStatsJob(config, subjectIds);
       jobs.trackJob(job);
       notify.success(`Queued: ${mode === "classification" ? "group comparison" : "correlation"} "${analysisName.trim()}"`);
-    } catch {
-      notify.error("Could not queue the analysis.");
+    } catch (error) {
+      notifySubmitError("Could not queue the analysis.", error);
     } finally {
       setSubmitting(false);
     }

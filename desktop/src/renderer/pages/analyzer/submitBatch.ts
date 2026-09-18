@@ -11,15 +11,21 @@
  * So: settle them all, report both halves, and let the caller retry only the rejected specs.
  */
 
+import { ApiError, type MissingInput } from "../../api/client";
+
 export interface BatchOutcome<Spec> {
   /** Job ids the server accepted, in submission order. */
   acceptedIds: string[];
   /** The specs that were rejected, ready to be retried on their own. */
-  rejected: { spec: Spec; message: string }[];
+  rejected: { spec: Spec; message: string; missing?: MissingInput[] }[];
 }
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function missing(error: unknown): MissingInput[] | undefined {
+  return error instanceof ApiError ? error.missing : undefined;
 }
 
 /** Submit every spec, waiting for all of them, whatever each one does. */
@@ -29,10 +35,10 @@ export async function submitBatch<Spec>(
 ): Promise<BatchOutcome<Spec>> {
   const settled = await Promise.allSettled(specs.map((spec) => submit(spec)));
   const acceptedIds: string[] = [];
-  const rejected: { spec: Spec; message: string }[] = [];
+  const rejected: BatchOutcome<Spec>["rejected"] = [];
   settled.forEach((result, index) => {
     if (result.status === "fulfilled") acceptedIds.push(result.value.id);
-    else rejected.push({ spec: specs[index] as Spec, message: message(result.reason) });
+    else rejected.push({ spec: specs[index] as Spec, message: message(result.reason), missing: missing(result.reason) });
   });
   return { acceptedIds, rejected };
 }
@@ -47,7 +53,8 @@ export function batchReceipt<Spec>(outcome: BatchOutcome<Spec>, noun = "analysis
   const total = accepted + failed;
   if (failed === 0) return accepted === 1 ? `Queued: ${noun}` : `Queued: ${accepted} ${plural}`;
   if (accepted === 0) {
-    const reason = outcome.rejected[0]?.message ?? "";
+    // First line only: a refused submission's missing-input list is rendered as its own lines.
+    const reason = outcome.rejected[0]?.message.split("\n")[0] ?? "";
     return total === 1 ? `Could not queue the ${noun}${reason ? `: ${reason}` : "."}` : `Could not queue any of the ${total} ${plural}.`;
   }
   return `Queued ${accepted} of ${total} ${plural}; ${failed} could not be queued — press Run again to retry just ${failed === 1 ? "it" : "them"}.`;

@@ -1,4 +1,5 @@
 import { Toaster, toast } from "sonner";
+import { ApiError, missingInputLines } from "../api/client";
 
 /** Mount once at the app root. Success toasts self-dismiss in 4s; errors stay until dismissed. */
 export function ToastHost() {
@@ -45,4 +46,30 @@ export const notify = {
   info(message: string) {
     toast(message, { duration: 4000 });
   },
+  /**
+   * A submission the server refused because inputs are missing (HTTP 422 "Missing inputs"):
+   * persists until dismissed, one line per input — what, where it was expected, how to fix.
+   */
+  blocked(message: string, lines: readonly string[]) {
+    toast.error(message, {
+      duration: Infinity,
+      description: (
+        <ul className="toast-lines">
+          {lines.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      ),
+    });
+  },
 };
+
+/** The notice for a failed submission: the missing-input list when the server sent one, else a plain error. */
+export function notifySubmitError(message: string, error: unknown): void {
+  const missing = error instanceof ApiError ? error.missing : undefined;
+  if (missing?.length) {
+    notify.blocked(`${message} Missing inputs:`, missingInputLines(missing));
+    return;
+  }
+  notify.error(message, error instanceof Error && error.message ? error.message : undefined);
+}

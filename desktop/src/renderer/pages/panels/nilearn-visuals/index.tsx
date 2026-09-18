@@ -13,7 +13,7 @@ import { NumberInput } from "../../../ui/NumberInput";
 import { Checkbox } from "../../../ui/Toggle";
 import { Button } from "../../../ui/Button";
 import { HelpIcon } from "../../../ui/HelpPopover";
-import { notify } from "../../../ui/Toast";
+import { notify, notifySubmitError } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
@@ -146,8 +146,8 @@ function NilearnVisualsPanel() {
       const job = await createNilearnJob(config, subjectIds);
       jobs.trackJob(job);
       notify.success(`Queued: Nilearn visuals → nilearn_visuals/${config.subdir_name}`);
-    } catch {
-      notify.error("Could not queue the visualization job.");
+    } catch (error) {
+      notifySubmitError("Could not queue the visualization job.", error);
     } finally {
       setSubmitting(false);
     }

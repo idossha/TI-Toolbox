@@ -13,7 +13,7 @@ import { Button } from "../../ui/Button";
 import { ActionBar } from "../../ui/Chrome";
 import { InlineError } from "../../ui/Feedback";
 import { PageLayout } from "../../ui/Layout";
-import { notify } from "../../ui/Toast";
+import { notify, notifySubmitError } from "../../ui/Toast";
 import { SubjectsField, notConvertedColumn, presenceColumns, subjectsBlockedReason } from "../_shared/subjects";
 import {
   RunPanel,
@@ -292,7 +292,7 @@ function PreprocessPage() {
       setPinnedJobId(null);
       setStartedJobIds(result.jobs.map((job) => job.id));
     },
-    onError: () => notify.error("Could not queue preprocessing.", "Check the connection and try again."),
+    onError: (error) => notifySubmitError("Could not queue preprocessing.", error),
   });
 
   function runNow(decision: ExistingOutputPolicy = policy): void {

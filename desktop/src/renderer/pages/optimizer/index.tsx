@@ -40,7 +40,7 @@ import { ActionBar } from "../../ui/Chrome";
 import { Button, IconButton } from "../../ui/Button";
 import { Popover } from "../../ui/Overlay";
 import { Callout, EmptyState } from "../../ui/Feedback";
-import { notify } from "../../ui/Toast";
+import { notify, notifySubmitError } from "../../ui/Toast";
 import { getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
 import { subjectsBlockedReason } from "../_shared/subjects";
 import {
@@ -367,7 +367,7 @@ function OptimizerPage() {
       notify.success(`Queued: leadfield generation for ${net}`);
       void queryClient.invalidateQueries({ queryKey: ["leadfields", subject] });
     },
-    onError: () => notify.error("Could not queue the leadfield job."),
+    onError: (e) => notifySubmitError("Could not queue the leadfield job.", e),
   });
 
   function leadfieldGenerationState(subject: string, net: string | null): string | null {
@@ -431,7 +431,7 @@ function OptimizerPage() {
       await queryClient.invalidateQueries({ queryKey: ["plan"] });
     },
     onError: (e) => {
-      if ((e as Error).message !== "invalid") notify.error("Could not queue the search.");
+      if ((e as Error).message !== "invalid") notifySubmitError("Could not queue the search.", e);
     },
   });
 

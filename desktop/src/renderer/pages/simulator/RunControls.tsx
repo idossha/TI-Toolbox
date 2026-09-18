@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { Play } from "lucide-react";
 import { Button } from "../../ui/Button";
-import { notify } from "../../ui/Toast";
+import { notify, notifySubmitError } from "../../ui/Toast";
 import {
   ExistingOutputsDialog,
   mergePlanResults,
@@ -189,8 +189,8 @@ export function RunButton({
           : `Queued ${result.jobs.length} simulation jobs${parallelSubjects > 1 ? ` (${parallelSubjects} at a time)` : " (one at a time)"}`,
       );
       onSubmitted(result.jobs.map((job) => job.id));
-    } catch {
-      notify.error("Could not queue the simulation jobs.");
+    } catch (error) {
+      notifySubmitError("Could not queue the simulation jobs.", error);
     } finally {
       setSubmitting(false);
       setConfirmOpen(false);
