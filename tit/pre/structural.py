@@ -460,19 +460,42 @@ def run_pipeline(
     DTI tensor extraction.  Steps are enabled via boolean flags; disabled
     steps are skipped.
 
+    All step flags default to ``False``; pass keyword arguments only.
+
     Parameters
     ----------
     subject_ids : iterable of str
-        Subject identifiers without the ``sub-`` prefix.
+        Subject identifiers without the ``sub-`` prefix (e.g.
+        ``["ernie", "101"]``).  Subjects run sequentially.
     convert_dicom : bool, optional
-        Run DICOM-to-NIfTI conversion.
+        Run DICOM-to-NIfTI conversion (``sourcedata/sub-<id>/`` to
+        ``sub-<id>/anat/``).
     run_fastsurfer : bool, optional
         Run FastSurfer ``--seg_only`` deep segmentation.
+    charm_threads : int or None, optional
+        Thread count for SimNIBS ``charm``; ``None`` uses its default.
+    charm_options : dict or None, optional
+        ``charm`` overrides: ``{"denoise": bool,
+        "segmentation_final_resolution": 0.5-2.0,
+        "skin_facet_size": 0.5-10.0}`` (keys optional; unknown keys
+        raise ``ValueError``).  ``None`` keeps the installed defaults.
     fastsurfer_threads : int or None, optional
         Thread count for FastSurfer inference.
+    run_freesurfer : bool, optional
+        Run FreeSurfer (requires a FreeSurfer install, which the standard
+        image does not ship).
+    freesurfer_recon_all : bool, optional
+        With *run_freesurfer*, run ``recon-all`` (default ``True``); set
+        ``False`` to run only *freesurfer_subregions* on an existing
+        reconstruction.
+    freesurfer_subregions : list of str or None, optional
+        FreeSurfer subregion segmentations to add: any of
+        ``"thalamus"``, ``"hippo-amygdala"``.
+    freesurfer_threads : int or None, optional
+        Thread count for FreeSurfer.
     create_m2m : bool, optional
-        Run SimNIBS ``charm`` (also runs ``subject_atlas`` for ``.annot``
-        files).
+        Run SimNIBS ``charm`` to build ``m2m_<id>`` (also runs
+        ``subject_atlas`` for ``.annot`` files).
     run_tissue_analysis : bool, optional
         Run tissue-volume and thickness analysis.
     run_qsiprep : bool, optional
@@ -504,9 +527,22 @@ def run_pipeline(
     Raises
     ------
     PreprocessError
-        If no subjects are provided or a preprocessing step fails.
+        If no subjects are provided, both *skip_existing_outputs* and
+        *replace_existing_outputs* are set, a required input is missing
+        for a selected step (checked for every subject before anything
+        runs), or a preprocessing step fails.
     PreprocessCancelled
         If *stop_event* is set during execution.
+
+    Examples
+    --------
+    >>> from tit.pre import run_pipeline
+    >>> run_pipeline(["ernie"], convert_dicom=True, create_m2m=True)  # doctest: +SKIP
+    0
+    >>> run_pipeline(["ernie", "101"], create_m2m=True,
+    ...              charm_options={"denoise": True},
+    ...              skip_existing_outputs=True)  # doctest: +SKIP
+    0
 
     See Also
     --------

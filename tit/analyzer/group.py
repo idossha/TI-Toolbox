@@ -20,6 +20,7 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence
 
 import matplotlib
 import numpy as np
@@ -83,7 +84,7 @@ def run_group_analysis(
     center: tuple[float, float, float] | None = None,
     radius: float | None = None,
     coordinate_space: str = "subject",
-    spheres=None,
+    spheres: Sequence[tuple[float, float, float, float]] | None = None,
     atlas: str | None = None,
     region: str | list[str] | None = None,
     visualize: bool = False,
@@ -108,7 +109,8 @@ def run_group_analysis(
     tissue_type : str, optional
         ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
     analysis_type : str, optional
-        ``"spherical"`` or ``"cortical"``. Default ``"spherical"``.
+        ``"spherical"``, ``"cortical"`` or ``"mask"``. Default
+        ``"spherical"``.
     center : tuple of float or None, optional
         ``(x, y, z)`` sphere centre; required when *analysis_type* is
         ``"spherical"``.
@@ -116,7 +118,8 @@ def run_group_analysis(
         Sphere radius in mm; required when *analysis_type* is
         ``"spherical"``.
     coordinate_space : str, optional
-        ``"subject"`` or ``"MNI"`` (spherical only). Default ``"subject"``.
+        ``"subject"`` or ``"MNI"`` (spherical and mask). Default
+        ``"subject"``; a group mask analysis requires ``"MNI"``.
     spheres : sequence of tuple of float or None, optional
         One ``(x, y, z, r)`` per sphere, unioned into a single ROI
         (spherical only). Takes precedence over *center*/*radius*.
@@ -129,19 +132,42 @@ def run_group_analysis(
     output_dir : str, pathlib.Path, or None, optional
         Override output directory. If ``None``, derived from PathManager.
     field : str or None, optional
-        Field to analyze (``constants.FIELD_REGISTRY`` name). Default
-        ``None`` resolves the TI_max/mTI_max envelope per subject.
+        Field to analyze (``constants.FIELD_REGISTRY`` name, e.g.
+        ``"TI_max"``, ``"TI_normal"``, ``"hf_peak"``). Default ``None``
+        resolves the TI_max/mTI_max envelope per subject.
+    mask_path : str or None, optional
+        MNI-space NIfTI mask (``analysis_type="mask"`` only).
 
     Returns
     -------
     GroupResult
-        Per-subject results, the summary CSV path, and the comparison
-        plot path.
+        Per-subject results, the summary CSV path
+        (``group_summary.csv``), and the comparison plot path.
 
     Raises
     ------
     KeyError
-        If *analysis_type* is not ``"spherical"`` or ``"cortical"``.
+        If *analysis_type* is not ``"spherical"``, ``"cortical"`` or
+        ``"mask"``.
+    ValueError
+        If ``analysis_type="mask"`` with a non-MNI *coordinate_space* or an
+        unreadable *mask_path*.
+    FileNotFoundError
+        If a subject has no field file for *simulation* in *space*.
+
+    Examples
+    --------
+    >>> from tit.analyzer import run_group_analysis
+    >>> res = run_group_analysis(
+    ...     subject_ids=["ernie", "101"], simulation="L_Insula", space="voxel",
+    ...     analysis_type="spherical", center=(-35.0, 5.0, 5.0), radius=10.0,
+    ...     coordinate_space="MNI",
+    ... )  # doctest: +SKIP
+    >>> res.summary_csv_path.name, sorted(res.subject_results)  # doctest: +SKIP
+    ('group_summary.csv', ['101', 'ernie'])
+    >>> run_group_analysis(["ernie", "101"], "L_Insula", space="mesh",
+    ...                    analysis_type="cortical", atlas="DK40",
+    ...                    region="lh.insula")  # doctest: +SKIP
 
     See Also
     --------

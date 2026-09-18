@@ -25,10 +25,14 @@ attribution, not reimplemented.
 """
 
 import os
+from collections.abc import Sequence
 
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from tit.constants import is_valid_pair_count
+
+__all__ = ["get_TI_vectors", "get_TI_avg", "get_TI_dir"]
 
 
 def _get_TI_vectors_k1(E1_org, E2_org):
@@ -109,7 +113,9 @@ def _get_TI_vectors_k1(E1_org, E2_org):
     return TI_vectors
 
 
-def get_TI_vectors(fields, psi=None):
+def get_TI_vectors(
+    fields: Sequence[ArrayLike], psi: ArrayLike | None = None
+) -> NDArray[np.float64]:
     """Compute TI modulation-amplitude vectors for K >= 1 carriers.
 
     ``fields`` is ``[E_1a, E_1b, ..., E_Ka, E_Kb]``, 2K arrays of shape
@@ -123,7 +129,10 @@ def get_TI_vectors(fields, psi=None):
     Parameters
     ----------
     fields : list of np.ndarray, each shape (N, 3)
-        Channel field vectors, consecutive fields sharing a carrier.
+        Channel field vectors in V/m, consecutive fields sharing a
+        carrier: ``[E1, E2]`` for TI, ``[E1a, E1b, E2a, E2b]`` for
+        two-carrier mTI.  The list length must be even and >= 2; all
+        arrays must have the same shape.
     psi : array-like, shape (K,), or None
         Per-carrier envelope phase offset (radians); ``None`` means
         phase-aligned carriers (``psi_k=0``), the standard case. Ignored
@@ -132,13 +141,29 @@ def get_TI_vectors(fields, psi=None):
     Returns
     -------
     np.ndarray, shape (N, 3)
-        Modulation-amplitude vectors [V/m]; norm is the modulation depth.
+        Modulation-amplitude vectors [V/m]; norm is the modulation depth
+        (``TI_max``).
 
     Raises
     ------
     ValueError
-        Invalid ``fields`` or ``psi``; see :func:`_validate_field_list`
-        and :func:`_validate_psi`.
+        If ``fields`` has an odd length or fewer than two entries, the
+        arrays are not all ``(N, 3)`` of one shape, or ``psi`` is not
+        ``None``/shape ``(K,)``.
+
+    Examples
+    --------
+    Two collinear unit fields interfere fully: the envelope equals
+    ``2 * min(|E1|, |E2|)`` along the common axis.
+
+    >>> import numpy as np
+    >>> from tit.calc import get_TI_vectors
+    >>> E1 = np.array([[1.0, 0.0, 0.0]])
+    >>> E2 = np.array([[0.5, 0.0, 0.0]])
+    >>> get_TI_vectors([E1, E2])
+    array([[1., 0., 0.]])
+    >>> np.linalg.norm(get_TI_vectors([E1, E2, E1, E2]), axis=1).shape   # mTI, K=2
+    (1,)
 
     References
     ----------
@@ -159,7 +184,9 @@ def get_TI_vectors(fields, psi=None):
     return result["best_direction"] * result["md"][:, None]
 
 
-def get_TI_avg(fields, psi=None):
+def get_TI_avg(
+    fields: Sequence[ArrayLike], psi: ArrayLike | None = None
+) -> NDArray[np.float64]:
     """Direction-averaged modulation depth for K >= 1 electrode pairs.
 
     ``TI_max`` (:func:`get_TI_vectors`) maximizes the envelope over
@@ -180,7 +207,23 @@ def get_TI_avg(fields, psi=None):
     Returns
     -------
     np.ndarray, shape (N,)
-        Modulation depth [V/m], averaged over sampled directions.
+        Modulation depth [V/m], averaged over sampled directions
+        (``TI_avg``).  Never exceeds ``|get_TI_vectors(...)|``.
+
+    Raises
+    ------
+    ValueError
+        Same conditions as :func:`get_TI_vectors`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from tit.calc import get_TI_avg, get_TI_vectors
+    >>> E1 = np.array([[1.0, 0.0, 0.0]])
+    >>> E2 = np.array([[0.5, 0.0, 0.0]])
+    >>> avg = get_TI_avg([E1, E2])
+    >>> avg.shape, bool(avg[0] <= np.linalg.norm(get_TI_vectors([E1, E2])))
+    ((1,), True)
     """
     arrs = _validate_field_list(fields)
     n_pairs = len(arrs) // 2
@@ -188,7 +231,11 @@ def get_TI_avg(fields, psi=None):
     return _mti_modulation_depth_avg(arrs, psi_arr)
 
 
-def get_TI_dir(fields, directions, psi=None):
+def get_TI_dir(
+    fields: Sequence[ArrayLike],
+    directions: ArrayLike,
+    psi: ArrayLike | None = None,
+) -> NDArray[np.float64]:
     """Modulation depth along a fixed per-element direction, K >= 1.
 
     The multi-carrier analogue of SimNIBS's 2-field ``TI.get_dirTI``:
@@ -212,7 +259,25 @@ def get_TI_dir(fields, directions, psi=None):
     Returns
     -------
     np.ndarray, shape (N,)
-        Modulation depth [V/m] along ``directions``.
+        Modulation depth [V/m] along ``directions`` (``TI_normal`` when
+        they are the cortical normals).
+
+    Raises
+    ------
+    ValueError
+        Same conditions as :func:`get_TI_vectors`, or if ``directions`` is
+        not shape ``(N, 3)``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from tit.calc import get_TI_dir
+    >>> E1 = np.array([[1.0, 0.0, 0.0]])
+    >>> E2 = np.array([[0.5, 0.0, 0.0]])
+    >>> get_TI_dir([E1, E2], directions=np.array([[1.0, 0.0, 0.0]]))
+    array([1.])
+    >>> get_TI_dir([E1, E2], directions=np.array([[0.0, 1.0, 0.0]]))
+    array([0.])
     """
     result = _mti_modulation_depth(fields, psi=psi, directions=directions)
     return result["md"]
@@ -403,7 +468,14 @@ def _pack_symmetric(M):
     """Pack symmetric ``(..., 3, 3)`` matrices as ``(..., 6)`` so that
     ``n^T M n == _pack_symmetric(M) @ _direction_quadratics(n)``."""
     return np.stack(
-        (M[..., 0, 0], M[..., 1, 1], M[..., 2, 2], M[..., 0, 1], M[..., 0, 2], M[..., 1, 2]),
+        (
+            M[..., 0, 0],
+            M[..., 1, 1],
+            M[..., 2, 2],
+            M[..., 0, 1],
+            M[..., 0, 2],
+            M[..., 1, 2],
+        ),
         axis=-1,
     )
 
@@ -423,10 +495,14 @@ def _pack_frame_form(basis, M):
         ]
         for i in range(3)
     ]
-    out = np.empty(np.broadcast_shapes(basis.shape[:-2], M.shape[:-2]) + (6,), dtype=T[0][0].dtype)
+    out = np.empty(
+        np.broadcast_shapes(basis.shape[:-2], M.shape[:-2]) + (6,), dtype=T[0][0].dtype
+    )
     for k, (i, j) in enumerate(((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))):
         out[..., k] = (
-            T[i][0] * basis[..., j, 0] + T[i][1] * basis[..., j, 1] + T[i][2] * basis[..., j, 2]
+            T[i][0] * basis[..., j, 0]
+            + T[i][1] * basis[..., j, 1]
+            + T[i][2] * basis[..., j, 2]
         )
     return out
 
@@ -435,7 +511,9 @@ def _direction_quadratics(directions):
     """``(..., 6)`` quadratic monomials ``[x^2, y^2, z^2, 2xy, 2xz, 2yz]`` of
     ``(..., 3)`` directions; pairs with :func:`_pack_symmetric`."""
     x, y, z = directions[..., 0], directions[..., 1], directions[..., 2]
-    return np.stack((x * x, y * y, z * z, 2.0 * x * y, 2.0 * x * z, 2.0 * y * z), axis=-1)
+    return np.stack(
+        (x * x, y * y, z * z, 2.0 * x * y, 2.0 * x * z, 2.0 * y * z), axis=-1
+    )
 
 
 def _envelope_at_quadratics(P6, Q6, D6):
@@ -632,7 +710,9 @@ def _patch_weights(half_angle, n_patch):
     golden_angle = np.pi * (3.0 - np.sqrt(5.0))
     r = half_angle * np.sqrt((j + 0.5) / n_patch)
     phi = golden_angle * j
-    return np.stack((np.cos(r), np.sin(r) * np.cos(phi), np.sin(r) * np.sin(phi)), axis=1)
+    return np.stack(
+        (np.cos(r), np.sin(r) * np.cos(phi), np.sin(r) * np.sin(phi)), axis=1
+    )
 
 
 def _diverse_top_m_directions(amp, directions, n_seeds, min_angle_deg):
@@ -836,7 +916,11 @@ def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
         md, carrier_power, best_direction = kernel(
             arrs, psi, directions, too_close, patch_weights, n_seeds, refine
         )
-        return {"md": md, "carrier_power": carrier_power, "best_direction": best_direction}
+        return {
+            "md": md,
+            "carrier_power": carrier_power,
+            "best_direction": best_direction,
+        }
 
     md = np.zeros(n_vox, dtype=np.float64)
     carrier_power = np.zeros(n_vox, dtype=np.float64)

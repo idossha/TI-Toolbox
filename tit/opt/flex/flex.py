@@ -52,8 +52,38 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     Returns
     -------
     FlexResult
-        Optimization outcomes including best montage, objective value,
-        and convergence diagnostics.
+        ``success``, ``output_folder`` (the run directory under the
+        subject's ``flex-search/``), per-restart ``function_values``,
+        ``best_value`` and ``best_run_index``.
+
+    Raises
+    ------
+    ValueError
+        If the subject's m2m directory or head mesh is missing, a
+        referenced ROI/atlas/EEG-net file is missing, ``cpus`` or
+        ``n_multistart`` is below 1, ``min_electrode_distance`` is not
+        positive, ``enable_mapping`` is set without ``eeg_net``, or an
+        ``"ellipse"`` electrode has unequal dimensions (flex-search
+        supports circular electrodes only).
+
+    Notes
+    -----
+    When every restart fails the function does not raise: it returns a
+    :class:`FlexResult` with ``success=False``, ``best_value=inf`` and
+    ``best_run_index=-1``.  Always check ``result.success``.
+
+    Examples
+    --------
+    >>> from tit.opt import FlexConfig, run_flex_search
+    >>> cfg = FlexConfig(
+    ...     subject_id="ernie", goal="mean", postproc="max_TI", current_mA=1.0,
+    ...     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
+    ...     roi=FlexConfig.SphericalROI(x=-35.0, y=5.0, z=5.0, radius=10.0, use_mni=True),
+    ...     n_multistart=3, output_folder="insula_mean",
+    ... )
+    >>> res = run_flex_search(cfg)  # doctest: +SKIP
+    >>> res.success, res.best_run_index, len(res.function_values)  # doctest: +SKIP
+    (True, 1, 3)
 
     See Also
     --------

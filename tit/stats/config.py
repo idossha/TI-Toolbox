@@ -28,11 +28,15 @@ from tit.constants import FSAVG_FIELD_NAMES
 
 
 class _ClusterStat(StrEnum):
+    """Cluster-level statistic: summed t-values (``mass``) or voxel count (``size``)."""
+
     MASS = "mass"
     SIZE = "size"
 
 
 class _TissueType(StrEnum):
+    """Tissue compartment of the MNI-space NIfTIs: ``grey``, ``white`` or ``all``."""
+
     GREY = "grey"
     WHITE = "white"
     ALL = "all"
@@ -96,35 +100,85 @@ class GroupComparisonConfig:
         Human-readable name for this analysis run.
     subjects : list of Subject
         Subject entries, each labelled as responder (1) or non-responder (0).
-    test_type : TestType
-        Whether to use an unpaired or paired t-test.
-    alternative : Alternative
-        Sidedness of the test hypothesis.
+    test_type : TestType or str
+        ``"unpaired"`` (default) or ``"paired"`` t-test.  Strings are
+        coerced to :class:`TestType`.
+    alternative : Alternative or str
+        Sidedness: ``"two-sided"`` (default), ``"greater"`` or ``"less"``.
     cluster_threshold : float
-        Uncorrected p-value threshold for forming clusters.
-    cluster_stat : ClusterStat
-        Cluster-level statistic used for permutation testing
-        (``"mass"`` or ``"size"``).
+        Uncorrected p-value threshold for forming clusters.  Default
+        ``0.05``.
+    cluster_stat : ClusterStat or str
+        Cluster-level statistic used for permutation testing,
+        ``"mass"`` (default) or ``"size"``.
     n_permutations : int
-        Number of permutations for the null distribution.
+        Number of permutations for the null distribution.  Default
+        ``1000``; the smallest reportable p-value is ``1 / (n + 1)``.
     alpha : float
-        Family-wise error rate for significance.
+        Family-wise error rate for significance.  Default ``0.05``.
     n_jobs : int
-        Number of parallel workers (``-1`` for all CPUs).
-    tissue_type : TissueType
-        Which tissue compartment to analyze.
+        Number of parallel workers (``-1``, the default, for all CPUs).
+    tissue_type : TissueType or str
+        Which tissue compartment to analyze: ``"grey"`` (default),
+        ``"white"`` or ``"all"``.  Ignored when *space* is
+        ``"fsaverage"``.
     nifti_file_pattern : str or None
-        Filename pattern for subject NIfTI files. If ``None``, derived
-        automatically from *tissue_type*.
+        Filename pattern for subject NIfTI files, with a
+        ``{simulation_name}`` placeholder.  If ``None`` (default), derived
+        from *tissue_type*, e.g.
+        ``"grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"``.
+    space : AnalysisSpace or str
+        Where the statistics run: ``"mni"`` (default, voxelwise on the
+        MNI-space NIfTIs) or ``"fsaverage"`` (vertexwise on the per-subject
+        fsaverage projections written by the simulator).
+    fsaverage_field : str
+        Surface field for ``space="fsaverage"``; one of
+        :data:`tit.constants.FSAVG_FIELD_NAMES` (``"TI_max"``,
+        ``"TI_normal"``, ``"hf_peak"``, ``"hf_sar"``).  Default
+        ``"TI_max"``.
+    fsaverage_spacing : int
+        fsaverage ico spacing for ``space="fsaverage"``: ``5`` (default),
+        ``6`` or ``7``.
     group1_name : str
-        Display label for the responder group.
+        Display label for the responder group.  Default ``"Responders"``.
     group2_name : str
-        Display label for the non-responder group.
+        Display label for the non-responder group.  Default
+        ``"Non-Responders"``.
     value_metric : str
         Label for the field value axis in plots.
     atlas_files : list of str
         Atlas filenames for overlap analysis (looked up in the bundled
-        atlas directory).
+        atlas directory).  Default empty.
+
+    Raises
+    ------
+    ValueError
+        If *subjects* lacks at least one responder and one non-responder,
+        if a string value is not a member of its enum, or if
+        *fsaverage_field*/*fsaverage_spacing* are invalid for
+        ``space="fsaverage"``.
+
+    Examples
+    --------
+    >>> from tit.stats import GroupComparisonConfig
+    >>> subjects = [
+    ...     GroupComparisonConfig.Subject("ernie", "L_Insula", response=1),
+    ...     GroupComparisonConfig.Subject("101", "L_Insula", response=0),
+    ... ]
+    >>> cfg = GroupComparisonConfig(
+    ...     analysis_name="active_vs_sham", subjects=subjects,
+    ...     test_type="unpaired", alternative="two-sided",
+    ...     cluster_stat="mass", n_permutations=1000, tissue_type="grey",
+    ... )
+    >>> cfg.test_type is GroupComparisonConfig.TestType.UNPAIRED
+    True
+    >>> cfg.nifti_file_pattern
+    'grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz'
+
+    Subjects can also come from a CSV with columns ``subject_id``,
+    ``simulation_name``, ``response``:
+
+    >>> subjects = GroupComparisonConfig.load_subjects("subjects.csv")  # doctest: +SKIP
 
     See Also
     --------
@@ -138,13 +192,32 @@ class GroupComparisonConfig:
     AnalysisSpace = _AnalysisSpace
 
     class TestType(StrEnum):
-        """Type of statistical test for group comparison."""
+        """Type of statistical test for group comparison.
+
+        Attributes
+        ----------
+        UNPAIRED : str
+            ``"unpaired"`` -- independent-samples t-test.
+        PAIRED : str
+            ``"paired"`` -- paired-samples t-test (groups must be the same
+            size and ordered pairwise).
+        """
 
         UNPAIRED = "unpaired"
         PAIRED = "paired"
 
     class Alternative(StrEnum):
-        """Sidedness of the test hypothesis."""
+        """Sidedness of the test hypothesis.
+
+        Attributes
+        ----------
+        TWO_SIDED : str
+            ``"two-sided"``.
+        GREATER : str
+            ``"greater"`` -- responders > non-responders.
+        LESS : str
+            ``"less"`` -- responders < non-responders.
+        """
 
         TWO_SIDED = "two-sided"
         GREATER = "greater"
@@ -296,12 +369,21 @@ class CorrelationConfig:
     n_jobs : int
         Number of parallel workers (``-1`` for all CPUs).
     use_weights : bool
-        Whether to apply per-subject weights during correlation.
-    tissue_type : TissueType
-        Which tissue compartment to analyze.
+        Whether to apply per-subject weights during correlation.  Default
+        ``True``.
+    tissue_type : TissueType or str
+        Which tissue compartment to analyze: ``"grey"`` (default),
+        ``"white"`` or ``"all"``.
     nifti_file_pattern : str or None
         Filename pattern for subject NIfTI files. If ``None``, derived
         automatically from *tissue_type*.
+    space : AnalysisSpace or str
+        ``"mni"`` (default) or ``"fsaverage"``; see
+        :class:`GroupComparisonConfig`.
+    fsaverage_field : str
+        Surface field for ``space="fsaverage"``.  Default ``"TI_max"``.
+    fsaverage_spacing : int
+        fsaverage ico spacing (``5``, ``6`` or ``7``).  Default ``5``.
     effect_metric : str
         Label for the behavioral/clinical variable in plots.
     field_metric : str

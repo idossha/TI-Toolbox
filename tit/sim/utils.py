@@ -160,15 +160,39 @@ def upsert_montage(
     Parameters
     ----------
     eeg_net : str
-        EEG net identifier (e.g. ``"GSN-HydroCel-185.csv"``).
+        EEG-net CSV filename exactly as it appears in the subject's
+        ``eeg_positions`` folder, e.g. ``"GSN-HydroCel-185.csv"`` or
+        ``"EEG10-10_UI_Jurak_2007.csv"``.  Created in the file if absent.
     montage_name : str
-        Human-readable montage name.
+        Montage name; an existing montage of the same name under this net
+        and mode is replaced.
     electrode_pairs : list[list[str]]
-        List of electrode pairs, each a two-element list of electrode
-        labels (e.g. ``[["E1", "E2"], ["E3", "E4"]]``).
+        Electrode pairs, each a two-element list of labels from that net
+        (e.g. ``[["E010", "E011"], ["E012", "E013"]]``).  Two pairs for
+        ``mode="U"``, four (or more, even) for ``mode="M"``.
     mode : str
         ``"U"`` for uni-polar montages (2-pair TI) or ``"M"`` for
-        multi-polar montages (4-pair mTI).
+        multi-polar montages (4+-pair mTI).  Case-insensitive; anything
+        other than ``"U"`` is treated as ``"M"``.
+    pm : PathManager or None, optional
+        Path manager to locate the project; ``None`` uses the global one.
+
+    Returns
+    -------
+    None
+        The file is rewritten in place.
+
+    Examples
+    --------
+    >>> from tit.sim import upsert_montage, list_montage_names
+    >>> upsert_montage(
+    ...     eeg_net="GSN-HydroCel-185.csv",
+    ...     montage_name="L_Insula",
+    ...     electrode_pairs=[["E010", "E011"], ["E012", "E013"]],
+    ...     mode="U",
+    ... )  # doctest: +SKIP
+    >>> list_montage_names("GSN-HydroCel-185.csv", mode="U")  # doctest: +SKIP
+    ['L_Insula']
 
     See Also
     --------
@@ -187,19 +211,33 @@ def upsert_montage(
 def list_montage_names(eeg_net: str, *, mode: str) -> list[str]:
     """List all montage names defined under an EEG net.
 
+    These are exactly the names :func:`load_montages` can resolve for
+    that net; a name not in this list is silently skipped by
+    :func:`load_montages`.
+
     Parameters
     ----------
     eeg_net : str
-        EEG net identifier (e.g. ``"GSN-HydroCel-185.csv"``).
+        EEG-net CSV filename (e.g. ``"GSN-HydroCel-185.csv"``,
+        ``"EEG10-10_UI_Jurak_2007.csv"``), the key under
+        ``montage_list.json["nets"]``.
     mode : str
-        ``"U"`` for uni-polar montage names or ``"M"`` for
-        multi-polar montage names.
+        ``"U"`` for uni-polar (2-pair TI) montage names or ``"M"`` for
+        multi-polar (4+-pair mTI) montage names.  Case-insensitive.
 
     Returns
     -------
     list[str]
         Sorted montage names.  Returns an empty list if the net or
-        mode key does not exist.
+        mode key does not exist (never raises for an unknown net).
+
+    Examples
+    --------
+    >>> from tit.sim import list_montage_names
+    >>> list_montage_names("GSN-HydroCel-185.csv", mode="U")  # doctest: +SKIP
+    ['L_Insula', 'R_Insula']
+    >>> list_montage_names("GSN-HydroCel-185.csv", mode="M")  # doctest: +SKIP
+    []
 
     See Also
     --------
@@ -300,14 +338,25 @@ def load_montages(
     eeg_net: str,
     include_flex: bool = True,
 ) -> list[Montage]:
-    """Load named montages from the project's ``montage_list.json``.
+    """Load the named montages from the project's ``montage_list.json``.
+
+    **Only the montages named in** *montage_names* **are returned, in that
+    order** -- this is not a listing of every montage under the net.
+    ``load_montages(["L_Insula"], ...)`` returns a one-element list, so
+    indexing ``[1]`` raises ``IndexError``.  Use
+    :func:`list_montage_names` to see which names exist.  A name that is
+    not defined under *eeg_net* is silently skipped (no error), so the
+    result can be shorter than *montage_names*; check ``len()`` or the
+    returned ``.name`` values before relying on positions.
 
     Reads the ``montage_list.json`` file (managed by
     :func:`ensure_montage_file`), looks up each name under the given
     EEG net's uni- and multi-polar sections, and returns them as
-    :class:`Montage` instances.  When *include_flex* is ``True``, any
+    :class:`Montage` instances.  When *include_flex* is ``True`` and the
+    ``FLEX_MONTAGES_FILE`` environment variable points at a file, any
     flex/freehand montages found via :func:`load_flex_montages` are
-    appended.
+    appended after the named ones (nothing is appended when the variable
+    is unset, the normal case for scripts).
 
     The *eeg_net* value determines the montage mode:
 
@@ -319,10 +368,13 @@ def load_montages(
     Parameters
     ----------
     montage_names : list[str]
-        Names to look up in the montage file.
+        Names to look up in the montage file, e.g. ``["L_Insula"]``.
+        Order is preserved in the result.
     eeg_net : str
-        EEG net identifier that selects the sub-dict inside
-        ``montage_list.json["nets"]``.
+        EEG-net CSV filename (e.g. ``"GSN-HydroCel-185.csv"``,
+        ``"EEG10-10_UI_Jurak_2007.csv"``) that selects the sub-dict
+        inside ``montage_list.json["nets"]``; it is also stored on each
+        returned :class:`Montage` as ``eeg_net``.
     include_flex : bool, optional
         If ``True`` (default), append flex/freehand montages loaded
         from the ``FLEX_MONTAGES_FILE`` environment variable.
@@ -330,7 +382,20 @@ def load_montages(
     Returns
     -------
     list[Montage]
-        Resolved montage objects ready for simulation.
+        One :class:`Montage` per *found* name, in *montage_names* order,
+        ready to pass as ``SimulationConfig(montages=...)``.
+
+    Examples
+    --------
+    >>> from tit.sim import list_montage_names, load_montages
+    >>> list_montage_names("GSN-HydroCel-185.csv", mode="U")  # doctest: +SKIP
+    ['L_Insula', 'R_Insula']
+    >>> montages = load_montages(["L_Insula"], eeg_net="GSN-HydroCel-185.csv")  # doctest: +SKIP
+    >>> len(montages), montages[0].name  # doctest: +SKIP
+    (1, 'L_Insula')
+    >>> both = load_montages(["L_Insula", "R_Insula"], eeg_net="GSN-HydroCel-185.csv")  # doctest: +SKIP
+    >>> [m.name for m in both]  # doctest: +SKIP
+    ['L_Insula', 'R_Insula']
 
     See Also
     --------
@@ -894,7 +959,7 @@ def build_simulation_config_for_job(
 
 def run_simulation(
     config: SimulationConfig,
-    logger=None,
+    logger: logging.Logger | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
     *,
     overwrite: bool = False,
@@ -938,6 +1003,29 @@ def run_simulation(
     list[dict]
         One result dict per montage with keys ``montage_name``,
         ``montage_type``, ``status``, and ``output_mesh``.
+
+    Raises
+    ------
+    ValueError
+        If ``config.montages`` is empty, the subject's ``m2m_<id>``
+        directory does not exist, a montage has an invalid pair count
+        (must be an even number >= 2), too few *intensities* are given
+        for a montage, a label-based montage has no *eeg_net* or its
+        EEG-net CSV is missing from the subject's ``eeg_positions``
+        folder, or an XYZ montage holds a malformed coordinate.
+    OSError
+        Raised by SimNIBS when a montage output directory already holds
+        results and *overwrite* is ``False``.
+
+    Examples
+    --------
+    >>> from tit.sim import SimulationConfig, load_montages, run_simulation
+    >>> montages = load_montages(["L_Insula"], eeg_net="GSN-HydroCel-185.csv")  # doctest: +SKIP
+    >>> cfg = SimulationConfig(subject_id="ernie", montages=montages,
+    ...                        intensities=[1.0, 1.0], output_fields=["TI_max"])  # doctest: +SKIP
+    >>> results = run_simulation(cfg)  # doctest: +SKIP
+    >>> results[0]["status"], results[0]["output_mesh"]  # doctest: +SKIP
+    ('completed', '.../Simulations/L_Insula/TI/mesh/ernie_L_Insula_TI.msh')
 
     See Also
     --------

@@ -83,17 +83,20 @@ class FlexConfig:
         Field post-processing method (``"max_TI"``, ``"dir_TI_normal"``,
         or ``"dir_TI_tangential"``).
     current_mA : float
-        Total injected current in milliamps.
+        Current per channel in mA -- each of the two electrode pairs
+        injects ``+current_mA`` / ``-current_mA`` (a 1:1 split), so the
+        total injected current is ``2 * current_mA``.
     electrode : ElectrodeConfig
         Electrode geometry configuration.
     roi : SphericalROI or AtlasROI or SubcorticalROI
         Target region of interest.
     anisotropy_type : str
-        Conductivity tensor type (``"scalar"`` or ``"vn"``).
+        Conductivity tensor type (``"scalar"`` or ``"vn"``).  Default
+        ``"scalar"``.
     aniso_maxratio : float
-        Maximum anisotropy eigenvalue ratio.
+        Maximum anisotropy eigenvalue ratio.  Default ``10.0``.
     aniso_maxcond : float
-        Maximum anisotropic conductivity (S/m).
+        Maximum anisotropic conductivity (S/m).  Default ``2.0``.
     non_roi_method : NonROIMethod or None
         How to define the non-ROI region for focality optimization.
         ``None`` when goal is not focality.
@@ -131,11 +134,18 @@ class FlexConfig:
     eeg_net : str or None
         EEG net name or filename (e.g. ``"GSN-HydroCel-185"`` or
         ``"GSN-HydroCel-185.csv"``) for electrode-name mapping.
-        ``None`` to use raw electrode indices.
+        ``None`` (default) to use raw electrode indices.
     enable_mapping : bool
-        If True, map optimal indices to named EEG positions.
+        If True, map optimal indices to named EEG positions.  Default
+        ``False``.
     disable_mapping_simulation : bool
         If True, skip the final named-electrode simulation after mapping.
+        Default ``False``.
+    observe_background : bool
+        If True, also record observation-only background (non-ROI) field
+        metrics for every candidate, independent of the goal.  Like the
+        callable goals it is incompatible with *detailed_results*.
+        Default ``False``.
     output_folder : str or None
         Override for the output directory path.  Defaults to an
         auto-generated timestamped folder.
@@ -143,8 +153,9 @@ class FlexConfig:
         If True, run a full SimNIBS simulation with the winning
         electrode configuration.
     n_multistart : int
-        Number of independent DE restarts.  Higher values reduce
-        sensitivity to local optima.
+        Number of independent DE restarts (default ``1``).  Higher values
+        reduce sensitivity to local optima; this is the only thing
+        *cpus* parallelises.
     max_iterations : int or None
         Maximum DE generations per restart.  ``None`` for solver default.
     population_size : int or None
@@ -156,9 +167,11 @@ class FlexConfig:
     recombination : float or None
         DE crossover probability.  ``None`` for solver default.
     cpus : int or None
-        Number of parallel workers.  ``None`` for auto-detect.
+        Number of parallel workers for the multi-start restarts (the DE
+        search itself is single-process).  ``None`` for auto-detect.
     min_electrode_distance : float
         Minimum geodesic distance (mm) between any two electrodes.
+        Default ``5.0``.
     detailed_results : bool
         If True, save per-restart detailed output.  Incompatible with any
         configuration whose goal is a Python callable -- ``"focality_tf"``
@@ -205,6 +218,36 @@ class FlexConfig:
         (``goal="focality_tf"`` or *optimize_current_ratio*), or if *mode*
         is ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
         ``"focality"``.
+
+    Examples
+    --------
+    Enum-valued fields accept their string values:
+
+    >>> from tit.opt import FlexConfig
+    >>> cfg = FlexConfig(
+    ...     subject_id="ernie",
+    ...     goal="mean",                       # "mean" | "max" | "focality" | "focality_tf"
+    ...     postproc="max_TI",                 # "max_TI" | "dir_TI_normal" | "dir_TI_tangential"
+    ...     current_mA=1.0,
+    ...     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
+    ...     roi=FlexConfig.SphericalROI(x=-35.0, y=5.0, z=5.0, radius=10.0, use_mni=True),
+    ...     n_multistart=3,
+    ... )
+    >>> cfg.goal is FlexConfig.OptGoal.MEAN, cfg.is_focality
+    (True, False)
+
+    A focality goal defaults its non-ROI region to everything outside the ROI:
+
+    >>> foc = FlexConfig(
+    ...     subject_id="ernie", goal="focality_tf", postproc="max_TI", current_mA=1.0,
+    ...     electrode=FlexConfig.ElectrodeConfig(),
+    ...     roi=FlexConfig.AtlasROI(atlas_path="lh.aparc.annot", label=24, hemisphere="lh"),
+    ... )
+    >>> foc.non_roi_method.value
+    'everything_else'
+
+    Then ``run_flex_search(cfg)`` (needs SimNIBS and the subject's m2m
+    directory).
 
     See Also
     --------
@@ -564,11 +607,14 @@ class FlexConfig:
         Attributes
         ----------
         shape : str
-            Electrode shape (``"ellipse"`` or ``"rect"``).
+            Electrode shape (``"ellipse"`` or ``"rect"``).  Default
+            ``"ellipse"``.  Flex-search supports circular electrodes only,
+            so an ``"ellipse"`` must have equal *dimensions*.
         dimensions : list of float
-            Electrode dimensions in mm (``[width, height]``).
+            Electrode dimensions in mm (``[width, height]``).  Default
+            ``[8.0, 8.0]``.
         gel_thickness : float
-            Conductive gel thickness in mm.
+            Conductive gel thickness in mm.  Default ``4.0``.
         """
 
         shape: str = "ellipse"  # "ellipse" or "rect"
@@ -766,6 +812,12 @@ class FlexResult:
     best_run_index : int
         Zero-based index of the restart that produced the best result.
 
+    Examples
+    --------
+    >>> res = run_flex_search(cfg)  # doctest: +SKIP
+    >>> res.success, res.best_value, res.output_folder  # doctest: +SKIP
+    (True, 0.31, '.../flex-search/ernie_...')
+
     See Also
     --------
     FlexConfig : Configuration consumed by :func:`~tit.opt.flex.flex.run_flex_search`.
@@ -795,11 +847,17 @@ class ExConfig:
     subject_id : str
         Subject identifier matching the m2m directory name.
     leadfield_hdf : str
-        Path to the precomputed leadfield HDF5 file.
+        Filename of the precomputed leadfield HDF5 (e.g.
+        ``"ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5"``), resolved under
+        the subject's ``leadfields/`` directory
+        (:meth:`tit.paths.PathManager.leadfields`); an absolute path is
+        also accepted.
     roi_name : str
-        ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
-        is appended automatically if missing.  Used as the metric-key
-        prefix and (with the net name) the output-directory label.
+        ROI CSV filename (e.g. ``"target.csv"``) in the subject's ``ROIs/``
+        directory (:meth:`tit.paths.PathManager.rois`).  The ``".csv"``
+        suffix is appended automatically if missing.  Used as the
+        metric-key prefix and (with the net name) the output-directory
+        label.
     roi_names : list of str or None
         Optional list of ROI CSV filenames to **union** into a single
         target.  When provided (combined mode), the spherical masks of
@@ -823,16 +881,19 @@ class ExConfig:
         (:class:`BucketElectrodes`).  A plain dict is auto-converted
         in ``__post_init__``.
     total_current : float
-        Total injected current in mA, split across channels.
+        Total injected current in mA, split across the two channels.
+        Default ``2.0``.
     current_step : float
-        Current amplitude step size in mA for the sweep.
+        Current amplitude step size in mA for the sweep.  Default ``0.5``.
     channel_limit : float or None
-        Maximum current per channel in mA.  ``None`` for no per-channel
-        limit.
+        Maximum current per channel in mA.  ``None`` (default) means
+        ``total_current - current_step``.
     roi_radius : float
-        Spherical ROI radius in mm for the target region.
+        Spherical ROI radius in mm for the target region.  Default ``3.0``.
     run_name : str or None
-        Optional name for this run.  Defaults to a datetime stamp.
+        Optional name for this run.  Defaults to a datetime stamp.  The
+        run name is the output directory, so a repeated name overwrites
+        the earlier run in place.
     n_jobs : int
         Worker processes evaluating candidates in parallel.  ``-1``
         (default) uses all cores minus one; ``1`` evaluates in-process.
@@ -857,6 +918,30 @@ class ExConfig:
         if *symmetry_pairing* is not ``"within_pairs"``/``"cross_pairs"``,
         or if *roi_coordinate_space* is not ``"subject"`` or ``"mni"``.
 
+    Examples
+    --------
+    >>> from tit.opt import ExConfig
+    >>> cfg = ExConfig(
+    ...     subject_id="ernie",
+    ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+    ...     roi_name="L-Insula",                 # ".csv" is appended
+    ...     electrodes=ExConfig.PoolElectrodes(
+    ...         electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz", "T7", "T8"]),
+    ...     total_current=2.0, current_step=0.5, channel_limit=1.2,
+    ...     roi_coordinate_space="mni",
+    ... )
+    >>> cfg.roi_name
+    'L-Insula.csv'
+
+    Per-channel buckets instead of one pool:
+
+    >>> ExConfig.BucketElectrodes(e1_plus=["F7"], e1_minus=["F8"],
+    ...                           e2_plus=["P7"], e2_minus=["P8"]).e2_minus
+    ['P8']
+
+    Then ``run_ex_search(cfg)`` (needs the leadfield HDF5 under the
+    subject's leadfield folder).
+
     See Also
     --------
     ExResult : Result container returned by :func:`~tit.opt.ex.ex.run_ex_search`.
@@ -878,6 +963,14 @@ class ExConfig:
             Integer label to select within the atlas (elements are
             included where the voxel value equals *label*).  ``None``
             treats the whole file as a binary mask (voxel value ``> 0``).
+        atlas_space : str
+            Space of the atlas file, ``"subject"`` (default) or ``"mni"``.
+            MNI masks are warped to subject space before the search.
+
+        Raises
+        ------
+        ValueError
+            If *atlas_space* is not ``"subject"`` or ``"mni"``.
         """
 
         atlas_path: str
@@ -1043,19 +1136,21 @@ class MExConfig:
     subject_id : str
         Subject identifier matching the m2m directory name.
     leadfield_hdf : str
-        Path to the precomputed leadfield HDF5 file.
+        Filename of the precomputed leadfield HDF5, resolved under the
+        subject's ``leadfields/`` directory (an absolute path also works).
     roi_name : str
-        ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
-        is appended automatically if missing.
+        ROI CSV filename (e.g. ``"target.csv"``) in the subject's ``ROIs/``
+        directory.  The ``".csv"`` suffix is appended automatically if
+        missing.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
         (:class:`PoolElectrodes`) or four separate per-pair buckets
         (:class:`BucketElectrodes`).  A plain dict is auto-converted in
         ``__post_init__``.
     current_mA : float
-        Current in mA delivered by each of the four pairs.
+        Current in mA delivered by each of the four pairs.  Default ``2.0``.
     roi_radius : float
-        Spherical ROI radius in mm for the target region.
+        Spherical ROI radius in mm for the target region.  Default ``3.0``.
     roi_names : list of str or None
         Optional list of ROI CSV filenames to **union** into a single
         target.  ``None`` (default) keeps single-ROI behavior driven by
@@ -1098,6 +1193,22 @@ class MExConfig:
         ``"within_pairs"``/``"cross_pairs"``, or if *roi_coordinate_space*
         is not ``"subject"`` or ``"mni"``.
 
+    Examples
+    --------
+    >>> from tit.opt import MExConfig
+    >>> cfg = MExConfig(
+    ...     subject_id="ernie",
+    ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+    ...     roi_name="L-Insula",
+    ...     electrodes=MExConfig.PoolElectrodes(
+    ...         electrodes=["Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"]),
+    ...     current_mA=1.0,
+    ... )
+    >>> cfg.roi_name, cfg.current_mA
+    ('L-Insula.csv', 1.0)
+
+    Then ``run_m_ex_search(cfg)``.
+
     See Also
     --------
     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
@@ -1120,6 +1231,14 @@ class MExConfig:
             Integer label to select within the atlas (elements are
             included where the voxel value equals *label*).  ``None``
             treats the whole file as a binary mask (voxel value ``> 0``).
+        atlas_space : str
+            Space of the atlas file, ``"subject"`` (default) or ``"mni"``.
+            MNI masks are warped to subject space before the search.
+
+        Raises
+        ------
+        ValueError
+            If *atlas_space* is not ``"subject"`` or ``"mni"``.
         """
 
         atlas_path: str

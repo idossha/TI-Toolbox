@@ -15,6 +15,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 import nibabel as nib
 import numpy as np
@@ -93,30 +94,68 @@ def _save_nifti(data, template_img, path):
 
 def run_group_comparison(
     config: GroupComparisonConfig,
-    callback_handler=None,
-    stop_callback=None,
+    callback_handler: logging.Handler | None = None,
+    stop_callback: Callable[[], bool] | None = None,
 ) -> GroupComparisonResult:
-    """Run cluster-based permutation testing for group comparison.
+    """Run cluster-based permutation testing for a two-group comparison.
 
-    Loads responder and non-responder NIfTI volumes, performs voxelwise
-    t-tests, applies cluster-based permutation correction, generates
-    diagnostic plots, and saves all outputs to the BIDS derivatives tree.
+    Loads responder and non-responder field maps, performs voxelwise (or,
+    for ``config.space == "fsaverage"``, vertexwise) t-tests, applies
+    cluster-based permutation correction, generates diagnostic plots, and
+    saves all outputs under
+    ``<project>/derivatives/ti-toolbox/stats/group_comparison/<analysis_name>/``.
 
-    Args:
-        config: Fully specified group comparison configuration.
-        callback_handler: Optional ``logging.Handler`` for GUI console
-            integration.  Attached to the run-scoped logger so that log
-            messages are forwarded to the GUI.
-        stop_callback: Optional callable that returns ``True`` to request
-            early termination.  Checked between pipeline stages.
+    Parameters
+    ----------
+    config : GroupComparisonConfig
+        Fully specified group comparison configuration.
+    callback_handler : logging.Handler or None, optional
+        Extra handler attached to the run-scoped logger (used by the app
+        to stream log lines).
+    stop_callback : callable or None, optional
+        Zero-argument callable returning ``True`` to request early
+        termination.  Checked between pipeline stages.
 
-    Returns:
-        A ``GroupComparisonResult`` summarising the analysis outcomes,
-        including paths to all generated output files.
+    Returns
+    -------
+    GroupComparisonResult
+        Summary of the outcome: output directory, subject counts,
+        significant voxel/cluster counts, the permutation-derived cluster
+        threshold and the per-cluster details.
 
-    Raises:
-        KeyboardInterrupt: If ``stop_callback`` returns ``True`` during
-            execution.
+    Raises
+    ------
+    KeyboardInterrupt
+        If *stop_callback* returns ``True`` during execution.
+    ValueError
+        If the subjects' NIfTIs do not share one grid (the message names
+        the offending subject).
+    FileNotFoundError
+        If a subject's MNI-space NIfTI (per ``config.nifti_file_pattern``)
+        or fsaverage projection is missing.
+
+    Notes
+    -----
+    Permutation p-values are ``(b + 1) / (m + 1)``, so with 1000
+    permutations the floor is ``1/1001``; a result is never exactly 0.
+
+    Examples
+    --------
+    >>> from tit.stats import GroupComparisonConfig, run_group_comparison
+    >>> subjects = GroupComparisonConfig.load_subjects("subjects.csv")  # doctest: +SKIP
+    >>> cfg = GroupComparisonConfig(
+    ...     analysis_name="active_vs_sham", subjects=subjects,
+    ...     test_type="unpaired", n_permutations=1000, tissue_type="grey",
+    ... )  # doctest: +SKIP
+    >>> res = run_group_comparison(cfg)  # doctest: +SKIP
+    >>> res.success, res.n_significant_clusters, res.output_dir  # doctest: +SKIP
+    (True, 2, '.../derivatives/ti-toolbox/stats/group_comparison/active_vs_sham')
+
+    See Also
+    --------
+    GroupComparisonConfig : The configuration consumed here.
+    GroupComparisonResult : The returned container.
+    run_correlation : Brain-behaviour correlation with the same correction.
     """
     from tit.telemetry import track_operation
     from tit import constants as _const
@@ -375,13 +414,52 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
 
 def run_correlation(
     config: CorrelationConfig,
-    callback_handler=None,
-    stop_callback=None,
+    callback_handler: logging.Handler | None = None,
+    stop_callback: Callable[[], bool] | None = None,
 ) -> CorrelationResult:
-    """Run cluster-based permutation testing for correlation (ACES-style).
+    """Run cluster-based permutation testing for a brain-behaviour correlation.
 
-    Thin wrapper over :func:`_run_correlation_inner` that records a run-ending exception in the
-    run's own log file (see :func:`_log_failure`) before re-raising it.
+    Correlates each voxel's field value with a continuous per-subject
+    measure (``Subject.effect_size``), Pearson or Spearman, with
+    cluster-based permutation correction (ACES-style).  Outputs go under
+    ``<project>/derivatives/ti-toolbox/stats/correlation/<analysis_name>/``.
+
+    Parameters
+    ----------
+    config : CorrelationConfig
+        Fully specified correlation configuration.
+    callback_handler : logging.Handler or None, optional
+        Extra handler attached to the run-scoped logger.
+    stop_callback : callable or None, optional
+        Zero-argument callable returning ``True`` to request early
+        termination.
+
+    Returns
+    -------
+    CorrelationResult
+        Output directory, subject count, significant voxel/cluster counts,
+        cluster threshold and per-cluster details.
+
+    Raises
+    ------
+    KeyboardInterrupt
+        If *stop_callback* returns ``True`` during execution.
+    FileNotFoundError
+        If a subject's NIfTI is missing.
+
+    Examples
+    --------
+    >>> from tit.stats import CorrelationConfig, run_correlation
+    >>> subjects = CorrelationConfig.load_subjects("subjects_continuous.csv")  # doctest: +SKIP
+    >>> cfg = CorrelationConfig(analysis_name="dose_response", subjects=subjects,
+    ...                         correlation_type="spearman")  # doctest: +SKIP
+    >>> run_correlation(cfg).n_significant_clusters  # doctest: +SKIP
+    1
+
+    See Also
+    --------
+    CorrelationConfig : The configuration consumed here.
+    run_group_comparison : Two-group comparison with the same correction.
     """
     try:
         return _run_correlation_inner(config, callback_handler, stop_callback)

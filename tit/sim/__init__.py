@@ -13,6 +13,9 @@ SimulationConfig
     Dataclass holding all parameters for a simulation run.
 Montage
     Dataclass describing a named electrode montage.
+MontageMode
+    Enum saying how a montage's electrodes are specified (net labels or
+    XYZ coordinates); also reachable as ``Montage.Mode``.
 SimulationMode
     Enum distinguishing TI (2-pair) from mTI (4+-pair) mode.
 parse_intensities
@@ -20,9 +23,11 @@ parse_intensities
 run_simulation
     Execute simulations for every montage in a configuration.
 load_montages
-    Load named montages from the project's ``montage_list.json``.
+    Load the named montages (only those, in that order) from the
+    project's ``montage_list.json``.
 list_montage_names
-    List all montage names defined under an EEG net.
+    List the montage names available under an EEG net -- call this
+    first to see what ``load_montages`` can return.
 load_montage_data
     Load the full ``montage_list.json`` as a dict.
 save_montage_data
@@ -40,12 +45,22 @@ tit.sim.TI : 2-pair TI simulation implementation.
 tit.sim.mTI : N-pair mTI simulation implementation.
 tit.opt : Optimization modules that consume simulation results.
 tit.analyzer : Field analysis applied to simulation outputs.
+
+Examples
+--------
+>>> from tit.sim import SimulationConfig, run_simulation, load_montages, list_montage_names
+>>> list_montage_names("GSN-HydroCel-185.csv", mode="U")  # doctest: +SKIP
+['L_Insula', 'R_Insula']
+>>> montages = load_montages(["L_Insula"], eeg_net="GSN-HydroCel-185.csv")  # doctest: +SKIP
+>>> cfg = SimulationConfig(subject_id="ernie", montages=montages)  # doctest: +SKIP
+>>> run_simulation(cfg)  # doctest: +SKIP
 """
 
 from tit.sim.base import BaseSimulation
 from tit.sim.config import (
     SimulationConfig,
     Montage,
+    MontageMode,
     SimulationMode,
     parse_intensities,
 )
@@ -63,6 +78,7 @@ __all__ = [
     "BaseSimulation",
     "SimulationConfig",
     "Montage",
+    "MontageMode",
     "SimulationMode",
     "parse_intensities",
     "run_simulation",

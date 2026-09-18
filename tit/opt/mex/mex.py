@@ -27,7 +27,55 @@ from .logic import count_multipolar_combinations, explain_zero_multipolar_combin
 
 
 def run_m_ex_search(config: MExConfig) -> MExResult:
-    """Run multipolar exhaustive search from a typed config object."""
+    """Run an exhaustive four-pair (eight-electrode) mTI search over a leadfield.
+
+    Enumerates every four-pair combination allowed by
+    ``config.electrodes`` at one fixed ``current_mA`` per pair, scores each
+    candidate with the N>2 mTI envelope
+    (:func:`tit.calc.get_TI_vectors`), and writes a ranked CSV plus a
+    config JSON under the subject's ``m-ex-search/`` folder.
+
+    Parameters
+    ----------
+    config : MExConfig
+        Fully specified search configuration.
+
+    Returns
+    -------
+    MExResult
+        ``success``, ``output_dir``, ``n_combinations`` evaluated, and the
+        ``results_csv`` / ``config_json`` paths.
+
+    Raises
+    ------
+    ValueError
+        If no candidate montage can be enumerated, or a referenced ROI
+        CSV or atlas file does not exist.
+    FileNotFoundError
+        If ``config.leadfield_hdf`` cannot be found under the subject's
+        ``leadfields/`` directory.
+
+    Examples
+    --------
+    >>> from tit.opt import MExConfig, run_m_ex_search
+    >>> cfg = MExConfig(
+    ...     subject_id="ernie",
+    ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+    ...     roi_name="L-Insula",
+    ...     electrodes=MExConfig.PoolElectrodes(
+    ...         electrodes=["Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4"]),
+    ...     current_mA=1.0,
+    ... )
+    >>> res = run_m_ex_search(cfg)  # doctest: +SKIP
+    >>> res.success, res.n_combinations  # doctest: +SKIP
+    (True, 105)
+
+    See Also
+    --------
+    MExConfig : Configuration dataclass for this search.
+    MExResult : Returned container.
+    tit.opt.ex.ex.run_ex_search : Two-pair (TI) variant.
+    """
     return _run_m_ex_search_inner(config)
 
 

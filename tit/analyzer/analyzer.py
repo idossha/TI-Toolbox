@@ -97,7 +97,7 @@ class AnalysisResult:
     space : str
         ``"mesh"`` or ``"voxel"``.
     analysis_type : str
-        ``"spherical"`` or ``"cortical"``.
+        ``"spherical"``, ``"cortical"`` or ``"mask"``.
     roi_mean : float
         Area/volume-weighted mean field value inside the ROI.
     roi_max : float
@@ -125,8 +125,9 @@ class AnalysisResult:
     percentile_99_9 : float or None
         99.9th percentile of the whole-GM field distribution.
     focality_50_area : float or None
-        Area/volume (cm^2/cm^3) where the field exceeds 50 % of the 99.9th
-        percentile value.
+        Area/volume where the field exceeds 50 % of the 99.9th percentile
+        value -- **cm^2 in mesh space, cm^3 in voxel space** (the ``_area``
+        name is kept for both spaces).
     focality_75_area : float or None
         Same for 75 % threshold.
     focality_90_area : float or None
@@ -217,14 +218,28 @@ class Analyzer:
     output_dir : str or None
         Output directory override, or ``None``.
 
+    Raises
+    ------
+    FileNotFoundError
+        If no field file exists for *subject_id*/*simulation* in *space*
+        (run the simulation first).
+    ValueError
+        If *space* is not ``"mesh"``/``"voxel"`` or *field* is not a known
+        field name.
+
     Examples
     --------
     >>> from tit.analyzer import Analyzer
-    >>> analyzer = Analyzer("001", "montage_bipolar", space="mesh")
+    >>> analyzer = Analyzer("ernie", "L_Insula", space="voxel")  # doctest: +SKIP
     >>> result = analyzer.analyze_sphere(
-    ...     center=(-30.0, -20.0, 50.0), radius=10.0,
-    ... )
-    >>> print(result.roi_mean, result.roi_focality)
+    ...     center=(-35.0, 5.0, 5.0), radius=10.0, coordinate_space="MNI",
+    ... )  # doctest: +SKIP
+    >>> result.roi_mean, result.roi_focality  # doctest: +SKIP
+    (0.21, 1.8)
+    >>> cortex = Analyzer("ernie", "L_Insula", space="mesh").analyze_cortex(
+    ...     atlas="DK40", region="lh.insula", visualize=True)  # doctest: +SKIP
+    >>> cortex.analysis_type, cortex.focality_50_area  # doctest: +SKIP
+    ('cortical', 42.1)
 
     See Also
     --------
@@ -439,6 +454,34 @@ class Analyzer:
         MNI masks use the optimizer's nonlinear m2m registration. Nearest-neighbour
         sampling preserves binary membership; mesh results remain GM surface-area
         statistics and voxel results retain the selected tissue and volume units.
+
+        Parameters
+        ----------
+        mask_path : str
+            Path to a 3-D NIfTI mask (``.nii``/``.nii.gz``); voxels ``> 0``
+            form the ROI.
+        coordinate_space : str, optional
+            ``"subject"`` (default) or ``"mni"`` (case-insensitive).
+        visualize : bool, optional
+            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
+
+        Returns
+        -------
+        AnalysisResult
+            ROI and whole-GM statistics for the mask region, with
+            ``analysis_type="mask"``.
+
+        Raises
+        ------
+        ValueError
+            If *coordinate_space* is not ``"subject"``/``"mni"``, the file is
+            not a readable finite 3-D NIfTI, or (mesh mode) the mask does not
+            overlap the grey-matter surface.
+
+        See Also
+        --------
+        analyze_sphere : Spherical ROI analysis.
+        analyze_cortex : Atlas-based cortical ROI analysis.
         """
         import tempfile
         import nibabel as nib

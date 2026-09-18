@@ -21,10 +21,10 @@ reset_path_manager
 Examples
 --------
 >>> from tit.paths import get_path_manager
->>> pm = get_path_manager("/data/project")
->>> pm.list_simnibs_subjects()
+>>> pm = get_path_manager("/data/project")  # doctest: +SKIP
+>>> pm.list_simnibs_subjects()  # doctest: +SKIP
 ['001', '002']
->>> pm.m2m("001")
+>>> pm.m2m("001")  # doctest: +SKIP
 '/data/project/derivatives/SimNIBS/sub-001/m2m_001'
 
 See Also
@@ -1331,13 +1331,36 @@ def get_path_manager(project_dir: str | None = None) -> PathManager:
     Parameters
     ----------
     project_dir : str or None, optional
-        Project root directory.  When *None*, the existing value (or
-        environment auto-detection) is used.
+        Project root directory (the BIDS root holding ``sub-*`` and
+        ``derivatives/``).  Must exist.  When ``None`` (default), the
+        existing value is kept; if none was set, it is auto-detected from
+        the ``PROJECT_DIR`` environment variable or, inside the container,
+        ``/mnt/<PROJECT_DIR_NAME>`` -- which is why scripts and notebooks
+        run in the app need no argument.
 
     Returns
     -------
     PathManager
-        The shared singleton instance.
+        The shared singleton instance.  Every path accessor
+        (``pm.m2m(sid)``, ``pm.simulations(sid)``, ...) raises
+        ``RuntimeError("Project directory not set")`` if no project root
+        could be resolved.
+
+    Raises
+    ------
+    ValueError
+        If *project_dir* is given but is not an existing directory.
+
+    Examples
+    --------
+    >>> from tit import get_path_manager
+    >>> pm = get_path_manager("/data/project")  # doctest: +SKIP
+    >>> pm.list_simnibs_subjects()  # doctest: +SKIP
+    ['ernie', '101']
+    >>> pm.m2m("ernie")  # doctest: +SKIP
+    '/data/project/derivatives/SimNIBS/sub-ernie/m2m_ernie'
+    >>> get_path_manager() is pm  # the same singleton on later calls  # doctest: +SKIP
+    True
 
     See Also
     --------

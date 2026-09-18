@@ -96,6 +96,45 @@ class Montage:
         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
     display_name : str or None
         Optional user-facing label.  ``name`` remains the storage and lookup key.
+    electrode_poses : list[list[list[float]]] or None
+        Optional full 4x4 homogeneous pose (row-major) per electrode, one
+        per XYZ position in ``electrode_pairs`` order.  Only meaningful for
+        XYZ modes; preserves rectangular-electrode orientation when a
+        flex-search candidate is replayed.  ``None`` (default) lets SimNIBS
+        orient the electrodes itself.
+    provenance : dict[str, str] or None
+        Free-form origin metadata (e.g. ``{"head_mesh_sha256": ...}``)
+        checked by :func:`run_simulation` when present.
+
+    Raises
+    ------
+    ValueError
+        If *electrode_poses* is given for a label-based montage, does not
+        contain exactly one 4x4 right-handed homogeneous transform per
+        electrode, or its translations do not match ``electrode_pairs``.
+
+    Examples
+    --------
+    >>> from tit.sim import Montage, MontageMode
+    >>> m = Montage(
+    ...     name="L_Insula",
+    ...     mode=MontageMode.NET,
+    ...     electrode_pairs=[("E010", "E011"), ("E012", "E013")],
+    ...     eeg_net="GSN-HydroCel-185.csv",
+    ... )
+    >>> m.num_pairs, m.simulation_mode.value, m.is_xyz
+    (2, 'TI', False)
+
+    A free-hand montage uses subject-space millimetre coordinates and no net:
+
+    >>> free = Montage(
+    ...     name="custom",
+    ...     mode=MontageMode.FREEHAND,
+    ...     electrode_pairs=[([-60.0, 10.0, 40.0], [60.0, 10.0, 40.0]),
+    ...                      ([-60.0, -40.0, 40.0], [60.0, -40.0, 40.0])],
+    ... )
+    >>> free.is_xyz
+    True
 
     See Also
     --------
@@ -241,9 +280,12 @@ class SimulationConfig:
     Attributes
     ----------
     subject_id : str
-        Subject identifier (e.g. ``"sub-001"``).
+        Subject identifier without the ``sub-`` prefix (e.g. ``"ernie"``,
+        ``"101"``); must match an existing ``m2m_<subject_id>`` directory.
     montages : list[Montage]
-        One or more :class:`Montage` definitions to simulate.
+        One or more :class:`Montage` definitions to simulate.  Two pairs
+        per montage is TI, four or more (even) pairs is mTI -- detected
+        per montage, so a list may mix both.
     conductivity : str
         Tissue conductivity model.  One of:
 
@@ -255,42 +297,48 @@ class SimulationConfig:
         The anisotropic modes (``"vn"``, ``"dir"``, ``"mc"``) require
         DTI tensors registered to the head mesh.
     intensities : list[float]
-        Per-pair current intensities in mA.  Length must be 1 (broadcast
-        to all pairs) or match the total number of electrode pairs.
-        Defaults to ``[1.0, 1.0]``.
+        Current per electrode pair in mA, in ``electrode_pairs`` order.
+        A TI montage reads the first two values; an mTI montage needs one
+        value per pair (``len(intensities) >= num_pairs``).  A single
+        value is **not** broadcast -- a 4-pair montage with the default
+        two values is rejected.  Default ``[1.0, 1.0]``.
     electrode_shape : str
-        Electrode shape (``"ellipse"`` or ``"rect"``).
+        Electrode shape, ``"ellipse"`` or ``"rect"``.  Default
+        ``"ellipse"``.
     electrode_dimensions : list[float]
-        ``[width, height]`` of each electrode in mm.
+        ``[width, height]`` of each electrode in mm.  Default
+        ``[8.0, 8.0]``.
     gel_thickness : float
-        Conductive-gel layer thickness in mm.
+        Conductive-gel layer thickness in mm.  Default ``4.0``.
     rubber_thickness : float
-        Rubber (silicone) layer thickness in mm.
+        Rubber (silicone) layer thickness in mm.  Default ``2.0``.
     map_to_surf : bool
-        Map results onto the cortical surface.  Must be ``True`` because
-        TI_normal calculation requires surface overlays.
+        Map results onto the cortical surface.  Must stay ``True``
+        (default) because the ``TI_normal`` calculation requires surface
+        overlays.
     map_to_vol : bool
         Reserved for NIfTI output (handled externally by
-        ``tit.tools.mesh2nii``, not by SimNIBS SESSION).
+        ``tit.tools.mesh2nii``, not by SimNIBS SESSION).  Default
+        ``False``.
     map_to_mni : bool
         Generate MNI-space field and T1 NIfTI outputs after simulation.
-        Off by default; subject-space NIfTI outputs are always generated.
+        Default ``False``; subject-space NIfTI outputs are always generated.
     map_to_fsavg : bool
         After each TI montage finishes, project its surface fields
         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5
-        for group surface analysis.  On by default; set ``False`` to skip.
-        Failures are logged and never abort the simulation.
+        for group surface analysis.  Default ``True``; set ``False`` to
+        skip.  Failures are logged and never abort the simulation.
     open_in_gmsh : bool
-        Open results in Gmsh after simulation.
+        Open results in Gmsh after simulation.  Default ``False``.
     tissues_in_niftis : str
         Tissue selection for NIfTI export (``"all"`` or a
-        comma-separated list).
+        comma-separated list of tissue numbers).  Default ``"all"``.
     aniso_maxratio : float
         Maximum eigenvalue ratio clamp for anisotropic conductivity
-        tensors.
+        tensors.  Default ``10.0``.
     aniso_maxcond : float
         Maximum absolute conductivity clamp (S/m) for anisotropic
-        tensors.
+        tensors.  Default ``2.0``.
     output_fields : list[str]
         Which volume-mesh fields to compute and write. Logical names from
         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
@@ -317,9 +365,35 @@ class SimulationConfig:
     ------
     ValueError
         If *conductivity* is not one of the valid model names, if
-        *output_fields* contains an unknown name, if *output_fields*
-        is empty, or if *tissue_conductivities* contains a non-positive
-        value.
+        *output_fields* contains an unknown name or is empty, if any
+        montage has a pair that is not exactly two electrodes, if
+        *intensities* is shorter than a montage needs (2 for TI, one per
+        pair for mTI), or if *tissue_conductivities* contains a
+        non-positive value.  Filesystem checks (the m2m directory, the
+        EEG-net CSV) happen later, in :func:`run_simulation`.
+
+    Examples
+    --------
+    >>> from tit.sim import SimulationConfig, Montage, MontageMode
+    >>> montage = Montage(
+    ...     name="L_Insula", mode=MontageMode.NET,
+    ...     electrode_pairs=[("E010", "E011"), ("E012", "E013")],
+    ...     eeg_net="GSN-HydroCel-185.csv",
+    ... )
+    >>> cfg = SimulationConfig(
+    ...     subject_id="ernie",
+    ...     montages=[montage],
+    ...     conductivity="scalar",
+    ...     intensities=[1.0, 1.0],
+    ...     electrode_shape="ellipse",
+    ...     electrode_dimensions=[8.0, 8.0],
+    ...     output_fields=["TI_max", "hf_peak"],
+    ... )
+    >>> cfg.map_to_surf, cfg.output_fields
+    (True, ['TI_max', 'hf_peak'])
+
+    Then ``run_simulation(cfg)`` (needs SimNIBS and the subject's m2m
+    directory).
 
     See Also
     --------

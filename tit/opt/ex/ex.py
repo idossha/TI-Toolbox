@@ -20,12 +20,66 @@ from .logic import (
     generate_current_ratios,
 )
 from .results import process_and_save
-from .roi import atlas_roi_entries, confirm_atlas_targets, mni_roi_files_to_subject_space
+from .roi import (
+    atlas_roi_entries,
+    confirm_atlas_targets,
+    mni_roi_files_to_subject_space,
+)
 from .symmetry import build_symmetry_mirror_map
 
 
 def run_ex_search(config: ExConfig) -> ExResult:
-    """Run exhaustive search from a typed config object."""
+    """Run an exhaustive two-pair TI search over a precomputed leadfield.
+
+    Enumerates every electrode-pair combination allowed by
+    ``config.electrodes`` and every current split allowed by
+    ``total_current``/``current_step``/``channel_limit``, scores each
+    against the ROI, and writes a ranked CSV plus a config JSON to the
+    run directory under the subject's ``ex-search/`` folder.
+
+    Parameters
+    ----------
+    config : ExConfig
+        Fully specified search configuration (subject, leadfield file,
+        ROI, electrode pool or buckets, current sweep).
+
+    Returns
+    -------
+    ExResult
+        ``success``, ``output_dir``, ``n_combinations`` evaluated, and the
+        ``results_csv`` / ``config_json`` paths.
+
+    Raises
+    ------
+    ValueError
+        If no candidate montage can be enumerated (empty pool/buckets or
+        an over-restrictive symmetry rule), or a referenced ROI CSV or
+        atlas file does not exist.
+    FileNotFoundError
+        If ``config.leadfield_hdf`` cannot be found under the subject's
+        ``leadfields/`` directory.
+
+    Examples
+    --------
+    >>> from tit.opt import ExConfig, run_ex_search
+    >>> cfg = ExConfig(
+    ...     subject_id="ernie",
+    ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+    ...     roi_name="L-Insula",
+    ...     electrodes=ExConfig.PoolElectrodes(electrodes=["Fp1", "Fp2", "C3", "C4"]),
+    ...     total_current=2.0, current_step=0.5, channel_limit=1.2,
+    ...     run_name="insula_pool",
+    ... )
+    >>> res = run_ex_search(cfg)  # doctest: +SKIP
+    >>> res.success, res.n_combinations, res.results_csv  # doctest: +SKIP
+    (True, 18, '.../ex-search/insula_pool/final_output.csv')
+
+    See Also
+    --------
+    ExConfig : Configuration dataclass for this search.
+    ExResult : Returned container.
+    tit.opt.mex.mex.run_m_ex_search : Four-pair (mTI) variant.
+    """
     from tit.telemetry import track_operation
     from tit import constants as const
 
