@@ -182,41 +182,64 @@
  * default `auto` layout a browser re-solves every column against its content, so one job with a
  * six-subject list stretched SUBJECTS and squeezed the columns beside it down to nothing.
  *
- * These are `nth-child` selectors rather than per-column classes because `ui/DataTable` renders
- * plain `th`/`td` with no column identity, and that file belongs to another lane. The coupling is
- * to `JobsTable`'s column ARRAY ORDER, which the array's own comment states and which
- * `tests/unit/jobs-table.test.tsx` pins: state · kind · subjects · elapsed · CPU · RSS ·
- * waiting-on. SUBJECTS (3) is the only column with no width — it takes all the slack (the
- * STAGE column that used to take it was removed 2026-09-19; the per-page terminals show progress).
- * CPU (5) and RSS (6) carry `peak · avg x`, hence their width.
+ * These are `nth-child` selectors rather than per-column classes because `ui/DataTable` and
+ * `ui/SelectionList` render plain `th`/`td` with no column identity. The coupling is to
+ * `app/jobs-rail/columns.tsx`'s `JOB_COLUMNS` ORDER, which `tests/unit/jobs-table.test.tsx` and
+ * `tests/unit/jobs-row-model.test.tsx` pin: state · kind · subjects · elapsed · CPU · RSS.
+ * SUBJECTS is the only column with no width — it takes all the slack (the STAGE column that used
+ * to take it was removed 2026-09-19; the per-page terminals show progress). CPU and RSS carry
+ * `peak · avg x`, hence their width.
  */
 .jobs-table table {
   table-layout: fixed;
   width: 100%;
 }
-.jobs-table th:nth-child(1),
-.jobs-table td:nth-child(1) {
+/* The rail's DataTable: state · kind · subjects · elapsed · CPU · RSS · waiting-on. */
+.jobs-table table:not(.selection-table) th:nth-child(1),
+.jobs-table table:not(.selection-table) td:nth-child(1) {
   width: 96px;
 }
-.jobs-table th:nth-child(2),
-.jobs-table td:nth-child(2) {
+.jobs-table table:not(.selection-table) th:nth-child(2),
+.jobs-table table:not(.selection-table) td:nth-child(2) {
   width: 88px;
 }
-.jobs-table th:nth-child(4),
-.jobs-table td:nth-child(4) {
+.jobs-table table:not(.selection-table) th:nth-child(4),
+.jobs-table table:not(.selection-table) td:nth-child(4) {
   width: 80px;
 }
-.jobs-table th:nth-child(5),
-.jobs-table td:nth-child(5) {
+.jobs-table table:not(.selection-table) th:nth-child(5),
+.jobs-table table:not(.selection-table) td:nth-child(5) {
   width: 132px;
 }
-.jobs-table th:nth-child(6),
-.jobs-table td:nth-child(6) {
+.jobs-table table:not(.selection-table) th:nth-child(6),
+.jobs-table table:not(.selection-table) td:nth-child(6) {
   width: 148px;
 }
-.jobs-table th:nth-child(7),
-.jobs-table td:nth-child(7) {
+.jobs-table table:not(.selection-table) th:nth-child(7),
+.jobs-table table:not(.selection-table) td:nth-child(7) {
   width: 116px;
+}
+/* The page's selection list: the same columns behind its checkbox column (`selection.css` sizes
+   that one), so every index is one higher and there is no waiting-on. */
+.jobs-table .selection-table th:nth-child(2),
+.jobs-table .selection-table td:nth-child(2) {
+  width: 96px;
+}
+.jobs-table .selection-table th:nth-child(3),
+.jobs-table .selection-table td:nth-child(3) {
+  width: 88px;
+}
+.jobs-table .selection-table th:nth-child(5),
+.jobs-table .selection-table td:nth-child(5) {
+  width: 80px;
+}
+.jobs-table .selection-table th:nth-child(6),
+.jobs-table .selection-table td:nth-child(6) {
+  width: 132px;
+}
+.jobs-table .selection-table th:nth-child(7),
+.jobs-table .selection-table td:nth-child(7) {
+  width: 148px;
 }
 .jobs-cell-resource-avg {
   color: var(--ink-3);

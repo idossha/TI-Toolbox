@@ -8,8 +8,8 @@
  * a filter, `All · None`, an `N of M selected` badge) and the bulk action acts on that set.
  *
  * Two things it keeps from `app/jobs-rail/JobsTable`, deliberately:
- *   - the **columns**, in the order the brief fixes them (state · kind · subjects · stage ·
- *     elapsed), so the page and the 260px rail still read as one component;
+ *   - the **columns**, from the one shared definition (`app/jobs-rail/columns.tsx`: state · kind ·
+ *     subjects · elapsed · CPU · RSS), so the page, the 260px rail and the Summary tab read as one;
  *   - the **testid** `jobs-table` and the `role="row"` rows, which is what every existing jobs spec
  *     locates a job by — and which is also the *correct* ARIA for a multi-column table: a
  *     multi-selectable `grid`, not a `listbox` (`ui/SelectionList`'s `aria` prop).
@@ -22,10 +22,8 @@ import { X } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { InlineError, Skeleton } from "../../ui/Feedback";
 import { SelectionList, type SelectionColumn, type SelectionItem } from "../../ui/SelectionList";
-import { JobStateChip, LivenessBadge } from "../../ui/Status";
-import { bytes, pct } from "../../ui/utils";
 import type { JobStatus } from "../../app/jobs-rail/api";
-import { elapsedLabel } from "../../app/jobs-rail/format";
+import { JOB_COLUMNS, stateCell } from "../../app/jobs-rail/columns";
 import { densitySpec } from "../../app/jobs-rail/model";
 
 function jobOf(item: SelectionItem): JobStatus {
@@ -60,9 +58,9 @@ export function JobsSelectionTable({
     () =>
       jobs.map((j) => ({
         id: j.id,
-        // The state chip is the row's first cell, as it is in the 260px rail — the column order the
-        // brief fixes (state · kind · subjects · stage · elapsed) is kept exactly.
-        label: <JobStateChip state={j.state} pulse={j.liveness === "active"} />,
+        // The state chip is the row's first cell, as it is in the 260px rail — the shared column
+        // order (state · kind · subjects · elapsed · CPU · RSS) is kept exactly.
+        label: stateCell(j),
         // The filter has to match what the row SHOWS, not the job's opaque id: "ernie", "failed",
         // "sim" are the words a person types.
         search: `${j.id} ${j.kind} ${j.subject_ids.join(" ")} ${j.state}`,
@@ -71,30 +69,16 @@ export function JobsSelectionTable({
     [jobs],
   );
 
+  // Every column but State (the row's `label` above) comes from the shared definition, so this
+  // list, the 260px rail and the Summary tab print the same strings for the same job.
   const columns = useMemo<SelectionColumn[]>(
-    () => [
-      { id: "kind", header: "Kind", cell: (i) => jobOf(i).kind },
-      { id: "subjects", header: "Subjects", cell: (i) => jobOf(i).subject_ids.join(", ") || "—" },
-      {
-        id: "stage",
-        header: "Stage",
-        cell: (i) => {
-          const j = jobOf(i);
-          if (j.progress) {
-            return (
-              <span className="text-caption tabular-nums">
-                {j.progress.stage} · {Math.round(j.progress.pct)} %
-              </span>
-            );
-          }
-          if (j.liveness) return <LivenessBadge state={j.liveness} />;
-          return <span className="jobs-cell-none">—</span>;
-        },
-      },
-      { id: "elapsed", header: "Elapsed", numeric: true, cell: (i) => elapsedLabel(jobOf(i), now) },
-      { id: "cpu", header: "CPU", numeric: true, cell: (i) => pct(jobOf(i).cpu_percent) },
-      { id: "rss", header: "RSS", numeric: true, cell: (i) => (jobOf(i).rss ? bytes(jobOf(i).rss as number) : "—") },
-    ],
+    () =>
+      JOB_COLUMNS.filter((c) => c.id !== "state").map((c) => ({
+        id: c.id,
+        header: c.header,
+        numeric: c.numeric,
+        cell: (i) => c.cell(jobOf(i), now),
+      })),
     [now],
   );
 

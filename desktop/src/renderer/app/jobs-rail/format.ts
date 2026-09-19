@@ -52,6 +52,12 @@ export function rssLabel(job: Pick<JobStatus, "rss" | "rss_peak" | "rss_avg">): 
   return { peak: bytes(peak), avg: avg === null || avg === undefined ? null : bytes(avg) };
 }
 
+/** "312 % · avg 140 %" as one string; "—" when never sampled. `ResourceCell` renders exactly this text. */
+export function resourceText(label: ResourceLabel | null): string {
+  if (!label) return "—";
+  return label.avg ? `${label.peak} · avg ${label.avg}` : label.peak;
+}
+
 const ERROR_LABEL: Record<string, string> = {
   preflight: "Preflight check failed",
   lock_wait: "Waiting on a lock",

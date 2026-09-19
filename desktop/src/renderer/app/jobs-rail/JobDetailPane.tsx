@@ -29,13 +29,9 @@ import {
   TERMINAL_STATES,
   type JobStatus,
 } from "./api";
-import { cpuLabel, elapsedLabel, errorLabel, failureReason, rssLabel, type ResourceLabel } from "./format";
+import { jobSummaryRows } from "./columns";
+import { errorLabel, failureReason } from "./format";
 
-/** "312 % · avg 140 %" for the definition list; "—" when never sampled. */
-function resourceText(label: ResourceLabel | null): string {
-  if (!label) return "—";
-  return label.avg ? `${label.peak} · avg ${label.avg}` : label.peak;
-}
 import { JobRawLog } from "./JobRawLog";
 import { reveal } from "./reveal";
 import { FileList } from "../../pages/results/preview/views";
@@ -190,13 +186,9 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
       <ErrorTaxonomyPanel job={job} onOpenJob={onOpenJob} />
       <DefinitionList
         entries={[
-          ["Kind", job.kind],
-          ["Subjects", job.subject_ids.join(", ") || "—"],
+          ...jobSummaryRows(job, now),
           ["Group", job.group_id ?? "—"],
           ["Created", new Date(job.created_at).toLocaleString()],
-          ["Elapsed", elapsedLabel(job, now)],
-          ["CPU (peak · avg)", resourceText(cpuLabel(job))],
-          ["RSS (peak · avg)", resourceText(rssLabel(job))],
           ["Exit code", job.exit_code ?? "—"],
         ]}
       />
