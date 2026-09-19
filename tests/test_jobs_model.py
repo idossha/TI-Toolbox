@@ -117,6 +117,10 @@ def test_job_status_round_trip_and_api_strips_internals():
         exit_code=1,
         cpu_percent=12.5,
         rss=1024,
+        cpu_percent_peak=310.0,
+        cpu_percent_avg=140.5,
+        rss_peak=4096,
+        rss_avg=2048,
         pid=999,
         create_time=123.0,
         budget_wait="waiting for cpu",
@@ -133,6 +137,10 @@ def test_job_status_round_trip_and_api_strips_internals():
     # None with no project_dir (e.g. this bare-dataclass test), the registry's real stdout
     # path convention once one is supplied.
     assert api["log_path"] is None
+    # Peak/average survive both the persisted and the API shape (a finished job keeps them).
+    assert (api["cpu_percent_peak"], api["cpu_percent_avg"]) == (310.0, 140.5)
+    assert (api["rss_peak"], api["rss_avg"]) == (4096, 2048)
+    assert JobStatus.from_dict({**status.to_dict(), "rss_peak": None}).rss_peak is None
     from tit.jobs.registry import stdout_path
 
     assert status.to_api("/proj")["log_path"] == stdout_path("/proj", "j1")
@@ -191,7 +199,9 @@ class TestToolsArgumentJail:
 
     def _argv(self, module, args, project_dir="/proj"):
         return kinds.command_for(
-            "tools", {"module": module, "args": args}, "/proj/spec.json",
+            "tools",
+            {"module": module, "args": args},
+            "/proj/spec.json",
             project_dir=project_dir,
         )
 
@@ -228,7 +238,9 @@ class TestToolsArgumentJail:
         """The default rule covers every tool script added without a policy entry."""
         with pytest.raises(kinds.KindError, match="outside the project"):
             self._argv("tit.tools.mesh2nii", ["/etc/passwd"])
-        assert self._argv("tit.tools.mesh2nii", ["/proj/mesh.msh"])[-1] == "/proj/mesh.msh"
+        assert (
+            self._argv("tit.tools.mesh2nii", ["/proj/mesh.msh"])[-1] == "/proj/mesh.msh"
+        )
 
     def test_a_path_argument_with_no_project_root_is_refused(self):
         with pytest.raises(kinds.KindError, match="no project directory"):
@@ -262,7 +274,12 @@ def test_command_for_report():
     report job of a `pre` group failed with KindError("unknown job kind: 'report'")
     (jobs 614b666712054f03, d6ccfcce2e2c43ce). tit.pre.report is its runner now."""
     argv = kinds.command_for("report", {}, "/proj/jobs/abc/spec.json")
-    assert argv == ["simnibs_python", "-m", "tit.pre.report", "/proj/jobs/abc/spec.json"]
+    assert argv == [
+        "simnibs_python",
+        "-m",
+        "tit.pre.report",
+        "/proj/jobs/abc/spec.json",
+    ]
 
 
 def test_command_for_module_kind_missing_module_raises_clear_error(monkeypatch):
@@ -770,12 +787,21 @@ def test_two_writers_of_one_resource_fail_closed(tmp_path, live_pid):
 def test_a_reader_against_a_writer_still_only_warns(tmp_path, live_pid):
     """The fail-closed rule is write-vs-write; the advisory default survives elsewhere."""
     with locks.hold(
-        str(tmp_path), "job-a", [locks.LockRequest("subject:001:m2m", "write")], pid=live_pid
+        str(tmp_path),
+        "job-a",
+        [locks.LockRequest("subject:001:m2m", "write")],
+        pid=live_pid,
     ):
         with locks.hold(
-            str(tmp_path), "job-b", [locks.LockRequest("subject:001:m2m", "read")], pid=live_pid
+            str(tmp_path),
+            "job-b",
+            [locks.LockRequest("subject:001:m2m", "read")],
+            pid=live_pid,
         ):
-            assert {h["job_id"] for h in locks.holders(str(tmp_path))} == {"job-a", "job-b"}
+            assert {h["job_id"] for h in locks.holders(str(tmp_path))} == {
+                "job-a",
+                "job-b",
+            }
 
 
 def test_a_write_descriptor_is_never_taken_from_its_live_owner(tmp_path, live_pid):
@@ -785,7 +811,9 @@ def test_a_write_descriptor_is_never_taken_from_its_live_owner(tmp_path, live_pi
     request = locks.LockRequest("subject:001:m2m", "write")
     with locks.hold(str(tmp_path), "job-a", [request], pid=live_pid):
         with pytest.raises(locks.LockConflictError):
-            with locks.hold(str(tmp_path), "job-b", [request], pid=live_pid, strict=False):
+            with locks.hold(
+                str(tmp_path), "job-b", [request], pid=live_pid, strict=False
+            ):
                 pass
         assert locks.holders(str(tmp_path))[0]["job_id"] == "job-a"
     assert locks.holders(str(tmp_path)) == []
@@ -794,10 +822,16 @@ def test_a_write_descriptor_is_never_taken_from_its_live_owner(tmp_path, live_pi
 def test_release_job_after_a_cancel_only_drops_its_own_locks(tmp_path, live_pid):
     """RUN-03: `force`/cancel releases by job id — it must never free another job's lock."""
     with locks.hold(
-        str(tmp_path), "job-a", [locks.LockRequest("subject:001:m2m", "write")], pid=live_pid
+        str(tmp_path),
+        "job-a",
+        [locks.LockRequest("subject:001:m2m", "write")],
+        pid=live_pid,
     ):
         with locks.hold(
-            str(tmp_path), "job-b", [locks.LockRequest("subject:002:m2m", "write")], pid=live_pid
+            str(tmp_path),
+            "job-b",
+            [locks.LockRequest("subject:002:m2m", "write")],
+            pid=live_pid,
         ):
             assert locks.release_job(str(tmp_path), "job-b") == 1
             assert [h["job_id"] for h in locks.holders(str(tmp_path))] == ["job-a"]

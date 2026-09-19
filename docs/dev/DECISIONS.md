@@ -50,6 +50,7 @@ rationale below consolidates later amendments without treating superseded design
 | 31 | 2026-09-15 | One TetraVox resolution order (configured, managed, system, PATH) and feed-verified managed updates | amends the install half of 2026-09-13 |
 | 32 | 2026-09-17 | A plan's CPUs, threads and duration are the run's: one CPU detector, one budget env var, one estimate model per kind | live |
 | 33 | 2026-09-18 | Path validation at the boundary: one name grammar, one lexical join, one physical containment check; CodeQL alerts resolved by shape, not suppression | amends 30 |
+| 34 | 2026-09-19 | A job's CPU/RSS are its process tree's, sampled once a second; peak and average persist with the record; the Jobs table drops STAGE | live |
 
 ## Runtime and distribution
 
@@ -1505,3 +1506,31 @@ matplotlib PNG.
 
 Verified in the dev container on `ernie` / `L_Insula` / `lh.insula` (DK40), mesh and voxel; both
 scenes rendered headless with Tetravox 0.5.2 `--job`.
+
+## 2026-09-19 — A job's CPU and RSS are the process tree's, and a finished job keeps its peak and average (ADR row 34)
+
+**Decision.** `JobStatus` gains `cpu_percent_peak`, `cpu_percent_avg`, `rss_peak` and `rss_avg`
+(`contracts/openapi.yaml`); `cpu_percent` and `rss` stay as the latest reading. All six are
+read over the job's whole process tree — the runner's root plus `children(recursive=True)` —
+by one `tit.jobs.runner.ResourceSampler` per running job, created when the pid appears and
+dropped at finalize. The manager's 0.25 s tick still drains events; the sampler reads once a
+second (`RESOURCE_SAMPLE_INTERVAL_S`). The average is a simple mean over counted samples, which
+at a fixed cadence is time-weighted to within one interval; the peak is the maximum. Both are
+persisted in `status.json`, so a finished job still says what it cost after a server restart.
+The Jobs table's STAGE column is removed (the run pages' terminals show progress); CPU and RSS
+show peak with the average beside it.
+
+**Why.** The previous poll built a fresh `psutil.Process(pid)` every 0.25 s and asked it for
+`cpu_percent(interval=None)`, a delta against a baseline that object never had — so every job
+reported 0 % CPU for its whole life, and only the runner's own pid was measured, while
+SimNIBS/PARDISO/FastSurfer do their work in children. A single latest value also told nobody how
+much a run had actually cost. Keeping `cpu_percent`/`rss` avoids breaking `JobDetailPane` and
+the stall detector, which now reads the tree's latest CPU.
+
+**Cost.** One `/proc` walk per running job per second; a psutil-primed first sample per process
+that is not counted, so a job shorter than two samples reports no CPU average (RSS still).
+Re-adoption after a restart restarts the average with the new server life; the persisted peak is
+kept.
+
+**Revisit if** the stall detector needs a per-child view, or the UI wants a time series rather
+than two numbers (then the samples belong in `events.jsonl`, not in `status.json`).

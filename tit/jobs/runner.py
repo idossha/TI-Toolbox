@@ -207,13 +207,105 @@ def is_alive(pid: int, create_time: float | None) -> bool:
         return False
 
 
-def cpu_percent_and_rss(pid: int) -> tuple[float | None, int | None]:
-    """Best-effort CPU%/RSS of *pid* (0.0 CPU on the first sample — psutil convention)."""
-    try:
-        proc = psutil.Process(pid)
-        return proc.cpu_percent(interval=None), int(proc.memory_info().rss)
-    except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
-        return None, None
+def _resident_bytes(proc: psutil.Process) -> int:
+    """PSS where the platform has it (Linux), else RSS. Raises psutil errors like psutil."""
+    if _HAS_PSS:
+        try:
+            return int(proc.memory_full_info().pss)
+        except psutil.AccessDenied:
+            pass  # another user's process: smaps is private, RSS is not
+    return int(proc.memory_info().rss)
+
+
+_HAS_PSS = os.path.exists("/proc/self/smaps_rollup")
+
+
+class ResourceSampler:
+    """Per-job CPU%/RSS sampler over the job's whole process tree, kept for the job's lifetime.
+
+    ``psutil.Process.cpu_percent(interval=None)`` is a *delta* against the previous call on the
+    same object, so a fresh ``Process(pid)`` per poll always reads 0.0. One sampler therefore
+    owns one ``Process`` per pid it has seen (the root and every descendant --
+    SimNIBS/FastSurfer/PARDISO spawn workers), created on first sight and dropped when it exits,
+    and every :meth:`sample` sums CPU% and RSS across the live tree.
+
+    Memory is the tree's **PSS** (proportional set size) where the platform reports it (Linux,
+    ``/proc/<pid>/smaps_rollup``, ~0.06 ms per process), so the leadfield a dozen joblib workers
+    share copy-on-write is counted once, not twelve times -- summing plain RSS over an ex-search
+    tree read 54 GB where PSS reads 9 GB. Elsewhere it falls back to RSS. The field keeps the
+    name ``rss`` on the wire.
+
+    Running statistics: ``cpu_peak``/``rss_peak`` are the maxima; ``cpu_avg``/``rss_avg`` are
+    **simple means over samples** (samples are taken at a fixed cadence by the manager, so this
+    is time-weighted to within one interval). The very first CPU reading of every process is
+    0.0 by psutil convention and is not counted, so a one-sample job does not report 0 %.
+    """
+
+    def __init__(self, pid: int) -> None:
+        self.pid = pid
+        self._procs: dict[int, psutil.Process] = {}
+        self._primed: set[int] = set()
+        self.n_samples = 0
+        self.cpu_peak: float | None = None
+        self.cpu_avg: float | None = None
+        self.rss_peak: int | None = None
+        self.rss_avg: int | None = None
+        self._cpu_sum = 0.0
+        self._rss_sum = 0
+        try:
+            self._procs[pid] = psutil.Process(pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
+            pass
+
+    def _tree(self) -> list[psutil.Process]:
+        root = self._procs.get(self.pid)
+        if root is None:
+            return []
+        try:
+            children = root.children(recursive=True)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            children = []
+        live = {root.pid: root}
+        for child in children:
+            live[child.pid] = self._procs.get(child.pid) or child
+        self._procs = live
+        self._primed &= set(live)
+        return list(live.values())
+
+    def sample(self) -> tuple[float | None, int | None]:
+        """One reading of (CPU %, RSS bytes) summed over the tree; ``(None, None)`` if the
+        root is gone. Updates the running peak/average."""
+        procs = self._tree()
+        if not procs:
+            return None, None
+        cpu = 0.0
+        rss = 0
+        counted = False
+        seen_any = False
+        for proc in procs:
+            try:
+                c = round(proc.cpu_percent(interval=None), 1)
+                rss += _resident_bytes(proc)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
+                continue
+            seen_any = True
+            if proc.pid in self._primed:
+                cpu += c
+                counted = True
+            else:
+                self._primed.add(proc.pid)
+        if not seen_any:
+            return None, None
+        cpu = round(cpu, 1)
+        self.rss_peak = rss if self.rss_peak is None else max(self.rss_peak, rss)
+        if counted:
+            self.n_samples += 1
+            self._cpu_sum += cpu
+            self._rss_sum += rss
+            self.cpu_peak = cpu if self.cpu_peak is None else max(self.cpu_peak, cpu)
+            self.cpu_avg = round(self._cpu_sum / self.n_samples, 1)
+            self.rss_avg = int(self._rss_sum / self.n_samples)
+        return (cpu if counted else None), rss
 
 
 async def terminate_tree(

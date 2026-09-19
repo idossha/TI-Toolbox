@@ -6116,8 +6116,18 @@ export interface components {
             exit_code?: number | null;
             error?: components["schemas"]["JobError"] | null;
             artifacts: components["schemas"]["Artifact"][];
+            /** @description Latest CPU % of the job's whole process tree (root plus every descendant, so a PARDISO/FastSurfer worker pool reads above 100 %), sampled once a second while the job runs; null until the first counted sample. */
             cpu_percent?: number | null;
+            /** @description Latest resident memory in bytes over the same tree: the proportional set size (PSS) on Linux, so pages worker processes share are counted once; plain RSS elsewhere. */
             rss?: number | null;
+            /** @description Highest `cpu_percent` sample seen; kept after the job finishes. */
+            cpu_percent_peak?: number | null;
+            /** @description Simple mean of `cpu_percent` over the counted samples (taken at a fixed cadence, so time-weighted to within one interval); kept after the job finishes. */
+            cpu_percent_avg?: number | null;
+            /** @description Highest `rss` sample seen, bytes; kept after the job finishes. */
+            rss_peak?: number | null;
+            /** @description Simple mean of `rss` over the counted samples, bytes; kept after the job finishes. */
+            rss_avg?: number | null;
             /** @description Container path to this job's raw stdout/stderr log (`code/ti-toolbox/jobs/<id>/stdout.log`), the same file `GET /api/jobs/{id}/log` serves. Present so `pages/jobs/JobDetailDrawer.tsx` can show/copy it without reconstructing the path convention client-side (ra_13 finding 6). */
             log_path?: string | null;
         };

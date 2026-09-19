@@ -29,6 +29,10 @@ function job(over: Partial<JobStatus> = {}): JobStatus {
     artifacts: [],
     cpu_percent: 42.5,
     rss: 1024 * 1024 * 512,
+    cpu_percent_peak: 312.4,
+    cpu_percent_avg: 140.2,
+    rss_peak: 4.9 * 1024 ** 3,
+    rss_avg: 3.1 * 1024 ** 3,
     ...over,
   } as unknown as JobStatus;
 }
@@ -60,7 +64,7 @@ describe("JobsTable at three heights", () => {
     });
   }
 
-  it("carries the same eight columns at both densities", () => {
+  it("carries the same seven columns at both densities (no STAGE: the terminals own progress)", () => {
     render("panel");
     const panel = headers(container);
     render("page");
@@ -69,7 +73,6 @@ describe("JobsTable at three heights", () => {
       "State",
       "Kind",
       "Subjects",
-      "Stage",
       "Elapsed",
       "CPU",
       "RSS",
@@ -98,9 +101,27 @@ describe("JobsTable at three heights", () => {
     const row = container.querySelector("tbody tr")!;
     const cells = [...row.querySelectorAll("td")].map((td) => td.textContent?.trim());
     expect(cells).toContain("5m 0s");
-    expect(cells).toContain("42.5 %");
+    // CPU/RSS are the run's peak with the average beside it, whole units: a PARDISO job's tree
+    // reads far above 100 %.
+    expect(cells).toContain("312 % · avg 140 %");
+    expect(cells).toContain("4.9 GB · avg 3.1 GB");
     const numeric = [...row.querySelectorAll("td[data-align='right']")];
     expect(numeric).toHaveLength(3);
+  });
+
+  it("shows — only when a job was never sampled, and peak alone before the second sample", () => {
+    render("page", [job({ cpu_percent: null, rss: null, cpu_percent_peak: null, cpu_percent_avg: null, rss_peak: null, rss_avg: null })]);
+    let cells = [...container.querySelectorAll("tbody tr td")].map((td) => td.textContent?.trim());
+    expect(cells.filter((c) => c === "—").length).toBeGreaterThanOrEqual(2);
+    render("page", [job({ cpu_percent_avg: null, rss_avg: null })]);
+    cells = [...container.querySelectorAll("tbody tr td")].map((td) => td.textContent?.trim());
+    expect(cells).toContain("312 %");
+    expect(cells).toContain("4.9 GB");
+    // A record written before peaks were kept still shows its latest reading.
+    render("page", [job({ cpu_percent_peak: null, cpu_percent_avg: null, rss_peak: null, rss_avg: null })]);
+    cells = [...container.querySelectorAll("tbody tr td")].map((td) => td.textContent?.trim());
+    expect(cells).toContain("43 %");
+    expect(cells).toContain("512 MB");
   });
 
   it("shows a skeleton on first load, not on refetch", () => {

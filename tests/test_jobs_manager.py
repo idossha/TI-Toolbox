@@ -60,7 +60,9 @@ def isolated_resource_preferences(tmp_path, monkeypatch):
     # These managers have an eight-CPU test budget; host/user settings must not
     # reserve more CPUs than that and leave fake preprocessing jobs queued forever.
     monkeypatch.setattr("tit.surfer_settings.available_threads", lambda: 8)
-    monkeypatch.setattr("tit.surfer_settings.settings_path", lambda: tmp_path / "preferences.json")
+    monkeypatch.setattr(
+        "tit.surfer_settings.settings_path", lambda: tmp_path / "preferences.json"
+    )
 
 
 @pytest.fixture()
@@ -1450,3 +1452,45 @@ def test_event_subscription_backfill_exceeding_live_queue_capacity(
     assert [subscription.get_nowait()["seq"] for _ in range(5)] == list(range(5))
     assert subscription.empty()
     manager.unsubscribe_events(job_id, subscription)
+
+
+# ---------------------------------------------------------------------------------------------
+# CPU/RSS: sampled over the job's tree at RESOURCE_SAMPLE_INTERVAL_S, peak/avg persisted
+# ---------------------------------------------------------------------------------------------
+
+
+def test_running_job_samples_cpu_and_rss_peak_and_average_into_the_record(
+    tmp_path, monkeypatch
+):
+    import tit.jobs.manager as manager_mod
+
+    # Sample on every tick here so a 0.4 s fake job yields several readings.
+    monkeypatch.setattr(manager_mod, "RESOURCE_SAMPLE_INTERVAL_S", 0.0)
+    m = make_manager(tmp_path)
+    try:
+        status = m.submit("tools", {"__fake": {"duration_s": 0.4}}, ["001"])
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] in ("succeeded", "failed") else None)(
+                m.get(status["id"])
+            )
+        )
+        assert final["state"] == "succeeded"
+        # Sampled at all: RSS of a live python process is never 0; the average is over the
+        # counted samples and the peak bounds it.
+        assert final["rss_peak"] is not None and final["rss_peak"] > 0
+        assert (
+            final["rss_avg"] is not None and 0 < final["rss_avg"] <= final["rss_peak"]
+        )
+        assert final["cpu_percent_peak"] is not None
+        assert final["cpu_percent_avg"] is not None
+        assert 0.0 <= final["cpu_percent_avg"] <= final["cpu_percent_peak"]
+        # ...and they are in the on-disk record, so a restart keeps them.
+        from tit.jobs.registry import JobRegistry
+
+        stored = JobRegistry(str(tmp_path)).read_status(status["id"])
+        assert stored.rss_peak == final["rss_peak"]
+        assert stored.cpu_percent_avg == final["cpu_percent_avg"]
+        # The sampler is dropped at finalize.
+        assert status["id"] not in m._samplers
+    finally:
+        m.shutdown()

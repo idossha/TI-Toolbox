@@ -4931,8 +4931,27 @@ components:
         artifacts:
           type: array
           items: { $ref: "#/components/schemas/Artifact" }
-        cpu_percent: { type: [number, "null"] }
-        rss: { type: [integer, "null"] }
+        cpu_percent:
+          type: [number, "null"]
+          description: >-
+            Latest CPU % of the job's whole process tree (root plus every descendant, so a
+            PARDISO/FastSurfer worker pool reads above 100 %), sampled once a second while the
+            job runs; null until the first counted sample.
+        rss:
+          type: [integer, "null"]
+          description: >-
+            Latest resident memory in bytes over the same tree: the proportional set size (PSS)
+            on Linux, so pages worker processes share are counted once; plain RSS elsewhere.
+        cpu_percent_peak:
+          type: [number, "null"]
+          description: Highest `cpu_percent` sample seen; kept after the job finishes.
+        cpu_percent_avg:
+          type: [number, "null"]
+          description: >-
+            Simple mean of `cpu_percent` over the counted samples (taken at a fixed cadence, so
+            time-weighted to within one interval); kept after the job finishes.
+        rss_peak: { type: [integer, "null"], description: "Highest `rss` sample seen, bytes; kept after the job finishes." }
+        rss_avg: { type: [integer, "null"], description: "Simple mean of `rss` over the counted samples, bytes; kept after the job finishes." }
         log_path:
           type: [string, "null"]
           description: >-

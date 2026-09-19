@@ -1402,6 +1402,24 @@ function finishJob(job) {
   broadcastJob(job);
   tick();
 }
+// The real manager samples CPU %/RSS over the job's process tree once a second and keeps the
+// running peak and mean in the record (JobStatus.cpu_percent_peak/_avg, rss_peak/_avg). The mock
+// does the same on every progress tick, with a multi-core reading a solver would produce, so the
+// Jobs table shows `peak · avg` rows rather than dashes.
+function sampleResources(job) {
+  const cpus = (COST_TABLE[job.status.kind] ?? { cpus: 2 }).cpus;
+  const cpu = Number((cpus * (55 + Math.random() * 45)).toFixed(1));
+  const rss = Math.round((0.6 + Math.random() * 0.8) * 1024 ** 3);
+  const n = (job._samples = (job._samples ?? 0) + 1);
+  const st = job.status;
+  st.cpu_percent = cpu;
+  st.rss = rss;
+  st.cpu_percent_peak = Math.max(st.cpu_percent_peak ?? 0, cpu);
+  st.rss_peak = Math.max(st.rss_peak ?? 0, rss);
+  st.cpu_percent_avg = Number((((st.cpu_percent_avg ?? 0) * (n - 1) + cpu) / n).toFixed(1));
+  st.rss_avg = Math.round(((st.rss_avg ?? 0) * (n - 1) + rss) / n);
+  broadcastJob(job);
+}
 function runTimeline(job) {
   const cfg = job.spec.config && typeof job.spec.config === "object" ? job.spec.config : {};
   const stages = stagesFor(job.status.kind);
@@ -1436,6 +1454,7 @@ function runTimeline(job) {
       timers.push(
         setTimeout(() => {
           job.status.progress = { stage, i, n: nProg, pct };
+          sampleResources(job);
           emitEvent(job, { type: "progress", stage, i, n: nProg, pct });
         }, t),
       );
@@ -1592,6 +1611,10 @@ function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite
       artifacts: [],
       cpu_percent: null,
       rss: null,
+      cpu_percent_peak: null,
+      cpu_percent_avg: null,
+      rss_peak: null,
+      rss_avg: null,
       // The real server records where the runner's log file is written (`JobStatus.log_path` in
       // contracts/openapi.yaml), and the UI's "Reveal log file" actions exist only when it is
       // set -- so the mock sets it too, at the path `tit.jobs` uses.
@@ -3234,6 +3257,16 @@ route("GET", "/api/jobs", (ctx) => {
   const limit = Number(q.get("limit"));
   if (limit) list = list.slice(0, limit);
   json(ctx.res, 200, list);
+});
+// The submission-time input sweep (tit.jobs.preflight) as a dry run. The mock's project has
+// every input its fixtures describe, so this answers "nothing absent" for a known kind; an
+// unknown kind is the contract's 422.
+route("POST", "/api/jobs/preflight", async (ctx) => {
+  const body = await ctx.body();
+  if (!body || typeof body.kind !== "string" || !(body.kind in SCHEMA_DEF_FOR_KIND)) {
+    return json(ctx.res, 422, { detail: `unknown kind ${JSON.stringify(body?.kind)}` });
+  }
+  json(ctx.res, 200, { missing: [] });
 });
 route("POST", "/api/jobs", async (ctx) => {
   const body = await ctx.body();

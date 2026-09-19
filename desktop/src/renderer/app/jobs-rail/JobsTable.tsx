@@ -2,8 +2,10 @@
  * The ONE jobs table. The 260px panel and the full `jobs` page render this same component with a
  * different `density` — they do not maintain two column lists that drift apart (plan §1).
  *
- * Columns, in the order the brief fixes them: state · kind · subjects · stage/progress · elapsed ·
- * CPU · RSS · waiting-on. Numbers are right-aligned and tabular (DESIGN.md §4.3).
+ * Columns, in the order the brief fixes them: state · kind · subjects · elapsed · CPU · RSS ·
+ * waiting-on. Numbers are right-aligned and tabular (DESIGN.md §4.3). CPU and RSS show the run's
+ * peak with its average beside it (`resourceLabel`); the per-page terminals own stage/progress,
+ * so the STAGE column this table used to carry is gone (DECISIONS 2026-09-19).
  *
  * **That order is load-bearing.** `jobs-rail.css` sizes the columns by `nth-child` (the shared
  * `ui/DataTable` renders plain cells with no column identity), so reordering this array without
@@ -13,10 +15,10 @@ import { useMemo, type CSSProperties } from "react";
 import { Button } from "../../ui/Button";
 import { DataTable, type DataTableColumn } from "../../ui/DataTable";
 import { InlineError, Skeleton } from "../../ui/Feedback";
-import { JobStateChip, LivenessBadge } from "../../ui/Status";
-import { bytes, cn, pct } from "../../ui/utils";
+import { JobStateChip } from "../../ui/Status";
+import { cn } from "../../ui/utils";
 import type { JobStatus } from "./api";
-import { elapsedLabel } from "./format";
+import { cpuLabel, elapsedLabel, rssLabel } from "./format";
 import { densitySpec, type JobsTableDensity } from "./model";
 
 export interface JobsTableProps {
@@ -33,6 +35,19 @@ export interface JobsTableProps {
   /** Draw ground rows to the bottom of the table's box — the shape of the list (`ui/DataTable`). */
   fill?: boolean;
   className?: string;
+}
+
+const RESOURCE_HINT = "Peak · average over the run, summed over the job's process tree";
+
+/** `peak · avg x` as one tabular cell; the average is the quieter half. "—" only when never sampled. */
+function ResourceCell({ label }: { label: { peak: string; avg: string | null } | null }) {
+  if (!label) return <span className="jobs-cell-none">—</span>;
+  return (
+    <span className="jobs-cell-resource tabular-nums" title={label.avg ? `peak ${label.peak} · average ${label.avg}` : `peak ${label.peak}`}>
+      {label.peak}
+      {label.avg && <span className="jobs-cell-resource-avg"> · avg {label.avg}</span>}
+    </span>
+  );
 }
 
 function errorDetail(error: unknown): string | undefined {
@@ -70,9 +85,9 @@ export function JobsTable({
       {
         id: "subjects",
         header: "Subjects",
-        // The column has a fixed 148px (`jobs-rail.css`), so a batch of eight subjects has to
-        // give way somewhere; it ellipsizes and keeps the whole list on hover rather than
-        // stretching the column and starving STAGE.
+        // The column takes the slack the fixed-width neighbours leave (`jobs-rail.css`), so a
+        // batch of eight subjects has to give way somewhere; it ellipsizes and keeps the whole
+        // list on hover rather than pushing CPU/RSS out of the box.
         cell: ({ row }) => {
           const label = row.original.subject_ids.join(", ") || "—";
           return (
@@ -82,25 +97,19 @@ export function JobsTable({
           );
         },
       },
-      {
-        id: "stage",
-        header: "Stage",
-        cell: ({ row }) => {
-          const j = row.original;
-          if (j.progress) {
-            return (
-              <span className="text-caption tabular-nums">
-                {j.progress.stage} · {Math.round(j.progress.pct)} %
-              </span>
-            );
-          }
-          if (j.liveness) return <LivenessBadge state={j.liveness} />;
-          return <span className="jobs-cell-none">—</span>;
-        },
-      },
       { id: "elapsed", header: "Elapsed", numeric: true, cell: ({ row }) => elapsedLabel(row.original, now) },
-      { id: "cpu", header: "CPU", numeric: true, cell: ({ row }) => pct(row.original.cpu_percent) },
-      { id: "rss", header: "RSS", numeric: true, cell: ({ row }) => (row.original.rss ? bytes(row.original.rss) : "—") },
+      {
+        id: "cpu",
+        header: () => <span title={RESOURCE_HINT}>CPU</span>,
+        numeric: true,
+        cell: ({ row }) => <ResourceCell label={cpuLabel(row.original)} />,
+      },
+      {
+        id: "rss",
+        header: () => <span title={RESOURCE_HINT}>RSS</span>,
+        numeric: true,
+        cell: ({ row }) => <ResourceCell label={rssLabel(row.original)} />,
+      },
       {
         id: "waiting",
         header: "Waiting on",

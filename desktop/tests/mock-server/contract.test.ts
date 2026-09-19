@@ -160,7 +160,14 @@ async function call(
   }
   return { res, json };
 }
-async function waitForState(id: string, states: string[], timeoutMs = 5000): Promise<{ status: { state: string } }> {
+type JobStatusRead = {
+  state: string;
+  cpu_percent_peak: number | null;
+  cpu_percent_avg: number | null;
+  rss_peak: number | null;
+  rss_avg: number | null;
+};
+async function waitForState(id: string, states: string[], timeoutMs = 5000): Promise<{ status: JobStatusRead }> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const { json } = await call("/api/jobs/{id}", "GET", `/api/jobs/${id}`);
@@ -290,6 +297,9 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await call("/api/jobs/{id}/cancel", "POST", `/api/jobs/${(toolsJob as any).id}/cancel`);
+    await call("/api/jobs/preflight", "POST", "/api/jobs/preflight", {
+      body: { kind: "analyzer", config: { subject_id: "ernie" }, subject_ids: ["ernie"] },
+    });
     const { json: grouped } = await call("/api/jobs/groups", "POST", "/api/jobs/groups", {
       body: { kind: "pre", config: { create_m2m: true, run_tissue_analysis: true, __mock_fast: true }, subject_ids: ["101"], parallel_subjects: 1 },
     });
@@ -430,6 +440,13 @@ describe("contract: job lifecycle", () => {
     const id = (submitted as any).id as string;
     const { status } = await waitForState(id, ["succeeded", "failed"]);
     expect(status.state).toBe("succeeded");
+    // A finished job keeps what it cost (JobStatus.cpu_percent_peak/_avg, rss_peak/_avg): the
+    // peak bounds the average and both are sampled over the run, never left null once it ran.
+    expect(status.cpu_percent_peak).toBeGreaterThan(0);
+    expect(status.cpu_percent_avg).toBeGreaterThan(0);
+    expect(status.cpu_percent_avg).toBeLessThanOrEqual(status.cpu_percent_peak ?? 0);
+    expect(status.rss_peak).toBeGreaterThan(0);
+    expect(status.rss_avg).toBeLessThanOrEqual(status.rss_peak ?? 0);
     const { json: events } = await call("/api/jobs/{id}/events", "GET", `/api/jobs/${id}/events`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const types = (events as any[]).map((e) => e.type);

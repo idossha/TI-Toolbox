@@ -350,8 +350,15 @@ class JobStatus:
     exit_code: int | None = None
     error: JobError | None = None
     artifacts: list[Artifact] = field(default_factory=list)
+    #: Latest CPU % / RSS of the job's process tree (``None`` until first sampled).
     cpu_percent: float | None = None
     rss: int | None = None
+    #: Running peak / simple mean over samples of the same two readings, kept after the job
+    #: finishes so a finished job still says what it cost (``tit.jobs.runner.ResourceSampler``).
+    cpu_percent_peak: float | None = None
+    cpu_percent_avg: float | None = None
+    rss_peak: int | None = None
+    rss_avg: int | None = None
     # Internal-only (persisted to status.json, stripped by to_api()):
     pid: int | None = None
     create_time: float | None = None
@@ -393,6 +400,10 @@ class JobStatus:
             "artifacts": [a.to_dict() for a in self.artifacts],
             "cpu_percent": self.cpu_percent,
             "rss": self.rss,
+            "cpu_percent_peak": self.cpu_percent_peak,
+            "cpu_percent_avg": self.cpu_percent_avg,
+            "rss_peak": self.rss_peak,
+            "rss_avg": self.rss_avg,
             "log_path": stdout_path(project_dir, self.id) if project_dir else None,
         }
 
@@ -415,6 +426,10 @@ class JobStatus:
             artifacts=[Artifact.from_dict(a) for a in data.get("artifacts", [])],
             cpu_percent=data.get("cpu_percent"),
             rss=data.get("rss"),
+            cpu_percent_peak=data.get("cpu_percent_peak"),
+            cpu_percent_avg=data.get("cpu_percent_avg"),
+            rss_peak=data.get("rss_peak"),
+            rss_avg=data.get("rss_avg"),
             pid=data.get("pid"),
             create_time=data.get("create_time"),
             budget_wait=data.get("budget_wait"),

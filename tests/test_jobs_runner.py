@@ -14,6 +14,7 @@ platform-safe default.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import sys
 import time
@@ -221,11 +222,66 @@ class TestStopDockerSiblingsIsBounded:
         log = tmp_path / "calls.log"
         bin_dir = self._fake_docker(
             tmp_path,
-            f'echo "$@" >> {log}\n'
-            'case "$1" in ps) echo abc123;; esac',
+            f'echo "$@" >> {log}\n' 'case "$1" in ps) echo abc123;; esac',
         )
         monkeypatch.setenv("PATH", bin_dir + os.pathsep + os.environ["PATH"])
         asyncio.run(jobs_runner.stop_docker_siblings("job-1", timeout_s=5.0))
         calls = log.read_text().splitlines()
         assert any(c.startswith("ps ") for c in calls)
         assert "stop abc123" in calls
+
+
+# ---------------------------------------------------------------------------------------------
+# ResourceSampler: one psutil.Process per pid, children included, running peak/average
+# ---------------------------------------------------------------------------------------------
+
+BUSY_TREE = (
+    "import subprocess, sys, time\n"
+    # One busy grandchild: the sampler must see CPU the parent itself never burns.
+    "c = subprocess.Popen([sys.executable, '-c', "
+    "'import time\\nt=time.time()\\nwhile time.time()-t<4: pass'])\n"
+    "time.sleep(4)\n"
+    "c.wait()\n"
+)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX process tree")
+def test_resource_sampler_sums_children_and_keeps_peak_and_average():
+    import subprocess
+
+    parent = subprocess.Popen([sys.executable, "-c", BUSY_TREE])
+    try:
+        sampler = jobs_runner.ResourceSampler(parent.pid)
+        first = sampler.sample()  # primes psutil's per-process cpu_percent baseline
+        assert first[0] is None or first[0] == 0.0
+        assert first[1] is not None and first[1] > 0
+        assert sampler.n_samples == 0  # a priming read never counts towards the average
+        time.sleep(0.6)
+        readings = []
+        for _ in range(3):
+            time.sleep(0.4)
+            readings.append(sampler.sample())
+        cpus = [c for c, _ in readings if c is not None]
+        assert cpus, readings
+        # The sleeping parent alone would read ~0 %; the busy grandchild pushes the tree well
+        # above that, which is exactly what a per-pid one-shot read (the old code) missed.
+        assert max(cpus) > 30.0, readings
+        assert sampler.cpu_peak == max(cpus)
+        assert sampler.cpu_avg == pytest.approx(sum(cpus) / len(cpus), abs=0.06)
+        assert sampler.n_samples == len(cpus)
+        assert sampler.rss_peak >= sampler.rss_avg > 0
+        assert (
+            len(sampler._procs) >= 2
+        )  # the parent and its grandchild are both tracked
+    finally:
+        with contextlib.suppress(Exception):
+            for p in psutil.Process(parent.pid).children(recursive=True):
+                p.kill()
+        parent.kill()
+        parent.wait()
+
+
+def test_resource_sampler_is_empty_for_a_gone_pid():
+    sampler = jobs_runner.ResourceSampler(2**22 + 12345)
+    assert sampler.sample() == (None, None)
+    assert sampler.cpu_peak is None and sampler.rss_avg is None

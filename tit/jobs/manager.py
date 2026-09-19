@@ -41,7 +41,7 @@ from tit.jobs.runner import (
     LocalPopenRunner,
     Runner,
     RunRequest,
-    cpu_percent_and_rss,
+    ResourceSampler,
     is_alive,
     runner_env,
     stop_docker_siblings,
@@ -68,6 +68,10 @@ logger = logging.getLogger(__name__)
 
 STALL_THRESHOLD_S = 45.0
 STALL_CPU_PERCENT = 2.0
+#: CPU%/RSS sampling cadence for a running job's process tree. The 0.25 s tick keeps draining
+#: events; a resource reading every second is plenty for a peak/average and keeps psutil's
+#: per-process ``/proc`` reads off the hot loop.
+RESOURCE_SAMPLE_INTERVAL_S = 1.0
 LOG_TAIL_ON_FAILURE = 20
 SUBSCRIBER_QUEUE_MAXSIZE = 10_000
 #: The single line a cancelled job's log ends with (see ``JobManager._append_note``).
@@ -119,6 +123,9 @@ class JobManager:
         self._tailers: dict[str, EventTailer] = {}
         self._last_event_ts: dict[str, float] = {}
         self._last_exit_code: dict[str, int] = {}
+        #: One sampler per running job, created when its pid appears, dropped at finalize.
+        self._samplers: dict[str, ResourceSampler] = {}
+        self._last_sample_ts: dict[str, float] = {}
         self._cancelled: set[str] = set()
         #: Non-terminal jobs found in the store at start(), i.e. left over from a previous
         #: server life -- reconciled once, before the first tick (see _reconcile_all).
@@ -931,6 +938,8 @@ class JobManager:
             status.waiting_on = []
             status.budget_wait = None
             status.liveness = "active"
+            self._samplers[spec.id] = ResourceSampler(proc.pid)
+            self._last_sample_ts.pop(spec.id, None)
             self._persist_status(status)
         self._publish_status(status)
         assert self._loop is not None
@@ -1003,6 +1012,8 @@ class JobManager:
         self._tailers.pop(status.id, None)
         self._last_event_ts.pop(status.id, None)
         self._last_exit_code.pop(status.id, None)
+        self._samplers.pop(status.id, None)
+        self._last_sample_ts.pop(status.id, None)
         self._cancelled.discard(status.id)
         self._persist_status(status)
         self._publish_status(status)
@@ -1128,16 +1139,45 @@ class JobManager:
             with self._lock:
                 self._apply_events(job_id, status, events)
         if status.pid is not None:
-            cpu, rss = cpu_percent_and_rss(status.pid)
-            status.cpu_percent = cpu
-            status.rss = rss
-            last_ts = self._last_event_ts.get(job_id, time.time())
-            stalled = (time.time() - last_ts) > STALL_THRESHOLD_S and (
-                cpu or 0.0
+            now = time.time()
+            if (
+                now - self._last_sample_ts.get(job_id, 0.0)
+                >= RESOURCE_SAMPLE_INTERVAL_S
+            ):
+                self._last_sample_ts[job_id] = now
+                self._sample_resources(job_id, status)
+            last_ts = self._last_event_ts.get(job_id, now)
+            stalled = (now - last_ts) > STALL_THRESHOLD_S and (
+                status.cpu_percent or 0.0
             ) < STALL_CPU_PERCENT
             status.liveness = "stalled" if stalled else "active"
         with self._lock:
             self._persist_status(status)
+
+    def _sample_resources(self, job_id: str, status: JobStatus) -> None:
+        """One CPU%/RSS reading of the job's process tree into *status* (latest + peak/avg)."""
+        if status.pid is None:
+            return
+        sampler = self._samplers.get(job_id)
+        if sampler is None or sampler.pid != status.pid:
+            # Also the re-adoption path (a job found running after a restart): the peak keeps
+            # what the previous server life persisted; the average restarts with this life.
+            sampler = self._samplers[job_id] = ResourceSampler(status.pid)
+        cpu, rss = sampler.sample()
+        if cpu is not None:
+            status.cpu_percent = cpu
+        if rss is not None:
+            status.rss = rss
+        if sampler.cpu_peak is not None:
+            status.cpu_percent_peak = max(
+                status.cpu_percent_peak or 0.0, sampler.cpu_peak
+            )
+        if sampler.rss_peak is not None:
+            status.rss_peak = max(status.rss_peak or 0, sampler.rss_peak)
+        if sampler.cpu_avg is not None:
+            status.cpu_percent_avg = sampler.cpu_avg
+        if sampler.rss_avg is not None:
+            status.rss_avg = sampler.rss_avg
 
     def _apply_events(
         self, job_id: str, status: JobStatus, events: list[dict[str, Any]]

@@ -18,7 +18,6 @@ import { ExistingOutputsDialog } from "../../pages/_shared/run/ExistingOutputsDi
 import { AlertDialog } from "../../ui/Overlay";
 import { Chip, JobStateChip, LivenessBadge } from "../../ui/Status";
 import { notify } from "../../ui/Toast";
-import { bytes, pct } from "../../ui/utils";
 import {
   cancelJob,
   deleteJob,
@@ -30,7 +29,13 @@ import {
   TERMINAL_STATES,
   type JobStatus,
 } from "./api";
-import { elapsedLabel, errorLabel, failureReason } from "./format";
+import { cpuLabel, elapsedLabel, errorLabel, failureReason, rssLabel, type ResourceLabel } from "./format";
+
+/** "312 % · avg 140 %" for the definition list; "—" when never sampled. */
+function resourceText(label: ResourceLabel | null): string {
+  if (!label) return "—";
+  return label.avg ? `${label.peak} · avg ${label.avg}` : label.peak;
+}
 import { JobRawLog } from "./JobRawLog";
 import { reveal } from "./reveal";
 import { FileList } from "../../pages/results/preview/views";
@@ -190,8 +195,8 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
           ["Group", job.group_id ?? "—"],
           ["Created", new Date(job.created_at).toLocaleString()],
           ["Elapsed", elapsedLabel(job, now)],
-          ["CPU", pct(job.cpu_percent)],
-          ["RSS", job.rss ? bytes(job.rss) : "—"],
+          ["CPU (peak · avg)", resourceText(cpuLabel(job))],
+          ["RSS (peak · avg)", resourceText(rssLabel(job))],
           ["Exit code", job.exit_code ?? "—"],
         ]}
       />
