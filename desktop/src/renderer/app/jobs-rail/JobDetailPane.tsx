@@ -23,6 +23,7 @@ import {
   deleteJob,
   forceJob,
   getJobLog,
+  getJobOutputs,
   rerunJob,
   prepareJobRerun,
   type RerunSpec,
@@ -38,6 +39,7 @@ import { FileList } from "../../pages/results/preview/views";
 import { useOpenInViewer } from "../openInViewer";
 import { forgetJob } from "../jobs/useJobsStream";
 import { jobFolder, viewerLinkForArtifact } from "./artifacts";
+import { bytes } from "../../ui/utils";
 
 type ConfirmKind = "stop" | "force" | "delete";
 
@@ -161,11 +163,23 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
     onError: (e) => notify.error("Could not delete the job.", e instanceof ApiError ? e.message : String(e)),
   });
 
-  const artifacts = job?.artifacts ?? [];
-  // Every artifact of a job is written into the job's own directory, so one folder serves the
-  // whole tab. Derived from a path the job already reported rather than reconstructed from the
-  // `code/ti-toolbox/jobs/<id>/` convention, which the client has no business knowing.
-  const folder = useMemo(() => (job ? jobFolder(job) : null), [job]);
+  // The Artifacts tab lists the job's output folder AS IT IS ON DISK (`GET /api/jobs/{id}/artifacts`),
+  // not the handful of files a runner registered: a flex run registers its folder and an ROI scene
+  // and writes twenty files. Re-read whenever the job's state or its registered list changes (the
+  // folder becomes known with the first registration; a finished run stops changing).
+  const outputs = useQuery({
+    queryKey: ["job-outputs", jobId, job?.state, job?.artifacts.length ?? 0],
+    queryFn: () => getJobOutputs(jobId as string),
+    enabled: !!jobId && !!job,
+    staleTime: 5_000,
+  });
+  const files = useMemo(
+    () => (outputs.data?.files ?? []).map((f) => ({ path: f.path, kind: f.kind, bytes: f.bytes })),
+    [outputs.data],
+  );
+  // One folder serves the whole tab: the server's answer, else derived from a path the job
+  // reported rather than reconstructed from the `code/ti-toolbox/jobs/<id>/` convention.
+  const folder = useMemo(() => outputs.data?.folder ?? (job ? jobFolder(job) : null), [outputs.data, job]);
   const openInViewer = useOpenInViewer();
 
   if (!job) {
@@ -277,7 +291,7 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
                 { id: "log", label: "Raw log", content: <JobRawLog job={job} /> },
                 {
                   id: "artifacts",
-                  label: `Artifacts${artifacts.length > 0 ? ` (${artifacts.length})` : ""}`,
+                  label: `Artifacts${files.length > 0 ? ` (${files.length})` : ""}`,
                   content: (
                     <div className="job-detail-tab job-detail-tab-scroll">
                       {/* The same `FileList` the Results panes use, so a CSV, JSON, PNG, PDF or
@@ -289,27 +303,38 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
                           (maintainer review). The header keeps its folder icon — it is the same
                           folder and the same action, and a person looking at the tab should not
                           have to travel to the header to find it; the duplication is deliberate. */}
-                      <FileList
-                        files={job.artifacts}
-                        rootDir={folder ?? undefined}
-                        emptyMessage="This job has written no artifacts."
-                        rowAction={(f) => {
-                          const link = viewerLinkForArtifact(job, f.path);
-                          if (!link) return null;
-                          return (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={<Eye size={13} />}
-                              data-testid={`job-artifact-tetravox-${f.path.split("/").pop()}`}
-                              onClick={() => openInViewer(link)}
-                            >
-                              Open in Tetravox
-                            </Button>
-                          );
-                        }}
-                      />
-                      {folder && job.artifacts.length > 0 && (
+                      {outputs.isError ? (
+                        <InlineError message="Could not list the job's outputs." onAction={() => outputs.refetch()} />
+                      ) : outputs.isPending ? (
+                        <Skeleton rows={3} />
+                      ) : (
+                        <FileList
+                          files={files}
+                          rootDir={folder ?? undefined}
+                          emptyMessage={folder ? "This folder is empty." : "This job has written no outputs."}
+                          rowAction={(f) => {
+                            const size = files.find((x) => x.path === f.path)?.bytes;
+                            const link = viewerLinkForArtifact(job, f.path);
+                            return (
+                              <>
+                                <span className="text-caption tabular-nums job-artifact-size">{size == null ? "" : bytes(size)}</span>
+                                {link && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={<Eye size={13} />}
+                                    data-testid={`job-artifact-tetravox-${f.path.split("/").pop()}`}
+                                    onClick={() => openInViewer(link)}
+                                  >
+                                    Open in Tetravox
+                                  </Button>
+                                )}
+                              </>
+                            );
+                          }}
+                        />
+                      )}
+                      {folder && (
                         <div className="job-detail-artifacts-foot">
                           <Button
                             variant="secondary"

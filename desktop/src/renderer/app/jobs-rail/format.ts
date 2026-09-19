@@ -35,11 +35,14 @@ export interface ResourceLabel {
  * CPU as `peak / avg` over the run, in whole percent — a PARDISO or FastSurfer job reads far
  * above 100 % because the server sums the job's process tree, so decimals would be noise.
  * Falls back to the latest `cpu_percent` for a record written before peaks were kept. `null`
- * when never sampled.
+ * when never sampled — and when the stored value is 0, which is what every record before real
+ * sampling holds.
  */
 export function cpuLabel(job: Pick<JobStatus, "cpu_percent" | "cpu_percent_peak" | "cpu_percent_avg">): ResourceLabel | null {
   const peak = job.cpu_percent_peak ?? job.cpu_percent;
-  if (peak === null || peak === undefined) return null;
+  // A stored 0 is a record from before real sampling (the old poll always read 0.0), not a
+  // measurement: say nothing rather than a fake zero.
+  if (!peak) return null;
   const avg = job.cpu_percent_avg;
   return { peak: `${Math.round(peak)} %`, avg: avg === null || avg === undefined ? null : `${Math.round(avg)} %` };
 }
@@ -47,7 +50,7 @@ export function cpuLabel(job: Pick<JobStatus, "cpu_percent" | "cpu_percent_peak"
 /** RSS as `peak / avg` over the run (`bytes()` units); same fallbacks as `cpuLabel`. */
 export function rssLabel(job: Pick<JobStatus, "rss" | "rss_peak" | "rss_avg">): ResourceLabel | null {
   const peak = job.rss_peak ?? job.rss;
-  if (peak === null || peak === undefined) return null;
+  if (!peak) return null;
   const avg = job.rss_avg;
   return { peak: bytes(peak), avg: avg === null || avg === undefined ? null : bytes(avg) };
 }

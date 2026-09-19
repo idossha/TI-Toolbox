@@ -1495,6 +1495,33 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/jobs/{id}/artifacts:
+    get:
+      tags: [jobs]
+      summary: The job's output folder as it is on disk — every file, with sizes
+      description: >-
+        The Artifacts tab's one source. `folder` is the directory the job's registered
+        artifacts point at (a `dir` artifact first, else the directory of its first file
+        artifact); `files` is read from the filesystem at request time (bounded walk, three
+        levels, jailed to the project), so a run's outputs are listed whether or not the runner
+        registered each one. `folder` is null and `files` empty for a job that registered
+        nothing (failed before writing, or `project_init`).
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobOutputs"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/jobs/{id}/cancel:
     post:
       tags: [jobs]
@@ -4975,6 +5002,22 @@ components:
           type: array
           items: { type: string }
         overwrite: { type: boolean }
+    OutputFile:
+      type: object
+      required: [path, kind, label, bytes]
+      properties:
+        path: { type: string, description: absolute container path }
+        kind: { type: string, description: "by suffix: mesh, nifti, surface, scene, image, csv, json, pdf, report, txt, log, hdf5, file" }
+        label: { type: string, description: the path relative to the job's output folder }
+        bytes: { type: [integer, "null"] }
+    JobOutputs:
+      type: object
+      required: [folder, files]
+      properties:
+        folder: { type: [string, "null"] }
+        files:
+          type: array
+          items: { $ref: "#/components/schemas/OutputFile" }
     JobDetail:
       type: object
       required: [spec, status, artifacts]

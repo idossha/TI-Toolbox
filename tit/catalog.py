@@ -298,21 +298,16 @@ _ARTIFACT_KIND_BY_EXT = {".png": "image", ".csv": "csv", ".json": "json", ".pdf"
 _MANIFEST_FILENAMES = {"flex_meta.json", "run_config.json"}
 
 
-def _dir_artifacts(
+def _walk_files(
     root: str, *, max_depth: int = 3, project_root: str | None = None
-) -> list[dict]:
-    """PNG/CSV/JSON files under *root* (shallow-recursive) as ``Artifact`` dicts.
+) -> list[str]:
+    """Every regular file under *root*, shallow-recursive, sorted by path.
 
-    Shared by :func:`flex_runs` and :func:`ex_runs` for the v1 ``artifacts``
-    array (Pareto-front/convergence/skin-visualization PNGs,
-    ``final_output.csv``, the ``flex_meta.json``/``run_config.json``
-    manifest) -- run outputs the Results/Optimizer pages list directly
-    instead of only a "reveal in folder" link. Recursion is bounded because
-    flex-search's ``detailed_results/`` and per-electrode-array PNGs can
-    nest a few levels deep (see ``tit/opt/flex/builder.py``'s candidate
-    paths); anything deeper is not worth surfacing as a top-level artifact.
-    """
-    out: list[dict] = []
+    Recursion is bounded because flex-search's ``detailed_results/`` and per-electrode-array
+    PNGs can nest a few levels deep (see ``tit/opt/flex/builder.py``'s candidate paths);
+    anything deeper is not worth surfacing as an output. With *project_root* every path is
+    jailed to the project."""
+    out: list[str] = []
     if (project_root and not is_within(project_root, root)) or not os.path.isdir(root):
         return out
     root_depth = root.rstrip(os.sep).count(os.sep)
@@ -320,22 +315,88 @@ def _dir_artifacts(
         if dirpath.rstrip(os.sep).count(os.sep) - root_depth >= max_depth:
             dirnames[:] = []
             continue
-        for name in sorted(filenames):
-            if project_root and not is_within(
-                project_root, os.path.join(dirpath, name)
-            ):
+        for name in filenames:
+            path = os.path.join(dirpath, name)
+            if project_root and not is_within(project_root, path):
                 continue
-            ext = os.path.splitext(name)[1].lower()
-            kind = _ARTIFACT_KIND_BY_EXT.get(ext)
-            if kind is None:
-                continue
-            if name in _MANIFEST_FILENAMES:
-                kind = "manifest"
-            label = os.path.splitext(name)[0].replace("_", " ")
-            out.append(
-                {"path": os.path.join(dirpath, name), "kind": kind, "label": label}
-            )
-    return sorted(out, key=lambda a: a["path"])
+            out.append(path)
+    return sorted(out)
+
+
+def _dir_artifacts(
+    root: str, *, max_depth: int = 3, project_root: str | None = None
+) -> list[dict]:
+    """PNG/CSV/JSON/PDF files under *root* (shallow-recursive) as ``Artifact`` dicts.
+
+    Shared by :func:`flex_runs` and :func:`ex_runs` for the v1 ``artifacts``
+    array (Pareto-front/convergence/skin-visualization PNGs,
+    ``final_output.csv``, the ``flex_meta.json``/``run_config.json``
+    manifest) -- run outputs the Results/Optimizer pages list directly
+    instead of only a "reveal in folder" link.
+    """
+    out: list[dict] = []
+    for path in _walk_files(root, max_depth=max_depth, project_root=project_root):
+        name = os.path.basename(path)
+        ext = os.path.splitext(name)[1].lower()
+        kind = _ARTIFACT_KIND_BY_EXT.get(ext)
+        if kind is None:
+            continue
+        if name in _MANIFEST_FILENAMES:
+            kind = "manifest"
+        label = os.path.splitext(name)[0].replace("_", " ")
+        out.append({"path": path, "kind": kind, "label": label})
+    return out
+
+
+_OUTPUT_KIND_BY_EXT = {
+    **_ARTIFACT_KIND_BY_EXT,
+    ".msh": "mesh",
+    ".opt": "txt",
+    ".nii": "nifti",
+    ".gz": "nifti",
+    ".mgz": "nifti",
+    ".gii": "surface",
+    ".txt": "txt",
+    ".log": "log",
+    ".html": "report",
+    ".hdf5": "hdf5",
+    ".h5": "hdf5",
+    ".npy": "file",
+    ".mat": "file",
+}
+
+
+def output_files(root: str, *, project_root: str | None = None) -> list[dict]:
+    """Every file under a run's output folder as ``{path, kind, label, bytes}`` rows.
+
+    The one filesystem read behind a finished job's Artifacts tab
+    (``GET /api/jobs/{id}/artifacts``): what is on disk, not what a runner remembered to
+    register. ``label`` is the path relative to *root*; ``bytes`` is the file size (``None``
+    if it cannot be stat'ed). Same bounded walk and project jail as :func:`_dir_artifacts`.
+    """
+    out: list[dict] = []
+    for path in _walk_files(root, project_root=project_root):
+        name = os.path.basename(path)
+        lowered = name.lower()
+        if lowered.endswith(".tetravox.json"):
+            kind = "scene"
+        elif lowered.endswith(".nii.gz"):
+            kind = "nifti"
+        else:
+            kind = _OUTPUT_KIND_BY_EXT.get(os.path.splitext(lowered)[1], "file")
+        try:
+            size: int | None = os.path.getsize(path)
+        except OSError:
+            size = None
+        out.append(
+            {
+                "path": path,
+                "kind": kind,
+                "label": os.path.relpath(path, root),
+                "bytes": size,
+            }
+        )
+    return out
 
 
 def _has_ct(pm: PathManager, sid: str) -> bool:

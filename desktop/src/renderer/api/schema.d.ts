@@ -2464,6 +2464,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs/{id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The job's output folder as it is on disk — every file, with sizes
+         * @description The Artifacts tab's one source. `folder` is the directory the job's registered artifacts point at (a `dir` artifact first, else the directory of its first file artifact); `files` is read from the filesystem at request time (bounded walk, three levels, jailed to the project), so a run's outputs are listed whether or not the runner registered each one. `folder` is null and `files` empty for a job that registered nothing (failed before writing, or `project_init`).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobOutputs"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/{id}/cancel": {
         parameters: {
             query?: never;
@@ -6139,6 +6181,19 @@ export interface components {
             after?: string[];
             tags?: string[];
             overwrite?: boolean;
+        };
+        OutputFile: {
+            /** @description absolute container path */
+            path: string;
+            /** @description by suffix: mesh, nifti, surface, scene, image, csv, json, pdf, report, txt, log, hdf5, file */
+            kind: string;
+            /** @description the path relative to the job's output folder */
+            label: string;
+            bytes: number | null;
+        };
+        JobOutputs: {
+            folder: string | null;
+            files: components["schemas"]["OutputFile"][];
         };
         JobDetail: {
             spec: components["schemas"]["JobSpec"];

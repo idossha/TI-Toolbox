@@ -74,6 +74,14 @@ def main() -> None:
                 overwrite=os.environ.get("TIT_JOB_OVERWRITE") == "1",
             )
             for r in results:
+                # The montage's own directory first: it is the folder the Jobs page lists
+                # from disk (GET /api/jobs/{id}/artifacts), so it must name the whole run
+                # (TI/, high_Frequency/, documentation/), not only the mesh's subfolder.
+                out_dir = r.get("output_dir")
+                if out_dir:
+                    events.emit_artifact(
+                        out_dir, kind="dir", label=r.get("montage_name")
+                    )
                 mesh = r.get("output_mesh")
                 if mesh:
                     events.emit_artifact(mesh, kind="mesh", label=r.get("montage_name"))

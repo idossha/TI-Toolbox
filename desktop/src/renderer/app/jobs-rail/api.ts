@@ -70,6 +70,14 @@ export async function getJobEvents(id: string, since = 0): Promise<JobEvent[]> {
   return unwrap(await api.GET("/api/jobs/{id}/events", { params: { path: { id }, query: { since } } }), `/api/jobs/${id}/events`);
 }
 
+export type JobOutputs = components["schemas"]["JobOutputs"];
+export type OutputFile = components["schemas"]["OutputFile"];
+
+/** The job's output folder as it is on disk — the Artifacts tab's one source (`GET /api/jobs/{id}/artifacts`). */
+export async function getJobOutputs(id: string): Promise<JobOutputs> {
+  return unwrap(await api.GET("/api/jobs/{id}/artifacts", { params: { path: { id } } }), `/api/jobs/${id}/artifacts`);
+}
+
 export async function getJobLog(id: string, tail?: number): Promise<string> {
   return unwrap(
     await api.GET("/api/jobs/{id}/log", { params: { path: { id }, query: tail ? { tail } : {} }, parseAs: "text" }),

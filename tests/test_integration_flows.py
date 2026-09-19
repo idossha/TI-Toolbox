@@ -133,6 +133,16 @@ def test_simulation_orchestration_creates_expected_outputs(init_pm, tmp_project)
                 / "mesh"
                 / "test_montage_TI.msh"
             ),
+            # The montage's own directory, which the runner registers as the job's output
+            # folder (the Jobs page lists it from disk).
+            "output_dir": str(
+                tmp_project
+                / "derivatives"
+                / "SimNIBS"
+                / "sub-001"
+                / "Simulations"
+                / "test_montage"
+            ),
         }
     ]
     assert progress == [(0, 1, "test_montage"), (1, 1, "Complete")]

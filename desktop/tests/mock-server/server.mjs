@@ -3398,6 +3398,22 @@ route("GET", "/api/jobs/:id/events", (ctx) => {
   }
   json(ctx.res, 200, job.events.filter((e) => e.seq >= since));
 });
+// The real server walks the job's output folder on disk (`JobManager.get_outputs`); the mock has
+// no filesystem, so the folder's contents ARE the artifacts `finishJob` registered, with sizes.
+route("GET", "/api/jobs/:id/artifacts", (ctx) => {
+  const job = jobRegistry.get(ctx.params.id);
+  if (!job) return json(ctx.res, 404, { detail: "unknown job" });
+  const registered = job.status.artifacts;
+  const first = registered.find((a) => a.path)?.path;
+  const folder = first ? first.slice(0, first.lastIndexOf("/")) : null;
+  const files = registered.map((a, i) => ({
+    path: a.path,
+    kind: a.kind,
+    label: folder && a.path.startsWith(folder + "/") ? a.path.slice(folder.length + 1) : a.path,
+    bytes: 1024 * (i + 1) * 37,
+  }));
+  json(ctx.res, 200, { folder, files });
+});
 route("GET", "/api/jobs/:id/log", (ctx) => {
   const job = jobRegistry.get(ctx.params.id);
   if (!job) return json(ctx.res, 404, { detail: "unknown job" });

@@ -56,7 +56,9 @@ def _reset_job_manager():
     bootstrap.reset_manager()
 
 
-def seed_head_model(project: Path, subject_id: str, electrodes=("E1", "E2", "E3", "E4")) -> None:
+def seed_head_model(
+    project: Path, subject_id: str, electrodes=("E1", "E2", "E3", "E4")
+) -> None:
     """The inputs `tit.jobs.preflight` requires of a `sim` job: m2m folder, head mesh, EEG net.
 
     Submission now refuses a job whose inputs are not on disk (422 "Missing inputs"), so the
@@ -88,7 +90,9 @@ def settings(project: Path) -> ServerSettings:
 def client(project: Path, settings: ServerSettings, monkeypatch) -> TestClient:
     # Match the fixed test budget, independently of this machine or saved user preferences.
     monkeypatch.setattr("tit.surfer_settings.available_threads", lambda: 8)
-    monkeypatch.setattr("tit.surfer_settings.settings_path", lambda: project / "preferences.json")
+    monkeypatch.setattr(
+        "tit.surfer_settings.settings_path", lambda: project / "preferences.json"
+    )
     get_path_manager(str(project))
     manager = JobManager(
         str(project),
@@ -120,9 +124,7 @@ def test_job_detail_top_level_shape_is_exactly_the_contract(
     yaml = pytest.importorskip("yaml")
 
     contract = yaml.safe_load(
-        (
-            Path(__file__).resolve().parents[1] / "contracts" / "openapi.yaml"
-        ).read_text()
+        (Path(__file__).resolve().parents[1] / "contracts" / "openapi.yaml").read_text()
     )
     required = contract["components"]["schemas"]["JobDetail"]["required"]
     assert set(required) == {
@@ -228,7 +230,9 @@ def test_submit_validation_errors(client: TestClient) -> None:
     )
 
 
-def test_submit_rejects_a_subject_id_that_is_not_one(client: TestClient, project: Path) -> None:
+def test_submit_rejects_a_subject_id_that_is_not_one(
+    client: TestClient, project: Path
+) -> None:
     """RUN-05: a subject id becomes a `sub-<id>` path component in every runner downstream.
 
     Rejected before persistence — no job record, no spec.json, no scaffolded directory.
@@ -345,6 +349,76 @@ def test_get_events_log_unknown_job_404(client: TestClient) -> None:
     assert client.get("/api/jobs/nope", headers=BEARER).status_code == 404
     assert client.get("/api/jobs/nope/events", headers=BEARER).status_code == 404
     assert client.get("/api/jobs/nope/log", headers=BEARER).status_code == 404
+    assert client.get("/api/jobs/nope/artifacts", headers=BEARER).status_code == 404
+
+
+def test_artifacts_route_lists_the_output_folder_from_disk(
+    client: TestClient, project: Path
+) -> None:
+    """The Artifacts tab's source is the folder on disk, not the runner's registered list: a
+    runner that registers one file in a folder of four gets all four back, with sizes; a job
+    that registered nothing has no folder and no files."""
+    out = project / "derivatives" / "SimNIBS" / "sub-001" / "flex-search" / "run_1"
+    out.mkdir(parents=True)
+    (out / "final_output.csv").write_text("a,b\n1,2\n")
+    (out / "roi.tetravox.json").write_text("{}")
+    (out / "mesh.msh").write_bytes(b"x" * 300)
+    (out / "detailed").mkdir()
+    (out / "detailed" / "iter_1.png").write_bytes(b"p")
+    r = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={
+            "kind": "tools",
+            "config": {
+                "__fake": {"duration_s": 0.05, "artifact": str(out / "mesh.msh")}
+            },
+            "subject_ids": ["001"],
+        },
+    )
+    job_id = r.json()["id"]
+    wait_until(
+        lambda: client.get(f"/api/jobs/{job_id}", headers=BEARER).json()["status"][
+            "state"
+        ]
+        == "succeeded"
+    )
+    body = client.get(f"/api/jobs/{job_id}/artifacts", headers=BEARER).json()
+    assert body["folder"] == str(out)
+    assert [f["label"] for f in body["files"]] == [
+        "detailed/iter_1.png",
+        "final_output.csv",
+        "mesh.msh",
+        "roi.tetravox.json",
+    ]
+    by_label = {f["label"]: f for f in body["files"]}
+    assert (
+        by_label["mesh.msh"]["bytes"] == 300 and by_label["mesh.msh"]["kind"] == "mesh"
+    )
+    assert by_label["roi.tetravox.json"]["kind"] == "scene"
+    assert by_label["detailed/iter_1.png"]["kind"] == "image"
+    assert all(f["path"].startswith(str(out)) for f in body["files"])
+
+    r = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={
+            "kind": "tools",
+            "config": {"__fake": {"duration_s": 0.05}},
+            "subject_ids": ["001"],
+        },
+    )
+    bare = r.json()["id"]
+    wait_until(
+        lambda: client.get(f"/api/jobs/{bare}", headers=BEARER).json()["status"][
+            "state"
+        ]
+        == "succeeded"
+    )
+    assert client.get(f"/api/jobs/{bare}/artifacts", headers=BEARER).json() == {
+        "folder": None,
+        "files": [],
+    }
 
 
 def test_list_filters_by_state_and_kind_validate_enum(client: TestClient) -> None:
@@ -524,7 +598,8 @@ def test_groups_invalid_config_422(client: TestClient) -> None:
 
 def test_groups_rejects_a_kind_that_is_not_per_subject(client: TestClient) -> None:
     """R3 generalized groups to sim/flex/ex/mex, but not to cohort kinds: a group Analyzer run is
-    one job over the whole cohort and has no per-subject cap, so ``analyzer`` is still a 422."""
+    one job over the whole cohort and has no per-subject cap, so ``analyzer`` is still a 422.
+    """
     r = client.post(
         "/api/jobs/groups",
         headers=BEARER,
@@ -659,7 +734,8 @@ def test_sim_group_invalid_config_is_422(client: TestClient) -> None:
 
 def test_group_cap_of_one_never_runs_two_members_at_once(client: TestClient) -> None:
     """R3 gate, server-side half: with `parallel_subjects: 1` the whole group is created in one
-    request (no client-side POST spacing) and the scheduler never has two members `running`."""
+    request (no client-side POST spacing) and the scheduler never has two members `running`.
+    """
     r = client.post(
         "/api/jobs/groups",
         headers=BEARER,
@@ -805,7 +881,9 @@ def test_ws_jobs_rejects_foreign_origin(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("group", [False, True])
-def test_existing_sim_output_with_explicit_overwrite_is_accepted(client, project, group):
+def test_existing_sim_output_with_explicit_overwrite_is_accepted(
+    client, project, group
+):
     output = Path(get_path_manager().simulation("002", "m1"))
     output.mkdir(parents=True)
     (output / "previous.txt").write_text("keep")
@@ -910,6 +988,7 @@ def test_pre_dti_replacement_does_not_confuse_existing_head_with_tensor(client):
 def test_delete_reports_disk_failure(client, monkeypatch):
     def fail(*args):
         raise PermissionError("read only")
+
     monkeypatch.setattr(JobManager, "delete", fail)
     response = client.delete("/api/jobs/example", headers=BEARER)
     assert response.status_code == 500
@@ -940,10 +1019,14 @@ def test_ws_backfill_drains_in_order_without_per_event_thread_hops(monkeypatch):
         output = asyncio.Queue()
         task = asyncio.create_task(module._pump(source, lambda item: item, output))
         try:
-            received = [await asyncio.wait_for(output.get(), timeout=2) for _ in range(1024)]
+            received = [
+                await asyncio.wait_for(output.get(), timeout=2) for _ in range(1024)
+            ]
             assert [item["seq"] for item in received] == list(range(1024))
             assert received[-1]["msg"] == "final"
-            assert calls < 10  # Backlog delivery must not incur 1,024 threadpool handoffs.
+            assert (
+                calls < 10
+            )  # Backlog delivery must not incur 1,024 threadpool handoffs.
         finally:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -979,7 +1062,11 @@ def test_submit_refuses_a_job_whose_inputs_are_missing_and_creates_no_record(
     r = client.post(
         "/api/jobs",
         headers=BEARER,
-        json={"kind": "analyzer", "config": _voxel_dk40_analysis(), "subject_ids": ["001"]},
+        json={
+            "kind": "analyzer",
+            "config": _voxel_dk40_analysis(),
+            "subject_ids": ["001"],
+        },
     )
     assert r.status_code == 422, r.text
     body = r.json()
@@ -987,12 +1074,16 @@ def test_submit_refuses_a_job_whose_inputs_are_missing_and_creates_no_record(
     paths = [m["expected_path"] for m in body["missing"]]
     assert pm.simulation("001", "L_Insula") in paths
     assert str(Path(pm.fastsurfer_mri("001")) / "aparc.DKTatlas+aseg.deep.mgz") in paths
-    assert all({"what", "expected_path", "how_to_fix"} <= set(m) for m in body["missing"])
+    assert all(
+        {"what", "expected_path", "how_to_fix"} <= set(m) for m in body["missing"]
+    )
     assert any("FastSurfer" in m["how_to_fix"] for m in body["missing"])
     assert client.get("/api/jobs", headers=BEARER).json() == []
 
 
-def test_group_submission_is_refused_when_one_subject_lacks_an_input(client: TestClient) -> None:
+def test_group_submission_is_refused_when_one_subject_lacks_an_input(
+    client: TestClient,
+) -> None:
     pm = get_path_manager()
     r = client.post(
         "/api/jobs/groups",
@@ -1010,12 +1101,20 @@ def test_group_submission_is_refused_when_one_subject_lacks_an_input(client: Tes
     assert client.get("/api/jobs", headers=BEARER).json() == []
 
 
-def test_preflight_route_reports_without_submitting(client: TestClient, project: Path) -> None:
+def test_preflight_route_reports_without_submitting(
+    client: TestClient, project: Path
+) -> None:
     pm = get_path_manager()
-    body = {"kind": "analyzer", "config": _voxel_dk40_analysis(), "subject_ids": ["001"]}
+    body = {
+        "kind": "analyzer",
+        "config": _voxel_dk40_analysis(),
+        "subject_ids": ["001"],
+    }
     r = client.post("/api/jobs/preflight", headers=BEARER, json=body)
     assert r.status_code == 200
-    assert pm.simulation("001", "L_Insula") in [m["expected_path"] for m in r.json()["missing"]]
+    assert pm.simulation("001", "L_Insula") in [
+        m["expected_path"] for m in r.json()["missing"]
+    ]
     assert client.get("/api/jobs", headers=BEARER).json() == []
     ok = client.post(
         "/api/jobs/preflight",
@@ -1023,5 +1122,7 @@ def test_preflight_route_reports_without_submitting(client: TestClient, project:
         json={"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]},
     )
     assert ok.json() == {"missing": []}
-    bad = client.post("/api/jobs/preflight", headers=BEARER, json={"kind": "nope", "config": {}})
+    bad = client.post(
+        "/api/jobs/preflight", headers=BEARER, json={"kind": "nope", "config": {}}
+    )
     assert bad.status_code == 422

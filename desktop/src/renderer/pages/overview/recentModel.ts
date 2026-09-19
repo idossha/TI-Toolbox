@@ -72,9 +72,10 @@ export function destinationFor(job: JobStatus): RecentJobDestination {
  * carries no run name of its own, and this is derivable from what it does carry.
  */
 export function runNameOf(job: JobStatus): string | null {
-  const paths = job.artifacts.map((a) => a.path).filter((p) => p.length > 0);
-  if (paths.length === 0) return null;
-  const parts = paths.map((p) => p.split("/").slice(0, -1));
+  const named = job.artifacts.filter((a) => a.path.length > 0);
+  if (named.length === 0) return null;
+  // A `dir` artifact IS the run's folder (sim and flex register theirs); a file's folder is its parent.
+  const parts = named.map((a) => (a.kind === "dir" ? a.path.split("/") : a.path.split("/").slice(0, -1)));
   const first = parts[0] as string[];
   let shared = first.length;
   for (const other of parts.slice(1)) {

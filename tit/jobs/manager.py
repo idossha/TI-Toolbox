@@ -483,6 +483,34 @@ class JobManager:
             status = self._status.get(job_id)
             return status.to_api(self.project_dir) if status else None
 
+    def get_outputs(self, job_id: str) -> dict[str, Any] | None:
+        """What the job's output folder holds *on disk* -- ``{"folder", "files"}``.
+
+        The folder is the one the job's registered artifacts point at (a ``dir`` artifact
+        first, else the directory of its first file artifact); the files are read from the
+        filesystem now, so the Artifacts tab shows every output of a run rather than only the
+        handful a runner registered. ``folder`` is ``None`` (and ``files`` empty) for a job
+        that registered nothing -- one that failed before writing, or ``project_init``.
+        """
+        from tit.catalog import output_files
+
+        with self._lock:
+            status = self._status.get(job_id)
+            if status is None:
+                return None
+            artifacts = list(status.artifacts)
+        folder = None
+        for a in artifacts:
+            if a.kind == "dir" and a.path:
+                folder = a.path
+                break
+        if folder is None:
+            first = next((a.path for a in artifacts if a.path), None)
+            if first:
+                folder = os.path.dirname(first)
+        files = output_files(folder, project_root=self.project_dir) if folder else []
+        return {"folder": folder, "files": files}
+
     def get_detail(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:
             spec = self._specs.get(job_id)

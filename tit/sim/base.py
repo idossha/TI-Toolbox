@@ -170,6 +170,7 @@ class BaseSimulation(ABC):
             "montage_type": self._montage_type_label,
             "status": "completed",
             "output_mesh": output_mesh,
+            "output_dir": montage_dir,
         }
 
     # ── Shared helpers ──────────────────────────────────────────────────

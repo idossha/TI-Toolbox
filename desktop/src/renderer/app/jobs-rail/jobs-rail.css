@@ -194,6 +194,13 @@
   table-layout: fixed;
   width: 100%;
 }
+/*
+ * Widths are measured, not guessed (jobs-columns.spec.ts keeps them honest): in the table's 12px
+ * font the widest realistic CPU cell "1106 % · avg 368 %" is 110px and the widest RSS cell
+ * "50.2 GB · avg 16.1 GB" is 119px; each gets that plus the 16px cell padding and a little air.
+ * "flex_adaptive" is 73px, "12m 59s" 48px. SUBJECTS is the one column with no width — it takes
+ * the slack, so the numbers stay packed at the right edge and the text column is what grows.
+ */
 /* The rail's DataTable: state · kind · subjects · elapsed · CPU · RSS · waiting-on. */
 .jobs-table table:not(.selection-table) th:nth-child(1),
 .jobs-table table:not(.selection-table) td:nth-child(1) {
@@ -201,7 +208,7 @@
 }
 .jobs-table table:not(.selection-table) th:nth-child(2),
 .jobs-table table:not(.selection-table) td:nth-child(2) {
-  width: 88px;
+  width: 96px;
 }
 .jobs-table table:not(.selection-table) th:nth-child(4),
 .jobs-table table:not(.selection-table) td:nth-child(4) {
@@ -209,25 +216,25 @@
 }
 .jobs-table table:not(.selection-table) th:nth-child(5),
 .jobs-table table:not(.selection-table) td:nth-child(5) {
-  width: 132px;
+  width: 136px;
 }
 .jobs-table table:not(.selection-table) th:nth-child(6),
 .jobs-table table:not(.selection-table) td:nth-child(6) {
-  width: 148px;
+  width: 144px;
 }
 .jobs-table table:not(.selection-table) th:nth-child(7),
 .jobs-table table:not(.selection-table) td:nth-child(7) {
   width: 116px;
 }
-/* The page's selection list: the same columns behind its checkbox column (`selection.css` sizes
-   that one), so every index is one higher and there is no waiting-on. */
+/* The page's selection list: the same columns behind its checkbox column, so every index is one
+   higher and there is no waiting-on. The checkbox column's own 24px + padding is `selection.css`. */
 .jobs-table .selection-table th:nth-child(2),
 .jobs-table .selection-table td:nth-child(2) {
-  width: 96px;
+  width: 108px;
 }
 .jobs-table .selection-table th:nth-child(3),
 .jobs-table .selection-table td:nth-child(3) {
-  width: 88px;
+  width: 104px;
 }
 .jobs-table .selection-table th:nth-child(5),
 .jobs-table .selection-table td:nth-child(5) {
@@ -235,11 +242,15 @@
 }
 .jobs-table .selection-table th:nth-child(6),
 .jobs-table .selection-table td:nth-child(6) {
-  width: 132px;
+  width: 136px;
 }
 .jobs-table .selection-table th:nth-child(7),
 .jobs-table .selection-table td:nth-child(7) {
-  width: 148px;
+  width: 144px;
+}
+/* A resource cell is sized to its widest string above; it is never ellipsized. */
+.jobs-table td:has(> .jobs-cell-resource) {
+  text-overflow: clip;
 }
 .jobs-cell-resource-avg {
   color: var(--ink-3);
@@ -527,4 +538,10 @@
   margin-top: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
+}
+/* The size at the right end of an Artifacts row, before its Tetravox button when it has one. */
+.job-artifact-size {
+  color: var(--ink-3);
+  margin-left: auto;
+  padding-left: var(--space-2);
 }

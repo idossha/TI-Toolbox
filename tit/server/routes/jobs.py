@@ -408,6 +408,18 @@ def get_log(
     return log
 
 
+@router.get(
+    "/api/jobs/{job_id}/artifacts",
+    summary="The job's output folder as it is on disk (every file, with sizes)",
+)
+async def get_artifacts(request: Request, job_id: str) -> dict[str, Any]:
+    # A directory walk: keep it off the event loop.
+    outputs = await run_in_threadpool(_manager(request).get_outputs, job_id)
+    if outputs is None:
+        raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
+    return outputs
+
+
 @router.post(
     "/api/jobs/{job_id}/cancel",
     summary="Cancel a queued or running job (tree snapshot -> SIGTERM -> SIGKILL)",

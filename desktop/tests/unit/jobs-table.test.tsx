@@ -122,6 +122,12 @@ describe("JobsTable at three heights", () => {
     cells = [...container.querySelectorAll("tbody tr td")].map((td) => td.textContent?.trim());
     expect(cells).toContain("43 %");
     expect(cells).toContain("512 MB");
+    // ...but a stored 0 is the old poll's fake reading, not a measurement: a dash, never "0 %".
+    render("page", [job({ cpu_percent: 0, rss: 0, cpu_percent_peak: 0, cpu_percent_avg: 0, rss_peak: 0, rss_avg: 0 })]);
+    cells = [...container.querySelectorAll("tbody tr td")].map((td) => td.textContent?.trim());
+    expect(cells).not.toContain("0 %");
+    expect(cells).not.toContain("0 KB");
+    expect(cells.filter((c) => c === "—").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows a skeleton on first load, not on refetch", () => {

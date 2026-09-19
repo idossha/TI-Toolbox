@@ -80,6 +80,21 @@ describe("runNameOf", () => {
     );
   });
 
+  it("takes a `dir` artifact as the run folder itself, not its parent", () => {
+    // A simulation registers its montage directory and then its mesh three levels down; the run
+    // is the montage, not "Simulations".
+    expect(
+      runNameOf(
+        job({
+          artifacts: [
+            { path: "/p/Simulations/L_Insula", kind: "dir" },
+            { path: "/p/Simulations/L_Insula/TI/mesh/L_Insula_TI.msh", kind: "mesh" },
+          ],
+        } as Partial<JobStatus>),
+      ),
+    ).toBe("L_Insula");
+  });
+
   it("is null when the job wrote nothing", () => {
     expect(runNameOf(job({ artifacts: [] }))).toBeNull();
   });

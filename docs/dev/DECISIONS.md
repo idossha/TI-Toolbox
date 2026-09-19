@@ -51,6 +51,7 @@ rationale below consolidates later amendments without treating superseded design
 | 32 | 2026-09-17 | A plan's CPUs, threads and duration are the run's: one CPU detector, one budget env var, one estimate model per kind | live |
 | 33 | 2026-09-18 | Path validation at the boundary: one name grammar, one lexical join, one physical containment check; CodeQL alerts resolved by shape, not suppression | amends 30 |
 | 34 | 2026-09-19 | A job's CPU/RSS are its process tree's, sampled once a second; peak and average persist with the record; the Jobs table drops STAGE | live |
+| 35 | 2026-09-19 | The Artifacts tab lists the job's output folder from disk (`GET /api/jobs/{id}/artifacts`); a runner registers where it wrote, not what | live |
 
 ## Runtime and distribution
 
@@ -1534,3 +1535,26 @@ kept.
 
 **Revisit if** the stall detector needs a per-child view, or the UI wants a time series rather
 than two numbers (then the samples belong in `events.jsonl`, not in `status.json`).
+
+## 2026-09-19 — The Artifacts tab is the folder on disk; a runner registers where, not what (ADR row 35)
+
+**Decision.** `GET /api/jobs/{id}/artifacts` returns the job's output folder and every file in
+it (bounded walk, three levels, jailed to the project, with sizes) — `tit.catalog.output_files`,
+the same walk `flex_runs`/`ex_runs` use for Results. The Jobs page's Artifacts tab shows that
+list and counts it; `JobStatus.artifacts` stays the runner's *registered* outputs and is used
+only to say **where** the folder is (a `dir` artifact first, else the directory of the first
+file) and, on the Overview, which run a job was. The simulation runner now registers the
+montage's directory (`dir`) before its mesh, as the flex runner already did.
+
+**Why.** A run's tab said "Artifacts (3)" for an ex-search whose folder held ten files and
+"Artifacts (2)" for a flex run with thirty-three: each runner remembered to register a
+different handful, and a list maintained by hand in six runners can only ever be a subset of
+what is on disk. The Results page never had this problem because it reads the folder.
+
+**Cost.** One directory walk per tab open (re-read when the job's state or registered count
+changes). A job that registered nothing — failed before writing, or `project_init` — still
+shows nothing, because the server does not guess folders. A folder deleted since the run lists
+as empty, which is the truth.
+
+**Revisit if** a runner's outputs land in more than one folder (then the registered list
+should carry several `dir` entries and the route should union them).

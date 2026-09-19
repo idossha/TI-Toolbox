@@ -315,6 +315,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/jobs/{id}", "GET", `/api/jobs/${jobId}`);
     await call("/api/jobs/{id}/events", "GET", `/api/jobs/${jobId}/events`);
     await call("/api/jobs/{id}/log", "GET", `/api/jobs/${jobId}/log`);
+    await call("/api/jobs/{id}/artifacts", "GET", `/api/jobs/${jobId}/artifacts`);
     await call("/api/jobs/{id}/cancel", "POST", `/api/jobs/${groupJobId}/cancel`);
     await waitForState(jobId, ["succeeded", "failed"]);
     const { json: rerun } = await call("/api/jobs/{id}/rerun", "POST", `/api/jobs/${jobId}/rerun`);
