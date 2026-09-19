@@ -286,20 +286,6 @@ export function cellChipCounts(cell: PlanCell): { chip: PlanChip; count: number 
 }
 
 /**
- * The action bar's one-line digest (DESIGN.md §4.5). Derived, never written: the strip and the
- * digest read the same object, so they cannot disagree.
- */
-export function planDigest(plan: PlanModel): string {
-  if (plan.blockedReason) return plan.blockedReason;
-  const { jobs, cpus, memoryGb, waits } = plan.stats;
-  const overwrites = countChip(plan, "overwrite");
-  let out = `${jobs} job${jobs === 1 ? "" : "s"} · ${cpus} CPU · ${memoryGb} GB`;
-  if (overwrites) out += ` · ${overwrites} overwrite`;
-  if (waits) out += ` · ${waits} wait`;
-  return out;
-}
-
-/**
  * Fold the per-row plan responses a page issues one-per-job (Simulator plans one
  * `POST /api/plan/sim` per (subject, montage) row) into the single `PlanResult` the model reads.
  *
@@ -376,4 +362,22 @@ export function planCounts(plan: PlanModel | null): PlanCounts {
     }
   }
   return { jobs, existing, overwrites, blocked, waits: plan?.stats.waits ?? 0 };
+}
+
+/**
+ * The action bar's digest (`.action-bar-digest`, DESIGN.md §4.5): "4 jobs" (or "1 job"), or
+ * "3 of 4 ready" when some rows are blocked — the same `blocked`/`chip` logic the Run button
+ * itself respects, read from `planCounts` so the digest can never claim a different count than
+ * what Run would actually submit. Used to also print `cost.cpus`/`cost.mem_gb`; that was dropped
+ * 2026-09-19 along with the Plan panel's JOBS/CPU/MEM tiles, because neither estimate was
+ * reliable — this prints only the count. `null` while there is nothing to count yet (no plan, a
+ * blocked plan — the primary's disabled state and tooltip are the only signal then — or a plan
+ * with zero jobs); callers fall back to the blocked reason or "Resolving the plan…".
+ */
+export function jobCountLabel(plan: PlanModel | null): string | null {
+  if (!plan || plan.blockedReason) return null;
+  const { jobs, blocked } = planCounts(plan);
+  if (jobs === 0) return null;
+  if (blocked > 0) return `${jobs - blocked} of ${jobs} ready`;
+  return `${jobs} job${jobs === 1 ? "" : "s"}`;
 }

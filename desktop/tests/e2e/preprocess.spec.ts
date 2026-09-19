@@ -56,7 +56,6 @@ test("shape A: work pane, run panel, action bar — and no page header", async (
   const pane = page.getByTestId("page-right-pane");
   await expect(pane).toBeVisible();
   await expect(pane.getByTestId("run-panel")).toBeVisible();
-  await expect(pane.getByTestId("plan-grid")).toBeVisible();
   await expect(pane.getByTestId("job-terminal")).toBeVisible();
   // §2.3: the primary lives in the action bar at the bottom of the work pane, with the digest.
   await expect(page.getByTestId("page-work").locator(".action-bar")).toBeVisible();
@@ -69,77 +68,13 @@ test("the subject control is the shared grammar (J1), open by default because ba
   await expectSubjectsGrammar(page, { mode: "per-subject", selected: ["ernie"], rows: 3 });
 });
 
-test("the plan is a subject x stage matrix of chips, with one legend and no free text", async () => {
+test("selecting a second subject plans jobs for both, reflected in the action-bar digest", async () => {
   // ernie comes from the switcher; tick 101 in this page's own batch table.
   await setSubjectChecked(page, "101", true);
 
-  const grid = page.getByTestId("plan-grid");
-  await expect(grid.getByTestId("plan-stat-jobs")).toBeVisible();
-  await expect(grid.getByTestId("plan-stat-cpus")).toBeVisible();
-  await expect(grid.getByTestId("plan-stat-mem")).toBeVisible();
-  await expect(grid.getByTestId("plan-stat-waits")).toBeVisible();
-  // The duration estimate is a tile like any other, and always says what it is based on.
-  await expect(grid.getByTestId("plan-stat-eta")).toBeVisible();
-  await expect(grid.getByTestId("plan-stat-eta")).toHaveAttribute("title", /Estimate for this machine|No measured basis/);
-
-  // FXU1: the columns are every stage THIS configuration runs, in `plan_preprocessing`'s G1..G6
-  // order, whether or not the plan returned a job for one — so the grid is a matrix, not a strip.
-  // Both selected subjects get a row; a diagonal would be the bug.
-  for (const subject of ["ernie", "101"]) {
-    for (const stage of ["G1", "G2a", "G2b"]) {
-      await expect(page.getByTestId(`plan-cell-${subject}-${stage}`)).toHaveText(/^(new|skip|overwrite|blocked|wait|·)$/);
-    }
-  }
-  // A report is an attachment of the job that produced it, so there is no REPORT column and
-  // nothing in the counts for it (maintainer, 2026-09-07).
-  await expect(page.getByTestId("plan-cell-ernie-report")).toHaveCount(0);
-  await expect(grid.locator(".plan-matrix thead th", { hasText: /^report$/ })).toHaveCount(0);
-
-  // A mixed plan: ernie has raw + m2m + fastsurfer on disk, 101 has no fastsurfer, so the matrix
-  // carries both `skip` and `new` rather than one repeated chip.
-  await expect(page.getByTestId("plan-cell-ernie-G2b")).toHaveText("skip");
-  await expect(page.getByTestId("plan-cell-101-G2b")).toHaveText("new");
-
-  // One geometry in every mode (maintainer, 2026-09-06): the stage columns are evenly spaced and
-  // the first does not hug the subject id. Measured, not read off the stylesheet — `table-layout:
-  // fixed` with only the subject column sized is what divides the rest equally, and this is the
-  // proof. Asserted on the header row, which is where a column's x position is decided.
-  const geometry = await grid.locator(".plan-matrix").evaluate((table) => {
-    const head = [...table.querySelectorAll("thead th")];
-    const xs = head.slice(1).map((th) => th.getBoundingClientRect().x);
-    // The subject *text*, not its cell: the cell is the fixed 96px column, and the gap the rule is
-    // about is the one the reader sees between the id and the first chip.
-    const subjectCell = table.querySelector("tbody th");
-    const range = subjectCell ? document.createRange() : null;
-    if (range && subjectCell) range.selectNodeContents(subjectCell);
-    const subjectText = range?.getBoundingClientRect();
-    const firstStage = head[1]?.getBoundingClientRect();
-    const pad = head[1] ? parseFloat(getComputedStyle(head[1]).paddingLeft) : 0;
-    return { xs, gap: (firstStage?.x ?? 0) + pad - (subjectText?.right ?? 0) };
-  });
-  expect(geometry.xs.length).toBeGreaterThanOrEqual(3);
-  // Every step between neighbouring stage columns is the same, to within 2px.
-  const steps = geometry.xs.slice(1).map((x, i) => x - (geometry.xs[i] ?? 0));
-  const first = steps[0] ?? 0;
-  for (const [i, step] of steps.entries()) expect(Math.abs(step - first), `step ${i} = ${step}, first = ${first}`).toBeLessThanOrEqual(2);
-  expect(geometry.gap, "the subject id sits against the first stage").toBeGreaterThanOrEqual(24);
-
-  // §4.5 + FXU1: exactly one legend, and it names ONLY the chips the matrix contains — a row of
-  // all five chips read as data rather than as a key.
-  const legend = grid.getByTestId("plan-legend");
-  await expect(legend).toHaveCount(1);
-  await expect(legend).toContainText("new");
-  await expect(legend).toContainText("skip");
-  await expect(legend).not.toContainText("blocked");
-  await expect(legend).not.toContainText("wait");
-  // The legend is one muted line, not a chip row.
-  await expect(legend.locator(".chip")).toHaveCount(0);
-  // ...and its job count is the stage count, with nothing added for a report.
-  await expect(legend).toContainText("6 jobs in this plan");
-
-  // The digest is derived from the same model as the strip, so the two cannot disagree.
+  // The digest is derived from the resolved plan, so it states both subjects' jobs.
   // 2 subjects x 3 stages = 6. It was 8 while each subject also got a report job.
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^6 jobs · \d+ CPU · \d+ GB/);
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^6 jobs$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText(/^Queue 6 jobs$/);
 });
 
@@ -250,7 +185,7 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
           waitFor: async () => {
             // §12.3 measures the POPULATED state: the plan resolved and the terminal carrying the
             // log of the job this page just started, not an idle pane.
-            await expect(page.getByTestId("plan-grid")).toBeVisible();
+            await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
             // Best effort: the mock emits log events on a timer, so a capture may land before the
             // first line. The number is then taken on an empty console, which is the honest
             // reading of what is on screen, not a retry until it flatters.
@@ -511,8 +446,7 @@ test("optional FreeSurfer plans and submits selected operations and retains them
   for (const label of ["Convert DICOM to NIfTI", "SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
     await page.getByRole("checkbox", { name: label, exact: true }).uncheck();
   }
-  await expect(page.getByTestId("plan-cell-ernie-G2c")).toHaveText("new");
-  await expect(page.getByTestId("plan-grid").locator("thead")).toContainText("freesurfer");
+  await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
   const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   const response = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
   await page.getByTestId("run-button").click();

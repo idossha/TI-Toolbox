@@ -1,6 +1,6 @@
 /**
- * The run pages' step catalogue, its estimate, and the plan grid's legend, as pure functions. No
- * browser, no socket: the rules are the thing under test, not React.
+ * The run pages' step catalogue, its estimate, and `planModelFrom`'s stage derivation, as pure
+ * functions. No browser, no socket: the rules are the thing under test, not React.
  *
  * The Terminal's log-FILE source and its "What will run" preview were retired in fix lane FXU2 —
  * the pane shows a running job or an empty console — so `parseLogText`/`pickLogFile`/`logBasename`
@@ -14,7 +14,6 @@ import {
   RUN_STEPS,
   stepsFor,
 } from "../../src/renderer/pages/_shared/run/terminalSources";
-import { chipsPresent } from "../../src/renderer/pages/_shared/run/PlanGrid";
 import { planModelFrom, type PlanResult } from "../../src/renderer/pages/_shared/run/planModel";
 
 describe("the estimate", () => {
@@ -106,7 +105,7 @@ describe("stepsFor", () => {
   });
 });
 
-describe("the legend names only the chips the matrix contains", () => {
+describe("planModelFrom's stage-column derivation", () => {
   const result: PlanResult = {
     jobs: [
       { kind: "pre", subject: "ernie", output_dir: "/p/anat", exists: true, will_overwrite: false, stage: "G1" },
@@ -116,16 +115,6 @@ describe("the legend names only the chips the matrix contains", () => {
     cost: { cpus: 4, mem_gb: 16 },
     warnings: [],
   };
-
-  it("is the present chips in vocabulary order, not all five", () => {
-    const plan = planModelFrom("pre", result, ["ernie", "101"], {
-      stages: [
-        { id: "G1", label: "dicom" },
-        { id: "G2a", label: "charm" },
-      ],
-    });
-    expect(chipsPresent(plan)).toEqual(["new", "skip"]);
-  });
 
   it("declared columns come first and in run order, even with no job for them", () => {
     const plan = planModelFrom("pre", result, ["ernie"], {

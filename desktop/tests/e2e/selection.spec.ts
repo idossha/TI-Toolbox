@@ -153,9 +153,9 @@ test("the filter narrows the rows, and the header box only takes what is visible
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "1");
 });
 
-test("the plan grid and the digest state the batch, with no receipt, and update live", async () => {
-  // On the Simulator, where the receipt used to sit above Run: the confirmation is now the plan
-  // grid in the run pane plus the action-bar digest, and neither overlays the form it confirms.
+test("the action-bar digest states the batch, with no receipt, and updates live", async () => {
+  // On the Simulator, where the receipt used to sit above Run: the confirmation is now the
+  // action-bar digest, which does not overlay the form it confirms.
   await gotoPage(page, "simulator", "Simulator");
   // Exactly one job, so the plan is one job: the mock plans every montage into the same output
   // directory, so several would collapse into one plan column and the count comparison below
@@ -167,17 +167,7 @@ test("the plan grid and the digest state the batch, with no receipt, and update 
   await configureMontageJob(page, jobRow, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
 
   await expect(active.getByTestId("run-receipt")).toHaveCount(0);
-  // Scoped to the active page: other pages stay mounted, so an unscoped `plan-grid` would count
-  // another page's cells.
-  const cells = active.getByTestId("plan-grid").locator(".plan-cell-button");
-  await expect(cells.first()).toBeVisible({ timeout: 20_000 });
-  const jobs = await cells.count();
-  expect(jobs).toBeGreaterThan(0);
-  // The digest IS the same `PlanModel` the grid draws, so the two cannot disagree on the count.
-  await expect(active.locator(".action-bar-digest")).toHaveText(
-    new RegExp(`\\b${jobs} job`),
-    { timeout: 20_000 },
-  );
+  await expect(active.locator(".action-bar-digest")).toHaveText(/^1 job/, { timeout: 20_000 });
 
   // Live: emptying the table empties the plan, and the disabled primary carries the reason.
   await jobRow.getByRole("button", { name: "Remove job 1" }).click();
@@ -188,13 +178,12 @@ test("the plan grid and the digest state the batch, with no receipt, and update 
   await expect(run).toHaveAttribute("title", "Add a job with a subject and a montage.");
 });
 
-test("Pre-processing states its batch in the plan and the digest", async () => {
+test("Pre-processing states its batch in the digest", async () => {
   await gotoPage(page, "preprocess", "Pre-processing");
   await openSubjects(page);
   await selectSubjects(page, ["ernie"]);
   const active = page.locator('[data-page-active="true"]');
   await expect(active.getByTestId("run-receipt")).toHaveCount(0);
-  await expect(active.getByTestId("plan-grid")).toBeVisible({ timeout: 20_000 });
   await expect(active.locator(".action-bar-digest")).toHaveText(/job/, { timeout: 20_000 });
 });
 
@@ -241,12 +230,12 @@ test("the shared existing-outputs dialog is one question with three answers", as
   await openSubjects(page);
   await selectOnlyErnie();
 
-  // The plan grid is what states the batch here. Wait for it
-  // to resolve — these subjects have output already, so pressing Run then asks the shared
-  // question rather than submitting silently.
-  await expect(
-    page.locator('[data-page-active="true"]').getByTestId("plan-grid").locator(".plan-cell-button").first(),
-  ).toBeVisible({ timeout: 20_000 });
+  // The action-bar digest is what states the batch here. Wait for it to resolve — these subjects
+  // have output already, so pressing Run then asks the shared question rather than submitting
+  // silently.
+  await expect(page.locator('[data-page-active="true"]').locator(".action-bar-digest")).toHaveText(/job/, {
+    timeout: 20_000,
+  });
 
   await page.locator('[data-page-active="true"]').getByTestId("run-button").click();
   const dialog = page.getByRole("dialog");

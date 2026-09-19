@@ -99,7 +99,6 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
 
   const pane = page.getByTestId("page-right-pane");
   await expect(pane.getByTestId("run-panel")).toBeVisible();
-  await expect(pane.getByTestId("plan-grid")).toBeVisible();
   // S7: the pane's lower half is the Terminal · Scene tab host, and Scene is what a page shows
   // while nothing of its kind is running. The terminal is still there — one click away.
   await expectRunPaneTab(page, "scene");
@@ -132,10 +131,7 @@ test("a row names its own simulation, space and field, and the plan resolves onc
   await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 10 });
   await expect(analysisTargetText(row)).toHaveText("Sphere -10,-18,9 r10 mm · Subject");
 
-  const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
-  await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^(new|skip|overwrite|blocked|wait)$/);
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run analysis");
 
   // §11: no bottom status bar — the plan digest is the action bar's, on the page.
@@ -174,20 +170,13 @@ test("a second row plans a second job, and the group switch folds the rows into 
   await setAnalysisCell(page, second, "simulation", "Thalamus");
   await expect(second).toHaveAttribute("data-simulation", "Thalamus");
 
-  const ernieCell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
-  const cell101 = page.locator('[data-testid^="plan-cell-101-"]').first();
-  await expect(ernieCell).toBeVisible({ timeout: 15_000 });
-  await expect(cell101).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
   // Two rows, two single-subject jobs — the plan and the button agree.
-  await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("2");
-  await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs");
+  await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs", { timeout: 15_000 });
 
   // The switch: ONE job over both subjects (`run_group_analysis` over `subject_ids`), which is why
   // the button's label drops back to one.
   await combine.click();
   await expect(page.getByTestId("run-button")).toHaveText("Run analysis", { timeout: 15_000 });
-  await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
 
   // A cohort runs ONE simulation: rows that disagree are refused outright, with the reason on the
   // button, rather than silently resolved to the first row's answer.
@@ -555,7 +544,7 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
           width: size.width,
           height: size.height,
           waitFor: async () => {
-            await expect(page.getByTestId("plan-grid")).toBeVisible();
+            await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
           },
         }),
       );

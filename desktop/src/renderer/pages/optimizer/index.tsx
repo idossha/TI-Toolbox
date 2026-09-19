@@ -47,9 +47,9 @@ import {
   RunPanel,
   RunWork,
   planCounts,
+  jobCountLabel,
   ExistingOutputsDialog,
   mergePlanResults,
-  planDigest,
   planModelFrom,
   stepsFor,
   submitJobGroup,
@@ -344,15 +344,8 @@ function OptimizerPage() {
     [merged, planKind, planSubjects, blockedReason, stageByJobIndex],
   );
 
-  const planLoading = planQueries.some((q) => q.isPending && q.fetchStatus !== "idle");
-  const planRefetching = planQueries.some((q) => q.isRefetching);
-  const planError = planQueries.some((q) => q.error);
-  function refetchPlan(): void {
-    for (const q of planQueries) void q.refetch();
-  }
-
   const counts = planCounts(plan);
-  const digest = plan ? planDigest(plan) : (blockedReason ?? "Resolving the plan…");
+  const digest = plan ? (jobCountLabel(plan) ?? "Resolving the plan…") : (blockedReason ?? "Resolving the plan…");
 
   const generateLeadfield = useMutation({
     mutationFn: ({ subject, net }: { subject: string; net: string }) => submitLeadfieldJob(subject, net),
@@ -512,15 +505,7 @@ function OptimizerPage() {
         <RunPanel
           kind={planKind}
           jobKinds={["flex", "ex", "mex"]}
-          plan={plan}
-          /* Summary columns (Flex · Ex · mEx), so a cell counts its jobs. */
-          cellDetail="counts"
-          loading={planLoading}
-          refetching={planRefetching}
-          error={planError ? "Could not build the plan for this search." : undefined}
-          onRefetch={refetchPlan}
           subjects={planSubjects}
-          emptyMessage={blockedReason ?? "Add a job to see the plan."}
           pinnedJobId={pinnedJobId}
           startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}

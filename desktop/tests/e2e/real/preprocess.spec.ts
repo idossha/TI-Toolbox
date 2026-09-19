@@ -81,11 +81,8 @@ test("tissue analysis on sub-101: accepted, started, and completed with a real a
 
   await setExistingOutputsPolicy(page, "Replace and rerun");
 
-  // The plan resolves against the real server: the G3 (tissue) column for 101 is not blocked.
-  const cell = page.getByTestId("plan-cell-101-G3");
-  await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^(new|overwrite)$/);
-  await expect(page.getByTestId("run-button")).toBeEnabled();
+  // The plan resolves against the real server: the run button becomes enabled once it does.
+  await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 15_000 });
 
   const groupRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   const groupResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
@@ -206,11 +203,8 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
 
     await setExistingOutputsPolicy(page, "Skip existing outputs");
 
-    // The plan resolves against the real server: the G1 (DICOM) column for 102 is a new job.
-    const cell = page.getByTestId("plan-cell-102-G1");
-    await expect(cell).toBeVisible({ timeout: 15_000 });
-    await expect(cell).toHaveText("new");
-    await expect(page.getByTestId("run-button")).toBeEnabled();
+    // The plan resolves against the real server: the run button becomes enabled once it does.
+    await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 15_000 });
 
     const groupRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
     const groupResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");

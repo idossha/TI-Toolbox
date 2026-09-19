@@ -61,9 +61,7 @@ test("spherical target, mesh space: accepted, started, and completed", async () 
   // scoped to that row (maintainer: "we can modify our analysis input per job").
   await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 10 });
 
-  const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
-  await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^(new|overwrite)$/);
+  await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 15_000 });
 
   const jobResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
   const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");

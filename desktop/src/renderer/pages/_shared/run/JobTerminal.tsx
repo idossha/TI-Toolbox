@@ -18,7 +18,6 @@ import { IconButton } from "../../../ui/Button";
 import { JobConsole } from "../../../ui/Jobs";
 import { JobStateChip, type JobState } from "../../../ui/Status";
 import { resolveFollowedJob, type FollowableJob, type RunStep, type TerminalSource } from "./terminalSources";
-import type { PlanModel } from "./planModel";
 import { useJobLogEvents } from "../../../app/jobs/useJobLogEvents";
 import { useJobsModel } from "../../../app/jobs-rail/model";
 import { elapsedLabel } from "../../../app/jobs-rail/format";
@@ -63,7 +62,6 @@ export interface JobTerminalProps {
    * work-pane preview has its input ready.
    */
   steps?: RunStep[];
-  plan?: PlanModel | null;
   parallel?: number;
   /** Reported upward so the page can assert which of the two states it is showing. */
   onSourceChange?: (source: TerminalSource) => void;
@@ -109,11 +107,10 @@ export function JobTerminal({
   return (
     <section className="job-terminal" data-testid="job-terminal" data-source={source}>
       <header className="job-terminal-head">
-        {/* DESIGN.md §4.6's own wireframe heads this pane "TERMINAL" the same way the Plan grid
-            above it is headed "PLAN" (`PlanGrid.tsx`'s `.text-eyebrow`) — the two-part rhythm the
-            critic's round-1 finding 6 asked for. Grouped with the identity so the header stays a
-            two-item `justify-content: space-between` row (eyebrow+identity vs. the pin button),
-            exactly like `plan-grid-head`'s eyebrow-vs-refresh-button split. */}
+        {/* DESIGN.md §4.6's own wireframe heads this pane "TERMINAL" via a `.text-eyebrow` — the
+            two-part rhythm the critic's round-1 finding 6 asked for. Grouped with the identity so
+            the header stays a two-item `justify-content: space-between` row (eyebrow+identity vs.
+            the pin button). */}
         <span className="job-terminal-title">
           <span className="text-eyebrow job-terminal-eyebrow">Terminal</span>
           {job ? (

@@ -58,12 +58,7 @@ test("TI montage: accepted, started, and cancelled cleanly", async () => {
     ],
   });
 
-  // The Simulator's plan grid has one column per montage *source* ("montage"/"flex"/"freehand"),
-  // not one per simulation name -- see `RunControls.tsx`'s `stageFor: sourceOfJob`.
-  const cell = page.getByTestId("plan-cell-101-montage");
-  await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^1 (new|overwrite)$/);
-  await expect(page.getByTestId("run-button")).toHaveText("Run simulation");
+  await expect(page.getByTestId("run-button")).toHaveText("Run simulation", { timeout: 15_000 });
 
   // Every run page submits its whole batch as ONE `POST /api/jobs/groups` (R3) -- never a loop of
   // per-job `POST /api/jobs`. The per-subject config lives in `subject_configs`.

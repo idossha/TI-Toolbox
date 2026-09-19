@@ -58,8 +58,10 @@ export function CrumbSeparator() {
 
 export interface ActionBarProps {
   /**
-   * The plan's one-line digest: "2 jobs · 8 CPU · 16 GB · 1 overwrite". Shown only while the run
-   * is startable — when it is not, the digest is **not** rendered at all.
+   * The plan's job count, immediately left of the primary: "4 jobs" (or "1 job"), or "3 of 4
+   * ready" when some rows are blocked (`planModel.ts`'s `jobCountLabel`). Shown only while the
+   * run is startable — when it is not, the digest is **not** rendered at all. No CPU/memory/time
+   * estimate: those were dropped with the Plan panel 2026-09-19 for being unreliable.
    */
   digest?: ReactNode;
   /**
@@ -97,11 +99,6 @@ export function ActionBar({
 }: ActionBarProps) {
   return (
     <div className={cn("action-bar", className)}>
-      {digest !== undefined && !blocked && (
-        <span className="action-bar-digest" title={typeof digest === "string" ? digest : undefined}>
-          {digest}
-        </span>
-      )}
       {warningCount > 0 && (
         <span className="action-bar-warnings">
           <Button variant="ghost" size="sm" onClick={onWarningsClick}>
@@ -111,6 +108,11 @@ export function ActionBar({
       )}
       <div className="action-bar-end">
         {secondary}
+        {digest !== undefined && !blocked && (
+          <span className="action-bar-digest" title={typeof digest === "string" ? digest : undefined}>
+            {digest}
+          </span>
+        )}
         {primary && <div className="action-bar-primary">{primary}</div>}
         {primary && shortcutHint && (
           <span className="action-bar-hint">

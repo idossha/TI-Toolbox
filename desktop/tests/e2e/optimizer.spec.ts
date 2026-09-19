@@ -177,7 +177,6 @@ test("one page, one jobs table: no page-level subject set and no global search f
   await expect(page.locator(".page-header")).toHaveCount(0);
   const pane = page.getByTestId("page-right-pane");
   await expect(pane.getByTestId("run-panel")).toBeVisible();
-  await expect(pane.getByTestId("plan-grid")).toBeVisible();
   await expectRunPaneTab(page, "scene");
   await showRunPaneTab(page, "terminal");
   await expect(pane.getByTestId("job-terminal")).toBeVisible();
@@ -317,8 +316,7 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   await expect(optRowSummary(row)).toHaveText("lh.bankssts · DK40");
   await expect(optRowDetail(row)).toHaveText("goal mean · 2 pairs · 1 mA · ratio 1:1");
 
-  await expect(page.getByTestId("plan-grid").getByTestId("plan-stat-jobs")).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run search");
 
   const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
@@ -355,26 +353,7 @@ test("duplicate, then re-point the copy: two subjects, two rows, each with its O
   await expect(optRowSummary(second)).toHaveText("lh.bankssts · DK40");
   await setOptSubject(page, second, "101");
 
-  await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("2", { timeout: 15_000 });
-  await expect(page.locator('[data-testid^="plan-cell-ernie-"]')).toHaveCount(3); // Flex · Ex · mEx columns
-  await expect(page.getByTestId("plan-cell-ernie-flex")).toBeVisible();
-  await expect(page.getByTestId("plan-cell-101-flex")).toBeVisible();
-
-  // The three count columns are evenly spaced and the first does not hug the subject id — the same
-  // rule and the same measurement as the Simulator's, because it is the same grid (maintainer,
-  // 2026-09-06). Measured geometry, not the stylesheet.
-  const geometry = await page.locator('[data-page-active="true"] .plan-matrix').evaluate((table) => {
-    const head = [...table.querySelectorAll("thead th")];
-    const xs = head.slice(1).map((th) => th.getBoundingClientRect().x);
-    const subjectText = table.querySelector("tbody th .mono")?.getBoundingClientRect();
-    const firstCount = head[1]?.getBoundingClientRect();
-    const pad = head[1] ? parseFloat(getComputedStyle(head[1]).paddingLeft) : 0;
-    return { xs, gap: (firstCount?.x ?? 0) + pad - (subjectText?.right ?? 0) };
-  });
-  const [ax, bx, cx] = geometry.xs as [number, number, number];
-  expect(Math.abs(bx - ax - (cx - bx)), `column steps ${bx - ax} vs ${cx - bx}`).toBeLessThanOrEqual(2);
-  expect(geometry.gap, "subject id sits against the first count").toBeGreaterThanOrEqual(24);
-  await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches");
+  await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches", { timeout: 15_000 });
 
   // Both rows reach the wire in ONE request (R3, one kind), and each job carries ITS OWN subject's
   // resolved atlas path — `sub-101`'s DK40 file, not `sub-ernie`'s repeated.
@@ -416,7 +395,7 @@ test("new searches offer all four scientific goals", async () => {
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "flex");
   const groups = collectGroups();
-  await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("1", { timeout: 15_000 });
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job/, { timeout: 15_000 });
   await pressRun();
   await expect.poll(() => groups.bodies.length, { timeout: 15_000 }).toBe(1);
   groups.stop();
@@ -517,8 +496,7 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await cell.click();
   await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
 
-  await expect(page.getByTestId("plan-cell-ernie-ex")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches");
+  await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches", { timeout: 15_000 });
 
   const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   await pressRun();
@@ -644,11 +622,7 @@ test("a mixed table submits one group per kind, and says so", async () => {
   await pickCorticalTarget(dialog);
   await closeOptEditor(page);
 
-  await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("3", { timeout: 15_000 });
-  // The plan grid's columns are the three families, counted per subject (`cellDetail="counts"`).
-  await expect(page.getByTestId("plan-grid").locator("thead th")).toContainText(["Flex", "Ex", "mEx"]);
-  await expect(page.getByTestId("plan-cell-ernie-ex")).toContainText("2");
-  await expect(page.getByTestId("plan-cell-ernie-flex")).toBeVisible();
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^3 jobs/, { timeout: 15_000 });
 
   const groups = collectGroups();
   await pressRun();
@@ -685,7 +659,7 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
           width: size.width,
           height: size.height,
           waitFor: async () => {
-            await expect(page.getByTestId("plan-grid")).toBeVisible();
+            await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
           },
         }),
       );
@@ -773,7 +747,7 @@ test("artifacts: the jobs table and its two row editors", async () => {
   await dialog.screenshot({ path: "tests/e2e/artifacts/optimizer-row-ex.png" });
   await closeOptEditor(page);
 
-  await expect(page.getByTestId("plan-grid")).toBeVisible();
+  await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
   await page.locator('[data-page-active="true"]').getByTestId("page-work").screenshot({ path: "tests/e2e/artifacts/optimizer-jobs.png" });
 });
 

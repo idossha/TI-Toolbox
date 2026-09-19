@@ -131,9 +131,7 @@ test("subcortical ROI, bucketed electrodes: accepted, started, cancelled", async
   // `(TI)` is `ex`, `(mTI)` would be `mex` — which is the more useful thing to pin.
   await expect(optRowDetail(row)).toHaveText(/^4 electrodes \(TI\) · 2 mA/);
 
-  const cell = page.getByTestId(`plan-cell-${SUBJECT}-ex`);
-  await expect(cell).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId("run-button")).toBeEnabled();
+  await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 20_000 });
 
   const groupResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
   const groupRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");

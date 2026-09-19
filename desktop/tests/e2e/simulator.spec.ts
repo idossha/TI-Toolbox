@@ -79,7 +79,6 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
 
   const pane = page.getByTestId("page-right-pane");
   await expect(pane.getByTestId("run-panel")).toBeVisible();
-  await expect(pane.getByTestId("plan-grid")).toBeVisible();
   // S7: the pane's lower half is the Terminal · Scene tab host, and Scene is what a page shows
   // while nothing of its kind is running. The terminal is still there — one click away.
   await expectRunPaneTab(page, "scene");
@@ -110,17 +109,7 @@ test("a row that names a subject and a montage becomes exactly one planned job",
   // The polarity is a quiet label at the start of line 2; the colours there belong to the channels.
   await expect(jobDetail(row).locator(".job-polarity")).toHaveText("TI");
 
-  /*
-   * §4.5, as the maintainer redrew it on 2026-09-06: for `kind="sim"` the columns are the three
-   * *sources* — Montage · Flex · Free-hand — and a cell is a count with its state breakdown.
-   */
-  const cell = page.getByTestId("plan-cell-ernie-montage");
-  await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^1 (new|skip|overwrite|blocked|wait)$/);
-  await expect(page.locator(".plan-matrix thead th")).toHaveText(["Subject", "Montage", "Flex", "Free-hand"]);
-  // No job of the other two kinds, so those cells are em dashes rather than empty.
-  await expect(page.getByTestId("plan-cell-ernie-flex")).toHaveText("—");
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run simulation");
   // The currents editor lives in the row itself, and the number of fields follows the polarity: a
   // uni-polar (TI) montage takes exactly 2.
@@ -164,75 +153,8 @@ test("two rows can name two different subjects, and the plan grows a row for eac
   await setJobSubject(page, second, "101");
   await expect(second).toHaveAttribute("data-runnable", "true");
 
-  const ernieCell = page.getByTestId("plan-cell-ernie-montage");
-  const cell101 = page.getByTestId("plan-cell-101-montage");
-  await expect(ernieCell).toBeVisible({ timeout: 15_000 });
-  await expect(cell101).toBeVisible({ timeout: 15_000 });
-
-  await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
-  await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("2");
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^2 jobs · \d+ CPU · \d+ GB/);
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^2 jobs$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 simulations");
-});
-
-/**
- * The plan grid is a per-subject summary (maintainer, 2026-09-06): three fixed source columns, a
- * cell that counts its jobs and breaks them down by state, and — because a cell now stands for
- * several jobs — a list behind the cell from which one job can be pinned.
- */
-test("a cell counts its subject's jobs per source, and lists them for pinning", async () => {
-  // Two subjects are still in the table from the test above; add a second montage row for ernie,
-  // so ernie's Montage cell holds two jobs rather than one.
-  await configureMontageJob(page, await addJobRow(page), {
-    subject: "ernie",
-    net: "GSN-HydroCel-185",
-    montage: "Thalamus_target · TI",
-  });
-
-  // And a flex source, so the plan is genuinely mixed: 2 montage jobs for ernie + 1 flex job.
-  const flexRow = await addJobRow(page);
-  await setJobSubject(page, flexRow, "ernie");
-  await setJobSource(page, flexRow, "Flex result");
-  await setJobMontage(page, flexRow, "flex_Thalamus_20260810_101500");
-  await expect(flexRow).toHaveAttribute("data-runnable", "true");
-
-  const montageCell = page.getByTestId("plan-cell-ernie-montage");
-  await expect(montageCell).toHaveText("2 new", { timeout: 15_000 });
-  await expect(page.getByTestId("plan-cell-ernie-flex")).toHaveText("1 new");
-  await expect(page.getByTestId("plan-cell-ernie-freehand")).toHaveText("—");
-  // Still three columns and one row per subject, however many jobs are in the table.
-  await expect(page.locator(".plan-matrix thead th")).toHaveText(["Subject", "Montage", "Flex", "Free-hand"]);
-  await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
-  // The footer keeps counting jobs, and it counts the folded ones.
-  await expect(page.getByTestId("plan-legend")).toContainText("new — 4 jobs in this plan");
-  await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("4");
-
-  // The three count columns are evenly spaced, and the first does not hug the subject id
-  // (maintainer, 2026-09-06). Measured, not asserted from the CSS: `table-layout: fixed` with only
-  // the subject column sized is what divides the rest equally, and this is the proof.
-  const geometry = await page.locator('[data-testid="plan-grid"] .plan-matrix').evaluate((table) => {
-    const head = [...table.querySelectorAll("thead th")];
-    const xs = head.slice(1).map((th) => th.getBoundingClientRect().x);
-    const subjectText = table.querySelector("tbody th .mono")?.getBoundingClientRect();
-    const firstCount = head[1]?.getBoundingClientRect();
-    const pad = head[1] ? parseFloat(getComputedStyle(head[1]).paddingLeft) : 0;
-    return { xs, gap: (firstCount?.x ?? 0) + pad - (subjectText?.right ?? 0) };
-  });
-  expect(geometry.xs).toHaveLength(3);
-  // Equidistant to within 2px: the two steps between the three columns are the same.
-  const [a, b, c] = geometry.xs as [number, number, number];
-  expect(Math.abs(b - a - (c - b)), `column steps ${b - a} vs ${c - b}`).toBeLessThanOrEqual(2);
-  expect(geometry.gap, "subject id sits against the first count").toBeGreaterThanOrEqual(24);
-
-  // Evidence (§8.1): two subjects, mixed sources.
-  await page.locator('[data-testid="plan-grid"]').screenshot({ path: "tests/e2e/artifacts/sim-plan-summary.png" });
-
-  // A cell of several jobs opens the list; picking one pins the terminal to that subject.
-  await montageCell.getByRole("button").click();
-  const jobs = page.getByTestId("plan-cell-jobs-ernie-montage");
-  await expect(jobs.locator("li")).toHaveCount(2);
-  await jobs.locator("li button").first().click();
-  await expect(jobs).toHaveCount(0);
 });
 
 test("nothing moves while a row is edited — including a change of SOURCE", async () => {
@@ -348,14 +270,9 @@ test("a row on the Flex result source becomes a planned job, in either placement
   await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(jobPairs(row)).toHaveText(["E020–E074", "E101–E133"]);
 
-  // A flex source lands in the Flex column, and the montage column empties — which is the whole
-  // point of summarising by source rather than by simulation name.
-  const cell = page.getByTestId("plan-cell-ernie-flex");
-  await expect(cell).toHaveText("1 new", { timeout: 15_000 });
-  await expect(page.getByTestId("plan-cell-ernie-montage")).toHaveText("—");
   // One job, not two: the plan is built from the resolved config alone. Sending `montage_sources`
   // alongside it made the server resolve the same run a second time.
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toBeEnabled();
 
   // The optimiser's own coordinates are the other placement a run can be simulated in — and the
@@ -364,14 +281,14 @@ test("a row on the Flex result source becomes a planned job, in either placement
   await setJobPlacement(page, row, "Optimised (XYZ)");
   await expect(jobPairs(row)).toHaveText(["XYZ", "XYZ"]);
   await expect(row).toHaveAttribute("data-runnable", "true");
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
 
   // Back to a net — and not only the net the run happens to carry a mapping file for: every net
   // the subject has is offered, and the server maps the optimised positions onto it on demand.
   await setJobMappedNet(page, row, "EGI_template");
   await expect(jobPairs(row).first()).toHaveText(/–/, { timeout: 15_000 });
   await expect(row).toHaveAttribute("data-runnable", "true");
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
 });
 
 /**
@@ -521,7 +438,7 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
           width: size.width,
           height: size.height,
           waitFor: async () => {
-            await expect(page.getByTestId("plan-grid")).toBeVisible();
+            await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
           },
         }),
       );

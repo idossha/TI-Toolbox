@@ -32,7 +32,7 @@ import { notify, notifySubmitError } from "../../ui/Toast";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { subjectsBlockedReason } from "../_shared/subjects";
-import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
+import { ExistingOutputsDialog, planCounts, jobCountLabel, RunPanel, RunWork, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import { isRoiComplete, type RoiValue } from "../_shared/roi";
 import { TargetPreview } from "../_shared/scene/TargetPreview";
 import {
@@ -360,7 +360,7 @@ export function AnalyzerPage() {
 
   useRunShortcut(handleRunClick);
 
-  const digest = planModel ? planDigest(planModel) : (blockedReason ?? "Resolving the plan…");
+  const digest = planModel ? (jobCountLabel(planModel) ?? "Resolving the plan…") : (blockedReason ?? "Resolving the plan…");
 
   /*
    * The scene pane in `inspect` mode (plan §2.4): the ACTIVE ROW's target is drawn where it will
@@ -380,13 +380,7 @@ export function AnalyzerPage() {
       rightPane={
         <RunPanel
           kind="analyzer"
-          plan={planModel}
-          loading={plan.isPending && plan.fetchStatus !== "idle"}
-          refetching={plan.isRefetching}
-          error={plan.error ? "Could not resolve the plan for this configuration." : undefined}
-          onRefetch={() => void plan.refetch()}
           subjects={effectiveSubjectIds}
-          emptyMessage={blockedReason ?? "Pick a simulation to analyze."}
           pinnedJobId={pinnedJobId}
           startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}

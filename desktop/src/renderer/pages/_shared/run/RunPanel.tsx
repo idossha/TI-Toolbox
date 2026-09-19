@@ -1,42 +1,35 @@
 /**
- * The right pane of every run page (DESIGN.md v3 §4.5/§4.6, program U2): a Plan grid on top and,
- * below it, the Terminal — or, on a page that passes a `scene`, the **Terminal · Scene** tab host
- * (plan of record `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` decision S7). Nothing else goes in it.
+ * The right pane of every run page (DESIGN.md v3 §4.5/§4.6, program U2): the Terminal — or, on a
+ * page that passes a `scene`, the **Terminal · Scene** tab host (plan of record
+ * `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` decision S7). Nothing
+ * else goes in it.
  *
- * The plan grid is capped at 45% of the pane height and scrolls internally past that, so a
- * twelve-subject plan cannot squeeze the log out of existence (§4.6, "Height").
+ * The Plan grid that used to sit above the terminal was retired: its per-job time estimate had no
+ * reliable basis and the rest of the card (job/CPU/mem counts, the subject×stage matrix) was not
+ * worth keeping without it. Pages still compute a `PlanModel` for the action bar's digest and the
+ * existing-outputs confirmation — only the on-screen card is gone.
  *
  * `scene` is additive: a page that passes nothing gets byte-for-byte the pane it always had —
  * Pre-processing has no head model to preview and must not grow a tab strip with one empty half.
  */
-import { useState, type ReactNode } from "react";
-import { PlanGrid, type PlanCellDetail } from "./PlanGrid";
+import type { ReactNode } from "react";
 import { JobTerminal } from "./JobTerminal";
 import { RunPaneTabs, type RunPaneTab } from "./RunPaneTabs";
-import type { PlanKind, PlanModel } from "./planModel";
+import type { PlanKind } from "./planModel";
 import type { RunStep, TerminalSource } from "./terminalSources";
 import "./run.css";
 
 export interface RunPanelProps {
   kind: PlanKind;
-  /** `null` while the page has nothing to plan — the grid renders its inline empty state. */
-  plan: PlanModel | null;
-  loading?: boolean;
-  refetching?: boolean;
-  error?: ReactNode;
-  onRefetch?: () => void;
-  /** Subjects the page has selected: the terminal's job filter and the grid's skeleton count. */
+  /** Subjects the page has selected: the terminal's job filter. */
   subjects: string[];
   /** Extra kinds whose jobs this page's terminal may follow (Optimizer: ["flex","ex","mex"]). */
   jobKinds?: PlanKind[];
   onRevealLogFile?: (jobId: string) => void;
-  /** Clicking a plan row pins the terminal; the page owns the state so ⌘K can clear it. */
   pinnedJobId?: string | null;
   onPinJob?: (jobId: string | null) => void;
   /** Ids of the jobs this page session started; they stay in the terminal after they finish. */
   startedJobIds?: readonly string[];
-  emptyMessage?: string;
-  onEmptyAction?: () => void;
   /**
    * Accepted and ignored since FXU2: the terminal's "What will run" preview was retired (an idle
    * pane must not look like a run in progress). The pages still compute their step list, so the
@@ -50,44 +43,25 @@ export interface RunPanelProps {
   onPaneTabChange?: (tab: RunPaneTab) => void;
   /** `<PaneHeaderControls controller={…} />`, shown in the tab row. Requires `scene`. */
   paneControls?: ReactNode;
-  /** How the grid's cells read — `"counts"` for a summary column set (the Simulator's). */
-  cellDetail?: PlanCellDetail;
 }
 
 export function RunPanel({
   kind,
-  plan,
-  loading,
-  refetching,
-  error,
-  onRefetch,
   subjects,
   jobKinds,
   onRevealLogFile,
   pinnedJobId,
   onPinJob,
   startedJobIds,
-  emptyMessage,
-  onEmptyAction,
   onTerminalSourceChange,
   scene,
   onPaneTabChange,
   paneControls,
-  cellDetail,
 }: RunPanelProps) {
-  /**
-   * "Clicking a row pins the Terminal to that subject's job" (§4.5). A *plan* row has no job id —
-   * the job does not exist until Run is pressed — so the row narrows the terminal's subject
-   * filter instead of asserting an id it cannot know; clicking the same row again clears it.
-   * `pinnedJobId` remains the explicit per-job pin, set from the terminal's own header.
-   */
-  const [rowSubject, setRowSubject] = useState<string | null>(null);
-  const focused = rowSubject && subjects.includes(rowSubject) ? [rowSubject] : subjects;
-
   const terminal = (
     <JobTerminal
       kinds={jobKinds ?? [kind]}
-      subjects={focused}
+      subjects={subjects}
       pinnedJobId={pinnedJobId}
       startedJobIds={startedJobIds}
       onPinJob={onPinJob}
@@ -98,18 +72,6 @@ export function RunPanel({
 
   return (
     <div className="run-panel" data-testid="run-panel">
-      <PlanGrid
-        plan={plan}
-        loading={loading}
-        refetching={refetching}
-        error={error}
-        onRefetch={onRefetch}
-        skeletonRows={Math.max(1, subjects.length)}
-        emptyMessage={emptyMessage}
-        onEmptyAction={onEmptyAction}
-        cellDetail={cellDetail}
-        onSelectRow={(subject) => setRowSubject((prev) => (prev === subject ? null : subject))}
-      />
       {scene ? (
         <RunPaneTabs kinds={jobKinds ?? [kind]} ranHere={(startedJobIds?.length ?? 0) > 0} terminal={terminal} scene={scene} onTabChange={onPaneTabChange} controls={paneControls} />
       ) : (

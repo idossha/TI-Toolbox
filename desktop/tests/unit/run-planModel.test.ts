@@ -1,7 +1,7 @@
 /**
- * `pages/_shared/run/planModel.ts` — the object the plan grid, the stats strip and the action-bar
- * digest all read (DESIGN.md v3 §4.5). These are the rules stated as numbers: chip precedence,
- * stage-column derivation, the per-job cost the tiles must not multiply, and the digest.
+ * `pages/_shared/run/planModel.ts` — the object the action-bar digest and the existing-outputs
+ * confirmation read (DESIGN.md v3 §4.5). These are the rules stated as numbers: chip precedence,
+ * stage-column derivation, the per-job cost that must not be multiplied, and the digest.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -9,17 +9,15 @@ import {
   chipFor,
   countChip,
   planCounts,
+  jobCountLabel,
   mergePlanResults,
   normalizeStageId,
-  planDigest,
   planModelFrom,
   stageIdOf,
   type PlanCell,
   type PlanJob,
   type PlanResult,
-  type PlanStats,
 } from "../../src/renderer/pages/_shared/run/planModel";
-import { etaBasis } from "../../src/renderer/pages/_shared/run/PlanGrid";
 
 function job(over: Partial<PlanJob> & { subject: string; output_dir: string }): PlanJob {
   return { kind: "pre", exists: false, will_overwrite: false, ...over };
@@ -135,10 +133,7 @@ describe("stats and digest", () => {
     expect(model.subjects[0]?.cells[0]?.chip).toBe("wait");
   });
 
-  it("planDigest states jobs, cost, overwrites and waits — and nothing it has not measured", () => {
-    const plain = planModelFrom("pre", result([job({ subject: "ernie", output_dir: "/p/m2m_ernie" })]), ["ernie"]);
-    expect(planDigest(plain)).toBe("1 job · 8 CPU · 16 GB");
-
+  it("countChip counts overwrites, independent of the digest", () => {
     const busy = planModelFrom(
       "pre",
       result(
@@ -150,13 +145,46 @@ describe("stats and digest", () => {
       ),
       ["ernie", "108", "101"],
     );
-    expect(planDigest(busy)).toBe("2 jobs · 8 CPU · 16 GB · 1 overwrite · 1 wait");
     expect(countChip(busy, "overwrite")).toBe(1);
+    expect(busy.stats.waits).toBe(1);
+  });
+});
+
+describe("jobCountLabel — the action bar's job-count tag, no cost estimate", () => {
+  it("singular for one job", () => {
+    const model = planModelFrom("pre", result([job({ subject: "ernie", output_dir: "/p/m2m_ernie" })]), ["ernie"]);
+    expect(jobCountLabel(model)).toBe("1 job");
   });
 
-  it("a blocked plan's digest is the reason, verbatim — never a silent disabled button", () => {
-    const model = planModelFrom("sim", result([]), [], { blockedReason: "Select at least one montage." });
-    expect(planDigest(model)).toBe("Select at least one montage.");
+  it("plural for more than one job", () => {
+    const model = planModelFrom(
+      "pre",
+      result([job({ subject: "ernie", output_dir: "/p/m2m_ernie" }), job({ subject: "108", output_dir: "/p/m2m_108" })]),
+      ["ernie", "108"],
+    );
+    expect(jobCountLabel(model)).toBe("2 jobs");
+  });
+
+  it("reports ready-of-total when a row is blocked, matching what the Run button would submit", () => {
+    const warnings = ["101 — charm cannot run: no T1w image"];
+    const model = planModelFrom(
+      "pre",
+      result(
+        [
+          job({ subject: "ernie", output_dir: "/p/m2m_ernie", stage: "charm" }),
+          job({ subject: "101", output_dir: "/p/m2m_101", stage: "charm" }),
+        ],
+        { warnings },
+      ),
+      ["ernie", "101"],
+    );
+    expect(jobCountLabel(model)).toBe("1 of 2 ready");
+  });
+
+  it("is null when the plan is blocked outright, or null, or has no jobs", () => {
+    expect(jobCountLabel(null)).toBeNull();
+    expect(jobCountLabel(planModelFrom("sim", result([]), [], { blockedReason: "Select at least one montage." }))).toBeNull();
+    expect(jobCountLabel(planModelFrom("pre", result([]), []))).toBeNull();
   });
 });
 
@@ -240,7 +268,7 @@ describe("stageFor — a column that is a category, not a stage", () => {
     expect(planCounts(plan)).toMatchObject({ jobs: 4, existing: 2, overwrites: 1 });
     expect(planCounts(plan).jobs).toBe(plan.stats.jobs);
     expect(countChip(plan, "new")).toBe(2);
-    expect(planDigest(plan)).toBe("4 jobs · 8 CPU · 16 GB · 1 overwrite");
+    expect(jobCountLabel(plan)).toBe("4 jobs");
   });
 });
 
@@ -265,33 +293,7 @@ describe("a report is an attachment of its job, never a plan row", () => {
     expect(plan.stats.jobs).toBe(1);
     expect(plan.stages.map((s) => s.id)).toEqual(["G1"]);
     expect(plan.stages.map((s) => s.id)).not.toContain("report");
-    expect(planDigest(plan)).toBe("1 job · 1 CPU · 3 GB");
+    expect(jobCountLabel(plan)).toBe("1 job");
     expect(planCounts(plan).jobs).toBe(1);
-  });
-});
-
-
-describe("etaBasis — an estimate never stands on its own", () => {
-  const stats = (etaMinutes: number | null, system: PlanStats["system"] = null): PlanStats => ({
-    jobs: 1,
-    cpus: 2,
-    memoryGb: 6,
-    etaMinutes,
-    system,
-    waits: 0,
-  });
-
-  it("says there is no basis rather than showing a number", () => {
-    expect(etaBasis(stats(null))).toMatch(/No measured basis/);
-  });
-
-  it("names the machine the estimate was computed for", () => {
-    const basis = etaBasis(stats(25, { cpus: 4, emulated: true, factor: 3 }));
-    expect(basis).toContain("4 CPUs, emulated");
-    expect(basis).toContain("BENCHMARKS.md");
-  });
-
-  it("does not claim emulation on a native machine", () => {
-    expect(etaBasis(stats(25, { cpus: 12, emulated: false, factor: 1 }))).not.toContain("emulated");
   });
 });

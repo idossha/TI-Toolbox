@@ -1,5 +1,4 @@
 export * from "./planModel";
-export * from "./PlanGrid";
 export * from "./JobTerminal";
 export { RunPanel, type RunPanelProps } from "./RunPanel";
 export { RunPaneTabs, hasActiveJob, resolveTab, type RunPaneTab, type RunPaneTabsProps } from "./RunPaneTabs";

@@ -27,7 +27,7 @@ import {
   type MontageSource,
   type SelectedRow,
 } from "./types";
-import { RunPanel, RunWork, planDigest, stepsFor } from "../_shared/run";
+import { RunPanel, RunWork, jobCountLabel, stepsFor } from "../_shared/run";
 import { candidateMetricsChanged, candidateRow } from "./candidateHandoff";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
@@ -180,7 +180,7 @@ function SimulatorPage() {
 
   const plan = useSimPlan(runnableRows, params, planSubjects, runnableRows.length === 0 ? null : subjectsBlocked);
 
-  const digest = plan.model ? planDigest(plan.model) : (plan.blockedReason ?? "Resolving the plan…");
+  const digest = plan.model ? (jobCountLabel(plan.model) ?? "Resolving the plan…") : (plan.blockedReason ?? "Resolving the plan…");
 
   function setDraftPairs(pairs: [string, string][]): void {
     setMontageDraft((draft) => (draft ? { ...draft, pairs } : { ...emptyDraft(), pairs }));
@@ -246,15 +246,7 @@ function SimulatorPage() {
         rightPane={
           <RunPanel
             kind="sim"
-            plan={plan.model}
-            /* Summary columns (Montage · Flex · Free-hand), so a cell counts its jobs. */
-            cellDetail="counts"
-            loading={plan.loading}
-            refetching={plan.refetching}
-            error={plan.error}
-            onRefetch={plan.refetch}
             subjects={planSubjects}
-            emptyMessage={plan.blockedReason ?? "Add a job to see the plan."}
             pinnedJobId={pinnedJobId}
             startedJobIds={startedJobIds}
             onPinJob={setPinnedJobId}

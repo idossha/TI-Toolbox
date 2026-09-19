@@ -123,10 +123,7 @@ test("subcortical ROI, eight electrode buckets: accepted, started, and completed
   await expect(optRowSummary(row)).toHaveText(/Left-Hippocampus/);
   await expect(optRowDetail(row)).toHaveText(/^8 electrodes \(mTI\) · 2 mA/);
 
-  const cell = page.getByTestId(`plan-cell-${SUBJECT}-mex`);
-  await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^1 (new|overwrite)$/);
-  await expect(page.getByTestId("run-button")).toBeEnabled();
+  await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 15_000 });
 
   const jobResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
   const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");

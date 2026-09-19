@@ -140,14 +140,12 @@ test("the Source panel shows the same control, open", async () => {
 // 2-4. Two subjects -> two plan rows -> ONE group request carrying the cap
 // -------------------------------------------------------------------------------------------
 
-test("two subjects produce two plan rows on Pre-processing", async () => {
+test("two subjects are selected on Pre-processing", async () => {
   await gotoPage(page, "preprocess", "Pre-processing");
   await expectPage(page, "preprocess");
   await setSubjectChecked(page, "ernie", true);
   await setSubjectChecked(page, "101", true);
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "2");
-  // One matrix row per subject — the plan states the batch before anything is submitted.
-  await expect(page.locator('[data-page-active="true"] .plan-matrix tbody tr')).toHaveCount(2, { timeout: 15_000 });
 });
 
 test("the cap goes to the server in ONE request, and never as client-side parallel POSTs", async () => {

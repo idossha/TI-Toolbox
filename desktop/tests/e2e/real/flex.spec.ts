@@ -88,7 +88,7 @@ test("cortical ROI (DK40 · bankssts, list form): accepted, started, cancelled",
   await expect(optRowDetail(row)).toHaveText(/2 pairs/);
   console.log(`real/flex: row line 2 = ${await optRowSummary(row).textContent()} | ${await optRowDetail(row).textContent()}`);
 
-  await expect(page.getByTestId("plan-grid").getByTestId("plan-stat-jobs")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 15_000 });
 
   const groupResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
   const groupRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");

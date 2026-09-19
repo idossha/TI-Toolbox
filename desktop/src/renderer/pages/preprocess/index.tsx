@@ -18,7 +18,7 @@ import { SubjectsField, notConvertedColumn, presenceColumns, subjectsBlockedReas
 import {
   RunPanel,
   RunWork,
-  planDigest,
+  jobCountLabel,
   planModelFrom,
   stepsFor,
   planCounts,
@@ -318,7 +318,7 @@ function PreprocessPage() {
   useRunShortcut(handleRunClick);
 
   const counts = planCounts(plan);
-  const digest = plan ? planDigest(plan) : (blockedReason ?? "Resolving the plan…");
+  const digest = plan ? (jobCountLabel(plan) ?? "Resolving the plan…") : (blockedReason ?? "Resolving the plan…");
   const jobCount = plan?.stats.jobs ?? 0;
 
   return (
@@ -329,13 +329,7 @@ function PreprocessPage() {
       rightPane={
         <RunPanel
           kind="pre"
-          plan={plan}
-          loading={selected.length > 0 && steps.length > 0 && planQuery.isPending && planQuery.fetchStatus !== "idle"}
-          refetching={planQuery.isRefetching}
-          error={planQuery.error ? "Could not build the plan for the selected subjects." : undefined}
-          onRefetch={() => void planQuery.refetch()}
           subjects={selected}
-          emptyMessage={blockedReason ?? "Select a subject to see the plan."}
           pinnedJobId={pinnedJobId}
           startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}

@@ -104,7 +104,7 @@ test("average L_Insula across 101/ernie/MNI152: accepted, started, and completed
   await expect(page.getByText("Enter an analysis name.")).toHaveCount(0);
   await expect(page.getByText(/Add at least 2 subjects/)).toHaveCount(0);
   // L3: the action bar carries the digest of what will run, not a disabled button with no reason.
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB$/);
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/);
 
   const jobResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
   const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");

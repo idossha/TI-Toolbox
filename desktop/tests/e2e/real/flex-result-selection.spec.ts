@@ -71,8 +71,7 @@ test("every real flex-search run is selectable, and a ticked one plans a job", a
 
     // And the last one reaches the plan as exactly one job — the server resolving the run a second
     // time from `montage_sources` used to make it two.
-    await expect(page.locator('[data-testid^="plan-cell-"]').first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 30_000 });
+    await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 30_000 });
     await expect(page.getByTestId("run-button")).toBeEnabled();
     const count = runs.length;
 
