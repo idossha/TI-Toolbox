@@ -27,6 +27,9 @@ add_stream_handler
     Attach a :class:`~logging.StreamHandler` (stdout) to a named logger.
 get_file_only_logger
     Return a logger that writes **only** to a file (no console).
+stage_heartbeat
+    Context manager that names a long silent stage: one line on entry and
+    one "done in N s" line on exit when it took a while, nothing between.
 get_event_sink
     Return (creating on first call) the process-wide :class:`JsonEventSink`
     for ``$TIT_EVENTS_FILE``, or ``None`` when unset.
@@ -43,6 +46,7 @@ TIT_EVENTS_FILE_ENV : str
     Name of the environment variable that turns on JSON event emission.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -385,3 +389,56 @@ def get_file_only_logger(
     logger.propagate = False  # never bubble to root/terminal
     add_file_handler(log_file, level=level, logger_name=name)
     return logger
+
+
+@contextlib.contextmanager
+def stage_heartbeat(
+    logger: logging.Logger,
+    message: str,
+    *,
+    announce: bool = True,
+    done_after: float = 3.0,
+):
+    """Say what a long, otherwise silent stage is doing -- once at each end.
+
+    Logs ``"<message> ..."`` on entry (unless *announce* is False because the
+    caller already logged its own line) and ``"<message>: done in N s"`` on
+    exit when the stage took at least *done_after* seconds. Nothing is printed
+    in between: a console that repeats "still running" every few seconds is
+    noise, and a stage that finished quickly gets no second line at all. An
+    exception in the body propagates unchanged.
+
+    This is for stages whose work happens inside a library that logs nothing
+    while it runs (SimNIBS mesh loading, the MNI-to-subject warp, PARDISO
+    factorisation): the caller cannot add progress *inside* them, but it can
+    say what is happening and, afterwards, how long it took.
+
+    Parameters
+    ----------
+    logger : logging.Logger
+        Where the lines go (a ``tit.*`` logger, or ``simnibs`` so they land
+        in the same file handler as the surrounding SimNIBS output).
+    message : str
+        What is happening, in the imperative present ("Loading head model").
+        Include an expected duration when one is known.
+    announce : bool, optional
+        Log the entry line. Default True.
+    done_after : float, optional
+        Only log the "done in" line when the stage took at least this many
+        seconds. Default 3.
+
+    Examples
+    --------
+    >>> import logging
+    >>> with stage_heartbeat(logging.getLogger("tit"), "Loading head model"):
+    ...     pass
+    """
+    start = time.monotonic()
+    if announce:
+        logger.info("%s ...", message)
+    try:
+        yield
+    finally:
+        elapsed = time.monotonic() - start
+        if elapsed >= done_after:
+            logger.info("%s: done in %.0f s", message, elapsed)

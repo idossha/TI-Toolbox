@@ -38,6 +38,18 @@ from simnibs.utils.roi_result_visualization import RoiResultVisualization
 from simnibs.utils.TI_utils import get_maxTI, get_dirTI
 from simnibs.utils.file_finder import SubjectFiles, Templates
 from simnibs.utils.csv_reader import read_csv_positions
+# [TI-TOOLBOX] keep the job console alive through the stages below that run
+# for tens of seconds inside SimNIBS without logging anything (mesh loading,
+# ROI point cloud, FEM assembly + factorisation). Falls back to a no-op when
+# this file is used without the tit package.
+try:
+    from tit.logger import stage_heartbeat as _stage_heartbeat
+except ImportError:  # pragma: no cover - plain SimNIBS use of this file
+    from contextlib import nullcontext
+
+    def _stage_heartbeat(logger, message, **_kwargs):
+        logger.info("%s ...", message)
+        return nullcontext()
 # [TI-TOOLBOX] subject2mni_coords for standalone valid_skin_region;
 # create_new_connectivity_list_point_mask for surface filtering
 from simnibs.utils.transformations import (
@@ -312,38 +324,48 @@ class TesFlexOptimization:
 
         # read mesh or store in self
         self.fn_mesh = self._ff_subject.fnamehead
-        self._mesh = mesh_io.read_msh(self.fn_mesh)
+        try:
+            _mesh_mb = os.path.getsize(self.fn_mesh) / 1e6
+        except OSError:
+            _mesh_mb = 0.0
+        with _stage_heartbeat(
+            logger, f"Loading head model ({_mesh_mb:.0f} MB) and computing node areas"
+        ):
+            self._mesh = mesh_io.read_msh(self.fn_mesh)
 
-        # Calculate node areas for whole mesh
-        self._mesh_nodes_areas = self._mesh.nodes_areas()
+            # Calculate node areas for whole mesh
+            self._mesh_nodes_areas = self._mesh.nodes_areas()
 
-        # [TI-TOOLBOX] simplified relabel_internal_air (removed conditional check)
-        self._mesh_relabel = self._mesh.relabel_internal_air()
+            # [TI-TOOLBOX] simplified relabel_internal_air (removed conditional check)
+            self._mesh_relabel = self._mesh.relabel_internal_air()
 
-        # [TI-TOOLBOX] make skin surface using standalone valid_skin_region
-        # which handles MNI masking and spurious patch removal
-        skin_crop = self._mesh_relabel.crop_mesh(tags=1005)
-        # [TI-TOOLBOX] save original skin surface nodes before filtering for valid regions
-        self._original_skin_nodes = skin_crop.nodes.node_coord.copy()
-        self._original_skin_con = skin_crop.elm.node_number_list[:, :3] - 1
-        self._skin_surface = valid_skin_region(
-            skin_surface=skin_crop,
-            fn_electrode_mask=self._fn_electrode_mask,
-            mesh=self._mesh_relabel,
-            additional_distance=0,
-            margin_mm=self.skin_region_margin_mm,
-            avoid_landmark_regions=self.avoid_landmark_regions,
-        )
+        with _stage_heartbeat(
+            logger, "Extracting the valid skin region and fitting the ellipsoid"
+        ):
+            # [TI-TOOLBOX] make skin surface using standalone valid_skin_region
+            # which handles MNI masking and spurious patch removal
+            skin_crop = self._mesh_relabel.crop_mesh(tags=1005)
+            # [TI-TOOLBOX] save original skin surface nodes before filtering for valid regions
+            self._original_skin_nodes = skin_crop.nodes.node_coord.copy()
+            self._original_skin_con = skin_crop.elm.node_number_list[:, :3] - 1
+            self._skin_surface = valid_skin_region(
+                skin_surface=skin_crop,
+                fn_electrode_mask=self._fn_electrode_mask,
+                mesh=self._mesh_relabel,
+                additional_distance=0,
+                margin_mm=self.skin_region_margin_mm,
+                avoid_landmark_regions=self.avoid_landmark_regions,
+            )
 
-        # get mapping between skin_surface node indices and global mesh nodes
-        self._node_idx_msh = np.where(
-            np.isin(
-                self._mesh.nodes.node_coord, self._skin_surface.nodes.node_coord
-            ).all(axis=1)
-        )[0]
+            # get mapping between skin_surface node indices and global mesh nodes
+            self._node_idx_msh = np.where(
+                np.isin(
+                    self._mesh.nodes.node_coord, self._skin_surface.nodes.node_coord
+                ).all(axis=1)
+            )[0]
 
-        # fit optimal ellipsoid to valid skin points
-        self._ellipsoid.fit(points=self._skin_surface.nodes.node_coord)
+            # fit optimal ellipsoid to valid skin points
+            self._ellipsoid.fit(points=self._skin_surface.nodes.node_coord)
 
         # setup ROI
         ####################################################################################################
@@ -363,19 +385,23 @@ class TesFlexOptimization:
                 self.roi[i].subpath = self.subpath
             elif self.roi[i].subpath is None and self.roi[i].mesh is None:
                 self.roi[i].mesh = self._mesh
-            self._roi.append(
-                FemTargetPointCloud(
-                    self._mesh,
-                    self.roi[i].get_nodes(),
-                    nearest_neighbor=(
-                        (
-                            self.roi[i].method == "volume"
-                            or self.roi[i].method == "volume_from_surface"
-                        )
-                        and self.disable_SPR_for_volume_roi
-                    ),
+            with _stage_heartbeat(
+                logger,
+                f"Mapping ROI {i + 1} of {len(self.roi)} onto the head mesh (target point cloud)",
+            ):
+                self._roi.append(
+                    FemTargetPointCloud(
+                        self._mesh,
+                        self.roi[i].get_nodes(),
+                        nearest_neighbor=(
+                            (
+                                self.roi[i].method == "volume"
+                                or self.roi[i].method == "volume_from_surface"
+                            )
+                            and self.disable_SPR_for_volume_roi
+                        ),
+                    )
                 )
-            )
 
         self._n_roi = len(self._roi)
 
@@ -581,19 +607,32 @@ class TesFlexOptimization:
         )
 
         # prepare FEM
-        self._ofem = OnlineFEM(
-            mesh=self._mesh,
-            electrode=self.electrode,
-            method="TES",
-            roi=self._roi,
-            anisotropy_type=self.anisotropy_type,
-            solver_options=self.solver_options,
-            fn_logger=False,  # set to True to get more FEM details in log file
-            useElements=True,
-            dataType=[1] * len(self._roi),
-            dirichlet_node=self.dirichlet_node,
-            cpus=self._n_cpu,
-        )
+        # [TI-TOOLBOX] assembling and factorising the head-model matrix is the
+        # longest silent stretch of the setup (about a minute under emulation);
+        # SimNIBS logs only its start and end lines, so tick in between.
+        with _stage_heartbeat(
+            logger,
+            "Preparing the FEM solver (assembling and factorising the head-model matrix, ~1 min)",
+        ):
+            self._ofem = OnlineFEM(
+                mesh=self._mesh,
+                electrode=self.electrode,
+                method="TES",
+                roi=self._roi,
+                anisotropy_type=self.anisotropy_type,
+                solver_options=self.solver_options,
+                fn_logger=False,  # set to True to get more FEM details in log file
+                useElements=True,
+                dataType=[1] * len(self._roi),
+                dirichlet_node=self.dirichlet_node,
+                cpus=self._n_cpu,
+            )
+        # [TI-TOOLBOX] the per-solve "Solving system using MKL PARDISO" /
+        # "0.16 seconds to solve system" pair repeats twice per candidate;
+        # keep it in the log file only.
+        solver = getattr(self._ofem, "solver", None)
+        if solver is not None and hasattr(solver, "log_level"):
+            solver.log_level = logging.DEBUG
         self._prepared = True
 
     def _set_logger(self, fname_prefix="simnibs_optimization", summary=True):
@@ -1933,8 +1972,9 @@ class TesFlexOptimization:
             Goal function value
         """
         self.n_test += 1
-        parameters_str = f"Parameters: {parameters}"
-        logger.info(parameters_str)
+        # [TI-TOOLBOX] one console line per candidate: the raw parameter
+        # vector, the "positions valid" notice and the dashed rule are debug.
+        logger.debug(f"Parameters: {parameters}")
 
         # transform electrode pos from array to list of list
         self.electrode_pos = self.get_electrode_pos_from_array(parameters)
@@ -1944,8 +1984,7 @@ class TesFlexOptimization:
 
         if e is None:
             # overlap --> skip further steps
-            logger.info(f"Goal ({self.goal}): 2.0")
-            logger.info("-" * len(parameters_str))
+            logger.info(f"Goal ({self._goal_label()}): 2.000 (overlap, n_sim: {self.n_sim}, n_test: {self.n_test})")
             return 2.0
 
         self.n_sim += 1
@@ -1978,11 +2017,15 @@ class TesFlexOptimization:
             goal_fun_value = self.compute_goal(e_pp)
 
         logger.info(
-            f"Goal ({self.goal}): {goal_fun_value:.3f} (n_sim: {self.n_sim}, n_test: {self.n_test})",
+            f"Goal ({self._goal_label()}): {goal_fun_value:.3f} (n_sim: {self.n_sim}, n_test: {self.n_test})",
         )
-        logger.info("-" * len(parameters_str))
 
         return goal_fun_value
+
+    def _goal_label(self):
+        """Goal names as plain text: ``mean`` or ``mean, focality``."""
+        goals = self.goal if isinstance(self.goal, (list, tuple)) else [self.goal]
+        return ", ".join(getattr(g, "__name__", str(g)) for g in goals)
 
     def compute_goal(self, e):
         """
@@ -2773,7 +2816,7 @@ class TesFlexOptimization:
             return None
 
         # perform one electric field calculation for every stimulation condition (one at a time is on)
-        logger.info("Electrode positions valid")
+        logger.debug("Electrode positions valid")
         e = [[] for _ in range(self.n_channel_stim)]
         for i_channel_stim in range(self.n_channel_stim):
             if plot:

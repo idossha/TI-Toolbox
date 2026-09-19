@@ -518,3 +518,28 @@ def test_finite_unrecorded_penalty_is_not_a_completed_montage(tmp_path, monkeypa
     )
     assert not result.success
     assert result.best_run_index == -1
+
+
+# ---------------------------------------------------------------------------
+# Console cadence: the ROI-confirmation line names the slow MNI warp
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_roi_message_names_the_mni_warp_only_for_mni_atlases():
+    from types import SimpleNamespace
+
+    from tit.opt.config import FlexConfig
+    from tit.opt.flex.flex import _confirm_roi_message
+
+    mni = FlexConfig.SubcorticalROI(
+        atlas_path="/x/atlas.nii.gz", label=11, atlas_space="mni", tissues="GM"
+    )
+    subj = FlexConfig.SubcorticalROI(
+        atlas_path="/x/atlas.nii.gz", label=11, atlas_space="subject", tissues="GM"
+    )
+    sphere = FlexConfig.SphericalROI(x=0.0, y=0.0, z=0.0, radius=5.0, use_mni=True)
+    cfg = lambda roi: SimpleNamespace(roi=roi)  # the helper reads only config.roi
+    assert "MNI atlas" in _confirm_roi_message(cfg(mni))
+    assert _confirm_roi_message(cfg(subj)) == "Confirming ROI placement"
+    assert _confirm_roi_message(cfg(sphere)) == "Confirming ROI placement"
+    assert _confirm_roi_message(cfg(None)) == "Confirming ROI placement"

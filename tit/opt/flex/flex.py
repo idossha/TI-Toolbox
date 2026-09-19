@@ -26,7 +26,7 @@ import numpy as np
 
 from tit.cpu import job_cpus
 from tit.opt.config import FlexConfig, FlexResult, _as_list
-from tit.logger import add_file_handler
+from tit.logger import add_file_handler, stage_heartbeat
 from tit.paths import get_path_manager
 from . import builder, utils
 from .skin_visualization import create_valid_skin_region_visualization
@@ -195,6 +195,15 @@ def confirm_roi(config, pm, out_dir: str) -> list:
 confirm_mni_roi = confirm_roi
 
 
+def _confirm_roi_message(config) -> str:
+    """The console line for :func:`confirm_roi`, naming the slow part when there is one."""
+    roi = getattr(config, "roi", None)
+    space = str(getattr(roi, "atlas_space", "subject") or "subject").lower()
+    if roi is not None and getattr(roi, "atlas_path", None) and space == "mni":
+        return "Confirming ROI placement (warping the MNI atlas into subject space)"
+    return "Confirming ROI placement"
+
+
 def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     """Inner implementation of :func:`run_flex_search` (unwrapped)."""
     from .manifest import write_manifest
@@ -228,8 +237,11 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
 
     # The ROI is resolved into this subject BEFORE any optimisation runs, and
     # leaves a plate and a JSON behind: a misplaced ROI is the one error here
-    # that no later number can reveal (tit/roi_confirmation.py).
-    confirm_roi(config, pm, base_folder)
+    # that no later number can reveal (tit/roi_confirmation.py). An MNI atlas
+    # label is warped into subject space here (1-2 min under emulation) with
+    # nothing else to say meanwhile, so the heartbeat keeps the console alive.
+    with stage_heartbeat(logger, _confirm_roi_message(config)):
+        confirm_roi(config, pm, base_folder)
 
     fvals = np.full(n, float("inf"))
 

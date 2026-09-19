@@ -377,3 +377,61 @@ class TestThirdPartyLoggerSilencing:
     def test_pil_silenced(self):
         pil_logger = logging.getLogger("PIL")
         assert pil_logger.level >= logging.ERROR
+
+
+# ---------------------------------------------------------------------------
+# stage_heartbeat -- keeps a silent stage visible in the job console
+# ---------------------------------------------------------------------------
+
+
+class _Capture(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.lines = []
+
+    def emit(self, record):
+        self.lines.append(record.getMessage())
+
+
+def _capturing_logger(name):
+    lg = logging.getLogger(name)
+    lg.handlers.clear()
+    lg.propagate = False
+    lg.setLevel(logging.INFO)
+    cap = _Capture()
+    lg.addHandler(cap)
+    return lg, cap
+
+
+def test_stage_heartbeat_is_one_line_at_each_end_and_nothing_between():
+    import time
+    from tit.logger import stage_heartbeat
+
+    lg, cap = _capturing_logger("tit.test.heartbeat.ends")
+    with stage_heartbeat(lg, "Warping atlas", done_after=0.0):
+        time.sleep(0.3)
+    assert cap.lines[0] == "Warping atlas ..."
+    assert cap.lines[-1].startswith("Warping atlas: done in")
+    assert len(cap.lines) == 2, cap.lines
+    assert not any("still running" in line for line in cap.lines)
+
+
+def test_stage_heartbeat_short_stage_is_one_line_and_starts_no_thread():
+    import threading
+    from tit.logger import stage_heartbeat
+
+    before = threading.active_count()
+    lg, cap = _capturing_logger("tit.test.heartbeat.short")
+    with stage_heartbeat(lg, "Quick step"):
+        assert threading.active_count() == before
+    assert cap.lines == ["Quick step ..."]
+
+
+def test_stage_heartbeat_announce_false_and_exception_propagates():
+    from tit.logger import stage_heartbeat
+
+    lg, cap = _capturing_logger("tit.test.heartbeat.exc")
+    with pytest.raises(RuntimeError):
+        with stage_heartbeat(lg, "Loading", announce=False):
+            raise RuntimeError("boom")
+    assert all("Loading ..." != l for l in cap.lines)
