@@ -106,6 +106,89 @@ def settings_path() -> Path:
     return Path(PathManager.user_config_dir()) / "surfer-settings.json"
 
 
+#: Where the user's own FreeSurfer ``license.txt`` is kept once pasted in the
+#: app. The user config dir is bind-mounted into the container by every
+#: launcher, so the server, the FreeSurfer worker (which stages a copy into
+#: the project) and QSIPrep/QSIRecon all resolve it through
+#: :func:`tit.pre.qsi.docker_builder.resolve_fs_license_path`. The license is
+#: issued per registered individual and is never bundled or fetched by the
+#: toolbox -- this file only ever holds what the user entered.
+FS_LICENSE_FILENAME = "freesurfer-license.txt"
+FS_REGISTRATION_URL = "https://surfer.nmr.mgh.harvard.edu/registration.html"
+_FS_LICENSE_MAX_BYTES = 4096
+
+
+def freesurfer_license_path() -> Path:
+    return Path(PathManager.user_config_dir()) / FS_LICENSE_FILENAME
+
+
+def normalize_freesurfer_license(text: str) -> str:
+    """Return the license text ready to write, or raise ``ValueError``.
+
+    A FreeSurfer ``license.txt`` is the registrant's email, a number and two
+    key lines. Only the shape is checked (FreeSurfer itself validates the
+    key): non-empty, small, plain text, first line an email address.
+    """
+    if not isinstance(text, str):
+        raise ValueError("The license must be text")
+    if len(text.encode("utf-8", errors="replace")) > _FS_LICENSE_MAX_BYTES:
+        raise ValueError("That is not a FreeSurfer license.txt (too large)")
+    # Keep leading whitespace: the key lines FreeSurfer emails begin with a
+    # space and its checker reads the file as-is. Only CRs, trailing
+    # whitespace and blank lines go.
+    lines = [line.rstrip() for line in text.replace("\r\n", "\n").split("\n")]
+    lines = [line for line in lines if line.strip()]
+    if len(lines) < 2:
+        raise ValueError(
+            "Paste the whole license.txt FreeSurfer emailed you (email line plus key lines)"
+        )
+    lines[0] = lines[0].strip()
+    if "@" not in lines[0] or " " in lines[0]:
+        raise ValueError(
+            "The first line of license.txt is the registered email address"
+        )
+    if any("\x00" in line for line in lines):
+        raise ValueError("That is not a FreeSurfer license.txt (binary content)")
+    return "\n".join(lines) + "\n"
+
+
+def save_freesurfer_license(text: str) -> Path:
+    """Atomically store the user's license, readable by the owner only."""
+    content = normalize_freesurfer_license(text)
+    path = freesurfer_license_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as stream:
+        tmp = Path(stream.name)
+        stream.write(content)
+    try:
+        tmp.chmod(0o600)
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return path
+
+
+def clear_freesurfer_license() -> None:
+    freesurfer_license_path().unlink(missing_ok=True)
+
+
+def freesurfer_license_status() -> dict[str, Any]:
+    """What preflight and the Settings page report about the license."""
+    from tit.pre.qsi.docker_builder import resolve_fs_license_path
+
+    path = resolve_fs_license_path()
+    if path is None:
+        return {"configured": False, "source": None, "email": None}
+    source = "app" if path == freesurfer_license_path() else "environment"
+    email = None
+    try:
+        first = path.read_text(errors="replace").strip().splitlines()[0].strip()
+        email = first if "@" in first else None
+    except (OSError, IndexError):
+        pass
+    return {"configured": True, "source": source, "email": email}
+
+
 def load_preferences() -> dict[str, Any]:
     result = default_preferences()
     try:
@@ -194,6 +277,7 @@ def read_settings() -> dict[str, Any]:
     capacity = available_threads()
     return {
         **load_preferences(),
+        "freesurfer_license": freesurfer_license_status(),
         "available_threads": capacity,
         # Leave one core for the server and the host desktop.
         "default_threads": max(1, capacity - 1),

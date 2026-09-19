@@ -230,20 +230,51 @@ def find_missing_preprocessing_inputs(
             subject_steps = [s for s in subject_steps if s != STEP_FREESURFER]
         for step in subject_steps:
             problems.extend(missing_inputs_for_step(project_dir, subject_id, step))
-    if run_freesurfer or any(s.startswith("freesurfer") for s in selected_steps):
-        from .qsi.docker_builder import resolve_fs_license_path
-
-        if resolve_fs_license_path() is None:
-            problems.append(
-                PreprocessingInputProblem(
-                    next(iter(subject_ids), ""),
-                    STEP_FREESURFER,
-                    "FreeSurfer",
-                    "FreeSurfer requires a configured license before running.",
-                    Path(const.FS_LICENSE_PATH),
-                )
-            )
+    problems.extend(missing_freesurfer_license(selected_steps, subject_ids))
     return problems
+
+
+#: The stages that run FreeSurfer binaries and therefore need the user's own
+#: FreeSurfer license. FastSurfer ``--seg_only`` (STEP_FASTSURFER), charm,
+#: DICOM conversion and DTI extraction need none.
+LICENSED_STEPS = (STEP_FREESURFER, STEP_FREESURFER_THALAMUS, STEP_FREESURFER_HIPPO)
+
+
+def missing_freesurfer_license(
+    selected_steps: Sequence[str], subject_ids: Sequence[str] = ()
+) -> list[PreprocessingInputProblem]:
+    """One problem naming exactly which selected stages need a license, or none.
+
+    Only :data:`LICENSED_STEPS` are checked, so a FastSurfer segmentation-only
+    run is never held up by a missing license.
+    """
+    licensed = [step for step in selected_steps if step in LICENSED_STEPS]
+    if not licensed:
+        return []
+    from tit.surfer_settings import (
+        FS_REGISTRATION_URL,
+        freesurfer_license_path,
+        freesurfer_license_status,
+    )
+
+    if freesurfer_license_status()["configured"]:
+        return []
+    names = ", ".join(STEP_LABELS[step] for step in licensed)
+    return [
+        PreprocessingInputProblem(
+            next(iter(subject_ids), ""),
+            licensed[0],
+            "FreeSurfer license",
+            (
+                f"{names} run FreeSurfer and need your FreeSurfer license; none is "
+                "stored. Register (free) at "
+                f"{FS_REGISTRATION_URL}, then paste the license.txt you receive "
+                "under Settings -> Pre-processing -> FreeSurfer license. "
+                "FastSurfer segmentation needs no license."
+            ),
+            freesurfer_license_path(),
+        )
+    ]
 
 
 def _existing_bids_sidecars(output_dir: Path, bids_name: str) -> tuple[Path, ...]:

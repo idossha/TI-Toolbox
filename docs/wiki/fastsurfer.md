@@ -25,12 +25,42 @@ Enable **FreeSurfer** on the Pre-processing page. In **Settings → Pre-processi
 full reconstruction (`recon-all`), thalamic nuclei, and/or hippocampal/amygdala subregions.
 All three are selected by default. Subregions require a completed FreeSurfer reconstruction,
 from this run or an existing result; FastSurfer's segmentation-only output is not sufficient.
-A FreeSurfer license is required.
+These stages run FreeSurfer binaries and need your FreeSurfer license (below). FastSurfer
+segmentation does not.
 
 FreeSurfer runs in a temporary worker and stores results in `derivatives/freesurfer/sub-<id>/`.
 The worker is removed when computation ends; the outputs and downloaded image remain for reuse.
 The T1-only subregion pipeline uses the upstream
 [Python subregion tools](https://surfer.nmr.mgh.harvard.edu/fswiki/SubregionSegmentation).
+
+## FreeSurfer license
+
+| Stage | License needed |
+|---|---|
+| FastSurfer segmentation (`--seg_only`) | No |
+| SimNIBS charm, DICOM conversion, DTI extraction | No |
+| FreeSurfer `recon-all` | Yes |
+| FreeSurfer thalamic nuclei, hippocampus/amygdala subregions | Yes |
+| QSIPrep, QSIRecon | Yes |
+
+The FreeSurfer license is free but issued to you personally and may not be redistributed, so
+TI-Toolbox never ships one or downloads one for you. To add yours:
+
+1. Register at [surfer.nmr.mgh.harvard.edu/registration.html](https://surfer.nmr.mgh.harvard.edu/registration.html).
+   FreeSurfer emails you a short `license.txt` (your email, a number and two key lines).
+2. Open **Settings → Pre-processing → FreeSurfer → FreeSurfer license**, paste the whole file
+   and choose **Store license**. The card then shows the registered email; the key itself is never
+   shown or sent anywhere.
+
+The license is kept in your TI-Toolbox user directory (`~/.config/ti-toolbox/freesurfer-license.txt`
+on macOS and Linux, `%APPDATA%\ti-toolbox\` on Windows), which every launcher mounts into the
+container, so one paste covers every project and every job that needs it. **Forget license**
+removes it. If you select a FreeSurfer step without a stored license, the Pre-processing page says
+so with the registration link, and the run is refused before it starts with a message naming the
+stages that need it — FastSurfer segmentation is never held up.
+
+Scripts and clusters: setting `FS_LICENSE=/path/to/license.txt` in the server's environment takes
+precedence over the stored file; the Apptainer runner's `--fs-license` does the same.
 
 ## Configure once, use across projects
 

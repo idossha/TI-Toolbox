@@ -38,3 +38,11 @@ export async function getSurferSettings(): Promise<SurferSettings> {
 export async function putSurferSettings(settings: SurferPreferences): Promise<SurferSettings> {
   return unwrap(await api.PUT("/api/surfer-settings", { body: settings }), "/api/surfer-settings");
 }
+
+/** The license is the user's own (per registered person) — it is stored, never bundled or fetched. */
+export async function putFreeSurferLicense(text: string): Promise<SurferSettings> {
+  return unwrap(await api.PUT("/api/surfer-settings/freesurfer-license", { body: { text } }), "/api/surfer-settings/freesurfer-license");
+}
+export async function deleteFreeSurferLicense(): Promise<SurferSettings> {
+  return unwrap(await api.DELETE("/api/surfer-settings/freesurfer-license"), "/api/surfer-settings/freesurfer-license");
+}

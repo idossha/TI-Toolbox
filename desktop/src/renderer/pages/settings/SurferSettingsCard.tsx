@@ -13,6 +13,7 @@ import { NumberInput } from "../../ui/NumberInput";
 import { Dialog } from "../../ui/Overlay";
 import { NATIVE_FASTSURFER_STATUS_KEY, useNativeFastSurferStatus } from "../preprocess/NativeFastSurfer";
 import { getSurferSettings, putSurferSettings, type SurferPreferences } from "./api";
+import { FreeSurferLicenseField } from "./FreeSurferLicense";
 
 export function AppleGpuSettings() {
   const status = useNativeFastSurferStatus();
@@ -95,6 +96,7 @@ export function SurferSettingsCard() {
             onCheckedChange={(checked) => { const selected = values.freesurfer_subregions ?? ["thalamus", "hippo-amygdala"]; patch({ freesurfer_subregions: checked ? [...selected, region] : selected.filter((item) => item !== region) }); }} />)}
         <p className="field-help">Subregions require a completed reconstruction, from this run or an existing result.</p>
       </div>}
+      <FreeSurferLicenseField />
     </CardBody></Card>
     <Card><CardHeader title="SimNIBS CHARM" actions={<div className="preprocessing-doc-links"><a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/pre-processing/" target="_blank" rel="noreferrer">TI-Toolbox docs ↗</a> <a className="field-help" href="https://simnibs.github.io/simnibs/build/html/documentation/command_line/charm.html" target="_blank" rel="noreferrer">SimNIBS docs ↗</a></div>} /><CardBody>
       {threads("charm_threads", "CHARM threads")}

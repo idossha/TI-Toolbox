@@ -3857,8 +3857,13 @@ route("GET", "/api/files/raw/*path", rawHandler(false));
 route("HEAD", "/api/files/raw/*path", rawHandler(true));
 
 let surferSettings = { charm_options: null, qsiprep_config: { output_resolution: 2, image_tag: "26.0.0", skip_bids_validation: true, denoise_method: "dwidenoise", unringing_method: "mrdegibbs" }, qsi_recon_config: { recon_specs: ["dsi_studio_gqi"], atlases: null, use_gpu: false, image_tag: "26.0.0", skip_odf_reports: true }, charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, fastsurfer_threads: null, freesurfer_threads: null, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"] };
+// The user's own FreeSurfer license (never bundled): the mock only remembers that one was pasted.
+let freesurferLicense = null;
 const surferSettingsResponse = () => ({
   ...surferSettings, available_threads: 12, default_threads: 9,
+  freesurfer_license: freesurferLicense
+    ? { configured: true, source: "app", email: freesurferLicense.split("\n")[0] }
+    : { configured: false, source: null, email: null },
   effective_charm_threads: Math.min(12, surferSettings.charm_threads ?? 9), effective_qsiprep_threads: Math.min(12, surferSettings.qsiprep_threads ?? 9), effective_qsirecon_threads: Math.min(12, surferSettings.qsirecon_threads ?? 9),
   effective_fastsurfer_threads: Math.min(12, surferSettings.fastsurfer_threads ?? 9),
   effective_freesurfer_threads: Math.min(12, surferSettings.freesurfer_threads ?? 9),
@@ -3872,6 +3877,19 @@ route("PUT", "/api/surfer-settings", async (ctx) => {
     }
   }
   surferSettings = { ...surferSettings, ...body };
+  json(ctx.res, 200, surferSettingsResponse());
+});
+route("PUT", "/api/surfer-settings/freesurfer-license", async (ctx) => {
+  const body = await ctx.body();
+  const lines = String(body.text ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 2 || !lines[0].includes("@")) {
+    return json(ctx.res, 422, { detail: "Paste the whole license.txt FreeSurfer emailed you (email line plus key lines)" });
+  }
+  freesurferLicense = lines.join("\n");
+  json(ctx.res, 200, surferSettingsResponse());
+});
+route("DELETE", "/api/surfer-settings/freesurfer-license", (ctx) => {
+  freesurferLicense = null;
   json(ctx.res, 200, surferSettingsResponse());
 });
 

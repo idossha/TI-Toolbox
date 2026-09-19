@@ -25,8 +25,10 @@ const SETTINGS_FIXTURE = {
 };
 
 vi.mock("../../src/renderer/pages/settings/api", () => ({
-  getSurferSettings: vi.fn(async () => ({ available_threads: 12, default_threads: 9, fastsurfer_threads: null, freesurfer_threads: null, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9 })),
+  getSurferSettings: vi.fn(async () => ({ available_threads: 12, default_threads: 9, fastsurfer_threads: null, freesurfer_threads: null, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9, freesurfer_license: { configured: false, source: null, email: null } })),
   putSurferSettings: vi.fn(),
+  putFreeSurferLicense: vi.fn(),
+  deleteFreeSurferLicense: vi.fn(),
   getSettings: vi.fn(async () => SETTINGS_FIXTURE),
   putSettings: vi.fn(async (s: unknown) => s),
   getProject: vi.fn(async () => ({ name: "example", container_path: "/mnt/example", host_path: null })),

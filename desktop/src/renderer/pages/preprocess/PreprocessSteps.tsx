@@ -4,6 +4,7 @@ import { Checkbox } from "../../ui/Toggle";
 import { Button } from "../../ui/Button";
 import { StepHelpIcon } from "./stepInfo";
 import { NativeFastSurfer } from "./NativeFastSurfer";
+import { FreeSurferLicenseNotice } from "../settings/FreeSurferLicense";
 import type { PreprocessConfig } from "./api";
 import "./preprocess.css";
 
@@ -21,7 +22,7 @@ export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon}: {valu
               </div>
               <div className="structural-column">
                 <div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_fastsurfer} onCheckedChange={(v) => setValue("run_fastsurfer", v)} label="FastSurfer segmentation" /><StepHelpIcon id="run_fastsurfer" /></div><div className="structural-child"><span aria-hidden="true">↳</span><NativeFastSurfer /></div></div>
-                <div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_freesurfer} onCheckedChange={(v) => setValue("run_freesurfer", v)} label="FreeSurfer (optional)" /><StepHelpIcon id="run_freesurfer" /></div><div className="structural-child"><span aria-hidden="true">↳</span><Link to="/settings#preprocessing">Configure FreeSurfer</Link></div></div>
+                <div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_freesurfer} onCheckedChange={(v) => setValue("run_freesurfer", v)} label="FreeSurfer (optional)" /><StepHelpIcon id="run_freesurfer" /></div><div className="structural-child"><span aria-hidden="true">↳</span><Link to="/settings#preprocessing">Configure FreeSurfer</Link></div><FreeSurferLicenseNotice selected={values.run_freesurfer} /></div>
               </div>
             </div>
           </FormSection>

@@ -2335,6 +2335,42 @@ paths:
                 $ref: "#/components/schemas/SurferSettings"
         "422":
           description: Invalid thread preferences
+  /api/surfer-settings/freesurfer-license:
+    put:
+      tags: [settings]
+      summary: Store the user's own FreeSurfer license.txt
+      description: >-
+        The FreeSurfer license is issued per registered individual and is never bundled with,
+        fetched by or returned from the toolbox. The text is kept in the user config dir and
+        mounted into every job that runs FreeSurfer binaries (recon-all, subregion
+        segmentation, QSIPrep/QSIRecon). FastSurfer segmentation-only needs none.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FreeSurferLicenseText"
+      responses:
+        "200":
+          description: Settings with the license now reported as configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SurferSettings"
+        "422":
+          description: The text is not shaped like a FreeSurfer license.txt
+    delete:
+      tags: [settings]
+      summary: Forget the stored FreeSurfer license
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Settings with the license no longer stored by the app
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SurferSettings"
 
   /api/settings:
     get:
@@ -5260,10 +5296,35 @@ components:
           minimum: 1
           maximum: 4096
           description: Null uses 80% of available CPUs.
+    FreeSurferLicenseText:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The full contents of the license.txt FreeSurfer emailed the user.
+    FreeSurferLicenseStatus:
+      type: object
+      required: [configured]
+      properties:
+        configured:
+          type: boolean
+          description: A non-empty license file resolves ($FS_LICENSE, the app store, or the image path).
+        source:
+          type: [string, "null"]
+          description: app (pasted in Settings) or environment ($FS_LICENSE / the image path).
+        email:
+          type: [string, "null"]
+          description: First line of the license (the registered email), for the user to recognise it. Never the key.
     SurferSettings:
       type: object
-      required: [charm_options, qsiprep_config, qsi_recon_config, fastsurfer_threads, freesurfer_threads, charm_threads, qsiprep_threads, qsirecon_threads, qsiprep_memory_gb, qsirecon_memory_gb, qsiprep_omp_threads, qsirecon_omp_threads, freesurfer_recon_all, freesurfer_subregions, available_threads, default_threads, effective_fastsurfer_threads, effective_freesurfer_threads, effective_charm_threads, effective_qsiprep_threads, effective_qsirecon_threads]
+      required: [charm_options, qsiprep_config, qsi_recon_config, fastsurfer_threads, freesurfer_threads, charm_threads, qsiprep_threads, qsirecon_threads, qsiprep_memory_gb, qsirecon_memory_gb, qsiprep_omp_threads, qsirecon_omp_threads, freesurfer_recon_all, freesurfer_subregions, freesurfer_license, available_threads, default_threads, effective_fastsurfer_threads, effective_freesurfer_threads, effective_charm_threads, effective_qsiprep_threads, effective_qsirecon_threads]
       properties:
+        freesurfer_license:
+          $ref: "#/components/schemas/FreeSurferLicenseStatus"
         charm_options:
           type: [object, "null"]
           additionalProperties: false

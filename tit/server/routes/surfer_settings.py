@@ -3,12 +3,14 @@
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictStr
 
 from tit.surfer_settings import (
     QSIPrepPreferences,
     QSIReconPreferences,
+    clear_freesurfer_license,
     read_settings,
+    save_freesurfer_license,
     save_preferences,
 )
 
@@ -36,7 +38,25 @@ class SurferPreferences(BaseModel):
     )
 
 
+class FreeSurferLicenseStatus(BaseModel):
+    """Whether a FreeSurfer license is resolvable, and where it came from.
+
+    The license itself is never returned: it is issued per registered person
+    and stays in the user's config dir.
+    """
+
+    configured: bool
+    source: Literal["app", "environment"] | None = None
+    email: str | None = None
+
+
+class FreeSurferLicenseText(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: StrictStr = Field(min_length=1, max_length=4096)
+
+
 class SurferSettings(SurferPreferences):
+    freesurfer_license: FreeSurferLicenseStatus
     effective_charm_threads: int
     effective_qsiprep_threads: int
     effective_qsirecon_threads: int
@@ -57,4 +77,29 @@ def put_surfer_settings(body: SurferPreferences) -> SurferSettings:
         save_preferences(body.model_dump(exclude_unset=True))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return get_surfer_settings()
+
+
+@router.put(
+    "/api/surfer-settings/freesurfer-license",
+    summary="Store the user's own FreeSurfer license.txt (never bundled or fetched)",
+)
+def put_freesurfer_license(body: FreeSurferLicenseText) -> SurferSettings:
+    try:
+        save_freesurfer_license(body.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Could not store the license: {exc}"
+        ) from exc
+    return get_surfer_settings()
+
+
+@router.delete(
+    "/api/surfer-settings/freesurfer-license",
+    summary="Forget the stored FreeSurfer license",
+)
+def delete_freesurfer_license() -> SurferSettings:
+    clear_freesurfer_license()
     return get_surfer_settings()

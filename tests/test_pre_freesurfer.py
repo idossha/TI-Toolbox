@@ -125,7 +125,7 @@ def test_no_subregions_without_reconstruction(project):
 def test_missing_license(project, monkeypatch):
     monkeypatch.setattr(fs, "resolve_fs_license_path", lambda: None)
     runner = Mock()
-    with pytest.raises(PreprocessError, match="requires a license"):
+    with pytest.raises(PreprocessError, match="needs your FreeSurfer license"):
         fs.run_freesurfer("001", runner=runner, logger=Mock())
     runner.run.assert_not_called()
 

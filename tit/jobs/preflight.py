@@ -604,7 +604,11 @@ def _check_pre(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
     )
     return [
         MissingInput(
-            what=f"{p.label} input for sub-{p.subject_id}" if p.subject_id else p.label,
+            what=(
+                f"{p.label} input for sub-{p.subject_id}"
+                if p.subject_id and p.label != "FreeSurfer license"
+                else p.label
+            ),
             expected_path=str(p.path),
             how_to_fix=p.message,
         )

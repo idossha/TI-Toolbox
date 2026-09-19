@@ -200,6 +200,38 @@ add-only reconnect left stale jobs; backend-specific quit could discard work sil
 **Cost.** Stricter inputs and less aggressive admission. Filesystem containment is not a sandbox
 against malicious concurrent local mutation. **Revisit if.** Multi-user trust or storage ownership changes.
 
+### 2026-09-18 — The FreeSurfer license is the user's own, pasted once; FastSurfer needs none
+
+**Decision.** The toolbox never bundles, fetches or returns a FreeSurfer license: it is issued per
+registered individual and may not be redistributed. The one place a user adds theirs is
+**Settings → Pre-processing → FreeSurfer license** (`PUT`/`DELETE
+/api/surfer-settings/freesurfer-license`, body `{text}`); the server keeps it as
+`<user config dir>/freesurfer-license.txt` (mode 0600), a directory every launcher already
+bind-mounts at `/root/.config/ti-toolbox`, and `resolve_fs_license_path()` resolves
+`$FS_LICENSE` → that file → `/usr/local/freesurfer/license.txt` (an empty file — the Apptainer
+placeholder — does not count). Every job that runs FreeSurfer binaries then receives it the way
+it already did: the FreeSurfer worker stages a 0600 copy into the project and binds it at
+`/run/license.txt` with `FS_LICENSE`; QSIPrep/QSIRecon get `--fs-license-file`. `GET
+/api/surfer-settings` reports `freesurfer_license: {configured, source, email}` — the registered
+email so the user recognises it, never the key. Preflight (`tit.pre.preflight.LICENSED_STEPS`)
+asks for a license only for `recon-all`, thalamic nuclei and hippocampus/amygdala, and its one
+message names exactly the selected stages that need it, the registration URL and where to paste
+it; FastSurfer `--seg_only` is never gated.
+
+**Why.** In the v3 app no launcher set `FS_LICENSE` or mounted a license, so the FreeSurfer stages
+could never be licensed at all, and the only guidance was "configure the license". Separately,
+the report "FastSurfer is blocked" was not the license: a stale
+`code/ti-toolbox/native-fastsurfer/availability.json` left by a force-quit desktop app made
+every FastSurfer job fail with *Native FastSurfer host is disconnected* before `run_fastsurfer.sh`
+started. A stale heartbeat *before* a request now means "no host" (warning, container fallback);
+a host that vanishes *mid-run* still fails the job rather than restarting it on CPU.
+
+**Cost.** One new frozen-contract path and one new required property on `SurferSettings`
+(`contracts/openapi.yaml`, regenerated). A user who wanted the GPU and submitted with the desktop
+app closed now gets a slower CPU run with a warning in the log instead of a refusal.
+**Revisit if.** FreeSurfer drops the license requirement for the subregion tools, or a project-
+scoped license (per dataset, not per user) is asked for.
+
 ### 2026-09-18 — Path validation at the boundary; CodeQL alerts (ADR 33, amends 30)
 
 **Decision.** Every user-supplied value that becomes a path component passes through one of three

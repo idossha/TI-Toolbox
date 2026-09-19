@@ -38,7 +38,19 @@ def _read_json(path: Path) -> dict:
         ) from exc
 
 
-def _session(root: Path, mailbox: Path) -> str | None:
+def _session(
+    root: Path, mailbox: Path, *, logger: logging.Logger | None = None
+) -> str | None:
+    """Return the advertised host session, or ``None`` when no host is present.
+
+    A stale heartbeat *before* a request starts means the desktop app that
+    wrote ``availability.json`` is gone (it removes the file on a clean stop,
+    but a crash or a force-quit leaves it behind). That is "no host", not an
+    error: pass *logger* to get the fallback logged and ``None`` returned.
+    Without *logger* (the mid-run check) a stale heartbeat still raises, so
+    a host that vanishes during a run fails the job instead of silently
+    restarting it on CPU.
+    """
     path = _inside(root, mailbox / "availability.json")
     if not path.exists():
         return None
@@ -58,6 +70,16 @@ def _session(root: Path, mailbox: Path) -> str | None:
             "Invalid native FastSurfer availability message."
         ) from exc
     if age < -_HEARTBEAT_SECONDS or age >= _HEARTBEAT_SECONDS:
+        if logger is not None:
+            logger.warning(
+                "Native FastSurfer (Apple GPU) host is not connected: its last "
+                "heartbeat is %.0f s old (%s). Falling back to FastSurfer in the "
+                "container on CPU. Open the desktop app with Apple GPU enabled "
+                "before submitting to use the GPU.",
+                age,
+                path,
+            )
+            return None
         raise PreprocessError(
             "Native FastSurfer host is disconnected. Reconnect TI-Toolbox or disable "
             "native FastSurfer before retrying."
@@ -81,7 +103,7 @@ def run_native_fastsurfer(
     """
     root = Path(project_dir).resolve()
     mailbox = _inside(root, root / "code/ti-toolbox/native-fastsurfer")
-    session = _session(root, mailbox)
+    session = _session(root, mailbox, logger=logger)
     if session is None:
         return False
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", subject_id):

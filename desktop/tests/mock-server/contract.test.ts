@@ -398,6 +398,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     // settings (v1)
     await call("/api/surfer-settings", "GET", "/api/surfer-settings");
     await call("/api/surfer-settings", "PUT", "/api/surfer-settings", { body: { fastsurfer_threads: 4, freesurfer_threads: null } });
+    await call("/api/surfer-settings/freesurfer-license", "PUT", "/api/surfer-settings/freesurfer-license", { body: { text: "someone@example.org\n12345\n *Ab1cD2eF3gH\n FSabc123DEF456" } });
+    await call("/api/surfer-settings/freesurfer-license", "DELETE", "/api/surfer-settings/freesurfer-license");
     await call("/api/settings", "GET", "/api/settings");
     await call("/api/settings", "PUT", "/api/settings", { body: { theme: "dark", panels: [], telemetry: { consented: true, enabled: false } } });
 

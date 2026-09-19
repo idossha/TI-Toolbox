@@ -94,8 +94,10 @@ projects, not work already running. Automatic thread allocation uses the availab
 one, with a minimum of one. Each control shows the available capacity; container limits and the
 job scheduler still constrain execution.
 
-- **FastSurfer / FreeSurfer:** thread controls, Apple GPU enablement and FreeSurfer operations.
-  See the [surfer guide]({{ site.baseurl }}/wiki/fastsurfer/) for setup and permissions.
+- **FastSurfer / FreeSurfer:** thread controls, Apple GPU enablement, FreeSurfer operations and
+  your **FreeSurfer license** (needed by recon-all, the subregion tools and QSIPrep/QSIRecon;
+  FastSurfer segmentation needs none). See the [surfer guide]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-license)
+  for setup, the license and permissions.
 - **QSIPrep / QSIRecon:** CPU threads, OpenMP threads and memory limits. **Configure QSIPrep**
   and **Configure QSIRecon** open the same saved processing choices as the run page; saving either
   dialog remembers them across projects. See the [diffusion guide]({{ site.baseurl }}/wiki/diffusion-processing/)

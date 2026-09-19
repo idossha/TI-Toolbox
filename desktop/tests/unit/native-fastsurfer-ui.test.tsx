@@ -10,7 +10,7 @@ import { AppleGpuSettings, SurferSettingsCard } from "../../src/renderer/pages/s
 import { getSurferSettings, putSurferSettings } from "../../src/renderer/pages/settings/api";
 import type { TitBridge, TitFastSurferStatus } from "../../src/shared/tit-bridge";
 
-vi.mock("../../src/renderer/pages/settings/api", () => ({ getSurferSettings: vi.fn(), putSurferSettings: vi.fn() }));
+vi.mock("../../src/renderer/pages/settings/api", () => ({ getSurferSettings: vi.fn(), putSurferSettings: vi.fn(), putFreeSurferLicense: vi.fn(), deleteFreeSurferLicense: vi.fn() }));
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let container: HTMLDivElement;
 let root: Root;
@@ -72,7 +72,7 @@ it("disables changes during installation and displays failure", async () => {
   expect(container.querySelector('[role="alert"]')?.textContent).toContain("Download failed");
 });
 it("shows automatic thread capacity separately from the preprocessing job", async () => {
-  vi.mocked(getSurferSettings).mockResolvedValue({ charm_options: null, qsiprep_config: qsiPrepPreferences(prepDefaults()), qsi_recon_config: qsiReconPreferences(reconDefaults()), charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, effective_charm_threads: 9, effective_qsiprep_threads: 9, effective_qsirecon_threads: 9, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"], fastsurfer_threads: null, freesurfer_threads: null, available_threads: 12, default_threads: 9, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9 });
+  vi.mocked(getSurferSettings).mockResolvedValue({ charm_options: null, qsiprep_config: qsiPrepPreferences(prepDefaults()), qsi_recon_config: qsiReconPreferences(reconDefaults()), charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, effective_charm_threads: 9, effective_qsiprep_threads: 9, effective_qsirecon_threads: 9, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"], fastsurfer_threads: null, freesurfer_threads: null, available_threads: 12, default_threads: 9, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9, freesurfer_license: { configured: false, source: null, email: null } });
   await render(<SurferSettingsCard />);
   expect(container.textContent).toContain("of 12 available threads");
   expect(container.querySelectorAll('input[placeholder="Auto (9)"]')).toHaveLength(7);
@@ -80,7 +80,7 @@ it("shows automatic thread capacity separately from the preprocessing job", asyn
 });
 
 it("saves a user thread override without changing the other tool", async () => {
-  const prefs = { charm_options: null, qsiprep_config: qsiPrepPreferences(prepDefaults()), qsi_recon_config: qsiReconPreferences(reconDefaults()), charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, effective_charm_threads: 9, effective_qsiprep_threads: 9, effective_qsirecon_threads: 9, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"] as ("thalamus" | "hippo-amygdala")[], fastsurfer_threads: null, freesurfer_threads: null, available_threads: 12, default_threads: 9, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9 };
+  const prefs = { charm_options: null, qsiprep_config: qsiPrepPreferences(prepDefaults()), qsi_recon_config: qsiReconPreferences(reconDefaults()), charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, effective_charm_threads: 9, effective_qsiprep_threads: 9, effective_qsirecon_threads: 9, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"] as ("thalamus" | "hippo-amygdala")[], fastsurfer_threads: null, freesurfer_threads: null, available_threads: 12, default_threads: 9, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9, freesurfer_license: { configured: false, source: null, email: null } };
   vi.mocked(getSurferSettings).mockResolvedValue(prefs);
   vi.mocked(putSurferSettings).mockResolvedValue({ ...prefs, fastsurfer_threads: 6, effective_fastsurfer_threads: 6 });
   await render(<SurferSettingsCard />);

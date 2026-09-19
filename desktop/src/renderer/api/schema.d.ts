@@ -3779,6 +3779,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/surfer-settings/freesurfer-license": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Store the user's own FreeSurfer license.txt
+         * @description The FreeSurfer license is issued per registered individual and is never bundled with, fetched by or returned from the toolbox. The text is kept in the user config dir and mounted into every job that runs FreeSurfer binaries (recon-all, subregion segmentation, QSIPrep/QSIRecon). FastSurfer segmentation-only needs none.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["FreeSurferLicenseText"];
+                };
+            };
+            responses: {
+                /** @description Settings with the license now reported as configured */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SurferSettings"];
+                    };
+                };
+                /** @description The text is not shaped like a FreeSurfer license.txt */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Forget the stored FreeSurfer license */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Settings with the license no longer stored by the app */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SurferSettings"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -6241,7 +6311,20 @@ export interface components {
             /** @description Null uses 80% of available CPUs. */
             freesurfer_threads?: number | null;
         };
+        FreeSurferLicenseText: {
+            /** @description The full contents of the license.txt FreeSurfer emailed the user. */
+            text: string;
+        };
+        FreeSurferLicenseStatus: {
+            /** @description A non-empty license file resolves ($FS_LICENSE, the app store, or the image path). */
+            configured: boolean;
+            /** @description app (pasted in Settings) or environment ($FS_LICENSE / the image path). */
+            source?: string | null;
+            /** @description First line of the license (the registered email), for the user to recognise it. Never the key. */
+            email?: string | null;
+        };
         SurferSettings: {
+            freesurfer_license: components["schemas"]["FreeSurferLicenseStatus"];
             charm_options: {
                 denoise?: boolean | null;
                 segmentation_final_resolution?: number | null;
@@ -6294,9 +6377,12 @@ export interface components {
          *     Attributes
          *     ----------
          *     subject_id : str
-         *         Subject identifier (e.g. ``"sub-001"``).
+         *         Subject identifier without the ``sub-`` prefix (e.g. ``"ernie"``,
+         *         ``"101"``); must match an existing ``m2m_<subject_id>`` directory.
          *     montages : list[Montage]
-         *         One or more :class:`Montage` definitions to simulate.
+         *         One or more :class:`Montage` definitions to simulate.  Two pairs
+         *         per montage is TI, four or more (even) pairs is mTI -- detected
+         *         per montage, so a list may mix both.
          *     conductivity : str
          *         Tissue conductivity model.  One of:
          *
@@ -6308,42 +6394,48 @@ export interface components {
          *         The anisotropic modes (``"vn"``, ``"dir"``, ``"mc"``) require
          *         DTI tensors registered to the head mesh.
          *     intensities : list[float]
-         *         Per-pair current intensities in mA.  Length must be 1 (broadcast
-         *         to all pairs) or match the total number of electrode pairs.
-         *         Defaults to ``[1.0, 1.0]``.
+         *         Current per electrode pair in mA, in ``electrode_pairs`` order.
+         *         A TI montage reads the first two values; an mTI montage needs one
+         *         value per pair (``len(intensities) >= num_pairs``).  A single
+         *         value is **not** broadcast -- a 4-pair montage with the default
+         *         two values is rejected.  Default ``[1.0, 1.0]``.
          *     electrode_shape : str
-         *         Electrode shape (``"ellipse"`` or ``"rect"``).
+         *         Electrode shape, ``"ellipse"`` or ``"rect"``.  Default
+         *         ``"ellipse"``.
          *     electrode_dimensions : list[float]
-         *         ``[width, height]`` of each electrode in mm.
+         *         ``[width, height]`` of each electrode in mm.  Default
+         *         ``[8.0, 8.0]``.
          *     gel_thickness : float
-         *         Conductive-gel layer thickness in mm.
+         *         Conductive-gel layer thickness in mm.  Default ``4.0``.
          *     rubber_thickness : float
-         *         Rubber (silicone) layer thickness in mm.
+         *         Rubber (silicone) layer thickness in mm.  Default ``2.0``.
          *     map_to_surf : bool
-         *         Map results onto the cortical surface.  Must be ``True`` because
-         *         TI_normal calculation requires surface overlays.
+         *         Map results onto the cortical surface.  Must stay ``True``
+         *         (default) because the ``TI_normal`` calculation requires surface
+         *         overlays.
          *     map_to_vol : bool
          *         Reserved for NIfTI output (handled externally by
-         *         ``tit.tools.mesh2nii``, not by SimNIBS SESSION).
+         *         ``tit.tools.mesh2nii``, not by SimNIBS SESSION).  Default
+         *         ``False``.
          *     map_to_mni : bool
          *         Generate MNI-space field and T1 NIfTI outputs after simulation.
-         *         Off by default; subject-space NIfTI outputs are always generated.
+         *         Default ``False``; subject-space NIfTI outputs are always generated.
          *     map_to_fsavg : bool
          *         After each TI montage finishes, project its surface fields
          *         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5
-         *         for group surface analysis.  On by default; set ``False`` to skip.
-         *         Failures are logged and never abort the simulation.
+         *         for group surface analysis.  Default ``True``; set ``False`` to
+         *         skip.  Failures are logged and never abort the simulation.
          *     open_in_gmsh : bool
-         *         Open results in Gmsh after simulation.
+         *         Open results in Gmsh after simulation.  Default ``False``.
          *     tissues_in_niftis : str
          *         Tissue selection for NIfTI export (``"all"`` or a
-         *         comma-separated list).
+         *         comma-separated list of tissue numbers).  Default ``"all"``.
          *     aniso_maxratio : float
          *         Maximum eigenvalue ratio clamp for anisotropic conductivity
-         *         tensors.
+         *         tensors.  Default ``10.0``.
          *     aniso_maxcond : float
          *         Maximum absolute conductivity clamp (S/m) for anisotropic
-         *         tensors.
+         *         tensors.  Default ``2.0``.
          *     output_fields : list[str]
          *         Which volume-mesh fields to compute and write. Logical names from
          *         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
@@ -6370,9 +6462,35 @@ export interface components {
          *     ------
          *     ValueError
          *         If *conductivity* is not one of the valid model names, if
-         *         *output_fields* contains an unknown name, if *output_fields*
-         *         is empty, or if *tissue_conductivities* contains a non-positive
-         *         value.
+         *         *output_fields* contains an unknown name or is empty, if any
+         *         montage has a pair that is not exactly two electrodes, if
+         *         *intensities* is shorter than a montage needs (2 for TI, one per
+         *         pair for mTI), or if *tissue_conductivities* contains a
+         *         non-positive value.  Filesystem checks (the m2m directory, the
+         *         EEG-net CSV) happen later, in :func:`run_simulation`.
+         *
+         *     Examples
+         *     --------
+         *     >>> from tit.sim import SimulationConfig, Montage, MontageMode
+         *     >>> montage = Montage(
+         *     ...     name="L_Insula", mode=MontageMode.NET,
+         *     ...     electrode_pairs=[("E010", "E011"), ("E012", "E013")],
+         *     ...     eeg_net="GSN-HydroCel-185.csv",
+         *     ... )
+         *     >>> cfg = SimulationConfig(
+         *     ...     subject_id="ernie",
+         *     ...     montages=[montage],
+         *     ...     conductivity="scalar",
+         *     ...     intensities=[1.0, 1.0],
+         *     ...     electrode_shape="ellipse",
+         *     ...     electrode_dimensions=[8.0, 8.0],
+         *     ...     output_fields=["TI_max", "hf_peak"],
+         *     ... )
+         *     >>> cfg.map_to_surf, cfg.output_fields
+         *     (True, ['TI_max', 'hf_peak'])
+         *
+         *     Then ``run_simulation(cfg)`` (needs SimNIBS and the subject's m2m
+         *     directory).
          *
          *     See Also
          *     --------
@@ -6484,6 +6602,45 @@ export interface components {
          *         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
          *     display_name : str or None
          *         Optional user-facing label.  ``name`` remains the storage and lookup key.
+         *     electrode_poses : list[list[list[float]]] or None
+         *         Optional full 4x4 homogeneous pose (row-major) per electrode, one
+         *         per XYZ position in ``electrode_pairs`` order.  Only meaningful for
+         *         XYZ modes; preserves rectangular-electrode orientation when a
+         *         flex-search candidate is replayed.  ``None`` (default) lets SimNIBS
+         *         orient the electrodes itself.
+         *     provenance : dict[str, str] or None
+         *         Free-form origin metadata (e.g. ``{"head_mesh_sha256": ...}``)
+         *         checked by :func:`run_simulation` when present.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *electrode_poses* is given for a label-based montage, does not
+         *         contain exactly one 4x4 right-handed homogeneous transform per
+         *         electrode, or its translations do not match ``electrode_pairs``.
+         *
+         *     Examples
+         *     --------
+         *     >>> from tit.sim import Montage, MontageMode
+         *     >>> m = Montage(
+         *     ...     name="L_Insula",
+         *     ...     mode=MontageMode.NET,
+         *     ...     electrode_pairs=[("E010", "E011"), ("E012", "E013")],
+         *     ...     eeg_net="GSN-HydroCel-185.csv",
+         *     ... )
+         *     >>> m.num_pairs, m.simulation_mode.value, m.is_xyz
+         *     (2, 'TI', False)
+         *
+         *     A free-hand montage uses subject-space millimetre coordinates and no net:
+         *
+         *     >>> free = Montage(
+         *     ...     name="custom",
+         *     ...     mode=MontageMode.FREEHAND,
+         *     ...     electrode_pairs=[([-60.0, 10.0, 40.0], [60.0, 10.0, 40.0]),
+         *     ...                      ([-60.0, -40.0, 40.0], [60.0, -40.0, 40.0])],
+         *     ... )
+         *     >>> free.is_xyz
+         *     True
          *
          *     See Also
          *     --------
@@ -6543,17 +6700,20 @@ export interface components {
          *         Field post-processing method (``"max_TI"``, ``"dir_TI_normal"``,
          *         or ``"dir_TI_tangential"``).
          *     current_mA : float
-         *         Total injected current in milliamps.
+         *         Current per channel in mA -- each of the two electrode pairs
+         *         injects ``+current_mA`` / ``-current_mA`` (a 1:1 split), so the
+         *         total injected current is ``2 * current_mA``.
          *     electrode : ElectrodeConfig
          *         Electrode geometry configuration.
          *     roi : SphericalROI or AtlasROI or SubcorticalROI
          *         Target region of interest.
          *     anisotropy_type : str
-         *         Conductivity tensor type (``"scalar"`` or ``"vn"``).
+         *         Conductivity tensor type (``"scalar"`` or ``"vn"``).  Default
+         *         ``"scalar"``.
          *     aniso_maxratio : float
-         *         Maximum anisotropy eigenvalue ratio.
+         *         Maximum anisotropy eigenvalue ratio.  Default ``10.0``.
          *     aniso_maxcond : float
-         *         Maximum anisotropic conductivity (S/m).
+         *         Maximum anisotropic conductivity (S/m).  Default ``2.0``.
          *     non_roi_method : NonROIMethod or None
          *         How to define the non-ROI region for focality optimization.
          *         ``None`` when goal is not focality.
@@ -6591,11 +6751,18 @@ export interface components {
          *     eeg_net : str or None
          *         EEG net name or filename (e.g. ``"GSN-HydroCel-185"`` or
          *         ``"GSN-HydroCel-185.csv"``) for electrode-name mapping.
-         *         ``None`` to use raw electrode indices.
+         *         ``None`` (default) to use raw electrode indices.
          *     enable_mapping : bool
-         *         If True, map optimal indices to named EEG positions.
+         *         If True, map optimal indices to named EEG positions.  Default
+         *         ``False``.
          *     disable_mapping_simulation : bool
          *         If True, skip the final named-electrode simulation after mapping.
+         *         Default ``False``.
+         *     observe_background : bool
+         *         If True, also record observation-only background (non-ROI) field
+         *         metrics for every candidate, independent of the goal.  Like the
+         *         callable goals it is incompatible with *detailed_results*.
+         *         Default ``False``.
          *     output_folder : str or None
          *         Override for the output directory path.  Defaults to an
          *         auto-generated timestamped folder.
@@ -6603,8 +6770,9 @@ export interface components {
          *         If True, run a full SimNIBS simulation with the winning
          *         electrode configuration.
          *     n_multistart : int
-         *         Number of independent DE restarts.  Higher values reduce
-         *         sensitivity to local optima.
+         *         Number of independent DE restarts (default ``1``).  Higher values
+         *         reduce sensitivity to local optima; this is the only thing
+         *         *cpus* parallelises.
          *     max_iterations : int or None
          *         Maximum DE generations per restart.  ``None`` for solver default.
          *     population_size : int or None
@@ -6616,9 +6784,11 @@ export interface components {
          *     recombination : float or None
          *         DE crossover probability.  ``None`` for solver default.
          *     cpus : int or None
-         *         Number of parallel workers.  ``None`` for auto-detect.
+         *         Number of parallel workers for the multi-start restarts (the DE
+         *         search itself is single-process).  ``None`` for auto-detect.
          *     min_electrode_distance : float
          *         Minimum geodesic distance (mm) between any two electrodes.
+         *         Default ``5.0``.
          *     detailed_results : bool
          *         If True, save per-restart detailed output.  Incompatible with any
          *         configuration whose goal is a Python callable -- ``"focality_tf"``
@@ -6665,6 +6835,36 @@ export interface components {
          *         (``goal="focality_tf"`` or *optimize_current_ratio*), or if *mode*
          *         is ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
          *         ``"focality"``.
+         *
+         *     Examples
+         *     --------
+         *     Enum-valued fields accept their string values:
+         *
+         *     >>> from tit.opt import FlexConfig
+         *     >>> cfg = FlexConfig(
+         *     ...     subject_id="ernie",
+         *     ...     goal="mean",                       # "mean" | "max" | "focality" | "focality_tf"
+         *     ...     postproc="max_TI",                 # "max_TI" | "dir_TI_normal" | "dir_TI_tangential"
+         *     ...     current_mA=1.0,
+         *     ...     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
+         *     ...     roi=FlexConfig.SphericalROI(x=-35.0, y=5.0, z=5.0, radius=10.0, use_mni=True),
+         *     ...     n_multistart=3,
+         *     ... )
+         *     >>> cfg.goal is FlexConfig.OptGoal.MEAN, cfg.is_focality
+         *     (True, False)
+         *
+         *     A focality goal defaults its non-ROI region to everything outside the ROI:
+         *
+         *     >>> foc = FlexConfig(
+         *     ...     subject_id="ernie", goal="focality_tf", postproc="max_TI", current_mA=1.0,
+         *     ...     electrode=FlexConfig.ElectrodeConfig(),
+         *     ...     roi=FlexConfig.AtlasROI(atlas_path="lh.aparc.annot", label=24, hemisphere="lh"),
+         *     ... )
+         *     >>> foc.non_roi_method.value
+         *     'everything_else'
+         *
+         *     Then ``run_flex_search(cfg)`` (needs SimNIBS and the subject's m2m
+         *     directory).
          *
          *     See Also
          *     --------
@@ -6843,11 +7043,17 @@ export interface components {
          *     subject_id : str
          *         Subject identifier matching the m2m directory name.
          *     leadfield_hdf : str
-         *         Path to the precomputed leadfield HDF5 file.
+         *         Filename of the precomputed leadfield HDF5 (e.g.
+         *         ``"ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5"``), resolved under
+         *         the subject's ``leadfields/`` directory
+         *         (:meth:`tit.paths.PathManager.leadfields`); an absolute path is
+         *         also accepted.
          *     roi_name : str
-         *         ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
-         *         is appended automatically if missing.  Used as the metric-key
-         *         prefix and (with the net name) the output-directory label.
+         *         ROI CSV filename (e.g. ``"target.csv"``) in the subject's ``ROIs/``
+         *         directory (:meth:`tit.paths.PathManager.rois`).  The ``".csv"``
+         *         suffix is appended automatically if missing.  Used as the
+         *         metric-key prefix and (with the net name) the output-directory
+         *         label.
          *     roi_names : list of str or None
          *         Optional list of ROI CSV filenames to **union** into a single
          *         target.  When provided (combined mode), the spherical masks of
@@ -6871,16 +7077,19 @@ export interface components {
          *         (:class:`BucketElectrodes`).  A plain dict is auto-converted
          *         in ``__post_init__``.
          *     total_current : float
-         *         Total injected current in mA, split across channels.
+         *         Total injected current in mA, split across the two channels.
+         *         Default ``2.0``.
          *     current_step : float
-         *         Current amplitude step size in mA for the sweep.
+         *         Current amplitude step size in mA for the sweep.  Default ``0.5``.
          *     channel_limit : float or None
-         *         Maximum current per channel in mA.  ``None`` for no per-channel
-         *         limit.
+         *         Maximum current per channel in mA.  ``None`` (default) means
+         *         ``total_current - current_step``.
          *     roi_radius : float
-         *         Spherical ROI radius in mm for the target region.
+         *         Spherical ROI radius in mm for the target region.  Default ``3.0``.
          *     run_name : str or None
-         *         Optional name for this run.  Defaults to a datetime stamp.
+         *         Optional name for this run.  Defaults to a datetime stamp.  The
+         *         run name is the output directory, so a repeated name overwrites
+         *         the earlier run in place.
          *     n_jobs : int
          *         Worker processes evaluating candidates in parallel.  ``-1``
          *         (default) uses all cores minus one; ``1`` evaluates in-process.
@@ -6904,6 +7113,30 @@ export interface components {
          *         non-positive, if *symmetric_bucket* is set with pool electrodes,
          *         if *symmetry_pairing* is not ``"within_pairs"``/``"cross_pairs"``,
          *         or if *roi_coordinate_space* is not ``"subject"`` or ``"mni"``.
+         *
+         *     Examples
+         *     --------
+         *     >>> from tit.opt import ExConfig
+         *     >>> cfg = ExConfig(
+         *     ...     subject_id="ernie",
+         *     ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+         *     ...     roi_name="L-Insula",                 # ".csv" is appended
+         *     ...     electrodes=ExConfig.PoolElectrodes(
+         *     ...         electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz", "T7", "T8"]),
+         *     ...     total_current=2.0, current_step=0.5, channel_limit=1.2,
+         *     ...     roi_coordinate_space="mni",
+         *     ... )
+         *     >>> cfg.roi_name
+         *     'L-Insula.csv'
+         *
+         *     Per-channel buckets instead of one pool:
+         *
+         *     >>> ExConfig.BucketElectrodes(e1_plus=["F7"], e1_minus=["F8"],
+         *     ...                           e2_plus=["P7"], e2_minus=["P8"]).e2_minus
+         *     ['P8']
+         *
+         *     Then ``run_ex_search(cfg)`` (needs the leadfield HDF5 under the
+         *     subject's leadfield folder).
          *
          *     See Also
          *     --------
@@ -6995,19 +7228,21 @@ export interface components {
          *     subject_id : str
          *         Subject identifier matching the m2m directory name.
          *     leadfield_hdf : str
-         *         Path to the precomputed leadfield HDF5 file.
+         *         Filename of the precomputed leadfield HDF5, resolved under the
+         *         subject's ``leadfields/`` directory (an absolute path also works).
          *     roi_name : str
-         *         ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
-         *         is appended automatically if missing.
+         *         ROI CSV filename (e.g. ``"target.csv"``) in the subject's ``ROIs/``
+         *         directory.  The ``".csv"`` suffix is appended automatically if
+         *         missing.
          *     electrodes : BucketElectrodes or PoolElectrodes
          *         Electrode specification, either a single shared pool
          *         (:class:`PoolElectrodes`) or four separate per-pair buckets
          *         (:class:`BucketElectrodes`).  A plain dict is auto-converted in
          *         ``__post_init__``.
          *     current_mA : float
-         *         Current in mA delivered by each of the four pairs.
+         *         Current in mA delivered by each of the four pairs.  Default ``2.0``.
          *     roi_radius : float
-         *         Spherical ROI radius in mm for the target region.
+         *         Spherical ROI radius in mm for the target region.  Default ``3.0``.
          *     roi_names : list of str or None
          *         Optional list of ROI CSV filenames to **union** into a single
          *         target.  ``None`` (default) keeps single-ROI behavior driven by
@@ -7049,6 +7284,22 @@ export interface components {
          *         with pool electrodes, if *symmetry_pairing* is not one of
          *         ``"within_pairs"``/``"cross_pairs"``, or if *roi_coordinate_space*
          *         is not ``"subject"`` or ``"mni"``.
+         *
+         *     Examples
+         *     --------
+         *     >>> from tit.opt import MExConfig
+         *     >>> cfg = MExConfig(
+         *     ...     subject_id="ernie",
+         *     ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+         *     ...     roi_name="L-Insula",
+         *     ...     electrodes=MExConfig.PoolElectrodes(
+         *     ...         electrodes=["Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"]),
+         *     ...     current_mA=1.0,
+         *     ... )
+         *     >>> cfg.roi_name, cfg.current_mA
+         *     ('L-Insula.csv', 1.0)
+         *
+         *     Then ``run_m_ex_search(cfg)``.
          *
          *     See Also
          *     --------
@@ -7547,35 +7798,85 @@ export interface components {
          *         Human-readable name for this analysis run.
          *     subjects : list of Subject
          *         Subject entries, each labelled as responder (1) or non-responder (0).
-         *     test_type : TestType
-         *         Whether to use an unpaired or paired t-test.
-         *     alternative : Alternative
-         *         Sidedness of the test hypothesis.
+         *     test_type : TestType or str
+         *         ``"unpaired"`` (default) or ``"paired"`` t-test.  Strings are
+         *         coerced to :class:`TestType`.
+         *     alternative : Alternative or str
+         *         Sidedness: ``"two-sided"`` (default), ``"greater"`` or ``"less"``.
          *     cluster_threshold : float
-         *         Uncorrected p-value threshold for forming clusters.
-         *     cluster_stat : ClusterStat
-         *         Cluster-level statistic used for permutation testing
-         *         (``"mass"`` or ``"size"``).
+         *         Uncorrected p-value threshold for forming clusters.  Default
+         *         ``0.05``.
+         *     cluster_stat : ClusterStat or str
+         *         Cluster-level statistic used for permutation testing,
+         *         ``"mass"`` (default) or ``"size"``.
          *     n_permutations : int
-         *         Number of permutations for the null distribution.
+         *         Number of permutations for the null distribution.  Default
+         *         ``1000``; the smallest reportable p-value is ``1 / (n + 1)``.
          *     alpha : float
-         *         Family-wise error rate for significance.
+         *         Family-wise error rate for significance.  Default ``0.05``.
          *     n_jobs : int
-         *         Number of parallel workers (``-1`` for all CPUs).
-         *     tissue_type : TissueType
-         *         Which tissue compartment to analyze.
+         *         Number of parallel workers (``-1``, the default, for all CPUs).
+         *     tissue_type : TissueType or str
+         *         Which tissue compartment to analyze: ``"grey"`` (default),
+         *         ``"white"`` or ``"all"``.  Ignored when *space* is
+         *         ``"fsaverage"``.
          *     nifti_file_pattern : str or None
-         *         Filename pattern for subject NIfTI files. If ``None``, derived
-         *         automatically from *tissue_type*.
+         *         Filename pattern for subject NIfTI files, with a
+         *         ``{simulation_name}`` placeholder.  If ``None`` (default), derived
+         *         from *tissue_type*, e.g.
+         *         ``"grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"``.
+         *     space : AnalysisSpace or str
+         *         Where the statistics run: ``"mni"`` (default, voxelwise on the
+         *         MNI-space NIfTIs) or ``"fsaverage"`` (vertexwise on the per-subject
+         *         fsaverage projections written by the simulator).
+         *     fsaverage_field : str
+         *         Surface field for ``space="fsaverage"``; one of
+         *         :data:`tit.constants.FSAVG_FIELD_NAMES` (``"TI_max"``,
+         *         ``"TI_normal"``, ``"hf_peak"``, ``"hf_sar"``).  Default
+         *         ``"TI_max"``.
+         *     fsaverage_spacing : int
+         *         fsaverage ico spacing for ``space="fsaverage"``: ``5`` (default),
+         *         ``6`` or ``7``.
          *     group1_name : str
-         *         Display label for the responder group.
+         *         Display label for the responder group.  Default ``"Responders"``.
          *     group2_name : str
-         *         Display label for the non-responder group.
+         *         Display label for the non-responder group.  Default
+         *         ``"Non-Responders"``.
          *     value_metric : str
          *         Label for the field value axis in plots.
          *     atlas_files : list of str
          *         Atlas filenames for overlap analysis (looked up in the bundled
-         *         atlas directory).
+         *         atlas directory).  Default empty.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *subjects* lacks at least one responder and one non-responder,
+         *         if a string value is not a member of its enum, or if
+         *         *fsaverage_field*\/*fsaverage_spacing* are invalid for
+         *         ``space="fsaverage"``.
+         *
+         *     Examples
+         *     --------
+         *     >>> from tit.stats import GroupComparisonConfig
+         *     >>> subjects = [
+         *     ...     GroupComparisonConfig.Subject("ernie", "L_Insula", response=1),
+         *     ...     GroupComparisonConfig.Subject("101", "L_Insula", response=0),
+         *     ... ]
+         *     >>> cfg = GroupComparisonConfig(
+         *     ...     analysis_name="active_vs_sham", subjects=subjects,
+         *     ...     test_type="unpaired", alternative="two-sided",
+         *     ...     cluster_stat="mass", n_permutations=1000, tissue_type="grey",
+         *     ... )
+         *     >>> cfg.test_type is GroupComparisonConfig.TestType.UNPAIRED
+         *     True
+         *     >>> cfg.nifti_file_pattern
+         *     'grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz'
+         *
+         *     Subjects can also come from a CSV with columns ``subject_id``,
+         *     ``simulation_name``, ``response``:
+         *
+         *     >>> subjects = GroupComparisonConfig.load_subjects("subjects.csv")  # doctest: +SKIP
          *
          *     See Also
          *     --------
@@ -7678,12 +7979,21 @@ export interface components {
          *     n_jobs : int
          *         Number of parallel workers (``-1`` for all CPUs).
          *     use_weights : bool
-         *         Whether to apply per-subject weights during correlation.
-         *     tissue_type : TissueType
-         *         Which tissue compartment to analyze.
+         *         Whether to apply per-subject weights during correlation.  Default
+         *         ``True``.
+         *     tissue_type : TissueType or str
+         *         Which tissue compartment to analyze: ``"grey"`` (default),
+         *         ``"white"`` or ``"all"``.
          *     nifti_file_pattern : str or None
          *         Filename pattern for subject NIfTI files. If ``None``, derived
          *         automatically from *tissue_type*.
+         *     space : AnalysisSpace or str
+         *         ``"mni"`` (default) or ``"fsaverage"``; see
+         *         :class:`GroupComparisonConfig`.
+         *     fsaverage_field : str
+         *         Surface field for ``space="fsaverage"``.  Default ``"TI_max"``.
+         *     fsaverage_spacing : int
+         *         fsaverage ico spacing (``5``, ``6`` or ``7``).  Default ``5``.
          *     effect_metric : str
          *         Label for the behavioral/clinical variable in plots.
          *     field_metric : str
@@ -8610,11 +8920,14 @@ export interface components {
          *     Attributes
          *     ----------
          *     shape : str
-         *         Electrode shape (``"ellipse"`` or ``"rect"``).
+         *         Electrode shape (``"ellipse"`` or ``"rect"``).  Default
+         *         ``"ellipse"``.  Flex-search supports circular electrodes only,
+         *         so an ``"ellipse"`` must have equal *dimensions*.
          *     dimensions : list of float
-         *         Electrode dimensions in mm (``[width, height]``).
+         *         Electrode dimensions in mm (``[width, height]``).  Default
+         *         ``[8.0, 8.0]``.
          *     gel_thickness : float
-         *         Conductive gel thickness in mm.
+         *         Conductive gel thickness in mm.  Default ``4.0``.
          */
         ElectrodeConfig: {
             /**
@@ -8919,6 +9232,14 @@ export interface components {
          *         Integer label to select within the atlas (elements are
          *         included where the voxel value equals *label*).  ``None``
          *         treats the whole file as a binary mask (voxel value ``> 0``).
+         *     atlas_space : str
+         *         Space of the atlas file, ``"subject"`` (default) or ``"mni"``.
+         *         MNI masks are warped to subject space before the search.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *atlas_space* is not ``"subject"`` or ``"mni"``.
          */
         ExConfigAtlasROI: {
             /** Atlas Path */
@@ -8997,6 +9318,14 @@ export interface components {
          *         Integer label to select within the atlas (elements are
          *         included where the voxel value equals *label*).  ``None``
          *         treats the whole file as a binary mask (voxel value ``> 0``).
+         *     atlas_space : str
+         *         Space of the atlas file, ``"subject"`` (default) or ``"mni"``.
+         *         MNI masks are warped to subject space before the search.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *atlas_space* is not ``"subject"`` or ``"mni"``.
          */
         MExConfigAtlasROI: {
             /** Atlas Path */
@@ -9321,6 +9650,15 @@ export interface components {
         /**
          * Alternative
          * @description Sidedness of the test hypothesis.
+         *
+         *     Attributes
+         *     ----------
+         *     TWO_SIDED : str
+         *         ``"two-sided"``.
+         *     GREATER : str
+         *         ``"greater"`` -- responders > non-responders.
+         *     LESS : str
+         *         ``"less"`` -- responders < non-responders.
          * @enum {string}
          */
         Alternative: "two-sided" | "greater" | "less";
@@ -9348,6 +9686,14 @@ export interface components {
         /**
          * TestType
          * @description Type of statistical test for group comparison.
+         *
+         *     Attributes
+         *     ----------
+         *     UNPAIRED : str
+         *         ``"unpaired"`` -- independent-samples t-test.
+         *     PAIRED : str
+         *         ``"paired"`` -- paired-samples t-test (groups must be the same
+         *         size and ordered pairwise).
          * @enum {string}
          */
         TestType: "unpaired" | "paired";
@@ -9359,11 +9705,13 @@ export interface components {
         _AnalysisSpace: "mni" | "fsaverage";
         /**
          * _ClusterStat
+         * @description Cluster-level statistic: summed t-values (``mass``) or voxel count (``size``).
          * @enum {string}
          */
         _ClusterStat: "mass" | "size";
         /**
          * _TissueType
+         * @description Tissue compartment of the MNI-space NIfTIs: ``grey``, ``white`` or ``all``.
          * @enum {string}
          */
         _TissueType: "grey" | "white" | "all";

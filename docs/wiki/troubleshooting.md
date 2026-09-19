@@ -178,6 +178,19 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 **Fix:** Docker Desktop → Settings → Resources → Memory: 32 GB recommended, 16 GB minimum; close other heavy apps; validate with the bundled `ernie` example. Then re-run the m2m step.
 **Source:** [#119](https://github.com/idossha/TI-Toolbox/discussions/119), [#121](https://github.com/idossha/TI-Toolbox/discussions/121), [Dependencies]({{ site.baseurl }}/installation/dependencies/).
 
+### FastSurfer fails at once with `Native FastSurfer host is disconnected`
+
+**Applies to:** v3 before 2026-09-18, Apple Silicon with Apple GPU enabled at some point.
+**Error:** `Native FastSurfer host is disconnected. Reconnect TI-Toolbox or disable native FastSurfer before retrying.` as the first line after `FastSurfer segmentation: Started`; nothing else runs.
+**Cause:** a desktop session with Apple GPU enabled was force-quit or crashed and left `code/ti-toolbox/native-fastsurfer/availability.json` in the project; its stale heartbeat was treated as a refusal. It has nothing to do with the FreeSurfer license — FastSurfer segmentation needs none.
+**Fix:** update; a stale heartbeat now means no host and FastSurfer runs in the container on CPU (the log says so). On an old build, delete that `availability.json` or open the desktop app with Apple GPU enabled before submitting.
+
+### FreeSurfer stage refused: `… run FreeSurfer and need your FreeSurfer license; none is stored`
+
+**Applies to:** v3.
+**Cause:** `recon-all` and the thalamic / hippocampal-amygdala subregion tools run FreeSurfer binaries, which need a license issued to you personally; the toolbox cannot ship one.
+**Fix:** register (free) at [surfer.nmr.mgh.harvard.edu/registration.html](https://surfer.nmr.mgh.harvard.edu/registration.html), then paste the `license.txt` under **Settings → Pre-processing → FreeSurfer license** once. See [FreeSurfer license]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-license).
+
 ### Preprocessing appears frozen for many hours
 
 **Check progress:** open [Jobs]({{ site.baseurl }}/wiki/jobs/) to inspect the stage and live log. CHARM and FastSurfer can run for a long time, especially under emulation on Apple Silicon; a quiet interval alone does not establish that a job is stuck. The original discussion below concerns the historical FreeSurfer workflow.

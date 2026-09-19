@@ -68,17 +68,31 @@ def test_absent_native_worker_keeps_existing_container_route(project):
 @pytest.mark.parametrize(
     "overrides",
     [
-        dict(lastSeen=0),
         dict(session="bad"),
         dict(version=2),
         dict(lastSeen=float("nan")),
     ],
 )
-def test_invalid_or_stale_availability_never_falls_back_to_cpu(project, overrides):
+def test_invalid_availability_never_falls_back_to_cpu(project, overrides):
     advertise(project[2], **overrides)
     with pytest.raises(PreprocessError):
         run(project)
     assert not (project[2] / "requests").exists()
+
+
+def test_stale_availability_before_start_falls_back_to_container(project, caplog):
+    """A crashed or force-quit desktop app leaves availability.json behind.
+
+    That file must not block every FastSurfer job until someone deletes it by
+    hand (the exact failure seen on Dataset 000: "Native FastSurfer host is
+    disconnected. Reconnect TI-Toolbox or disable native FastSurfer before
+    retrying."). Before a request starts a stale heartbeat means "no host".
+    """
+    advertise(project[2], lastSeen=0)
+    with caplog.at_level(logging.WARNING, logger="native-test"):
+        assert run(project) is False
+    assert not (project[2] / "requests").exists()
+    assert "Falling back to FastSurfer in the container" in caplog.text
 
 
 def test_worker_receives_only_scoped_parameters_and_logs_are_streamed(project, caplog):
