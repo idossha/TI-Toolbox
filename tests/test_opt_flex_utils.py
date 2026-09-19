@@ -1025,8 +1025,10 @@ class TestMniLabelsToSubject:
             def m2m(self, sid):
                 return f"/m2m_{sid}"
 
-            def masks(self, sid):
-                return str(tmp_path / "masks")
+            def ensure_cache(self, *parts):
+                out = tmp_path.joinpath(".ti-toolbox", "cache", *parts)
+                out.mkdir(parents=True, exist_ok=True)
+                return str(out)
 
         monkeypatch.setattr("tit.get_path_manager", lambda: _PM())
 
@@ -1070,8 +1072,10 @@ class TestMniLabelsToSubject:
             def m2m(self, sid):
                 return "/m2m"
 
-            def masks(self, sid):
-                return str(tmp_path / "masks")
+            def ensure_cache(self, *parts):
+                out = tmp_path.joinpath(".ti-toolbox", "cache", *parts)
+                out.mkdir(parents=True, exist_ok=True)
+                return str(out)
 
         monkeypatch.setattr("tit.get_path_manager", lambda: _PM())
         config = _make_config(roi=SubcorticalROI(atlas_path="a.nii.gz", label=99))

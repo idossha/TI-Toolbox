@@ -26,6 +26,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+from tit.logger import stage_heartbeat
 from tit.opt.config import FlexConfig, _as_list
 
 _VOLUME_MASK_SPACES = {"subject", "mni"}
@@ -508,35 +509,42 @@ def _mni_labels_to_subject(paths: list, labels: list, config) -> tuple[list, lis
     import numpy as np
 
     from tit import get_path_manager
-    from tit.opt.masks import prepare_mask
+    from tit.opt.masks import keep_deformation_field, prepare_mask
 
     try:
         pm = get_path_manager()
         m2m = pm.m2m(config.subject_id)
-        out = os.path.join(pm.masks(config.subject_id), ".prepared")
+        out = pm.ensure_cache("masks", f"sub-{config.subject_id}")
     except (AttributeError, RuntimeError):
         log.debug("No project directory; leaving the MNI transform to SimNIBS")
         return paths, labels, "mni"
 
-    os.makedirs(out, exist_ok=True)
     new_paths, new_labels = [], []
-    for path, label in zip(paths, labels):
-        image = nib.load(path)
-        data = np.asarray(image.dataobj)
-        binary = (np.rint(data).astype(np.int64) == int(label)).astype(np.uint8)
-        if not binary.any():
-            raise ValueError(f"{path} has no voxels with label {label}")
-        selected = os.path.join(out, f"mni-label-{int(label)}.nii")
-        nib.save(nib.Nifti1Image(binary, image.affine), selected)
-        subject = prepare_mask(selected, "mni", m2m, out, binary=True)
-        log.info(
-            "Transformed label %d of %s into subject space: %s",
-            int(label),
-            os.path.basename(path),
-            os.path.basename(subject),
-        )
-        new_paths.append(subject)
-        new_labels.append(1)
+    # The deformation field is decoded once for every label of the union; a
+    # label the ROI confirmation already warped comes back from the cache.
+    with keep_deformation_field():
+        for path, label in zip(paths, labels):
+            image = nib.load(path)
+            data = np.asarray(image.dataobj)
+            binary = (np.rint(data).astype(np.int64) == int(label)).astype(np.uint8)
+            if not binary.any():
+                raise ValueError(f"{path} has no voxels with label {label}")
+            selected = os.path.join(out, f"mni-label-{int(label)}.nii")
+            nib.save(nib.Nifti1Image(binary, image.affine), selected)
+            with stage_heartbeat(
+                log,
+                f"Resolving label {int(label)} of {os.path.basename(path)} "
+                "in subject space",
+            ):
+                subject = prepare_mask(selected, "mni", m2m, out, binary=True)
+            log.info(
+                "Transformed label %d of %s into subject space: %s",
+                int(label),
+                os.path.basename(path),
+                os.path.basename(subject),
+            )
+            new_paths.append(subject)
+            new_labels.append(1)
     return new_paths, new_labels, "subject"
 
 
@@ -554,8 +562,8 @@ def _without_islands(paths: list, labels: list, config) -> tuple[list, list]:
     from tit.atlas.islands import cleaned_label_mask
 
     try:
-        out = os.path.join(get_path_manager().masks(config.subject_id), ".prepared")
-    except RuntimeError:
+        out = get_path_manager().ensure_cache("masks", f"sub-{config.subject_id}")
+    except (AttributeError, RuntimeError):
         # No project directory (a plan built outside a run, or a unit test): there is
         # nowhere to put a derived mask, so the raw atlas label is used as before.
         log.debug("No project directory; using the raw atlas labels unchanged")

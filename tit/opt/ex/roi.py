@@ -104,6 +104,7 @@ def atlas_roi_entries(
     entries = []
     for target in config.roi_atlas:
         path = target.atlas_path
+        label = target.label
         if target.atlas_space == "mni":
             if not m2m_path or not output_dir:
                 raise ValueError(
@@ -111,8 +112,21 @@ def atlas_roi_entries(
                 )
             from tit.opt.masks import prepare_mask
 
-            path = prepare_mask(path, "mni", m2m_path, output_dir)
-        if target.label is None:
+            if label is None:
+                path = prepare_mask(path, "mni", m2m_path, output_dir)
+            else:
+                # One label is warped as a binary mask -- the same mask, and the
+                # same cached warp, the ROI confirmation and flex use -- rather
+                # than the whole atlas.
+                path = prepare_mask(
+                    _select_label(path, int(label), output_dir),
+                    "mni",
+                    m2m_path,
+                    output_dir,
+                    binary=True,
+                )
+                label = 1
+        if label is None:
             entries.append(path)
             continue
         # A subcortical label with detached islands becomes a cleaned binary mask, so
@@ -122,9 +136,24 @@ def atlas_roi_entries(
         if output_dir:
             from tit.atlas.islands import cleaned_label_mask
 
-            cleaned = cleaned_label_mask(path, int(target.label), output_dir)
-        entries.append((cleaned, 1) if cleaned else (path, target.label))
+            cleaned = cleaned_label_mask(path, int(label), output_dir)
+        entries.append((cleaned, 1) if cleaned else (path, label))
     return entries
+
+
+def _select_label(atlas_path: str, label: int, output_dir: str) -> str:
+    """Write *label* of *atlas_path* as a binary NIfTI under *output_dir*."""
+    import nibabel as nib
+
+    image = nib.load(atlas_path)
+    data = np.asarray(image.dataobj)
+    binary = (np.rint(data).astype(np.int64) == label).astype(np.uint8)
+    if not binary.any():
+        raise ValueError(f"{atlas_path} has no voxels with label {label}")
+    os.makedirs(output_dir, exist_ok=True)
+    selected = os.path.join(output_dir, f"mni-label-{label}.nii")
+    nib.save(nib.Nifti1Image(binary, image.affine), selected)
+    return selected
 
 
 def confirm_atlas_targets(config, m2m_path: str, out_dir: str) -> list:

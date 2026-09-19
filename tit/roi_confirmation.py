@@ -344,7 +344,12 @@ def _write(entries, *, m2m: str, out_dir: str) -> dict | None:
     surface_groups: list = []
     surface_names: list[str] = []
 
-    with tempfile.TemporaryDirectory(prefix="roi-confirm-") as scratch:
+    from tit.opt.masks import keep_deformation_field
+
+    with (
+        tempfile.TemporaryDirectory(prefix="roi-confirm-") as scratch,
+        keep_deformation_field(),
+    ):
         # --- cortical targets: the .annot is referenced, never rasterised -----
         annots: dict[tuple[str, str], dict] = {}
         volume_parts: list[tuple[int, object]] = []

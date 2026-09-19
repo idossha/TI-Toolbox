@@ -22,6 +22,49 @@ def test_ex_mask_space_dispatch_and_legacy_default(config_type, monkeypatch):
     prepare.assert_called_once_with("/mni.nii", "mni", "/m2m_s", "/run/masks")
 
 
+@pytest.mark.parametrize("config_type", [ExConfig, MExConfig])
+def test_ex_mni_label_is_selected_before_the_warp(config_type, tmp_path, monkeypatch):
+    """One label is warped as a binary mask, never the whole atlas.
+
+    That is the same mask (same bytes, same cached warp) the ROI confirmation
+    and flex use, and it costs one small block instead of the whole head.
+    """
+    import numpy as np
+
+    saved = {}
+
+    class _Image:
+        affine = np.eye(4)
+        dataobj = np.array([[[0, 11, 12]]])
+
+    class _Nib:
+        @staticmethod
+        def load(path):
+            return _Image()
+
+        @staticmethod
+        def save(image, path):
+            saved["path"] = path
+            saved["data"] = np.asarray(image.dataobj)
+
+        @staticmethod
+        def Nifti1Image(data, affine):
+            return type("I", (), {"dataobj": data, "affine": affine})()
+
+    monkeypatch.setitem(__import__("sys").modules, "nibabel", _Nib)
+    prepare = MagicMock(return_value="/derived/label.nii.gz")
+    monkeypatch.setattr("tit.opt.masks.prepare_mask", prepare)
+    monkeypatch.setattr("tit.atlas.islands.cleaned_label_mask", lambda *a: None)
+    out = str(tmp_path / "masks")
+    targets = [config_type.AtlasROI("/mni.nii", label=11, atlas_space="mni")]
+    entries = atlas_roi_entries(SimpleNamespace(roi_atlas=targets), "/m2m_s", out)
+    assert entries == [("/derived/label.nii.gz", 1)]
+    assert saved["data"].tolist() == [[[0, 1, 0]]]
+    prepare.assert_called_once_with(
+        saved["path"], "mni", "/m2m_s", out, binary=True
+    )
+
+
 def test_flex_whole_mask_and_complement_share_prepared_geometry(tmp_path, monkeypatch):
     from tit import get_path_manager
     from tit.opt.flex.utils import configure_roi
