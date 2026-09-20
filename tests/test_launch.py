@@ -3,7 +3,7 @@
 Nothing here talks to Docker: every test asserts a *pure* function — the compose
 parser, the interpolator, the project hash, the argv builder, the CLI parser.
 The live check that the argv these produce actually starts a container is a
-manual step recorded in ``docs/installation/bash-cli.md``; what is guarded here
+manual step recorded in ``docs/wiki/installation-cli.md``; what is guarded here
 is that the spec cannot drift.
 """
 

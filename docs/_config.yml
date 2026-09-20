@@ -14,7 +14,7 @@ plugins:
 
 # Navigation
 header_pages:
-  - installation/installation.md
+  - wiki/installation.md
   - wiki/wiki.md
   - releases/releases.md
   - gallery/gallery.md

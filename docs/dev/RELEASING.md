@@ -127,7 +127,7 @@ viewer manifest and actual job outputs must agree with the artifact receipt. Rea
 The internal cohort tests its actual platforms and workflows. Full macOS Intel/Apple Silicon,
 Windows and Linux package validation remains a production requirement; one local Mac does not
 prove the other platforms. User-facing setup and known limits are in
-[Installation](../installation/installation.md#install-from-source).
+[Installation](../wiki/installation.md#install-from-source).
 
 ### Local development testing
 

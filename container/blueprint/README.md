@@ -202,7 +202,7 @@ apptainer build ti-toolbox.sif docker://idossha/simnibs:v2.3.1
 
 See `./apptainer_run.sh --help` for all options.
 
-Full documentation: [HPC Deployment Guide](../../docs/installation/hpc-apptainer.md)
+Full documentation: [HPC Deployment Guide](../../docs/wiki/installation-hpc.md)
 
 
 ## What the image deliberately does not contain

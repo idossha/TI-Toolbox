@@ -5,7 +5,7 @@
  * `/auth/session?token=…` URL instead of opening a window; the server then serves the very
  * bundle this repository builds. Every other spec in this directory drives that bundle inside
  * Electron, where `window.tit` exists. This one drives it in plain Chromium, where it does not,
- * so the launch path documented in `docs/installation/bash-cli.md` has a test behind it.
+ * so the launch path documented in `docs/wiki/installation-cli.md` has a test behind it.
  *
  * What it is actually guarding: the renderer decides Electron-vs-browser exactly once, at module
  * evaluation (`src/renderer/env.ts` — `isElectron = window.tit !== undefined`), and every

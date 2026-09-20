@@ -10,9 +10,9 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/KKdjJk8f)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21627945.svg)](https://doi.org/10.5281/zenodo.21627945)
 
-[![Windows Support](https://img.shields.io/badge/Windows-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/installation/windows.md)
-[![macOS Support](https://img.shields.io/badge/macOS-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/installation/macos.md)
-[![Linux Support](https://img.shields.io/badge/Linux-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/installation/linux.md)
+[![Windows Support](https://img.shields.io/badge/Windows-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/wiki/installation-windows.md)
+[![macOS Support](https://img.shields.io/badge/macOS-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/wiki/installation-macos.md)
+[![Linux Support](https://img.shields.io/badge/Linux-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/wiki/installation-linux.md)
 
 </div>
 

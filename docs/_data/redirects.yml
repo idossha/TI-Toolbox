@@ -5,3 +5,5 @@
   to: /wiki/legacy-v2/
 - from: /wiki/testing-pipeline/
   to: /wiki/legacy-v2/
+- from: /installation/troubleshooting/
+  to: /wiki/troubleshooting/

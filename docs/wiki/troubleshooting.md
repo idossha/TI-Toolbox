@@ -12,6 +12,18 @@ The **single source of truth** for known problems, their causes and their verifi
 2. **Verified solutions are promoted here** by a maintainer, with a link back to the discussion. Only entries that were reproduced or confirmed by the reporter land on this page.
 3. **AI assistants** using the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) read this page through `search_wiki` / `read_wiki_page("troubleshooting")` — so a fix recorded here is a fix your assistant knows about.
 
+For launcher or container problems, run these commands from the selected checkout so the
+container name is resolved from the project instead of guessed:
+
+```bash
+python3 loader.py --project /path/to/project --status
+python3 loader.py --project /path/to/project --logs
+```
+
+Before sharing output, remove session tokens and private project data. A useful report includes
+the OS and version, TI-Toolbox version, exact command or interface action, full error text, and
+the relevant log from `<project>/derivatives/ti-toolbox/logs/`.
+
 The page has two parts. **Part 1** covers things outside the toolbox's control — Docker, X11, your machine, upstream tools — and explains them fully. **Part 2** is a compact list of toolbox bugs that have already been fixed: if you hit one, the answer is *upgrade*. Search the page (Ctrl/Cmd-F) for your error text.
 
 ---
