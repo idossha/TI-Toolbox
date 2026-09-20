@@ -132,8 +132,13 @@ jobs:
           command: |
             set -euo pipefail
             # Ubuntu 22.04 defaults to Python 3.10; tit requires >=3.11.
-            pyenv install -s 3.11.14
-            pyenv local 3.11.14
+            # #1063: the VM's python-build did not know 3.11.14. Select its installed
+            # 3.11 first; fall back to the newest 3.11 definition it actually ships.
+            if ! pyenv local 3.11; then
+              pyenv install -s 3.11
+              pyenv local 3.11
+            fi
+            python --version
             python -m venv /tmp/tit-ci-venv
             /tmp/tit-ci-venv/bin/python -m pip install -e '.[test]'
 
