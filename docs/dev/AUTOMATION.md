@@ -9,14 +9,14 @@ owns unresolved work. Workflow and script source is authoritative for inputs and
 | Source | Trigger and responsibility |
 |---|---|
 | [CircleCI](../../.circleci/config.yml) | Fast host Python regression/coverage and desktop static/unit/build checks; full image build selected explicitly with `build_image` |
-| [Release build](../../.github/workflows/release-build.yml) | Stable tags, manual dispatch or reusable invocation; export, internal distribution and public release modes |
+| [Release build](../../.github/workflows/release-build.yml) | Stable tags, manual dispatch or reusable invocation; unsigned executable builds or signed release publication; Docker image build/push is manual |
 | [Docs deploy](../../.github/workflows/deploy-docs.yml) | Relevant `main` pushes or manual dispatch; builds MkDocs API then Jekyll, checks assets and deploys Pages |
 | [CodeQL](../../.github/workflows/code-ql-analysis.yml) | Configured pushes, PRs and weekly schedule; static analysis |
 | [Python security](../../.github/workflows/python-security.yml) | Configured pushes, PRs, weekly schedule or manual dispatch; dependency and source scanning |
 
 A successful source job does not prove a rebuilt image or signed installer. Inspect the result for
 the exact candidate SHA. Do not suppress failed checks or repeat a partial publication blindly;
-release image tags are immutable. Publication modes and credentials are covered in RELEASING.
+published Git tags are immutable; Docker application tags remain mutable version-line tags as described in RELEASING. Publication modes and credentials are covered in RELEASING.
 
 ## Telemetry service
 

@@ -31,8 +31,25 @@ def verify_assets(version: str, release: dict) -> None:
     print(f"Verified {len(expected)} required nonempty release assets")
 
 
+def verify_image_manifest(manifest: dict | list) -> None:
+    """Verify published Linux amd64 availability without downloading image layers."""
+    entries = manifest if isinstance(manifest, list) else [manifest]
+    if not any(
+        entry.get("Descriptor", {}).get("platform", {}).get("os") == "linux"
+        and entry.get("Descriptor", {}).get("platform", {}).get("architecture")
+        == "amd64"
+        for entry in entries
+    ):
+        raise ValueError("published version image must support linux/amd64")
+    print("Version image manifest supports linux/amd64; layers/runtime not tested here")
+
+
 if __name__ == "__main__":
     try:
-        verify_assets(sys.argv[1], json.loads(Path(sys.argv[2]).read_text()))
+        document = json.loads(Path(sys.argv[2]).read_text())
+        if sys.argv[1] == "--image-manifest":
+            verify_image_manifest(document)
+        else:
+            verify_assets(sys.argv[1], document)
     except (ValueError, OSError, KeyError) as exc:
         sys.exit(f"release assets: {exc}")

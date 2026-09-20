@@ -24,24 +24,48 @@ root `docker-compose.yml`; an installed Python wheel has the fallback in `tit/la
 The runtime/app version identifies the release line; the source SHA and registry digest identify
 the exact build published under its mutable Docker tag.
 
-The existing `.github/workflows/release-build.yml` has three explicit modes:
+Docker build, smoke verification and push are **manual**, as in v2. The executable workflow has
+only two modes: `build` produces verified unsigned workflow artifacts; `release` signs/notarizes
+macOS installers, verifies all platforms, attaches them to a draft, adds `SHA256SUMS`, checks the
+complete inventory and publishes. Neither mode builds, exports, loads or pushes Docker images,
+and neither changes Docker `latest`. There are no Docker Hub secrets in the executable workflow.
 
-| Mode | Image | Desktop | Public announcement |
-|---|---|---|---|
-| `build` (default) | Build, inspect, export | Unsigned packages and package validation | None |
-| `internal` | Same checks, then push the application `vX.Y.Z` tag | Unsigned workflow artifacts | No GitHub Release; no Docker `latest` change |
-| `release` | Application `vX.Y.Z` tag, then explicit production promotion | Draft assets; macOS signing/notarization and artifact inventory | Explicit stable tag only; publish after all legs pass |
+Before publishing executables, build and validate the version image locally, then push explicitly:
 
-The image tag follows the application release line, including development builds. CI stages the
-matching image default into the packaged compose file and checks it with `verify-package.mjs`.
-An exported image can be transferred and loaded with `docker load`; unsigned installers alone
-cannot start on a clean machine if their image is neither preloaded nor available in a registry.
+```bash
+container/blueprint/build.sh --tag idossha/ti-toolbox:v3.0.0
+# Complete the local release tests and no-source-mount image acceptance in TESTING.md first.
+docker run --rm --entrypoint cat idossha/ti-toolbox:v3.0.0 /etc/ti-toolbox-build.json
+docker run --rm --entrypoint simnibs_python idossha/ti-toolbox:v3.0.0 -c 'import tit; print(tit.__version__)'
+docker push idossha/ti-toolbox:v3.0.0
+docker manifest inspect --verbose idossha/ti-toolbox:v3.0.0
+```
 
-The generic `release-build.yml` workflow is already registered on the default branch (verified
-2026-09-08); after pushing a reviewed candidate, dispatch that ref. Reusing this existing workflow
-avoids a separate registration/bootstrap workflow. CircleCI runs its existing source and desktop gates on ordinary changes; its expensive
-from-scratch image leg is explicitly selected through `build_image` with a compatible Tetravox pin.
-That distinction must remain visible in test evidence: source CI is not an image-build receipt.
+Keep source SHA, clean/dirty provenance, tests and registry digest with the manual publication
+receipt. The reusable mutable version-line tag policy above is unchanged. CI reads only registry
+manifest metadata to require a published `linux/amd64` version image; it downloads no image layers
+and does not claim to verify the image's runtime, scientific outputs or exact source SHA. The
+manual image owner is responsible for the image/installer pairing and its acceptance.
+
+### Recovering an existing immutable release tag
+
+A failed release can use the repaired workflow on `main` without moving its tag:
+
+```bash
+gh workflow run release-build.yml --ref main -f mode=release -f release_tag=v3.0.0
+```
+
+The control workflow's guards run from the invoked revision; candidate version checks and notes
+read a separate checkout of `refs/tags/v3.0.0`. Every executable checkout uses that tag's resolved
+full SHA, and uploads name that release explicitly. The existing tag is never rewritten and newer
+`main` product code is never substituted. Existing public releases are refused before asset
+replacement; a failed draft can be resumed. Missing manifests, package/signature checks or required
+assets leave the release unpublished. Publication requires all seven installer/archive assets and
+`SHA256SUMS`. Verify the final distributed platforms separately; workflow green is not a real
+first-launch result on every supported host.
+
+CircleCI's daily source/desktop regression is separate; its optional `build_image` verification
+remains an explicit development check and does not publish images.
 
 ### Runtime version preparation
 
@@ -142,7 +166,9 @@ Public toolbox update checks read GitHub's latest published release; internal im
 alone does not notify existing users. The current desktop has no automatic toolbox update wiring.
 Tetravox's compatible-viewer update mechanism is independent.
 
-Real publishing needs Docker Hub access and macOS `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
-`APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`. Build-only rehearsal needs none of those secrets.
+Manual image pushes need Docker Hub access on the operator's machine. Executable publication
+needs macOS `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID` and `APPLE_APP_SPECIFIC_PASSWORD`.
+The public Apple Developer team ID defaults to `3BMY24SA43` (the v2 release team); an existing
+`APPLE_TEAM_ID` secret can override it. Build-only rehearsal needs none of those secrets.
 Presence of a secret name does not prove its value works. macOS signing, Gatekeeper, notarization
 and first launch must be measured before claiming them; Windows artifacts are unsigned.

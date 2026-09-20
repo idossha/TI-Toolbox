@@ -120,7 +120,7 @@ class InternalPackagingTests(unittest.TestCase):
                 '{"version":"3.0.0","packages":{"":{"version":"2.5.0"}}}',
             ),
         )
-        for mode in ("build", "internal"):
+        for mode in ("build", "release"):
             for path, invalid in cases:
                 with self.subTest(mode=mode, path=path, invalid=invalid):
                     self.write("tit/__init__.py", '__version__ = "3.0.0"\n')
@@ -128,7 +128,7 @@ class InternalPackagingTests(unittest.TestCase):
                     self.write("desktop/package-lock.json", original_lock)
                     self.write(path, invalid)
                     with self.assertRaises(ValueError):
-                        plan.build_plan(self.root, mode, "refs/heads/main", self.sha)
+                        plan.build_plan(self.root, mode, "refs/tags/v3.0.0", self.sha)
 
     def test_stable_version_updates_wheel_fallback_and_compose_together(self):
         old = os.getcwd()
@@ -184,9 +184,9 @@ class InternalPackagingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             plan.build_plan(self.root, "release", "refs/tags/v3.0.0", self.sha)
 
-    def test_internal_reuses_version_tag_without_public_metadata_lockstep(self):
+    def test_unsigned_build_reuses_version_tag_without_public_metadata_lockstep(self):
         self.write("version.py", '__version__ = "2.5.0"\n')
-        for mode in ("internal", "build"):
+        for mode in ("build",):
             for sha in (self.sha, "b" * 40):
                 self.assertEqual(
                     plan.build_plan(self.root, mode, "refs/heads/main", sha)[
@@ -198,7 +198,7 @@ class InternalPackagingTests(unittest.TestCase):
                 with self.subTest(mode=mode, tag=tag), self.assertRaises(ValueError):
                     plan.build_plan(self.root, mode, "refs/heads/main", self.sha, tag)
 
-    def test_internal_refuses_different_source_image_defaults(self):
+    def test_release_refuses_different_source_image_defaults(self):
         for compose_tag, wheel_tag in (("3.0.0", "v3.0.0"), ("v3.0.0", "internal-old")):
             with self.subTest(compose=compose_tag, wheel=wheel_tag):
                 self.write(
@@ -210,7 +210,7 @@ class InternalPackagingTests(unittest.TestCase):
                     f'BUILTIN_SPEC = StackSpec(\n    image="idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{wheel_tag}}}",\n)\n',
                 )
                 with self.assertRaisesRegex(ValueError, "defaults must both equal"):
-                    plan.build_plan(self.root, "internal", "refs/heads/main", self.sha)
+                    plan.build_plan(self.root, "release", "refs/tags/v3.0.0", self.sha)
 
     def test_development_runtime_uses_stable_base_image(self):
         old = os.getcwd()
@@ -220,7 +220,7 @@ class InternalPackagingTests(unittest.TestCase):
         finally:
             os.chdir(old)
         self.assertEqual(
-            plan.build_plan(self.root, "internal", "refs/heads/main", self.sha)[
+            plan.build_plan(self.root, "build", "refs/heads/main", self.sha)[
                 "image_tag"
             ],
             "v3.0.0",
@@ -237,7 +237,12 @@ class InternalPackagingTests(unittest.TestCase):
                 plan.stage_compose(content, "v3.0.0")
 
     def test_empty_or_unknown_plan_input_fails(self):
-        for mode, sha in (("", self.sha), ("publish", self.sha), ("build", "")):
+        for mode, sha in (
+            ("", self.sha),
+            ("internal", self.sha),
+            ("publish", self.sha),
+            ("build", ""),
+        ):
             with self.subTest(mode=mode), self.assertRaises(ValueError):
                 plan.build_plan(self.root, mode, "refs/heads/main", sha)
 
@@ -273,6 +278,45 @@ class InternalPackagingTests(unittest.TestCase):
             self.assertEqual(Path("docs/releases/v3.0.0.md").read_bytes(), before)
         finally:
             os.chdir(old)
+
+    def test_control_cli_validates_the_explicit_candidate_checkout(self):
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "dev/update/build_plan.py"),
+                "--root",
+                str(self.root),
+                "--mode",
+                "release",
+                "--ref",
+                "refs/tags/v3.0.0",
+                "--sha",
+                self.sha,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(json.loads(result.stdout)["sha"], self.sha)
+        self.assertEqual(json.loads(result.stdout)["version"], "3.0.0")
+
+    def test_image_manifest_requires_linux_amd64_without_image_layers(self):
+        linux = {"Descriptor": {"platform": {"os": "linux", "architecture": "amd64"}}}
+        arm = {"Descriptor": {"platform": {"os": "linux", "architecture": "arm64"}}}
+        assets.verify_image_manifest(linux)
+        assets.verify_image_manifest([arm, linux])
+        for invalid in (
+            {},
+            [],
+            arm,
+            [arm],
+            {"Descriptor": {"platform": {"os": "windows", "architecture": "amd64"}}},
+        ):
+            with self.subTest(manifest=invalid), self.assertRaises(ValueError):
+                assets.verify_image_manifest(invalid)
 
     def test_asset_inventory_refuses_empty_missing_or_public_release(self):
         names = [
