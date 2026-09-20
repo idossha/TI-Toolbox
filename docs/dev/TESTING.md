@@ -21,6 +21,50 @@ a local success does not establish hosted CI, security review or artifact accept
 | Real e2e and smoke matrix | Actual container/API jobs and produced artifacts | Other datasets/platforms, or completion when only start/cancel ran |
 | Packaged acceptance | Runtime assets and actual installer launch | A different source/image/package pairing |
 
+## Daily CI and the local release gate
+
+CircleCI keeps the existing required check names. `build-and-run-tests` runs the **entire host
+Python suite**, coverage, documentation/build self-tests, route guard and contract guard in a
+Python 3.11 VM environment. It excludes `tests/numerical` explicitly. `desktop-checks` runs all
+TypeScript checks, lint, Vitest units and a normal production build. Browser installation,
+Electron E2E and scientific-image pulls are absent from the ordinary workflow. Coverage is host
+coverage, not proof of real scientific execution. Image verification remains an explicit
+`build_image` pipeline choice.
+
+Before an official release, run the existing full layers through the serial local entry point:
+
+```bash
+# First export TIT_E2E_PROJECT_HOST, TIT_E2E_SERVER_URL and TIT_E2E_TOKEN for a copied project.
+# Use a clean committed candidate, installed host/desktop dependencies and an existing dev stack.
+.venv/bin/python dev/verify_release.py \
+  --image idossha/ti-toolbox:<candidate> --container <existing-copied-project-container> \
+  --notebook-project /absolute/path/to/disposable-notebook-project \
+  --package /absolute/path/to/TI-Toolbox.app \
+  --real-spec tests/e2e/real/<applicable>.spec.ts \
+  --smoke-row <applicable-row> --out /tmp/tit-release-evidence-<candidate>
+```
+
+Repeat `--real-spec` and `--smoke-row` for every workflow affected by the release. A major release
+requires the applicable matrix, not a token smoke row. Smoke rows use `--full` (completion, not
+start/cancel); the notebook adds a real flex search, FEM solve and analysis. The wrapper holds
+`/tmp/tit-e2e.lock`, runs each stage serially, runs numerical tests in a fresh real-image Python
+process, verifies the supplied package, and restores a normal build last even after a failed
+stage. Coordinate all other heavy jobs before invocation; this E2E lock cannot stop a separately
+launched FEM job. The quiet monitor currently requires macOS, and an inconclusive exit 2 fails.
+
+The new output directory stores per-stage logs and `receipt.json` with the source SHA, immutable
+local image ID, inspected container ID/image/mounts, selected real specs/rows and actual stage exit
+codes (including failures). Numerical and notebook commands use the immutable inspected image ID.
+The real-test container must mount this checkout at `/ti-toolbox`; this source-mounted acceptance
+is distinct from a baked-image or installed-package acceptance run. A changed/dirty source
+or any failed stage prevents a passed receipt. Review skips in the logs explicitly: a zero exit
+with optional tests skipped does not certify missing hardware/data. The receipt certifies only its
+selected stages and package; verify the dev stack's mounts/source and image pairing, retain native
+installer first-launch/platform evidence, and run workflow-specific checks from the sections below.
+It is a local operator gate, not a hosted publication interlock. Never publish solely because daily
+CI is green. `tests/test_release_gate.py` verifies that failures, inconclusive monitor exits and empty
+pytest collections remain failures and their logs survive.
+
 ## Launcher lifecycle checks
 
 `tests/test_launch_image.py`, `test_loader_interactive.py`, `test_bash_loader_lifecycle.py`
@@ -98,7 +142,9 @@ not a second source of truth. The import guard prevents heavy scientific imports
 registration. The contract guard
 regenerates outputs in a temporary directory and checks byte drift against the authored contract.
 Fix drift with `cd desktop && npm run gen`; never hand-edit generated output. Contract warnings
-must be reported rather than counted as zero.
+must be reported rather than counted as zero. `test_config_schema.py` compares full generated
+schemas across fresh 1/4/12-CPU processes while asserting independent runtime QSI thread defaults
+and explicit override preservation; generation must not embed the build host's CPU count.
 
 The packaged example notebook (`tit/server/examples/example_workflow.ipynb`, the one source;
 `examples/notebooks/` symlinks to it and `docs/wiki/example-notebook.md` is rendered from it by

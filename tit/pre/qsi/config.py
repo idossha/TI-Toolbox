@@ -122,7 +122,8 @@ class ResourceConfig:
     # If None, the DooD container will inherit the *current container's*
     cpus: int | None = None
     memory_gb: int | None = None
-    omp_threads: int = const.QSI_DEFAULT_OMP_THREADS
+    # Runtime host capacity is not a portable JSON Schema default (CircleCI #1070).
+    omp_threads: int = field(default_factory=lambda: const.QSI_DEFAULT_OMP_THREADS)
 
     def __post_init__(self) -> None:
         if self.cpus is not None and self.cpus < 1:

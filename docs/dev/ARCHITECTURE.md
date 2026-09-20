@@ -156,6 +156,11 @@ server planning and validation. A client preview is not authority to bypass serv
 
 ## 5. Verification and frozen interfaces
 
+Generated configuration schemas omit machine-dependent default values. QSI OpenMP thread fields
+remain optional; omitting them resolves the existing host-dependent runtime default, while an
+explicit value is preserved. A producer machine's CPU count must not become a wire-contract
+constant. Desktop preprocessing continues to send resolved user resource preferences.
+
 The verification procedure is [TESTING.md](TESTING.md). Host tests with mocked heavy
 libraries do not prove numerical correctness; science changes require independent assertions against
 real libraries. Published-result changes also require [release-specific scientific correction notes](../releases/v3.0.0.md#scientific-corrections).
@@ -442,6 +447,14 @@ authorizes disabling TLS verification. Source: [container blueprint](../../conta
 Production and release stabilization follow [root CONTRIBUTING](../../CONTRIBUTING.md). Branch pushes
 do not publish releases. Promotion preserves tested ancestry; official publication is a separate
 maintainer-controlled action.
+
+Daily CircleCI verifies all host Python and desktop static/unit regressions plus production build;
+it does not run scientific-image tests or Electron E2E. Official release acceptance additionally
+requires the serial local gate in [TESTING](TESTING.md#daily-ci-and-the-local-release-gate), including
+real-library numerical tests, hidden E2E, applicable completed real workflows, the example notebook
+and package inspection. Candidate SHA/image identity and per-stage logs must accompany that evidence.
+A failed or inconclusive stage cannot be called passed; daily green status alone cannot establish
+release readiness. Publication remains a separate operator action, with platform acceptance intact.
 
 ### Terminal launcher setup
 

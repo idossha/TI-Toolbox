@@ -16,16 +16,6 @@ commands:
     steps:
       - checkout
 
-  prepare-test-image:
-    steps:
-      - run:
-          name: Pull TI-Toolbox test image
-          command: |
-            set -eo pipefail
-            TEST_IMAGE="idossha/ti-toolbox-test:latest"
-            echo "Pulling TI-Toolbox test image: ${TEST_IMAGE}"
-            docker pull ${TEST_IMAGE}
-            docker tag ${TEST_IMAGE} ti-test:latest
 
 jobs:
 
@@ -137,14 +127,38 @@ jobs:
       - run:
           name: Self-test build and version guards
           command: python3 -m unittest discover -s tests -p test_internal_packaging.py -v
-      - prepare-test-image
-
       - run:
-          name: Run test suite with coverage
-          no_output_timeout: 30m
+          name: Install host Python test environment (no scientific image)
           command: |
             set -euo pipefail
-            TEST_IMAGE=ti-test:latest bash ./tests/test.sh --verbose --coverage
+            # Ubuntu 22.04 defaults to Python 3.10; tit requires >=3.11.
+            # #1063: the VM's python-build did not know 3.11.14. Select its installed
+            # 3.11 first; fall back to the newest 3.11 definition it actually ships.
+            if ! pyenv local 3.11; then
+              pyenv install -s 3.11
+              pyenv local 3.11
+            fi
+            python --version
+            python -m venv /tmp/tit-ci-venv
+            /tmp/tit-ci-venv/bin/python -m pip install -e '.[test]'
+
+      - run:
+          name: Route and generated-contract guards
+          command: |
+            /tmp/tit-ci-venv/bin/python dev/route_import_guard.py
+            /tmp/tit-ci-venv/bin/python dev/contracts_check.py
+
+      - run:
+          name: Host regression suite with coverage (numerical tests run locally)
+          no_output_timeout: 10m
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results /tmp/coverage
+            # A 20-minute ceiling bounds hangs; historical mixed-image runs took ~7 minutes
+            # before failing (CircleCI #1057). Host-only timing is measured by this job.
+            timeout 20m /tmp/tit-ci-venv/bin/python -m pytest tests/ -q \
+              --ignore=tests/numerical --junitxml=/tmp/test-results/host.xml \
+              --cov=tit --cov-report=xml:/tmp/coverage/coverage.xml
 
       - run:
           name: Prepare coverage for Codecov
@@ -271,43 +285,15 @@ jobs:
       - run:
           name: Unit tests (vitest)
           working_directory: desktop
-          command: npx vitest run
-
-      - run:
-          name: Install Xvfb + Playwright Chromium and OS deps
-          command: |
-            set -euo pipefail
-            # needrestart otherwise waits at a service-restart dialog until CI times out.
-            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y xvfb
-            # Electron and the browser-mode specs need the same Chromium OS libraries.
-            cd desktop
-            # Start Playwright as root with the selected Node PATH so its apt child
-            # inherits these settings instead of losing them at an internal sudo hop.
-            sudo env "PATH=$PATH" DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-              npx playwright install-deps chromium
-            # Browser-mode specs use Playwright's page fixture, not Electron's bundled
-            # browser. Install as the test user so fixture setup finds the binary in
-            # that user's cache instead of failing before the browser test bodies.
-            npx playwright install chromium
-
-      - run:
-          name: E2E (Electron, offscreen, under Xvfb)
-          command: |
-            set -euo pipefail
-            cd desktop
-            export TIT_E2E_OFFSCREEN=1
-            xvfb-run -a npm run e2e
+          # Full local units passed in the release rehearsal; cap a stuck worker without
+          # carrying the browser/Electron dependency installation into daily CI.
+          command: timeout 15m npx vitest run
 
       - run:
           name: Production build
           working_directory: desktop
           command: npm run build
 
-      - store_artifacts:
-          path: desktop/test-results
-          destination: desktop-e2e-test-results
-          when: always
 
 workflows:
   test_workflow:

@@ -25,6 +25,7 @@ instead of writing it).
 
 from __future__ import annotations
 
+import difflib
 import json
 import sys
 from pathlib import Path
@@ -96,8 +97,18 @@ def main(argv: list[str] | None = None) -> int:
         current = OUTPUT_PATH.read_text() if OUTPUT_PATH.is_file() else None
         if current != rendered:
             print(
-                f"{OUTPUT_PATH} is stale; run `npm run gen` "
-                "and commit the result.",
+                f"{OUTPUT_PATH} is stale; run `npm run gen` " "and commit the result.",
+                file=sys.stderr,
+            )
+            print(
+                "".join(
+                    difflib.unified_diff(
+                        (current or "").splitlines(keepends=True),
+                        rendered.splitlines(keepends=True),
+                        fromfile="committed schema",
+                        tofile="generated schema",
+                    )
+                ),
                 file=sys.stderr,
             )
             return 1
