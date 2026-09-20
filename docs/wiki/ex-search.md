@@ -107,6 +107,11 @@ The editor shows montage counts and total iterations separately. For fixed balan
 
 **Total evaluations** = electrode combinations × current ratios. Each montage's two unit-current channel fields are computed once and rescaled per split — the FEM is linear, so a split costs almost nothing extra.
 
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_combos.png" alt="Example exhaustive-search electrode combinations" style="width: 100%; max-width: 850px;">
+  <em>Example candidate electrode combinations. The final search size is determined by the selected pools or buckets, symmetry constraints, and current splits.</em>
+</div>
+
 ## Running a Search
 
 The GUI writes a JSON config and runs the module; the same works from a shell:

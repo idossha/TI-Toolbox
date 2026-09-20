@@ -458,6 +458,55 @@ The Scene pane follows the active job. Cortical regions remain clickable; masks,
 regions and spheres show a read-only target extent in subject space. Edit these targets in
 the job form. The preview shows geometry before search-specific tissue and mesh filtering.
 
+## Additional result examples
+
+These captures predate the v3 Optimizer layout, but the scientific outputs remain useful examples.
+They are not instructions for the current interface.
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_flex-search.png" alt="Flex-search optimized electrode placement">
+    <em>Evolutionary optimization can place electrodes continuously on the valid scalp rather than restricting them to an EEG net.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_mapping.png" alt="Optimized electrodes mapped to an EEG net">
+    <em>The mapping step assigns optimized positions to the nearest feasible, distinct EEG-net sites.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_max_TI_field.png" alt="Maximum TI field over the brain surface">
+    <em>The optimized <code>TI_max</code> field over the cortical surface.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_max_TI_ROI.png" alt="Maximum TI field in the target ROI">
+    <em>The same maximum-envelope field restricted to the target ROI.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_Normal_field.png" alt="Normal field component over the brain surface">
+    <em>The field component normal to the cortical surface.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_normal_ROI.png" alt="Normal field component in the target ROI">
+    <em>The normal component restricted to the target ROI.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_tangent_field.png" alt="Tangential field component over the brain surface">
+    <em>The field component tangential to the cortical surface.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_tangent_ROI.png" alt="Tangential field component in the target ROI">
+    <em>The tangential component restricted to the target ROI.</em>
+  </div>
+</div>
+
 ### Simulating a candidate on a cap
 
 In Simulator, use the placement selector to keep **Optimised (XYZ)** or snap the selected candidate to a subject cap. Snapping assigns distinct cap sites to this candidate, preserves its currents and electrode settings, and replaces the optimized poses with the cap placement. Switching back restores the recorded XYZ and orientations. The preview highlights the selected cap sites, with hollow original positions and dashed displacement links. Distances are straight-line millimetres, not distances along the scalp. Optimization metrics describe the original candidate; evaluate the snapped montage with a new simulation.

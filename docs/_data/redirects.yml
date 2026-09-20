@@ -11,3 +11,7 @@
   to: /wiki/pre-processing/
 - from: /gallery/simulations/
   to: /wiki/simulator/
+- from: /gallery/flex-search/
+  to: /wiki/flex-search/
+- from: /gallery/ex-search/
+  to: /wiki/ex-search/
