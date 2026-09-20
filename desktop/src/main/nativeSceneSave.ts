@@ -28,6 +28,7 @@ export interface NativeSceneSaveDependencies {
   projectRoot: () => Promise<string | undefined>;
   fetchDestination: (url: string, init: RequestInit) => Promise<NativeSceneDestinationResponse>;
   resolveHostPath: (path: string) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>;
+  prepareNativeSceneSave: () => Promise<void>;
   saveNativeScene: (destination: string, projectRoot: string) => Promise<string>;
   handoff: (request: NativeSceneSaveHandoff) => Promise<{ ok: true } | { ok: false; cancelled: true }>;
 }
@@ -81,6 +82,7 @@ export async function orchestrateNativeSceneSave(
         }
         const mapped = await dependencies.resolveHostPath(body.scene_path);
         if (!mapped.ok) throw new Error(mapped.reason);
+        await dependencies.prepareNativeSceneSave();
         const currentRoot = await dependencies.projectRoot();
         if (
           !dependencies.trusted()

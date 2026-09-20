@@ -120,6 +120,7 @@ export interface TitNativeTetravoxProgress {
 
 export interface TitBridge {
   /** Save the live native scene into the active project; the renderer supplies a name, never a path. */
+  previewNativeTetravoxScene?(path: string): Promise<{ ok: boolean; reason?: string }>;
   saveNativeTetravoxScene?(name: string): Promise<{ ok: boolean; path?: string; reason?: string; cancelled?: boolean }>;
   nativeTetravoxStatus?(): Promise<TitNativeTetravoxStatus>;
   installNativeTetravox?(): Promise<TitNativeTetravoxStatus>;

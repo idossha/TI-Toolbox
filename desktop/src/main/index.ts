@@ -2,13 +2,14 @@ import { existsSync } from "node:fs";
 import { stat, writeFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { app, BrowserWindow, Notification, dialog, ipcMain, net, protocol, session, shell } from "electron";
+import { app, BrowserWindow, Notification, dialog, ipcMain, nativeImage, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
 import { readSettings, updateSettings, setAppleGpuEnabled, setTetravoxPath } from "./settings";
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
 import { createNativeSceneSession, exchangeNativeSceneRequest } from "./nativeSceneBridge";
+import { createScenePreviewQueue, renderNativeScenePreview } from "./nativeScenePreview";
 import { orchestrateNativeSceneSave } from "./nativeSceneSave";
 import { createViewerHandoff } from "./viewerHandoff";
 import { checkViewerScene, identifyViewerPath, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setConfiguredViewerPathProvider, setViewerProgressListener } from "./tetravoxNative";
@@ -741,15 +742,49 @@ function registerIpc(): void {
     return nativeViewerStatus(app.getPath("userData"));
   });
   const viewerHandoff = createViewerHandoff();
-  ipcMain.handle("tit:tetravox:saveScene", (e, name: unknown) => orchestrateNativeSceneSave(name, {
-    trusted: () => fromMainWindow(e),
-    session: () => activeSession,
-    projectRoot: async () => stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined,
-    fetchDestination: (url, init) => net.fetch(url, init),
-    resolveHostPath: resolveHostPathStrict,
-    saveNativeScene: (destination, root) => nativeScenes.save(destination, root),
-    handoff: viewerHandoff,
-  }));
+  const previewQueue = createScenePreviewQueue();
+  ipcMain.handle("tit:tetravox:previewScene", async (e, path: unknown) => {
+    if (!fromMainWindow(e) || typeof path !== "string" || !mayLaunchNativeViewer()) return { ok: false, reason: "Native preview is unavailable." };
+    const requestedSession = activeSession;
+    try {
+      const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+      if (!root || !requestedSession) throw new Error("A local project is required for previews.");
+      const mapped = await resolveHostPathStrict(path);
+      if (!mapped.ok) throw new Error(mapped.reason);
+      const userData = app.getPath("userData");
+      const viewer = await nativeViewerStatus(userData);
+      if (!viewer.executable) throw new Error("Install TetraVox to generate previews.");
+      await previewQueue(mapped.path, () => renderNativeScenePreview({
+        scene: mapped.path, root, userData, executable: viewer.executable!,
+        current: async () => fromMainWindow(e) && requestedSession === activeSession && root === (stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath),
+        resize: (png) => {
+          const image = nativeImage.createFromBuffer(png);
+          if (image.isEmpty()) throw new Error("TetraVox returned an empty preview.");
+          return image.resize({ width: 320, quality: "best" }).toPNG();
+        },
+      }));
+      return { ok: true };
+    } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
+  });
+  ipcMain.handle("tit:tetravox:saveScene", (e, name: unknown) => {
+    let viewer: Awaited<ReturnType<typeof nativeViewerStatus>>;
+    return orchestrateNativeSceneSave(name, {
+      trusted: () => fromMainWindow(e),
+      session: () => activeSession,
+      projectRoot: async () => stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined,
+      fetchDestination: (url, init) => net.fetch(url, init),
+      resolveHostPath: resolveHostPathStrict,
+      prepareNativeSceneSave: async () => {
+        if (!mayLaunchNativeViewer()) throw new Error("Native viewer launch is disabled in automated tests.");
+        const userData = app.getPath("userData");
+        viewer = await nativeViewerStatus(userData);
+        if (!viewer.supportsSceneSave) throw new Error("The selected TetraVox does not support saving its live scene. Select a compatible installation in Settings.");
+        if (!await nativeViewerRunning(userData, viewer)) throw new Error("Open a scene in TetraVox, then save it here.");
+      },
+      saveNativeScene: (destination, root) => nativeScenes.save(destination, root, viewer),
+      handoff: viewerHandoff,
+    });
+  });
   ipcMain.handle("tit:tetravox:open", async (e, path: unknown) => {
     if (!fromMainWindow(e) || typeof path !== "string") return { ok: false, reason: "Untrusted viewer request." };
     if (!mayLaunchNativeViewer()) return { ok: false, reason: "Native viewer launch is disabled in automated tests." };

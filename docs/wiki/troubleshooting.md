@@ -430,3 +430,28 @@ worker had exited. Reopening log views or reconnecting could replay it again. Th
 client resumes by sequence and loads the final saved transcript when the job finishes; long
 server backfills also drain without blocking status updates. Update the app and server together.
 This UI symptom alone does not mean that an optimizer is still computing.
+
+### Saving a scene asks you to open it from TI-Toolbox first
+
+Earlier internal desktop builds required a previous **Open in viewer** from the same project, even
+when TetraVox already had a scene loaded. Current builds capture the active scene directly.
+Keep TetraVox open, choose the target BIDS project in TI-Toolbox, then use
+**Viewer → Saved scenes → Save scene**. Give it a name; the project destination is automatic and
+the saved scene appears in that list for reopening. A compatible native TetraVox installation is
+required; a closed viewer or an unsuccessful capture is reported without claiming a save.
+
+### Opening a saved native scene says "Path escapes the project jail"
+
+Earlier internal builds incorrectly re-exported native scenes, resolving their dataset paths against
+the project root instead of the saved scene directory. Current builds open the original native file
+and retain its relative dataset paths. Restart TI-Toolbox Desktop after updating, then click the
+existing saved scene again; no resave or migration is needed. Legacy server-URL scenes still get a
+localized copy, and the project jail remains enforced.
+
+### TetraVox Save reports "not on the write list"
+
+TetraVox 0.6.0's native scene API could open and attach a scene without admitting that scene as a
+native Save target. The file opens normally but **Save** fails; this is separate from project-path
+validation. Use **Save As** to preserve current edits. The native fix admits exactly the opened
+scene, without granting write access to datasets or unrelated files. It requires an updated
+TetraVox build; restarting TI-Toolbox alone cannot patch an already running native app.

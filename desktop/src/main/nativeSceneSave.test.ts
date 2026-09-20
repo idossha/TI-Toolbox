@@ -16,6 +16,7 @@ const roots: string[] = [];
 const viewer = {
   supported: true,
   installed: true,
+  supportsSceneSave: true,
   installing: false,
   version: "fixture",
   directory: "/fixture",
@@ -48,7 +49,6 @@ describe("index native-scene save orchestration", () => {
       }
       return request.path;
     });
-    await nativeSession.open(fixture.source, fixture.root, viewer);
 
     const backendSession = { origin: "http://127.0.0.1:8765", token: "secret" };
     const jailedPath = "/mnt/project/code/ti-toolbox/viewer/scenes/live.tetravox.json";
@@ -70,16 +70,18 @@ describe("index native-scene save orchestration", () => {
         expect(path).toBe(jailedPath);
         return { ok: true, path: fixture.destination };
       },
-      saveNativeScene: (destination, root) => nativeSession.save(destination, root),
+      prepareNativeSceneSave: async () => undefined,
+      saveNativeScene: (destination, root) => nativeSession.save(destination, root, viewer),
       handoff,
     });
 
     expect(result).toEqual({ ok: true, path: jailedPath });
-    expect(requests[1]).toMatchObject({
+    expect(requests[0]).toMatchObject({
       action: "save-scene",
       path: fixture.destination,
-      expectedScenePath: fixture.source,
     });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).not.toHaveProperty("expectedScenePath");
     expect(fetchDestination).toHaveBeenCalledWith(
       `${backendSession.origin}/api/viewer/scenes/live/native-destination`,
       expect.objectContaining({
@@ -99,6 +101,7 @@ describe("index native-scene save orchestration", () => {
       projectRoot: async () => "/host/project",
       fetchDestination,
       resolveHostPath: async () => ({ ok: true, path: "/host/project/live.tetravox.json" }),
+      prepareNativeSceneSave: async () => undefined,
       saveNativeScene,
       handoff: async () => ({ ok: false, cancelled: true }),
     });
@@ -107,4 +110,27 @@ describe("index native-scene save orchestration", () => {
     expect(fetchDestination).not.toHaveBeenCalled();
     expect(saveNativeScene).not.toHaveBeenCalled();
   });
+  it.each(["session", "root", "trust"])("refuses a project change during native readiness: %s", async (change) => {
+    let backendSession = { origin: "http://127.0.0.1:8765", token: "fixture" };
+    let root = "/host/project";
+    let trusted = true;
+    const saveNativeScene = vi.fn();
+    const result = await orchestrateNativeSceneSave("live", {
+      trusted: () => trusted,
+      session: () => backendSession,
+      projectRoot: async () => root,
+      fetchDestination: async () => ({ ok: true, json: async () => ({ scene_path: "/mnt/project/code/ti-toolbox/viewer/scenes/live.tetravox.json" }) }),
+      resolveHostPath: async () => ({ ok: true, path: "/host/project/code/ti-toolbox/viewer/scenes/live.tetravox.json" }),
+      prepareNativeSceneSave: async () => {
+        if (change === "session") backendSession = { ...backendSession };
+        if (change === "root") root = "/host/other";
+        if (change === "trust") trusted = false;
+      },
+      saveNativeScene,
+      handoff: async (request) => { await request.launch(); return { ok: true }; },
+    });
+    expect(result).toEqual({ ok: false, reason: "The active project changed before saving." });
+    expect(saveNativeScene).not.toHaveBeenCalled();
+  });
+
 });

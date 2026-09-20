@@ -10,7 +10,7 @@ async function temporary() { const root = await realpath(await mkdtemp(join(tmpd
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))); });
 const request: NativeSceneRequest = { protocol: 1, id: "authored-request", action: "open-scene", path: "/project/input.tetravox.json" };
 const receipt = { protocol: 1, id: request.id, ok: true, path: request.path };
-const viewer = { supported: true, installed: true, installing: false, version: "1.0.0", directory: "/fixture", executable: "/fixture/Tetravox" };
+const viewer = { supported: true, installed: true, supportsSceneSave: true, installing: false, version: "1.0.0", directory: "/fixture", executable: "/fixture/Tetravox" };
 
 describe("filesystem receipt exchange", () => {
   it("writes the request, accepts a bound receipt and cleans up", async () => {
@@ -69,13 +69,26 @@ async function project() {
   return { root, scene, destination: join(scenes, "live.tetravox.json") };
 }
 describe("acknowledged live session", () => {
-  it("requires successful open acknowledgment", async () => {
-    const f = await project(); const session = createNativeSceneSession(async () => { throw new Error("no acknowledgment"); });
-    await expect(session.save(f.destination, f.root)).rejects.toThrow("Open this project's scene");
-    await expect(session.open(f.scene, f.root, viewer)).rejects.toThrow("no acknowledgment");
-    await expect(session.save(f.destination, f.root)).rejects.toThrow("Open this project's scene");
+  it("saves a scene loaded directly in TetraVox without a preceding TI open", async () => {
+    const f = await project(); const requests: NativeSceneRequest[] = [];
+    const live = { camera: { zoom: 3 }, layers: [{ opacity: 0.4 }] };
+    const session = createNativeSceneSession(async (next) => {
+      requests.push(next);
+      await writeFile(next.path, JSON.stringify(live), { flag: "wx" });
+      return next.path;
+    });
+    await expect(session.save(f.destination, f.root, viewer)).resolves.toBe(f.destination);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ action: "save-scene", path: f.destination });
+    expect(requests[0]).not.toHaveProperty("expectedScenePath");
+    expect(JSON.parse(await readFile(f.destination, "utf8"))).toEqual(live);
   });
-  it("saves a live viewer fixture with session binding into canonical scenes directory", async () => {
+  it("rejects a viewer without the live capture capability", async () => {
+    const f = await project();
+    const session = createNativeSceneSession(async () => { throw new Error("must not dispatch"); });
+    await expect(session.save(f.destination, f.root, { ...viewer, supportsSceneSave: false })).rejects.toThrow("does not support");
+  });
+  it("captures the active attachment after a previous TI open into the canonical scenes directory", async () => {
     const f = await project(); const requests: NativeSceneRequest[] = []; const live = { camera: { zoom: 2.5 }, layers: [{ opacity: 0.25 }] };
     const session = createNativeSceneSession(async (next, selected) => {
       requests.push(next); expect(selected).toBe(viewer);
@@ -83,10 +96,11 @@ describe("acknowledged live session", () => {
       return next.path;
     });
     await session.open(f.scene, f.root, viewer);
-    expect(await session.save(f.destination, f.root)).toBe(f.destination);
+    expect(await session.save(f.destination, f.root, viewer)).toBe(f.destination);
     expect(JSON.parse(await readFile(f.destination, "utf8"))).toEqual(live);
-    expect(requests[1]).toMatchObject({ action: "save-scene", expectedScenePath: f.scene, path: f.destination });
+    expect(requests[1]).toMatchObject({ action: "save-scene", path: f.destination });
     expect(requests[1]!.id).not.toBe(requests[0]!.id);
+    expect(requests[1]).not.toHaveProperty("expectedScenePath");
     expect(JSON.parse(await readFile(f.scene, "utf8"))).toEqual({ fixture: "original" });
   });
   it.runIf(process.platform !== "win32")("canonicalizes a destination reached through a symlinked project root", async () => {
@@ -97,34 +111,39 @@ describe("acknowledged live session", () => {
       return next.path;
     });
     await session.open(join(alias, "code/ti-toolbox/viewer/scenes/source.tetravox.json"), alias, viewer);
-    await expect(session.save(join(alias, "code/ti-toolbox/viewer/scenes/live.tetravox.json"), alias)).resolves.toBe(f.destination);
+    await expect(session.save(join(alias, "code/ti-toolbox/viewer/scenes/live.tetravox.json"), alias, viewer)).resolves.toBe(f.destination);
     expect(JSON.parse(await readFile(f.destination, "utf8"))).toEqual({ saved: true });
   });
-  it("rejects another project and clear", async () => {
-    const f = await project(); const other = await project(); const session = createNativeSceneSession(async (next) => next.path);
+  it("captures into the newly active project after clearing a previous project", async () => {
+    const f = await project(); const other = await project();
+    const session = createNativeSceneSession(async (next) => {
+      if (next.action === "save-scene") await writeFile(next.path, '{"live":true}', { flag: "wx" });
+      return next.path;
+    });
     await session.open(f.scene, f.root, viewer);
-    await expect(session.save(other.destination, other.root)).rejects.toThrow("Open this project's scene");
-    session.clear(); await expect(session.save(f.destination, f.root)).rejects.toThrow("Open this project's scene");
+    session.clear();
+    await expect(session.save(other.destination, other.root, viewer)).resolves.toBe(other.destination);
+    expect(JSON.parse(await readFile(other.destination, "utf8"))).toEqual({ live: true });
   });
   it("rejects a save outside the canonical scenes directory", async () => {
     const f = await project(); const session = createNativeSceneSession(async (next) => next.path);
     await session.open(f.scene, f.root, viewer);
-    await expect(session.save(join(f.root, "other.tetravox.json"), f.root)).rejects.toThrow();
+    await expect(session.save(join(f.root, "other.tetravox.json"), f.root, viewer)).rejects.toThrow();
   });
   it("refuses an existing destination without dispatching save", async () => {
     const f = await project(); const actions: string[] = [];
     const session = createNativeSceneSession(async (next) => { actions.push(next.action); return next.path; });
     await session.open(f.scene, f.root, viewer); await writeFile(f.destination, "preserve");
-    await expect(session.save(f.destination, f.root)).rejects.toThrow("already exists");
+    await expect(session.save(f.destination, f.root, viewer)).rejects.toThrow("already exists");
     expect(actions).toEqual(["open-scene"]); expect(await readFile(f.destination, "utf8")).toBe("preserve");
   });
-  it("clear during pending open prevents stale session resurrection", async () => {
+  it("clear during pending open rejects the obsolete acknowledgment", async () => {
     const f = await project(); let acknowledge!: (path: string) => void; let started!: () => void;
     const ready = new Promise<void>((resolve) => { started = resolve; });
     const session = createNativeSceneSession(async () => new Promise<string>((resolve) => { acknowledge = resolve; started(); }));
     const opening = session.open(f.scene, f.root, viewer); await ready;
-    session.clear(); acknowledge(f.scene); await opening.catch(() => undefined);
-    await expect(session.save(f.destination, f.root)).rejects.toThrow("Open this project's scene");
+    session.clear(); acknowledge(f.scene);
+    await expect(opening).rejects.toThrow("active scene changed");
   });
 });
 it("requires explicit protocol capability rather than newer version", async () => {

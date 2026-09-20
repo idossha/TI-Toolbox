@@ -249,8 +249,15 @@ def _scene_health(path: str) -> dict[str, Any]:
     from tit.server.host_path import host_project_dir
     from tit.server.routes.viewers import _container_path_from_raw_url
 
+    counts: dict[str, int] = {}
+
     def result(status: str, message: str, missing: int = 0) -> dict[str, Any]:
-        return {"health": status, "health_message": message, "missing_count": missing}
+        return {
+            "health": status,
+            "health_message": message,
+            "missing_count": missing,
+            **counts,
+        }
 
     try:
         with open(checked_viewer_path(path), "rb") as handle:
@@ -263,6 +270,7 @@ def _scene_health(path: str) -> dict[str, Any]:
         datasets, layers = scene.get("datasets"), scene.get("layers")
         if not isinstance(datasets, list) or not isinstance(layers, list):
             raise ValueError("Scene datasets and layers must be lists")
+        counts = {"dataset_count": len(datasets), "layer_count": len(layers)}
         ids = {
             d["id"]
             for d in datasets
@@ -387,6 +395,14 @@ def list_scenes() -> dict[str, Any]:
                 "path": path,
                 "bytes": st.st_size,
                 "saved_at": saved_at,
+                "modified_at": datetime.fromtimestamp(
+                    st.st_mtime, timezone.utc
+                ).isoformat(),
+                "created_at": (
+                    datetime.fromtimestamp(st.st_birthtime, timezone.utc).isoformat()
+                    if getattr(st, "st_birthtime", 0) > 0
+                    else None
+                ),
                 "subject": meta.get("subject"),
                 "simulation": meta.get("simulation"),
                 "field": meta.get("field"),

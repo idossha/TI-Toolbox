@@ -288,6 +288,18 @@ resolved upstream before claiming automatic setup support on those platforms.
 
 ### Live native scene saving
 
+`nativeScenePreview.test.ts` covers bounded serialized capture, cached PNG reuse, confinement,
+project changes, invalid sidecar preservation and render failures. The Viewer E2E covers lazy preview
+publication, inline metadata, Escape/focus return and unchanged native open state. Native preview
+smoke checks render actual saved scenes with `--job`, verify nonuniform PNG pixels and unchanged
+scene hashes, and use the quiet monitor; fixture PNGs alone do not prove native rendering.
+
+`src/main/nativeSceneBridge.test.ts` covers capture without a preceding TI open, attachment changes,
+canonical project destinations, non-overwrite and receipts. `src/main/nativeSceneSave.test.ts` covers
+host/server path mapping and project/session/trust changes during native readiness. The library test
+`test_native_scene_without_metadata_uses_mtime_for_newest_first` verifies a native-only file can be
+listed and read without companion metadata. These are fixture proofs, not native renderer tests.
+
 `tests/unit/native-viewer.test.ts` validates confirmed-path receipts, cancellation, unavailable bridges
 and incomplete/refused saves without HTTP recipe writes. `tests/e2e/viewer.spec.ts` adds mocked IPC
 coverage for capability-disabled Save, confirmed-save list refresh and refusal without a saved claim.
@@ -297,8 +309,7 @@ The [upstream integration record](../../dev/upstream/tetravox-live-scene/README.
 TetraVox PR #44's generic scene API and TI's adapter boundary; it is not an acceptance checklist.
 Do not mark live saving or macOS foreground recovery release-ready until the capability is tested in a
 real native package and edited camera/layer state is reopened from the resulting project file. Include
-closed, minimized and no-window states, existing-file refusal and unchanged originals. The current
-installed viewer lacks this capability; a disabled Save is the expected compatibility behavior.
+closed, minimized and no-window states, existing-file refusal and unchanged originals. Installations without the declared capability show Save as disabled.
 
 Native-scene verification on 2026-09-19: the source and local unsigned arm64 TetraVox package both
 pass cold open, edited cursor snapshot, unchanged-original and no-window recreation tests using the

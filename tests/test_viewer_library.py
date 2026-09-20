@@ -203,6 +203,14 @@ def test_native_scene_without_metadata_uses_mtime_for_newest_first(pm: PathManag
 
     rows = lib.list_scenes()["scenes"]
 
+    assert rows[0]["dataset_count"] == len(SCENE["datasets"])
+    assert rows[0]["layer_count"] == len(SCENE["layers"])
+    assert rows[0]["modified_at"] == datetime.fromtimestamp(future, timezone.utc).isoformat()
+    birth = getattr(native.stat(), "st_birthtime", None)
+    assert rows[0]["created_at"] == (
+        datetime.fromtimestamp(birth, timezone.utc).isoformat() if birth else None
+    )
+    assert lib.read_scene("native")["scene"] == SCENE
     assert [row["slug"] for row in rows] == ["native", "metadata-backed"]
     assert rows[0]["saved_at"] == datetime.fromtimestamp(future, timezone.utc).isoformat()
 

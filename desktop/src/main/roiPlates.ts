@@ -140,7 +140,7 @@ export function summariseResult(text: string): string | null {
   }
 }
 
-function defaultRun(executable: string, args: string[]): Promise<number> {
+export function runNativeCapture(executable: string, args: string[]): Promise<number> {
   return new Promise((resolve, reject) => {
     // `--job` forces offscreen and is exempt from the single-instance lock, so this never takes
     // focus and never disturbs a window the user has open.
@@ -174,7 +174,7 @@ export async function renderPlatesForJob(jobId: string, deps: PlateRunnerDeps): 
   const write = deps.writeFileText ?? ((path: string, text: string) => writeFile(path, text, "utf8"));
   const read = deps.readFileText ?? ((path: string) => readFile(path, "utf8"));
   const remove = deps.removeFile ?? ((path: string) => unlink(path));
-  const run = deps.run ?? defaultRun;
+  const run = deps.run ?? runNativeCapture;
   const result: PlateRunResult = { rendered: [], skipped: [] };
 
   let scenes: string[];

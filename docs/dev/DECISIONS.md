@@ -1636,3 +1636,34 @@ resolve from canonical sources rather than reconstructing which proposal won.
 **Alternatives rejected.** Archiving the files under another intent directory preserves the duplicate
 source of truth. Ignoring the directory hides local files but does not prevent them from being forced
 into a commit. The structural guard plus its fixture-driven self-test makes the policy executable.
+
+## 2026-09-20 — Save the currently active TetraVox scene into the active project
+
+**Decision.** ARCHITECTURE §7.1 captures the selected running native viewer without a prior TI open
+or an `expectedScenePath` constraint. The active BIDS project supplies the destination; the native
+viewer supplies the current serialized view. Capability and process readiness are checked afresh,
+then project identity is rechecked before dispatch.
+
+**Why.** Requiring a previous TI launch blocked scenes imported directly in TetraVox and could reject
+an attachment changed since TI last opened it. The existing generic serializer already supports this
+capture. Destination confinement, create-only files and correlated success receipts remain required.
+`nativeSceneBridge.test.ts` covers direct capture and canonical destinations;
+`nativeSceneSave.test.ts` covers project changes during readiness.
+
+Native snapshots also reopen from their original jailed scene path. Re-exporting them resolved their
+scene-relative datasets against the wrong root and could raise "Path escapes the project jail".
+Legacy server-URL scenes still use the localizing exporter. This fixes existing native snapshots
+without migration or relaxed filesystem confinement.
+
+
+## 2026-09-20 — Saved-scene previews and inline information
+
+**Decision.** ARCHITECTURE §7.1 uses the existing native `--job` screenshot API in a separate,
+offscreen profile to cache a PNG beside each visible saved scene. No live-view replacement or
+upstream API change is needed. The preview restores the saved grid and downsizes the render;
+it is neither an anatomy substitute nor a decorative placeholder. `previewNativeTetravoxScene`
+is one narrow validated IPC entry, bringing the preload surface to 22 entries (smoke test).
+
+The existing bounded scene-health read also returns dataset/layer counts. Modified time comes from
+mtime; created time is nullable and only sourced from filesystem birth time. An inline information
+popover shows these values without expanding the row. Missing previews and metadata remain optional.

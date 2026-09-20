@@ -148,6 +148,21 @@ test("an old URL-based saved scene is exported without modifying its original", 
   expect(original).toEqual(scene);
 });
 
+test("a native saved scene reopens at its original path without exporting relative datasets", async () => {
+  const name = "native-relative";
+  const path = `/mnt/example/code/ti-toolbox/viewer/scenes/${name}.tetravox.json`;
+  const scene = { version: 2, datasets: [{ id: "t1", kind: "volume", path: "../../../../derivatives/T1.nii.gz", absPath: "/host/project/derivatives/T1.nii.gz" }, { id: "t2", kind: "volume", path: "../../../../../shared/T2.nii.gz", absPath: "/host/shared/T2.nii.gz" }], layers: [] };
+  await page.route("**/api/viewer/scenes", (route) => route.fulfill({ json: { scenes: [{ name, slug: name, path, saved_at: "2026-09-20T00:00:00Z", has_thumbnail: false }] } }));
+  await page.route(`**/api/viewer/scenes/${name}`, (route) => route.fulfill({ json: { scene } }));
+  const exports: string[] = [];
+  page.on("request", (request) => { if (request.url().endsWith("/api/view/export")) exports.push(request.url()); });
+  await page.reload();
+  await gotoPage(page, "viewer", "Viewer");
+  await page.getByTestId(`viewer-saved-scene-${name}`).click();
+  await expect.poll(() => app.evaluate(() => (globalThis as unknown as { nativePaths?: string[] }).nativePaths ?? [])).toEqual([path]);
+  expect(exports).toEqual([]);
+});
+
 test("a refused native launch shows its reason and allows retry", async () => {
   await app.evaluate(({ ipcMain }) => {
     let attempts = 0;
@@ -310,4 +325,44 @@ test("a refused native save reports the reason without claiming or refreshing a 
   await expect(page.getByTestId("viewer-scene-save-error")).toHaveText("No active native scene");
   await expect(page.getByTestId("viewer-scene-saved")).toHaveCount(0);
   expect(reads).toEqual([]);
+});
+
+
+test("visible saved scenes gain previews and inline information without opening TetraVox", async () => {
+  const name = "preview-details";
+  const scenePath = `/mnt/example/code/ti-toolbox/viewer/scenes/${name}.tetravox.json`;
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:previewScene");
+    ipcMain.handle("tit:tetravox:previewScene", (_event, path: string) => {
+      (globalThis as unknown as { previewPaths: string[] }).previewPaths = [path];
+      return { ok: true };
+    });
+  });
+  await page.route("**/api/viewer/scenes", async (route) => {
+    const previewed = await app.evaluate(() => !!(globalThis as unknown as { previewPaths?: string[] }).previewPaths?.length);
+    await route.fulfill({ json: { scenes: [{ name, slug: name, path: scenePath, saved_at: "2026-09-20T01:02:03Z", modified_at: "2026-09-20T04:05:06Z", created_at: null, layer_count: 3, dataset_count: 2, bytes: 8192, has_thumbnail: previewed, health: "valid", health_message: "All referenced project files are available" }] } });
+  });
+  await page.route(`**/api/files/raw${scenePath.replace(".tetravox.json", ".png")}`, (route) => route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jN1sAAAAASUVORK5CYII=", "base64") }));
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.reload();
+  await gotoPage(page, "viewer", "Viewer");
+  const preview = page.getByTestId(`viewer-scene-preview-${name}`);
+  await expect(preview).toBeVisible();
+  await expect.poll(() => preview.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const info = page.getByTestId(`viewer-scene-info-${name}`);
+  await info.click();
+  const details = page.getByTestId(`viewer-scene-details-${name}`);
+  await expect(details).toBeVisible();
+  await expect(details.locator("dt")).toHaveText(["Saved", "Modified", "Layers", "Datasets", "Scene file", "Files"]);
+  await expect(details.locator("dd").nth(2)).toHaveText("3");
+  await expect(details.locator("dd").nth(3)).toHaveText("2");
+  await expect(details.locator("dd").nth(4)).toHaveText("8.0 KB");
+  expect(await details.locator("dd").nth(0).innerText()).not.toBe(await details.locator("dd").nth(1).innerText());
+  await expect(details).toContainText(scenePath);
+  await page.keyboard.press("Escape");
+  await expect(details).toHaveCount(0);
+  await expect(info).toBeFocused();
+  expect(await app.evaluate(() => (globalThis as unknown as { nativePaths?: string[] }).nativePaths ?? [])).toEqual([]);
+  expect(errors).toEqual([]);
 });
