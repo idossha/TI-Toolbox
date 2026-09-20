@@ -414,62 +414,90 @@ test("the jobs footer's New placement button opens the free-hand editor, and onl
   await expect(placementName).toBeVisible();
   await active.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(placementName).toHaveCount(0);
-  // Leave the montage editor open, which is how this retained page reached the acceptance-numbers
-  // test below before this test existed: that test measures dead space on whatever the page is
-  // showing, and an empty work column below the table is a different measurement than an open
-  // editor. Closing both editors here silently moved it from 0.70 to 0.79.
   await newMontage.click();
   await expect(montageName).toBeVisible();
+  await active.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(montageName).toHaveCount(0);
 });
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {
   test.setTimeout(180_000);
+  const reset = await page.evaluate(async (token) => fetch("/api/__mock/reset", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` },
+  }).then((response) => response.ok), TOKEN);
+  expect(reset).toBe(true);
+  await expect(page.getByTestId("shell-content")).toHaveAttribute("data-page", "simulator");
+  await clearMontageRows();
+  await configureMontageJob(page, montageRows().first(), {
+    subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI",
+  });
+  await configureMontageJob(page, await addJobRow(page), {
+    subject: "ernie", net: "GSN-HydroCel-185", montage: "Thalamus_target · TI",
+  });
+  await configureMontageJob(page, await addJobRow(page), {
+    subject: "ernie", net: "GSN-HydroCel-185", montage: "mTI_F3F4_P3P4 · mTI",
+  });
+  await expect(montageRows()).toHaveCount(3);
+
+  const active = page.locator('[data-page-active="true"]');
+  const montageName = active.getByPlaceholder("e.g. F3_F4", { exact: true });
+  await active.getByRole("button", { name: "New montage", exact: true }).click();
+  await expect(montageName).toBeVisible();
+
   const rows: PageMetrics[] = [];
-  for (const size of [
-    { width: 1280, height: 800 },
-    { width: 1440, height: 900 },
-  ]) {
-    for (const theme of ["light", "dark"] as const) {
-      rows.push(
-        await captureScreen(page, {
-          runId: RUN_ID,
-          pageId: "simulator",
-          theme,
-          width: size.width,
-          height: size.height,
-          waitFor: async () => {
-            await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
-          },
-        }),
-      );
+  try {
+    for (const size of [
+      { width: 1280, height: 800 },
+      { width: 1440, height: 900 },
+    ]) {
+      for (const theme of ["light", "dark"] as const) {
+        rows.push(
+          await captureScreen(page, {
+            runId: RUN_ID,
+            pageId: "simulator",
+            theme,
+            width: size.width,
+            height: size.height,
+            waitFor: async () => {
+              await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
+            },
+          }),
+        );
+      }
     }
-  }
-  console.log("simulator metrics:", JSON.stringify(rows, null, 1));
+    console.log("simulator metrics:", JSON.stringify(rows, null, 1));
 
-  for (const row of rows) {
-    // See preprocess.spec.ts for why this is not §12.3's 22 %: the DOM instrument measures a
-    // strictly smaller quantity than the pixel proxy those limits were set against.
-    // Raised from 0.58 when the montage table's six ground rows were removed (the Subjects rule:
-    // a list is a list, not a box padded out with empty rows). Those rows were ~200px of
-    // `--surface`-backed <td> down the work column, which this instrument scores as content — so
-    // deleting them RAISES the number while removing chrome, which is exactly the case where the
-    // instrument and the design disagree. Measured after the removal: 0.63 (1280) / 0.69 (1440);
-    // +0.02 margin, and still a regression guard on anything that adds real emptiness.
-    // Raised again to 0.75 by FXU2: the terminal no longer fills itself with a "What will run"
-    // step list when nothing is running, because content in the log pane of a page you merely
-    // opened reads as a job in progress. Measured after that change: 0.7076 (1280) / 0.7295 (1440).
-    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.75);
-    expect(row.pageHeaderHeight).toBe(0);
-    expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
-    // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the
-    // window, ceilinged so the work pane keeps its >=560 px floor. 576 at 1280; at 1440 the
-    // ceiling binds, not the 45 %, so 610.
-    expect(row.panes.right).toBe(row.width >= 1440 ? 610 : 576);
-    expect(row.panes.work).toBeGreaterThanOrEqual(560);
-  }
+    for (const row of rows) {
+      // See preprocess.spec.ts for why this is not §12.3's 22 %: the DOM instrument measures a
+      // strictly smaller quantity than the pixel proxy those limits were set against.
+      // Raised from 0.58 when the montage table's six ground rows were removed (the Subjects rule:
+      // a list is a list, not a box padded out with empty rows). Those rows were ~200px of
+      // `--surface`-backed <td> down the work column, which this instrument scores as content — so
+      // deleting them RAISES the number while removing chrome, which is exactly the case where the
+      // instrument and the design disagree. Measured after the removal: 0.63 (1280) / 0.69 (1440);
+      // +0.02 margin, and still a regression guard on anything that adds real emptiness.
+      // Raised again to 0.75 by FXU2: the terminal no longer fills itself with a "What will run"
+      // step list when nothing is running, because content in the log pane of a page you merely
+      // opened reads as a job in progress. Measured after that change: 0.7076 (1280) / 0.7295 (1440).
+      expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.75);
+      expect(row.pageHeaderHeight).toBe(0);
+      expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
+      // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the
+      // window, ceilinged so the work pane keeps its >=560 px floor. 576 at 1280; at 1440 the
+      // ceiling binds, not the 45 %, so 610.
+      expect(row.panes.right).toBe(row.width >= 1440 ? 610 : 576);
+      expect(row.panes.work).toBeGreaterThanOrEqual(560);
+    }
 
-  const first = rows.find((r) => r.width === 1280 && r.theme === "light");
-  expect(first?.firstScreenControls.hidden).toEqual([]);
+    const first = rows.find((r) => r.width === 1280 && r.theme === "light");
+    expect(first?.firstScreenControls.hidden).toEqual([]);
+  } finally {
+    if (await montageName.isVisible()) {
+      await active.getByRole("button", { name: "Cancel", exact: true }).click();
+    }
+    await clearMontageRows();
+  }
 });
 
 

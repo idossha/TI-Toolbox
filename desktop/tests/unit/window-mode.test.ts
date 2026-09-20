@@ -8,8 +8,8 @@
  * notice here.
  */
 import { describe, expect, it } from "vitest";
-import { mayShowSystemUi, windowMode } from "../../src/main/window";
-import { offscreenEnv } from "../e2e/_helpers";
+import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "../../src/main/window";
+import { nativeViewerEnv, offscreenEnv } from "../e2e/_helpers";
 
 describe("windowMode", () => {
   it("is normal for a user launch that sets nothing", () => {
@@ -32,6 +32,12 @@ describe("windowMode", () => {
   it("suppresses dock icon and notification banners exactly when offscreen", () => {
     expect(mayShowSystemUi("offscreen")).toBe(false);
     expect(mayShowSystemUi("normal")).toBe(true);
+  });
+
+  it("allows native viewer launches except in the explicit automated-app harness", () => {
+    expect(mayLaunchNativeViewer({})).toBe(true);
+    expect(mayLaunchNativeViewer({ TIT_E2E_DISABLE_NATIVE_VIEWER: "0" })).toBe(true);
+    expect(mayLaunchNativeViewer(nativeViewerEnv())).toBe(false);
   });
 });
 

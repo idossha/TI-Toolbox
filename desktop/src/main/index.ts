@@ -28,7 +28,7 @@ import {
 } from "../shared/paths";
 import { createQuitGate } from "../shared/quitGate";
 import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
-import { mayShowSystemUi, windowMode } from "./window";
+import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "./window";
 import type {
   TitConnectArgs,
   TitConnectResult,
@@ -752,6 +752,7 @@ function registerIpc(): void {
   }));
   ipcMain.handle("tit:tetravox:open", async (e, path: unknown) => {
     if (!fromMainWindow(e) || typeof path !== "string") return { ok: false, reason: "Untrusted viewer request." };
+    if (!mayLaunchNativeViewer()) return { ok: false, reason: "Native viewer launch is disabled in automated tests." };
     const requestedSession = activeSession;
     try {
       let scene = "";

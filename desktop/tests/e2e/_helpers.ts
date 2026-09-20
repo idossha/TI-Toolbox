@@ -36,6 +36,11 @@ export function offscreenEnv(env: NodeJS.ProcessEnv = process.env): Record<strin
   return process.platform === "darwin" ? { TIT_E2E_OFFSCREEN: "1" } : {};
 }
 
+/** Mock and real-server UI specs record native-viewer IPC; neither may execute an installed GUI. */
+export function nativeViewerEnv(): Record<string, string> {
+  return { TIT_E2E_DISABLE_NATIVE_VIEWER: "1" };
+}
+
 /**
  * Defect 1 (`docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §5a/§7.2, fix-round lane FIX-C): `npx
  * playwright test`'s `default` project starts exactly one `tests/mock-server/server.mjs` process
@@ -99,7 +104,7 @@ export async function launchElectronApp(
     : [];
   const app = await electron.launch({
     args: [...graphicsArgs, APP_ROOT, ...(options.args ?? [])],
-    env: { ...process.env, TIT_USER_DATA_DIR: userDataDir, ...offscreenEnv(), ...(options.env ?? {}) },
+    env: { ...process.env, TIT_USER_DATA_DIR: userDataDir, ...offscreenEnv(), ...(options.env ?? {}), ...nativeViewerEnv() },
   });
   if (process.env.TIT_E2E_DIAGNOSTICS === "1") {
     await app.firstWindow();
