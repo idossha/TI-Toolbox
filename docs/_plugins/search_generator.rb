@@ -1,6 +1,12 @@
 require 'json'
 
 module Jekyll
+  class SearchIndexPage < PageWithoutAFile
+    def render_with_liquid?
+      false
+    end
+  end
+
   class SearchGenerator < Generator
     safe true
     priority :lowest
@@ -30,9 +36,10 @@ module Jekyll
         }
       end.compact
 
-      search_page = PageWithoutAFile.new(site, site.source, 'search', 'search.json')
+      search_page = SearchIndexPage.new(site, site.source, 'search', 'search.json')
       search_page.content = JSON.pretty_generate(search_data) + "\n"
       search_page.data['layout'] = nil
+      search_page.data['render_with_liquid'] = false
       search_page.data['search'] = false
       search_page.data['sitemap'] = false
       site.pages << search_page
