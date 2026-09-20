@@ -27,7 +27,7 @@ tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real 
 dev/            scripts only: build_contracts (+build_schema/build_contract), contracts_check, route_import_guard, smoke.sh
 container/      image blueprints and build.sh
 docs/dev/       how this software is built and why — current developer references
-docs/wiki/      the user-facing site (published); docs/wiki/gui.md is deprecated
+docs/wiki/      the user-facing site (published); legacy v2 guidance is in docs/wiki/legacy-v2.md
 agent-plugin/   installable skills + a read-only MCP server for AI clients
 ```
 
