@@ -8,6 +8,14 @@
 
 set -euo pipefail
 
+# CircleCI #1048 aborted with "Caught signal number 13 Broken Pipe" after PETSc
+# loaded during numerical tests. Keep Python's signal handling for subprocess
+# tests, as production job runners do; preserve all caller-supplied PETSc options.
+case " ${PETSC_OPTIONS:-} " in
+    *" -no_signal_handler "*) ;;
+    *) export PETSC_OPTIONS="${PETSC_OPTIONS:+${PETSC_OPTIONS} }-no_signal_handler" ;;
+esac
+
 # ── Parse flags ──────────────────────────────────────────────────────────────
 VERBOSE=""
 COVERAGE=""
