@@ -45,6 +45,11 @@ Run from the repository root unless a command says otherwise. Use the host envir
 by CONTRIBUTING. `tests/conftest.py` mocks SimNIBS, Blender and several scientific/plotting packages;
 NumPy is real and some tests restore SciPy. Never infer real-library success from a host run.
 
+The combined container runner `tests/run_tests.sh` adds PETSc's `-no_signal_handler` option before
+Python starts, preserving other options. Otherwise real-library imports can replace Python's
+SIGPIPE handling and abort subprocess tests (CircleCI #1048). `test_container_test_runner.py`
+checks the executed runner's environment and argument forwarding.
+
 ```bash
 .venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
 cd desktop
