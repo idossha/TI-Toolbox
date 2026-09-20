@@ -143,6 +143,12 @@ jobs:
             /tmp/tit-ci-venv/bin/python -m pip install -e '.[test]'
 
       - run:
+          name: Route and generated-contract guards
+          command: |
+            /tmp/tit-ci-venv/bin/python dev/route_import_guard.py
+            /tmp/tit-ci-venv/bin/python dev/contracts_check.py
+
+      - run:
           name: Host regression suite with coverage (numerical tests run locally)
           no_output_timeout: 10m
           command: |
@@ -153,11 +159,6 @@ jobs:
             timeout 20m /tmp/tit-ci-venv/bin/python -m pytest tests/ -q \
               --ignore=tests/numerical --junitxml=/tmp/test-results/host.xml \
               --cov=tit --cov-report=xml:/tmp/coverage/coverage.xml
-      - run:
-          name: Route and generated-contract guards
-          command: |
-            /tmp/tit-ci-venv/bin/python dev/route_import_guard.py
-            /tmp/tit-ci-venv/bin/python dev/contracts_check.py
 
       - run:
           name: Prepare coverage for Codecov
