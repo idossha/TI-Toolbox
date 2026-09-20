@@ -7,3 +7,7 @@
   to: /wiki/legacy-v2/
 - from: /installation/troubleshooting/
   to: /wiki/troubleshooting/
+- from: /gallery/pre-processing/
+  to: /wiki/pre-processing/
+- from: /gallery/simulations/
+  to: /wiki/simulator/

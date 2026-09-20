@@ -78,6 +78,30 @@ quality. If CHARM reports cropped anatomy or poor registration, inspect the inpu
 using those targets. CHARM supplies whole-thalamus, whole-hippocampus and whole-amygdala labels;
 the surfer guide explains the separate reconstruction and finer subregion options.
 
+### Preparation examples
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_dicom.png" alt="DICOM input prepared for conversion">
+    <em>Start from DICOM or an existing NIfTI dataset. T1w is required for head-model creation; T2w is optional.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_nifti.png" alt="NIfTI output created from DICOM">
+    <em><code>dcm2niix</code> converts the DICOM series into a three-dimensional NIfTI volume.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_co-registration.png" alt="Co-registered EEG nets on a subject head model">
+    <em>Supported EEG nets are co-registered while the subject's <code>m2m</code> head model is prepared.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_atlas.png" alt="DKT atlas aligned to subject anatomy">
+    <em>Cortical atlases are aligned to subject space; this example shows the DKT parcellation.</em>
+  </div>
+</div>
+
 ## Run and monitor
 
 Review the plan, then start the selected stages. When outputs already exist, choose whether to

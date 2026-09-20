@@ -97,10 +97,10 @@ gallery:
   title: Gallery
   items:
     - { title: Overview, url: /gallery/ }
-    - { title: Pre-Processing, url: /gallery/pre-processing/ }
+    - { title: Pre-Processing, url: /wiki/pre-processing/ }
     - { title: Flex-Search, url: /gallery/flex-search/ }
     - { title: Ex-Search, url: /gallery/ex-search/ }
-    - { title: Simulations, url: /gallery/simulations/ }
+    - { title: Simulations, url: /wiki/simulator/ }
     - { title: Analysis, url: /gallery/analysis/ }
     - { title: Blender, url: /gallery/blender/ }
     - { title: Statistics, url: /gallery/statistics/ }
