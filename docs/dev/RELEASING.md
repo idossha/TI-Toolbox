@@ -45,9 +45,9 @@ That distinction must remain visible in test evidence: source CI is not an image
 
 ### Runtime version preparation
 
-The main-branch preparation uses runtime/package version `3.0.0` while `version.py` remains
-at `2.5.0`. Do not run the public version updater, create a release tag, or publish a GitHub
-Release during this preparation. The public update source stays unchanged.
+Runtime and public metadata are aligned at `3.0.0`. For future development builds, use the
+development updater below; it leaves the public update source unchanged. Run the stable updater
+only when cutting the corresponding release.
 
 ```bash
 python3 dev/update/update_version.py --development --version X.Y.Z-dev.N --dry-run

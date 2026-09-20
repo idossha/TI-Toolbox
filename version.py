@@ -3,12 +3,12 @@ TI-Toolbox Version Information
 Contains version, tool, and system information for the TI-Toolbox application.
 """
 
-__version__ = "2.5.0"
+__version__ = "3.0.0"
 
 # TI-Toolbox Core Information
 TI_CSC_INFO = {
-    "version": "2.5.0",
-    "release_date": "August 27, 2026",
+    "version": "3.0.0",
+    "release_date": "September 20, 2026",
     "build": "stable",
 }
 

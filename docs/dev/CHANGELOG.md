@@ -7,7 +7,11 @@ permalink: /releases/changelog/
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
 
 ---
-### v3.0.0 (Unreleased)
+### Unreleased
+
+Nothing yet.
+
+### v3.0.0 — September 20, 2026
 
 - **Linux Debian installers build successfully** — release packaging now includes the project homepage and maintainer contact required by Debian packages. Install using the `.deb` download; application behavior and other installer formats are unchanged.
 

@@ -7,22 +7,22 @@ permalink: /releases/
 User-facing highlights and upgrade guidance. For the detailed technical record, see the
 [Changelog]({{ site.baseurl }}/releases/changelog/).
 
-### v3.0.0 (Unreleased)
+### v3.0.0 — September 20, 2026
 
 A new desktop workspace brings project overview, job tracking, pipelines, notebooks, and integrated
 3D viewing together. Other additions include custom NIfTI targets, hardware-aware FastSurfer GPU
 support, and optional FreeSurfer reconstruction and subregions.
 
-The `idossha/ti-toolbox:v3.0.0` image is available for testing. Final installers and the GitHub release
-are not published yet; **v2.5.0 remains the stable release**.
+The release is tagged. Follow the [GitHub release](https://github.com/idossha/TI-Toolbox/releases/tag/v3.0.0)
+for installer and container publication; downloads become available when the release workflow finishes.
 
-[Upcoming v3.0.0 notes]({{ site.baseurl }}/releases/v3.0.0/) ·
+[v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/) ·
 [Upgrade guidance]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x) ·
 [Installation]({{ site.baseurl }}/installation/)
 
 ---
 
-### v2.5.0 (Stable release)
+### v2.5.0
 
 **Released August 31, 2026.**
 
