@@ -530,6 +530,13 @@ test("the job settings dialog is one 560px structure in every mode", async () =>
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {
   test.setTimeout(180_000);
+  // Measure the populated jobs surface, not the unusually sparse one-row editor left by the
+  // preceding interaction tests. Three valid rows exercise the table density the unchanged 0.86
+  // budget describes at both viewport heights, without relaxing the numeric regression guard.
+  const duplicate = analysisRows(page).first().getByRole("button", { name: "Duplicate row 1", exact: true });
+  await duplicate.click();
+  await duplicate.click();
+  await expect(analysisRows(page)).toHaveCount(3);
   const rows: PageMetrics[] = [];
   for (const size of [
     { width: 1280, height: 800 },
@@ -551,6 +558,9 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     }
   }
   console.log("analyzer metrics:", JSON.stringify(rows, null, 1));
+  await analysisRows(page).nth(2).getByRole("button", { name: "Remove row 3", exact: true }).click();
+  await analysisRows(page).nth(1).getByRole("button", { name: "Remove row 2", exact: true }).click();
+  await expect(analysisRows(page)).toHaveCount(1);
 
   for (const row of rows) {
     // See preprocess.spec.ts for why this is not §12.3's 25 %. Raised from 0.65 to 0.70 when the

@@ -102,12 +102,14 @@ test("Viewer settings show native installation status", async () => {
   await page.getByRole("tab", { name: "Viewer", exact: true }).click();
   // Settings ▸ Viewer is the TetraVox card (`pages/settings/TetravoxCard.tsx`, 2026-09-15): the
   // status chip in its header, then Version and Location rows laid out like the other settings
-  // cards. Nothing installed: the chip says so, the Version row says so, Install is offered, and
-  // Locate… is the override for a person who prefers their own copy.
+  // cards. Setup is automatic when no installation is found, so this state offers a retry rather
+  // than the obsolete manual Install action; Locate… remains the override for an existing copy.
   const card = page.locator(".card", { has: page.locator(".card-title", { hasText: "TetraVox" }) });
   await expect(card).toBeVisible();
   await expect(card.locator(".card-header")).toContainText("Not installed");
-  await expect(card.getByRole("button", { name: "Install TetraVox", exact: true })).toBeEnabled();
+  await expect(card).toContainText("TI-Toolbox sets up TetraVox automatically in your user directory");
+  await expect(card.getByRole("button", { name: "Retry setup", exact: true })).toBeEnabled();
+  await expect(card.getByRole("button", { name: "Install TetraVox", exact: true })).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Locate…", exact: true })).toBeEnabled();
   await expect(card.getByRole("button", { name: "Launch TetraVox", exact: true })).toHaveCount(0);
 });

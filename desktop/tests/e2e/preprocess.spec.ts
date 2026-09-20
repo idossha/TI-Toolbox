@@ -443,10 +443,23 @@ test("optional FreeSurfer plans and submits selected operations and retains them
   await gotoPage(page, "preprocess", "Pre-processing");
   await expect(toggle).toBeChecked();
   await expect(operations).not.toBeVisible();
+  // Retained navigation restores the previous form before its debounced plan catches up. Wait for
+  // the plan that contains all three edits; otherwise a fast click can observe the earlier plan,
+  // open an existing-output dialog, and leave the submission waiter hanging even though the
+  // dialog's eventual render correctly says 0 existing outputs.
+  const retainedPlan = page.waitForResponse((response) => {
+    if (!response.url().endsWith("/api/plan/pre") || response.request().method() !== "POST") return false;
+    const planned = response.request().postDataJSON() as { config?: Record<string, unknown> };
+    return planned.config?.run_freesurfer === true
+      && planned.config?.convert_dicom === false
+      && planned.config?.create_m2m === false
+      && planned.config?.run_fastsurfer === false;
+  });
   for (const label of ["Convert DICOM to NIfTI", "SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
     await page.getByRole("checkbox", { name: label, exact: true }).uncheck();
   }
-  await expect(page.locator(".action-bar-digest")).toHaveText(/./, { timeout: 15_000 });
+  expect((await retainedPlan).ok()).toBe(true);
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^2 jobs$/, { timeout: 15_000 });
   const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   const response = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
   await page.getByTestId("run-button").click();

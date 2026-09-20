@@ -205,15 +205,12 @@ test("the full page lists a running job, opens its detail pane, and stops it", a
   await expect(table.getByText(/queued|running/).first()).toBeVisible({ timeout: 10_000 });
 
   // check · state · kind · subjects · elapsed · CPU · RSS (`app/jobs-rail/columns.tsx`): the
-  // checkbox is a sliver, SUBJECTS takes the slack, and CPU/RSS keep the widths their widest
-  // "peak · avg" strings measure (`jobs-rail.css`; `jobs-columns.spec.ts` checks no cell clips).
+  // checkbox is a sliver and the six unified data columns divide the available width evenly.
+  // `jobs-columns.spec.ts` separately proves that the CPU/RSS peak-and-average values do not clip.
   const widths = await table.locator("thead th").evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width));
   expect(widths).toHaveLength(7);
   expect(widths[0]).toBeLessThan(45);
-  expect(widths[3]).toBeGreaterThan(200);
-  expect(widths[4]).toBeLessThanOrEqual(100);
-  expect(widths[5]).toBeGreaterThanOrEqual(136);
-  expect(widths[6]).toBeGreaterThanOrEqual(144);
+  expect(Math.max(...widths.slice(1)) - Math.min(...widths.slice(1))).toBeLessThan(1);
   await page.screenshot({ path: join(ARTIFACTS, "jobs-light.png") });
 
   // Selecting a row fills the detail PANE beside the table — not a modal over it, so the table

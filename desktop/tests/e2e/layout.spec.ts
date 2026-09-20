@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, setTheme, type Theme } from "./_helpers";
+import { answerExistingOutputs, connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, setTheme, type Theme } from "./_helpers";
 import { analysisRows, setAnalysisCell } from "./_jobs";
 import {
   actionBarReach,
@@ -140,6 +140,13 @@ test.beforeAll(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
+  // Reset before connecting: the mock reset intentionally clears current WebSocket subscriptions.
+  // Connecting afterwards gives this app a fresh subscription for the job it measures.
+  expect(TOKEN).toBe("mock-token");
+  const reset = await page.request.post(`${SERVER_URL}/api/__mock/reset`, {
+    headers: { authorization: `Bearer ${TOKEN}` },
+  });
+  expect(reset.ok()).toBe(true);
   await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
   await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
@@ -150,6 +157,33 @@ test.beforeAll(async () => {
   await page.getByTestId("palette-input").fill(SUBJECT);
   await page.getByRole("dialog").getByRole("option", { name: new RegExp(`^${SUBJECT}`) }).first().click();
   await expect(page.getByTestId("shell-content")).toHaveAttribute("data-subject", SUBJECT, { timeout: 10_000 });
+
+  // Pre-processing has no scene, so its populated acceptance state is a submitted plan with real
+  // terminal content. Establish that state explicitly instead of depending on another serial spec
+  // having queued a job first; that order leak measured 70.5% idle versus 68.7% populated. The
+  // pre-connect reset above also prevents this run from queuing behind a hold left by another spec.
+  await gotoPage(page, "preprocess");
+  await expectPage(page, "preprocess");
+  // One selected stage for one selected subject produces exactly one job, so the terminal cannot
+  // follow a newer queued dependency while an older group member is the one writing output.
+  for (const label of ["SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
+    await page.getByRole("checkbox", { name: label, exact: true }).uncheck();
+  }
+  await expect(page.locator(".action-bar-digest")).toHaveText("1 job", { timeout: 15_000 });
+  await expect(page.getByTestId("run-button")).toHaveText("Run preprocessing");
+  const submitted = page.waitForResponse((response) => response.url().endsWith("/api/jobs/groups") && response.request().method() === "POST");
+  await page.getByTestId("run-button").click();
+  await answerExistingOutputs(page, "replace");
+  expect((await submitted).ok()).toBe(true);
+  const terminal = page.getByTestId("job-terminal");
+  await expect(terminal).toHaveAttribute("data-source", "live", { timeout: 30_000 });
+  await expect(terminal.getByTestId("job-terminal-identity")).toContainText("running", { timeout: 30_000 });
+  // Keep the measured terminal on this populated job while later jobs in the group move from
+  // queued to running; otherwise the follower can switch to a fresh job with an empty log midway
+  // through the viewport/theme matrix.
+  await terminal.getByRole("button", { name: "Pin this job" }).click();
+  await expect(terminal.getByRole("button", { name: "Unpin this job" })).toBeVisible();
+  await expect.poll(() => terminal.locator(".job-console-line").count(), { timeout: 20_000 }).toBeGreaterThanOrEqual(8);
 });
 
 test.afterAll(async () => {
