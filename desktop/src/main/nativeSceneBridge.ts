@@ -1,4 +1,4 @@
-/** Versioned native scene requests; only an acknowledged live viewer may save a project scene. */
+/** Versioned native scene requests; capture the active native viewer into a project-owned destination. */
 import { constants } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -79,31 +79,27 @@ async function withinProject(path: string, root: string): Promise<string> {
 }
 
 export function createNativeSceneSession(exchange: (request: NativeSceneRequest, viewer: TitNativeTetravoxStatus) => Promise<string>) {
-  let session: { scene: string; root: string; viewer: TitNativeTetravoxStatus } | undefined;
   let generation = 0;
   return {
-    clear() { generation++; session = undefined; },
+    clear() { generation++; },
     async open(scene: string, root: string, viewer: TitNativeTetravoxStatus): Promise<void> {
       const pending = ++generation;
-      session = undefined;
       const canonicalRoot = await realpath(root);
       const canonical = await withinProject(scene, canonicalRoot);
       await exchange({ protocol: 1, id: randomBytes(16).toString("hex"), action: "open-scene", path: canonical }, viewer);
       if (pending !== generation) throw new Error("The active scene changed while TetraVox was opening.");
-      session = { scene: canonical, root: canonicalRoot, viewer };
     },
-    async save(destination: string, root: string): Promise<string> {
+    async save(destination: string, root: string, viewer: TitNativeTetravoxStatus): Promise<string> {
       const pending = generation;
-      const current = session;
-      if (!current || current.root !== await realpath(root)) throw new Error("Open this project's scene in TetraVox before saving its live view.");
-      await withinProject(current.scene, root);
+      if (!viewer.supportsSceneSave) throw new Error("The selected TetraVox does not support saving its live scene. Select a compatible installation in Settings.");
+      const canonicalRoot = await realpath(root);
       const parent = await withinProject(dirname(destination), root);
       const canonicalDestination = join(parent, basename(destination));
-      if (parent !== join(current.root, "code/ti-toolbox/viewer/scenes") || !canonicalDestination.endsWith(".tetravox.json")) throw new Error("Invalid native scene destination.");
+      if (parent !== join(canonicalRoot, "code/ti-toolbox/viewer/scenes") || !canonicalDestination.endsWith(".tetravox.json")) throw new Error("Invalid native scene destination.");
       try { await lstat(canonicalDestination); throw new Error("A scene with this name already exists."); }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
       if (pending !== generation) throw new Error("The active scene changed before saving.");
-      const path = await exchange({ protocol: 1, id: randomBytes(16).toString("hex"), action: "save-scene", expectedScenePath: current.scene, path: canonicalDestination }, current.viewer);
+      const path = await exchange({ protocol: 1, id: randomBytes(16).toString("hex"), action: "save-scene", path: canonicalDestination }, viewer);
       const info = await lstat(path);
       if (!info.isFile() || info.isSymbolicLink()) throw new Error("TetraVox did not save a regular scene file.");
       return path;

@@ -146,7 +146,7 @@ test("launcher connects and the shell renders its chrome around the landing page
   // update, and the download progress stream) — all of them TetraVox entries, none of them a live
   // control channel into the running viewer. `fastsurfer` is the explicitly consented host runtime
   // API of the Apple GPU decision. The 2026-09-19 ownership change removes both update actions and
-  // adds live native scene saving: twenty-one entries.
+  // adds live native scene saving; saved-scene preview generation brings the current total to twenty-two entries.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
@@ -163,6 +163,7 @@ test("launcher connects and the shell renders its chrome around the landing page
     "openNativeTetravox",
     "openPath",
     "platform",
+    "previewNativeTetravoxScene",
     "saveFile",
     "saveNativeTetravoxScene",
     "selectDirectory",

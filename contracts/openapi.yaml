@@ -3925,6 +3925,10 @@ components:
         host_path: { type: [string, "null"] }
         bytes: { type: [integer, "null"] }
         saved_at: { type: [string, "null"] }
+        modified_at: { type: [string, "null"], description: Filesystem modification time in UTC. }
+        created_at: { type: [string, "null"], description: Filesystem birth time when available; never inferred from modification or ctime. }
+        dataset_count: { type: integer, minimum: 0 }
+        layer_count: { type: integer, minimum: 0 }
         subject: { type: [string, "null"] }
         simulation: { type: [string, "null"] }
         field: { type: [string, "null"] }

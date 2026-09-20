@@ -5546,6 +5546,12 @@ export interface components {
             host_path?: string | null;
             bytes?: number | null;
             saved_at?: string | null;
+            /** @description Filesystem modification time in UTC. */
+            modified_at?: string | null;
+            /** @description Filesystem birth time when available; never inferred from modification or ctime. */
+            created_at?: string | null;
+            dataset_count?: number;
+            layer_count?: number;
             subject?: string | null;
             simulation?: string | null;
             field?: string | null;

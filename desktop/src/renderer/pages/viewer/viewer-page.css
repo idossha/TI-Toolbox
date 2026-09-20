@@ -524,10 +524,13 @@
   /* The scenes are dark; a light letterbox around one reads as a rendering fault rather than a
    * thumbnail that does not fill its box. */
   background: #0f1116;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .viewer-scene-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
   border: 1px dashed var(--line);
   background: none;
 }
@@ -844,7 +847,7 @@
 .viewer-saved-scenes-card { flex: 1 1 0; min-height: 0; overflow: hidden; }
 .viewer-saved-scenes-scroll { flex: 1 1 0; }
 .viewer-scene-list { display: flex; max-height: none; overflow: visible; }
-.viewer-scene-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-bottom: 1px solid var(--line); }
+.viewer-scene-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; border-bottom: 1px solid var(--line); }
 .viewer-scene-row:last-child { border-bottom: 0; }
 .viewer-scene-item { min-width: 0; }
 .viewer-scene-delete-confirm { grid-column: 1 / -1; padding: var(--space-2); background: var(--bg); font-size: 12px; overflow-wrap: anywhere; }
@@ -875,3 +878,8 @@
   .viewer-plan { min-height: 80px; }
   .viewer-scene-thumb { display: none; }
 }
+
+.viewer-scene-details { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-3); margin: 0; }
+.viewer-scene-details dt { color: var(--ink-2); }
+.viewer-scene-details dd { margin: 0; overflow-wrap: anywhere; }
+.viewer-scene-path { overflow-wrap: anywhere; }

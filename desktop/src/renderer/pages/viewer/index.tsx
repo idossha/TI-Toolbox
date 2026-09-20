@@ -48,8 +48,9 @@ import {
   type ViewSceneLayer,
 } from "./lib";
 import { CompositionTree } from "./Tree";
+import { SceneInfo, ScenePreview } from "./SceneDetails";
 import { NativeTetravox, useNativeTetravox } from "../../viewer/NativeTetravox";
-import { exportNativeScene, openNativeScene, saveNativeScene } from "../../viewer/native";
+import { openNativeScene, saveNativeScene, savedNativeScenePath } from "../../viewer/native";
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import "./viewer-page.css";
 
@@ -434,6 +435,7 @@ function ViewerPage() {
   //
   // Capture the native viewer state; the builder cannot represent subsequent camera/layer edits.
   const savedScenes = useQuery({ queryKey: ["viewer-saved-scenes"], queryFn: getSavedScenes, retry: false });
+  const refreshScenePreviews = useCallback(() => { void queryClient.invalidateQueries({ queryKey: ["viewer-saved-scenes"] }); }, [queryClient]);
   const [sceneName, setSceneName] = useState("");
   const [sceneSaveOpen, setSceneSaveOpen] = useState(false);
   const [sceneSaved, setSceneSaved] = useState<string | null>(null);
@@ -462,11 +464,11 @@ function ViewerPage() {
     },
   });
 
-  /** Localize saved scenes for the native app without changing the original. */
+  /** Preserve native scene-relative paths; localize only legacy server-backed scenes. */
   const openSavedScene = useMutation({
     mutationFn: async (row: SavedScene) => {
       const scene = await readSavedScene(row.name);
-      const path = await exportNativeScene(scene, `saved-${row.slug}`);
+      const path = await savedNativeScenePath(scene, row.path, `saved-${row.slug}`);
       setLoaded({ key: `saved:${row.slug}`, name: `${row.slug}.tetravox.json`, hostPath: row.host_path ?? null, path });
       if (window.tit?.openNativeTetravox) await openNativeScene(path);
     },
@@ -809,7 +811,7 @@ function ViewerPage() {
                 icon={<Camera size={14} />}
                 disabled={!canSaveNativeScene}
                 data-testid="viewer-scene-save-open"
-                title={canSaveNativeScene ? "Save the current scene from native TetraVox" : "Saving a live scene requires TI-Toolbox Desktop and a compatible TetraVox"}
+                title={canSaveNativeScene ? "Save the active TetraVox scene into this project" : "Saving a live scene requires TI-Toolbox Desktop and a compatible TetraVox"}
               >
                 Save scene
               </Button>
@@ -818,7 +820,7 @@ function ViewerPage() {
             <div className="viewer-popover">
               <p className="viewer-popover-title">Save this scene</p>
               <p className="viewer-popover-text">
-                Saves the current scene from TetraVox, including camera and appearance changes, to code/ti-toolbox/viewer/scenes/&lt;name&gt;.tetravox.json.
+                Saves the active TetraVox scene, including camera and appearance changes, into this BIDS project. Files opened directly in TetraVox work too. Find it here under Saved scenes to reopen it.
               </p>
               <TextInput
                 value={sceneName}
@@ -870,16 +872,7 @@ function ViewerPage() {
                         disabled={openSavedScene.isPending || deleteSceneMutation.isPending || deletingScene?.slug === row.slug}
                         title={row.path}
                       >
-                        {row.has_thumbnail ? (
-                          <img
-                            className="viewer-scene-thumb"
-                            /* Served by the same jailed file route every dataset comes through. */
-                            src={`/api/files/raw${row.path.replace(/\.tetravox\.json$/, ".png")}`}
-                            alt=""
-                          />
-                        ) : (
-                          <span className="viewer-scene-thumb viewer-scene-thumb-empty" aria-hidden />
-                        )}
+                        <ScenePreview row={row} active={active} revision={savedScenes.dataUpdatedAt} refresh={refreshScenePreviews} />
                         <span className="viewer-scene-text">
                           <span className="viewer-scene-name">{openSavedScene.isPending && openSavedScene.variables?.slug === row.slug ? "Opening…" : row.name}</span>
                           <span className="viewer-scene-meta">
@@ -890,6 +883,7 @@ function ViewerPage() {
                           </span>
                         </span>
                       </button>
+                      <SceneInfo row={row} />
                       <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} aria-label={`Delete scene ${row.name}`} title="Delete saved scene" data-testid={`viewer-delete-scene-${row.slug}`} disabled={deleteSceneMutation.isPending || openSavedScene.isPending} onClick={() => { deleteSceneMutation.reset(); setDeletingScene(row); }} />
                       {deletingScene?.slug === row.slug && <div className="viewer-scene-delete-confirm" role="group" aria-label={`Delete ${row.name}`}>
                         <p>Delete this saved scene? Source data will be kept.</p>

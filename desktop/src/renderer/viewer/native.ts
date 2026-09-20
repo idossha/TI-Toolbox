@@ -21,3 +21,16 @@ export async function saveNativeScene(name: string): Promise<string | null> {
   if (!result.ok || !result.path) throw new Error(result.reason ?? "TetraVox did not confirm that the scene was saved.");
   return result.path;
 }
+
+/** Keep native relative paths anchored to their original scene; localize legacy HTTP references only. */
+export async function savedNativeScenePath(scene: Record<string, unknown>, path: string, name: string): Promise<string> {
+  const hasServerReference = (value: unknown): boolean => {
+    if (Array.isArray(value)) return value.some(hasServerReference);
+    if (value === null || typeof value !== "object") return false;
+    return Object.entries(value).some(([key, entry]) =>
+      ((key === "path" || key === "absPath") && typeof entry === "string" && /^(?:https?:\/\/[^/]+)?\/api\/files\/raw(?:\/|$)/.test(entry))
+      || (typeof entry === "object" && hasServerReference(entry)),
+    );
+  };
+  return hasServerReference(scene.datasets) ? exportNativeScene(scene, name) : path;
+}

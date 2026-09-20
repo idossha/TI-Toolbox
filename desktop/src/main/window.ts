@@ -46,3 +46,8 @@ export function windowMode(env: NodeJS.ProcessEnv = process.env): WindowMode {
 export function mayShowSystemUi(mode: WindowMode = windowMode()): boolean {
   return mode === "normal";
 }
+
+/** Automated app fixtures record native-viewer requests; they must never execute an installed GUI. */
+export function mayLaunchNativeViewer(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.TIT_E2E_DISABLE_NATIVE_VIEWER !== "1";
+}

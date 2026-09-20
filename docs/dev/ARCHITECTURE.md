@@ -153,7 +153,7 @@ UI tests run hidden and assess state, geometry and rendering assertions. An unav
 is unverified, not passed.
 
 Frozen paths are [`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
-The preload bridge has 21 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
+The preload bridge has 22 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
 `saveNativeTetravoxScene` adds native snapshot saving. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
@@ -228,7 +228,18 @@ convention, or native Save As default. The project policy remains in TI's main p
 
 TetraVox owns camera, layer editing, dialogs and scene serialization. **Saved scenes ▸ Save scene**
 requests the live native serializer, then writes a new `.tetravox.json` under the active project's
-`code/ti-toolbox/viewer/scenes/`. Existing files are never overwritten. The builder recipe is not a
+`code/ti-toolbox/viewer/scenes/`. It captures the currently active TetraVox scene, including files
+opened directly in that app, without requiring a prior TI open or matching its previous attachment.
+Saving requires a running TetraVox process before requesting capture.
+Visible saved-scene rows may request a cached sibling PNG through a jailed native preview IPC.
+TetraVox's isolated offscreen job restores the saved scene's grid; a serial bounded queue avoids
+competing capture jobs. Preview failure never prevents saving or opening. Inline scene information
+uses actual dataset/layer counts and filesystem modification time; creation is shown only when a
+filesystem birth time exists, never inferred from ctime.
+
+Native saved scenes reopen at their original project path so scene-relative datasets retain their
+anchor; only legacy server-URL scenes are exported into a localized copy.
+Existing files are never overwritten. The builder recipe is not a
 fallback: it cannot contain edits made in the native window. The optional `supportsSceneSave` capability
 is false when absent; Save stays unavailable until a capable native app is selected. A correlated,
 validated native receipt and destination path are required before TI claims a save or refreshes the list.
