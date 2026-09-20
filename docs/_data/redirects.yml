@@ -1,4 +1,6 @@
 # Public routes whose authored pages were consolidated into canonical guides.
+- from: /gallery/
+  to: /wiki/
 - from: /gallery/v2/
   to: /wiki/legacy-v2/
 - from: /wiki/gui/

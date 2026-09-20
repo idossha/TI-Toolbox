@@ -64,13 +64,13 @@ The Jekyll site uses its own theme (no minima layouts/CSS):
 
 | Piece | Where |
 |-------|-------|
-| Section sidebars (Installation / Wiki / Releases / Gallery) | `docs/_data/nav.yml` — add a page there and it appears in the sidebar |
+| Section sidebars (Installation / Wiki / Releases) | `docs/_data/nav.yml` — add a page there and it appears in the sidebar |
 | Top navbar links | `header_pages` in `docs/_config.yml` |
 | Three-column docs layout | `docs/_includes/docs.html` (sidebar / article / "On this page") |
 | All styling | `docs/assets/css/style.scss` — colours and widths are CSS variables at the top |
 | Behaviour | `docs/assets/js/site.js` (mobile menus), `toc.js` (on-this-page) |
 
-Content pages keep `layout: wiki|installation|releases|gallery` in their front matter; those layouts are one-liners that include `docs.html` with the matching nav key.
+Content pages keep `layout: wiki|installation|releases` in their front matter; those layouts are one-liners that include `docs.html` with the matching nav key.
 
 ## API reference preview (optional)
 
