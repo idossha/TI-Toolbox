@@ -23,3 +23,5 @@
   to: /wiki/blender/
 - from: /gallery/nilearn/
   to: /wiki/nilearn-visuals/
+- from: /gallery/UI/
+  to: /wiki/desktop-app/

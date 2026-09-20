@@ -13,6 +13,9 @@ visible. Project tools stay disabled until a project is open. Type your project 
 choose **Browse…**, then **Open project**. The welcome page shows launch progress and errors;
 Docker must be running before you open the project.
 
+<img src="{{ site.baseurl }}/assets/imgs/v3/overview.png" alt="Connected Overview showing each subject's artifacts and readiness" style="width: 100%; max-width: 1000px;">
+<em>Once connected, Overview shows what every subject has and what it is ready for.</em>
+
 Once connected, **Switch project** opens a directory form in Overview. Enter or browse to the
 next project, then choose **Switch to project**. Your current project stays open until you
 confirm the switch in the native dialog. Switching stops its container and loads the new

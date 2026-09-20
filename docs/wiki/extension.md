@@ -23,6 +23,22 @@ after completion and when you return to the page. Source builds EEG forward solu
 The 3D visual exporter adds **Scene / Terminal** tabs. Its scene follows the selected export
 type; see the [export preview guide]({{ site.baseurl }}/wiki/blender/#preview-and-export).
 
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/v3/panel-visual-exporter.png" alt="3D visual exporter panel">
+    <em>The 3D visual exporter covers cortical regions, field vectors, montages and sub-cortical structures.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/v3/panel-cluster-permutation.png" alt="Cluster permutation panel">
+    <em>Cluster permutation provides non-parametric group-level statistics.</em>
+  </div>
+</div>
+
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/panel-source.png" alt="Source panel" style="width: 100%; max-width: 1000px;">
+  <em>Source builds EEG forward models and projects fields to fsaverage.</em>
+</div>
+
 ### Map existing fields from a notebook or terminal
 
 In the supplied Jupyter environment, initialize the project and use the existing Python API:

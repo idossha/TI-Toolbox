@@ -105,6 +105,6 @@ gallery:
     - { title: Blender, url: /wiki/blender/ }
     - { title: Statistics, url: /wiki/cluster-permutation-testing/ }
     - { title: Nilearn, url: /wiki/nilearn-visuals/ }
-    - { title: User Interface, url: /gallery/UI/ }
+    - { title: User Interface, url: /wiki/desktop-app/ }
 
     - { title: Gmsh & Freeview, url: /gallery/gmsh-freeview/ }

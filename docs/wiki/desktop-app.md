@@ -152,6 +152,11 @@ npm run dev
 - **Disk Space:** allow space for the image, working data and project outputs; see the
   [installation guide]({{ site.baseurl }}/installation/) for the selected image.
 
+## Help in the application
+
+<img src="{{ site.baseurl }}/assets/imgs/v3/help.png" alt="Help page with documentation, citation and keyboard shortcuts" style="width: 100%; max-width: 1000px;">
+<em>Help links to the documentation and citation and lists the keyboard shortcuts available in the application.</em>
+
 ## Troubleshooting
 
 **Docker not found:**
