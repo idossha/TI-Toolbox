@@ -185,7 +185,14 @@ function JobsPage() {
             <div className="jobs-page-work" data-testid="page-work">
               {grouped ? (
                 <div className="jobs-page-groups" data-testid="jobs-groups">
-                  <GroupsView jobs={filtered} now={model.now} onOpenJob={select} />
+                  <GroupsView
+                    jobs={filtered}
+                    now={model.now}
+                    onOpenJob={(id) => {
+                      select(id);
+                      restorePane();
+                    }}
+                  />
                 </div>
               ) : (
                 <>
@@ -195,7 +202,13 @@ function JobsPage() {
                     selected={selectedIds}
                     onSelectedChange={(ids) => {
                       setSelectedIds(ids);
-                      if (ids.length === 1) select(ids[0] as string);
+                      if (ids.length === 1) {
+                        select(ids[0] as string);
+                        restorePane();
+                      } else if (ids.length === 0 && selectedIds.length === 1 && pane.collapsed && selected) {
+                        // Clicking the selected row toggles the set off, but still opens its detail.
+                        restorePane();
+                      }
                     }}
                     onCancelSelected={cancellable.length > 0 ? () => cancelSelected.mutate() : undefined}
                     cancelling={cancelSelected.isPending}

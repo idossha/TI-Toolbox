@@ -60,7 +60,7 @@ test("CPU and RSS cells are whole with the detail pane closed and open", async (
     .toBe("succeeded");
   await expect(table.locator(".jobs-cell-resource-avg").first()).toBeVisible();
 
-  for (const width of [1280, 1440]) {
+  for (const width of [1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 800 });
     const closed = await cellOverflow(table);
     expect(closed.length, `resource cells at ${width}`).toBeGreaterThan(0);
@@ -69,9 +69,18 @@ test("CPU and RSS cells are whole with the detail pane closed and open", async (
   }
   await table.getByRole("row", { name: /ernie/ }).first().click();
   await expect(page.getByTestId("page-right-pane")).toBeVisible();
-  for (const width of [1280, 1440]) {
+  await page.getByTestId("page-right-pane").getByTestId("pane-collapse").click();
+  await expect(page.getByTestId("page-right-pane")).toBeHidden();
+  await table.getByRole("row", { name: /ernie/ }).first().click();
+  await expect(page.getByTestId("page-right-pane")).toBeVisible();
+  for (const width of [1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 800 });
     await expect(page.getByTestId("page-right-pane")).toBeVisible();
+    const geometry = await table.locator("thead th").evaluateAll((cells) => cells.slice(1).map((cell) => cell.getBoundingClientRect().width));
+    expect(Math.max(...geometry) - Math.min(...geometry), "no oversized Subjects gap in split view").toBeLessThan(66);
+    const work = await page.locator(".jobs-page-work").boundingBox();
+    const detail = await page.getByTestId("page-right-pane").boundingBox();
+    expect(work!.x + work!.width).toBeLessThanOrEqual(detail!.x);
     const open = await cellOverflow(table);
     expect(open.filter((c) => c.clipped), `clipped with pane open at ${width}`).toEqual([]);
   }
