@@ -39,6 +39,18 @@ when a destination is invalid or confirmation is cancelled. Run it under the
 same offscreen lock and quiet wrapper described below. These tests do not validate installed
 executables against a real Docker engine; packaged host acceptance remains in the roadmap.
 
+## Automatic FreeSurfer licensing
+
+`tests/test_freesurfer_license.py` covers clean-install bundled resolution, optional override
+precedence and license-independent FastSurfer segmentation. Worker-command tests in
+`tests/test_pre_freesurfer.py` and `tests/test_pre_qsi_docker.py` check license staging and host
+mount paths. Run these with `tests/test_surfer_settings.py` after changing provisioning.
+`tests/test_apptainer_license.py` checks default image-license provisioning and executed
+Apptainer/Slurm arguments, including optional overrides. It does not build an Apptainer image.
+These host checks do not prove that a built image or wheel contains the resource: inspect the
+package and resolve the bundled file in the real container before claiming packaged acceptance.
+Never print the license contents in test failures or verification logs.
+
 ## Commands
 
 Run from the repository root unless a command says otherwise. Use the host environment installed

@@ -3880,8 +3880,8 @@ export interface paths {
         };
         get?: never;
         /**
-         * Store the user's own FreeSurfer license.txt
-         * @description The FreeSurfer license is issued per registered individual and is never bundled with, fetched by or returned from the toolbox. The text is kept in the user config dir and mounted into every job that runs FreeSurfer binaries (recon-all, subregion segmentation, QSIPrep/QSIRecon). FastSurfer segmentation-only needs none.
+         * Store an optional administrator FreeSurfer license override
+         * @description TI-Toolbox supplies its FreeSurfer license automatically. This optional override supports existing administrator clients; no user registration or setup is required. License text is never returned. The resolved license is mounted into FreeSurfer, QSIPrep and QSIRecon jobs. FastSurfer segmentation-only needs none.
          */
         put: {
             parameters: {
@@ -6433,15 +6433,15 @@ export interface components {
             freesurfer_threads?: number | null;
         };
         FreeSurferLicenseText: {
-            /** @description The full contents of the license.txt FreeSurfer emailed the user. */
+            /** @description The full contents of an optional administrator license.txt override. */
             text: string;
         };
         FreeSurferLicenseStatus: {
-            /** @description A non-empty license file resolves ($FS_LICENSE, the app store, or the image path). */
+            /** @description A non-empty license resolves, using the bundled toolbox license by default. */
             configured: boolean;
-            /** @description app (pasted in Settings) or environment ($FS_LICENSE / the image path). */
+            /** @description bundled (toolbox default), app (stored override), or environment ($FS_LICENSE / image path). */
             source?: string | null;
-            /** @description First line of the license (the registered email), for the user to recognise it. Never the key. */
+            /** @description Registered email for an optional override; null for the bundled license. Never the key. */
             email?: string | null;
         };
         SurferSettings: {

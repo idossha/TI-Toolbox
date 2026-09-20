@@ -124,9 +124,6 @@ From: ubuntu:22.04
     mkdir -p $FREESURFER_HOME/subjects
     chmod a+rwx $FREESURFER_HOME/subjects
     
-    # Create a placeholder license file (will be bind-mounted at runtime)
-    touch $FREESURFER_HOME/license.txt
-    chmod a+r $FREESURFER_HOME/license.txt
 
     # ================================================================
     # SimNIBS 4.6
@@ -176,6 +173,15 @@ From: ubuntu:22.04
 
     # Install TIT package
     cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
+
+    # Direct FreeSurfer binaries use the same toolbox-provisioned license as Python jobs.
+    # Copy after package installation so a missing wheel resource fails the image build.
+    toolbox_fs_resources=$(cd /tmp && simnibs_python -c 'from importlib.resources import files; print(files("tit") / "resources" / "freesurfer")')
+    test -s "$toolbox_fs_resources/license.txt" || exit 1
+    cp "$toolbox_fs_resources/license.txt" "$FREESURFER_HOME/license.txt"
+    cp "$toolbox_fs_resources/TERMS.txt" "$FREESURFER_HOME/TI-Toolbox-FreeSurfer-TERMS.txt"
+    cp "$toolbox_fs_resources/NOTICE.md" "$FREESURFER_HOME/TI-Toolbox-FreeSurfer-NOTICE.md"
+    chmod a+r "$FREESURFER_HOME/license.txt"
 
     # ================================================================
     # Single bash rc: FreeSurfer + TI-Toolbox aliases (aligned with Docker entrypoint.sh)
@@ -236,6 +242,9 @@ TI_RC_EOF
     # Verify TI-Toolbox
     simnibs_python -c "import tit; print('TI-Toolbox', tit.__version__)" || exit 1
 
+    # The image must support direct FreeSurfer commands without a host license.
+    test -s /usr/local/freesurfer/license.txt || exit 1
+
     # Verify FreeSurfer installation
     export FREESURFER_HOME=/usr/local/freesurfer
     if [ -d "$FREESURFER_HOME/bin" ]; then
@@ -280,19 +289,11 @@ TI_RC_EOF
       apptainer exec --bind /path/to/project:/mnt/project ti-toolbox.sif \
           simnibs_python -m tit.cli.simulator --help
 
-      # With FreeSurfer license (required for FreeSurfer tools)
-      apptainer run \
-          --bind /path/to/project:/mnt/project \
-          --bind /path/to/license.txt:/usr/local/freesurfer/license.txt:ro \
-          ti-toolbox.sif
-
     FreeSurfer License:
-      The FreeSurfer license is NOT included in the image.
-      Bind-mount your license.txt at runtime:
-        --bind /path/to/license.txt:/usr/local/freesurfer/license.txt:ro
-      
-      You can request a free license at:
-        https://surfer.nmr.mgh.harvard.edu/registration.html
+      TI-Toolbox supplies the license inside the image automatically.
+      No personal license, registration or bind mount is required.
+      Administrators may optionally override the supplied license with:
+        --bind /path/to/override.txt:/usr/local/freesurfer/license.txt:ro
 
     Environment Variables:
       FREESURFER_HOME=/usr/local/freesurfer

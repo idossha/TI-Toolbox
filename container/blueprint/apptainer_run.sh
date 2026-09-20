@@ -18,7 +18,7 @@ set -euo pipefail
 # ============================================================================
 SIF=""
 PROJECT_DIR=""
-FS_LICENSE=""
+FS_LICENSE="${FS_LICENSE:-}"
 SCRATCH=""
 MODE="interactive"
 CMD=""
@@ -60,7 +60,7 @@ ${BOLD}REQUIRED:${NC}
 
 ${BOLD}OPTIONS:${NC}
     --project-dir PATH      Project directory to bind-mount at /mnt/<basename>
-    --fs-license PATH       FreeSurfer license.txt (auto-detected if not set)
+    --fs-license PATH       Optional administrator FreeSurfer license override
     --scratch PATH          Scratch directory to bind at /scratch
     --mode MODE             Run mode: interactive (default), exec, slurm-template
     --cmd COMMAND           Command to run in exec mode
@@ -73,12 +73,14 @@ ${BOLD}MODES:${NC}
     exec            Execute a specific command (requires --cmd)
     slurm-template  Print a SLURM job script template to stdout
 
-${BOLD}FREESURFER LICENSE AUTO-DETECTION:${NC}
-    The script searches these locations in order:
+${BOLD}FREESURFER LICENSE:${NC}
+    TI-Toolbox supplies the license inside the image; no registration is required.
+    Optional administrator overrides are searched in order:
       1. --fs-license argument
       2. \$FS_LICENSE environment variable
       3. \$FREESURFER_HOME/license.txt
       4. ~/.freesurfer/license.txt
+    Otherwise the bundled image license is used automatically.
 
 ${BOLD}EXAMPLES:${NC}
     # Interactive session
@@ -169,13 +171,7 @@ find_fs_license() {
         if [ ! -f "$FS_LICENSE" ]; then
             die "FreeSurfer license not found at: $FS_LICENSE"
         fi
-        info "FreeSurfer license: $FS_LICENSE (from --fs-license)"
-        return
-    fi
-
-    # Check environment variable
-    if [ -n "${FS_LICENSE:-}" ] && [ -f "${FS_LICENSE}" ]; then
-        info "FreeSurfer license: $FS_LICENSE (from \$FS_LICENSE)"
+        info "FreeSurfer license: $FS_LICENSE (administrator override)"
         return
     fi
 
@@ -193,8 +189,7 @@ find_fs_license() {
         return
     fi
 
-    warn "FreeSurfer license not found. FreeSurfer commands will fail."
-    warn "  Set --fs-license, \$FS_LICENSE, or place at ~/.freesurfer/license.txt"
+    info "Using the FreeSurfer license supplied inside the TI-Toolbox image."
 }
 
 # ============================================================================
@@ -293,7 +288,7 @@ print_slurm_template() {
     local project_path="${PROJECT_DIR:-/path/to/project}"
     local project_base
     project_base=$(basename "${project_path}")
-    local license_path="${FS_LICENSE:-/path/to/license.txt}"
+    local license_path="${FS_LICENSE:-}"
 
     cat <<SLURM
 #!/bin/bash
@@ -317,14 +312,19 @@ print_slurm_template() {
 
 SIF="${sif_path}"
 PROJECT_DIR="${project_path}"
+# The image supplies its license; this array is populated only for an explicit override.
 FS_LICENSE="${license_path}"
+LICENSE_BINDS=()
+if [ -n "\${FS_LICENSE}" ]; then
+    LICENSE_BINDS=(--bind "\${FS_LICENSE}:/usr/local/freesurfer/license.txt:ro")
+fi
 
 echo "Job \${SLURM_JOB_ID} starting on \$(hostname) at \$(date)"
 echo "CPUs: \${SLURM_CPUS_PER_TASK}, Memory: \${SLURM_MEM_PER_NODE}MB"
 
 apptainer exec \\
     --bind "\${PROJECT_DIR}:/mnt/${project_base}" \\
-    --bind "\${FS_LICENSE}:/usr/local/freesurfer/license.txt:ro" \\
+    "\${LICENSE_BINDS[@]}" \\
     "\${SIF}" \\
     simnibs_python -m tit.cli.simulator \\
         --project "/mnt/${project_base}" \\

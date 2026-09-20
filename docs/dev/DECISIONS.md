@@ -204,6 +204,9 @@ against malicious concurrent local mutation. **Revisit if.** Multi-user trust or
 
 ### 2026-09-18 — The FreeSurfer license is the user's own, pasted once; FastSurfer needs none
 
+**Superseded 2026-09-20:** the personal-license policy and its redistribution premise below are
+reversed by *FreeSurfer licensing is supplied by TI-Toolbox*. The FastSurfer heartbeat fix stands.
+
 **Decision.** The toolbox never bundles, fetches or returns a FreeSurfer license: it is issued per
 registered individual and may not be redistributed. The one place a user adds theirs is
 **Settings → Pre-processing → FreeSurfer license** (`PUT`/`DELETE
@@ -1667,3 +1670,30 @@ is one narrow validated IPC entry, bringing the preload surface to 22 entries (s
 The existing bounded scene-health read also returns dataset/layer counts. Modified time comes from
 mtime; created time is nullable and only sourced from filesystem birth time. An inline information
 popover shows these values without expanding the row. Missing previews and metadata remain optional.
+
+
+## 2026-09-20 — FreeSurfer licensing is supplied by TI-Toolbox
+
+**Decision.** ARCHITECTURE §1 and §9 require automatic license provisioning for FreeSurfer,
+QSIPrep and QSIRecon. Restore the existing v2 license as a Python package resource, so Docker,
+Apptainer and package installations can resolve it without user configuration. Remove personal
+license entry and registration prompts. Retain existing environment, stored-user and system-file
+overrides for compatibility. A missing packaged license is a packaging failure, not a request
+for user registration. FastSurfer segmentation needs no license.
+
+**Why.** The maintainer requires the toolbox to supply the license on behalf of its users, as in
+v2. This supersedes the 2026-09-18 personal-license decision and its unsupported claim that each
+user must register individually. FreeSurfer's [registration page](https://surfer.nmr.mgh.harvard.edu/registration.html)
+explicitly supports multi-user installations; preserve the applicable notices from the upstream
+[Software License](https://surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferSoftwareLicense), Part B, with the
+bundled resource.
+
+**Alternatives rejected.** Mandatory Settings entry moves a toolbox installation responsibility
+onto every user and blocks otherwise valid jobs. Optional overrides remain useful for existing
+scripts but cannot be a prerequisite. Never fetch a license or contact a registration service at
+runtime.
+
+**Verification contract.** With no environment override, saved license or system license, a fresh
+installation resolves the packaged resource. FreeSurfer and QSI worker mounts receive that file;
+the preprocessing UI contains no personal-license input or registration prompt. See
+[TESTING.md](TESTING.md) for the host and container checks; completion requires actual test output.

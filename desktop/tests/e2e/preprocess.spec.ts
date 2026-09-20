@@ -431,6 +431,9 @@ test("optional FreeSurfer plans and submits selected operations and retains them
   // The run page selects the stage; user-wide operations now live in Settings.
   await page.getByRole("link", { name: "Configure FreeSurfer", exact: true }).click();
   await expect(page.getByRole("tab", { name: "Pre-processing", exact: true })).toHaveAttribute("data-state", "active");
+  const license = page.getByRole("group", { name: "FreeSurfer license", exact: true });
+  await expect(license).toContainText("TI-Toolbox supplies the FreeSurfer license automatically");
+  await expect(license.locator("textarea, input, button, a")).toHaveCount(0);
   const operations = page.getByRole("group", { name: "FreeSurfer operations" });
   await expect(operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true })).toBeChecked();
   await operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true }).uncheck();

@@ -2390,12 +2390,12 @@ paths:
   /api/surfer-settings/freesurfer-license:
     put:
       tags: [settings]
-      summary: Store the user's own FreeSurfer license.txt
+      summary: Store an optional administrator FreeSurfer license override
       description: >-
-        The FreeSurfer license is issued per registered individual and is never bundled with,
-        fetched by or returned from the toolbox. The text is kept in the user config dir and
-        mounted into every job that runs FreeSurfer binaries (recon-all, subregion
-        segmentation, QSIPrep/QSIRecon). FastSurfer segmentation-only needs none.
+        TI-Toolbox supplies its FreeSurfer license automatically. This optional override
+        supports existing administrator clients; no user registration or setup is required.
+        License text is never returned. The resolved license is mounted into FreeSurfer,
+        QSIPrep and QSIRecon jobs. FastSurfer segmentation-only needs none.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       requestBody:
         required: true
@@ -5396,20 +5396,20 @@ components:
           type: string
           minLength: 1
           maxLength: 4096
-          description: The full contents of the license.txt FreeSurfer emailed the user.
+          description: The full contents of an optional administrator license.txt override.
     FreeSurferLicenseStatus:
       type: object
       required: [configured]
       properties:
         configured:
           type: boolean
-          description: A non-empty license file resolves ($FS_LICENSE, the app store, or the image path).
+          description: A non-empty license resolves, using the bundled toolbox license by default.
         source:
           type: [string, "null"]
-          description: app (pasted in Settings) or environment ($FS_LICENSE / the image path).
+          description: bundled (toolbox default), app (stored override), or environment ($FS_LICENSE / image path).
         email:
           type: [string, "null"]
-          description: First line of the license (the registered email), for the user to recognise it. Never the key.
+          description: Registered email for an optional override; null for the bundled license. Never the key.
     SurferSettings:
       type: object
       required: [charm_options, qsiprep_config, qsi_recon_config, fastsurfer_threads, freesurfer_threads, charm_threads, qsiprep_threads, qsirecon_threads, qsiprep_memory_gb, qsirecon_memory_gb, qsiprep_omp_threads, qsirecon_omp_threads, freesurfer_recon_all, freesurfer_subregions, freesurfer_license, available_threads, default_threads, effective_fastsurfer_threads, effective_freesurfer_threads, effective_charm_threads, effective_qsiprep_threads, effective_qsirecon_threads]

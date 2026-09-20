@@ -125,7 +125,7 @@ def test_no_subregions_without_reconstruction(project):
 def test_missing_license(project, monkeypatch):
     monkeypatch.setattr(fs, "resolve_fs_license_path", lambda: None)
     runner = Mock()
-    with pytest.raises(PreprocessError, match="needs your FreeSurfer license"):
+    with pytest.raises(PreprocessError, match="license supplied by TI-Toolbox"):
         fs.run_freesurfer("001", runner=runner, logger=Mock())
     runner.run.assert_not_called()
 
@@ -239,3 +239,45 @@ def test_insufficient_memory_fails_before_worker(project, monkeypatch):
     with pytest.raises(PreprocessError, match="at least 16 GiB"):
         fs.run_freesurfer("001", runner=runner, logger=Mock())
     runner.run.assert_not_called()
+
+
+def test_reconstruction_automatically_mounts_bundled_license(
+    project, monkeypatch, tmp_path
+):
+    import hashlib
+    from tit import surfer_settings as prefs
+    from tit.pre.qsi.docker_builder import resolve_fs_license_path
+
+    pm, _ = project
+    monkeypatch.setattr(fs, "resolve_fs_license_path", resolve_fs_license_path)
+    monkeypatch.delenv("FS_LICENSE", raising=False)
+    monkeypatch.setattr(
+        prefs.PathManager,
+        "user_config_dir",
+        staticmethod(lambda: str(tmp_path / "config")),
+    )
+    monkeypatch.setattr(
+        "tit.pre.qsi.docker_builder.const.FS_LICENSE_PATH", str(tmp_path / "missing")
+    )
+    bundled = (
+        Path(__file__).resolve().parents[1] / "tit/resources/freesurfer/license.txt"
+    )
+    monkeypatch.setattr(prefs, "BUNDLED_FS_LICENSE_PATH", bundled)
+
+    def success(argv, **kwargs):
+        mount = next(arg for arg in argv if arg.endswith(":/run/license.txt:ro"))
+        host_path = Path(mount.removesuffix(":/run/license.txt:ro"))
+        staged = Path(pm.project_dir) / host_path.relative_to("/host/project")
+        assert (
+            hashlib.sha256(staged.read_bytes()).digest()
+            == hashlib.sha256(bundled.read_bytes()).digest()
+        )
+        assert "FS_LICENSE=/run/license.txt" in argv
+        complete(pm)
+        return 0
+
+    runner = Mock()
+    runner.run.side_effect = success
+    fs.run_freesurfer("001", subregions=[], runner=runner, logger=Mock())
+    runner.run.assert_called_once()
+    assert not list(Path(pm.project_dir).glob(".freesurfer-*"))

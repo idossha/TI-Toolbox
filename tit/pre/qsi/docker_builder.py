@@ -72,20 +72,19 @@ def resolve_fs_license_path() -> Path | None:
     Used by optional FreeSurfer reconstruction/subregions and by QSI workflows
     whose images require FreeSurfer. The core FastSurfer workflow needs none.
 
-    Resolution order: ``$FS_LICENSE``, then the license the user pasted in the
-    app (:func:`tit.surfer_settings.freesurfer_license_path`, in the user
-    config dir every launcher bind-mounts), then
-    :data:`tit.constants.FS_LICENSE_PATH`. An empty file does not count (the
-    Apptainer image ships an empty placeholder there). Paths are resolved in
-    the server environment. Callers decide whether a missing license is an
-    error for the requested workflow.
+    Optional overrides resolve first: ``$FS_LICENSE``, the app's stored override,
+    then :data:`tit.constants.FS_LICENSE_PATH`. Every installed toolbox includes
+    its own license as the default; no user registration or configuration is
+    required. Empty placeholders do not override it. Paths resolve on the server
+    before being staged onto the shared project mount for sibling containers.
     """
-    from tit.surfer_settings import freesurfer_license_path
+    from tit.surfer_settings import BUNDLED_FS_LICENSE_PATH, freesurfer_license_path
 
     candidates = [
         os.environ.get("FS_LICENSE"),
         str(freesurfer_license_path()),
         const.FS_LICENSE_PATH,
+        str(BUNDLED_FS_LICENSE_PATH),
     ]
     for candidate in candidates:
         if not candidate:
