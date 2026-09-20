@@ -148,8 +148,8 @@ assembler.save("/data/output/report.html")
 The `tit.plotting` module provides visualization functions used by the analysis and reporting pipelines:
 
 ```python
+from tit.analyzer.visualizer import save_histogram
 from tit.plotting import (
-    plot_whole_head_roi_histogram,
     generate_static_overlay_images,
     plot_permutation_null_distribution,
     plot_cluster_size_mass_correlation,

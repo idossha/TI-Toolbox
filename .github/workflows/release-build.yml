@@ -125,8 +125,9 @@ jobs:
           # unexpected sha is not the release.
           docker run --rm --entrypoint cat "$TAG" /etc/ti-toolbox-build.json > provenance.json
           python3 -c 'import json,os; p=json.load(open("provenance.json")); assert p["sha"] == os.environ["GITHUB_SHA"] and p["dirty"] is False, p'
-          docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print("tit", tit.__version__)'
-          VER=$(docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print(tit.__version__)')
+          # Run 35533713822: system Python raised "No module named tit"; the app lives in SimNIBS.
+          docker run --rm --entrypoint simnibs_python "$TAG" -c 'import tit; print("tit", tit.__version__)'
+          VER=$(docker run --rm --entrypoint simnibs_python "$TAG" -c 'import tit; print(tit.__version__)')
           if [ "$VER" != "${{ needs.plan.outputs.python_version }}" ]; then
             echo "::error::image ships tit ${VER}, release is ${{ needs.plan.outputs.version }}"
             exit 1

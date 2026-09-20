@@ -361,7 +361,10 @@ def test_route_reuses_warp_and_invalidates_changed_registration(tmp_path, monkey
 
     anatomy = tmp_path / "T1.nii"
     nib.save(nib.Nifti1Image(np.zeros((7, 9, 11)), np.eye(4)), anatomy)
-    registration = tmp_path / "toMNI"
+    # A real head-model directory is below the project jail, never the jail itself.
+    m2m = tmp_path / "m2m_sample"
+    m2m.mkdir()
+    registration = m2m / "toMNI"
     registration.mkdir()
     transform = registration / "transform.nii"
     transform.write_bytes(b"registration-v1")
@@ -370,7 +373,7 @@ def test_route_reuses_warp_and_invalidates_changed_registration(tmp_path, monkey
     data[12:15, 12:15, 12:15] = 1
     nib.save(nib.Nifti1Image(data, np.eye(4)), source)
     pm = SimpleNamespace(
-        project_dir=str(tmp_path), t1=lambda sid: anatomy, m2m=lambda sid: tmp_path
+        project_dir=str(tmp_path), t1=lambda sid: anatomy, m2m=lambda sid: m2m
     )
     monkeypatch.setattr(route, "get_path_manager", lambda: pm)
     monkeypatch.setattr(route.catalog, "subject_ids", lambda pm: ["sample"])
