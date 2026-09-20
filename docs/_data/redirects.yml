@@ -1,0 +1,7 @@
+# Public routes whose authored pages were consolidated into canonical guides.
+- from: /gallery/v2/
+  to: /wiki/legacy-v2/
+- from: /wiki/gui/
+  to: /wiki/legacy-v2/
+- from: /wiki/testing-pipeline/
+  to: /wiki/legacy-v2/
