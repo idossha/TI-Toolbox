@@ -7,6 +7,8 @@ api/_templates/
 
 # Jekyll
 _site/
+# SearchGenerator writes this route into the build destination, never source.
+search/search.json
 .sass-cache/
 .jekyll-cache/
 .jekyll-metadata
