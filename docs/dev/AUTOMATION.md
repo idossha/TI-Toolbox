@@ -18,6 +18,29 @@ A successful source job does not prove a rebuilt image or signed installer. Insp
 the exact candidate SHA. Do not suppress failed checks or repeat a partial publication blindly;
 release image tags are immutable. Publication modes and credentials are covered in RELEASING.
 
+## Telemetry service
+
+User consent, payload fields and opt-out controls are documented in the
+[telemetry and privacy guide](../wiki/telemetry.md); `tit/telemetry.py` and `tit/constants.py` are
+the implementation authority. Operational ownership is separate from the documentation site's
+analytics:
+
+- The GA4 property is **`tit-telemetry`** (measurement ID `G-2GGJF2D8C7`). Its Measurement
+  Protocol API secret in `tit/constants.py` grants event submission only; GA4, BigQuery and
+  dashboard read access remains controlled by the maintainer's Google/GCP IAM.
+- GA4 exports daily to the **`tit-telemetry`** GCP project's
+  `analytics_<PROPERTY_ID>.events_YYYYMMDD` tables. GA4's configured event-data retention is
+  14 months; exported-table retention is a BigQuery policy and must be checked there rather than
+  assumed from the GA4 setting.
+- The maintained dashboard and aggregation jobs live in
+  [idossha/TI-toolbox-stats](https://github.com/idossha/TI-toolbox-stats). Monitor GA4 Realtime for
+  recent delivery, the dashboard for operation/error trends, and BigQuery for a fresh daily table.
+- If daily export stops, check GCP billing attachment, the BigQuery API, GA4's BigQuery Link and
+  the export service account before relinking. GA4 does not backfill days before a working link.
+  Recovery instructions for the service are in Google's
+  [BigQuery Export guide](https://support.google.com/analytics/answer/9358801); do not rotate the
+  send-only client constant as though it were a dashboard credential.
+
 ## Operator scripts
 
 | Entry point | Purpose |

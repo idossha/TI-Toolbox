@@ -22,6 +22,7 @@ wiki:
     - { title: Wiki Home, url: /wiki/ }
     - { title: Video Tutorials, url: /wiki/video-tutorials/ }
     - { title: Troubleshooting Archive, url: /wiki/troubleshooting/ }
+    - { title: Telemetry & Privacy, url: /wiki/telemetry/ }
     - group: The Application
     - { title: Overview, url: /wiki/overview/ }
     - title: Pre-processing
