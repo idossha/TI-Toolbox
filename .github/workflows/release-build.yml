@@ -348,14 +348,15 @@ jobs:
         shell: bash
         env:
           RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+          RELEASE_IMAGE_TAG: ${{ needs.plan.outputs.image_tag }}
         run: |
           set -euo pipefail
           if [ "$RUNNER_OS" = "macOS" ]; then
-            node scripts/verify-package.mjs release/mac-arm64/TI-Toolbox.app --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_VERSION"
-            node scripts/verify-package.mjs release/mac/TI-Toolbox.app --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_VERSION"
+            node scripts/verify-package.mjs release/mac-arm64/TI-Toolbox.app --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_IMAGE_TAG"
+            node scripts/verify-package.mjs release/mac/TI-Toolbox.app --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_IMAGE_TAG"
           else
             DIR=$([ "$RUNNER_OS" = "Windows" ] && echo release/win-unpacked || echo release/linux-unpacked)
-            node scripts/verify-package.mjs "$DIR" --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_VERSION"
+            node scripts/verify-package.mjs "$DIR" --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_IMAGE_TAG"
           fi
 
       - name: Verify signature, Gatekeeper and staple

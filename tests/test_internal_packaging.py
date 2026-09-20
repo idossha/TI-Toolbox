@@ -279,6 +279,56 @@ class InternalPackagingTests(unittest.TestCase):
         finally:
             os.chdir(old)
 
+    @unittest.skipUnless(os.name == "posix", "workflow verification commands use bash")
+    def test_unsigned_and_release_verifiers_receive_the_version_image_tag(self):
+        import re
+        import subprocess
+
+        workflow = (ROOT / ".github/workflows/release-build.yml").read_text()
+        identity = plan.build_plan(self.root, "release", "refs/tags/v3.0.0", self.sha)
+        command_dir = self.root / "bin"
+        command_dir.mkdir()
+        calls = self.root / "verifier-args"
+        recorder = command_dir / "node"
+        recorder.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$VERIFY_CALLS"\n')
+        recorder.chmod(0o755)
+        sections = re.split(r"^      - name: ", workflow, flags=re.M)
+        checked = 0
+        for section in sections:
+            if not section.startswith(
+                ("Verify the packaged app", "Verify the rebuilt release app")
+            ):
+                continue
+            script = section.split("        run: |\n", 1)[1]
+            script = "\n".join(
+                line[10:]
+                for line in script.splitlines()
+                if line.startswith("          ")
+            )
+            for key, value in identity.items():
+                script = script.replace("${{ needs.plan.outputs." + key + " }}", value)
+            environment = dict(
+                os.environ,
+                PATH=str(command_dir) + os.pathsep + os.environ["PATH"],
+                VERIFY_CALLS=str(calls),
+            )
+            for key, output in re.findall(
+                r"^          ([A-Z_]+): \$\{\{ needs.plan.outputs.([a-z_]+) \}\}",
+                section,
+                re.M,
+            ):
+                environment[key] = identity[output]
+            for platform in ("macOS", "Windows", "Linux"):
+                environment["RUNNER_OS"] = platform
+                script_for_platform = script.replace("${{ runner.os }}", platform)
+                subprocess.run(
+                    ["bash", "-c", script_for_platform], env=environment, check=True
+                )
+            checked += 1
+        self.assertEqual(checked, 3)
+        for call in calls.read_text().splitlines():
+            self.assertIn("--expect-version 3.0.0 --expect-image-tag v3.0.0", call)
+
     def test_control_cli_validates_the_explicit_candidate_checkout(self):
         import subprocess
         import sys
