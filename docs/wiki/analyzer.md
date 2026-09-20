@@ -256,6 +256,11 @@ field-distribution histogram and **exactly one scene**:
 | `scene.tetravox.json` | a Tetravox scene of the overlay: in voxel space the field over your `T1.nii.gz`; in mesh space the whole cortex translucent with the ROI's field coloured on top, cursor on the ROI, colour bar on |
 | `scene.png` | a picture of that scene, when Tetravox is installed on the machine running the app |
 
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_lh.insula_whole_head_roi_histogram.png" alt="Analyzer field-distribution histogram" style="width: 100%; max-width: 850px;">
+  <em>Example field-distribution histogram, including target statistics and whole-grey-matter focality thresholds.</em>
+</div>
+
 The scene is a few kilobytes and points at the overlay and the T1 — nothing is copied. Open it
 from the job's **Results** row (*Open in Tetravox*) or by double-clicking the file.
 

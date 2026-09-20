@@ -219,6 +219,13 @@ correlation/hippocampus_effect_size_correlation/
   <img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Permutation Null Distribution" style="width: 80%; max-width: 700px;">
 </div>
 
+### Example MNI-space output
+
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/stats/stats_efield_avg_with_cluster_MNI.png" alt="Cohort-average TI field with a significant cluster in MNI space" style="width: 100%; max-width: 850px;">
+  <em>MNI T1 template with a cohort-level <code>TI_max</code> field average and a significant cluster from cluster-based permutation testing.</em>
+</div>
+
 ## Technical Details
 
 ### Data Requirements

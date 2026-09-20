@@ -15,3 +15,7 @@
   to: /wiki/flex-search/
 - from: /gallery/ex-search/
   to: /wiki/ex-search/
+- from: /gallery/analysis/
+  to: /wiki/analyzer/
+- from: /gallery/statistics/
+  to: /wiki/cluster-permutation-testing/

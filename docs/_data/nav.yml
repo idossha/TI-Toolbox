@@ -101,9 +101,9 @@ gallery:
     - { title: Flex-Search, url: /wiki/flex-search/ }
     - { title: Ex-Search, url: /wiki/ex-search/ }
     - { title: Simulations, url: /wiki/simulator/ }
-    - { title: Analysis, url: /gallery/analysis/ }
+    - { title: Analysis, url: /wiki/analyzer/ }
     - { title: Blender, url: /gallery/blender/ }
-    - { title: Statistics, url: /gallery/statistics/ }
+    - { title: Statistics, url: /wiki/cluster-permutation-testing/ }
     - { title: Nilearn, url: /gallery/nilearn/ }
     - { title: User Interface, url: /gallery/UI/ }
 
