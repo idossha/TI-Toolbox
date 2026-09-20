@@ -1,13 +1,8 @@
-/**
- * Native TetraVox resolution: a user-configured path, a managed download TI-Toolbox owns, a
- * conventional system installation, or one on PATH — in that order. Managed installs only ever
- * write bytes whose digest was published by the official release (pinned SHA256 for the baseline
- * version, the release's own electron-builder update feed for later ones), so a TetraVox update
- * never requires a TI-Toolbox release.
- */
+/** Native discovery and verified first-use bootstrap. TetraVox owns all subsequent updates. */
+import { supportsNativeSceneApi } from "./nativeSceneBridge";
 import { createHash } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
-import { closeSync, createReadStream, createWriteStream, openSync } from "node:fs";
+import { closeSync, createWriteStream, openSync } from "node:fs";
 import { access, chmod, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
@@ -16,8 +11,6 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { TitNativeTetravoxStatus, TitNativeTetravoxProgress } from "../shared/tit-bridge";
 
-/** The baseline version whose bytes are pinned in this repository; later versions come from the feed. */
-export const TETRAVOX_VERSION = "0.4.0";
 export const TETRAVOX_REPO = "idossha/Tetravox";
 
 interface PlatformRelease {
@@ -27,20 +20,18 @@ interface PlatformRelease {
   executable: string;
   /** electron-builder update feed published alongside the release. */
   feed: string;
-  /** SHA256 of the pinned baseline asset; other versions are verified against the feed. */
-  sha256: string;
 }
 
 const RELEASES: Record<string, PlatformRelease> = {
-  "darwin-arm64": { asset: "Tetravox-${version}-mac-arm64.zip", feed: "latest-mac.yml", executable: "Tetravox.app/Contents/MacOS/Tetravox", sha256: "19d1f8d304a6d5b632ad17197bf3edf5469921695f7969f35b52d39c537182aa" },
-  "darwin-x64": { asset: "Tetravox-${version}-mac-x64.zip", feed: "latest-mac.yml", executable: "Tetravox.app/Contents/MacOS/Tetravox", sha256: "f7d1eb9d7ebfd12998c169e1893e03137ee8e407ef405eba4837cefb5693e5b0" },
-  "linux-x64": { asset: "Tetravox-${version}-linux-x64.tar.gz", feed: "latest-linux.yml", executable: "tetravox", sha256: "0ca9ed64947d2a242cb3ba809c7d99ece10fa99e445b02c80122ced37f5e7306" },
+  "darwin-arm64": { asset: "Tetravox-${version}-mac-arm64.zip", feed: "latest-mac.yml", executable: "Tetravox.app/Contents/MacOS/Tetravox" },
+  "darwin-x64": { asset: "Tetravox-${version}-mac-x64.zip", feed: "latest-mac.yml", executable: "Tetravox.app/Contents/MacOS/Tetravox" },
+  "linux-x64": { asset: "Tetravox-${version}-linux-x64.tar.gz", feed: "latest-linux.yml", executable: "tetravox" },
 };
 
-export function nativeViewerPaths(userData: string, platform = process.platform, arch: string = process.arch, version: string = TETRAVOX_VERSION) {
+export function nativeViewerPaths(userData: string, platform = process.platform, arch: string = process.arch, version = "") {
   const entry = RELEASES[`${platform}-${arch}`];
   const release = entry ? { ...entry, asset: entry.asset.replace("${version}", version) } : undefined;
-  const directory = join(userData, "runtimes", `tetravox-${version}-${platform}-${arch}`);
+  const directory = join(userData, "runtimes", `tetravox-${platform}-${arch}`);
   return { directory, release, version, executable: release ? join(directory, release.executable) : undefined };
 }
 
@@ -48,7 +39,7 @@ const execFileAsync = promisify(execFile);
 
 export function compatibleViewerVersion(version: string): boolean {
   const parts = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
-  return !!parts && Number(parts[1]) === 0 && Number(parts[2]) >= 4;
+  return !!parts && (Number(parts[1]) > 0 || Number(parts[2]) >= 4);
 }
 
 /** Newest-first comparison of two `x.y.z` versions. */
@@ -74,19 +65,21 @@ export function systemViewerCandidates(platform = process.platform, home = homed
 /** Executables named like TetraVox on the user's PATH; identity is still checked before use. */
 export function pathViewerCandidates(platform = process.platform, env = process.env): string[] {
   const name = platform === "win32" ? "Tetravox.exe" : "tetravox";
-  return (env.PATH ?? "").split(delimiter).filter((entry) => entry.trim()).map((entry) => join(entry, name));
+  return (env.PATH ?? "").split(platform === "win32" ? ";" : delimiter).filter((entry) => entry.trim()).map((entry) => join(entry, name));
 }
 
 /** Only conventional installed locations are considered; never execute a candidate to identify it. */
 export async function findSystemViewer(candidates = systemViewerCandidates(), platform = process.platform): Promise<SystemViewer | undefined> {
   for (const candidate of candidates) {
     try {
-      const executable = await realpath(platform === "darwin" ? join(candidate, "Contents/MacOS/Tetravox") : candidate);
+      const executable = await realpath(platform === "darwin" && candidate.endsWith(".app") ? join(candidate, "Contents/MacOS/Tetravox") : candidate);
+      const bundle = platform === "darwin" ? executable.replace(/\/Contents\/MacOS\/[^/]+$/, "") : undefined;
+      if (platform === "darwin" && !bundle?.endsWith(".app")) continue;
       if (!(await stat(executable)).isFile()) continue;
       await access(executable, platform === "win32" ? 0 : 1);
       let version = "system";
       if (platform === "darwin") {
-        const { stdout } = await execFileAsync("/usr/bin/plutil", ["-convert", "json", "-o", "-", join(candidate, "Contents/Info.plist")], { timeout: 3000, maxBuffer: 65536 });
+        const { stdout } = await execFileAsync("/usr/bin/plutil", ["-convert", "json", "-o", "-", join(bundle!, "Contents/Info.plist")], { timeout: 3000, maxBuffer: 65536 });
         const info = JSON.parse(stdout) as { CFBundleIdentifier?: string; CFBundleShortVersionString?: string };
         version = info.CFBundleShortVersionString ?? "";
         if (info.CFBundleIdentifier !== "dev.tetravox.viewer" || !compatibleViewerVersion(version)) continue;
@@ -96,7 +89,7 @@ export async function findSystemViewer(candidates = systemViewerCandidates(), pl
         version = metadata.version ?? "";
         if (metadata.name !== "@tetravox/app" || !compatibleViewerVersion(version)) continue;
       }
-      return { executable, directory: platform === "darwin" ? candidate : dirname(executable), version };
+      return { executable, directory: bundle ?? dirname(executable), version };
     } catch { /* Uninstalled, incompatible or unreadable candidates do not shadow managed setup. */ }
   }
   return undefined;
@@ -110,11 +103,10 @@ export interface ViewerCandidates {
 }
 
 /**
- * The single resolution rule. A path the user chose wins outright; then the copy TI-Toolbox
- * installed and can keep updated; then an installation the user maintains themselves.
+ * Prefer the user choice and existing native installations before the TI bootstrapped copy.
  */
 export function selectViewer(candidates: ViewerCandidates): (SystemViewer & { source: ViewerSourceKind }) | undefined {
-  for (const source of ["configured", "managed", "system", "path"] as const) {
+  for (const source of ["configured", "system", "path", "managed"] as const) {
     const candidate = candidates[source];
     if (candidate) return { ...candidate, source };
   }
@@ -128,10 +120,18 @@ export function viewerProcessMatches(output: string, executable: string, platfor
       const entries: unknown = JSON.parse(output || "[]");
       const processes = Array.isArray(entries) ? entries : [entries];
       if (processes.some((entry) => typeof entry !== "object" || entry === null || !("ExecutablePath" in entry) || typeof entry.ExecutablePath !== "string" || !entry.ExecutablePath)) throw new Error("Process path unavailable");
-      return processes.some((entry: { ExecutablePath: string }) => entry.ExecutablePath.toLowerCase() === executable.toLowerCase());
+      return processes.some((entry: { ExecutablePath: string }) =>
+        entry.ExecutablePath.toLowerCase() === executable.toLowerCase() || /(?:^|[\\/])tetravox\.exe$/i.test(entry.ExecutablePath));
     } catch { throw new Error("Could not check whether TetraVox is already running."); }
   }
-  return output.split("\n").some((line) => line.trim() === executable || line.trim().startsWith(`${executable} `));
+  // Different installations can share Electron's default profile and single-instance
+  // lock. Probe all viewer binaries, not just the selected one, so a handoff to an
+  // already-running copy cannot bypass replacement consent. False positives are safe.
+  return output.split("\n").some((line) => {
+    const command = line.trim();
+    return command === executable || command.startsWith(`${executable} `) ||
+      /^(?:\/.*\/)?tetravox(?:\s|$)/i.test(command);
+  });
 }
 
 async function viewerProcessList(): Promise<string> {
@@ -145,12 +145,6 @@ export async function nativeViewerRunning(userData: string, selected?: TitNative
   const status = selected ?? await nativeViewerStatus(userData);
   if (!status.installed || !status.executable) return false;
   return viewerProcessMatches(await viewerProcessList(), status.executable);
-}
-
-async function digestFile(path: string, algorithm: "sha256" | "sha512" = "sha256"): Promise<string> {
-  const hash = createHash(algorithm);
-  for await (const chunk of createReadStream(path)) hash.update(chunk);
-  return algorithm === "sha512" ? hash.digest("base64") : hash.digest("hex");
 }
 
 /* ------------------------------------------------------------------ user configuration */
@@ -175,26 +169,24 @@ export async function identifyViewerPath(path: string, platform = process.platfo
 
 /* --------------------------------------------------------------------- managed installs */
 
-/** Every managed install of this platform, newest first. */
+/** Discover stable and historical TI installs by application identity, allowing native self-updates. */
 export async function managedInstalls(userData: string, platform = process.platform, arch: string = process.arch): Promise<SystemViewer[]> {
   const root = join(userData, "runtimes");
   let entries: string[];
   try { entries = await readdir(root); } catch { return []; }
+  const stable = `tetravox-${platform}-${arch}`;
   const suffix = `-${platform}-${arch}`;
   const found: SystemViewer[] = [];
-  for (const entry of entries) {
-    if (!entry.startsWith("tetravox-") || !entry.endsWith(suffix)) continue;
-    const version = entry.slice("tetravox-".length, entry.length - suffix.length);
-    if (!compatibleViewerVersion(version)) continue;
-    const paths = nativeViewerPaths(userData, platform, arch, version);
-    if (!paths.executable || !paths.release) continue;
-    try {
-      const manifest = JSON.parse(await readFile(join(paths.directory, "ready.json"), "utf8")) as { archiveHash?: string; executableHash?: string };
-      if (!manifest.executableHash || await digestFile(paths.executable) !== manifest.executableHash) continue;
-      found.push({ executable: paths.executable, directory: paths.directory, version });
-    } catch { /* A missing or incomplete installation is simply not ready. */ }
+  for (const entry of entries.sort((a, b) => Number(b === stable) - Number(a === stable))) {
+    if (entry !== stable && (!entry.startsWith("tetravox-") || !entry.endsWith(suffix))) continue;
+    const directory = join(root, entry);
+    const release = RELEASES[`${platform}-${arch}`];
+    if (!release) continue;
+    const candidate = platform === "darwin" ? join(directory, "Tetravox.app") : join(directory, release.executable);
+    const viewer = await findSystemViewer([candidate], platform);
+    if (viewer) found.push({ ...viewer, directory });
   }
-  return found.sort((a, b) => compareViewerVersions(b.version, a.version));
+  return found;
 }
 
 /* ------------------------------------------------------------------------- release feed */
@@ -239,7 +231,6 @@ function assetUrl(version: string, asset: string): string {
 }
 
 async function releaseChecksum(version: string, release: PlatformRelease, fetchImpl: typeof fetch = fetch): Promise<{ algorithm: "sha256" | "sha512"; value: string }> {
-  if (version === TETRAVOX_VERSION) return { algorithm: "sha256", value: release.sha256 };
   const response = await fetchImpl(assetUrl(version, release.feed), { signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new Error(`TetraVox ${version} publishes no update feed for this platform.`);
   const feed = parseReleaseFeed(await response.text());
@@ -262,7 +253,6 @@ function report(progress: TitNativeTetravoxProgress): void {
 
 let installing: Promise<TitNativeTetravoxStatus> | undefined;
 let lastError: string | undefined;
-let latestKnown: string | undefined;
 
 export async function nativeViewerStatus(userData: string): Promise<TitNativeTetravoxStatus> {
   const configuredPath = configuredPathProvider();
@@ -275,18 +265,18 @@ export async function nativeViewerStatus(userData: string): Promise<TitNativeTet
   const selected = selectViewer({ configured, managed, system, path: onPath });
   const { directory, release, executable } = nativeViewerPaths(userData);
   const base: TitNativeTetravoxStatus = {
-    supported: !!release,
+    supported: !!release && process.platform === "darwin",
     installed: false,
     installing: !!installing,
-    version: TETRAVOX_VERSION,
+    version: "",
     directory,
     executable,
     configuredPath,
     configuredPathValid: configuredPath ? !!configured : undefined,
-    latestVersion: latestKnown,
-    error: lastError ?? (!release ? "No verified portable TetraVox package is configured for this platform. Windows managed setup requires an official ZIP release; its system installer is not used." : undefined),
+    error: lastError ?? (process.platform === "linux" ? "Automatic TetraVox setup requires a Linux package that supports native updates without adding FUSE. Install TetraVox independently or choose an existing application." : !release ? "Automatic TetraVox setup requires an official updater-compatible package for this platform. Choose an existing TetraVox installation." : undefined),
   };
   if (!selected) return base;
+  lastError = undefined;
   return {
     ...base,
     source: selected.source,
@@ -294,17 +284,9 @@ export async function nativeViewerStatus(userData: string): Promise<TitNativeTet
     directory: selected.directory,
     version: selected.version,
     installed: true,
-    // Only a copy TI-Toolbox owns can be replaced by TI-Toolbox.
-    updateAvailable: selected.source === "managed" && !!latestKnown && compareViewerVersions(latestKnown, selected.version) > 0 ? latestKnown : undefined,
+    supportsSceneSave: await supportsNativeSceneApi(selected.executable),
+    error: undefined,
   };
-}
-
-/** Refresh the cached "newest published release" used by `updateAvailable`. */
-export async function checkViewerUpdate(userData: string, fetchImpl: typeof fetch = fetch): Promise<TitNativeTetravoxStatus> {
-  const { version, assets } = await latestViewerRelease(fetchImpl);
-  const { release } = nativeViewerPaths(userData, process.platform, process.arch, version);
-  latestKnown = release && (assets.length === 0 || assets.includes(release.asset)) && compatibleViewerVersion(version) ? version : undefined;
-  return nativeViewerStatus(userData);
 }
 
 /* ---------------------------------------------------------------------------- download */
@@ -342,19 +324,24 @@ export function viewerCommand(command: string, args: string[]): Promise<void> {
   });
 }
 
-export function installNativeViewer(userData: string, version: string = TETRAVOX_VERSION): Promise<TitNativeTetravoxStatus> {
+export function installNativeViewer(userData: string): Promise<TitNativeTetravoxStatus> {
   if (installing) return installing;
   lastError = undefined;
-  installing = install(userData, version).catch((error: unknown) => { lastError = error instanceof Error ? error.message : String(error); throw error; }).finally(() => { installing = undefined; report({ phase: "idle" }); });
-  return installing.then(() => nativeViewerStatus(userData));
+  installing = install(userData).catch((error: unknown) => { lastError = error instanceof Error ? error.message : String(error); throw error; }).finally(() => { installing = undefined; report({ phase: "idle" }); }).then((status) => ({ ...status, installing: false }));
+  return installing;
 }
 
-async function install(userData: string, version: string): Promise<TitNativeTetravoxStatus> {
+async function install(userData: string): Promise<TitNativeTetravoxStatus> {
+  const existing = await nativeViewerStatus(userData);
+  if (existing.installed) return existing;
+  if (!existing.supported) throw new Error(existing.error ?? "This platform has no supported native TetraVox release.");
+  const { version, assets } = await latestViewerRelease();
   if (!compatibleViewerVersion(version)) throw new Error(`TetraVox ${version} is not compatible with this TI-Toolbox release.`);
   const paths = nativeViewerPaths(userData, process.platform, process.arch, version);
   const { release, directory } = paths;
-  if ((await managedInstalls(userData)).some((entry) => entry.version === version)) return nativeViewerStatus(userData);
+
   if (!release || !paths.executable) throw new Error("This platform has no supported native TetraVox release.");
+  if (!assets.includes(release.asset)) throw new Error(`TetraVox ${version} has no package for this platform.`);
   const expected = await releaseChecksum(version, release);
   await mkdir(dirname(directory), { recursive: true, mode: 0o700 });
   const staging = await mkdtemp(join(dirname(directory), ".tetravox-install-"));
@@ -367,30 +354,24 @@ async function install(userData: string, version: string): Promise<TitNativeTetr
     {
       if (process.platform === "darwin") await viewerCommand("/usr/bin/ditto", ["-x", "-k", archive, extracted]);
       else await viewerCommand("tar", ["-xzf", archive, "-C", extracted, "--strip-components=1"]);
-      await access(join(extracted, release.executable));
-      // Only this version's incomplete managed installation is replaced. Other versions survive.
-      const backup = `${directory}.previous`;
-      await rm(backup, { recursive: true, force: true });
-      try { await rename(directory, backup); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      const identified = await identifyViewerPath(process.platform === "darwin" ? join(extracted, "Tetravox.app") : join(extracted, release.executable));
+      if (identified.version !== version) throw new Error(`TetraVox archive identifies version ${identified.version}, but the verified release is ${version}. Nothing was installed.`);
+      await chmod(join(extracted, release.executable), 0o755);
+      await writeFile(join(extracted, "ready.json"), JSON.stringify({ version, archiveHash: expected.value }), { mode: 0o600 });
+      // Another launch or the user may have installed TetraVox during the download.
+      const discovered = await nativeViewerStatus(userData);
+      if (discovered.installed) return discovered;
+      // A directory rename cannot replace a nonempty installation. Never move a
+      // competing process's winner aside or delete a historical recovery backup.
       try { await rename(extracted, directory); } catch (error) {
-        try { await rename(backup, directory); } catch { /* No previous install existed. */ }
-        throw error;
+        if (!["EEXIST", "ENOTEMPTY", "ENOTDIR", "EISDIR"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+        const winner = await nativeViewerStatus(userData);
+        if (winner.installed) return winner;
+        throw new Error(`TetraVox setup found an incomplete installation at ${directory}. Move that directory aside and retry; its contents were preserved.`, { cause: error });
       }
-      await rm(backup, { recursive: true, force: true });
-      await chmod(paths.executable, 0o755);
     }
-    const executableHash = await digestFile(paths.executable);
-    await writeFile(join(directory, "ready.json"), JSON.stringify({ version, archiveHash: expected.value, executableHash }), { mode: 0o600 });
     return nativeViewerStatus(userData);
   } finally { await rm(staging, { recursive: true, force: true }); }
-}
-
-/** Remove managed installs older than the one now in use, so updates do not accumulate copies. */
-export async function pruneManagedViewers(userData: string, keep: string): Promise<void> {
-  for (const entry of await managedInstalls(userData)) {
-    if (entry.version === keep) continue;
-    await rm(entry.directory, { recursive: true, force: true }).catch(() => undefined);
-  }
 }
 
 /** Resolve symlinks as well as lexical traversal before handing a project scene to the app. */
@@ -403,28 +384,44 @@ export async function checkViewerScene(path: string, projectRoot: string): Promi
   return scene;
 }
 
-export async function openNativeViewer(userData: string, scene: string, selected?: TitNativeTetravoxStatus): Promise<void> {
+export async function openNativeViewer(userData: string, scene: string, selected?: TitNativeTetravoxStatus, requestPath?: string): Promise<void> {
   const status = selected ?? await nativeViewerStatus(userData);
   if (!status.installed || !status.executable) throw new Error("Install native TetraVox in Settings → Viewer first.");
   const { executable } = status;
+  // Existing managed sessions hold Electron's lock in this legacy profile. Keep
+  // routing to it when it exists; changing profiles would open a second instance.
+  const legacyProfile = join(userData, "tetravox-profile");
+  const useLegacyProfile = status.source === "managed" && await stat(legacyProfile).then((entry) => entry.isDirectory(), () => false);
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.TETRAVOX_MANAGED_BY;
+  delete env.ELECTRON_RUN_AS_NODE;
+  const bundle = process.platform === "darwin" ? /^(.*\.app)\/Contents\/MacOS\/[^/]+$/.exec(executable)?.[1] : undefined;
+  if (bundle && !requestPath) {
+    const profileArgs = useLegacyProfile ? ["--args", `--user-data-dir=${legacyProfile}`] : [];
+    // LaunchServices sends open-file, which existing viewers queue even without a
+    // window. Direct executable launches send second-instance and lose that scene.
+    await execFileAsync("/usr/bin/open", ["-a", bundle, ...(scene ? [scene] : []), ...profileArgs], { env, timeout: 15_000, maxBuffer: 65536 });
+    // Explicit reopen requests activate after open-file queued the scene. The
+    // existing activate handler recreates a Dock-only app's guarded window.
+    // Never send the scene twice, or use -n/-F (new instance / discard restoration).
+    if (scene) await execFileAsync("/usr/bin/open", ["-a", bundle, ...profileArgs], { env, timeout: 15_000, maxBuffer: 65536 });
+    return; // LaunchServices accepted the request; scene loading is not acknowledged.
+  }
   await new Promise<void>((resolve, reject) => {
-    const env: NodeJS.ProcessEnv = { ...process.env };
-    if (status.source === "managed") env.TETRAVOX_MANAGED_BY = "TI-Toolbox";
-    else delete env.TETRAVOX_MANAGED_BY;
-    delete env.ELECTRON_RUN_AS_NODE;
     const logPath = join(userData, "tetravox-launch.log");
     const descriptor = openSync(logPath, "w", 0o600);
-    const child = spawn(executable!, [...(status.source === "managed" ? [`--user-data-dir=${join(userData, "tetravox-profile")}`] : []), ...(scene ? [scene] : [])], { env, detached: true, stdio: ["ignore", "ignore", descriptor], windowsHide: false });
+    const child = spawn(executable!, [...(useLegacyProfile ? [`--user-data-dir=${legacyProfile}`] : []), ...(requestPath ? [`--scene-request=${requestPath}`] : scene ? [scene] : [])], { env, detached: true, stdio: ["ignore", "ignore", descriptor], windowsHide: false });
     closeSync(descriptor);
     const timer = setTimeout(() => { child.unref(); resolve(); }, 1500);
     child.once("error", (error) => { clearTimeout(timer); reject(error); });
     child.once("exit", (code, signal) => {
       clearTimeout(timer);
-      if (code === 0) resolve(); // The existing application accepted a second-instance handoff.
+      if (code === 0) resolve(); // Process success is only a launch receipt; no scene-load acknowledgment.
       else void readFile(logPath, "utf8").then(
         (output) => reject(new Error(`TetraVox could not start (${signal ?? code}): ${output.slice(-2000)}`)),
         () => reject(new Error(`TetraVox could not start (${signal ?? code}).`)),
       );
     });
   });
+  if (bundle && requestPath) await execFileAsync("/usr/bin/open", ["-a", bundle], { env, timeout: 15_000, maxBuffer: 65536 });
 }

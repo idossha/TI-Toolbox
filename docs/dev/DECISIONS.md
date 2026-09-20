@@ -30,7 +30,7 @@ rationale below consolidates later amendments without treating superseded design
 | 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
 | 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
 | 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
-| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **22** since the native TetraVox surface of 2026-09-13 (status, install, open) and its 2026-09-15 amendment (locate, clear path, check update, update, progress) and the FastSurfer host API. `smoke.spec.ts` enforces the exact list | live, amended 2026-09-15 |
+| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19. `smoke.spec.ts` enforces the exact list | live, amended 2026-09-19 |
 | 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
 | 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
 | 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
@@ -818,6 +818,8 @@ React Flow is removed with its only consumer; notebook dependencies remain for s
 
 ### 2026-09-13 — Replace browser embedding with managed native TetraVox
 
+**Amended 2026-09-19:** native-only viewing remains; pinned-version ownership and setup consent are replaced by automatic initial setup and TetraVox-owned updates.
+
 **Decision:** remove the browser viewer transport, bundle installation/update service and iframe
 presentation. Full scenes and volume/target previews open native TetraVox explicitly; the run pages'
 existing WebGL2 surface renderer remains. The desktop installs the official pinned 0.4.0 platform
@@ -842,6 +844,8 @@ currently downloaded artifacts. An upstream release containing it is needed befo
 Viewer uses a scene builder on the left and native launch controls above a saved-scene library on the right. Each panel owns its scrolling so a growing library cannot stretch the page. Scene deletion removes only the saved document and its thumbnail/metadata; filesystem failures remain visible for retry. The scene-list API adds optional reference-health metadata from bounded JSON reads and project-local file checks, without loading scientific datasets or probing arbitrary external paths. External references are explicitly unchecked rather than reported as available. These checks describe file availability, not scientific validity or native rendering success.
 
 ### 2026-09-15 — One resolution order for TetraVox, and updates without a TI-Toolbox release
+
+**Superseded 2026-09-19:** initial setup only; TetraVox owns updates and system/PATH installations precede the TI-local copy. See the native lifecycle decision below.
 
 **Decision.** A single rule picks the viewer: a path the user located in Settings, then the managed
 copy TI-Toolbox installed, then a compatible system installation, then a compatible executable on
@@ -880,7 +884,8 @@ joined by candidate ID and accompanied by a configuration/metric manifest. Ex us
 One Results browser shows sortable estimates and the frontier among displayed comparable candidates.
 A selection becomes an editable Simulator draft, with provenance and no automatic execution.
 New desktop Flex jobs use intensity or threshold-free contrast; legacy threshold-based configurations
-are not silently reinterpreted. See [approved scope](../requirements/2026-09-13-optimizer-candidates-approved.md).
+are not silently reinterpreted. The durable record and replay scope is ARCHITECTURE §13; verification
+and its limits are in TESTING's optimizer candidate section.
 
 **Why:** a single returned optimizer solution hides useful alternatives and a finite objective does
 not establish convergence. Threshold selection can produce an uninformative objective landscape.
@@ -914,7 +919,7 @@ Target peak, and Target/background contrast. Focality now uses mean ROI / mean n
 the existing ROI exponent `1 + intensity_weight`; weight zero has no absolute-intensity
 preference. The earlier p95 denominator is not the requested focality definition. Historical
 records and study measurements retain their original definitions; new manifests identify the
-mean-denominator score. See §13 of ARCHITECTURE.md and the objective-correction requirements.
+mean-denominator score. See §13 of ARCHITECTURE.md and TESTING's Flex objective regression case.
 
 ## 2026-09-13 — Link candidate history, trade-off plot and montage
 
@@ -922,7 +927,7 @@ The maintainer requested an intensity–focality scatter plot beside the table w
 Reuse the existing native WebGL montage renderer rather than add a 2D projection. Plot loading is
 independent of the table page; selection navigates to the appropriate row. Missing non-ROI
 measurements are not synthesized. Frontier claims remain limited to compatible recorded points.
-See the linked-candidate-review requirements and ARCHITECTURE §13.
+See ARCHITECTURE §13 and TESTING's optimizer candidate and replay checks.
 
 
 Cap placement follows the same selected-candidate identity: map that record rather than the run winner, keep the original poses for restoration, and clear poses when cap labels determine placement. Existing one-to-one Euclidean assignment is reused. The preview shows original-to-cap displacement in millimetres; this is not a scalp-geodesic calculation.
@@ -1558,3 +1563,76 @@ as empty, which is the truth.
 
 **Revisit if** a runner's outputs land in more than one folder (then the registered list
 should carry several `dir` entries and the route should union them).
+
+## 2026-09-19 — TI bootstraps TetraVox; TetraVox owns updates
+
+**Decision.** Follow ARCHITECTURE §7.1: discover locally on launch, reuse an existing native app,
+otherwise bootstrap
+an official verified package automatically under TI user data. Keep updates inside TetraVox. Remove
+TI's updater API and controls, release pin, update suppression and executable-hash lock across launches.
+
+**Why.** The prior September 15 rationale said the managed copy won because it had a “verified update
+path TI-Toolbox controls”. The maintainer now explicitly chooses one updater owned by TetraVox to avoid
+confusion. The September 13 extra setup-consent step is also superseded by the requested automatic setup.
+Initial archive verification remains necessary; ownership of subsequent versions does not belong to TI.
+
+**Alternatives rejected.** Reinstating an embed adds an unrelated renderer integration. Disabling the
+native updater preserves the duplicate ownership the user rejected. Treating Linux tar notification as
+in-app installation, or assuming Windows ZIP/NSIS coexistence, would make unsupported platform claims.
+Killing a busy viewer or forcing an X11 display to obtain focus risks user work or adds a dependency.
+
+**Scope and evidence.** This is a staged implementation, not release acceptance. Native handoff reports
+only a launch request until upstream provides a load receipt. Upstream packaging/window changes and the
+real three-platform install/update/foreground matrix remain in ROADMAP. No new numerical behavior or
+scientific dependency is introduced. The preload bridge removes its two native-update entry points;
+its exact remaining surface is asserted by the smoke spec. Tests and their limits belong in TESTING.
+
+
+## 2026-09-19 — Save the live native scene, not the builder recipe
+
+**Decision.** Amend ARCHITECTURE §5 and §7.1 for live native scene saving. Remove Save selection and
+Recent, retaining file-list Reset. Keep Save scene in the saved-scene library,
+backed by TetraVox's actual serializer and a new `saveNativeTetravoxScene` bridge entry. The bridge count
+is 21 (source contract, enforced by `smoke.spec.ts`). Capability is explicit, not inferred from version;
+missing support disables the action. New snapshots use the project scene directory and never overwrite.
+
+**Why and alternatives.** Saving the previously prepared recipe loses native camera/layer edits and
+falsely claims to preserve the view. A success receipt must identify the requested live session and
+saved path before the library refreshes. No TI updater or version pin is reintroduced. On macOS,
+explicit bundle reopen follows file delivery because opening a file alone may leave the app minimized;
+this requests activation without promising OS foreground authority.
+
+**Delivery boundary.** The upstream serializer/request implementation is a concrete draft at
+`dev/upstream/tetravox-live-scene`, not an applied or installed TetraVox change. Existing native builds
+remain unable to satisfy live save. Unit fixtures and mocked IPC verify TI behavior; real native
+serialization, no-window recovery and foreground acceptance remain release gates in ROADMAP.
+
+### 2026-09-19 — Native scene capability applied upstream
+
+The earlier draft-only delivery boundary is superseded: the request adapter, native controller save,
+canonical Save As default and window recreation now live in the TetraVox `fix/ti-native-scenes`
+checkout. TI retains capability detection for older installed builds. No viewer update or public
+release was performed. See the [integration record](../../dev/upstream/tetravox-live-scene/README.md)
+for verification and outstanding platform gates.
+
+### 2026-09-19 — Consume a generic TetraVox scene API
+
+The maintainer rejected the TI-specific upstream protocol and native Save As redirection. TI uses
+TetraVox's generic open/save requests with caller-selected paths and an optional expected attached path.
+Project directory policy stays here; TetraVox does not know TI's BIDS layout or require a TI session.
+This supersedes the upstream-specific session/default claims above.
+
+## 2026-09-20 — Requirements are recorded directly in canonical references
+
+**Decision.** The repository has no `docs/requirements` store. A durable behavior change edits
+ARCHITECTURE, its rationale appends here, verification belongs in TESTING, open acceptance stays in
+ROADMAP, and user-visible outcomes belong in CHANGELOG or the applicable release page. The
+`documentation_policy.py` guard rejects the path itself, including an empty directory, file or symlink.
+
+**Why.** Point-in-time proposals duplicated current truth and left inbound links to scaffolding after
+implementation. Keeping one current contract and one append-only rationale makes later maintenance
+resolve from canonical sources rather than reconstructing which proposal won.
+
+**Alternatives rejected.** Archiving the files under another intent directory preserves the duplicate
+source of truth. Ignoring the directory hides local files but does not prevent them from being forced
+into a commit. The structural guard plus its fixture-driven self-test makes the policy executable.

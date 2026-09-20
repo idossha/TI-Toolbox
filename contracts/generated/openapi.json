@@ -3820,7 +3820,7 @@
           "viewers"
         ],
         "summary": "Saved Tetravox scenes",
-        "description": "A scene is *what a person was looking at* -- the embed's own serialized ViewSpec, camera and per-layer window included -- written in the app's own format so the standalone Tetravox app opens it by double-click. The suffix `.tetravox.json` is not negotiable: the app routes any other suffix as a dataset and tries to read the JSON as a volume, silently. A PNG thumbnail and a metadata file share the stem. The documents themselves are not returned here (one is megabytes); GET /api/viewer/scenes/{name} is the read. Newest first.",
+        "description": "A scene is *what a person was looking at* -- TetraVox's serialized ViewSpec, camera and per-layer window included -- written in the app's own format so the standalone TetraVox app opens it by double-click. The suffix `.tetravox.json` is not negotiable: the app routes any other suffix as a dataset and tries to read the JSON as a volume, silently. API-saved scenes may have a PNG thumbnail and metadata beside them; native-saved scenes are valid without either. The documents themselves are not returned here (one is megabytes); GET /api/viewer/scenes/{name} is the read. Newest first by saved metadata or file mtime.",
         "security": [
           {
             "cookieAuth": []
@@ -3918,6 +3918,58 @@
         }
       }
     },
+    "/api/viewer/scenes/{name}/native-destination": {
+      "post": {
+        "tags": [
+          "viewers"
+        ],
+        "summary": "Prepare the active project's native scene save destination",
+        "description": "Creates the canonical scene directory; never writes a scene or overwrites an existing file.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "scene_path"
+                  ],
+                  "properties": {
+                    "scene_path": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A scene with this name already exists"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
     "/api/viewer/scenes/{name}": {
       "get": {
         "tags": [
@@ -3983,7 +4035,7 @@
           "viewers"
         ],
         "summary": "Save the scene the viewer is showing",
-        "description": "`scene` is the embed's own `serialize` reply -- the live ViewSpec, with the camera the person left it at and every layer's current window -- and is written verbatim: a server that re-derived any part of it would be recording something other than what was on screen. `thumbnail` is the embed's `screenshot` reply as a data URL; anything that is not a real PNG, or is over the size cap, is dropped rather than refused, because a scene worth keeping is still worth keeping without its picture.",
+        "description": "`scene` is a compatible TetraVox client's `serialize` reply -- the live ViewSpec, with the camera the person left it at and every layer's current window -- and is written verbatim: a server that re-derived any part of it would be recording something other than what was on screen. `thumbnail` is that client's screenshot reply as a data URL; anything not a real PNG, or is over the size cap, is dropped rather than refused, because a scene worth keeping is still worth keeping without its picture.",
         "security": [
           {
             "cookieAuth": []
@@ -4015,14 +4067,14 @@
                   "scene": {
                     "type": "object",
                     "additionalProperties": true,
-                    "description": "the embed's serialized ViewSpec; must carry at least one layer"
+                    "description": "a compatible TetraVox client's serialized ViewSpec; must carry at least one layer"
                   },
                   "thumbnail": {
                     "type": [
                       "string",
                       "null"
                     ],
-                    "description": "data:image/png;base64,... from the embed's screenshot reply"
+                    "description": "data:image/png;base64,... from the client's screenshot reply"
                   },
                   "subject": {
                     "type": [

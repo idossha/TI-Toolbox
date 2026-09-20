@@ -12,8 +12,6 @@ let root: Root;
 let client: QueryClient;
 const nativeTetravoxStatus = vi.fn();
 const installNativeTetravox = vi.fn();
-const updateNativeTetravox = vi.fn();
-const checkNativeTetravoxUpdate = vi.fn();
 const locateNativeTetravox = vi.fn();
 const clearNativeTetravoxPath = vi.fn();
 const openNativeTetravox = vi.fn();
@@ -23,8 +21,6 @@ function bridge(): TitBridge {
   return {
     nativeTetravoxStatus,
     installNativeTetravox,
-    updateNativeTetravox,
-    checkNativeTetravoxUpdate,
     locateNativeTetravox,
     clearNativeTetravoxPath,
     onNativeTetravoxProgress,
@@ -67,12 +63,12 @@ it("shows a browser-only row with no buttons when there is no desktop bridge", a
   expect(container.querySelector("button")).toBeNull();
 });
 
-it("offers Install and a not-installed pill when nothing is present", async () => {
+it("offers setup retry when automatic installation has not completed", async () => {
   const status: TitNativeTetravoxStatus = { supported: true, installed: false, installing: false, version: "", directory: "" };
   nativeTetravoxStatus.mockResolvedValue(status);
   await render();
   expect(container.textContent).toContain("Not installed");
-  expect(button("Install TetraVox")).toBeDefined();
+  expect(button("Retry setup")).toBeDefined();
   expect(button("Launch TetraVox")).toBeUndefined();
 });
 
@@ -90,7 +86,8 @@ it("shows the managed source, version and a Launch action when installed", async
   expect(container.textContent).toContain("Installed 0.5.1 · managed");
   expect(container.textContent).toContain("Installed for TI-Toolbox");
   expect(button("Launch TetraVox")).toBeDefined();
-  expect(button("Check for updates")).toBeDefined();
+  expect(button("Check for updates")).toBeUndefined();
+  expect(container.textContent).toContain("Updates are managed in TetraVox.");
 });
 
 it("shows the system source with its path in the pill", async () => {
@@ -107,24 +104,53 @@ it("shows the system source with its path in the pill", async () => {
   expect(container.textContent).toContain("Installed system · system (/Applications/TetraVox.app)");
 });
 
-it("shows an Update action and pill when a newer release is known", async () => {
-  const status: TitNativeTetravoxStatus = {
-    source: "managed",
-    supported: true,
-    installed: true,
-    installing: false,
-    version: "0.5.1",
-    directory: "/managed",
-    updateAvailable: "0.5.2",
-  };
+it("retries failed setup without offering TI-owned version updates", async () => {
+  const status: TitNativeTetravoxStatus = { supported: true, installed: false, installing: false, version: "", directory: "", error: "Download failed" };
   nativeTetravoxStatus.mockResolvedValue(status);
-  updateNativeTetravox.mockResolvedValue({ ...status, version: "0.5.2", updateAvailable: undefined });
+  installNativeTetravox.mockImplementation(async () => {
+    nativeTetravoxStatus.mockResolvedValue({ ...status, installed: true, source: "managed", version: "0.5.2", error: undefined });
+  });
   await render();
-  expect(container.textContent).toContain("Update available 0.5.2");
-  const update = button("Update to 0.5.2")!;
-  act(() => update.click());
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("Download failed");
+  act(() => button("Retry setup")!.click());
   await settle();
-  expect(updateNativeTetravox).toHaveBeenCalledOnce();
+  await settle();
+  expect(installNativeTetravox).toHaveBeenCalledOnce();
+  expect(button("Launch TetraVox")).toBeDefined();
+  expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(button("Check for updates")).toBeUndefined();
+});
+
+it("refreshes an automatic installation that finishes outside this card", async () => {
+  const status: TitNativeTetravoxStatus = { supported: true, installed: false, installing: true, version: "", directory: "" };
+  nativeTetravoxStatus.mockResolvedValue(status);
+  await render();
+  expect(button("Installing…")?.disabled).toBe(true);
+  expect(button("Locate…")?.disabled).toBe(true);
+  expect(installNativeTetravox).not.toHaveBeenCalled();
+  nativeTetravoxStatus.mockResolvedValue({ ...status, installed: true, installing: false, version: "0.6.0", source: "managed" });
+  const listener = onNativeTetravoxProgress.mock.calls[0]?.[0];
+  expect(listener).toBeDefined();
+  act(() => listener!({ phase: "idle" }));
+  await settle();
+  expect(button("Launch TetraVox")).toBeDefined();
+  expect(container.textContent).toContain("0.6.0");
+});
+
+it("polls an in-progress setup even when its completion event is missed", async () => {
+  onNativeTetravoxProgress.mockImplementation((listener) => {
+    listener({ phase: "download", received: 1024 });
+    return () => {};
+  });
+  nativeTetravoxStatus.mockResolvedValue({ supported: true, installed: false, installing: true, version: "", directory: "" });
+  await render();
+  nativeTetravoxStatus.mockResolvedValue({ supported: true, installed: true, installing: false, version: "0.6.0", directory: "/managed", source: "managed" });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1100)); });
+  await settle();
+  expect(button("Launch TetraVox")).toBeDefined();
+  expect(button("Locate…")?.disabled).toBe(false);
+  expect(container.querySelector('[role="progressbar"]')).toBeNull();
+  expect(installNativeTetravox).not.toHaveBeenCalled();
 });
 
 it("renders a download progress bar while installing", async () => {

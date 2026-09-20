@@ -20,6 +20,7 @@ import json
 import os
 import struct
 import zlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -190,6 +191,20 @@ def test_scenes_list_newest_first_without_returning_the_documents(pm: PathManage
     assert {r["name"] for r in rows} == {"older", "newer"}
     assert all("scene" not in r for r in rows)
     assert all("bytes" in r and "has_thumbnail" in r for r in rows)
+
+
+def test_native_scene_without_metadata_uses_mtime_for_newest_first(pm: PathManager) -> None:
+    """A native serializer writes only the scene, so metadata cannot be its sort authority."""
+    lib.save_scene("metadata-backed", {"scene": SCENE})
+    native = Path(lib.saved_scene_dir()) / "native.tetravox.json"
+    native.write_text(json.dumps(SCENE))
+    future = datetime.now(timezone.utc).timestamp() + 60
+    os.utime(native, (future, future))
+
+    rows = lib.list_scenes()["scenes"]
+
+    assert [row["slug"] for row in rows] == ["native", "metadata-backed"]
+    assert rows[0]["saved_at"] == datetime.fromtimestamp(future, timezone.utc).isoformat()
 
 
 def test_reading_one_scene_returns_the_document(pm: PathManager) -> None:

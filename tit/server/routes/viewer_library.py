@@ -377,13 +377,16 @@ def list_scenes() -> dict[str, Any]:
         except (OSError, HTTPException):
             continue
         meta = _read_json(os.path.join(directory, f"{stem}.meta.json")) or {}
+        saved_at = meta.get("saved_at")
+        if not isinstance(saved_at, str) or not saved_at:
+            saved_at = datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat()
         out.append(
             {
                 "name": meta.get("name", stem),
                 "slug": stem,
                 "path": path,
                 "bytes": st.st_size,
-                "saved_at": meta.get("saved_at"),
+                "saved_at": saved_at,
                 "subject": meta.get("subject"),
                 "simulation": meta.get("simulation"),
                 "field": meta.get("field"),
@@ -393,6 +396,24 @@ def list_scenes() -> dict[str, Any]:
         )
     out.sort(key=lambda row: (row.get("saved_at") or "", row["slug"]), reverse=True)
     return {"scenes": out}
+
+
+@router.post(
+    "/api/viewer/scenes/{name}/native-destination",
+    summary="Prepare the active project's native scene save destination",
+    responses={409: {"description": "A scene with this name already exists"}},
+)
+def native_scene_destination(name: str) -> dict[str, str]:
+    """Choose the canonical project destination without writing a substitute scene."""
+    target = checked_viewer_path(
+        os.path.join(saved_scene_dir(), f"{_slug(name)}{_SCENE_SUFFIX}")
+    )
+    if os.path.lexists(target):
+        raise HTTPException(
+            status_code=409, detail="A scene with this name already exists"
+        )
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    return {"scene_path": checked_viewer_path(target)}
 
 
 @router.get("/api/viewer/scenes/{name}", summary="One saved scene document")

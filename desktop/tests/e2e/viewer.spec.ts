@@ -28,6 +28,7 @@ test.beforeEach(async () => {
       installing: false,
       version: "test",
       directory: "/tmp/tetravox",
+      supportsSceneSave: true,
     }));
     ipcMain.removeHandler("tit:tetravox:open");
     ipcMain.handle("tit:tetravox:open", (_event, path: string) => {
@@ -89,44 +90,11 @@ test("editing the source never launches TetraVox", async () => {
   );
 });
 
-test("a saved composition restores the selected files", async () => {
-  const files = page.getByTestId("viewer-preview-files");
-  await expect(files.locator("li").first()).toBeVisible();
-  await page.getByTestId("viewer-tree-node-T2_reg.nii.gz").click();
-  await expect(files.locator("li")).toHaveCount(2);
-  const selected = await files
-    .locator("li")
-    .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-testid")));
-  const name = `native-composition-${Date.now()}`;
-  await page.getByTestId("viewer-save-preset").click();
-  await page.getByTestId("viewer-preset-name").fill(name);
-  const saved = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(`/api/viewer/compositions/${name}`) &&
-      response.request().method() === "PUT",
-  );
-  await page.getByTestId("viewer-preset-save").click();
-  expect((await saved).ok()).toBe(true);
-  await page.keyboard.press("Escape");
-  await files.locator('[data-testid^="viewer-file-remove-"]').first().click();
-  await expect(files.locator("li")).toHaveCount(selected.length - 1);
-  await page.getByTestId("viewer-save-preset").click();
-  await page.getByTestId(`viewer-preset-${name}`).click();
-  await expect
-    .poll(() =>
-      files
-        .locator("li")
-        .evaluateAll((rows) =>
-          rows.map((row) => row.getAttribute("data-testid")),
-        ),
-    )
-    .toEqual(selected);
-  expect(
-    await app.evaluate(
-      () =>
-        (globalThis as unknown as { nativePaths?: string[] }).nativePaths ?? [],
-    ),
-  ).toEqual([]);
+test("the builder footer only opens the selection; scene saving lives in Saved scenes", async () => {
+  await expect(page.getByTestId("viewer-open")).toBeVisible();
+  await expect(page.getByTestId("viewer-save-preset")).toHaveCount(0);
+  await expect(page.getByTestId("viewer-recent")).toHaveCount(0);
+  await expect(page.getByTestId("viewer-saved-scenes-section").getByTestId("viewer-scene-save-open")).toBeVisible();
 });
 
 test("an old URL-based saved scene is exported without modifying its original", async () => {
@@ -199,7 +167,7 @@ test("a refused native launch shows its reason and allows retry", async () => {
   await expect(page.getByTestId("viewer-open")).toBeVisible();
 });
 
-test("missing native installation offers setup without automatic installation", async () => {
+test("failed startup installation offers a user-triggered retry", async () => {
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("tit:tetravox:status");
     ipcMain.handle("tit:tetravox:status", () => ({
@@ -220,7 +188,7 @@ test("missing native installation offers setup without automatic installation", 
   await expect(
     page
       .getByTestId("native-tetravox")
-      .getByRole("button", { name: "Install TetraVox", exact: true }),
+      .getByRole("button", { name: "Retry setup", exact: true }),
   ).toBeEnabled();
   await expect(
     page.getByTestId("native-tetravox").getByRole("alert"),
@@ -297,4 +265,49 @@ test("scene deletion supports cancel, reports errors, and retries", async () => 
   await page.getByTestId(`viewer-confirm-delete-${name}`).click();
   await expect(row).toHaveCount(0);
   expect(attempts).toBe(2);
+});
+
+// Mock IPC proof of renderer behavior; native snapshot correctness is verified separately.
+test("Save scene captures the native scene and refreshes only after its receipt", async () => {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:saveScene");
+    ipcMain.handle("tit:tetravox:saveScene", (_event, name: string) => ({
+      ok: true, path: `/mnt/example/code/ti-toolbox/viewer/scenes/${name}.tetravox.json`,
+    }));
+  });
+  const writes: string[] = [];
+  page.on("request", (request) => { if (request.method() === "PUT") writes.push(request.url()); });
+  await page.getByTestId("viewer-scene-save-open").click();
+  await page.getByTestId("viewer-scene-name").fill("live-state");
+  const refreshed = page.waitForResponse((response) => response.url().endsWith("/api/viewer/scenes"));
+  await page.getByTestId("viewer-scene-save").click();
+  await refreshed;
+  await expect(page.getByTestId("viewer-scene-saved")).toHaveText("Saved /mnt/example/code/ti-toolbox/viewer/scenes/live-state.tetravox.json");
+  expect(writes).toEqual([]);
+});
+
+test("unsupported native scene saving stays unavailable", async () => {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:status");
+    ipcMain.handle("tit:tetravox:status", () => ({ supported: true, installed: true, installing: false, version: "test", directory: "/tmp/tetravox", supportsSceneSave: false }));
+  });
+  await page.reload();
+  await gotoPage(page, "viewer", "Viewer");
+  await expect(page.getByTestId("viewer-scene-save-open")).toBeDisabled();
+  await expect(page.getByTestId("viewer-saved-scenes-section")).toContainText("native scene-saving support");
+});
+
+test("a refused native save reports the reason without claiming or refreshing a save", async () => {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:saveScene");
+    ipcMain.handle("tit:tetravox:saveScene", () => ({ ok: false, reason: "No active native scene" }));
+  });
+  await page.getByTestId("viewer-scene-save-open").click();
+  await page.getByTestId("viewer-scene-name").fill("not-saved");
+  const reads: string[] = [];
+  page.on("request", (request) => { if (request.url().endsWith("/api/viewer/scenes")) reads.push(request.url()); });
+  await page.getByTestId("viewer-scene-save").click();
+  await expect(page.getByTestId("viewer-scene-save-error")).toHaveText("No active native scene");
+  await expect(page.getByTestId("viewer-scene-saved")).toHaveCount(0);
+  expect(reads).toEqual([]);
 });

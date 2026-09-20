@@ -101,3 +101,46 @@ def test_saved_scene_uses_native_paths_and_can_be_saved_again(project):
     assert (
         Path(again["scene_path"]).read_text() == Path(result["scene_path"]).read_text()
     )
+
+
+def test_native_save_destination_uses_project_library_without_writing_scene(project):
+    target = viewer_library.native_scene_destination("Edited view")["scene_path"]
+    expected = (
+        project
+        / "code"
+        / "ti-toolbox"
+        / "viewer"
+        / "scenes"
+        / "Edited_view.tetravox.json"
+    )
+    assert Path(target) == expected
+    assert expected.parent.is_dir()
+    assert not expected.exists()
+
+
+def test_native_save_destination_preserves_existing_scene(project):
+    target = Path(viewer_library.native_scene_destination("Saved")["scene_path"])
+    target.write_text("original")
+    with pytest.raises(HTTPException) as error:
+        viewer_library.native_scene_destination("Saved")
+    assert error.value.status_code == 409
+    assert target.read_text() == "original"
+
+
+@pytest.mark.parametrize("name", ["../outside", "a/b", r"a\b", "..", ""])
+def test_native_save_destination_refuses_traversal(project, name):
+    with pytest.raises(HTTPException) as error:
+        viewer_library.native_scene_destination(name)
+    assert error.value.status_code == 422
+
+
+def test_native_save_destination_refuses_external_scene_directory(project, tmp_path):
+    viewer = project / "code" / "ti-toolbox" / "viewer"
+    viewer.mkdir(parents=True, exist_ok=True)
+    external = tmp_path / "outside-save"
+    external.mkdir()
+    (viewer / "scenes").symlink_to(external, target_is_directory=True)
+    with pytest.raises(HTTPException) as error:
+        viewer_library.native_scene_destination("Outside")
+    assert error.value.status_code == 403
+    assert list(external.iterdir()) == []

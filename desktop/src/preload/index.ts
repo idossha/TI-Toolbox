@@ -15,10 +15,9 @@ import type {
 } from "../shared/tit-bridge";
 
 const tit: TitBridge = {
+  saveNativeTetravoxScene: (name: string) => ipcRenderer.invoke("tit:tetravox:saveScene", name),
   nativeTetravoxStatus: () => ipcRenderer.invoke("tit:tetravox:status"),
   installNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:install"),
-  checkNativeTetravoxUpdate: () => ipcRenderer.invoke("tit:tetravox:checkUpdate"),
-  updateNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:update"),
   locateNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:locate"),
   clearNativeTetravoxPath: () => ipcRenderer.invoke("tit:tetravox:clearPath"),
   onNativeTetravoxProgress: (listener: (progress: TitNativeTetravoxProgress) => void) => {

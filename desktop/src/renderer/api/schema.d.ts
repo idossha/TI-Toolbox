@@ -3066,7 +3066,7 @@ export interface paths {
         };
         /**
          * Saved Tetravox scenes
-         * @description A scene is *what a person was looking at* -- the embed's own serialized ViewSpec, camera and per-layer window included -- written in the app's own format so the standalone Tetravox app opens it by double-click. The suffix `.tetravox.json` is not negotiable: the app routes any other suffix as a dataset and tries to read the JSON as a volume, silently. A PNG thumbnail and a metadata file share the stem. The documents themselves are not returned here (one is megabytes); GET /api/viewer/scenes/{name} is the read. Newest first.
+         * @description A scene is *what a person was looking at* -- TetraVox's serialized ViewSpec, camera and per-layer window included -- written in the app's own format so the standalone TetraVox app opens it by double-click. The suffix `.tetravox.json` is not negotiable: the app routes any other suffix as a dataset and tries to read the JSON as a volume, silently. API-saved scenes may have a PNG thumbnail and metadata beside them; native-saved scenes are valid without either. The documents themselves are not returned here (one is megabytes); GET /api/viewer/scenes/{name} is the read. Newest first by saved metadata or file mtime.
          */
         get: {
             parameters: {
@@ -3143,6 +3143,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/viewer/scenes/{name}/native-destination": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare the active project's native scene save destination
+         * @description Creates the canonical scene directory; never writes a scene or overwrites an existing file.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            scene_path: string;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description A scene with this name already exists */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/viewer/scenes/{name}": {
         parameters: {
             query?: never;
@@ -3189,7 +3239,7 @@ export interface paths {
         };
         /**
          * Save the scene the viewer is showing
-         * @description `scene` is the embed's own `serialize` reply -- the live ViewSpec, with the camera the person left it at and every layer's current window -- and is written verbatim: a server that re-derived any part of it would be recording something other than what was on screen. `thumbnail` is the embed's `screenshot` reply as a data URL; anything that is not a real PNG, or is over the size cap, is dropped rather than refused, because a scene worth keeping is still worth keeping without its picture.
+         * @description `scene` is a compatible TetraVox client's `serialize` reply -- the live ViewSpec, with the camera the person left it at and every layer's current window -- and is written verbatim: a server that re-derived any part of it would be recording something other than what was on screen. `thumbnail` is that client's screenshot reply as a data URL; anything not a real PNG, or is over the size cap, is dropped rather than refused, because a scene worth keeping is still worth keeping without its picture.
          */
         put: {
             parameters: {
@@ -3203,11 +3253,11 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description the embed's serialized ViewSpec; must carry at least one layer */
+                        /** @description a compatible TetraVox client's serialized ViewSpec; must carry at least one layer */
                         scene: {
                             [key: string]: unknown;
                         };
-                        /** @description data:image/png;base64,... from the embed's screenshot reply */
+                        /** @description data:image/png;base64,... from the client's screenshot reply */
                         thumbnail?: string | null;
                         subject?: string | null;
                         simulation?: string | null;

@@ -8,8 +8,9 @@ import { readSettings, updateSettings, setAppleGpuEnabled, setTetravoxPath } fro
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
+import { createNativeSceneSession, exchangeNativeSceneRequest } from "./nativeSceneBridge";
 import { createViewerHandoff } from "./viewerHandoff";
-import { checkViewerScene, checkViewerUpdate, identifyViewerPath, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, pruneManagedViewers, setConfiguredViewerPathProvider, setViewerProgressListener } from "./tetravoxNative";
+import { checkViewerScene, identifyViewerPath, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setConfiguredViewerPathProvider, setViewerProgressListener } from "./tetravoxNative";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -59,6 +60,10 @@ let activeSession: { origin: string; token: string } | null = null;
  * than a plain boolean (rb_12 NEW issue: macOS `activate` reopening a window after the first
  * window's quit was approved must not inherit that approval). */
 const quitGate = createQuitGate();
+const nativeScenes = createNativeSceneSession((request, viewer) => {
+  const userData = app.getPath("userData");
+  return exchangeNativeSceneRequest(userData, request, (path) => openNativeViewer(userData, "", viewer, path));
+});
 const fastSurferWorker = new FastSurferWorker();
 let fastSurferInstalling = false;
 let fastSurferInstalled: boolean | undefined;
@@ -178,6 +183,7 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
   // In dev the page comes from Vite (HMR) which proxies /api, /auth and /ws to the server.
   const pageOrigin = process.env.ELECTRON_RENDERER_URL && !(!app.isPackaged && process.env.TIT_DEV_LAUNCHER === "1") ? new URL(process.env.ELECTRON_RENDERER_URL).origin : url.origin;
   serverOrigin = pageOrigin;
+  nativeScenes.clear();
   activeSession = { origin: url.origin, token: args.token };
   projectRootCache = null; // A new session may point at a different project.
   void resumeFastSurferWorker();
@@ -297,6 +303,7 @@ async function clearProjectMirrors(win: BrowserWindow): Promise<void> {
 async function showLauncher(win: BrowserWindow, error?: string): Promise<void> {
   await clearProjectMirrors(win);
   serverOrigin = null;
+  nativeScenes.clear();
   activeSession = null;
   projectRootCache = null;
   setJobFinishedListener(undefined);
@@ -702,40 +709,13 @@ function registerIpc(): void {
     if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
     return nativeViewerStatus(app.getPath("userData"));
   });
-  ipcMain.handle("tit:tetravox:checkUpdate", async (e) => {
-    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
-    try { return await checkViewerUpdate(app.getPath("userData")); }
-    catch (error) { return { ...await nativeViewerStatus(app.getPath("userData")), error: error instanceof Error ? error.message : String(error) }; }
-  });
-  /** Both install and update take the same consent: nothing is downloaded without an explicit yes. */
-  const installViewer = async (version: string | undefined, title: string, message: string) => {
-    const userData = app.getPath("userData");
-    const status = await nativeViewerStatus(userData);
-    if (status.installing || !status.supported || !mainWindow) return status;
-    const consent = await dialog.showMessageBox(mainWindow, {
-      type: "question", title, buttons: ["Cancel", version ? "Update TetraVox" : "Install TetraVox"], defaultId: 1, cancelId: 0,
-      message,
-      detail: `TI-Toolbox downloads an official TetraVox release into ${status.directory}, verifying its published checksum before anything is installed. No administrator installation is requested. TetraVox runs as a separate desktop application with your normal user file permissions. It is not restricted to a project sandbox.`,
-    });
-    if (consent.response !== 1) return status;
-    try {
-      const installed = await installNativeViewer(userData, version);
-      if (version) await pruneManagedViewers(userData, version);
-      return installed;
-    } catch { return nativeViewerStatus(userData); }
-  };
+  // Setup is automatic on launch; this action is the same first-install-only operation for retry.
+  // TetraVox owns all subsequent updates; TI has no update IPC or initial-setup consent dialog.
   ipcMain.handle("tit:tetravox:install", async (e) => {
     if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
-    const status = await nativeViewerStatus(app.getPath("userData"));
-    if (status.installed) return status;
-    return installViewer(undefined, "Install native TetraVox", "Install TetraVox for your TI-Toolbox user?");
-  });
-  ipcMain.handle("tit:tetravox:update", async (e) => {
-    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
     const userData = app.getPath("userData");
-    const status = await checkViewerUpdate(userData).catch(() => nativeViewerStatus(userData));
-    if (!status.updateAvailable) return status;
-    return installViewer(status.updateAvailable, "Update native TetraVox", `Update TetraVox to ${status.updateAvailable}?`);
+    try { return await installNativeViewer(userData); }
+    catch { return nativeViewerStatus(userData); }
   });
   ipcMain.handle("tit:tetravox:locate", async (e) => {
     if (!fromMainWindow(e) || !mainWindow) throw new Error("Untrusted viewer request.");
@@ -760,8 +740,33 @@ function registerIpc(): void {
     return nativeViewerStatus(app.getPath("userData"));
   });
   const viewerHandoff = createViewerHandoff();
+  ipcMain.handle("tit:tetravox:saveScene", async (e, name: unknown) => {
+    if (!fromMainWindow(e) || typeof name !== "string" || !name.trim() || name.length > 80) return { ok: false, reason: "Invalid native scene save request." };
+    let savedPath: string | undefined;
+    try {
+      const session = activeSession;
+      const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+      if (!session || !root) throw new Error("Native scene saving requires an active local project.");
+      await viewerHandoff({ hasScene: false, running: async () => false, confirm: async () => false, launch: async () => {
+        if (!fromMainWindow(e) || session !== activeSession) throw new Error("The active project changed before saving.");
+        const response = await net.fetch(`${session.origin}/api/viewer/scenes/${encodeURIComponent(name)}/native-destination`, {
+          method: "POST", headers: { authorization: `Bearer ${session.token}` }, signal: AbortSignal.timeout(5000),
+        });
+        const body = await response.json() as { scene_path?: unknown; detail?: unknown };
+        if (!response.ok || typeof body.scene_path !== "string") throw new Error(typeof body.detail === "string" ? body.detail : "Could not prepare the project scene destination.");
+        const mapped = await resolveHostPathStrict(body.scene_path);
+        if (!mapped.ok) throw new Error(mapped.reason);
+        const currentRoot = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+        if (!fromMainWindow(e) || session !== activeSession || currentRoot !== root) throw new Error("The active project changed before saving.");
+        await nativeScenes.save(mapped.path, root);
+        savedPath = body.scene_path;
+      } });
+      return { ok: true, path: savedPath };
+    } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
+  });
   ipcMain.handle("tit:tetravox:open", async (e, path: unknown) => {
     if (!fromMainWindow(e) || typeof path !== "string") return { ok: false, reason: "Untrusted viewer request." };
+    const requestedSession = activeSession;
     try {
       let scene = "";
       if (path) {
@@ -772,6 +777,9 @@ function registerIpc(): void {
         scene = await checkViewerScene(mapped.path, root);
       }
       const userData = app.getPath("userData");
+      // A result selected during first-time setup waits for that same installation before opening.
+      // Discovery is local when an app is already installed; this never updates an existing app.
+      await installNativeViewer(userData);
       let selectedViewer: Awaited<ReturnType<typeof nativeViewerStatus>> | undefined;
       return await viewerHandoff({
         hasScene: !!scene,
@@ -793,13 +801,21 @@ function registerIpc(): void {
           return answer.response === 1;
         },
         launch: async () => {
-          if (!fromMainWindow(e)) throw new Error("The viewer request is no longer active.");
+          if (!fromMainWindow(e) || requestedSession !== activeSession) throw new Error("The viewer request is no longer active.");
           if (scene) {
             const currentRoot = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
             if (!currentRoot) throw new Error("The project is no longer connected.");
             await checkViewerScene(scene, currentRoot);
           }
-          await openNativeViewer(userData, scene, selectedViewer);
+          const viewer = selectedViewer ?? await nativeViewerStatus(userData);
+          if (scene && viewer.supportsSceneSave) {
+            const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+            if (!root) throw new Error("The project is no longer connected.");
+            await nativeScenes.open(scene, root, viewer);
+          } else {
+            if (scene) nativeScenes.clear();
+            await openNativeViewer(userData, scene, viewer);
+          }
         },
       });
     } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
@@ -1001,6 +1017,13 @@ void app.whenReady().then(async () => {
   registerIpc();
   forwardStackEvents();
   mainWindow = createWindow();
+  // Keep startup responsive and never perform real downloads in the automated app harness.
+  // Each ordinary app launch discovers locally first; setup is only needed when no app exists.
+  if (WINDOW_MODE === "normal" && !process.env.TIT_E2E_TOKEN) {
+    void installNativeViewer(app.getPath("userData")).catch((error: unknown) => {
+      log("warn", `TetraVox setup: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
   if (!(await tryDevAutoConnect(mainWindow)) && !(await tryNativeAutoStart(mainWindow))) showLauncher(mainWindow);
 
   app.on("activate", () => {

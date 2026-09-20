@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { openNativeScene, exportNativeScene } from "../../src/renderer/viewer/native";
+import { openNativeScene, exportNativeScene, saveNativeScene } from "../../src/renderer/viewer/native";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("native TetraVox handoff", () => {
@@ -25,5 +25,35 @@ describe("native TetraVox handoff", () => {
     const scene={version:2,datasets:[],layers:[]};
     expect(await exportNativeScene(scene,"target-preview")).toBe("/mnt/project/target.tetravox.json");
     expect(JSON.parse(fetch.mock.calls[0]![1].body)).toEqual({scene,name:"target-preview"});
+  });
+});
+
+
+describe("saving the live native scene", () => {
+  it("returns the confirmed project path without posting a builder recipe", async () => {
+    const path = "/mnt/project/code/ti-toolbox/viewer/scenes/my-scene.tetravox.json";
+    const saveNativeTetravoxScene = vi.fn().mockResolvedValue({ ok: true, path });
+    const fetch = vi.fn();
+    vi.stubGlobal("window", { tit: { saveNativeTetravoxScene } });
+    vi.stubGlobal("fetch", fetch);
+    await expect(saveNativeScene("my-scene")).resolves.toBe(path);
+    expect(saveNativeTetravoxScene).toHaveBeenCalledWith("my-scene");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("does not claim a save after cancellation", async () => {
+    vi.stubGlobal("window", { tit: { saveNativeTetravoxScene: vi.fn().mockResolvedValue({ ok: false, cancelled: true }) } });
+    await expect(saveNativeScene("my-scene")).resolves.toBeNull();
+  });
+  it.each([
+    { ok: false, reason: "Native scene saving is unavailable." },
+    { ok: true },
+    { ok: true, path: "" },
+  ])("rejects a failed or incomplete receipt: %j", async (receipt) => {
+    vi.stubGlobal("window", { tit: { saveNativeTetravoxScene: vi.fn().mockResolvedValue(receipt) } });
+    await expect(saveNativeScene("my-scene")).rejects.toThrow(receipt.reason ?? "did not confirm");
+  });
+  it("reports an unavailable native bridge", async () => {
+    vi.stubGlobal("window", {});
+    await expect(saveNativeScene("my-scene")).rejects.toThrow("compatible TetraVox");
   });
 });

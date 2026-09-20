@@ -67,11 +67,17 @@ interface test, not a completed simulation. Published-output changes also need r
 Repository guards:
 
 ```bash
+python3 -m unittest tests.test_documentation_policy -v
+python3 dev/documentation_policy.py
 python3 dev/route_import_guard.py
 python3 dev/contracts_check.py
 ```
 
-The import guard prevents heavy scientific imports during route registration. The contract guard
+The documentation-policy self-test drives absent, empty-directory, file, symlink and nested-content
+fixtures before the guard rejects `docs/requirements` itself. Durable behavior goes directly to
+ARCHITECTURE, rationale to DECISIONS, verification here and open work to ROADMAP; an intent archive is
+not a second source of truth. The import guard prevents heavy scientific imports during route
+registration. The contract guard
 regenerates outputs in a temporary directory and checks byte drift against the authored contract.
 Fix drift with `cd desktop && npm run gen`; never hand-edit generated output. Contract warnings
 must be reported rather than counted as zero.
@@ -215,7 +221,7 @@ per-carrier centres, orientation, current and layer settings. Their real-library
 `tests/numerical/` exercise actual SciPy/SimNIBS boundaries without FEM; run them with the image's
 `simnibs_python`, not the host scientific mocks.
 
-`candidate-browser.test.tsx` and `candidate-history.test.ts` cover linked selection across table pages, missing metrics/anatomy, historical labels, bounded history loading and cancellation. The hidden `desktop/tests/e2e/optimizer-candidates.spec.ts` verifies the table/plot layout, cross-page selection, exact Simulator draft, cap snapping, displacement annotations and restoration of original XYZ without automatic submission. `tests/numerical/test_candidate_snap.py` compares candidate-specific cap assignment against exhaustive enumeration, including invalid caps and path confinement. These are UI, metadata and assignment checks, not a remeshed-field guarantee.
+`candidate-browser.test.tsx` and `candidate-history.test.ts` cover linked selection across table pages, missing metrics/anatomy, historical labels, bounded history loading and cancellation; frontier fixtures include ties and dominated points rather than only a monotonic happy path. The hidden `desktop/tests/e2e/optimizer-candidates.spec.ts` verifies the table/plot layout, cross-page selection, exact Simulator draft, cap snapping, displacement annotations and restoration of original XYZ without automatic submission. `tests/numerical/test_candidate_snap.py` compares candidate-specific cap assignment against exhaustive enumeration, including invalid caps and path confinement. These are UI, metadata and assignment checks, not a remeshed-field guarantee.
 
 `dev/flex_candidate_benchmark.py` is an explicitly invoked real-subject benchmark. It requires a
 project, subject and new output directory; run observation off/on in separate serial processes with
@@ -253,3 +259,50 @@ Completed-log regressions: `desktop/tests/unit/job-log-completion.test.tsx` veri
 retention and stability after succeeded/failed/cancelled states. `jobsStream.test.ts` covers
 reconnect cursors and shared consumers; `tests/test_jobs_manager.py` and `tests/test_jobs_routes.py`
 cover oversized backfill and ordered batch draining.
+
+
+### Native viewer lifecycle release gate
+
+ARCHITECTURE §7.1 defines the macOS arm64/x64, Windows x64 and Linux x64 acceptance matrix, including
+Wayland and X11. Local suites cover application identity, concurrent initial setup, verified downloads,
+self-update rediscovery, legacy profiles, serialized handoff and setup UI. Fixtures also pin one shared
+installation during startup/Retry/Results races and zero release-network requests on a second launch
+with an identified installation. Run them with:
+
+```sh
+cd desktop
+npx vitest run src/main/tetravoxNative.test.ts src/main/viewerHandoff.test.ts tests/unit/native-viewer.test.ts tests/unit/open-in-viewer.test.tsx tests/unit/tetravox-card.test.tsx tests/unit/viewer-page.test.ts
+```
+
+These fixtures do not prove package signing, native self-update, native window activation or completed
+scene rendering. The Viewer mock E2E suite stubs native launch; a successful mock is not an upstream
+TetraVox test. The legacy `tests/e2e/real/viewer-drop.spec.ts` still targets the retired iframe and
+must be replaced with native acceptance coverage before release. The real package gate exercises clean
+install, existing-install reuse, native update/relaunch, open/closed/minimized/no-window handoff, paths
+with spaces and non-ASCII characters, preservation of busy/unsaved work and isolation from a second
+installation on every matrix leg. Foreground assertions run only in an explicit QA desktop session;
+ordinary automated tests remain hidden. Linux tar and Windows ZIP/NSIS update ownership must be
+resolved upstream before claiming automatic setup support on those platforms.
+
+
+### Live native scene saving
+
+`tests/unit/native-viewer.test.ts` validates confirmed-path receipts, cancellation, unavailable bridges
+and incomplete/refused saves without HTTP recipe writes. `tests/e2e/viewer.spec.ts` adds mocked IPC
+coverage for capability-disabled Save, confirmed-save list refresh and refusal without a saved claim.
+It also checks the removed Save selection/Recent controls. These mock tests do not verify TetraVox.
+
+The upstream native adapter and its acceptance checklist are documented in
+[`dev/upstream/tetravox-live-scene/README.md`](../../dev/upstream/tetravox-live-scene/README.md).
+Do not mark live saving or macOS foreground recovery release-ready until the capability is tested in a
+real native package and edited camera/layer state is reopened from the resulting project file. Include
+closed, minimized and no-window states, existing-file refusal and unchanged originals. The current
+installed viewer lacks this capability; a disabled Save is the expected compatibility behavior.
+
+Native-scene verification on 2026-09-19: the source and local unsigned arm64 TetraVox package both
+pass cold open, edited cursor snapshot, unchanged-original and no-window recreation tests using the
+real engine. Source-run metadata monitoring passed; the packaged run's explicit hidden-window
+assertions passed but its external metadata monitor ended inconclusive due to unresolved short-lived
+process ancestry. This does not establish OS foreground behavior or Windows/Linux package support.
+TI typecheck, lint (existing warnings), production build and 1,850 desktop unit tests pass; all 23
+focused Viewer/Jobs/shell E2E tests pass. The 13 path/export tests also pass in Linux Python 3.11.

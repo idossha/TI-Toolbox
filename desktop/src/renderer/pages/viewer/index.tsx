@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
-import { Camera, Clock, Eye, GripVertical, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { Camera, Eye, GripVertical, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
@@ -16,15 +16,11 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Select, type SelectOption } from "../../ui/Select";
 import { TextInput } from "../../ui/Field";
 import {
-  deleteComposition,
   deleteSavedScene,
   getCandidates,
-  getCompositions,
   getTree,
   previewView,
   openView,
-  saveComposition,
-  saveScene,
   suggestSceneName,
   getSavedScenes,
   readSavedScene,
@@ -37,27 +33,23 @@ import {
   formatBytes,
   hasViewerDeepLink,
   kindFromName,
-  pushRecent,
   readDeepLink,
-  readRecents,
   reorder,
   rescopeNotice,
   rescopeToSubject,
   selectionFromDeepLink,
   selectionKey,
-  selectionLabel,
   validateSelection,
   viewQuery,
   windowSummary,
   type ViewerCandidate,
   type ViewerFile,
-  type ViewerRecent,
   type ViewerSelection,
   type ViewSceneLayer,
 } from "./lib";
 import { CompositionTree } from "./Tree";
-import { NativeTetravox } from "../../viewer/NativeTetravox";
-import { exportNativeScene, openNativeScene } from "../../viewer/native";
+import { NativeTetravox, useNativeTetravox } from "../../viewer/NativeTetravox";
+import { exportNativeScene, openNativeScene, saveNativeScene } from "../../viewer/native";
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import "./viewer-page.css";
 
@@ -65,13 +57,12 @@ export { readDeepLink } from "./lib";
 export type { ViewerDeepLink, ViewerSelection } from "./lib";
 
 
-/** Prepared scene retained for native opening and project saving. */
+/** Prepared scene retained for native opening and browser download. */
 interface LoadedScene {
   key: string;
   name: string;
   hostPath: string | null;
   path: string;
-  view: Record<string, unknown>;
 }
 
 /** What a failed (or refused) Open left behind, tied to the selection that was attempted. */
@@ -108,6 +99,8 @@ function ViewerPage() {
   const subjectId = useSubjectContext((s) => s.subjectId);
   usePageScrollMemory();
   const queryClient = useQueryClient();
+  const nativeViewer = useNativeTetravox();
+  const canSaveNativeScene = Boolean(window.tit?.saveNativeTetravoxScene && nativeViewer.data?.supportsSceneSave);
 
   // ---------------------------------------------------------------------------------------------
   // The draft: the source, and the edited file list. `files === null` means "the view type's own
@@ -372,7 +365,6 @@ function ViewerPage() {
   const [opened, setOpened] = useState<{ key: string; hostPath: string | null; name: string } | null>(null);
   const [failure, setFailure] = useState<ViewerFailure | null>(null);
   const [busy, setBusy] = useState(false);
-  const [recents, setRecents] = useState<ViewerRecent[]>(() => readRecents());
 
   const open = useCallback(async (selection?: ViewerSelection, only?: string[]) => {
     // `selection`/`only` are passed by the auto-open below, which has the deep link's selection in
@@ -392,8 +384,7 @@ function ViewerPage() {
     setBusy(true);
     try {
       const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery, { files: chosenFiles ?? undefined });
-      setRecents(pushRecent({ key: `${key}|${(chosenFiles ?? []).join(",")}`, label: selectionLabel(attempt), selection: attempt, files: chosenFiles }));
-      setLoaded({ key, name: written.name, hostPath: written.host_path, path: written.path, view: written.scene });
+      setLoaded({ key, name: written.name, hostPath: written.host_path, path: written.path });
       setOpened({ key, hostPath: written.host_path, name: written.name });
       if (window.tit?.openNativeTetravox) await openNativeScene(written.path);
     } catch (error) {
@@ -441,7 +432,7 @@ function ViewerPage() {
   // can essentially save scenes — not only the input selection but also the scene for the user —
   // and we should be very opinionated about that and save it in the Tetravox [scene format]."*
   //
-  // Save the prepared composition; native camera edits are saved in TetraVox.
+  // Capture the native viewer state; the builder cannot represent subsequent camera/layer edits.
   const savedScenes = useQuery({ queryKey: ["viewer-saved-scenes"], queryFn: getSavedScenes, retry: false });
   const [sceneName, setSceneName] = useState("");
   const [sceneSaveOpen, setSceneSaveOpen] = useState(false);
@@ -461,22 +452,12 @@ function ViewerPage() {
   }, [sceneSaveOpen, sceneName, draft.subject, draft.simulation, draft.field]);
 
   const saveSceneMutation = useMutation({
-    mutationFn: async (name: string) => {
-      if (!loaded) throw new Error("Open a scene first.");
-      const scene = loaded.view;
-      return saveScene(name, {
-        scene: scene as unknown as Record<string, unknown>,
-        thumbnail: null,
-        subject: draft.subject ?? null,
-        simulation: draft.simulation ?? null,
-        field: draft.field ?? null,
-        space: draft.space ?? null,
-      });
-    },
+    mutationFn: saveNativeScene,
     onSuccess: (saved) => {
+      if (saved === null) return;
       setSceneSaveOpen(false);
       setSceneName("");
-      setSceneSaved(saved.name);
+      setSceneSaved(saved);
       void queryClient.invalidateQueries({ queryKey: ["viewer-saved-scenes"] });
     },
   });
@@ -486,7 +467,7 @@ function ViewerPage() {
     mutationFn: async (row: SavedScene) => {
       const scene = await readSavedScene(row.name);
       const path = await exportNativeScene(scene, `saved-${row.slug}`);
-      setLoaded({ key: `saved:${row.slug}`, name: `${row.slug}.tetravox.json`, hostPath: row.host_path ?? null, path, view: scene });
+      setLoaded({ key: `saved:${row.slug}`, name: `${row.slug}.tetravox.json`, hostPath: row.host_path ?? null, path });
       if (window.tit?.openNativeTetravox) await openNativeScene(path);
     },
   });
@@ -501,58 +482,6 @@ function ViewerPage() {
       await queryClient.invalidateQueries({ queryKey: ["viewer-saved-scenes"] });
     },
   });
-
-  // ---------------------------------------------------------------------------------------------
-  // Presets and recents. A preset is a selection someone chose to keep, and it lives in the
-  // project (`code/ti-toolbox/viewer/presets/`) because the project is the unit people copy and
-  // share. A recent is a footprint, and lives in this machine's browser storage.
-  // ---------------------------------------------------------------------------------------------
-  const presets = useQuery({ queryKey: ["viewer-compositions"], queryFn: getCompositions, retry: false });
-  const [presetName, setPresetName] = useState("");
-  const [presetOpen, setPresetOpen] = useState(false);
-  const saving = useMutation({
-    // A **composition**, not a scene: ids, not resolved layers. It records what was chosen, so
-    // loading it next month re-resolves those choices against whatever is in the project then and
-    // reports what has gone missing — "show me the same thing, from the current data". The scene
-    // (what it looked like) is the other artefact, saved alongside the selection.
-    //
-    // `selection` rides along beside `inputs` so a load can restore the draft exactly — which
-    // field the window chip describes, which simulations were expanded. The server keeps keys it
-    // does not know precisely so this page can carry what it needs without a contract change.
-    mutationFn: (name: string) =>
-      saveComposition(name, {
-        name,
-        subject: draft.subject ?? null,
-        space: draft.space ?? null,
-        inputs: containerPaths(rows),
-        simulations: expandedSims,
-        selection: draft as unknown as Record<string, never>,
-      } as never),
-    onSuccess: () => {
-      setPresetOpen(false);
-      setPresetName("");
-      void queryClient.invalidateQueries({ queryKey: ["viewer-compositions"] });
-    },
-  });
-  const forgetting = useMutation({
-    mutationFn: (name: string) => deleteComposition(name),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["viewer-compositions"] }),
-  });
-
-  const restore = useCallback(
-    (entry: { selection?: unknown; files?: unknown; inputs?: unknown; simulations?: unknown }) => {
-      // Restoring is not opening. The page fills in; the person presses Open when they mean it.
-      if (entry.selection) setDraft(entry.selection as ViewerSelection);
-      // `inputs` is a composition's word for the list; `files` is a recent's. Both are the same
-      // thing — the paths that make the scene — and reading either keeps Recent working unchanged.
-      const list = Array.isArray(entry.inputs) ? entry.inputs : entry.files;
-      setFiles(Array.isArray(list) ? (list as string[]) : null);
-      // Expanding the same simulations puts the tree back the way it was left, which is most of
-      // what "restore" means once the branches, not a dropdown, are how a scene is described.
-      if (Array.isArray(entry.simulations)) setExpandedSims(entry.simulations as string[]);
-    },
-    [setDraft, setFiles],
-  );
 
   // ---------------------------------------------------------------------------------------------
   // Options
@@ -841,88 +770,6 @@ function ViewerPage() {
 
           {/* ── Footer ─────────────────────────────────────────────────────────────────────── */}
           <footer className="viewer-panel-foot">
-            <Popover
-              open={presetOpen}
-              onOpenChange={setPresetOpen}
-              trigger={
-                <Button variant="secondary" size="sm" icon={<Save size={14} />} disabled={!complete} data-testid="viewer-save-preset">
-                  Save selection…
-                </Button>
-              }
-            >
-              <div className="viewer-popover">
-                <p className="viewer-popover-title">Save this selection</p>
-                <p className="viewer-popover-text">
-                  Writes the subject, the space and the inputs you ticked to the project as JSON. Loading it later re-resolves those
-                  choices against the data as it is then — so a re-run simulation comes back with its new outputs.
-                </p>
-                <TextInput
-                  value={presetName}
-                  onChange={(e) => setPresetName(e.target.value)}
-                  placeholder="Name"
-                  aria-label="Composition name"
-                  data-testid="viewer-preset-name"
-                />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={presetName.trim().length === 0 || saving.isPending}
-                  onClick={() => saving.mutate(presetName.trim())}
-                  data-testid="viewer-preset-save"
-                >
-                  Save
-                </Button>
-                {(presets.data ?? []).length > 0 && (
-                  <ul className="viewer-preset-list" data-testid="viewer-presets">
-                    {(presets.data ?? []).map((preset) => (
-                      <li className="viewer-preset" key={preset.name}>
-                        <button
-                          type="button"
-                          className="viewer-preset-restore"
-                          data-testid={`viewer-preset-${preset.name}`}
-                          onClick={() => {
-                            restore(preset);
-                            setPresetOpen(false);
-                          }}
-                        >
-                          {preset.name}
-                        </button>
-                        <button
-                          type="button"
-                          className="viewer-preset-forget"
-                          aria-label={`Forget ${preset.name}`}
-                          onClick={() => forgetting.mutate(preset.name)}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </Popover>
-
-            <Popover
-              trigger={
-                <Button variant="secondary" size="sm" icon={<Clock size={14} />} disabled={recents.length === 0} data-testid="viewer-recent">
-                  Recent
-                </Button>
-              }
-            >
-              <div className="viewer-popover">
-                <p className="viewer-popover-title">Last opened</p>
-                <ul className="viewer-recent-list" data-testid="viewer-recents">
-                  {recents.map((entry, index) => (
-                    <li key={entry.key}>
-                      <button type="button" className="viewer-recent-item" data-testid={`viewer-recent-${index}`} onClick={() => restore(entry)}>
-                        {entry.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Popover>
-
             <div className="viewer-foot-spacer" />
 
             <Button
@@ -960,10 +807,9 @@ function ViewerPage() {
                 variant="secondary"
                 size="sm"
                 icon={<Camera size={14} />}
-                /* A prepared composition is required. */
-                disabled={loaded === null}
+                disabled={!canSaveNativeScene}
                 data-testid="viewer-scene-save-open"
-                title="Save the prepared scene composition"
+                title={canSaveNativeScene ? "Save the current scene from native TetraVox" : "Saving a live scene requires TI-Toolbox Desktop and a compatible TetraVox"}
               >
                 Save scene
               </Button>
@@ -972,7 +818,7 @@ function ViewerPage() {
             <div className="viewer-popover">
               <p className="viewer-popover-title">Save this scene</p>
               <p className="viewer-popover-text">
-                Saves the prepared scene composition in the project. Save camera and appearance changes from the native TetraVox window.
+                Saves the current scene from TetraVox, including camera and appearance changes, to code/ti-toolbox/viewer/scenes/&lt;name&gt;.tetravox.json.
               </p>
               <TextInput
                 value={sceneName}
@@ -1001,16 +847,17 @@ function ViewerPage() {
             </div>
           </Popover>
             </div>
+          {!canSaveNativeScene && <p className="viewer-empty">Saving a live scene requires TI-Toolbox Desktop and a TetraVox installation with native scene-saving support.</p>}
           {sceneSaved !== null && (
             <span className="viewer-strip-saved" data-testid="viewer-scene-saved">
-              Saved {sceneSaved}.tetravox.json
+              Saved {sceneSaved}
             </span>
           )}
 
             <div className="viewer-saved-scenes-scroll" data-testid="viewer-saved-scenes-scroll" tabIndex={0} aria-label="Saved scenes list">
             {savedScenes.isPending && <p className="viewer-empty">Loading saved scenes…</p>}
             {savedScenes.error && <p role="alert" className="viewer-popover-error">{savedScenes.error.message}</p>}
-            {savedScenes.data?.length === 0 && <p className="viewer-empty">No saved scenes yet. Open a selection, then save its scene here.</p>}
+            {savedScenes.data?.length === 0 && <p className="viewer-empty">No saved scenes yet. Open a scene in TetraVox, then save it here.</p>}
             {openSavedScene.error && <p role="alert" className="viewer-popover-error">{openSavedScene.error.message}</p>}
                 <ul className="viewer-scene-list" data-testid="viewer-saved-scenes">
                   {(savedScenes.data ?? []).map((row) => (

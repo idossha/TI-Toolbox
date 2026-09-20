@@ -354,6 +354,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/viewer/compositions/{name}", "DELETE", "/api/viewer/compositions/contract");
 
     await call("/api/viewer/scenes/suggest/name", "GET", "/api/viewer/scenes/suggest/name?subject=ernie&simulation=Thalamus&field=TI_max");
+    await call("/api/viewer/scenes/{name}/native-destination", "POST", "/api/viewer/scenes/contract/native-destination");
     await call("/api/viewer/scenes/{name}", "PUT", "/api/viewer/scenes/contract", {
       body: { scene: { version: 2, datasets: [], layers: [{ id: "L0", kind: "volume" }] }, subject: "ernie" },
     });

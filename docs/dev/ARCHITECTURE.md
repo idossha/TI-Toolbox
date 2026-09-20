@@ -153,7 +153,8 @@ UI tests run hidden and assess state, geometry and rendering assertions. An unav
 is unverified, not passed.
 
 Frozen paths are [`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
-Changes require this contract and a decision entry. Optional additions preserve prior behavior when
+The preload bridge has 21 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
+`saveNativeTetravoxScene` adds native snapshot saving. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
@@ -196,40 +197,81 @@ across views; a closed terminal view cannot consume delayed replay as new output
 
 ### 7.1 Native TetraVox is installed for the host user
 
-TI-Toolbox discovers compatible TetraVox installations in conventional host locations and reuses their normal profile. When none is available, it manages a pinned official native release under the host user's application-data runtime directory. Main owns platform selection, checksum validation before extraction, installation
-status, consent and executable launch. No viewer bundle, iframe protocol or updater runs in Docker.
-Downloads use bounded streaming and failed installs remain unready and retryable. Managed installation
-requires explicit consent, uses no administrator privileges and rejects unsupported package targets.
-Launch failures remain visible rather than being reported as a successful handoff.
+TI-Toolbox discovers native TetraVox on each ordinary desktop launch without blocking the UI.
+The resolver prefers an explicitly located application, conventional system locations, PATH, and
+then a TI-local installation. An existing installation requires no release lookup. When none exists,
+TI starts verified initial setup in a private temporary directory, then publishes it atomically to
+a stable per-user location under its user-data runtime directory without administrator privileges.
+Startup, an explicit retry and a Results open share one in-flight setup. No viewer window opens just
+because TI started. Network/setup errors remain retryable while TI stays usable, and a second launch
+reuses the installed application without a release request. Automated app sessions do not perform
+ambient setup downloads.
 
-The Viewer page and its catalogue build a native `.tetravox.json` scene. Main resolves the returned
-container scene path against the active project and checks its real path before launching the known
-executable. Scene dataset paths are host-addressed; packaged reference assets are staged into the
-project when needed. Export creates a native copy without overwriting the saved source scene. A remote project without local filesystem access cannot be opened natively;
-the browser can download the scene but cannot install or launch a host application.
+**TetraVox owns subsequent updates.** TI neither checks for nor installs updates of an existing
+application, pins its version, prunes previous copies, nor sets an updater-disabling environment flag.
+Initial setup resolves an official release and verifies its archive before extraction. Discovery reads
+application identity/version rather than requiring the initial executable hash, so a native update
+remains usable. Version display is informational; minimum scene support does not reject future majors.
+Historical version-addressed directories remain discoverable and are not deleted by migration.
+Existing TI-local profiles are retained for single-instance continuity. An already-running legacy
+viewer keeps its original updater environment until the user closes and reopens it; TI never forces that exit.
 
-TetraVox owns camera, layer editing, file dialogs and native scene saving. TI's saved composition
-records its input selections, not later edits made in the other application's window. The managed
-app uses a dedicated user profile and single-instance delivery. A user-directory installation is
-not a filesystem sandbox; TetraVox has normal user permissions. No new live-control bridge is added.
+The Viewer page and Results actions build native `.tetravox.json` scenes. Main maps and validates the
+scene against the active project's real path before launch and revalidates after confirmation. Dataset
+paths are host-addressed; reference assets are staged into the project when needed. Export creates a
+native copy without overwriting the saved source. A remote project without local filesystem access
+cannot be opened natively; a downloaded scene JSON does not include its referenced datasets.
 
-Scene handoffs are serialized and require confirmation when the selected app is running or its process state cannot be checked. Cancellation never launches the scene. Blank launches only open/focus the app. If only the managed copy is running, it is reused instead of starting a system copy. System discovery does not modify existing installation or updater ownership. Optional status source/executable fields extend the desktop bridge; callers without them retain their previous rendering behavior.
+The TetraVox scene API is caller-independent: TI supplies the canonical project output path and an
+optional expected attached scene path. TetraVox imposes no TI directory structure, session nonce, naming
+convention, or native Save As default. The project policy remains in TI's main process and server.
 
-The Viewer is one bounded workspace: independently scrolling builder on the left, launch and saved-scene library on the right. Saved-scene deletion reports filesystem errors and removes no dataset. Optional scene health fields describe reference availability, not numerical validity; older API responses without them display no checked-health claim. External references are not probed by the server.
+TetraVox owns camera, layer editing, dialogs and scene serialization. **Saved scenes ▸ Save scene**
+requests the live native serializer, then writes a new `.tetravox.json` under the active project's
+`code/ti-toolbox/viewer/scenes/`. Existing files are never overwritten. The builder recipe is not a
+fallback: it cannot contain edits made in the native window. The optional `supportsSceneSave` capability
+is false when absent; Save stays unavailable until a capable native app is selected. A correlated,
+validated native receipt and destination path are required before TI claims a save or refreshes the list.
+The builder's Save selection and Recent controls are removed; its file-list Reset remains. Installation under the TI user directory is
+not a filesystem sandbox. Existing standalone installations retain their updater ownership and profile.
 
-**Native viewer release boundary.**
+Scene handoffs serialize and require confirmation when a scene might replace an existing view or
+process inspection is unavailable. Cancellation launches nothing. Blank launches only open/focus the
+app. macOS scene launches explicitly request reopen/activation through the selected app bundle after
+queueing the file; this avoids relying on file-open alone to reveal a minimized window. A successful
+legacy request returns `launch-requested`: process handoff does not prove the scene loaded
+or the OS granted foreground activation. A capable native app exchanges versioned requests and
+receipts through a private per-user temporary directory rather than an unauthenticated listener.
+Request IDs correlate replies; stale receipts cannot satisfy a later request, repeated dispatch is
+serialized, and cancellation or unknown busy/unsaved state cannot discard user work. A minimized
+window is restored and an upstream process with no window recreates one before accepting a request.
 
-The managed package is the official TetraVox baseline pinned as `TETRAVOX_VERSION` in
-[`tetravoxNative.ts`](../../desktop/src/main/tetravoxNative.ts) — the one place that version is
-written; any 0.x release at or after it is accepted. The native-only source and managed-updater
-protection require an upstream release before its artifact can replace that pin. Windows private
-installation requires a verified official ZIP; the NSIS installer is intentionally not used because
-it can replace another TetraVox install through its shared registry identity. Linux x64 and macOS
-arm64/x64 have configured archives. Only macOS was runtime-render verified for this change.
+The Viewer remains one bounded workspace: independently scrolling builder on the left, launch and
+saved-scene library on the right. Deletion removes no dataset; scene health describes reference
+availability rather than numerical validity. External references are not probed by the server.
 
-Sources: [`native installer`](../../desktop/src/main/tetravoxNative.ts),
-[`scene export`](../../tit/server/routes/viewers.py),
-[`viewer library`](../../tit/server/routes/viewer_library.py).
+**Release boundary:** verified initial setup is currently wired for macOS archives. Linux tar installs
+remain discoverable but are not automatically downloaded because their native updater is notify-only.
+Windows automatic setup awaits an updater-compatible per-user package that cannot replace another
+installation. Existing installations can still be located on both platforms. These are outstanding
+implementation/platform gates, not a reduction of the requested three-platform release scope. Local
+unit checks do not prove signing, native updates, scene rendering or OS foreground behavior.
+
+Acknowledged live-scene requests and native no-window recovery are implemented in the TetraVox
+`fix/ti-native-scenes` source branch. The [integration record](../../dev/upstream/tetravox-live-scene/README.md)
+tracks verification. Installed builds without `sceneApiProtocol: 1` cannot use TI live saving;
+the capability becomes available when a compatible TetraVox package is installed.
+
+Official-release acceptance remains a real package matrix: macOS arm64 and x64, Windows x64, and
+Linux x64 under Wayland and X11. Each leg covers clean setup, reuse and native-owned update/relaunch;
+closed, minimized and no-window handoff; paths with spaces and non-ASCII characters; preservation of
+busy/unsaved work; and isolation from a second installation. Linux adds no display server, and OS
+foreground restrictions may yield activation/attention feedback rather than unconditional focus.
+Sources: [`native setup`](../../desktop/src/main/tetravoxNative.ts),
+[`handoff`](../../desktop/src/main/viewerHandoff.ts),
+[`native scene bridge`](../../desktop/src/main/nativeSceneBridge.ts),
+[`scene export`](../../tit/server/routes/viewers.py), and
+[`saved-scene library`](../../tit/server/routes/viewer_library.py).
 
 ### 7.2 Run-page surface selection and volumetric previews
 
@@ -601,15 +643,18 @@ Settings groups project preferences, preprocessing defaults, extensions, viewer 
 
 Flex writes valid evaluation metrics to `candidates.csv`, electrode poses to
 `candidate_geometry.jsonl`, and configuration/metric definitions to `candidate_manifest.json`.
-Restart records survive final-result promotion. New records include a head-mesh content digest and effective solver settings. Replay checks the digest on selection and again at execution; older records explicitly lack this verification. MATLAB export is omitted for callable or ratio goals because it cannot preserve their scoring function. Records carry stable IDs; missing or invalid geometry
+Restart records survive final-result promotion. New records include a head-mesh content digest and effective solver settings. Replay checks the digest on selection and again at execution; older records explicitly lack this verification. MATLAB export is omitted for callable or ratio goals because it cannot preserve their scoring function. Only finite, field-valid evaluations may become winners or replayable records; an all-invalid history fails rather than promoting a penalty. Scalar and interval mutation settings both reach the installed optimizer in its accepted tuple form. Records carry stable IDs; missing or invalid geometry
 cannot become a simulation. Read-only catalog endpoints constrain paths to the project and paginate
 results. Raw objectives with different definitions are not compared as a common frontier.
 
 Simulator montages may carry subject-space `electrode_poses` and source `provenance`. Poses preserve
-centre and electrode y-direction, with a validated orthonormal frame; legacy montages remain valid
-without them. The normal simulation configuration remains authoritative. Changing the montage or
-subject clears exact-replay metadata; edits to scientific settings invalidate the source estimates.
-Native viewer handoff and analysis continue through their existing project workflows.
+centre, electrode y-direction, signed currents, shape, dimensions and layer thickness with a validated
+orthonormal frame; the replayed layout includes configured gel plus the 2 mm rubber layer. Unequal-axis
+ellipses are rejected explicitly until true ellipse support exists rather than silently becoming an
+average-radius circle. Legacy montages remain valid without replay metadata. The normal simulation
+configuration remains authoritative. Changing the montage or subject clears exact-replay metadata;
+edits to scientific settings invalidate the source estimates. Native viewer handoff and analysis
+continue through their existing project workflows.
 
 Candidate cap placement resolves the selected history record through
 `GET /api/catalog/optimization-candidates/{candidate_id}/mapping`, scoped to its subject, run and
@@ -626,10 +671,14 @@ only installations without that resource fall back to the image's integration an
 check. Ratio postprocessing uses the same resolved module.
 
 Flex exposes Mean TImax (ROI arithmetic mean), Max TImax (ROI 99.9th percentile), and
-Focality (mean ROI TImax raised to `1 + intensity_weight`, divided by mean non-ROI TImax).
-Weight zero is a pure ratio; larger weights favor ROI intensity while retaining the non-ROI
-penalty. Candidate manifests distinguish this mean-denominator definition from historical p95
-objectives so old scores cannot silently acquire a new scientific meaning.
+Focality (mean ROI TImax raised to `1 + intensity_weight`, divided by mean non-ROI TImax),
+with `intensity_weight` constrained to [0, 1]. Weight zero is a pure ratio; larger weights favor ROI
+intensity while retaining the non-ROI penalty. Candidate manifests distinguish this mean-denominator
+definition from historical p95 objectives so old scores cannot silently acquire a new scientific
+meaning. Intensity-only runs may opt into target-complement observation metrics over eligible GM;
+those measurements record domain, tissue, resolution, weighting and envelope, remain distinct from
+explicit avoidance regions, and do not alter the objective, valid-candidate set, chosen current split
+or FEM solve count. Empty or nonfinite background observations remain missing with diagnostics.
 
 Candidate review links table rows, scatter points and the existing subject-space montage renderer
 through a single selection. Plot history is independent of table pagination; a plot selection

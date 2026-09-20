@@ -14,7 +14,7 @@ The internal image is published on Docker Hub; manual acceptance continues. No s
 | Clean image and loader acceptance | Test without checkout mounts; verify Python/Bash launchers, packaged cross-project Attach/Recreate, project switching and Electron close-stop on each supported host |
 | Hosted review | Run CI/security review on the actual candidate head; older results do not cover later fixes |
 | Platform and publication checks | Verify intended platforms, macOS signing/notarization and registry access before public promotion |
-| Viewer update delivery | Verify compatible published Tetravox assets and update/rollback through the real release index |
+| Native viewer lifecycle | Complete automatic setup and native-owned updates: upstream Windows/Linux self-update packages, acknowledged handoff, and the packaged macOS arm64/x64, Windows x64 and Linux x64 (Wayland and X11) install-update-foreground matrix in ARCHITECTURE §7.1 |
 
 Distribution candidates are rebuilt from the repository Dockerfile. Source-mounted testing does
 not establish what a published image contains. Current verification evidence and its limits
@@ -27,11 +27,11 @@ source before scheduling them; remove a row when it ships.
 
 | Area | Follow-up |
 |---|---|
-| Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission |
+| Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission; prove interrupted candidate recording remains parseable and complete; validate full optimization → candidate → preview → simulation → analysis provenance, including cancellation, retry and all-invalid histories |
 | Analyzer | Expose Python multi-sphere ROI union in the config and UI |
 | Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |
 | Notebooks | Detect outdated seeded examples without overwriting user edits; variable explorer and interactive plots |
-| Viewer | Decide whether unused per-layer overrides need a client; assess reference-scene marker visibility |
+| Viewer | Release and validate the [native live-scene capability](../../dev/upstream/tetravox-live-scene/README.md); verify edited native snapshot/reopen, existing-file refusal, unchanged originals and macOS minimized/no-window activation. Existing installed builds cannot save live scenes through TI. |
 | Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |
 | Maintenance | Assess OpenSSF practices and extend integration coverage for selected colleague workflows |
 

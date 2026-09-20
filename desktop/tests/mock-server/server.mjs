@@ -3746,6 +3746,13 @@ route("GET", "/api/viewer/scenes/suggest/name", (ctx) => {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   json(ctx.res, 200, { name: [...parts, date].join("_").replace(/[^A-Za-z0-9._-]+/g, "-") || "scene" });
 });
+route("POST", "/api/viewer/scenes/:name/native-destination", (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  if (!name.trim() || name.length > 80 || /[/\\]/.test(name) || name.startsWith(".") || name.includes("..")) return json(ctx.res, 422, { detail: `Unusable name: ${name}` });
+  const slug = sceneSlug(name);
+  if ([...SAVED_SCENES.values()].some((row) => row.slug === slug)) return json(ctx.res, 409, { detail: "A scene with this name already exists" });
+  json(ctx.res, 200, { scene_path: `${PROJECT_ROOT}/code/ti-toolbox/viewer/scenes/${slug}.tetravox.json` });
+});
 route("GET", "/api/viewer/scenes/:name", (ctx) => {
   const name = decodeURIComponent(ctx.params.name);
   const row = SAVED_SCENES.get(name);

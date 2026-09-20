@@ -8,8 +8,8 @@ import "./TetravoxCard.css";
 
 function statusPill(data: TitNativeTetravoxStatus | undefined, pending: boolean): { kind: SemanticKind; label: string } {
   if (!data) return { kind: "neutral", label: pending ? "Checking…" : "Not installed" };
+  if (data.installing) return { kind: "neutral", label: "Setting up…" };
   if (!data.installed) return { kind: "neutral", label: "Not installed" };
-  if (data.updateAvailable) return { kind: "warning", label: `Update available ${data.updateAvailable}` };
   const location = data.source === "system" && data.directory ? ` (${data.directory})` : "";
   return { kind: "success", label: `Installed ${data.version}${data.source ? ` · ${data.source}` : ""}${location}` };
 }
@@ -21,7 +21,7 @@ function statusPill(data: TitNativeTetravoxStatus | undefined, pending: boolean)
  * buttons.
  */
 export function TetravoxCard() {
-  const { bridge, data, pending, progress, busy, working, failure, install, update, check, locate, forget, open } = useNativeTetravox();
+  const { bridge, data, pending, progress, busy, working, failure, install, locate, forget, open } = useNativeTetravox();
 
   if (!bridge?.nativeTetravoxStatus) {
     return (
@@ -65,20 +65,9 @@ export function TetravoxCard() {
           </Field>
         )}
 
-        <Field label="Version">
+        <Field label="Version" note="Updates are managed in TetraVox.">
           <div className="tetravox-row-value">
             <span>{data?.installed ? data.version : "Not installed"}</span>
-            {data?.updateAvailable ? (
-              <Button size="sm" variant="primary" disabled={busy} onClick={() => update.mutate()}>
-                {`Update to ${data.updateAvailable}`}
-              </Button>
-            ) : (
-              data?.source === "managed" && (
-                <Button size="sm" variant="secondary" disabled={check.isPending || busy} onClick={() => check.mutate()}>
-                  {check.isPending ? "Checking…" : check.isSuccess ? "Up to date" : "Check for updates"}
-                </Button>
-              )
-            )}
           </div>
           {busy && (
             <Progress
@@ -92,12 +81,13 @@ export function TetravoxCard() {
         <Field label="Location" help="Where the launched TetraVox lives on disk.">
           <div className="tetravox-row-value">
             <code className="mono">{locationPath ?? "—"}</code>
-            <Button size="sm" variant="secondary" disabled={locate.isPending} onClick={() => locate.mutate()}>
+            <Button size="sm" variant="secondary" disabled={busy || locate.isPending} onClick={() => locate.mutate()}>
               Locate…
             </Button>
           </div>
         </Field>
 
+        {!data?.installed && data?.supported && <p className="field-help">TI-Toolbox sets up TetraVox automatically in your user directory when no installation is found.</p>}
         {unsupported && (
           <p className="field-help">TI-Toolbox cannot install TetraVox on this platform. Install it yourself, then use Locate…</p>
         )}
@@ -115,7 +105,7 @@ export function TetravoxCard() {
           ) : (
             data?.supported && (
               <Button variant="primary" disabled={busy} onClick={() => install.mutate()}>
-                {busy ? "Installing…" : "Install TetraVox"}
+                {busy ? "Installing…" : "Retry setup"}
               </Button>
             )
           )}

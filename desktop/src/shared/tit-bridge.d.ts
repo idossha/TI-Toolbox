@@ -96,6 +96,8 @@ export interface TitFastSurferBridge {
 }
 
 export interface TitNativeTetravoxStatus {
+  /** Installed native application advertises the live scene request protocol. */
+  supportsSceneSave?: boolean;
   /** Which resolution step produced the selected application, if any. */
   source?: "configured" | "managed" | "system" | "path";
   executable?: string;
@@ -107,10 +109,6 @@ export interface TitNativeTetravoxStatus {
   /** Path the user chose in Settings, and whether it still identifies a compatible TetraVox. */
   configuredPath?: string;
   configuredPathValid?: boolean;
-  /** Newest published release, once `checkNativeTetravoxUpdate` has looked. */
-  latestVersion?: string;
-  /** Set when a managed install can be replaced by a newer published release. */
-  updateAvailable?: string;
   error?: string;
 }
 
@@ -121,20 +119,18 @@ export interface TitNativeTetravoxProgress {
 }
 
 export interface TitBridge {
+  /** Save the live native scene into the active project; the renderer supplies a name, never a path. */
+  saveNativeTetravoxScene?(name: string): Promise<{ ok: boolean; path?: string; reason?: string; cancelled?: boolean }>;
   nativeTetravoxStatus?(): Promise<TitNativeTetravoxStatus>;
   installNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
-  /** Ask GitHub for the newest published release; also refreshes `updateAvailable`. */
-  checkNativeTetravoxUpdate?(): Promise<TitNativeTetravoxStatus>;
-  /** Download and switch to the newest published release of the managed copy. */
-  updateNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
   /** Open a native picker for an existing TetraVox application and remember it. */
   locateNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
   /** Forget the configured path and fall back to normal resolution. */
   clearNativeTetravoxPath?(): Promise<TitNativeTetravoxStatus>;
-  /** Install/update progress. Returns an unsubscribe function. */
+  /** Initial setup progress. Returns an unsubscribe function. */
   onNativeTetravoxProgress?(listener: (progress: TitNativeTetravoxProgress) => void): () => void;
   /** Container scene path in the active project, or empty to open the application. */
-  openNativeTetravox?(path: string): Promise<{ ok: boolean; reason?: string; cancelled?: boolean }>;
+  openNativeTetravox?(path: string): Promise<{ ok: boolean; reason?: string; cancelled?: boolean; status?: "launch-requested" }>;
 
   /** `process.platform` of the host. */
   platform(): NodeJS.Platform;

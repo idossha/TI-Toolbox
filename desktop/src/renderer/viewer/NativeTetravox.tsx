@@ -15,6 +15,7 @@ export const SOURCE_LABEL: Record<NonNullable<TitNativeTetravoxStatus["source"]>
 
 function describe(status: TitNativeTetravoxStatus | undefined, pending: boolean): string {
   if (!status) return pending ? "Checking installation…" : "TetraVox is not installed.";
+  if (status.installing) return "Setting up TetraVox automatically…";
   if (!status.installed) return status.configuredPath && status.configuredPathValid === false ? "The chosen application is no longer a compatible TetraVox." : "TetraVox is not installed.";
   return `${SOURCE_LABEL[status.source ?? "managed"]}${status.version && status.version !== "system" ? ` · ${status.version}` : ""}`;
 }
@@ -35,29 +36,30 @@ export function useNativeTetravox(path?: string | null) {
   const client = useQueryClient();
   const bridge = window.tit;
   const [progress, setProgress] = useState<TitNativeTetravoxProgress>({ phase: "idle" });
-  const status = useQuery({ queryKey: ["native-tetravox"], queryFn: () => bridge!.nativeTetravoxStatus!(), enabled: !!bridge?.nativeTetravoxStatus });
+  const status = useQuery({ queryKey: ["native-tetravox"], queryFn: () => bridge!.nativeTetravoxStatus!(), enabled: !!bridge?.nativeTetravoxStatus, refetchInterval: (query) => query.state.data?.installing ? 1000 : false });
   const refresh = { onSuccess: () => client.invalidateQueries({ queryKey: ["native-tetravox"] }) };
   const install = useMutation({ mutationFn: () => bridge!.installNativeTetravox!(), ...refresh });
-  const update = useMutation({ mutationFn: () => bridge!.updateNativeTetravox!(), ...refresh });
-  const check = useMutation({ mutationFn: () => bridge!.checkNativeTetravoxUpdate!(), ...refresh });
   const locate = useMutation({ mutationFn: () => bridge!.locateNativeTetravox!(), ...refresh });
   const forget = useMutation({ mutationFn: () => bridge!.clearNativeTetravoxPath!(), ...refresh });
   const open = useMutation({ mutationFn: () => openNativeScene(path ?? "") });
 
-  useEffect(() => bridge?.onNativeTetravoxProgress?.(setProgress), [bridge]);
+  useEffect(() => bridge?.onNativeTetravoxProgress?.((next) => {
+    setProgress(next);
+    if (next.phase === "idle") void client.invalidateQueries({ queryKey: ["native-tetravox"] });
+  }), [bridge, client]);
 
   const data = status.data;
-  const busy = install.isPending || update.isPending || Boolean(data?.installing);
-  const working = busy ? describeProgress(progress) ?? "Working…" : undefined;
-  const failure = (open.error ?? install.error ?? update.error ?? check.error ?? locate.error ?? status.error)?.message ?? data?.error;
+  const busy = install.isPending || Boolean(data?.installing);
+  const working = busy ? describeProgress(progress) ?? "Setting up TetraVox…" : undefined;
+  const failure = (open.error ?? install.error ?? locate.error ?? forget.error ?? status.error)?.message ?? data?.error;
 
-  return { bridge, data, pending: status.isPending, progress, busy, working, failure, install, update, check, locate, forget, open };
+  return { bridge, data, pending: status.isPending, progress, busy, working, failure, install, locate, forget, open };
 }
 
-/** Compact embed used inline on the Viewer page — a status line plus a Launch/Install button, no
+/** Compact embed used inline on the Viewer page — a status line plus a Launch/Retry button, no
  * card chrome. The full Source/Version/Location layout lives in `TetravoxCard.tsx`. */
 export function NativeTetravox({ path, compact = false }: { path?: string | null; compact?: boolean }) {
-  const { bridge, data, pending, working, failure, install, update, locate, forget, open, busy } = useNativeTetravox(path);
+  const { bridge, data, pending, working, failure, install, locate, forget, open, busy } = useNativeTetravox(path);
 
   if (!bridge?.nativeTetravoxStatus) return <div><p className="field-help">Native TetraVox requires TI-Toolbox Desktop.</p>{path && <a href={`/api/files/raw${path.split("/").map(encodeURIComponent).join("/")}`} download>Download scene for TetraVox</a>}</div>;
 
@@ -66,12 +68,11 @@ export function NativeTetravox({ path, compact = false }: { path?: string | null
     <p className="field-help">{describe(data, pending)}</p>
     {working && <p className="field-help" role="status">{working}</p>}
     {data?.installed && <Button onClick={() => open.mutate()} disabled={open.isPending}>{path ? "Open scene in TetraVox" : "Launch TetraVox"}</Button>}
-    {data?.supported && !data.installed && <Button disabled={busy} onClick={() => install.mutate()}>{busy ? "Installing…" : "Install TetraVox"}</Button>}
-    {data?.updateAvailable && <Button variant="secondary" disabled={busy} onClick={() => update.mutate()}>{`Update to ${data.updateAvailable}`}</Button>}
-    {!compact && <Button variant="secondary" disabled={locate.isPending} onClick={() => locate.mutate()}>Locate TetraVox…</Button>}
+    {data?.supported && !data.installed && <Button disabled={busy} onClick={() => install.mutate()}>{busy ? "Installing…" : "Retry setup"}</Button>}
+    {!compact && <Button variant="secondary" disabled={busy || locate.isPending} onClick={() => locate.mutate()}>Locate TetraVox…</Button>}
     {!compact && data?.configuredPath && <>
       <code style={{ overflowWrap: "anywhere" }}>{data.configuredPath}</code>
-      <Button variant="secondary" disabled={forget.isPending} onClick={() => forget.mutate()}>Use the automatic choice</Button>
+      <Button variant="secondary" disabled={busy || forget.isPending} onClick={() => forget.mutate()}>Use the automatic choice</Button>
     </>}
     {data && !data.supported && !data.installed && <p className="field-help">TI-Toolbox cannot install TetraVox on this platform. Install it yourself, then use Locate TetraVox…</p>}
     {failure && <p role="alert">{String(failure)}</p>}
