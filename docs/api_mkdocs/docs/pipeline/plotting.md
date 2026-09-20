@@ -19,30 +19,29 @@ graph LR
 
 ## Focality Histograms
 
-### plot_whole_head_roi_histogram
+### save_histogram
 
-Generates a whole-head field distribution histogram with per-bin ROI contribution color coding. Includes focality cutoff lines, an optional mean ROI field marker, and a summary statistics box.
+Writes the whole-head field distribution with each bin coloured by its ROI contribution, focality cutoff lines, an optional ROI mean marker, and summary statistics.
 
 ```python
-from tit.plotting import plot_whole_head_roi_histogram
+from pathlib import Path
+from tit.analyzer.visualizer import save_histogram
 
-output_path = plot_whole_head_roi_histogram(
-    output_dir="/data/project/derivatives/ti-toolbox/analysis/sub-001",
-    whole_head_field_data=whole_head_values,   # np.ndarray
-    roi_field_data=roi_values,                 # np.ndarray
-    whole_head_element_sizes=wh_sizes,         # optional, np.ndarray
-    roi_element_sizes=roi_sizes,               # optional, np.ndarray
-    filename="TI_max.nii.gz",                  # optional, used for title and output name
-    region_name="M1",                          # optional, ROI label
-    roi_field_value=0.152,                     # optional, draws vertical marker
-    data_type="element",                       # "element" or "voxel"
-    voxel_dims=(1.0, 1.0, 1.0),               # optional, for voxel volume weighting
+output_path = save_histogram(
+    whole_head_values=whole_head_values,
+    roi_values=roi_values,
+    output_dir=Path("/data/project/derivatives/ti-toolbox/analysis/sub-001"),
+    whole_head_weights=wh_sizes,  # optional per-node areas or per-voxel volumes
+    roi_weights=roi_sizes,       # supply both weight arrays or neither
+    roi_mean=0.152,
+    region_name="M1",
+    unit_label="Volume (mm³)",
     n_bins=100,
-    dpi=600,
+    dpi=150,
 )
 ```
 
-Returns the path to the saved PDF, or `None` if input data is empty.
+Returns the path to `histogram.png`, or `None` if either input is empty. This replaces the removed `tit.plotting.plot_whole_head_roi_histogram` API.
 
 ## TI Metric Distributions
 
@@ -193,7 +192,7 @@ path = savefig_close(
 
 ### Focality
 
-::: tit.plotting.focality.plot_whole_head_roi_histogram
+::: tit.analyzer.visualizer.save_histogram
     options:
       show_root_heading: true
 

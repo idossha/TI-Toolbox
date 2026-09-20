@@ -96,9 +96,16 @@ def test_a_visualized_voxel_analysis_writes_exactly_five_files(tmp_path, monkeyp
     ]
     png = (out / "histogram.png").read_bytes()
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
-    # 150 dpi on a 9 x 5.5 in figure (tight bbox trims a little): wider than 1000 px.
-    width = int.from_bytes(png[16:20], "big")
-    assert 1000 < width < 1500
+    # Read the PNG metadata independently: figure layout may grow, but the
+    # documented 150 dpi export and usable raster resolution must remain.
+    from PIL import Image
+
+    with Image.open(out / "histogram.png") as image:
+        assert image.width > 1000
+        assert image.height > 500
+        assert image.info["dpi"] == pytest.approx((150, 150), abs=0.02)
+        # A correctly sized blank image must not satisfy the export assertion.
+        assert all(low < high for low, high in image.convert("RGB").getextrema())
     scene = json.loads((out / "scene.tetravox.json").read_text())
     assert [d["name"] for d in scene["datasets"]] == ["T1.nii.gz", "roi_overlay.nii.gz"]
     field_layer = scene["layers"][1]

@@ -9,6 +9,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- **Linux Debian installers build successfully** — release packaging now includes the project homepage and maintainer contact required by Debian packages. Install using the `.deb` download; application behavior and other installer formats are unchanged.
+
 - 2026-09-20: **FreeSurfer licensing is automatic again** — TI-Toolbox supplies its bundled license to FreeSurfer, QSIPrep and QSIRecon, restoring the v2 behavior. Registration and personal-license prompts are removed from **Settings ▸ Pre-processing** and the run page. Existing script and cluster overrides remain supported; FastSurfer segmentation still needs no license.
 
 - **Saved scenes show a preview and their details** — the Viewer generates small images of visible saved scenes using TetraVox offscreen, including existing scenes. The inline information button shows saved/modified times, available creation time, layer and dataset counts, file size and path status. Preview generation never replaces the active TetraVox view.
