@@ -1697,3 +1697,31 @@ runtime.
 installation resolves the packaged resource. FreeSurfer and QSI worker mounts receive that file;
 the preprocessing UI contains no personal-license input or registration prompt. See
 [TESTING.md](TESTING.md) for the host and container checks; completion requires actual test output.
+
+
+## 2026-09-20 — Fast daily regression, full local release verification
+
+**Decision.** Keep both existing CircleCI check names and all host Python/desktop unit checks;
+remove the scientific test-image pull, combined host/numerical process and browser/Electron E2E
+from ordinary pushes. Real numerical tests and full hidden/real workflows run serially before a
+release via `dev/verify_release.py`, with explicit image, copied-project and package inputs, logs
+and source/image identity. Image build verification remains explicitly requested.
+
+**Why.** The maintainer requested quick daily regression and local long-process release testing.
+CircleCI #1052, #1053 and #1057 actually failed Python assertions in approximately nine minutes
+[measured: CircleCI v1.1 build records, 2026-09-20], rather than a confirmed one-hour timeout.
+Their combined test-image run exposed missing Docker CLI, image SSL paths, scientific/mock state
+and CPU quota fixture differences. Desktop #1054/#1056/#1058 were still reported running in the
+E2E step at inspection. Moving slow checks does not waive those defects: host/science isolation
+restores the documented two-process test model, and remaining platform failures still block their
+own gate. New hosted timing must be measured before claiming a speedup.
+
+**Alternatives rejected.** Widening timeouts does not fix assertion failures. Running an arbitrary
+small unit subset loses cheap coverage. A new CI framework or automatic publication attestation
+service is unnecessary; existing runners plus a fail-fast local wrapper preserve evidence.
+
+**Verification.** CircleCI CLI validates the configuration. `tests/test_release_gate.py` executes
+commands that return success, failure, inconclusive and no-tests codes; only success is accepted.
+The full local wrapper requires real fixtures and is not claimed executed by these self-tests.
+Its receipt is an operator review input, not a publication interlock; platform installer acceptance
+and skip review remain required by TESTING and RELEASING.

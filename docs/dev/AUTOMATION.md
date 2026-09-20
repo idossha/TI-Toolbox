@@ -8,7 +8,7 @@ owns unresolved work. Workflow and script source is authoritative for inputs and
 
 | Source | Trigger and responsibility |
 |---|---|
-| [CircleCI](../../.circleci/config.yml) | Source and desktop checks; full image build selected explicitly with `build_image` |
+| [CircleCI](../../.circleci/config.yml) | Fast host Python regression/coverage and desktop static/unit/build checks; full image build selected explicitly with `build_image` |
 | [Release build](../../.github/workflows/release-build.yml) | Stable tags, manual dispatch or reusable invocation; export, internal distribution and public release modes |
 | [Docs deploy](../../.github/workflows/deploy-docs.yml) | Relevant `main` pushes or manual dispatch; builds MkDocs API then Jekyll, checks assets and deploys Pages |
 | [CodeQL](../../.github/workflows/code-ql-analysis.yml) | Configured pushes, PRs and weekly schedule; static analysis |
@@ -96,6 +96,7 @@ recovery. Do not rotate the send-only client constant as though it were a dashbo
 | [Container build](../../container/blueprint/build.sh) | Build source, UI and verified optional tool assets into the runtime image |
 | [Launcher](../../loader.sh) | One launch model: `loader.sh`/`loader.py`, `--dev [DIR]` for a source-mounted checkout, `--print-config` for the resolved settings |
 | [Development commands](../../CONTRIBUTING.md#development-environment) | Start/attach the project's source-mounted backend and live frontend |
+| [Local release verification](../../dev/verify_release.py) | Serial full local gate with explicit candidate image, copied data, real workflows and package; logs and SHA/image receipt; see [TESTING](TESTING.md#daily-ci-and-the-local-release-gate) |
 | [Smoke harness](../../dev/smoke.sh) | Discover a stack and execute selected checks with output cleanup manifests |
 | [Contract guard](../../dev/contracts_check.py) | Detect generated-schema drift; regenerate through the desktop `gen` script |
 | [Import guard](../../dev/route_import_guard.py) | Prevent heavy scientific imports at server route import time |

@@ -443,6 +443,14 @@ Production and release stabilization follow [root CONTRIBUTING](../../CONTRIBUTI
 do not publish releases. Promotion preserves tested ancestry; official publication is a separate
 maintainer-controlled action.
 
+Daily CircleCI verifies all host Python and desktop static/unit regressions plus production build;
+it does not run scientific-image tests or Electron E2E. Official release acceptance additionally
+requires the serial local gate in [TESTING](TESTING.md#daily-ci-and-the-local-release-gate), including
+real-library numerical tests, hidden E2E, applicable completed real workflows, the example notebook
+and package inspection. Candidate SHA/image identity and per-stage logs must accompany that evidence.
+A failed or inconclusive stage cannot be called passed; daily green status alone cannot establish
+release readiness. Publication remains a separate operator action, with platform acceptance intact.
+
 ### Terminal launcher setup
 
 Terminal setup starts the desktop app; `--browser` selects a browser session, which is also the
