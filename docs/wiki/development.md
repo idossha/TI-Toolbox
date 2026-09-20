@@ -218,7 +218,7 @@ consistent source revision and confirm the cluster's container policy before ada
 From the repository root, after installing the contributor Python environment:
 
 ```bash
-.venv/bin/python -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
 python3 dev/route_import_guard.py
 python3 dev/contracts_check.py
 ```
@@ -239,8 +239,9 @@ docker exec -w /ti-toolbox <container> simnibs_python -m pytest tests/numerical 
 ```
 
 Host pytest success does not establish scientific correctness: it mocks SimNIBS and several
-other libraries. Numerical test success also does not substitute for a completed end-to-end
-simulation on representative data.
+other libraries. The host command excludes `tests/numerical` because that suite restores the real
+libraries and is a separate container leg. Numerical test success also does not substitute for a
+completed end-to-end simulation on representative data.
 
 ## Hidden UI tests and final build
 

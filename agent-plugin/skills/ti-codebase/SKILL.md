@@ -171,13 +171,13 @@ Tests: `reset_path_manager()`; the `_reset_path_manager` fixture is `autouse`.
 
 ## Testing strategy
 
-- **Host suite** — `python3 -m pytest tests/ -q` from the repo root. `conftest.py`
-  installs mocks into `sys.modules` before any `tit` import: `simnibs` (+
+- **Host suite** — `.venv/bin/python -m pytest tests/ -q --ignore=tests/numerical` from
+  the repo root. `conftest.py` installs mocks into `sys.modules` before any `tit` import: `simnibs` (+
   `simulation.sim_struct`, `mesh_tools.mesh_io`, `utils.transformations`), `bpy`,
   `scipy`, `nibabel`, `h5py`, `matplotlib`, `pandas`, `joblib`, `nilearn`.
   **numpy is real** — `tit/calc.py` tests do actual vector math.
-- **Numerical suite** — `tests/numerical/`, run **in the container against the real
-  libraries**: `docker exec -w /ti-toolbox <c> simnibs_python -m pytest
+- **Numerical suite** — `tests/numerical/`, whose conftest restores real libraries, is a
+  separate container leg: `docker exec -w /ti-toolbox <c> simnibs_python -m pytest
   tests/numerical -q`. This is where a scientific claim is proved.
 - **Frontend** — `cd desktop && npm run typecheck && npm run lint && npx vitest run`.
 - **E2E** — Playwright, offscreen by default (`TIT_E2E_OFFSCREEN=1`), **one run at
@@ -194,7 +194,7 @@ Run all of it and **report the numbers, not "green"**:
 
 ```bash
 cd desktop && npm run typecheck && npm run lint && npx vitest run
-python3 -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
 docker exec -w /ti-toolbox <container> simnibs_python -m pytest tests/numerical -q
 python3 dev/route_import_guard.py && python3 dev/contracts_check.py
 cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet

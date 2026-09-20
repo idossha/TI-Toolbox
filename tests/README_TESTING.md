@@ -18,11 +18,15 @@ docker exec -w /ti-toolbox <container> tests/run_tests.sh [--verbose] [--coverag
 
 `--coverage` writes `/tmp/coverage/coverage.xml`.
 
-On the host, where the heavy libraries are mocked by `tests/conftest.py`, run pytest directly:
+On the host, where the heavy libraries are mocked by `tests/conftest.py`, run pytest with the
+contributor virtual environment and exclude the numerical suite:
 
 ```bash
-python3 -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
 ```
+
+`tests/numerical/conftest.py` restores the real libraries, so numerical tests are a separate
+container leg rather than part of this mocked host run.
 
 ## `tests/run_comprehensive_integration.sh`
 

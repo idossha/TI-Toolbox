@@ -46,7 +46,7 @@ by CONTRIBUTING. `tests/conftest.py` mocks SimNIBS, Blender and several scientif
 NumPy is real and some tests restore SciPy. Never infer real-library success from a host run.
 
 ```bash
-.venv/bin/python -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
 cd desktop
 npm run typecheck
 npm run lint
@@ -59,7 +59,8 @@ In an existing development/test container with this checkout mounted:
 docker exec -w /ti-toolbox <container> simnibs_python -m pytest tests/numerical -q
 ```
 
-`tests/numerical/conftest.py` restores real libraries and reloads tested modules. Changes to the
+`tests/numerical/conftest.py` restores real libraries and reloads tested modules, so the host command
+excludes that directory explicitly; numerical coverage is a separate container leg. Changes to the
 scientific core require independent numerical coverage; use authored fixtures/reference calculations,
 not expected values copied from the implementation. A real-library test with stubbed FEM is an
 interface test, not a completed simulation. Published-output changes also need release-note guidance.
