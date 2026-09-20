@@ -4,7 +4,7 @@ The build and release procedure is [docs/dev/RELEASING.md](../../docs/dev/RELEAS
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| `release-build.yml` | Stable tag, manual dispatch, or reusable call | `build` exports image and unsigned installers; `internal` additionally pushes the mutable version image; `release` stages a draft and promotes it only after artifact verification. |
+| `release-build.yml` | Stable tag, manual dispatch, or reusable call | `build` exports unsigned installers; `release` verifies a manually published image manifest, stages verified executables and promotes the draft only after inventory/checksum verification. Docker build/push is manual. |
 | `deploy-docs.yml` | push to `main` touching `docs/**` | Builds and deploys the Jekyll documentation site. |
 | `code-ql-analysis.yml` | push / PR / schedule | CodeQL static analysis. |
 | `python-security.yml` | push / PR / schedule | Python dependency and code security scanning. |

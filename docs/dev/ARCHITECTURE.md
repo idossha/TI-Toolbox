@@ -428,7 +428,14 @@ Sources: [`tit/pre/qsi/`](../../tit/pre/qsi/), [`structural.py`](../../tit/pre/s
 
 ## 10. Internal builds and public availability
 
-Internal builds and public releases use the same product and packaging pipeline. An internal cohort
+Unsigned builds and public releases use the same executable packaging pipeline. Docker image
+construction, scientific acceptance and push are manual; executable CI only checks published image
+manifest availability for Linux amd64. That check does not establish exact source provenance or
+runtime behavior. Neither executable mode changes Docker tags. Release recovery may use newer
+workflow control code but must package the existing immutable release tag's source SHA and attach
+assets to that tag. Public releases cannot be overwritten by recovery.
+
+Internal builds and public releases use the same product. An internal cohort
 records its source revision and immutable image identity; launchers and installers resolve the same
 image. An explicit image request retains mismatch protection. Publishing a container or preparing
 an internal build does not create a public release, move `latest` or rewrite stable announcement

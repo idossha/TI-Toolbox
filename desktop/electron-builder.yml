@@ -120,8 +120,8 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
 
-# Publishing is decided per-invocation (`--publish never` in validation, `--publish always` in the
-# publish job), not by this file; declaring the provider here keeps the release URL in one place.
+# CI packages with `--publish never`, then explicitly uploads verified files to the intended
+# draft release. The provider here keeps the release URL in one place.
 publish:
   - provider: github
     owner: idossha

@@ -12,8 +12,8 @@ def build_plan(
     root: Path, mode: str, ref: str, sha: str, image_tag: str = ""
 ) -> dict[str, str]:
     """Resolve the reusable version image; public releases still require a stable tag."""
-    if mode not in {"build", "internal", "release"}:
-        raise ValueError("mode must be build, internal or release")
+    if mode not in {"build", "release"}:
+        raise ValueError("mode must be build or release")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("source SHA must be a full 40-character commit")
     version = json.loads((root / "desktop/package.json").read_text())["version"]
@@ -41,7 +41,7 @@ def build_plan(
     expected_image = f"v{image_version}"
     if image_tag and image_tag != expected_image:
         raise ValueError(f"application image tag must be {expected_image}")
-    if mode in {"internal", "release"}:
+    if mode == "release":
         compose = re.search(
             r"image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]+)\}",
             (root / "docker-compose.yml").read_text(),
@@ -50,7 +50,6 @@ def build_plan(
             r'BUILTIN_SPEC = StackSpec\(\s*image="idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]+)\}"',
             (root / "tit/launch.py").read_text(),
         )
-    if mode == "release":
         if not re.fullmatch(
             r"refs/tags/v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", ref
         ):
@@ -74,7 +73,6 @@ def build_plan(
             )
         if not (root / f"docs/releases/v{version}.md").is_file():
             raise ValueError("release requires authored docs/releases/vX.Y.Z.md")
-    if mode in {"internal", "release"}:
         if (compose[1] if compose else None) != expected_image or (
             wheel_image[1] if wheel_image else None
         ) != expected_image:
@@ -91,7 +89,7 @@ def build_plan(
 
 
 def stage_compose(content: str, image_tag: str) -> str:
-    """Pin the CI installer's fallback to the image produced by the same workflow."""
+    """Pin the CI installer's fallback to the manually published application version image."""
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,127}", image_tag):
         raise ValueError("invalid image tag")
     staged, count = re.subn(
@@ -106,6 +104,12 @@ def stage_compose(content: str, image_tag: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path(__file__).resolve().parents[2],
+        help="Candidate source checkout (control workflow may be newer)",
+    )
     parser.add_argument("--mode", required=True)
     parser.add_argument("--ref", required=True)
     parser.add_argument("--sha", required=True)
@@ -118,7 +122,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         result = build_plan(
-            Path(__file__).resolve().parents[2],
+            args.root,
             args.mode,
             args.ref,
             args.sha,
@@ -127,7 +131,7 @@ def main() -> None:
     except (ValueError, OSError, KeyError) as exc:
         parser.exit(1, f"build plan: {exc}\n")
     if args.stage_compose:
-        compose = Path(__file__).resolve().parents[2] / "docker-compose.yml"
+        compose = args.root / "docker-compose.yml"
         compose.write_text(stage_compose(compose.read_text(), result["image_tag"]))
     print(json.dumps(result, indent=2))
     if output := os.environ.get("GITHUB_OUTPUT"):

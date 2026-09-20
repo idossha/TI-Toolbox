@@ -1743,3 +1743,29 @@ unequal schemas, then passed: fresh processes model 1, 4 and 12 host CPUs, asser
 1, 3 and 8 respectively, preserve explicit 2, and require identical full generated schemas with
 no numeric OpenMP default. Existing packages remain evidence for their original source SHA;
 publication artifacts incorporating this change must be rebuilt.
+
+
+## 2026-09-20 — Manual Docker publication, automated executable releases
+
+**Decision.** Restore the v2 separation: maintainers build, test and push the application image
+manually; `release-build.yml` builds and verifies executable artifacts. Remove the image archive,
+image-push job, Docker Hub secrets and redundant internal mode. Public executable publication
+checks the version image's registry manifest for Linux amd64, then requires verified platform
+artifacts and checksums before promoting a draft. Mutable version-line Docker tags remain supported.
+
+**Why.** Run 35537639670 completed image construction and platform validation but failed at
+Docker login with `Username and password required` [measured: run logs]. The user explicitly prefers
+manual image distribution. Transferring a multi-GB image between hosted jobs and provisioning a
+second credential set adds coupling without improving their release workflow. Manifest availability
+is deliberately narrower than a runtime test; the manual owner retains scientific/provenance checks.
+
+**Recovery.** Optional `release_tag` dispatch reads candidate metadata and packages the immutable
+existing tag SHA while using the repaired workflow's control guards. Uploads target the named draft;
+an already-public release is refused. Never retag or silently package newer main source. Apple team
+ID is public configuration (v2 team `3BMY24SA43`), not a required secret; actual signing credentials
+remain required. Executables are verified before upload and inventory-checked before publication.
+
+**Verification contract.** Build-plan tests reject retired `internal` mode and mismatched release
+metadata. Actionlint checks workflow syntax; manifest selection must accept Linux amd64 and reject
+wrong/missing platforms. Workflow rehearsal and actual signature/notarization outcomes remain
+separate evidence; this decision alone does not certify release completion.
