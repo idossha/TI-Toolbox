@@ -292,8 +292,8 @@ and incomplete/refused saves without HTTP recipe writes. `tests/e2e/viewer.spec.
 coverage for capability-disabled Save, confirmed-save list refresh and refusal without a saved claim.
 It also checks the removed Save selection/Recent controls. These mock tests do not verify TetraVox.
 
-The upstream native adapter and its acceptance checklist are documented in
-[`dev/upstream/tetravox-live-scene/README.md`](../../dev/upstream/tetravox-live-scene/README.md).
+The [upstream integration record](../../dev/upstream/tetravox-live-scene/README.md) identifies
+TetraVox PR #44's generic scene API and TI's adapter boundary; it is not an acceptance checklist.
 Do not mark live saving or macOS foreground recovery release-ready until the capability is tested in a
 real native package and edited camera/layer state is reopened from the resulting project file. Include
 closed, minimized and no-window states, existing-file refusal and unchanged originals. The current

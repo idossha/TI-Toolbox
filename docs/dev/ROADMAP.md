@@ -31,7 +31,7 @@ source before scheduling them; remove a row when it ships.
 | Analyzer | Expose Python multi-sphere ROI union in the config and UI |
 | Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |
 | Notebooks | Detect outdated seeded examples without overwriting user edits; variable explorer and interactive plots |
-| Viewer | Release and validate the [native live-scene capability](../../dev/upstream/tetravox-live-scene/README.md); verify edited native snapshot/reopen, existing-file refusal, unchanged originals and macOS minimized/no-window activation. Existing installed builds cannot save live scenes through TI. |
+| Viewer | Release TetraVox PR #44's [generic scene API](../../dev/upstream/tetravox-live-scene/README.md), then validate edited native snapshot/reopen, existing-file refusal, unchanged originals and macOS minimized/no-window activation. Existing installed builds cannot save live scenes through TI. |
 | Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |
 | Maintenance | Assess OpenSSF practices and extend integration coverage for selected colleague workflows |
 

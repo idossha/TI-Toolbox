@@ -9,6 +9,7 @@ import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
 import { createNativeSceneSession, exchangeNativeSceneRequest } from "./nativeSceneBridge";
+import { orchestrateNativeSceneSave } from "./nativeSceneSave";
 import { createViewerHandoff } from "./viewerHandoff";
 import { checkViewerScene, identifyViewerPath, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setConfiguredViewerPathProvider, setViewerProgressListener } from "./tetravoxNative";
 import { FastSurferWorker } from "./fastsurferWorker";
@@ -740,30 +741,15 @@ function registerIpc(): void {
     return nativeViewerStatus(app.getPath("userData"));
   });
   const viewerHandoff = createViewerHandoff();
-  ipcMain.handle("tit:tetravox:saveScene", async (e, name: unknown) => {
-    if (!fromMainWindow(e) || typeof name !== "string" || !name.trim() || name.length > 80) return { ok: false, reason: "Invalid native scene save request." };
-    let savedPath: string | undefined;
-    try {
-      const session = activeSession;
-      const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
-      if (!session || !root) throw new Error("Native scene saving requires an active local project.");
-      await viewerHandoff({ hasScene: false, running: async () => false, confirm: async () => false, launch: async () => {
-        if (!fromMainWindow(e) || session !== activeSession) throw new Error("The active project changed before saving.");
-        const response = await net.fetch(`${session.origin}/api/viewer/scenes/${encodeURIComponent(name)}/native-destination`, {
-          method: "POST", headers: { authorization: `Bearer ${session.token}` }, signal: AbortSignal.timeout(5000),
-        });
-        const body = await response.json() as { scene_path?: unknown; detail?: unknown };
-        if (!response.ok || typeof body.scene_path !== "string") throw new Error(typeof body.detail === "string" ? body.detail : "Could not prepare the project scene destination.");
-        const mapped = await resolveHostPathStrict(body.scene_path);
-        if (!mapped.ok) throw new Error(mapped.reason);
-        const currentRoot = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
-        if (!fromMainWindow(e) || session !== activeSession || currentRoot !== root) throw new Error("The active project changed before saving.");
-        await nativeScenes.save(mapped.path, root);
-        savedPath = body.scene_path;
-      } });
-      return { ok: true, path: savedPath };
-    } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
-  });
+  ipcMain.handle("tit:tetravox:saveScene", (e, name: unknown) => orchestrateNativeSceneSave(name, {
+    trusted: () => fromMainWindow(e),
+    session: () => activeSession,
+    projectRoot: async () => stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined,
+    fetchDestination: (url, init) => net.fetch(url, init),
+    resolveHostPath: resolveHostPathStrict,
+    saveNativeScene: (destination, root) => nativeScenes.save(destination, root),
+    handoff: viewerHandoff,
+  }));
   ipcMain.handle("tit:tetravox:open", async (e, path: unknown) => {
     if (!fromMainWindow(e) || typeof path !== "string") return { ok: false, reason: "Untrusted viewer request." };
     const requestedSession = activeSession;

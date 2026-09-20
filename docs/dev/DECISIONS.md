@@ -1612,8 +1612,8 @@ serialization, no-window recovery and foreground acceptance remain release gates
 The earlier draft-only delivery boundary is superseded: the request adapter, native controller save,
 canonical Save As default and window recreation now live in the TetraVox `fix/ti-native-scenes`
 checkout. TI retains capability detection for older installed builds. No viewer update or public
-release was performed. See the [integration record](../../dev/upstream/tetravox-live-scene/README.md)
-for verification and outstanding platform gates.
+release was performed. The [upstream integration record](../../dev/upstream/tetravox-live-scene/README.md)
+identifies the generic API and TI adapter; TESTING owns verification and ROADMAP owns outstanding gates.
 
 ### 2026-09-19 — Consume a generic TetraVox scene API
 

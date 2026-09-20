@@ -257,9 +257,10 @@ installation. Existing installations can still be located on both platforms. The
 implementation/platform gates, not a reduction of the requested three-platform release scope. Local
 unit checks do not prove signing, native updates, scene rendering or OS foreground behavior.
 
-Acknowledged live-scene requests and native no-window recovery are implemented in the TetraVox
-`fix/ti-native-scenes` source branch. The [integration record](../../dev/upstream/tetravox-live-scene/README.md)
-tracks verification. Installed builds without `sceneApiProtocol: 1` cannot use TI live saving;
+Acknowledged live-scene requests and native no-window recovery are implemented in TetraVox PR #44.
+The [upstream integration record](../../dev/upstream/tetravox-live-scene/README.md) identifies that
+generic API and TI's adapter boundary; verification evidence is in TESTING and outstanding release
+acceptance is in ROADMAP. Installed builds without `sceneApiProtocol: 1` cannot use TI live saving;
 the capability becomes available when a compatible TetraVox package is installed.
 
 Official-release acceptance remains a real package matrix: macOS arm64 and x64, Windows x64, and
