@@ -142,7 +142,9 @@ not a second source of truth. The import guard prevents heavy scientific imports
 registration. The contract guard
 regenerates outputs in a temporary directory and checks byte drift against the authored contract.
 Fix drift with `cd desktop && npm run gen`; never hand-edit generated output. Contract warnings
-must be reported rather than counted as zero.
+must be reported rather than counted as zero. `test_config_schema.py` compares full generated
+schemas across fresh 1/4/12-CPU processes while asserting independent runtime QSI thread defaults
+and explicit override preservation; generation must not embed the build host's CPU count.
 
 The packaged example notebook (`tit/server/examples/example_workflow.ipynb`, the one source;
 `examples/notebooks/` symlinks to it and `docs/wiki/example-notebook.md` is rendered from it by

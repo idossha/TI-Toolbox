@@ -75,7 +75,8 @@ class QSIPrepSettings:
     output_resolution: float = const.QSI_DEFAULT_OUTPUT_RESOLUTION
     cpus: int | None = None
     memory_gb: int | None = None
-    omp_threads: int = const.QSI_DEFAULT_OMP_THREADS
+    # Runtime host capacity is not a portable JSON Schema default (CircleCI #1070).
+    omp_threads: int = field(default_factory=lambda: const.QSI_DEFAULT_OMP_THREADS)
     image_tag: str = const.QSI_QSIPREP_IMAGE_TAG
     skip_bids_validation: bool = True
     denoise_method: str = "dwidenoise"
@@ -141,7 +142,8 @@ class QSIReconSettings:
     use_gpu: bool = False
     cpus: int | None = None
     memory_gb: int | None = None
-    omp_threads: int = const.QSI_DEFAULT_OMP_THREADS
+    # Runtime host capacity is not a portable JSON Schema default (CircleCI #1070).
+    omp_threads: int = field(default_factory=lambda: const.QSI_DEFAULT_OMP_THREADS)
     image_tag: str = const.QSI_QSIRECON_IMAGE_TAG
     skip_odf_reports: bool = True
 

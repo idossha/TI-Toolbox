@@ -2252,7 +2252,6 @@
           "title": "Memory Gb"
         },
         "omp_threads": {
-          "default": 8,
           "title": "Omp Threads",
           "type": "integer"
         },
@@ -2336,7 +2335,6 @@
           "title": "Memory Gb"
         },
         "omp_threads": {
-          "default": 8,
           "title": "Omp Threads",
           "type": "integer"
         },
@@ -2426,7 +2424,6 @@
           "title": "Memory Gb"
         },
         "omp_threads": {
-          "default": 8,
           "title": "Omp Threads",
           "type": "integer"
         }

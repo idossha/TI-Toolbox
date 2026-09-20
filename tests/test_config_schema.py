@@ -734,12 +734,49 @@ class TestBuildContractScript:
         out_path = tmp_path / "generated" / "openapi.json"
         rc = build_contract.main(
             [
-                "--openapi", str(openapi_path),
-                "--schema", str(schema_path),
-                "--out", str(out_path),
+                "--openapi",
+                str(openapi_path),
+                "--schema",
+                str(schema_path),
+                "--out",
+                str(out_path),
             ]
         )
         assert rc == 0
         assert out_path.is_file()
         written = json.loads(out_path.read_text())
         assert written["components"]["schemas"]["Size"] == {"type": "integer"}
+
+
+def test_qsi_runtime_cpu_defaults_do_not_change_generated_schema():
+    """A 1/4/12-CPU host keeps its runtime default without baking it into the wire schema."""
+    import subprocess
+
+    results = []
+    for cpus in (1, 4, 12):
+        script = f"""
+import os, sys, json
+os.cpu_count = lambda: {cpus}
+sys.path.insert(0, "dev")
+import build_contracts, build_schema
+build_contracts._ensure_importable()
+from tit.pre.config import QSIPrepSettings, QSIReconSettings
+from tit.pre.qsi.config import ResourceConfig
+classes = (QSIPrepSettings, QSIReconSettings, ResourceConfig)
+print(json.dumps({{"schema": build_schema.build_schema(),
+                  "defaults": [cls().omp_threads for cls in classes],
+                  "explicit": [cls(omp_threads=2).omp_threads for cls in classes]}}))
+"""
+        results.append(
+            json.loads(
+                subprocess.check_output(
+                    [sys.executable, "-c", script], cwd=REPO_ROOT, text=True
+                )
+            )
+        )
+    assert [r["defaults"] for r in results] == [[1] * 3, [3] * 3, [8] * 3]
+    assert all(r["explicit"] == [2] * 3 for r in results)
+    assert results[0]["schema"] == results[1]["schema"] == results[2]["schema"]
+    for name in ("QSIPrepSettings", "QSIReconSettings", "ResourceConfig"):
+        field_schema = results[0]["schema"]["$defs"][name]["properties"]["omp_threads"]
+        assert "default" not in field_schema

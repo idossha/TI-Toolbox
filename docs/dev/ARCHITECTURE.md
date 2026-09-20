@@ -156,6 +156,11 @@ server planning and validation. A client preview is not authority to bypass serv
 
 ## 5. Verification and frozen interfaces
 
+Generated configuration schemas omit machine-dependent default values. QSI OpenMP thread fields
+remain optional; omitting them resolves the existing host-dependent runtime default, while an
+explicit value is preserved. A producer machine's CPU count must not become a wire-contract
+constant. Desktop preprocessing continues to send resolved user resource preferences.
+
 The verification procedure is [TESTING.md](TESTING.md). Host tests with mocked heavy
 libraries do not prove numerical correctness; science changes require independent assertions against
 real libraries. Published-result changes also require [release-specific scientific correction notes](../releases/v3.0.0.md#scientific-corrections).

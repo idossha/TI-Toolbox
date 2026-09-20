@@ -1725,3 +1725,21 @@ commands that return success, failure, inconclusive and no-tests codes; only suc
 The full local wrapper requires real fixtures and is not claimed executed by these self-tests.
 Its receipt is an operator review input, not a publication interlock; platform installer acceptance
 and skip review remain required by TESTING and RELEASING.
+
+
+## 2026-09-20 — Runtime thread defaults are absent from portable schemas
+
+**Decision.** Express the three QSI `omp_threads` dataclass defaults with `default_factory`.
+Runtime omission retains `QSI_DEFAULT_OMP_THREADS`; explicit caller values are unchanged. Generated
+JSON Schema/OpenAPI omit the host-specific `default`, and generated TypeScript correctly permits
+omission. The desktop's explicit resource preferences continue to own submitted thread counts.
+
+**Why.** CircleCI #1070 exposed three generated defaults of 3 on its four-CPU host versus 8 in the
+committed schema [measured: exact guard diff]. Byte guards correctly rejected the difference.
+Hardcoding a generator CPU count or dropping byte checks would hide a build-host dependency.
+
+**Verification.** `test_qsi_runtime_cpu_defaults_do_not_change_generated_schema` first failed on
+unequal schemas, then passed: fresh processes model 1, 4 and 12 host CPUs, assert runtime defaults
+1, 3 and 8 respectively, preserve explicit 2, and require identical full generated schemas with
+no numeric OpenMP default. Existing packages remain evidence for their original source SHA;
+publication artifacts incorporating this change must be rebuilt.

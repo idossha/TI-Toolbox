@@ -9632,11 +9632,8 @@ export interface components {
              * @default null
              */
             memory_gb: number | null;
-            /**
-             * Omp Threads
-             * @default 8
-             */
-            omp_threads: number;
+            /** Omp Threads */
+            omp_threads?: number;
             /**
              * Image Tag
              * @default 26.0.0
@@ -9722,11 +9719,8 @@ export interface components {
              * @default null
              */
             memory_gb: number | null;
-            /**
-             * Omp Threads
-             * @default 8
-             */
-            omp_threads: number;
+            /** Omp Threads */
+            omp_threads?: number;
             /**
              * Image Tag
              * @default 26.0.0
@@ -9762,11 +9756,8 @@ export interface components {
              * @default null
              */
             memory_gb: number | null;
-            /**
-             * Omp Threads
-             * @default 8
-             */
-            omp_threads: number;
+            /** Omp Threads */
+            omp_threads?: number;
         };
         /**
          * Alternative
