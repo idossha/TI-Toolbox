@@ -48,6 +48,7 @@ This is the documentation map. Keep each topic in its designated file and link r
 | [ROADMAP.md](docs/dev/ROADMAP.md) | Priorities, planned work and completion criteria |
 | [CHANGELOG.md](docs/dev/CHANGELOG.md) | User-visible changes by release |
 | [AUTOMATION.md](docs/dev/AUTOMATION.md) | CI, scripts, deployment, monitoring, backups and recovery |
+| [Release pages](docs/releases/releases.md) | Published release index; `docs/releases/vX.Y.Z.md` owns compatibility, migration and published-result remediation |
 
 Revise current-state references in place. Append significant decisions/milestones and release
 entries; mark reversals explicitly. Routine test runs and agent handoffs are not permanent work logs.
