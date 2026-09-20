@@ -25,21 +25,68 @@ User consent, payload fields and opt-out controls are documented in the
 the implementation authority. Operational ownership is separate from the documentation site's
 analytics:
 
-- The GA4 property is **`tit-telemetry`** (measurement ID `G-2GGJF2D8C7`). Its Measurement
-  Protocol API secret in `tit/constants.py` grants event submission only; GA4, BigQuery and
-  dashboard read access remains controlled by the maintainer's Google/GCP IAM.
-- GA4 exports daily to the **`tit-telemetry`** GCP project's
-  `analytics_<PROPERTY_ID>.events_YYYYMMDD` tables. GA4's configured event-data retention is
-  14 months; exported-table retention is a BigQuery policy and must be checked there rather than
-  assumed from the GA4 setting.
-- The maintained dashboard and aggregation jobs live in
-  [idossha/TI-toolbox-stats](https://github.com/idossha/TI-toolbox-stats). Monitor GA4 Realtime for
-  recent delivery, the dashboard for operation/error trends, and BigQuery for a fresh daily table.
-- If daily export stops, check GCP billing attachment, the BigQuery API, GA4's BigQuery Link and
-  the export service account before relinking. GA4 does not backfill days before a working link.
-  Recovery instructions for the service are in Google's
-  [BigQuery Export guide](https://support.google.com/analytics/answer/9358801); do not rotate the
-  send-only client constant as though it were a dashboard credential.
+### GA4 property and stream
+
+The GA4 property is **`tit-telemetry`**, separate from the documentation site's analytics. Its
+Web stream is named **`CLI/GUI Events`**, uses measurement ID `G-2GGJF2D8C7`, the repository URL
+only as the stream's website label, and has Enhanced Measurement disabled because events arrive
+through Measurement Protocol. The `tit-usage` Measurement Protocol secret in `tit/constants.py`
+grants event submission only; GA4, BigQuery and dashboard read access remains controlled by the
+maintainer's Google/GCP IAM.
+
+GA4 parameters must be registered under **Admin → Custom definitions** before they are available
+as report dimensions. The current implementation uses this event-scoped mapping:
+
+| GA4 display name | Event parameter |
+|---|---|
+| TIT Version | `tit_version` |
+| Host OS | `os_name` |
+| Host OS Version | `os_version` |
+| Host Architecture | `platform` |
+| Interface | `interface` |
+| Status | `status` |
+| Duration (seconds) | `duration_s` |
+| Error Type | `error_type` |
+| Error Detail | `error_detail` |
+| Error Fingerprint | `error_fingerprint` |
+| Run ID | `run_id` |
+
+New definitions can take 24–48 hours to appear in reporting. `report_type` and `n_subjects` from
+older dashboard notes are not emitted by the current telemetry implementation and must not be
+presented as current payload fields.
+
+### BigQuery export and recovery
+
+GA4 exports a daily batch to the **`tit-telemetry`** GCP project. The dataset is
+`analytics_<PROPERTY_ID>`, its tables are `events_YYYYMMDD`, and its location is **US**; BigQuery
+dataset location is immutable after creation. GA4's configured event-data retention is 14 months;
+exported-table retention is a BigQuery policy and must be checked there rather than inferred from
+the GA4 setting. GA4 does not backfill days before a working link.
+
+The maintained Cloud Run dashboard and daily `daily_metrics` aggregation live in
+[idossha/TI-toolbox-stats](https://github.com/idossha/TI-toolbox-stats). Monitor GA4 Realtime for
+recent delivery, the dashboard for operation/error trends, and BigQuery for a fresh daily table.
+If export stops, first verify billing at the
+[`tit-telemetry` linked-account page](https://console.cloud.google.com/billing/linkedaccount?project=tit-telemetry),
+the BigQuery API, the GA4 BigQuery Link, and the auto-provisioned
+`firebase-measurement@system.gserviceaccount.com` service account (`BigQuery User` and
+`Logs Writer`).
+
+To recreate the link:
+
+1. Sign in to [Google Cloud](https://console.cloud.google.com) with the Google account that owns
+   the GA4 property and select the existing `tit-telemetry` project.
+2. Enable the BigQuery API and attach a billing account **before** creating the link. A link can
+   appear valid without billing while producing no dataset.
+3. In [Google Analytics](https://analytics.google.com), open the `tit-telemetry` property, then
+   **Admin → Product links → BigQuery Links → Link**.
+4. Select the `tit-telemetry` project, choose location **US** and export type **Daily**, and leave
+   **Include advertising identifiers** unchecked.
+5. Submit, then allow the next daily cycle (normally about 24 hours) for the dataset/table to
+   appear. If a pre-billing link remains inert after that cycle, unlink and repeat these steps.
+
+Google's [BigQuery Export guide](https://support.google.com/analytics/answer/9358801) covers service
+recovery. Do not rotate the send-only client constant as though it were a dashboard credential.
 
 ## Operator scripts
 
