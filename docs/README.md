@@ -44,7 +44,7 @@ For usage, run `bash docs/serve.sh --help`.
 
 | Component | Source | URL |
 |-----------|--------|-----|
-| **Jekyll** (project site) | `docs/` (wiki, gallery, installation, etc.) | `idossha.github.io/TI-Toolbox/` |
+| **Jekyll** (project site) | `docs/wiki/` (user guides), `docs/releases/` (release notes), plus the site shell in `docs/` | `idossha.github.io/TI-Toolbox/` |
 | **MkDocs** (API reference) | `docs/api_mkdocs/` | `idossha.github.io/TI-Toolbox/api/` |
 
 ## How Deployment Works
