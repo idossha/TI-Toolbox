@@ -41,12 +41,12 @@ class SurferPreferences(BaseModel):
 class FreeSurferLicenseStatus(BaseModel):
     """Whether a FreeSurfer license is resolvable, and where it came from.
 
-    The license itself is never returned: it is issued per registered person
-    and stays in the user's config dir.
+    The bundled license is automatic; optional administrator overrides remain
+    supported. License contents are never returned.
     """
 
     configured: bool
-    source: Literal["app", "environment"] | None = None
+    source: Literal["app", "environment", "bundled"] | None = None
     email: str | None = None
 
 
@@ -82,7 +82,7 @@ def put_surfer_settings(body: SurferPreferences) -> SurferSettings:
 
 @router.put(
     "/api/surfer-settings/freesurfer-license",
-    summary="Store the user's own FreeSurfer license.txt (never bundled or fetched)",
+    summary="Store an optional administrator FreeSurfer license override",
 )
 def put_freesurfer_license(body: FreeSurferLicenseText) -> SurferSettings:
     try:

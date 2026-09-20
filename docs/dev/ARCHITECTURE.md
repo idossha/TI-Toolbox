@@ -44,6 +44,16 @@ Workers bind the selected project, retain results under `derivatives/freesurfer`
 job resource budget and cancellation lifecycle, and use no named data volume. The image may
 remain cached; the worker and temporary license mount are removed after execution.
 
+**TI-Toolbox supplies its bundled FreeSurfer license automatically.** Users must never be asked
+to register, bring a personal license or paste a key into Settings. FreeSurfer, QSIPrep and
+QSIRecon share the packaged license resolver and stage the resolved file for their runtime.
+The fallback resource is `tit/resources/freesurfer/license.txt`, shipped with upstream terms.
+Existing environment, stored-user and system-file overrides remain optional compatibility inputs;
+the packaged license makes a clean installation usable without them. A missing bundled resource
+is an installation error to repair, never a reason to request a user's license. FastSurfer
+segmentation remains license-independent. This restores the v2 provisioning policy (DECISIONS,
+2026-09-20).
+
 ### Launch modes
 
 There is one launch model, and the desktop application is it. `loader.py` (implementation

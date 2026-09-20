@@ -199,9 +199,9 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 
 ### FreeSurfer stage refused: `… run FreeSurfer and need your FreeSurfer license; none is stored`
 
-**Applies to:** v3.
-**Cause:** `recon-all` and the thalamic / hippocampal-amygdala subregion tools run FreeSurfer binaries, which need a license issued to you personally; the toolbox cannot ship one.
-**Fix:** register (free) at [surfer.nmr.mgh.harvard.edu/registration.html](https://surfer.nmr.mgh.harvard.edu/registration.html), then paste the `license.txt` under **Settings → Pre-processing → FreeSurfer license** once. See [FreeSurfer license]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-license).
+**Applies to:** development builds before the 2026-09-20 correction.
+**Cause:** the v3 license setup incorrectly required a personal license instead of supplying the toolbox's bundled license.
+**Fix:** the development version restores automatic license provisioning for FreeSurfer, QSIPrep and QSIRecon. No registration or personal license is required. If a current installation reports that the bundled license is missing, repair or reinstall the toolbox and report the packaging error. See [FreeSurfer license]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-license).
 
 ### Preprocessing appears frozen for many hours
 
@@ -316,7 +316,7 @@ Not possible with two pairs. Use a large sphere covering both targets if focalit
 ### Running QSIRecon yourself: `Path should point to a file (or symlink of file): .`
 
 **Cause:** the FreeSurfer license path handed to QSIRecon does not exist — with Docker-out-of-Docker the license must be given as a **host** path.
-**Fix:** set `LOCAL_FS_LICENSE=/host/path/license.txt`; `FS_LICENSE` is the fallback. (The toolbox does this itself since v2.4.0.)
+**Fix:** TI-Toolbox stages and mounts its bundled license automatically. For a manually launched historical v2 worker, `LOCAL_FS_LICENSE` must point to an existing file on the Docker host; this is a mount-path correction, not a requirement to obtain a personal license.
 
 ### SimNIBS 4.6 quirks the image patches for you
 
@@ -353,7 +353,7 @@ for reference; use the [installation guide]({{ site.baseurl }}/installation/) fo
 | Analyzer simulation list empty when the first subject has no simulations | v2.4.0 | switch subject and back | |
 | DICOM import crashes with `PermissionError: [Errno 1]` on `._*` files | v2.4.0 | delete the `._*` files (Part 1) | PR #133 |
 | DICOMs silently skipped when `CT/` and `ct/` both exist | v2.4.0 | keep one spelling | |
-| QSIRecon: `Path should point to a file: .` (license mounted as `None`) | v2.4.0 | set `LOCAL_FS_LICENSE` | [#81](https://github.com/idossha/TI-Toolbox/discussions/81) |
+| QSIRecon: `Path should point to a file: .` (license mounted as `None`) | v2.4.0 | automatic license mount | [#81](https://github.com/idossha/TI-Toolbox/discussions/81) |
 | QSI preflight: `Host project directory does not exist: C:/…` on Windows | v2.3.2 | | [#122](https://github.com/idossha/TI-Toolbox/discussions/122) |
 | `recon-all output already exists` on a fresh project (empty dir pre-created) | v2.3.2 | delete the empty `derivatives/freesurfer/sub-<id>/` | [#122](https://github.com/idossha/TI-Toolbox/discussions/122) |
 | DWI DICOMs never converted (only T1w/T2w) | v2.3.2 | | [#122](https://github.com/idossha/TI-Toolbox/discussions/122) |

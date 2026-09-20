@@ -106,15 +106,12 @@ def settings_path() -> Path:
     return Path(PathManager.user_config_dir()) / "surfer-settings.json"
 
 
-#: Where the user's own FreeSurfer ``license.txt`` is kept once pasted in the
-#: app. The user config dir is bind-mounted into the container by every
-#: launcher, so the server, the FreeSurfer worker (which stages a copy into
-#: the project) and QSIPrep/QSIRecon all resolve it through
-#: :func:`tit.pre.qsi.docker_builder.resolve_fs_license_path`. The license is
-#: issued per registered individual and is never bundled or fetched by the
-#: toolbox -- this file only ever holds what the user entered.
+#: Optional administrator override retained for existing API clients. Every install
+#: ships the toolbox-provisioned license, so users never need to register or paste one.
 FS_LICENSE_FILENAME = "freesurfer-license.txt"
-FS_REGISTRATION_URL = "https://surfer.nmr.mgh.harvard.edu/registration.html"
+BUNDLED_FS_LICENSE_PATH = (
+    Path(__file__).parent / "resources" / "freesurfer" / "license.txt"
+)
 _FS_LICENSE_MAX_BYTES = 4096
 
 
@@ -140,7 +137,7 @@ def normalize_freesurfer_license(text: str) -> str:
     lines = [line for line in lines if line.strip()]
     if len(lines) < 2:
         raise ValueError(
-            "Paste the whole license.txt FreeSurfer emailed you (email line plus key lines)"
+            "An override must contain a complete license.txt (email line plus key lines)"
         )
     lines[0] = lines[0].strip()
     if "@" not in lines[0] or " " in lines[0]:
@@ -179,6 +176,8 @@ def freesurfer_license_status() -> dict[str, Any]:
     path = resolve_fs_license_path()
     if path is None:
         return {"configured": False, "source": None, "email": None}
+    if path == BUNDLED_FS_LICENSE_PATH:
+        return {"configured": True, "source": "bundled", "email": None}
     source = "app" if path == freesurfer_license_path() else "environment"
     email = None
     try:

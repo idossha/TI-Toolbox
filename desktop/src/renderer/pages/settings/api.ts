@@ -39,7 +39,7 @@ export async function putSurferSettings(settings: SurferPreferences): Promise<Su
   return unwrap(await api.PUT("/api/surfer-settings", { body: settings }), "/api/surfer-settings");
 }
 
-/** The license is the user's own (per registered person) — it is stored, never bundled or fetched. */
+/** Optional administrator override; the toolbox supplies its bundled license automatically. */
 export async function putFreeSurferLicense(text: string): Promise<SurferSettings> {
   return unwrap(await api.PUT("/api/surfer-settings/freesurfer-license", { body: { text } }), "/api/surfer-settings/freesurfer-license");
 }

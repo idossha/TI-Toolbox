@@ -3919,7 +3919,7 @@ const surferSettingsResponse = () => ({
   ...surferSettings, available_threads: 12, default_threads: 9,
   freesurfer_license: freesurferLicense
     ? { configured: true, source: "app", email: freesurferLicense.split("\n")[0] }
-    : { configured: false, source: null, email: null },
+    : { configured: true, source: "bundled", email: null },
   effective_charm_threads: Math.min(12, surferSettings.charm_threads ?? 9), effective_qsiprep_threads: Math.min(12, surferSettings.qsiprep_threads ?? 9), effective_qsirecon_threads: Math.min(12, surferSettings.qsirecon_threads ?? 9),
   effective_fastsurfer_threads: Math.min(12, surferSettings.fastsurfer_threads ?? 9),
   effective_freesurfer_threads: Math.min(12, surferSettings.freesurfer_threads ?? 9),

@@ -89,13 +89,10 @@ def run_freesurfer(
         validate_reconstruction(subject_id)
     license_path = resolve_fs_license_path()
     if license_path is None:
-        from tit.surfer_settings import FS_REGISTRATION_URL
-
         stage = "recon-all" if recon_all else "subregion segmentation"
         raise PreprocessError(
-            f"FreeSurfer {stage} needs your FreeSurfer license and none is stored. "
-            f"Register (free) at {FS_REGISTRATION_URL}, then paste the license.txt "
-            "under Settings -> Pre-processing -> FreeSurfer license."
+            f"FreeSurfer {stage} cannot find the license supplied by TI-Toolbox. "
+            "Repair or update the TI-Toolbox installation; no personal license is required."
         )
     subjects_dir = Path(pm.freesurfer())
     subject = Path(pm.freesurfer_subject(subject_id))

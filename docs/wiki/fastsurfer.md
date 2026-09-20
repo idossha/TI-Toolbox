@@ -25,8 +25,8 @@ Enable **FreeSurfer** on the Pre-processing page. In **Settings → Pre-processi
 full reconstruction (`recon-all`), thalamic nuclei, and/or hippocampal/amygdala subregions.
 All three are selected by default. Subregions require a completed FreeSurfer reconstruction,
 from this run or an existing result; FastSurfer's segmentation-only output is not sufficient.
-These stages run FreeSurfer binaries and need your FreeSurfer license (below). FastSurfer
-segmentation does not.
+TI-Toolbox supplies the FreeSurfer license automatically for these stages (below). FastSurfer
+segmentation needs no license.
 
 FreeSurfer runs in a temporary worker and stores results in `derivatives/freesurfer/sub-<id>/`.
 The worker is removed when computation ends; the outputs and downloaded image remain for reuse.
@@ -35,32 +35,23 @@ The T1-only subregion pipeline uses the upstream
 
 ## FreeSurfer license
 
-| Stage | License needed |
-|---|---|
-| FastSurfer segmentation (`--seg_only`) | No |
-| SimNIBS charm, DICOM conversion, DTI extraction | No |
-| FreeSurfer `recon-all` | Yes |
-| FreeSurfer thalamic nuclei, hippocampus/amygdala subregions | Yes |
-| QSIPrep, QSIRecon | Yes |
+TI-Toolbox includes its FreeSurfer license and supplies it automatically to FreeSurfer,
+QSIPrep and QSIRecon. **You do not need to register, obtain a personal license or paste one
+into Settings.** FastSurfer segmentation (`--seg_only`) needs no license.
 
-The FreeSurfer license is free but issued to you personally and may not be redistributed, so
-TI-Toolbox never ships one or downloads one for you. To add yours:
+Providing a license to a tool is separate from running FreeSurfer reconstruction. The default
+QSIPrep/QSIRecon pipeline does not require a completed FreeSurfer or FastSurfer run; see the
+[diffusion guide]({{ site.baseurl }}/wiki/diffusion-processing/).
 
-1. Register at [surfer.nmr.mgh.harvard.edu/registration.html](https://surfer.nmr.mgh.harvard.edu/registration.html).
-   FreeSurfer emails you a short `license.txt` (your email, a number and two key lines).
-2. Open **Settings → Pre-processing → FreeSurfer → FreeSurfer license**, paste the whole file
-   and choose **Store license**. The card then shows the registered email; the key itself is never
-   shown or sent anywhere.
+Existing script and cluster overrides remain supported: `FS_LICENSE` and the Apptainer runner's
+`--fs-license` are optional. An existing stored license is also respected. No override is needed
+for a standard installation.
 
-The license is kept in your TI-Toolbox user directory (`~/.config/ti-toolbox/freesurfer-license.txt`
-on macOS and Linux, `%APPDATA%\ti-toolbox\` on Windows), which every launcher mounts into the
-container, so one paste covers every project and every job that needs it. **Forget license**
-removes it. If you select a FreeSurfer step without a stored license, the Pre-processing page says
-so with the registration link, and the run is refused before it starts with a message naming the
-stages that need it — FastSurfer segmentation is never held up.
-
-Scripts and clusters: setting `FS_LICENSE=/path/to/license.txt` in the server's environment takes
-precedence over the stored file; the Apptainer runner's `--fs-license` does the same.
+All or portions of this licensed product (such portions are the "Software") have been obtained
+under license from The General Hospital Corporation "MGH" and are subject to the following
+terms and conditions:
+[FreeSurfer Software License](https://github.com/idossha/TI-Toolbox/blob/main/tit/resources/freesurfer/TERMS.txt).
+The complete terms and attribution notice are included with the bundled license.
 
 ## Configure once, use across projects
 

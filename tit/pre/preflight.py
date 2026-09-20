@@ -252,8 +252,7 @@ def missing_freesurfer_license(
     if not licensed:
         return []
     from tit.surfer_settings import (
-        FS_REGISTRATION_URL,
-        freesurfer_license_path,
+        BUNDLED_FS_LICENSE_PATH,
         freesurfer_license_status,
     )
 
@@ -266,13 +265,10 @@ def missing_freesurfer_license(
             licensed[0],
             "FreeSurfer license",
             (
-                f"{names} run FreeSurfer and need your FreeSurfer license; none is "
-                "stored. Register (free) at "
-                f"{FS_REGISTRATION_URL}, then paste the license.txt you receive "
-                "under Settings -> Pre-processing -> FreeSurfer license. "
-                "FastSurfer segmentation needs no license."
+                f"{names} cannot find the FreeSurfer license supplied by TI-Toolbox. "
+                "Repair or update the TI-Toolbox installation; no personal license is required."
             ),
-            freesurfer_license_path(),
+            BUNDLED_FS_LICENSE_PATH,
         )
     ]
 

@@ -18,10 +18,10 @@ MODULE = "tit.pre.qsi.docker_builder"
 
 
 @pytest.fixture
-def builder():
+def builder(tmp_path):
     """Create a DockerCommandBuilder with mocked dependencies."""
     with patch(f"{MODULE}.get_host_project_dir", return_value="/host/project"):
-        b = DockerCommandBuilder("/container/project")
+        b = DockerCommandBuilder(str(tmp_path))
         b._host_license_path = "/host/project/.freesurfer_license.txt"
         return b
 
@@ -51,10 +51,10 @@ class TestDockerCommandBuilder:
         assert builder._host_project_dir == "/host/project"
         assert builder._host_license_path == "/host/project/.freesurfer_license.txt"
 
-    def test_custom_paths(self):
+    def test_custom_paths(self, tmp_path):
         custom = DockerPaths(bids_dir="/custom/data")
         with patch(f"{MODULE}.get_host_project_dir", return_value="/host"):
-            b = DockerCommandBuilder("/proj", paths=custom)
+            b = DockerCommandBuilder(str(tmp_path), paths=custom)
             assert b.paths.bids_dir == "/custom/data"
 
     def test_get_output_dir(self, builder):
@@ -175,10 +175,10 @@ class TestBuildQsiprepCmd:
         assert license_mounts[0].startswith("/host/project/")
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
-    def test_no_fs_license(self, mock_resources):
+    def test_no_fs_license(self, mock_resources, tmp_path):
         """No license mount or --fs-license-file when staging fails."""
         with patch(f"{MODULE}.get_host_project_dir", return_value="/host"):
-            b = DockerCommandBuilder("/proj")
+            b = DockerCommandBuilder(str(tmp_path))
             b._host_license_path = None
             config = QSIPrepConfig(subject_id="001")
             cmd = b.build_qsiprep_cmd(config)
@@ -315,10 +315,10 @@ class TestBuildQsireconCmd:
         assert cmd[idx + 1] == "64g"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
-    def test_no_fs_license_qsirecon(self, mock_resources):
+    def test_no_fs_license_qsirecon(self, mock_resources, tmp_path):
         """No license mount or --fs-license-file when staging fails."""
         with patch(f"{MODULE}.get_host_project_dir", return_value="/host"):
-            b = DockerCommandBuilder("/proj")
+            b = DockerCommandBuilder(str(tmp_path))
             b._host_license_path = None
             config = QSIReconConfig(subject_id="001")
             cmd = b.build_qsirecon_cmd(config, "dipy_dki")
