@@ -12,12 +12,14 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { JobStatus } from "../../src/renderer/app/jobs-rail/api";
+
 const revealed: string[] = [];
 vi.mock("../../src/renderer/app/jobs-rail/reveal", () => ({
   reveal: (path: string) => revealed.push(path),
 }));
 
-let allJobs: any[] = [];
+let allJobs: JobStatus[] = [];
 vi.mock("../../src/renderer/app/jobs-rail/model", () => ({
   useJobsModel: () => ({ all: allJobs, now: 1000 }),
 }));
@@ -51,7 +53,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-function analyzerJob() {
+function analyzerJob(): JobStatus {
   return {
     id: "a1",
     kind: "analyzer",

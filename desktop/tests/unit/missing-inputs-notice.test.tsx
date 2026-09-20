@@ -24,6 +24,7 @@ vi.mock("sonner", () => ({
 
 import { ApiError, createApi, missingInputLines, unwrap } from "../../src/renderer/api/client";
 import { notifySubmitError, ToastHost } from "../../src/renderer/ui/Toast";
+import { AUTO_FIELD, buildConfig } from "../../src/renderer/pages/analyzer/buildConfig";
 import { batchReceipt, submitBatch } from "../../src/renderer/pages/analyzer/submitBatch";
 
 const BASE = "http://test";
@@ -49,7 +50,13 @@ function refusedClient() {
 
 async function submitRefused(): Promise<unknown> {
   const client = refusedClient();
-  const result = await client.POST("/api/jobs", { body: { kind: "analyzer", config: {}, subject_ids: ["101"] } });
+  const config = buildConfig({
+    mode: "single", subjectId: "101", subjectIds: [], simulation: "L_Insula",
+    space: "voxel", tissueType: "GM", field: AUTO_FIELD, analysisType: "cortical",
+    coordinateSpace: "subject", sphere: { x: 0, y: 0, z: 0, radius: 5 },
+    roiValue: { mode: "cortical", space: "subject", atlas: "DK40", regions: [{ id: 29, name: "insula", hemi: "lh" }] },
+  });
+  const result = await client.POST("/api/jobs", { body: { kind: "analyzer", config, subject_ids: ["101"] } });
   try {
     return unwrap(result, "/api/jobs");
   } catch (error) {
