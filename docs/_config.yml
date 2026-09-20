@@ -52,7 +52,6 @@ exclude:
   - build-api.sh
   - serve.sh
   - tests/
-  - requirements/
   # MkDocs sources for API docs (the built site is committed to `docs/api/`)
   - api_mkdocs/
   # Developer references stay private to the checkout; the changelog is included above.

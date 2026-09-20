@@ -24,7 +24,7 @@ tit/            the science core (paths, sim, opt, analyzer, stats, calc, fields
 tit/server/     FastAPI app + routes; tit/jobs/ is the job engine
 contracts/      openapi.yaml is the one hand-written contract; generated/ is build output (npm run gen)
 tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real ones
-dev/            scripts only: build_contracts (+build_schema/build_contract), contracts_check, route_import_guard, smoke.sh
+dev/            scripts only: build_contracts (+build_schema/build_contract), contracts_check, documentation_policy, route_import_guard, smoke.sh
 container/      image blueprints and build.sh
 docs/dev/       how this software is built and why — current developer references
 docs/wiki/      the user-facing site (published); legacy v2 guidance is in docs/wiki/legacy-v2.md
@@ -54,6 +54,9 @@ Revise current-state references in place. Append significant decisions/milestone
 entries; mark reversals explicitly. Routine test runs and agent handoffs are not permanent work logs.
 Numerical migration guidance belongs in the relevant release page, linked from the changelog.
 Developer references are excluded from the site except CHANGELOG, which retains its public URL.
+Do not create `docs/requirements` or another intent store: put current behavior in ARCHITECTURE,
+rationale in DECISIONS, verification in TESTING, open work in ROADMAP and user-visible outcomes in
+CHANGELOG or the applicable release page. `dev/documentation_policy.py` enforces the forbidden path.
 
 ## The gate
 
@@ -64,7 +67,7 @@ Run checks appropriate to the change, and the full gate for a release candidate.
 cd desktop && npm run typecheck && npm run lint && npx vitest run
 python3 -m pytest tests/ -q                                  # repo root, heavy libs mocked
 docker exec -w /ti-toolbox <c> simnibs_python -m pytest tests/numerical -q   # real libraries
-python3 dev/route_import_guard.py && python3 dev/contracts_check.py
+python3 dev/documentation_policy.py && python3 dev/route_import_guard.py && python3 dev/contracts_check.py
 cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet          # full mock suite, under the lock
 cd desktop && npx playwright test --project=real …           # against the dev container
 actionlint                      # if you touched .github/workflows

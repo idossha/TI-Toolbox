@@ -129,6 +129,12 @@ jobs:
     steps:
       - common-setup
       - run:
+          name: Self-test canonical documentation guard
+          command: python3 -m unittest discover -s tests -p test_documentation_policy.py -v
+      - run:
+          name: Reject temporary requirement stores
+          command: python3 dev/documentation_policy.py
+      - run:
           name: Self-test build and version guards
           command: python3 -m unittest discover -s tests -p test_internal_packaging.py -v
       - prepare-test-image
