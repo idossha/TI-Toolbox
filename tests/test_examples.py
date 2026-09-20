@@ -484,12 +484,12 @@ def test_downloads_use_a_verifying_tls_context(tmp_path: Path, served, monkeypat
 
 def test_ssl_cert_file_is_honoured(tmp_path: Path, monkeypatch):
     """A TLS-inspecting proxy's bundle is used when ``SSL_CERT_FILE`` names it."""
-    import ssl
-
     from tit import certs
 
     bundle = tmp_path / "proxy-ca.pem"
-    bundle.write_bytes(Path(ssl.get_default_verify_paths().openssl_cafile or _certifi()).read_bytes())
+    # OpenSSL's compiled-in path can name a nonexistent build-host file (CircleCI #1065).
+    # Use the installed requests/certifi bundle as this proxy-override fixture.
+    bundle.write_bytes(Path(_certifi()).read_bytes())
     monkeypatch.setenv("SSL_CERT_FILE", str(bundle))
     assert certs.ca_bundle() == str(bundle)
     monkeypatch.delenv("SSL_CERT_FILE")

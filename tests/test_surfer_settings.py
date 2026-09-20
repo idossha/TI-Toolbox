@@ -5,6 +5,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from tit import cpu
 from tit import surfer_settings as prefs
 from tit.jobs.costs import default_cost
 from tit.server.routes.surfer_settings import SurferPreferences, put_surfer_settings
@@ -15,6 +16,9 @@ def user_settings(tmp_path, monkeypatch):
     monkeypatch.setattr(
         prefs.PathManager, "user_config_dir", staticmethod(lambda: str(tmp_path))
     )
+    # CircleCI #1065: the real cgroup still capped the synthetic 12-CPU host at four.
+    # CPU quota parsing is independently exercised against fixture trees in test_cpu.py.
+    monkeypatch.setattr(cpu, "cgroup_cpu_limit", lambda root: None)
     monkeypatch.setattr(prefs.os, "cpu_count", lambda: 12)
     # Keep CI worker affinity from shrinking the synthetic 12-CPU host.
     monkeypatch.setattr(

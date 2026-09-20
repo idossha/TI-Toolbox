@@ -173,6 +173,8 @@ def main() -> int:
                 "-q",
                 "-p",
                 "no:cacheprovider",
+                "-o",
+                "log_file=/tmp/tit-numerical-pytest.log",
             ],
             ROOT,
             env,
