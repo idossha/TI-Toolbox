@@ -107,4 +107,4 @@ gallery:
     - { title: Nilearn, url: /wiki/nilearn-visuals/ }
     - { title: User Interface, url: /wiki/desktop-app/ }
 
-    - { title: Gmsh & Freeview, url: /gallery/gmsh-freeview/ }
+    - { title: Gmsh & Freeview, url: /wiki/legacy-v2/ }

@@ -25,3 +25,5 @@
   to: /wiki/nilearn-visuals/
 - from: /gallery/UI/
   to: /wiki/desktop-app/
+- from: /gallery/gmsh-freeview/
+  to: /wiki/legacy-v2/
