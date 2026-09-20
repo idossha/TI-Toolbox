@@ -102,9 +102,9 @@ gallery:
     - { title: Ex-Search, url: /wiki/ex-search/ }
     - { title: Simulations, url: /wiki/simulator/ }
     - { title: Analysis, url: /wiki/analyzer/ }
-    - { title: Blender, url: /gallery/blender/ }
+    - { title: Blender, url: /wiki/blender/ }
     - { title: Statistics, url: /wiki/cluster-permutation-testing/ }
-    - { title: Nilearn, url: /gallery/nilearn/ }
+    - { title: Nilearn, url: /wiki/nilearn-visuals/ }
     - { title: User Interface, url: /gallery/UI/ }
 
     - { title: Gmsh & Freeview, url: /gallery/gmsh-freeview/ }

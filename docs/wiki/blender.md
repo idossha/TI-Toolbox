@@ -228,6 +228,41 @@ This can be incoporated into other visualization to produce images and animation
 
 <br>
 
+## Rendered examples
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/blender/blender_overview.png" alt="Overview of a Blender montage rendering">
+    <em>Overview of montage creation and visualization capabilities.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/blender/blender_closeup.png" alt="Close-up Blender montage rendering">
+    <em>Close-up view of the rendered montage and anatomical surfaces.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/blender/blender_HF_side.png" alt="Side view of a high-frequency field rendering">
+    <em>Side view of a high-frequency field rendering.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/blender/blender_HF_top.png" alt="Top view of a high-frequency field rendering">
+    <em>Top view of the same high-frequency field rendering.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/blender/4_channel_HF_high_vector_density.png" alt="Four-channel high-frequency vector field">
+    <em>Dense individual high-frequency vectors for a four-channel simulation.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/blender/4_channel_mTI_field.png" alt="Four-channel mTI vector field">
+    <em>Multi-channel TI vectors derived from a four-channel simulation.</em>
+  </div>
+</div>
+
 ## Running from the GUI
 
 1. Open your project and enable **3D visual exporter** in **Settings → Optional tools**.

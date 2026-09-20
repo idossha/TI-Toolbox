@@ -19,3 +19,7 @@
   to: /wiki/analyzer/
 - from: /gallery/statistics/
   to: /wiki/cluster-permutation-testing/
+- from: /gallery/blender/
+  to: /wiki/blender/
+- from: /gallery/nilearn/
+  to: /wiki/nilearn-visuals/
