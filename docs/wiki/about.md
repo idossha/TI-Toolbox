@@ -4,64 +4,28 @@ title: About
 permalink: /about/
 ---
 
-The Temporal Interference Toolbox (TI-Toolbox) started as a side project in early 2024 and has since matured into an end-to-end platform for temporal interference (TI) stimulation research. It lets both newcomers and experienced modelers go from raw imaging data to simulated, optimized, and analyzed TI fields, using either standardized head models or fully personalized ones built from a participant's own MRI.
+TI-Toolbox is an open-source platform for temporal interference (TI) brain-stimulation research. It helps researchers explore how electrode placement and stimulation settings shape electric fields in the brain, bringing study planning, simulation, and analysis into one workflow.
 
-### What it does
+Started as a side project in 2024, the toolbox supports both researchers new to TI modeling and experienced users working with larger studies. You can explore stimulation using standard head models or personalize a study with a participant's MRI.
 
-The toolbox covers the full modeling pipeline in one place:
+## From a research question to results
 
-- **Preprocessing** — DICOM/NIfTI ingestion, cortical reconstruction, head-model generation, and optional diffusion processing for anisotropic conductivity.
-- **Simulation** — finite-element modeling of two-pair TI and multi-pair (mTI) montages, producing volumetric and surface field maps.
-- **Optimization** — evolutionary (flex) and exhaustive electrode searches that target cortical, subcortical, spherical, or custom regions of interest.
-- **Analysis and statistics** — ROI extraction, focality and safety metrics, group-level comparisons, and permutation testing.
-- **Reporting and visualization** — HTML reports, 3D renders, and fsaverage/MNI projections for cross-subject comparison.
-- **Pipelines and notebooks** — wire the steps into a graph and run it as one job, or drive the same API from a Jupyter notebook running on the container's own Python.
+- **Prepare your study** — organize imaging data and build head models that represent the anatomy you want to study.
+- **Explore stimulation** — simulate electrode arrangements and visualize the resulting electric fields.
+- **Find promising settings** — search for electrode placements and currents that focus stimulation on your region of interest.
+- **Compare and communicate** — analyze target regions, compare results across participants, and create figures and reports.
 
-The scientific environment runs inside one Docker image, driven by an Electron desktop
-application on macOS, Linux, and Windows, or the same interface in your browser.
+Use the desktop interface to work through a study, or build on the same tools in scripts and notebooks when you need a custom workflow.
 
-### Requirements & what's inside
+## Built for research
 
-Install **Docker Desktop** (or Docker Engine), then choose the desktop app or a terminal loader.
-The desktop app opens a welcome Overview where you can type or pick a project directory and
-switch projects later. The regular Python and Bash loaders open the browser interface. Everything
-scientific lives in one image, `idossha/ti-toolbox:<version>`.
-Step-by-step instructions per platform are in the
-[Installation guide]({{ site.baseurl }}/installation/) and
-[Dependencies]({{ site.baseurl }}/installation/dependencies/).
+TI-Toolbox brings related modeling tasks together so you can spend more time on your research questions. Organized projects, reusable settings, and saved results help you revisit analyses and share your work with collaborators.
 
-**On your machine**
+The project is developed openly on [GitHub](https://github.com/idossha/TI-toolbox), with contributions from the research community. Feedback, questions, and ideas help shape its development.
 
-| | |
-|---|---|
-| **Docker** | Docker Desktop (macOS, Windows) or Docker Engine (Linux). The app talks to it over its API — you never type a `docker` command. |
-| **The app** | `.dmg` (macOS, Apple Silicon and Intel), `.exe` (Windows x64), `.AppImage` or `.deb` (Linux x64) |
-| **Graphics** | A GPU/driver combination with **WebGL2**, for the viewer and the 3-D panes. If it is missing, the app says so explicitly and every choice a pane offers is still available from the form beside it. |
-| **Disk** | Space for the Docker image, its working data and your project; see the installation guide for the selected image. |
-| **A GPU** | **Not required.** Everything ships CPU-only; the sole GPU switch anywhere is an optional QSIRecon setting, off by default. |
-| **X11** | **Not required, and not used.** No XQuartz, no VcXsrv, no `DISPLAY`. |
+[Get started]({{ site.baseurl }}/installation/) · [Explore the user guide]({{ site.baseurl }}/wiki/) · [Report an issue](https://github.com/idossha/TI-toolbox/issues)
 
-**Inside the image**
-
-| | |
-|---|---|
-| **SimNIBS** | 4.6, with the toolbox's patches applied at build time |
-| **Python** | 3.11 — SimNIBS's own environment, which is also the Notebooks kernel |
-| **FastSurfer** | 2.5.4, CPU-only, `--seg_only`, with its checkpoints pre-downloaded |
-| **No viewer** | TetraVox is a native application on your machine, installed by the desktop app and drawn on your own GPU |
-| **`tit` + `tit.server`** | The scientific package and the API the app talks to |
-| **Not included** | Gmsh, Qt/PyQt5, any X server, FreeSurfer `recon-all`, the MATLAB Runtime |
-
-The image is **amd64**; on Apple Silicon it runs under emulation, which is correct but slower.
-The loaders publish the server on host `127.0.0.1` by default, and the app authenticates with a
-per-container token. Closing Electron stops its container; closing a browser tab leaves its
-container running. See the [launch options]({{ site.baseurl }}/installation/) for lifecycle details.
-
-### Philosophy
-
-TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox) and follows the [BIDS](https://bids.neuroimaging.io/) standard for data organization, so outputs are reproducible and interoperable with the wider neuroimaging ecosystem. We aim for defaults that are safe and sensible for common studies while keeping every parameter accessible to power users. Bug reports, feature requests, and contributions are welcome through the issue tracker.
-
-### Contributors
+## Contributors
 
 <div class="contributors-section">
   <div class="contributor-grid">
@@ -80,11 +44,8 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
           Developed the idea and architecture for the TI-Toolbox.
         </p>
         <ul class="contributor-list">
-          <li>Project coordination and release management</li>
-          <li>System architecture: pipeline design, containerization, and the BIDS-based data model</li>
-          <li>Full-stack development</li>
-          <li>Desktop application, GUI, and cross-platform packaging</li>
-          <li>Documentation and maintenance across the complete code</li>
+          <li>Project direction and software development</li>
+          <li>Research workflows, user experience, and documentation</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:ihaber@wisc.edu" target="_blank">📧 Email</a>
@@ -106,8 +67,8 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
           Larissa Albantakis, PhD is a computational neuroscientist and Assistant Professor of Computational Psychiatry at University of Wisconsin - Madison.
         </p>
         <ul class="contributor-list">
-          <li>Multipolar TI field math: modulation envelope, Fibonacci-sphere direction, magnitude-AM measure (2.5)</li>
-          <li>Exhaustive search: multipolar extension, symmetric bucket constraint, montage heatmaps(2.5)</li>
+          <li>Methods for modeling stimulation with multiple electrode pairs</li>
+          <li>Electrode search and visualization of candidate arrangements</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:albantakis@wisc.edu" target="_blank">📧 Email</a>
@@ -119,7 +80,7 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
   </div>
 </div>
 
-### Past Contributors
+## Past contributors
 
 <div class="contributors-section">
   <div class="contributor-grid">
@@ -137,9 +98,8 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
           Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distributions.
         </p>
         <ul class="contributor-list">
-          <li>Analyzer visualizations (2.0)</li>
-          <li>Central logging utility(2.0)</li>
-          <li>BIDS compliance (2.1)</li>
+          <li>Visualizing and analyzing electric fields</li>
+          <li>Project organization and software reliability</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:awjackson2@wisc.edu" target="_blank">📧 Email</a>
@@ -153,21 +113,9 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
 
 ## Acknowledgments
 
-TI-Toolbox stands on the shoulders of many open-source projects. We extend our gratitude to the developers and contributors of the tools it integrates, and we ask that users cite the underlying tools (in particular SimNIBS and FreeSurfer) alongside TI-Toolbox in publications.
+TI-Toolbox builds on the work of the open-source neuroimaging community, including [SimNIBS](https://simnibs.github.io/simnibs/build/html/index.html), [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/), [FastSurfer](https://github.com/Deep-MI/FastSurfer), [FSL](https://fsl.fmrib.ox.ac.uk/fsl/), [QSIPrep](https://qsiprep.readthedocs.io/), and [QSIRecon](https://qsirecon.readthedocs.io/). We thank their developers, the [BIDS](https://bids.neuroimaging.io/) community, and the contributors to the many scientific and visualization tools that support this work.
 
-- [**Docker**](https://www.docker.com): A containerization platform for developing, shipping, and running distributed applications.
-- [**Electron**](https://electronjs.org): A framework for building cross-platform desktop applications using web technologies.
-- [**FastSurfer**](https://github.com/Deep-MI/FastSurfer): A fast, deep-learning based neuroimaging pipeline for whole-brain segmentation, used in place of FreeSurfer `recon-all`.
-- [**Tetravox**](https://github.com/idossha/tetravox): The WebGL2 viewer that draws meshes and volumes inside the application window.
-- [**SimNIBS**:](https://simnibs.github.io/simnibs/build/html/index.html) A simulation environment for transcranial brain stimulation, enabling electric field modeling.
-- [**FreeSurfer**:](https://surfer.nmr.mgh.harvard.edu/) A software suite for the analysis and visualization of structural and functional neuroimaging data.
-- [**Gmsh**:](http://gmsh.info/) A three-dimensional finite element mesh generator. The `.msh` format TI-Toolbox writes is Gmsh's; the program itself is no longer bundled (v3 views results with Tetravox).
-- [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/) A comprehensive library of tools for analysis of functional and structural brain imaging data.
-- [**dcm2niix**](https://github.com/rordenlab/dcm2niix): A tool for converting DICOM images to NIfTI format
-- [**BIDS**](https://bids.neuroimaging.io/): A standardized way to organize and describe neuroimaging data.
-- [**QSIPrep**](https://qsiprep.readthedocs.io/) / [**QSIRecon**](https://qsirecon.readthedocs.io/): Preprocessing and reconstruction pipelines for diffusion MRI, used to derive anisotropic conductivity tensors.
-- [**Blender**](https://www.blender.org/): An open-source 3D creation suite, used for rendering head models, electrodes, and field distributions.
-- **Python ecosystem**: [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [nibabel](https://nipy.org/nibabel/), [matplotlib](https://matplotlib.org/), [pandas](https://pandas.pydata.org/), [nilearn](https://nilearn.github.io/), [MNE-Python](https://mne.tools/), and [Jupyter](https://jupyter.org/).
+If you use TI-Toolbox in a publication, please [cite the software and its associated paper](https://github.com/idossha/TI-toolbox#how-to-cite), along with the underlying tools used in your study.
 
 <style>
 .contributors-section {
