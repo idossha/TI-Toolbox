@@ -32,8 +32,9 @@ Open that URL in your Windows browser; if the browser does not open automaticall
 Use native Windows project paths in the desktop app, such as
 `C:\Users\YourName\datasets\project-copy`; do not use WSL paths.
 
-An EXE is the packaged desktop format. Artifact availability is listed on the installation
-page. If Docker Desktop was just installed or updated, restart it before launching the app.
+Download the EXE from [desktop downloads]({{ site.baseurl }}/installation/#download), run the installer,
+then open TI-Toolbox from the Start menu. Choose your project folder and select **Open project**.
+If Docker Desktop was just installed or updated, restart it before launching the app.
 
 ## Troubleshooting
 

@@ -1,0 +1,16 @@
+<div class="download-options">
+  <table>
+    <caption>TI-Toolbox v{{ site.data.downloads.version }} desktop downloads</caption>
+    <thead><tr><th scope="col">Your computer</th><th scope="col">Processor</th><th scope="col">Installer</th></tr></thead>
+    <tbody>
+      {% for platform in site.data.downloads.platforms %}
+      <tr>
+        <th scope="row">{{ platform.name }}</th>
+        <td>{{ platform.architecture }}</td>
+        <td><a href="{{ site.data.downloads.asset_base }}/{{ platform.file }}" aria-label="{{ platform.format }} for {{ platform.name }}">{{ platform.format }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="download-options-meta"><a href="{{ site.data.downloads.release_url }}">All release files, including macOS ZIPs</a> · <a href="{{ site.data.downloads.asset_base }}/SHA256SUMS">SHA-256 checksums</a></p>
+</div>

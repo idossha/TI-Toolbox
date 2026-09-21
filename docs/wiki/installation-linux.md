@@ -33,6 +33,13 @@ The Bash launcher needs Docker Compose and curl; the Python launcher needs Pytho
 Use an absolute Linux project path, such as `/home/you/datasets/project`.
 TI-Toolbox needs no X11 forwarding into the container.
 
-Linux x86_64 matches the image's architecture. AppImage and DEB are the desktop package
-formats; package availability is listed on the installation page. For remote machines,
-use the [SSH browser route]({{ site.baseurl }}/installation/bash-cli/#over-ssh).
+## Install the desktop app
+
+Linux x86_64 matches the image's architecture. Choose the AppImage or DEB in
+[desktop downloads]({{ site.baseurl }}/installation/#download).
+
+- **AppImage:** in your file manager, open the downloaded file's properties, allow executing it as a program, then open it. Alternatively, in the download directory run `chmod +x TI-Toolbox-*.AppImage` and open the file.
+- **Debian / Ubuntu:** open the downloaded DEB with your package installer, or run `sudo apt install ./ti-toolbox_*_amd64.deb` from its directory.
+
+With Docker running, open TI-Toolbox, choose your project folder and select **Open project**.
+For remote machines, use the [SSH browser route]({{ site.baseurl }}/installation/bash-cli/#over-ssh).

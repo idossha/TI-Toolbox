@@ -27,5 +27,5 @@ container architecture.
 ## Packaged app
 
 A DMG contains the desktop application; drag it to Applications and launch it with Docker
-running. Artifact availability is recorded on the installation page. If macOS blocks an
+running. Choose the Apple Silicon or Intel DMG in [desktop downloads]({{ site.baseurl }}/installation/#download). If macOS blocks an
 installer, report its filename, checksum, and exact message to the maintainer.

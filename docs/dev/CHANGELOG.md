@@ -11,7 +11,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 Nothing yet.
 
-### v3.0.0 — September 20, 2026
+### v3.0.0 — September 20, 2026 (Latest Release)
 
 v3 replaces the PyQt5 interface with an Electron desktop app backed by the same `tit` scientific
 Python package used by scripts and notebooks. See [Installation]({{ site.baseurl }}/installation/)
@@ -61,7 +61,7 @@ for downloads and [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/) fo
 - **Runtime capabilities** — `/api/capabilities` reports container tools including FastSurfer; obsolete X11, Freeview, Gmsh and FreeSurfer capability flags are removed. Native viewer availability is detected on the host, not exposed as the retired `tetravox_embed` capability; subject-level `has_freesurfer` remains available.
 
 ---
-### v2.5.0 (Latest Release)
+### v2.5.0
 
 **Release Date**: August 31, 2026
 
