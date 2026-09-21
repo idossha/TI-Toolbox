@@ -3,7 +3,7 @@
 | File | What it is |
 |---|---|
 | `scripts/*.py` | One short script per workflow, driven by the `tit` Python API: `preprocess`, `leadfield`, `flex`, `ex`, `simulator`, `analyzer`, `cluster_permutation`, `pipeline` (all four stages in one file) and `blender` (visual exports). Edit the `SUBJECTS`/paths at the top and run with `simnibs_python examples/scripts/<name>.py` inside the container. |
-| `notebooks/example_workflow.ipynb` | Symlink to `tit/server/examples/example_workflow.ipynb`, the one source the app also seeds into every project as `examples/example_workflow.ipynb`. The `tit` Python API in eight cells: project, example subject, pre-processing, optimizer, simulator, analyzer, results. Mirrored cell for cell on the wiki's [Example Notebook](https://idossha.github.io/TI-Toolbox/wiki/example-notebook/) page. |
+| `notebooks/example_workflow.ipynb` | Symlink to `tit/server/examples/example_workflow.ipynb`, the one source the app also seeds into every project as `examples/example_workflow.ipynb`. The `tit` Python API in eight cells: project, example subject, pre-processing, optimizer, simulator, analyzer, results. Described on the wiki's [Notebooks](https://idossha.github.io/TI-Toolbox/wiki/notebooks/) page. |
 
 ## Running the notebook
 

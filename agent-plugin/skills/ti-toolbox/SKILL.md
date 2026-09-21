@@ -83,7 +83,7 @@ not separate pages. Viewer has sub-items (Menu, Tetravox); ⌘8 lands on Menu.
 
 - Orientation: `overview`, `desktop-app`, `jobs`, `notebooks`, `pipelines`, `results`
 - Workflow: `pre-processing`, `diffusion-processing`, `simulator`, `flex-search`,
-  `ex-search`, `analyzer`, `reports`, `visualizers`, `scripting`, `example-notebook`
+  `ex-search`, `analyzer`, `reports`, `visualizers`, `scripting`
 - Tools: `atlases`, `montage_visualizer`, `electrode-mapping`, `electrode-placement`,
   `nilearn-visuals`, `cluster-permutation-testing`, `nifti-group-averaging`,
   `tissue-analyzer`, `quick-notes`, `blender`, `logging`

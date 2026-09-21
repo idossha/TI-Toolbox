@@ -1086,7 +1086,7 @@ TOOLS: List[Dict[str, Any]] = [
         "The wiki is the USER-facing site. Slugs: overview, desktop-app, jobs, notebooks, "
         "pipelines, results, simulator, flex-search, ex-search, analyzer, scripting, "
         "pre-processing, diffusion-processing, atlases, reports, troubleshooting, "
-        "visualizers, logging, extension, agent-plugin, ai-assistant, example-notebook, ... "
+        "visualizers, logging, extension, agent-plugin, ai-assistant, ... "
         "There is no 'mti' page any more — mTI is a section of 'simulator'. "
         "Call list_wiki_pages rather than guessing.",
         "inputSchema": {

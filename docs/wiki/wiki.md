@@ -26,7 +26,6 @@ server fit together.
 - **[Viewer](visualizers)** - Tetravox, shipped in the image and drawn in the app window
 - **[Jobs](jobs)** - Every run: state, logs, artifacts, cancel and rerun
 - **[Scripting](scripting)** - CLI commands, JSON config entry points, and the Python scripting API
-- **[Example Notebook](example-notebook)** - Executed Jupyter walkthrough of the Python API on Dataset 000, with real outputs and a downloadable `.ipynb`
 - **[AI Assistant](ai-assistant)** - Plugin that teaches Claude Code, Codex, Cursor and other MCP clients how to use TI-Toolbox
 
 ### Embedded Tools

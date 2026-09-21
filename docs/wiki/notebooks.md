@@ -4,7 +4,8 @@ title: Notebooks
 permalink: /wiki/notebooks/
 ---
 
-**Notebooks** (⌘8) is a Jupyter environment inside the app, running on \*\*the container's unique interpreter.
+**Notebooks** (⌘8) is a Jupyter environment inside the app, running on the container's own
+Python interpreter (SimNIBS + TI-Toolbox), so nothing needs installing.
 
 Notebooks are ordinary `.ipynb` files in your project, under
 `<project>/code/ti-toolbox/notebooks/`. Saving round-trips the document, so a notebook edited here
@@ -28,11 +29,18 @@ once a kernel is up. A keystroke never _starts_ a kernel.
 `off · starting · idle · busy · dead`, and clicking it starts or restarts. The interpreter takes a few seconds to come
 up the first time.
 
-## The worked example
+## The example notebook
 
-Every project gets one seeded notebook the first time you open the page:
-`examples/example_workflow.ipynb` — the same notebook as the
-[Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page, which walks some of the app features.
-(Pre-processing, Optimizer, Simulator, Analyzer) one cell per page against the SimNIBS example
-subject. When a TI-Toolbox update ships a newer version of it, your copy is refreshed only if you
-never edited it; an edited copy is yours. Deleting it is permanent; there is no "restore example".
+Every project gets one seeded notebook the first time you open the page,
+`examples/example_workflow.ipynb`. It walks the app page by page — project, pre-processing,
+Optimizer, Simulator, Analyzer, results — one cell per page, showing the single `tit` API call
+each page's **Run** button makes. Cell 1 fetches the `ernie` example subject
+([Example Data]({{ site.baseurl }}/wiki/example-data/)), so it runs without your own data.
+The same calls are explained on the [Scripting]({{ site.baseurl }}/wiki/scripting/) page.
+
+<a href="{{ site.baseurl }}/assets/notebooks/example_workflow.ipynb" download>&#11015; Download example_workflow.ipynb</a>
+&nbsp;&nbsp;
+<a href="https://github.com/idossha/TI-Toolbox/blob/main/tit/server/examples/example_workflow.ipynb">View on GitHub</a>
+
+When a TI-Toolbox update ships a newer version, your copy is refreshed only if you never edited
+it; an edited copy is yours. Deleting it is permanent; there is no "restore example".

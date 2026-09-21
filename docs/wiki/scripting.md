@@ -9,7 +9,7 @@ serialises it to JSON and runs the same module you can run yourself. This page w
 by page and shows, for each one, the call its **Run** button makes.
 
 A runnable version of the same sequence is the
-[Example Notebook]({{ site.baseurl }}/wiki/example-notebook/).
+[example notebook]({{ site.baseurl }}/wiki/notebooks/#the-example-notebook).
 
 ## Where scripts run
 

@@ -159,15 +159,3 @@ def test_the_expensive_search_is_small_by_default() -> None:
     assert re.search(r"n_multistart=1\b", source)
     assert re.search(r"max_iterations=\d+", source)
     assert re.search(r"population_size=\d+", source)
-
-
-def test_the_wiki_page_is_rendered_from_the_notebook() -> None:
-    """``docs/wiki/example-notebook.md`` is generated below its marker, never hand-edited."""
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("render", REPO / "dev" / "render_example_notebook.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    _, body = module.split(module.PAGE.read_text())
-    assert body == module.render(), "run python3 dev/render_example_notebook.py"

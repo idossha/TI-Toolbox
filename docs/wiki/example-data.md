@@ -29,7 +29,7 @@ A _Raw MRI_ part is what a real study starts from: you build its head model your
 [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/) page (charm takes 1–2 h). A _Head model_
 part is a finished charm run, so the [Optimizer]({{ site.baseurl }}/wiki/flex-search/),
 [Simulator]({{ site.baseurl }}/wiki/simulator/), [Analyzer]({{ site.baseurl }}/wiki/analyzer/) and the
-[Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) work the moment it lands — you do not
+[example notebook]({{ site.baseurl }}/wiki/notebooks/#the-example-notebook) work the moment it lands — you do not
 need that subject's raw MRIs for any of them.
 
 ## Where to get it

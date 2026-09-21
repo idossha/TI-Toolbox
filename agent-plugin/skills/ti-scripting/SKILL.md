@@ -6,8 +6,8 @@ user-invocable: false
 
 # TI-Toolbox Scripting Reference
 
-Full page: MCP `read_wiki_page("scripting")` (or /wiki/scripting/); a runnable tour
-is `read_wiki_page("example-notebook")`. This is the condensed version; **verify
+Full page: MCP `read_wiki_page("scripting")` (or /wiki/scripting/); the runnable tour
+is `tit/server/examples/example_workflow.ipynb` (see `read_wiki_page("notebooks")`). This is the condensed version; **verify
 field names against `read_source_file` before emitting code** — `tit/sim/config.py`,
 `tit/opt/config.py`, `tit/analyzer/analyzer.py`, `tit/stats/config.py`, `tit/pre/`.
 

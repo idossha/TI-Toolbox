@@ -147,10 +147,9 @@ schemas across fresh 1/4/12-CPU processes while asserting independent runtime QS
 and explicit override preservation; generation must not embed the build host's CPU count.
 
 The packaged example notebook (`tit/server/examples/example_workflow.ipynb`, the one source;
-`examples/notebooks/` symlinks to it and `docs/wiki/example-notebook.md` is rendered from it by
-`dev/render_example_notebook.py`) is guarded two ways. `tests/test_example_notebook_api.py`, in the
+`examples/notebooks/` symlinks to it) is guarded two ways. `tests/test_example_notebook_api.py`, in the
 host suite, resolves every import, keyword argument and `pm.` attribute of every cell against the
-real `tit` API and checks the wiki page has not drifted. `dev/run_example_notebook.sh` executes the
+real `tit` API. `dev/run_example_notebook.sh` executes the
 notebook in the release image against a fresh project (downloads ernie, runs the reduced flex
 search, one TI FEM solve and the analyzer); it is the run that proves the notebook works and is
 run before a release, not on every CI push, because it needs a real solve.
