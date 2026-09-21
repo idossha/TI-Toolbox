@@ -22,7 +22,6 @@ wiki:
     - { title: Wiki Home, url: /wiki/ }
     - { title: Video Tutorials, url: /wiki/video-tutorials/ }
     - { title: Troubleshooting Archive, url: /wiki/troubleshooting/ }
-    - { title: Telemetry & Privacy, url: /wiki/telemetry/ }
     - group: The Application
     - { title: Overview, url: /wiki/overview/ }
     - title: Pre-processing
@@ -42,6 +41,7 @@ wiki:
     - { title: Example Notebook, url: /wiki/example-notebook/ }
     - { title: Example Data, url: /wiki/example-data/ }
     - { title: AI Assistant, url: /wiki/ai-assistant/ }
+    - { title: Telemetry & Privacy, url: /wiki/telemetry/ }
     - group: Embedded Tools
     - { title: Reports, url: /wiki/reports/ }
     - { title: Logging, url: /wiki/logging/ }
