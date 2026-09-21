@@ -4,57 +4,30 @@ title: Overview
 permalink: /wiki/overview/
 ---
 
-## Open and switch projects in Electron
-
 <img src="{{ site.baseurl }}/assets/imgs/v3/welcome.png" alt="The desktop welcome Overview with project directory entry, Browse and the full workflow sidebar" style="width: 100%; max-width: 1000px;">
 
-The desktop app opens on a welcome Overview with the full labeled workflow sidebar already
-visible. Project tools stay disabled until a project is open. Type your project directory or
-choose **Browse…**, then **Open project**. The welcome page shows launch progress and errors;
-Docker must be running before you open the project.
+The app opens on a welcome Overview. Enter or **Browse…** to your project directory, then
+**Open project**. Docker must be running. Project tools stay disabled until a project is open.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/overview.png" alt="Connected Overview showing each subject's artifacts and readiness" style="width: 100%; max-width: 1000px;">
 <em>Once connected, Overview shows what every subject has and what it is ready for.</em>
 
-Once connected, **Switch project** opens a directory form in Overview. Enter or browse to the
-next project, then choose **Switch to project**. Your current project stays open until you
-confirm the switch in the native dialog. Switching stops its container and loads the new
-project's subjects, results, jobs and settings in a fresh session. Save notebook edits and
-wait for notes to finish saving first; unsaved page drafts do not move between projects.
-
-If another TI-Toolbox container is already running, explicitly choose whether to attach to
-that session or recreate it for the requested project. Closing Electron stops/removes its
-container and exits. Browser sessions opened from the CLI remain tied to their running
-container; change projects through the CLI. See [launch options]({{ site.baseurl }}/installation/bash-cli/).
+**Switch project** loads another project in a fresh session; the current container is stopped
+once you confirm. If another TI-Toolbox container is already running you choose whether to
+attach to it or recreate it. See [launch options]({{ site.baseurl }}/installation/bash-cli/).
 
 ## Add example data
 
-Next to **Switch project**, **Add example data** opens *Help ▸ Example data* — the catalogue of
-four public datasets (SimNIBS example dataset, GPL-3.0) you can download into the open project
-(a plain download, not a job — it does not appear in the jobs rail):
-raw T1/T2 scans that still need pre-processing, and finished charm head models that the Optimizer,
-Simulator, Analyzer and the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) can use
-straight away. The first time you open a new project the app asks **Add example data?** by itself
-and lists the same parts under their dataset, with the ready-to-simulate `ernie/headmodel`
-pre-ticked; the answer is recorded in the project's `project_status.json`, so it is asked once per
-project. Each part downloads on its own and is skipped when it is already present.
-See [Example Data]({{ site.baseurl }}/wiki/example-data/) for the sizes, licence and the
-`python -m tit.examples --project DIR` command line.
+**Add example data** downloads public example heads (raw scans and ready-to-use head models)
+into the open project; new projects are offered this once. See
+[Example Data]({{ site.baseurl }}/wiki/example-data/).
 
 ## Project information
 
-The header shows the project name and host path. Storage is measured in the background,
-with SimNIBS workflow subtotals (head models, Flex/Ex searches, simulations and leadfields),
-FreeSurfer/FastSurfer, QSIPrep and QSIRecon groups, and combined raw/source **Input data**.
-Diffusion totals include their working directories.
-Remaining data is grouped as **Other**, including internal state and viewer scenes.
-The list shows a scrollbar when its contents exceed the available height. These are
-file sizes (symlinks excluded), refreshed at most every five minutes; System reports
-allocated disk usage, which can differ. An incomplete scan is shown as unavailable.
-
-The activity calendar counts retained jobs by submission date over the past year, in UTC.
-Select a day to see its count. Job details remain on the **Jobs** page. Deleted job records are not included. Last activity reflects recorded job events;
-project creation and opening dates are not inferred from file timestamps.
+The header shows the project name, host path and storage grouped by workflow (head models,
+searches, simulations, leadfields, FreeSurfer/FastSurfer, diffusion, input data, other).
+Sizes refresh at most every five minutes. The activity calendar counts retained jobs by
+submission date over the past year (UTC); job details live on the **Jobs** page.
 
 ## The presence matrix
 
