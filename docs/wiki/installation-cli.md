@@ -104,7 +104,7 @@ in the desktop app.
 ## Troubleshooting
 
 Check that Docker is running. If startup fails, inspect `--logs` and visit the
-[troubleshooting guide]({{ site.baseurl }}/installation/troubleshooting/).
+[troubleshooting guide]({{ site.baseurl }}/wiki/troubleshooting/).
 
 <a id="run-the-latest-unreleased-version"></a>
 <a id="develop-from-source"></a>

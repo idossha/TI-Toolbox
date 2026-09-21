@@ -92,4 +92,4 @@ The [command-line guide]({{ site.baseurl }}/installation/bash-cli/) covers the B
 
 - **Cluster without Docker:** follow the [HPC / Apptainer guide]({{ site.baseurl }}/installation/hpc-apptainer/).
 - **Build from source:** follow the [developer setup]({{ site.baseurl }}/wiki/development/#source-setup).
-- **Something went wrong:** see [installation troubleshooting]({{ site.baseurl }}/installation/troubleshooting/) and [known issues]({{ site.baseurl }}/wiki/troubleshooting/).
+- **Something went wrong:** see [troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/).

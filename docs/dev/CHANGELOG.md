@@ -715,6 +715,6 @@ We actively support and maintain versions 2.x.x and newer of the Temporal Interf
 If you encounter issues with any release:
 
 1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
-2. Review the [Troubleshooting]({{ site.baseurl }}/installation/troubleshooting/) section
+2. Review the [Troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/) section
 3. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)

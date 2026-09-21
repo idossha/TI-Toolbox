@@ -15,7 +15,6 @@ module Jekyll
       search_data = site.pages.map do |page|
         next unless page.ext == '.md' || page.ext == '.html'
         next if page.data['search'] == false
-        next if page.data['redirect_generated']
         next if page.url == '/'
         next if page.url.include?('/assets/')
 
