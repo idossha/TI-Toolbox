@@ -259,10 +259,11 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
 
         recorder = getattr(opt, "_candidate_recorder", None)
         try:
-            # An explicit `cpus` wins; otherwise the CPU budget the plan admitted this job
-            # with (TIT_JOB_CPUS), so SimNIBS gets the number the plan panel showed rather
-            # than its own internal default. See `tit.cpu.job_cpus`.
-            opt.run(cpus=config.cpus or job_cpus())
+            # The CPU budget the plan admitted this job with (TIT_JOB_CPUS; the global CPU
+            # limit outside a job), so SimNIBS gets the number the plan panel showed rather
+            # than its own internal default; an explicit `cpus` is clamped to it.
+            budget = job_cpus()
+            opt.run(cpus=min(config.cpus, budget) if config.cpus else budget)
             if recorder is not None:
                 recorder.finalize(opt)
         finally:

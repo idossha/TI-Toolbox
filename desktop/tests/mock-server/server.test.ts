@@ -305,14 +305,14 @@ describe("mock server: queue watchdog (defect 1 — no job outlives the spec fil
     });
   });
 
-  async function submitJob(subjectIds: string[]) {
+  async function submitJob(subjectIds: string[], kind = "analyzer") {
     const res = await fetch(`${WD_BASE}/api/jobs`, {
       method: "POST",
       headers: auth,
       // No `__mock_fast`: `runTimeline` then takes 6000-10000ms, comfortably longer than `WD_MS`,
       // so job A is still legitimately `running` (not naturally finished) when B's watchdog fires —
       // proving the cancel came from the watchdog, not from A completing on its own.
-      body: JSON.stringify({ kind: "analyzer", subject_ids: subjectIds, config: {} }),
+      body: JSON.stringify({ kind, subject_ids: subjectIds, config: {} }),
     });
     expect(res.status).toBe(201);
     return ((await res.json()) as { id: string }).id;
@@ -344,7 +344,9 @@ describe("mock server: queue watchdog (defect 1 — no job outlives the spec fil
   });
 
   it("does not touch a job that starts running immediately (nothing to queue behind)", async () => {
-    const solo = await submitJob(["101"]); // distinct subject: never queued at all
+    // Distinct subject and a kind outside the one-job-per-product rule (the first test's analyzer
+    // may still be running): never queued at all.
+    const solo = await submitJob(["101"], "source");
     expect(await jobState(solo)).toBe("running");
     await new Promise((r) => setTimeout(r, WD_MS + 300));
     expect(await jobState(solo)).toBe("running");
@@ -520,7 +522,7 @@ describe("POST /api/jobs/groups beyond preprocessing", () => {
     expect(String(((await bad.json()) as { detail: string }).detail)).toContain("montages is required");
 
     // The group route checks the config it would actually generate (subject_id already forced).
-    const badGroup = await submit({ kind: "sim", config: { montages: [] }, subject_ids: ["ernie"], parallel_subjects: 1 });
+    const badGroup = await submit({ kind: "sim", config: { montages: [] }, subject_ids: ["ernie"] });
     expect(badGroup.status).toBe(422);
 
     // `__mock_*` configs stay exempt: they are this mock's synthetic jobs, never app-built.
@@ -533,14 +535,14 @@ describe("POST /api/jobs/groups beyond preprocessing", () => {
   });
 
   it("creates one queued job per subject, each config carrying only its own subject id", async () => {
-    const res = await submit({ kind: "sim", config: simConfig("ernie"), subject_ids: ["ernie", "101"], parallel_subjects: 1 });
+    const res = await submit({ kind: "sim", config: simConfig("ernie"), subject_ids: ["ernie", "101"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as { group_id: string; jobs: { id: string; state: string; kind: string; subject_ids: string[] }[] };
     expect(body.jobs).toHaveLength(2);
     expect(body.jobs.map((j) => j.kind)).toEqual(["sim", "sim"]);
     expect(body.jobs.map((j) => j.subject_ids[0])).toEqual(["ernie", "101"]);
     // The whole group exists after this ONE request — nothing is withheld for a later POST — and
-    // the cap is admission, so at most `parallel_subjects` of them can already be running.
+    // one job per product runs at a time, so at most one of them can already be running.
     expect(body.jobs.filter((j) => j.state === "running").length).toBeLessThanOrEqual(1);
     expect(body.jobs.every((j) => ["queued", "running"].includes(j.state))).toBe(true);
 
@@ -561,7 +563,6 @@ describe("POST /api/jobs/groups beyond preprocessing", () => {
         { subject_id: "ernie", config: { ...simConfig("ernie"), tag: "a" } },
         { subject_id: "ernie", config: { ...simConfig("ernie"), tag: "b" } },
       ],
-      parallel_subjects: 2,
     });
     expect(res.status).toBe(201);
     const body = (await res.json()) as { jobs: { id: string }[] };
@@ -569,14 +570,13 @@ describe("POST /api/jobs/groups beyond preprocessing", () => {
   });
 
   it("refuses a cohort kind and a subject outside subject_ids", async () => {
-    // A grouped analyzer run is ONE job over the cohort — it has no per-subject cap.
-    expect((await submit({ kind: "analyzer", config: {}, subject_ids: ["ernie"], parallel_subjects: 1 })).status).toBe(422);
+    // A grouped analyzer run is ONE job over the cohort, submitted through POST /api/jobs.
+    expect((await submit({ kind: "analyzer", config: {}, subject_ids: ["ernie"] })).status).toBe(422);
     const stray = await submit({
       kind: "sim",
       config: simConfig("ernie"),
       subject_ids: ["ernie"],
       subject_configs: [{ subject_id: "999", config: simConfig("999") }],
-      parallel_subjects: 1,
     });
     expect(stray.status).toBe(422);
   });

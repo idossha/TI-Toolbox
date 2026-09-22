@@ -324,7 +324,6 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   const body = (await jobRequest).postDataJSON() as {
     kind: string;
     subject_ids: string[];
-    parallel_subjects: number;
     subject_configs: { subject_id: string; config: { output_folder: string; goal: string; roi: { _type: string; label: number[] } } }[];
   };
   expect(body.kind).toBe("flex");
@@ -333,7 +332,7 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   expect(body.subject_configs[0]!.config.output_folder).toBe(previewFolder);
 
   expect(body.subject_ids).toEqual(["ernie"]);
-  expect(body.parallel_subjects).toBe(1);
+  expect("parallel_subjects" in body).toBe(false);
   expect(body.subject_configs.map((e) => e.subject_id)).toEqual(["ernie"]);
   expect(body.subject_configs[0]!.config.roi._type).toBe("AtlasROI");
   expect(body.subject_configs[0]!.config.roi.label).toEqual([1]); // tests/fixtures/atlas_regions.json

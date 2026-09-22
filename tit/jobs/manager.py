@@ -26,6 +26,7 @@ from typing import Any
 
 import psutil
 
+from tit.cpu import cpu_limit
 from tit.jobs import kinds, locks, scheduler
 from tit.jobs.kinds import may_spawn_docker_siblings
 from tit.jobs.costs import default_cost
@@ -114,6 +115,9 @@ class JobManager:
         )
         self.poll_interval = poll_interval
         self.registry = JobRegistry(project_dir)
+        # An injected budget (tests) is fixed; otherwise the CPU half is re-read from the user's
+        # global CPU limit on every admission pass (see `_admission_budget`).
+        self._fixed_budget = budget
         self._budget = budget or scheduler.discover_budget()
 
         self._lock = threading.RLock()
@@ -364,7 +368,6 @@ class JobManager:
         env: dict[str, str] | None = None,
         created_by: str = "api",
         group_id: str | None = None,
-        group_cap: int | None = None,
         overwrite: bool = False,
     ) -> dict[str, Any]:
         if kind not in JOB_KINDS:
@@ -402,7 +405,6 @@ class JobManager:
             cost=cost,
             created_by=created_by,
             group_id=group_id,
-            group_cap=group_cap,
             overwrite=overwrite,
         )
         status = JobStatus.queued(spec)
@@ -422,14 +424,12 @@ class JobManager:
         planned: list[PlannedJob],
         *,
         created_by: str = "api",
-        group_cap: int | None = None,
     ) -> dict[str, Any]:
         """Submit a labelled DAG of :class:`PlannedJob` (``tit.jobs.plans.plan_preprocessing``)
         under one shared ``group_id``, resolving ``after_labels`` to real job ids.
 
-        *group_cap* (``JobGroupRequest.parallel_subjects``) is stamped onto every job in the
-        group as ``JobSpec.group_cap``; :func:`tit.jobs.scheduler.evaluate` enforces it as an
-        admission cap on how many of the group's jobs may be ``running`` at once.
+        The scheduler runs one job per product at a time (:func:`tit.jobs.scheduler.evaluate`),
+        so a group's jobs run one after another.
         """
         group_id = new_job_id()
         label_to_id: dict[str, str] = {}
@@ -448,7 +448,6 @@ class JobManager:
                 tags=job.tags,
                 created_by=created_by,
                 group_id=group_id,
-                group_cap=group_cap,
                 overwrite=job.overwrite,
             )
             label_to_id[job.label] = status["id"]
@@ -828,17 +827,22 @@ class JobManager:
             (jid for jid, st in status_view.items() if st.state == "queued"),
             key=lambda jid: specs[jid].created_at if jid in specs else "",
         )
+        budget = self._admission_budget() if queued_ids else self._budget
         for job_id in queued_ids:
             status = self._status.get(job_id)
             spec = specs.get(job_id)
             if status is None or spec is None or status.state != "queued":
                 continue
+            if spec.cost.cpus > budget.cpus:
+                # The limit was lowered after this job was costed: shrink its claim (and so the
+                # threads the runner gives it) rather than leave it waiting forever.
+                spec.cost = Cost(budget.cpus, spec.cost.mem_gb)
             decision = scheduler.evaluate(
                 spec,
                 status_view,
                 current_holders,
                 running_cost=running_cost,
-                budget=self._budget,
+                budget=budget,
             )
             if decision.skip_reason:
                 self._mark_skipped(job_id, decision.skip_reason)
@@ -856,6 +860,14 @@ class JobManager:
                 running_cost = running_cost + spec.cost
             else:
                 self._persist_status(status)
+
+    def _admission_budget(self) -> Cost:
+        """The budget for this admission pass. The CPU half is the user's global CPU limit, read
+        now, so a change on the Settings page applies to the next job admitted; running jobs keep
+        what they were admitted with."""
+        if self._fixed_budget is not None:
+            return self._fixed_budget
+        return Cost(float(cpu_limit()), self._budget.mem_gb)
 
     def _reserved_holders(self, spec: JobSpec) -> list[dict[str, Any]]:
         """*spec*'s locks as holder descriptors, for a job that is running but whose runner

@@ -73,7 +73,6 @@ def test_job_spec_round_trip():
         cost=Cost(cpus=1, mem_gb=4),
         created_by="notebook",
         group_id="g1",
-        group_cap=2,
         overwrite=True,
     )
     restored = JobSpec.from_dict(spec.to_dict())
@@ -97,7 +96,6 @@ def test_job_spec_to_api_is_wire_shaped():
         and "cost" not in api
         and "locks" not in api
         and "created_by" not in api
-        and "group_cap" not in api
     )
 
 

@@ -92,6 +92,27 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
+test("CPU limit shows percent and cores and saves only on Apply", async () => {
+  await connect();
+  await openSettings();
+  await page.getByRole("tab", { name: "Project", exact: true }).click();
+  // The mock container has 12 cores (tests/mock-server/server.mjs); cores = floor(percent x 12 / 100).
+  const summary = page.getByTestId("cpu-limit-summary");
+  const slider = page.getByRole("slider", { name: "CPU limit" });
+  const apply = page.getByRole("button", { name: "Apply" });
+  await expect(summary).toHaveText(/^\d+ % · \d+ of 12 cores$/);
+  await slider.focus();
+  await slider.press("Home");
+  await expect(summary).toHaveText("10 % · 1 of 12 cores");
+  await apply.click();
+  await expect(apply).toBeDisabled();
+  // Restore the mock's default (70 %: Home + 12 steps of 5) so the long-lived mock stays clean.
+  for (let i = 0; i < 12; i++) await slider.press("ArrowRight");
+  await expect(summary).toHaveText("70 % · 8 of 12 cores");
+  await apply.click();
+  await expect(apply).toBeDisabled();
+});
+
 test("Viewer settings show native installation status", async () => {
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("tit:tetravox:status");

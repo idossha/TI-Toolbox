@@ -13,7 +13,6 @@ import { Button } from "../../ui/Button";
 import { Callout, DefinitionList, Skeleton } from "../../ui/Feedback";
 import { Field, TextInput } from "../../ui/Field";
 import { Card, CardBody, CardHeader, PageLayout } from "../../ui/Layout";
-import { NumberInput } from "../../ui/NumberInput";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Checkbox, Switch } from "../../ui/Toggle";
 import { notify } from "../../ui/Toast";
@@ -23,6 +22,7 @@ import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import { TetravoxCard } from "./TetravoxCard";
 import "./settings-page.css";
 import { SurferSettingsCard } from "./SurferSettingsCard";
+import { CpuLimitField } from "./CpuLimitField";
 
 /**
  * Settings and Help are the two pages DESIGN.md §2.3 still allows a header — the orchestrator's
@@ -298,8 +298,9 @@ function SettingsPage() {
         <Card>
           <CardHeader title="Execution" />
           <CardBody>
-            {/* User-level, not per page (2026-09-06): the default answer to the existing-outputs
-                question and the scheduler-enforced `Subjects in parallel` cap every run uses. */}
+            {/* User-level, not per page: the global CPU limit and the default answer to the
+                existing-outputs question. There is no concurrency setting: one job per product
+                runs at a time (DECISIONS 2026-09-22). */}
             <ExecutionCard />
           </CardBody>
         </Card>
@@ -439,10 +440,10 @@ export default page;
 
 function ExecutionCard() {
   const existingOutputs = useExecutionPrefs((s) => s.existingOutputs);
-  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const setExecutionPrefs = useExecutionPrefs((s) => s.setExecutionPrefs);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <CpuLimitField />
       <Field label="Existing outputs" help="What a run does when a subject already has this output. You are still asked before a run that would touch existing outputs.">
         <SegmentedControl
           value={existingOutputs}
@@ -452,17 +453,6 @@ function ExecutionCard() {
             { value: "replace", label: "Replace and rerun" },
           ]}
           aria-label="Existing outputs"
-        />
-      </Field>
-      <Field label="Subjects in parallel" help="How many subjects' jobs run at once on every run page; 1 runs them one after another. The server's scheduler enforces this, not the app.">
-        <NumberInput
-          value={parallelSubjects}
-          onValueChange={(v) => setExecutionPrefs({ parallelSubjects: v ?? 1 })}
-          min={1}
-          step={1}
-          aria-label="Subjects in parallel"
-          data-testid="subjects-in-parallel"
-          style={{ width: 96 }}
         />
       </Field>
     </div>

@@ -10,11 +10,11 @@ tests can drive it directly with synthetic state.
 and acts on the result (spawn, mark skipped, or leave queued with the reported ``waiting_on``/
 ``budget_wait``).
 
-A ``JobGroupRequest.parallel_subjects`` cap (``POST /api/jobs/groups``) is mirrored onto every
-job of a submitted group as ``JobSpec.group_cap`` (:mod:`tit.jobs.manager`); ``evaluate()``
-enforces it here by counting *running* jobs sharing that ``group_id`` in *jobs* — no separate
-group registry needed, and the count naturally survives a server restart since it's read straight
-off each job's live status.
+One job per product (maintainer rule, 2026-09-22): at most one job of each product in
+:data:`PRODUCT_OF` runs at a time -- one Preprocess job, one Simulator job, one Optimizer job, one
+Analyzer job -- whether it came from one multi-subject group or from separate submissions. The
+count is read off each job's live status in *jobs*, so it survives a server restart. Parallelism
+inside a job is the job's own architecture, under the global CPU limit (:func:`discover_budget`).
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from typing import Any
 
 import psutil
 
-from tit.cpu import effective_cpus
+from tit.cpu import cpu_limit
 from tit.jobs import locks
 from tit.jobs.spec import Cost, JobSpec, JobStatus, WaitingOn
 
@@ -67,6 +67,21 @@ def _dependency_state(job: JobSpec, jobs: dict[str, JobStatus]) -> Decision | No
     return None
 
 
+#: kind -> the product (run page) it belongs to; one job of each product runs at a time. Kinds not
+#: listed (tools, reports, exports, stats, ...) are limited by locks and the CPU budget only.
+PRODUCT_OF: dict[str, str] = {
+    "pre": "preprocessing",
+    "sim": "simulator",
+    "flex": "optimizer",
+    "flex_adaptive": "optimizer",
+    "flex_pareto": "optimizer",
+    "ex": "optimizer",
+    "mex": "optimizer",
+    "leadfield": "optimizer",
+    "analyzer": "analyzer",
+}
+
+
 def evaluate(
     job: JobSpec,
     jobs: dict[str, JobStatus],
@@ -92,17 +107,23 @@ def evaluate(
         ]
         return Decision(waiting_on=waiting_on)
 
-    if job.group_id and job.group_cap:
-        running_in_group = sum(
-            1
-            for st in jobs.values()
-            if st.group_id == job.group_id and st.state == "running"
+    product = PRODUCT_OF.get(job.kind)
+    if product is not None:
+        busy = next(
+            (
+                st
+                for st in jobs.values()
+                if st.state == "running"
+                and st.id != job.id
+                and PRODUCT_OF.get(st.kind) == product
+            ),
+            None,
         )
-        if running_in_group >= job.group_cap:
+        if busy is not None:
             return Decision(
                 budget_wait=(
-                    f"waiting for group concurrency: {running_in_group}/"
-                    f"{job.group_cap} slots in use for group {job.group_id}"
+                    f"waiting for {product}: one {product} job runs at a time "
+                    f"({busy.id} is running)"
                 )
             )
 
@@ -151,23 +172,26 @@ def build_after_edges(specs: dict[str, JobSpec]) -> dict[str, list[str]]:
 
 
 def discover_budget() -> Cost:
-    """Container cgroup CPU/RAM limit, clamped by currently-available memory (TODO.md §2.4)."""
-    cpus: float
+    """The pool every admitted job shares (TODO.md §2.4).
+
+    CPUs are the user's global CPU limit (:func:`tit.cpu.cpu_limit`, 70 % of the container's
+    cores by default, set on the Settings page), never the whole container: TI-Toolbox shares
+    the machine with the user's own work. RAM is the container's cgroup limit, clamped by
+    currently-available memory.
+    """
     mem_gb: float
     try:
         from tit.pre.qsi.utils import get_inherited_dood_resources
 
-        cgroup_cpus, cgroup_mem_gb = get_inherited_dood_resources()
-        cpus = float(cgroup_cpus)
+        _, cgroup_mem_gb = get_inherited_dood_resources()
         mem_gb = float(cgroup_mem_gb)
     except (
         Exception
     ):  # pragma: no cover - defensive; qsi utils is another lane's module
-        cpus = float(effective_cpus())
         mem_gb = 8.0
     try:
         available_gb = psutil.virtual_memory().available / (1024**3)
         mem_gb = min(mem_gb, available_gb)
     except (psutil.Error, OSError):
         pass
-    return Cost(cpus=max(cpus, 1.0), mem_gb=max(mem_gb, 1.0))
+    return Cost(cpus=float(cpu_limit()), mem_gb=max(mem_gb, 1.0))

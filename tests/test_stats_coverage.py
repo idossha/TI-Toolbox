@@ -208,7 +208,7 @@ class TestGenerateSummary:
         text = open(out).read()
         assert "cores" in text
 
-    def test_summary_n_jobs_explicit(self, tmp_path):
+    def test_summary_n_jobs_explicit(self, tmp_path, roomy_cpus):
         """Explicit n_jobs value is reported."""
         from tit.stats.reporting import generate_summary
 

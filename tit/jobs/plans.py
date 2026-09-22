@@ -65,8 +65,7 @@ def plan_per_subject(
 
     The generic half of ``POST /api/jobs/groups`` (R3): unlike ``pre``, a ``sim``/``flex``/
     ``ex``/``mex`` group has no intra-subject DAG -- every job is submittable at once and the
-    scheduler's ``group_cap`` (``JobGroupRequest.parallel_subjects``) is the only thing deciding
-    how many actually run together.
+    scheduler runs them one at a time (one job per product, :func:`tit.jobs.scheduler.evaluate`).
 
     Each entry's config is round-tripped through the kind's config dataclass with
     ``subject_id`` **forced to that entry's subject**, so a generated config can only ever carry

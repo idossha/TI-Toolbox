@@ -327,7 +327,7 @@ def run_fastsurfer(
         Subprocess runner used to stream output and honour cancellation.
     threads : int or None, optional
         Thread count for the inference. Defaults to
-        ``$TIT_FASTSURFER_THREADS``, else the user-wide preference (automatic: all available CPUs except one for the host).
+        ``$TIT_FASTSURFER_THREADS``, else the user-wide preference (automatic: the global CPU limit).
 
     Raises
     ------

@@ -94,12 +94,17 @@ def get_container_resource_limits() -> tuple[int | None, int | None]:
 
 
 def available_threads() -> int:
-    """Count CPUs usable by this process, including container quotas and affinity."""
-    from tit.cpu import effective_cpus
+    """CPUs a reconstruction may use: the user's global CPU limit (container quotas and
+    affinity included), see :func:`tit.cpu.cpu_limit`."""
+    import math
+
+    from tit.cpu import cpu_limit_percent, effective_cpus
 
     count = effective_cpus()
     limit, _ = get_container_resource_limits()
-    return max(1, min(count, limit) if limit else count)
+    if limit:
+        count = min(count, limit)
+    return max(1, math.floor(cpu_limit_percent() * count / 100))
 
 
 def settings_path() -> Path:
@@ -257,19 +262,21 @@ def save_preferences(values: dict[str, Any]) -> None:
 
 
 def effective_threads(surfer: Surfer, explicit: int | None = None) -> int:
-    """Preserve script overrides; apply capacity limits to user preferences."""
+    """Explicit value, else env override, else preference, else the whole CPU limit -- each
+    clamped to the global CPU limit so no job claims more than the scheduler can admit.
+    """
+    capacity = available_threads()
     if explicit is not None:
-        return max(1, int(explicit))
+        return max(1, min(int(explicit), capacity))
     if surfer == "fastsurfer":
         try:
             override = int(os.environ.get("TIT_FASTSURFER_THREADS", ""))
         except ValueError:
             pass
         else:
-            return max(1, override)
-    capacity = available_threads()
+            return max(1, min(override, capacity))
     preferred = load_preferences()[f"{surfer}_threads"]
-    return min(capacity, preferred or max(1, capacity - 1))
+    return min(capacity, preferred or capacity)
 
 
 def read_settings() -> dict[str, Any]:
@@ -278,8 +285,8 @@ def read_settings() -> dict[str, Any]:
         **load_preferences(),
         "freesurfer_license": freesurfer_license_status(),
         "available_threads": capacity,
-        # Leave one core for the server and the host desktop.
-        "default_threads": max(1, capacity - 1),
+        # The global CPU limit already leaves headroom for the server and the host desktop.
+        "default_threads": capacity,
         **{
             f"effective_{tool}_threads": effective_threads(tool)
             for tool in THREAD_TOOLS

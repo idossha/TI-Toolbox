@@ -85,16 +85,13 @@ def generate_summary(
         else:
             f.write(f"Cluster mass threshold: {correction_threshold:.2f}\n")
 
-        n_jobs = config.n_jobs
-        if n_jobs == -1:
-            import multiprocessing
+        from tit.cpu import resolve_n_jobs
 
-            n_jobs_actual = multiprocessing.cpu_count()
-            f.write(f"Parallel processing: {n_jobs_actual} cores\n")
-        elif n_jobs == 1:
+        n_jobs_actual = resolve_n_jobs(config.n_jobs)
+        if n_jobs_actual == 1:
             f.write("Parallel processing: Sequential (1 core)\n")
         else:
-            f.write(f"Parallel processing: {n_jobs} cores\n")
+            f.write(f"Parallel processing: {n_jobs_actual} cores\n")
         f.write("\n")
 
         f.write("SAMPLE INFORMATION:\n")

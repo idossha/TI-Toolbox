@@ -168,7 +168,8 @@ class FlexConfig:
         DE crossover probability.  ``None`` for solver default.
     cpus : int or None
         Number of parallel workers for the multi-start restarts (the DE
-        search itself is single-process).  ``None`` for auto-detect.
+        search itself is single-process).  ``None`` uses the global CPU
+        limit (:func:`tit.cpu.cpu_limit`); a larger value is clamped to it.
     min_electrode_distance : float
         Minimum geodesic distance (mm) between any two electrodes.
         Default ``5.0``.
@@ -896,8 +897,11 @@ class ExConfig:
         the earlier run in place.
     n_jobs : int
         Worker processes evaluating candidates in parallel.  ``-1``
-        (default) uses all cores minus one; ``1`` evaluates in-process.
-        Results and CSV ordering do not depend on it.
+        (default) uses the global CPU limit (Settings; 70 % of the
+        container's cores by default, see :func:`tit.cpu.cpu_limit`);
+        a larger explicit value is clamped to that limit; ``1``
+        evaluates in-process.  Results and CSV ordering do not depend
+        on it.
     symmetric_bucket : bool
         When True in bucket mode, evaluate only left/right mirrored
         montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
@@ -1171,8 +1175,11 @@ class MExConfig:
         Optional name for this run.  Defaults to a datetime stamp.
     n_jobs : int
         Worker processes evaluating candidates in parallel.  ``-1``
-        (default) uses all cores minus one; ``1`` evaluates in-process.
-        Results and CSV ordering do not depend on it.
+        (default) uses the global CPU limit (Settings; 70 % of the
+        container's cores by default, see :func:`tit.cpu.cpu_limit`);
+        a larger explicit value is clamped to that limit; ``1``
+        evaluates in-process.  Results and CSV ordering do not depend
+        on it.
     symmetric_bucket : bool
         When True in bucket mode, evaluate only left/right mirrored
         electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).

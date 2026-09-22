@@ -117,7 +117,8 @@ class GroupComparisonConfig:
     alpha : float
         Family-wise error rate for significance.  Default ``0.05``.
     n_jobs : int
-        Number of parallel workers (``-1``, the default, for all CPUs).
+        Number of parallel workers (``-1``, the default, for the global
+        CPU limit -- :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
     tissue_type : TissueType or str
         Which tissue compartment to analyze: ``"grey"`` (default),
         ``"white"`` or ``"all"``.  Ignored when *space* is
@@ -367,7 +368,8 @@ class CorrelationConfig:
     alpha : float
         Family-wise error rate for significance.
     n_jobs : int
-        Number of parallel workers (``-1`` for all CPUs).
+        Number of parallel workers (``-1`` for the global CPU limit --
+        :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
     use_weights : bool
         Whether to apply per-subject weights during correlation.  Default
         ``True``.

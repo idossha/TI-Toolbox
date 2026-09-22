@@ -1866,3 +1866,69 @@ either copy for a double-clicked file. Process detection still counts any TetraV
 **Verification contract.** `tetravoxNative.test.ts` "always runs TI's copy in TI's own profile" and
 the macOS `open` cases pin the argument; `roiPlates.test.ts` pins the capture profile;
 `settings.test.ts` pins that a stale `tetravoxPath` is ignored and dropped.
+
+
+## 2026-09-22 — One global CPU limit, 70 % by default, is the scheduler budget
+
+**Decision.** TI-Toolbox's CPU use is capped by one user-wide setting, **CPU limit**, a percent of
+the cores available to the container (`tit.cpu.effective_cpus()`), default **70 %**, resolved as
+`max(1, floor(percent × cores / 100))` by `tit.cpu.cpu_limit()`. It is stored in
+`<user config>/cpu-limit.json` (the directory every project and container restart shares), set
+from Settings → Project → Execution or `PUT /api/cpu-limit` (10–100); that file is the only
+source (no environment override). It replaces "all cores minus one" as the default for
+every job path: the scheduler budget (`discover_budget`), `n_jobs = -1` for ex/mex/stats (plan cost
+and worker count), flex's `cpus=None`, FastSurfer/FreeSurfer/CHARM/QSI automatic threads, and NIfTI
+workers. Explicit values stay as API overrides but are clamped to the limit. The exhaustive-search
+numba share is `job_cpus() // workers`, not `effective_cpus() // workers`. RAM is unchanged.
+
+**Why.** Maintainer requirement (2026-09-22): "We cannot hijack their container resources by
+default … by default use 70 % resources", exposed in general settings. Before this an ex-search on a
+10-core container defaulted to 9 workers, and a search admitted with 2 CPUs ran 2 workers × `10 // 2
+= 5` numba threads = 10 busy cores [derived: pre-change `tit/opt/ex/parallel.py`]; the scheduler
+budget was the whole container, so concurrent jobs together could claim every core.
+
+**Alternatives rejected.** A per-page thread control (Optimizer) cannot bound two concurrent
+jobs. Storing the percent in project settings would make it differ per project on one machine.
+Rejecting explicit `n_jobs` above the limit would break scripts; clamping keeps them running. An
+environment-variable override (maintainer, 2026-09-22) was dropped: a second source would make the
+Settings value silently lose to the environment and the slider snap back.
+
+**Verification.** `tests/test_cpu.py` (resolver: default 70, floor, min 1, saved file round-trip, invalid
+values), `tests/test_jobs_scheduler.py::test_discover_budget_cpus_are_the_global_limit_not_the_container`,
+`tests/test_plan_accuracy.py::test_pool_kinds_claim_the_global_limit_and_clamp_explicit_n_jobs`,
+`tests/test_opt_parallel.py::test_workers_times_numba_threads_never_exceed_the_admitted_cpus`,
+`tests/test_jobs_manager.py::test_the_global_cpu_limit_is_read_at_admission_and_shrinks_a_larger_claim`,
+`tests/test_cpu_limit_route.py`, and `desktop/tests/unit/cpu-limit-ui.test.tsx`.
+
+
+## 2026-09-22 — One job per product runs at a time; "Subjects in parallel" is retired
+
+**Decision.** The "Subjects in parallel" setting (Settings → Project → Execution, stored in the
+renderer's `tit-execution-prefs` localStorage, sent as `JobGroupRequest.parallel_subjects`, mirrored
+onto `JobSpec.group_cap` and enforced by the scheduler as a per-group running-job cap; also accepted
+by `POST /api/plan/pre` to scale the preview) is removed from the UI, the contract, the server and
+the mock. The scheduler instead runs **one job per product**: `PRODUCT_OF` maps `pre` →
+preprocessing, `sim` → simulator, `flex`/`flex_adaptive`/`flex_pareto`/`ex`/`mex`/`leadfield` →
+optimizer, `analyzer` → analyzer, and a job waits while another job of its product is running.
+A multi-subject run is still one group of per-subject jobs (per-stage for Preprocess), run one
+after another. The global CPU limit is the only resource setting. A stale `parallel_subjects` in a
+request, `group_cap` in a `spec.json` or `parallelSubjects` in localStorage is ignored.
+
+**Why.** Maintainer (2026-09-22): "it should always be 1 job per product, i.e. 1 job per
+preprocessing, 1 job per simulator, 1 job per optimizer. Only parallelization that happens is
+decided by the architecture of the toolbox." The cap was per group only, so two separate
+submissions of one product already ran together, and a cap above 1 ran several FEM-class jobs at
+once.
+
+**Alternatives rejected.** Collapsing a multi-subject run into literally one job (one process
+looping subjects) would rewrite every group runner, the Jobs table's per-subject rows, per-job ETA,
+cancellation and preflight for no change in what runs concurrently; the group of queued jobs run one
+at a time already gives that. Keeping `parallel_subjects` as a hidden API override contradicts
+"always".
+
+**Verification.** `tests/test_jobs_scheduler.py` (same product waits across groups, optimizer kinds
+share one product, other products and non-product kinds run together, stale `group_cap` ignored),
+`tests/test_jobs_manager.py::test_a_product_group_runs_one_job_at_a_time`,
+`tests/test_jobs_routes.py::test_a_group_runs_one_member_at_a_time` (with and without a stale
+`parallel_subjects`), `tests/test_plan_routes.py::test_plan_pre_runs_one_stage_at_a_time_and_ignores_a_stale_parallel_subjects`,
+`desktop/tests/unit/job-groups.test.ts`, `desktop/tests/e2e/batch.spec.ts`.

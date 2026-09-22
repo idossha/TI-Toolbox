@@ -62,7 +62,6 @@ export interface JobTerminalProps {
    * work-pane preview has its input ready.
    */
   steps?: RunStep[];
-  parallel?: number;
   /** Reported upward so the page can assert which of the two states it is showing. */
   onSourceChange?: (source: TerminalSource) => void;
 }

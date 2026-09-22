@@ -36,8 +36,8 @@ def _resolve_workers(n_tasks: int, max_workers: int | None) -> int:
 
     Precedence: explicit *max_workers* argument, then the
     ``TI_NIFTI_WORKERS`` environment variable, then a default of
-    ``min(n_tasks, cpu_count, 8)``.  The result is always clamped to
-    ``[1, n_tasks]``.
+    ``min(n_tasks, job_cpus(), 8)`` (the global CPU limit outside a
+    job).  The result is always clamped to ``[1, n_tasks]``.
     """
     workers = max_workers
     if workers is None:
@@ -48,7 +48,9 @@ def _resolve_workers(n_tasks: int, max_workers: int | None) -> int:
             except ValueError:
                 logger.warning("Invalid TI_NIFTI_WORKERS=%r; ignoring", env)
     if workers is None or workers <= 0:
-        workers = min(n_tasks, os.cpu_count() or 1, 8)
+        from tit.cpu import job_cpus
+
+        workers = min(n_tasks, job_cpus(), 8)
     return max(1, min(workers, n_tasks))
 
 
@@ -177,7 +179,7 @@ def convert_mesh_dir(
         Include MNI-space outputs (default True for standalone conversion).
     max_workers : int | None
         Number of worker processes.  Defaults to the ``TI_NIFTI_WORKERS``
-        environment variable, or ``min(n_tasks, cpu_count, 8)``.  Set to
+        environment variable, or ``min(n_tasks, job_cpus(), 8)``.  Set to
         ``1`` to run serially (e.g. for debugging or memory-constrained
         hosts).
 

@@ -32,7 +32,6 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
-import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
 import { useJobsStream } from "../../app/jobs/useJobsStream";
 import { PageLayout, FormSection, PaneHeaderControls, usePaneController } from "../../ui/Layout";
@@ -179,7 +178,6 @@ function OptimizerPage() {
   const [startedJobIds, setStartedJobIds] = usePageSession<string[]>("startedJobs", []);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const scenePane = usePaneController({ pageId: "optimizer", name: "run" });
 
   // Only subjects with a head model are asked about: `GET /api/catalog/{leadfields,atlases}`
@@ -397,7 +395,7 @@ function OptimizerPage() {
       const startedIds: string[] = [];
       for (const [kind, group] of byKind) {
         const subjectIds = [...new Set(group.map((j) => j.subject))];
-        const result = await submitJobGroup(kind, group[0]!.config, subjectIds, parallelSubjects, {
+        const result = await submitJobGroup(kind, group[0]!.config, subjectIds, {
           subjectConfigs: group.map((j) => ({ subject_id: j.subject, config: j.config })),
           tags: group.length > 1 ? [`${kind}-batch`] : [],
           overwrite: overwriteFlag,
@@ -510,7 +508,6 @@ function OptimizerPage() {
           startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}
           steps={stepsFor(planKind)}
-          parallel={parallelSubjects}
           paneControls={<PaneHeaderControls controller={scenePane} />}
           scene={
             <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} onRoiChange={patchActiveRoi} electrodes={paneElectrodes} />

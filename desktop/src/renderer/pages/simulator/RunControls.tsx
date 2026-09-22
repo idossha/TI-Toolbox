@@ -143,15 +143,12 @@ export function RunButton({
   rows,
   params,
   plan,
-  parallelSubjects,
   onSubmitted,
   label,
 }: {
   rows: SelectedRow[];
   params: GlobalParams;
   plan: SimPlan;
-  /** The `Subjects in parallel` cap; goes onto the one group request as `parallel_subjects`. */
-  parallelSubjects: number;
   /** The ids of the jobs the press created — the page's terminal follows them (2026-09-07). */
   onSubmitted: (jobIds: string[]) => void;
   label: string;
@@ -163,8 +160,8 @@ export function RunButton({
    * ONE request for the whole batch (R3). This used to be a `for` loop of `POST /api/jobs`, one
    * per (subject, montage) row, awaited in sequence — which named itself sequential execution but
    * decided nothing: the server admitted whatever its budget allowed the moment each job landed.
-   * Now the group is created queued in a single `POST /api/jobs/groups` carrying
-   * `parallel_subjects`, and `tit.jobs.scheduler` releases the members that-many-at-a-time.
+   * Now the group is created queued in a single `POST /api/jobs/groups`, and `tit.jobs.scheduler`
+   * runs the members one at a time (one job per product, DECISIONS 2026-09-22).
    *
    * Every row's config is resolved here and sent as its own `subject_configs` entry — the same
    * `(subject, montage)` job the plan grid previewed — so one subject with three montages is
@@ -178,7 +175,7 @@ export function RunButton({
       config: buildSimulationConfig(row, params),
     }));
     try {
-      const result = await submitJobGroup("sim", subjectConfigs[0]?.config ?? {}, subjectIds, parallelSubjects, {
+      const result = await submitJobGroup("sim", subjectConfigs[0]?.config ?? {}, subjectIds, {
         subjectConfigs,
         tags: subjectIds.length > 1 ? ["sim-batch"] : [],
         overwrite: overwriteExisting,
@@ -186,7 +183,7 @@ export function RunButton({
       notify.success(
         result.jobs.length === 1
           ? `Queued: simulation for ${subjectIds[0]}`
-          : `Queued ${result.jobs.length} simulation jobs${parallelSubjects > 1 ? ` (${parallelSubjects} at a time)` : " (one at a time)"}`,
+          : `Queued ${result.jobs.length} simulation jobs (one at a time)`,
       );
       onSubmitted(result.jobs.map((job) => job.id));
     } catch (error) {

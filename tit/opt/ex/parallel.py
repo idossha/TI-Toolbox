@@ -14,24 +14,11 @@ import multiprocessing
 import signal
 from typing import Any, Callable, Iterable, Iterator
 
-from tit.cpu import effective_cpus, job_cpus
+from tit.cpu import job_cpus, resolve_n_jobs  # noqa: F401 - re-exported for the engines
 
 # The engine the forked workers evaluate with. Set by the parent right
 # before the pool forks and cleared when it is torn down.
 _ENGINE: Any = None
-
-
-def resolve_n_jobs(n_jobs: int | None) -> int:
-    """Worker count.
-
-    ``n_jobs < 1`` (or ``None``) means "as many as this job was given": the CPU budget the plan
-    admitted the job with (``TIT_JOB_CPUS``, exported by :mod:`tit.jobs.runner`), falling back
-    outside a job to all usable cores minus one. Before this read the budget it used
-    ``os.cpu_count() - 1``, so a plan that said "2 CPU" forked eleven workers.
-    """
-    if n_jobs is None or n_jobs < 1:
-        return max(1, job_cpus(default=max(1, effective_cpus() - 1)))
-    return int(n_jobs)
 
 
 def _worker_init(numba_threads: int) -> None:
@@ -99,7 +86,8 @@ def evaluate_ordered(
             yield fn(*args)
         return
 
-    numba_threads = max(1, effective_cpus() // n_jobs)
+    # workers x threads <= the job's budget, never the container's full core count.
+    numba_threads = max(1, job_cpus() // n_jobs)
     _ENGINE = engine
     # One BLAS/OpenMP thread per worker: limit in the parent (safe, the
     # runtimes are already initialised here) so the forked workers inherit
