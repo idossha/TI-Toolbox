@@ -122,8 +122,6 @@ def effective_cpus(root: str = CGROUP_ROOT) -> int:
 #: machine with the user's own work, so no default claims every core (DECISIONS 2026-09-22).
 DEFAULT_CPU_LIMIT_PERCENT = 70
 MIN_CPU_LIMIT_PERCENT = 10
-#: Env override of the saved percent, for scripts and CI (wins over the settings file).
-CPU_LIMIT_ENV = "TIT_CPU_LIMIT_PERCENT"
 CPU_LIMIT_FILENAME = "cpu-limit.json"
 
 
@@ -145,10 +143,7 @@ def _valid_percent(value: object) -> int | None:
 
 
 def cpu_limit_percent() -> int:
-    """The global CPU limit percent: ``TIT_CPU_LIMIT_PERCENT``, else the saved setting, else 70."""
-    from_env = _valid_percent(os.environ.get(CPU_LIMIT_ENV))
-    if from_env is not None:
-        return from_env
+    """The global CPU limit percent: the saved setting (the only source), else 70."""
     try:
         with open(cpu_limit_file(), encoding="utf-8") as fh:
             saved = _valid_percent(json.load(fh).get("percent"))

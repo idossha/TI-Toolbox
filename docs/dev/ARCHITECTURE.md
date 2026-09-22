@@ -641,9 +641,10 @@ thread variables, which every "use all cores" default reads, so the panel's CPU 
 number the solver receives.
 
 **The global CPU limit is the scheduler's CPU budget.** `tit.cpu.cpu_limit()` =
-`max(1, floor(percent / 100 × effective_cpus()))`, where the percent is `TIT_CPU_LIMIT_PERCENT`
-(scripts, CI), else the user-wide `cpu-limit.json` in `PathManager.user_config_dir()` written by
-Settings → Project → Execution → **CPU limit** (`GET/PUT /api/cpu-limit`, 10–100 %), else **70 %**.
+`max(1, floor(percent / 100 × effective_cpus()))`, where the percent is the user-wide
+`cpu-limit.json` in `PathManager.user_config_dir()` written by Settings → Project → Execution →
+**CPU limit** (`GET/PUT /api/cpu-limit`, 10–100 %), else **70 %**. That file is the only source —
+there is no environment override, so the UI and every script always agree.
 `scheduler.discover_budget()` takes its CPUs from it, and `JobManager` re-reads it at every admission
 pass, so a change applies to the next admitted job while running jobs keep their CPUs; a queued job
 costed above a lowered limit has its claim shrunk to the limit instead of waiting forever. Every

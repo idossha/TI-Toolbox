@@ -30,7 +30,7 @@ a percent of the cores available to the container (default **70 %**, shown as e.
 cores"). It leaves headroom for your computer; raise it for faster searches. A job that would
 exceed what is left waits ("waiting for budget") until others finish. A change applies to jobs
 started afterwards — running jobs keep what they were given. Scripts and notebooks honour the same
-setting, or the `TIT_CPU_LIMIT_PERCENT` environment variable.
+setting.
 
 ## The table
 

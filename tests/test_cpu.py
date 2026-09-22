@@ -13,7 +13,6 @@ import pytest
 
 import tit.cpu
 from tit.cpu import (
-    CPU_LIMIT_ENV,
     DEFAULT_CPU_LIMIT_PERCENT,
     JOB_CPUS_ENV,
     cgroup_cpu_limit,
@@ -135,15 +134,11 @@ def test_limit_floors_the_percent_and_never_reaches_zero(
     assert cpu_limit() == expected
 
 
-def test_saved_setting_round_trips_and_env_wins(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_saved_setting_round_trips() -> None:
     save_cpu_limit_percent(50)
     assert cpu_limit_percent() == 50
-    monkeypatch.setenv(CPU_LIMIT_ENV, "90")
-    assert cpu_limit_percent() == 90
-    monkeypatch.setenv(CPU_LIMIT_ENV, "garbage")
-    assert cpu_limit_percent() == 50
+    save_cpu_limit_percent(100)
+    assert cpu_limit_percent() == 100
 
 
 @pytest.mark.parametrize("bad", [0, 5, 101, 70.0, True, "70"])

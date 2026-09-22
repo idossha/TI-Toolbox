@@ -1874,8 +1874,8 @@ the macOS `open` cases pin the argument; `roiPlates.test.ts` pins the capture pr
 the cores available to the container (`tit.cpu.effective_cpus()`), default **70 %**, resolved as
 `max(1, floor(percent × cores / 100))` by `tit.cpu.cpu_limit()`. It is stored in
 `<user config>/cpu-limit.json` (the directory every project and container restart shares), set
-from Settings → Project → Execution or `PUT /api/cpu-limit` (10–100), and overridable by
-`TIT_CPU_LIMIT_PERCENT` for scripts and CI. It replaces "all cores minus one" as the default for
+from Settings → Project → Execution or `PUT /api/cpu-limit` (10–100); that file is the only
+source (no environment override). It replaces "all cores minus one" as the default for
 every job path: the scheduler budget (`discover_budget`), `n_jobs = -1` for ex/mex/stats (plan cost
 and worker count), flex's `cpus=None`, FastSurfer/FreeSurfer/CHARM/QSI automatic threads, and NIfTI
 workers. Explicit values stay as API overrides but are clamped to the limit. The exhaustive-search
@@ -1889,10 +1889,11 @@ budget was the whole container, so concurrent jobs together could claim every co
 
 **Alternatives rejected.** A per-page thread control (Optimizer) cannot bound two concurrent
 jobs. Storing the percent in project settings would make it differ per project on one machine.
-Rejecting explicit `n_jobs` above the limit would break scripts; clamping keeps them running. Env
-var alone would give the UI nothing to write.
+Rejecting explicit `n_jobs` above the limit would break scripts; clamping keeps them running. An
+environment-variable override (maintainer, 2026-09-22) was dropped: a second source would make the
+Settings value silently lose to the environment and the slider snap back.
 
-**Verification.** `tests/test_cpu.py` (resolver: default 70, floor, min 1, env over file, invalid
+**Verification.** `tests/test_cpu.py` (resolver: default 70, floor, min 1, saved file round-trip, invalid
 values), `tests/test_jobs_scheduler.py::test_discover_budget_cpus_are_the_global_limit_not_the_container`,
 `tests/test_plan_accuracy.py::test_pool_kinds_claim_the_global_limit_and_clamp_explicit_n_jobs`,
 `tests/test_opt_parallel.py::test_workers_times_numba_threads_never_exceed_the_admitted_cpus`,
