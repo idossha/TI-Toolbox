@@ -408,6 +408,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     });
 
     // settings (v1)
+    await call("/api/cpu-limit", "GET", "/api/cpu-limit");
+    await call("/api/cpu-limit", "PUT", "/api/cpu-limit", { body: { percent: 50 } });
     await call("/api/surfer-settings", "GET", "/api/surfer-settings");
     await call("/api/surfer-settings", "PUT", "/api/surfer-settings", { body: { fastsurfer_threads: 4, freesurfer_threads: null } });
     await call("/api/surfer-settings/freesurfer-license", "PUT", "/api/surfer-settings/freesurfer-license", { body: { text: "someone@example.org\n12345\n *Ab1cD2eF3gH\n FSabc123DEF456" } });

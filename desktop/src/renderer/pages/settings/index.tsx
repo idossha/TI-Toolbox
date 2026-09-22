@@ -23,6 +23,7 @@ import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import { TetravoxCard } from "./TetravoxCard";
 import "./settings-page.css";
 import { SurferSettingsCard } from "./SurferSettingsCard";
+import { CpuLimitField } from "./CpuLimitField";
 
 /**
  * Settings and Help are the two pages DESIGN.md §2.3 still allows a header — the orchestrator's
@@ -443,6 +444,7 @@ function ExecutionCard() {
   const setExecutionPrefs = useExecutionPrefs((s) => s.setExecutionPrefs);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <CpuLimitField />
       <Field label="Existing outputs" help="What a run does when a subject already has this output. You are still asked before a run that would touch existing outputs.">
         <SegmentedControl
           value={existingOutputs}

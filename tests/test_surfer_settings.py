@@ -28,29 +28,32 @@ def user_settings(tmp_path, monkeypatch):
     monkeypatch.delenv("TIT_FASTSURFER_THREADS", raising=False)
 
 
-def test_automatic_leaves_one_thread_for_host_and_respects_container_quota(monkeypatch):
-    assert prefs.read_settings()["default_threads"] == 11
+def test_automatic_is_the_global_cpu_limit_of_the_container_quota(monkeypatch):
+    # 70 % (default) of the synthetic 12-CPU host: floor(8.4) = 8; of a 5-CPU quota: floor(3.5).
+    assert prefs.read_settings()["default_threads"] == 8
     monkeypatch.setattr(prefs, "get_container_resource_limits", lambda: (5, None))
-    assert prefs.effective_threads("fastsurfer") == 4
-    assert prefs.effective_threads("freesurfer") == 4
+    assert prefs.effective_threads("fastsurfer") == 3
+    assert prefs.effective_threads("freesurfer") == 3
 
 
 def test_user_preferences_persist_and_clamp_to_current_capacity():
     response = put_surfer_settings(
         SurferPreferences(fastsurfer_threads=30, freesurfer_threads=3)
     )
-    assert response.effective_fastsurfer_threads == 12
+    assert response.effective_fastsurfer_threads == 8
     assert response.effective_freesurfer_threads == 3
     assert json.loads(prefs.settings_path().read_text())["fastsurfer_threads"] == 30
-    assert prefs.effective_threads("fastsurfer", 20) == 20
+    # An explicit script value is clamped to the limit too, or the job could never be admitted.
+    assert prefs.effective_threads("fastsurfer", 20) == 8
+    assert prefs.effective_threads("fastsurfer", 5) == 5
 
 
 def test_job_snapshot_keeps_cost_and_execution_consistent():
     config = prefs.resolve_job_threads({"run_fastsurfer": True})
     prefs.save_preferences({"fastsurfer_threads": 2, "freesurfer_threads": None})
-    assert config["fastsurfer_threads"] == 11
-    assert default_cost("pre", config).cpus == 11
-    assert prefs.effective_threads("fastsurfer", config["fastsurfer_threads"]) == 11
+    assert config["fastsurfer_threads"] == 8
+    assert default_cost("pre", config).cpus == 8
+    assert prefs.effective_threads("fastsurfer", config["fastsurfer_threads"]) == 8
     assert default_cost("pre", {"run_fastsurfer": True}).cpus == 2
 
 
@@ -67,7 +70,7 @@ def test_invalid_preferences_rejected(value):
 
 def test_reset_and_corrupt_preferences_use_automatic():
     prefs.settings_path().write_text("[]")
-    assert prefs.effective_threads("freesurfer") == 11
+    assert prefs.effective_threads("freesurfer") == 8
     put_surfer_settings(SurferPreferences())
     assert prefs.load_preferences() == prefs.default_preferences()
 

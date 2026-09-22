@@ -429,7 +429,7 @@ function ClusterPermutationPanel() {
               <Field label="Alpha" htmlFor="cbp-alpha" help="Family-wise error rate for significance.">
                 <NumberInput id="cbp-alpha" value={alpha} onValueChange={setAlpha} min={0} max={1} step={0.01} />
               </Field>
-              <Field label="Parallel workers" htmlFor="cbp-n-jobs" help="-1 uses all CPUs.">
+              <Field label="Parallel workers" htmlFor="cbp-n-jobs" help="-1 uses the CPU limit from Settings; larger values are capped to it.">
                 <NumberInput id="cbp-n-jobs" value={nJobs} onValueChange={setNJobs} step={1} />
               </Field>
               <Field label="Tissue" htmlFor="cbp-tissue-type">

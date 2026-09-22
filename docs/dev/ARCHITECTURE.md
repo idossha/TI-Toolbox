@@ -631,7 +631,24 @@ Resource and duration figures are the run's own. CPU counts come from
 [`tit/cpu.py`](../../tit/cpu.py) — the container's cgroup/cpuset limit, not the host's core count —
 and the job runner exports the admitted budget as `TIT_JOB_CPUS` alongside the OpenMP/MKL/Numba
 thread variables, which every "use all cores" default reads, so the panel's CPU figure is the
-number the solver receives. `parallel_subjects` is clamped to what the scheduler budget admits, with
+number the solver receives.
+
+**The global CPU limit is the scheduler's CPU budget.** `tit.cpu.cpu_limit()` =
+`max(1, floor(percent / 100 × effective_cpus()))`, where the percent is `TIT_CPU_LIMIT_PERCENT`
+(scripts, CI), else the user-wide `cpu-limit.json` in `PathManager.user_config_dir()` written by
+Settings → Project → Execution → **CPU limit** (`GET/PUT /api/cpu-limit`, 10–100 %), else **70 %**.
+`scheduler.discover_budget()` takes its CPUs from it, and `JobManager` re-reads it at every admission
+pass, so a change applies to the next admitted job while running jobs keep their CPUs; a queued job
+costed above a lowered limit has its claim shrunk to the limit instead of waiting forever. Every
+"all cores" default resolves to it: `n_jobs < 1` for `ex`/`mex`/`stats` (cost and
+`tit.cpu.resolve_n_jobs`), flex's `cpus=None`, pre-processing tool threads
+(`surfer_settings.available_threads`) and NIfTI conversion workers; outside a job `job_cpus()` falls
+back to it. Explicit per-job values (`n_jobs`, `cpus`, tool threads) remain an API override but are
+clamped to the limit, since a claim above the budget could never be admitted. Exhaustive-search
+workers share the job's budget with numba: `workers × numba threads ≤ TIT_JOB_CPUS`. RAM is not
+limited by it: the budget's memory is the container limit clamped by available memory. Excluded
+alternative: only per-page or per-job thread controls — they cannot stop two jobs together from
+taking the whole machine. `parallel_subjects` is clamped to what the scheduler budget admits, with
 a warning. The duration tile is an estimate from the per-kind models documented in
 [`tit/jobs/eta.py`](../../tit/jobs/eta.py), calibrated against [BENCHMARKS](BENCHMARKS.md); it is
 labelled `≈` with its basis in the tooltip, and a kind with no measured baseline shows no number.
@@ -685,7 +702,7 @@ Verification: [native FastSurfer acceptance](TESTING.md#native-fastsurfer-accept
 
 The image ships CUDA 12.6-enabled PyTorch 2.7.1 and its user-space runtime. Host NVIDIA drivers and Docker GPU integration remain host prerequisites. Launchers probe GPU computation in a temporary, mount-free container before requesting GPUs on the project container. CPU-only hosts can still launch. Verification: [GPU-preferred container acceptance](TESTING.md#gpu-preferred-container-acceptance).
 
-FastSurfer and FreeSurfer thread preferences live in the shared user configuration, not project settings. Automatic defaults use the available computation CPUs minus one, at least one, respecting container limits. Plans and new jobs resolve these defaults consistently; explicit scripting overrides remain available. The Pre-processing UI routes users to Settings → Pre-processing and does not keep per-project thread overrides.
+FastSurfer and FreeSurfer thread preferences live in the shared user configuration, not project settings. Automatic defaults use the whole global CPU limit (above), at least one, respecting container limits; explicit values are clamped to it. Plans and new jobs resolve these defaults consistently; explicit scripting overrides remain available. The Pre-processing UI routes users to Settings → Pre-processing and does not keep per-project thread overrides.
 
 
 Settings groups project preferences, preprocessing defaults, extensions, viewer management, and server details into horizontal tabs. Inactive panels retain unsaved drafts. The preprocessing page selects stages; FreeSurfer operation defaults and reconstruction/QSI resources are edited in Settings and resolved into each submitted configuration.

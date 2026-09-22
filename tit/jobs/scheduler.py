@@ -25,7 +25,7 @@ from typing import Any
 
 import psutil
 
-from tit.cpu import effective_cpus
+from tit.cpu import cpu_limit
 from tit.jobs import locks
 from tit.jobs.spec import Cost, JobSpec, JobStatus, WaitingOn
 
@@ -151,23 +151,26 @@ def build_after_edges(specs: dict[str, JobSpec]) -> dict[str, list[str]]:
 
 
 def discover_budget() -> Cost:
-    """Container cgroup CPU/RAM limit, clamped by currently-available memory (TODO.md §2.4)."""
-    cpus: float
+    """The pool every admitted job shares (TODO.md §2.4).
+
+    CPUs are the user's global CPU limit (:func:`tit.cpu.cpu_limit`, 70 % of the container's
+    cores by default, set on the Settings page), never the whole container: TI-Toolbox shares
+    the machine with the user's own work. RAM is the container's cgroup limit, clamped by
+    currently-available memory.
+    """
     mem_gb: float
     try:
         from tit.pre.qsi.utils import get_inherited_dood_resources
 
-        cgroup_cpus, cgroup_mem_gb = get_inherited_dood_resources()
-        cpus = float(cgroup_cpus)
+        _, cgroup_mem_gb = get_inherited_dood_resources()
         mem_gb = float(cgroup_mem_gb)
     except (
         Exception
     ):  # pragma: no cover - defensive; qsi utils is another lane's module
-        cpus = float(effective_cpus())
         mem_gb = 8.0
     try:
         available_gb = psutil.virtual_memory().available / (1024**3)
         mem_gb = min(mem_gb, available_gb)
     except (psutil.Error, OSError):
         pass
-    return Cost(cpus=max(cpus, 1.0), mem_gb=max(mem_gb, 1.0))
+    return Cost(cpus=float(cpu_limit()), mem_gb=max(mem_gb, 1.0))

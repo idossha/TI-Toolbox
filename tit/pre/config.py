@@ -264,7 +264,7 @@ class PreprocessConfig:
         T1w image; the UI offers it checked whenever one exists.
     fastsurfer_threads : int or None
         Thread count for FastSurfer inference. ``None`` uses
-        the user preference (automatic: all available CPUs except one for the host), with
+        the user preference (automatic: the global CPU limit), with
         ``$TIT_FASTSURFER_THREADS`` taking precedence.
     run_freesurfer : bool
         Run optional FreeSurfer in a disposable project-bound container.
@@ -274,8 +274,8 @@ class PreprocessConfig:
         Optional thalamus and hippo-amygdala segmentations. Without recon-all,
         a completed FreeSurfer reconstruction must already exist.
     freesurfer_threads : int or None
-        Worker CPU limit; None uses the user preference (automatic: all
-        available CPUs except one for the host), capped by available resources.
+        Worker CPU limit; None uses the user preference (automatic: the
+        global CPU limit), capped by available resources.
     create_m2m : bool
         Run SimNIBS ``charm`` (also runs ``subject_atlas``).
     run_tissue_analysis : bool

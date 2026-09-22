@@ -11,7 +11,19 @@ from pathlib import Path
 
 import pytest
 
-from tit.cpu import JOB_CPUS_ENV, cgroup_cpu_limit, effective_cpus, job_cpus
+import tit.cpu
+from tit.cpu import (
+    CPU_LIMIT_ENV,
+    DEFAULT_CPU_LIMIT_PERCENT,
+    JOB_CPUS_ENV,
+    cgroup_cpu_limit,
+    cpu_limit,
+    cpu_limit_percent,
+    effective_cpus,
+    job_cpus,
+    resolve_n_jobs,
+    save_cpu_limit_percent,
+)
 
 
 def _v2(root: Path, cpu_max: str, cpuset: str | None = None) -> Path:
@@ -85,15 +97,74 @@ def test_job_cpus_reads_the_budget_the_runner_exported(
 ) -> None:
     monkeypatch.setenv(JOB_CPUS_ENV, "3")
     assert job_cpus() == 3
-    assert job_cpus(default=9) == 3
 
 
-def test_job_cpus_falls_back_outside_a_job(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_job_cpus_outside_a_job_is_the_global_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv(JOB_CPUS_ENV, raising=False)
-    assert job_cpus(default=7) == 7
-    assert job_cpus() == effective_cpus()
+    assert job_cpus() == cpu_limit()
 
 
 def test_job_cpus_ignores_junk(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(JOB_CPUS_ENV, "not-a-number")
-    assert job_cpus(default=5) == 5
+    assert job_cpus() == cpu_limit()
+
+
+# -- global CPU limit (docs/dev/ARCHITECTURE.md, scheduler budget) --------------------------------
+# Expected core counts are floor(percent x cores / 100), min 1, worked by hand from the
+# maintainer's rule ("by default use 70 % of resources"); the conftest points the settings file
+# at an empty scratch path, so the default applies unless a test sets one.
+
+
+def test_default_limit_is_seventy_percent_of_the_container(tmp_path: Path) -> None:
+    """`--cpus=4`: 0.7 x 4 = 2.8, so 2 cores -- never the container's 4."""
+    assert cpu_limit_percent() == DEFAULT_CPU_LIMIT_PERCENT == 70
+    assert cpu_limit(str(_v2(tmp_path, "400000 100000"))) == 2
+
+
+@pytest.mark.parametrize(
+    ("percent", "cores", "expected"),
+    [(70, 10, 7), (70, 12, 8), (10, 4, 1), (100, 12, 12)],
+)
+def test_limit_floors_the_percent_and_never_reaches_zero(
+    monkeypatch: pytest.MonkeyPatch, percent: int, cores: int, expected: int
+) -> None:
+    monkeypatch.setattr(tit.cpu, "effective_cpus", lambda root=None: cores)
+    save_cpu_limit_percent(percent)
+    assert cpu_limit() == expected
+
+
+def test_saved_setting_round_trips_and_env_wins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_cpu_limit_percent(50)
+    assert cpu_limit_percent() == 50
+    monkeypatch.setenv(CPU_LIMIT_ENV, "90")
+    assert cpu_limit_percent() == 90
+    monkeypatch.setenv(CPU_LIMIT_ENV, "garbage")
+    assert cpu_limit_percent() == 50
+
+
+@pytest.mark.parametrize("bad", [0, 5, 101, 70.0, True, "70"])
+def test_save_rejects_out_of_range_or_non_integer(bad: object) -> None:
+    with pytest.raises(ValueError):
+        save_cpu_limit_percent(bad)  # type: ignore[arg-type]
+    assert cpu_limit_percent() == 70
+
+
+def test_corrupt_settings_file_falls_back_to_default() -> None:
+    Path(tit.cpu.cpu_limit_file()).write_text("{not json")
+    assert cpu_limit_percent() == 70
+    Path(tit.cpu.cpu_limit_file()).write_text('{"percent": 3}')
+    assert cpu_limit_percent() == 70
+
+
+def test_worker_count_defaults_to_and_is_clamped_by_the_job_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(JOB_CPUS_ENV, "6")
+    assert resolve_n_jobs(-1) == 6
+    assert resolve_n_jobs(None) == 6
+    assert resolve_n_jobs(4) == 4
+    assert resolve_n_jobs(64) == 6

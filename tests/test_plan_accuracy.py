@@ -68,9 +68,19 @@ def test_exhaustive_search_forks_exactly_what_the_plan_showed(
     assert resolve_n_jobs(-1) == planned
 
 
-@pytest.mark.parametrize("kind", ["ex", "mex"])
-def test_an_explicit_n_jobs_is_what_the_plan_shows(kind: str) -> None:
+@pytest.mark.parametrize("kind", ["ex", "mex", "stats"])
+def test_pool_kinds_claim_the_global_limit_and_clamp_explicit_n_jobs(
+    kind: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """10 container CPUs at the default 70 %: `n_jobs=-1` claims 7 (not 9 = all minus one), an
+    explicit 4 is 4, and an explicit 16 is clamped to 7 so the job can still be admitted."""
+    import tit.cpu
+
+    monkeypatch.setattr(tit.cpu, "effective_cpus", lambda root=None: 10)
+    assert default_cost(kind, {"n_jobs": -1}).cpus == 7
+    assert default_cost(kind, {}).cpus == 7
     assert default_cost(kind, {"n_jobs": 4}).cpus == 4
+    assert default_cost(kind, {"n_jobs": 16}).cpus == 7
 
 
 def test_flex_cpus_in_the_config_is_what_the_plan_shows() -> None:

@@ -75,7 +75,8 @@ class MExSearchEngine(ExSearchEngine):
         """Run the full multipolar search loop.
 
         Candidates are evaluated in enumeration order on ``n_jobs`` forked
-        workers (``n_jobs < 1``: all cores minus one; ``1``: in-process).
+        workers (``n_jobs < 1``: the job's CPU budget, see
+        :func:`tit.opt.ex.parallel.resolve_n_jobs`; ``1``: in-process).
         """
         stop = False
 

@@ -23,6 +23,15 @@ and its process is owned by the server. The Jobs page centralizes status and can
 - **A run page's right pane** — the **Terminal** tab shows the console of the job that page just
   submitted, beside the **Scene** tab.
 
+## How many CPUs jobs may use
+
+All running jobs share one pool of CPUs: the **CPU limit** in **Settings → Project → Execution**,
+a percent of the cores available to the container (default **70 %**, shown as e.g. "70 % · 7 of 10
+cores"). It leaves headroom for your computer; raise it for faster searches. A job that would
+exceed what is left waits ("waiting for budget") until others finish. A change applies to jobs
+started afterwards — running jobs keep what they were given. Scripts and notebooks honour the same
+setting, or the `TIT_CPU_LIMIT_PERCENT` environment variable.
+
 ## The table
 
 Filters for **state**, **kind** and **subject**, a free-text filter, and a **grouping toggle**: the

@@ -39,6 +39,15 @@ export async function putSurferSettings(settings: SurferPreferences): Promise<Su
   return unwrap(await api.PUT("/api/surfer-settings", { body: settings }), "/api/surfer-settings");
 }
 
+export type CpuLimit = components["schemas"]["CpuLimit"];
+/** The user-wide CPU limit every job shares (scheduler budget; see `tit.cpu.cpu_limit`). */
+export async function getCpuLimit(): Promise<CpuLimit> {
+  return unwrap(await api.GET("/api/cpu-limit"), "/api/cpu-limit");
+}
+export async function putCpuLimit(percent: number): Promise<CpuLimit> {
+  return unwrap(await api.PUT("/api/cpu-limit", { body: { percent } }), "/api/cpu-limit");
+}
+
 /** Optional administrator override; the toolbox supplies its bundled license automatically. */
 export async function putFreeSurferLicense(text: string): Promise<SurferSettings> {
   return unwrap(await api.PUT("/api/surfer-settings/freesurfer-license", { body: { text } }), "/api/surfer-settings/freesurfer-license");

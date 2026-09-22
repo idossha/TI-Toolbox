@@ -9,6 +9,10 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
+#### Resources
+
+- **TI-Toolbox uses 70 % of your cores by default, and you can change it** — a new **CPU limit** in **Settings → Project → Execution** (10–100 %, shown as e.g. "70 % · 7 of 10 cores") caps the CPUs all running jobs share. Previously a search defaulted to every core but one and several jobs together could take the whole machine. Ex-/mex-search and cluster-permutation workers, flex-search, FastSurfer/FreeSurfer/CHARM/QSI threads and NIfTI conversion now default to this limit; an explicit `n_jobs`/`cpus`/thread value still works but is capped at it. A change applies to jobs started afterwards; running jobs are not touched. Scripts honour the same setting, or `TIT_CPU_LIMIT_PERCENT`. Memory limits are unchanged. API: `GET`/`PUT /api/cpu-limit`.
+
 #### Launching on Windows and WSL
 
 - **Desktop app finds Docker Desktop on Windows** — v3.0.0 reported "Docker was not found on this machine" whenever the active Docker context was `desktop-linux`, because its `npipe:////./pipe/…` endpoint was handed to Node with four leading slashes. The app now collapses any `npipe:` spelling to `//./pipe/<name>`, checks Docker Desktop's install directories for `docker.exe` when the Start-Menu PATH is stale, and probes the context pipe and then `dockerDesktopLinuxEngine` and `docker_engine` with `/_ping` before giving up. A missing pipe now reads "Docker is installed but not running" with Docker Desktop and WSL 2 guidance; the chosen endpoint is written to `main.log`.

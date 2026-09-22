@@ -124,7 +124,7 @@ Configure subjects based on the selected analysis mode:
 - **Cluster Threshold**: p-value for initial cluster formation (default: 0.05)
 - **Cluster Statistic**: "Mass" (t-value sum) or "Size" (voxel count)
 - **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
-- **Permutations**: `n_permutations` (default: 1000); `n_jobs` (default: -1, all cores)
+- **Permutations**: `n_permutations` (default: 1000); `n_jobs` (default: -1, the global CPU limit from Settings; larger values are capped at it)
 - **Group labels**: `group1_name` / `group2_name` (defaults `Responders` / `Non-Responders`)
 
 #### Correlation Mode

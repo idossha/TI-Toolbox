@@ -15,13 +15,14 @@ tit.stats.config : Configuration dataclasses consumed by the engine.
 
 import gc
 import logging
-import multiprocessing
 
 import numpy as np
 from joblib import Parallel, delayed
 from scipy import stats as sp_stats
 from scipy.ndimage import label, sum as ndimage_sum
 from scipy.stats import rankdata
+
+from tit.cpu import resolve_n_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -716,7 +717,7 @@ class PermutationEngine:
 
         self._log.info("Test data: %.1f MB", test_data.nbytes / (1024**2))
 
-        actual_jobs = multiprocessing.cpu_count() if self.n_jobs == -1 else self.n_jobs
+        actual_jobs = resolve_n_jobs(self.n_jobs)
         self._log.info(
             "Running %d permutations on %d cores",
             self.n_permutations,
@@ -910,7 +911,7 @@ class PermutationEngine:
             voxel_data = np.apply_along_axis(rankdata, 1, voxel_data)
             preranked = True
 
-        actual_jobs = multiprocessing.cpu_count() if self.n_jobs == -1 else self.n_jobs
+        actual_jobs = resolve_n_jobs(self.n_jobs)
         self._log.info(
             "Running %d permutations on %d cores",
             self.n_permutations,

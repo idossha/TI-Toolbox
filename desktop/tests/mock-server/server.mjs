@@ -3949,6 +3949,24 @@ route("DELETE", "/api/surfer-settings/freesurfer-license", (ctx) => {
   json(ctx.res, 200, surferSettingsResponse());
 });
 
+// --- global CPU limit (user-wide; tit.cpu) ---
+let cpuLimitPercent = 70;
+const cpuLimitResponse = () => ({
+  percent: cpuLimitPercent,
+  cores: Math.max(1, Math.floor((cpuLimitPercent * 12) / 100)),
+  available_cores: 12,
+  default_percent: 70,
+});
+route("GET", "/api/cpu-limit", (ctx) => json(ctx.res, 200, cpuLimitResponse()));
+route("PUT", "/api/cpu-limit", async (ctx) => {
+  const body = await ctx.body();
+  if (!Number.isInteger(body.percent) || body.percent < 10 || body.percent > 100) {
+    return json(ctx.res, 422, { detail: "percent must be an integer from 10 to 100" });
+  }
+  cpuLimitPercent = body.percent;
+  json(ctx.res, 200, cpuLimitResponse());
+});
+
 // --- settings (v1) ---
 route("GET", "/api/settings", (ctx) => json(ctx.res, 200, settingsStore));
 route("PUT", "/api/settings", async (ctx) => {

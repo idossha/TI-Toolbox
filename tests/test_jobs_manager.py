@@ -596,6 +596,35 @@ def test_budget_fanout_limits_concurrency(tmp_path):
         manager.shutdown()
 
 
+def test_the_global_cpu_limit_is_read_at_admission_and_shrinks_a_larger_claim(
+    tmp_path, monkeypatch
+):
+    """No injected budget: the CPU half is the user's limit, read when a job is admitted. A job
+    costed above it (9 CPUs, limit floor(0.7 x 10) = 7) runs on the limit instead of waiting
+    forever; lowering the limit to 50 % applies to the next job (5 CPUs)."""
+    import tit.cpu
+
+    monkeypatch.setattr(tit.cpu, "effective_cpus", lambda root=None: 10)
+    manager = JobManager(
+        str(tmp_path),
+        runner_cwd=str(tmp_path),
+        poll_interval=0.05,
+        command_for=_fake_command_for,
+    )
+    manager.start()
+    try:
+        first = manager.submit("flex", {"cpus": 9, "__fake": {"duration_s": 0.05}}, [])
+        wait_until(lambda: manager.get(first["id"])["state"] == "succeeded", timeout=5)
+        assert manager._specs[first["id"]].cost.cpus == 7
+
+        tit.cpu.save_cpu_limit_percent(50)
+        second = manager.submit("flex", {"cpus": 9, "__fake": {"duration_s": 0.05}}, [])
+        wait_until(lambda: manager.get(second["id"])["state"] == "succeeded", timeout=5)
+        assert manager._specs[second["id"]].cost.cpus == 5
+    finally:
+        manager.shutdown()
+
+
 # ---------------------------------------------------------------------------------------------
 # cancel
 # ---------------------------------------------------------------------------------------------

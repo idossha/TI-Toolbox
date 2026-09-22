@@ -1866,3 +1866,35 @@ either copy for a double-clicked file. Process detection still counts any TetraV
 **Verification contract.** `tetravoxNative.test.ts` "always runs TI's copy in TI's own profile" and
 the macOS `open` cases pin the argument; `roiPlates.test.ts` pins the capture profile;
 `settings.test.ts` pins that a stale `tetravoxPath` is ignored and dropped.
+
+
+## 2026-09-22 — One global CPU limit, 70 % by default, is the scheduler budget
+
+**Decision.** TI-Toolbox's CPU use is capped by one user-wide setting, **CPU limit**, a percent of
+the cores available to the container (`tit.cpu.effective_cpus()`), default **70 %**, resolved as
+`max(1, floor(percent × cores / 100))` by `tit.cpu.cpu_limit()`. It is stored in
+`<user config>/cpu-limit.json` (the directory every project and container restart shares), set
+from Settings → Project → Execution or `PUT /api/cpu-limit` (10–100), and overridable by
+`TIT_CPU_LIMIT_PERCENT` for scripts and CI. It replaces "all cores minus one" as the default for
+every job path: the scheduler budget (`discover_budget`), `n_jobs = -1` for ex/mex/stats (plan cost
+and worker count), flex's `cpus=None`, FastSurfer/FreeSurfer/CHARM/QSI automatic threads, and NIfTI
+workers. Explicit values stay as API overrides but are clamped to the limit. The exhaustive-search
+numba share is `job_cpus() // workers`, not `effective_cpus() // workers`. RAM is unchanged.
+
+**Why.** Maintainer requirement (2026-09-22): "We cannot hijack their container resources by
+default … by default use 70 % resources", exposed in general settings. Before this an ex-search on a
+10-core container defaulted to 9 workers, and a search admitted with 2 CPUs ran 2 workers × `10 // 2
+= 5` numba threads = 10 busy cores [derived: pre-change `tit/opt/ex/parallel.py`]; the scheduler
+budget was the whole container, so concurrent jobs together could claim every core.
+
+**Alternatives rejected.** A per-page thread control (Optimizer) cannot bound two concurrent
+jobs. Storing the percent in project settings would make it differ per project on one machine.
+Rejecting explicit `n_jobs` above the limit would break scripts; clamping keeps them running. Env
+var alone would give the UI nothing to write.
+
+**Verification.** `tests/test_cpu.py` (resolver: default 70, floor, min 1, env over file, invalid
+values), `tests/test_jobs_scheduler.py::test_discover_budget_cpus_are_the_global_limit_not_the_container`,
+`tests/test_plan_accuracy.py::test_pool_kinds_claim_the_global_limit_and_clamp_explicit_n_jobs`,
+`tests/test_opt_parallel.py::test_workers_times_numba_threads_never_exceed_the_admitted_cpus`,
+`tests/test_jobs_manager.py::test_the_global_cpu_limit_is_read_at_admission_and_shrinks_a_larger_claim`,
+`tests/test_cpu_limit_route.py`, and `desktop/tests/unit/cpu-limit-ui.test.tsx`.

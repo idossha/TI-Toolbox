@@ -129,6 +129,21 @@ def _plain_host_not_wsl():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _isolated_cpu_limit(tmp_path_factory):
+    """Point the global CPU-limit setting at an empty scratch file and drop its env override, so
+    no test reads (or a PUT writes) the developer's real ``~/.config/ti-toolbox/cpu-limit.json``
+    and every test sees the 70 % default unless it sets one. Private ``MonkeyPatch`` for the same
+    teardown-order reason as ``_plain_host_not_wsl``."""
+    import tit.cpu
+
+    path = str(tmp_path_factory.mktemp("cpu-limit") / tit.cpu.CPU_LIMIT_FILENAME)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(tit.cpu, "cpu_limit_file", lambda: path)
+        patch.delenv(tit.cpu.CPU_LIMIT_ENV, raising=False)
+        yield
+
+
 # PathManager reset — runs after every test automatically
 # ============================================================================
 

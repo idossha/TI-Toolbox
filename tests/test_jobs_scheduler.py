@@ -260,6 +260,16 @@ def test_discover_budget_returns_positive_cost():
     assert budget.mem_gb >= 1
 
 
+def test_discover_budget_cpus_are_the_global_limit_not_the_container(monkeypatch):
+    """10 container CPUs at the default 70 % is a 7-CPU pool (floor), never 10."""
+    import tit.cpu
+
+    monkeypatch.setattr(tit.cpu, "effective_cpus", lambda root=None: 10)
+    assert scheduler.discover_budget().cpus == 7
+    tit.cpu.save_cpu_limit_percent(100)
+    assert scheduler.discover_budget().cpus == 10
+
+
 def test_locks_match_conflicts_matches_scheduler_evaluate_directly():
     # sanity: scheduler.evaluate's lock check is exactly locks.match_conflicts
     requests = locks.keys_for("ex", ["001"], {"run_name": "r1"})

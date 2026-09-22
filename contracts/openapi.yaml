@@ -2356,6 +2356,41 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ----------------------------------------------------------------------------------- settings (v1)
+  /api/cpu-limit:
+    get:
+      tags: [settings]
+      summary: Global CPU limit for all jobs
+      description: >-
+        User-wide share of the container's cores TI-Toolbox may use (default 70 %). It is the
+        scheduler's CPU budget and what every "use all the cores" default resolves to.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The saved percent and the core count it resolves to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CpuLimit"
+    put:
+      tags: [settings]
+      summary: Set the global CPU limit
+      description: Applies to jobs admitted after the change; running jobs keep their CPUs.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CpuLimitUpdate"
+      responses:
+        "200":
+          description: The saved percent and the core count it resolves to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CpuLimit"
+        "422":
+          description: Percent outside 10-100
   /api/surfer-settings:
     get:
       tags: [settings]
@@ -5327,6 +5362,20 @@ components:
           type: boolean
       title: QSIReconPreferences
       type: object
+    CpuLimitUpdate:
+      type: object
+      additionalProperties: false
+      required: [percent]
+      properties:
+        percent: { type: integer, minimum: 10, maximum: 100 }
+    CpuLimit:
+      type: object
+      required: [percent, cores, available_cores, default_percent]
+      properties:
+        percent: { type: integer, description: percent of the container's cores TI-Toolbox may use }
+        cores: { type: integer, description: "the resulting core count, floor(percent x available), >= 1" }
+        available_cores: { type: integer, description: cores available to the container }
+        default_percent: { type: integer }
     SurferPreferences:
       type: object
       additionalProperties: false

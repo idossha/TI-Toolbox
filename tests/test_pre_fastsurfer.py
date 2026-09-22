@@ -374,7 +374,8 @@ def test_fastsurfer_memory_budget_only_changes_its_stage(config, memory, monkeyp
 
     cost = default_cost("pre", config)
     assert cost.mem_gb == memory
-    assert cost.cpus == 9  # FastSurfer and CHARM both use the user resource default.
+    # FastSurfer and CHARM both default to the whole global CPU limit (available_threads).
+    assert cost.cpus == 10
 
 
 def test_gpu_probe_exercises_a_kernel_before_accepting_cuda(monkeypatch, capsys):

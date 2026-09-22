@@ -3804,6 +3804,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cpu-limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global CPU limit for all jobs
+         * @description User-wide share of the container's cores TI-Toolbox may use (default 70 %). It is the scheduler's CPU budget and what every "use all the cores" default resolves to.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The saved percent and the core count it resolves to */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CpuLimit"];
+                    };
+                };
+            };
+        };
+        /**
+         * Set the global CPU limit
+         * @description Applies to jobs admitted after the change; running jobs keep their CPUs.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CpuLimitUpdate"];
+                };
+            };
+            responses: {
+                /** @description The saved percent and the core count it resolves to */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CpuLimit"];
+                    };
+                };
+                /** @description Percent outside 10-100 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/surfer-settings": {
         parameters: {
             query?: never;
@@ -6410,6 +6483,18 @@ export interface components {
             /** Skip Odf Reports */
             skip_odf_reports?: boolean;
         };
+        CpuLimitUpdate: {
+            percent: number;
+        };
+        CpuLimit: {
+            /** @description percent of the container's cores TI-Toolbox may use */
+            percent: number;
+            /** @description the resulting core count, floor(percent x available), >= 1 */
+            cores: number;
+            /** @description cores available to the container */
+            available_cores: number;
+            default_percent: number;
+        };
         SurferPreferences: {
             charm_options?: {
                 denoise?: boolean | null;
@@ -6906,7 +6991,8 @@ export interface components {
          *         DE crossover probability.  ``None`` for solver default.
          *     cpus : int or None
          *         Number of parallel workers for the multi-start restarts (the DE
-         *         search itself is single-process).  ``None`` for auto-detect.
+         *         search itself is single-process).  ``None`` uses the global CPU
+         *         limit (:func:`tit.cpu.cpu_limit`); a larger value is clamped to it.
          *     min_electrode_distance : float
          *         Minimum geodesic distance (mm) between any two electrodes.
          *         Default ``5.0``.
@@ -7213,8 +7299,11 @@ export interface components {
          *         the earlier run in place.
          *     n_jobs : int
          *         Worker processes evaluating candidates in parallel.  ``-1``
-         *         (default) uses all cores minus one; ``1`` evaluates in-process.
-         *         Results and CSV ordering do not depend on it.
+         *         (default) uses the global CPU limit (Settings; 70 % of the
+         *         container's cores by default, see :func:`tit.cpu.cpu_limit`);
+         *         a larger explicit value is clamped to that limit; ``1``
+         *         evaluates in-process.  Results and CSV ordering do not depend
+         *         on it.
          *     symmetric_bucket : bool
          *         When True in bucket mode, evaluate only left/right mirrored
          *         montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
@@ -7384,8 +7473,11 @@ export interface components {
          *         Optional name for this run.  Defaults to a datetime stamp.
          *     n_jobs : int
          *         Worker processes evaluating candidates in parallel.  ``-1``
-         *         (default) uses all cores minus one; ``1`` evaluates in-process.
-         *         Results and CSV ordering do not depend on it.
+         *         (default) uses the global CPU limit (Settings; 70 % of the
+         *         container's cores by default, see :func:`tit.cpu.cpu_limit`);
+         *         a larger explicit value is clamped to that limit; ``1``
+         *         evaluates in-process.  Results and CSV ordering do not depend
+         *         on it.
          *     symmetric_bucket : bool
          *         When True in bucket mode, evaluate only left/right mirrored
          *         electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
@@ -7648,7 +7740,7 @@ export interface components {
          *         T1w image; the UI offers it checked whenever one exists.
          *     fastsurfer_threads : int or None
          *         Thread count for FastSurfer inference. ``None`` uses
-         *         the user preference (automatic: all available CPUs except one for the host), with
+         *         the user preference (automatic: the global CPU limit), with
          *         ``$TIT_FASTSURFER_THREADS`` taking precedence.
          *     run_freesurfer : bool
          *         Run optional FreeSurfer in a disposable project-bound container.
@@ -7658,8 +7750,8 @@ export interface components {
          *         Optional thalamus and hippo-amygdala segmentations. Without recon-all,
          *         a completed FreeSurfer reconstruction must already exist.
          *     freesurfer_threads : int or None
-         *         Worker CPU limit; None uses the user preference (automatic: all
-         *         available CPUs except one for the host), capped by available resources.
+         *         Worker CPU limit; None uses the user preference (automatic: the
+         *         global CPU limit), capped by available resources.
          *     create_m2m : bool
          *         Run SimNIBS ``charm`` (also runs ``subject_atlas``).
          *     run_tissue_analysis : bool
@@ -7936,7 +8028,8 @@ export interface components {
          *     alpha : float
          *         Family-wise error rate for significance.  Default ``0.05``.
          *     n_jobs : int
-         *         Number of parallel workers (``-1``, the default, for all CPUs).
+         *         Number of parallel workers (``-1``, the default, for the global
+         *         CPU limit -- :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
          *     tissue_type : TissueType or str
          *         Which tissue compartment to analyze: ``"grey"`` (default),
          *         ``"white"`` or ``"all"``.  Ignored when *space* is
@@ -8098,7 +8191,8 @@ export interface components {
          *     alpha : float
          *         Family-wise error rate for significance.
          *     n_jobs : int
-         *         Number of parallel workers (``-1`` for all CPUs).
+         *         Number of parallel workers (``-1`` for the global CPU limit --
+         *         :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
          *     use_weights : bool
          *         Whether to apply per-subject weights during correlation.  Default
          *         ``True``.
