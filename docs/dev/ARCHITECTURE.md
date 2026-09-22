@@ -80,7 +80,12 @@ There are exactly two entry points, `loader.sh` and `loader.py`; no developer-on
 (removed 2026-09-17). Either can live outside the source tree: `--dev DIR` or `TIT_DEV_REPO_DIR`
 selects the checkout, independently of the project data path. On WSL2 a Windows `--project` path
 (`C:\Users\me\project`) is translated to its `/mnt/c/...` spelling by both loaders
-(`tit/launch.py::translate_project_path`); macOS and Linux are untouched. An adjacent YAML or explicit
+(`tit/launch.py::translate_project_path`); macOS and Linux are untouched. WSL2 is a Windows host
+to both loaders (`is_wsl`, decided from `WSL_DISTRO_NAME`/`WSL_INTEROP`, never the kernel string,
+which a Docker Desktop container shares): the Linux AppImage cannot run there, so the default UI is
+the browser, the session URL is opened on the Windows side (`wslview`, then PowerShell, then
+`cmd.exe`) and printed regardless, nothing is downloaded, and `--desktop` is refused with a reason
+naming the Windows installer. An adjacent YAML or explicit
 `TIT_COMPOSE_FILE` selects the launch specification. Python bootstraps its
 launcher in a cache from the matching release branch and forwards the adjacent YAML via
 `TIT_COMPOSE_FILE`; an invalid explicit path fails rather than selecting a different configuration.
@@ -210,26 +215,31 @@ across views; a closed terminal view cannot consume delayed replay as new output
 
 ## 7. The viewer, the run-page renderer and the selection grammar
 
-### 7.1 Native TetraVox is installed for the host user
+### 7.1 TI-Toolbox's own TetraVox is the only one it launches
 
-TI-Toolbox discovers native TetraVox on each ordinary desktop launch without blocking the UI.
-The resolver prefers an explicitly located application, conventional system locations, PATH, and
-then a TI-local installation. An existing installation requires no release lookup. When none exists,
-TI starts verified initial setup in a private temporary directory, then publishes it atomically to
-a stable per-user location under its user-data runtime directory without administrator privileges.
-Startup, an explicit retry and a Results open share one in-flight setup. No viewer window opens just
-because TI started. Network/setup errors remain retryable while TI stays usable, and a second launch
-reuses the installed application without a release request. Automated app sessions do not perform
-ambient setup downloads.
+TI-Toolbox installs its own TetraVox under its user-data runtime directory
+(`runtimes/tetravox-<platform>-<arch>`) and launches nothing else: no application in a system
+location, on PATH, or chosen through a picker is ever consulted (decision 2026-09-22). Each ordinary
+desktop launch checks that directory without blocking the UI; an existing copy needs no network. When
+none exists, setup asks GitHub for the newest TetraVox release, downloads the official package for
+this platform — macOS arm64/x64 zip, Linux x64 tarball, Windows x64 zip — verifies it against the
+SHA-256 digest GitHub publishes for that asset, unpacks it in a private staging directory (`ditto`
+on macOS, `tar` elsewhere; Windows ships bsdtar), confirms the unpacked application's identity and
+version, and renames it into place without administrator privileges. Startup, an explicit retry and
+a Results open share one in-flight setup. No viewer window opens just because TI started. Errors
+remain retryable while TI stays usable. Automated app sessions do not perform ambient downloads.
 
-**TetraVox owns subsequent updates.** TI neither checks for nor installs updates of an existing
-application, pins its version, prunes previous copies, nor sets an updater-disabling environment flag.
-Initial setup resolves an official release and verifies its archive before extraction. Discovery reads
-application identity/version rather than requiring the initial executable hash, so a native update
-remains usable. Version display is informational; minimum scene support does not reject future majors.
-Historical version-addressed directories remain discoverable and are not deleted by migration.
-Existing TI-local profiles are retained for single-instance continuity. An already-running legacy
-viewer keeps its original updater environment until the user closes and reopens it; TI never forces that exit.
+**TI owns updates.** Settings ▸ Viewer's **Update** replaces the copy with the newest release the same
+way, into a fresh directory swapped over the old one, and is refused while the viewer is open; a
+release already installed downloads nothing. The viewer is launched with `TETRAVOX_MANAGED_BY` set so
+its own updater stays out of the way, and on Linux with `--no-sandbox`, because the tarball's
+`chrome-sandbox` cannot be made setuid-root by a user install. Earlier version-addressed
+directories and a swap's `.previous` directory still identify as installed, so an upgrade of
+TI-Toolbox never loses a working viewer. Version display is informational; minimum scene support
+does not reject future majors. TI's copy always runs in its own profile
+(`--user-data-dir=<userData>/tetravox-profile`), never Electron's default one, so it shares neither
+settings nor the single-instance lock with a TetraVox the user installed; plate captures use a
+throwaway profile. Scenes reach TetraVox only through TI's copy: `openPath` refuses `.tetravox.json`.
 
 The Viewer page and Results actions build native `.tetravox.json` scenes. Main maps and validates the
 scene against the active project's real path before launch and revalidates after confirmation. Dataset

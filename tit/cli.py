@@ -31,6 +31,7 @@ from tit.launch import (
     LaunchOptions,
     container_name,
     default_image,
+    is_wsl,
     logs as launch_logs,
     open_in_browser,
     resolve_project,
@@ -81,8 +82,31 @@ def desktop_data_dir() -> Path:
     return Path(root) / "ti-toolbox"
 
 
+RELEASE_PAGE = f"https://github.com/{RELEASE_REPO}/releases"
+
+
+def no_desktop_reason() -> str:
+    """Why this host gets the browser: one printable line, the same one ``loader.sh`` prints.
+
+    WSL is a Windows host to this launcher — the Linux AppImage cannot run there and no
+    Linux browser exists — so the desktop app is the Windows installer, never a download.
+    """
+    if is_wsl():
+        return (
+            "the desktop app runs from Windows, not WSL: install TI-Toolbox-"
+            f"{tit.__version__}.exe from {RELEASE_PAGE} and open your project there, "
+            "or use the browser here (the default in WSL)"
+        )
+    return f"no desktop build for {sys.platform}/{platform.machine()}"
+
+
 def desktop_asset_name(version: str) -> str:
-    """The release asset for this platform, or ``""`` where no managed install exists."""
+    """The release asset for this platform, or ``""`` where no managed install exists.
+
+    Empty on WSL: the Linux build cannot run there (see :func:`no_desktop_reason`).
+    """
+    if is_wsl():
+        return ""
     machine = platform.machine().lower()
     if sys.platform == "darwin":
         if machine in ("arm64", "aarch64"):
@@ -162,9 +186,7 @@ def install_desktop_executable() -> str:
     version = tit.__version__
     asset = desktop_asset_name(version)
     if not asset:
-        raise LaunchError(
-            f"no desktop build for {sys.platform}/{platform.machine()}"
-        )
+        raise LaunchError(no_desktop_reason())
     base = f"{release_base_url()}/v{version}"
     root = desktop_data_dir() / "app"
     root.mkdir(parents=True, exist_ok=True)
@@ -539,14 +561,17 @@ def wants_desktop(args: argparse.Namespace) -> bool:
 
     ``--browser`` and ``--no-open`` mean the browser explicitly. ``--dev`` does *not*:
     it changes only where the server and renderer code comes from, so developers see the
-    same window users do (docs/dev/DECISIONS.md, 2026-09-17).  loader.sh resolves ``ui``
-    the same way.
+    same window users do (docs/dev/DECISIONS.md, 2026-09-17).  On WSL the default is the
+    browser — opened on the Windows side — because no desktop build can run there
+    (:func:`no_desktop_reason`); ``--desktop`` still asks and is refused with that reason.
+    loader.sh resolves ``ui`` the same way.
     """
     if args.desktop:
         return True
     if args.browser or args.no_open:
         return False
-    return (os.environ.get("TIT_LAUNCH_UI") or "desktop") == "desktop"
+    default = "browser" if is_wsl() else "desktop"
+    return (os.environ.get("TIT_LAUNCH_UI") or default) == "desktop"
 
 
 def desktop_without_project(args: argparse.Namespace) -> bool:
@@ -670,9 +695,7 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
                     executable = ""
                     reason = str(err)
             elif not executable:
-                reason = (
-                    f"no desktop build for {sys.platform}/{platform.machine()}"
-                )
+                reason = no_desktop_reason()
             if not executable:
                 if args.desktop:
                     raise LaunchError(reason)

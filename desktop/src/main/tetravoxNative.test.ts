@@ -3,7 +3,7 @@ import { chmod, mkdtemp, mkdir, readFile, realpath, rename, rm, symlink, writeFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { compatibleViewerVersion, feedChecksum, findSystemViewer, identifyViewerPath, latestViewerRelease, managedInstalls, parseReleaseFeed, pathViewerCandidates, selectViewer, setConfiguredViewerPathProvider, systemViewerCandidates, viewerProcessMatches, checkViewerScene, downloadViewer, installNativeViewer, nativeViewerPaths, nativeViewerStatus, openNativeViewer, viewerCommand } from "./tetravoxNative";
+import { MANAGED_BY, compatibleViewerVersion, identifyViewer, identifyViewerPath, latestViewerRelease, managedInstalls, readAsarText, viewerProcessMatches, checkViewerScene, downloadViewer, installNativeViewer, nativeViewerPaths, nativeViewerStatus, openNativeViewer, updateNativeViewer, viewerCommand } from "./tetravoxNative";
 const macOpen = vi.hoisted(() => ({ calls: [] as { args: string[]; env: NodeJS.ProcessEnv }[], error: undefined as Error | undefined }));
 // Do not let an application installed on the test machine shadow fixture-managed installs.
 vi.mock("node:child_process", async (importOriginal) => {
@@ -31,19 +31,23 @@ vi.mock("node:child_process", async (importOriginal) => {
 const dirs: string[] = [];
 async function temporary() { const dir = await mkdtemp(join(tmpdir(), "ti-native-viewer-test-")); dirs.push(dir); return dir; }
 afterEach(async () => { macOpen.calls = []; macOpen.error = undefined; vi.unstubAllGlobals(); await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true }))); });
+const status = (executable: string, directory: string) => ({ supported: true, installed: true, installing: false, source: "managed" as const, executable, directory, version: "0.4.0" });
+/** What the non-mac launcher prepends on this platform (Linux runs the tarball without a setuid sandbox). */
+const platformArgs = process.platform === "linux" ? ["--no-sandbox"] : [];
+
 describe("native TetraVox", () => {
-  it("discovers an identified installed package without running its executable", async () => {
+  it("identifies an installed package by its metadata without running its executable", async () => {
     const dir = await temporary();
     const exe = join(dir, "tetravox");
     await writeFile(exe, "#!/bin/sh\nexit 93\n"); await chmod(exe, 0o755);
     await mkdir(join(dir, "resources/app.asar"), { recursive: true });
     const metadata = join(dir, "resources/app.asar/package.json");
     await writeFile(metadata, JSON.stringify({ name: "@tetravox/app", version: "0.4.0" }));
-    expect(await findSystemViewer([exe], "linux")).toMatchObject({ executable: await realpath(exe), version: "0.4.0" });
+    expect(await identifyViewer([exe], "linux")).toMatchObject({ executable: await realpath(exe), version: "0.4.0" });
     await writeFile(metadata, JSON.stringify({ name: "other-app", version: "0.4.0" }));
-    expect(await findSystemViewer([exe], "linux")).toBeUndefined();
+    expect(await identifyViewer([exe], "linux")).toBeUndefined();
     await writeFile(metadata, JSON.stringify({ name: "@tetravox/app", version: "0.3.9" }));
-    expect(await findSystemViewer([exe], "linux")).toBeUndefined();
+    expect(await identifyViewer([exe], "linux")).toBeUndefined();
   });
   it.runIf(process.platform === "darwin")("requires an identified compatible Mac bundle", async () => {
     const dir = await temporary(); const bundle = join(dir, "Tetravox.app");
@@ -51,12 +55,12 @@ describe("native TetraVox", () => {
     await writeFile(join(bundle, "Contents/MacOS/Tetravox"), "fixture"); await chmod(join(bundle, "Contents/MacOS/Tetravox"), 0o755);
     const plist = (id: string) => `<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>${id}</string><key>CFBundleShortVersionString</key><string>0.4.0</string></dict></plist>`;
     await writeFile(join(bundle, "Contents/Info.plist"), plist("dev.tetravox.viewer"));
-    expect(await findSystemViewer([bundle], "darwin")).toMatchObject({ directory: await realpath(bundle), version: "0.4.0" });
+    expect(await identifyViewer([bundle], "darwin")).toMatchObject({ directory: await realpath(bundle), version: "0.4.0" });
     const link = join(dir, "tetravox");
     await symlink(join(bundle, "Contents/MacOS/Tetravox"), link);
-    expect(await findSystemViewer([link], "darwin")).toMatchObject({ directory: await realpath(bundle), version: "0.4.0" });
+    expect(await identifyViewer([link], "darwin")).toMatchObject({ directory: await realpath(bundle), version: "0.4.0" });
     await writeFile(join(bundle, "Contents/Info.plist"), plist("other.app"));
-    expect(await findSystemViewer([bundle], "darwin")).toBeUndefined();
+    expect(await identifyViewer([bundle], "darwin")).toBeUndefined();
   });
   it("does not confuse helper processes or similarly named applications with the viewer", () => {
     const executable = "/Applications/Tetravox.app/Contents/MacOS/Tetravox";
@@ -75,22 +79,23 @@ describe("native TetraVox", () => {
     expect(viewerProcessMatches("/opt/tetravox/tetravox-helper", "/usr/bin/tetravox", "linux")).toBe(false);
     expect(viewerProcessMatches("", selected, "darwin")).toBe(false);
   });
-  it("restricts discovery to known installation roots and compatible scene versions", () => {
-    expect(systemViewerCandidates("darwin", "/home/example")).toEqual(["/home/example/Applications/Tetravox.app", "/Applications/Tetravox.app"]);
+  it("accepts 0.4 and newer scene versions", () => {
     expect(compatibleViewerVersion("0.4.0")).toBe(true);
     expect(compatibleViewerVersion("0.3.11")).toBe(false);
     expect(compatibleViewerVersion("1.0.0")).toBe(true);
   });
-  it("selects native platform archives without substituting another architecture", () => {
-    expect(nativeViewerPaths("/user", "darwin", "arm64").release?.asset).toMatch(/mac-arm64.zip$/);
-    expect(nativeViewerPaths("/user", "linux", "x64").release?.asset).toMatch(/linux-x64.tar.gz$/);
-    expect(nativeViewerPaths("/user", "win32", "x64").release).toBeUndefined();
+  it("names the official archive for every supported platform and none for the rest", () => {
+    expect(nativeViewerPaths("/user", "darwin", "arm64", "0.6.1").release).toMatchObject({ asset: "Tetravox-0.6.1-mac-arm64.zip", strip: 0 });
+    expect(nativeViewerPaths("/user", "darwin", "x64", "0.6.1").release?.asset).toBe("Tetravox-0.6.1-mac-x64.zip");
+    expect(nativeViewerPaths("/user", "linux", "x64", "0.6.1").release).toMatchObject({ asset: "Tetravox-0.6.1-linux-x64.tar.gz", executable: "tetravox", strip: 1 });
+    expect(nativeViewerPaths("/user", "win32", "x64", "0.6.1")).toMatchObject({ release: { asset: "Tetravox-0.6.1-win-x64.zip", executable: "Tetravox.exe", strip: 0 }, executable: join("/user", "runtimes", "tetravox-win32-x64", "Tetravox.exe") });
     expect(nativeViewerPaths("/user", "linux", "arm64").release).toBeUndefined();
+    expect(nativeViewerPaths("/user", "win32", "arm64").release).toBeUndefined();
   });
-  it("verifies download bytes and rejects changed bytes before installation", async () => {
+  it("verifies download bytes against the published SHA-256 and rejects changed bytes", async () => {
     const dir = await temporary(); const bytes = Buffer.from("official bytes");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(bytes)));
-    await downloadViewer("https://example.invalid", join(dir, "verified"), createHash("sha256").update(bytes).digest("hex"));
+    await downloadViewer("https://example.invalid", join(dir, "verified"), createHash("sha256").update(bytes).digest("hex").toUpperCase());
     await expect(downloadViewer("https://example.invalid", join(dir, "bad"), "0".repeat(64))).rejects.toThrow("checksum mismatch");
   });
   it("surfaces failed downloads", async () => {
@@ -98,11 +103,11 @@ describe("native TetraVox", () => {
     await expect(downloadViewer("https://example.invalid", join(await temporary(), "bad"), "0".repeat(64))).rejects.toThrow("503");
   });
   it("an unsuccessful install stays unready and can be retried", async () => {
-    const dir = await temporary(); const fetch = vi.fn(async () => new Response("wrong archive")); vi.stubGlobal("fetch", fetch);
+    const dir = await temporary(); const fetch = vi.fn(async () => new Response("not json")); vi.stubGlobal("fetch", fetch);
     await expect(installNativeViewer(dir)).rejects.toThrow();
     expect(await nativeViewerStatus(dir)).toMatchObject({ installed: false, installing: false });
     await expect(installNativeViewer(dir)).rejects.toThrow();
-    expect(fetch).toHaveBeenCalledTimes(process.platform === "darwin" ? 2 : 0);
+    expect(fetch).toHaveBeenCalledTimes(nativeViewerPaths(dir).release ? 2 : 0);
   });
   it("opens only an existing scene inside the real project root", async () => {
     const root = await temporary(); const outside = await temporary();
@@ -115,59 +120,58 @@ describe("native TetraVox", () => {
     await expect(checkViewerScene(join(root, "data.nii"), root)).rejects.toThrow(".tetravox.json");
   });
   it.runIf(process.platform !== "win32")("reports an immediate native launch failure", async () => {
-    const dir = await temporary(); const paths = { ...nativeViewerPaths(dir), executable: join(dir, "failing-viewer") };
-    const program = "#!/bin/sh\necho missing-library >&2\nexit 1\n";
-    await mkdir(join(paths.executable, ".."), { recursive: true });
-    await writeFile(paths.executable, program); await chmod(paths.executable, 0o755);
-    await expect(openNativeViewer(dir, "", { supported: true, installed: true, installing: false, source: "managed", executable: paths.executable, directory: dir, version: "0.4.0" })).rejects.toThrow("missing-library");
+    const dir = await temporary(); const executable = join(dir, "failing-viewer");
+    await writeFile(executable, "#!/bin/sh\necho missing-library >&2\nexit 1\n"); await chmod(executable, 0o755);
+    await expect(openNativeViewer(dir, "", status(executable, dir))).rejects.toThrow("missing-library");
   });
-  it.runIf(process.platform !== "win32")("launches a system app in its existing profile without managed environment", async () => {
-    const dir = await temporary(); const executable = join(dir, "system-viewer");
+  it.runIf(process.platform !== "win32")("launches TI's copy with the managed-by flag so the viewer leaves updates to TI", async () => {
+    const dir = await temporary(); const executable = join(dir, "managed-viewer");
     await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s" "${TETRAVOX_MANAGED_BY-unset}" > "$0.env"\n');
     await chmod(executable, 0o755);
-    await openNativeViewer(dir, "/project/example.tetravox.json", { supported: true, installed: true, installing: false, source: "system", executable, directory: dir, version: "0.4.0" });
-    expect(await readFile(`${executable}.args`, "utf8")).toBe("/project/example.tetravox.json\n");
-    expect(await readFile(`${executable}.env`, "utf8")).toBe("unset");
+    await openNativeViewer(dir, "/project/example.tetravox.json", status(executable, dir));
+    expect(await readFile(`${executable}.args`, "utf8")).toBe([...platformArgs, `--user-data-dir=${join(dir, "tetravox-profile")}`, "/project/example.tetravox.json"].join("\n") + "\n");
+    expect(await readFile(`${executable}.env`, "utf8")).toBe(MANAGED_BY);
   });
-  it.runIf(process.platform !== "win32")("preserves an existing managed profile without suppressing viewer updates", async () => {
-    const dir = await temporary(); const executable = join(dir, "legacy-viewer");
-    await mkdir(join(dir, "tetravox-profile"));
-    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s" "${TETRAVOX_MANAGED_BY-unset}" > "$0.env"\n');
+  it.runIf(process.platform !== "win32")("always runs TI's copy in TI's own profile, never Electron's shared default one", async () => {
+    // A user's own TetraVox uses the default profile; sharing it would share its settings and its
+    // single-instance lock, so a scene sent here could land in the user's copy instead.
+    const dir = await temporary(); const executable = join(dir, "profile-viewer");
+    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\n');
     await chmod(executable, 0o755);
-    await openNativeViewer(dir, "/project/example.tetravox.json", { supported: true, installed: true, installing: false, source: "managed", executable, directory: dir, version: "0.4.0" });
-    expect(await readFile(`${executable}.args`, "utf8")).toBe(`--user-data-dir=${join(dir, "tetravox-profile")}\n/project/example.tetravox.json\n`);
-    expect(await readFile(`${executable}.env`, "utf8")).toBe("unset");
+    await openNativeViewer(dir, "/project/example.tetravox.json", status(executable, dir));
+    expect(await readFile(`${executable}.args`, "utf8")).toBe([...platformArgs, `--user-data-dir=${join(dir, "tetravox-profile")}`, "/project/example.tetravox.json"].join("\n") + "\n");
   });
   it.runIf(process.platform === "darwin")("reopens a Dock-only app through LaunchServices and delivers its scene only once", async () => {
     const dir = await temporary();
     const bundle = join(dir, "Tetravox.app");
     const executable = join(bundle, "Contents/MacOS/Tetravox");
     await mkdir(join(dir, "tetravox-profile"));
-    await openNativeViewer(dir, "/project/a scene.tetravox.json", { supported: true, installed: true, installing: false, version: "1.0.0", source: "managed", executable, directory: dir });
+    await openNativeViewer(dir, "/project/a scene.tetravox.json", { ...status(executable, dir), version: "1.0.0" });
     const profile = ["--args", `--user-data-dir=${join(dir, "tetravox-profile")}`];
     expect(macOpen.calls.map((call) => call.args)).toEqual([
       ["-a", bundle, "/project/a scene.tetravox.json", ...profile],
       ["-a", bundle, ...profile],
     ]);
-    expect(macOpen.calls.every((call) => call.env.TETRAVOX_MANAGED_BY === undefined && call.env.ELECTRON_RUN_AS_NODE === undefined)).toBe(true);
+    expect(macOpen.calls.every((call) => call.env.TETRAVOX_MANAGED_BY === MANAGED_BY && call.env.ELECTRON_RUN_AS_NODE === undefined)).toBe(true);
   });
   it.runIf(process.platform === "darwin")("delivers protocol request through argv before scene-free activation", async () => {
     const dir = await temporary(); const bundle = join(dir, "Tetravox.app"); const executable = join(bundle, "Contents/MacOS/Tetravox");
     await mkdir(join(bundle, "Contents/MacOS"), { recursive: true });
     await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\n'); await chmod(executable, 0o755);
     const requestPath = join(dir, "request.json");
-    await openNativeViewer(dir, "/project/scene.tetravox.json", { supported: true, installed: true, installing: false, version: "1.0.0", source: "system", executable, directory: bundle }, requestPath);
-    expect(await readFile(`${executable}.args`, "utf8")).toBe(`--scene-request=${requestPath}\n`);
-    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle]]);
+    await openNativeViewer(dir, "/project/scene.tetravox.json", { ...status(executable, bundle), version: "1.0.0" }, requestPath);
+    expect(await readFile(`${executable}.args`, "utf8")).toBe(`--user-data-dir=${join(dir, "tetravox-profile")}\n--scene-request=${requestPath}\n`);
+    const profile = ["--args", `--user-data-dir=${join(dir, "tetravox-profile")}`];
+    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle, ...profile]]);
   });
-  it.runIf(process.platform === "darwin")("blank Mac launch only requests activation of the selected bundle", async () => {
-    const dir = await temporary(); const bundle = join(dir, "Chosen.app");
-    await openNativeViewer(dir, "", { supported: true, installed: true, installing: false, version: "1.0.0", source: "configured", executable: join(bundle, "Contents/MacOS/Tetravox"), directory: bundle });
-    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle]]);
+  it.runIf(process.platform === "darwin")("blank Mac launch only requests activation of the bundle", async () => {
+    const dir = await temporary(); const bundle = join(dir, "Tetravox.app");
+    await openNativeViewer(dir, "", { ...status(join(bundle, "Contents/MacOS/Tetravox"), bundle), version: "1.0.0" });
+    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle, "--args", `--user-data-dir=${join(dir, "tetravox-profile")}`]]);
   });
   it.runIf(process.platform === "darwin")("surfaces LaunchServices rejection without replaying the scene", async () => {
     const dir = await temporary(); macOpen.error = new Error("LaunchServices rejected application");
-    await expect(openNativeViewer(dir, "/project/scene.tetravox.json", { supported: true, installed: true, installing: false, version: "1.0.0", source: "system", executable: join(dir, "Tetravox.app/Contents/MacOS/Tetravox"), directory: dir })).rejects.toThrow("LaunchServices rejected");
+    await expect(openNativeViewer(dir, "/project/scene.tetravox.json", { ...status(join(dir, "Tetravox.app/Contents/MacOS/Tetravox"), dir), version: "1.0.0" })).rejects.toThrow("LaunchServices rejected");
     expect(macOpen.calls).toHaveLength(1);
   });
   it("reports a failed installer executable instead of claiming readiness", async () => {
@@ -175,8 +179,8 @@ describe("native TetraVox", () => {
   });
 });
 
-describe("TetraVox resolution, updates and checksums", () => {
-  /** A managed install fixture: the layout `managedInstalls` trusts, with a real executable digest. */
+describe("TI's own TetraVox: setup, update and checksums", () => {
+  /** A managed install fixture: the layout `managedInstalls` trusts. */
   async function managed(userData: string, version: string) {
     const paths = nativeViewerPaths(userData, process.platform, process.arch, version);
     if (!paths.executable) return undefined;
@@ -191,26 +195,83 @@ describe("TetraVox resolution, updates and checksums", () => {
     }
     return paths;
   }
+  /** An official-looking archive of a managed fixture, in this platform's release format. */
+  async function archiveOf(version: string): Promise<{ bytes: Buffer; asset: string }> {
+    const source = await temporary();
+    const paths = await managed(source, version);
+    if (!paths) throw new Error("Fixture needs a supported platform");
+    const { release } = paths;
+    const archive = join(source, release!.asset);
+    if (process.platform === "darwin") await viewerCommand("/usr/bin/ditto", ["-c", "-k", "--keepParent", join(paths.directory, "Tetravox.app"), archive]);
+    else if (process.platform === "linux") {
+      // The Linux tarball wraps the tree in one versioned directory (strip: 1).
+      const wrapped = join(source, "wrapped", `Tetravox-${version}-linux-x64`);
+      await mkdir(join(source, "wrapped"), { recursive: true });
+      await rename(paths.directory, wrapped);
+      await viewerCommand("tar", ["-czf", archive, "-C", join(source, "wrapped"), `Tetravox-${version}-linux-x64`]);
+    } else {
+      await viewerCommand(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe"), ["-a", "-cf", archive, "-C", paths.directory, "."]);
+    }
+    return { bytes: await readFile(archive), asset: release!.asset };
+  }
+  /** GitHub's release answer for one version, with the digest it publishes per asset. */
+  const releaseJson = (version: string, asset: string, bytes?: Buffer, digest?: string) =>
+    JSON.stringify({ tag_name: `v${version}`, assets: [{ name: asset, ...(digest !== undefined ? { digest } : bytes ? { digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}` } : {}) }] });
+  function serve(version: string, archive: { bytes: Buffer; asset: string }, beforeArchive?: () => Promise<void>) {
+    const network = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/releases/latest")) return new Response(releaseJson(version, archive.asset, archive.bytes));
+      await beforeArchive?.();
+      return new Response(archive.bytes);
+    });
+    vi.stubGlobal("fetch", network);
+    return network;
+  }
+  const supported = !!nativeViewerPaths("/x").release && process.platform !== "win32";
 
-  it("prefers a configured path, then a system install, then PATH, then the managed copy", () => {
-    const viewer = (name: string) => ({ executable: `/${name}`, directory: "/", version: "0.4.0" });
-    expect(selectViewer({})).toBeUndefined();
-    expect(selectViewer({ path: viewer("p") })).toMatchObject({ source: "path", executable: "/p" });
-    expect(selectViewer({ system: viewer("s"), path: viewer("p") })).toMatchObject({ source: "system" });
-    expect(selectViewer({ managed: viewer("m"), system: viewer("s"), path: viewer("p") })).toMatchObject({ source: "system" });
-    expect(selectViewer({ configured: viewer("c"), managed: viewer("m"), system: viewer("s") })).toMatchObject({ source: "configured", executable: "/c" });
+  it("only ever reports TI's own copy; nothing on the machine is consulted", async () => {
+    const userData = await temporary();
+    const empty = await nativeViewerStatus(userData);
+    expect(empty).toMatchObject({ installed: false, supported: !!nativeViewerPaths(userData).release });
+    expect(empty.source).toBeUndefined();
+    const paths = await managed(userData, "0.4.0");
+    if (!paths) return;
+    expect(await nativeViewerStatus(userData)).toMatchObject({ installed: true, source: "managed", version: "0.4.0", executable: await realpath(paths.executable!) });
   });
 
-  it("looks for the viewer on every PATH entry without trusting the name alone", async () => {
-    expect(pathViewerCandidates("linux", { PATH: "/a:/b" })).toEqual(["/a/tetravox", "/b/tetravox"]);
-    expect(pathViewerCandidates("linux", {})).toEqual([]);
+  it("reads a file out of a real asar archive by its header, and out of an unpacked directory", async () => {
+    // Build the archive the way `@electron/asar` lays it out: [u32 4][u32 header pickle size]
+    // [u32 json payload size][u32 json length][json, padded to 4] then file data.
+    const files = { "package.json": JSON.stringify({ name: "@tetravox/app", version: "0.6.1" }), "nested/hello.txt": "hi" };
+    const directory: { files: Record<string, unknown> } = { files: {} };
+    const blobs: Buffer[] = [];
+    let offset = 0;
+    for (const [name, text] of Object.entries(files)) {
+      const data = Buffer.from(text);
+      let node = directory;
+      const parts = name.split("/");
+      for (const part of parts.slice(0, -1)) node = (node.files[part] ??= { files: {} }) as typeof directory;
+      node.files[parts.at(-1)!] = { size: data.length, offset: String(offset) };
+      offset += data.length; blobs.push(data);
+    }
+    const json = Buffer.from(JSON.stringify(directory));
+    const padded = json.length + ((4 - (json.length % 4)) % 4);
+    const head = Buffer.alloc(16);
+    head.writeUInt32LE(4, 0); head.writeUInt32LE(8 + padded, 4); head.writeUInt32LE(4 + padded, 8); head.writeUInt32LE(json.length, 12);
     const dir = await temporary();
-    const impostor = join(dir, "tetravox");
-    await writeFile(impostor, "not the viewer"); await chmod(impostor, 0o755);
-    expect(await findSystemViewer(pathViewerCandidates("linux", { PATH: dir }), "linux")).toBeUndefined();
+    const archive = join(dir, "app.asar");
+    await writeFile(archive, Buffer.concat([head, json, Buffer.alloc(padded - json.length), ...blobs]));
+    expect(JSON.parse(await readAsarText(archive, "package.json"))).toEqual({ name: "@tetravox/app", version: "0.6.1" });
+    expect(await readAsarText(archive, "nested/hello.txt")).toBe("hi");
+    await expect(readAsarText(archive, "missing.txt")).rejects.toThrow("not in");
+    await writeFile(archive, "not an archive at all, just text");
+    await expect(readAsarText(archive, "package.json")).rejects.toThrow();
+    const unpacked = join(dir, "unpacked.asar");
+    await mkdir(unpacked); await writeFile(join(unpacked, "package.json"), "{}");
+    expect(await readAsarText(unpacked, "package.json")).toBe("{}");
   });
 
-  it("rejects a located application that is not a compatible TetraVox", async () => {
+  it("identifies an unpacked archive by path and rejects anything else", async () => {
     const dir = await temporary();
     const exe = join(dir, "tetravox");
     await writeFile(exe, "fixture"); await chmod(exe, 0o755);
@@ -220,186 +281,112 @@ describe("TetraVox resolution, updates and checksums", () => {
     expect(await identifyViewerPath(exe, "linux")).toMatchObject({ version: "0.5.1" });
   });
 
-  it("uses a configured path ahead of anything else it could find", async () => {
-    const userData = await temporary();
-    const paths = await managed(userData, "0.4.0");
-    if (!paths?.executable) return;
-    expect(await nativeViewerStatus(userData)).toMatchObject({ installed: true, source: "managed" });
-
-    const chosen = await temporary();
-    const exe = join(chosen, "tetravox");
-    await writeFile(exe, "fixture"); await chmod(exe, 0o755);
-    await mkdir(join(chosen, "resources/app.asar"), { recursive: true });
-    await writeFile(join(chosen, "resources/app.asar/package.json"), JSON.stringify({ name: "@tetravox/app", version: "0.6.0" }));
-    setConfiguredViewerPathProvider(() => exe);
-    try {
-      const status = await nativeViewerStatus(userData);
-      if (process.platform === "linux") expect(status).toMatchObject({ source: "configured", version: "0.6.0", configuredPathValid: true });
-      setConfiguredViewerPathProvider(() => join(chosen, "gone"));
-      expect(await nativeViewerStatus(userData)).toMatchObject({ source: "managed", configuredPathValid: false });
-    } finally { setConfiguredViewerPathProvider(() => undefined); }
-  });
-
-  it.each(["linux", "win32"] as const)("does not download on unsupported %s bootstrap", async (platform) => {
-    const original = Object.getOwnPropertyDescriptor(process, "platform")!;
-    Object.defineProperty(process, "platform", { value: platform });
-    const network = vi.fn(() => { throw new Error("No unsupported download"); });
-    vi.stubGlobal("fetch", network);
-    try {
-      await expect(installNativeViewer(await temporary())).rejects.toThrow("Automatic TetraVox setup requires");
-      expect(network).not.toHaveBeenCalled();
-    } finally { Object.defineProperty(process, "platform", original); }
-  });
-
-  it.each(["linux", "win32"] as const)("reuses an identified %s installation despite unavailable automatic setup", async (platform) => {
-    const userData = await temporary();
-    const directory = await temporary();
-    const executable = join(directory, platform === "win32" ? "Tetravox.exe" : "tetravox");
-    await writeFile(executable, "existing application");
-    await chmod(executable, 0o755);
-    await mkdir(join(directory, "resources/app.asar"), { recursive: true });
-    await writeFile(join(directory, "resources/app.asar/package.json"), JSON.stringify({ name: "@tetravox/app", version: "1.0.0" }));
-    const original = Object.getOwnPropertyDescriptor(process, "platform")!;
-    Object.defineProperty(process, "platform", { value: platform });
-    setConfiguredViewerPathProvider(() => executable);
-    const network = vi.fn(() => { throw new Error("Must reuse application"); });
-    vi.stubGlobal("fetch", network);
-    try {
-      expect(await installNativeViewer(userData)).toMatchObject({ installed: true, source: "configured", version: "1.0.0", error: undefined });
-      expect(network).not.toHaveBeenCalled();
-      expect(await readFile(executable, "utf8")).toBe("existing application");
-    } finally {
-      setConfiguredViewerPathProvider(() => undefined);
-      Object.defineProperty(process, "platform", original);
-    }
-  });
-
-  it.runIf(process.platform === "darwin")("coalesces first setup, verifies latest archive and requires application identity", async () => {
-    const source = await temporary();
-    const paths = await managed(source, "1.1.0");
-    if (!paths) throw new Error("Fixture needs Mac layout");
-    const archive = join(source, "fixture.zip");
-    await viewerCommand("/usr/bin/ditto", ["-c", "-k", "--keepParent", join(paths.directory, "Tetravox.app"), archive]);
-    const bytes = await readFile(archive);
-    const asset = nativeViewerPaths(source, process.platform, process.arch, "1.1.0").release!.asset;
-    const network = vi.fn(async (input: string | URL | Request) => {
-      const url = String(input);
-      if (url.endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "v1.1.0", assets: [{ name: asset }] }));
-      if (url.endsWith("latest-mac.yml")) return new Response(`version: 1.1.0\nfiles:\n  - url: ${asset}\n    sha512: ${createHash("sha512").update(bytes).digest("base64")}\n`);
-      return new Response(bytes);
-    });
-    vi.stubGlobal("fetch", network);
+  it.runIf(supported)("coalesces first setup, verifies the archive digest and requires application identity", async () => {
+    const archive = await archiveOf("1.1.0");
+    const network = serve("1.1.0", archive);
     const userData = await temporary();
     const results = await Promise.all([installNativeViewer(userData), installNativeViewer(userData)]);
-    expect(results).toMatchObject([{ installed: true, installing: false, version: "1.1.0" }, { installed: true, installing: false, version: "1.1.0" }]);
-    expect(network.mock.calls.filter(([url]) => String(url).endsWith(".zip"))).toHaveLength(1);
+    expect(results).toMatchObject([{ installed: true, installing: false, version: "1.1.0", source: "managed" }, { installed: true, installing: false, version: "1.1.0" }]);
+    expect(network.mock.calls.filter(([url]) => String(url).includes("/releases/download/"))).toHaveLength(1);
+    expect(JSON.parse(await readFile(join(results[0]!.directory, "ready.json"), "utf8"))).toMatchObject({ version: "1.1.0", managedBy: MANAGED_BY });
     // A completed download is insufficient if the app identity has disappeared.
-    await rm(join(results[0]!.directory, "Tetravox.app/Contents/Info.plist"));
+    await rm(process.platform === "darwin" ? join(results[0]!.directory, "Tetravox.app/Contents/Info.plist") : join(results[0]!.directory, "resources/app.asar/package.json"));
     expect(await managedInstalls(userData)).toEqual([]);
   });
 
-  it.runIf(process.platform === "darwin")("does not replace an installation that appears while downloading", async () => {
-    const source = await temporary();
-    const paths = await managed(source, "1.1.0");
-    if (!paths) throw new Error("Fixture needs Mac layout");
-    const archive = join(source, "fixture.zip");
-    await viewerCommand("/usr/bin/ditto", ["-c", "-k", "--keepParent", join(paths.directory, "Tetravox.app"), archive]);
-    const bytes = await readFile(archive);
+  it.runIf(supported)("refuses a release that publishes no digest for this platform's package", async () => {
     const userData = await temporary();
-    const asset = nativeViewerPaths(source, process.platform, process.arch, "1.1.0").release!.asset;
-    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
-      const url = String(input);
-      if (url.endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "v1.1.0", assets: [{ name: asset }] }));
-      if (url.endsWith("latest-mac.yml")) return new Response(`version: 1.1.0\nfiles:\n  - url: ${asset}\n    sha512: ${createHash("sha512").update(bytes).digest("base64")}\n`);
-      await managed(userData, "2.0.0");
-      return new Response(bytes);
-    }));
+    const asset = nativeViewerPaths(userData, process.platform, process.arch, "1.1.0").release!.asset;
+    const network = vi.fn(async (input: string | URL | Request) => String(input).endsWith("/releases/latest")
+      ? new Response(releaseJson("1.1.0", asset, undefined, "md5:abc"))
+      : new Response("never fetched"));
+    vi.stubGlobal("fetch", network);
+    await expect(installNativeViewer(userData)).rejects.toThrow("publishes no checksum");
+    expect(await managedInstalls(userData)).toEqual([]);
+    expect(network.mock.calls.some(([url]) => String(url).includes("/releases/download/"))).toBe(false);
+  });
+
+  it.runIf(supported)("refuses an archive whose bytes differ from the published digest", async () => {
+    const archive = await archiveOf("1.1.0");
+    const userData = await temporary();
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => String(input).endsWith("/releases/latest")
+      ? new Response(releaseJson("1.1.0", archive.asset, Buffer.from("other bytes")))
+      : new Response(archive.bytes)));
+    await expect(installNativeViewer(userData)).rejects.toThrow("checksum mismatch");
+    expect(await managedInstalls(userData)).toEqual([]);
+  });
+
+  it.runIf(supported)("does not replace an installation that appears while downloading", async () => {
+    const archive = await archiveOf("1.1.0");
+    const userData = await temporary();
+    serve("1.1.0", archive, async () => { await managed(userData, "2.0.0"); });
     const result = await installNativeViewer(userData);
     expect(result).toMatchObject({ installed: true, installing: false, version: "2.0.0" });
     expect(await readFile(result.executable!, "utf8")).toBe("binary-2.0.0");
   });
 
-  it.runIf(process.platform === "darwin").each(["mismatched version", "incomplete destination"])("preserves existing files when setup encounters %s", async (failure) => {
-    const source = await temporary();
-    const paths = await managed(source, failure === "mismatched version" ? "2.0.0" : "1.1.0");
-    if (!paths) throw new Error("Fixture needs Mac layout");
-    const archive = join(source, "fixture.zip");
-    await viewerCommand("/usr/bin/ditto", ["-c", "-k", "--keepParent", join(paths.directory, "Tetravox.app"), archive]);
-    const bytes = await readFile(archive);
+  it.runIf(supported)("preserves existing files when the archive identifies another version", async () => {
+    const archive = await archiveOf("2.0.0");
     const userData = await temporary();
     const target = nativeViewerPaths(userData, process.platform, process.arch, "1.1.0");
     await mkdir(target.directory, { recursive: true });
     await writeFile(join(target.directory, "user-file"), "preserve existing contents");
-    await mkdir(`${target.directory}.previous`);
-    await writeFile(join(`${target.directory}.previous`, "recovery"), "preserve crash recovery");
-    const asset = target.release!.asset;
-    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
-      const url = String(input);
-      if (url.endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "v1.1.0", assets: [{ name: asset }] }));
-      if (url.endsWith("latest-mac.yml")) return new Response(`version: 1.1.0\nfiles:\n  - url: ${asset}\n    sha512: ${createHash("sha512").update(bytes).digest("base64")}\n`);
-      return new Response(bytes);
-    }));
-    await expect(installNativeViewer(userData)).rejects.toThrow(failure === "mismatched version" ? "archive identifies version" : "incomplete installation");
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => String(input).endsWith("/releases/latest")
+      ? new Response(releaseJson("1.1.0", archive.asset.replace("2.0.0", "1.1.0"), archive.bytes))
+      : new Response(archive.bytes)));
+    await expect(installNativeViewer(userData)).rejects.toThrow("archive identifies version");
     expect(await readFile(join(target.directory, "user-file"), "utf8")).toBe("preserve existing contents");
-    expect(await readFile(join(`${target.directory}.previous`, "recovery"), "utf8")).toBe("preserve crash recovery");
     expect(await managedInstalls(userData)).toEqual([]);
   });
 
-  it.runIf(process.platform === "darwin")("fails first setup when latest release has no verification feed", async () => {
+  it.runIf(supported)("updates TI's copy to a newer release and leaves nothing of the old one behind", async () => {
     const userData = await temporary();
-    const asset = nativeViewerPaths(userData, process.platform, process.arch, "1.1.0").release!.asset;
-    const network = vi.fn(async (input: string | URL | Request) => String(input).endsWith("/releases/latest")
-      ? new Response(JSON.stringify({ tag_name: "v1.1.0", assets: [{ name: asset }] }))
-      : new Response(null, { status: 404 }));
-    vi.stubGlobal("fetch", network);
-    await expect(installNativeViewer(userData)).rejects.toThrow("no update feed");
-    expect(await managedInstalls(userData)).toEqual([]);
-    expect(network.mock.calls.some(([url]) => String(url).endsWith(".zip"))).toBe(false);
+    const old = await managed(userData, "0.5.0");
+    const archive = await archiveOf("0.6.1");
+    const network = serve("0.6.1", archive);
+    const result = await updateNativeViewer(userData);
+    expect(result).toMatchObject({ installed: true, version: "0.6.1", directory: old!.directory });
+    expect(await managedInstalls(userData)).toHaveLength(1);
+    expect(network.mock.calls.filter(([url]) => String(url).includes("/releases/download/"))).toHaveLength(1);
+    await expect(readFile(`${old!.directory}.previous`)).rejects.toThrow();
   });
 
-  it("discovers historical managed directories after TetraVox updates itself", async () => {
+  it.runIf(supported)("an update that is already current downloads nothing", async () => {
+    const userData = await temporary();
+    await managed(userData, "0.6.1");
+    const network = vi.fn(async () => new Response(releaseJson("0.6.1", nativeViewerPaths(userData, process.platform, process.arch, "0.6.1").release!.asset, Buffer.from("x"))));
+    vi.stubGlobal("fetch", network);
+    expect(await updateNativeViewer(userData)).toMatchObject({ installed: true, version: "0.6.1" });
+    expect(network).toHaveBeenCalledTimes(1);
+  });
+
+  it("discovers earlier version-addressed directories and a swap's `.previous` directory", async () => {
     const userData = await temporary();
     const paths = await managed(userData, "2.0.0");
     if (!paths) throw new Error("Fixture needs supported layout");
     const historical = join(userData, "runtimes", `tetravox-0.4.0-${process.platform}-${process.arch}`);
     await rename(paths.directory, historical);
     expect(await managedInstalls(userData)).toMatchObject([{ version: "2.0.0", directory: historical }]);
+    await rename(historical, `${paths.directory}.previous`);
+    expect(await managedInstalls(userData)).toMatchObject([{ version: "2.0.0", directory: `${paths.directory}.previous` }]);
   });
 
-  it("reuses a self-updated bootstrap without network or replacement", async () => {
+  it("reuses an installed copy on launch without any network request", async () => {
     const userData = await temporary();
     const paths = await managed(userData, "1.2.0");
     if (!paths?.executable) throw new Error("Fixture needs supported layout");
-    await writeFile(paths.executable, "self-updated bytes");
-    const network = vi.fn(() => { throw new Error("Must not check updates"); });
+    const network = vi.fn(() => { throw new Error("Must not check releases"); });
     vi.stubGlobal("fetch", network);
     expect(await installNativeViewer(userData)).toMatchObject({ installed: true, version: "1.2.0" });
     expect(network).not.toHaveBeenCalled();
-    expect(await readFile(paths.executable, "utf8")).toBe("self-updated bytes");
     expect(nativeViewerPaths(userData, process.platform, process.arch, "9.0.0").directory).toBe(paths.directory);
   });
 
-  it("refuses a release feed that is absent, stale or silent about this asset", () => {
-    const feed = parseReleaseFeed("version: 0.5.0\nfiles:\n  - url: Tetravox-0.5.0-mac-arm64.zip\n    sha512: AAAA==\n    size: 12\npath: Tetravox-0.5.0-mac-arm64.zip\n");
-    expect(feed).toMatchObject({ version: "0.5.0" });
-    expect(feedChecksum(feed, "Tetravox-0.5.0-mac-arm64.zip")).toBe("AAAA==");
-    expect(feedChecksum(feed, "Tetravox-0.5.0-linux-x64.tar.gz")).toBeUndefined();
-    expect(feedChecksum(undefined, "anything")).toBeUndefined();
-    expect(parseReleaseFeed("files: []")).toBeUndefined();
-  });
-
-  it("verifies SHA512 download bytes as published by the update feed", async () => {
-    const dir = await temporary();
-    const bytes = Buffer.from("release bytes");
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(bytes)));
-    const sha512 = createHash("sha512").update(bytes).digest("base64");
-    await downloadViewer("https://example.invalid", join(dir, "ok"), { algorithm: "sha512", value: sha512 });
-    await expect(downloadViewer("https://example.invalid", join(dir, "bad"), { algorithm: "sha512", value: "AAAA==" })).rejects.toThrow("checksum mismatch");
-  });
-
-  it("reports a release lookup that names no version", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ tag_name: "nightly" }), { status: 200 }));
-    await expect(latestViewerRelease(fetch as unknown as typeof globalThis.fetch)).rejects.toThrow("did not name a version");
+  it("reads the version and per-asset SHA-256 digests from the release lookup", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ tag_name: "v0.6.1", assets: [{ name: "a.zip", digest: "sha256:" + "A".repeat(64) }, { name: "b.zip" }, { name: "c.zip", digest: "sha512:zz" }] })));
+    expect(await latestViewerRelease(fetch as unknown as typeof globalThis.fetch)).toEqual({ version: "0.6.1", assets: { "a.zip": "a".repeat(64), "b.zip": undefined, "c.zip": undefined } });
+    const nightly = vi.fn(async () => new Response(JSON.stringify({ tag_name: "nightly" }), { status: 200 }));
+    await expect(latestViewerRelease(nightly as unknown as typeof globalThis.fetch)).rejects.toThrow("did not name a version");
     const failed = vi.fn(async () => new Response(null, { status: 403 }));
     await expect(latestViewerRelease(failed as unknown as typeof globalThis.fetch)).rejects.toThrow("403");
   });

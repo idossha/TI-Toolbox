@@ -118,6 +118,8 @@ describe("renderPlatesForJob", () => {
     expect(d.ran).toHaveLength(1);
     expect(d.ran[0]!.args[0]).toBe("--job");
     expect(d.ran[0]!.args).toContain("--quiet");
+    // Never Electron's default TetraVox profile, which a user's own TetraVox shares.
+    expect(d.ran[0]!.args.find((arg) => arg.startsWith("--user-data-dir="))).toContain("tit-tetravox-plate-");
     const [, jobPath, , outDir] = d.ran[0]!.args;
     expect(outDir).toBe(HOST_DIR);
     expect(JSON.parse(d.written.get(jobPath!)!).scene).toEqual({ path: HOST_SCENE });

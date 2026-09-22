@@ -83,7 +83,7 @@ Download [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/main/l
 python3 loader.py
 ```
 
-Requires Python 3.11+ and Docker. The launcher downloads and opens the desktop app; add `--browser` to use your browser instead. A browser session keeps running after its tab closes.
+Requires Python 3.11+ and Docker. The launcher downloads and opens the desktop app; add `--browser` to use your browser instead. A browser session keeps running after its tab closes. Inside WSL2 the launcher always uses your Windows browser; the desktop app on Windows is the installer above.
 
 The [command-line guide]({{ site.baseurl }}/installation/bash-cli/) covers the Bash launcher, project paths, existing sessions and stopping a container.
 </details>

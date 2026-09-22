@@ -20,8 +20,9 @@
  * and nothing else. The scene addresses its data with paths relative to itself, so there is nothing
  * to re-root either: the same file works in the container that wrote it and on this host.
  */
-import { readFile, writeFile, unlink } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile, unlink } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { log } from "./log";
 
@@ -213,7 +214,15 @@ export async function renderPlatesForJob(jobId: string, deps: PlateRunnerDeps): 
         sceneText = undefined;
       }
       await write(documentPath, JSON.stringify(buildJob(hostScene, sceneText), null, 1));
-      const code = await run(executable, ["--job", documentPath, "--out", outDir, "--quiet"]);
+      // A throwaway profile: `--job` skips the single-instance lock, so without one the capture
+      // would write into Electron's default TetraVox profile — the one a user's own copy uses.
+      const profile = await mkdtemp(join(tmpdir(), "tit-tetravox-plate-"));
+      let code: number;
+      try {
+        code = await run(executable, ["--job", documentPath, "--out", outDir, "--quiet", `--user-data-dir=${profile}`]);
+      } finally {
+        await rm(profile, { recursive: true, force: true });
+      }
       if (code === 0) {
         result.rendered.push(scene);
       } else {

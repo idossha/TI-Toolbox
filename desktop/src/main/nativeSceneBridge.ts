@@ -2,7 +2,7 @@
 import { constants } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
-import { chmod, lstat, mkdtemp, open, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdtemp, open, realpath, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { userInfo } from "node:os";
 import { promisify } from "node:util";
@@ -16,15 +16,6 @@ export interface NativeSceneRequest {
   path: string;
   expectedScenePath?: string;
   overwrite?: boolean;
-}
-
-/** Capability is declared by the installed application, never guessed from its version. */
-export async function supportsNativeSceneApi(executable: string, platform = process.platform): Promise<boolean> {
-  const resources = platform === "darwin" ? join(dirname(dirname(executable)), "Resources") : join(dirname(executable), "resources");
-  try {
-    const metadata = JSON.parse(await readFile(join(resources, "app.asar/package.json"), "utf8")) as { sceneApiProtocol?: unknown };
-    return metadata.sceneApiProtocol === 1;
-  } catch { return false; }
 }
 
 export async function exchangeNativeSceneRequest(
