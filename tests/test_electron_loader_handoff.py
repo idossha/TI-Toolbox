@@ -125,7 +125,7 @@ def test_desktop_conflicts_with_browser_modes_before_launch(tmp_path, loader, ot
     assert other in result.stderr
 
 
-def test_regular_python_launch_defaults_to_browser(tmp_path, monkeypatch):
+def test_python_browser_launch_opens_session_url(tmp_path, monkeypatch):
     from tit import cli
 
     calls = []
@@ -136,7 +136,7 @@ def test_regular_python_launch_defaults_to_browser(tmp_path, monkeypatch):
         lambda options: calls.append(options) or ("http://localhost:1234", "fixture"),
     )
     monkeypatch.setattr(cli, "open_in_browser", urls.append)
-    args = cli.launch_parser().parse_args(["--project", str(tmp_path)])
+    args = cli.launch_parser().parse_args(["--project", str(tmp_path), "--browser"])
     assert cli.launch_command(args) == 0
     assert calls[0].open_browser is True
     assert len(urls) == 1
