@@ -191,8 +191,15 @@ output browsing belongs to Results. Sources: [`catalog.py`](../../tit/catalog.py
 
 **The server schedules batches.** `/api/jobs/groups` accepts a template plus optional per-subject
 configs, tags and overwrite intent. The server assigns each generated config its own subject.
-`parallel_subjects` caps running jobs in the group; it is not a client POST loop or a distinct-subject
-counter. Cohort analyses remain single jobs. Sources: [`jobs routes`](../../tit/server/routes/jobs.py),
+**One job per product runs at a time**: `tit.jobs.scheduler.PRODUCT_OF` maps kinds to Preprocessing
+(`pre`), Simulator (`sim`), Optimizer (`flex*`, `ex`, `mex`, `leadfield`) and Analyzer (`analyzer`),
+and a job of a product waits while another job of that product runs, whether it came from the same
+group or a separate submission; other kinds are bounded by locks and the CPU budget only. There is
+no concurrency setting: the retired `parallel_subjects` request field and `JobSpec.group_cap` are
+ignored if an older client or `spec.json` still carries them. Parallelism inside a job is the job's
+own (worker pools under the global CPU limit). Excluded alternative: a user-set per-group cap — it let
+several FEM-class jobs of one product contend for the same machine. Cohort analyses remain single
+jobs. Sources: [`jobs routes`](../../tit/server/routes/jobs.py),
 [`scheduler.py`](../../tit/jobs/scheduler.py).
 
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)
@@ -648,8 +655,7 @@ clamped to the limit, since a claim above the budget could never be admitted. Ex
 workers share the job's budget with numba: `workers × numba threads ≤ TIT_JOB_CPUS`. RAM is not
 limited by it: the budget's memory is the container limit clamped by available memory. Excluded
 alternative: only per-page or per-job thread controls — they cannot stop two jobs together from
-taking the whole machine. `parallel_subjects` is clamped to what the scheduler budget admits, with
-a warning. The duration tile is an estimate from the per-kind models documented in
+taking the whole machine. The global CPU limit is the only resource setting. The duration tile is an estimate from the per-kind models documented in
 [`tit/jobs/eta.py`](../../tit/jobs/eta.py), calibrated against [BENCHMARKS](BENCHMARKS.md); it is
 labelled `≈` with its basis in the tooltip, and a kind with no measured baseline shows no number.
 

@@ -301,7 +301,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
       body: { kind: "analyzer", config: { subject_id: "ernie" }, subject_ids: ["ernie"] },
     });
     const { json: grouped } = await call("/api/jobs/groups", "POST", "/api/jobs/groups", {
-      body: { kind: "pre", config: { create_m2m: true, run_tissue_analysis: true, __mock_fast: true }, subject_ids: ["101"], parallel_subjects: 1 },
+      body: { kind: "pre", config: { create_m2m: true, run_tissue_analysis: true, __mock_fast: true }, subject_ids: ["101"] },
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupJobs = (grouped as any).jobs as { id: string; kind: string }[];

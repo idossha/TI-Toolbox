@@ -368,7 +368,6 @@ class JobManager:
         env: dict[str, str] | None = None,
         created_by: str = "api",
         group_id: str | None = None,
-        group_cap: int | None = None,
         overwrite: bool = False,
     ) -> dict[str, Any]:
         if kind not in JOB_KINDS:
@@ -406,7 +405,6 @@ class JobManager:
             cost=cost,
             created_by=created_by,
             group_id=group_id,
-            group_cap=group_cap,
             overwrite=overwrite,
         )
         status = JobStatus.queued(spec)
@@ -426,14 +424,12 @@ class JobManager:
         planned: list[PlannedJob],
         *,
         created_by: str = "api",
-        group_cap: int | None = None,
     ) -> dict[str, Any]:
         """Submit a labelled DAG of :class:`PlannedJob` (``tit.jobs.plans.plan_preprocessing``)
         under one shared ``group_id``, resolving ``after_labels`` to real job ids.
 
-        *group_cap* (``JobGroupRequest.parallel_subjects``) is stamped onto every job in the
-        group as ``JobSpec.group_cap``; :func:`tit.jobs.scheduler.evaluate` enforces it as an
-        admission cap on how many of the group's jobs may be ``running`` at once.
+        The scheduler runs one job per product at a time (:func:`tit.jobs.scheduler.evaluate`),
+        so a group's jobs run one after another.
         """
         group_id = new_job_id()
         label_to_id: dict[str, str] = {}
@@ -452,7 +448,6 @@ class JobManager:
                 tags=job.tags,
                 created_by=created_by,
                 group_id=group_id,
-                group_cap=group_cap,
                 overwrite=job.overwrite,
             )
             label_to_id[job.label] = status["id"]

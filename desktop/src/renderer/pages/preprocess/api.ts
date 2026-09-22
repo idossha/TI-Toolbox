@@ -61,7 +61,6 @@ export async function planPre(
 export async function submitPreGroup(
   config: PreprocessConfig,
   subjectIds: string[],
-  parallelSubjects: number,
 ): Promise<JobGroupResult> {
   return unwrap(
     await api.POST("/api/jobs/groups", {
@@ -69,7 +68,6 @@ export async function submitPreGroup(
         kind: "pre",
         config,
         subject_ids: subjectIds,
-        parallel_subjects: parallelSubjects,
       },
     }),
     "/api/jobs/groups",

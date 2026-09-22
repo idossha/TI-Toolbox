@@ -16,6 +16,13 @@ vi.mock("node:child_process", async (importOriginal) => {
       callback(macOpen.error, "", "");
       return undefined;
     }
+    // A TetraVox running on the test machine must not look like the fixture's copy is open
+    // ("Close TetraVox before updating it"): the process probe sees no viewer processes.
+    if (args[0] === "/bin/ps" || args[0] === "powershell.exe") {
+      const callback = args.at(-1) as (error: Error | undefined, stdout: string, stderr: string) => void;
+      callback(undefined, args[0] === "powershell.exe" ? "[]" : "", "");
+      return undefined;
+    }
     if (args[0] === "/usr/bin/plutil" && !commandArgs.at(-1)?.includes("ti-native-viewer-test-")) {
       const callback = args.at(-1) as (error: Error) => void;
       callback(new Error("No test-machine installation"));

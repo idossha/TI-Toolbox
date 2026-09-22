@@ -10,11 +10,11 @@ tests can drive it directly with synthetic state.
 and acts on the result (spawn, mark skipped, or leave queued with the reported ``waiting_on``/
 ``budget_wait``).
 
-A ``JobGroupRequest.parallel_subjects`` cap (``POST /api/jobs/groups``) is mirrored onto every
-job of a submitted group as ``JobSpec.group_cap`` (:mod:`tit.jobs.manager`); ``evaluate()``
-enforces it here by counting *running* jobs sharing that ``group_id`` in *jobs* — no separate
-group registry needed, and the count naturally survives a server restart since it's read straight
-off each job's live status.
+One job per product (maintainer rule, 2026-09-22): at most one job of each product in
+:data:`PRODUCT_OF` runs at a time -- one Preprocess job, one Simulator job, one Optimizer job, one
+Analyzer job -- whether it came from one multi-subject group or from separate submissions. The
+count is read off each job's live status in *jobs*, so it survives a server restart. Parallelism
+inside a job is the job's own architecture, under the global CPU limit (:func:`discover_budget`).
 """
 
 from __future__ import annotations
@@ -67,6 +67,21 @@ def _dependency_state(job: JobSpec, jobs: dict[str, JobStatus]) -> Decision | No
     return None
 
 
+#: kind -> the product (run page) it belongs to; one job of each product runs at a time. Kinds not
+#: listed (tools, reports, exports, stats, ...) are limited by locks and the CPU budget only.
+PRODUCT_OF: dict[str, str] = {
+    "pre": "preprocessing",
+    "sim": "simulator",
+    "flex": "optimizer",
+    "flex_adaptive": "optimizer",
+    "flex_pareto": "optimizer",
+    "ex": "optimizer",
+    "mex": "optimizer",
+    "leadfield": "optimizer",
+    "analyzer": "analyzer",
+}
+
+
 def evaluate(
     job: JobSpec,
     jobs: dict[str, JobStatus],
@@ -92,17 +107,23 @@ def evaluate(
         ]
         return Decision(waiting_on=waiting_on)
 
-    if job.group_id and job.group_cap:
-        running_in_group = sum(
-            1
-            for st in jobs.values()
-            if st.group_id == job.group_id and st.state == "running"
+    product = PRODUCT_OF.get(job.kind)
+    if product is not None:
+        busy = next(
+            (
+                st
+                for st in jobs.values()
+                if st.state == "running"
+                and st.id != job.id
+                and PRODUCT_OF.get(st.kind) == product
+            ),
+            None,
         )
-        if running_in_group >= job.group_cap:
+        if busy is not None:
             return Decision(
                 budget_wait=(
-                    f"waiting for group concurrency: {running_in_group}/"
-                    f"{job.group_cap} slots in use for group {job.group_id}"
+                    f"waiting for {product}: one {product} job runs at a time "
+                    f"({busy.id} is running)"
                 )
             )
 

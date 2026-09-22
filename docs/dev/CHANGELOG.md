@@ -12,6 +12,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 #### Resources
 
 - **TI-Toolbox uses 70 % of your cores by default, and you can change it** — a new **CPU limit** in **Settings → Project → Execution** (10–100 %, shown as e.g. "70 % · 7 of 10 cores") caps the CPUs all running jobs share. Previously a search defaulted to every core but one and several jobs together could take the whole machine. Ex-/mex-search and cluster-permutation workers, flex-search, FastSurfer/FreeSurfer/CHARM/QSI threads and NIfTI conversion now default to this limit; an explicit `n_jobs`/`cpus`/thread value still works but is capped at it. A change applies to jobs started afterwards; running jobs are not touched. Scripts honour the same setting, or `TIT_CPU_LIMIT_PERCENT`. Memory limits are unchanged. API: `GET`/`PUT /api/cpu-limit`.
+- **One job per product at a time; "Subjects in parallel" is gone** — Pre-processing, Simulator, Optimizer and Analyzer each run one job at a time, whether the jobs come from one multi-subject run or separate runs; the subjects of a run are processed one after another, and any parallelism happens inside a job under the CPU limit. The **Subjects in parallel** field is removed from **Settings → Project → Execution**, and `parallel_subjects` from `POST /api/jobs/groups` and `POST /api/plan/pre`. A value saved by an older version, or sent by an older client, is ignored.
 
 #### Launching on Windows and WSL
 

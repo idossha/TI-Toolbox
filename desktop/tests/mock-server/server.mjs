@@ -1485,15 +1485,24 @@ function runTimeline(job) {
   if (cfg.__mock_hold !== true) timers.push(setTimeout(() => finishJob(job), totalMs + 100));
   job.timers = timers;
 }
-// group_id -> parallel_subjects cap (JobGroupRequest.parallel_subjects): at most this many of the
-// group's own jobs run at once, enforced here rather than by how many jobs are submitted -- every
-// job is created "queued" immediately and the scheduler releases them this-many-at-a-time.
-const groupParallelLimit = new Map();
+// One job per product (tit.jobs.scheduler.PRODUCT_OF): at most one Preprocess, Simulator, Optimizer
+// or Analyzer job runs at a time, whatever group or submission it came from.
+const PRODUCT_OF = {
+  pre: "preprocessing",
+  sim: "simulator",
+  flex: "optimizer",
+  flex_adaptive: "optimizer",
+  flex_pareto: "optimizer",
+  ex: "optimizer",
+  mex: "optimizer",
+  leadfield: "optimizer",
+  analyzer: "analyzer",
+};
 
 // A job stays `queued` for as long as `isReady()` below finds ANY blocker: an unfinished `after`
 // dependency, a same-(kind,subject) job still `running` (the P7 "one job of a kind per subject"
-// exclusivity `isReady` enforces for every kind, not only the heavy ones), or a full `group_id`
-// parallel-subjects slot. All three blockers are themselves jobs, and every job that ever reaches
+// exclusivity `isReady` enforces for every kind, not only the heavy ones), or a running job of
+// the same product. All three blockers are themselves jobs, and every job that ever reaches
 // `running` is *itself* bounded -- `runTimeline`'s own final timer calls `finishJob` at
 // `totalMs + 100`, at most 10 100 ms after it started -- so under one spec file's own traffic a
 // queued job unblocks within a few multiples of that.
@@ -1537,12 +1546,10 @@ function isReady(job) {
       waitingOn.push({ key: `${job.status.kind}:${job.status.subject_ids.join(",")}`, job_id: other.status.id });
     }
   }
-  const limit = job.status.group_id && groupParallelLimit.get(job.status.group_id);
-  if (limit) {
-    const runningInGroup = [...jobRegistry.values()].filter((j) => j.status.group_id === job.status.group_id && j.status.state === "running");
-    if (runningInGroup.length >= limit) {
-      waitingOn.push({ key: `group:${job.status.group_id}`, job_id: runningInGroup[0].status.id });
-    }
+  const product = PRODUCT_OF[job.status.kind];
+  if (product) {
+    const busy = [...jobRegistry.values()].find((j) => j !== job && j.status.state === "running" && PRODUCT_OF[j.status.kind] === product);
+    if (busy) waitingOn.push({ key: `product:${product}`, job_id: busy.status.id });
   }
   if (waitingOn.length) return { wait: waitingOn };
   return { ready: true };
@@ -2727,8 +2734,7 @@ route("POST", "/api/plan/:kind", async (ctx) => {
 });
 
 // --- jobs (v1) ---
-// Test-only, mock-only: cancels and forgets every non-terminal job (and the group parallel-limit
-// bookkeeping that goes with them). NOT in contracts/openapi.yaml — deliberately, since this
+// Test-only, mock-only: cancels and forgets every non-terminal job. NOT in contracts/openapi.yaml — deliberately, since this
 // endpoint exists only to give the e2e harness a way to say "a spec file's session is starting or
 // ending, forget whatever an earlier one left running" and has no counterpart on tit.server; a
 // widened contract or a `declared`/`exercised` mismatch in contract.test.ts would be the sign this
@@ -3218,7 +3224,6 @@ route("POST", "/api/__mock/reset", (ctx) => {
   }
   jobRegistry.clear();
   for (const client of wsJobClients) client.subs.clear();
-  groupParallelLimit.clear();
   notebookStore.clear();
   notebooksSeeded.deleted = false;
   for (const kernel of kernelStore.values()) {
@@ -3311,8 +3316,6 @@ route("POST", "/api/jobs/groups", async (ctx) => {
   }
   const subjectIds = body.subject_ids ?? [];
   const groupId = `group_${randomBytes(6).toString("hex")}`;
-  const parallel = Math.max(1, Number(body.parallel_subjects) || 1);
-  groupParallelLimit.set(groupId, parallel);
   const tags = Array.isArray(body.tags) ? body.tags : [];
   const created = [];
 

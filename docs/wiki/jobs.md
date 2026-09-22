@@ -75,9 +75,10 @@ knowing:
 
 - A table that mixes two job kinds becomes **one group per kind**, and the page says so — _"Queued
   3 searches in 2 groups (ex, flex)"_ — rather than implying an atomic batch.
-- **Subjects running in parallel** (on Pre-processing) is a scheduler admission cap on that group.
-  It counts jobs, not subjects. Leave it at 1 unless you know the box can take it: two FEM-class
-  jobs at once will contend for memory and finish later than they would in sequence.
+- **One job per product at a time.** Pre-processing, Simulator, Optimizer and Analyzer each run
+  one job at a time, so a multi-subject run processes its subjects one after another, and a second
+  run of the same product waits for the first ("waiting for simulator"). Jobs of different
+  products can run together within the CPU limit. There is no setting for this.
 
 ## Server restart
 

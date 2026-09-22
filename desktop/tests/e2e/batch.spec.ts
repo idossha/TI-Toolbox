@@ -12,18 +12,15 @@ import { setSubjectChecked, subjectsField } from "./_subjects";
  *
  *  1. every subject-taking workflow shows the shared selector, OPEN, on first visit;
  *  2. two subjects produce two plan rows;
- *  3. a batch is submitted as ONE `POST /api/jobs/groups` carrying `parallel_subjects` — the UI
- *     never substitutes client-side parallel or spaced-out `POST /api/jobs` calls for the cap;
+ *  3. a batch is submitted as ONE `POST /api/jobs/groups` with no concurrency field — the UI
+ *     never substitutes client-side parallel or spaced-out `POST /api/jobs` calls;
  *  4. each generated config carries exactly its own subject id;
- *  5. with a cap of 1 the scheduler never has two group members `running`; with a cap of 2 it
- *     does admit two when locks and resources permit.
+ *  5. one job per product (DECISIONS 2026-09-22): the scheduler never has two Simulator jobs
+ *     `running`, and a stale `parallel_subjects: 2` from an older client changes nothing.
  *
- * (5) is asserted against the mock server's scheduler rather than a real container: the pipelines
- * program's standing rule is that two FEM simulations must never run concurrently on the shared
- * dev container (`docs/dev/CONTRIBUTING.md` §2.6), so a real-data proof of a cap of 2 would
- * be the exact thing it forbids. The cap logic under test is the same shape in both
- * (`tit/jobs/scheduler.py`'s `group_cap` branch, mirrored by the mock's `isReady`), and the
- * server-side half is pinned directly in `tests/test_jobs_routes.py`.
+ * (5) is asserted against the mock server's scheduler (`isReady`'s product rule, mirroring
+ * `tit/jobs/scheduler.py`'s `PRODUCT_OF`); the server-side half is pinned directly in
+ * `tests/test_jobs_routes.py`.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -137,7 +134,7 @@ test("the Source panel shows the same control, open", async () => {
 });
 
 // -------------------------------------------------------------------------------------------
-// 2-4. Two subjects -> two plan rows -> ONE group request carrying the cap
+// 2-4. Two subjects -> two plan rows -> ONE group request
 // -------------------------------------------------------------------------------------------
 
 test("two subjects are selected on Pre-processing", async () => {
@@ -148,14 +145,10 @@ test("two subjects are selected on Pre-processing", async () => {
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "2");
 });
 
-test("the cap goes to the server in ONE request, and never as client-side parallel POSTs", async () => {
-  // `Subjects in parallel` is a user-level setting (Settings ▸ Execution, 2026-09-06), not a
-  // page control: set it there, then come back — every run page reads the same value.
+test("a batch goes to the server in ONE request, and never as client-side parallel POSTs", async () => {
+  // There is no `Subjects in parallel` setting any more (DECISIONS 2026-09-22).
   await gotoPage(page, "settings", "Settings");
-  const parallel = page.locator('[data-page-active="true"]').getByTestId("subjects-in-parallel");
-  await expect(parallel).toBeVisible();
-  await parallel.fill("2");
-  await parallel.blur();
+  await expect(page.locator('[data-page-active="true"]').getByTestId("subjects-in-parallel")).toHaveCount(0);
   await gotoPage(page, "preprocess", "Pre-processing");
   const active = page.locator('[data-page-active="true"]');
 
@@ -176,11 +169,11 @@ test("the cap goes to the server in ONE request, and never as client-side parall
   page.off("request", record);
 
   expect(submissions).toHaveLength(1);
-  const body = submissions[0]!.postDataJSON() as { kind: string; subject_ids: string[]; parallel_subjects: number };
+  const body = submissions[0]!.postDataJSON() as { kind: string; subject_ids: string[] };
   expect(new URL(submissions[0]!.url()).pathname).toBe("/api/jobs/groups");
   expect(body.kind).toBe("pre");
   expect(body.subject_ids).toEqual(["ernie", "101"]);
-  expect(body.parallel_subjects).toBe(2);
+  expect("parallel_subjects" in body).toBe(false);
 });
 
 test("each generated config carries exactly its own subject id", async () => {
@@ -191,7 +184,6 @@ test("each generated config carries exactly its own subject id", async () => {
     kind: "sim",
     config: fastSimConfig("ernie"),
     subject_ids: ["ernie", "101"],
-    parallel_subjects: 1,
   });
   const jobs = await groupJobs(groupId);
   expect(jobs).toHaveLength(2);
@@ -206,50 +198,30 @@ test("each generated config carries exactly its own subject id", async () => {
 });
 
 // -------------------------------------------------------------------------------------------
-// 5. Scheduler states under a cap of 1 and a cap of 2
+// 5. One job per product, whatever an older client asks for
 // -------------------------------------------------------------------------------------------
 
-test("a cap of 1 never has two group members running", async () => {
-  const groupId = await submitGroup({
-    kind: "sim",
-    config: fastSimConfig("ernie"),
-    subject_ids: ["ernie", "101", "102"],
-    parallel_subjects: 1,
+for (const stale of [{}, { parallel_subjects: 2 }]) {
+  test(`a group never has two Simulator jobs running (${JSON.stringify(stale)})`, async () => {
+    const groupId = await submitGroup({
+      kind: "sim",
+      config: fastSimConfig("ernie"),
+      subject_ids: ["ernie", "101", "102"],
+      ...stale,
+    });
+
+    let peak = 0;
+    const deadline = Date.now() + 60_000;
+    for (;;) {
+      const jobs = await groupJobs(groupId);
+      const running = jobs.filter((j) => j.state === "running");
+      peak = Math.max(peak, running.length);
+      expect(running.length, `states: ${jobs.map((j) => j.state).join(",")}`).toBeLessThanOrEqual(1);
+      if (jobs.length === 3 && jobs.every((j) => !["queued", "running"].includes(j.state))) break;
+      expect(Date.now(), "group did not finish").toBeLessThan(deadline);
+      await page.waitForTimeout(150);
+    }
+    // Not vacuous: the rule really did have something to hold back, and one member did run.
+    expect(peak).toBe(1);
   });
-
-  let peak = 0;
-  const deadline = Date.now() + 60_000;
-  for (;;) {
-    const jobs = await groupJobs(groupId);
-    const running = jobs.filter((j) => j.state === "running");
-    peak = Math.max(peak, running.length);
-    expect(running.length, `states: ${jobs.map((j) => j.state).join(",")}`).toBeLessThanOrEqual(1);
-    if (jobs.length === 3 && jobs.every((j) => !["queued", "running"].includes(j.state))) break;
-    expect(Date.now(), "group did not finish").toBeLessThan(deadline);
-    await page.waitForTimeout(150);
-  }
-  // Not vacuous: the cap really did have something to hold back, and one member did run.
-  expect(peak).toBe(1);
-});
-
-test("a cap of 2 admits two members at once", async () => {
-  const groupId = await submitGroup({
-    kind: "sim",
-    config: fastSimConfig("ernie"),
-    subject_ids: ["ernie", "101", "102"],
-    parallel_subjects: 2,
-  });
-
-  let peak = 0;
-  const deadline = Date.now() + 60_000;
-  for (;;) {
-    const jobs = await groupJobs(groupId);
-    const running = jobs.filter((j) => j.state === "running");
-    peak = Math.max(peak, running.length);
-    expect(running.length).toBeLessThanOrEqual(2);
-    if (peak === 2 || (jobs.length === 3 && jobs.every((j) => !["queued", "running"].includes(j.state)))) break;
-    expect(Date.now(), "group did not finish").toBeLessThan(deadline);
-    await page.waitForTimeout(100);
-  }
-  expect(peak).toBe(2);
-});
+}

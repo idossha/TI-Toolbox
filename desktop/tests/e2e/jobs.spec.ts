@@ -292,7 +292,7 @@ test("a failed job's Summary shows one line of reason, and the traceback only on
 test("the toolbar filters the table and toggles the group trees", async () => {
   await submitJob({ kind: "sim", config: { __mock_fast: true }, subject_ids: ["ernie"], tags: ["e2e-fast"] });
   await submitJob({ kind: "analyzer", config: { __mock_fast: true }, subject_ids: ["ernie"], tags: ["e2e-fast"] });
-  await submitGroup({ kind: "pre", config: { convert_dicom: true }, subject_ids: ["ernie", "101"], parallel_subjects: 2 });
+  await submitGroup({ kind: "pre", config: { convert_dicom: true }, subject_ids: ["ernie", "101"] });
 
   await connect();
   await openJobs();

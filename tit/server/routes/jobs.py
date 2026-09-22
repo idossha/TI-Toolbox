@@ -206,11 +206,9 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
     ``sim``/``flex``/``flex_adaptive``/``flex_pareto``/``ex``/``mex`` expand into one independent
     job per ``(subject, config)`` entry via ``tit.jobs.plans.plan_per_subject``.
 
-    `parallel_subjects` is required on the wire (JobGroupRequest); it becomes every group job's
-    JobSpec.group_cap and is enforced by tit.jobs.scheduler.evaluate() as an admission cap on how
-    many of the group's jobs may be "running" at once (see the manager/scheduler docstrings for
-    why a job-count cap, not a distinct-subject cap). The client never spaces out its POSTs: the
-    whole group is created queued in this one request and released by the scheduler.
+    The whole group is created queued in this one request; tit.jobs.scheduler.evaluate() runs one
+    job per product at a time, so its jobs run one after another. A `parallel_subjects` field from
+    an older client is ignored.
 
     `subject_configs` (optional, additive) carries per-subject resolved configs -- a page whose
     config depends on the subject (an ROI resolved against that subject's atlas, a leadfield
@@ -232,15 +230,6 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
             status_code=422, detail="config must be an object and subject_ids an array"
         )
     subject_ids = _checked_subject_ids(body.get("subject_ids"))
-    parallel_subjects = body.get("parallel_subjects")
-    if (
-        not isinstance(parallel_subjects, int)
-        or isinstance(parallel_subjects, bool)
-        or parallel_subjects < 1
-    ):
-        raise HTTPException(
-            status_code=422, detail="parallel_subjects must be an integer >= 1"
-        )
     tags = body.get("tags") or []
     if not isinstance(tags, list):
         raise HTTPException(status_code=422, detail="tags must be an array")
@@ -263,9 +252,7 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
         check_overwrite_permission(
             job.kind, job.config, job.subject_ids, overwrite=job.overwrite
         )
-    return _manager(request).submit_plan(
-        planned, created_by="gui", group_cap=parallel_subjects
-    )
+    return _manager(request).submit_plan(planned, created_by="gui")
 
 
 def _plan_pre_group(config: dict[str, Any], subject_ids: list[str]) -> list[Any]:

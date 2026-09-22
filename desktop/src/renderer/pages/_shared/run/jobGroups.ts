@@ -2,10 +2,9 @@
  * `POST /api/jobs/groups` — the one way a page submits a batch (IMPLEMENTATION_PLAN.md R3).
  *
  * One request creates the whole group: one job per selected subject (or per `(subject, config)`
- * entry, for the Simulator's one job per montage), all queued, sharing a `group_id`, carrying the
- * `parallel_subjects` cap the scheduler enforces. The pages used to loop `POST /api/jobs` per
- * subject and call the loop "sequential" — which it was not: the server admitted whatever its
- * budget allowed, and a cap of 1 meant nothing. There is deliberately no batching helper here
+ * entry, for the Simulator's one job per montage), all queued, sharing a `group_id`. The server's
+ * scheduler runs one job per product at a time, so the group runs one job after another; there is
+ * no concurrency setting (DECISIONS 2026-09-22). There is deliberately no batching helper here
  * that fans out several requests; if a page needs different configs per subject it sends them in
  * `subject_configs`, in the same one request.
  *
@@ -38,7 +37,6 @@ export async function submitJobGroup(
   kind: GroupKind,
   config: unknown,
   subjectIds: string[],
-  parallelSubjects: number,
   options: SubmitJobGroupOptions = {},
   /** Injectable for tests, exactly like `api/client.ts`'s own helpers. */
   client = api,
@@ -47,7 +45,6 @@ export async function submitJobGroup(
     kind,
     config: config as PipelineConfig,
     subject_ids: subjectIds,
-    parallel_subjects: Math.max(1, parallelSubjects),
   };
   if (options.subjectConfigs?.length) {
     body.subject_configs = options.subjectConfigs.map((entry) => ({

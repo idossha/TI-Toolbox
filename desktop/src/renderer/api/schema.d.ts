@@ -2122,8 +2122,6 @@ export interface paths {
                         subject_ids?: string[];
                         overwrite?: boolean;
                         montage_sources?: components["schemas"]["MontageSources"];
-                        /** @description Mirrors JobGroupRequest.parallel_subjects for a `kind=pre` group plan preview -- lets the Preprocess plan panel show the same per-group concurrency cap that `POST /api/jobs/groups` will enforce, before the group is actually submitted. */
-                        parallel_subjects?: number | null;
                     };
                 };
             };
@@ -6331,7 +6329,7 @@ export interface components {
         };
         JobGroupRequest: {
             /**
-             * @description Every kind that runs one independent job per subject. `pre` expands into the per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the subject report is an attachment of the last stage job, never a job of its own; the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead.
+             * @description Every kind that runs one independent job per subject. The whole group is created queued and runs one job at a time: the scheduler runs one job per product (Preprocess, Simulator, Optimizer, Analyzer) whatever was submitted. A `parallel_subjects` field sent by an older client is ignored. `pre` expands into the per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the subject report is an attachment of the last stage job, never a job of its own; the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead.
              * @enum {string}
              */
             kind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex";
@@ -6346,8 +6344,6 @@ export interface components {
             tags?: string[];
             /** @description Replace existing output instead of skipping it, for every job in the group (the same flag POST /api/jobs takes per job). Ignored for kind=pre, which carries that policy in its own config's skip_existing_outputs / replace_existing_outputs flags. */
             overwrite?: boolean;
-            /** @description Per-group concurrency cap: at most this many of the group's per-subject jobs run at once. Enforced by the scheduler (tit.jobs), not by the number of jobs submitted -- every subject's job is created immediately with state "queued" and the scheduler releases them onto runners this-many-at-a-time as earlier ones finish. */
-            parallel_subjects: number;
         };
         /** @description One input a job needs that is not on disk (tit.jobs.preflight): what it is, the named path it was expected at, and how to produce it. */
         MissingInput: {

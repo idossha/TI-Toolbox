@@ -187,44 +187,52 @@ def test_budget_fanout_four_jobs_two_cpu_each_on_eight_cpu_budget():
     assert admitted == ["j0", "j1"]  # 3rd would be 9 cpu > 8
 
 
-def test_group_cap_waits_once_running_jobs_reach_the_cap():
-    """JobGroupRequest.parallel_subjects (mirrored onto JobSpec.group_cap by
-    JobManager.submit_plan) caps how many of the group's jobs may be running at once."""
-    job = _spec("j3", group_id="g1", group_cap=2)
-    jobs = {
-        "j1": _status("j1", "running", group_id="g1"),
-        "j2": _status("j2", "running", group_id="g1"),
-        # A running job in a different group must never count against this cap.
-        "other": _status("other", "running", group_id="g2"),
-    }
+# One job per product (maintainer rule 2026-09-22, docs/dev/DECISIONS.md): a Preprocess,
+# Simulator, Optimizer or Analyzer job waits while another job of the same product runs, whether
+# it came from the same group or a separate submission.
+
+
+def test_a_second_job_of_the_same_product_waits():
+    job = _spec("j2", kind="sim", group_id="g2")
+    jobs = {"j1": _status("j1", "running", kind="sim", group_id="g1")}
     decision = scheduler.evaluate(job, jobs, [], running_cost=Cost(0, 0), budget=BUDGET)
     assert not decision.admit
     assert decision.budget_wait is not None
-    assert "group" in decision.budget_wait
+    assert "one simulator job runs at a time" in decision.budget_wait
 
 
-def test_group_cap_admits_below_the_cap():
-    job = _spec("j3", group_id="g1", group_cap=2)
-    jobs = {"j1": _status("j1", "running", group_id="g1")}
+def test_optimizer_kinds_share_one_product():
+    """flex, ex, mex and leadfield are all the Optimizer."""
+    job = _spec("j2", kind="ex")
+    jobs = {"j1": _status("j1", "running", kind="flex")}
     decision = scheduler.evaluate(job, jobs, [], running_cost=Cost(0, 0), budget=BUDGET)
-    assert decision.admit
+    assert not decision.admit
 
 
-def test_group_cap_ignores_non_running_jobs_of_the_group():
-    job = _spec("j3", group_id="g1", group_cap=1)
+def test_different_products_run_together_and_finished_jobs_do_not_count():
+    job = _spec("j3", kind="sim")
     jobs = {
-        "j1": _status("j1", "succeeded", group_id="g1"),
-        "j2": _status("j2", "queued", group_id="g1"),
+        "j1": _status("j1", "running", kind="pre"),
+        "j2": _status("j2", "succeeded", kind="sim"),
+        "j4": _status("j4", "queued", kind="sim"),
     }
     decision = scheduler.evaluate(job, jobs, [], running_cost=Cost(0, 0), budget=BUDGET)
     assert decision.admit
 
 
-def test_no_group_cap_never_waits():
-    job = _spec("j3", group_id="g1", group_cap=None)
-    jobs = {"j1": _status("j1", "running", group_id="g1")}
+def test_kinds_outside_the_products_are_not_serialized():
+    job = _spec("j2", kind="tools")
+    jobs = {"j1": _status("j1", "running", kind="tools")}
     decision = scheduler.evaluate(job, jobs, [], running_cost=Cost(0, 0), budget=BUDGET)
     assert decision.admit
+
+
+def test_a_stale_group_cap_in_spec_json_is_ignored():
+    spec = JobSpec.from_dict(
+        {"id": "j1", "kind": "sim", "config": {}, "group_id": "g", "group_cap": 4}
+    )
+    assert not hasattr(spec, "group_cap")
+    assert "group_cap" not in spec.to_dict()
 
 
 def test_cascade_skip_transitive():

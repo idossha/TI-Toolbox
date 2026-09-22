@@ -5,7 +5,6 @@ import { useQueries } from "@tanstack/react-query";
 import type { Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
-import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
 import { Callout, EmptyState } from "../../ui/Feedback";
 import { ActionBar } from "../../ui/Chrome";
@@ -95,7 +94,6 @@ function SimulatorPage() {
    * defaults` in the dialog always means the built-ins.
    */
   const [seedSettings, setSeedSettings] = usePageSession<JobSettings | null>("jobSettingsSeed", null);
-  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The jobs this Run press started: they keep their log and final status line in the terminal
   // after they finish, instead of the pane emptying itself the moment the run succeeds
@@ -222,7 +220,6 @@ function SimulatorPage() {
       rows={runnableRows}
       params={params}
       plan={plan}
-      parallelSubjects={parallelSubjects}
       /* 2.5.0 kept its job cards after a run, and so does the table: the rows are what the user
          built, and a queued batch is very often the thing you then tweak and run again. */
       onSubmitted={(jobIds) => {
@@ -251,7 +248,6 @@ function SimulatorPage() {
             startedJobIds={startedJobIds}
             onPinJob={setPinnedJobId}
             steps={SIM_STEPS}
-            parallel={parallelSubjects}
             paneControls={<PaneHeaderControls controller={scenePane} />}
             scene={
               <ScenePane

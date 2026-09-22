@@ -47,11 +47,8 @@ Per-kind output-dir resolution
     the directory that stage's flag writes to (see :func:`_pre_stage_output_dir`) -- several
     stages share a directory with other content (e.g. ``G2a`` and ``G6`` both touch
     ``m2m_<subject>/``), so ``exists``/``will_overwrite`` there are coarser than for the
-    single-output kinds above. The request's ``parallel_subjects`` (mirrors
-    ``JobGroupRequest.parallel_subjects``, not yet in the frozen ``PlanRequest`` schema -- see
-    :class:`PlanRequest`) is echoed back clamped to ``resolved.parallel_subjects`` and scales
-    the cost estimate, so a plan preview reflects the concurrency the matching group
-    submission would actually use.
+    single-output kinds above. The stages run one at a time (one job per product), so the ETA
+    is their sum and the cost is one stage's.
 ``source``
     ``forward`` mode: :meth:`PathManager.forward` per subject. ``fsavg_map`` mode:
     :meth:`PathManager.sim_fsaverage` per ``(subject, simulation)`` pair.
@@ -111,12 +108,6 @@ class PlanRequest(BaseModel):
     #: field names) for one release, preferring this field when both are present -- see
     #: _montage_sources_for_request.
     montage_sources: dict[str, Any] | None = None
-    #: kind=pre only, mirrors JobGroupRequest.parallel_subjects (contracts/openapi.yaml) so
-    #: a plan preview can reflect the same concurrency the matching ``POST /api/jobs/groups``
-    #: call would use -- not yet part of the frozen PlanRequest schema (flagged for F1a to add
-    #: alongside montage_sources); ``_plan_pre`` folds it into ``resolved.parallel_subjects``
-    #: and the cost estimate scales with ``min(parallel_subjects, n_subjects)``.
-    parallel_subjects: int | None = None
 
 
 class PlanJob(BaseModel):
@@ -172,7 +163,6 @@ def _plan_cost(
     *,
     resolved: dict[str, Any] | None = None,
     jobs: list[PlanJob] | None = None,
-    parallel: int = 1,
 ) -> PlanCost:
     """One representative job's resource cost for *kind* plus the plan's ETA.
 
@@ -185,48 +175,8 @@ def _plan_cost(
     except ImportError:
         return PlanCost(cpus=1.0, mem_gb=2.0)
     cost = default_cost(kind, raw_config)
-    eta, system = _plan_eta(
-        kind, raw_config, resolved=resolved, jobs=jobs, parallel=parallel
-    )
+    eta, system = _plan_eta(kind, raw_config, resolved=resolved, jobs=jobs)
     return PlanCost(cpus=cost.cpus, mem_gb=cost.mem_gb, eta_minutes=eta, system=system)
-
-
-def clamp_parallel_subjects(
-    kind: str,
-    raw_config: dict[str, Any],
-    requested: int,
-    warnings: list[str],
-) -> int:
-    """*requested* subject-DAGs at once, reduced to what the scheduler could actually admit.
-
-    A plan that says "4 subjects in parallel x 8 CPU each" on a 12-CPU container is a promise of
-    32 cores that do not exist: the scheduler admits jobs against
-    :func:`tit.jobs.scheduler.discover_budget`, so the 4th DAG simply waits. The plan says what
-    will happen instead, and says why in a warning.
-    """
-    if requested <= 1:
-        return max(1, requested)
-    try:
-        from tit.jobs.costs import default_cost
-        from tit.jobs.scheduler import discover_budget
-
-        cost = default_cost(kind, raw_config)
-        budget = discover_budget()
-    except (
-        Exception
-    ):  # pragma: no cover - defensive; never fail a plan over an estimate
-        return requested
-    by_cpu = int(budget.cpus // cost.cpus) if cost.cpus > 0 else requested
-    by_mem = int(budget.mem_gb // cost.mem_gb) if cost.mem_gb > 0 else requested
-    allowed = max(1, min(by_cpu, by_mem))
-    if allowed >= requested:
-        return requested
-    warnings.append(
-        f"parallel_subjects={requested} does not fit this container's budget "
-        f"({budget.cpus:g} CPU / {budget.mem_gb:.0f} GB at {cost.cpus:g} CPU / "
-        f"{cost.mem_gb:g} GB per stage); {allowed} will run at once and the rest will queue"
-    )
-    return allowed
 
 
 def _plan_eta(
@@ -235,7 +185,6 @@ def _plan_eta(
     *,
     resolved: dict[str, Any] | None,
     jobs: list[PlanJob] | None,
-    parallel: int,
 ) -> tuple[float | None, PlanSystem | None]:
     """``(eta_minutes, system)`` for the plan; ``(None, system)`` when the kind has no model."""
     try:
@@ -247,12 +196,10 @@ def _plan_eta(
         cpus=profile.cpus, emulated=profile.emulated, factor=profile.factor
     )
     job_list = jobs or []
-    if kind == "pre":
-        # `_plan_pre`'s `resolved["stages"]` already has one entry per (subject, stage), so the
-        # stage sum IS the whole plan; only the subject concurrency divides it.
-        n_jobs, lanes = 1, max(1, parallel)
-    else:
-        n_jobs, lanes = max(1, len(job_list)), max(1, parallel)
+    # One job per product runs at a time (tit.jobs.scheduler.PRODUCT_OF), so a plan's jobs run
+    # in one lane. `_plan_pre`'s `resolved["stages"]` already has one entry per (subject, stage),
+    # so the stage sum IS the whole plan.
+    n_jobs = 1 if kind == "pre" else max(1, len(job_list))
     subject = job_list[0].subject if job_list else None
     minutes = eta_model.eta_minutes(
         kind,
@@ -260,7 +207,7 @@ def _plan_eta(
         resolved=resolved,
         subject_id=subject,
         n_jobs=n_jobs,
-        parallel=lanes,
+        parallel=1,
         system=profile,
     )
     return minutes, system
@@ -679,23 +626,15 @@ def _plan_pre(
     config: Any,
     subject_ids: list[str],
     warnings: list[str],
-    parallel_subjects: int | None = None,
 ) -> tuple[list[PlanJob], dict[str, Any]]:
     from tit.jobs.plans import plan_preprocessing
 
     subjects = subject_ids or list(config.subject_ids)
-    effective_parallel = max(1, parallel_subjects or 1)
     if not subjects:
         warnings.append(
             "no subject_ids given and config.subject_ids is empty; nothing planned"
         )
-        return [], {"stages": [], "parallel_subjects": effective_parallel}
-
-    if effective_parallel > len(subjects):
-        warnings.append(
-            f"parallel_subjects={effective_parallel} exceeds the {len(subjects)} "
-            "planned subject(s); at most one subject-DAG per subject can run at once"
-        )
+        return [], {"stages": []}
 
     planned = plan_preprocessing(config, subjects)
     jobs: list[PlanJob] = []
@@ -736,10 +675,7 @@ def _plan_pre(
                 "tags": planned_job.tags,
             }
         )
-    return jobs, {
-        "stages": stages,
-        "parallel_subjects": min(effective_parallel, len(subjects)),
-    }
+    return jobs, {"stages": stages}
 
 
 def _plan_source(
@@ -965,9 +901,7 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
     subject_ids = list(body.subject_ids or [])
 
     if kind == "pre":
-        jobs, resolved = _plan_pre(
-            pm, config, subject_ids, warnings, parallel_subjects=body.parallel_subjects
-        )
+        jobs, resolved = _plan_pre(pm, config, subject_ids, warnings)
     elif kind == "sim":
         jobs, resolved = _plan_sim(
             kind,
@@ -1001,27 +935,8 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
     else:  # pragma: no cover - ALL_KINDS/NO_SCHEMA_KINDS covers everything else
         jobs, resolved = [], None
 
-    parallel = 1
-    if kind == "pre" and resolved is not None:
-        parallel = clamp_parallel_subjects(
-            kind, body.config, resolved.get("parallel_subjects", 1), warnings
-        )
-        resolved["parallel_subjects"] = parallel
-    cost = _plan_cost(
-        kind, body.config, resolved=resolved, jobs=jobs, parallel=parallel
-    )
-    if kind == "pre" and resolved is not None:
-        # A `pre` plan is N per-subject DAGs; resolved["parallel_subjects"] (see _plan_pre)
-        # is how many of them the matching `POST /api/jobs/groups` call would run at once,
-        # so the previewed cost -- one representative stage's cost times that concurrency --
-        # matches what the group would actually consume, not just one lone stage's footprint.
-        concurrency = resolved.get("parallel_subjects", 1)
-        cost = PlanCost(
-            cpus=cost.cpus * concurrency,
-            mem_gb=cost.mem_gb * concurrency,
-            eta_minutes=cost.eta_minutes,
-            system=cost.system,
-        )
+    # One job per product runs at a time, so the plan's jobs run one after another.
+    cost = _plan_cost(kind, body.config, resolved=resolved, jobs=jobs)
     lock_conflicts = _plan_lock_conflicts(
         kind, subject_ids or [j.subject for j in jobs if j.subject], body.config
     )
