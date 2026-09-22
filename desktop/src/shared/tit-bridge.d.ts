@@ -121,6 +121,8 @@ export interface TitBridge {
   installNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
   /** Replace TI-Toolbox's TetraVox with the newest official release; refused while it is open. */
   updateNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
+  /** The newest official TetraVox release, and whether it is newer than TI-Toolbox's copy. */
+  checkNativeTetravoxUpdate?(): Promise<{ latest: string; newer: boolean }>;
   /** Initial setup progress. Returns an unsubscribe function. */
   onNativeTetravoxProgress?(listener: (progress: TitNativeTetravoxProgress) => void): () => void;
   /** Container scene path in the active project, or empty to open the application. */

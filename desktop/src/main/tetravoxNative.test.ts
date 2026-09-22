@@ -3,7 +3,7 @@ import { chmod, mkdtemp, mkdir, readFile, realpath, rename, rm, symlink, writeFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MANAGED_BY, compatibleViewerVersion, identifyViewer, identifyViewerPath, latestViewerRelease, managedInstalls, readAsarText, viewerProcessMatches, checkViewerScene, downloadViewer, installNativeViewer, nativeViewerPaths, nativeViewerStatus, openNativeViewer, updateNativeViewer, viewerCommand } from "./tetravoxNative";
+import { MANAGED_BY, answerViewerUpdateRequest, checkViewerUpdate, viewerUpdateRequestPath, watchViewerUpdateRequests, compatibleViewerVersion, identifyViewer, identifyViewerPath, latestViewerRelease, managedInstalls, readAsarText, viewerProcessMatches, checkViewerScene, downloadViewer, installNativeViewer, nativeViewerPaths, nativeViewerStatus, openNativeViewer, updateNativeViewer, viewerCommand } from "./tetravoxNative";
 const macOpen = vi.hoisted(() => ({ calls: [] as { args: string[]; env: NodeJS.ProcessEnv }[], error: undefined as Error | undefined }));
 // Do not let an application installed on the test machine shadow fixture-managed installs.
 vi.mock("node:child_process", async (importOriginal) => {
@@ -71,13 +71,21 @@ describe("native TetraVox", () => {
     expect(() => viewerProcessMatches("invalid", "viewer", "win32")).toThrow("Could not check");
     expect(() => viewerProcessMatches('{"ExecutablePath":null}', "viewer", "win32")).toThrow("Could not check");
   });
-  it("detects a different installed binary sharing the default profile before replacement", () => {
-    const selected = "/Applications/Tetravox.app/Contents/MacOS/Tetravox";
-    expect(viewerProcessMatches("/Users/example/TI runtimes/Tetravox.app/Contents/MacOS/Tetravox /project/scene.tetravox.json", selected, "darwin")).toBe(true);
-    expect(viewerProcessMatches("/opt/tetravox/tetravox --job /project/export.json", "/usr/bin/tetravox", "linux")).toBe(true);
-    expect(viewerProcessMatches(JSON.stringify({ ExecutablePath: "D:\\Other install\\Tetravox.exe" }), "C:\\Tetravox.exe", "win32")).toBe(true);
-    expect(viewerProcessMatches("/opt/tetravox/tetravox-helper", "/usr/bin/tetravox", "linux")).toBe(false);
-    expect(viewerProcessMatches("", selected, "darwin")).toBe(false);
+  it("counts only TI's copy or TI's viewer profile as running, never a TetraVox the user installed", () => {
+    // TI's copy runs in its own profile (decision 2026-09-22), so a user's own TetraVox — another
+    // executable in another profile — must neither block TI's Update nor pass for TI's viewer.
+    const ti = "/Users/example/Library/Application Support/TI-Toolbox/runtimes/tetravox-darwin-arm64/Tetravox.app/Contents/MacOS/Tetravox";
+    const profile = "/Users/example/Library/Application Support/TI-Toolbox/tetravox-profile";
+    expect(viewerProcessMatches(`${ti} --user-data-dir=${profile}`, ti, "darwin", profile)).toBe(true);
+    expect(viewerProcessMatches("/Applications/Tetravox.app/Contents/MacOS/Tetravox /project/scene.tetravox.json", ti, "darwin", profile)).toBe(false);
+    expect(viewerProcessMatches("/opt/tetravox/tetravox --job /project/export.json", "/home/x/.config/TI-Toolbox/runtimes/tetravox-linux-x64/tetravox", "linux", "/home/x/.config/TI-Toolbox/tetravox-profile")).toBe(false);
+    // Any process in TI's profile is TI's viewer (an older layout's copy, or its helpers)…
+    expect(viewerProcessMatches(`/old/Tetravox.app/Contents/MacOS/Tetravox --user-data-dir=${profile} --scene-request=/r.json`, ti, "darwin", profile)).toBe(true);
+    // …but not a sibling profile that merely shares the prefix.
+    expect(viewerProcessMatches(`/Applications/Tetravox.app/Contents/MacOS/Tetravox --user-data-dir=${profile}-other`, ti, "darwin", profile)).toBe(false);
+    expect(viewerProcessMatches(JSON.stringify({ ExecutablePath: "D:\\Other install\\Tetravox.exe", CommandLine: "\"D:\\Other install\\Tetravox.exe\"" }), "C:\\TI\\Tetravox.exe", "win32", "C:\\TI\\tetravox-profile")).toBe(false);
+    expect(viewerProcessMatches(JSON.stringify([{ ExecutablePath: "D:\\Old\\Tetravox.exe", CommandLine: "\"D:\\Old\\Tetravox.exe\" --user-data-dir=C:\\TI\\tetravox-profile" }]), "C:\\TI\\Tetravox.exe", "win32", "C:\\TI\\tetravox-profile")).toBe(true);
+    expect(viewerProcessMatches("", ti, "darwin", profile)).toBe(false);
   });
   it("accepts 0.4 and newer scene versions", () => {
     expect(compatibleViewerVersion("0.4.0")).toBe(true);
@@ -126,11 +134,12 @@ describe("native TetraVox", () => {
   });
   it.runIf(process.platform !== "win32")("launches TI's copy with the managed-by flag so the viewer leaves updates to TI", async () => {
     const dir = await temporary(); const executable = join(dir, "managed-viewer");
-    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s" "${TETRAVOX_MANAGED_BY-unset}" > "$0.env"\n');
+    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s|%s" "${TETRAVOX_MANAGED_BY-unset}" "${TETRAVOX_MANAGED_UPDATE_REQUEST-unset}" > "$0.env"\n');
     await chmod(executable, 0o755);
     await openNativeViewer(dir, "/project/example.tetravox.json", status(executable, dir));
     expect(await readFile(`${executable}.args`, "utf8")).toBe([...platformArgs, `--user-data-dir=${join(dir, "tetravox-profile")}`, "/project/example.tetravox.json"].join("\n") + "\n");
-    expect(await readFile(`${executable}.env`, "utf8")).toBe(MANAGED_BY);
+    // The second variable is where the viewer's own update popup hands an accepted update to TI.
+    expect(await readFile(`${executable}.env`, "utf8")).toBe(`${MANAGED_BY}|${join(dir, "tetravox-update-request.json")}`);
   });
   it.runIf(process.platform !== "win32")("always runs TI's copy in TI's own profile, never Electron's shared default one", async () => {
     // A user's own TetraVox uses the default profile; sharing it would share its settings and its
@@ -152,7 +161,7 @@ describe("native TetraVox", () => {
       ["-a", bundle, "/project/a scene.tetravox.json", ...profile],
       ["-a", bundle, ...profile],
     ]);
-    expect(macOpen.calls.every((call) => call.env.TETRAVOX_MANAGED_BY === MANAGED_BY && call.env.ELECTRON_RUN_AS_NODE === undefined)).toBe(true);
+    expect(macOpen.calls.every((call) => call.env.TETRAVOX_MANAGED_BY === MANAGED_BY && call.env.TETRAVOX_MANAGED_UPDATE_REQUEST === join(dir, "tetravox-update-request.json") && call.env.ELECTRON_RUN_AS_NODE === undefined)).toBe(true);
   });
   it.runIf(process.platform === "darwin")("delivers protocol request through argv before scene-free activation", async () => {
     const dir = await temporary(); const bundle = join(dir, "Tetravox.app"); const executable = join(bundle, "Contents/MacOS/Tetravox");
@@ -389,5 +398,106 @@ describe("TI's own TetraVox: setup, update and checksums", () => {
     await expect(latestViewerRelease(nightly as unknown as typeof globalThis.fetch)).rejects.toThrow("did not name a version");
     const failed = vi.fn(async () => new Response(null, { status: 403 }));
     await expect(latestViewerRelease(failed as unknown as typeof globalThis.fetch)).rejects.toThrow("403");
+  });
+
+  it.runIf(supported)("Settings' check reports the newest release and whether it is newer than TI's copy", async () => {
+    const userData = await temporary();
+    await managed(userData, "0.6.0");
+    const answer = (tag: string) => vi.fn(async () => new Response(JSON.stringify({ tag_name: tag, assets: [] }))) as unknown as typeof fetch;
+    expect(await checkViewerUpdate(userData, answer("v0.6.1"))).toEqual({ latest: "0.6.1", newer: true });
+    expect(await checkViewerUpdate(userData, answer("v0.6.0"))).toEqual({ latest: "0.6.0", newer: false });
+    expect(await checkViewerUpdate(await temporary(), answer("v0.6.1"))).toEqual({ latest: "0.6.1", newer: false });
+  });
+
+  /* The handshake with TetraVox's own update popup (ARCHITECTURE §7.1, decision 2026-09-22). The
+   * request and receipt shapes are TetraVox's `requestManagedUpdate` (packages/app/src/main/updater.ts). */
+  const request = (userData: string, body: unknown) => writeFile(viewerUpdateRequestPath(userData), typeof body === "string" ? body : JSON.stringify(body));
+  const receipt = async (userData: string) => JSON.parse(await readFile(`${viewerUpdateRequestPath(userData)}.receipt.json`, "utf8")) as { id: string; ok: boolean; error?: string };
+
+  it.runIf(supported)("an update accepted in TetraVox installs the verified release through TI and relaunches the viewer", async () => {
+    const userData = await temporary();
+    await managed(userData, "0.6.0");
+    const network = serve("0.6.1", await archiveOf("0.6.1"));
+    await request(userData, { protocol: 1, action: "update", id: "abc-123", version: "0.6.1", current: "0.6.0" });
+    const relaunch = vi.fn(async () => {});
+    const failed = vi.fn();
+    await answerViewerUpdateRequest(userData, { relaunch, failed });
+    expect(await receipt(userData)).toEqual({ protocol: 1, id: "abc-123", ok: true });
+    expect(await nativeViewerStatus(userData)).toMatchObject({ installed: true, version: "0.6.1" });
+    expect(network.mock.calls.filter(([url]) => String(url).includes("/releases/download/"))).toHaveLength(1);
+    expect(relaunch).toHaveBeenCalledOnce();
+    expect(failed).not.toHaveBeenCalled();
+    await expect(readFile(viewerUpdateRequestPath(userData))).rejects.toThrow(); // consumed
+  });
+
+  it.runIf(supported)("a failed update still gives the user their viewer back and says why", async () => {
+    const userData = await temporary();
+    await managed(userData, "0.6.0");
+    const archive = await archiveOf("0.6.1");
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => String(input).endsWith("/releases/latest")
+      ? new Response(releaseJson("0.6.1", archive.asset, Buffer.from("other bytes")))
+      : new Response(archive.bytes)));
+    await request(userData, { protocol: 1, action: "update", id: "abc", version: "0.6.1" });
+    const relaunch = vi.fn(async () => {});
+    const failed = vi.fn();
+    await answerViewerUpdateRequest(userData, { relaunch, failed });
+    expect(failed.mock.calls[0]?.[0]).toContain("checksum mismatch");
+    expect(relaunch).toHaveBeenCalledOnce();
+    expect(await nativeViewerStatus(userData)).toMatchObject({ version: "0.6.0" });
+  });
+
+  it.runIf(supported)("refuses malformed requests without installing anything", async () => {
+    const userData = await temporary();
+    await managed(userData, "0.6.0");
+    const network = vi.fn(async () => new Response("never"));
+    vi.stubGlobal("fetch", network);
+    const handlers = { relaunch: vi.fn(async () => {}), failed: vi.fn() };
+    await request(userData, "{half a request");
+    await answerViewerUpdateRequest(userData, handlers);
+    await expect(receipt(userData)).rejects.toThrow(); // nothing to answer: no id
+    await request(userData, { protocol: 1, action: "install-from", id: "x", version: "0.6.1", url: "https://example.invalid/a.zip" });
+    await answerViewerUpdateRequest(userData, handlers);
+    expect(await receipt(userData)).toMatchObject({ id: "x", ok: false });
+    await request(userData, { protocol: 1, action: "update", id: "../../x", version: "0.6.1" });
+    await answerViewerUpdateRequest(userData, handlers);
+    expect(await receipt(userData)).toMatchObject({ id: "x" }); // unchanged: an invalid id gets no receipt
+    expect(network).not.toHaveBeenCalled();
+    expect(handlers.relaunch).not.toHaveBeenCalled();
+  });
+
+  it.runIf(supported)("waits for TI's viewer to close and installs nothing while it stays open", async () => {
+    const userData = await temporary();
+    await managed(userData, "0.6.0");
+    const network = vi.fn(async () => new Response("never"));
+    vi.stubGlobal("fetch", network);
+    // A process in TI's viewer profile is TI's viewer, whatever its executable.
+    const { spawn } = await import("node:child_process");
+    const viewer = spawn(process.execPath, ["-e", "setTimeout(() => {}, 30000)", "--", `--user-data-dir=${join(userData, "tetravox-profile")}`], { stdio: "ignore" });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await request(userData, { protocol: 1, action: "update", id: "abc", version: "0.6.1" });
+      const handlers = { relaunch: vi.fn(async () => {}), failed: vi.fn(), closeTimeoutMs: 700 };
+      await answerViewerUpdateRequest(userData, handlers);
+      expect(await receipt(userData)).toMatchObject({ ok: true });
+      expect(handlers.failed.mock.calls[0]?.[0]).toContain("did not close");
+      expect(handlers.relaunch).not.toHaveBeenCalled();
+      expect(network).not.toHaveBeenCalled();
+    } finally { viewer.kill(); }
+  });
+
+  it.runIf(supported)("the watcher answers a request that appears while TI runs, and one already waiting at start", async () => {
+    const userData = await temporary();
+    await managed(userData, "0.6.1");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(releaseJson("0.6.1", nativeViewerPaths(userData, process.platform, process.arch, "0.6.1").release!.asset, Buffer.from("x")))));
+    await request(userData, { protocol: 1, action: "update", id: "waiting", version: "0.6.1" });
+    const relaunch = vi.fn(async () => {});
+    const stop = watchViewerUpdateRequests(userData, { relaunch, failed: vi.fn() }, 50);
+    try {
+      await vi.waitFor(() => expect(relaunch).toHaveBeenCalledTimes(1));
+      expect(await receipt(userData)).toMatchObject({ id: "waiting", ok: true });
+      await request(userData, { protocol: 1, action: "update", id: "later", version: "0.6.1" });
+      await vi.waitFor(() => expect(relaunch).toHaveBeenCalledTimes(2), { timeout: 3000 });
+      expect(await receipt(userData)).toMatchObject({ id: "later", ok: true });
+    } finally { stop(); }
   });
 });

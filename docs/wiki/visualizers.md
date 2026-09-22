@@ -16,8 +16,8 @@ Your job in TI-Toolbox is simple: pick what to look at. TetraVox does the rest.
 
 Nothing to do: the desktop app installs its own TetraVox on first launch (one download, needs
 internet). **Settings → Viewer** shows the version, offers **Retry setup** if that download failed,
-and **Update** to move to the newest release. TI-Toolbox only ever launches this copy, not one you
-installed yourself.
+and **Update to X** when a newer release exists. TI-Toolbox only ever launches this copy, not one
+you installed yourself.
 
 ## Open a result
 
@@ -50,8 +50,14 @@ Scene files live under `code/ti-toolbox/viewer/` in your project.
 
 ## Updating
 
-**Settings → Viewer → Check for updates** fetches the newest TetraVox release. Update from here,
-not from TetraVox's own menu, so TI-Toolbox keeps track of the version.
+Two ways, same result — TI-Toolbox always does the install:
+
+- **Settings → Viewer** shows the newest release beside yours; click **Update to X** (close
+  TetraVox first), or **Check for updates** to ask again.
+- Inside TetraVox, a **Software Update** window appears when a newer release exists (or use its
+  **Check for Updates…** menu item). **Update to X** closes TetraVox; TI-Toolbox downloads and
+  verifies the release, then reopens TetraVox with your last scene. **Skip This Version** stops the
+  reminder for that version.
 
 ## Troubleshooting
 

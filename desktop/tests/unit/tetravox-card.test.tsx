@@ -168,6 +168,34 @@ it("renders a download progress bar while installing", async () => {
   expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
 });
 
+it("names the newer release on the Update button once the release check answers", async () => {
+  const status: TitNativeTetravoxStatus = { source: "managed", supported: true, installed: true, installing: false, version: "0.6.0", directory: "/managed" };
+  nativeTetravoxStatus.mockResolvedValue(status);
+  const checkNativeTetravoxUpdate = vi.fn(async () => ({ latest: "0.6.1", newer: true }));
+  window.tit = { ...bridge(), checkNativeTetravoxUpdate } as TitBridge;
+  await render();
+  await settle();
+  expect(checkNativeTetravoxUpdate).toHaveBeenCalledOnce();
+  expect(container.textContent).toContain("TetraVox 0.6.1 is available.");
+  act(() => button("Update to 0.6.1")!.click());
+  await settle();
+  expect(updateNativeTetravox).toHaveBeenCalledOnce();
+});
+
+it("says TI's copy is up to date and offers a fresh check instead of an update", async () => {
+  nativeTetravoxStatus.mockResolvedValue({ source: "managed", supported: true, installed: true, installing: false, version: "0.6.1", directory: "/managed" });
+  const checkNativeTetravoxUpdate = vi.fn(async () => ({ latest: "0.6.1", newer: false }));
+  window.tit = { ...bridge(), checkNativeTetravoxUpdate } as TitBridge;
+  await render();
+  await settle();
+  expect(container.textContent).toContain("Up to date — 0.6.1 is the newest release.");
+  expect(button("Update")).toBeUndefined();
+  act(() => button("Check for updates")!.click());
+  await settle();
+  expect(checkNativeTetravoxUpdate).toHaveBeenCalledTimes(2);
+  expect(updateNativeTetravox).not.toHaveBeenCalled();
+});
+
 it("says so when this platform has no package instead of offering a picker", async () => {
   nativeTetravoxStatus.mockResolvedValue({ supported: false, installed: false, installing: false, version: "", directory: "", error: "TI-Toolbox has no TetraVox package for linux/arm64." });
   await render();

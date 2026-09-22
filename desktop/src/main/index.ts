@@ -12,7 +12,7 @@ import { createNativeSceneSession, exchangeNativeSceneRequest } from "./nativeSc
 import { createScenePreviewQueue, renderNativeScenePreview } from "./nativeScenePreview";
 import { orchestrateNativeSceneSave } from "./nativeSceneSave";
 import { createViewerHandoff } from "./viewerHandoff";
-import { checkViewerScene, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setViewerProgressListener, updateNativeViewer } from "./tetravoxNative";
+import { checkViewerScene, checkViewerUpdate, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setViewerProgressListener, updateNativeViewer, watchViewerUpdateRequests } from "./tetravoxNative";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -66,6 +66,8 @@ const nativeScenes = createNativeSceneSession((request, viewer) => {
   const userData = app.getPath("userData");
   return exchangeNativeSceneRequest(userData, request, (path) => openNativeViewer(userData, "", viewer, path));
 });
+/** The scene TI last opened in TetraVox, reopened after TetraVox asks TI to update it. */
+let lastNativeScene = "";
 const fastSurferWorker = new FastSurferWorker();
 let fastSurferInstalling = false;
 let fastSurferInstalled: boolean | undefined;
@@ -726,6 +728,12 @@ function registerIpc(): void {
     try { return await updateNativeViewer(userData); }
     catch { return nativeViewerStatus(userData); }
   });
+  ipcMain.handle("tit:tetravox:checkUpdate", async (e) => {
+    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
+    // Automated app sessions make no ambient network requests (§7.1).
+    if (process.env.TIT_E2E_TOKEN) throw new Error("Release checks are disabled in automated tests.");
+    return checkViewerUpdate(app.getPath("userData"));
+  });
   const viewerHandoff = createViewerHandoff();
   const previewQueue = createScenePreviewQueue();
   ipcMain.handle("tit:tetravox:previewScene", async (e, path: unknown) => {
@@ -823,6 +831,7 @@ function registerIpc(): void {
             if (scene) nativeScenes.clear();
             await openNativeViewer(userData, scene, viewer);
           }
+          lastNativeScene = scene;
         },
       });
     } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
@@ -1032,6 +1041,19 @@ void app.whenReady().then(async () => {
   if (WINDOW_MODE === "normal" && !process.env.TIT_E2E_TOKEN) {
     void installNativeViewer(app.getPath("userData")).catch((error: unknown) => {
       log("warn", `TetraVox setup: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    // TetraVox's own update popup asks TI to install the update it accepted (ARCHITECTURE §7.1).
+    const userData = app.getPath("userData");
+    watchViewerUpdateRequests(userData, {
+      failed: (message) => {
+        log("warn", `TetraVox update: ${message}`);
+        if (mainWindow && !mainWindow.isDestroyed()) void dialog.showMessageBox(mainWindow, { type: "warning", message: "TetraVox update", detail: message });
+      },
+      relaunch: async () => {
+        const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+        const scene = lastNativeScene && root ? await checkViewerScene(lastNativeScene, root).catch(() => "") : "";
+        await openNativeViewer(userData, scene).catch((error: unknown) => log("warn", `TetraVox relaunch: ${error instanceof Error ? error.message : String(error)}`));
+      },
     });
   }
   if (!(await tryDevAutoConnect(mainWindow)) && !(await tryNativeAutoStart(mainWindow))) showLauncher(mainWindow);
