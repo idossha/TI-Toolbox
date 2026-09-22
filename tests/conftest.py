@@ -111,6 +111,17 @@ def pytest_configure(config):
 
 
 # ============================================================================
+# WSL host neutrality — runs before every test automatically
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _plain_host_not_wsl(monkeypatch):
+    """Strip the variables ``tit.launch.is_wsl`` reads, so the suite asserts plain Linux/macOS
+    launcher behaviour even when it runs on a WSL machine. ``tests/test_wsl_host.py`` sets
+    ``WSL_DISTRO_NAME`` back explicitly for the WSL cases."""
+    for name in ("WSL_DISTRO_NAME", "WSL_INTEROP"):
+        monkeypatch.delenv(name, raising=False)
+
+
 # PathManager reset — runs after every test automatically
 # ============================================================================
 

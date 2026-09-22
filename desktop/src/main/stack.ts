@@ -269,7 +269,8 @@ export class StackManager {
 
     this.progress("Looking for Docker…");
     const found = await discover();
-    if (!found.available) throw new StackStartError(found.kind);
+    if (!found.available) throw new StackStartError(found.kind, found.message);
+    this.host.log("info", `[stack] Docker endpoint ${describeConnection(found.connection)} (via ${found.source})`);
     const client = new DockerEngineClient(found.connection);
 
     this.progress("Checking the Docker engine…");
@@ -637,6 +638,11 @@ export function resolveRepoDir(env: NodeJS.ProcessEnv, isPackaged: boolean): str
   if (isPackaged) return undefined;
   const explicit = (env.TIT_DEV_REPO_DIR ?? env.TIT_REPO_DIR ?? "").trim();
   return explicit === "" ? undefined : explicit;
+}
+
+/** `unix:///var/run/docker.sock`, `npipe://./pipe/docker_engine`, `tcp://host:port` — for the log. */
+function describeConnection(conn: { kind: string; socketPath?: string; host?: string; port?: number }): string {
+  return conn.kind === "tcp" ? `tcp://${conn.host}:${conn.port}` : `${conn.kind}://${conn.socketPath ?? ""}`;
 }
 
 /** `realpath` where possible, plain `resolve` where the path no longer exists. */

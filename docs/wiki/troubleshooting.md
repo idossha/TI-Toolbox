@@ -79,10 +79,11 @@ TetraVox explicitly.
 
 ### Native TetraVox is not installed or does not open
 
-Use **Settings → Viewer → Install TetraVox**, then retry opening the scene. The first installation
-needs access to the official GitHub release. A checksum mismatch means nothing was installed;
-retry the verified download instead of unpacking an unknown archive into the runtime directory.
-Unsupported architectures report that no native package is configured.
+Open **Settings → Viewer** and use **Retry setup**, then retry opening the scene. TI-Toolbox
+installs its own TetraVox from the official GitHub release and launches only that copy; a TetraVox
+you installed yourself is not used. A checksum mismatch means nothing was installed; retry the
+verified download instead of unpacking an archive into the runtime directory yourself. Platforms
+without an official package (for example Linux on arm64) report that TI-Toolbox has none.
 
 Browser-only sessions cannot start native applications. Download the prepared scene and open it
 manually in TetraVox on a machine where its dataset paths exist. A remote server's scene file does

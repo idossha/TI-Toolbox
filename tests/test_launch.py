@@ -659,7 +659,7 @@ def test_windows_project_paths_are_translated_on_wsl(monkeypatch, raw, expected)
 def test_nothing_is_translated_off_wsl(monkeypatch):
     """macOS and plain Linux never see a drive letter, and must not invent one."""
     monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
-    monkeypatch.setattr(launch, "on_wsl", lambda: False)
+    monkeypatch.setattr(launch, "is_wsl", lambda: False)
     assert launch.translate_project_path(r"C:\Users\me\project") == r"C:\Users\me\project"
 
 

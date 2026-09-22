@@ -60,10 +60,14 @@ export class DockerEngineError extends Error {
   }
 }
 
-function classifyNodeError(err: NodeJS.ErrnoException): DockerErrorKind {
+function classifyNodeError(err: NodeJS.ErrnoException, conn: DockerConnection): DockerErrorKind {
   switch (err.code) {
     case "ENOENT":
-      return "not-installed";
+      // A Unix socket file that does not exist means no engine was ever installed here (discovery
+      // already checked the well-known paths). A Windows named pipe that does not exist means
+      // Docker Desktop is not running: the pipe is created by its backend at start and removed at
+      // quit, and discovery only hands over a pipe that answered `/_ping` moments earlier.
+      return conn.kind === "npipe" ? "not-running" : "not-installed";
     case "ECONNREFUSED":
       return "not-running";
     case "EACCES":
@@ -150,7 +154,7 @@ function rawRequest(conn: DockerConnection, opts: RequestOptions): Promise<RawRe
       req.setTimeout(timeoutMs, () => req.destroy(Object.assign(new Error(`Docker request timed out after ${timeoutMs}ms: ${opts.method} ${path}`), { code: "ETIMEDOUT" })));
     }
     req.on("error", (err) => {
-      const kind = classifyNodeError(err as NodeJS.ErrnoException);
+      const kind = classifyNodeError(err as NodeJS.ErrnoException, conn);
       reject(new DockerEngineError(kind, `${opts.method} ${path}: ${err.message}`));
     });
 

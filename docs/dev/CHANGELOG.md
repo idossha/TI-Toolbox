@@ -9,7 +9,11 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
-Nothing yet.
+#### Launching on Windows and WSL
+
+- **Desktop app finds Docker Desktop on Windows** — v3.0.0 reported "Docker was not found on this machine" whenever the active Docker context was `desktop-linux`, because its `npipe:////./pipe/…` endpoint was handed to Node with four leading slashes. The app now collapses any `npipe:` spelling to `//./pipe/<name>`, checks Docker Desktop's install directories for `docker.exe` when the Start-Menu PATH is stale, and probes the context pipe and then `dockerDesktopLinuxEngine` and `docker_engine` with `/_ping` before giving up. A missing pipe now reads "Docker is installed but not running" with Docker Desktop and WSL 2 guidance; the chosen endpoint is written to `main.log`.
+- **TetraVox is TI-Toolbox's own copy, on every platform** — the desktop app now installs TetraVox for itself on Windows too (the official `win-x64.zip`, alongside the macOS zips and the Linux tarball), verifying each download against the SHA-256 digest GitHub publishes for the asset, and it launches only that copy. The Locate… picker, `PATH` lookup and system-location search are gone; **Settings → Viewer** gains **Update**, which replaces the copy with the newest release and is refused while TetraVox is open. Previously Windows reported "Automatic TetraVox setup requires an official updater-compatible package".
+- **Loaders inside WSL2** — `loader.sh` and `loader.py` treat WSL as a Windows host: the default UI is the browser, the session URL is printed and opened on the Windows side (`wslview`, then PowerShell, then `cmd.exe`), the Linux AppImage is never downloaded, and `--desktop` is refused with a message naming the Windows installer. WSL is detected from `WSL_DISTRO_NAME`/`WSL_INTEROP`, not the kernel string, so a Docker Desktop container is never mistaken for it. `--build` and `--web` no longer demand a project first.
 
 ### v3.0.0 — September 20, 2026 (Latest Release)
 

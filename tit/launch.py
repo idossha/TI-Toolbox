@@ -792,15 +792,17 @@ class LaunchOptions:
     session_project: str = ""
 
 
-def on_wsl() -> bool:
-    """True inside WSL2, where a Windows path and a Linux path can name the same directory."""
-    if os.environ.get("WSL_DISTRO_NAME"):
-        return True
-    try:
-        version = Path("/proc/version").read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        return False
-    return "microsoft" in version.lower()
+def is_wsl() -> bool:
+    """True inside a WSL2 distribution: the Linux side of a Windows host.
+
+    WSL puts ``WSL_DISTRO_NAME`` (and, with interop on, ``WSL_INTEROP``) in every
+    process, so those two variables are the whole test. The kernel string is deliberately
+    not consulted: a Docker Desktop container runs on that same "microsoft" kernel and must
+    never be mistaken for the host. Being environment-only also lets a plain Linux run stand
+    in for WSL in tests, and a WSL host stand in for plain Linux (``tests/conftest.py``
+    clears the variables). ``loader.sh``'s ``is_wsl`` applies the identical rule.
+    """
+    return bool(os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"))
 
 
 _WINDOWS_DRIVE = re.compile(r"^([A-Za-z]):[\\/](.*)$", re.DOTALL)
@@ -813,7 +815,7 @@ def translate_project_path(raw: str) -> str:
     passes straight through. ``loader.sh`` applies the identical rule before it validates
     the directory, which keeps ``--print-config`` byte-identical on WSL too.
     """
-    if not raw or not on_wsl():
+    if not raw or not is_wsl():
         return raw
     match = _WINDOWS_DRIVE.match(raw)
     if not match:
@@ -975,8 +977,68 @@ def logs(project: str, *, follow: bool = False, tail: str = "200") -> int:
     return subprocess.run(argv).returncode
 
 
+# The session URL is scheme, loopback host, port, path and one hex/base64url token: nothing
+# else. ``&``, ``%`` and ``+`` are left out on purpose — they mean something to cmd.exe.
+_URL_SAFE = re.compile(r"^[A-Za-z0-9:/?=._~-]+$")
+
+
+def windows_openers(url: str) -> list[list[str]]:
+    """Commands that open ``url`` in the Windows default browser from inside WSL, in order.
+
+    ``wslview`` (wslu) is WSL-aware and honours the user's own setup; PowerShell and
+    ``cmd.exe`` ship with Windows and reach WSL through interop. Only URL characters
+    reach those two, because each one is a shell of sorts; the session URL is made of
+    nothing else.
+    """
+    commands: list[list[str]] = []
+    wslview = shutil.which("wslview")
+    if wslview:
+        commands.append([wslview, url])
+    if _URL_SAFE.match(url):
+        powershell = shutil.which("powershell.exe")
+        if powershell:
+            commands.append(
+                [
+                    powershell,
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    f"Start-Process -FilePath '{url}'",
+                ]
+            )
+        cmd = shutil.which("cmd.exe")
+        if cmd:
+            commands.append([cmd, "/c", "start", "", url])
+    return commands
+
+
 def open_in_browser(url: str, *, echo=print) -> None:
-    """Open the session URL, saying so either way — a headless host has no browser to open."""
+    """Open the session URL, saying so either way — a headless host has no browser to open.
+
+    On WSL the browser lives on the Windows side: ``webbrowser`` would hand the URL to
+    ``xdg-open`` and report success whether or not anything showed it, so the Windows
+    openers are tried instead and judged by their exit status.
+    """
+    if is_wsl():
+        # cmd.exe warns when its working directory is a Linux path; /mnt/c is always Windows.
+        cwd = "/mnt/c" if os.path.isdir("/mnt/c") else None
+        for command in windows_openers(url):
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=cwd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=30,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+            if result.returncode == 0:
+                echo("opened your browser")
+                return
+        echo("could not open a browser automatically; paste the URL above into one")
+        return
     if webbrowser.open(url):
         echo("opened your browser")
     else:

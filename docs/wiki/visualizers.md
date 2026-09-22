@@ -14,8 +14,10 @@ Your job in TI-Toolbox is simple: pick what to look at. TetraVox does the rest.
 
 ## Setup
 
-Go to **Settings → Viewer** and click **Install TetraVox**. One time only, needs internet.
-Already have TetraVox? Use **Locate TetraVox…** to point at it.
+Nothing to do: the desktop app installs its own TetraVox on first launch (one download, needs
+internet). **Settings → Viewer** shows the version, offers **Retry setup** if that download failed,
+and **Update** to move to the newest release. TI-Toolbox only ever launches this copy, not one you
+installed yourself.
 
 ## Open a result
 

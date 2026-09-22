@@ -10,18 +10,17 @@ function statusPill(data: TitNativeTetravoxStatus | undefined, pending: boolean)
   if (!data) return { kind: "neutral", label: pending ? "Checking…" : "Not installed" };
   if (data.installing) return { kind: "neutral", label: "Setting up…" };
   if (!data.installed) return { kind: "neutral", label: "Not installed" };
-  const location = data.source === "system" && data.directory ? ` (${data.directory})` : "";
-  return { kind: "success", label: `Installed ${data.version}${data.source ? ` · ${data.source}` : ""}${location}` };
+  return { kind: "success", label: `Installed ${data.version}` };
 }
 
 /**
  * Settings ▸ Viewer's TetraVox card. Same status/mutations as the compact viewer embed
  * (`useNativeTetravox` in `NativeTetravox.tsx`) laid out as `Field` rows to match the other
- * settings cards (Project, Pre-processing, Extensions, Server) rather than a stack of full-width
- * buttons.
+ * settings cards. There is exactly one TetraVox here: the copy TI-Toolbox installs for itself
+ * (decision 2026-09-22) — no picker, no machine-wide search.
  */
 export function TetravoxCard() {
-  const { bridge, data, pending, progress, busy, working, failure, install, locate, forget, open } = useNativeTetravox();
+  const { bridge, data, pending, progress, busy, working, failure, install, update, open } = useNativeTetravox();
 
   if (!bridge?.nativeTetravoxStatus) {
     return (
@@ -37,7 +36,6 @@ export function TetravoxCard() {
   }
 
   const pill = statusPill(data, pending);
-  const sourceLabel = data?.source ? SOURCE_LABEL[data.source] : undefined;
   const locationPath = data?.executable || data?.directory;
   const unsupported = data && !data.supported && !data.installed;
 
@@ -45,29 +43,14 @@ export function TetravoxCard() {
     <Card>
       <CardHeader title="TetraVox" actions={<Chip kind={pill.kind}>{pill.label}</Chip>} />
       <CardBody className="tetravox-card-body">
-        {data?.installed && (
-          <Field label="Source" help="Which TetraVox installation TI-Toolbox launches.">
-            <div className="tetravox-row-value">
-              <span>{sourceLabel}</span>
-              {locationPath && <code className="mono">{locationPath}</code>}
-            </div>
-            {data.configuredPath && (
-              <a
-                href="#"
-                onClick={(event) => {
-                  event.preventDefault();
-                  forget.mutate();
-                }}
-              >
-                Use automatic choice
-              </a>
-            )}
-          </Field>
-        )}
-
-        <Field label="Version" note="Updates are managed in TetraVox.">
+        <Field label="Version" note={SOURCE_LABEL}>
           <div className="tetravox-row-value">
             <span>{data?.installed ? data.version : "Not installed"}</span>
+            {data?.installed && (
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => update.mutate()}>
+                {update.isPending ? "Updating…" : "Update"}
+              </Button>
+            )}
           </div>
           {busy && (
             <Progress
@@ -78,18 +61,15 @@ export function TetravoxCard() {
           )}
         </Field>
 
-        <Field label="Location" help="Where the launched TetraVox lives on disk.">
+        <Field label="Location" help="Where TI-Toolbox keeps its TetraVox on disk.">
           <div className="tetravox-row-value">
             <code className="mono">{locationPath ?? "—"}</code>
-            <Button size="sm" variant="secondary" disabled={busy || locate.isPending} onClick={() => locate.mutate()}>
-              Locate…
-            </Button>
           </div>
         </Field>
 
-        {!data?.installed && data?.supported && <p className="field-help">TI-Toolbox sets up TetraVox automatically in your user directory when no installation is found.</p>}
+        {!data?.installed && data?.supported && <p className="field-help">TI-Toolbox sets up TetraVox automatically in your user directory from the official release.</p>}
         {unsupported && (
-          <p className="field-help">TI-Toolbox cannot install TetraVox on this platform. Install it yourself, then use Locate…</p>
+          <p className="field-help">TI-Toolbox has no TetraVox package for this platform.</p>
         )}
         {failure && (
           <p role="alert" className="field-error">

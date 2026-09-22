@@ -152,3 +152,14 @@ describe("DockerEngineClient against a fake Engine API over a real Unix socket",
     expect(inspected.State.Running).toBe(true);
   });
 });
+
+describe("DockerEngineClient error classification for a missing endpoint", () => {
+  it("a missing Unix socket is not-installed; a missing named pipe is not-running (Docker Desktop is down)", async () => {
+    const unix = new DockerEngineClient({ kind: "unix", socketPath: "/tmp/tit-definitely-missing-9f3a.sock" }, { timeoutMs: 2000 });
+    await expect(unix.version()).rejects.toMatchObject({ name: "DockerEngineError", kind: "not-installed" });
+    // On this Linux host the pipe path is just a nonexistent Unix socket path, so the same ENOENT
+    // arrives; what the test pins is that the *kind* of the connection decides the classification.
+    const pipe = new DockerEngineClient({ kind: "npipe", socketPath: "//./pipe/tit-definitely-missing-9f3a" }, { timeoutMs: 2000 });
+    await expect(pipe.version()).rejects.toMatchObject({ name: "DockerEngineError", kind: "not-running" });
+  });
+});

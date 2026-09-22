@@ -8,8 +8,6 @@ export interface TitSettings {
   lastProjectDir?: string;
   /** Set only by the native Apple GPU consent flow. */
   appleGpuEnabled?: boolean;
-  /** TetraVox application the user located themselves. Set only by the native picker. */
-  tetravoxPath?: string;
 }
 
 export interface TitConnectArgs {
@@ -98,17 +96,14 @@ export interface TitFastSurferBridge {
 export interface TitNativeTetravoxStatus {
   /** Installed native application advertises the live scene request protocol. */
   supportsSceneSave?: boolean;
-  /** Which resolution step produced the selected application, if any. */
-  source?: "configured" | "managed" | "system" | "path";
+  /** Always TI-Toolbox's own copy: the only TetraVox the app ever launches. */
+  source?: "managed";
   executable?: string;
   supported: boolean;
   installed: boolean;
   installing: boolean;
   version: string;
   directory: string;
-  /** Path the user chose in Settings, and whether it still identifies a compatible TetraVox. */
-  configuredPath?: string;
-  configuredPathValid?: boolean;
   error?: string;
 }
 
@@ -124,10 +119,8 @@ export interface TitBridge {
   saveNativeTetravoxScene?(name: string): Promise<{ ok: boolean; path?: string; reason?: string; cancelled?: boolean }>;
   nativeTetravoxStatus?(): Promise<TitNativeTetravoxStatus>;
   installNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
-  /** Open a native picker for an existing TetraVox application and remember it. */
-  locateNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
-  /** Forget the configured path and fall back to normal resolution. */
-  clearNativeTetravoxPath?(): Promise<TitNativeTetravoxStatus>;
+  /** Replace TI-Toolbox's TetraVox with the newest official release; refused while it is open. */
+  updateNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
   /** Initial setup progress. Returns an unsubscribe function. */
   onNativeTetravoxProgress?(listener: (progress: TitNativeTetravoxProgress) => void): () => void;
   /** Container scene path in the active project, or empty to open the application. */

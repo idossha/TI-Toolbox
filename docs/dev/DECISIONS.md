@@ -1769,3 +1769,65 @@ remain required. Executables are verified before upload and inventory-checked be
 metadata. Actionlint checks workflow syntax; manifest selection must accept Linux amd64 and reject
 wrong/missing platforms. Workflow rehearsal and actual signature/notarization outcomes remain
 separate evidence; this decision alone does not certify release completion.
+
+## 2026-09-22 — Windows named pipes are probed; WSL is a Windows host to the loaders
+
+**Decision.** Docker discovery in the desktop app collapses every `npipe:` endpoint to
+`//./pipe/<name>`, and on win32 it probes the context-derived pipe and then Docker Desktop's
+well-known pipes (`dockerDesktopLinuxEngine`, `docker_engine`) with `GET /_ping` before failing;
+`docker.exe` is also looked for in Docker Desktop's install directories, not only on PATH. A named
+pipe that does not exist is classified `not-running`, never `not-installed`. Discovery remains the
+only CLI use; everything else stays on the Engine API (2026-09-03). Separately, `loader.sh` and
+`loader.py` treat WSL2 as a Windows host: browser UI by default, URL opened on the Windows side,
+no AppImage download, `--desktop` refused with a reason naming the Windows installer. WSL is
+detected from `WSL_DISTRO_NAME`/`WSL_INTEROP` only.
+
+**Why.** On a Windows 11 / Docker Desktop 4.60 / WSL2 machine the active context was
+`desktop-linux` with `npipe:////./pipe/dockerDesktopLinuxEngine`; stripping only `npipe:` left a
+four-slash path that Node rejects with ENOENT, which the app reported as "Docker was not found"
+[measured 2026-09-22: four-slash form ENOENT; `//./pipe/dockerDesktopLinuxEngine` and
+`//./pipe/docker_engine` both answer `/_ping` 200]. v2 never hit this because it hard-coded
+`//./pipe/docker_engine` and appended Docker Desktop's directories to PATH. A pipe cannot be
+`existsSync`-probed, so a one-request ping is the honest liveness check. In WSL the loaders
+downloaded the Linux AppImage in full and then failed on missing FUSE, and `webbrowser` handed the
+URL to an `xdg-open` with no WSL support while reporting success.
+
+**Verification contract.** `desktop/tests/unit/docker-engine-discover.test.ts` covers slash
+collapse, the Windows CLI candidates, the ping fallback order and the not-running/not-installed
+split; `tests/test_wsl_host.py` runs both loaders under a WSL environment. Verified live on the
+machine above: packaged `TI-Toolbox.exe` attaches to a running container over the pipe, the CUDA
+probe passes over npipe with `DeviceRequests` (`nvidia`), and both loaders open the URL through
+PowerShell. Fresh container creation from the Windows app was not exercised in that session
+because it would have replaced the user's only running container.
+
+## 2026-09-22 — TI-Toolbox launches only the TetraVox it installed
+
+**Decision.** Supersedes the resolution order of 2026-09-19 (located app, system locations, PATH,
+then TI's copy) and its "TetraVox owns updates". The desktop app installs its own TetraVox under
+`runtimes/tetravox-<platform>-<arch>` on macOS, Linux and Windows, from the official release
+archives (`mac-*.zip`, `linux-x64.tar.gz`, `win-x64.zip`), verifies each download against the
+SHA-256 digest GitHub publishes for the asset, and launches nothing else. The Locate picker, the
+`tetravoxPath` setting, PATH and system-location discovery are removed. TI owns updates through one
+**Update** action (download, verify, unpack, swap; refused while the viewer runs) and launches the
+viewer with `TETRAVOX_MANAGED_BY` set. The preload budget moves from 22 to 21 entries
+(`locateNativeTetravox` and `clearNativeTetravoxPath` out, `updateNativeTetravox` in).
+
+**Why.** The maintainer's instruction: use only the embedded TetraVox, assume none is present on the
+machine and ignore one if it is, keep it simple and robust. Under the previous order a stale or
+foreign TetraVox anywhere on the machine silently became the viewer, and Windows had no managed
+setup at all — the Settings card told a Windows user to install TetraVox themselves and point at
+it. The Windows release already ships a plain `win-unpacked` zip and GitHub now publishes a digest
+for every asset, which removes the earlier objection that no verifiable portable package existed.
+`tar` (bsdtar on Windows 10+) unpacks all non-macOS archives, so no extraction dependency is added.
+
+**Alternatives rejected.** Bundling TetraVox inside the TI-Toolbox installer couples two release
+cadences (five TetraVox releases in the week before this decision). Keeping the picker "for experts"
+keeps the failure mode. Relying on TetraVox's own updater leaves the Windows zip copy without any
+update path and two owners of the installed version.
+
+**Verification contract.** `desktop/src/main/tetravoxNative.test.ts` builds a real platform archive
+from a fixture and exercises first setup, digest refusal, byte mismatch, update-and-swap, an
+already-current update and rediscovery of earlier directories; `tests/unit/tetravox-card.test.tsx`
+pins the card (no Locate, Update once installed); `smoke.spec.ts` pins the 21-entry bridge. Verified
+live on Windows 11 the same day: fresh install of TetraVox 0.6.1 from the packaged app and a native
+launch. macOS and Linux paths were exercised by the unit fixtures only in that session.

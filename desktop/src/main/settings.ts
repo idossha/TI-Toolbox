@@ -16,7 +16,6 @@ export function readSettings(): TitSettings {
     if (typeof raw.lastServerUrl === "string") out.lastServerUrl = raw.lastServerUrl;
     if (typeof raw.lastProjectDir === "string") out.lastProjectDir = raw.lastProjectDir;
     if (typeof raw.appleGpuEnabled === "boolean") out.appleGpuEnabled = raw.appleGpuEnabled;
-    if (typeof raw.tetravoxPath === "string") out.tetravoxPath = raw.tetravoxPath;
     return out;
   } catch {
     return {};
@@ -32,13 +31,6 @@ export function updateSettings(partial: unknown): TitSettings {
       if (typeof p[key] === "string") current[key] = p[key] as string;
     }
   }
-  return writeSettings(current);
-}
-
-/** Only the native picker can set this; the renderer never supplies a path. */
-export function setTetravoxPath(path: string | undefined): TitSettings {
-  const current = { ...readSettings() };
-  if (path) current.tetravoxPath = path; else delete current.tetravoxPath;
   return writeSettings(current);
 }
 

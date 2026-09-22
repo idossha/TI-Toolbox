@@ -327,8 +327,9 @@ cover oversized backfill and ordered batch draining.
 ### Native viewer lifecycle release gate
 
 ARCHITECTURE §7.1 defines the macOS arm64/x64, Windows x64 and Linux x64 acceptance matrix, including
-Wayland and X11. Local suites cover application identity, concurrent initial setup, verified downloads,
-self-update rediscovery, legacy profiles, serialized handoff and setup UI. Fixtures also pin one shared
+Wayland and X11. Local suites cover application identity, concurrent initial setup, digest-verified downloads and
+refusals, update-and-swap, rediscovery of earlier directories, legacy profiles, serialized handoff
+and setup UI (there is no picker or machine-wide search to test: TI launches only its own copy). Fixtures also pin one shared
 installation during startup/Retry/Results races and zero release-network requests on a second launch
 with an identified installation. Run them with:
 

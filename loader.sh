@@ -3,6 +3,10 @@
 set -euo pipefail
 
 die() { printf 'ti-toolbox: %s\n' "$*" >&2; exit 1; }
+# WSL2 is a Windows host to this script. WSL sets these variables in every process; the kernel
+# string is not consulted, because a Docker Desktop container runs on the same "microsoft" kernel
+# and must never be mistaken for the host. tit/launch.py::is_wsl is the same rule.
+is_wsl() { [ -n "${WSL_DISTRO_NAME:-}" ] || [ -n "${WSL_INTEROP:-}" ]; }
 project="${TIT_PROJECT_DIR:-}"
 image="${TIT_IMAGE_TAG:-}"
 port=8765 timeout=180 mode=start follow=0 open_browser=1 interactive=0
@@ -73,8 +77,9 @@ case "$running_action" in ""|attach|recreate) ;; *) die "--existing must be atta
 if [ -z "$ui" ]; then
     # The desktop app is the default UI; only --browser and --no-open opt out. --dev changes
     # where the server and renderer code comes from, never which UI the developer sees
-    # (docs/dev/DECISIONS.md, 2026-09-17).
-    if [ "$explicit_browser" = 1 ] || [ "$open_browser" = 0 ]; then ui=browser; else ui=desktop; fi
+    # (docs/dev/DECISIONS.md, 2026-09-17). WSL has no desktop build to run (no_desktop_reason),
+    # so its default is the browser, opened on the Windows side; --desktop still asks and is refused.
+    if [ "$explicit_browser" = 1 ] || [ "$open_browser" = 0 ] || is_wsl; then ui=browser; else ui=desktop; fi
 fi
 # The desktop app owns the project: with no --project it opens its own project page, exactly
 # as a Dock launch does, so neither the prompt nor the project requirement applies here.
@@ -94,15 +99,16 @@ if [ "$interactive" = 1 ]; then
     project="${answer:-$project}"
 fi
 # --print-config reports what the flags resolve to and starts nothing, so "no project yet" is
-# an answer there, not an error; loader.py prints the same empty line.
-if [ "$desktop_no_project" = 1 ] || { [ "$print_config" = 1 ] && [ -z "$project" ]; }; then
+# an answer there, not an error; loader.py prints the same empty line. --build and --web are
+# checkout operations that need no project either (tit/cli.py checks them before the project).
+if [ "$desktop_no_project" = 1 ] || { [ -z "$project" ] && { [ "$print_config" = 1 ] || [ "$build" = 1 ] || [ "$web" = 1 ]; }; }; then
     project=''
 else
     case "$project" in \~/*) project="$HOME/${project#\~/}" ;; esac
     # WSL2 only: a path copied from Explorer ("C:\Users\me\project") names the same
     # directory Linux calls /mnt/c/Users/me/project, and Docker Desktop needs the latter.
     # tit/launch.py::translate_project_path is the same rule. macOS and Linux never match.
-    if [ -n "${WSL_DISTRO_NAME:-}" ] || { [ -r /proc/version ] && grep -qi microsoft /proc/version 2>/dev/null; }; then
+    if is_wsl; then
         case "$project" in
             [A-Za-z]:[/\\]*)
                 wsl_drive="$(printf '%s' "${project%%:*}" | tr '[:upper:]' '[:lower:]')"
@@ -143,7 +149,17 @@ desktop_data_dir() {
         *) printf '%s' "${XDG_DATA_HOME:-$HOME/.local/share}/ti-toolbox" ;;
     esac
 }
+# Why this host gets the browser; tit/cli.py::no_desktop_reason prints the same line.
+no_desktop_reason() {
+    if is_wsl; then
+        printf 'the desktop app runs from Windows, not WSL: install TI-Toolbox-%s.exe from https://github.com/idossha/TI-Toolbox/releases and open your project there, or use the browser here (the default in WSL)' "$(tit_version)"
+    else
+        printf 'no desktop build for %s/%s' "$(uname -s)" "$(uname -m)"
+    fi
+}
 desktop_asset() {
+    # Empty on WSL: the Linux build cannot run there (no_desktop_reason).
+    if is_wsl; then return 0; fi
     case "$(uname -s):$(uname -m)" in
         Darwin:arm64) printf 'TI-Toolbox-%s-arm64-mac.zip' "$1" ;;
         Darwin:x86_64) printf 'TI-Toolbox-%s-mac.zip' "$1" ;;
@@ -168,7 +184,7 @@ resolve_desktop_executable() {
     exe="$(managed_executable "$(desktop_data_dir)/app/$version")"
     if [ -n "$exe" ] && [ -x "$exe" ]; then desktop_exe="$exe"; return 0; fi
     if [ -z "$(desktop_asset "$version")" ]; then
-        desktop_reason="no desktop build for $(uname -s)/$(uname -m)"; return 0
+        desktop_reason="$(no_desktop_reason)"; return 0
     fi
     desktop_exe=download
 }
@@ -494,7 +510,26 @@ until curl -fsS "$origin/api/health" >/dev/null 2>&1; do
 done
 mkdir -p "$config"; printf '%s\n' "$project" > "$config/last-project.txt"
 url="$origin/auth/session?token=$token"
-if [ "$open_browser" = 1 ] && command -v open >/dev/null; then open "$url"
-elif [ "$open_browser" = 1 ] && command -v xdg-open >/dev/null; then xdg-open "$url"
-else printf '%s\n' "$url"
+# Open the session URL in the default browser, saying so either way. On WSL the browser lives on
+# the Windows side: wslview (wslu) first, then PowerShell and cmd.exe through interop, each judged
+# by its exit status — xdg-open would claim success with nothing to show. The token is hex, so the
+# URL carries nothing a shell could misread. tit/launch.py::open_in_browser is the same sequence.
+open_url() {
+    if is_wsl; then
+        if command -v wslview >/dev/null 2>&1 && wslview "$1" >/dev/null 2>&1; then return 0; fi
+        if command -v powershell.exe >/dev/null 2>&1 && powershell.exe -NoProfile -NonInteractive -Command "Start-Process -FilePath '$1'" >/dev/null 2>&1; then return 0; fi
+        # cmd.exe warns when its working directory is a Linux path; /mnt/c is always Windows.
+        if command -v cmd.exe >/dev/null 2>&1 && ( cd /mnt/c 2>/dev/null || :; cmd.exe /c start "" "$1" >/dev/null 2>&1 ); then return 0; fi
+        return 1
+    fi
+    if command -v open >/dev/null 2>&1; then open "$1"
+    elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1"
+    else return 1
+    fi
+}
+printf '%s\n' "$url"
+if [ "$open_browser" = 1 ]; then
+    if open_url "$url"; then printf 'opened your browser\n'
+    else printf 'could not open a browser automatically; paste the URL above into one\n'
+    fi
 fi

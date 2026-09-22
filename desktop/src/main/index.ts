@@ -4,7 +4,7 @@ import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Notification, dialog, ipcMain, nativeImage, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
-import { readSettings, updateSettings, setAppleGpuEnabled, setTetravoxPath } from "./settings";
+import { readSettings, updateSettings, setAppleGpuEnabled } from "./settings";
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
@@ -12,7 +12,7 @@ import { createNativeSceneSession, exchangeNativeSceneRequest } from "./nativeSc
 import { createScenePreviewQueue, renderNativeScenePreview } from "./nativeScenePreview";
 import { orchestrateNativeSceneSave } from "./nativeSceneSave";
 import { createViewerHandoff } from "./viewerHandoff";
-import { checkViewerScene, identifyViewerPath, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setConfiguredViewerPathProvider, setViewerProgressListener } from "./tetravoxNative";
+import { checkViewerScene, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setViewerProgressListener, updateNativeViewer } from "./tetravoxNative";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -700,9 +700,6 @@ function registerIpc(): void {
    */
   const fromLauncherWindow = (e: Electron.IpcMainInvokeEvent) => fromMainWindow(e) && isLauncherUrl(e.senderFrame?.url ?? "");
 
-  // The resolver reads the user's chosen path through this provider, so the viewer module never
-  // imports Electron and stays unit-testable.
-  setConfiguredViewerPathProvider(() => readSettings().tetravoxPath);
   setViewerProgressListener((progress) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("tit:tetravox:progress", progress);
   });
@@ -712,34 +709,19 @@ function registerIpc(): void {
     return nativeViewerStatus(app.getPath("userData"));
   });
   // Setup is automatic on launch; this action is the same first-install-only operation for retry.
-  // TetraVox owns all subsequent updates; TI has no update IPC or initial-setup consent dialog.
   ipcMain.handle("tit:tetravox:install", async (e) => {
     if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
     const userData = app.getPath("userData");
     try { return await installNativeViewer(userData); }
     catch { return nativeViewerStatus(userData); }
   });
-  ipcMain.handle("tit:tetravox:locate", async (e) => {
-    if (!fromMainWindow(e) || !mainWindow) throw new Error("Untrusted viewer request.");
-    const picked = await dialog.showOpenDialog(mainWindow, {
-      title: "Locate TetraVox",
-      properties: process.platform === "darwin" ? ["openFile", "treatPackageAsDirectory"] : ["openFile"],
-      filters: process.platform === "win32" ? [{ name: "Applications", extensions: ["exe"] }] : [],
-    });
-    const chosen = picked.filePaths[0];
-    if (picked.canceled || !chosen) return nativeViewerStatus(app.getPath("userData"));
-    try {
-      await identifyViewerPath(chosen);
-      setTetravoxPath(chosen);
-      return await nativeViewerStatus(app.getPath("userData"));
-    } catch (error) {
-      return { ...await nativeViewerStatus(app.getPath("userData")), error: error instanceof Error ? error.message : String(error) };
-    }
-  });
-  ipcMain.handle("tit:tetravox:clearPath", async (e) => {
+  // TI owns its TetraVox copy outright (decision 2026-09-22): this replaces it with the newest
+  // official release, and is refused while that copy is open.
+  ipcMain.handle("tit:tetravox:update", async (e) => {
     if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
-    setTetravoxPath(undefined);
-    return nativeViewerStatus(app.getPath("userData"));
+    const userData = app.getPath("userData");
+    try { return await updateNativeViewer(userData); }
+    catch { return nativeViewerStatus(userData); }
   });
   const viewerHandoff = createViewerHandoff();
   const previewQueue = createScenePreviewQueue();
