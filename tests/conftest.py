@@ -143,6 +143,19 @@ def _isolated_cpu_limit(tmp_path_factory):
         yield
 
 
+@pytest.fixture
+def roomy_cpus(monkeypatch):
+    """A 64-core machine, for tests that assert an explicit thread/worker count is passed
+    through: the global CPU limit (70 % of the host) clamps explicit values, so on a 4-core CI
+    runner (CircleCI 1127) a requested 4 became 2."""
+    import tit.cpu
+    import tit.surfer_settings
+
+    monkeypatch.setattr(tit.cpu, "effective_cpus", lambda root=None: 64)
+    monkeypatch.setattr(tit.surfer_settings, "available_threads", lambda: 44)
+    monkeypatch.delenv(tit.cpu.JOB_CPUS_ENV, raising=False)
+
+
 # PathManager reset — runs after every test automatically
 # ============================================================================
 

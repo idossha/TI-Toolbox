@@ -217,7 +217,7 @@ def test_container_requires_host_project_mapping(project, monkeypatch):
     runner.run.assert_not_called()
 
 
-def test_explicit_threads_are_capped_at_container_limit(project):
+def test_explicit_threads_are_capped_at_container_limit(project, roomy_cpus):
     complete(project[0])
     runner = Mock()
     runner.run.return_value = 0

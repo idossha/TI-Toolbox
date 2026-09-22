@@ -68,11 +68,11 @@ class TestAvailability:
 
 
 class TestThreadResolution:
-    def test_explicit_argument_wins(self, monkeypatch):
+    def test_explicit_argument_wins(self, monkeypatch, roomy_cpus):
         monkeypatch.setenv(fs.ENV_FASTSURFER_THREADS, "9")
         assert fs.resolve_threads(4) == 4
 
-    def test_env_is_read_when_no_argument(self, monkeypatch):
+    def test_env_is_read_when_no_argument(self, monkeypatch, roomy_cpus):
         monkeypatch.setenv(fs.ENV_FASTSURFER_THREADS, "7")
         assert fs.resolve_threads() == 7
 
@@ -135,7 +135,7 @@ class TestRunFastsurfer:
         with pytest.raises(PreprocessError, match="No T1 file found"):
             fs.run_fastsurfer(str(project), "001", logger=MagicMock(), runner=_runner())
 
-    def test_command_shape(self, project, fake_home, monkeypatch):
+    def test_command_shape(self, project, fake_home, monkeypatch, roomy_cpus):
         seen = {}
 
         def capture(cmd):

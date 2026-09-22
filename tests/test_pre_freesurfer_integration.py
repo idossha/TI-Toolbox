@@ -171,7 +171,7 @@ def test_submission_checks_license_and_complete_recon_before_queue(
     assert "license" in caught.value.detail
 
 
-def test_scheduler_locks_cost_and_cancellation_eligibility():
+def test_scheduler_locks_cost_and_cancellation_eligibility(roomy_cpus):
     from tit.jobs.costs import default_cost
     from tit.jobs.kinds import may_spawn_docker_siblings
     from tit.jobs.locks import keys_for
