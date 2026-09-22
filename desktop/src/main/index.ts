@@ -199,7 +199,10 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
         const resolved = await resolveHostPathStrict(containerPath);
         return resolved.ok ? resolved.path : null;
       },
-      viewerExecutable: async () => (await nativeViewerStatus(app.getPath("userData"))).executable ?? undefined,
+      viewerExecutable: async () => {
+        const viewer = await nativeViewerStatus(app.getPath("userData"));
+        return viewer.installed ? viewer.executable : undefined;
+      },
     });
   });
   log("info", `connected to ${url.origin}; loading session from ${pageOrigin}`);
@@ -932,6 +935,9 @@ function registerIpc(): void {
     if (!fromMainWindow(e)) return { ok: false, reason: "unknown sender" };
     const resolved = await resolveHostPathStrict(String(path));
     if (!resolved.ok) return resolved;
+    // The OS would pick whichever TetraVox it associates with scenes — possibly the user's own
+    // copy. Scenes open only in TI's copy, from the Viewer (decision 2026-09-22).
+    if (resolved.path.toLowerCase().endsWith(".tetravox.json")) return { ok: false, reason: "Open TetraVox scenes from the Viewer." };
     const err = await shell.openPath(resolved.path);
     return err ? { ok: false, reason: err } : { ok: true };
   });

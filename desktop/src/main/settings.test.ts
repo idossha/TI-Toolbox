@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const location = vi.hoisted(() => ({ directory: "" }));
@@ -22,5 +22,13 @@ describe("user Apple GPU preference", () => {
   it("cannot be enabled through the general renderer settings update", () => {
     updateSettings({ appleGpuEnabled: true });
     expect(readSettings().appleGpuEnabled).toBeUndefined();
+  });
+  it("ignores a TetraVox path an older version saved, and drops it on the next write", () => {
+    // TI launches only its own TetraVox (decision 2026-09-22); a stale `tetravoxPath` must not
+    // resurface through settings or the bridge.
+    writeFileSync(join(location.directory, "settings.json"), JSON.stringify({ lastProjectDir: "/p", tetravoxPath: "/Applications/Tetravox.app" }));
+    expect(readSettings()).toEqual({ lastProjectDir: "/p" });
+    updateSettings({ lastProjectDir: "/q" });
+    expect(JSON.parse(readFileSync(join(location.directory, "settings.json"), "utf8"))).toEqual({ lastProjectDir: "/q" });
   });
 });

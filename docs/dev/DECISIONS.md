@@ -1831,3 +1831,38 @@ already-current update and rediscovery of earlier directories; `tests/unit/tetra
 pins the card (no Locate, Update once installed); `smoke.spec.ts` pins the 21-entry bridge. Verified
 live on Windows 11 the same day: fresh install of TetraVox 0.6.1 from the packaged app and a native
 launch. macOS and Linux paths were exercised by the unit fixtures only in that session.
+
+## 2026-09-22 — TI's TetraVox runs in TI's own profile, and scenes never go to the OS
+
+**Decision.** Amends the entry above. Every launch of TI's copy passes
+`--user-data-dir=<userData>/tetravox-profile` (created if missing; the directory earlier layouts
+used only when it already existed), on macOS through `open -a <bundle> --args` and elsewhere on the
+command line. ROI-plate `--job` captures get a throwaway profile, like scene previews already did.
+`tit:openPath` refuses `*.tetravox.json`, so a scene is never handed to the OS's file association.
+The scene-protocol capability check reads `app.asar` through the asar header like identity does.
+
+**Why.** Without the flag TI's copy used Electron's default profile, `@tetravox` in the OS app-data
+directory — the same one a TetraVox the user installed uses. TetraVox takes
+`app.requestSingleInstanceLock()` on that profile (`packages/app/src/main/index.ts`), so while the
+user's copy was open a scene sent to TI's copy was forwarded to the user's copy and TI's exited, and
+the two shared settings and the extension index. Checked on macOS 15.7 the same day: `open -a
+<path>` launches that bundle even while another copy with the same bundle id runs, and passes the
+caller's environment (so `TETRAVOX_MANAGED_BY` reaches it; TetraVox's `updater.ts` reads exactly that
+name). A real first setup and Update of TetraVox 0.6.1 into a temporary user-data directory, followed
+by a launch, ran in `tetravox-profile` and left `~/Library/Application Support/@tetravox` untouched.
+The asar read: Electron's patched `readFile` keeps the archive open, which on Windows blocks the
+directory rename Update performs (the measurement that moved install file operations to
+`original-fs`).
+
+**Alternatives rejected.** Keeping the profile only for legacy installs leaves the lock shared on
+every new install. `open -n` would start duplicate TI viewers. Routing `openPath` scenes to TI's
+copy adds a second launch path for a case with no caller.
+
+**Not changed.** Unpacking and launching the bundle registers it with LaunchServices, and TetraVox
+declares `.nii`, `.nii.gz`, `.mgz` and other document types; with one bundle id, macOS may pick
+either copy for a double-clicked file. Process detection still counts any TetraVox process as open
+(false positives only ask for consent or refuse Update).
+
+**Verification contract.** `tetravoxNative.test.ts` "always runs TI's copy in TI's own profile" and
+the macOS `open` cases pin the argument; `roiPlates.test.ts` pins the capture profile;
+`settings.test.ts` pins that a stale `tetravoxPath` is ignored and dropped.

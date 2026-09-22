@@ -9,7 +9,6 @@
  * into a private staging directory and renames it into place. "Update" does the same into a fresh
  * directory and swaps. TetraVox's own updater is told it is managed (`TETRAVOX_MANAGED_BY`).
  */
-import { supportsNativeSceneApi } from "./nativeSceneBridge";
 import { createHash } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
 import { closeSync, createWriteStream, openSync } from "node:fs";
@@ -138,6 +137,19 @@ export async function readAsarText(archive: string, inner: string): Promise<stri
     await handle.read(data, 0, node.size, 8 + headerSize + Number(node.offset));
     return data.toString("utf8");
   } finally { await handle.close(); }
+}
+
+/**
+ * Whether the app declares TI's scene-request protocol. Capability is declared by the installed
+ * application, never guessed from its version. Read through the asar header like identity, because
+ * Electron's asar-aware `readFile` would keep `app.asar` open and block Update's rename on Windows.
+ */
+export async function supportsNativeSceneApi(executable: string, platform = process.platform): Promise<boolean> {
+  const resources = platform === "darwin" ? join(dirname(dirname(executable)), "Resources") : join(dirname(executable), "resources");
+  try {
+    const metadata = JSON.parse(await readAsarText(join(resources, "app.asar"), "package.json")) as { sceneApiProtocol?: unknown };
+    return metadata.sceneApiProtocol === 1;
+  } catch { return false; }
 }
 
 /** Identify the application at `path` (a `.app` bundle, a bundle executable or a binary) or throw. */
@@ -417,15 +429,20 @@ export async function openNativeViewer(userData: string, scene: string, selected
   const status = selected ?? await nativeViewerStatus(userData);
   if (!status.installed || !status.executable) throw new Error("TetraVox is not installed yet. Open Settings → Viewer and retry its setup.");
   const { executable } = status;
-  // Earlier layouts gave TI's copy its own profile; keep using it where it exists so an open
-  // viewer's single-instance lock is the one this launch reaches.
-  const legacyProfile = join(userData, "tetravox-profile");
-  const useLegacyProfile = await stat(legacyProfile).then((entry) => entry.isDirectory(), () => false);
+  // TI's copy always runs in TI's own profile. Without it, it would share Electron's default
+  // profile (`@tetravox` in the OS app-data directory) with any TetraVox the user installed —
+  // their settings, and their single-instance lock, so a scene sent to TI's copy while theirs is
+  // open would be handed to theirs. The directory name is the one earlier layouts used, so a
+  // viewer already open in it keeps receiving scenes.
+  const profile = join(userData, "tetravox-profile");
+  await mkdir(profile, { recursive: true, mode: 0o700 });
   const env: NodeJS.ProcessEnv = { ...process.env, TETRAVOX_MANAGED_BY: MANAGED_BY };
   delete env.ELECTRON_RUN_AS_NODE;
   const bundle = process.platform === "darwin" ? /^(.*\.app)\/Contents\/MacOS\/[^/]+$/.exec(executable)?.[1] : undefined;
+  // `open -a <path>` targets this bundle, not another copy with the same bundle id (checked on
+  // macOS 15, 2026-09-22), and passes this process's environment; `--args` reach a new instance.
+  const profileArgs = ["--args", `--user-data-dir=${profile}`];
   if (bundle && !requestPath) {
-    const profileArgs = useLegacyProfile ? ["--args", `--user-data-dir=${legacyProfile}`] : [];
     // LaunchServices sends open-file, which existing viewers queue even without a
     // window. Direct executable launches send second-instance and lose that scene.
     await execFileAsync("/usr/bin/open", ["-a", bundle, ...(scene ? [scene] : []), ...profileArgs], { env, timeout: 15_000, maxBuffer: 65536 });
@@ -441,7 +458,7 @@ export async function openNativeViewer(userData: string, scene: string, selected
   await new Promise<void>((resolve, reject) => {
     const logPath = join(userData, "tetravox-launch.log");
     const descriptor = openSync(logPath, "w", 0o600);
-    const child = spawn(executable!, [...platformArgs, ...(useLegacyProfile ? [`--user-data-dir=${legacyProfile}`] : []), ...(requestPath ? [`--scene-request=${requestPath}`] : scene ? [scene] : [])], { env, detached: true, stdio: ["ignore", "ignore", descriptor], windowsHide: false });
+    const child = spawn(executable!, [...platformArgs, `--user-data-dir=${profile}`, ...(requestPath ? [`--scene-request=${requestPath}`] : scene ? [scene] : [])], { env, detached: true, stdio: ["ignore", "ignore", descriptor], windowsHide: false });
     closeSync(descriptor);
     const timer = setTimeout(() => { child.unref(); resolve(); }, 1500);
     child.once("error", (error) => { clearTimeout(timer); reject(error); });
@@ -454,5 +471,5 @@ export async function openNativeViewer(userData: string, scene: string, selected
       );
     });
   });
-  if (bundle && requestPath) await execFileAsync("/usr/bin/open", ["-a", bundle], { env, timeout: 15_000, maxBuffer: 65536 });
+  if (bundle && requestPath) await execFileAsync("/usr/bin/open", ["-a", bundle, ...profileArgs], { env, timeout: 15_000, maxBuffer: 65536 });
 }

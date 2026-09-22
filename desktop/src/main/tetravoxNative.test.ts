@@ -129,12 +129,13 @@ describe("native TetraVox", () => {
     await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s" "${TETRAVOX_MANAGED_BY-unset}" > "$0.env"\n');
     await chmod(executable, 0o755);
     await openNativeViewer(dir, "/project/example.tetravox.json", status(executable, dir));
-    expect(await readFile(`${executable}.args`, "utf8")).toBe([...platformArgs, "/project/example.tetravox.json"].join("\n") + "\n");
+    expect(await readFile(`${executable}.args`, "utf8")).toBe([...platformArgs, `--user-data-dir=${join(dir, "tetravox-profile")}`, "/project/example.tetravox.json"].join("\n") + "\n");
     expect(await readFile(`${executable}.env`, "utf8")).toBe(MANAGED_BY);
   });
-  it.runIf(process.platform !== "win32")("keeps using an earlier layout's profile directory", async () => {
-    const dir = await temporary(); const executable = join(dir, "legacy-viewer");
-    await mkdir(join(dir, "tetravox-profile"));
+  it.runIf(process.platform !== "win32")("always runs TI's copy in TI's own profile, never Electron's shared default one", async () => {
+    // A user's own TetraVox uses the default profile; sharing it would share its settings and its
+    // single-instance lock, so a scene sent here could land in the user's copy instead.
+    const dir = await temporary(); const executable = join(dir, "profile-viewer");
     await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\n');
     await chmod(executable, 0o755);
     await openNativeViewer(dir, "/project/example.tetravox.json", status(executable, dir));
@@ -159,13 +160,14 @@ describe("native TetraVox", () => {
     await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\n'); await chmod(executable, 0o755);
     const requestPath = join(dir, "request.json");
     await openNativeViewer(dir, "/project/scene.tetravox.json", { ...status(executable, bundle), version: "1.0.0" }, requestPath);
-    expect(await readFile(`${executable}.args`, "utf8")).toBe(`--scene-request=${requestPath}\n`);
-    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle]]);
+    expect(await readFile(`${executable}.args`, "utf8")).toBe(`--user-data-dir=${join(dir, "tetravox-profile")}\n--scene-request=${requestPath}\n`);
+    const profile = ["--args", `--user-data-dir=${join(dir, "tetravox-profile")}`];
+    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle, ...profile]]);
   });
   it.runIf(process.platform === "darwin")("blank Mac launch only requests activation of the bundle", async () => {
     const dir = await temporary(); const bundle = join(dir, "Tetravox.app");
     await openNativeViewer(dir, "", { ...status(join(bundle, "Contents/MacOS/Tetravox"), bundle), version: "1.0.0" });
-    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle]]);
+    expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle, "--args", `--user-data-dir=${join(dir, "tetravox-profile")}`]]);
   });
   it.runIf(process.platform === "darwin")("surfaces LaunchServices rejection without replaying the scene", async () => {
     const dir = await temporary(); macOpen.error = new Error("LaunchServices rejected application");

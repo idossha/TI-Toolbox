@@ -4,7 +4,8 @@ import { mkdtemp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createNativeSceneSession, exchangeNativeSceneRequest, supportsNativeSceneApi, type NativeSceneRequest } from "./nativeSceneBridge";
+import { createNativeSceneSession, exchangeNativeSceneRequest, type NativeSceneRequest } from "./nativeSceneBridge";
+import { supportsNativeSceneApi } from "./tetravoxNative";
 const roots: string[] = [];
 async function temporary() { const root = await realpath(await mkdtemp(join(tmpdir(), "ti-native-scene-"))); roots.push(root); return root; }
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))); });
