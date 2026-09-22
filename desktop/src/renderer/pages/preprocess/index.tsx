@@ -6,7 +6,6 @@ import { Workflow } from "lucide-react";
 import { getSubjects, type Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
-import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession, usePageSessionRef } from "../../app/pageSession";
 import { createAjvResolver } from "../../forms/ajvResolver";
 import { Button } from "../../ui/Button";
@@ -203,7 +202,6 @@ function PreprocessPage() {
     [subjects, detailQueries],
   );
 
-  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const policy: ExistingOutputPolicy = "skip";
   const [qsiPrepOpen, setQsiPrepOpen] = useState(false);
   const [qsiReconOpen, setQsiReconOpen] = useState(false);
@@ -277,7 +275,7 @@ function PreprocessPage() {
     // existing-outputs dialog is what the user just answered, and pressing "Replace and rerun"
     // there has to mean replace even if the segmented control below still says skip.
     mutationFn: (decision: ExistingOutputPolicy) =>
-      submitPreGroup(toSubmitConfig(values, selected, decision, preferences.data), selected, parallelSubjects),
+      submitPreGroup(toSubmitConfig(values, selected, decision, preferences.data), selected),
     onSuccess: (result) => {
       // `result.jobs.length` is not one-per-subject: the mock (and the real `plan_preprocessing`
       // DAG it mirrors) expands each subject into one job per configured stage (the subject
@@ -334,7 +332,6 @@ function PreprocessPage() {
           startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}
           steps={previewSteps}
-          parallel={parallelSubjects}
         />
       }
       actionBar={

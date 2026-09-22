@@ -4,7 +4,7 @@ Shapes mirror ``contracts/openapi.yaml`` (``JobKind``, ``JobState``, ``JobProgre
 ``JobError``, ``Artifact``, ``WaitingOn``, ``JobStatus``, ``JobSpec``, ``JobDetail``,
 ``LockConflict``).  A few fields exist only on the Python side (persisted to
 ``spec.json``/``status.json`` for the scheduler's own bookkeeping — ``locks``, ``cost``,
-``pid``, ``create_time``, ``budget_wait``, ``group_cap``) and are dropped by
+``pid``, ``create_time``, ``budget_wait``) and are dropped by
 :meth:`JobStatus.to_api` / :meth:`JobSpec.to_api` before a response leaves the server, so the wire
 shape stays exactly what the contract describes plus one harmless additive field
 (``budget_wait``, not ``additionalProperties: false`` in the schema).
@@ -237,11 +237,10 @@ class JobSpec:
 
     ``kind``/``config``/``subject_ids``/``after``/``tags``/``overwrite`` are the fields a caller
     may set (the wire ``JobSpec`` in the contract is exactly this subset, minus ``id`` which the
-    server assigns); ``locks``/``cost``/``env``/``created_by``/``created_at``/``group_id``/
-    ``group_cap`` are computed or defaulted by :mod:`tit.jobs.manager` at submission time and
-    never come from the client directly (``group_cap`` mirrors ``JobGroupRequest.parallel_subjects``
-    onto every job ``submit_plan`` creates for that group, so :mod:`tit.jobs.scheduler` can enforce
-    it without a separate group registry — see :func:`tit.jobs.scheduler.evaluate`).
+    server assigns); ``locks``/``cost``/``env``/``created_by``/``created_at``/``group_id`` are
+    computed or defaulted by :mod:`tit.jobs.manager` at submission time and never come from the
+    client directly. A ``group_cap`` key in an older ``spec.json`` (the retired "Subjects in
+    parallel" setting) is ignored: :func:`tit.jobs.scheduler.evaluate` runs one job per product.
     """
 
     id: str
@@ -256,7 +255,6 @@ class JobSpec:
     created_by: str = "api"
     created_at: str = field(default_factory=utcnow_iso)
     group_id: str | None = None
-    group_cap: int | None = None
     overwrite: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -273,7 +271,6 @@ class JobSpec:
             "created_by": self.created_by,
             "created_at": self.created_at,
             "group_id": self.group_id,
-            "group_cap": self.group_cap,
             "overwrite": self.overwrite,
         }
 
@@ -308,7 +305,6 @@ class JobSpec:
             created_by=data.get("created_by", "api"),
             created_at=data.get("created_at", utcnow_iso()),
             group_id=data.get("group_id"),
-            group_cap=data.get("group_cap"),
             overwrite=bool(data.get("overwrite", False)),
         )
 

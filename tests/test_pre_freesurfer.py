@@ -197,9 +197,10 @@ def test_default_limits_match_reserved_job_budget(project, monkeypatch):
         "001", recon_all=False, subregions=["thalamus"], runner=runner, logger=Mock()
     )
     argv = runner.run.call_args.args[0]
-    assert argv[argv.index("--cpus") + 1] == "9"
+    # available_threads is already the global CPU limit, so the default is all of it.
+    assert argv[argv.index("--cpus") + 1] == "10"
     assert argv[argv.index("--memory") + 1] == "16g"
-    assert argv[-2:] == ["--threads", "9"]
+    assert argv[-2:] == ["--threads", "10"]
 
 
 def test_container_requires_host_project_mapping(project, monkeypatch):
@@ -216,7 +217,7 @@ def test_container_requires_host_project_mapping(project, monkeypatch):
     runner.run.assert_not_called()
 
 
-def test_explicit_threads_are_capped_at_container_limit(project):
+def test_explicit_threads_are_capped_at_container_limit(project, roomy_cpus):
     complete(project[0])
     runner = Mock()
     runner.run.return_value = 0

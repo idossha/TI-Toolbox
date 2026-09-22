@@ -263,7 +263,6 @@ def test_submit_group_rejects_a_subject_id_that_is_not_one(client: TestClient) -
             "kind": "sim",
             "config": {},
             "subject_ids": ["../../evil"],
-            "parallel_subjects": 1,
         },
     )
     assert r.status_code == 422
@@ -553,7 +552,6 @@ def test_groups_submits_a_preprocessing_dag(client: TestClient) -> None:
                 "create_m2m": True,
             },
             "subject_ids": ["001"],
-            "parallel_subjects": 1,
         },
     )
     assert r.status_code == 201, r.text
@@ -589,7 +587,6 @@ def test_groups_invalid_config_422(client: TestClient) -> None:
             "kind": "pre",
             "config": {},
             "subject_ids": ["001"],
-            "parallel_subjects": 1,
         },
     )
     assert r.status_code == 422
@@ -607,7 +604,6 @@ def test_groups_rejects_a_kind_that_is_not_per_subject(client: TestClient) -> No
             "kind": "analyzer",
             "config": {},
             "subject_ids": ["001"],
-            "parallel_subjects": 1,
         },
     )
     assert r.status_code == 422
@@ -646,7 +642,6 @@ def test_sim_group_is_one_job_per_subject_with_isolated_configs(
             "kind": "sim",
             "config": _sim_config("001"),
             "subject_ids": ["001", "002"],
-            "parallel_subjects": 1,
             "tags": ["sim-batch"],
         },
     )
@@ -686,7 +681,6 @@ def test_sim_group_takes_per_subject_configs(client: TestClient) -> None:
                 # One subject may take several jobs (Simulator: one per (subject, montage)).
                 {"subject_id": "002", "config": a},
             ],
-            "parallel_subjects": 2,
         },
     )
     assert r.status_code == 201, r.text
@@ -711,7 +705,6 @@ def test_sim_group_rejects_unknown_subject_in_subject_configs(
             "config": _sim_config("001"),
             "subject_ids": ["001"],
             "subject_configs": [{"subject_id": "999", "config": _sim_config("999")}],
-            "parallel_subjects": 1,
         },
     )
     assert r.status_code == 422
@@ -726,16 +719,16 @@ def test_sim_group_invalid_config_is_422(client: TestClient) -> None:
             "kind": "sim",
             "config": {"subject_id": "001", "montages": [], "conductivity": "nope"},
             "subject_ids": ["001"],
-            "parallel_subjects": 1,
         },
     )
     assert r.status_code == 422
 
 
-def test_group_cap_of_one_never_runs_two_members_at_once(client: TestClient) -> None:
-    """R3 gate, server-side half: with `parallel_subjects: 1` the whole group is created in one
-    request (no client-side POST spacing) and the scheduler never has two members `running`.
-    """
+@pytest.mark.parametrize("stale_field", [{}, {"parallel_subjects": 2}])
+def test_a_group_runs_one_member_at_a_time(client: TestClient, stale_field: dict) -> None:
+    """One job per product (DECISIONS 2026-09-22): the whole group is created queued in one
+    request and the scheduler never has two Simulator members `running`. A `parallel_subjects`
+    from an older client is ignored, not a 422 and not a cap."""
     r = client.post(
         "/api/jobs/groups",
         headers=BEARER,
@@ -743,13 +736,12 @@ def test_group_cap_of_one_never_runs_two_members_at_once(client: TestClient) -> 
             "kind": "sim",
             "config": {**_sim_config("001"), "__fake": {"duration_s": 0.3}},
             "subject_ids": ["001", "002", "003"],
-            "parallel_subjects": 1,
+            **stale_field,
         },
     )
     assert r.status_code == 201, r.text
     group_id = r.json()["group_id"]
     assert len(r.json()["jobs"]) == 3
-    # Every member exists immediately, queued -- the cap is admission, not submission.
     assert {j["state"] for j in r.json()["jobs"]} == {"queued"}
 
     peak = 0
@@ -766,33 +758,6 @@ def test_group_cap_of_one_never_runs_two_members_at_once(client: TestClient) -> 
     else:  # pragma: no cover - timing safety net
         raise AssertionError("group did not finish")
     assert peak == 1
-
-
-def test_group_cap_of_two_admits_two_members_at_once(client: TestClient) -> None:
-    """The other half of the gate: the same submission with `parallel_subjects: 2` really does
-    put two members in `running` together (different subjects, so no lock conflict, and the
-    fixture's budget is 8 cpu / 64 GB, so no budget wait either)."""
-    r = client.post(
-        "/api/jobs/groups",
-        headers=BEARER,
-        json={
-            "kind": "sim",
-            "config": {**_sim_config("001"), "__fake": {"duration_s": 0.6}},
-            "subject_ids": ["001", "002", "003"],
-            "parallel_subjects": 2,
-        },
-    )
-    assert r.status_code == 201, r.text
-    group_id = r.json()["group_id"]
-
-    def _saw_two():
-        listed = client.get("/api/jobs", headers=BEARER).json()
-        ours = [j for j in listed if j["group_id"] == group_id]
-        running = [j for j in ours if j["state"] == "running"]
-        assert len(running) <= 2, [j["state"] for j in ours]
-        return len(running) == 2
-
-    wait_until(_saw_two)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -894,7 +859,7 @@ def test_existing_sim_output_with_explicit_overwrite_is_accepted(
         "overwrite": True,
     }
     if group:
-        body.update(subject_ids=["001", "002"], parallel_subjects=1)
+        body.update(subject_ids=["001", "002"])
     response = client.post(
         "/api/jobs/groups" if group else "/api/jobs", headers=BEARER, json=body
     )
@@ -979,7 +944,6 @@ def test_pre_dti_replacement_does_not_confuse_existing_head_with_tensor(client):
                 "replace_existing_outputs": True,
             },
             "subject_ids": ["001"],
-            "parallel_subjects": 1,
         },
     )
     assert response.status_code == 201, response.text
@@ -1092,7 +1056,6 @@ def test_group_submission_is_refused_when_one_subject_lacks_an_input(
             "kind": "sim",
             "config": _sim_config("001"),
             "subject_ids": ["001", "no-head"],
-            "parallel_subjects": 1,
         },
     )
     assert r.status_code == 422, r.text

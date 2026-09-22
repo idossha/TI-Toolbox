@@ -2,10 +2,10 @@
  * Execution preferences — user-level, not per page (maintainer, 2026-09-06: "This should only be
  * present in the settings page and is a user level setting").
  *
- * `existingOutputs` is the default answer to the shared existing-outputs question (Skip / Replace)
- * and `parallelSubjects` is the `Subjects in parallel` cap that goes on every job-group request.
- * Both used to be a collapsed section on each run page; they now live in Settings ▸ Execution and
- * are persisted in localStorage the way the theme is (`app/theme/store.ts`).
+ * `existingOutputs` is the default answer to the shared existing-outputs question (Skip / Replace).
+ * It lives in Settings ▸ Execution and is persisted in localStorage the way the theme is
+ * (`app/theme/store.ts`). The retired `parallelSubjects` key an older build stored there is ignored
+ * and dropped on the next write: one job per product runs at a time (DECISIONS 2026-09-22).
  */
 import { create } from "zustand";
 
@@ -15,10 +15,9 @@ const STORAGE_KEY = "tit-execution-prefs";
 
 export interface ExecutionPrefs {
   existingOutputs: ExistingOutputPolicy;
-  parallelSubjects: number;
 }
 
-export const DEFAULT_EXECUTION_PREFS: ExecutionPrefs = { existingOutputs: "skip", parallelSubjects: 1 };
+export const DEFAULT_EXECUTION_PREFS: ExecutionPrefs = { existingOutputs: "skip" };
 
 function readStored(): ExecutionPrefs {
   try {
@@ -27,7 +26,6 @@ function readStored(): ExecutionPrefs {
       const v = JSON.parse(raw) as Partial<ExecutionPrefs>;
       return {
         existingOutputs: v.existingOutputs === "replace" ? "replace" : "skip",
-        parallelSubjects: Number.isInteger(v.parallelSubjects) && (v.parallelSubjects as number) >= 1 ? (v.parallelSubjects as number) : 1,
       };
     }
   } catch {
@@ -45,7 +43,6 @@ export const useExecutionPrefs = create<ExecutionPrefsState>((set, get) => ({
   setExecutionPrefs: (patch) => {
     const next: ExecutionPrefs = {
       existingOutputs: patch.existingOutputs ?? get().existingOutputs,
-      parallelSubjects: Math.max(1, Math.floor(patch.parallelSubjects ?? get().parallelSubjects)),
     };
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));

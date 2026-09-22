@@ -93,11 +93,11 @@ States: `queued running succeeded failed cancelled skipped lost`.
 - **`registry.py` is the on-disk store**:
   `<project>/code/ti-toolbox/jobs/<id>/{spec.json,status.json,events.jsonl,stdout.log}`,
   written atomically (temp file + `os.replace`). Retention 200 jobs / 30 days.
-  Python-only fields (`locks`, `cost`, `pid`, `create_time`, `budget_wait`,
-  `group_cap`) are stripped by `to_api()` before a response leaves the server.
-- **Batch cap.** `POST /api/jobs/groups` requires `parallel_subjects` (≥ 1); it is
-  mirrored onto every job as `JobSpec.group_cap` and enforced as an admission cap.
-  **It counts jobs, not distinct subjects.** There is no group registry — the count
+  Python-only fields (`locks`, `cost`, `pid`, `create_time`, `budget_wait`) are
+  stripped by `to_api()` before a response leaves the server.
+- **One job per product.** `scheduler.PRODUCT_OF` (pre / sim / optimizer kinds /
+  analyzer): a job waits while another job of its product runs. There is no
+  concurrency setting; a stale `parallel_subjects` or `group_cap` is ignored. The count
   is read off live statuses, so it survives a server restart. The server forces
   each generated config's `subject_id` to its own subject: subject isolation is a
   server guarantee, not a client convention. A `Promise.all` or an awaited POST

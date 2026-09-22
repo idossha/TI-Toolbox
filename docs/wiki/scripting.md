@@ -165,7 +165,7 @@ run_ex_search(cfg)
 | `channel_limit` | Per-channel limit (mA) | `None` |
 | `roi_radius` | ROI radius (mm) | `3.0` |
 | `roi_coordinate_space` | ROI coordinates (`subject`/`mni`) | `"subject"` |
-| `n_jobs` | Parallel workers | `-1` |
+| `n_jobs` | Parallel workers (`-1` = the global CPU limit, 70 % of the cores; larger values are capped at it) | `-1` |
 
 `MExConfig` + `run_m_ex_search` are the same fields for the multipolar (4-pair) search, with
 `current_mA` in place of `total_current`/`current_step`.

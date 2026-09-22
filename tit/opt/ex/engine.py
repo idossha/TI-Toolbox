@@ -307,7 +307,8 @@ class ExSearchEngine:
 
         Candidates are evaluated in enumeration order, one electrode
         montage (all its current splits) per task, on ``n_jobs`` forked
-        workers (``n_jobs < 1``: all cores minus one; ``1``: in-process).
+        workers (``n_jobs < 1``: the job's CPU budget, see
+        :func:`tit.opt.ex.parallel.resolve_n_jobs`; ``1``: in-process).
         A *symmetry_mirror_map* (bucket mode) restricts the enumeration to
         left/right mirrored montages (see :mod:`tit.opt.ex.symmetry`).
         """

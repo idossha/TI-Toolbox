@@ -29,8 +29,8 @@ Legend: [x] built · [~] built, adapted for the v3 job-per-subject model (see no
       directly; this page has no such reading (no `window.tit` method surfaces it, and no v1
       contract endpoint does either — same gap as gap 2 below), so it defaults to blank/`null` and
       lets the server apply `tit.pre.fastsurfer.DEFAULT_THREADS`.
-- [x] FreeSurfer threads → `freesurfer_threads` (`int | null`); cross-subject concurrency
-      remains `JobGroupRequest.parallel_subjects`.
+- [x] FreeSurfer threads → `freesurfer_threads` (`int | null`); subjects run one at a time
+      (one job per product, DECISIONS 2026-09-22).
 - [x] "Create SimNIBS m2m folder" (default **on**), tooltip → `create_m2m`. Labelled "charm +
       subject atlas" because `PreprocessConfig` has no separate subject-atlas flag — `create_m2m`
       always runs both (`tit/pre/structural.py`: `run_charm` then `run_subject_atlas`).
@@ -60,10 +60,10 @@ Legend: [x] built · [~] built, adapted for the v3 job-per-subject model (see no
 - [x] Run/Stop buttons + console → replaced by "Queue N jobs" and the Jobs rail/console (P7); a
       preprocessing run is now N independent jobs, not one subprocess with a Stop button.
 
-## Subjects-in-parallel (new, no Qt equivalent — job-group concept)
+## Subjects-in-parallel (retired 2026-09-22)
 
-- [x] "Subjects running in parallel" `NumberInput`, min 1, max = number of selected subjects,
-      default 1 → `JobGroupRequest.parallel_subjects`.
+- Removed: one job per product runs at a time; the only resource setting is Settings ▸ Execution ▸
+  CPU limit.
 
 ## QSIPrep dialog (`QSIPrepConfigDialog`)
 

@@ -21,6 +21,7 @@ fixture directory rather than mocking ``open``.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 
@@ -117,14 +118,69 @@ def effective_cpus(root: str = CGROUP_ROOT) -> int:
     return max(1, min(c for c in counts if c > 0))
 
 
+#: The user's global CPU limit, as a percent of :func:`effective_cpus`. TI-Toolbox shares the
+#: machine with the user's own work, so no default claims every core (DECISIONS 2026-09-22).
+DEFAULT_CPU_LIMIT_PERCENT = 70
+MIN_CPU_LIMIT_PERCENT = 10
+CPU_LIMIT_FILENAME = "cpu-limit.json"
+
+
+def cpu_limit_file() -> str:
+    """Where the Settings page saves the percent: the user config dir every project shares."""
+    from tit.paths import PathManager
+
+    return os.path.join(PathManager.user_config_dir(), CPU_LIMIT_FILENAME)
+
+
+def _valid_percent(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        percent = int(float(value))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return percent if MIN_CPU_LIMIT_PERCENT <= percent <= 100 else None
+
+
+def cpu_limit_percent() -> int:
+    """The global CPU limit percent: the saved setting (the only source), else 70."""
+    try:
+        with open(cpu_limit_file(), encoding="utf-8") as fh:
+            saved = _valid_percent(json.load(fh).get("percent"))
+    except (OSError, ValueError, AttributeError):
+        saved = None
+    return saved if saved is not None else DEFAULT_CPU_LIMIT_PERCENT
+
+
+def save_cpu_limit_percent(percent: int) -> None:
+    """Atomically save the percent (10-100) for the server and every later script."""
+    if type(percent) is not int or _valid_percent(percent) is None:
+        raise ValueError(
+            f"percent must be an integer from {MIN_CPU_LIMIT_PERCENT} to 100"
+        )
+    path = cpu_limit_file()
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump({"percent": percent}, fh)
+    os.replace(tmp, path)
+
+
+def cpu_limit(root: str = CGROUP_ROOT) -> int:
+    """Cores TI-Toolbox may use in total: ``floor(percent/100 x effective_cpus())``, at least 1.
+
+    The scheduler's CPU budget and every "use all the cores" default resolve to this.
+    """
+    return max(1, math.floor(cpu_limit_percent() * effective_cpus(root) / 100))
+
+
 #: Env var the job runner exports with the CPU count the plan admitted this job
 #: (:mod:`tit.jobs.runner`), so a solver's own "use all the cores" default cannot disagree with
 #: the number the plan showed the user.
 JOB_CPUS_ENV = "TIT_JOB_CPUS"
 
 
-def job_cpus(default: int | None = None) -> int:
-    """The CPU budget this job was admitted with, or *default* (else :func:`effective_cpus`)."""
+def job_cpus() -> int:
+    """The CPU budget this job was admitted with, else (outside a job) :func:`cpu_limit`."""
     raw = os.environ.get(JOB_CPUS_ENV)
     if raw:
         try:
@@ -133,6 +189,18 @@ def job_cpus(default: int | None = None) -> int:
             value = 0
         if value > 0:
             return value
-    if default is not None and default > 0:
-        return default
-    return effective_cpus()
+    return cpu_limit()
+
+
+def resolve_n_jobs(n_jobs: int | None) -> int:
+    """Pool worker count (ex/mex searches, stats permutations), capped at the job's CPU budget.
+
+    The budget is :func:`job_cpus`: the CPUs the plan admitted the job with
+    (``TIT_JOB_CPUS``, exported by :mod:`tit.jobs.runner`), or outside a job the user's global CPU
+    limit (70 % of the container by default). ``n_jobs < 1`` (or ``None``) means the whole budget;
+    an explicit ``n_jobs`` is clamped to it, so no API value can exceed the limit.
+    """
+    budget = job_cpus()
+    if n_jobs is None or n_jobs < 1:
+        return budget
+    return max(1, min(int(n_jobs), budget))

@@ -23,6 +23,15 @@ and its process is owned by the server. The Jobs page centralizes status and can
 - **A run page's right pane** — the **Terminal** tab shows the console of the job that page just
   submitted, beside the **Scene** tab.
 
+## How many CPUs jobs may use
+
+All running jobs share one pool of CPUs: the **CPU limit** in **Settings → Project → Execution**,
+a percent of the cores available to the container (default **70 %**, shown as e.g. "70 % · 7 of 10
+cores"). It leaves headroom for your computer; raise it for faster searches. A job that would
+exceed what is left waits ("waiting for budget") until others finish. A change applies to jobs
+started afterwards — running jobs keep what they were given. Scripts and notebooks honour the same
+setting.
+
 ## The table
 
 Filters for **state**, **kind** and **subject**, a free-text filter, and a **grouping toggle**: the
@@ -66,9 +75,10 @@ knowing:
 
 - A table that mixes two job kinds becomes **one group per kind**, and the page says so — _"Queued
   3 searches in 2 groups (ex, flex)"_ — rather than implying an atomic batch.
-- **Subjects running in parallel** (on Pre-processing) is a scheduler admission cap on that group.
-  It counts jobs, not subjects. Leave it at 1 unless you know the box can take it: two FEM-class
-  jobs at once will contend for memory and finish later than they would in sequence.
+- **One job per product at a time.** Pre-processing, Simulator, Optimizer and Analyzer each run
+  one job at a time, so a multi-subject run processes its subjects one after another, and a second
+  run of the same product waits for the first ("waiting for simulator"). Jobs of different
+  products can run together within the CPU limit. There is no setting for this.
 
 ## Server restart
 

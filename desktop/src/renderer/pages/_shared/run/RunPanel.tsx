@@ -36,7 +36,6 @@ export interface RunPanelProps {
    * props stay in the signature rather than rippling an edit through four pages.
    */
   steps?: RunStep[];
-  parallel?: number;
   onTerminalSourceChange?: (source: TerminalSource) => void;
   /** A `<ScenePane>`. Given, the lower half becomes the Terminal · Scene tab host (S7). */
   scene?: ReactNode;

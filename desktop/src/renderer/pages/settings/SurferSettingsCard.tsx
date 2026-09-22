@@ -81,7 +81,7 @@ export function SurferSettingsCard() {
     </div>
   </Field>;
   return <section className="preprocessing-preferences" aria-label="Pre-processing preferences" style={{ display: "grid", gap: "var(--space-4)" }}>
-    <p className="field-help">Your defaults across projects. Automatic thread allocation uses all available CPUs except one for the host.</p>
+    <p className="field-help">Your defaults across projects. Automatic thread allocation uses the CPU limit set under Project ▸ Execution.</p>
     {settings.isPending && <Skeleton height={64} />}
     <Card><CardHeader title="FastSurfer" actions={<div className="preprocessing-doc-links"><a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/fastsurfer/" target="_blank" rel="noreferrer">TI-Toolbox docs ↗</a> <a className="field-help" href="https://deep-mi.org/FastSurfer/stable/scripts/RUN_FASTSURFER.html" target="_blank" rel="noreferrer">Upstream FastSurfer ↗</a></div>} /><CardBody>
       <AppleGpuSettings />

@@ -433,12 +433,13 @@ def test_two_jobs_needing_one_exclusive_lock_never_both_start(tmp_path):
 
 
 def test_shared_read_locks_still_run_in_parallel(tmp_path):
-    """The reservation must not serialize readers: two `flex` jobs both take m2m:read."""
+    """The reservation must not serialize readers: `flex` and `source` both take m2m:read (two
+    products, so the one-job-per-product rule does not serialize them either)."""
     manager = make_manager(tmp_path)
     try:
         jobs = [
             manager.submit(
-                "flex",
+                kind,
                 {
                     "__fake": {
                         "duration_s": 0.5,
@@ -448,7 +449,7 @@ def test_shared_read_locks_still_run_in_parallel(tmp_path):
                 },
                 ["001"],
             )
-            for _ in range(2)
+            for kind in ("flex", "source")
         ]
         wait_until(
             lambda: all(manager.get(j["id"])["state"] == "running" for j in jobs)
@@ -565,8 +566,9 @@ def test_budget_fanout_limits_concurrency(tmp_path):
         for _ in range(4):
             # 0.2s (ra_11 finding #10: was 0.6s x 4) still leaves plenty of 0.02s-interval
             # samples per "wave" (floor(8/3)=2 concurrent) below to reliably catch an overshoot.
+            # `tools`, not a product kind: this pins the budget alone, not one-job-per-product.
             status = manager.submit(
-                "flex", {"cpus": 3, "__fake": {"duration_s": 0.2}}, []
+                "tools", {"cpus": 3, "__fake": {"duration_s": 0.2}}, []
             )
             ids.append(status["id"])
 
@@ -592,6 +594,35 @@ def test_budget_fanout_limits_concurrency(tmp_path):
 
         assert max_running <= 2
         assert all(manager.get(i)["state"] == "succeeded" for i in ids)
+    finally:
+        manager.shutdown()
+
+
+def test_the_global_cpu_limit_is_read_at_admission_and_shrinks_a_larger_claim(
+    tmp_path, monkeypatch
+):
+    """No injected budget: the CPU half is the user's limit, read when a job is admitted. A job
+    costed above it (9 CPUs, limit floor(0.7 x 10) = 7) runs on the limit instead of waiting
+    forever; lowering the limit to 50 % applies to the next job (5 CPUs)."""
+    import tit.cpu
+
+    monkeypatch.setattr(tit.cpu, "effective_cpus", lambda root=None: 10)
+    manager = JobManager(
+        str(tmp_path),
+        runner_cwd=str(tmp_path),
+        poll_interval=0.05,
+        command_for=_fake_command_for,
+    )
+    manager.start()
+    try:
+        first = manager.submit("flex", {"cpus": 9, "__fake": {"duration_s": 0.05}}, [])
+        wait_until(lambda: manager.get(first["id"])["state"] == "succeeded", timeout=5)
+        assert manager._specs[first["id"]].cost.cpus == 7
+
+        tit.cpu.save_cpu_limit_percent(50)
+        second = manager.submit("flex", {"cpus": 9, "__fake": {"duration_s": 0.05}}, [])
+        wait_until(lambda: manager.get(second["id"])["state"] == "succeeded", timeout=5)
+        assert manager._specs[second["id"]].cost.cpus == 5
     finally:
         manager.shutdown()
 
@@ -698,10 +729,9 @@ def test_force_marks_terminal_without_waiting(manager):
 # ---------------------------------------------------------------------------------------------
 
 
-def test_submit_plan_group_cap_limits_concurrent_running_jobs(tmp_path):
-    """submit_plan(group_cap=N) (JobGroupRequest.parallel_subjects) admits at most N of the
-    group's independent (no ``after``) jobs at once, end to end through the real scheduler.
-    """
+def test_a_product_group_runs_one_job_at_a_time(tmp_path):
+    """One job per product: a four-subject Simulator group with no ``after`` edges and a roomy
+    budget still runs its jobs one after another, end to end through the real scheduler."""
     from tit.jobs.spec import PlannedJob
 
     manager = make_manager(tmp_path, budget=Cost(cpus=64, mem_gb=256))
@@ -709,13 +739,13 @@ def test_submit_plan_group_cap_limits_concurrent_running_jobs(tmp_path):
         planned = [
             PlannedJob(
                 label=f"j{i}",
-                kind="tools",
-                config={"__fake": {"duration_s": 0.3}},
+                kind="sim",
+                config={"__fake": {"duration_s": 0.2}},
                 subject_ids=[f"{i:03d}"],
             )
             for i in range(4)
         ]
-        result = manager.submit_plan(planned, group_cap=2)
+        result = manager.submit_plan(planned)
         ids = [j["id"] for j in result["jobs"]]
         assert len(ids) == 4
 
@@ -731,7 +761,7 @@ def test_submit_plan_group_cap_limits_concurrent_running_jobs(tmp_path):
         else:
             pytest.fail("group jobs did not all finish in time")
 
-        assert max_running <= 2
+        assert max_running == 1
         assert all(manager.get(i)["state"] == "succeeded" for i in ids)
     finally:
         manager.shutdown()

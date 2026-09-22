@@ -120,7 +120,7 @@ The GUI writes a JSON config and runs the module; the same works from a shell:
 simnibs_python -m tit.opt.ex config.json
 ```
 
-All computation is in-memory (no intermediate mesh files), with constant memory footprint regardless of combination count, real-time progress and ETA tracking, and graceful interruption: SIGINT/SIGTERM sets a stop flag that breaks after the current candidate, and partial results are still written. Candidates are spread over worker processes (`n_jobs`, default all cores − 1). Run time ranges from minutes to hours depending on leadfield size and combination count.
+All computation is in-memory (no intermediate mesh files), with constant memory footprint regardless of combination count, real-time progress and ETA tracking, and graceful interruption: SIGINT/SIGTERM sets a stop flag that breaks after the current candidate, and partial results are still written. Candidates are spread over worker processes (`n_jobs`, default the **CPU limit** from Settings → Project → Execution, 70 % of the cores; larger values are capped at it). Run time ranges from minutes to hours depending on leadfield size and combination count.
 
 ## Outputs
 
@@ -280,7 +280,7 @@ _`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–f
 
 _Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry; `symmetry_pairing: "cross_pairs"` additionally mirrors channels 1↔3 and 2↔4._
 
-**Cost.** Scoring one four-channel candidate with the verified multi-carrier envelope is a per-element direction search (192-direction sweep plus local refinement), not a closed form like two-channel ex-search. The search is evaluated on ROI ∪ GM only by a fused numba kernel (`tit/_mti_kernel.py`, all cores) and candidates are distributed over forked worker processes (`n_jobs`, default all cores − 1): on a 12-core machine this is ~1–2 s per candidate, i.e. a few hundred candidates in ~10 min. The first call pays ~10 s of JIT compilation, cached afterwards. There is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
+**Cost.** Scoring one four-channel candidate with the verified multi-carrier envelope is a per-element direction search (192-direction sweep plus local refinement), not a closed form like two-channel ex-search. The search is evaluated on ROI ∪ GM only by a fused numba kernel (`tit/_mti_kernel.py`, sharing the job's CPUs with the workers) and candidates are distributed over forked worker processes (`n_jobs`, default the global CPU limit, 70 % of the cores): on a 12-core machine this is ~1–2 s per candidate, i.e. a few hundred candidates in ~10 min. The first call pays ~10 s of JIT compilation, cached afterwards. There is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
 
 ### Running it
 
@@ -288,7 +288,7 @@ _Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search 
 simnibs_python -m tit.opt.mex config.json
 ```
 
-JSON config keys: `project_dir`, `subject_id`, `leadfield_hdf`, `roi_name`, `electrodes` (`_type`: `"BucketElectrodes"` or `"PoolElectrodes"`, plus `e1_plus`..`e4_minus` or `electrodes`), `current_mA`, `roi_radius`, `roi_names`, `roi_atlas`, `roi_coordinate_space`, `run_name`, `n_jobs` (worker processes, default −1 = all cores − 1), `symmetric_bucket`, `symmetry_eeg_csv`, `symmetry_pairing`.
+JSON config keys: `project_dir`, `subject_id`, `leadfield_hdf`, `roi_name`, `electrodes` (`_type`: `"BucketElectrodes"` or `"PoolElectrodes"`, plus `e1_plus`..`e4_minus` or `electrodes`), `current_mA`, `roi_radius`, `roi_names`, `roi_atlas`, `roi_coordinate_space`, `run_name`, `n_jobs` (worker processes, default −1 = the global CPU limit; larger values are capped at it), `symmetric_bucket`, `symmetry_eeg_csv`, `symmetry_pairing`.
 
 ```json
 {

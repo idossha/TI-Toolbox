@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MANAGED_BY, answerViewerUpdateRequest, checkViewerUpdate, viewerUpdateRequestPath, watchViewerUpdateRequests, compatibleViewerVersion, identifyViewer, identifyViewerPath, latestViewerRelease, managedInstalls, readAsarText, viewerProcessMatches, checkViewerScene, downloadViewer, installNativeViewer, nativeViewerPaths, nativeViewerStatus, openNativeViewer, updateNativeViewer, viewerCommand } from "./tetravoxNative";
-const macOpen = vi.hoisted(() => ({ calls: [] as { args: string[]; env: NodeJS.ProcessEnv }[], error: undefined as Error | undefined }));
+const macOpen = vi.hoisted(() => ({ calls: [] as { args: string[]; env: NodeJS.ProcessEnv }[], error: undefined as Error | undefined, processes: "" }));
 // Do not let an application installed on the test machine shadow fixture-managed installs.
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
@@ -14,6 +14,14 @@ vi.mock("node:child_process", async (importOriginal) => {
       macOpen.calls.push({ args: commandArgs, env: (args[2] as { env: NodeJS.ProcessEnv }).env });
       const callback = args.at(-1) as (error: Error | undefined, stdout: string, stderr: string) => void;
       callback(macOpen.error, "", "");
+      return undefined;
+    }
+    // A TetraVox running on the test machine must not look like the fixture's copy is open
+    // ("Close TetraVox before updating it"): the process probe sees only the processes a test lists
+    // in `macOpen.processes` (`ps -ax -o args=` lines), none by default.
+    if (args[0] === "/bin/ps" || args[0] === "powershell.exe") {
+      const callback = args.at(-1) as (error: Error | undefined, stdout: string, stderr: string) => void;
+      callback(undefined, args[0] === "powershell.exe" ? "[]" : macOpen.processes, "");
       return undefined;
     }
     if (args[0] === "/usr/bin/plutil" && !commandArgs.at(-1)?.includes("ti-native-viewer-test-")) {
@@ -30,7 +38,7 @@ vi.mock("node:child_process", async (importOriginal) => {
 });
 const dirs: string[] = [];
 async function temporary() { const dir = await mkdtemp(join(tmpdir(), "ti-native-viewer-test-")); dirs.push(dir); return dir; }
-afterEach(async () => { macOpen.calls = []; macOpen.error = undefined; vi.unstubAllGlobals(); await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true }))); });
+afterEach(async () => { macOpen.calls = []; macOpen.error = undefined; macOpen.processes = ""; vi.unstubAllGlobals(); await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true }))); });
 const status = (executable: string, directory: string) => ({ supported: true, installed: true, installing: false, source: "managed" as const, executable, directory, version: "0.4.0" });
 /** What the non-mac launcher prepends on this platform (Linux runs the tarball without a setuid sandbox). */
 const platformArgs = process.platform === "linux" ? ["--no-sandbox"] : [];
@@ -471,10 +479,8 @@ describe("TI's own TetraVox: setup, update and checksums", () => {
     const network = vi.fn(async () => new Response("never"));
     vi.stubGlobal("fetch", network);
     // A process in TI's viewer profile is TI's viewer, whatever its executable.
-    const { spawn } = await import("node:child_process");
-    const viewer = spawn(process.execPath, ["-e", "setTimeout(() => {}, 30000)", "--", `--user-data-dir=${join(userData, "tetravox-profile")}`], { stdio: "ignore" });
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    macOpen.processes = `/old/Tetravox.app/Contents/MacOS/Tetravox --user-data-dir=${join(userData, "tetravox-profile")}\n`;
+    {
       await request(userData, { protocol: 1, action: "update", id: "abc", version: "0.6.1" });
       const handlers = { relaunch: vi.fn(async () => {}), failed: vi.fn(), closeTimeoutMs: 700 };
       await answerViewerUpdateRequest(userData, handlers);
@@ -482,7 +488,7 @@ describe("TI's own TetraVox: setup, update and checksums", () => {
       expect(handlers.failed.mock.calls[0]?.[0]).toContain("did not close");
       expect(handlers.relaunch).not.toHaveBeenCalled();
       expect(network).not.toHaveBeenCalled();
-    } finally { viewer.kill(); }
+    }
   });
 
   it.runIf(supported)("the watcher answers a request that appears while TI runs, and one already waiting at start", async () => {

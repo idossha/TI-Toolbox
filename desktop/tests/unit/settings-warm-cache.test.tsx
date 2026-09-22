@@ -16,6 +16,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearPageSession } from "../../src/renderer/app/pageSession";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+// jsdom has no ResizeObserver; the Radix slider (Execution ▸ CPU limit) measures its thumb with it.
+(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 const SETTINGS_FIXTURE = {
   telemetry: { consented: true, enabled: false },
@@ -27,6 +33,8 @@ const SETTINGS_FIXTURE = {
 vi.mock("../../src/renderer/pages/settings/api", () => ({
   getSurferSettings: vi.fn(async () => ({ available_threads: 12, default_threads: 9, fastsurfer_threads: null, freesurfer_threads: null, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9, freesurfer_license: { configured: false, source: null, email: null } })),
   putSurferSettings: vi.fn(),
+  getCpuLimit: vi.fn(async () => ({ percent: 70, cores: 8, available_cores: 12, default_percent: 70 })),
+  putCpuLimit: vi.fn(),
   putFreeSurferLicense: vi.fn(),
   deleteFreeSurferLicense: vi.fn(),
   getSettings: vi.fn(async () => SETTINGS_FIXTURE),
