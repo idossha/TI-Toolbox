@@ -1867,6 +1867,52 @@ either copy for a double-clicked file. Process detection still counts any TetraV
 the macOS `open` cases pin the argument; `roiPlates.test.ts` pins the capture profile;
 `settings.test.ts` pins that a stale `tetravoxPath` is ignored and dropped.
 
+## 2026-09-22 — TetraVox's own update popup asks TI to install; "running" means TI's viewer only
+
+**Decision.** Amends the two entries above (§7.1). The maintainer asked that TI's TetraVox be
+updatable from TI's Settings *or* from TetraVox's native popup inside TI's copy. TI now also passes
+`TETRAVOX_MANAGED_UPDATE_REQUEST=<userData>/tetravox-update-request.json`. A TetraVox with the
+handshake (the branch `feat/managed-update-handoff` of idossha/tetravox; first release after 0.6.1)
+keeps its launch check and popup in that mode; **Update to X** asks about unsaved edits, writes a
+`{protocol: 1, action: "update", id, version, current}` request, waits up to 15 s for TI's receipt
+with the same id, and quits. TI polls the path (`fs.watchFile`, 1 s), answers, waits for its viewer
+to quit, runs the existing verified update and relaunches with the last scene it opened. The popup is
+the consent; **Skip This Version** is TetraVox's per-version skip in TI's viewer profile. Settings ▸
+Viewer now shows the newest release (`tit:tetravox:checkUpdate`) and labels its button **Update to X**.
+`TETRAVOX_MANAGED_BY` becomes `TI-Toolbox`, the name the popup shows. Process detection now counts only
+TI's managed executable or a process in TI's viewer profile — superseding "Not changed … counts any
+TetraVox process as open" in the entry above: with separate profiles a user's own TetraVox can no
+longer receive TI's scenes, so it has no reason to block TI's Update.
+
+**Why.** TetraVox's electron-updater would write into TI's runtime directory, bypassing TI's
+GitHub-digest check, `ready.json` and swap; so TetraVox asks and TI installs. A file in TI's
+user-data directory works the same through `open -a` (not a child process) on macOS and a detached
+spawn on Linux and Windows, where a pipe, socket, URL scheme or file association would each need a
+per-platform mechanism. The request carries no URL or path, only a version string TI validates and
+does not trust: TI installs the newest release it verifies itself. The receipt lets TetraVox stay
+open with an error instead of quitting into nothing when no TI is listening.
+
+**Alternatives rejected.** TetraVox's in-place updater writing TI's directory (bypasses verification
+and TI's identity/ready checks). TI killing the viewer on request (loses unsaved edits; TetraVox asks
+first and quits itself). A URL scheme or local HTTP listener (registration per OS; an unauthenticated
+listener). Updating to the version TetraVox names (TetraVox read a different feed; TI installs its
+own verified newest).
+
+**Compatibility.** TetraVox ≤ 0.6.1 ignores the new variable: updater off, Settings' Update works as
+before. A TI without the handshake gives a new TetraVox no request path: its updater stays off and its
+dialog says "Updates are managed by …". TI's pinned floor (`compatibleViewerVersion`, 0.4) is
+unchanged: the popup appears once the installed copy is a handshake release, and TI's Settings Update
+gets it there.
+
+**Verification contract.** `tetravoxNative.test.ts`: the launch env carries both variables; an
+accepted request installs the verified release, writes the receipt and relaunches; a failed update
+still relaunches and reports; malformed requests install nothing; a viewer that stays open blocks the
+install; the watcher answers waiting and new requests; detection ignores another executable/profile.
+`tests/unit/tetravox-card.test.tsx`: **Update to X** and **Check for updates**. Real check on macOS
+15 arm64, 2026-09-22, scratch user-data: a branch-built TetraVox relabelled 0.6.0 in TI's slot showed
+its popup ("ti-toolbox installed this copy and installs its updates …" — the run predates the rename
+to `TI-Toolbox`); clicking **Update to 0.6.1** (over CDP) led TI's watcher to install the GitHub 0.6.1
+zip (digest-verified, `ready.json` written) and relaunch it in `tetravox-profile` 14 s later.
 
 ## 2026-09-22 — One global CPU limit, 70 % by default, is the scheduler budget
 

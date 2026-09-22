@@ -7,11 +7,13 @@
  * TetraVox to open a scene (decision 2026-09-22). Setup downloads the official release package for
  * this platform, verifies it against the SHA-256 digest GitHub publishes for that asset, unpacks it
  * into a private staging directory and renames it into place. "Update" does the same into a fresh
- * directory and swaps. TetraVox's own updater is told it is managed (`TETRAVOX_MANAGED_BY`).
+ * directory and swaps. TetraVox's own updater is told it is managed (`TETRAVOX_MANAGED_BY`) and
+ * where to ask TI for an update (`TETRAVOX_MANAGED_UPDATE_REQUEST`): its native popup is the
+ * consent, TI does the verified install and the relaunch (decision 2026-09-22, ARCHITECTURE §7.1).
  */
 import { createHash } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
-import { closeSync, createWriteStream, openSync } from "node:fs";
+import { closeSync, createWriteStream, openSync, unwatchFile, watchFile } from "node:fs";
 import * as nodeFs from "node:fs/promises";
 import { createRequire } from "node:module";
 import { promisify } from "node:util";
@@ -32,8 +34,8 @@ const fs: typeof nodeFs = (() => {
 const { access, chmod, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } = fs;
 
 export const TETRAVOX_REPO = "idossha/Tetravox";
-/** Value TetraVox reads to leave updates to whoever installed it. */
-export const MANAGED_BY = "ti-toolbox";
+/** Value TetraVox reads to leave updates to whoever installed it; its update popup shows this name. */
+export const MANAGED_BY = "TI-Toolbox";
 
 interface PlatformRelease {
   /** `${version}` is substituted with the release version. */
@@ -164,30 +166,38 @@ export async function identifyViewerPath(path: string, platform = process.platfo
   return viewer;
 }
 
-/** Process inspection is conservative: an open app may contain unsaved work. */
-export function viewerProcessMatches(output: string, executable: string, platform = process.platform): boolean {
+/** The profile TI's copy always runs in (`--user-data-dir`); no other TetraVox uses it. */
+export function viewerProfile(userData: string): string {
+  return join(userData, "tetravox-profile");
+}
+
+/**
+ * Whether TI's own TetraVox is running: its managed executable, or any process in TI's viewer
+ * profile. A TetraVox the user installed has its own executable and its own profile, so it neither
+ * blocks TI's Update nor is mistaken for TI's viewer (decision 2026-09-22). Conservative where it
+ * cannot tell: an unreadable Windows process list is an error, never "not running".
+ */
+export function viewerProcessMatches(output: string, executable: string, platform = process.platform, profile?: string): boolean {
+  const profileArg = profile ? `--user-data-dir=${profile}` : undefined;
+  const inProfile = (command: string) => !!profileArg && `${command} `.includes(`${profileArg} `);
   if (platform === "win32") {
     try {
       const entries: unknown = JSON.parse(output || "[]");
       const processes = Array.isArray(entries) ? entries : [entries];
       if (processes.some((entry) => typeof entry !== "object" || entry === null || !("ExecutablePath" in entry) || typeof entry.ExecutablePath !== "string" || !entry.ExecutablePath)) throw new Error("Process path unavailable");
-      return processes.some((entry: { ExecutablePath: string }) =>
-        entry.ExecutablePath.toLowerCase() === executable.toLowerCase() || /(?:^|[\\/])tetravox\.exe$/i.test(entry.ExecutablePath));
+      return processes.some((entry: { ExecutablePath: string; CommandLine?: unknown }) =>
+        entry.ExecutablePath.toLowerCase() === executable.toLowerCase() || (typeof entry.CommandLine === "string" && inProfile(entry.CommandLine)));
     } catch { throw new Error("Could not check whether TetraVox is already running."); }
   }
-  // Different installations can share Electron's default profile and single-instance
-  // lock. Probe all viewer binaries, not just the selected one, so a handoff to an
-  // already-running copy cannot bypass replacement consent. False positives are safe.
   return output.split("\n").some((line) => {
     const command = line.trim();
-    return command === executable || command.startsWith(`${executable} `) ||
-      /^(?:\/.*\/)?tetravox(?:\s|$)/i.test(command);
+    return command === executable || command.startsWith(`${executable} `) || inProfile(command);
   });
 }
 
 async function viewerProcessList(): Promise<string> {
   const { stdout } = process.platform === "win32"
-    ? await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "Get-CimInstance Win32_Process -Filter \"Name='Tetravox.exe'\" | Select-Object ExecutablePath | ConvertTo-Json -Compress"], { timeout: 5000, maxBuffer: 1024 * 1024, windowsHide: true })
+    ? await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "Get-CimInstance Win32_Process -Filter \"Name='Tetravox.exe'\" | Select-Object ExecutablePath, CommandLine | ConvertTo-Json -Compress"], { timeout: 5000, maxBuffer: 1024 * 1024, windowsHide: true })
     : await execFileAsync("/bin/ps", ["-ax", "-o", "args="], { timeout: 5000, maxBuffer: 4 * 1024 * 1024 });
   return stdout;
 }
@@ -195,7 +205,7 @@ async function viewerProcessList(): Promise<string> {
 export async function nativeViewerRunning(userData: string, selected?: TitNativeTetravoxStatus): Promise<boolean> {
   const status = selected ?? await nativeViewerStatus(userData);
   if (!status.installed || !status.executable) return false;
-  return viewerProcessMatches(await viewerProcessList(), status.executable);
+  return viewerProcessMatches(await viewerProcessList(), status.executable, process.platform, viewerProfile(userData));
 }
 
 /* --------------------------------------------------------------------- managed installs */
@@ -434,9 +444,11 @@ export async function openNativeViewer(userData: string, scene: string, selected
   // their settings, and their single-instance lock, so a scene sent to TI's copy while theirs is
   // open would be handed to theirs. The directory name is the one earlier layouts used, so a
   // viewer already open in it keeps receiving scenes.
-  const profile = join(userData, "tetravox-profile");
+  const profile = viewerProfile(userData);
   await mkdir(profile, { recursive: true, mode: 0o700 });
-  const env: NodeJS.ProcessEnv = { ...process.env, TETRAVOX_MANAGED_BY: MANAGED_BY };
+  // A TetraVox with the update handshake shows its own update popup and hands the accepted update
+  // to TI through this file; older releases ignore the variable and keep their updater off.
+  const env: NodeJS.ProcessEnv = { ...process.env, TETRAVOX_MANAGED_BY: MANAGED_BY, TETRAVOX_MANAGED_UPDATE_REQUEST: viewerUpdateRequestPath(userData) };
   delete env.ELECTRON_RUN_AS_NODE;
   const bundle = process.platform === "darwin" ? /^(.*\.app)\/Contents\/MacOS\/[^/]+$/.exec(executable)?.[1] : undefined;
   // `open -a <path>` targets this bundle, not another copy with the same bundle id (checked on
@@ -472,4 +484,84 @@ export async function openNativeViewer(userData: string, scene: string, selected
     });
   });
   if (bundle && requestPath) await execFileAsync("/usr/bin/open", ["-a", bundle, ...profileArgs], { env, timeout: 15_000, maxBuffer: 65536 });
+}
+
+/** Settings ▸ Viewer's "is there a newer TetraVox?": the same release lookup Update installs from. */
+export async function checkViewerUpdate(userData: string, fetchImpl: typeof fetch = fetch): Promise<{ latest: string; newer: boolean }> {
+  const [status, { version }] = await Promise.all([nativeViewerStatus(userData), latestViewerRelease(fetchImpl)]);
+  return { latest: version, newer: status.installed && compatibleViewerVersion(version) && compareViewerVersions(version, status.version) > 0 };
+}
+
+/* ------------------------------------------------------------ update requested from TetraVox */
+
+/** Where TI's TetraVox asks TI to update it; the receipt is written beside it. */
+export function viewerUpdateRequestPath(userData: string): string {
+  return join(userData, "tetravox-update-request.json");
+}
+
+export interface ViewerUpdateHandlers {
+  /** Reopen TI's TetraVox after the update — also after a failed one, so the user gets it back. */
+  relaunch(): Promise<void>;
+  /** Tell the user why nothing was installed. */
+  failed(message: string): void;
+  /** How long to wait for TetraVox to quit once it has the receipt. */
+  closeTimeoutMs?: number;
+}
+
+/**
+ * Answer one update request from TI's TetraVox. The user said yes in TetraVox's own popup; the
+ * request names no path and no URL — TI installs the newest release it verifies itself, exactly as
+ * Settings ▸ Viewer ▸ Update does. Order: consume the request, write the receipt, wait for the viewer
+ * to quit (it does so on the receipt), update, relaunch.
+ */
+export async function answerViewerUpdateRequest(userData: string, handlers: ViewerUpdateHandlers): Promise<void> {
+  const path = viewerUpdateRequestPath(userData);
+  let text: string;
+  try { text = await readFile(path, "utf8"); } catch { return; }
+  await rm(path, { force: true });
+  let request: { protocol?: unknown; action?: unknown; id?: unknown; version?: unknown };
+  try { request = JSON.parse(text) as typeof request; } catch { return; }
+  if (!request || request.protocol !== 1 || typeof request.id !== "string" || !/^[\w-]{1,100}$/.test(request.id)) return;
+  const receipt = async (answer: { ok: boolean; error?: string }) => {
+    await writeFile(`${path}.receipt.tmp`, JSON.stringify({ protocol: 1, id: request.id, ...answer }), { mode: 0o600 });
+    await rename(`${path}.receipt.tmp`, `${path}.receipt.json`);
+  };
+  if (request.action !== "update" || typeof request.version !== "string" || !compatibleViewerVersion(request.version)) {
+    await receipt({ ok: false, error: "TI-Toolbox cannot install that update." });
+    return;
+  }
+  const status = await nativeViewerStatus(userData);
+  if (!status.installed) { await receipt({ ok: false, error: status.error ?? "TI-Toolbox has no TetraVox to update." }); return; }
+  await receipt({ ok: true });
+
+  const deadline = Date.now() + (handlers.closeTimeoutMs ?? 60_000);
+  while (await nativeViewerRunning(userData, status).catch(() => true)) {
+    if (Date.now() > deadline) {
+      handlers.failed("TetraVox did not close, so its update was not installed. Close TetraVox, then use Settings ▸ Viewer ▸ Update.");
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  try { await updateNativeViewer(userData); }
+  catch (error) { handlers.failed(`TetraVox was not updated: ${error instanceof Error ? error.message : String(error)}`); }
+  await handlers.relaunch();
+}
+
+/**
+ * Poll for update requests from TI's TetraVox while TI runs; returns the stop function. `watchFile`
+ * polls with `stat`, which behaves the same on macOS, Linux and Windows for a file that does not
+ * exist yet — and needs no URL scheme, socket or file association. A request already waiting at
+ * start (TetraVox asked just before TI started) is answered too.
+ */
+export function watchViewerUpdateRequests(userData: string, handlers: ViewerUpdateHandlers, intervalMs = 1000): () => void {
+  const path = viewerUpdateRequestPath(userData);
+  let running: Promise<void> | undefined;
+  const check = () => {
+    running ??= answerViewerUpdateRequest(userData, handlers)
+      .catch((error: unknown) => handlers.failed(`TetraVox update request failed: ${error instanceof Error ? error.message : String(error)}`))
+      .finally(() => { running = undefined; });
+  };
+  watchFile(path, { interval: intervalMs }, (current) => { if (current.isFile()) check(); });
+  check();
+  return () => unwatchFile(path);
 }

@@ -20,6 +20,7 @@ const tit: TitBridge = {
   nativeTetravoxStatus: () => ipcRenderer.invoke("tit:tetravox:status"),
   installNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:install"),
   updateNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:update"),
+  checkNativeTetravoxUpdate: () => ipcRenderer.invoke("tit:tetravox:checkUpdate"),
   onNativeTetravoxProgress: (listener: (progress: TitNativeTetravoxProgress) => void) => {
     const handler = (_event: unknown, progress: TitNativeTetravoxProgress) => listener(progress);
     ipcRenderer.on("tit:tetravox:progress", handler);

@@ -236,10 +236,27 @@ version, and renames it into place without administrator privileges. Startup, an
 a Results open share one in-flight setup. No viewer window opens just because TI started. Errors
 remain retryable while TI stays usable. Automated app sessions do not perform ambient downloads.
 
-**TI owns updates.** Settings ▸ Viewer's **Update** replaces the copy with the newest release the same
-way, into a fresh directory swapped over the old one, and is refused while the viewer is open; a
-release already installed downloads nothing. The viewer is launched with `TETRAVOX_MANAGED_BY` set so
-its own updater stays out of the way, and on Linux with `--no-sandbox`, because the tarball's
+**TI owns updates.** Settings ▸ Viewer checks the newest release on open (and on **Check for
+updates**), shows it beside the installed version, and its **Update to X** replaces the copy with that
+release the same way, into a fresh directory swapped over the old one; it is refused while TI's viewer
+is open, and a release already installed downloads nothing. "Open" means TI's managed executable or
+any process in TI's viewer profile — a TetraVox the user installed neither blocks Update nor counts as
+TI's viewer. The viewer is launched with `TETRAVOX_MANAGED_BY=TI-Toolbox` (the name its popup shows) and
+`TETRAVOX_MANAGED_UPDATE_REQUEST=<userData>/tetravox-update-request.json` (decision 2026-09-22):
+a TetraVox with the handshake keeps its own launch check and native **Software Update** popup, and
+the popup is the consent. On **Update to X** it asks about unsaved edits, writes
+`{protocol: 1, action: "update", id, version, current}` to that path (temporary file renamed into
+place), and waits up to 15 s for `<path>.receipt.json` carrying the same id. TI polls the path with
+`fs.watchFile` (1 s; the same on macOS, Linux and Windows, no URL scheme or file association),
+consumes the request, answers `{protocol: 1, id, ok}`, waits up to 60 s for TI's viewer to quit (the
+viewer quits on the receipt), runs the same verified update as Settings, and relaunches the viewer
+with the last scene TI opened when it is still inside the active project — also after a failed
+update, whose reason TI shows in a dialog. The request names no URL or path; TI installs the newest
+release it verifies itself. No receipt within 15 s (TI not running, or a TI without the handshake)
+withdraws the request and TetraVox stays open with an error. "Skip This Version" is TetraVox's
+per-version skip, stored in TI's viewer profile. A TetraVox without the handshake ignores the second
+variable and keeps its updater off; Settings' Update still works. On Linux the viewer is launched
+with `--no-sandbox`, because the tarball's
 `chrome-sandbox` cannot be made setuid-root by a user install. Earlier version-addressed
 directories and a swap's `.previous` directory still identify as installed, so an upgrade of
 TI-Toolbox never loses a working viewer. Version display is informational; minimum scene support

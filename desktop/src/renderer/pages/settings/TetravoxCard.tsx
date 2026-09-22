@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "../../ui/Button";
 import { Field } from "../../ui/Field";
 import { Card, CardBody, CardHeader } from "../../ui/Layout";
@@ -21,6 +22,14 @@ function statusPill(data: TitNativeTetravoxStatus | undefined, pending: boolean)
  */
 export function TetravoxCard() {
   const { bridge, data, pending, progress, busy, working, failure, install, update, open } = useNativeTetravox();
+  // Keyed on the installed version so a finished update asks again.
+  const latest = useQuery({
+    queryKey: ["native-tetravox-latest", data?.version],
+    queryFn: () => bridge!.checkNativeTetravoxUpdate!(),
+    enabled: !!data?.installed && !!bridge?.checkNativeTetravoxUpdate,
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
 
   if (!bridge?.nativeTetravoxStatus) {
     return (
@@ -46,12 +55,23 @@ export function TetravoxCard() {
         <Field label="Version" note={SOURCE_LABEL}>
           <div className="tetravox-row-value">
             <span>{data?.installed ? data.version : "Not installed"}</span>
-            {data?.installed && (
-              <Button size="sm" variant="secondary" disabled={busy} onClick={() => update.mutate()}>
-                {update.isPending ? "Updating…" : "Update"}
+            {data?.installed && (latest.data && !latest.data.newer ? (
+              <Button size="sm" variant="secondary" disabled={latest.isFetching} onClick={() => void latest.refetch()}>
+                {latest.isFetching ? "Checking…" : "Check for updates"}
               </Button>
-            )}
+            ) : (
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => update.mutate()}>
+                {update.isPending ? "Updating…" : latest.data?.newer ? `Update to ${latest.data.latest}` : "Update"}
+              </Button>
+            ))}
           </div>
+          {data?.installed && latest.data && (
+            <p className="field-help" data-testid="tetravox-latest">
+              {latest.data.newer ? `TetraVox ${latest.data.latest} is available.` : `Up to date — ${latest.data.latest} is the newest release.`}
+              {" "}TetraVox also offers new releases in its own window; TI-Toolbox installs them.
+            </p>
+          )}
+          {data?.installed && latest.error && <p className="field-help">Could not check for updates: {latest.error.message}</p>}
           {busy && (
             <Progress
               indeterminate={!progress.total}

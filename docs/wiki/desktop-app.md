@@ -20,9 +20,14 @@ application-data folder in `runtimes/tetravox-<platform>-<architecture>`. Nothin
 the checksum does not match. **Settings → Viewer** shows the installed version and location, offers
 **Retry setup** if the download failed, and **Launch TetraVox** once it is there.
 
-**Update** in the same card replaces that copy with the newest release the same verified way. Close
-TetraVox first; the update is refused while it is open. TetraVox's own updater is switched off for
-this copy, so there is exactly one place a new version comes from.
+The same card shows the newest TetraVox release next to the installed one; **Update to X** replaces
+that copy with it the same verified way. Close TI-Toolbox's TetraVox first; the update is refused
+while it is open (a TetraVox you installed yourself does not count). TetraVox can also tell you
+itself: when a newer release exists, its own **Software Update** window appears. Choosing **Update
+to X** there closes TetraVox, and TI-Toolbox downloads and verifies the release and reopens TetraVox
+with the last scene it opened. **Skip This Version** remembers your answer for that version. Either
+way TI-Toolbox does the install, so its copy is never changed behind its back. TetraVox releases
+before this handshake keep their own updater switched off; use the Settings card for them.
 
 Opening a scene while TetraVox is running asks before replacing its current view. Cancel leaves
 the window untouched. TI-Toolbox cannot inspect unsaved viewer state, so it asks even if the open
