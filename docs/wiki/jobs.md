@@ -8,7 +8,7 @@ Everything in TI-Toolbox v3 is a **job**: pre-processing, a simulation, a search
 analysis, a report, a group statistic, a Blender export. A page never runs work in its own process,
 and its process is owned by the server. The Jobs page centralizes status and cancellation; run pages also show their submitted jobs in a live Terminal pane.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/jobs.png" alt="The Jobs page: a filterable table of every job the server knows about" style="width: 100%; max-width: 1000px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/jobs-page.png" alt="The Jobs page: 201 jobs of a real project, filterable by state, kind and subject, with elapsed time, CPU and memory per job" style="width: 100%; max-width: 1000px;">
 <em>The Jobs page (⌘9). One row per job: state, kind, subjects, stage, elapsed time, CPU and memory.</em>
 
 ## Where jobs appear

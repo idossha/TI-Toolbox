@@ -62,7 +62,7 @@ layout: home
         <p>Simulator: configure simulations and preview your electrode montage</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page with an interactive atlas">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-page.png" alt="The Optimizer page: a Flex job for subject 101 targeting the left rostral middle frontal gyrus, highlighted on the head in the atlas pane">
         <p>Optimizer: search electrode configurations with your target atlas in view</p>
       </div>
       <div class="carousel-slide">
@@ -70,7 +70,7 @@ layout: home
         <p>TetraVox: explore anatomy, fields and diffusion tensors in the 3D viewer</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="A notebook with a plotted field and tables">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks-example.png" alt="The worked example notebook open in the Notebooks page, with code cells for montages and a simulation">
         <p>Notebooks: work interactively with your project and SimNIBS Python</p>
       </div>
       <div class="carousel-slide">

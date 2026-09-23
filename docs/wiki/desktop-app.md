@@ -153,8 +153,8 @@ npm run dev
 
 ## Help in the application
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/help-page.png" alt="The Help page: tabs for Docs, Example data, Keyboard, About, Cite, Acknowledgments and Contact, with the documentation site embedded" style="width: 100%; max-width: 1000px;">
-<em>Help embeds the documentation and has tabs for example data, keyboard shortcuts, citation and contact.</em>
+The Help page embeds the documentation and has tabs for example data, keyboard shortcuts,
+citation and contact.
 
 ## Troubleshooting
 

@@ -11,8 +11,8 @@ Notebooks are ordinary `.ipynb` files in your project, under
 `<project>/code/ti-toolbox/notebooks/`. Saving round-trips the document, so a notebook edited here
 and a notebook edited in Jupyter Lab produce the same file.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="A notebook with real output: a matplotlib figure and DataFrame tables" style="width: 100%; max-width: 1000px;">
-<em>The seeded worked example, run against a real project: a field summarised, plotted and tabulated.</em>
+<img src="{{ site.baseurl }}/assets/imgs/v3/notebooks-example.png" alt="The example_workflow notebook open in the Notebooks page: code cells that load montages and configure a simulation, with the cell toolbar and kernel status above" style="width: 100%; max-width: 1000px;">
+<em>The seeded worked example open against a real project. Each cell mirrors one page of the app.</em>
 
 ## Editing
 

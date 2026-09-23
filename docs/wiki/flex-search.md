@@ -43,7 +43,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 Flex-search is the **Flex** method on the **Optimizer** page (⌘2).
 
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page, with the Flex method selected" style="width: 100%; max-width: 1000px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-page.png" alt="The Optimizer page: a Flex job for subject 101 with lh.rostralmiddlefrontal from DK40 as the target, highlighted in the atlas pane" style="width: 100%; max-width: 1000px;">
 <em>The Optimizer. Flex is a <strong>method</strong> in a job row, not a page of its own; the atlas in the pane is the ROI you are choosing.</em>
 
 The interface provides comprehensive controls for:

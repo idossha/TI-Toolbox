@@ -40,8 +40,8 @@ Leadfields are generated with `tissues=[1, 2]` (white + grey matter).
 ## User Interface
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page, where Ex is a method" style="width: 100%; max-width: 1000px;">
-  <em>Ex-search is the <strong>Ex</strong> method on the Optimizer page (⌘2), not a page of its own.</em>
+  <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-page.png" alt="The Optimizer page: one job row whose Method column chooses Flex, Ex or mEx, with the target region highlighted in the atlas pane" style="width: 100%; max-width: 1000px;">
+  <em>Ex-search is the <strong>Ex</strong> method on the Optimizer page (⌘2), not a page of its own; the row shown uses Flex.</em>
 </div>
 
 The interface provides controls for:

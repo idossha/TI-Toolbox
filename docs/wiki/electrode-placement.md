@@ -17,8 +17,8 @@ configuration like any other montage.
 >
 > Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-placement.png" alt="The free-hand placement editor with two electrodes on the head" style="width: 100%; max-width: 1000px;">
-<em>Two positions placed. The selected row is named in the pane, and its dot carries a ring.</em>
+<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-freehand.png" alt="The free-hand placement editor for subject 101: E1+ and E1- placed on the head with their coordinates filled in the table" style="width: 100%; max-width: 1000px;">
+<em>Two positions placed. The selected row (E1-) is labelled in the pane, and its dot carries a ring.</em>
 
 ## Placing electrodes
 

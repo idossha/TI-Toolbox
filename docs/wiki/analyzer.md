@@ -11,7 +11,7 @@ This page is also where the toolbox's field quantities are defined once for ever
 ## Overview
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/analyzer.png" alt="The Analyzer page: one row per analysis job" style="width: 100%; max-width: 1000px;">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/analyzer-page.png" alt="The Analyzer page: one row analysing subject 101's L_Insula simulation on the mesh, with a 10 mm MNI sphere as its target" style="width: 100%; max-width: 1000px;">
   <em>The Analyzer (⌘4). One row is one analysis, and each row owns its own target.</em>
 </div>
 

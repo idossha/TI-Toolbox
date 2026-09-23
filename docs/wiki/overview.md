@@ -9,8 +9,8 @@ permalink: /wiki/overview/
 The app opens on a welcome Overview. Enter or **Browse…** to your project directory, then
 **Open project**. Docker must be running. Project tools stay disabled until a project is open.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/overview.png" alt="Connected Overview showing each subject's artifacts and readiness" style="width: 100%; max-width: 1000px;">
-<em>Once connected, Overview shows what every subject has and what it is ready for.</em>
+<img src="{{ site.baseurl }}/assets/imgs/v3/overview-project.png" alt="Overview with project 000 open: the subject table, the most recent analyzer jobs for subject 101, and a year of job activity" style="width: 100%; max-width: 1000px;">
+<em>Once connected, Overview shows what every subject has, the most recent jobs and the project's activity.</em>
 
 **Switch project** loads another project in a fresh session; the current container is stopped
 once you confirm. If another TI-Toolbox container is already running you choose whether to

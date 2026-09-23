@@ -25,17 +25,17 @@ type; see the [export preview guide]({{ site.baseurl }}/wiki/blender/#preview-an
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/v3/panel-visual-exporter.png" alt="3D visual exporter panel">
+    <img src="{{ site.baseurl }}/assets/imgs/v3/extension-visual-exporter.png" alt="The 3D visual exporter panel: subject and simulation, the four export modes, and the cortical-regions options">
     <em>The 3D visual exporter covers cortical regions, field vectors, montages and sub-cortical structures.</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/v3/panel-cluster-permutation.png" alt="Cluster permutation panel">
+    <img src="{{ site.baseurl }}/assets/imgs/v3/extension-cluster-permutation.png" alt="The Cluster permutation panel: classification or correlation, a subject table with responses, and the test and cluster settings">
     <em>Cluster permutation provides non-parametric group-level statistics.</em>
   </div>
 </div>
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/panel-source.png" alt="Source panel" style="width: 100%; max-width: 1000px;">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/extension-source.png" alt="The Source panel: a subject table showing which subjects have a head model, and the forward-solution settings" style="width: 100%; max-width: 1000px;">
   <em>Source builds EEG forward models and projects fields to fsaverage.</em>
 </div>
 

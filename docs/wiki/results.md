@@ -7,8 +7,8 @@ permalink: /wiki/results/
 **Results** (⌘6) is the only outputs browser in the app. Everything a job wrote for a subject is
 here.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/results.png" alt="The Results page: subject list, outputs tree and preview pane" style="width: 100%; max-width: 1000px;">
-<em>Subject list, outputs tree with type badges, and the preview pane.</em>
+<img src="{{ site.baseurl }}/assets/imgs/v3/results-page.png" alt="The Results page: subject 101 selected, its simulations, flex and ex runs, analyses and reports listed, and the L_Insula simulation's details, montage figure and field files in the preview pane" style="width: 100%; max-width: 1000px;">
+<em>Subject list, outputs tree with type badges, and the preview pane for the selected L_Insula simulation.</em>
 
 Selecting an output opens its details on the right, including when that pane was collapsed.
 The job artifact action **Open in Tetravox** opens the selected supported file directly in
