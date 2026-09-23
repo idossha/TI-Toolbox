@@ -1,5 +1,5 @@
 /** Authored PNG fixture tests thumbnail publication; real renderer coverage runs separately. */
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +39,14 @@ describe("native saved-scene previews", () => {
     const options = await fixture(); await renderNativeScenePreview(options);
     options.run = vi.fn(); await renderNativeScenePreview(options);
     expect(options.run).not.toHaveBeenCalled();
+  });
+  it("replaces a preview older than a scene re-saved in TetraVox", async () => {
+    const options = await fixture(); const path = options.scene.replace(".tetravox.json", ".png");
+    await writeFile(path, Buffer.concat([png, Buffer.from("old")]));
+    const past = new Date(Date.now() - 60_000); await utimes(path, past, past);
+    await renderNativeScenePreview(options);
+    expect(await readFile(path)).toEqual(png);
+    expect((await readdir(dirname(path))).filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
   it("does not overwrite an invalid existing sidecar", async () => {
     const options = await fixture(); const path = options.scene.replace(".tetravox.json", ".png");

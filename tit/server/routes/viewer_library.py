@@ -38,6 +38,7 @@ import base64
 import json
 import os
 import re
+import stat
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
@@ -119,11 +120,17 @@ def _read_json(path: str) -> dict[str, Any] | None:
     return body if isinstance(body, dict) else None
 
 
-def _has_thumbnail(path: str) -> bool:
+def _has_thumbnail(path: str, scene_mtime: float) -> bool:
+    """Whether *path* is a thumbnail file no older than its scene.
+
+    A scene re-saved in TetraVox rewrites only the ``.tetravox.json``; reporting its old PNG as
+    missing is what makes the desktop render a fresh one.
+    """
     try:
-        return os.path.isfile(checked_viewer_path(path))
-    except HTTPException:
+        st = os.stat(checked_viewer_path(path))
+    except (OSError, HTTPException):
         return False
+    return stat.S_ISREG(st.st_mode) and st.st_mtime >= scene_mtime
 
 
 def _now() -> str:
@@ -406,7 +413,9 @@ def list_scenes() -> dict[str, Any]:
                 "subject": meta.get("subject"),
                 "simulation": meta.get("simulation"),
                 "field": meta.get("field"),
-                "has_thumbnail": _has_thumbnail(os.path.join(directory, f"{stem}.png")),
+                "has_thumbnail": _has_thumbnail(
+                    os.path.join(directory, f"{stem}.png"), st.st_mtime
+                ),
                 **_scene_health(path),
             }
         )

@@ -1,5 +1,5 @@
 /** Photograph a saved scene offscreen; publish only a validated, bounded project thumbnail. */
-import { lstat, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { runNativeCapture } from "./roiPlates";
 
@@ -26,7 +26,8 @@ export async function renderNativeScenePreview(options: ScenePreviewOptions): Pr
     if (!existing.isFile() || existing.isSymbolicLink() || existing.size > 1024 * 1024) throw new Error("Existing scene preview is invalid; its file was preserved.");
     const header = (await readFile(destination)).subarray(0, 8);
     if (!header.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw new Error("Existing scene preview is invalid; its file was preserved.");
-    return;
+    // A scene re-saved in TetraVox is newer than its preview: re-render rather than keep stale art.
+    if (existing.mtimeMs >= source.mtimeMs) return;
   }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (!await current()) throw new Error("The active project changed before generating the preview.");
@@ -50,7 +51,10 @@ export async function renderNativeScenePreview(options: ScenePreviewOptions): Pr
     if (!png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || png.length > 1024 * 1024) throw new Error("TetraVox produced an invalid preview.");
     const unchanged = await stat(await realpath(scene));
     if (!await current() || await realpath(scene) !== scene || unchanged.mtimeMs !== source.mtimeMs || unchanged.size !== source.size || await realpath(dirname(scene)) !== directory) throw new Error("The scene or project changed while generating the preview.");
-    await writeFile(destination, png, { flag: "wx", mode: 0o600 });
+    // Staged beside the target and renamed, so a stale preview is replaced whole, never half-written.
+    const staged = `${destination}.${process.pid}.tmp`;
+    await writeFile(staged, png, { flag: "wx", mode: 0o600 });
+    try { await rename(staged, destination); } catch (error) { await rm(staged, { force: true }); throw error; }
   } finally { await rm(temporary, { recursive: true, force: true }); }
 }
 

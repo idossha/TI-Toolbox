@@ -215,6 +215,16 @@ def test_native_scene_without_metadata_uses_mtime_for_newest_first(pm: PathManag
     assert rows[0]["saved_at"] == datetime.fromtimestamp(future, timezone.utc).isoformat()
 
 
+def test_a_thumbnail_older_than_its_resaved_scene_is_reported_missing(pm: PathManager) -> None:
+    """TetraVox re-saves only the scene; its stale PNG must not keep being shown as current."""
+    lib.save_scene("resaved", {"scene": SCENE, "thumbnail": png_data_url()})
+    assert lib.list_scenes()["scenes"][0]["has_thumbnail"] is True
+    scene = Path(lib.saved_scene_dir()) / "resaved.tetravox.json"
+    future = datetime.now(timezone.utc).timestamp() + 60
+    os.utime(scene, (future, future))
+    assert lib.list_scenes()["scenes"][0]["has_thumbnail"] is False
+
+
 def test_reading_one_scene_returns_the_document(pm: PathManager) -> None:
     lib.save_scene("round trip", {"scene": SCENE})
     assert lib.read_scene("round trip")["scene"] == SCENE

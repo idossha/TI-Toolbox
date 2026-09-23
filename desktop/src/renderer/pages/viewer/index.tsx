@@ -436,6 +436,12 @@ function ViewerPage() {
   // Capture the native viewer state; the builder cannot represent subsequent camera/layer edits.
   const savedScenes = useQuery({ queryKey: ["viewer-saved-scenes"], queryFn: getSavedScenes, retry: false });
   const refreshScenePreviews = useCallback(() => { void queryClient.invalidateQueries({ queryKey: ["viewer-saved-scenes"] }); }, [queryClient]);
+  // Scenes are re-saved in the TetraVox app's own window; coming back here is when they may have changed.
+  useEffect(() => {
+    if (!active) return;
+    window.addEventListener("focus", refreshScenePreviews);
+    return () => window.removeEventListener("focus", refreshScenePreviews);
+  }, [active, refreshScenePreviews]);
   const [sceneName, setSceneName] = useState("");
   const [sceneSaveOpen, setSceneSaveOpen] = useState(false);
   const [sceneSaved, setSceneSaved] = useState<string | null>(null);

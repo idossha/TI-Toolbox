@@ -342,7 +342,7 @@ test("visible saved scenes gain previews and inline information without opening 
     const previewed = await app.evaluate(() => !!(globalThis as unknown as { previewPaths?: string[] }).previewPaths?.length);
     await route.fulfill({ json: { scenes: [{ name, slug: name, path: scenePath, saved_at: "2026-09-20T01:02:03Z", modified_at: "2026-09-20T04:05:06Z", created_at: null, layer_count: 3, dataset_count: 2, bytes: 8192, has_thumbnail: previewed, health: "valid", health_message: "All referenced project files are available" }] } });
   });
-  await page.route(`**/api/files/raw${scenePath.replace(".tetravox.json", ".png")}`, (route) => route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jN1sAAAAASUVORK5CYII=", "base64") }));
+  await page.route((url) => url.pathname === `/api/files/raw${scenePath.replace(".tetravox.json", ".png")}`, (route) => route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jN1sAAAAASUVORK5CYII=", "base64") }));
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.reload();
