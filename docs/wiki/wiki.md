@@ -36,7 +36,7 @@ server fit together.
 - **[Electrode Mapping](electrode-mapping)** - Optimal electrode position mapping to EEG nets
 
 ### Extensions
-- **[Optional Tools](extension)** - The panels you switch on in **Settings > Optional tools**
+- **[Optional Tools](extension)** - The panels you switch on in **Settings > Extensions**
 - **[3D Visual Exporter](blender)** - PLY/GLB/Blender exports of regions, vectors and montages
 - **[Free Electrode Placement](electrode-placement)** - Clicking electrodes onto the scalp, now part of the Simulator
 - **[Nilearn Visuals](nilearn-visuals)** - Publication-ready brain visualizations

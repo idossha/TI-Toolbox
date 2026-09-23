@@ -118,6 +118,9 @@ projects, not work already running. Automatic thread allocation uses the availab
 one, with a minimum of one. Each control shows the available capacity; container limits and the
 job scheduler still constrain execution.
 
+<img src="{{ site.baseurl }}/assets/imgs/v3/settings-preprocessing.png" alt="Settings, Pre-processing tab: FastSurfer, FreeSurfer, SimNIBS CHARM and QSIPrep sections with thread controls" style="width: 100%; max-width: 1000px;">
+<em>Settings &#9656; Pre-processing. Each tool has its own thread controls; leave them on Auto to follow the CPU limit.</em>
+
 - **FastSurfer / FreeSurfer:** thread controls, Apple GPU enablement and FreeSurfer operations.
   TI-Toolbox supplies the FreeSurfer license automatically; no personal license setup is required.
   See the [surfer guide]({{ site.baseurl }}/wiki/fastsurfer/) for setup and permissions.

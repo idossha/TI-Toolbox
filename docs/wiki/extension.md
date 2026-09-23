@@ -4,11 +4,11 @@ title: Extension System
 permalink: /wiki/extension/
 ---
 
-Optional tools are **panels** you switch on per project in **Settings &#9656; Optional tools**.
+Optional tools are **panels** you switch on per project in **Settings &#9656; Extensions**.
 An enabled panel gets its own row under Extensions in the nav rail. Quick notes is a global drawer opened from the command palette or its shortcut.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/settings.png" alt="Settings, with the Optional tools card" style="width: 100%; max-width: 1000px;">
-<em>Settings (&#8984;,). Optional tools is a checkbox per panel; the Viewer engine card below it updates Tetravox without updating the toolbox.</em>
+<img src="{{ site.baseurl }}/assets/imgs/v3/settings-extensions.png" alt="Settings, Extensions tab: a checkbox per feature panel, with every panel listed under Extensions in the sidebar" style="width: 100%; max-width: 1000px;">
+<em>Settings (&#8984;,) &#9656; Extensions. One checkbox per panel; enabled panels appear under Extensions in the sidebar.</em>
 
 The panels are [Source]({{ site.baseurl }}/wiki/extension/), [Cluster
 permutation]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group

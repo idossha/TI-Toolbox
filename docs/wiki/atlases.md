@@ -46,10 +46,16 @@ is distributed as a NIfTI, so you target it through the ROI picker's **Subcortic
 TI-Toolbox ships no MNI-space *surface* parcellation; the Cortical mode's atlases are your own
 subject's, built by preprocessing.
 
-In MNI space the Optimizer's and Analyzer's 3D pane has an **Explode** button beside **Clear
-selection**: the scalp fades out and the atlas regions pull apart, mostly left from right, so deep
-structures can be seen and clicked. Press it again to put them back. It only changes the view — the
-selected regions stay selected.
+In MNI mode, the Optimizer's and Analyzer's target pane has an **Explode** button next to **Clear
+selection**. It fades the scalp and pushes every atlas region outward, mostly sideways, so deep or
+hidden structures can be seen and clicked; press it again to collapse them, and your selection is
+unaffected. Explode is available for MNI atlases only, and because the MNI atlases are split into
+left and right regions, a click selects one hemisphere.
+
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-mni-explode.png" alt="The CIT168 subcortical atlas exploded in the Optimizer's target pane: 32 left and right regions pushed apart with the scalp faded" style="width: 100%; max-width: 600px;">
+  <em>Explode on the CIT168 atlas (32 regions) in MNI mode.</em>
+</div>
 
 ## Licence, attribution and citation
 

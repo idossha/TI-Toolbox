@@ -64,10 +64,7 @@ The ROI picker (`desktop/src/renderer/pages/_shared/roi/`, backed by `tit/opt/ro
 
 - **NIfTI mask**: import a local `.nii` or `.nii.gz` file; it is copied into the project for the server. Positive voxels define the target; choose Subject or MNI space and the tissue restriction. Subject-space masks are used directly. MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling to preserve the mask. The conformation affine alone is not an MNI registration.
 
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-mni-explode.png" alt="The Optimizer scene pane showing the 32 regions of the CIT168 subcortical atlas in MNI space" style="width: 100%; max-width: 600px;">
-  <em>A subcortical atlas in MNI space (CIT168, 32 regions) in the Optimizer's scene pane. Click a region to add it to the ROI.</em>
-</div>
+For MNI atlases, the target pane's **Explode** button pulls regions apart so deep structures can be clicked; see [Atlases]({{ site.baseurl }}/wiki/atlases/#mni-space-atlases).
 
 Whichever mode is used, the picker serializes to one of three dataclasses nested under `FlexConfig`. Every field on all three accepts either a single value or a list -- a list unions several regions into one combined target: N spheres, cross-hemisphere cortical labels (e.g. `lh.insula` + `rh.insula`), or e.g. subcortical labels `17` and `53` for both hippocampi at once.
 

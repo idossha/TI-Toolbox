@@ -6,7 +6,7 @@ permalink: /wiki/blender/
 
 The Blender extension was built to enable publication level visualization and presentation of simulation results using other 3D modeling software in general, and specifically Blender. It provides a convenient interface for exporting cortical surfaces, field vectors, electrode placements, skin surfaces, and sub-cortical structures in formats compatible with Blender, CAD software, and other 3D visualization tools. Use it when you want a guided workflow from the desktop application, or call the underlying Python scripts directly for batch jobs and automation.
 
-Enable **3D visual exporter** in **Settings ▸ Optional tools** to add it to the navigation rail.
+Enable **3D visual exporter** in **Settings ▸ Extensions** to add it to the navigation rail.
 
 ## Preview and export
 
@@ -265,7 +265,7 @@ This can be incoporated into other visualization to produce images and animation
 
 ## Running from the GUI
 
-1. Open your project and enable **3D visual exporter** in **Settings → Optional tools**.
+1. Open your project and enable **3D visual exporter** in **Settings → Extensions**.
 2. Select **3D visual exporter** under **Extensions** in the sidebar.
 3. Pick a subject and simulation from the dropdowns. 
 4. Choose **Cortical Regions**, **Field Vectors**, **Montage Visualizer**, or **Sub-cortical** mode.

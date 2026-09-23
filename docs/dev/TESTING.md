@@ -186,6 +186,23 @@ A quiet monitor exit 2 is inconclusive, not a pass. Keep functional assertions a
 visibility/focus certification separate. Do not rerun solely to replace unresolved shared-host
 process attribution with a more convenient result.
 
+### Documentation screenshots
+
+The app screenshots in `docs/assets/imgs/v3/` come from
+`desktop/tests/e2e/real/docs-shots.spec.ts`, run offscreen against a dev container on Dataset 000.
+Close the desktop app on that project first (it owns the same container), then:
+
+```bash
+cd desktop
+TIT_DEV_IMAGE_TAG=v3.0.1 npx tsx ../dev/capture_docs_screenshots.ts            # every picture
+TIT_DEV_IMAGE_TAG=v3.0.1 npx tsx ../dev/capture_docs_screenshots.ts -g "Help"  # one picture
+```
+
+The script starts or attaches to the container, builds with scene hooks, runs the spec under
+`/tmp/tit-e2e.lock`, restores the plain build, and stops the container only if it started it. The
+spec opens existing results and fills job rows but never submits a job or saves anything. Downscale
+new pictures with `sips --resampleWidth 1600` before committing.
+
 ### Real-container smoke tests
 
 Use a copied representative BIDS project; never substitute a maintainer dataset for destructive
