@@ -353,17 +353,33 @@ class InternalPackagingTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)["sha"], self.sha)
         self.assertEqual(json.loads(result.stdout)["version"], "3.0.0")
 
-    def test_image_manifest_requires_linux_amd64_without_image_layers(self):
-        linux = {"Descriptor": {"platform": {"os": "linux", "architecture": "amd64"}}}
-        arm = {"Descriptor": {"platform": {"os": "linux", "architecture": "arm64"}}}
-        assets.verify_image_manifest(linux)
-        assets.verify_image_manifest([arm, linux])
+    def test_image_manifest_requires_plain_linux_amd64_manifest_not_index(self):
+        # Shapes are `docker manifest inspect --verbose` output, measured 2026-09-23: the re-pushed
+        # idossha/ti-toolbox:v3.0.0 is one object with this descriptor; the broken first push was a
+        # list (amd64 plus a BuildKit attestation marked unknown/unknown).
+        oci = "application/vnd.oci.image.manifest.v1+json"
+        docker_v2 = "application/vnd.docker.distribution.manifest.v2+json"
+
+        def entry(media_type, os_name="linux", arch="amd64"):
+            return {
+                "Descriptor": {
+                    "mediaType": media_type,
+                    "platform": {"os": os_name, "architecture": arch},
+                }
+            }
+
+        assets.verify_image_manifest(entry(oci))
+        assets.verify_image_manifest(entry(docker_v2))
+        attestation = entry(oci, "unknown", "unknown")
         for invalid in (
             {},
             [],
-            arm,
-            [arm],
-            {"Descriptor": {"platform": {"os": "windows", "architecture": "amd64"}}},
+            [entry(oci)],
+            [entry(oci), attestation],
+            entry("application/vnd.oci.image.index.v1+json"),
+            entry("application/vnd.docker.distribution.manifest.list.v2+json"),
+            entry(oci, arch="arm64"),
+            entry(oci, os_name="windows"),
         ):
             with self.subTest(manifest=invalid), self.assertRaises(ValueError):
                 assets.verify_image_manifest(invalid)

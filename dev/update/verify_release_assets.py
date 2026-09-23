@@ -31,17 +31,36 @@ def verify_assets(version: str, release: dict) -> None:
     print(f"Verified {len(expected)} required nonempty release assets")
 
 
+# A tag that resolves to an index (e.g. amd64 plus a BuildKit attestation) makes an unpinned pull
+# on Apple Silicon fail with "no matching manifest for linux/arm64/v8" (RELEASING.md, 2026-09-23).
+PLAIN_MANIFEST_TYPES = {
+    "application/vnd.oci.image.manifest.v1+json",
+    "application/vnd.docker.distribution.manifest.v2+json",
+}
+
+
 def verify_image_manifest(manifest: dict | list) -> None:
-    """Verify published Linux amd64 availability without downloading image layers."""
-    entries = manifest if isinstance(manifest, list) else [manifest]
-    if not any(
-        entry.get("Descriptor", {}).get("platform", {}).get("os") == "linux"
-        and entry.get("Descriptor", {}).get("platform", {}).get("architecture")
-        == "amd64"
-        for entry in entries
-    ):
-        raise ValueError("published version image must support linux/amd64")
-    print("Version image manifest supports linux/amd64; layers/runtime not tested here")
+    """Require one plain linux/amd64 manifest, never an index, without downloading layers.
+
+    ``manifest`` is ``docker manifest inspect --verbose`` output: an object for a plain
+    manifest, a list of objects for an OCI index or Docker manifest list.
+    """
+    if not isinstance(manifest, dict):
+        raise ValueError(
+            "published version image must be a plain linux/amd64 manifest, not an index"
+        )
+    descriptor = manifest.get("Descriptor", {})
+    if descriptor.get("mediaType") not in PLAIN_MANIFEST_TYPES:
+        raise ValueError(
+            f"published version image has media type {descriptor.get('mediaType')!r}, "
+            "not a plain image manifest"
+        )
+    platform = descriptor.get("platform", {})
+    if (platform.get("os"), platform.get("architecture")) != ("linux", "amd64"):
+        raise ValueError("published version image must be linux/amd64")
+    print(
+        "Version image is a plain linux/amd64 manifest; layers/runtime not tested here"
+    )
 
 
 if __name__ == "__main__":
