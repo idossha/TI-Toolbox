@@ -116,7 +116,7 @@ def _nifti_geometry(path: Path) -> tuple[tuple[int, ...], tuple[float, ...], lis
 
 
 NLIN6_ATLASES = (
-    "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+    "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
     "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
     "Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
     "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
@@ -184,8 +184,23 @@ class TestNotShipped:
         )
         with pytest.raises(ValueError, match="no longer shipped"):
             check_shipped("MorelMNI152_labeling_1mm.nii.gz")
-        assert not_shipped_message("CIT168_labeling_MNI152NLin2009cAsym.nii.gz") is None
-        check_shipped("CIT168_labeling_MNI152NLin2009cAsym.nii.gz")
+        assert not_shipped_message("CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz") is None
+        check_shipped("CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz")
+
+    @pytest.mark.parametrize(
+        "old, new",
+        [
+            ("CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz"),
+            ("HarvardOxford-cort-maxprob-thr25-1mm.nii.gz", "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz"),
+        ],
+    )
+    def test_a_bilateral_atlas_names_its_lateralized_replacement(self, old, new):
+        """2026-09-23: a config naming a bilateral atlas fails rather than silently re-meaning label k."""
+        with pytest.raises(ValueError, match=new.replace(".", r"\.")):
+            check_shipped(old)
+        assert mni_atlas_entry(old) is None
+        assert not (RESOURCES / old).exists()
+        assert mni_atlas_entry(new) is not None
 
     def test_it_is_not_in_the_manifest_and_not_on_disk(self):
         assert mni_atlas_entry("MorelMNI152_labeling_1mm.nii.gz") is None

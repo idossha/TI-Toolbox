@@ -76,10 +76,10 @@ describe("roiToConfig", () => {
       { id: 1, name: "Putamen" },
       { id: 2, name: "Caudate" },
     ];
-    const cfg = roiToConfig(value, () => ({ path: "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz" }));
+    const cfg = roiToConfig(value, () => ({ path: "/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz" }));
     expect(cfg).toEqual({
       _type: "SubcorticalROI",
-      atlas_path: ["/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz"],
+      atlas_path: ["/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz", "/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz"],
       label: [1, 2],
       tissues: "GM",
       atlas_space: "mni",

@@ -16,13 +16,16 @@ files; keep this NOTICE with them.
 
 1. CIT168 subcortical atlas
 ---------------------------
-File:       CIT168_labeling_MNI152NLin2009cAsym.nii.gz (+ _LUT.txt)
+File:       CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz (+ _LUT.txt)
 Copyright:  Wolfgang M. Pauli, Amanda N. Nili, J. Michael Tyszka (2018)
 Licence:    Creative Commons Attribution 4.0 International (CC BY 4.0)
             https://creativecommons.org/licenses/by/4.0/  (OSF https://osf.io/jkzwp/)
 Changes:    the deterministic label map shipped here was derived by TI-Toolbox
             from the authors' probabilistic masks (winner-takes-highest
             probability, threshold 0.05); the probability maps are not shipped.
+            Since 2026-09-23 that map is also split at the midline (x = 0):
+            label k is 2k-1 (left) and 2k (right)
+            (dev/build_lateralized_atlases.py).
 Attribution: Pauli W. M., Nili A. N., Tyszka J. M. (2018), CC BY 4.0.
 Citation:   Pauli W. M., Nili A. N., Tyszka J. M. A high-resolution
             probabilistic in vivo atlas of human subcortical brain nuclei.
@@ -88,9 +91,9 @@ Citation:   Fonov V., Evans A. C., Botteron K., Almli C. R., McKinstry R. C.,
 
 5. Harvard-Oxford cortical and subcortical structural atlases
 -------------------------------------------------------------
-Files:      HarvardOxford-cort-maxprob-thr25-1mm.nii.gz,
+Files:      HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz,
             HarvardOxford-sub-maxprob-thr25-1mm.nii.gz (+ their _LUT.txt, which
-            TI-Toolbox generated from FSL's HarvardOxford-Cortical.xml /
+            TI-Toolbox generated from FSL's HarvardOxford-Cortical-Lateralized.xml /
             HarvardOxford-Subcortical.xml; the volumes are unmodified)
 Copyright:  Harvard Center for Morphometric Analysis (CMA), Massachusetts
             General Hospital; distributed with FSL by the University of Oxford

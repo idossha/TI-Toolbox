@@ -27,10 +27,10 @@ TI-Toolbox ships seven atlases as MNI-space NIfTI volumes:
 
 | Atlas                                   | Regions | Native space                                        |
 | --------------------------------------- | ------- | --------------------------------------------------- |
-| CIT168 Subcortical                      | 16      | MNI152NLin2009cAsym                                 |
+| CIT168 Subcortical (left/right)         | 32      | MNI152NLin2009cAsym                                 |
 | Glasser HCP-MMP1.0                      | 360     | FreeSurfer-conformed 256x256x256 1mm grid           |
 | MASSP Subcortical                       | 31      | ICBM152 2009b nonlinear asymmetric, hi-res 0.5mm    |
-| Harvard-Oxford cortical                 | 48      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
+| Harvard-Oxford cortical, lateralized    | 96      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
 | Harvard-Oxford subcortical              | 21      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
 | Cerebellum-MNIfnirt (Diedrichsen 2009)  | 28      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
 | Schaefer 2018, 400 parcels / 7 networks | 400     | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
@@ -70,7 +70,20 @@ University."*
 
 The full notices, with copyright holders, are in the repository's `NOTICE` file.
 
+Every shipped atlas names **one hemisphere per label**, apart from true midline structures
+(cerebellar vermis, brain stem, third and fourth ventricle, fornix). Picking "Left-Putamen" targets
+the left putamen only; to target both, pick both.
+
 ### Not shipped
+
+**Bilateral CIT168 and Harvard-Oxford cortical** (`CIT168_labeling_MNI152NLin2009cAsym.nii.gz`,
+`HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`) were shipped until 2026-09-23. Each of their labels
+covered a structure in *both* hemispheres, so choosing one region silently targeted both sides.
+They were replaced by `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` (label k became
+2k-1 left and 2k right) and FSL's own lateralized `HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`
+(same numbering). A configuration that still names an old file stops with a sentence naming its
+replacement; pick the side(s) you meant from the new atlas.
+
 
 **Morel thalamus atlas** (`MorelMNI152_labeling_1mm.nii.gz`, 74 nuclei) was shipped until
 2026-09-17 and has been removed. Its licence is **CC BY-NC-SA 4.0** ([Zenodo record
@@ -134,9 +147,9 @@ Pauli WM, Nili AN, Tyszka JM. A high-resolution probabilistic in vivo atlas of h
 
 The shipped volume is a **deterministic** label map, derived locally from the paper's probabilistic masks by winner-takes-highest-probability at a 0.05 minimum-probability threshold. The probability maps themselves are not shipped — only the resulting hard segmentation.
 
-All 16 labels are **bilateral**: each label merges the left and right instance of a structure into one region (e.g. "Putamen" covers both hemispheres). There are no separate left/right label pairs, so this atlas has 16 structures total, not 8 per hemisphere.
+The published labeling is **bilateral** (16 labels, each covering a structure in both hemispheres). TI-Toolbox ships it **split at the midline** (x = 0 mm of its own template) since 2026-09-23: 32 labels, where the paper's label k is `2k-1` (`Left-…`, x < 0) and `2k` (`Right-…`, x ≥ 0), made by `dev/build_lateralized_atlases.py`. Nothing else about the map changes.
 
-One consequence for the viewer: because a bilateral label spans both hemispheres, its centroid falls near the midline. Clicking a CIT168 row centres the crosshair between the two instances of the structure rather than on either one — scroll laterally in the axial view to reach them. The other atlases label left and right separately, so their centroids are properly lateralised.
+The label table below comes from the docs atlas browser, which still carries the 16 bilateral labels until its assets are regenerated with `dev/build_atlas_assets.py`; its centroids therefore fall near the midline.
 
 <div class="atlas-table-tools">
   <input type="text" class="atlas-filter" data-target="table-mni-cit168" placeholder="Filter CIT168 regions by name or id…">
@@ -224,10 +237,13 @@ Glasser MF, Coalson TS, Robinson EC, et al. A multi-modal parcellation of human 
 ## Harvard-Oxford Cortical and Subcortical Atlases
 
 The FSL structural atlases from the Harvard Center for Morphometric Analysis, shipped as the
-maximum-probability maps at the 25 % threshold, 1 mm (`HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`,
-48 cortical labels; `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz`, 21 subcortical labels). The files
-are FSL's own, unmodified (NeuroDebian `fsl-harvard-oxford-atlases` 5.0.7-2); the label names come
-from FSL's XML, with ids = XML index + 1 as FSL's `maxprob` images encode them.
+maximum-probability maps at the 25 % threshold, 1 mm (`HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`,
+FSL's **lateralized** cortical map, 96 labels = 48 structures x left/right, odd = left, even =
+right; `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz`, 21 subcortical labels). The files are FSL's
+own, unmodified (NeuroDebian `fsl-harvard-oxford-cortical-lateralized-atlas` and
+`fsl-harvard-oxford-atlases`, both 5.0.7-2); the label names come from FSL's XML, with ids = XML
+index + 1 as FSL's `maxprob` images encode them. Until 2026-09-23 the non-lateralized 48-label
+cortical map was shipped instead, whose labels each covered both hemispheres.
 
 Licence CC BY-SA 4.0 — the FSL licence page states that "The Cerebellum and Harvard-Oxford atlases,
 whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence".

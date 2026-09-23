@@ -70,14 +70,14 @@ def pm(tmp_path: Path, monkeypatch) -> PathManager:
     resources = tmp_path / "resources_atlas"
     resources.mkdir()
     (resources / "MNI152_T1_1mm.nii.gz").write_bytes(b"mni-t1")
-    (resources / "CIT168_labeling_MNI152NLin2009cAsym.nii.gz").write_bytes(b"atlas")
-    (resources / "CIT168_labeling_MNI152NLin2009cAsym_LUT.txt").write_text(
+    (resources / "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz").write_bytes(b"atlas")
+    (resources / "CIT168_labeling_lateralized_MNI152NLin2009cAsym_LUT.txt").write_text(
         "1 Region 1 2 3\n"
     )
     monkeypatch.setattr(viewspec, "mni_resources_dir", lambda: str(resources))
     monkeypatch.setattr(viewspec, "MNI_TEMPLATE", "MNI152_T1_1mm.nii.gz")
     monkeypatch.setattr(
-        viewspec, "DEFAULT_MNI_ATLAS", "CIT168_labeling_MNI152NLin2009cAsym.nii.gz"
+        viewspec, "DEFAULT_MNI_ATLAS", "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz"
     )
 
     return pm
@@ -246,7 +246,7 @@ def test_subject_kind_mni_space_uses_mni_t1_and_mni_atlas(pm: PathManager) -> No
     atlas_layers = [layer for layer in spec["layers"] if layer["colormap"] == "lut"]
     assert len(atlas_layers) == 1
     assert atlas_layers[0]["path"].endswith(
-        "CIT168_labeling_MNI152NLin2009cAsym.nii.gz"
+        "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz"
     )
     assert atlas_layers[0]["lut"] is not None
 
@@ -385,7 +385,7 @@ def test_build_view_group_kind_uses_mni_template_and_atlas(pm: PathManager) -> N
     assert spec["space"] == "mni"
     names = [os.path.basename(layer["path"]) for layer in spec["layers"]]
     assert "MNI152_T1_1mm.nii.gz" in names
-    assert "CIT168_labeling_MNI152NLin2009cAsym.nii.gz" in names
+    assert "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz" in names
 
 
 # ── percentile thresholding (v1) ──────────────────────────────────────────────
@@ -575,7 +575,7 @@ def test_atlas_selects_a_bundled_mni_atlas(pm: PathManager, tmp_path: Path) -> N
     )
     assert default is not None and chosen is not None
     assert any(
-        layer["path"].endswith("CIT168_labeling_MNI152NLin2009cAsym.nii.gz")
+        layer["path"].endswith("CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz")
         for layer in default["layers"]
     )
     assert any(

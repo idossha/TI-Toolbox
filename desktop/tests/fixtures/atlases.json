@@ -62,7 +62,7 @@
       {
         "id": "CIT168",
         "name": "CIT168 subcortical atlas (MNI)",
-        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
         "space": "mni",
         "kind": "volume",
         "template": "MNI152NLin2009cAsym",
@@ -78,9 +78,9 @@
         "license": "WU-Minn HCP Open Access Data Use Terms"
       },
       {
-        "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-        "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
-        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "id": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford cortical, lateralized (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
         "space": "mni",
         "kind": "volume",
         "template": "MNI152NLin6Asym",
@@ -171,7 +171,7 @@
       {
         "id": "CIT168",
         "name": "CIT168 subcortical atlas (MNI)",
-        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
         "space": "mni",
         "kind": "volume",
         "template": "MNI152NLin2009cAsym",
@@ -187,9 +187,9 @@
         "license": "WU-Minn HCP Open Access Data Use Terms"
       },
       {
-        "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-        "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
-        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "id": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford cortical, lateralized (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
         "space": "mni",
         "kind": "volume",
         "template": "MNI152NLin6Asym",
@@ -251,7 +251,7 @@
       {
         "id": "CIT168",
         "name": "CIT168 subcortical atlas (MNI)",
-        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+        "path": "/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
         "space": "mni",
         "kind": "volume",
         "template": "MNI152NLin2009cAsym",
@@ -267,9 +267,9 @@
         "license": "WU-Minn HCP Open Access Data Use Terms"
       },
       {
-        "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-        "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
-        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "id": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+        "name": "Harvard-Oxford cortical, lateralized (maxprob, thr25, 1 mm)",
+        "path": "/ti-toolbox/resources/atlas/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
         "space": "mni",
         "kind": "volume",
         "template": "MNI152NLin6Asym",

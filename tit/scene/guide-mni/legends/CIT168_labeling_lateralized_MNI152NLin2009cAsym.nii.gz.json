@@ -1,0 +1,235 @@
+{
+ "atlas": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+ "vertices": 23580,
+ "radius_mm": 0,
+ "labelled_fraction": 1,
+ "legend": [
+  {
+   "id": 1,
+   "name": "Left-CIT168_Pu_Putamen",
+   "color": "#f25454",
+   "label": 1,
+   "hemi": ""
+  },
+  {
+   "id": 2,
+   "name": "Right-CIT168_Pu_Putamen",
+   "color": "#5482f2",
+   "label": 2,
+   "hemi": ""
+  },
+  {
+   "id": 3,
+   "name": "Left-CIT168_Ca_Caudate",
+   "color": "#b0f254",
+   "label": 3,
+   "hemi": ""
+  },
+  {
+   "id": 4,
+   "name": "Right-CIT168_Ca_Caudate",
+   "color": "#f254de",
+   "label": 4,
+   "hemi": ""
+  },
+  {
+   "id": 5,
+   "name": "Left-CIT168_NAC_Nucleus_accumbens",
+   "color": "#54f2d8",
+   "label": 5,
+   "hemi": ""
+  },
+  {
+   "id": 6,
+   "name": "Right-CIT168_NAC_Nucleus_accumbens",
+   "color": "#f2aa54",
+   "label": 6,
+   "hemi": ""
+  },
+  {
+   "id": 7,
+   "name": "Left-CIT168_EXA_Extended_amygdala",
+   "color": "#7c54f2",
+   "label": 7,
+   "hemi": ""
+  },
+  {
+   "id": 8,
+   "name": "Right-CIT168_EXA_Extended_amygdala",
+   "color": "#5bf254",
+   "label": 8,
+   "hemi": ""
+  },
+  {
+   "id": 9,
+   "name": "Left-CIT168_GPe_External_globus_pallidus",
+   "color": "#f25489",
+   "label": 9,
+   "hemi": ""
+  },
+  {
+   "id": 10,
+   "name": "Right-CIT168_GPe_External_globus_pallidus",
+   "color": "#54b7f2",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "Left-CIT168_GPi_Internal_globus_pallidus",
+   "color": "#e5f254",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "Right-CIT168_GPi_Internal_globus_pallidus",
+   "color": "#d154f2",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "Left-CIT168_SNc_Substantia_nigra_pars_compacta",
+   "color": "#54f2a3",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 14,
+   "name": "Right-CIT168_SNc_Substantia_nigra_pars_compacta",
+   "color": "#f27554",
+   "label": 14,
+   "hemi": ""
+  },
+  {
+   "id": 15,
+   "name": "Left-CIT168_RN_Red_nucleus",
+   "color": "#5462f2",
+   "label": 15,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "Right-CIT168_RN_Red_nucleus",
+   "color": "#90f254",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "Left-CIT168_SNr_Substantia_nigra_pars_reticulata",
+   "color": "#f254be",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "Right-CIT168_SNr_Substantia_nigra_pars_reticulata",
+   "color": "#54ecf2",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 19,
+   "name": "Left-CIT168_PBP_Parabrachial_pigmented_nucleus",
+   "color": "#f2ca54",
+   "label": 19,
+   "hemi": ""
+  },
+  {
+   "id": 20,
+   "name": "Right-CIT168_PBP_Parabrachial_pigmented_nucleus",
+   "color": "#9c54f2",
+   "label": 20,
+   "hemi": ""
+  },
+  {
+   "id": 21,
+   "name": "Left-CIT168_VTA_Ventral_tegmental_area",
+   "color": "#54f26e",
+   "label": 21,
+   "hemi": ""
+  },
+  {
+   "id": 22,
+   "name": "Right-CIT168_VTA_Ventral_tegmental_area",
+   "color": "#f25468",
+   "label": 22,
+   "hemi": ""
+  },
+  {
+   "id": 23,
+   "name": "Left-CIT168_VeP_Ventral_pallidum",
+   "color": "#5496f2",
+   "label": 23,
+   "hemi": ""
+  },
+  {
+   "id": 24,
+   "name": "Right-CIT168_VeP_Ventral_pallidum",
+   "color": "#c5f254",
+   "label": 24,
+   "hemi": ""
+  },
+  {
+   "id": 25,
+   "name": "Left-CIT168_HN_Habenular_nuclei",
+   "color": "#f254f2",
+   "label": 25,
+   "hemi": ""
+  },
+  {
+   "id": 26,
+   "name": "Right-CIT168_HN_Habenular_nuclei",
+   "color": "#54f2c4",
+   "label": 26,
+   "hemi": ""
+  },
+  {
+   "id": 27,
+   "name": "Left-CIT168_HTH_Hypothalamus",
+   "color": "#f29654",
+   "label": 27,
+   "hemi": ""
+  },
+  {
+   "id": 28,
+   "name": "Right-CIT168_HTH_Hypothalamus",
+   "color": "#6754f2",
+   "label": 28,
+   "hemi": ""
+  },
+  {
+   "id": 29,
+   "name": "Left-CIT168_MN_Mammillary_nuclei",
+   "color": "#6ff254",
+   "label": 29,
+   "hemi": ""
+  },
+  {
+   "id": 30,
+   "name": "Right-CIT168_MN_Mammillary_nuclei",
+   "color": "#f2549d",
+   "label": 30,
+   "hemi": ""
+  },
+  {
+   "id": 31,
+   "name": "Left-CIT168_STH_Subthalamic_nucleus",
+   "color": "#54cbf2",
+   "label": 31,
+   "hemi": ""
+  },
+  {
+   "id": 32,
+   "name": "Right-CIT168_STH_Subthalamic_nucleus",
+   "color": "#f2eb54",
+   "label": 32,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz&guide=mni"
+}

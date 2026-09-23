@@ -126,7 +126,7 @@ export function roiSpace(value: RoiValue): RoiSpace {
  * The same value in *space*, with whatever cannot survive the move dropped.
  *
  * An atlas id and its region labels are space-specific — `labeling.nii.gz` is a subject file and
- * `CIT168_labeling_MNI152NLin2009cAsym.nii.gz` is a packaged MNI one — so switching space clears
+ * `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` is a packaged MNI one — so switching space clears
  * the atlas and its regions. Coordinates, radii, mask paths and saved-ROI names are *reinterpreted*
  * in the new space, which is exactly what the user asking for MNI means, so they are kept.
  * `spaceChangeNote` is the sentence the UI says about what was dropped.

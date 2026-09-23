@@ -1,0 +1,683 @@
+{
+ "atlas": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+ "vertices": 52075,
+ "radius_mm": 0,
+ "labelled_fraction": 1,
+ "legend": [
+  {
+   "id": 1,
+   "name": "Left-Frontal-Pole",
+   "color": "#f25454",
+   "label": 1,
+   "hemi": ""
+  },
+  {
+   "id": 2,
+   "name": "Right-Frontal-Pole",
+   "color": "#5482f2",
+   "label": 2,
+   "hemi": ""
+  },
+  {
+   "id": 3,
+   "name": "Left-Insular-Cortex",
+   "color": "#b0f254",
+   "label": 3,
+   "hemi": ""
+  },
+  {
+   "id": 4,
+   "name": "Right-Insular-Cortex",
+   "color": "#f254de",
+   "label": 4,
+   "hemi": ""
+  },
+  {
+   "id": 5,
+   "name": "Left-Superior-Frontal-Gyrus",
+   "color": "#54f2d8",
+   "label": 5,
+   "hemi": ""
+  },
+  {
+   "id": 6,
+   "name": "Right-Superior-Frontal-Gyrus",
+   "color": "#f2aa54",
+   "label": 6,
+   "hemi": ""
+  },
+  {
+   "id": 7,
+   "name": "Left-Middle-Frontal-Gyrus",
+   "color": "#7c54f2",
+   "label": 7,
+   "hemi": ""
+  },
+  {
+   "id": 8,
+   "name": "Right-Middle-Frontal-Gyrus",
+   "color": "#5bf254",
+   "label": 8,
+   "hemi": ""
+  },
+  {
+   "id": 9,
+   "name": "Left-Inferior-Frontal-Gyrus,-pars-triangularis",
+   "color": "#f25489",
+   "label": 9,
+   "hemi": ""
+  },
+  {
+   "id": 10,
+   "name": "Right-Inferior-Frontal-Gyrus,-pars-triangularis",
+   "color": "#54b7f2",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "Left-Inferior-Frontal-Gyrus,-pars-opercularis",
+   "color": "#e5f254",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "Right-Inferior-Frontal-Gyrus,-pars-opercularis",
+   "color": "#d154f2",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "Left-Precentral-Gyrus",
+   "color": "#54f2a3",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 14,
+   "name": "Right-Precentral-Gyrus",
+   "color": "#f27554",
+   "label": 14,
+   "hemi": ""
+  },
+  {
+   "id": 15,
+   "name": "Left-Temporal-Pole",
+   "color": "#5462f2",
+   "label": 15,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "Right-Temporal-Pole",
+   "color": "#90f254",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "Left-Superior-Temporal-Gyrus,-anterior-division",
+   "color": "#f254be",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "Right-Superior-Temporal-Gyrus,-anterior-division",
+   "color": "#54ecf2",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 19,
+   "name": "Left-Superior-Temporal-Gyrus,-posterior-division",
+   "color": "#f2ca54",
+   "label": 19,
+   "hemi": ""
+  },
+  {
+   "id": 20,
+   "name": "Right-Superior-Temporal-Gyrus,-posterior-division",
+   "color": "#9c54f2",
+   "label": 20,
+   "hemi": ""
+  },
+  {
+   "id": 21,
+   "name": "Left-Middle-Temporal-Gyrus,-anterior-division",
+   "color": "#54f26e",
+   "label": 21,
+   "hemi": ""
+  },
+  {
+   "id": 22,
+   "name": "Right-Middle-Temporal-Gyrus,-anterior-division",
+   "color": "#f25468",
+   "label": 22,
+   "hemi": ""
+  },
+  {
+   "id": 23,
+   "name": "Left-Middle-Temporal-Gyrus,-posterior-division",
+   "color": "#5496f2",
+   "label": 23,
+   "hemi": ""
+  },
+  {
+   "id": 24,
+   "name": "Right-Middle-Temporal-Gyrus,-posterior-division",
+   "color": "#c5f254",
+   "label": 24,
+   "hemi": ""
+  },
+  {
+   "id": 25,
+   "name": "Left-Middle-Temporal-Gyrus,-temporooccipital-part",
+   "color": "#f254f2",
+   "label": 25,
+   "hemi": ""
+  },
+  {
+   "id": 26,
+   "name": "Right-Middle-Temporal-Gyrus,-temporooccipital-part",
+   "color": "#54f2c4",
+   "label": 26,
+   "hemi": ""
+  },
+  {
+   "id": 27,
+   "name": "Left-Inferior-Temporal-Gyrus,-anterior-division",
+   "color": "#f29654",
+   "label": 27,
+   "hemi": ""
+  },
+  {
+   "id": 28,
+   "name": "Right-Inferior-Temporal-Gyrus,-anterior-division",
+   "color": "#6754f2",
+   "label": 28,
+   "hemi": ""
+  },
+  {
+   "id": 29,
+   "name": "Left-Inferior-Temporal-Gyrus,-posterior-division",
+   "color": "#6ff254",
+   "label": 29,
+   "hemi": ""
+  },
+  {
+   "id": 30,
+   "name": "Right-Inferior-Temporal-Gyrus,-posterior-division",
+   "color": "#f2549d",
+   "label": 30,
+   "hemi": ""
+  },
+  {
+   "id": 31,
+   "name": "Left-Inferior-Temporal-Gyrus,-temporooccipital-part",
+   "color": "#54cbf2",
+   "label": 31,
+   "hemi": ""
+  },
+  {
+   "id": 32,
+   "name": "Right-Inferior-Temporal-Gyrus,-temporooccipital-part",
+   "color": "#f2eb54",
+   "label": 32,
+   "hemi": ""
+  },
+  {
+   "id": 33,
+   "name": "Left-Postcentral-Gyrus",
+   "color": "#bd54f2",
+   "label": 33,
+   "hemi": ""
+  },
+  {
+   "id": 34,
+   "name": "Right-Postcentral-Gyrus",
+   "color": "#54f28f",
+   "label": 34,
+   "hemi": ""
+  },
+  {
+   "id": 35,
+   "name": "Left-Superior-Parietal-Lobule",
+   "color": "#f26154",
+   "label": 35,
+   "hemi": ""
+  },
+  {
+   "id": 36,
+   "name": "Right-Superior-Parietal-Lobule",
+   "color": "#5476f2",
+   "label": 36,
+   "hemi": ""
+  },
+  {
+   "id": 37,
+   "name": "Left-Supramarginal-Gyrus,-anterior-division",
+   "color": "#a4f254",
+   "label": 37,
+   "hemi": ""
+  },
+  {
+   "id": 38,
+   "name": "Right-Supramarginal-Gyrus,-anterior-division",
+   "color": "#f254d2",
+   "label": 38,
+   "hemi": ""
+  },
+  {
+   "id": 39,
+   "name": "Left-Supramarginal-Gyrus,-posterior-division",
+   "color": "#54f2e4",
+   "label": 39,
+   "hemi": ""
+  },
+  {
+   "id": 40,
+   "name": "Right-Supramarginal-Gyrus,-posterior-division",
+   "color": "#f2b654",
+   "label": 40,
+   "hemi": ""
+  },
+  {
+   "id": 41,
+   "name": "Left-Angular-Gyrus",
+   "color": "#8854f2",
+   "label": 41,
+   "hemi": ""
+  },
+  {
+   "id": 42,
+   "name": "Right-Angular-Gyrus",
+   "color": "#54f25a",
+   "label": 42,
+   "hemi": ""
+  },
+  {
+   "id": 43,
+   "name": "Left-Lateral-Occipital-Cortex,-superior-division",
+   "color": "#f2547d",
+   "label": 43,
+   "hemi": ""
+  },
+  {
+   "id": 44,
+   "name": "Right-Lateral-Occipital-Cortex,-superior-division",
+   "color": "#54abf2",
+   "label": 44,
+   "hemi": ""
+  },
+  {
+   "id": 45,
+   "name": "Left-Lateral-Occipital-Cortex,-inferior-division",
+   "color": "#d9f254",
+   "label": 45,
+   "hemi": ""
+  },
+  {
+   "id": 46,
+   "name": "Right-Lateral-Occipital-Cortex,-inferior-division",
+   "color": "#dd54f2",
+   "label": 46,
+   "hemi": ""
+  },
+  {
+   "id": 47,
+   "name": "Left-Intracalcarine-Cortex",
+   "color": "#54f2af",
+   "label": 47,
+   "hemi": ""
+  },
+  {
+   "id": 48,
+   "name": "Right-Intracalcarine-Cortex",
+   "color": "#f28154",
+   "label": 48,
+   "hemi": ""
+  },
+  {
+   "id": 49,
+   "name": "Left-Frontal-Medial-Cortex",
+   "color": "#5455f2",
+   "label": 49,
+   "hemi": ""
+  },
+  {
+   "id": 50,
+   "name": "Right-Frontal-Medial-Cortex",
+   "color": "#83f254",
+   "label": 50,
+   "hemi": ""
+  },
+  {
+   "id": 51,
+   "name": "Left-Juxtapositional-Lobule-Cortex-(formerly-Supplementary-Motor-Cortex)",
+   "color": "#f254b1",
+   "label": 51,
+   "hemi": ""
+  },
+  {
+   "id": 52,
+   "name": "Right-Juxtapositional-Lobule-Cortex-(formerly-Supplementary-Motor-Cortex)",
+   "color": "#54dff2",
+   "label": 52,
+   "hemi": ""
+  },
+  {
+   "id": 53,
+   "name": "Left-Subcallosal-Cortex",
+   "color": "#f2d754",
+   "label": 53,
+   "hemi": ""
+  },
+  {
+   "id": 54,
+   "name": "Right-Subcallosal-Cortex",
+   "color": "#a954f2",
+   "label": 54,
+   "hemi": ""
+  },
+  {
+   "id": 55,
+   "name": "Left-Paracingulate-Gyrus",
+   "color": "#54f27b",
+   "label": 55,
+   "hemi": ""
+  },
+  {
+   "id": 56,
+   "name": "Right-Paracingulate-Gyrus",
+   "color": "#f2545c",
+   "label": 56,
+   "hemi": ""
+  },
+  {
+   "id": 57,
+   "name": "Left-Cingulate-Gyrus,-anterior-division",
+   "color": "#548af2",
+   "label": 57,
+   "hemi": ""
+  },
+  {
+   "id": 58,
+   "name": "Right-Cingulate-Gyrus,-anterior-division",
+   "color": "#b8f254",
+   "label": 58,
+   "hemi": ""
+  },
+  {
+   "id": 59,
+   "name": "Left-Cingulate-Gyrus,-posterior-division",
+   "color": "#f254e6",
+   "label": 59,
+   "hemi": ""
+  },
+  {
+   "id": 60,
+   "name": "Right-Cingulate-Gyrus,-posterior-division",
+   "color": "#54f2d0",
+   "label": 60,
+   "hemi": ""
+  },
+  {
+   "id": 61,
+   "name": "Left-Precuneous-Cortex",
+   "color": "#f2a254",
+   "label": 61,
+   "hemi": ""
+  },
+  {
+   "id": 62,
+   "name": "Right-Precuneous-Cortex",
+   "color": "#7454f2",
+   "label": 62,
+   "hemi": ""
+  },
+  {
+   "id": 63,
+   "name": "Left-Cuneal-Cortex",
+   "color": "#63f254",
+   "label": 63,
+   "hemi": ""
+  },
+  {
+   "id": 64,
+   "name": "Right-Cuneal-Cortex",
+   "color": "#f25491",
+   "label": 64,
+   "hemi": ""
+  },
+  {
+   "id": 65,
+   "name": "Left-Frontal-Orbital-Cortex",
+   "color": "#54bff2",
+   "label": 65,
+   "hemi": ""
+  },
+  {
+   "id": 66,
+   "name": "Right-Frontal-Orbital-Cortex",
+   "color": "#edf254",
+   "label": 66,
+   "hemi": ""
+  },
+  {
+   "id": 67,
+   "name": "Left-Parahippocampal-Gyrus,-anterior-division",
+   "color": "#c954f2",
+   "label": 67,
+   "hemi": ""
+  },
+  {
+   "id": 68,
+   "name": "Right-Parahippocampal-Gyrus,-anterior-division",
+   "color": "#54f29b",
+   "label": 68,
+   "hemi": ""
+  },
+  {
+   "id": 69,
+   "name": "Left-Parahippocampal-Gyrus,-posterior-division",
+   "color": "#f26d54",
+   "label": 69,
+   "hemi": ""
+  },
+  {
+   "id": 70,
+   "name": "Right-Parahippocampal-Gyrus,-posterior-division",
+   "color": "#5469f2",
+   "label": 70,
+   "hemi": ""
+  },
+  {
+   "id": 71,
+   "name": "Left-Lingual-Gyrus",
+   "color": "#97f254",
+   "label": 71,
+   "hemi": ""
+  },
+  {
+   "id": 72,
+   "name": "Right-Lingual-Gyrus",
+   "color": "#f254c6",
+   "label": 72,
+   "hemi": ""
+  },
+  {
+   "id": 73,
+   "name": "Left-Temporal-Fusiform-Cortex,-anterior-division",
+   "color": "#54f2f1",
+   "label": 73,
+   "hemi": ""
+  },
+  {
+   "id": 74,
+   "name": "Right-Temporal-Fusiform-Cortex,-anterior-division",
+   "color": "#f2c354",
+   "label": 74,
+   "hemi": ""
+  },
+  {
+   "id": 75,
+   "name": "Left-Temporal-Fusiform-Cortex,-posterior-division",
+   "color": "#9554f2",
+   "label": 75,
+   "hemi": ""
+  },
+  {
+   "id": 76,
+   "name": "Right-Temporal-Fusiform-Cortex,-posterior-division",
+   "color": "#54f266",
+   "label": 76,
+   "hemi": ""
+  },
+  {
+   "id": 77,
+   "name": "Left-Temporal-Occipital-Fusiform-Cortex",
+   "color": "#f25470",
+   "label": 77,
+   "hemi": ""
+  },
+  {
+   "id": 78,
+   "name": "Right-Temporal-Occipital-Fusiform-Cortex",
+   "color": "#549ef2",
+   "label": 78,
+   "hemi": ""
+  },
+  {
+   "id": 79,
+   "name": "Left-Occipital-Fusiform-Gyrus",
+   "color": "#ccf254",
+   "label": 79,
+   "hemi": ""
+  },
+  {
+   "id": 80,
+   "name": "Right-Occipital-Fusiform-Gyrus",
+   "color": "#ea54f2",
+   "label": 80,
+   "hemi": ""
+  },
+  {
+   "id": 81,
+   "name": "Left-Frontal-Operculum-Cortex",
+   "color": "#54f2bc",
+   "label": 81,
+   "hemi": ""
+  },
+  {
+   "id": 82,
+   "name": "Right-Frontal-Operculum-Cortex",
+   "color": "#f28e54",
+   "label": 82,
+   "hemi": ""
+  },
+  {
+   "id": 83,
+   "name": "Left-Central-Opercular-Cortex",
+   "color": "#6054f2",
+   "label": 83,
+   "hemi": ""
+  },
+  {
+   "id": 84,
+   "name": "Right-Central-Opercular-Cortex",
+   "color": "#77f254",
+   "label": 84,
+   "hemi": ""
+  },
+  {
+   "id": 85,
+   "name": "Left-Parietal-Operculum-Cortex",
+   "color": "#f254a5",
+   "label": 85,
+   "hemi": ""
+  },
+  {
+   "id": 86,
+   "name": "Right-Parietal-Operculum-Cortex",
+   "color": "#54d3f2",
+   "label": 86,
+   "hemi": ""
+  },
+  {
+   "id": 87,
+   "name": "Left-Planum-Polare",
+   "color": "#f2e354",
+   "label": 87,
+   "hemi": ""
+  },
+  {
+   "id": 88,
+   "name": "Right-Planum-Polare",
+   "color": "#b554f2",
+   "label": 88,
+   "hemi": ""
+  },
+  {
+   "id": 89,
+   "name": "Left-Heschl's-Gyrus-(includes-H1-and-H2)",
+   "color": "#54f287",
+   "label": 89,
+   "hemi": ""
+  },
+  {
+   "id": 90,
+   "name": "Right-Heschl's-Gyrus-(includes-H1-and-H2)",
+   "color": "#f25954",
+   "label": 90,
+   "hemi": ""
+  },
+  {
+   "id": 91,
+   "name": "Left-Planum-Temporale",
+   "color": "#547ef2",
+   "label": 91,
+   "hemi": ""
+  },
+  {
+   "id": 92,
+   "name": "Right-Planum-Temporale",
+   "color": "#acf254",
+   "label": 92,
+   "hemi": ""
+  },
+  {
+   "id": 93,
+   "name": "Left-Supracalcarine-Cortex",
+   "color": "#f254da",
+   "label": 93,
+   "hemi": ""
+  },
+  {
+   "id": 94,
+   "name": "Right-Supracalcarine-Cortex",
+   "color": "#54f2dd",
+   "label": 94,
+   "hemi": ""
+  },
+  {
+   "id": 95,
+   "name": "Left-Occipital-Pole",
+   "color": "#f2ae54",
+   "label": 95,
+   "hemi": ""
+  },
+  {
+   "id": 96,
+   "name": "Right-Occipital-Pole",
+   "color": "#8054f2",
+   "label": 96,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz&guide=mni"
+}

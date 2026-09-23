@@ -104,13 +104,13 @@
    }
   },
   {
-   "id": "atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+   "id": "atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
    "kind": "surface",
-   "triangles": 47141,
-   "vertices": 23488,
-   "bytes": 847580,
-   "fingerprint": "guide-2-atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
-   "url": "/api/guide/surface?part=atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz&guide=mni",
+   "triangles": 47298,
+   "vertices": 23580,
+   "bytes": 850568,
+   "fingerprint": "guide-2-atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+   "url": "/api/guide/surface?part=atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz&guide=mni",
    "simplified": true,
    "within_budget": true,
    "bbox": [
@@ -118,7 +118,7 @@
     -39.5,
     -21.5,
     38.0,
-    27.0,
+    27.5,
     28.5
    ],
    "focus_bbox": [
@@ -126,19 +126,19 @@
     -39.5,
     -21.5,
     38.0,
-    27.0,
+    27.5,
     28.5
    ],
    "files": {
-    "tvsc": "surfaces/atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz.tvsc",
+    "tvsc": "surfaces/atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz.tvsc",
     "tvsc_meta": {
-     "bytes": 847580,
-     "sha256": "7387939066e5a43808a653242c405c2d3041cf87f92a64355bbf89c0f36a02ca"
+     "bytes": 850568,
+     "sha256": "91a3300299a7e4d66f50f5181e732daf31125f115ffd72af2bfb9283b3a818ad"
     },
-    "gii": "surfaces/atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz.gii",
+    "gii": "surfaces/atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz.gii",
     "gii_meta": {
-     "bytes": 321683,
-     "sha256": "f1fa179becc1538b6691f36025c30673f4e14449c94833fa95b9d4f6935eecef"
+     "bytes": 322479,
+     "sha256": "3c00405edcbbbdb367298a574eba7d9cec08fe6f55bb13c8904c6926ae3471ee"
     }
    }
   },
@@ -182,41 +182,41 @@
    }
   },
   {
-   "id": "atlas-HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+   "id": "atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
    "kind": "surface",
-   "triangles": 106752,
-   "vertices": 52557,
-   "bytes": 1911740,
-   "fingerprint": "guide-2-atlas-HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-   "url": "/api/guide/surface?part=atlas-HarvardOxford-cort-maxprob-thr25-1mm.nii.gz&guide=mni",
+   "triangles": 105569,
+   "vertices": 52075,
+   "bytes": 1891760,
+   "fingerprint": "guide-2-atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+   "url": "/api/guide/surface?part=atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz&guide=mni",
    "simplified": true,
    "within_budget": true,
    "bbox": [
-    -70.5,
+    -71.0,
     -107.5,
-    -51.0,
+    -51.5,
     72.5,
     75.5,
     82.5
    ],
    "focus_bbox": [
-    -70.5,
+    -71.0,
     -107.5,
-    -51.0,
+    -51.5,
     72.5,
     75.5,
     82.5
    ],
    "files": {
-    "tvsc": "surfaces/atlas-HarvardOxford-cort-maxprob-thr25-1mm.nii.gz.tvsc",
+    "tvsc": "surfaces/atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.tvsc",
     "tvsc_meta": {
-     "bytes": 1911740,
-     "sha256": "30a6bc5dedf8f28355ff882efca31f2082392a6fee1a267459d157d103126a00"
+     "bytes": 1891760,
+     "sha256": "0e4d1b4418a4d12ab7a7b5ef42d1d32e0e78fcf3e10e9d153a61c07292a6ea21"
     },
-    "gii": "surfaces/atlas-HarvardOxford-cort-maxprob-thr25-1mm.nii.gz.gii",
+    "gii": "surfaces/atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.gii",
     "gii_meta": {
-     "bytes": 776796,
-     "sha256": "164447f692dc469b7e0d4c2c28925142c7ad9cd63235abded922ea903582513e"
+     "bytes": 766460,
+     "sha256": "ecb6e85ee737ed824d81d475617906d77a434e11fd6e6af86c1c1f08606180df"
     }
    }
   },
@@ -351,31 +351,31 @@
  ],
  "atlases": [
   {
-   "id": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+   "id": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
    "kind": "subcortical",
    "hemispheres": [],
-   "aligned_to": "atlas-CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
-   "regions": 16,
-   "url": "/api/guide/regions?atlas=CIT168_labeling_MNI152NLin2009cAsym.nii.gz&guide=mni",
+   "aligned_to": "atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+   "regions": 32,
+   "url": "/api/guide/regions?atlas=CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz&guide=mni",
    "files": {
-    "tvsc": "labels/CIT168_labeling_MNI152NLin2009cAsym.nii.gz.tvsc",
+    "tvsc": "labels/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz.tvsc",
     "tvsc_meta": {
-     "bytes": 328864,
-     "sha256": "752bc1afa981c3f0f4736518bd77ddf6fde9cfb032478f1ed404b54689328ff0"
+     "bytes": 330152,
+     "sha256": "c2d4599a50423b479c3a16d46dbaf0846ba6d162d915d366035282e50c2b3bfb"
     },
-    "gii": "labels/CIT168_labeling_MNI152NLin2009cAsym.nii.gz.gii",
+    "gii": "labels/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz.gii",
     "gii_meta": {
-     "bytes": 324624,
-     "sha256": "c3a27be4a6d770bdf994d78eaaed65f7a8e588b032f3262e216b10ea92467a36"
+     "bytes": 327848,
+     "sha256": "c00bd42120a16dcc22d0ba4002675fccdb3ccd2def91aa3faf46a2eeca819690"
     }
    },
-   "legend_file": "legends/CIT168_labeling_MNI152NLin2009cAsym.nii.gz.json",
+   "legend_file": "legends/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz.json",
    "legend_meta": {
-    "bytes": 2209,
-    "sha256": "9d6bf786018e37d540eed6590f10e9e3fe342e8f224e2e7b344c04e049be3d50"
+    "bytes": 4333,
+    "sha256": "b07e1498380f45573d15034f9798397562544167de8fccf9dc3ed5ecf5826be3"
    },
-   "source_sha256": "48b6187e4a051aedb7f32d058fd3211df2e96fbe369c80793e6f7b293ff98a23",
-   "lut_sha256": "bc983f3d9152608ea8fead0eb25f77837883c140d7795894aab972fda0cbaf6c"
+   "source_sha256": "ea70393bc71c2c6cc0e82d4aa7a4b84d01ae9552f84b0fe65dc051f9f03dbd62",
+   "lut_sha256": "6de7fe83259688a9c6877b1a613d445d043cdca793c217c6c57dfd4fd659884e"
   },
   {
    "id": "massp2021-parcellation_decade-18to40.nii.gz",
@@ -405,31 +405,31 @@
    "lut_sha256": "e8e5e86c2f3afd8c6e80eef8be548693d8fe5315979f4314447cda0203e49bc5"
   },
   {
-   "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+   "id": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
    "kind": "subcortical",
    "hemispheres": [],
-   "aligned_to": "atlas-HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-   "regions": 48,
-   "url": "/api/guide/regions?atlas=HarvardOxford-cort-maxprob-thr25-1mm.nii.gz&guide=mni",
+   "aligned_to": "atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+   "regions": 96,
+   "url": "/api/guide/regions?atlas=HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz&guide=mni",
    "files": {
-    "tvsc": "labels/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz.tvsc",
+    "tvsc": "labels/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.tvsc",
     "tvsc_meta": {
-     "bytes": 735832,
-     "sha256": "b66e7a823b89fac5cee5274e463a7bcb339f727dcff61749e69c5343ad1b2495"
+     "bytes": 729084,
+     "sha256": "02ab39b7cc6be3b5c7da4b1ce180739f177fb9cfdfe22df4a2535a4a92335f25"
     },
-    "gii": "labels/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz.gii",
+    "gii": "labels/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.gii",
     "gii_meta": {
-     "bytes": 784379,
-     "sha256": "33ac47e202c98acc21d8fbd567e450667bf3f0214adb7afaae0aaddb256dcef4"
+     "bytes": 781361,
+     "sha256": "8bc96ead9e6b4072d3e210ff878914111782ce709ba6d7ac08e536eae9f6db29"
     }
    },
-   "legend_file": "legends/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz.json",
+   "legend_file": "legends/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.json",
    "legend_meta": {
-    "bytes": 6014,
-    "sha256": "02eefb66b08be689d5bd2dab29612f1f0808b7d3a3782191ba8bccfcc988851c"
+    "bytes": 12299,
+    "sha256": "95a28474e6e774a9137614d47f387938ff8bd00ce01b459dea98ddb0581cc38a"
    },
-   "source_sha256": "109ab2c5b4958185ee061f75aa38c9afc37de273e0b2e02288f4ab12693b60d8",
-   "lut_sha256": "93a18a484f401c50684a6dd196eff2045d626b85cfb72324b095d01628202741"
+   "source_sha256": "74703890d03b2d32a766fc28c7caa50d1b419a479f3fde1651f34edba593305b",
+   "lut_sha256": "8a2084821827aafe60691dc883b6aef13f08df5cedae228b9abf11d4063e71ab"
   },
   {
    "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
@@ -500,6 +500,6 @@
  "generated": {
   "subject": "MNI152",
   "generator": "tit.scene.guide_build",
-  "seconds": 57.7
+  "seconds": 70.8
  }
 }

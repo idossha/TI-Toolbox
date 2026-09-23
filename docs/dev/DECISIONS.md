@@ -2004,3 +2004,36 @@ share one product, other products and non-product kinds run together, stale `gro
 `tests/test_jobs_routes.py::test_a_group_runs_one_member_at_a_time` (with and without a stale
 `parallel_subjects`), `tests/test_plan_routes.py::test_plan_pre_runs_one_stage_at_a_time_and_ignores_a_stale_parallel_subjects`,
 `desktop/tests/unit/job-groups.test.ts`, `desktop/tests/e2e/batch.spec.ts`.
+
+
+## 2026-09-23 — Every shipped MNI atlas names one hemisphere per label; CIT168 and Harvard-Oxford cortical are lateralized
+
+**Decision.** `CIT168_labeling_MNI152NLin2009cAsym.nii.gz` (16 labels) and
+`HarvardOxford-cort-maxprob-thr25-1mm.nii.gz` (48) are no longer shipped. They are replaced by
+`CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` (32: the published map split at world
+x = 0 of its own grid, label k -> 2k-1 Left / 2k Right, voxel plane x = 0 -> Right) and FSL's own
+`HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz` (96, byte-identical from NeuroDebian
+`fsl-harvard-oxford-cortical-lateralized-atlas_5.0.7-2_all.deb`, sha256 `a7c63c12…be51`, odd =
+Left, even = Right). `dev/build_lateralized_atlases.py` produces both from sha-pinned inputs,
+byte-deterministically. Both old ids are listed under `manifest.json § not_shipped` with a sentence
+naming the replacement, so a saved configuration fails instead of label k silently changing meaning.
+The MNI guide was rebuilt; the ROI picker, the pane and the selection code are unchanged.
+
+**Why.** Maintainer report (2026-09-23): in MNI mode, picking one region selected both hemispheres.
+No code pairs labels: `toggleRegion`/`wireLabelsFor` (`desktop/src/renderer/pages/_shared/scene/model.ts`)
+and `selection.ts` toggle one label id. The two atlases themselves gave each structure one value on
+both sides of x = 0 [measured: nibabel over the shipped files, >50 voxels at x < -2 and at x > 2:
+all 48 HO-cortical and all 16 CIT168 labels; 0 in Glasser and Schaefer; only midline anatomy in
+HO-subcortical, MASSP and Cerebellum], so the run config targeted both sides too. Subject mode was
+already unilateral (per-hemisphere `.annot` keys, Left-/Right- `labeling.nii.gz` labels).
+
+**Alternatives rejected.** A hemisphere field on `SubcorticalROI` clipped at run time touches flex,
+ex, the analyzer, `config_io`, the guide legends and the desktop types — more code than replacing
+two files. Splitting labels only in the pane would draw one side and run both. Relabeling in place
+under the old file names would re-mean every saved config's label k without an error.
+
+**Verification.** `tests/test_atlas_laterality.py` (red on exactly the two old atlases before the
+swap; midline allow-list by LUT name: vermis, brain stem, third/fourth ventricle, fornix),
+`tests/test_atlas_manifest.py::TestNotShipped::test_a_bilateral_atlas_names_its_lateralized_replacement`,
+`tests/test_atlas_manifest.py::TestGrid` (cortl on the template grid, LUT covers 1..96).
+

@@ -1,0 +1,38 @@
+# FreeSurfer color lookup table for CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz
+# Source: CIT168_labeling_MNI152NLin2009cAsym.nii.gz (NeuroVault collection 3145, Pauli et al. 2018, Scientific Data 5:180063),
+# split at world x = 0 by dev/build_lateralized_atlases.py: label k -> 2k-1 Left (x < 0), 2k Right (x >= 0).
+# Colours are TI-Toolbox's own.
+# No. LabelName R G B A
+0 Background 0 0 0 0
+1 Left-CIT168_Pu_Putamen 242 84 84 0
+2 Right-CIT168_Pu_Putamen 84 130 242 0
+3 Left-CIT168_Ca_Caudate 176 242 84 0
+4 Right-CIT168_Ca_Caudate 242 84 222 0
+5 Left-CIT168_NAC_Nucleus_accumbens 84 242 216 0
+6 Right-CIT168_NAC_Nucleus_accumbens 242 170 84 0
+7 Left-CIT168_EXA_Extended_amygdala 124 84 242 0
+8 Right-CIT168_EXA_Extended_amygdala 91 242 84 0
+9 Left-CIT168_GPe_External_globus_pallidus 242 84 137 0
+10 Right-CIT168_GPe_External_globus_pallidus 84 183 242 0
+11 Left-CIT168_GPi_Internal_globus_pallidus 229 242 84 0
+12 Right-CIT168_GPi_Internal_globus_pallidus 209 84 242 0
+13 Left-CIT168_SNc_Substantia_nigra_pars_compacta 84 242 163 0
+14 Right-CIT168_SNc_Substantia_nigra_pars_compacta 242 117 84 0
+15 Left-CIT168_RN_Red_nucleus 84 98 242 0
+16 Right-CIT168_RN_Red_nucleus 144 242 84 0
+17 Left-CIT168_SNr_Substantia_nigra_pars_reticulata 242 84 190 0
+18 Right-CIT168_SNr_Substantia_nigra_pars_reticulata 84 236 242 0
+19 Left-CIT168_PBP_Parabrachial_pigmented_nucleus 242 202 84 0
+20 Right-CIT168_PBP_Parabrachial_pigmented_nucleus 156 84 242 0
+21 Left-CIT168_VTA_Ventral_tegmental_area 84 242 110 0
+22 Right-CIT168_VTA_Ventral_tegmental_area 242 84 104 0
+23 Left-CIT168_VeP_Ventral_pallidum 84 150 242 0
+24 Right-CIT168_VeP_Ventral_pallidum 197 242 84 0
+25 Left-CIT168_HN_Habenular_nuclei 242 84 242 0
+26 Right-CIT168_HN_Habenular_nuclei 84 242 196 0
+27 Left-CIT168_HTH_Hypothalamus 242 150 84 0
+28 Right-CIT168_HTH_Hypothalamus 103 84 242 0
+29 Left-CIT168_MN_Mammillary_nuclei 111 242 84 0
+30 Right-CIT168_MN_Mammillary_nuclei 242 84 157 0
+31 Left-CIT168_STH_Subthalamic_nucleus 84 203 242 0
+32 Right-CIT168_STH_Subthalamic_nucleus 242 235 84 0

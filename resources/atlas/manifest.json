@@ -3,18 +3,25 @@
   "version": 1,
   "atlases": [
     {
-      "id": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
-      "file": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
-      "name": "CIT168 subcortical nuclei",
+      "id": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+      "file": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+      "name": "CIT168 subcortical nuclei (left/right)",
       "kind": "volume",
       "template": "MNI152NLin2009cAsym",
-      "labels": "CIT168_labeling_MNI152NLin2009cAsym_LUT.txt",
-      "regions": 16,
+      "labels": "CIT168_labeling_lateralized_MNI152NLin2009cAsym_LUT.txt",
+      "regions": 32,
       "license": "CC BY 4.0",
       "license_url": "https://osf.io/jkzwp/",
       "attribution": "Pauli W. M., Nili A. N., Tyszka J. M. (2018), CC BY 4.0.",
       "redistribution": "yes",
-      "citation": "Pauli W. M., Nili A. N., and Tyszka J. M. A high-resolution probabilistic in vivo atlas of human subcortical brain nuclei. Scientific Data 5, 180063 (2018). https://doi.org/10.1038/sdata.2018.63"
+      "citation": "Pauli W. M., Nili A. N., and Tyszka J. M. A high-resolution probabilistic in vivo atlas of human subcortical brain nuclei. Scientific Data 5, 180063 (2018). https://doi.org/10.1038/sdata.2018.63",
+      "source": {
+        "derived_from": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz (sha256 48b6187e4a051aedb7f32d058fd3211df2e96fbe369c80793e6f7b293ff98a23; git 2dd933cb:resources/atlas/), NeuroVault collection 3145",
+        "generator": "dev/build_lateralized_atlases.py"
+      },
+      "note": "CIT168's own labeling gives each nucleus one label value covering both hemispheres. This file splits it at world x = 0 of its MNI152NLin2009cAsym grid: label k becomes 2k-1 (Left, x < 0) and 2k (Right, x >= 0), so a picked region is one side. CC BY 4.0 permits the derivative.",
+      "file_sha256": "ea70393bc71c2c6cc0e82d4aa7a4b84d01ae9552f84b0fe65dc051f9f03dbd62",
+      "labels_sha256": "6de7fe83259688a9c6877b1a613d445d043cdca793c217c6c57dfd4fd659884e"
     },
     {
       "id": "massp2021-parcellation_decade-18to40.nii.gz",
@@ -46,9 +53,9 @@
       "note": "A cortical parcellation distributed as a label volume, so its kind is 'volume': it is targeted through the subcortical/volumetric flow, not through the surface (.annot) flow."
     },
     {
-      "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-      "file": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-      "name": "Harvard-Oxford cortical (maxprob, thr25, 1 mm)",
+      "id": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+      "file": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+      "name": "Harvard-Oxford cortical, lateralized (maxprob, thr25, 1 mm)",
       "kind": "volume",
       "template": "MNI152NLin6Asym",
       "grid": {
@@ -65,22 +72,23 @@
         ],
         "same_as_template_volume": true
       },
-      "labels": "HarvardOxford-cort-maxprob-thr25-1mm_LUT.txt",
-      "regions": 48,
+      "labels": "HarvardOxford-cortl-maxprob-thr25-1mm_LUT.txt",
+      "regions": 96,
       "license": "CC BY-SA 4.0",
       "license_url": "https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html",
       "attribution": "Harvard-Oxford cortical structural atlas, Harvard Center for Morphometric Analysis (CMA), distributed with FSL, CC BY-SA 4.0.",
       "redistribution": "yes (share-alike: the atlas file and its LUT stay CC BY-SA 4.0)",
       "citation": "Desikan R. S. et al. An automated labeling system for subdividing the human cerebral cortex on MRI scans into gyral based regions of interest. NeuroImage 31(3):968-980 (2006). https://doi.org/10.1016/j.neuroimage.2006.01.021",
       "source": {
-        "url": "http://neuro.debian.net/debian/pool/non-free/f/fsldata/fsl-harvard-oxford-atlases_5.0.7-2_all.deb",
-        "sha256": "235a9be15b8061caf2ab9caaaab41ffacaf025232b0507259f660218a01249b4",
-        "member": "usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
-        "labels_from": "usr/share/data/harvard-oxford-atlases/HarvardOxford-Cortical.xml (sha256 b8eb5ba5e787a4d3b442f75041f533f31b278a83e467bd2ab22438c1cff36581)"
+        "url": "http://neuro.debian.net/debian/pool/non-free/f/fsldata/fsl-harvard-oxford-cortical-lateralized-atlas_5.0.7-2_all.deb",
+        "sha256": "a7c63c121878b7cb1696eb38a90df64bff019d14b5b490701b477c62bd78be51",
+        "member": "usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+        "labels_from": "usr/share/data/harvard-oxford-atlases/HarvardOxford-Cortical-Lateralized.xml (sha256 c4dcb7830b9006dc2f1f62ddb29f890122b0638a7418e0f6fb736f85f678f61b)",
+        "generator": "dev/build_lateralized_atlases.py"
       },
-      "note": "FSL licence page: 'The Cerebellum and Harvard-Oxford atlases, whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence.' The file is byte-identical to FSL's; the LUT is generated from FSL's XML (label value = XML index + 1).",
-      "file_sha256": "109ab2c5b4958185ee061f75aa38c9afc37de273e0b2e02288f4ab12693b60d8",
-      "labels_sha256": "93a18a484f401c50684a6dd196eff2045d626b85cfb72324b095d01628202741"
+      "note": "FSL licence page: 'The Cerebellum and Harvard-Oxford atlases, whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence.' FSL's lateralized release of the cortical atlas: 48 structures x 2 hemispheres, odd label = Left, even = Right. The file is byte-identical to FSL's; the LUT is generated from FSL's XML (label value = XML index + 1).",
+      "file_sha256": "74703890d03b2d32a766fc28c7caa50d1b419a479f3fde1651f34edba593305b",
+      "labels_sha256": "8a2084821827aafe60691dc883b6aef13f08df5cedae228b9abf11d4063e71ab"
     },
     {
       "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
@@ -210,6 +218,22 @@
       "message": "The Morel atlas is no longer shipped (CC BY-NC-SA); see docs/wiki/atlases.md",
       "upstream": "https://doi.org/10.5281/zenodo.13918589",
       "removed": "2026-09-17"
+    },
+    {
+      "id": "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+      "name": "CIT168 subcortical nuclei (bilateral labels)",
+      "reason": "bilateral labels",
+      "message": "The bilateral CIT168 atlas was replaced by CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz, whose labels name one hemisphere each (label k is now 2k-1 left, 2k right); see docs/wiki/atlases.md",
+      "replaced_by": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+      "removed": "2026-09-23"
+    },
+    {
+      "id": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+      "name": "Harvard-Oxford cortical (bilateral labels)",
+      "reason": "bilateral labels",
+      "message": "The bilateral Harvard-Oxford cortical atlas was replaced by HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz, whose labels name one hemisphere each (label k is now 2k-1 left, 2k right); see docs/wiki/atlases.md",
+      "replaced_by": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+      "removed": "2026-09-23"
     }
   ]
 }

@@ -31,9 +31,9 @@ of record.**
 
 | Packaged here | Regions drawn | Licence (see `resources/atlas/README.md`) |
 |---|---|---|
-| `CIT168_labeling_MNI152NLin2009cAsym.nii.gz` | 16 | CC BY 4.0 (OSF), NeuroVault CC0 |
+| `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` | 32 | CC BY 4.0 (OSF), NeuroVault CC0 |
 | `massp2021-parcellation_decade-18to40.nii.gz` | 31 | CC BY 4.0 (figshare 19646328) |
-| `HarvardOxford-cort-maxprob-thr25-1mm.nii.gz` | 48 | CC BY-SA 4.0 (FSL licence page) |
+| `HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz` | 96 | CC BY-SA 4.0 (FSL licence page) |
 | `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz` | 21 | CC BY-SA 4.0 (FSL licence page) |
 | `Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz` | 28 | CC BY-SA 4.0 (FSL licence page) |
 
@@ -42,6 +42,12 @@ the atlas itself (CC BY-NC-SA; `resources/atlas/README.md § Not shipped`). The 
 rebuilt with the command under *Regenerating* (same head model, same builder): `skin`, `gm`, the
 CIT168 and MASSP surfaces and every net came out byte-identical (sha256 unchanged in
 `manifest.json`), and the three atlases above were added.
+
+On 2026-09-23 the bilateral CIT168 and Harvard-Oxford cortical maps were replaced by their
+lateralized versions (one hemisphere per label; `resources/atlas/README.md`), and the guide was
+rebuilt with the same command in `idossha/ti-toolbox:v3.0.0` with this checkout mounted at
+`/ti-toolbox`. `skin`, `gm`, every net and the MASSP, Harvard-Oxford subcortical and Cerebellum
+payloads came out byte-identical; only the two replaced atlases' surfaces, labels and legends are new.
 
 `MNI_Glasser_HCP_v1.0.nii.gz` is **not** packaged here: it is a 360-parcel cortical parcellation and
 `tit/scene/volume_surfaces.py` draws at most 256 regions. It is still selectable in the ROI picker,

@@ -2586,7 +2586,7 @@ const GUIDE_ATLASES = ["DK40", "HCP_MMP1", "labeling.nii.gz"];
  * atlas list. The bytes are the Ernie fixtures on purpose — what a spec checks here is that the
  * pane asks for the MNI guide and lists only MNI atlases, not what MNI152 looks like.
  */
-const MNI_GUIDE_ATLASES = ["CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "massp2021-parcellation_decade-18to40.nii.gz"];
+const MNI_GUIDE_ATLASES = ["CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz", "massp2021-parcellation_decade-18to40.nii.gz"];
 const guideIdOf = (ctx) => (ctx.url.searchParams.get("guide") === "mni" ? "mni" : "default");
 const atlasesFor = (guideId) => (guideId === "mni" ? MNI_GUIDE_ATLASES : GUIDE_ATLASES);
 const INSTALLED_GUIDES = [

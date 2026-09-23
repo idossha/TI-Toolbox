@@ -24,11 +24,21 @@ Space:
 MNI152 2009c nonlinear asymmetric space, according to the NeuroVault metadata.
 
 Files:
-- `CIT168_labeling_MNI152NLin2009cAsym.nii.gz`: deterministic integer label map generated from the probabilistic masks.
-- `CIT168_labeling_MNI152NLin2009cAsym_LUT.txt`: FreeSurfer-style color lookup table.
+- `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz`: deterministic integer label map, one
+  label per nucleus **per hemisphere** (32 labels).
+- `CIT168_labeling_lateralized_MNI152NLin2009cAsym_LUT.txt`: FreeSurfer-style color lookup table
+  (`Left-CIT168_Pu_Putamen`, `Right-CIT168_Pu_Putamen`, ...).
 
 Notes:
 The original CIT168 atlas is probabilistic, so source masks can overlap. The deterministic label map assigns each voxel to the label with the highest probability when that maximum probability is at least 0.05; lower-probability voxels are background. The source probability maps are not stored here to keep the repository resource small.
+
+Lateralized 2026-09-23. The 16-label map shipped until then
+(`CIT168_labeling_MNI152NLin2009cAsym.nii.gz`, sha256 `48b6187e...ff98a23`, in git at
+`2dd933cb`) gave each nucleus one value covering both hemispheres, so picking "Putamen" targeted
+both putamens. `dev/build_lateralized_atlases.py` splits it at world x = 0 of its own grid:
+label k becomes 2k-1 (Left, x < 0) and 2k (Right, x >= 0); the voxel plane at exactly x = 0 goes
+Right. Nothing else changes (same grid, same header, same voxels labelled). A configuration that
+still names the old file fails with a sentence naming the replacement (`manifest.json § not_shipped`).
 
 ## Harvard-Oxford cortical and subcortical structural atlases
 
@@ -57,13 +67,20 @@ References:
   Schizophr Res 83(2-3):155-171 (2006).
 
 Files:
-- `HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`: cortical maximum-probability map, threshold 25 %,
-  1 mm, 48 labels (package member
-  `usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`).
+- `HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`: FSL's **lateralized** cortical
+  maximum-probability map, threshold 25 %, 1 mm, 96 labels (48 structures x left/right; odd =
+  Left, even = Right), from the companion NeuroDebian package
+  `fsl-harvard-oxford-cortical-lateralized-atlas_5.0.7-2_all.deb`
+  (<http://neuro.debian.net/debian/pool/non-free/f/fsldata/fsl-harvard-oxford-cortical-lateralized-atlas_5.0.7-2_all.deb>,
+  sha256 `a7c63c121878b7cb1696eb38a90df64bff019d14b5b490701b477c62bd78be51`, fetched 2026-09-23;
+  member `usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`,
+  byte-identical). It replaced the bilateral 48-label `HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`
+  on 2026-09-23, whose labels each covered both hemispheres; `dev/build_lateralized_atlases.py`
+  re-extracts it and regenerates its LUT.
 - `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz`: subcortical maximum-probability map, threshold 25 %,
   1 mm, 21 labels.
-- `HarvardOxford-cort-maxprob-thr25-1mm_LUT.txt`, `HarvardOxford-sub-maxprob-thr25-1mm_LUT.txt`:
-  FreeSurfer-style LUTs generated from FSL's `HarvardOxford-Cortical.xml` /
+- `HarvardOxford-cortl-maxprob-thr25-1mm_LUT.txt`, `HarvardOxford-sub-maxprob-thr25-1mm_LUT.txt`:
+  FreeSurfer-style LUTs generated from FSL's `HarvardOxford-Cortical-Lateralized.xml` /
   `HarvardOxford-Subcortical.xml`. FSL's XML `index` is 0-based and the value in a `maxprob` image
   is index + 1, so the LUT ids are XML index + 1; names are FSL's with spaces replaced by hyphens;
   colours are TI-Toolbox's own (FSL's XML carries none).
@@ -224,10 +241,10 @@ island cleanup and the confirmation plate operate on the same subject-space mask
 
 | Atlas | Space | Regions | Licence | GPL-3 redistribution | Decision |
 |---|---|---|---|---|---|
-| CIT168 | MNI152NLin2009cAsym | 16 | CC BY 4.0 (OSF `jkzwp`/`r2hvk`); NeuroVault CC0; code MIT | yes | **ship** (kept) |
+| CIT168 (lateralized 2026-09-23) | MNI152NLin2009cAsym | 32 (16 x L/R) | CC BY 4.0 (OSF `jkzwp`/`r2hvk`); NeuroVault CC0; code MIT | yes | **ship** (kept) |
 | MNI Glasser HCP-MMP1.0 | MNI152NLin2009cAsym world coords on a FreeSurfer-conformed 256^3 grid (AFNI `MNI_Glasser_HCP_2019_v1.0`) | 360 | WU-Minn HCP Open Access Data Use Terms, clause 4: redistribution permitted "as long as the data are redistributed under these same Data Use Terms" | conditional yes | **ship, with terms** (acknowledgement below) |
 | MASSP 2021 | MNI152NLin2009bAsym, 0.5 mm | 17 structures / 31 LUT rows | CC BY 4.0 (figshare 19646328 / DOI 10.21942/uva.19646328) | yes | **ship** (kept) |
-| Harvard-Oxford cortical | MNI152NLin6Asym (header `FSL3.3`, 182x218x182, affine identical to the template) | 48 | **CC BY-SA 4.0** (FSL licence page) | yes | **ship** (added 2026-09-17) |
+| Harvard-Oxford cortical, lateralized (`cortl`, since 2026-09-23) | MNI152NLin6Asym (header `FSL3.3`, 182x218x182, affine identical to the template) | 96 (48 x L/R) | **CC BY-SA 4.0** (FSL licence page) | yes | **ship** (added 2026-09-17) |
 | Harvard-Oxford subcortical | MNI152NLin6Asym (header `FSL5.0`, 182x218x182, affine identical) | 21 | **CC BY-SA 4.0** (FSL licence page) | yes | **ship** (added 2026-09-17) |
 | Cerebellum-MNIfnirt (Diedrichsen 2009) | MNI152NLin6Asym (header `FSL4.0`, 182x218x182, affine identical) | 28 | **CC BY-SA 4.0** (FSL licence page) | yes | **ship** (added 2026-09-17) |
 | Schaefer 2018 400 / 7 networks | MNI152NLin6Asym (CBIG `FSLMNI152_1mm`; 182x218x182, affine identical) | 400 | **MIT** (CBIG `LICENSE.md` @ `35b5664b`) | yes | **ship** (added 2026-09-17) |

@@ -32,7 +32,7 @@ it("MNI space draws the MNI152 guide and never the subject", async () => {
   try {
     scene.props = null;
     await act(async () => root.render(<QueryClientProvider client={client}><TargetPreview subject="101"
-      roi={{ mode: "subcortical", atlas: "CIT168_labeling_MNI152NLin2009cAsym.nii.gz", space: "mni", regions: [], tissues: "GM" }}
+      roi={{ mode: "subcortical", atlas: "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz", space: "mni", regions: [], tissues: "GM" }}
       onRoiChange={change} /></QueryClientProvider>));
     expect(scene.props!.guide).toBe("mni");
     // A millimetre of MNI152 is not this subject's: the pane is never handed the subject in MNI.

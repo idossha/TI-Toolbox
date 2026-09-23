@@ -98,18 +98,19 @@ ATLASES = [
     dict(
         key="cit168",
         display_name="CIT168 Subcortical Atlas",
-        src_path=ATLAS_DIR / "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
-        lut_path=ATLAS_DIR / "CIT168_labeling_MNI152NLin2009cAsym_LUT.txt",
+        src_path=ATLAS_DIR / "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+        lut_path=ATLAS_DIR / "CIT168_labeling_lateralized_MNI152NLin2009cAsym_LUT.txt",
         out_filename="cit168.nii.gz",
         native_space="MNI152NLin2009cAsym (per source NeuroVault metadata)",
         out_dtype=np.uint8,
-        expected_label_count=16,
+        expected_label_count=32,
         provenance=(
             "Pauli WM, Nili AN, Tyszka JM. A high-resolution probabilistic in vivo "
             "atlas of human subcortical brain nuclei. Scientific Data 5:180063 (2018). "
             "doi:10.1038/sdata.2018.63. Source: NeuroVault collection 3145. Deterministic "
             "label map derived locally by winner-takes-highest-probability, threshold 0.05; "
-            "the probabilistic source masks are not shipped."
+            "the probabilistic source masks are not shipped. Split at x = 0 into "
+            "left/right labels (2k-1 / 2k) by dev/build_lateralized_atlases.py."
         ),
     ),
     dict(
