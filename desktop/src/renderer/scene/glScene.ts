@@ -140,6 +140,11 @@ precision highp int;
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNormal;
 layout(location=2) in uint aLabel;
+// The exploded displacement (explode.ts), zero on a part that has none. Added in the one vertex
+// shader every surface pass shares — colour, sheets, pick ids, pick depth, marker occlusion — so a
+// pick while exploded names the region where it is DRAWN, not where it was.
+layout(location=3) in vec3 aOffset;
+uniform float uExplode;
 uniform mat4 uViewProj;
 uniform mat4 uView;
 uniform bool uUseLabels;
@@ -158,7 +163,8 @@ flat out highp uint vLabel;
 // a jagged white border of uncoloured shards around every selected label, not an outline.
 out float vSelect;
 void main() {
-  vec4 viewPos = uView * vec4(aPos, 1.0);
+  vec3 pos = aPos + aOffset * uExplode;
+  vec4 viewPos = uView * vec4(pos, 1.0);
   vNormalView = mat3(uView) * aNormal;
   vViewDir = -viewPos.xyz;
   vLabel = aLabel;
@@ -168,7 +174,7 @@ void main() {
     sel = ((s & 1u) != 0u) ? 1.0 : 0.0;
   }
   vSelect = sel;
-  gl_Position = uViewProj * vec4(aPos, 1.0);
+  gl_Position = uViewProj * vec4(pos, 1.0);
 }`;
 
 /**
@@ -565,6 +571,12 @@ export interface GlScene {
   setLabelColors(colors: Uint8Array): void;
   setOpacity(partId: string, opacity: number): void;
   /**
+   * The "explode" state (`explode.ts::explodeStage`): `offset` scales every part's `offsets`, and
+   * `veil` removes that fraction of the opacity of every part WITHOUT offsets (the skin). A part
+   * veiled to 0 is not drawn and not picked at all.
+   */
+  setExplode(offset: number, veil: number): void;
+  /**
    * Whether the markers are hidden by the surfaces (default `true`, §"Draw order" step 3).
    *
    * `true` for markers that lie ON the anatomy — an EEG net, where an electrode round the back of
@@ -615,6 +627,7 @@ interface UploadedPart {
   buffers: WebGLBuffer[];
   indexCount: number;
   hasLabels: boolean;
+  hasOffsets: boolean;
 }
 
 interface Program {
@@ -660,7 +673,9 @@ function link(gl: WebGL2RenderingContext, vsSource: string, fsSource: string, na
     throw new Error(`scene: program failed to link: ${log}`);
   }
   const uniforms: Record<string, WebGLUniformLocation | null> = {};
-  for (const name of names) uniforms[name] = gl.getUniformLocation(program, name);
+  // `uExplode` on every program: each surface program shares SURFACE_VS, and a lookup that is null
+  // on the marker programs costs nothing.
+  for (const name of [...names, "uExplode"]) uniforms[name] = gl.getUniformLocation(program, name);
   return { program, uniforms };
 }
 
@@ -774,6 +789,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let markerOcclusion = true;
   /** `MARKER_SIZE_PX` multiplier; see `setMarkerScale`. */
   let markerScale = 1;
+  let explodeOffset = 0;
+  let explodeVeil = 0;
 
   function createLabelTexture(context: WebGL2RenderingContext): WebGLTexture {
     const tex = context.createTexture();
@@ -895,9 +912,14 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     buffers.push(buffer(labels ?? new Uint16Array(part.positions.length / 3), gl.ARRAY_BUFFER));
     gl.enableVertexAttribArray(2);
     gl.vertexAttribIPointer(2, 1, gl.UNSIGNED_SHORT, 0, 0);
+    // Zeros when the part has no offsets, for the same reason as the labels above.
+    const offsets = part.offsets ?? null;
+    buffers.push(buffer(offsets ?? new Float32Array(part.positions.length), gl.ARRAY_BUFFER));
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
     buffers.push(buffer(indices, gl.ELEMENT_ARRAY_BUFFER));
     gl.bindVertexArray(null);
-    return { part, vao, buffers, indexCount: indices.length, hasLabels: labels !== null };
+    return { part, vao, buffers, indexCount: indices.length, hasLabels: labels !== null, hasOffsets: offsets !== null };
   }
 
   function uploadMarkers(): void {
@@ -999,13 +1021,25 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   /** Sorted innermost-first. `order` defaults to the array position, so a caller that lists
    *  `[gm, skin]` gets the right nesting without thinking about it. */
   function ordered(): UploadedPart[] {
-    return [...parts].sort((a, b) => (a.part.order ?? 0) - (b.part.order ?? 0));
+    // A part veiled to nothing is gone from every pass, picking included: a click must not land on
+    // a skin the user no longer sees.
+    return parts
+      .filter((uploaded) => opacityOf(uploaded) > 0)
+      .sort((a, b) => (a.part.order ?? 0) - (b.part.order ?? 0));
+  }
+
+  /** The opacity actually drawn: the control's value, less the explode veil on a part that does
+   *  not move with the explosion. */
+  function opacityOf(uploaded: UploadedPart): number {
+    const base = opacity.get(uploaded.part.id) ?? uploaded.part.opacity;
+    return uploaded.hasOffsets ? base : base * (1 - explodeVeil);
   }
 
   function bindSurfaceCommon(program: Program, vp: Mat4, view: Mat4): void {
     gl.useProgram(program.program);
     setUniformMatrix(program, "uViewProj", vp);
     setUniformMatrix(program, "uView", view);
+    setUniform1f(program, "uExplode", explodeOffset);
   }
 
   /** `cull` is the face to drop, or `null` for "draw both faces" — the state is set here rather
@@ -1150,7 +1184,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         // Id run: only a labelled surface can produce a region id — an unlabelled one would write
         // label 0 and resolve as a region nobody clicked. Depth run: every surface the user can
         // see through no veil, i.e. every labelled one plus every opaque one.
-        const opaque = (opacity.get(uploaded.part.id) ?? uploaded.part.opacity) >= 1;
+        const opaque = opacityOf(uploaded) >= 1;
         const wanted = options.allSurfaces || opaque;
         if (uploaded.hasLabels || (depthPass && wanted)) drawSurface(uploaded, surface, null);
       }
@@ -1254,6 +1288,11 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     },
 
+    setExplode(offset, veil) {
+      explodeOffset = offset;
+      explodeVeil = Math.min(1, Math.max(0, veil));
+    },
+
     setOpacity(partId, value) {
       opacity.set(partId, Math.min(1, Math.max(0, value)));
     },
@@ -1323,8 +1362,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       // surface asked for opacity 1 still showed what was behind it — the grey matter's sulcal
       // walls read through its own outer surface. And the depth this pass writes is what makes a
       // translucent shell outside it (the skin) disappear where the opaque one covers it.
-      const isOpaque = (uploaded: UploadedPart): boolean =>
-        (opacity.get(uploaded.part.id) ?? uploaded.part.opacity) >= 1;
+      const isOpaque = (uploaded: UploadedPart): boolean => opacityOf(uploaded) >= 1;
       const opaqueParts = list.filter(isOpaque);
       const translucent = list.filter((uploaded) => !isOpaque(uploaded));
 
@@ -1357,7 +1395,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
           for (const program of [surfaceNearProgram, surfacePeelProgram]) {
             gl.useProgram(program.program);
             setUniform3f(program, "uBaseColor", uploaded.part.color);
-            setUniform1f(program, "uOpacity", opacity.get(uploaded.part.id) ?? uploaded.part.opacity);
+            setUniform1f(program, "uOpacity", opacityOf(uploaded));
             setUniform1i(program, "uUseLabels", uploaded.hasLabels ? 1 : 0);
           }
           drawResolvedSheet(uploaded, phase.level, vp, view);

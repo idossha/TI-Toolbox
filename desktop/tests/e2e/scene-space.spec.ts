@@ -128,6 +128,74 @@ test("Optimizer: MNI space draws MNI152 and offers only MNI atlases", async () =
   await expect.poll(async () => (await paneDebug()).guideId, { timeout: 30_000 }).toBeNull();
 });
 
+/**
+ * Explode (2026-09-23): on the MNI template only, the skin goes and the regions spread apart —
+ * read from the drawing buffer and the id pass, not from a screenshot.
+ *
+ * "Skin not drawn": pixels that are neither background nor any region are the translucent skin;
+ * exploded, only anti-aliased region edges may remain (a sampled grid, so a small count). "Further
+ * apart": the Left-* and Right-* labels' mean screen x, divided by the pixels one millimetre spans
+ * at the origin (`project`), so the zoom-out that keeps the scene in view cannot fake the result.
+ */
+test("Optimizer: Explode pulls the MNI atlas apart, and only in MNI", async () => {
+  const host = page.locator('[data-page-panel="optimizer"]').getByTestId("scene-pane-host");
+  const explode = host.getByTestId("scene-pane-explode");
+  await expect(host).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+  await expect(explode).toHaveCount(0); // Subject space: a subject's own head has no Explode.
+  await paneSwitch().getByRole("radio", { name: "MNI", exact: true }).click();
+  await expect.poll(async () => (await paneDebug()).guideId, { timeout: 30_000 }).toBe("mni");
+  await expect(explode).toHaveAttribute("aria-pressed", "false", { timeout: 30_000 });
+  await host.getByRole("radio", { name: "F", exact: true }).click();
+  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+
+  const measure = () =>
+    page.evaluate(() => {
+      const scene = window.__scene!;
+      const legend = window.__scenePane!.legend;
+      const { widthCss: w, heightCss: h } = scene.canvas;
+      const points: Array<[number, number]> = [];
+      for (let y = 4; y < h - 4; y += 8) for (let x = 4; x < w - 4; x += 8) points.push([x, y]);
+      const background = scene.samplePixels([[1, 1]], false)![0]!;
+      const rgba = scene.samplePixels(points, false)!;
+      const regions = scene.sampleRegions(points);
+      let skinOnly = 0;
+      const xs: Record<"L" | "R", number[]> = { L: [], R: [] };
+      points.forEach(([x], i) => {
+        const label = regions[i];
+        if (label === null || label === undefined) {
+          if (rgba[i]!.some((value, c) => Math.abs(value - background[c]!) > 6)) skinOnly += 1;
+          return;
+        }
+        const name = legend.find((row) => row.label === label)?.name ?? "";
+        if (/^Left-/.test(name)) xs.L.push(x);
+        if (/^Right-/.test(name)) xs.R.push(x);
+      });
+      const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / Math.max(1, values.length);
+      const pxPerMm = Math.abs(scene.project([10, 0, 0]).x - scene.project([0, 0, 0]).x) / 10;
+      return { skinOnly, left: xs.L.length, right: xs.R.length, separationMm: Math.abs(mean(xs.R) - mean(xs.L)) / pxPerMm };
+    });
+
+  const collapsed = await measure();
+  expect(collapsed.skinOnly).toBeGreaterThan(50);
+  expect(collapsed.left).toBeGreaterThan(0);
+  expect(collapsed.right).toBeGreaterThan(0);
+
+  const selectedBefore = await page.evaluate(() => window.__scenePane!.selectedRegions);
+  await explode.click();
+  await expect(explode).toHaveAttribute("aria-pressed", "true");
+  await page.waitForFunction(() => window.__scene?.explode === 1 && window.__scene.camera.settled, null, { timeout: 10_000 });
+  const exploded = await measure();
+  expect(exploded.skinOnly).toBeLessThan(collapsed.skinOnly / 10);
+  expect(exploded.separationMm).toBeGreaterThan(collapsed.separationMm * 1.3);
+  // Purely visual: the form's selection is untouched by the toggle.
+  expect(await page.evaluate(() => window.__scenePane!.selectedRegions)).toEqual(selectedBefore);
+
+  await explode.click();
+  await page.waitForFunction(() => window.__scene?.explode === 0 && window.__scene.camera.settled, null, { timeout: 10_000 });
+  await paneSwitch().getByRole("radio", { name: "Subject", exact: true }).click();
+  await expect(explode).toHaveCount(0);
+});
+
 test("Analyzer: the same two controls, over the same one value", async () => {
   await gotoPage(page, "analyzer", "Analyzer");
   await expectPage(page, "analyzer");

@@ -42,6 +42,7 @@
  * | `normals.ts` | area-weighted vertex normals, bounds | `scene-normals.test.ts` |
  * | `pickId.ts` | the 24-bit colour-id encoding both shaders write | `scene-pick.test.ts` |
  * | `selection.ts` | what a pick means per mode | `scene-selection.test.ts` |
+| `explode.ts` | per-region "explode" offsets and the fade-then-spread timeline | `scene-explode.test.ts` |
  * | `glScene.ts` | the only file that touches WebGL | the offscreen Electron run |
  * | `SceneCanvas.tsx` | the React surface, `window.__scene` | `tests/e2e/scene.spec.ts` |
  */

@@ -51,6 +51,7 @@ import {
   type PickResult,
 } from "./glScene";
 import { computeBounds, unionBounds } from "./normals";
+import { EXPLODE_DURATION_MS, explodeStage, explodedPositions } from "./explode";
 import { samePickTarget, type PickTarget } from "./pickId";
 import { DEFAULT_OPACITY } from "./palette";
 import {
@@ -99,6 +100,8 @@ export interface SceneDebugHandle {
   lastPick: ScenePick | null;
   camera: OrbitCamera & { settled: boolean };
   canvas: { widthCss: number; heightCss: number; dpr: number };
+  /** Explode timeline progress, 0 collapsed .. 1 exploded (`explode.ts::explodeStage`). */
+  explode: number;
   fps: number;
   frames: number;
   stats: SceneStats;
@@ -250,6 +253,11 @@ export interface SceneCanvasProps {
   focus?: Bounds;
   /** Extra legend rows the page wants (an ROI's name, a montage's channel labels). */
   legend?: LegendEntry[];
+  /**
+   * Pull the parts that carry `offsets` apart and veil the rest (`explode.ts`). Animated both ways
+   * (instant under `prefers-reduced-motion`); purely visual — picks and selection are unchanged.
+   */
+  exploded?: boolean;
   className?: string;
   /** Accessible name for the canvas. */
   label?: string;
@@ -286,6 +294,7 @@ export function SceneCanvas({
   bounds,
   focus,
   legend,
+  exploded = false,
   className,
   label = "3D scene",
 }: SceneCanvasProps) {
@@ -314,6 +323,8 @@ export function SceneCanvas({
   /** False once the user has moved the camera themselves. A resize re-frames only while this is
    *  true: re-framing a view somebody has just orbited to is the pane moving under their hand. */
   const framedRef = useRef(true);
+  /** The explode timeline: where it is and where it is heading. Advanced by the render loop. */
+  const explodeRef = useRef({ progress: 0, target: 0, distanceBefore: null as number | null });
 
   useEffect(() => {
     onHoverChangeRef.current = onHoverChange;
@@ -510,7 +521,18 @@ export function SceneCanvas({
       lastTimeRef.current = time;
       const damped = dampCamera(current, goal, dt);
       cameraRef.current = damped.camera;
-      settledRef.current = damped.settled;
+      const anim = explodeRef.current;
+      if (anim.progress !== anim.target) {
+        const stepSize = dt / EXPLODE_DURATION_MS;
+        anim.progress =
+          anim.target > anim.progress
+            ? Math.min(anim.target, anim.progress + stepSize)
+            : Math.max(anim.target, anim.progress - stepSize);
+        const stage = explodeStage(anim.progress);
+        scene.setExplode(stage.offset, stage.veil);
+      }
+      const settled = damped.settled && anim.progress === anim.target;
+      settledRef.current = settled;
       scene.render(damped.camera);
       frameRef.current += 1;
       positionNames(damped.camera);
@@ -523,7 +545,7 @@ export function SceneCanvas({
         fps.windowStart = time;
         fps.windowFrames = 0;
       }
-      if (damped.settled) {
+      if (settled) {
         // Settled: stop the loop. A pane holding a 60 Hz rAF alive for a static picture is why a
         // laptop's fan turns on while nothing is happening.
         fps.windowStart = 0;
@@ -656,11 +678,51 @@ export function SceneCanvas({
     return () => canvas.removeEventListener("wheel", onWheel);
   }, [radius, setGoal]);
 
+  // --- explode --------------------------------------------------------------------------------
+  // Declared before the upload effect on purpose: when the parts change in the same commit (a new
+  // atlas, leaving MNI) the upload below snaps the timeline to this target instead of animating
+  // the new geometry.
+  useEffect(() => {
+    const anim = explodeRef.current;
+    const target = exploded ? 1 : 0;
+    if (anim.target === target) return;
+    anim.target = target;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      anim.progress = target;
+      const stage = explodeStage(target);
+      sceneRef.current?.setExplode(stage.offset, stage.veil);
+    }
+    // Keep the exploded scene in view: zoom out to fit it (never in), and give the distance back
+    // on the way home. Angles and target are the user's and stay.
+    const goal = goalRef.current;
+    const size = sizeRef.current;
+    if (goal) {
+      if (exploded) {
+        const points = parts.flatMap((part) => (part.offsets ? [explodedPositions(part.positions, part.offsets, 1)] : []));
+        const fitted = frameDistance(sceneBounds, goal.target, goal.fovY, size.widthCss / Math.max(1, size.heightCss), goal, points);
+        anim.distanceBefore = goal.distance;
+        if (points.length > 0 && fitted > goal.distance) goalRef.current = { ...goal, distance: fitted };
+      } else if (anim.distanceBefore !== null) {
+        goalRef.current = { ...goal, distance: anim.distanceBefore };
+        anim.distanceBefore = null;
+      }
+    }
+    requestFrame();
+    // `parts`/`sceneBounds` are read for the fit only; the toggle is what drives this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exploded, requestFrame]);
+
   // --- data upload ----------------------------------------------------------------------------
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
     scene.setParts(parts);
+    const anim = explodeRef.current;
+    if (anim.progress !== anim.target) {
+      anim.progress = anim.target;
+      const stage = explodeStage(anim.target);
+      scene.setExplode(stage.offset, stage.veil);
+    }
     setOpacities((previous) => {
       const next: Record<string, number> = {};
       for (const part of parts) {
@@ -1004,6 +1066,9 @@ export function SceneCanvas({
       },
       get canvas() {
         return { ...sizeRef.current };
+      },
+      get explode() {
+        return explodeRef.current.progress;
       },
       get fps() {
         return fpsRef.current.fps;

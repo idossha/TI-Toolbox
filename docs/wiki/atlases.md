@@ -46,6 +46,11 @@ is distributed as a NIfTI, so you target it through the ROI picker's **Subcortic
 TI-Toolbox ships no MNI-space *surface* parcellation; the Cortical mode's atlases are your own
 subject's, built by preprocessing.
 
+In MNI space the Optimizer's and Analyzer's 3D pane has an **Explode** button beside **Clear
+selection**: the scalp fades out and the atlas regions pull apart, mostly left from right, so deep
+structures can be seen and clicked. Press it again to put them back. It only changes the view — the
+selected regions stay selected.
+
 ## Licence, attribution and citation
 
 Atlases are other people's data. If you publish work that used one, cite it; if you redistribute

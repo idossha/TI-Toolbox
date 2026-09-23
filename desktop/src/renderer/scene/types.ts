@@ -21,6 +21,9 @@ export interface ScenePart {
   labels?: Uint16Array | null;
   /** Precomputed normals. Omit and the renderer computes them once on upload. */
   normals?: Float32Array | null;
+  /** Per-vertex "exploded" displacement in mm (`explode.ts`), drawn at `offset * setExplode()`.
+   *  A part with offsets stays visible while the scene explodes; one without is veiled away. */
+  offsets?: Float32Array | null;
   color: Rgb;
   /** 0..1. The per-surface opacity control writes this, unless `opacityLocked`. */
   opacity: number;

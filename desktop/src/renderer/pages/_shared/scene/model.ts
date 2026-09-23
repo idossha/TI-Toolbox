@@ -305,3 +305,30 @@ export function channelCss(channel: number): string {
   const rgb = SCENE_PALETTE.channels[channel % SCENE_PALETTE.channels.length] ?? SCENE_PALETTE.marker;
   return `rgb(${rgb.map((c) => Math.round(c * 255)).join(",")})`;
 }
+
+/**
+ * Whether a labels payload belongs to the surface it is about to colour: same vertex count and the
+ * same first and last positions. Both come from one packaged build, so this fails only on a
+ * half-regenerated guide — and failing here shows "labels not applied" instead of a region
+ * highlighted centimetres from the one clicked.
+ */
+export function labelsAlignment(
+  surface: { vertexCount: number; positions: Float32Array },
+  labels: { vertexCount: number; positions: Float32Array },
+): { aligned: boolean; reason: string | null } {
+  if (labels.vertexCount !== surface.vertexCount) {
+    return { aligned: false, reason: `labels are for ${labels.vertexCount} vertices, the surface has ${surface.vertexCount}` };
+  }
+  const last = (surface.vertexCount - 1) * 3;
+  const same = [0, 1, 2, last, last + 1, last + 2].every((i) => surface.positions[i] === labels.positions[i]);
+  return { aligned: same, reason: same ? null : "the labels payload's vertices are not the surface's" };
+}
+
+/**
+ * Whether the pane offers **Explode**: only on the MNI template (never a subject's own head, whose
+ * atlases are cortical surfaces with nothing buried), and only once an atlas' labels are on the
+ * drawn surface — there is nothing to pull apart before that.
+ */
+export function explodeOffered(guide: string, drawnSubject: string | null, atlasLabelled: boolean): boolean {
+  return guide === "mni" && drawnSubject === null && atlasLabelled;
+}

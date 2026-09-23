@@ -52,6 +52,7 @@ import {
   type SceneSelection,
   type Vec3,
 } from "../../../scene";
+import { regionOffsets } from "../../../scene/explode";
 import { usePageActive } from "../../../app/pageActivity";
 import { Skeleton } from "../../../ui/Feedback";
 import { Button } from "../../../ui/Button";
@@ -64,7 +65,9 @@ import {
   SCENE_PALETTE,
   applyElectrodePick,
   channelByElectrode,
+  explodeOffered,
   firstEmptySlot,
+  labelsAlignment,
   markerIndicesFor,
   markersFromElectrodes,
   placedElectrodes,
@@ -438,18 +441,28 @@ export function ScenePane({
    * than as a region highlighted centimetres from the one that was clicked, which no test in the
    * browser would see.
    */
-  const alignment = useMemo(() => {
-    if (!gmData || !labelData?.labels) return { aligned: false, reason: null as string | null };
-    if (labelData.vertexCount !== gmData.vertexCount) {
-      return {
-        aligned: false,
-        reason: `labels are for ${labelData.vertexCount} vertices, the surface has ${gmData.vertexCount}`,
-      };
-    }
-    const last = (gmData.vertexCount - 1) * 3;
-    const same = [0, 1, 2, last, last + 1, last + 2].every((i) => gmData.positions[i] === labelData.positions[i]);
-    return { aligned: same, reason: same ? null : "the labels payload's vertices are not the surface's" };
-  }, [gmData, labelData]);
+  const alignment = useMemo(
+    () => (gmData && labelData?.labels ? labelsAlignment(gmData, labelData) : { aligned: false, reason: null as string | null }),
+    [gmData, labelData],
+  );
+
+  // ---- explode -------------------------------------------------------------------------------
+  const canExplode = explodeOffered(guide, drawnSubject, alignment.aligned);
+  /** Once per atlas: one centroid per label, one offset per vertex. Uploaded with the part, so the
+   *  toggle itself only moves a uniform. */
+  const offsets = useMemo(
+    () => (canExplode && gmData && labelData?.labels ? regionOffsets(gmData.positions, labelData.labels) : null),
+    [canExplode, gmData, labelData],
+  );
+  const [exploded, setExploded] = useState(false);
+  // A new atlas or leaving MNI collapses it — adjusted during render, not in an effect, so no frame
+  // draws the next atlas exploded.
+  const explodeKey = `${guide}|${effectiveAtlas}|${canExplode}`;
+  const [lastExplodeKey, setLastExplodeKey] = useState(explodeKey);
+  if (explodeKey !== lastExplodeKey) {
+    setLastExplodeKey(explodeKey);
+    setExploded(false);
+  }
 
   const parts = useMemo<ScenePart[]>(() => {
     const out: ScenePart[] = [];
@@ -463,6 +476,7 @@ export function ScenePane({
         positions: gmData.positions,
         indices: gmData.indices,
         labels: alignment.aligned ? (labelData?.labels ?? null) : null,
+        offsets,
         color: SCENE_PALETTE.gm,
         // Always fully opaque, with no slider: the cortex is the anatomy being aimed at, not a
         // veil over something behind it.
@@ -488,7 +502,7 @@ export function ScenePane({
       });
     }
     return out.length > 0 ? out : NO_PARTS;
-  }, [gmData, skinData, labelData, alignment.aligned, gesture, showingPlacements, atlasPart]);
+  }, [gmData, skinData, labelData, alignment.aligned, gesture, showingPlacements, atlasPart, offsets]);
 
   const box6 = (box: number[] | null | undefined): Bounds | undefined =>
     box && box.length === 6 ? (box as Bounds) : undefined;
@@ -845,6 +859,17 @@ export function ScenePane({
               Clear selection
             </Button>
           ) : null}
+          {canExplode ? (
+            <Button
+              aria-pressed={exploded}
+              variant={exploded ? "primary" : "secondary"}
+              data-testid="scene-pane-explode"
+              title="Pull the atlas regions apart to reach deep structures — the selection is unchanged"
+              onClick={() => setExploded((value) => !value)}
+            >
+              Explode
+            </Button>
+          ) : null}
           <span className="scene-pane-hovered" data-testid="scene-pane-hovered">
             {hovered ?? ""}
           </span>
@@ -888,6 +913,7 @@ export function ScenePane({
             focus={focus}
             legend={paneLegend}
             labelColors={labelColors}
+            exploded={canExplode && exploded}
             label={`${drawnSubject ?? guideId ?? "guide"} head model`}
           />
         ) : (

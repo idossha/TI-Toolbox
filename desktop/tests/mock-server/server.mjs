@@ -2588,6 +2588,20 @@ const GUIDE_ATLASES = ["DK40", "HCP_MMP1", "labeling.nii.gz"];
  */
 const MNI_GUIDE_ATLASES = ["CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz", "massp2021-parcellation_decade-18to40.nii.gz"];
 const guideIdOf = (ctx) => (ctx.url.searchParams.get("guide") === "mni" ? "mni" : "default");
+/**
+ * The MNI guide's manifest, surfaces, labels and legends are the REAL packaged ones
+ * (`tit/scene/guide-mni`, 2026-09-23): the pane draws an MNI atlas on its own `atlas-*` part,
+ * which the Ernie stand-in never had, and a spec that only ever saw the stand-in passed while the
+ * real app hid Explode. Only the nets stay the mock's, so the electrode route is unchanged.
+ */
+const mniRoot = join(here, "../../../tit/scene/guide-mni");
+const mniManifest = JSON.parse(readFileSync(join(mniRoot, "manifest.json"), "utf8"));
+const mniAtlas = (id) => mniManifest.atlases.find((entry) => entry.id === id);
+const withoutFiles = (entry) => {
+  const rest = { ...entry };
+  for (const key of ["files", "legend_file", "legend_meta"]) delete rest[key];
+  return rest;
+};
 const atlasesFor = (guideId) => (guideId === "mni" ? MNI_GUIDE_ATLASES : GUIDE_ATLASES);
 const INSTALLED_GUIDES = [
   { id: "default", label: "Subject anatomy" },
@@ -2597,6 +2611,17 @@ const GUIDE_NETS = Object.keys(NET_SIZES);
 
 route("GET", "/api/guide/manifest", (ctx) => {
   const guideId = guideIdOf(ctx);
+  if (guideId === "mni") {
+    return json(ctx.res, 200, {
+      ...mniManifest,
+      guide_id: "mni",
+      guides: INSTALLED_GUIDES,
+      parts: mniManifest.parts.map(withoutFiles),
+      atlases: mniManifest.atlases.map(withoutFiles),
+      nets: GUIDE_NETS.map((name) => ({ name, electrodes: NET_SIZES[name] ?? 128, url: `/api/guide/electrodes?net=${encodeURIComponent(name)}` })),
+      cache: { state: "ready", built_ms: 0 },
+    }, { "x-guide-version": "1" });
+  }
   json(
     ctx.res,
     200,
@@ -2668,6 +2693,11 @@ route("GET", "/api/guide/surface", (ctx) => {
   if (format !== "tvsc" && format !== "gii") {
     return json(ctx.res, 400, { detail: `Unknown guide format '${format}'; expected 'tvsc' or 'gii'` });
   }
+  if (guideIdOf(ctx) === "mni") {
+    const entry = mniManifest.parts.find((candidate) => candidate.id === part);
+    if (!entry) return json(ctx.res, 404, { detail: `the MNI guide has no part '${part}'.` });
+    return guideBytes(ctx, readFileSync(join(mniRoot, entry.files[format])), `"guide-mni-${part}-${format}"`);
+  }
   if (part === "subcortical") return guideBytes(ctx, readFileSync(join(guideRoot, `surfaces/subcortical.${format}`)), `"guide-subcortical-${format}"`);
   const entry = sceneParts[part];
   if (!entry) return json(ctx.res, 404, { detail: `the guide has no part '${part}'; it has: skin, gm.` });
@@ -2676,6 +2706,11 @@ route("GET", "/api/guide/surface", (ctx) => {
 
 route("GET", "/api/guide/labels", (ctx) => {
   const atlas = ctx.url.searchParams.get("atlas");
+  if (guideIdOf(ctx) === "mni") {
+    const entry = mniAtlas(atlas);
+    if (!entry) return json(ctx.res, 404, { detail: `the MNI guide has no atlas '${atlas}'.` });
+    return guideBytes(ctx, readFileSync(join(mniRoot, entry.files.tvsc)), `"guide-mni-labels-${atlas}"`);
+  }
   const known = atlasesFor(guideIdOf(ctx));
   if (!known.includes(atlas)) {
     return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${known.join(", ")}.` });
@@ -2687,6 +2722,12 @@ route("GET", "/api/guide/labels", (ctx) => {
 route("GET", "/api/guide/regions", (ctx) => {
   const atlas = ctx.url.searchParams.get("atlas");
   const guideId = guideIdOf(ctx);
+  if (guideId === "mni") {
+    const entry = mniAtlas(atlas);
+    if (!entry) return json(ctx.res, 404, { detail: `the MNI guide has no atlas '${atlas}'.` });
+    const legend = JSON.parse(readFileSync(join(mniRoot, entry.legend_file ?? `legends/${atlas}.json`), "utf8"));
+    return json(ctx.res, 200, { ...legend, atlas, url: `/api/guide/labels?atlas=${encodeURIComponent(atlas)}&guide=mni`, cache: { state: "ready", built_ms: 0 } });
+  }
   const known = atlasesFor(guideId);
   if (!known.includes(atlas)) {
     return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${known.join(", ")}.` });
