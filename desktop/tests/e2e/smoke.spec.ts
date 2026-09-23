@@ -148,10 +148,12 @@ test("launcher connects and the shell renders its chrome around the landing page
   // API of the Apple GPU decision. The 2026-09-19 ownership change removes both update actions and
   // adds live native scene saving; saved-scene preview generation brought the total to twenty-two.
   // The 2026-09-22 decision (TI's own TetraVox only) drops locate/clear-path and adds one update
-  // action, so the total is twenty-one entries.
+  // action, so the total is twenty-one entries. The later 2026-09-22 entry (TetraVox's own update
+  // popup asks TI to install) adds the newest-release check, so the total is twenty-two.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
+    "checkNativeTetravoxUpdate",
     "connect",
     "fastsurfer",
     "getSettings",
