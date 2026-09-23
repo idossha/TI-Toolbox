@@ -20,7 +20,7 @@
  * and nothing else. The scene addresses its data with paths relative to itself, so there is nothing
  * to re-root either: the same file works in the container that wrote it and on this host.
  */
-import { mkdtemp, readFile, rm, writeFile, unlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile, unlink } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -42,7 +42,7 @@ export interface PlateRunnerDeps {
   /** The resolved Tetravox executable, or `undefined` when there is none. */
   viewerExecutable(): Promise<string | undefined>;
   /** Run it. Resolves with the exit code; rejects only on a spawn failure. */
-  run?(executable: string, args: string[]): Promise<number>;
+  run?(executable: string, args: string[], home: string): Promise<number>;
   writeFileText?(path: string, text: string): Promise<void>;
   readFileText?(path: string): Promise<string>;
   removeFile?(path: string): Promise<void>;
@@ -141,11 +141,14 @@ export function summariseResult(text: string): string | null {
   }
 }
 
-export function runNativeCapture(executable: string, args: string[]): Promise<number> {
+/** `home` is the capture's own TETRAVOX_HOME, so it never reads or writes the user's `~/.tetravox`. */
+export function runNativeCapture(executable: string, args: string[], home: string): Promise<number> {
   return new Promise((resolve, reject) => {
     // `--job` forces offscreen and is exempt from the single-instance lock, so this never takes
     // focus and never disturbs a window the user has open.
-    const child = spawn(executable, args, { stdio: "ignore", windowsHide: true, detached: false });
+    const env: NodeJS.ProcessEnv = { ...process.env, TETRAVOX_HOME: home };
+    delete env.TETRAVOX_MODULE_DIR; // would override `<home>/modules` with the user's extensions
+    const child = spawn(executable, args, { stdio: "ignore", windowsHide: true, detached: false, env });
     const timer = setTimeout(() => {
       try {
         child.kill();
@@ -219,7 +222,9 @@ export async function renderPlatesForJob(jobId: string, deps: PlateRunnerDeps): 
       const profile = await mkdtemp(join(tmpdir(), "tit-tetravox-plate-"));
       let code: number;
       try {
-        code = await run(executable, ["--job", documentPath, "--out", outDir, "--quiet", `--user-data-dir=${profile}`]);
+        const home = join(profile, "tetravox-home");
+        await mkdir(home);
+        code = await run(executable, ["--job", documentPath, "--out", outDir, "--quiet", `--user-data-dir=${profile}`], home);
       } finally {
         await rm(profile, { recursive: true, force: true });
       }

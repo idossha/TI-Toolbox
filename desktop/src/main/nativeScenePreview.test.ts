@@ -1,5 +1,5 @@
 /** Authored PNG fixture tests thumbnail publication; real renderer coverage runs separately. */
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -14,7 +14,10 @@ async function fixture(): Promise<ScenePreviewOptions> {
   await mkdir(dirname(scene), { recursive: true });
   await writeFile(scene, '{"datasets":[],"layers":[],"camera":{"zoom":3}}');
   return { root, scene, userData: root, executable: "/fixture/TetraVox", current: () => true, resize: (bytes) => bytes,
-    run: async (_, args) => {
+    run: async (_, args, home) => {
+      // Its own TETRAVOX_HOME inside the throwaway directory, never the user's ~/.tetravox.
+      expect(home).toBe(join(args[3]!, "tetravox-home"));
+      expect((await stat(home)).isDirectory()).toBe(true);
       const job = JSON.parse(await readFile(args[1]!, "utf8"));
       expect(job.scene.path).toBe(scene);
       expect(job.actions).toEqual([{ type: "screenshot", out: "preview.png", view: "grid", background: "scene" }]);

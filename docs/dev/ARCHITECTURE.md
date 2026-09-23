@@ -262,8 +262,12 @@ directories and a swap's `.previous` directory still identify as installed, so a
 TI-Toolbox never loses a working viewer. Version display is informational; minimum scene support
 does not reject future majors. TI's copy always runs in its own profile
 (`--user-data-dir=<userData>/tetravox-profile`), never Electron's default one, so it shares neither
-settings nor the single-instance lock with a TetraVox the user installed; plate captures use a
-throwaway profile. Scenes reach TetraVox only through TI's copy: `openPath` refuses `.tetravox.json`.
+settings nor the single-instance lock with a TetraVox the user installed, and with its own
+TetraVox home (`TETRAVOX_HOME=<userData>/tetravox-home`, created if missing), so it shares neither
+the rc file nor installed extensions in the user's `~/.tetravox`; `--user-data-dir` does not move
+that directory. Plate captures and saved-scene previews use a throwaway profile with a
+`tetravox-home` inside it. Nothing of TI's viewer is shared with a user's own TetraVox. Scenes reach
+TetraVox only through TI's copy: `openPath` refuses `.tetravox.json`.
 
 The Viewer page and Results actions build native `.tetravox.json` scenes. Main maps and validates the
 scene against the active project's real path before launch and revalidates after confirmation. Dataset

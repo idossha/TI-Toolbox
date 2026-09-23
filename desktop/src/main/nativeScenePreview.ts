@@ -1,5 +1,5 @@
 /** Photograph a saved scene offscreen; publish only a validated, bounded project thumbnail. */
-import { lstat, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { runNativeCapture } from "./roiPlates";
 
@@ -40,7 +40,9 @@ export async function renderNativeScenePreview(options: ScenePreviewOptions): Pr
       actions: [{ type: "screenshot", out: "preview.png", view: "grid", background: "scene" }],
     }), { mode: 0o600, flag: "wx" });
     if (!await current()) throw new Error("The active project changed before generating the preview.");
-    const code = await (options.run ?? runNativeCapture)(executable, ["--job", job, "--out", temporary, "--quiet", `--user-data-dir=${join(temporary, "profile")}`]);
+    const home = join(temporary, "tetravox-home");
+    await mkdir(home);
+    const code = await (options.run ?? runNativeCapture)(executable, ["--job", job, "--out", temporary, "--quiet", `--user-data-dir=${join(temporary, "profile")}`], home);
     if (code !== 0) throw new Error(`TetraVox could not render this saved scene (exit ${code}).`);
     const pngPath = join(temporary, "preview.png");
     if ((await stat(pngPath)).size > 16 * 1024 * 1024) throw new Error("Scene preview is too large.");
