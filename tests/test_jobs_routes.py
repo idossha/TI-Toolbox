@@ -929,6 +929,27 @@ def test_existing_sim_without_explicit_overwrite_is_rejected(client):
     assert client.get("/api/jobs", headers=BEARER).json() == []
 
 
+def test_overwrite_refusal_names_the_kind_not_simulation(monkeypatch):
+    """An analyzer conflict used to read "Simulation outputs already exist" (2026-09-23)."""
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+
+    from tit.server import overwrite_policy
+    from tit.server.routes import plan as plan_route
+
+    receipt = SimpleNamespace(
+        jobs=[SimpleNamespace(output_dir="/proj/analysis/roi", will_overwrite=True)]
+    )
+    monkeypatch.setattr(plan_route, "plan", lambda kind, request: receipt)
+    with pytest.raises(HTTPException) as refused:
+        overwrite_policy.check_overwrite_permission("analyzer", {}, ["001"])
+    assert refused.value.status_code == 409
+    assert "Simulation" not in refused.value.detail
+    assert "analyzer job" in refused.value.detail
+    assert "/proj/analysis/roi" in refused.value.detail
+
+
 def test_pre_dti_replacement_does_not_confuse_existing_head_with_tensor(client):
     head = Path(get_path_manager().m2m("001"))
     head.mkdir(parents=True, exist_ok=True)

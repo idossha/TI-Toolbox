@@ -48,6 +48,7 @@ import {
   planCounts,
   jobCountLabel,
   ExistingOutputsDialog,
+  isExistingOutputsConflict,
   mergePlanResults,
   planModelFrom,
   stepsFor,
@@ -176,7 +177,8 @@ function OptimizerPage() {
   // (maintainer, 2026-09-07). Page-session state, like the pin, so navigating away and back keeps
   // the output; a new Run replaces it.
   const [startedJobIds, setStartedJobIds] = usePageSession<string[]>("startedJobs", []);
-  const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+  /** The open existing-outputs question and its count — from the plan, or from a refetched one. */
+  const [confirmExisting, setConfirmExisting] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const scenePane = usePaneController({ pageId: "optimizer", name: "run" });
 
@@ -368,7 +370,8 @@ function OptimizerPage() {
   }
 
   const submit = useMutation({
-    mutationFn: async (overwriteFlag: boolean) => {
+    mutationFn: async (policy: "ask" | "skip" | "replace") => {
+      const overwriteFlag = policy === "replace";
       if (jobs.length === 0) throw new Error("Complete a job row.");
       // `POST /api/jobs/groups` takes ONE kind (`GROUP_KINDS`), so a mixed table is one group per
       // kind — in kind order, so the message can name them. Everything else about the submission
@@ -376,10 +379,16 @@ function OptimizerPage() {
       // subject, and the server forces each config's `subject_id` to match.
       const byKind = new Map<GroupKind, OptimizerJobSpec[]>();
       if (jobsSig !== debouncedSig || !allPlanned) throw new Error("Wait for the current plan.");
+      // Skip queues only the new searches — the server refuses an existing output without
+      // `overwrite` — judged from a refetched plan, not the cached one.
+      const plans = policy === "skip" ? await refetchPlans() : planQueries;
       for (const [index, job] of jobs.entries()) {
-        const resolved = { ...job, config: planQueries[index]!.data!.config };
+        const planned = plans[index]!.data!;
+        if (policy === "skip" && planned.plan.jobs.some((j) => j.will_overwrite)) continue;
+        const resolved = { ...job, config: planned.config };
         byKind.set(job.kind, [...(byKind.get(job.kind) ?? []), resolved]);
       }
+      if (byKind.size === 0) return { jobs: 0, kinds: [], startedIds: [] };
 
       // Validate one representative config per kind before anything is queued (the flex path's
       // long-standing behaviour, now covering every kind the table holds).
@@ -402,9 +411,13 @@ function OptimizerPage() {
         });
         startedIds.push(...result.jobs.map((job) => job.id));
       }
-      return { jobs: jobs.length, kinds: [...byKind.keys()], startedIds };
+      return { jobs: [...byKind.values()].reduce((n, group) => n + group.length, 0), kinds: [...byKind.keys()], startedIds };
     },
     onSuccess: async ({ jobs: n, kinds, startedIds }) => {
+      if (n === 0) {
+        notify.info("Nothing to queue: every selected search already has output.");
+        return;
+      }
       notify.success(
         n === 1
           ? `Queued: ${OPT_METHOD_LABEL[kinds[0] as keyof typeof OPT_METHOD_LABEL] ?? kinds[0]} search.`
@@ -415,10 +428,25 @@ function OptimizerPage() {
       setStartedJobIds(startedIds);
       await queryClient.invalidateQueries({ queryKey: ["plan"] });
     },
-    onError: (e) => {
-      if ((e as Error).message !== "invalid") notifySubmitError("Could not queue the search.", e);
+    onError: async (e) => {
+      if ((e as Error).message === "invalid") return;
+      // The plan the Run press read can lag the disk; the server's refusal asks the question instead.
+      if (isExistingOutputsConflict(e)) {
+        const fresh = await refetchPlans().catch(() => []);
+        const existing = fresh.reduce((n, q) => n + (q.data?.plan.jobs.filter((j) => j.will_overwrite).length ?? 0), 0);
+        if (existing > 0) {
+          setConfirmExisting(existing);
+          return;
+        }
+      }
+      notifySubmitError("Could not queue the search.", e);
     },
   });
+
+  /** Every job's plan, refetched now — what Skip and a refused submission judge the disk by. */
+  function refetchPlans() {
+    return Promise.all(planQueries.map((q) => q.refetch()));
+  }
 
   function handleRunClick(): void {
     // §4.2 rule 8: the primary stays enabled; pressing it with an unresolvable plan says why.
@@ -428,10 +456,10 @@ function OptimizerPage() {
     }
     // The one existing-outputs question (C3), unchanged.
     if (counts.existing > 0) {
-      setConfirmOverwrite(true);
+      setConfirmExisting(counts.existing);
       return;
     }
-    submit.mutate(false);
+    submit.mutate("ask");
   }
   useRunShortcut(handleRunClick);
 
@@ -599,15 +627,15 @@ function OptimizerPage() {
       </RunWork>
 
       <ExistingOutputsDialog
-        open={confirmOverwrite}
-        onOpenChange={setConfirmOverwrite}
-        existing={counts.existing}
+        open={confirmExisting !== null}
+        onOpenChange={(open) => { if (!open) setConfirmExisting(null); }}
+        existing={confirmExisting ?? 0}
         total={counts.jobs}
         noun="search output"
         busy={submit.isPending}
         onDecide={(decision) => {
-          setConfirmOverwrite(false);
-          submit.mutate(decision === "replace");
+          setConfirmExisting(null);
+          submit.mutate(decision);
         }}
       />
     </PageLayout>

@@ -12,12 +12,13 @@
  */
 
 import { ApiError, type MissingInput } from "../../api/client";
+import { isExistingOutputsConflict } from "../_shared/run/ExistingOutputsDialog";
 
 export interface BatchOutcome<Spec> {
   /** Job ids the server accepted, in submission order. */
   acceptedIds: string[];
   /** The specs that were rejected, ready to be retried on their own. */
-  rejected: { spec: Spec; message: string; missing?: MissingInput[] }[];
+  rejected: { spec: Spec; message: string; missing?: MissingInput[]; error?: unknown }[];
 }
 
 function message(error: unknown): string {
@@ -38,7 +39,7 @@ export async function submitBatch<Spec>(
   const rejected: BatchOutcome<Spec>["rejected"] = [];
   settled.forEach((result, index) => {
     if (result.status === "fulfilled") acceptedIds.push(result.value.id);
-    else rejected.push({ spec: specs[index] as Spec, message: message(result.reason), missing: missing(result.reason) });
+    else rejected.push({ spec: specs[index] as Spec, message: message(result.reason), missing: missing(result.reason), error: result.reason });
   });
   return { acceptedIds, rejected };
 }
@@ -58,4 +59,20 @@ export function batchReceipt<Spec>(outcome: BatchOutcome<Spec>, noun = "analysis
     return total === 1 ? `Could not queue the ${noun}${reason ? `: ${reason}` : "."}` : `Could not queue any of the ${total} ${plural}.`;
   }
   return `Queued ${accepted} of ${total} ${plural}; ${failed} could not be queued — press Run again to retry just ${failed === 1 ? "it" : "them"}.`;
+}
+
+/**
+ * Output already on disk is a question, not an error. The plan a Run press reads can lag the disk
+ * (a run that just finished, a plan still resolving), so the refusals the server sent for existing
+ * outputs are split off for the existing-outputs dialog; `reported` is what the receipt names.
+ */
+export function splitOutputConflicts<Spec>(outcome: BatchOutcome<Spec>): {
+  conflicts: BatchOutcome<Spec>["rejected"];
+  reported: BatchOutcome<Spec>;
+} {
+  const conflicts = outcome.rejected.filter((entry) => isExistingOutputsConflict(entry.error));
+  return {
+    conflicts,
+    reported: { acceptedIds: outcome.acceptedIds, rejected: outcome.rejected.filter((entry) => !conflicts.includes(entry)) },
+  };
 }

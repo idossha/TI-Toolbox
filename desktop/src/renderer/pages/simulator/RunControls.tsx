@@ -12,6 +12,7 @@ import { Button } from "../../ui/Button";
 import { notify, notifySubmitError } from "../../ui/Toast";
 import {
   ExistingOutputsDialog,
+  isExistingOutputsConflict,
   mergePlanResults,
   planModelFrom,
   submitJobGroup,
@@ -153,8 +154,18 @@ export function RunButton({
   onSubmitted: (jobIds: string[]) => void;
   label: string;
 }) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  /** The open existing-outputs question and its count — from the plan, or from a fresh one. */
+  const [confirmExisting, setConfirmExisting] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  /** Per row, whether the server would refuse it without `overwrite` — planned now, not from cache. */
+  async function rowsWithOutput(): Promise<boolean[]> {
+    const montageSources = buildMontageSources();
+    const plans = await Promise.all(
+      rows.map((row) => planSim(buildSimulationConfig(row, params), [row.subjectId], false, montageSources)),
+    );
+    return plans.map((p) => p.jobs.some((job) => job.will_overwrite));
+  }
 
   /**
    * ONE request for the whole batch (R3). This used to be a `for` loop of `POST /api/jobs`, one
@@ -167,31 +178,49 @@ export function RunButton({
    * `(subject, montage)` job the plan grid previewed — so one subject with three montages is
    * three jobs, each config carrying only its own subject id (the server forces that too).
    */
-  async function submit(overwriteExisting: boolean): Promise<void> {
+  async function submit(policy: "ask" | "skip" | "replace"): Promise<void> {
     setSubmitting(true);
-    const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
-    const subjectConfigs = rows.map((row) => ({
+    setConfirmExisting(null);
+    try {
+      // Skip queues only the new rows: the server refuses the whole group if any row's output
+      // exists without `overwrite`.
+      let batch = rows;
+      if (policy === "skip") {
+        const existing = await rowsWithOutput();
+        batch = rows.filter((_, i) => !existing[i]);
+        if (batch.length === 0) {
+          notify.info("Nothing to queue: every selected simulation already has output.");
+          return;
+        }
+      }
+      await submitRows(batch, policy === "replace");
+    } catch (error) {
+      // The plan the Run press read can lag the disk; the server's refusal asks the question instead.
+      const existing = isExistingOutputsConflict(error) ? (await rowsWithOutput().catch(() => [])).filter(Boolean).length : 0;
+      if (existing > 0) setConfirmExisting(existing);
+      else notifySubmitError("Could not queue the simulation jobs.", error);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitRows(batch: SelectedRow[], overwriteExisting: boolean): Promise<void> {
+    const subjectIds = [...new Set(batch.map((r) => r.subjectId))];
+    const subjectConfigs = batch.map((row) => ({
       subject_id: row.subjectId,
       config: buildSimulationConfig(row, params),
     }));
-    try {
-      const result = await submitJobGroup("sim", subjectConfigs[0]?.config ?? {}, subjectIds, {
-        subjectConfigs,
-        tags: subjectIds.length > 1 ? ["sim-batch"] : [],
-        overwrite: overwriteExisting,
-      });
-      notify.success(
-        result.jobs.length === 1
-          ? `Queued: simulation for ${subjectIds[0]}`
-          : `Queued ${result.jobs.length} simulation jobs (one at a time)`,
-      );
-      onSubmitted(result.jobs.map((job) => job.id));
-    } catch (error) {
-      notifySubmitError("Could not queue the simulation jobs.", error);
-    } finally {
-      setSubmitting(false);
-      setConfirmOpen(false);
-    }
+    const result = await submitJobGroup("sim", subjectConfigs[0]?.config ?? {}, subjectIds, {
+      subjectConfigs,
+      tags: subjectIds.length > 1 ? ["sim-batch"] : [],
+      overwrite: overwriteExisting,
+    });
+    notify.success(
+      result.jobs.length === 1
+        ? `Queued: simulation for ${subjectIds[0]}`
+        : `Queued ${result.jobs.length} simulation jobs (one at a time)`,
+    );
+    onSubmitted(result.jobs.map((job) => job.id));
   }
 
   function handleRun(): void {
@@ -201,8 +230,8 @@ export function RunButton({
       notify.error(plan.blockedReason);
       return;
     }
-    if (plan.existingCount > 0) setConfirmOpen(true);
-    else void submit(false);
+    if (plan.existingCount > 0) setConfirmExisting(plan.existingCount);
+    else void submit("ask");
   }
 
   // ⌘⏎ fires exactly the function the button runs — one code path, so the shortcut can never do
@@ -226,13 +255,13 @@ export function RunButton({
           the answer this page never used to offer: before, "Cancel" was the only way not to
           overwrite, so finishing a half-done batch meant deselecting its finished rows by hand. */}
       <ExistingOutputsDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        existing={plan.existingCount}
+        open={confirmExisting !== null}
+        onOpenChange={(open) => { if (!open) setConfirmExisting(null); }}
+        existing={confirmExisting ?? 0}
         total={rows.length}
         noun="simulation output"
         busy={submitting}
-        onDecide={(decision) => void submit(decision === "replace")}
+        onDecide={(decision) => void submit(decision)}
       />
     </>
   );

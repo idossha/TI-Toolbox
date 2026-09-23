@@ -530,6 +530,8 @@ config flags confer no authority. The shared dialog offers Skip, Replace and rer
 project setting gates it). Skip states whether new jobs will run; job Rerun Skip queues nothing.
 Submission routes still require explicit `overwrite`/`replace_existing_outputs` confirmation
 before single jobs, groups or reruns replace existing outputs (409 pending that confirmation).
+A run page treats that 409 as the existing-outputs question, not an error, so the dialog opens even
+when its cached plan lagged the disk; Skip submits only the jobs a freshly fetched plan calls new.
 Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
 retain native existence protection. Caller environment variables cannot supply permission.
 

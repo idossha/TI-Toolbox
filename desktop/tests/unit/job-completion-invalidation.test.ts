@@ -45,6 +45,12 @@ describe("queriesAffectedBy", () => {
     expect(keys).toContain(JSON.stringify(["overview"]));
   });
 
+  it("a finished run refreshes its page's plan, so the existing-outputs pre-check is not stale", () => {
+    expect(keysOf("sim")).toContain(JSON.stringify(["plan-sim"]));
+    expect(keysOf("analyzer")).toContain(JSON.stringify(["analyzer-plan"]));
+    for (const kind of ["flex", "ex", "mex", "recip"]) expect(keysOf(kind)).toContain(JSON.stringify(["plan"]));
+  });
+
   it("leadfields keep the invalidation the Optimizer used to do on its own", () => {
     expect(keysOf("leadfield")).toContain(JSON.stringify(["leadfields"]));
   });

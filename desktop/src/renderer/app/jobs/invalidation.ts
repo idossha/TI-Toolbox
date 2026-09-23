@@ -33,7 +33,9 @@ const COMMON: readonly QueryKey[] = [
   ["system-storage"],
 ];
 
+// Each run page's plan says which outputs exist, so a finished job of that kind makes it stale.
 const SIMULATIONS: readonly QueryKey[] = [
+  ["plan-sim"],
   ["simulations"],
   ["results-simulations"],
   ["results-simulation-figures"],
@@ -43,6 +45,7 @@ const SIMULATIONS: readonly QueryKey[] = [
 ];
 
 const SEARCH_RESULTS: readonly QueryKey[] = [
+  ["plan"],
   ["results-flex-runs"],
   ["results-ex-runs"],
   ["optimization-candidates"],
@@ -51,7 +54,7 @@ const SEARCH_RESULTS: readonly QueryKey[] = [
   ["viewer-candidates"],
 ];
 
-const ANALYSES: readonly QueryKey[] = [["results-analyses"], ["results-reports"], ["viewer-tree"], ["viewer-candidates"]];
+const ANALYSES: readonly QueryKey[] = [["analyzer-plan"], ["results-analyses"], ["results-reports"], ["viewer-tree"], ["viewer-candidates"]];
 
 const GROUP_OUTPUTS: readonly QueryKey[] = [["results-group"], ["results-reports"], ["results-simulation-figures"]];
 

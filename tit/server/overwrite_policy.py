@@ -40,6 +40,8 @@ def check_overwrite_permission(
     if conflicts:
         raise HTTPException(
             status_code=409,
-            detail="Simulation outputs already exist. Explicit overwrite confirmation is required: "
-            + "; ".join(conflicts),
+            # Every kind shares this check, so the sentence names the kind rather than
+            # calling an analysis (or a search) a simulation.
+            detail=f"Outputs of this {kind} job already exist. Explicit overwrite "
+            "confirmation is required: " + "; ".join(conflicts),
         )

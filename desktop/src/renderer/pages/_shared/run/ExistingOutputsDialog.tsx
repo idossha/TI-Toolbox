@@ -13,10 +13,21 @@
  * re-pressed Run finish a partly-completed batch). `onDecide` hands the page a policy rather than a
  * boolean, so the page's own submit call keeps deciding what "replace" means for its job kind.
  */
+import { ApiError } from "../../../api/client";
 import { Button } from "../../../ui/Button";
 import { Dialog } from "../../../ui/Overlay";
 
 export type ExistingOutputsDecision = "skip" | "replace";
+
+/**
+ * The server's refusal to replace outputs without confirmation (`tit/server/overwrite_policy.py`:
+ * HTTP 409 on a job submission). A page's pre-check reads a cached, debounced plan that can lag the
+ * disk — a run that just finished, a plan still resolving — so this refusal, not the pre-check, is
+ * what finally decides that the dialog opens instead of an error toast.
+ */
+export function isExistingOutputsConflict(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409;
+}
 
 export function ExistingOutputsDialog({
   open,

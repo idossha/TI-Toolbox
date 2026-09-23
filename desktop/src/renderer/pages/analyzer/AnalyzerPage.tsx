@@ -22,7 +22,7 @@
  * control on the row's second line. The work column is the Jobs table and nothing else.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FormSection, PageLayout, PaneHeaderControls, usePaneController } from "../../ui/Layout";
 import { ActionBar } from "../../ui/Chrome";
@@ -54,12 +54,13 @@ import {
 import {
   getSimulationDetails,
   newAnalysisTag,
+  planAnalyzer,
   planAnalyzerBatch,
   submitAnalyzerJob,
   type AnalyzerConfig,
   type AnalyzerJobSpec,
 } from "./api";
-import { batchReceipt, submitBatch } from "./submitBatch";
+import { batchReceipt, splitOutputConflicts, submitBatch } from "./submitBatch";
 
 /** Cortical atlas picking stays on the interactive surface pane. */
 export function corticalSceneRoi(roi: RoiValue | undefined): Extract<RoiValue, { mode: "cortical" }> | null {
@@ -148,7 +149,9 @@ export function AnalyzerPage() {
   const [rows, setRows] = usePageSession<AnalyzerRow[]>("jobRows", []);
   const [group, setGroup] = usePageSession("group", false);
   const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const queryClient = useQueryClient();
+  /** The open existing-outputs question and its numbers — from the plan, or from the server's refusal. */
+  const [confirm, setConfirm] = useState<{ existing: number; total: number } | null>(null);
   const [running, setRunning] = useState(false);
   /**
    * Specs the server refused on the last Run press — what the next press retries (UI-05). Tagged
@@ -279,16 +282,28 @@ export function AnalyzerPage() {
     enabled: debouncedSpecs.length > 0,
   });
 
-  async function runNow(replace = false) {
+  /** `"ask"` is a plain Run press; `"skip"`/`"replace"` are the dialog's answers. */
+  async function runNow(policy: "ask" | "skip" | "replace" = "ask") {
     setRunning(true);
     try {
       const tag = newAnalysisTag();
       // Retry only what was refused last time: re-submitting the accepted ones would run them
       // twice (audit UI-05). `allSettled`, not `all`, so one rejection cannot hide the jobs that
       // WERE accepted — the receipt names both halves.
-      const specs = retry.key === specsKey && retry.specs.length > 0 ? retry.specs : jobSpecs;
+      let specs = retry.key === specsKey && retry.specs.length > 0 ? retry.specs : jobSpecs;
+      if (policy === "skip") {
+        // Skip means "queue only the new ones": the server refuses an existing output without
+        // `overwrite`, so drop them here, from a fresh plan rather than the cached one.
+        const fresh = await Promise.all(specs.map((spec) => planAnalyzer(spec.config, spec.subjectIds, false)));
+        specs = specs.filter((_, i) => !fresh[i]!.jobs.some((job) => job.will_overwrite));
+        if (specs.length === 0) {
+          setRetry({ key: specsKey, specs: [] });
+          notify.info("Nothing to queue: every selected analysis already has output.");
+          return;
+        }
+      }
       const outcome = await submitBatch(specs, (spec) =>
-        submitAnalyzerJob(spec.config, spec.subjectIds, replace, [tag]),
+        submitAnalyzerJob(spec.config, spec.subjectIds, policy === "replace", [tag]),
       );
       setRetry({ key: specsKey, specs: outcome.rejected.map((entry) => entry.spec) });
       // A new run takes the terminal over: drop any explicit pin and follow this press's jobs,
@@ -297,15 +312,23 @@ export function AnalyzerPage() {
         setPinnedJobId(null);
         setStartedJobIds(outcome.acceptedIds);
       }
-      const receipt = batchReceipt(outcome);
+      // The server's refusal of existing output opens the dialog, whatever the (possibly stale)
+      // pre-check said. The refused specs are already `retry`, so its answer resubmits just those.
+      const { conflicts, reported } = splitOutputConflicts(outcome);
+      if (conflicts.length > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["analyzer-plan"] });
+        setConfirm({ existing: conflicts.length, total: outcome.rejected.length });
+      }
+      if (reported.acceptedIds.length + reported.rejected.length === 0) return;
+      const receipt = batchReceipt(reported);
       // The same input can be missing for several rows (one head model, N analyses): name it once.
-      const missing = outcome.rejected.flatMap((entry) => entry.missing ?? []);
+      const missing = reported.rejected.flatMap((entry) => entry.missing ?? []);
       const uniqueMissing = missing.filter(
         (m, i) => missing.findIndex((o) => o.what === m.what && o.expected_path === m.expected_path) === i,
       );
-      if (outcome.rejected.length === 0) notify.success(receipt);
+      if (reported.rejected.length === 0) notify.success(receipt);
       else if (uniqueMissing.length > 0) notify.blocked(receipt, uniqueMissing);
-      else notify.error(receipt, outcome.rejected.map((entry) => entry.message).join("\n\n"));
+      else notify.error(receipt, reported.rejected.map((entry) => entry.message).join("\n\n"));
     } catch (error) {
       notifySubmitError("Could not queue the analysis job(s).", error);
     } finally {
@@ -321,7 +344,7 @@ export function AnalyzerPage() {
     // The one existing-outputs question (C3) — this page used to have none of its own wording at
     // all past a two-button overwrite alert, and no way to run only the new jobs.
     if (counts.existing > 0) {
-      setConfirmOpen(true);
+      setConfirm({ existing: counts.existing, total: counts.jobs });
       return;
     }
     void runNow();
@@ -461,15 +484,15 @@ export function AnalyzerPage() {
       </RunWork>
 
       <ExistingOutputsDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        existing={counts.existing}
-        total={counts.jobs}
+        open={confirm !== null}
+        onOpenChange={(open) => { if (!open) setConfirm(null); }}
+        existing={confirm?.existing ?? 0}
+        total={confirm?.total ?? 0}
         noun="analysis output"
         busy={running}
         onDecide={(decision) => {
-          setConfirmOpen(false);
-          void runNow(decision === "replace");
+          setConfirm(null);
+          void runNow(decision);
         }}
       />
     </PageLayout>
