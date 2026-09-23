@@ -122,6 +122,8 @@ it.each([
   const pull = vi.spyOn(DockerEngineClient.prototype, "pullImage").mockResolvedValue(undefined);
   await new StackManager(host)["ensureImage"](new DockerEngineClient(connection), new StackApi(connection, "1.51"), plan, refresh);
   expect(pull.mock.calls.length).toBe(pulls ? 1 : 0);
+  // amd64-only image: an arm64 host must never let Docker pick the platform.
+  for (const call of pull.mock.calls) expect(call[3]).toBe("linux/amd64");
 });
 
 it("warns and uses the cached release image when refresh fails", async () => {

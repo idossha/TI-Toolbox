@@ -154,8 +154,13 @@ fi
 
 echo "build.sh: tag=$TAG version=$VERSION source=$SOURCE ref=${TI_TOOLBOX_REF:-<local>} sha=$VCS_SHA dirty=$VCS_DIRTY"
 
+# A plain single-platform manifest, never an OCI index: BuildKit (Docker Desktop's containerd
+# store) attaches provenance/SBOM attestations by default, which wraps the amd64 manifest in an
+# index that an unpinned arm64 pull rejects ("no matching manifest for linux/arm64/v8").
 build_args=(
     --platform linux/amd64
+    --provenance=false
+    --sbom=false
     --build-arg "TI_TOOLBOX_VERSION=$VERSION"
     --build-arg "VCS_REF=$VCS_REF"
     --build-arg "VCS_SHA=$VCS_SHA"

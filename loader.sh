@@ -2,6 +2,8 @@
 # Python-free Docker launcher. Run with --help for options.
 set -euo pipefail
 
+# amd64-only image; every pull, probe and run names it so arm64 hosts never resolve arm64.
+IMAGE_PLATFORM=linux/amd64
 die() { printf 'ti-toolbox: %s\n' "$*" >&2; exit 1; }
 # WSL2 is a Windows host to this script. WSL sets these variables in every process; the kernel
 # string is not consulted, because a Docker Desktop container runs on the same "microsoft" kernel
@@ -450,7 +452,7 @@ else
     cached=0
     docker image inspect "$image" >/dev/null 2>&1 && cached=1
     if [ "$cached" = 0 ] || { [ "$image" = idossha/ti-toolbox:v3.0.0 ] && [ -z "$repo" ]; }; then
-        if ! docker pull --platform linux/amd64 "$image"; then
+        if ! docker pull --platform "$IMAGE_PLATFORM" "$image"; then
             [ "$cached" = 1 ] || die "could not download $image"
             printf 'Warning: could not refresh %s; using the cached image.\n' "$image" >&2
         fi
@@ -458,7 +460,7 @@ else
     gpu=0
     gpu_probe="ti-gpu-probe-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
     cuda_probe="import torch; assert torch.cuda.is_available(); x=torch.ones((32,32),device='cuda'); y=x@x; torch.cuda.synchronize(); assert y[0,0].item()==32"
-    if docker run --detach --name "$gpu_probe" --network none --platform linux/amd64 --gpus all --env NVIDIA_DRIVER_CAPABILITIES=compute,utility --entrypoint simnibs_python "$image" -c "$cuda_probe" >"$work/gpu.out" 2>"$work/gpu.err"; then
+    if docker run --detach --name "$gpu_probe" --network none --platform "$IMAGE_PLATFORM" --gpus all --env NVIDIA_DRIVER_CAPABILITIES=compute,utility --entrypoint simnibs_python "$image" -c "$cuda_probe" >"$work/gpu.out" 2>"$work/gpu.err"; then
         gpu_deadline=$((SECONDS+60))
         while [ "$(docker inspect --format '{{.State.Running}}' "$gpu_probe" 2>/dev/null)" = true ] && [ "$SECONDS" -lt "$gpu_deadline" ]; do sleep 1; done
         gpu_state="$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}' "$gpu_probe" 2>/dev/null || true)"
@@ -484,7 +486,7 @@ else
     export TIT_SERVER_TOKEN="$token" TIT_SERVER_PORT="$port" TIT_REPO_DIR="$repo" TIT_SERVER_RELOAD="$reload" TIT_STATIC_DIR="$static"
     TIT_HOST_OS="$(uname -s | tr '[:upper:]' '[:lower:]')"; TIT_HOST_OS_VERSION="$(uname -r)"; TIT_HOST_ARCH="$(uname -m)"
     export TIT_HOST_OS TIT_HOST_OS_VERSION TIT_HOST_ARCH
-    export DOCKER_DEFAULT_PLATFORM=linux/amd64
+    export DOCKER_DEFAULT_PLATFORM="$IMAGE_PLATFORM"
     awk -v image="$image" -v mount="$repo" -v gpu="$gpu" '
         /^[[:space:]]*image:/ {
             $0="    image: " image

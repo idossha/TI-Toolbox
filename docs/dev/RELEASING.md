@@ -41,6 +41,17 @@ docker push idossha/ti-toolbox:v3.0.0
 docker manifest inspect --verbose idossha/ti-toolbox:v3.0.0
 ```
 
+The pushed tag must be a plain single-platform `linux/amd64` manifest, not an OCI index: the
+`docker manifest inspect --verbose` output above is one object with `"architecture": "amd64"`, not
+a list. `build.sh` passes `--platform linux/amd64 --provenance=false --sbom=false` for this
+(`tests/test_image_build_manifest.py` guards it). Root cause, 2026-09-23: the v3.0.0 re-release was
+built by `build.sh` without those flags on Docker Desktop's containerd image store, where
+`docker build` is BuildKit and attaches a provenance attestation by default; `docker push` then
+published an index (amd64 plus an `unknown/unknown` attestation), and an unpinned pull on Apple
+Silicon failed with "no matching manifest for linux/arm64/v8". A plain manifest only warns. The
+desktop app, `loader.sh`, `tit/launch.py` and `docker-compose.yml` also pin `linux/amd64` on every
+pull and create, so an index can no longer break a launch either way.
+
 Keep source SHA, clean/dirty provenance, tests and registry digest with the manual publication
 receipt. The reusable mutable version-line tag policy above is unchanged. CI reads only registry
 manifest metadata to require a published `linux/amd64` version image; it downloads no image layers

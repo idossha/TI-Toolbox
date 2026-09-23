@@ -29,6 +29,13 @@
  */
 import { parse as parseYaml } from "yaml";
 
+/**
+ * The image is linux/amd64 only; Apple Silicon runs it under emulation. Every pull and create
+ * names this platform, because an unpinned pull on arm64 fails outright ("no matching manifest
+ * for linux/arm64/v8") whenever the tag is an OCI index (e.g. a buildx push with an attestation).
+ */
+export const IMAGE_PLATFORM = "linux/amd64";
+
 /** A compose file this app cannot faithfully realise. `key` is the offending path, when there is one. */
 export class StackError extends Error {
   readonly key: string | undefined;
@@ -429,7 +436,7 @@ export interface ContainerPlan {
   image: string;
   imageName: string;
   imageTag: string;
-  platform: string | undefined;
+  platform: string;
   /** Resolved Docker network name, or null when the service declares none. */
   networkName: string | null;
   networkDriver: string;
@@ -518,7 +525,7 @@ export function buildContainerPlan(stack: Stack, input: ContainerPlanInput): Con
     image: service.image,
     imageName,
     imageTag,
-    platform: service.platform,
+    platform: service.platform ?? IMAGE_PLATFORM,
     networkName,
     networkDriver,
     namedVolumes,

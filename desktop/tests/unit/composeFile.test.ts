@@ -312,6 +312,13 @@ describe("the shipped docker-compose.yml", () => {
     expect(plan.imageName).toMatch(/ti-toolbox/);
   });
 
+  it("creates the container as linux/amd64, even from a spec that names no platform", () => {
+    const stack = parseComposeFile(text, { ...ENV, TIT_REPO_DIR: "" });
+    expect(buildContainerPlan(stack, { serviceName: "tit", projectName: "p", labels: {} }).platform).toBe("linux/amd64");
+    const bare = parseComposeFile("services:\n  tit:\n    image: idossha/ti-toolbox:v3.0.0\n    ports: [\"127.0.0.1:8765:8765\"]\n", ENV);
+    expect(buildContainerPlan(bare, { serviceName: "tit", projectName: "p", labels: {} }).platform).toBe("linux/amd64");
+  });
+
   // The shipped file is the one a packaged app reads, so the "no dev mount by default" property is
   // asserted against it directly, not only against the fixture that mirrors it.
   it("bind-mounts nothing over /ti-toolbox by default, and does when a repo is named", () => {

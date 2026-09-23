@@ -52,6 +52,13 @@ describe("DockerEngineClient against a fake Engine API over a real Unix socket",
     expect(events.some((s) => s === "Downloading")).toBe(true);
   });
 
+  // The image is amd64-only: an unpinned pull on Apple Silicon fails against an OCI index
+  // ("no matching manifest for linux/arm64/v8"), so every pull must name the platform.
+  it("pullImage() requests platform linux/amd64 by default", async () => {
+    await client.pullImage("idossha/ti-toolbox", "v3.0.0");
+    expect(fake.pulls).toEqual([{ image: "idossha/ti-toolbox", tag: "v3.0.0", platform: "linux/amd64" }]);
+  });
+
   it("pullImage() throws on a mid-stream {error: ...} object even though the HTTP status was 200", async () => {
     await expect(client.pullImage("fixture/midstream-error", "latest")).rejects.toThrow(/manifest unknown/);
   });

@@ -4,6 +4,7 @@
 services:
   tit:
     image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}
+    platform: linux/amd64 # amd64-only image; Apple Silicon emulates it
     init: true # reap zombie processes under uvicorn's worker/reload subprocesses
     working_dir: /ti-toolbox
     volumes:

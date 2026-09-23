@@ -97,6 +97,8 @@ export async function startFakeEngineApi(opts = {}) {
   const volumes = new Map();
   /** Every request this fake answered, as "METHOD /path" — lets a test assert what did NOT happen. */
   const requests = [];
+  /** Every `POST /images/create`, with the query the client sent. */
+  const pulls = [];
 
   function envOf(container, name) {
     const hit = (container.Env ?? []).find((e) => e.startsWith(`${name}=`));
@@ -237,6 +239,7 @@ export async function startFakeEngineApi(opts = {}) {
     if (method === "POST" && path === "/images/create") {
       const image = url.searchParams.get("fromImage") ?? "";
       const tag = url.searchParams.get("tag") ?? "latest";
+      pulls.push({ image, tag, platform: url.searchParams.get("platform") ?? undefined });
       // Real Docker sometimes reports an unknown repo as a plain HTTP error before streaming
       // starts (rather than the mid-stream `{"error": ...}` shape `fixture/midstream-error`
       // below exercises) — checked, and the header written accordingly, before any body write.
@@ -390,5 +393,5 @@ export async function startFakeEngineApi(opts = {}) {
     if (existsSync(socketPath)) unlinkSync(socketPath);
   }
 
-  return { socketPath, close, containers, networks, volumes, requests, server };
+  return { socketPath, close, containers, networks, volumes, requests, pulls, server };
 }

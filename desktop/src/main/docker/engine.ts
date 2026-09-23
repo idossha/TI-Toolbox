@@ -28,6 +28,7 @@
 import * as http from "node:http";
 import type { DockerConnection } from "./discover";
 import { LogFrameDecoder, NdjsonDecoder, type LogFrame } from "./frames";
+import { IMAGE_PLATFORM } from "../../shared/composeFile";
 
 export type { DockerConnection } from "./discover";
 export type { LogFrame, LogStreamName } from "./frames";
@@ -289,18 +290,18 @@ export class DockerEngineClient {
   }
 
   /**
-   * `POST /images/create?fromImage=...&tag=...` — streams NDJSON pull-progress objects to
+   * `POST /images/create?fromImage=...&tag=...&platform=...` — streams NDJSON pull-progress objects to
    * `onProgress` as they arrive; resolves once the stream ends. Throws `DockerEngineError` on a
    * non-2xx response *or* a `{"error": "..."}` object appearing mid-stream (Docker reports pull
    * failures — e.g. unknown tag — inside a 200-status NDJSON stream, not as an HTTP error status;
    * an HTTP-status-only check would silently swallow this).
    */
-  async pullImage(image: string, tag: string, onProgress?: (event: PullProgressEvent) => void): Promise<void> {
+  async pullImage(image: string, tag: string, onProgress?: (event: PullProgressEvent) => void, platform = IMAGE_PLATFORM): Promise<void> {
     await this.ensureNegotiated();
     const res = await rawRequest(this.conn, {
       method: "POST",
       path: this.vpath("/images/create"),
-      query: { fromImage: image, tag },
+      query: { fromImage: image, tag, platform },
       timeoutMs: NO_TIMEOUT,
     });
     if (res.statusCode >= 400) throw apiErrorFromBody(res.statusCode, (await readAll(res.stream)).toString("utf8"));

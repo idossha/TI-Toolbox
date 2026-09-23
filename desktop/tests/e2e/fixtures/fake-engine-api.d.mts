@@ -40,6 +40,8 @@ export interface FakeEngineApi {
   volumes: Map<string, FakeEngineApiVolume>;
   /** Every request answered, as "METHOD /path" (version prefix stripped). */
   requests: string[];
+  /** Every `POST /images/create`, with the query the client sent. */
+  pulls: Array<{ image: string; tag: string; platform: string | undefined }>;
   server: Server;
 }
 

@@ -9,6 +9,10 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
+#### Launch
+
+- **Fixed: the app downloads its container on Apple Silicon Macs** — on an M-series Mac with no cached image, starting TI-Toolbox could stop with "no matching manifest for linux/arm64/v8" instead of downloading `idossha/ti-toolbox:v3.0.0`. The image is built for Intel/AMD (linux/amd64) and runs under emulation on Apple Silicon; the desktop app now always asks Docker for that platform when it downloads and creates the container, as `loader.sh` and `tit launch` already did, and the shared `docker-compose.yml` names it too. Intel Macs, Windows and Linux are unchanged, and an image you already have is reused as before. Images are now also published as a plain linux/amd64 image, so older app builds download it again as well.
+
 #### Notifications
 
 - **A system notification when a job finishes** — the desktop app now says what finished and for whom, e.g. **Simulation finished** · _sub-101 · montage L_Insula_ or **Flex optimization failed** · _sub-102_, instead of the old "Job finished" with a job id. **Settings → Project → Notifications** turns them off, limits them to failures, switches to a minimal title-only form, or picks the sound: one of three short TI-Toolbox sounds (Pulse by default, Chime, Tick; a failure plays it lower), the system sound, or none, with **Preview** beside it. A saved sound-on setting becomes Pulse and sound-off becomes None. Clicking one brings the app to the front. Cancelled jobs and jobs that had finished before the app opened never notify; each subject of a multi-subject run notifies as it finishes. **Send test notification** in the same card shows a sample banner with the chosen sound and says whether it appeared, or why not with the fix. Browser sessions are unchanged (no notifications). Developers: a checkout's Electron is re-signed on `npm install` so macOS lets it notify (existing checkouts: `npm --prefix desktop run sign:dev-electron`).

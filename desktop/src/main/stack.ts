@@ -451,7 +451,7 @@ export class StackManager {
       await client.pullImage(plan.imageName, plan.imageTag, (event) => {
         const parsed = formatPullEvent(event);
         if (parsed.message) this.emit({ type: "progress", stage: "pull", message: parsed.message });
-      });
+      }, plan.platform);
     } catch (err) {
       if (cached) {
         this.progress(`Warning: could not refresh ${plan.image}; using the cached image.`);
