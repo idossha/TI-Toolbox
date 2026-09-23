@@ -65,7 +65,7 @@
   flex: none;
 }
 
-@media (max-width: 1099px) {
+@media (max-width: 1139px) {
   /* Stacked panes use the page width, including a width remembered from desktop. */
   .page-layout .page-layout-panel,
   .page-layout .page-layout-panel[data-pane-width],

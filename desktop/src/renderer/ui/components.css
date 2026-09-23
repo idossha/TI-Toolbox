@@ -2124,7 +2124,19 @@ kbd.kbd {
  * 560 px of work) — it binds only at 1440, where the labelled nav rail costs 216 px.
  * `:not([data-pane-width])` so a dragged width and the expanded state still win. */
 .page-layout-run .page-layout-panel:not([data-pane-width]) {
-  width: clamp(320px, 45vw, calc(100% - 566px));
+  width: var(--run-pane-default);
+}
+/* The run split's hard limits (ARCHITECTURE §11). The numbers are `ui/paneState.ts`'s, set on
+ * `.page-layout` as custom properties by `PageLayout` (`RUN_SPLIT_CSS_VARS`), the same ones
+ * `runPaneLimits` clamps a drag with: the work pane stays between --run-work-min (the measured width at which no Jobs table
+ * truncates) and --run-work-max, and the pane never drops under --run-pane-min. Percentages resolve
+ * against `.page-layout-body`, so these re-clamp a remembered width on load and on every window
+ * resize with no script: a width dragged at 1920 shows as the widest legal pane at 1280 and comes
+ * back with the window. `min-width` wins where the two cross, i.e. the pane's floor. The `expanded`
+ * state is the pane taking the whole box, so it is exempt. */
+.page-layout-run .page-layout-panel:not([data-pane-width="expanded"]) {
+  min-width: max(var(--run-pane-min), calc(100% - var(--run-work-max) - var(--pane-handle)));
+  max-width: max(var(--run-pane-min), calc(100% - var(--run-work-min) - var(--pane-handle)));
 }
 /* The handle is 6px of grab strip with a 1px rule inside it, which leaves the pane's own content
  * about 4px from that rule — measured on `preprocess-dark-1280x800.png`, round 2. The gutter
@@ -2170,7 +2182,7 @@ kbd.kbd {
    * or the pane's bottom edge sits a full `2 * --page-pad` short of `.shell-content`'s own bottom
    * edge -- a real, visible gap this rule exists to close (caught by gallery.spec.ts's geometry
    * assertions against the Viewer page, the one page that uses this variant). Only takes effect
-   * where this class's `margin` above is also in play -- the <1099px breakpoint below re-declares
+   * where this class's `margin` above is also in play -- the <1140px breakpoint below re-declares
    * `.page-layout { height: auto }` and wins by source order, so this never fights that stacked
    * layout. */
   height: calc(100% + var(--page-pad) * 2);
@@ -2192,8 +2204,8 @@ kbd.kbd {
     margin: calc(var(--page-pad-sm) * -1);
   }
 }
-@media (max-width: 1099px) {
-  /* Below 1100px the panel drops under the form (DESIGN.md §4), so `.page-layout` must no longer
+@media (max-width: 1139px) {
+  /* Below 1140px the panel drops under the form (DESIGN.md §4), so `.page-layout` must no longer
    * force `height: 100%` (there is no fixed-height parent to fill once content stacks) and
    * `.page-layout-main` must stop being its own `overflow: auto` scroller — otherwise the form
    * gets clipped to whatever height happened to remain and the panel below it is unreachable
@@ -2216,7 +2228,7 @@ kbd.kbd {
   .page-layout-main-scroll {
     overflow: visible;
   }
-  /* Below 1100px a 360px column leaves the form under 600px, so the right pane stops being a
+  /* Below 1140px the work pane cannot keep its 640px floor beside a 400px pane, so the right pane stops being a
    * column (DESIGN.md §2.2). It stacks full width under the work pane.
    *
    * The run shape's own width rule (`.page-layout-run .page-layout-panel:not([data-pane-width])`,
@@ -2227,8 +2239,11 @@ kbd.kbd {
    * narrow column at the bottom-left with the right half of the window empty. Restate the same
    * selector here, at equal specificity and later in source, so it wins. */
   .page-layout-panel,
-  .page-layout-run .page-layout-panel:not([data-pane-width]) {
+  .page-layout-run .page-layout-panel:not([data-pane-width]),
+  .page-layout-run .page-layout-panel:not([data-pane-width="expanded"]) {
     width: 100%;
+    min-width: 0;
+    max-width: none;
     position: static;
     max-height: none;
     overflow: visible;
@@ -2341,9 +2356,9 @@ kbd.kbd {
  * digest (the 80% of the Plan people read); right is one secondary plus one primary. The
  * primary's label is generated from the plan ("Run simulation", "Queue 3 jobs").
  *
- * At >= 1100px it is a `flex: none` sibling OUTSIDE the scrollport (`.page-layout-main-scroll`),
+ * At >= 1140px it is a `flex: none` sibling OUTSIDE the scrollport (`.page-layout-main-scroll`),
  * so it reserves its own 44px and no content can ever be painted under it (L4). `position: sticky`
- * is kept for the < 1100px stacked shape, where the pane stops being a scroller and
+ * is kept for the < 1140px stacked shape, where the pane stops being a scroller and
  * `.shell-content` scrolls the whole page instead.
  */
 .action-bar {

@@ -110,7 +110,7 @@ export function SubjectsField<T extends SubjectLike>({
       const host = field?.parentElement ?? null;
       const stretched = host !== null && getComputedStyle(host).display === "flex";
       const scroller = el.closest("[data-page-work-scroll]");
-      // Below the run shape's 1100px breakpoint (`ui/components.css`), `.page-layout-main-scroll`
+      // Below the run shape's 1140px breakpoint (`ui/components.css`), `.page-layout-main-scroll`
       // — this `scroller` — switches from a height-bound `overflow: auto` box to `overflow:
       // visible`, sized by its own content instead of the pane. `scroller.clientHeight` there is
       // no longer "the room available"; it is close to the column's own height, so `others`

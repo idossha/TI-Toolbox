@@ -591,6 +591,18 @@ Sizing and responsive behavior live in [`tokens.css`](../../desktop/src/renderer
 [`shell.css`](../../desktop/src/renderer/app/shell.css). Support the desktop minimum of 1024 × 680;
 narrow panes become drawers and forms respond to their own container width.
 
+The run shape's split is sized in pixels of its own box, not the window: the work pane (the Jobs
+table) stays between 640 px (the measured width at which no Jobs table truncates) and 800 px, the
+Terminal/Scene pane gets at least 400 px and the rest, and the 6 px handle sits between them.
+`runPaneLimits` in `paneState.ts` owns the numbers; the drag (both the controlled separator and the
+controller-less handle) clamps with it, and `PageLayout` exposes the same values as custom
+properties that the stylesheet's `min-width`/`max-width` read, so a remembered width is re-clamped
+on load and on every window resize while the preference itself is kept. Below a 1140 px window
+(`@media (max-width: 1139px)`, pinned to the constants by `tests/unit/pane-state.test.ts`) the
+panes stack instead. Expand gives the pane the whole box and hides the work pane until Esc or
+restore; collapse hides the pane behind a 16 px rail. The Terminal does not wrap; long lines
+scroll sideways. Results' preview and Jobs' detail column keep a 320 px floor and a 70 vw ceiling.
+
 The context bar owns command search, connection state and running-job count. Scientific scope stays
 in the page or palette. The jobs rail remains available throughout the app, with Jobs/Host views,
 raw logs and artifacts. There is no separate bottom status bar. System, Settings and Help have page

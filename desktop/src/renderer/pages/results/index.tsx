@@ -755,9 +755,8 @@ function ResultsPage() {
   // output to preview", so a subject with nothing does not own ⌘⇧I and cannot be left in a
   // collapsed state the pane it no longer renders would have to explain.
   const hasPreview = !!(current && current.total > 0 && selected && subject);
-  const pane = // `minWidth: 320` — the preview is §2.1's `clamp(380px, 40%, 560px)` document pane and keeps its
-  // own floor; only the ceiling grew.
-  usePaneController({ pageId: "results", name: "preview", minWidth: 320, enabled: hasPreview });
+  // `kind: "preview"` — a `clamp(380px, 40%, 560px)` document pane: a 320 px floor, a 70 vw ceiling.
+  const pane = usePaneController({ pageId: "results", name: "preview", kind: "preview", enabled: hasPreview });
 
 
   const { mode: previewMode, restore: restorePreview } = pane;

@@ -18,11 +18,14 @@ import { Popover } from "./Overlay";
 import { PageActivityContext, usePageActive } from "../app/pageActivity";
 import {
   clampPaneWidth,
-  paneLimitsForViewport,
+  paneLimits,
   paneReducer,
   readPaneState,
+  RUN_PANE_MIN,
+  RUN_SPLIT_CSS_VARS,
   writePaneState,
   type PaneAction,
+  type PaneKind,
   type PaneLimits,
   type PaneMode,
   type PaneState,
@@ -445,10 +448,11 @@ export interface PaneControllerOptions {
   /** Storage key scope. Use the page's registry id (`"jobs"`, `"results"`). */
   pageId: string;
   name: string;
-  /** Floor. Defaults to 36 vw; Jobs and Results pass 320 to keep the narrower columns §2.1 pins. */
-  minWidth?: number;
-  /** Stretch ceiling. Defaults to 70 vw. */
-  maxWidth?: number;
+  /**
+   * `run` (the default, every run page): the range is `runPaneLimits` of the split box the pane
+   * sits in. `preview` (Results, Jobs): a 320 px floor and a 70 vw ceiling.
+   */
+  kind?: PaneKind;
   /**
    * `false` while the page has nothing to put in the pane. The keyboard chords go quiet (a page
    * with no pane must not swallow `⌘⇧I`) and the mode reads `normal`, so U1's "a pane with nothing
@@ -477,20 +481,20 @@ function useViewportWidth(): number {
 export function usePaneController({
   pageId,
   name,
-  minWidth,
-  maxWidth,
+  kind = "run",
   enabled = true,
 }: PaneControllerOptions): PaneController {
   const active = usePageActive();
   const viewport = useViewportWidth();
-  const limits = useMemo<PaneLimits>(() => {
-    const vw = paneLimitsForViewport(viewport, minWidth);
-    return { min: vw.min, max: maxWidth ?? vw.max };
-  }, [viewport, minWidth, maxWidth]);
+  // The split box's width, measured by the observer in `attach` alongside the pane itself.
+  const [bodyWidth, setBodyWidth] = useState<number>(Number.NaN);
+  const limits = useMemo<PaneLimits>(() => paneLimits(kind, bodyWidth, viewport), [kind, bodyWidth, viewport]);
   const [state, dispatch] = useReducer(
     (current: PaneState, action: PaneAction) => paneReducer(current, action, limits),
     undefined,
-    () => readPaneState(pageId, limits, browserStorage()),
+    // A remembered run width is a preference, read before the box is measured: only its floor is
+    // enforced here, and the stylesheet shows the legal part of it at whatever width the box has.
+    () => readPaneState(pageId, kind === "run" ? { min: RUN_PANE_MIN, max: Number.POSITIVE_INFINITY } : limits, browserStorage()),
   );
   // Persisting in an effect rather than inside the dispatcher keeps the reducer pure and keeps this
   // hook free of a "current state" ref: the write follows the state React actually committed.
@@ -511,8 +515,16 @@ export function usePaneController({
     // React 18 has no ref-callback cleanup, so the disconnect happens on the NEXT attach (React
     // calls the callback with `null` when the pane unmounts) and on unmount, below.
     if (!el || typeof ResizeObserver === "undefined") return;
+    const body = el.parentElement;
     const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
+      // The split box, observed alongside the pane, is what a run pane's limits are made of.
+      const bodyEntry = entries.find((e) => e.target === body);
+      if (bodyEntry) {
+        const bw = Math.round(bodyEntry.contentRect.width);
+        if (bw > 0) setBodyWidth((prev) => (prev === bw ? prev : bw));
+      }
+      const entry = entries.find((e) => e.target === el);
+      if (!entry) return;
       // BORDER box, not `contentRect` — the same box `getBoundingClientRect()` below reports, and
       // the same box `width: var(--right-pane-w)` sets under the app's global
       // `box-sizing: border-box`. Mixing the two was a real render loop, not a rounding nit: lane
@@ -544,6 +556,7 @@ export function usePaneController({
       if (rounded > 0) setMeasured((prev) => (prev === rounded ? prev : rounded));
     });
     ro.observe(el);
+    if (body) ro.observe(body);
     observerRef.current = ro;
     setMeasured((prev) => {
       const w = Math.round(el.getBoundingClientRect().width);
@@ -731,8 +744,6 @@ export interface PageLayoutProps {
   rightPaneWidth?: number;
   /** Adds the drag handle and reports the new width; the page owns the number and persists it. */
   onRightPaneWidthChange?: (width: number) => void;
-  rightPaneMinWidth?: number;
-  rightPaneMaxWidth?: number;
   /** ⌘⇧I collapses and restores the pane. Defaults to true for a `run` pane. */
   rightPaneCollapsible?: boolean;
   rightPaneDefaultCollapsed?: boolean;
@@ -768,8 +779,6 @@ export interface PageLayoutProps {
   inspectorWidth?: number;
   /** v2 name for `onRightPaneWidthChange`. */
   onInspectorResize?: (width: number) => void;
-  inspectorMinWidth?: number;
-  inspectorMaxWidth?: number;
   className?: string;
 }
 
@@ -787,8 +796,6 @@ export function PageLayout({
   rightPaneKind,
   rightPaneWidth,
   onRightPaneWidthChange,
-  rightPaneMinWidth,
-  rightPaneMaxWidth,
   rightPaneCollapsible,
   rightPaneDefaultCollapsed = false,
   paneController,
@@ -803,8 +810,6 @@ export function PageLayout({
   resizableInspector,
   inspectorWidth,
   onInspectorResize,
-  inspectorMinWidth,
-  inspectorMaxWidth,
   className,
 }: PageLayoutProps) {
   const active = usePageActive();
@@ -857,15 +862,17 @@ export function PageLayout({
   // responsive default still applies — the controller does not freeze 490 px into local storage
   // just because a page mounted at 1280.
   const width = paneController ? (paneController.width ?? undefined) : (rightPaneWidth ?? inspectorWidth ?? draggedWidth ?? undefined);
-  // THE defect the maintainer hit: Pre-processing and Source pass no `paneController`, so their
-  // divider is the legacy `InspectorHandle` below — and its ceiling was a flat 560 px, *narrower*
-  // than the run pane's own 36 vw default on a 2000 px screen. Dragging the pane wider therefore
-  // snapped it NARROWER and looked like "the pane cannot go past its default". Both paths now read
-  // the same window-relative limits (DESIGN.md §2.1).
+  // Pre-processing, Source and the analysis panels pass no `paneController`, so their divider is
+  // the legacy `InspectorHandle` below. It clamps with the same `paneLimits` as `PaneSeparator`,
+  // reading the split box when the gesture starts, so the two dividers cannot disagree (a flat
+  // 560 px ceiling here once snapped a wide pane NARROWER on a 2000 px screen).
   const viewport = useViewportWidth();
-  const viewportLimits = paneLimitsForViewport(viewport, kind === "preview" ? 320 : undefined);
-  const minWidth = rightPaneMinWidth ?? inspectorMinWidth ?? viewportLimits.min;
-  const maxWidth = rightPaneMaxWidth ?? inspectorMaxWidth ?? viewportLimits.max;
+  const handleLimits = (): PaneLimits =>
+    paneLimits(
+      kind === "run" ? "run" : "preview",
+      paneRef.current?.parentElement?.getBoundingClientRect().width ?? Number.NaN,
+      viewport,
+    );
 
   const main = (
     <div
@@ -884,13 +891,15 @@ export function PageLayout({
     </div>
   );
 
-  // CSS variables rather than a `style.width` on the pane: the <1099px stacking rule and the
+  // CSS variables rather than a `style.width` on the pane: the <1140px stacking rule and the
   // 1440px step both override `width` on `.page-layout-panel` without having to know a page
   // passed a number, and `--inspector-w` stays defined for the v2 page CSS that reads it.
-  const vars =
-    width === undefined
-      ? undefined
-      : ({ "--right-pane-w": `${Math.round(width)}px`, "--inspector-w": `${Math.round(width)}px` } as CSSProperties);
+  // The run shape also carries the split's limits (`RUN_SPLIT_CSS_VARS`), so the stylesheet clamps
+  // with the numbers `paneState.ts` defines rather than a copy of them.
+  const vars = {
+    ...(shape === "run" ? RUN_SPLIT_CSS_VARS : {}),
+    ...(width === undefined ? {} : { "--right-pane-w": `${Math.round(width)}px`, "--inspector-w": `${Math.round(width)}px` }),
+  } as CSSProperties;
 
   const pane = panel && (
     <aside
@@ -921,8 +930,7 @@ export function PageLayout({
     paneVisible && (kind === "run" || onResize) && !resizableInspector && (
     <InspectorHandle
       currentWidth={() => paneRef.current?.getBoundingClientRect().width ?? width ?? 360}
-      min={minWidth}
-      max={maxWidth}
+      limits={handleLimits}
       onResize={(w) => {
         setDraggedWidth(w);
         onResize?.(w);
@@ -978,18 +986,17 @@ export function PageLayout({
  */
 function InspectorHandle({
   currentWidth,
-  min,
-  max,
+  limits,
   onResize,
 }: {
   /** Read at the start of a gesture, so a pane sized by CSS (the 360/400 default, or the preview
    *  percentage) drags from where it actually is rather than from a guessed number. */
   currentWidth: () => number;
-  min: number;
-  max: number;
+  /** Read per gesture: a run pane's range depends on the split box's current width. */
+  limits: () => PaneLimits;
   onResize: (width: number) => void;
 }) {
-  const clamp = (w: number): number => Math.min(max, Math.max(min, w));
+  const clamp = (w: number): number => clampPaneWidth(w, limits());
   return (
     <button
       type="button"

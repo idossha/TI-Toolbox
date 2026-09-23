@@ -26,8 +26,8 @@ function extractBlock(text: string, startMarker: string): string {
   return text.slice(braceOpen + 1, i);
 }
 
-describe("ra_12 #2 — stacked-panel overflow below 1100px", () => {
-  const stacked = extractBlock(css, "@media (max-width: 1099px) {");
+describe("ra_12 #2 — stacked-panel overflow below 1140px", () => {
+  const stacked = extractBlock(css, "@media (max-width: 1139px) {");
 
   it("the page itself stops forcing a fixed height once the panel stacks under the form", () => {
     // Extract just the nested `.page-layout { ... }` rule inside the media query (not

@@ -105,9 +105,8 @@ function JobsPage() {
   // U13: the same pane primitive Results uses, not a second copy of it. `enabled` is the selection,
   // so with nothing selected the page owns neither the chord nor a collapsed state to restore --
   // "no pane" (U1) and "the user collapsed the pane" stay two different things.
-  const pane = // `minWidth: 320` — the detail column is DESIGN.md §2.1's fixed 360/400 px column, not the run
-  // shape's 45 vw document pane, so it keeps the narrower floor while gaining the 70 vw ceiling.
-  usePaneController({ pageId: "jobs", name: "job detail", minWidth: 320, enabled: !!selected });
+  // `kind: "preview"` — the detail column is not a run pane: a 320 px floor and a 70 vw ceiling.
+  const pane = usePaneController({ pageId: "jobs", name: "job detail", kind: "preview", enabled: !!selected });
   const restorePane = pane.restore;
   useEffect(() => {
     if (location.pathname === "/jobs" && typeof location.state?.openJobId === "string") {

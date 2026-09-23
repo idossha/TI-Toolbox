@@ -2061,3 +2061,34 @@ hidden window. Separate failure files would double the assets for what a playbac
 `soundPlan`, WAV headers read with DataView), `desktop/tests/unit/notifications-card.test.tsx`
 (selector, Preview, test banner per choice, failure pitch, unknown id ignored),
 `desktop/tests/e2e/smoke.spec.ts` bridge list.
+
+## 2026-09-23 — The run split is sized in pixels: Jobs 640–800 px, Terminal/Scene ≥ 400 px
+
+**Decision.** The run pages' divider (Simulator, Optimizer, Analyzer, Pre-processing, the extension
+panels) clamps with `runPaneLimits(bodyWidth)` in `desktop/src/renderer/ui/paneState.ts`: the
+work pane stays in [640, 800] px of the split box, the right pane is at least 400 px, and the
+handle is 6 px. The same constants reach the stylesheet as custom properties set by `PageLayout`,
+where `min-width`/`max-width` re-clamp a stored width on load and window resize without
+overwriting it. Below a 1140 px window the run shape stacks (was 1100). The run pane's old window
+fractions (36 vw floor, 70 vw ceiling) and the per-page `minWidth`/`maxWidth` knobs are removed;
+Results and Jobs say `kind: "preview"` for their 320 px / 70 vw range. Expand, collapse and the
+non-wrapping terminal are unchanged.
+
+**Why.** The window fractions let a 70 vw pane leave the Jobs table 162 px at 1440 × 900 and a
+36 vw floor stretch it to 959 px at 1920 [measured: offscreen drag on the mock fixture]. The
+floor is measured, not chosen: shrinking the work pane in 4 px steps, the first truncation is the
+Simulator's SUBJECT header at 628, the Optimizer's goal select at 556 and the Analyzer's "Choose a
+simulation" at 632 [measured: offscreen probe, 2026-09-23], so 640. Side by side needs a
+1046 px split box, which the icon rail leaves from a 1134 px window, hence the 1139 px breakpoint.
+
+**Alternatives rejected.** Keeping fractions with a larger floor still over-stretches the table
+on wide screens. Wrapping the terminal breaks `VirtualList`'s fixed 18 px rows. A JS-only clamp
+would leave a stored width drawn at an illegal size until the next drag.
+
+**Cost.** Between 1100 and 1139 px the run pages now stack. The 800 px cap leaves the scene very
+wide on 2560 px screens, which is where the scene benefits.
+
+**Verification.** `desktop/tests/unit/pane-state.test.ts` (`runPaneLimits` sweep, CSS agreement),
+`desktop/tests/unit/run-pane-controller.test.tsx` (limits from the split box),
+`desktop/tests/e2e/layout.spec.ts` (drag extremes at 1140/1280/1440/1920/2560, no Jobs-table
+truncation, re-clamp on resize, stacking at 1100).

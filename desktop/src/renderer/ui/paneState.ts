@@ -24,35 +24,77 @@ export interface PaneLimits {
 }
 
 /**
- * The run pane's drag range as fractions of the WINDOW (DESIGN.md §2.1).
- *
- * The maintainer's numbers, measured on a 2000 px screen: the pane opens at 45 % and may be
- * stretched to 70 % or pulled back to 36 % — the width that used to be the *default* is now the
- * floor. Fractions rather than px because the ask was always stated as a share of the screen, and
- * a flat px ceiling is what produced the defect this replaces (see `PANE_MIN_VW` users).
+ * The preview and detail panes' drag range (Results' preview, Jobs' detail column): a 320 px floor
+ * and a ceiling at 70 % of the WINDOW. Fractions because the ask was stated as a share of the
+ * screen, and a flat px ceiling once sat below the pane's own default on a 2000 px screen.
  */
-export const PANE_MIN_VW = 0.36;
-export const PANE_DEFAULT_VW = 0.45;
-export const PANE_MAX_VW = 0.7;
+export const PREVIEW_PANE_MIN = 320;
+export const PREVIEW_PANE_MAX_VW = 0.7;
+
+/** The preview/detail drag limits for a window `viewportWidth` px wide (1280 when unknown). */
+export function previewPaneLimits(viewportWidth: number): PaneLimits {
+  const w = Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 1280;
+  return { min: PREVIEW_PANE_MIN, max: Math.round(w * PREVIEW_PANE_MAX_VW) };
+}
 
 /**
- * The drag limits for a window `viewportWidth` px wide.
+ * The run shape's split, in pixels of the split's own box (`.page-layout-body`), not of the window
+ * (ARCHITECTURE §11 "Layout and navigation"; DECISIONS 2026-09-23). Window fractions let a 70 vw
+ * pane squeeze the Jobs table to 162 px at 1440 and a 36 vw floor stretch it to 959 px at 1920.
  *
- * `minOverride` is how Jobs' 360 px detail column and the Results preview keep the narrower floor
- * DESIGN.md §2.1 pins for them while still gaining the wide ceiling.
+ * `RUN_WORK_MIN` is measured, not chosen: an offscreen probe shrank the work pane in 4 px steps
+ * until something in a Jobs table truncated — Simulator's SUBJECT header at 628, the Optimizer's
+ * goal select at 556, the Analyzer's "Choose a simulation" at 632 (2026-09-23, mock fixture) — so
+ * 640 is the widest of the three rounded up. `RUN_WORK_MAX` stops the table stretching into empty
+ * ground; `RUN_PANE_MIN` is the old fixed run column, enough for the Terminal/Scene tab row.
+ * Below `RUN_STACK_BODY` the two do not fit side by side and the page stacks instead (the
+ * `max-width: 1139px` media query, which `pane-state.test.ts` ties to these numbers).
  */
-export function paneLimitsForViewport(viewportWidth: number, minOverride?: number): PaneLimits {
-  const w = Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 1280;
+export const RUN_WORK_MIN = 640;
+export const RUN_WORK_MAX = 800;
+export const RUN_PANE_MIN = 400;
+/** The undragged pane, clamped by the limits like any other width. */
+export const RUN_PANE_DEFAULT_VW = 45;
+/** The grab strip between the panes (`.page-layout-inspector-handle`'s width). */
+export const PANE_HANDLE = 6;
+export const RUN_STACK_BODY = RUN_WORK_MIN + PANE_HANDLE + RUN_PANE_MIN;
+
+/** The run pane's drag range for a split box `bodyWidth` px wide: the work pane stays inside
+ * [RUN_WORK_MIN, RUN_WORK_MAX] and the pane never drops under RUN_PANE_MIN. A box too narrow for
+ * both (the layout stacks there) pins the pane at its floor rather than returning an empty range. */
+export function runPaneLimits(bodyWidth: number): PaneLimits {
+  const room = Number.isFinite(bodyWidth) && bodyWidth > 0 ? bodyWidth - PANE_HANDLE : RUN_STACK_BODY - PANE_HANDLE;
   return {
-    min: minOverride ?? Math.round(w * PANE_MIN_VW),
-    max: Math.round(w * PANE_MAX_VW),
+    min: Math.round(Math.max(RUN_PANE_MIN, room - RUN_WORK_MAX)),
+    max: Math.round(Math.max(RUN_PANE_MIN, room - RUN_WORK_MIN)),
   };
 }
+
+/** Which rule a pane's drag obeys: the run split, or the preview/detail window fraction. */
+export type PaneKind = "run" | "preview";
+
+/** The one limits function both dividers (`PaneSeparator` via `usePaneController`, and the
+ * controller-less `InspectorHandle`) clamp against. */
+export function paneLimits(kind: PaneKind, bodyWidth: number, viewportWidth: number): PaneLimits {
+  return kind === "run" ? runPaneLimits(bodyWidth) : previewPaneLimits(viewportWidth);
+}
+
+/**
+ * The same numbers as CSS custom properties, set once on every run-shape `.page-layout` by
+ * `PageLayout`, so `ui/components.css` clamps the pane with these values instead of repeating them.
+ */
+export const RUN_SPLIT_CSS_VARS: Readonly<Record<string, string>> = {
+  "--run-work-min": `${RUN_WORK_MIN}px`,
+  "--run-work-max": `${RUN_WORK_MAX}px`,
+  "--run-pane-min": `${RUN_PANE_MIN}px`,
+  "--run-pane-default": `${RUN_PANE_DEFAULT_VW}vw`,
+  "--pane-handle": `${PANE_HANDLE}px`,
+};
 
 export interface PaneState {
   /**
    * `null` = the user has never sized this pane, so the design's own CSS width still applies (the
-   * 360/400 px breakpoint for a fixed column, `clamp(380px, 40%, 560px)` for a preview). Storing a
+   * run pane's clamped 45 vw, `clamp(380px, 40%, 560px)` for a preview). Storing a
    * number the moment a page mounts would freeze the responsive default into local storage, and the
    * pane would stop answering the 1440 px step for good.
    */

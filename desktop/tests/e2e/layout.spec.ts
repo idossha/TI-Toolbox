@@ -365,53 +365,130 @@ test("the panel pages are reachable end to end at 1280x800", async () => {
 });
 
 /**
- * The run pane's range, in the one form that catches the defect the maintainer reported: a DRAG,
- * measured.
+ * The run split's limits, measured by dragging (2026-09-23, docs/dev/DECISIONS.md "Run split").
  *
- * What he saw was "the pane cannot be widened past its default". The cause was not the CSS default
- * but the divider: Pre-processing and Source pass no `paneController`, so they got the legacy
- * `InspectorHandle`, whose ceiling was a flat 560 px — *below* the run pane's own default on a
- * 2000 px screen, so dragging wider snapped it narrower. A test that only reads the default width
- * cannot see that; this one drags to both ends and reads what the pane measures.
+ * What the user reported: dragging the Terminal/Scene pane wide squeezed the Jobs panel until its
+ * headers read "SUE METHO NET" and the Analyzer row scrolled sideways (162 px of work pane at 1440,
+ * the old 70 vw ceiling); leaving it narrow stretched the table across ~1000 px of ground at 1920
+ * (the old 36 vw floor). The rule is `runPaneLimits` in `ui/paneState.ts`: work pane 640–800 px,
+ * pane at least 400 px, 6 px handle, stacked below a 1140 px window. 640 is the probe's measured
+ * floor, so a table header or select that truncates at the wide-pane extreme is the regression.
+ *
+ * Pre-processing is in the list for the controller-less `InspectorHandle`, which must obey the
+ * same limits as the `PaneSeparator` the other three pages use.
  */
-test("the run pane opens at 45 vw and drags between 36 vw and 70 vw", async () => {
-  test.setTimeout(180_000);
+const WORK_MIN = 640;
+const WORK_MAX = 800;
+const PANE_MIN = 400;
+const HANDLE = 6;
+
+/** Jobs-table cells, select values and the table's own scroll box whose text does not fit. */
+async function jobsTableTruncations(target: Page): Promise<string[]> {
+  return target.evaluate(() => {
+    const work = document.querySelector('[data-page-active="true"] [data-testid="page-work"]');
+    const out: string[] = [];
+    const sel = ".data-table-container, .data-table th, .data-table .picker-value, .data-table .selection-trigger-text";
+    for (const el of Array.from(work?.querySelectorAll<HTMLElement>(sel) ?? [])) {
+      if (el.offsetParent !== null && el.scrollWidth > el.clientWidth + 1) {
+        out.push(`${el.className || el.tagName} "${(el.textContent ?? "").trim().slice(0, 24)}" ${el.scrollWidth}>${el.clientWidth}`);
+      }
+    }
+    return out;
+  });
+}
+
+async function dragHandleBy(target: Page, dx: number): Promise<void> {
+  const box = (await target.locator('[data-page-active="true"]').getByTestId("inspector-handle").boundingBox())!;
+  await target.mouse.move(box.x + 3, box.y + Math.min(300, box.height / 2));
+  await target.mouse.down();
+  // Dragging LEFT widens the pane, so a negative dx is the "stretch" gesture.
+  await target.mouse.move(box.x + 3 + dx, box.y + Math.min(300, box.height / 2), { steps: 20 });
+  await target.mouse.up();
+  await target.waitForTimeout(300);
+}
+
+async function clearStoredPanes(target: Page): Promise<void> {
+  await target.evaluate(() => {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("tit-pane"))
+      .forEach((k) => localStorage.removeItem(k));
+  });
+  await target.reload();
+  await expect(target.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
+}
+
+test("the run split keeps the Jobs pane 640–800 px and the right pane ≥ 400 px at every width", async () => {
+  test.setTimeout(300_000);
   await setTheme(page, "light");
-  const dragHandleBy = async (dx: number): Promise<number> => {
-    const box = (await page.locator(String.raw`[data-page-active="true"]`).getByTestId("inspector-handle").boundingBox())!;
-    await page.mouse.move(box.x + 3, box.y + Math.min(300, box.height / 2));
-    await page.mouse.down();
-    // Dragging LEFT widens the pane, so a negative dx is the "stretch" gesture.
-    await page.mouse.move(box.x + 3 + dx, box.y + Math.min(300, box.height / 2), { steps: 20 });
-    await page.mouse.up();
-    await page.waitForTimeout(300);
-    return (await paneWidths(page)).right;
-  };
+  for (const width of [1140, 1280, 1440, 1920, 2560]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await clearStoredPanes(page);
+    for (const id of ["simulator", "optimizer", "analyzer", "preprocess"] as const) {
+      await gotoPage(page, id);
+      await expectPage(page, id);
+      await settle(page);
+      const where = `${id} at ${width}`;
+      const inRange = async (label: string) => {
+        const panes = await paneWidths(page);
+        expect.soft(panes.work, `${where} ${label}: work pane`).toBeGreaterThanOrEqual(WORK_MIN);
+        expect.soft(panes.work, `${where} ${label}: work pane`).toBeLessThanOrEqual(WORK_MAX);
+        expect.soft(panes.right, `${where} ${label}: right pane`).toBeGreaterThanOrEqual(PANE_MIN);
+        expect.soft(panes.gap, `${where} ${label}: handle`).toBe(HANDLE);
+        return panes;
+      };
+      const initial = await inRange("default");
+      const body = initial.work + initial.gap + initial.right;
 
-  for (const width of [1280, 1440, 2000]) {
-    await page.setViewportSize({ width, height: 1250 });
-    // A width stored by an earlier step would hide the default this asserts.
-    await page.evaluate(() => {
-      Object.keys(localStorage)
-        .filter((k) => k.startsWith("tit-pane"))
-        .forEach((k) => localStorage.removeItem(k));
-    });
-    await page.reload();
-    await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
-    await gotoPage(page, "preprocess", "Pre-processing");
-    await expectPage(page, "preprocess");
-    await settle(page);
+      // Stretch past the limit: the clamp stops the pane where the work pane hits its floor.
+      await dragHandleBy(page, -3000);
+      expect.soft((await inRange("pane stretched")).work, `${where}: stretched pane leaves the work floor`).toBe(WORK_MIN);
+      expect.soft(await jobsTableTruncations(page), `${where}: Jobs table truncates at the work floor`).toEqual([]);
 
-    // Default: 45 vw, ceilinged at `100% - 566px` so the work pane keeps its >=560 px floor. That
-    // ceiling binds at 1440 and only at 1440 (the labelled nav rail costs 216 px there).
-    const panes = await paneWidths(page);
-    const expected = width === 1440 ? 610 : Math.round(width * 0.45);
-    expect(panes.right, `default pane width at ${width}`).toBe(expected);
-    expect(panes.work, `work pane at ${width}`).toBeGreaterThanOrEqual(560);
-
-    // Stretch: 70 vw, reached by dragging further than the ceiling so the clamp is what stops it.
-    expect(await dragHandleBy(-1200), `stretched pane at ${width}`).toBe(Math.round(width * 0.7));
-    // Pull back: 36 vw is the FLOOR now, not the default — the pane never gets narrow again.
-    expect(await dragHandleBy(1600), `narrowed pane at ${width}`).toBe(Math.round(width * 0.36));
+      // Pull back past the limit: the work pane stops at its ceiling (or the pane at its floor).
+      await dragHandleBy(page, 3000);
+      expect.soft((await inRange("pane narrowed")).work, `${where}: narrowed pane`).toBe(Math.min(WORK_MAX, body - HANDLE - PANE_MIN));
+      expect.soft((await horizontalOverflow(page)).page, `${where}: the page scrolls horizontally`).toBe(0);
+    }
   }
+});
+
+test("a remembered run width is re-clamped to the window it is shown in, and comes back", async () => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await clearStoredPanes(page);
+  await gotoPage(page, "optimizer");
+  await expectPage(page, "optimizer");
+  await settle(page);
+  await dragHandleBy(page, -3000);
+  const wide = await paneWidths(page);
+  expect(wide.work).toBe(WORK_MIN);
+
+  // The stored width (the widest pane 1920 allows) no longer fits at 1280: CSS shows the legal part.
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.waitForTimeout(400);
+  const narrow = await paneWidths(page);
+  expect(narrow.work).toBe(WORK_MIN);
+  expect(narrow.right).toBeGreaterThanOrEqual(PANE_MIN);
+  expect(narrow.right).toBeLessThan(wide.right);
+
+  // …and the preference was kept, not overwritten: the pane grows back with the window.
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.waitForTimeout(400);
+  expect((await paneWidths(page)).right).toBe(wide.right);
+});
+
+test("below a 1140 px window the run page stacks instead of squeezing", async () => {
+  await page.setViewportSize({ width: 1100, height: 1000 });
+  await gotoPage(page, "optimizer");
+  await expectPage(page, "optimizer");
+  await settle(page);
+  const boxes = await page.evaluate(() => {
+    const r = (sel: string) => document.querySelector(`[data-page-active="true"] ${sel}`)!.getBoundingClientRect();
+    const work = r('[data-testid="page-work"]');
+    const pane = r('[data-testid="page-right-pane"]');
+    return { workBottom: Math.round(work.bottom), paneTop: Math.round(pane.top), paneWidth: Math.round(pane.width), workWidth: Math.round(work.width) };
+  });
+  expect(boxes.paneTop).toBeGreaterThanOrEqual(boxes.workBottom);
+  expect(boxes.paneWidth).toBe(boxes.workWidth);
+  await page.setViewportSize({ width: 1280, height: 800 });
 });

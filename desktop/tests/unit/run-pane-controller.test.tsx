@@ -33,6 +33,10 @@ const SRC = resolve(__dirname, "../../src/renderer");
 /** The run shape's numbers: the pane is 400 px wide and 12 px of that is its own left padding. */
 const BORDER_BOX = 400;
 const PADDING_LEFT = 12;
+/** The split box a 1280 window leaves (1280 - 56 rail - 2 x 16 padding); a run pane's limits are
+ * made of it, so the one observer watches it beside the pane: two `observe()` calls per attach. */
+const SPLIT_BOX = 1192;
+const OBSERVED_PER_ATTACH = 2;
 
 interface FakeEntry {
   target: Element;
@@ -74,7 +78,7 @@ class FakeResizeObserver {
     this.callback(
       this.targets.map((target) => ({
         target,
-        contentRect: { width: BORDER_BOX - PADDING_LEFT },
+        contentRect: { width: target.classList.contains("page-layout-body") ? SPLIT_BOX : BORDER_BOX - PADDING_LEFT },
         ...(FakeResizeObserver.withBorderBoxSize ? { borderBoxSize: [{ inlineSize: BORDER_BOX }] } : {}),
       })),
     );
@@ -169,12 +173,12 @@ describe("usePaneController on a run pane — the 720-render loop, at both cause
     let bump = () => {};
     act(() => root.render(<Harness onBump={(b) => (bump = b)} />));
     sizePane();
-    expect(FakeResizeObserver.observeCalls).toBe(1);
+    expect(FakeResizeObserver.observeCalls).toBe(OBSERVED_PER_ATTACH);
 
     // 20 commits of the page. An inline ref callback would re-attach on every one of them —
     // `attach(null)` then `attach(el)` — rebuilding the observer and buying another delivery.
     for (let i = 0; i < 20; i++) act(() => bump());
-    expect(FakeResizeObserver.observeCalls).toBe(1);
+    expect(FakeResizeObserver.observeCalls).toBe(OBSERVED_PER_ATTACH);
     expect(FakeResizeObserver.instances).toHaveLength(1);
   });
 
@@ -191,7 +195,18 @@ describe("usePaneController on a run pane — the 720-render loop, at both cause
     // Ten more deliveries of the SAME size. React may re-render once before bailing out of a
     // no-op state write, so the bound is linear in events — never a cascade.
     expect(renders - settled).toBeLessThanOrEqual(10);
-    expect(FakeResizeObserver.observeCalls).toBe(1);
+    expect(FakeResizeObserver.observeCalls).toBe(OBSERVED_PER_ATTACH);
+  });
+
+  it("takes a run pane's drag range from the split box it sits in, not from the window", () => {
+    act(() => root.render(<Harness onBump={() => {}} />));
+    sizePane();
+    act(() => FakeResizeObserver.drain());
+    const handle = container.querySelector('[data-testid="inspector-handle"]')!;
+    // 1192 - 6 handle = 1186 of room; the work pane keeps 640..800, the pane at least 400 —
+    // so 400..546 (hand-computed). The old window fractions would say 461..896 at 1280.
+    expect(handle.getAttribute("aria-valuemin")).toBe("400");
+    expect(handle.getAttribute("aria-valuemax")).toBe("546");
   });
 
   it("stays bounded when commits and observer ticks interleave", () => {

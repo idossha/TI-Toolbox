@@ -5,10 +5,20 @@
  * after a drag, reads 0 when collapsed, and the work pane reads 0 when expanded). This file asserts
  * the arithmetic behind those numbers, where a bad clamp is one assertion rather than one browser.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  PANE_DEFAULT_VW,
-  paneLimitsForViewport,
+  PANE_HANDLE,
+  PREVIEW_PANE_MIN,
+  RUN_PANE_MIN,
+  RUN_STACK_BODY,
+  RUN_WORK_MAX,
+  RUN_WORK_MIN,
+  runPaneLimits,
+  RUN_SPLIT_CSS_VARS,
+  paneLimits,
+  previewPaneLimits,
   clampPaneWidth,
   paneReducer,
   paneStorageKey,
@@ -86,30 +96,92 @@ describe("paneReducer", () => {
   });
 });
 
-describe("paneLimitsForViewport", () => {
-  // The maintainer's numbers, and the reason they are fractions: a flat px ceiling (the legacy
-  // handle's 560) sat BELOW the run pane's own default on a wide screen, so dragging the pane
-  // wider snapped it narrower. DESIGN.md §2.1.
-  it("is 36 vw to 70 vw of the window", () => {
-    expect(paneLimitsForViewport(1280)).toEqual({ min: 461, max: 896 });
-    expect(paneLimitsForViewport(1440)).toEqual({ min: 518, max: 1008 });
-    expect(paneLimitsForViewport(2000)).toEqual({ min: 720, max: 1400 });
-  });
-
-  it("never lets the ceiling fall below the default, at any window width", () => {
-    for (const w of [1024, 1280, 1440, 1680, 2000, 2560, 3840]) {
-      expect(paneLimitsForViewport(w).max, `ceiling at ${w}`).toBeGreaterThan(w * PANE_DEFAULT_VW);
-      expect(paneLimitsForViewport(w).min, `floor at ${w}`).toBeLessThan(w * PANE_DEFAULT_VW);
-    }
-  });
-
-  it("keeps a narrower floor for the panes DESIGN.md pins one for (Jobs, Results)", () => {
-    expect(paneLimitsForViewport(2000, 320)).toEqual({ min: 320, max: 1400 });
+describe("previewPaneLimits", () => {
+  // Results' preview and Jobs' detail column: a 320 px floor, a ceiling at 70 % of the window.
+  it("is 320 px to 70 % of the window", () => {
+    expect(previewPaneLimits(1280)).toEqual({ min: 320, max: 896 });
+    expect(previewPaneLimits(2000)).toEqual({ min: 320, max: 1400 });
+    expect(PREVIEW_PANE_MIN).toBe(320);
   });
 
   it("falls back to 1280 rather than producing a zero-width range", () => {
-    expect(paneLimitsForViewport(0)).toEqual(paneLimitsForViewport(1280));
-    expect(paneLimitsForViewport(Number.NaN)).toEqual(paneLimitsForViewport(1280));
+    expect(previewPaneLimits(0)).toEqual(previewPaneLimits(1280));
+    expect(previewPaneLimits(Number.NaN)).toEqual(previewPaneLimits(1280));
+  });
+
+  it("is what paneLimits answers for a preview, whatever the split box measures", () => {
+    expect(paneLimits("preview", 1656, 2000)).toEqual(previewPaneLimits(2000));
+    expect(paneLimits("run", 1656, 2000)).toEqual(runPaneLimits(1656));
+  });
+});
+
+/**
+ * The run split (2026-09-23): the user dragged the Terminal/Scene pane to 70 vw and got a 162 px
+ * Jobs table at 1440, or left it at 36 vw and got a 959 px one at 1920 (offscreen probe, mock
+ * fixture). The rule is now in pixels of the split box: work 640–800, pane ≥ 400, 6 px handle.
+ * Expected values below are that sentence's arithmetic done by hand, not read off the function.
+ */
+describe("runPaneLimits", () => {
+  it("gives the pane what the work pane's 640–800 px band leaves (hand-computed)", () => {
+    // 1280 window: body 1280 - 56 rail - 2x16 pad = 1192; room 1186 → pane 386..546, floored at 400.
+    expect(runPaneLimits(1192)).toEqual({ min: 400, max: 546 });
+    // 1920 window: body 1920 - 216 - 2x24 = 1656; room 1650 → pane 850..1010.
+    expect(runPaneLimits(1656)).toEqual({ min: 850, max: 1010 });
+  });
+
+  it("keeps the work pane in [640, 800] and the pane at or over 400 wherever the two fit", () => {
+    for (let body = RUN_STACK_BODY; body <= 4000; body += 7) {
+      const { min, max } = runPaneLimits(body);
+      for (const pane of [min, max]) {
+        const work = body - PANE_HANDLE - pane;
+        expect(pane, `pane at body ${body}`).toBeGreaterThanOrEqual(RUN_PANE_MIN);
+        expect(work, `work at body ${body}`).toBeGreaterThanOrEqual(RUN_WORK_MIN);
+        expect(work, `work at body ${body}`).toBeLessThanOrEqual(RUN_WORK_MAX);
+      }
+    }
+  });
+
+  it("pins the pane at its floor in a box too narrow for both, instead of an empty range", () => {
+    expect(runPaneLimits(900)).toEqual({ min: 400, max: 400 });
+    expect(runPaneLimits(Number.NaN)).toEqual({ min: 400, max: 400 });
+  });
+});
+
+/**
+ * The CSS half of the same rule, read off disk: the stacked breakpoint and the pane's min/max are
+ * literals in stylesheets (a media query cannot read a custom property), so this is what keeps them
+ * equal to the constants above.
+ */
+describe("run split CSS agrees with paneState", () => {
+  const SRC = resolve(__dirname, "../../src/renderer");
+  const STACKED = ["ui/components.css", "ui/pane.css", "pages/_shared/run/run.css", "pages/_shared/scene/scene-pane.css", "pages/panels/panels.css"];
+
+  it("stacks below the first window width where both panes fit beside the icon rail", () => {
+    // Below 1440 the shell spends a 56 px icon rail and 2 x 16 px padding around the split box.
+    const firstSideBySide = 1139 + 1;
+    expect(firstSideBySide - 56 - 32).toBeGreaterThanOrEqual(RUN_STACK_BODY);
+    // At 1440 the labelled rail (216) and 24 px padding still leave room for both.
+    expect(1440 - 216 - 48).toBeGreaterThanOrEqual(RUN_STACK_BODY);
+    for (const file of STACKED) {
+      const css = readFileSync(resolve(SRC, file), "utf8");
+      expect(css, file).toContain("@media (max-width: 1139px)");
+      expect(css, file).not.toContain("max-width: 1099px");
+    }
+  });
+
+  it("clamps the run pane with paneState's numbers, not a copy of them", () => {
+    const css = readFileSync(resolve(SRC, "ui/components.css"), "utf8");
+    expect(css).toContain("min-width: max(var(--run-pane-min), calc(100% - var(--run-work-max) - var(--pane-handle)))");
+    expect(css).toContain("max-width: max(var(--run-pane-min), calc(100% - var(--run-work-min) - var(--pane-handle)))");
+    expect(RUN_SPLIT_CSS_VARS).toMatchObject({
+      "--run-work-min": `${RUN_WORK_MIN}px`,
+      "--run-work-max": `${RUN_WORK_MAX}px`,
+      "--run-pane-min": `${RUN_PANE_MIN}px`,
+      "--pane-handle": `${PANE_HANDLE}px`,
+    });
+    // The grab strip is shared with pages outside `.page-layout` (Jobs), so its width stays a
+    // literal; this is what keeps it equal to the handle the arithmetic subtracts.
+    expect(css).toMatch(new RegExp(String.raw`\.page-layout-inspector-handle \{\s*width: ${PANE_HANDLE}px;`));
   });
 });
 

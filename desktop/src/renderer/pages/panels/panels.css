@@ -57,7 +57,7 @@
 }
 /* One column below the width where the right column would stop holding a label-left field row
    (DESIGN.md §4.2's two-up rule), mirroring the shell's own stacking step. */
-@media (max-width: 1099px) {
+@media (max-width: 1139px) {
   .panel-page-split {
     grid-template-columns: minmax(0, 1fr);
   }
