@@ -90,7 +90,7 @@ class StackSpec:
 #: Fallback used when the repository's ``docker-compose.yml`` is not on disk (an installed
 #: wheel).  Kept honest by ``tests/test_launch.py::test_builtin_spec_matches_compose``.
 BUILTIN_SPEC = StackSpec(
-    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}",
+    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.1}",
     working_dir="/ti-toolbox",
     init=True,
     volumes=(
@@ -709,7 +709,7 @@ def container_credentials(info: dict) -> tuple[str, str]:
 def ensure_image(image: str, *, refresh: bool = True, echo=print) -> None:
     """Refresh the mutable release image; retain cached images for offline/dev use."""
     cached = _docker("image", "inspect", image, check=False).returncode == 0
-    if cached and not (refresh and image == "idossha/ti-toolbox:v3.0.0"):
+    if cached and not (refresh and image == "idossha/ti-toolbox:v3.0.1"):
         echo(f"image {image} is already present")
         return
     echo(f"checking for updates to {image}…" if cached else f"downloading {image}…")

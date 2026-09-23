@@ -6,8 +6,8 @@ are documented in [AUTOMATION.md](AUTOMATION.md).
 
 ## Docker distribution tags
 
-The application image is `idossha/ti-toolbox:v3.0.0`. Small v3.0.0 patches rebuild and
-republish this same mutable tag. Record the source commit and image digest for each push;
+The application image is `idossha/ti-toolbox:v3.0.1`. Small v3.0.1 patches rebuild and
+republish this same mutable tag; a new patch version gets a new tag and older tags are left alone. Record the source commit and image digest for each push;
 the tag alone does not identify an exact build. Fresh launcher starts check for updates,
 while attaching to a running session preserves its image and computations.
 
@@ -33,12 +33,12 @@ and neither changes Docker `latest`. There are no Docker Hub secrets in the exec
 Before publishing executables, build and validate the version image locally, then push explicitly:
 
 ```bash
-container/blueprint/build.sh --tag idossha/ti-toolbox:v3.0.0
+container/blueprint/build.sh --tag idossha/ti-toolbox:v3.0.1
 # Complete the local release tests and no-source-mount image acceptance in TESTING.md first.
-docker run --rm --entrypoint cat idossha/ti-toolbox:v3.0.0 /etc/ti-toolbox-build.json
-docker run --rm --entrypoint simnibs_python idossha/ti-toolbox:v3.0.0 -c 'import tit; print(tit.__version__)'
-docker push idossha/ti-toolbox:v3.0.0
-docker manifest inspect --verbose idossha/ti-toolbox:v3.0.0
+docker run --rm --entrypoint cat idossha/ti-toolbox:v3.0.1 /etc/ti-toolbox-build.json
+docker run --rm --entrypoint simnibs_python idossha/ti-toolbox:v3.0.1 -c 'import tit; print(tit.__version__)'
+docker push idossha/ti-toolbox:v3.0.1
+docker manifest inspect --verbose idossha/ti-toolbox:v3.0.1
 ```
 
 The pushed tag must be a plain single-platform `linux/amd64` manifest, not an OCI index: the
@@ -50,7 +50,9 @@ built by `build.sh` without those flags on Docker Desktop's containerd image sto
 published an index (amd64 plus an `unknown/unknown` attestation), and an unpinned pull on Apple
 Silicon failed with "no matching manifest for linux/arm64/v8". A plain manifest only warns. The
 desktop app, `loader.sh`, `tit/launch.py` and `docker-compose.yml` also pin `linux/amd64` on every
-pull and create, so an index can no longer break a launch either way.
+pull and create, so an index can no longer break a launch either way. The release workflow's
+`image-available` job runs `verify_release_assets.py --image-manifest`, which refuses a tag that
+resolves to an index or manifest list, so a mis-pushed image blocks publication.
 
 Keep source SHA, clean/dirty provenance, tests and registry digest with the manual publication
 receipt. The reusable mutable version-line tag policy above is unchanged. CI reads only registry
@@ -80,7 +82,7 @@ remains an explicit development check and does not publish images.
 
 ### Runtime version preparation
 
-Runtime and public metadata are aligned at `3.0.0`. For future development builds, use the
+Runtime and public metadata are aligned at `3.0.1`. For future development builds, use the
 development updater below; it leaves the public update source unchanged. Run the stable updater
 only when cutting the corresponding release.
 

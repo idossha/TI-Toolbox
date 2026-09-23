@@ -24,3 +24,6 @@ versions. Development builds preserve public metadata. Updating the application 
 the separately dated FreeSurfer image unchanged.
 `verify_release_assets.py` requires all seven nonempty installer/archive assets plus `SHA256SUMS` while the
 GitHub Release is still a draft.
+`--image-manifest` refuses an application image tag that is an OCI index or manifest list rather than
+one plain linux/amd64 manifest. `update_version.py` also moves the mutable-tag refresh literal in
+`tit/launch.py`, `loader.sh` and `desktop/src/main/stack.ts`.

@@ -88,6 +88,23 @@ def update_version(new_version):
                 r'(BUILTIN_SPEC = StackSpec\(\s*image="idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-)[^}]+',
                 rf"\g<1>v{new_version}",
             ),
+            # The default tag is mutable, so a cached copy is refreshed on launch.
+            (
+                r'(refresh and image == "idossha/ti-toolbox:)v[^"]+"',
+                rf'\g<1>v{new_version}"',
+            ),
+        ],
+        "loader.sh": [
+            (
+                r'(\[ "\$image" = idossha/ti-toolbox:)v[0-9][^ ]*( \])',
+                rf"\g<1>v{new_version}\g<2>",
+            ),
+        ],
+        "desktop/src/main/stack.ts": [
+            (
+                r'(plan\.image === "idossha/ti-toolbox:)v[^"]+"',
+                rf'\g<1>v{new_version}"',
+            ),
         ],
         # v3 desktop app (desktop/). This is the number electron-builder writes into the app
         # bundle, the DMG/EXE/AppImage file names, and `app.getVersion()`; the release workflow

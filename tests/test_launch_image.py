@@ -240,8 +240,8 @@ def test_discovery_ignores_unrelated_similarly_named_containers(docker):
 @pytest.mark.parametrize(
     "cached,refresh,image,pulls",
     [
-        (True, True, "idossha/ti-toolbox:v3.0.0", True),
-        (True, False, "idossha/ti-toolbox:v3.0.0", False),
+        (True, True, "idossha/ti-toolbox:v3.0.1", True),
+        (True, False, "idossha/ti-toolbox:v3.0.1", False),
         (True, True, "custom:dev", False),
         (False, False, "custom:dev", True),
     ],
@@ -270,8 +270,8 @@ def test_failed_refresh_only_falls_back_when_cached(monkeypatch, cached):
     )
     messages = []
     if cached:
-        launch.ensure_image("idossha/ti-toolbox:v3.0.0", echo=messages.append)
+        launch.ensure_image("idossha/ti-toolbox:v3.0.1", echo=messages.append)
         assert "Warning:" in messages[-1] and "cached image" in messages[-1]
     else:
         with pytest.raises(launch.LaunchError, match="could not download"):
-            launch.ensure_image("idossha/ti-toolbox:v3.0.0", echo=messages.append)
+            launch.ensure_image("idossha/ti-toolbox:v3.0.1", echo=messages.append)

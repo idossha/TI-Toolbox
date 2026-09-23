@@ -451,7 +451,7 @@ else
     docker compose version >/dev/null 2>&1 || die 'install the Docker Compose plugin'
     cached=0
     docker image inspect "$image" >/dev/null 2>&1 && cached=1
-    if [ "$cached" = 0 ] || { [ "$image" = idossha/ti-toolbox:v3.0.0 ] && [ -z "$repo" ]; }; then
+    if [ "$cached" = 0 ] || { [ "$image" = idossha/ti-toolbox:v3.0.1 ] && [ -z "$repo" ]; }; then
         if ! docker pull --platform "$IMAGE_PLATFORM" "$image"; then
             [ "$cached" = 1 ] || die "could not download $image"
             printf 'Warning: could not refresh %s; using the cached image.\n' "$image" >&2

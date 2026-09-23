@@ -348,7 +348,7 @@ def test_explicit_yaml_is_used_for_recreate(tmp_path):
 
 def test_release_start_refreshes_cached_image(tmp_path):
     _, calls = run_loader(tmp_path, [], running=False)
-    assert "pull --platform linux/amd64 idossha/ti-toolbox:v3.0.0" in calls
+    assert "pull --platform linux/amd64 idossha/ti-toolbox:v3.0.1" in calls
     # The container compose runs must name the platform too; an unpinned arm64 pull fails on an index.
     assert "platform: linux/amd64" in calls
 

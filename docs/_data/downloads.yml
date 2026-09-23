@@ -1,25 +1,25 @@
 # Published desktop assets shared by Quick Start and the release pages.
-version: 3.0.0
-release_url: https://github.com/idossha/TI-Toolbox/releases/tag/v3.0.0
-asset_base: https://github.com/idossha/TI-Toolbox/releases/download/v3.0.0
+version: 3.0.1
+release_url: https://github.com/idossha/TI-Toolbox/releases/tag/v3.0.1
+asset_base: https://github.com/idossha/TI-Toolbox/releases/download/v3.0.1
 platforms:
   - name: macOS Apple Silicon
     architecture: Apple M-series
     format: Download .dmg
-    file: TI-Toolbox-3.0.0-arm64.dmg
+    file: TI-Toolbox-3.0.1-arm64.dmg
   - name: macOS Intel
     architecture: Intel processor
     format: Download .dmg
-    file: TI-Toolbox-3.0.0.dmg
+    file: TI-Toolbox-3.0.1.dmg
   - name: Windows
     architecture: 64-bit (x64)
     format: Download .exe
-    file: TI-Toolbox-3.0.0.exe
+    file: TI-Toolbox-3.0.1.exe
   - name: Linux AppImage
     architecture: 64-bit (x64)
     format: Download .AppImage
-    file: TI-Toolbox-3.0.0.AppImage
+    file: TI-Toolbox-3.0.1.AppImage
   - name: Linux Debian / Ubuntu
     architecture: 64-bit (amd64)
     format: Download .deb
-    file: ti-toolbox_3.0.0_amd64.deb
+    file: ti-toolbox_3.0.1_amd64.deb

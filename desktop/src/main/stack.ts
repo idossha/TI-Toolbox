@@ -442,7 +442,7 @@ export class StackManager {
   /** Refresh the mutable release tag, retaining cached images for offline/dev starts. */
   private async ensureImage(client: DockerEngineClient, api: StackApi, plan: ContainerPlan, refresh: boolean): Promise<void> {
     const cached = await api.imageExists(plan.image);
-    if (cached && !(refresh && plan.image === "idossha/ti-toolbox:v3.0.0")) {
+    if (cached && !(refresh && plan.image === "idossha/ti-toolbox:v3.0.1")) {
       this.progress(`Image ${plan.image} is already present.`);
       return;
     }
