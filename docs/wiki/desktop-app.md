@@ -136,6 +136,8 @@ npm run dev
   entirely along with X11 itself.
 - **Native viewing:** the desktop launches its managed TetraVox executable with the prepared
   scene path. TetraVox runs with the host user's permissions and no additional TI-Toolbox sandbox.
+  It uses its own profile and TetraVox home under TI-Toolbox's app data, so it shares no settings,
+  rc file or extensions with a TetraVox you installed yourself.
 - **Verified downloads:** the pinned viewer package is checked against its expected SHA256 before
   installation. Scene opening is limited to `.tetravox.json` files within the active project.
 

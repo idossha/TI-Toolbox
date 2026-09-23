@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { buildJob, PLATE_LIMIT, pngFor, renderPlatesForJob, roiScenes, sceneHasMesh, summariseResult } from "./roiPlates";
 
@@ -22,7 +24,7 @@ const RESULT_TEXT = JSON.stringify({
 function deps(overrides: Partial<Parameters<typeof renderPlatesForJob>[1]> = {}) {
   const written = new Map<string, string>();
   const removed: string[] = [];
-  const ran: { executable: string; args: string[] }[] = [];
+  const ran: { executable: string; args: string[]; home: string; homeExisted: boolean }[] = [];
   const logged: string[] = [];
   return {
     written,
@@ -40,8 +42,8 @@ function deps(overrides: Partial<Parameters<typeof renderPlatesForJob>[1]> = {})
         throw new Error(`ENOENT: ${path}`);
       },
       removeFile: async (path: string) => void removed.push(path),
-      run: async (executable: string, args: string[]) => {
-        ran.push({ executable, args });
+      run: async (executable: string, args: string[], home: string) => {
+        ran.push({ executable, args, home, homeExisted: existsSync(home) });
         return 0;
       },
       logLine: (_level: "info" | "warn", message: string) => void logged.push(message),
@@ -119,7 +121,13 @@ describe("renderPlatesForJob", () => {
     expect(d.ran[0]!.args[0]).toBe("--job");
     expect(d.ran[0]!.args).toContain("--quiet");
     // Never Electron's default TetraVox profile, which a user's own TetraVox shares.
-    expect(d.ran[0]!.args.find((arg) => arg.startsWith("--user-data-dir="))).toContain("tit-tetravox-plate-");
+    const profile = d.ran[0]!.args.find((arg) => arg.startsWith("--user-data-dir="))!.slice("--user-data-dir=".length);
+    expect(profile).toContain("tit-tetravox-plate-");
+    // Nor the user's ~/.tetravox (rc file, extensions): its TETRAVOX_HOME is inside the throwaway
+    // profile, exists while it runs, and goes with it.
+    expect(d.ran[0]!.home).toBe(join(profile, "tetravox-home"));
+    expect(d.ran[0]!.homeExisted).toBe(true);
+    expect(existsSync(profile)).toBe(false);
     const [, jobPath, , outDir] = d.ran[0]!.args;
     expect(outDir).toBe(HOST_DIR);
     expect(JSON.parse(d.written.get(jobPath!)!).scene).toEqual({ path: HOST_SCENE });

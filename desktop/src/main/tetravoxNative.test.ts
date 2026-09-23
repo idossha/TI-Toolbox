@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmod, mkdtemp, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -142,12 +142,20 @@ describe("native TetraVox", () => {
   });
   it.runIf(process.platform !== "win32")("launches TI's copy with the managed-by flag so the viewer leaves updates to TI", async () => {
     const dir = await temporary(); const executable = join(dir, "managed-viewer");
-    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s|%s" "${TETRAVOX_MANAGED_BY-unset}" "${TETRAVOX_MANAGED_UPDATE_REQUEST-unset}" > "$0.env"\n');
+    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s|%s|%s|%s" "${TETRAVOX_MANAGED_BY-unset}" "${TETRAVOX_MANAGED_UPDATE_REQUEST-unset}" "${TETRAVOX_HOME-unset}" "${TETRAVOX_MODULE_DIR-unset}" > "$0.env"\n');
     await chmod(executable, 0o755);
-    await openNativeViewer(dir, "/project/example.tetravox.json", status(executable, dir));
+    vi.stubEnv("TETRAVOX_MODULE_DIR", "/user/.tetravox/modules");
+    try {
+      await openNativeViewer(dir, "/project/example.tetravox.json", status(executable, dir));
+    } finally {
+      vi.unstubAllEnvs();
+    }
     expect(await readFile(`${executable}.args`, "utf8")).toBe([...platformArgs, `--user-data-dir=${join(dir, "tetravox-profile")}`, "/project/example.tetravox.json"].join("\n") + "\n");
-    // The second variable is where the viewer's own update popup hands an accepted update to TI.
-    expect(await readFile(`${executable}.env`, "utf8")).toBe(`${MANAGED_BY}|${join(dir, "tetravox-update-request.json")}`);
+    // The second variable is where the viewer's own update popup hands an accepted update to TI;
+    // the third keeps its rc file and extensions out of the user's own ~/.tetravox, and a user's
+    // TETRAVOX_MODULE_DIR (which would override <home>/modules) is not inherited.
+    expect(await readFile(`${executable}.env`, "utf8")).toBe(`${MANAGED_BY}|${join(dir, "tetravox-update-request.json")}|${join(dir, "tetravox-home")}|unset`);
+    expect((await stat(join(dir, "tetravox-home"))).isDirectory()).toBe(true);
   });
   it.runIf(process.platform !== "win32")("always runs TI's copy in TI's own profile, never Electron's shared default one", async () => {
     // A user's own TetraVox uses the default profile; sharing it would share its settings and its
@@ -169,17 +177,19 @@ describe("native TetraVox", () => {
       ["-a", bundle, "/project/a scene.tetravox.json", ...profile],
       ["-a", bundle, ...profile],
     ]);
-    expect(macOpen.calls.every((call) => call.env.TETRAVOX_MANAGED_BY === MANAGED_BY && call.env.TETRAVOX_MANAGED_UPDATE_REQUEST === join(dir, "tetravox-update-request.json") && call.env.ELECTRON_RUN_AS_NODE === undefined)).toBe(true);
+    expect(macOpen.calls.every((call) => call.env.TETRAVOX_MANAGED_BY === MANAGED_BY && call.env.TETRAVOX_MANAGED_UPDATE_REQUEST === join(dir, "tetravox-update-request.json") && call.env.TETRAVOX_HOME === join(dir, "tetravox-home") && call.env.ELECTRON_RUN_AS_NODE === undefined)).toBe(true);
   });
   it.runIf(process.platform === "darwin")("delivers protocol request through argv before scene-free activation", async () => {
     const dir = await temporary(); const bundle = join(dir, "Tetravox.app"); const executable = join(bundle, "Contents/MacOS/Tetravox");
     await mkdir(join(bundle, "Contents/MacOS"), { recursive: true });
-    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\n'); await chmod(executable, 0o755);
+    await writeFile(executable, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nprintf "%s" "${TETRAVOX_HOME-unset}" > "$0.env"\n'); await chmod(executable, 0o755);
     const requestPath = join(dir, "request.json");
     await openNativeViewer(dir, "/project/scene.tetravox.json", { ...status(executable, bundle), version: "1.0.0" }, requestPath);
     expect(await readFile(`${executable}.args`, "utf8")).toBe(`--user-data-dir=${join(dir, "tetravox-profile")}\n--scene-request=${requestPath}\n`);
+    expect(await readFile(`${executable}.env`, "utf8")).toBe(join(dir, "tetravox-home"));
     const profile = ["--args", `--user-data-dir=${join(dir, "tetravox-profile")}`];
     expect(macOpen.calls.map((call) => call.args)).toEqual([["-a", bundle, ...profile]]);
+    expect(macOpen.calls[0]!.env.TETRAVOX_HOME).toBe(join(dir, "tetravox-home"));
   });
   it.runIf(process.platform === "darwin")("blank Mac launch only requests activation of the bundle", async () => {
     const dir = await temporary(); const bundle = join(dir, "Tetravox.app");

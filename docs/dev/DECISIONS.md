@@ -1914,6 +1914,32 @@ its popup ("ti-toolbox installed this copy and installs its updates …" — the
 to `TI-Toolbox`); clicking **Update to 0.6.1** (over CDP) led TI's watcher to install the GitHub 0.6.1
 zip (digest-verified, `ready.json` written) and relaunch it in `tetravox-profile` 14 s later.
 
+## 2026-09-22 — TI's TetraVox has its own TetraVox home, too
+
+**Decision.** Amends "TI's TetraVox runs in TI's own profile" (§7.1). Every launch of TI's copy
+also sets `TETRAVOX_HOME=<userData>/tetravox-home` (created if missing): the spawn path, both macOS
+`open -a … --args` calls (`open` passes the caller's environment to a new instance) and the
+`--job` captures (ROI plates and saved-scene previews), which get a `tetravox-home` inside their
+throwaway directory. A `TETRAVOX_MODULE_DIR` in TI's own environment is not passed on, because
+TetraVox would read extensions from it instead of `<TETRAVOX_HOME>/modules`. The preload bridge is 22 entries since the entry above added
+`checkNativeTetravoxUpdate`; `smoke.spec.ts` now pins that.
+
+**Why.** Maintainer rule: TI's managed TetraVox never shares anything with a user's own TetraVox.
+`--user-data-dir` moves Electron's profile but not TetraVox's own home, `~/.tetravox`, which holds its
+rc file and installed extensions; TetraVox reads `TETRAVOX_HOME` instead when set (`configHome()` in
+`packages/app/src/main/module-store.ts`, released 0.6.1 included).
+
+**Alternatives rejected.** Pointing `HOME` at a scratch directory changes every path the viewer
+resolves from the user's home, not only TetraVox's own. Leaving captures on `~/.tetravox` lets a headless
+render load the user's extensions.
+
+**Not changed.** A TI viewer already running keeps the environment it started with until it is
+relaunched; TI's rc and extensions start empty (nothing is copied from `~/.tetravox`).
+
+**Verification contract.** `tetravoxNative.test.ts` (spawn env and directory, macOS `open` env on
+both calls, the `--scene-request` spawn and its activation), `roiPlates.test.ts` and
+`nativeScenePreview.test.ts` (capture home inside the throwaway directory, present while it runs).
+
 ## 2026-09-22 — One global CPU limit, 70 % by default, is the scheduler budget
 
 **Decision.** TI-Toolbox's CPU use is capped by one user-wide setting, **CPU limit**, a percent of

@@ -172,6 +172,14 @@ export function viewerProfile(userData: string): string {
 }
 
 /**
+ * TetraVox's own home (`TETRAVOX_HOME`, else `~/.tetravox`: its rc file and installed extensions).
+ * `--user-data-dir` does not move it, so TI's copy gets its own beside its profile.
+ */
+export function viewerHome(userData: string): string {
+  return join(userData, "tetravox-home");
+}
+
+/**
  * Whether TI's own TetraVox is running: its managed executable, or any process in TI's viewer
  * profile. A TetraVox the user installed has its own executable and its own profile, so it neither
  * blocks TI's Update nor is mistaken for TI's viewer (decision 2026-09-22). Conservative where it
@@ -445,11 +453,15 @@ export async function openNativeViewer(userData: string, scene: string, selected
   // open would be handed to theirs. The directory name is the one earlier layouts used, so a
   // viewer already open in it keeps receiving scenes.
   const profile = viewerProfile(userData);
+  const home = viewerHome(userData);
   await mkdir(profile, { recursive: true, mode: 0o700 });
+  await mkdir(home, { recursive: true, mode: 0o700 });
   // A TetraVox with the update handshake shows its own update popup and hands the accepted update
   // to TI through this file; older releases ignore the variable and keep their updater off.
-  const env: NodeJS.ProcessEnv = { ...process.env, TETRAVOX_MANAGED_BY: MANAGED_BY, TETRAVOX_MANAGED_UPDATE_REQUEST: viewerUpdateRequestPath(userData) };
+  // TETRAVOX_HOME keeps the rc file and extensions out of the user's own `~/.tetravox`.
+  const env: NodeJS.ProcessEnv = { ...process.env, TETRAVOX_HOME: home, TETRAVOX_MANAGED_BY: MANAGED_BY, TETRAVOX_MANAGED_UPDATE_REQUEST: viewerUpdateRequestPath(userData) };
   delete env.ELECTRON_RUN_AS_NODE;
+  delete env.TETRAVOX_MODULE_DIR; // would override `<TETRAVOX_HOME>/modules` with the user's extensions
   const bundle = process.platform === "darwin" ? /^(.*\.app)\/Contents\/MacOS\/[^/]+$/.exec(executable)?.[1] : undefined;
   // `open -a <path>` targets this bundle, not another copy with the same bundle id (checked on
   // macOS 15, 2026-09-22), and passes this process's environment; `--args` reach a new instance.
