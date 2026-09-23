@@ -70,7 +70,7 @@ layout: home
         <p>TetraVox: explore anatomy, fields and diffusion tensors in the 3D viewer</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks-example.png" alt="The worked example notebook open in the Notebooks page, with code cells for montages and a simulation">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks-example.png" alt="The worked example notebook open in the Notebooks page, with its first cell run against the project">
         <p>Notebooks: work interactively with your project and SimNIBS Python</p>
       </div>
       <div class="carousel-slide">
