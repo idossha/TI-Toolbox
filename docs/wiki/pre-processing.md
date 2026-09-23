@@ -7,7 +7,7 @@ permalink: /wiki/pre-processing/
 Pre-processing prepares subject data for simulation and analysis. Select subjects and the stages
 you need; the plan shows their dependencies and existing outputs before you run them.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/preprocess.png" alt="The Pre-processing page with subject selection and processing stages" style="width: 100%; max-width: 1000px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/preprocessing-page.png" alt="The Pre-processing page: a subject table showing which outputs each subject has, then the structural and DWI stages to run" style="width: 100%; max-width: 1000px;">
 
 ## Workflow
 

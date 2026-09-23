@@ -58,7 +58,7 @@ layout: home
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page with a montage preview">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: job rows beside a scene pane that draws the montage on the subject's head">
         <p>Simulator: configure simulations and preview your electrode montage</p>
       </div>
       <div class="carousel-slide">
@@ -66,8 +66,8 @@ layout: home
         <p>Optimizer: search electrode configurations with your target atlas in view</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI electric field displayed in Tetravox">
-        <p>Tetravox: explore anatomy and electric fields in the integrated 3D viewer</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/tetravox-dti-tensors.jpg" alt="TetraVox showing diffusion tensors over a T1 in four views">
+        <p>TetraVox: explore anatomy, fields and diffusion tensors in the 3D viewer</p>
       </div>
       <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="A notebook with a plotted field and tables">

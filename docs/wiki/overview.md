@@ -4,7 +4,7 @@ title: Overview
 permalink: /wiki/overview/
 ---
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/welcome.png" alt="The desktop welcome Overview with project directory entry, Browse and the full workflow sidebar" style="width: 100%; max-width: 1000px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/overview-welcome.png" alt="The welcome Overview: a project directory field with Browse and Open project, and the five workflow steps below" style="width: 100%; max-width: 1000px;">
 
 The app opens on a welcome Overview. Enter or **Browse…** to your project directory, then
 **Open project**. Docker must be running. Project tools stay disabled until a project is open.

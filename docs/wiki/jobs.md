@@ -23,6 +23,9 @@ and its process is owned by the server. The Jobs page centralizes status and can
 - **A run page's right pane** — the **Terminal** tab shows the console of the job that page just
   submitted, beside the **Scene** tab.
 
+<img src="{{ site.baseurl }}/assets/imgs/v3/system-page.png" alt="The System page: CPU and memory history, per-core load, processes, memory, storage, Docker and host details" style="width: 100%; max-width: 1000px;">
+<em>The System page: live CPU and memory, the processes in the container, disk use and the Docker engine.</em>
+
 ## How many CPUs jobs may use
 
 All running jobs share one pool of CPUs: the **CPU limit** in **Settings → Project → Execution**,
@@ -87,6 +90,9 @@ example **Simulation finished** — _sub-101 · montage L_Insula_. Each subject 
 notifies on its own; they arrive one at a time, since a product runs one job at a time. Cancelled
 jobs, and jobs that had already finished before the app opened, do not notify. Clicking a
 notification brings TI-Toolbox to the front.
+
+<img src="{{ site.baseurl }}/assets/imgs/v3/settings-project.png" alt="Settings, Project tab: project paths, theme, the CPU limit, existing-outputs policy, job notifications and telemetry" style="width: 100%; max-width: 1000px;">
+<em>Settings → Project holds the CPU limit (Execution) and the notification choices.</em>
 
 **Settings → Project → Notifications** turns them on or off (default on) and chooses:
 

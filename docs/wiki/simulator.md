@@ -8,7 +8,7 @@ The Simulator computes the full FEM temporal interference field. It sits between
 
 ## In the application
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page: one row per simulation job" style="width: 100%; max-width: 1000px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: one row per simulation job, with the selected montage drawn on the subject's head in the Scene pane" style="width: 100%; max-width: 1000px;">
 <em>The Simulator (⌘3). One row is one job; the pane beside it draws that montage on the selected subject.</em>
 
 - **Subject Selection**: Choose from available pre-processed subjects; multiple subjects can be queued for batch processing

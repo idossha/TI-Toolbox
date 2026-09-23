@@ -9,7 +9,7 @@ TI-Toolbox does not render 3-D results itself. It hands them to
 Your job in TI-Toolbox is simple: pick what to look at. TetraVox does the rest.
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI electric field displayed in TetraVox">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/tetravox-dti-tensors.jpg" alt="TetraVox showing diffusion tensors over a T1 in axial, coronal, sagittal and 3-D views">
 </div>
 
 ## Setup
@@ -26,6 +26,9 @@ you installed yourself.
    Everything the subject has is listed. Greyed rows tell you what is missing and why.
 3. Check the **What will open** list. Drag to reorder layers, remove what you don't need.
 4. Click **Open in viewer**. TetraVox opens with your scene.
+
+<img src="{{ site.baseurl }}/assets/imgs/v3/viewer-compose.png" alt="The Viewer page: tick files under Compose, check the What will open list, then Open in viewer; saved scenes are listed on the right" style="width: 100%; max-width: 1000px;">
+<em>The Viewer page. Compose on the left, the launch button and saved scenes on the right.</em>
 
 Results and jobs pages also have a direct open button, so you rarely need to build a scene by hand.
 
