@@ -70,5 +70,9 @@ def serve(path: str, request: Request) -> Response:
             target = resolve_static_file(static_dir, "index.html")
         if target is None:
             raise HTTPException(status_code=404, detail="Not found")
+        # The shell names the hashed bundle: without this Chromium caches it heuristically for
+        # hours after a rebuild and keeps running the old UI. Hashed assets may stay cached.
+        if target.suffix == ".html":
+            return FileResponse(target, headers={"cache-control": "no-cache"})
         return FileResponse(target)
     return status_page(static_dir)

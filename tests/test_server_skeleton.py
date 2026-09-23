@@ -669,6 +669,26 @@ def test_static_bundle_spa_fallback_and_jail(project: Path) -> None:
 
 
 @pytest.mark.parametrize("request_path", ["/", "/index.html", "/jobs/42"])
+def test_static_index_is_revalidated_every_load(
+    project: Path, request_path: str
+) -> None:
+    """The app shell names the hashed bundle, so it must never be served from cache.
+
+    Without ``Cache-Control`` Chromium caches ``index.html`` heuristically (10 % of its age),
+    and on 2026-09-23 the desktop app kept loading a bundle built hours before the one on disk,
+    so a newly added pane button never appeared. Hashed assets may still be cached.
+    """
+    bundle = project / "bundle"
+    bundle.mkdir()
+    (bundle / "index.html").write_text("<html><body>SPA</body></html>")
+    settings = ServerSettings(
+        project_dir=str(project), token=TOKEN, static_dir=str(bundle)
+    )
+    client = TestClient(create_app(settings), base_url=BASE)
+    assert client.get(request_path).headers.get("cache-control") == "no-cache"
+
+
+@pytest.mark.parametrize("request_path", ["/", "/index.html", "/jobs/42"])
 @pytest.mark.parametrize("outside", [False, True])
 def test_static_index_symlink_stays_in_bundle(
     project: Path, request_path: str, outside: bool
