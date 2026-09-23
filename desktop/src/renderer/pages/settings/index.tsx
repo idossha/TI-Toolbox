@@ -23,6 +23,7 @@ import { TetravoxCard } from "./TetravoxCard";
 import "./settings-page.css";
 import { SurferSettingsCard } from "./SurferSettingsCard";
 import { CpuLimitField } from "./CpuLimitField";
+import { NotificationsCard } from "./NotificationsCard";
 
 /**
  * Settings and Help are the two pages DESIGN.md §2.3 still allows a header — the orchestrator's
@@ -304,6 +305,8 @@ function SettingsPage() {
             <ExecutionCard />
           </CardBody>
         </Card>
+
+        <NotificationsCard />
 
         <Card>
           <CardHeader title="Telemetry" />

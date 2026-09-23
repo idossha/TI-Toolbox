@@ -80,6 +80,37 @@ knowing:
   run of the same product waits for the first ("waiting for simulator"). Jobs of different
   products can run together within the CPU limit. There is no setting for this.
 
+## Notifications when a job finishes
+
+The desktop app shows a system notification when a job it watched run finishes or fails, for
+example **Simulation finished** — _sub-101 · montage L_Insula_. Each subject of a multi-subject run
+notifies on its own; they arrive one at a time, since a product runs one job at a time. Cancelled
+jobs, and jobs that had already finished before the app opened, do not notify. Clicking a
+notification brings TI-Toolbox to the front.
+
+**Settings → Project → Notifications** turns them on or off (default on) and chooses:
+
+- **Notify on** — all finished jobs (default) or failures only;
+- **Detail** — _Detailed_ (default) adds the subject and the montage or target, _Minimal_ shows
+  only the title;
+- **Sound** — one of TI-Toolbox's own short sounds (**Pulse**, the default, **Chime** or **Tick**;
+  a failure plays the same sound lower), **System default** (the system's
+  notification sound) or **None**. **Preview** beside it plays the selected TI-Toolbox sound. The
+  sound plays whether or not TI-Toolbox is in front.
+
+**Send test notification** shows a sample banner with the current detail and sound, and says
+right under the button whether it was shown or why not.
+
+On macOS the first notification asks for permission; if none appear, allow TI-Toolbox in
+**System Settings → Notifications**. A browser session has no notifications.
+
+Developers running a checkout (`bash loader.sh --dev --desktop` or `npm run dev`) use the
+Electron.app from `desktop/node_modules`, which npm installs without a valid code signature. macOS
+silently refuses notifications from it and never lists it in System Settings. `npm install`
+re-signs it ad hoc now; for an existing checkout, quit the app and run
+`npm --prefix desktop run sign:dev-electron` once, then allow **Electron** in
+**System Settings → Notifications** when asked.
+
 ## Server restart
 
 A server restart deliberately interrupts work; it does not resume or automatically resubmit

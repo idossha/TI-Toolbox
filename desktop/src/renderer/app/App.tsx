@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { isProjectHome } from "../env";
+import { playNotificationSound } from "./notificationSound";
 import { NavRail } from "./NavRail";
 import { OpenProject } from "../pages/overview/ProjectControls";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
@@ -18,6 +20,8 @@ import { landingPage, useEnabledPages } from "./registry";
 const firstPage = landingPage();
 
 export function App() {
+  // Job banners' TI-Toolbox sounds, sent by main (`main/jobsNotifier.ts`). Desktop only.
+  useEffect(() => window.tit?.onNotificationSound?.(playNotificationSound), []);
   return isProjectHome ? <ProjectHome /> : <ConnectedApp />;
 }
 

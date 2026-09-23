@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { stat, writeFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { app, BrowserWindow, Notification, dialog, ipcMain, nativeImage, net, protocol, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
 import { readSettings, updateSettings, setAppleGpuEnabled } from "./settings";
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
@@ -16,7 +16,8 @@ import { checkViewerScene, checkViewerUpdate, installNativeViewer, nativeViewerS
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
-import { notifyJobCompletions, setJobFinishedListener, stopNotifyingJobCompletions } from "./jobsNotifier";
+import { notifyJobCompletions, setJobFinishedListener, showNativeNotification, stopNotifyingJobCompletions } from "./jobsNotifier";
+import type { NotifyResult } from "../shared/jobNotifications";
 import { renderPlatesForJob } from "./roiPlates";
 import {
   containerToHostPath,
@@ -191,7 +192,7 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
   activeSession = { origin: url.origin, token: args.token };
   projectRootCache = null; // A new session may point at a different project.
   void resumeFastSurferWorker();
-  notifyJobCompletions(url.origin, args.token);
+  notifyJobCompletions(url.origin, args.token, win);
   setJobFinishedListener((jobId) => {
     // The container drew each ROI plate with matplotlib already; this redraws it with the viewer
     // the user inspects with, in place, and is a no-op on a machine with no Tetravox.
@@ -615,6 +616,8 @@ function createWindow(): BrowserWindow {
   // exists, loads the renderer and answers CDP, but never reaches the screen or the window
   // server's focus chain. `ready-to-show` still fires; only the reaction to it is suppressed.
   if (WINDOW_MODE === "normal") win.once("ready-to-show", () => win.show());
+  // An offscreen test run is silent too: no notification sound or Settings preview reaches a speaker.
+  else win.webContents.setAudioMuted(true);
 
   // Navigation guard: only the launcher and the connected server origin, nothing else.
   win.webContents.on("will-navigate", (event, url) => {
@@ -690,7 +693,8 @@ function registerIpc(): void {
    * page loaded into the same window after `connect()` (ra_14 finding 4). `tit:connect` already
    * did this for the manual-connect path; the same check now also covers everything that can
    * mount an arbitrary host directory + docker.sock (`stack:start`)
-   * or seed the next launch's defaults (`setSettings`, e.g. `lastProjectDir`). A
+   * or seed the next launch's defaults (`setSettings`, e.g. `lastProjectDir`; the served page may
+   * write only `notifications`). A
    * server-served page may still call `getSettings`, `openExternal`, `openPath`,
    * `showItemInFolder`, `notify`, `platform`, `appVersion`, `stack:status` and `stack:stop`.
    * Project switching additionally permits the native directory picker; a destination mount
@@ -891,7 +895,12 @@ function registerIpc(): void {
     const settings = readSettings();
     return !app.isPackaged && process.env.TIT_DEV_PROJECT_DIR ? { ...settings, lastProjectDir: process.env.TIT_DEV_PROJECT_DIR } : settings;
   });
-  ipcMain.handle("tit:setSettings", (e, partial: unknown) => (fromLauncherWindow(e) ? updateSettings(partial) : {}));
+  ipcMain.handle("tit:setSettings", (e, partial: unknown) => {
+    if (fromLauncherWindow(e)) return updateSettings(partial);
+    // The connected app may change only its notification preferences.
+    if (fromMainWindow(e) && partial && typeof partial === "object") return updateSettings({ notifications: (partial as { notifications?: unknown }).notifications });
+    return {};
+  });
 
   ipcMain.handle("tit:selectDirectory", async (e): Promise<string | undefined> => {
     if (!fromMainWindow(e) || !mainWindow) return undefined;
@@ -957,14 +966,13 @@ function registerIpc(): void {
     shell.showItemInFolder(resolved.path);
     return { ok: true };
   });
-  ipcMain.handle("tit:notify", (e, title: unknown, body: unknown) => {
-    if (!fromMainWindow(e)) return;
-    if (!Notification.isSupported()) return;
-    // A banner is composited over whatever the developer is doing, so an offscreen run stays
-    // silent as well as invisible (`./window.ts`). `jobsNotifier` fires these on a timer, which
-    // is precisely the case that would otherwise pepper a long E2E run with notifications.
-    if (!mayShowSystemUi(WINDOW_MODE)) return;
-    new Notification({ title: String(title ?? "TI-Toolbox"), body: body ? String(body) : undefined }).show();
+  ipcMain.handle("tit:notify", async (e, title: unknown, body: unknown, silent: unknown): Promise<NotifyResult> => {
+    if (!fromMainWindow(e)) return { ok: false, reason: "unknown sender" };
+    if (typeof title !== "string" || !title || title.length > 200) return { ok: false, reason: "Invalid notification title." };
+    if (body !== undefined && (typeof body !== "string" || body.length > 500)) return { ok: false, reason: "Invalid notification body." };
+    if (silent !== undefined && typeof silent !== "boolean") return { ok: false, reason: "Invalid notification sound flag." };
+    // `showNativeNotification` keeps an offscreen run silent as well as invisible (`./window.ts`).
+    return showNativeNotification({ title, body, silent }, mainWindow ?? undefined);
   });
 
   ipcMain.handle("tit:stack:start", async (e, hostProjectDir: unknown): Promise<TitStackStartResult> => {

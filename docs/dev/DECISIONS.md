@@ -2037,3 +2037,27 @@ swap; midline allow-list by LUT name: vermis, brain stem, third/fourth ventricle
 `tests/test_atlas_manifest.py::TestNotShipped::test_a_bilateral_atlas_names_its_lateralized_replacement`,
 `tests/test_atlas_manifest.py::TestGrid` (cortl on the template grid, LUT covers 1..96).
 
+## 2026-09-23 — Job banners can play a TI-Toolbox sound; the preload budget moves from 22 to 23
+
+**Decision.** The notification preference `sound` is one of `none`, `system` or a shipped sound
+(`pulse` default, `chime`, `tick`), listed once in `TI_SOUNDS`
+(`desktop/src/shared/jobNotifications.ts`); anything else normalizes to the default, and the old
+boolean migrates (true → `pulse`, false → `none`); `soft-bell` and `ripple`, offered briefly the
+same day and withdrawn, also read as `pulse`. `system` keeps the OS sound (`silent: false`);
+a shipped sound shows the banner silent and main sends `tit:notificationSound` to the main window,
+which plays the WAV with an `HTMLAudioElement` (a failure: the same file at 0.75× with pitch
+following, a fourth lower). This adds one preload entry, `onNotificationSound`. The sound now
+plays while the window is focused too (the old "muted while in front" rule is dropped: the user
+chose the sound to hear it). An offscreen test window is muted (`setAudioMuted`) and main sends no
+sound event in that mode. The WAVs are synthesized by `dev/generate_notification_sounds.py`
+(stdlib only, byte-deterministic, −3 dBFS peak, ≤ 0.8 s, 64 KB for three [measured: `du`]) and
+imported as Vite assets, so they ship in `out/renderer` for dev, packaged and container-served UIs.
+
+**Alternatives rejected.** Electron's macOS `Notification.sound` only plays sounds inside the app
+bundle and does nothing on Windows/Linux. Playing from main needs a shell-out (`afplay`) or a
+hidden window. Separate failure files would double the assets for what a playback rate gives.
+
+**Verification.** `desktop/tests/unit/job-notifications.test.ts` (migration, unknown ids,
+`soundPlan`, WAV headers read with DataView), `desktop/tests/unit/notifications-card.test.tsx`
+(selector, Preview, test banner per choice, failure pitch, unknown id ignored),
+`desktop/tests/e2e/smoke.spec.ts` bridge list.

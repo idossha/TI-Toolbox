@@ -173,8 +173,9 @@ UI tests run hidden and assess state, geometry and rendering assertions. An unav
 is unverified, not passed.
 
 Frozen paths are [`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
-The preload bridge has 22 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
-`saveNativeTetravoxScene` adds native snapshot saving. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
+The preload bridge has 23 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
+`saveNativeTetravoxScene` adds native snapshot saving; `onNotificationSound` lets main have the
+window play a job banner's TI-Toolbox sound. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer

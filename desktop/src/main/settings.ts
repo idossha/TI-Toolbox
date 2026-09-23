@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { app } from "electron";
 import type { TitSettings } from "../shared/tit-bridge";
+import { normalizeNotificationPrefs } from "../shared/jobNotifications";
 
 const ALLOWED_KEYS = ["lastServerUrl", "lastProjectDir"] as const;
 
@@ -16,6 +17,7 @@ export function readSettings(): TitSettings {
     if (typeof raw.lastServerUrl === "string") out.lastServerUrl = raw.lastServerUrl;
     if (typeof raw.lastProjectDir === "string") out.lastProjectDir = raw.lastProjectDir;
     if (typeof raw.appleGpuEnabled === "boolean") out.appleGpuEnabled = raw.appleGpuEnabled;
+    if (raw.notifications !== undefined) out.notifications = normalizeNotificationPrefs(raw.notifications);
     return out;
   } catch {
     return {};
@@ -30,6 +32,7 @@ export function updateSettings(partial: unknown): TitSettings {
     for (const key of ALLOWED_KEYS) {
       if (typeof p[key] === "string") current[key] = p[key] as string;
     }
+    if (p.notifications !== undefined) current.notifications = normalizeNotificationPrefs({ ...current.notifications, ...(p.notifications as object) });
   }
   return writeSettings(current);
 }

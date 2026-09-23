@@ -31,4 +31,17 @@ describe("user Apple GPU preference", () => {
     updateSettings({ lastProjectDir: "/q" });
     expect(JSON.parse(readFileSync(join(location.directory, "settings.json"), "utf8"))).toEqual({ lastProjectDir: "/q" });
   });
+  it("merges a partial notification preference over the defaults and repairs bad values", () => {
+    updateSettings({ notifications: { detail: "minimal" } });
+    updateSettings({ notifications: { sound: false, events: "nonsense" } });
+    // An old boolean `sound: false` is stored as the "none" choice.
+    expect(readSettings().notifications).toEqual({ enabled: true, detail: "minimal", sound: "none", events: "all" });
+  });
+
+  it("stores a known sound and repairs an unknown one to the default", () => {
+    updateSettings({ notifications: { sound: "tick" } });
+    expect(readSettings().notifications?.sound).toBe("tick");
+    updateSettings({ notifications: { sound: "file:///etc/passwd" } });
+    expect(readSettings().notifications?.sound).toBe("pulse");
+  });
 });

@@ -9,6 +9,10 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
+#### Notifications
+
+- **A system notification when a job finishes** — the desktop app now says what finished and for whom, e.g. **Simulation finished** · _sub-101 · montage L_Insula_ or **Flex optimization failed** · _sub-102_, instead of the old "Job finished" with a job id. **Settings → Project → Notifications** turns them off, limits them to failures, switches to a minimal title-only form, or picks the sound: one of three short TI-Toolbox sounds (Pulse by default, Chime, Tick; a failure plays it lower), the system sound, or none, with **Preview** beside it. A saved sound-on setting becomes Pulse and sound-off becomes None. Clicking one brings the app to the front. Cancelled jobs and jobs that had finished before the app opened never notify; each subject of a multi-subject run notifies as it finishes. **Send test notification** in the same card shows a sample banner with the chosen sound and says whether it appeared, or why not with the fix. Browser sessions are unchanged (no notifications). Developers: a checkout's Electron is re-signed on `npm install` so macOS lets it notify (existing checkouts: `npm --prefix desktop run sign:dev-electron`).
+
 #### Resources
 
 - **TI-Toolbox uses 70 % of your cores by default, and you can change it** — a new **CPU limit** in **Settings → Project → Execution** (10–100 %, shown as e.g. "70 % · 7 of 10 cores") caps the CPUs all running jobs share. Previously a search defaulted to every core but one and several jobs together could take the whole machine. Ex-/mex-search and cluster-permutation workers, flex-search, FastSurfer/FreeSurfer/CHARM/QSI threads and NIfTI conversion now default to this limit; an explicit `n_jobs`/`cpus`/thread value still works but is capped at it. A change applies to jobs started afterwards; running jobs are not touched. Scripts and notebooks honour the same saved setting. Memory limits are unchanged. API: `GET`/`PUT /api/cpu-limit`.

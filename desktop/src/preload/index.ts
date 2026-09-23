@@ -40,7 +40,13 @@ const tit: TitBridge = {
     ipcRenderer.invoke("tit:saveFile", String(text), options ?? {}),
   openPath: (path: string) => ipcRenderer.invoke("tit:openPath", String(path)),
   showItemInFolder: (path: string) => ipcRenderer.invoke("tit:showItemInFolder", String(path)),
-  notify: (title: string, body?: string) => ipcRenderer.invoke("tit:notify", String(title), body ? String(body) : undefined),
+  notify: (title: string, body?: string, silent?: boolean) =>
+    ipcRenderer.invoke("tit:notify", String(title), body ? String(body) : undefined, silent === undefined ? undefined : !!silent),
+  onNotificationSound: (listener: (sound: string, failed: boolean) => void) => {
+    const handler = (_event: unknown, sound: unknown, failed: unknown) => listener(String(sound), failed === true);
+    ipcRenderer.on("tit:notificationSound", handler);
+    return () => ipcRenderer.removeListener("tit:notificationSound", handler);
+  },
   fastsurfer: {
     status: () => ipcRenderer.invoke("tit:fastsurfer:status"),
     enable: () => ipcRenderer.invoke("tit:fastsurfer:enable"),

@@ -1,3 +1,5 @@
+import type { NotificationPrefs, NotifyResult } from "./jobNotifications";
+
 /** Host capabilities exposed by the sandboxed preload. Browser sessions have no bridge.
  * All filesystem access and native execution are checked in the main process.
  */
@@ -8,6 +10,8 @@ export interface TitSettings {
   lastProjectDir?: string;
   /** Set only by the native Apple GPU consent flow. */
   appleGpuEnabled?: boolean;
+  /** Job-completion notifications (Settings ▸ Project ▸ Notifications); absent means the defaults. */
+  notifications?: NotificationPrefs;
 }
 
 export interface TitConnectArgs {
@@ -140,7 +144,10 @@ export interface TitBridge {
    */
   connect(args?: TitConnectArgs): Promise<TitConnectResult>;
   getSettings(): Promise<TitSettings>;
-  /** Launcher-only (ra_14 finding 4) — see the numbered list above. */
+  /**
+   * Launcher-only (ra_14 finding 4) — see the numbered list above — except `notifications`, the
+   * one key the connected app may also write (it seeds nothing and mounts nothing).
+   */
   setSettings(partial: Partial<TitSettings>): Promise<TitSettings>;
   /**
    * Host directory picker for project selection, including switching. Requires an explicit native
@@ -183,8 +190,16 @@ export interface TitBridge {
   openPath(path: string): Promise<{ ok: boolean; reason?: string }>;
   /** Reveal a path in Finder/Explorer/the file manager — same mapping and rejection rules as `openPath`. */
   showItemInFolder(path: string): Promise<{ ok: boolean; reason?: string }>;
-  /** Fire a native desktop notification. No-ops silently where notifications are unsupported. */
-  notify(title: string, body?: string): Promise<void>;
+  /**
+   * Show a native desktop notification and report what the OS said: shown, or why not (with a
+   * one-line fix when macOS permission or the dev Electron's signature is the likely cause).
+   */
+  notify(title: string, body?: string, silent?: boolean): Promise<NotifyResult>;
+  /**
+   * Main asks this window to play a job banner's TI-Toolbox sound (main has no audio API). `sound`
+   * is untrusted text: the player ignores anything not in `TI_SOUNDS`. Returns the unsubscribe.
+   */
+  onNotificationSound(listener: (sound: string, failed: boolean) => void): () => void;
   stack: TitStackBridge;
   fastsurfer?: TitFastSurferBridge;
 }
