@@ -9,7 +9,9 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
-Nothing yet.
+#### Fixed
+
+- **Head-model creation (charm) could freeze indefinitely on many-core machines** — on a machine with a large number of CPU cores, running `charm` to build a head model could hang forever partway through, with the log showing an OpenBLAS thread-metadata warning. Charm's own threading is unaffected; the underlying numerical library now stays single-threaded internally as intended.
 
 ### v3.0.1 — September 23, 2026 (Latest Release)
 

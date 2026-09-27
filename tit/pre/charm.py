@@ -153,6 +153,12 @@ def run_charm(
                 **os.environ,
                 "OMP_NUM_THREADS": str(thread_count),
                 "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS": str(thread_count),
+                # OpenBLAS falls back to OMP_NUM_THREADS when OPENBLAS_NUM_THREADS
+                # is unset, so raising OMP_NUM_THREADS above also lets OpenBLAS
+                # spawn thread_count threads per samseg/gems caller; with several
+                # concurrent callers this overflows OpenBLAS's thread-metadata
+                # table and deadlocks (seen on many-core Windows hosts).
+                "OPENBLAS_NUM_THREADS": "1",
             }
             exit_code = runner.run(
                 cmd, logger=logger, cwd=str(simnibs_subject_dir), env=env

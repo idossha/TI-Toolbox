@@ -74,6 +74,31 @@ class TestRunCharm:
         assert "--forceqform" in cmd
         assert str(t2) in cmd
 
+    @patch(f"{MODULE}._get_form_flag", return_value="--forcesform")
+    @patch(f"{MODULE}.get_path_manager")
+    @patch(f"{MODULE}._find_anat_files")
+    def test_keeps_openblas_single_threaded(
+        self, mock_find, mock_gpm, mock_flag, mock_pm, tmp_path
+    ):
+        """OpenBLAS must stay single-threaded even when OMP threads are raised,
+        or concurrent samseg/gems callers overflow its thread-metadata table
+        and deadlock (seen on many-core hosts)."""
+        mock_gpm.return_value = mock_pm
+        t1 = tmp_path / "sub-001" / "anat" / "sub-001_T1w.nii.gz"
+        t1.parent.mkdir(parents=True, exist_ok=True)
+        t1.touch()
+        mock_find.return_value = (t1, None)
+
+        logger = MagicMock()
+        runner = MagicMock()
+        runner.run.return_value = 0
+
+        run_charm("/proj", "001", logger=logger, runner=runner, threads=8)
+
+        env = runner.run.call_args.kwargs["env"]
+        assert env["OMP_NUM_THREADS"] == "8"
+        assert env["OPENBLAS_NUM_THREADS"] == "1"
+
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
     def test_no_t1_raises(self, mock_find, mock_gpm, mock_pm):
