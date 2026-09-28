@@ -43,7 +43,7 @@ _MASK_DECOMPRESSED_LIMIT = 512 * 1024 * 1024
 # directly rather than through the sandboxed iframe (ra_14 finding 6).
 REPORT_CSP = (
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-    "img-src data:; sandbox allow-scripts"
+    "img-src data:; font-src data:; sandbox allow-scripts"
 )
 
 # Extensions the browser could plausibly execute as a document (HTML) --

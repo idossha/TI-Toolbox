@@ -288,3 +288,13 @@ describe("shell chrome (plan §1, DESIGN.md §2/§3.3) — app/shell.css", () =>
     expect(strip).toMatch(/color:\s*var\(--warning\)/);
   });
 });
+
+describe("report iframe follows the app theme", () => {
+  const resultsCss = readFileSync(resolve(__dirname, "../../src/renderer/pages/results/results.css"), "utf8");
+
+  it("the report frame does not pin color-scheme, so the report's prefers-color-scheme tracks the app", () => {
+    // `color-scheme: light` here made every report render light inside a dark app.
+    const frame = extractBlock(resultsCss, ".results-report-frame {");
+    expect(frame).not.toMatch(/color-scheme/);
+  });
+});

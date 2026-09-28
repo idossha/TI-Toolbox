@@ -1847,7 +1847,7 @@ _REPORT_KIND_TITLES = {
     "pre_processing_report": "Preprocessing report",
     "ex_search_report": "Ex-search report",
     "m_ex_search_report": "mEx-search report",
-    "dti_qc_report": "DTI QC report",
+    "dti_qc": "DTI QC report",  # files are dti_qc_<YYYYMMDD>_<HHMMSS>.html
 }
 
 

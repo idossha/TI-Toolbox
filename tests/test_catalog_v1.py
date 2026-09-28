@@ -654,11 +654,23 @@ def test_reports_and_report_file(client: TestClient) -> None:
     # This asserts the substring this route contributes; see the final report.
     assert "script-src 'unsafe-inline'" in r.headers["content-security-policy"]
     assert "img-src data:" in r.headers["content-security-policy"]
+    # Reports embed their fonts as data: URIs (tit/reporting/html/fonts).
+    assert "font-src data:" in r.headers["content-security-policy"]
     # ra_14 finding 6: the report's own CSP must also sandbox the document
     # (opaque origin -- no cookies, no same-origin fetch) independent of the
     # renderer's iframe `sandbox=` attribute, and nosniff on top of that.
     assert "sandbox allow-scripts" in r.headers["content-security-policy"]
     assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_dti_qc_report_title(tmp_path) -> None:
+    """``dti_qc_<date>_<time>.html`` is titled "DTI QC report", not the stem's "Dti qc"."""
+    from tit.catalog import _report_entry
+
+    path = tmp_path / "dti_qc_20260927_230922.html"
+    path.write_text("<html></html>")
+    entry = _report_entry(str(path), "CHN")
+    assert (entry["kind"], entry["title"]) == ("dti_qc", "DTI QC report")
 
 
 def test_report_route_has_exactly_one_csp_header(client: TestClient) -> None:

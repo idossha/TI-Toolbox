@@ -305,17 +305,16 @@
   flex: 1;
 }
 
-/* Generated reports are static, always-light documents. An iframe's own background shows through
- * wherever the framed document paints none, so a dark app theme would otherwise make a report with
- * no explicit body background unreadable. Deliberately literal — this white belongs to the report's
- * page, not to the app chrome. */
+/* The frame inherits the app's `color-scheme`, so a report's `prefers-color-scheme` follows the app
+ * theme (reports built on tit/reporting/html have a dark theme). The white stays as the backdrop for
+ * older reports that paint no body background: they declare no color-scheme, so the browser gives
+ * them an opaque light canvas when the app is dark. */
 .results-report-frame {
   display: block;
   width: 100%;
   height: 100%;
   border: 0;
   background: #fff;
-  color-scheme: light;
 }
 
 .results-preview-header-actions {
