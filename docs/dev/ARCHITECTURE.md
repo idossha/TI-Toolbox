@@ -836,9 +836,8 @@ silently presenting a page-local plot as a complete history.
 ## 14. Reports built on the shared HTML layer
 
 **One components module, one stylesheet.** `tit/reporting/html/components.py` holds the page shell
-(contents rail, masthead, light/dark tokens with an in-page theme toggle; no print stylesheet, since PDF
-export is not offered), the components
-a report uses (section, callout, figure, flicker, plane tabs, slice scrubber, table, definition list,
+(contents rail, masthead, light/dark tokens with an in-page theme toggle), the components a report
+uses (section, callout, figure, flicker, plane tabs, slice scrubber, table, definition list,
 disclosure, methods with a copy button, references), hand-written SVG charts and the QC-check row;
 `report.css` holds the tokens and layout. Pages are self-contained: CSS, a small script, the IBM Plex
 fonts (OFL, embedded once as `data:`) and WebP/PNG images are inline; the only links are `doi.org`
@@ -846,6 +845,11 @@ references, and the report CSP allows `font-src data:`. A component exists only 
 it; the DTI QC report is the first and only adopter, and the other generators still use
 `tit/reporting/core` until they are ported. A report inside the desktop app follows the app's theme:
 the Results iframe no longer pins `color-scheme`.
+
+**Five report kinds, nothing around them.** TI-Toolbox writes the preprocessing report (home of the
+FreeSurfer/FastSurfer recon report), the DTI QC report, and flex-search, ex-search and simulator
+reports; `tit.catalog` titles only those kinds. A report is one HTML file: no PDF export or print
+stylesheet, no metadata or sidecar file, no links to other reports and no index page.
 
 **QC rules live in one dict, with a role and a citation.** `tit/reporting/qc_rules.py` `RULES[section]`
 gives every check its rule, value, unit, role, citations (DOIs in the reference registry), note and one
@@ -855,9 +859,11 @@ beside a cited reference, no pass/fail). A blocking row's status comes only from
 `failures`, so a table never disagrees with the verdict. For DTI the only user-facing gate is white-matter
 median MD; NCC, chain agreement, positive-definiteness, coverage and out-of-brain are internal.
 
-**The DTI report is lean by default.** Verdict (gate table plus a callout per advisory that needs
-attention), a short preprocessing list, one registration flicker (T1w vs FA with charm contours,
-three planes), one direction-encoded colour scrubber with its orientation sphere, FA/MD by tissue;
+**The DTI report is lean by default.** Verdict (a headline in terms of what the page shows, such as
+"Quality gate passed · 2 advisories need attention" or the failed checks by name; the gate table; a
+callout per advisory that needs attention; the masthead gives the tensor's write time), a short
+preprocessing list, one registration flicker (T1w vs FA with charm contours, three planes), one
+direction-encoded colour scrubber with its orientation sphere, FA/MD by tissue;
 everything else (all checks, residual shift by region, a one-line `vn` conductivity note, motion per
 volume, methods and references, versions, input hashes, the QC record) is collapsed under Technical
 details. Budget 2.5 MB (CHN: 1.2 MB). `python -m tit.reporting.generators.dti_qc <project> <subject>

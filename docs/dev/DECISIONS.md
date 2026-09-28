@@ -2165,3 +2165,34 @@ is gone from `tit.plotting`.
 
 **Revisit if** a second report type adopts the layer (move its sections into `RULES`), or the published
 thresholds change.
+
+## 2026-09-28 — Five report kinds and nothing around them; the DTI verdict counts what the page shows
+
+**Decision.** TI-Toolbox keeps five report kinds: the preprocessing report (home of the
+FreeSurfer/FastSurfer recon report), DTI QC, flex-search, ex-search and simulator. `tit.catalog` no
+longer titles `m_ex_search_report` (no generator ever wrote one). Reports have no PDF export or print
+stylesheet, no metadata or sidecar files, no cross-links and no index page; the shared layer's A4 print
+CSS, its print handlers and the legacy templates' `@media print` block are removed. The DTI headline
+reads "Quality gate passed", "Quality gate passed · N advisories need attention", or names the failed
+checks ("Quality gate failed: White-matter diffusivity — tensor not written"); the masthead shows the
+tensor file's write time instead of "written". The DTI generator, its advisories and the HTML layer
+lost their unused parameters, tokens and wrappers (labels now live in `RULES`).
+
+**Why.** The maintainer's standing requirement is efficiency without bloat, and PDF export, sidecars,
+cross-links and an index page were declined (2026-09-28). "Passed all 6 blocking checks" counted five
+software checks the default view does not show, so the headline and the visible table disagreed.
+
+**Alternatives rejected.** Keeping print CSS as harmless: it existed only for the declined PDF path.
+Deleting the per-stage preprocessing reports of `tit.pre.structural.run_pipeline`, the unused
+`SimulationReportGenerator`, the reports directory's BIDS `dataset_description.json`, and the plain-text
+summaries of `tit.stats` and tissue analysis: kept, because they are the home of a needed report or an
+analysis output rather than a report of their own; listed for review. Cutting shown DTI content (the
+QC-record dump, the motion chart, the `vn` note, the reference-subject FA) to halve the generator: a
+change to what the report shows, left to the maintainer.
+
+**Evidence.** CHN (Dataset 000): with the same record and images, the page body is byte-identical
+before the two fixes; the re-measured `DTI_coregT1_qc.json` equals the old one apart from timestamps;
+every image is byte-identical. Report 1,231,100 → 1,229,144 bytes; rebuild 16.3 → 15.8 s on an Apple
+M-series host, 30 → 28 s in `idossha/ti-toolbox:v3.0.1`. `pytest tests/ --ignore=tests/numerical`
+5287 passed, 54 skipped; `tests/numerical/test_dti_advisories.py` and `test_dti_roundtrip.py` in the
+image with dipy 1.12.1: 16 passed.

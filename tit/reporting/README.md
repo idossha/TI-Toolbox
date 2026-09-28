@@ -35,7 +35,7 @@ tit/reporting/
 ├── qc_rules.py                    # every QC rule: value, role, citation, plain text
 ├── html/                          # shared HTML layer (DTI QC report today)
 │   ├── components.py              # shell, components, SVG charts, QC-check rows
-│   ├── report.css                 # tokens, layout, print
+│   ├── report.css                 # tokens, layout
 │   └── fonts/                     # IBM Plex woff2 (OFL), embedded once
 │
 ├── core/                          # Core infrastructure
@@ -65,12 +65,17 @@ tit/reporting/
 
 ## Integration Status
 
-| Generator | Called from |
-|---|---|
-| `PreprocessingReportGenerator` | `tit/pre/report.py`, `tit/pre/structural.py` |
-| `FlexSearchReportGenerator` | `tit/opt/flex/builder.py` |
-| DTI QC report (with the `DTI_coregT1_qc.json` gate) | `tit/pre/qsi/dti_extractor.py` |
-| `SimulationReportGenerator` | constructed by its callers directly; no pipeline module imports it |
+TI-Toolbox keeps five report kinds (docs/dev/DECISIONS.md, 2026-09-28): the FreeSurfer/FastSurfer
+recon report (inside the preprocessing report), DTI QC, flex-search, ex-search and simulator. Reports
+have no PDF export or print layout, no metadata or sidecar files, no cross-links and no index page.
+
+| Report kind | Generator | Called from |
+|---|---|---|
+| preprocessing (recon) | `PreprocessingReportGenerator` | `tit/pre/report.py`, `tit/pre/structural.py` |
+| DTI QC (with the `DTI_coregT1_qc.json` gate) | `generators/dti_qc.py` | `tit/pre/qsi/dti_extractor.py` |
+| flex-search | `FlexSearchReportGenerator` | `tit/opt/flex/builder.py` |
+| ex-search | none yet (the catalog titles `ex_search_report_*`) | — |
+| simulator | `SimulationReportGenerator` | constructed by its callers directly; no pipeline module imports it |
 
 ---
 

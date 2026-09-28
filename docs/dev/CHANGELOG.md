@@ -25,6 +25,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 #### Removed
 
+- **Print layouts for reports** — reports no longer carry an A4 print layout (PDF export is not offered); printing from the browser prints the page as it appears on screen.
 - **`tit.plotting.generate_static_overlay_images`** — its only user was the old DTI report. Report slice figures now come from `tit.plotting.slices`, which draws every panel in one convention (subject left on image left).
 
 ### v3.0.1 — September 23, 2026 (Latest Release)
