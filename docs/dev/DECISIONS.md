@@ -2257,3 +2257,25 @@ limits as per channel or as total — the review could not verify which.
 wording, budgets including a 48,000-montage search); `python -m tit.reporting.generators.<name>` on
 Dataset 000 sub-ernie: simulator 0.33 MB, flex-search 0.27 MB (was 7.4 MB), ex-search 0.41 MB.
 
+
+## 2026-09-28 — Optimiser reports have no checks; a page's references are only what it cites
+
+**Decision.** Ex-search drops its only check, the electrode-current advisory, with its checks table
+and section badge, and `RULES["opt"]["electrode_peak_current"]` is deleted (flex-search dropped its
+use earlier the same day; the simulator keeps `RULES["sim"]["electrode_peak_current"]`). Methods
+paragraphs no longer cite TI-Toolbox itself (Haber 2026) or cite Grossman 2017 for TI as a topic; the
+DTI report no longer cites SimNIBS's conductivity mappings (Tuch 2001, Rullmann 2009, Opitz 2011), which
+it does not apply. Grossman 2017 stays where the envelope formula behind the shown numbers is named
+(simulator, ex-search), the simulator cites only the mapping of the conductivity mode it names
+(`vn`/`mc` Opitz 2011, `dir` Tuch 2001 + Rullmann 2009), and Jurcak 2007 only when the named net is a
+10-10/10-20 layout. `references.py` keeps only entries some report cites (20 removed).
+
+**Why.** The maintainer asked for ex-search's only check to go, and for a reference to appear only when
+a number, threshold, rule or method shown on that page cites it (2026-09-28). The simulator's current
+advisories are a separate, pending decision and are unchanged.
+
+**Alternatives rejected.** A fixed reference list per generator — it keeps a reference after its row is
+removed. Keeping unused registry entries as a library — nothing reads them.
+
+**Evidence.** `tests/test_reporting_runs.py::test_references_are_exactly_what_the_page_cites`
+(all four reports, both directions, from the generators' real output).

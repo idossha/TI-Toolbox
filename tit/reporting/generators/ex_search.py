@@ -4,7 +4,8 @@ Built on :mod:`tit.reporting.html.components` (ARCHITECTURE.md §14). Everything
 run folder: ``run_config.json`` (buckets, current sweep, ROI name and radius, leadfield),
 ``final_output.csv`` (one row per montage and current split), the ROI confirmation
 (``roi.tetravox.json``) and the leadfield's SimNIBS log (electrode geometry, conductivity).
-Rules come from ``tit.reporting.qc_rules.RULES["opt"]``; the current check is an advisory.
+The goal definition and dose record come from ``tit.reporting.qc_rules.RULES["opt"]``; the page
+has no checks.
 
 The default view is the winner (ranked by composite = ROI mean × focality) on the app's EEG-cap
 overlay with its dose, one chart of every montage's ROI mean against focality, the top 25 as a
@@ -30,7 +31,7 @@ from pathlib import Path
 from tit.reporting.generators import common
 from tit.reporting.generators.common import fmt
 from tit.reporting.html import components as c
-from tit.reporting.html.components import Check, esc
+from tit.reporting.html.components import esc
 from tit.reporting.qc_rules import RULES
 
 logger = logging.getLogger(__name__)
@@ -100,11 +101,6 @@ def net_of(cfg: dict) -> str:
     from tit.opt.ex.symmetry import net_name_from_leadfield
 
     return net_name_from_leadfield(cfg.get("leadfield_hdf", ""))
-
-
-def checks(rec: dict) -> list[Check]:
-    best = rec["rows"][0]
-    return [common.current_check("opt", [best["I1"], best["I2"]])]
 
 
 def _montage_name(pairs: list[list[str]]) -> str:
@@ -205,8 +201,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     cite = c.Cites()
     fig_no = iter(range(1, 20))
     best = rows[0]
-    checks_ = checks(rec)
-    seal, _ = c.verdict(checks_)
+    seal = "pass"
     n = len(rows)
     pairs = best["pairs"]
     name = _montage_name(pairs)
@@ -243,8 +238,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ),
         ("Montages", f"{n:,}", "montage × current-split combinations"),
     ]
-    extra = common.attention_callouts(checks_, cite) + c.stats(key)
-    verdict_sec = c.verdict_section(seal, headline, lede, extra)
+    verdict_sec = c.verdict_section(seal, headline, lede, c.stats(key))
 
     # ── 2. winner ──
     dims = (lf.get("dimensions") or "").replace(", ", "×").replace(",", "×")
@@ -287,20 +281,12 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         '<h3 class="sub">Dose record</h3>'
         + c.kv(dose)
         + f'<p class="muted" style="font-size:13px;margin-top:10px">{c.inline(d["plain"])} {cite.dois(d["cite"])}</p>'
-        + c.checks_table(
-            checks_,
-            "The current advisory never blocks; it compares the winner's dose with published evidence.",
-            cite.dois,
-        )
     )
-    n_attn = sum(r.status in ("warn", "fail") for r in checks_)
     winner_sec = c.section(
         "winner",
         "Winning montage",
         winner,
         lead="Where to place the electrodes and how much current to use.",
-        st="warn" if n_attn else "pass",
-        st_label="Review current" if n_attn else "Within evidence",
     )
 
     # ── 3. results ──
@@ -409,8 +395,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
 
     # ── 5. technical ──
     paras = [
-        f"Electrode montages for temporal interference stimulation {cite('grossman2017_ti')} were ranked by exhaustive search in TI-Toolbox "
-        f"{cite('haber2026_titoolbox')}: {n:,} two-channel combinations and current splits on the {esc(Path(net).stem)} positions"
+        f"Electrode montages for temporal interference stimulation were ranked by exhaustive search in TI-Toolbox: {n:,} two-channel combinations and current splits on the {esc(Path(net).stem)} positions"
         + (f" {cite('jurcak2007_eeg_positions')}" if "10-" in net else "")
         + f", each evaluated from a SimNIBS {esc(lf.get('simnibs') or '')} {cite('saturnino2019_simnibs21')} leadfield of subject {esc(subject_id)}'s head model "
         f"{cite('puonti2020_charm')} with {cond} conductivities.",
@@ -450,7 +435,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     )
     toc = [
         ("verdict", "Verdict", seal),
-        ("winner", "Winning montage", "warn" if n_attn else "pass"),
+        ("winner", "Winning montage", None),
         ("results", "Search results", None),
         ("target", "Target and ranking", None),
         ("technical", "Technical details", None),

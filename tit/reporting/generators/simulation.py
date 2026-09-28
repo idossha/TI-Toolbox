@@ -48,6 +48,12 @@ _CONDUCTIVITY = {
     "dir": "anisotropic, direct mapping (dir)",
     "mc": "anisotropic, mean conductivity (mc)",
 }
+#: The source of the tensor-to-conductivity mapping the page names (SimNIBS's anisotropy_type).
+_CONDUCTIVITY_CITE = {
+    "vn": ("opitz2011_tissue_efield",),
+    "mc": ("opitz2011_tissue_efield",),
+    "dir": ("tuch2001_conductivity", "rullmann2009_dti_conductivity"),
+}
 
 
 # ── reading the simulation's outputs ─────────────────────────────────────
@@ -530,7 +536,7 @@ def build_html(
             "per-carrier grey-matter percentiles",
         )
     paras = [
-        f"Temporal interference stimulation {cite('grossman2017_ti')} was simulated in TI-Toolbox {cite('haber2026_titoolbox')} with SimNIBS "
+        "Temporal interference stimulation was simulated in TI-Toolbox with SimNIBS "
         f"{esc(log['simnibs'] or '')} {cite('saturnino2019_simnibs21')} on the head model of subject {esc(subject_id)} {cite('puonti2020_charm')}. "
         f"{len(pairs)} channels ({esc(montage)}) each delivered {per_ch} mA through {esc(geo.get('shape', ''))} {dims} mm electrodes with "
         f"{geo.get('gel_thickness', '?')} mm gel"
@@ -542,7 +548,7 @@ def build_html(
         + ". "
         + (
             f"Tissue conductivities were anisotropic in white and grey matter, derived from diffusion tensors ({esc(cond)}) "
-            f"{cite('tuch2001_conductivity', 'opitz2011_tissue_efield')}."
+            f"{cite(*_CONDUCTIVITY_CITE.get(cond, ()))}."
             if cond != "scalar"
             else "Tissue conductivities were isotropic SimNIBS standard values."
         ),

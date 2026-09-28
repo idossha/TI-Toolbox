@@ -223,12 +223,6 @@ class TestRules:
         assert {row.id for row in gen.gate_checks(record)} == {k for k, r in RULES["dti"].items() if r["role"] in ("gate", "internal")}
         assert {a["id"] for a in record["advisories"]} <= set(RULES["dti"])
 
-    def test_cited_references_are_listed(self):
-        html = gen.build_html(_record(), _images(), "X")
-        cited = set(re.findall(r'href="#ref-([\w]+)"', html))
-        listed = set(re.findall(r'<li id="ref-([\w]+)"', html))
-        assert cited and cited == listed
-
 
 class TestSharedLayer:
     def test_every_colour_token_has_both_dark_definitions(self):

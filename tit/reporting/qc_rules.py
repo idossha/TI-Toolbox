@@ -15,8 +15,9 @@ The pipelines (``tit.pre.qsi.dti_extractor``'s gate, ``tit.pre.qsi.dti_advisorie
 read values from here, so a value changes in one place. Rules and citations are from the literature
 review of 2026-09-28 (the only published cut-offs for DTI are the b-table flip test; the rest are
 internal invariants or values shown against a cited reference). ``sim`` and ``opt`` hold the
-simulator and optimiser rules (the same review); ``electrode_peak_current`` is per electrode, which
-carries its channel's current.
+simulator and optimiser rules (the same review); the simulator's ``electrode_peak_current`` is per
+electrode, which carries its channel's current. The optimiser reports have no checks: ``opt`` holds
+only the goal definition and dose record they cite as prose.
 """
 
 from __future__ import annotations
@@ -267,16 +268,6 @@ RULES: dict[str, dict[str, dict]] = {
             "cite": ["10.1016/j.brs.2011.10.001"],
             "note": "",
             "plain": "Montage, electrode size, currents and frequencies: everything needed to reproduce the dose.",
-        },
-        "electrode_peak_current": {
-            "label": "Electrode current",
-            "rule": "<",
-            "value": 4.0,
-            "unit": "mA",
-            "role": "advisory",
-            "cite": ["10.1016/j.clinph.2017.06.001", "10.1002/bem.22536"],
-            "note": "",
-            "plain": "Same as the simulation current check.",
         },
     },
 }

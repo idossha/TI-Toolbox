@@ -906,12 +906,18 @@ returns WebP; nets without a cap template get the channel list only. Flex electr
 so the flex report draws each at its nearest cap electrode (`map_electrodes_to_net`) and lists the
 distances. No report draws its own head.
 
-**Simulator and optimiser rules are `RULES["sim"]` and `RULES["opt"]`.** Their only published cut-offs
-are advisories: electrode current < 4 mA (per electrode, which carries its channel's current; the total
-is shown beside it), with Cassarà 2025's kHz limits stated as unverified per channel or total; estimated
-peak brain current density < 6.3 A/m²; and at least two valid multi-start runs. Target field is shown
-against Rampersad 2019's range scaled to the run's total current, never as pass/fail. Solver precision,
-current conservation and the field's order of magnitude are software checks.
+**Simulator and optimiser rules are `RULES["sim"]` and `RULES["opt"]`.** The simulator's only published
+cut-offs are advisories: electrode current < 4 mA (per electrode, which carries its channel's current;
+the total is shown beside it), with Cassarà 2025's kHz limits stated as unverified per channel or total;
+and estimated peak brain current density < 6.3 A/m². Target field is shown against Rampersad 2019's
+range scaled to the run's total current, never as pass/fail. Solver precision, current conservation and
+the field's order of magnitude are software checks. The flex-search and ex-search reports have no checks;
+`RULES["opt"]` holds only the goal definition and dose record they cite as prose.
+
+**A page lists only the references something on it cites.** Every citation goes through the page's
+`Cites`, which builds the reference list from what was rendered; no generator passes a fixed list, so a
+removed row takes its reference with it. Background and self-citations that support nothing shown are not
+cited, and `references.py` holds only entries some report cites.
 
 Sources: [`tit/reporting/html/`](../../tit/reporting/html/), [`qc_rules.py`](../../tit/reporting/qc_rules.py),
 [`generators/`](../../tit/reporting/generators/), [`tools/montage_visualizer.py`](../../tit/tools/montage_visualizer.py),

@@ -1,5 +1,5 @@
-"""What the simulator, flex-search and ex-search reports share: the current advisory, the montage
-on the EEG cap, the ROI's name and writing the file.
+"""What the simulator, flex-search and ex-search reports share: the montage on the EEG cap, the
+ROI's name and writing the file, plus the simulator's current advisory.
 
 The cap figure is the app's own overlay (:func:`tit.tools.montage_visualizer.visualize_montage`,
 the image a simulation writes to ``montage_imgs/``), converted to WebP; nothing here draws a head.

@@ -480,8 +480,8 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     man = rec["restarts"][best_i]["manifest"] if rec["restarts"] else {}
     term = (man.get("optimizer_termination") or {}).get("global") or {}
     paras = [
-        f"Electrode positions for temporal interference stimulation {cite('grossman2017_ti')} were optimised in TI-Toolbox "
-        f"{cite('haber2026_titoolbox')} with SimNIBS {esc(rec['simnibs'] or '')} {cite('saturnino2019_simnibs21')} and its leadfield-free "
+        "Electrode positions for temporal interference stimulation were optimised in TI-Toolbox "
+        f"with SimNIBS {esc(rec['simnibs'] or '')} {cite('saturnino2019_simnibs21')} and its leadfield-free "
         f"framework {cite.dois(['10.1016/j.compbiomed.2025.110648'])}, on the head model of subject {esc(subject_id)} {cite('puonti2020_charm')}. "
         f"Two channels of {esc(el.get('shape', ''))} {dims} mm electrodes were placed by differential evolution "
         f"({len(rec['restarts'])} run{'s' if len(rec['restarts']) != 1 else ''}"

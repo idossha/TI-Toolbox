@@ -4,8 +4,10 @@ Pins (2026-09-28, ARCHITECTURE.md §14):
 * each page has its sections, every contents link lands on an element, every image has alt text,
   every figure a caption, statuses are icon + word, and nothing is fetched (doi.org links only);
 * the advisories shown are exactly the ``RULES`` advisories for that report, with the rule's label,
-  role and citations; current checks are advisories (never blocking) and state the total current;
+  role and citations; the simulator's current check is an advisory (never blocking) and states the
+  total current; flex-search and ex-search show no checks;
 * a failed software check is named in the verdict; the page stays under its size budget;
+* on every report (DTI QC included) the reference list is exactly what the rendered page cites;
 * the pipelines call the report writers, and a report that cannot be written never fails a run.
 
 Inputs are synthetic files in the formats the pipelines write (SimNIBS log and field-summary lines
@@ -23,7 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.test_reporting_dti_qc import FAKE, _parse
+from tests.test_reporting_dti_qc import FAKE, _images, _parse, _record
 from tit.reporting.generators import common
 from tit.reporting.generators import simulation as sim
 from tit.reporting.qc_rules import RULES
@@ -177,18 +179,18 @@ class TestSimulation:
 
 class TestShared:
     def test_current_check_names_per_electrode_and_total(self):
-        row = common.current_check("opt", [1.5, 0.5])
+        row = common.current_check("sim", [1.5, 0.5])
         assert row.shown == "1.5 mA per electrode (2 mA total)" and row.status == "pass"
-        assert row.role == "advisory" and list(row.cite) == RULES["opt"]["electrode_peak_current"]["cite"]
+        assert row.role == "advisory" and list(row.cite) == RULES["sim"]["electrode_peak_current"]["cite"]
 
     def test_target_range_numbers_match_the_cited_text(self):
         r = RULES["sim"]["roi_envelope_V_per_m"]
         lo, hi = r["range"]
         assert r["value"].startswith(f"{lo}–{hi} V/m at {r['at_mA_total']:g} mA total")
 
-    @pytest.mark.parametrize("section", ["sim", "opt"])
-    def test_current_checks_are_advisories(self, section):
-        assert RULES[section]["electrode_peak_current"]["role"] == "advisory"
+    def test_current_check_is_an_advisory_and_the_optimisers_have_none(self):
+        assert RULES["sim"]["electrode_peak_current"]["role"] == "advisory"
+        assert not any(r["role"] == "advisory" for r in RULES["opt"].values())
 
 
 # ── flex-search ──────────────────────────────────────────────────────────
@@ -333,18 +335,24 @@ class TestExSearch:
         lf = ex.leadfield_facts(LEADFIELD_LOG)
         assert (lf["shape"], lf["dimensions"], lf["thickness"], lf["tensor"]) == ("ellipse", "10, 10", "4", None)
 
-    def test_page_structure_advisory_table_and_chart(self, tmp_path):
+    def test_page_structure_no_checks_table_and_chart(self, tmp_path):
         from tit.reporting.generators import ex_search as ex
 
         with patch(CAP, return_value=FAKE):
-            html = ex.build_html(_ex_rec(tmp_path), "X")
-        _structure(html, ("verdict", "winner", "results", "target", "technical"), ex.SIZE_BUDGET)
-        assert _advisory_ids(html) == [RULES["opt"]["electrode_peak_current"]["label"]]
+            html = ex.build_html(_ex_rec(tmp_path, mA=(4.5, 0.5)), "X")
+        _structure(
+            html,
+            ("verdict", "winner", "results", "target", "technical"),
+            ex.SIZE_BUDGET,
+            require_status=False,
+        )
+        assert not _advisory_ids(html) and 'class="tbl gate"' not in html  # no checks, even at 4.5 mA
+        assert 'class="callout' not in html and "Electrode current" not in html
         assert '<h2 id="verdict-h">F3–PO10 ‖ AF4–Oz leads 41 montages</h2>' in html
         table = html.split('sortable">')[1].split("</table>")[0]
         assert table.count("<tr>") == ex.TOP_N + 1  # header + top 25
         assert html.count('fill="none" stroke="var(--s2)"') == ex.TOP_N - 1  # rings for 2..25
-        assert "ellipse 10×10 mm, gel 4 mm" in html and "1 mA per electrode (2 mA total)" in html
+        assert "ellipse 10×10 mm, gel 4 mm" in html and "4.5 / 0.5 mA per channel, 5 mA total" in html
 
     def test_a_full_size_search_stays_under_budget(self, tmp_path):
         from tit.reporting.generators import ex_search as ex
@@ -352,12 +360,6 @@ class TestExSearch:
         with patch(CAP, return_value=FAKE):
             html = ex.build_html(_ex_rec(tmp_path, n=48_000), "X")
         assert len(html.encode()) < ex.SIZE_BUDGET
-
-    def test_high_winner_current_is_an_advisory(self, tmp_path):
-        from tit.reporting.generators import ex_search as ex
-
-        row = ex.checks(_ex_rec(tmp_path, mA=(4.5, 0.5)))[0]
-        assert row.status == "warn" and not row.blocking and row.shown == "4.5 mA per electrode (5 mA total)"
 
     def test_ex_search_writes_a_report_and_survives_its_failure(self):
         from tit.opt.ex import ex as ex_run
@@ -368,3 +370,31 @@ class TestExSearch:
             ex_run._write_report("X", "/p/run", logger)
         create.assert_called_once_with("/p", "X", "/p/run")
         assert "gone" in logger.warning.call_args[0][0]
+
+
+# ── every report: the reference list is exactly what the page cites ──────
+
+
+def _report_html(kind: str, tmp_path: Path) -> str:
+    from tit.reporting.generators import dti_qc, ex_search, flex_search
+
+    with patch(CAP, return_value=FAKE):
+        if kind == "dti_qc":
+            return dti_qc.build_html(_record(), _images(), "X")
+        if kind == "simulation":
+            return sim.build_html(_with_roi(sim.collect(_sim_dir(tmp_path))), None, "X")
+        if kind == "flex_search":
+            return flex_search.build_html(_flex_rec(tmp_path), "X")
+        return ex_search.build_html(_ex_rec(tmp_path), "X")
+
+
+@pytest.mark.parametrize("kind", ["dti_qc", "simulation", "flex_search", "ex_search"])
+def test_references_are_exactly_what_the_page_cites(tmp_path, kind):
+    """Both ways, from the generator's real output: every listed reference is cited by something
+    rendered on the page, and every citation rendered on the page is listed."""
+    html = _report_html(kind, tmp_path)
+    cited = set(re.findall(r'<a class="cite" href="#ref-([^"]+)"', html))
+    listed = set(re.findall(r'<li id="ref-([^"]+)"', html))
+    assert cited, "the page cites nothing, so there is nothing to check"
+    assert listed - cited == set(), f"listed but not cited on the page: {listed - cited}"
+    assert cited - listed == set(), f"cited on the page but not listed: {cited - listed}"
