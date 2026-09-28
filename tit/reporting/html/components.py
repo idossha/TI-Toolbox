@@ -26,7 +26,6 @@ _HERE = Path(__file__).resolve().parent
 
 esc = html.escape
 
-STATUSES = ("pass", "warn", "fail", "info")
 STATUS_WORD = {"pass": "Pass", "warn": "Review", "fail": "Fail", "info": "Info"}
 
 _ICON = {
@@ -358,11 +357,11 @@ def code(text: str) -> str:
     return f'<pre class="code">{esc(text)}</pre>'
 
 
-def methods(paragraphs: list[str], id_: str = "methods-text") -> str:
+def methods(paragraphs: list[str]) -> str:
     ps = "".join(f"<p>{p}</p>" for p in paragraphs)
     return (
-        f'<div class="methods"><button class="tbtn" type="button" data-copy="{id_}">Copy text</button>'
-        f'<div class="prose" id="{id_}">{ps}</div></div>'
+        '<div class="methods"><button class="tbtn" type="button" data-copy="methods-text">Copy text</button>'
+        f'<div class="prose" id="methods-text">{ps}</div></div>'
     )
 
 
@@ -408,17 +407,14 @@ def hist_chart(
     bins: list[float],
     *,
     xlabel: str,
-    width: int = 490,
-    height: int = 230,
     band: tuple[float, float, str] | None = None,
     xlim: tuple[float, float] | None = None,
-    xfmt: Callable[[float], str] = lambda v: f"{v:.1f}",
 ) -> str:
     """Density outlines (step lines + 10 % wash) with one hover band per bin.
 
     *series*: ``{label, values (fraction per bin), var ('--s1' ...)}``; *band*: ``(lo, hi, label)``.
     """
-    ml, mr, mt, mb = 40, 12, 22, 38
+    width, height, ml, mr, mt, mb = 490, 230, 40, 12, 22, 38
     pw, ph = width - ml - mr, height - mt - mb
     lo, hi = (bins[0], bins[-1]) if xlim is None else xlim
     ymax = max(max(s["values"]) for s in series) * 1.12 or 1.0
@@ -446,7 +442,7 @@ def hist_chart(
         )
     for t in nice_ticks(lo, hi, 6):
         p.append(
-            f'<text x="{X(t):.1f}" y="{mt + ph + 16}" text-anchor="middle">{xfmt(t)}</text>'
+            f'<text x="{X(t):.1f}" y="{mt + ph + 16}" text-anchor="middle">{t:.1f}</text>'
         )
     p.append(
         f'<line class="axis" x1="{ml}" x2="{ml + pw}" y1="{mt + ph}" y2="{mt + ph}"/>'
@@ -463,7 +459,7 @@ def hist_chart(
             f'<polyline points="{pts}" fill="none" stroke="var({s["var"]})" stroke-width="2" stroke-linejoin="round"/>'
         )
     for i in shown:
-        tip = f"{xfmt(bins[i])}–{xfmt(bins[i + 1])}" + "".join(
+        tip = f"{bins[i]:.1f}–{bins[i + 1]:.1f}" + "".join(
             f"\n{s['label']} {s['values'][i] * 100:.1f}%" for s in series
         )
         x0, x1 = X(max(bins[i], lo)), X(min(bins[i + 1], hi))
@@ -487,19 +483,14 @@ def gate_scale(
     hi: float,
     ok: tuple[float, float],
     st: str = "pass",
-    width: int = 190,
 ) -> str:
     """The gate rail: track, accepted range, threshold ticks and the value dot, clamped to the track."""
-    pad = 6
+    width, pad = 190, 6
 
     def X(v: float) -> float:
         return pad + (min(max(v, lo), hi) - lo) / (hi - lo) * (width - 2 * pad)
 
-    colour = {
-        "pass": "var(--pass-mark)",
-        "warn": "var(--warn-mark)",
-        "fail": "var(--fail-mark)",
-    }.get(st, "var(--ink-2)")
+    colour = f"var(--{st}-mark)" if st in ("pass", "warn", "fail") else "var(--ink-2)"
     ticks = "".join(
         f'<line x1="{X(t):.1f}" x2="{X(t):.1f}" y1="6" y2="20" stroke="var(--ink-2)" stroke-width="1.2"/>'
         for t in ok
@@ -546,7 +537,7 @@ class Check:
     note: str = ""
 
     def __post_init__(self) -> None:
-        if self.status not in STATUSES or self.role not in ROLE_WORD:
+        if self.status not in STATUS_WORD or self.role not in ROLE_WORD:
             raise ValueError(f"unknown QC status {self.status!r} or role {self.role!r}")
 
     @property
@@ -579,9 +570,7 @@ def verdict(checks: list[Check], consequence: str = "") -> tuple[str, str]:
 
 
 def checks_table(
-    checks: list[Check],
-    caption: str,
-    cite: Callable[[list[str]], str] = lambda dois: "",
+    checks: list[Check], caption: str, cite: Callable[[list[str]], str]
 ) -> str:
     """Status, name with its role badge, plain-text rule and citations, value, rule and (for gates) the rail.
 

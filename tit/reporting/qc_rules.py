@@ -2,6 +2,7 @@
 
 ``RULES[section][key]`` holds:
 
+* ``label`` — the check's name in a report;
 * ``rule`` — ``>=``, ``<=``, ``==``, ``within`` or ``report`` (a value shown with a reference, no pass/fail);
 * ``value`` and ``unit``;
 * ``role`` — ``gate`` (blocks and is shown to the user), ``internal`` (a software consistency check:
@@ -22,6 +23,7 @@ from __future__ import annotations
 RULES: dict[str, dict[str, dict]] = {
     "dti": {
         "ncc_chain": {
+            "label": "Registration to the head model",
             "rule": ">=",
             "value": 0.90,
             "unit": "",
@@ -31,6 +33,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "The T1 carried through our transform matches the head-model T1 (same image, so close to 1 is expected).",
         },
         "chain_vs_ncc_mm": {
+            "label": "Transform agreement",
             "rule": "<=",
             "value": 1.0,
             "unit": "mm",
@@ -40,6 +43,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "Two independent registrations agree to within one voxel.",
         },
         "pct_pd": {
+            "label": "Positive-definite tensors",
             "rule": ">=",
             "value": 99.0,
             "unit": "%",
@@ -49,6 +53,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "Nearly all fitted tensors are physically valid.",
         },
         "pct_wmgm_zero": {
+            "label": "WM and GM without a tensor",
             "rule": "<=",
             "value": 5.0,
             "unit": "%",
@@ -58,6 +63,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "Almost all white and grey matter received a tensor.",
         },
         "n_out_of_brain": {
+            "label": "Tensors outside the brain",
             "rule": "==",
             "value": 0,
             "unit": "voxels",
@@ -67,6 +73,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "No tensors were written outside the brain.",
         },
         "wm_md_median": {
+            "label": "White-matter diffusivity",
             "rule": "within",
             "value": [0.5e-3, 1.1e-3],
             "unit": "mm²/s",
@@ -76,6 +83,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "White-matter diffusivity is near the healthy-adult value (~0.7e-3 mm²/s); far outside it usually means a b-value or unit error.",
         },
         "flip_identity_best": {
+            "label": "Gradient-table flip test",
             "rule": "==",
             "value": True,
             "unit": "",
@@ -85,6 +93,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "The gradient directions as given fit the anatomy better than any flipped or swapped version.",
         },
         "tract_frac_expected": {
+            "label": "Tract orientation",
             "rule": ">=",
             "value": 0.5,
             "unit": "fraction",
@@ -94,6 +103,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "Most corpus callosum, corticospinal and cingulum voxels point the way these tracts run.",
         },
         "sdc_applied": {
+            "label": "Distortion correction",
             "rule": "==",
             "value": True,
             "unit": "",
@@ -103,6 +113,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "EPI distortion was corrected; without it, frontal and temporal tensors can be shifted by a few mm.",
         },
         "residual_shift_mm": {
+            "label": "Residual distortion",
             "rule": "<=",
             "value": "1 DWI voxel",
             "unit": "mm",
@@ -112,6 +123,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "FA lines up with the head-model white matter to within one diffusion voxel.",
         },
         "mean_fd_mm": {
+            "label": "Head motion",
             "rule": "report",
             "value": None,
             "unit": "mm",
@@ -124,6 +136,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "Average head movement between diffusion volumes; lower is better.",
         },
         "wm_fa_median": {
+            "label": "White-matter FA",
             "rule": "report",
             "value": None,
             "unit": "",
@@ -133,6 +146,7 @@ RULES: dict[str, dict[str, dict]] = {
             "plain": "White-matter anisotropy, shown next to the reference subject; it varies with age and scanner.",
         },
         "qsiprep_iqms": {
+            "label": "QSIPrep image quality",
             "rule": "report",
             "value": None,
             "unit": "",
@@ -147,10 +161,6 @@ RULES: dict[str, dict[str, dict]] = {
         },
     },
 }
-
-
-def rule(section: str, key: str) -> dict:
-    return RULES[section][key]
 
 
 def value(section: str, key: str):

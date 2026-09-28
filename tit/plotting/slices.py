@@ -120,41 +120,25 @@ def mosaic(
     return out, (h, w)
 
 
-def to_webp(png: bytes, quality: int = 82) -> bytes:
-    from PIL import Image
-
-    out = io.BytesIO()
-    Image.open(io.BytesIO(png)).convert("RGB").save(
-        out, "WEBP", quality=quality, method=6
-    )
-    return out.getvalue()
-
-
-def render(
-    img: np.ndarray,
-    contours=(),
-    scale: int = 2,
-    vmax: float = 1.0,
-    quality: int = 82,
-    fmt: str = "webp",
-) -> bytes:
-    """Draw a grey (2-D) or RGB (H, W, 3) panel at *scale* px per voxel, with outline contours.
+def render(img: np.ndarray, contours=(), quality: int = 82) -> bytes:
+    """Draw a grey (2-D) or RGB (H, W, 3) panel at 2 px per voxel, with outline contours, as WebP.
 
     *contours* are ``(mask, colour, line width)``; every outline is drawn on the same grid as the
-    image. Returns WebP (default) or PNG bytes.
+    image.
     """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from PIL import Image
 
     h, w = img.shape[:2]
-    fig = plt.figure(figsize=(w * scale / 100, h * scale / 100), dpi=100)
+    fig = plt.figure(figsize=(w * 2 / 100, h * 2 / 100), dpi=100, facecolor="black")
     try:
         ax = fig.add_axes([0, 0, 1, 1])
         ax.set_facecolor("black")
         if img.ndim == 2:
-            ax.imshow(img, cmap="gray", vmin=0, vmax=vmax, interpolation="bilinear")
+            ax.imshow(img, cmap="gray", vmin=0, vmax=1, interpolation="bilinear")
         else:
             ax.imshow(np.clip(img, 0, 1), interpolation="bilinear")
         for mask, color, lw in contours:
@@ -169,8 +153,10 @@ def render(
         ax.set_xlim(-0.5, w - 0.5)
         ax.set_ylim(h - 0.5, -0.5)
         ax.axis("off")
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", facecolor="black")
+        fig.canvas.draw()
+        rgb = Image.fromarray(np.asarray(fig.canvas.buffer_rgba())).convert("RGB")
     finally:
         plt.close(fig)
-    return buf.getvalue() if fmt == "png" else to_webp(buf.getvalue(), quality)
+    out = io.BytesIO()
+    rgb.save(out, "WEBP", quality=quality, method=6)
+    return out.getvalue()
