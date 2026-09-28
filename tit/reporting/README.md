@@ -64,7 +64,7 @@ tit/reporting/
 |---|---|
 | `PreprocessingReportGenerator` | `tit/pre/report.py`, `tit/pre/structural.py` |
 | `FlexSearchReportGenerator` | `tit/opt/flex/builder.py` |
-| DTI QC report | `tit/pre/qsi/dti_extractor.py` |
+| DTI QC report (with the `DTI_coregT1_qc.json` gate) | `tit/pre/qsi/dti_extractor.py` |
 | `SimulationReportGenerator` | constructed by its callers directly; no pipeline module imports it |
 
 ---

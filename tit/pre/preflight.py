@@ -12,7 +12,11 @@ from tit import constants as const
 from tit.paths import get_path_manager
 
 from .dicom2nifti import MODALITIES
-from .qsi.utils import validate_bids_dwi
+from .qsi.utils import (
+    plan_distortion_correction,
+    validate_bids_dwi,
+    validate_qsiprep_output,
+)
 from .utils import _find_nifti
 
 STEP_DICOM = "dicom"
@@ -147,6 +151,54 @@ def missing_inputs_for_step(
                     path=Path(pm.bids_dwi(subject_id)),
                 )
             )
+        else:
+            sdc = plan_distortion_correction(
+                project_dir,
+                subject_id,
+                logger=logging.getLogger(__name__),
+                repair=False,
+            )
+            if sdc.blocking_error:
+                problems.append(
+                    PreprocessingInputProblem(
+                        subject_id=subject_id,
+                        step=step,
+                        label=STEP_LABELS[step],
+                        message=f"sub-{subject_id}: {sdc.blocking_error}",
+                        path=Path(pm.bids_datatype(subject_id, "fmap")),
+                    )
+                )
+        return problems
+    if step == STEP_DTI:
+        problems = []
+        qsiprep_ok, qsiprep_error = validate_qsiprep_output(project_dir, subject_id)
+        if not qsiprep_ok:
+            problems.append(
+                PreprocessingInputProblem(
+                    subject_id=subject_id,
+                    step=step,
+                    label=STEP_LABELS[step],
+                    message=(
+                        f"DTI extraction fits the tensor from QSIPrep output: "
+                        f"{qsiprep_error}. Run QSIPrep for sub-{subject_id} first."
+                    ),
+                    path=Path(pm.qsiprep_subject(subject_id)),
+                )
+            )
+        t1 = Path(pm.m2m(subject_id)) / const.FILE_T1
+        if not t1.is_file():
+            problems.append(
+                PreprocessingInputProblem(
+                    subject_id=subject_id,
+                    step=step,
+                    label=STEP_LABELS[step],
+                    message=(
+                        f"DTI extraction writes into the charm head model; run "
+                        f"SimNIBS charm for sub-{subject_id} first."
+                    ),
+                    path=t1,
+                )
+            )
         return problems
     return []
 
@@ -229,7 +281,24 @@ def find_missing_preprocessing_inputs(
         ):
             subject_steps = [s for s in subject_steps if s != STEP_FREESURFER]
         for step in subject_steps:
-            problems.extend(missing_inputs_for_step(project_dir, subject_id, step))
+            found = missing_inputs_for_step(project_dir, subject_id, step)
+            if step == STEP_DTI:
+                # Stages selected in the same run produce these inputs first.
+                produced = [
+                    (
+                        Path(get_path_manager(project_dir).qsiprep_subject(subject_id))
+                        if STEP_QSIPREP in selected_steps
+                        else None
+                    ),
+                    (
+                        Path(get_path_manager(project_dir).m2m(subject_id))
+                        / const.FILE_T1
+                        if STEP_CHARM in selected_steps
+                        else None
+                    ),
+                ]
+                found = [p for p in found if p.path not in produced]
+            problems.extend(found)
     problems.extend(missing_freesurfer_license(selected_steps, subject_ids))
     return problems
 
@@ -393,12 +462,21 @@ def existing_outputs_for_step(
             project_dir, subject_id, step, Path(pm.qsirecon_subject(subject_id))
         )
     if step == STEP_DTI:
-        return _single_path_output(
-            project_dir,
-            subject_id,
-            step,
-            Path(pm.m2m(subject_id)) / const.FILE_DTI_TENSOR,
+        m2m = Path(pm.m2m(subject_id))
+        tensor = m2m / const.FILE_DTI_TENSOR
+        if not tensor.exists():
+            return []
+        # The QC JSON and the ACPC intermediate older releases wrote go with it.
+        extras = tuple(
+            p
+            for p in (m2m / const.FILE_DTI_QC, m2m / "DTI_ACPC_tensor.nii.gz")
+            if p.exists()
         )
+        return [
+            PreprocessingOutput(
+                subject_id, step, STEP_LABELS[step], tensor, (tensor, *extras)
+            )
+        ]
     raise ValueError(f"Unknown preprocessing step: {step}")
 
 

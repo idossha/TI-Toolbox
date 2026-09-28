@@ -231,3 +231,28 @@ class TestListFunctions:
         result = list_available_atlases()
         assert isinstance(result, list)
         assert len(result) > 0
+
+
+class TestAtlasesNeedMniNormalization:
+    @patch(f"{MODULE}.validate_dood_environment", return_value=(True, None))
+    @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
+    def test_atlases_without_mni_transform_refused(self, _v, _d, tmp_path):
+        (tmp_path / "derivatives" / "qsiprep" / "sub-001" / "anat").mkdir(parents=True)
+        with pytest.raises(PreprocessError, match="MNI normalization"):
+            run_qsirecon(str(tmp_path), "001", logger=MagicMock(), atlases=["AAL116"])
+
+    @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
+    @patch(f"{MODULE}.DockerCommandBuilder")
+    @patch(f"{MODULE}.validate_dood_environment", return_value=(True, None))
+    @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
+    def test_atlases_with_mni_transform_run(self, _v, _d, mock_builder, _p, tmp_path):
+        anat = tmp_path / "derivatives" / "qsiprep" / "sub-001" / "anat"
+        anat.mkdir(parents=True)
+        (anat / "sub-001_from-ACPC_to-MNI152NLin2009cAsym_mode-image_xfm.h5").touch()
+        mock_builder.return_value.build_qsirecon_cmd.return_value = ["docker", "run"]
+        runner = MagicMock()
+        runner.run.return_value = 0
+        run_qsirecon(
+            str(tmp_path), "001", logger=MagicMock(), atlases=["AAL116"], runner=runner
+        )
+        runner.run.assert_called_once()

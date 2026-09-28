@@ -52,6 +52,7 @@ def main() -> int:
         "mumps",
         "petsc4py.PETSc",
         "torch",
+        "dipy.reconst.dti",
     ):
         importlib.import_module(module)
         print(f"IMPORT {module} OK", flush=True)

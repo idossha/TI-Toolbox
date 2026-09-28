@@ -147,8 +147,8 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
     { id: "G2c", label: "FreeSurfer", detail: "Reconstruction and selected thalamic or hippocampal/amygdala subregions.", minutes: null },
     { id: "G3", label: "Tissue analyzer", detail: "Per-tissue volume and conductivity report for the finished head model.", minutes: 3 },
     { id: "G4", label: "QSIPrep", detail: "Dockerised diffusion preprocessing: denoise, distortion and motion correction.", minutes: 120 },
-    { id: "G5", label: "QSIRecon", detail: "Dockerised reconstruction of the preprocessed DWI into scalar maps.", minutes: 60 },
-    { id: "G6", label: "Extract DTI tensor", detail: "Writes the anisotropic conductivity tensor SimNIBS reads at simulation time.", minutes: 6 },
+    { id: "G5", label: "QSIRecon", detail: "Optional Dockerised reconstruction: tractography, scalar maps, connectivity.", minutes: 60 },
+    { id: "G6", label: "Extract DTI tensor", detail: "Fits the tensor (DIPY) from QSIPrep output and writes the anisotropic conductivity tensor SimNIBS reads.", minutes: 6 },
     // No report step: each preprocessing job writes its own HTML report as its final stage and
     // the server folds the subject report's minute into the plan's estimate, so a report is
     // never a step, a plan row or a job of its own (maintainer, 2026-09-07).

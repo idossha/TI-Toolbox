@@ -118,11 +118,13 @@ COPY --from=source /ti-toolbox/container/blueprint/runtime-constraints.txt /opt/
 ENV PIP_CONSTRAINT=/opt/ti-runtime-constraints.txt
 
 # Python deps tit/ imports. `mne>=1.5,<2` is a range on purpose (tit/source/_simnibs_compat.py
-# spans it); h5io is mne's HDF5 backend and is not pulled in by mne itself.
+# spans it); h5io is mne's HDF5 backend and is not pulled in by mne itself. dipy fits the DTI
+# tensor from QSIPrep output (tit/pre/qsi/dti_extractor.py); 1.12.1 installs without moving
+# numpy/scipy in the SimNIBS 4.6 env.
 RUN simnibs_python -m pip install --no-cache-dir \
         meshio nilearn trimesh seaborn scikit-image numpy-stl click psutil \
         "mne>=1.5,<2" h5io nbformat jupyter_client ipykernel \
-        fastapi "uvicorn[standard]" pyyaml
+        fastapi "uvicorn[standard]" pyyaml "dipy>=1.12,<2"
 
 # CUDA libraries ship with PyTorch; NVIDIA host drivers are supplied by the container runtime.
 ENV FASTSURFER_HOME=/opt/fastsurfer

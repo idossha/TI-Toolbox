@@ -110,12 +110,13 @@ export const STEP_INFO: Record<string, StepInfo> = {
     text:
       "Optional. Turns diffusion-weighted images into the anisotropic conductivity tensor SimNIBS can " +
       "use instead of the isotropic default.\n\n" +
-      "Both QSIPrep and QSIRecon run in **their own containers** and need Docker socket access. " +
-      "QSIRecon needs QSIPrep output; the tensor extraction needs QSIRecon output and `charm`.",
+      "QSIPrep runs in **its own container** (Docker socket access, x86-64 host only); the tensor is " +
+      "then fitted with DIPY from QSIPrep output and needs `charm`. QSIRecon is an optional extra " +
+      "for tractography, scalar maps and connectivity.",
     // Five columns at 640px leave ~100px each, so this row's labels are deliberately the short
     // forms — the long names live on the individual stage rows below.
     inputs: [{ label: "Raw DWI", path: "sub-<id>/dwi/" }],
-    process: [{ label: "QSIPrep" }, { label: "QSIRecon" }, { label: "extract" }],
+    process: [{ label: "QSIPrep" }, { label: "DIPY fit" }],
     outputs: [{ label: "DTI tensor", path: "m2m_<id>/DTI_coregT1_tensor.nii.gz" }],
     docsHref: DWI_DOCS,
   },
@@ -214,9 +215,11 @@ export const STEP_INFO: Record<string, StepInfo> = {
     stage: "G4",
     title: "QSIPrep",
     text:
-      "Preprocesses the raw diffusion series — denoising, Gibbs unringing, distortion and motion " +
-      "correction, and resampling to an ACPC-aligned grid. Runs in the **QSIPrep container**, so the " +
-      "toolbox needs Docker socket access. The longest step in pre-processing by a wide margin.",
+      "Preprocesses the raw diffusion series — denoising, Gibbs unringing, susceptibility distortion " +
+      "correction (TOPUP with a reverse phase-encoding fieldmap, else fieldmap-less SyN), motion/eddy " +
+      "correction, and resampling to an ACPC-aligned grid at the native voxel size. Runs in the " +
+      "**QSIPrep container** and needs an **x86-64 (Linux/Windows) host**: it cannot run on Apple " +
+      "Silicon. The longest step in pre-processing by a wide margin.",
     inputs: [
       { label: "Raw DWI + bval/bvec", path: "sub-<id>/dwi/" },
       { label: "T1w image", path: "sub-<id>/anat/sub-<id>_T1w.nii.gz" },
@@ -234,12 +237,13 @@ export const STEP_INFO: Record<string, StepInfo> = {
     stage: "G5",
     title: "QSIRecon",
     text:
-      "Reconstructs the preprocessed DWI into model maps. The tensor extraction below expects the " +
-      "`dsi_studio_gqi` pipeline, so leave it selected unless you only want the other maps. Runs in " +
-      "the **QSIRecon container** and needs QSIPrep output.",
+      "Optional, advanced: reconstructs the preprocessed DWI into tractography, scalar maps or " +
+      "connectivity matrices. The DTI tensor below does **not** need it. Runs in the **QSIRecon " +
+      "container** and needs QSIPrep output (connectivity atlases also need QSIPrep's MNI " +
+      "normalization).",
     inputs: [{ label: "Preprocessed DWI", path: "derivatives/qsiprep/sub-<id>/" }],
     process: [{ label: "QSIRecon (docker)" }],
-    outputs: [{ label: "DTI / recon maps", path: "derivatives/qsirecon/sub-<id>/" }],
+    outputs: [{ label: "Recon maps", path: "derivatives/qsirecon/sub-<id>/" }],
     nativeMinutes: native("G5"),
     docsHref: DWI_DOCS,
   },
@@ -248,17 +252,19 @@ export const STEP_INFO: Record<string, StepInfo> = {
     stage: "G6",
     title: "Extract DTI tensor",
     text:
-      "Takes QSIRecon's tensor, registers it from ACPC space into the SimNIBS T1 space and writes it " +
-      "where SimNIBS looks for it. This file is what makes an **anisotropic** conductivity simulation " +
-      "possible. Needs both QSIRecon output and `charm`.",
+      "Fits the diffusion tensor (DIPY, b ≤ 1500) to QSIPrep's preprocessed DWI, maps it into the " +
+      "SimNIBS T1 space with QSIPrep's exact transforms (tensors rotated with it) and writes it " +
+      "where SimNIBS looks for it. A QC gate (registration, positive-definite tensors, brain " +
+      "coverage, WM diffusivity) must pass or nothing is written. This file is what makes an " +
+      "**anisotropic** conductivity simulation possible. Needs QSIPrep output and `charm`.",
     inputs: [
-      { label: "DSI Studio tensor", path: "derivatives/qsirecon/sub-<id>/" },
+      { label: "Preprocessed DWI", path: "derivatives/qsiprep/sub-<id>/" },
       { label: "SimNIBS T1", path: "m2m_<id>/T1.nii.gz" },
     ],
-    process: [{ label: "extract tensor" }, { label: "register to T1" }],
+    process: [{ label: "fit tensor" }, { label: "map to T1" }],
     outputs: [
       { label: "DTI conductivity tensor", path: "m2m_<id>/DTI_coregT1_tensor.nii.gz" },
-      { label: "ACPC tensor (intermediate)", path: "m2m_<id>/DTI_ACPC_tensor.nii.gz" },
+      { label: "QC record", path: "m2m_<id>/DTI_coregT1_qc.json" },
     ],
     nativeMinutes: native("G6"),
     docsHref: DWI_DOCS,

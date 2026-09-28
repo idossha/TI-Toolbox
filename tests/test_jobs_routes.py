@@ -954,6 +954,11 @@ def test_pre_dti_replacement_does_not_confuse_existing_head_with_tensor(client):
     head = Path(get_path_manager().m2m("001"))
     head.mkdir(parents=True, exist_ok=True)
     (head / "001.msh").write_text("keep")
+    (head / "T1.nii.gz").write_text("keep")
+    # DTI preflight needs QSIPrep output (the tensor is fitted from it).
+    qsiprep_dwi = Path(get_path_manager().qsiprep_subject("001")) / "dwi"
+    qsiprep_dwi.mkdir(parents=True, exist_ok=True)
+    (qsiprep_dwi / "sub-001_space-ACPC_desc-preproc_dwi.nii.gz").write_text("x")
     response = client.post(
         "/api/jobs/groups",
         headers=BEARER,

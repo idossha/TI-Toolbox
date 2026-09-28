@@ -233,7 +233,7 @@ def test_corrupt_qsi_preferences_fall_back_independently():
         )
     )
     saved = prefs.load_preferences()
-    assert saved["qsiprep_config"]["output_resolution"] == 2.0
+    assert saved["qsiprep_config"]["output_resolution"] is None  # native voxel size
     assert saved["qsi_recon_config"]["recon_specs"] == ["dipy_dki"]
     assert saved["qsiprep_threads"] == 3
 

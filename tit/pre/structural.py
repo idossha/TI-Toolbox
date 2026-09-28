@@ -5,7 +5,8 @@ Preprocessing pipeline orchestration.
 This module contains the top-level ``run_pipeline`` function that drives
 all preprocessing steps for one or more subjects: DICOM conversion,
 SimNIBS CHARM, FastSurfer deep segmentation, tissue analysis, DWI
-preprocessing (QSIPrep/QSIRecon), and DTI tensor extraction.
+preprocessing (QSIPrep, optional QSIRecon), and DTI tensor extraction
+(DIPY on QSIPrep output).
 
 Public API
 ----------
@@ -349,9 +350,7 @@ def _run_subject_pipeline(
                     project_dir,
                     subject_id,
                     logger=logger,
-                    output_resolution=qsiprep_cfg.get(
-                        "output_resolution", const.QSI_DEFAULT_OUTPUT_RESOLUTION
-                    ),
+                    output_resolution=qsiprep_cfg.get("output_resolution"),
                     cpus=qsiprep_cfg.get("cpus"),
                     memory_gb=qsiprep_cfg.get("memory_gb"),
                     omp_threads=qsiprep_cfg.get(
@@ -360,7 +359,8 @@ def _run_subject_pipeline(
                     image_tag=qsiprep_cfg.get("image_tag", const.QSI_QSIPREP_IMAGE_TAG),
                     skip_bids_validation=qsiprep_cfg.get("skip_bids_validation", True),
                     denoise_method=qsiprep_cfg.get("denoise_method", "dwidenoise"),
-                    unringing_method=qsiprep_cfg.get("unringing_method", "mrdegibbs"),
+                    unringing_method=qsiprep_cfg.get("unringing_method", "auto"),
+                    mni_normalization=qsiprep_cfg.get("mni_normalization", False),
                     runner=runner,
                 ),
                 logger,

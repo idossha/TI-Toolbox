@@ -9,8 +9,15 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
+#### Changed
+
+- **The DTI tensor no longer needs QSIRecon** — **Extract DTI tensor** now runs straight after QSIPrep (and charm). QSIRecon is an optional advanced step for tractography, scalar maps and connectivity; its preselected `dsi_studio_gqi` spec now produces scalar maps only, without the 5-million-streamline tractography. Choosing connectivity atlases needs QSIPrep run with the new **MNI normalization** option. The Docker image gains `dipy` for the fit.
+- **QSIPrep chooses its settings from your data** — distortion correction is always on: TOPUP with a reverse phase-encoding fieldmap (TI-Toolbox adds `IntendedFor`, and a derived `TotalReadoutTime`, to that fieldmap's sidecar when missing), otherwise fieldmap-less SyN; a DWI fieldmap that exists but cannot be used stops the run with the reason. Unringing is `rpg` for partial-Fourier data, otherwise `mrdegibbs`; output resolution is the DWI's native voxel size; MNI normalization is skipped unless needed. Every option stays in **Configure QSIPrep**; a value you saved there before is kept.
+- **QSIPrep refuses to start on Apple Silicon** — it always failed there at SynthSeg, an hour in, because emulation lacks the AVX instructions it needs. It now stops at once and explains how to run QSIPrep on an x86-64 Linux or Windows machine and bring the output back; the DTI step runs anywhere.
+
 #### Fixed
 
+- **Anisotropic (DTI) conductivity tensors were misplaced and misoriented** — the tensor TI-Toolbox wrote into `m2m_<id>/DTI_coregT1_tensor.nii.gz` was aligned to the head model by a shift only, although QSIPrep's space is also rotated (about 21° on the test subject); the tensors were not rotated with it, and resampling spread values outside the brain. On the test subject tensors sat 18 mm off on average with a 38° median error in fibre direction. The DTI step now fits the tensor itself with DIPY from QSIPrep output and maps it with QSIPrep's exact transforms, rotating every tensor; it writes `DTI_coregT1_qc.json` and refuses to write a tensor that fails its QC gate. **Affected:** `vn`, `dir` and `mc` simulations from v2.3.0 through v3.0.1; isotropic (`scalar`) results are unchanged. **Re-run** the DTI step (**Pre-processing ▸ Extract DTI tensor**, with *Replace and rerun*) and then those simulations; QSIPrep output can be reused.
 - **Head-model creation (charm) could freeze indefinitely on many-core machines** — on a machine with a large number of CPU cores, running `charm` to build a head model could hang forever partway through, with the log showing an OpenBLAS thread-metadata warning. Charm's own threading is unaffected; the underlying numerical library now stays single-threaded internally as intended.
 
 ### v3.0.1 — September 23, 2026 (Latest Release)

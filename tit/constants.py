@@ -100,6 +100,7 @@ FILE_EGI_TEMPLATE = "GSN-HydroCel-185.csv"
 # NIfTI files
 FILE_T1 = "T1.nii.gz"
 FILE_DTI_TENSOR = "DTI_coregT1_tensor.nii.gz"
+FILE_DTI_QC = "DTI_coregT1_qc.json"
 
 # File extensions
 EXT_NIFTI = ".nii.gz"
@@ -668,7 +669,7 @@ DIR_DWI = "dwi"
 # QSI recon specs (available reconstruction pipelines)
 # Organized by category. The full list is flat for validation; comments mark groups.
 QSI_RECON_SPECS = [
-    # --- Primary: DTI/scalar extraction for SimNIBS anisotropic modeling ---
+    # --- Scalars: GQI + DTI maps from DSI Studio (no tractography in our spec) ---
     "dsi_studio_gqi",
     # --- Tractography: MRTrix CSD-based pipelines ---
     "mrtrix_multishell_msmt_ACT-hsvs",
@@ -696,7 +697,8 @@ QSI_RECON_SPECS = [
     "abcd_recon",
 ]
 
-# Default spec for SimNIBS anisotropic DTI extraction
+# Default QSIRecon spec. QSIRecon is optional: the SimNIBS DTI tensor is fitted from
+# QSIPrep output directly (tit.pre.qsi.dti_extractor), so this only preselects scalar maps.
 QSI_DEFAULT_RECON_SPEC = "dsi_studio_gqi"
 
 # QSI atlases (available for connectivity analysis)
@@ -730,6 +732,8 @@ QSI_DEFAULT_MEMORY_GB = 32
 # one subject's anatomical normalization took 72 minutes on a 24-core host.
 # The cap is QSIPrep's: ANTs stops scaling well past 8 threads.
 QSI_DEFAULT_OMP_THREADS = min(max((os.cpu_count() or 2) - 1, 1), 8)
+# Only the default of the low-level QSIPrepConfig; the pipeline setting defaults to None,
+# which means the native DWI voxel size (tit.pre.qsi.utils.native_dwi_resolution).
 QSI_DEFAULT_OUTPUT_RESOLUTION = 2.0
 
 # QSI DWI validation. The b=0 cutoff matches QSIPrep's own --b0-threshold

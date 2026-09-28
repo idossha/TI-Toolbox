@@ -25,8 +25,9 @@ _JOB_ID_ENV_VAR = "TIT_JOB_ID"
 # Custom pipeline YAMLs shipped in resources/qsirecon_pipelines/.
 # These work around upstream QSIRecon bugs or missing features.
 _CUSTOM_PIPELINE_MAP = {
-    # dsi_studio_gqi without the connectivity node (avoids plot_reports bug
-    # and the mandatory --atlases requirement in QSIRecon >= 1.2.0).
+    # dsi_studio_gqi scalars only: no connectivity node (avoids the plot_reports
+    # bug and the mandatory --atlases requirement in QSIRecon >= 1.2.0) and no
+    # 5M-streamline tractography nobody here reads.
     "dsi_studio_gqi": "dsi_studio_gqi_scalar.yaml",
 }
 from .config import QSIPrepConfig, QSIReconConfig
@@ -288,6 +289,15 @@ class DockerCommandBuilder:
 
         cmd.extend(["--denoise-method", config.denoise_method])
         cmd.extend(["--unringing-method", config.unringing_method])
+        # Stated explicitly so an upstream default change cannot move our results.
+        cmd.extend(["--hmc-model", "eddy", "--pepolar-method", "TOPUP"])
+        cmd.extend(["--b0-threshold", f"{const.QSI_B0_THRESHOLD:g}"])
+        if config.use_syn_sdc:
+            cmd.extend(["--use-syn-sdc", "warn"])
+        # SyN SDC places its fieldmap prior through the anat->MNI transform, so it
+        # needs the normalization; otherwise only QSIRecon atlases do.
+        if not (config.mni_normalization or config.use_syn_sdc):
+            cmd.append("--skip-anat-based-spatial-normalization")
 
         return cmd
 

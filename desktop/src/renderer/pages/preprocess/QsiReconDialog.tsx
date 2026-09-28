@@ -103,7 +103,7 @@ export function QsiReconDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="QSIRecon configuration"
-      description="Reconstruction specifications and connectivity atlases, run via Docker."
+      description="Optional advanced step: tractography, scalar maps and connectivity, run via Docker. The SimNIBS DTI tensor does not need it."
       footer={
         <>
           <Button
@@ -145,7 +145,7 @@ export function QsiReconDialog({
           Atlases for connectivity (optional)
         </p>
         <p className="field-help" style={{ marginBottom: "var(--space-2)" }}>
-          Not required for the DTI-to-SimNIBS workflow.
+          Atlases need QSIPrep run with MNI normalization.
         </p>
         <CategoryChecklist
           categories={ATLAS_CATEGORIES}

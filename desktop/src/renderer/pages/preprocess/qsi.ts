@@ -27,14 +27,14 @@ export const DEFAULT_QSIRECON_IMAGE_TAG = "26.0.0";
 
 export const SPEC_CATEGORIES: Category[] = [
   {
-    title: "DTI / scalar extraction",
-    hint: "Produces tensor components for SimNIBS anisotropic modeling.",
+    title: "Scalar maps",
+    hint: "Not needed for the SimNIBS DTI tensor, which is fitted from QSIPrep output.",
     items: [
       {
         value: "dsi_studio_gqi",
         label: "dsi_studio_gqi",
         tooltip:
-          "GQI + deterministic tractography. Outputs tensor components (txx-tzz), QA, GFA, ISO.",
+          "DSI Studio GQI scalar maps (QA, GFA, ISO, DTI FA/MD). No tractography unless atlases are selected.",
       },
     ],
   },
@@ -279,14 +279,16 @@ export const ATLAS_CATEGORIES: Category[] = [
  */
 export function defaultQsiPrepConfig(): QsiPrepSettings {
   return {
-    output_resolution: 2.0,
+    // null = the DWI's native voxel size.
+    output_resolution: null,
     cpus: null,
     memory_gb: null,
     omp_threads: 8,
     image_tag: DEFAULT_QSIPREP_IMAGE_TAG,
     skip_bids_validation: true,
     denoise_method: "dwidenoise",
-    unringing_method: "mrdegibbs",
+    unringing_method: "auto",
+    mni_normalization: false,
   };
 }
 
@@ -304,13 +306,14 @@ export function defaultQsiReconConfig(): QsiReconSettings {
 }
 
 export const DENOISE_METHODS = ["dwidenoise", "patch2self", "none"];
-export const UNRINGING_METHODS = ["mrdegibbs", "rpg", "none"];
+/** `auto` = rpg for partial-Fourier DWI (PartialFourier < 1), else mrdegibbs. */
+export const UNRINGING_METHODS = ["auto", "mrdegibbs", "rpg", "none"];
 
 export function qsiPrepPreferences(config: QsiPrepSettings): SurferSettings["qsiprep_config"] {
   const { output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method } = config;
   if (denoise_method !== "dwidenoise" && denoise_method !== "patch2self" && denoise_method !== "none") throw new Error("Unsupported denoise method");
-  if (unringing_method !== "mrdegibbs" && unringing_method !== "rpg" && unringing_method !== "none") throw new Error("Unsupported unringing method");
-  return { output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method };
+  if (unringing_method !== "auto" && unringing_method !== "mrdegibbs" && unringing_method !== "rpg" && unringing_method !== "none") throw new Error("Unsupported unringing method");
+  return { output_resolution: output_resolution ?? null, image_tag, skip_bids_validation, denoise_method, unringing_method, mni_normalization: config.mni_normalization ?? false };
 }
 export function qsiReconPreferences(config: QsiReconSettings): SurferSettings["qsi_recon_config"] {
   const { recon_specs, atlases, use_gpu, image_tag, skip_odf_reports } = config;

@@ -691,7 +691,9 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             "freesurfer_recon": (
                 deriv / "freesurfer" / f"sub-{sid}" / "mri" / "aparc+aseg.mgz"
             ).is_file(),
+            "qsiprep": (deriv / "qsiprep" / f"sub-{sid}").is_dir(),
             "qsirecon": (deriv / "qsirecon" / f"sub-{sid}").is_dir(),
+            "dti_tensor": (m2m / "DTI_coregT1_tensor.nii.gz").is_file(),
             "leadfields": _ls(sub / "leadfields"),
             "freehand_configs": [
                 f for f in _ls(m2m / "stim_configs") if f.endswith(".json")
@@ -905,7 +907,6 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "produce an empty git diff.",
             "tit/scene": "Builds skin / grey-matter / electrode / region-label scene "
             "payloads from a subject's real files, plus the packaged subject-free guide.",
-
             "tit/viewspec.py": "build_view(kind, ...) is a pure function returning a "
             "ViewSpec. The server resolves what to show; the client renders it.",
             "tit/catalog.py": "Subject/simulation discovery for the UI, built only on "

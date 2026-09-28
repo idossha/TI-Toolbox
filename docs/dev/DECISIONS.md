@@ -2092,3 +2092,42 @@ wide on 2560 px screens, which is where the scene benefits.
 `desktop/tests/unit/run-pane-controller.test.tsx` (limits from the split box),
 `desktop/tests/e2e/layout.spec.ts` (drag extremes at 1140/1280/1440/1920/2560, no Jobs-table
 truncation, re-clamp on resize, stacking at 1100).
+
+## 2026-09-27 — DTI via DIPY on QSIPrep output; QSIRecon optional; exact transform chain; SDC mandatory
+
+**Decision.** The SimNIBS tensor is fitted in `tit/pre/qsi/dti_extractor.py` with DIPY
+`TensorModel` WLS on b ≤ 1500 from QSIPrep's ACPC DWI and `.b` table, mapped to the m2m T1 with the
+exact QSIPrep chain `G = A_lps · inv(A_anat) · inv(X)` (`tensor_math.py`), resampled by
+validity-normalised trilinear interpolation with tensor rotation, masked to the brain, and stored in
+SimNIBS's `correct_FSL` frame. A QC gate decides whether the file is written. QSIRecon becomes an
+optional advanced step. QSIPrep runs with mandatory susceptibility distortion correction (fieldmap
+TOPUP, else SyN), data-driven unringing and resolution, explicit eddy/TOPUP/b0 flags, no MNI
+normalization unless asked for or SyN needs it, and refuses arm64 hosts. `dipy>=1.12,<2` joins the
+image's `simnibs_python` environment.
+
+**Why.** The previous extractor (v2.3.0–v3.0.1) had three defects: a translation-only FFT alignment
+where QSIPrep's ACPC space is the T1w rotated about 21° and shifted, no tensor rotation, and order-3
+resampling without a mask; `skip_registration` also stored a mirrored tensor. On CHN this placed
+tensors 18 mm off on average with a 38° median principal-axis error [measured: dti_eval
+chn/chn_eval.txt]. The exact chain recovers a known map to max|G − G_true| ≈ 1e-14 and V1 median
+2.3–2.5° against the synthetic truth, equal to the interpolation floor [measured: dti_eval
+synth/roundtrip_results.txt]. DIPY WLS b ≤ 1500 agrees with DSI Studio's OLS b ≤ 1750 within 0.54°
+median V1 and MD ratio 1.000 on CHN [measured: chn/chn_eval.txt, q1/fit_shells.txt], so QSIRecon adds
+nothing to the tensor. CHN's QSIPrep run had no distortion correction because its fieldmaps lacked
+`IntendedFor`, which nothing wrote; CHN is partial-Fourier 0.75, where `mrdegibbs` is wrong.
+
+**Alternatives rejected.** NCC registration as the map: it agrees with the chain (0.04 mm on CHN) but
+is an optimiser that can fail silently, so it stays a check. FSL `dtifit`/`vecreg`: FSL cannot be
+bundled (licence). DSI Studio through QSIRecon: an extra 60-minute container for the same tensor.
+A Mac path for QSIPrep: SynthSeg's AVX requirement has no emulated workaround.
+
+**Cost.** One more Python dependency in the image. The NCC check adds about a minute. Subjects whose
+m2m was built from a different T1w than QSIPrep's are refused. Published anisotropic results from
+v2.3.0–v3.0.1 must be regenerated. Saved QSIPrep preferences keep an explicit `output_resolution` /
+`unringing_method` the user saved earlier; only unsaved or reset preferences get the new defaults.
+
+**Verification.** `tests/test_pre_qsi_tensor_math.py`, `tests/test_pre_qsi_sdc.py`,
+`tests/test_pre_qsi_dti.py`, `tests/numerical/test_dti_roundtrip.py`, and
+`TIT_DTI_REAL=<Dataset 000> tests/numerical/test_dti_real.py` (CHN QC gate passes, V1 vs the
+prototype). QSIPrep with the new flags on an x86 host (ernie kit) is still outstanding.
+

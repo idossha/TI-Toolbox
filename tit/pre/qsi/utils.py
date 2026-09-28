@@ -16,6 +16,7 @@ import os
 import shutil
 import struct
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from tit import constants as const
@@ -177,8 +178,13 @@ def validate_dood_environment(
     project_dir: str,
     *,
     require_gpu: bool = False,
+    require_x86_64: bool = False,
 ) -> tuple[bool, str | None]:
-    """Validate Docker-outside-of-Docker prerequisites before QSI runs."""
+    """Validate Docker-outside-of-Docker prerequisites before QSI runs.
+
+    *require_x86_64* rejects an arm64 Docker host (Apple Silicon), where QSIPrep
+    cannot run; the check reads ``docker info``'s ``Architecture`` line.
+    """
     if shutil.which("docker") is None:
         return False, "Docker CLI not found in PATH."
 
@@ -214,6 +220,24 @@ def validate_dood_environment(
         if "nvidia" not in docker_info:
             return False, "Docker GPU runtime is not available."
 
+    if require_x86_64:
+        arch = next(
+            (
+                line.split(":", 1)[1].strip()
+                for line in (result.stdout or "").splitlines()
+                if line.strip().startswith("Architecture:")
+            ),
+            "",
+        )
+        if arch.lower() in ("aarch64", "arm64"):
+            return False, (
+                f"QSIPrep needs an x86-64 (Linux or Windows) Docker host; this one is "
+                f"{arch}. On Apple Silicon QSIPrep 26 fails at SynthSeg, whose "
+                "TensorFlow needs AVX instructions that emulation does not provide. "
+                "Run QSIPrep on an x86-64 machine and copy derivatives/qsiprep/"
+                "sub-<id> into this project; DTI extraction then runs here."
+            )
+
     return True, None
 
 
@@ -226,14 +250,17 @@ def nifti_stem(path: Path) -> str:
     return path.stem
 
 
-def read_nifti_dims(path: Path) -> tuple[int, ...] | None:
-    """Return the 8-element ``dim`` field of a NIfTI header, or ``None``.
+def _read_nifti_header(
+    path: Path,
+) -> tuple[tuple[int, ...], tuple[float, ...]] | None:
+    """Return the 8-element ``dim`` and ``pixdim`` fields of a NIfTI header, or ``None``.
 
     Parsed from the raw header rather than through nibabel so that a
     validation pass costs one 540-byte read instead of opening the image,
     and so it stays available in environments without nibabel. Both
-    NIfTI-1 (``dim`` is ``int16[8]`` at offset 40) and NIfTI-2 (``int64[8]``
-    at offset 16) are recognised, in either byte order.
+    NIfTI-1 (``dim`` ``int16[8]`` at 40, ``pixdim`` ``float32[8]`` at 76) and
+    NIfTI-2 (``int64[8]`` at 16, ``float64[8]`` at 104) are recognised, in
+    either byte order.
     """
     try:
         opener = gzip.open if path.name.lower().endswith(".gz") else open
@@ -247,11 +274,32 @@ def read_nifti_dims(path: Path) -> tuple[int, ...] | None:
 
     for endian in ("<", ">"):
         (sizeof_hdr,) = struct.unpack(endian + "i", header[:4])
-        if sizeof_hdr == _NIFTI1_HEADER_SIZE:
-            return struct.unpack(endian + "8h", header[40:56])
-        if sizeof_hdr == _NIFTI2_HEADER_SIZE:
-            return struct.unpack(endian + "8q", header[16:80])
+        if sizeof_hdr == _NIFTI1_HEADER_SIZE and len(header) >= 108:
+            return (
+                struct.unpack(endian + "8h", header[40:56]),
+                struct.unpack(endian + "8f", header[76:108]),
+            )
+        if sizeof_hdr == _NIFTI2_HEADER_SIZE and len(header) >= 168:
+            return (
+                struct.unpack(endian + "8q", header[16:80]),
+                struct.unpack(endian + "8d", header[104:168]),
+            )
     return None
+
+
+def read_nifti_dims(path: Path) -> tuple[int, ...] | None:
+    """Return the 8-element ``dim`` field of a NIfTI header, or ``None``."""
+    parsed = _read_nifti_header(path)
+    return parsed[0] if parsed else None
+
+
+def read_nifti_zooms(path: Path) -> tuple[float, float, float] | None:
+    """Return the three spatial voxel sizes (mm) of a NIfTI header, or ``None``."""
+    parsed = _read_nifti_header(path)
+    if not parsed:
+        return None
+    zooms = tuple(abs(float(z)) for z in parsed[1][1:4])
+    return zooms if all(z > 0 for z in zooms) else None  # type: ignore[return-value]
 
 
 def _nifti_volume_count(path: Path) -> int | None:
@@ -605,6 +653,232 @@ def ensure_total_readout_time(
         )
 
     return True, None
+
+
+# ── Susceptibility distortion correction, unringing and resolution defaults ──
+
+_DWI_FMAP_ACQ = ("dwi", "dti")
+
+
+def _read_sidecar(path: Path) -> dict:
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _dwi_series(project_dir: str, subject_id: str) -> list[tuple[Path, dict]]:
+    """Every BIDS DWI image of the subject with its sidecar metadata (``{}`` if none)."""
+    dwi_dir = Path(get_path_manager(project_dir).bids_dwi(subject_id))
+    return [
+        (path, _read_sidecar(path.with_name(f"{nifti_stem(path)}.json")))
+        for path in sorted(dwi_dir.glob("*_dwi.nii*"))
+        if not path.name.startswith(".")
+    ]
+
+
+def _pe(value) -> tuple[str, int] | None:
+    """``"j-"`` -> ``("j", -1)``; ``None`` for anything that is not a BIDS PE direction."""
+    if not isinstance(value, str) or value.rstrip("-") not in ("i", "j", "k"):
+        return None
+    return value.rstrip("-"), -1 if value.endswith("-") else 1
+
+
+def _as_list(value) -> list:
+    if value is None:
+        return []
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
+@dataclass(frozen=True)
+class SdcPlan:
+    """How QSIPrep will correct susceptibility distortion for one subject.
+
+    ``mode`` is ``"fieldmap"`` (reverse-PE ``fmap/*_epi`` images, TOPUP),
+    ``"reverse-pe-dwi"`` (DWI series with opposite phase encoding, TOPUP) or
+    ``"syn"`` (fieldmap-less SyN, ``--use-syn-sdc warn``). ``problems`` names
+    DWI fieldmaps that cannot be used and why.
+    """
+
+    mode: str
+    fieldmaps: tuple[Path, ...] = ()
+    problems: tuple[str, ...] = ()
+
+    @property
+    def use_syn(self) -> bool:
+        return self.mode == "syn"
+
+    @property
+    def blocking_error(self) -> str | None:
+        """Set when DWI fieldmaps exist but none is usable: falling back would hide it."""
+        if self.mode != "syn" or not self.problems:
+            return None
+        return (
+            "DWI fieldmaps were found but none can be used for distortion "
+            "correction: " + " ".join(self.problems) + " Fix the fieldmap sidecars, "
+            "or move those fieldmaps out of fmap/ to run fieldmap-less SyN correction."
+        )
+
+    def describe(self) -> str:
+        if self.mode == "fieldmap":
+            names = ", ".join(p.name for p in self.fieldmaps)
+            return f"TOPUP with reverse phase-encoding fieldmap(s): {names}"
+        if self.mode == "reverse-pe-dwi":
+            return "TOPUP with the reverse phase-encoding DWI series"
+        return (
+            "fieldmap-less SyN (--use-syn-sdc warn): no reverse phase-encoding "
+            "fieldmap for the DWI"
+        )
+
+
+def plan_distortion_correction(
+    project_dir: str,
+    subject_id: str,
+    *,
+    logger: logging.Logger,
+    repair: bool = True,
+) -> SdcPlan:
+    """Choose QSIPrep's susceptibility distortion correction for *subject_id*.
+
+    An ``fmap/*_epi`` image is treated as a DWI fieldmap when its ``IntendedFor``
+    already names a DWI, or, with no ``IntendedFor``, when its ``acq`` label says
+    dwi/dti or it has no ``acq`` label and the DWI's matrix. It is usable when its
+    sidecar has a ``PhaseEncodingDirection`` opposite to a DWI's on the same axis and
+    a ``TotalReadoutTime`` (derived like the DWI's when absent). With *repair*, a
+    usable fieldmap missing ``IntendedFor`` or ``TotalReadoutTime`` gets them written
+    into its own sidecar; nothing else is touched. Unusable DWI fieldmaps are
+    reported in ``problems``, never guessed at.
+    """
+    series = _dwi_series(project_dir, subject_id)
+    dwi_pes = {
+        pe
+        for pe in (_pe(meta.get("PhaseEncodingDirection")) for _, meta in series)
+        if pe
+    }
+    if any((axis, -sign) in dwi_pes for axis, sign in dwi_pes):
+        return SdcPlan("reverse-pe-dwi")
+
+    dwi_dims = {
+        dims[1:4] for dims in (read_nifti_dims(path) for path, _ in series) if dims
+    }
+    dwi_names = [path.name for path, _ in series]
+    dwi_sources = {
+        str(v) for _, meta in series for v in _as_list(meta.get("B0FieldSource"))
+    }
+    fmap_dir = Path(get_path_manager(project_dir).bids_datatype(subject_id, "fmap"))
+    usable: list[Path] = []
+    problems: list[str] = []
+    for fmap in sorted(fmap_dir.glob("*_epi.nii*")):
+        if fmap.name.startswith("."):
+            continue
+        stem = nifti_stem(fmap)
+        acq = next(
+            (part[4:].lower() for part in stem.split("_") if part.startswith("acq-")),
+            None,
+        )
+        dims = read_nifti_dims(fmap)
+        looks_dwi = (
+            any(tag in acq for tag in _DWI_FMAP_ACQ)
+            if acq
+            else bool(dims and dims[1:4] in dwi_dims)
+        )
+        sidecar = fmap.with_name(f"{stem}.json")
+        if not sidecar.is_file():
+            if looks_dwi:
+                problems.append(
+                    f"{fmap.name} has no {sidecar.name} sidecar, so its phase-encoding "
+                    "direction is unknown."
+                )
+            continue
+        meta = _read_sidecar(sidecar)
+        intended = [str(v) for v in _as_list(meta.get("IntendedFor"))]
+        wired = any("dwi/" in v for v in intended) or any(
+            str(v) in dwi_sources for v in _as_list(meta.get("B0FieldIdentifier"))
+        )
+        if not wired and (intended or not looks_dwi):
+            continue  # a fieldmap for another modality
+
+        pe = _pe(meta.get("PhaseEncodingDirection"))
+        if pe is None:
+            problems.append(f"{sidecar.name} has no valid PhaseEncodingDirection.")
+            continue
+        if not any(axis == pe[0] for axis, _ in dwi_pes):
+            problems.append(
+                f"{sidecar.name} phase-encodes along {pe[0]}, not the DWI's axis."
+            )
+            continue
+        if (pe[0], -pe[1]) not in dwi_pes:
+            problems.append(
+                f"{sidecar.name} has the same PhaseEncodingDirection as the DWI "
+                f"({meta['PhaseEncodingDirection']}); TOPUP needs the opposite one."
+            )
+            continue
+        changed = []
+        readout = meta.get("TotalReadoutTime")
+        if not (isinstance(readout, (int, float)) and readout > 0):
+            value, provenance = _derive_total_readout_time(meta)
+            if value is None:
+                problems.append(
+                    f"{sidecar.name} has no TotalReadoutTime and nothing to derive it "
+                    "from (EstimatedTotalReadoutTime, or EffectiveEchoSpacing with "
+                    "ReconMatrixPE)."
+                )
+                continue
+            meta["TotalReadoutTime"] = value
+            changed.append(f"TotalReadoutTime={value:g}s [{provenance}]")
+        if not wired:
+            meta["IntendedFor"] = [f"dwi/{name}" for name in dwi_names]
+            changed.append("IntendedFor=" + ", ".join(meta["IntendedFor"]))
+        if changed and repair:
+            try:
+                _write_sidecar(sidecar, meta)
+            except OSError as exc:
+                problems.append(f"Could not write {sidecar.name}: {exc}")
+                continue
+            logger.warning(f"Added {'; '.join(changed)} to {sidecar.name}.")
+        usable.append(fmap)
+
+    if usable and problems:
+        logger.warning("Ignoring unusable DWI fieldmap(s): " + " ".join(problems))
+    return SdcPlan("fieldmap" if usable else "syn", tuple(usable), tuple(problems))
+
+
+def _write_sidecar(path: Path, metadata: dict) -> None:
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(metadata, handle, indent=2)
+        handle.write("\n")
+
+
+def choose_unringing_method(project_dir: str, subject_id: str) -> tuple[str, str]:
+    """``("rpg" | "mrdegibbs", reason)`` from the DWI sidecars' ``PartialFourier``.
+
+    mrdegibbs assumes full k-space; TORTOISE's rpg handles partial-Fourier data.
+    """
+    fractions = [
+        meta.get("PartialFourier") for _, meta in _dwi_series(project_dir, subject_id)
+    ]
+    partial = [f for f in fractions if isinstance(f, (int, float)) and 0 < f < 1]
+    if partial:
+        return "rpg", f"PartialFourier {min(partial):g} < 1"
+    return "mrdegibbs", "no PartialFourier < 1 in the DWI sidecar"
+
+
+def native_dwi_resolution(project_dir: str, subject_id: str) -> float | None:
+    """The DWI's smallest voxel dimension rounded half-up to 0.1 mm, or ``None``.
+
+    QSIPrep resamples to an isotropic grid; the finest native axis keeps every
+    acquired sample without inventing resolution.
+    """
+    zooms = [
+        z
+        for path, _ in _dwi_series(project_dir, subject_id)
+        for z in (read_nifti_zooms(path) or ())
+    ]
+    if not zooms:
+        return None
+    return max(0.1, math.floor(min(zooms) * 10 + 0.5) / 10)
 
 
 def validate_qsiprep_output(

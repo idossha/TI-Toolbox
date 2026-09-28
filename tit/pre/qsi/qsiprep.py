@@ -19,7 +19,10 @@ from tit.pre.utils import CommandRunner, PreprocessError
 from .config import QSIPrepConfig, ResourceConfig
 from .docker_builder import DockerCommandBuilder, DockerBuildError
 from .utils import (
+    choose_unringing_method,
     ensure_total_readout_time,
+    native_dwi_resolution,
+    plan_distortion_correction,
     pull_image_if_needed,
     validate_dood_environment,
     validate_bids_dwi,
@@ -77,21 +80,30 @@ def run_qsiprep(
     subject_id: str,
     *,
     logger: logging.Logger,
-    output_resolution: float = const.QSI_DEFAULT_OUTPUT_RESOLUTION,
+    output_resolution: float | None = None,
     cpus: int | None = None,
     memory_gb: int | None = None,
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS,
     image_tag: str = const.QSI_QSIPREP_IMAGE_TAG,
     skip_bids_validation: bool = True,
     denoise_method: str = "dwidenoise",
-    unringing_method: str = "mrdegibbs",
+    unringing_method: str = "auto",
+    mni_normalization: bool = False,
     runner: CommandRunner | None = None,
 ) -> None:
     """
     Run QSIPrep preprocessing for a subject's DWI data.
 
     This function spawns a QSIPrep Docker container as a sibling to the
-    current SimNIBS container using Docker-out-of-Docker (DooD).
+    current SimNIBS container using Docker-out-of-Docker (DooD). QSIPrep needs
+    an x86-64 Docker host (its SynthSeg step needs AVX); an arm64 host is
+    refused before anything runs.
+
+    Susceptibility distortion correction is always on: TOPUP with the subject's
+    reverse phase-encoding fieldmap (``IntendedFor`` written into its sidecar when
+    missing) or reverse-PE DWI series, else fieldmap-less SyN
+    (``--use-syn-sdc warn``). DWI fieldmaps that exist but cannot be used stop the
+    run instead of silently falling back.
 
     Parameters
     ----------
@@ -101,8 +113,9 @@ def run_qsiprep(
         Subject identifier (without 'sub-' prefix).
     logger : logging.Logger
         Logger for status messages.
-    output_resolution : float, optional
-        Target output resolution in mm. Default: 2.0.
+    output_resolution : float or None, optional
+        Isotropic output voxel size in mm. ``None`` (default) uses the native DWI
+        voxel size (smallest axis, rounded to 0.1 mm).
     cpus : int, optional
         Number of CPUs to allocate. Default: 8.
     memory_gb : int, optional
@@ -117,7 +130,11 @@ def run_qsiprep(
     denoise_method : str, optional
         Denoising method. Default: 'dwidenoise'.
     unringing_method : str, optional
-        Unringing method. Default: 'mrdegibbs'.
+        'mrdegibbs', 'rpg', 'none' or 'auto' (default): rpg when the DWI sidecar
+        has ``PartialFourier`` < 1, else mrdegibbs.
+    mni_normalization : bool, optional
+        Run the anatomical normalization to MNI (needed only for QSIRecon atlases
+        and template-space specs). Default: False; forced on by SyN SDC.
     runner : CommandRunner | None, optional
         Command runner for subprocess execution.
 
@@ -131,7 +148,9 @@ def run_qsiprep(
 
     with track_operation(_const.TELEMETRY_OP_PRE_QSIPREP):
         logger.info(f"Starting QSIPrep for subject {subject_id}")
-        ok, preflight_error = validate_dood_environment(project_dir)
+        ok, preflight_error = validate_dood_environment(
+            project_dir, require_x86_64=True
+        )
         if not ok:
             raise PreprocessError(f"QSI Docker preflight failed: {preflight_error}")
 
@@ -162,6 +181,33 @@ def run_qsiprep(
                 "it too only if you want to start from scratch."
             )
 
+        sdc = plan_distortion_correction(project_dir, subject_id, logger=logger)
+        if sdc.blocking_error:
+            raise PreprocessError(sdc.blocking_error)
+        logger.info(f"Distortion correction: {sdc.describe()}")
+        if sdc.use_syn and not mni_normalization:
+            logger.info(
+                "MNI normalization enabled: SyN distortion correction needs the "
+                "anat-to-MNI transform."
+            )
+
+        if unringing_method == "auto":
+            unringing_method, reason = choose_unringing_method(project_dir, subject_id)
+            logger.info(f"Unringing: {unringing_method} ({reason})")
+
+        if output_resolution is None:
+            output_resolution = native_dwi_resolution(project_dir, subject_id)
+            if output_resolution is None:
+                output_resolution = const.QSI_DEFAULT_OUTPUT_RESOLUTION
+                logger.warning(
+                    "Could not read the DWI voxel size; using "
+                    f"{output_resolution:g} mm output resolution."
+                )
+            else:
+                logger.info(
+                    f"Output resolution: {output_resolution:g} mm (native DWI voxel size)"
+                )
+
         # Create output directories
         output_dir.parent.mkdir(parents=True, exist_ok=True)
         work_dir = Path(pm.derivatives()) / ".qsiprep_work"
@@ -180,6 +226,8 @@ def run_qsiprep(
             skip_bids_validation=skip_bids_validation,
             denoise_method=denoise_method,
             unringing_method=unringing_method,
+            use_syn_sdc=sdc.use_syn,
+            mni_normalization=mni_normalization,
         )
 
         try:

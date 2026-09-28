@@ -154,7 +154,15 @@ class QSIPrepConfig:
     denoise_method : str
         Denoising method: 'dwidenoise', 'patch2self', or 'none'.
     unringing_method : str
-        Unringing method: 'mrdegibbs', 'rpg', or 'none'.
+        Unringing method: 'mrdegibbs', 'rpg', or 'none' (already resolved; the
+        pipeline setting 'auto' is resolved by ``run_qsiprep``).
+    use_syn_sdc : bool
+        Pass ``--use-syn-sdc warn`` (fieldmap-less SyN distortion correction).
+        Set by ``run_qsiprep`` when the subject has no usable fieldmap.
+    mni_normalization : bool
+        Run QSIPrep's anatomical normalization to MNI. Off by default: only
+        QSIRecon atlases/template-space specs need it. Always on with SyN SDC,
+        which uses the MNI transform to place its fieldmap prior.
     """
 
     subject_id: str
@@ -164,6 +172,8 @@ class QSIPrepConfig:
     skip_bids_validation: bool = True
     denoise_method: str = "dwidenoise"
     unringing_method: str = "mrdegibbs"
+    use_syn_sdc: bool = False
+    mni_normalization: bool = False
 
     def __post_init__(self) -> None:
         if not self.subject_id:
@@ -188,7 +198,8 @@ class QSIReconConfig:
     subject_id : str
         Subject identifier (without 'sub-' prefix).
     recon_specs : list[str]
-        List of reconstruction specs to run. Defaults to ['dsi_studio_gqi'].
+        List of reconstruction specs to run. Defaults to ['dsi_studio_gqi']
+        (scalar maps only; the SimNIBS DTI tensor does not need QSIRecon).
     atlases : list[str] | None
         List of atlases for connectivity analysis. None (default) = no
         connectivity. Set to e.g. ['4S156Parcels', 'AAL116'] if needed.

@@ -163,8 +163,9 @@ def plan_preprocessing(
     - ``G2c`` = optional FreeSurfer recon-all/subregions, after ``G1``
     - ``G3`` = tissue-volume/thickness analysis (``run_tissue_analysis``), after ``G2a``
     - ``G4`` = QSIPrep (``run_qsiprep``), after ``G1``
-    - ``G5`` = QSIRecon (``run_qsirecon``), after ``G4``
-    - ``G6`` = DTI tensor extraction (``extract_dti``), after ``G5`` and ``G2a``
+    - ``G5`` = optional QSIRecon (``run_qsirecon``), after ``G4``
+    - ``G6`` = DTI tensor fit (``extract_dti``, DIPY on QSIPrep output), after ``G4``
+      and ``G2a`` -- it needs no QSIRecon, so it runs in parallel with ``G5``
     A report is **not** a stage and never a job of its own. Every stage job writes its
     own HTML report as a side effect of :func:`tit.pre.structural.run_pipeline`, and the
     job manager folds the group's stages into one consolidated per-subject report as a
@@ -290,7 +291,7 @@ def plan_preprocessing(
             subject_jobs.append(g5)
 
         if config.extract_dti:
-            after = [j.label for j in (g5, g2a) if j is not None]
+            after = [j.label for j in (g4, g2a) if j is not None]
             g6 = PlannedJob(
                 label=f"{subject_id}:G6",
                 kind="pre",

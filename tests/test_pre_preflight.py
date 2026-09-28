@@ -267,3 +267,61 @@ def test_missing_dwi_input_ignored_when_dicom_conversion_selected(tmp_path):
     )
 
     assert problems == []
+
+
+def test_unusable_dwi_fieldmap_is_a_qsiprep_preflight_problem(tmp_path, write_dwi):
+    """A DWI fieldmap QSIPrep cannot use is reported, not silently replaced by SyN."""
+    anat_dir = tmp_path / "sub-001" / "anat"
+    anat_dir.mkdir(parents=True)
+    (anat_dir / "sub-001_T1w.nii.gz").touch()
+    write_dwi(tmp_path / "sub-001" / "dwi")
+    fmap = tmp_path / "sub-001" / "fmap"
+    fmap.mkdir()
+    (fmap / "sub-001_acq-dwi_dir-PA_epi.nii.gz").touch()  # no sidecar
+
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path), ["001"], run_qsiprep=True
+    )
+
+    assert [p.step for p in problems] == [STEP_QSIPREP]
+    assert "no sub-001_acq-dwi_dir-PA_epi.json" in problems[0].message
+
+
+def test_dti_needs_qsiprep_output_and_head_model(tmp_path):
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path), ["001"], extract_dti=True
+    )
+
+    assert [p.step for p in problems] == [STEP_DTI, STEP_DTI]
+    assert "QSIPrep" in problems[0].message
+    assert "charm" in problems[1].message
+
+
+def test_dti_inputs_produced_in_the_same_run_are_not_missing(tmp_path, write_dwi):
+    anat_dir = tmp_path / "sub-001" / "anat"
+    anat_dir.mkdir(parents=True)
+    (anat_dir / "sub-001_T1w.nii.gz").touch()
+    write_dwi(tmp_path / "sub-001" / "dwi")
+
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path), ["001"], create_m2m=True, run_qsiprep=True, extract_dti=True
+    )
+
+    assert problems == []
+
+
+def test_dti_rerun_removes_qc_record_and_legacy_intermediate(tmp_path):
+    m2m = tmp_path / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001"
+    m2m.mkdir(parents=True)
+    for name in (
+        "DTI_coregT1_tensor.nii.gz",
+        "DTI_coregT1_qc.json",
+        "DTI_ACPC_tensor.nii.gz",
+        "T1.nii.gz",
+    ):
+        (m2m / name).touch()
+
+    [output] = existing_outputs_for_step(str(tmp_path), "001", STEP_DTI)
+    remove_preprocessing_output(output)
+
+    assert sorted(p.name for p in m2m.iterdir()) == ["T1.nii.gz"]

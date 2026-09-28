@@ -3,6 +3,10 @@ DTI quality control image generation helpers.
 
 Computes DTI QC metrics (FA, eigenvalues, positive-definiteness) and
 generates color-coded FA direction maps overlaid on T1 for visual QC.
+
+``DTI_coregT1_tensor.nii.gz`` stores components in the frame SimNIBS's
+``correct_FSL`` reads back, not in world coordinates, so every helper here
+first converts the stored 6-vectors to world (scanner RAS) tensors.
 """
 
 from typing import Any
@@ -13,6 +17,41 @@ from typing import Any
 # regardless of acquisition resolution (following the nilearn / nireports
 # pattern of affine-aware resampling before display).
 _DISPLAY_MAX_PX = 256
+
+
+def world_tensors(tensor_file: str):
+    """``(img, mask, tensors)``: the non-zero voxels' world-frame 3x3 tensors."""
+    import nibabel as nib
+    import numpy as np
+
+    from tit.pre.qsi.tensor_math import simnibs_to_world
+
+    img = nib.load(tensor_file)
+    data = img.get_fdata(dtype=np.float32)
+    if data.ndim != 4 or data.shape[-1] != 6:
+        raise ValueError(f"Expected shape (X,Y,Z,6), got {data.shape}")
+    mask = np.any(data != 0, axis=-1)
+    return img, mask, simnibs_to_world(data[mask], img.affine)
+
+
+def _fa(eigenvalues):
+    import numpy as np
+
+    lam_mean = eigenvalues.mean(axis=-1, keepdims=True)
+    lam_sq_sum = np.sum(eigenvalues**2, axis=-1)
+    lam_diff_sq_sum = np.sum((eigenvalues - lam_mean) ** 2, axis=-1)
+    denom = np.where(lam_sq_sum == 0, 1.0, lam_sq_sum)
+    return np.clip(np.sqrt(1.5) * np.sqrt(lam_diff_sq_sum) / np.sqrt(denom), 0.0, 1.0)
+
+
+def fa_volume(tensor_file: str):
+    """``(img, FA volume)`` on the tensor grid (FA is frame-independent)."""
+    import numpy as np
+
+    img, mask, tensors = world_tensors(tensor_file)
+    fa_vol = np.zeros(mask.shape, dtype=np.float32)
+    fa_vol[mask] = _fa(np.linalg.eigvalsh(tensors))
+    return img, fa_vol
 
 
 def compute_dti_qc_metrics(tensor_file: str) -> dict[str, Any]:
@@ -30,22 +69,10 @@ def compute_dti_qc_metrics(tensor_file: str) -> dict[str, Any]:
         Dictionary with voxel counts, eigenvalue statistics, FA statistics,
         and positive-definiteness percentage.
     """
-    import nibabel as nib
     import numpy as np
 
-    img = nib.load(tensor_file)
-    data = img.get_fdata(dtype=np.float32)
-
-    # Handle 4D with last dim == 6
-    if data.ndim == 4 and data.shape[-1] == 6:
-        pass
-    else:
-        raise ValueError(f"Expected shape (X,Y,Z,6), got {data.shape}")
-
-    total_voxels = int(np.prod(data.shape[:3]))
-
-    # Mask: voxels where at least one tensor component is non-zero
-    nonzero_mask = np.any(data != 0, axis=-1)
+    _, nonzero_mask, tensors = world_tensors(tensor_file)
+    total_voxels = int(nonzero_mask.size)
     nonzero_voxels = int(np.count_nonzero(nonzero_mask))
 
     if nonzero_voxels == 0:
@@ -63,38 +90,13 @@ def compute_dti_qc_metrics(tensor_file: str) -> dict[str, Any]:
             "fa_max": 0.0,
         }
 
-    # Extract non-zero voxels: (N, 6)
-    voxels = data[nonzero_mask]
-
-    # Reconstruct 3x3 symmetric tensors: (N, 3, 3)
-    N = voxels.shape[0]
-    tensors = np.zeros((N, 3, 3), dtype=np.float32)
-    tensors[:, 0, 0] = voxels[:, 0]  # Dxx
-    tensors[:, 0, 1] = voxels[:, 1]  # Dxy
-    tensors[:, 0, 2] = voxels[:, 2]  # Dxz
-    tensors[:, 1, 0] = voxels[:, 1]  # Dxy (symmetric)
-    tensors[:, 1, 1] = voxels[:, 3]  # Dyy
-    tensors[:, 1, 2] = voxels[:, 4]  # Dyz
-    tensors[:, 2, 0] = voxels[:, 2]  # Dxz (symmetric)
-    tensors[:, 2, 1] = voxels[:, 4]  # Dyz (symmetric)
-    tensors[:, 2, 2] = voxels[:, 5]  # Dzz
-
     # Eigenvalues: (N, 3), sorted ascending
     eigenvalues = np.linalg.eigvalsh(tensors)
 
     # Positive-definiteness: all eigenvalues > 0
     pd_mask = np.all(eigenvalues > 0, axis=-1)
     pd_voxels = int(np.count_nonzero(pd_mask))
-
-    # FA computation
-    lam_mean = eigenvalues.mean(axis=-1, keepdims=True)  # (N, 1)
-    lam_sq_sum = np.sum(eigenvalues**2, axis=-1)  # (N,)
-    lam_diff_sq_sum = np.sum((eigenvalues - lam_mean) ** 2, axis=-1)  # (N,)
-
-    denom = lam_sq_sum.copy()
-    denom[denom == 0] = 1.0  # avoid division by zero
-    fa = np.sqrt(1.5) * np.sqrt(lam_diff_sq_sum) / np.sqrt(denom)
-    fa = np.clip(fa, 0.0, 1.0)
+    fa = _fa(eigenvalues)
 
     return {
         "total_voxels": total_voxels,
@@ -116,7 +118,8 @@ def generate_color_fa_image(
 ) -> dict[str, list[dict[str, Any]]]:
     """Generate color-coded FA direction maps overlaid on T1.
 
-    Standard DTI color convention:
+    Standard DTI color convention, on **world** (scanner RAS) axes, whatever the
+    voxel order of the grid:
       R = |V1_x| * FA  (left-right)
       G = |V1_y| * FA  (anterior-posterior)
       B = |V1_z| * FA  (superior-inferior)
@@ -145,40 +148,16 @@ def generate_color_fa_image(
     # Load data
     t1_img = nib.load(t1_file)
     t1_data = t1_img.get_fdata()
-    tensor_img = nib.load(tensor_file)
-    tensor_data = tensor_img.get_fdata(dtype=np.float32)
+    _, nonzero_mask, tensors = world_tensors(tensor_file)
 
     # Build RGB color-FA volume -----------------------------------------------
-    spatial = tensor_data.shape[:3]
+    spatial = nonzero_mask.shape
     rgb = np.zeros((*spatial, 3), dtype=np.float32)
 
-    nonzero_mask = np.any(tensor_data != 0, axis=-1)
-    voxels = tensor_data[nonzero_mask]  # (N, 6)
-
-    N = voxels.shape[0]
-    tensors = np.zeros((N, 3, 3), dtype=np.float32)
-    tensors[:, 0, 0] = voxels[:, 0]
-    tensors[:, 0, 1] = voxels[:, 1]
-    tensors[:, 0, 2] = voxels[:, 2]
-    tensors[:, 1, 0] = voxels[:, 1]
-    tensors[:, 1, 1] = voxels[:, 3]
-    tensors[:, 1, 2] = voxels[:, 4]
-    tensors[:, 2, 0] = voxels[:, 2]
-    tensors[:, 2, 1] = voxels[:, 4]
-    tensors[:, 2, 2] = voxels[:, 5]
-
     eigenvalues, eigenvectors = np.linalg.eigh(tensors)
-    # V1 = eigenvector corresponding to largest eigenvalue (last column)
+    # V1 = world-frame eigenvector of the largest eigenvalue (last column)
     v1 = eigenvectors[:, :, -1]  # (N, 3)
-
-    # FA
-    lam_mean = eigenvalues.mean(axis=-1, keepdims=True)
-    lam_sq_sum = np.sum(eigenvalues**2, axis=-1)
-    lam_diff_sq_sum = np.sum((eigenvalues - lam_mean) ** 2, axis=-1)
-    denom = lam_sq_sum.copy()
-    denom[denom == 0] = 1.0
-    fa = np.sqrt(1.5) * np.sqrt(lam_diff_sq_sum) / np.sqrt(denom)
-    fa = np.clip(fa, 0.0, 1.0)
+    fa = _fa(eigenvalues)
 
     # RGB = |V1| * FA
     rgb_vals = np.abs(v1) * fa[:, np.newaxis]

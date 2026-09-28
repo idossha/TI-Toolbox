@@ -1,4 +1,10 @@
-"""Tests for tit.pre.qsi.dti_extractor — DTI tensor extraction."""
+"""tit.pre.qsi.dti_extractor: input discovery, preconditions and the QC gate.
+
+The numerical route (fit, chain, resampling, SimNIBS frame) runs against the real
+libraries in tests/numerical/test_dti_roundtrip.py; this file covers what the host
+suite can check with nibabel/scipy mocked. QC-gate values are the thresholds the
+module states, not measurements.
+"""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -6,391 +12,193 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from tit.pre.utils import PreprocessError
+from tit.pre.qsi import dti_extractor as dx
 from tit.pre.qsi.dti_extractor import (
-    _TENSOR_PARAMS,
-    _dsistudio_dwi_dir,
-    _load_tensor,
-    _validate_tensor,
+    DtiQc,
     check_dti_tensor_exists,
     extract_dti_tensor,
+    fit_tensor,
+    qsiprep_inputs,
 )
+from tit.pre.utils import PreprocessError
 
 MODULE = "tit.pre.qsi.dti_extractor"
 
 
-# ── Path resolution ──────────────────────────────────────────────────────
+def _qsiprep_tree(root: Path, sid: str = "001", *, drop: str | None = None) -> Path:
+    sub = root / f"sub-{sid}"
+    names = {
+        "dwi": f"dwi/sub-{sid}_space-ACPC_desc-preproc_dwi.nii.gz",
+        "grad": f"dwi/sub-{sid}_space-ACPC_desc-preproc_dwi.b",
+        "dwi_mask": f"dwi/sub-{sid}_space-ACPC_desc-brain_mask.nii.gz",
+        "xfm": f"anat/sub-{sid}_from-ACPC_to-anat_mode-image_xfm.mat",
+        "acpc_t1": f"anat/sub-{sid}_space-ACPC_desc-preproc_T1w.nii.gz",
+        "acpc_mask": f"anat/sub-{sid}_space-ACPC_desc-brain_mask.nii.gz",
+    }
+    for key, rel in names.items():
+        if key == drop:
+            continue
+        (sub / rel).parent.mkdir(parents=True, exist_ok=True)
+        (sub / rel).touch()
+    return sub
 
 
-class TestDsistudioDwiDir:
-    def test_returns_known_path(self, tmp_path):
-        result = _dsistudio_dwi_dir(tmp_path, "001")
-        expected = (
-            tmp_path
-            / "derivatives"
-            / "qsirecon"
-            / "derivatives"
-            / "qsirecon-DSIStudio"
-            / "sub-001"
-            / "dwi"
-        )
-        assert result == expected
+class TestQsiprepInputs:
+    def test_finds_every_file(self, tmp_path):
+        sub = _qsiprep_tree(tmp_path)
+        found = qsiprep_inputs(sub)
+        assert found["grad"].name == "sub-001_space-ACPC_desc-preproc_dwi.b"
+        assert found["dwi_mask"].parent.name == "dwi"
+        assert found["acpc_mask"].parent.name == "anat"
+        assert all(p.is_file() for p in found.values())
+
+    @pytest.mark.parametrize("missing", ["grad", "dwi_mask"])
+    def test_missing_sibling_raises(self, tmp_path, missing):
+        with pytest.raises(PreprocessError, match=missing):
+            qsiprep_inputs(_qsiprep_tree(tmp_path, drop=missing))
+
+    @pytest.mark.parametrize("missing", ["dwi", "xfm", "acpc_t1"])
+    def test_missing_primary_raises(self, tmp_path, missing):
+        with pytest.raises(PreprocessError, match="Expected exactly one"):
+            qsiprep_inputs(_qsiprep_tree(tmp_path, drop=missing))
+
+    def test_two_dwi_series_rejected(self, tmp_path):
+        sub = _qsiprep_tree(tmp_path)
+        (sub / "dwi" / "sub-001_run-2_space-ACPC_desc-preproc_dwi.nii.gz").touch()
+        with pytest.raises(PreprocessError, match="one DWI series"):
+            qsiprep_inputs(sub)
 
 
-# ── Tensor loading ───────────────────────────────────────────────────────
+def _passing_qc(**overrides) -> DtiQc:
+    # CHN's measured record (dti_eval chn/DTI_coregT1_qc.json), then the override.
+    values = dict(
+        ncc_chain=0.984,
+        chain_vs_ncc_mm=0.038,
+        pct_pd=100.0,
+        pct_wm_covered=98.9,
+        pct_gm_covered=99.5,
+        pct_wmgm_zero=0.81,
+        wm_md_median=0.677e-3,
+        wm_fa_median=0.323,
+        n_out_of_brain=0,
+    )
+    values.update(overrides)
+    qc = DtiQc(**values)
+    qc.gate()
+    return qc
 
 
-class TestLoadTensor:
-    def _create_components(self, dwi_dir, subject_id="001"):
-        dwi_dir.mkdir(parents=True, exist_ok=True)
-        for param in _TENSOR_PARAMS:
-            (
-                dwi_dir
-                / f"sub-{subject_id}_space-ACPC_model-tensor_param-{param}_dwimap.nii.gz"
-            ).touch()
+class TestQcGate:
+    def test_chn_record_passes(self):
+        qc = _passing_qc()
+        assert qc.passed and qc.failures == []
 
-    @patch("nibabel.load")
-    def test_loads_all_six(self, mock_load, tmp_path):
-        dwi_dir = tmp_path / "dwi"
-        self._create_components(dwi_dir)
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("ncc_chain", dx.QC_MIN_NCC - 0.01),
+            ("chain_vs_ncc_mm", dx.QC_MAX_CHAIN_VS_NCC_MM + 0.1),
+            ("pct_pd", dx.QC_MIN_PD_PCT - 0.5),
+            ("pct_wmgm_zero", dx.QC_MAX_WMGM_ZERO_PCT + 0.1),
+            ("wm_md_median", dx.QC_WM_MD_RANGE[0] * 0.9),
+            ("wm_md_median", dx.QC_WM_MD_RANGE[1] * 1.1),
+            ("n_out_of_brain", 1),
+        ],
+    )
+    def test_each_threshold_fails_alone(self, field, value):
+        qc = _passing_qc(**{field: value})
+        assert not qc.passed
+        assert qc.failures == [field]
 
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.ones((5, 5, 5), dtype=np.float32)
-        mock_img.affine = np.eye(4)
-        mock_load.return_value = mock_img
-
-        data, affine = _load_tensor(dwi_dir, "001", MagicMock())
-        assert data.shape == (5, 5, 5, 6)
-        assert mock_load.call_count == 6
-
-    @patch("nibabel.load")
-    def test_handles_4d_components(self, mock_load, tmp_path):
-        dwi_dir = tmp_path / "dwi"
-        self._create_components(dwi_dir)
-
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.ones((5, 5, 5, 1), dtype=np.float32)
-        mock_img.affine = np.eye(4)
-        mock_load.return_value = mock_img
-
-        data, _ = _load_tensor(dwi_dir, "001", MagicMock())
-        assert data.shape == (5, 5, 5, 6)
-
-    def test_missing_component_raises(self, tmp_path):
-        dwi_dir = tmp_path / "dwi"
-        dwi_dir.mkdir(parents=True)
-        for param in _TENSOR_PARAMS[:5]:
-            (
-                dwi_dir / f"sub-001_space-ACPC_model-tensor_param-{param}_dwimap.nii.gz"
-            ).touch()
-
-        with pytest.raises(PreprocessError, match="Missing tensor component"):
-            _load_tensor(dwi_dir, "001", MagicMock())
-
-    def test_empty_dir_raises(self, tmp_path):
-        dwi_dir = tmp_path / "dwi"
-        dwi_dir.mkdir(parents=True)
-
-        with pytest.raises(PreprocessError, match="Missing tensor component"):
-            _load_tensor(dwi_dir, "001", MagicMock())
+    def test_thresholds_recorded_for_the_report(self):
+        assert _passing_qc().thresholds["min_ncc"] == dx.QC_MIN_NCC
 
 
-# ── Validation ───────────────────────────────────────────────────────────
+class TestFitTensorPreconditions:
+    def test_too_few_directions_below_bmax(self, tmp_path):
+        grad = tmp_path / "x.b"
+        rows = ["0 0 0 0"] + [f"1 0 0 {b}" for b in (1000,) * 5 + (3000,) * 30]
+        grad.write_text("\n".join(rows) + "\n")
+        with pytest.raises(PreprocessError, match="5 diffusion-weighted"):
+            fit_tensor(tmp_path / "dwi.nii.gz", grad, tmp_path / "mask.nii.gz")
 
-
-class TestValidateTensor:
-    def test_valid_tensor(self):
-        _validate_tensor(np.ones((5, 5, 5, 6), dtype=np.float32), MagicMock())
-
-    def test_invalid_shape_raises(self):
-        with pytest.raises(PreprocessError, match="Invalid tensor shape"):
-            _validate_tensor(np.ones((5, 5, 5, 3), dtype=np.float32), MagicMock())
-
-    def test_nan_replaced(self):
-        data = np.ones((5, 5, 5, 6), dtype=np.float32)
-        data[0, 0, 0, 0] = np.nan
-        logger = MagicMock()
-        _validate_tensor(data, logger)
-        logger.warning.assert_called()
-        assert data[0, 0, 0, 0] == 0.0
-
-    def test_inf_replaced(self):
-        data = np.ones((5, 5, 5, 6), dtype=np.float32)
-        data[0, 0, 0, 0] = np.inf
-        _validate_tensor(data, MagicMock())
-        assert data[0, 0, 0, 0] == 0.0
-
-    def test_all_zeros_raises(self):
-        with pytest.raises(PreprocessError, match="entirely zero"):
-            _validate_tensor(np.zeros((5, 5, 5, 6), dtype=np.float32), MagicMock())
-
-    def test_low_coverage_warns(self):
-        data = np.zeros((10, 10, 10, 6), dtype=np.float32)
-        data[0, 0, 0, :] = 1.0
-        logger = MagicMock()
-        _validate_tensor(data, logger)
-        logger.warning.assert_called()
-
-
-# ── Orientation ──────────────────────────────────────────────────────────
-
-
-class TestRotationFromAffine:
-    def test_identity(self):
-        from tit.pre.qsi.dti_extractor import _rotation_from_affine
-
-        np.testing.assert_allclose(_rotation_from_affine(np.eye(4)), np.eye(3))
-
-    def test_scaled_affine(self):
-        from tit.pre.qsi.dti_extractor import _rotation_from_affine
-
-        np.testing.assert_allclose(
-            _rotation_from_affine(np.diag([2.0, 2.0, 2.0, 1.0])), np.eye(3)
-        )
-
-    def test_lps_orientation(self):
-        from tit.pre.qsi.dti_extractor import _rotation_from_affine
-
-        np.testing.assert_allclose(
-            _rotation_from_affine(np.diag([-2.0, -2.0, 2.0, 1.0])),
-            np.diag([-1.0, -1.0, 1.0]),
-        )
-
-
-class TestFSLConventionRoundtrip:
-    """Prove: correct_FSL(R_fix @ T @ R_fix^T) = R_src @ T @ R_src^T."""
-
-    @staticmethod
-    def _simulate_correct_fsl(tensor_6, affine):
-        """Replicate SimNIBS cond_utils.py:194-201."""
-        M = affine[:3, :3] / np.linalg.norm(affine[:3, :3], axis=0)[:, None]
-        R = np.eye(3)
-        if np.linalg.det(M) > 0:
-            R[0, 0] = -1
-        M = M.dot(R)
-        T = np.array(
-            [
-                [tensor_6[0], tensor_6[1], tensor_6[2]],
-                [tensor_6[1], tensor_6[3], tensor_6[4]],
-                [tensor_6[2], tensor_6[4], tensor_6[5]],
-            ]
-        )
-        return M @ T @ M.T
-
-    @staticmethod
-    def _apply_rotation(tensor_6, R):
-        T = np.array(
-            [
-                [tensor_6[0], tensor_6[1], tensor_6[2]],
-                [tensor_6[1], tensor_6[3], tensor_6[4]],
-                [tensor_6[2], tensor_6[4], tensor_6[5]],
-            ]
-        )
-        Tr = R @ T @ R.T
-        return np.array([Tr[0, 0], Tr[0, 1], Tr[0, 2], Tr[1, 1], Tr[1, 2], Tr[2, 2]])
-
-    @staticmethod
-    def _compute_r_fix(src_affine, tgt_affine):
-        from tit.pre.qsi.dti_extractor import _rotation_from_affine
-
-        R_src = _rotation_from_affine(src_affine)
-        R_tgt = _rotation_from_affine(tgt_affine)
-        M_fsl = R_tgt.copy()
-        if np.linalg.det(R_tgt) > 0:
-            M_fsl[:, 0] *= -1
-        return M_fsl.T @ R_src
-
-    def _assert_roundtrip(self, tensor_6, src_affine, tgt_affine):
-        from tit.pre.qsi.dti_extractor import _rotation_from_affine
-
-        R_fix = self._compute_r_fix(src_affine, tgt_affine)
-        stored = self._apply_rotation(tensor_6, R_fix)
-        world = self._simulate_correct_fsl(stored, tgt_affine)
-
-        R_src = _rotation_from_affine(src_affine)
-        gold = self._apply_rotation(tensor_6, R_src)
-        gold_3x3 = np.array(
-            [
-                [gold[0], gold[1], gold[2]],
-                [gold[1], gold[3], gold[4]],
-                [gold[2], gold[4], gold[5]],
-            ]
-        )
-        np.testing.assert_allclose(world, gold_3x3, atol=1e-6)
-
-    def test_lps_to_ras(self):
-        """LPS source -> RAS target with off-diagonal tensor."""
-        self._assert_roundtrip(
-            np.array([1.0, 0.5, 0.1, 0.8, 0.05, 0.2]),
-            np.diag([-2.0, -2.0, 2.0, 1.0]),
-            np.diag([1.0, 1.0, 1.0, 1.0]),
-        )
-
-    def test_ras_to_ras(self):
-        self._assert_roundtrip(
-            np.array([1.0, 0.5, 0.1, 0.8, 0.05, 0.2]),
-            np.diag([1.0, 1.0, 1.0, 1.0]),
-            np.diag([1.0, 1.0, 1.0, 1.0]),
-        )
-
-    def test_las_source(self):
-        """LAS source (det < 0) -> RAS target."""
-        self._assert_roundtrip(
-            np.array([1.0, 0.5, 0.1, 0.8, 0.05, 0.2]),
-            np.diag([-1.0, 1.0, 1.0, 1.0]),
-            np.diag([1.0, 1.0, 1.0, 1.0]),
-        )
-
-    def test_lps_to_lps(self):
-        """Same orientation, different scale."""
-        self._assert_roundtrip(
-            np.array([1.0, 0.5, 0.1, 0.8, 0.05, 0.2]),
-            np.diag([-2.0, -2.0, 2.0, 1.0]),
-            np.diag([-1.0, -1.0, 1.0, 1.0]),
-        )
-
-
-# ── check_dti_tensor_exists ─────────────────────────────────────────────
+    def test_not_an_mrtrix_table(self, tmp_path):
+        grad = tmp_path / "x.b"
+        grad.write_text("0 0 0\n1 0 0\n")
+        with pytest.raises(PreprocessError, match="MRtrix"):
+            fit_tensor(tmp_path / "dwi.nii.gz", grad, tmp_path / "mask.nii.gz")
 
 
 class TestCheckDtiTensorExists:
     @patch(f"{MODULE}.get_path_manager")
     def test_exists(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        m2m = tmp_path / "m2m_001"
-        m2m.mkdir()
-        pm.m2m.return_value = str(m2m)
-        mock_gpm.return_value = pm
-        (m2m / "DTI_coregT1_tensor.nii.gz").touch()
+        mock_gpm.return_value.m2m.return_value = str(tmp_path)
+        (tmp_path / "DTI_coregT1_tensor.nii.gz").touch()
         assert check_dti_tensor_exists("/proj", "001") is True
 
     @patch(f"{MODULE}.get_path_manager")
     def test_not_exists(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        m2m = tmp_path / "m2m_001"
-        m2m.mkdir()
-        pm.m2m.return_value = str(m2m)
-        mock_gpm.return_value = pm
+        mock_gpm.return_value.m2m.return_value = str(tmp_path)
         assert check_dti_tensor_exists("/proj", "001") is False
 
     @patch(f"{MODULE}.get_path_manager")
     def test_no_m2m_dir(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        pm.m2m.return_value = str(tmp_path / "nonexistent")
-        mock_gpm.return_value = pm
+        mock_gpm.return_value.m2m.return_value = str(tmp_path / "missing")
         assert check_dti_tensor_exists("/proj", "001") is False
 
 
-# ── extract_dti_tensor (integration) ─────────────────────────────────────
+@pytest.fixture
+def project(tmp_path):
+    """A project with an m2m folder (T1 + labels), raw T1w and a QSIPrep tree."""
+    m2m = tmp_path / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001"
+    m2m.mkdir(parents=True)
+    (m2m / "T1.nii.gz").touch()
+    (m2m / "final_tissues.nii.gz").touch()
+    anat = tmp_path / "sub-001" / "anat"
+    anat.mkdir(parents=True)
+    (anat / "sub-001_T1w.nii.gz").touch()
+    _qsiprep_tree(tmp_path / "derivatives" / "qsiprep")
+    return tmp_path, m2m
 
 
-class TestExtractDtiTensor:
-    @patch(f"{MODULE}.get_path_manager")
-    def test_no_m2m_raises(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        pm.m2m.return_value = str(tmp_path / "nonexistent")
-        mock_gpm.return_value = pm
-        with pytest.raises(PreprocessError, match="m2m directory not found"):
-            extract_dti_tensor(str(tmp_path), "001", logger=MagicMock())
+class TestExtractPreconditions:
+    def test_no_m2m_t1(self, project):
+        root, m2m = project
+        (m2m / "T1.nii.gz").unlink()
+        with pytest.raises(PreprocessError, match="Run charm first"):
+            extract_dti_tensor(str(root), "001", logger=MagicMock())
 
-    @patch(f"{MODULE}.get_path_manager")
-    def test_existing_tensor_raises(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        m2m = tmp_path / "m2m_001"
-        m2m.mkdir()
-        pm.m2m.return_value = str(m2m)
-        mock_gpm.return_value = pm
+    def test_existing_tensor(self, project):
+        root, m2m = project
         (m2m / "DTI_coregT1_tensor.nii.gz").touch()
-        (m2m / "T1.nii.gz").touch()
         with pytest.raises(PreprocessError, match="already exists"):
-            extract_dti_tensor(str(tmp_path), "001", logger=MagicMock())
+            extract_dti_tensor(str(root), "001", logger=MagicMock())
 
-    @patch(f"{MODULE}.get_path_manager")
-    def test_no_simnibs_t1_raises(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        m2m = tmp_path / "m2m_001"
-        m2m.mkdir()
-        pm.m2m.return_value = str(m2m)
-        mock_gpm.return_value = pm
-        with pytest.raises(PreprocessError, match="SimNIBS T1 not found"):
-            extract_dti_tensor(str(tmp_path), "001", logger=MagicMock())
+    def test_no_raw_t1w(self, project):
+        root, _ = project
+        (root / "sub-001" / "anat" / "sub-001_T1w.nii.gz").unlink()
+        with pytest.raises(PreprocessError, match="sub-001_T1w not found"):
+            extract_dti_tensor(str(root), "001", logger=MagicMock())
 
-    @patch(f"{MODULE}.get_path_manager")
-    def test_no_dsistudio_dir_raises(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        m2m = tmp_path / "m2m_001"
-        m2m.mkdir()
-        (m2m / "T1.nii.gz").touch()
-        pm.m2m.return_value = str(m2m)
-        mock_gpm.return_value = pm
-        with pytest.raises(PreprocessError, match="DSI Studio output not found"):
-            extract_dti_tensor(str(tmp_path), "001", logger=MagicMock())
+    def test_no_qsiprep_output(self, project):
+        root, _ = project
+        for path in (root / "derivatives" / "qsiprep").rglob("*_dwi.nii.gz"):
+            path.unlink()
+        with pytest.raises(PreprocessError, match="preprocessed DWI"):
+            extract_dti_tensor(str(root), "001", logger=MagicMock())
 
-    @patch(
-        "tit.reporting.generators.dti_qc.create_dti_qc_report",
-        return_value=Path("/fake"),
-    )
-    @patch(f"{MODULE}.shutil.copy2")
-    @patch(f"{MODULE}._validate_tensor")
-    @patch(f"{MODULE}._load_tensor")
-    @patch(f"{MODULE}._save_nifti_gz")
-    @patch(f"{MODULE}.get_path_manager")
-    def test_skip_registration(
-        self,
-        mock_gpm,
-        mock_save,
-        mock_load,
-        mock_validate,
-        mock_copy,
-        mock_qc,
-        tmp_path,
-    ):
-        pm = MagicMock()
-        m2m = tmp_path / "m2m_001"
-        m2m.mkdir()
-        (m2m / "T1.nii.gz").touch()
-        pm.m2m.return_value = str(m2m)
-        mock_gpm.return_value = pm
+    def test_m2m_t1_not_the_raw_t1w(self, project):
+        root, _ = project
 
-        dwi_dir = _dsistudio_dwi_dir(tmp_path, "001")
-        dwi_dir.mkdir(parents=True)
+        def fake_load(path):
+            img = MagicMock()
+            img.shape = (176, 256, 256)
+            img.affine = np.eye(4)
+            if path.endswith("sub-001_T1w.nii.gz"):
+                img.affine = np.diag([1.0, 1.0, 1.0, 1.0])
+                img.affine[0, 3] = 5.0  # charm ran on a different T1w
+            return img
 
-        mock_load.return_value = (np.ones((5, 5, 5, 6), dtype=np.float32), np.eye(4))
-        result = extract_dti_tensor(
-            str(tmp_path), "001", logger=MagicMock(), skip_registration=True
-        )
-        assert result is not None
-        mock_copy.assert_called_once()
-
-    @patch(
-        "tit.reporting.generators.dti_qc.create_dti_qc_report",
-        return_value=Path("/fake"),
-    )
-    @patch(f"{MODULE}._register_tensor")
-    @patch(f"{MODULE}._validate_tensor")
-    @patch(f"{MODULE}._load_tensor")
-    @patch(f"{MODULE}._save_nifti_gz")
-    @patch(f"{MODULE}.get_path_manager")
-    def test_with_registration(
-        self,
-        mock_gpm,
-        mock_save,
-        mock_load,
-        mock_validate,
-        mock_register,
-        mock_qc,
-        tmp_path,
-    ):
-        pm = MagicMock()
-        m2m = tmp_path / "m2m_001"
-        m2m.mkdir()
-        (m2m / "T1.nii.gz").touch()
-        pm.m2m.return_value = str(m2m)
-        mock_gpm.return_value = pm
-
-        dwi_dir = _dsistudio_dwi_dir(tmp_path, "001")
-        dwi_dir.mkdir(parents=True)
-
-        mock_load.return_value = (np.ones((5, 5, 5, 6), dtype=np.float32), np.eye(4))
-        extract_dti_tensor(str(tmp_path), "001", logger=MagicMock())
-        mock_register.assert_called_once()
+        with patch("nibabel.load", side_effect=fake_load):
+            with pytest.raises(PreprocessError, match="same T1w"):
+                extract_dti_tensor(str(root), "001", logger=MagicMock())

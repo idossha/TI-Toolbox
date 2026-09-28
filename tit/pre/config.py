@@ -42,8 +42,9 @@ class QSIPrepSettings:
 
     Attributes
     ----------
-    output_resolution : float
-        Target output resolution in mm.
+    output_resolution : float or None
+        Isotropic output voxel size in mm. ``None`` (default) uses the native
+        DWI voxel size.
     cpus : int or None
         Number of CPUs to allocate. ``None`` inherits from the current
         container.
@@ -58,7 +59,12 @@ class QSIPrepSettings:
     denoise_method : str
         ``"dwidenoise"``, ``"patch2self"``, or ``"none"``.
     unringing_method : str
-        ``"mrdegibbs"``, ``"rpg"``, or ``"none"``.
+        ``"auto"`` (default: ``"rpg"`` for partial-Fourier DWI, else
+        ``"mrdegibbs"``), ``"mrdegibbs"``, ``"rpg"``, or ``"none"``.
+    mni_normalization : bool
+        Run QSIPrep's anatomical normalization to MNI. Only QSIRecon atlases and
+        template-space specs need it; fieldmap-less SyN correction turns it on
+        by itself.
 
     Raises
     ------
@@ -72,7 +78,7 @@ class QSIPrepSettings:
         arguments (not this dataclass).
     """
 
-    output_resolution: float = const.QSI_DEFAULT_OUTPUT_RESOLUTION
+    output_resolution: float | None = None
     cpus: int | None = None
     memory_gb: int | None = None
     # Runtime host capacity is not a portable JSON Schema default (CircleCI #1070).
@@ -80,15 +86,16 @@ class QSIPrepSettings:
     image_tag: str = const.QSI_QSIPREP_IMAGE_TAG
     skip_bids_validation: bool = True
     denoise_method: str = "dwidenoise"
-    unringing_method: str = "mrdegibbs"
+    unringing_method: str = "auto"
+    mni_normalization: bool = False
 
     def __post_init__(self) -> None:
-        if self.output_resolution <= 0:
+        if self.output_resolution is not None and self.output_resolution <= 0:
             raise ValueError("output_resolution must be positive")
         valid_denoise = {"dwidenoise", "patch2self", "none"}
         if self.denoise_method not in valid_denoise:
             raise ValueError(f"denoise_method must be one of {valid_denoise}")
-        valid_unring = {"mrdegibbs", "rpg", "none"}
+        valid_unring = {"auto", "mrdegibbs", "rpg", "none"}
         if self.unringing_method not in valid_unring:
             raise ValueError(f"unringing_method must be one of {valid_unring}")
 
@@ -283,7 +290,8 @@ class PreprocessConfig:
     run_qsiprep : bool
         Run QSIPrep DWI preprocessing via Docker.
     run_qsirecon : bool
-        Run QSIRecon reconstruction via Docker.
+        Run QSIRecon reconstruction via Docker (optional: tractography, scalar
+        maps, connectivity; the DTI tensor does not need it).
     qsiprep_config : QSIPrepSettings or None
         Extra QSIPrep configuration. Serializes to the same flat shape
         :func:`tit.pre.structural.run_pipeline` reads via
@@ -292,7 +300,8 @@ class PreprocessConfig:
         Extra QSIRecon configuration. Same shape guarantee as
         *qsiprep_config* -- see :class:`QSIReconSettings`.
     extract_dti : bool
-        Extract DTI tensor for SimNIBS anisotropic conductivity.
+        Fit the DTI tensor for SimNIBS anisotropic conductivity from QSIPrep
+        output (DIPY; needs QSIPrep and charm).
     skip_existing_outputs : bool
         Skip selected steps when their output already exists.
     replace_existing_outputs : bool

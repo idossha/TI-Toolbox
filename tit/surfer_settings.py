@@ -28,15 +28,15 @@ class QSIPrepPreferences(BaseModel):
     """User defaults for processing, separate from resource allocation."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
-    output_resolution: float = Field(
-        default=const.QSI_DEFAULT_OUTPUT_RESOLUTION, gt=0, allow_inf_nan=False
-    )
+    # None = native DWI voxel size.
+    output_resolution: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     image_tag: str = Field(
         default=const.QSI_QSIPREP_IMAGE_TAG, pattern=r"^[\w][\w.-]{0,127}$"
     )
     skip_bids_validation: bool = True
     denoise_method: Literal["dwidenoise", "patch2self", "none"] = "dwidenoise"
-    unringing_method: Literal["mrdegibbs", "rpg", "none"] = "mrdegibbs"
+    unringing_method: Literal["auto", "mrdegibbs", "rpg", "none"] = "auto"
+    mni_normalization: bool = False
 
 
 class QSIReconPreferences(BaseModel):

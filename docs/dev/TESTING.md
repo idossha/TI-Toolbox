@@ -242,6 +242,10 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   Linux/container checks; case-insensitive host results are insufficient.
 - Use `tests/numerical/` for real SciPy/SimNIBS claims. Full scientific jobs use the smoke harness or
   real e2e with a copied project; numerical unit success is not equivalent to a completed FEM run.
+- `tests/numerical/test_dti_roundtrip.py` pins the DTI transform chain and SimNIBS frame on a
+  synthetic phantom (DIPY fit leg skips without `dipy`). `tests/numerical/test_dti_real.py` runs the
+  whole DTI step on CHN when `TIT_DTI_REAL` names a Dataset-000-shaped root (read only; outputs go
+  to a scratch project) and compares V1 with the prototype tensor at `TIT_DTI_PROTO` if set.
 - `tests/test_blender_process_boundary.py` enables real Blender through `TIT_TEST_BLENDER_BIN`.
   Report its skip when the executable is unavailable. Validate export and reopen separately from
   scientific-environment imports.

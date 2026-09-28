@@ -6446,8 +6446,11 @@ export interface components {
          * @description User defaults for processing, separate from resource allocation.
          */
         QSIPrepPreferences: {
-            /** Output Resolution */
-            output_resolution?: number;
+            /**
+             * Output Resolution
+             * @description Isotropic output voxel size in mm; null uses the native DWI voxel size.
+             */
+            output_resolution?: number | null;
             /** Image Tag */
             image_tag?: string;
             /** Skip Bids Validation */
@@ -6459,9 +6462,15 @@ export interface components {
             denoise_method?: "dwidenoise" | "patch2self" | "none";
             /**
              * Unringing Method
+             * @description auto picks rpg for partial-Fourier DWI (PartialFourier < 1), else mrdegibbs.
              * @enum {string}
              */
-            unringing_method?: "mrdegibbs" | "rpg" | "none";
+            unringing_method?: "auto" | "mrdegibbs" | "rpg" | "none";
+            /**
+             * Mni Normalization
+             * @description Run QSIPrep's MNI normalization (needed only for QSIRecon atlases; SyN distortion correction enables it itself).
+             */
+            mni_normalization?: boolean;
         };
         /**
          * QSIReconPreferences
@@ -6532,7 +6541,7 @@ export interface components {
                 segmentation_final_resolution?: number | null;
                 skin_facet_size?: number | null;
             } | null;
-            qsiprep_config: WithRequired<components["schemas"]["QSIPrepPreferences"], "output_resolution" | "image_tag" | "skip_bids_validation" | "denoise_method" | "unringing_method">;
+            qsiprep_config: WithRequired<components["schemas"]["QSIPrepPreferences"], "output_resolution" | "image_tag" | "skip_bids_validation" | "denoise_method" | "unringing_method" | "mni_normalization">;
             qsi_recon_config: WithRequired<components["schemas"]["QSIReconPreferences"], "recon_specs" | "atlases" | "use_gpu" | "image_tag" | "skip_odf_reports">;
             charm_threads: number | null;
             qsiprep_threads: number | null;
@@ -7755,7 +7764,8 @@ export interface components {
          *     run_qsiprep : bool
          *         Run QSIPrep DWI preprocessing via Docker.
          *     run_qsirecon : bool
-         *         Run QSIRecon reconstruction via Docker.
+         *         Run QSIRecon reconstruction via Docker (optional: tractography, scalar
+         *         maps, connectivity; the DTI tensor does not need it).
          *     qsiprep_config : QSIPrepSettings or None
          *         Extra QSIPrep configuration. Serializes to the same flat shape
          *         :func:`tit.pre.structural.run_pipeline` reads via
@@ -7764,7 +7774,8 @@ export interface components {
          *         Extra QSIRecon configuration. Same shape guarantee as
          *         *qsiprep_config* -- see :class:`QSIReconSettings`.
          *     extract_dti : bool
-         *         Extract DTI tensor for SimNIBS anisotropic conductivity.
+         *         Fit the DTI tensor for SimNIBS anisotropic conductivity from QSIPrep
+         *         output (DIPY; needs QSIPrep and charm).
          *     skip_existing_outputs : bool
          *         Skip selected steps when their output already exists.
          *     replace_existing_outputs : bool
@@ -7912,7 +7923,15 @@ export interface components {
          *     denoise_method : str
          *         Denoising method: 'dwidenoise', 'patch2self', or 'none'.
          *     unringing_method : str
-         *         Unringing method: 'mrdegibbs', 'rpg', or 'none'.
+         *         Unringing method: 'mrdegibbs', 'rpg', or 'none' (already resolved; the
+         *         pipeline setting 'auto' is resolved by ``run_qsiprep``).
+         *     use_syn_sdc : bool
+         *         Pass ``--use-syn-sdc warn`` (fieldmap-less SyN distortion correction).
+         *         Set by ``run_qsiprep`` when the subject has no usable fieldmap.
+         *     mni_normalization : bool
+         *         Run QSIPrep's anatomical normalization to MNI. Off by default: only
+         *         QSIRecon atlases/template-space specs need it. Always on with SyN SDC,
+         *         which uses the MNI transform to place its fieldmap prior.
          */
         QSIPrepConfig: {
             /** Subject Id */
@@ -7943,6 +7962,16 @@ export interface components {
              * @default mrdegibbs
              */
             unringing_method: string;
+            /**
+             * Use Syn Sdc
+             * @default false
+             */
+            use_syn_sdc: boolean;
+            /**
+             * Mni Normalization
+             * @default false
+             */
+            mni_normalization: boolean;
         };
         /**
          * QSIReconConfig
@@ -7953,7 +7982,8 @@ export interface components {
          *     subject_id : str
          *         Subject identifier (without 'sub-' prefix).
          *     recon_specs : list[str]
-         *         List of reconstruction specs to run. Defaults to ['dsi_studio_gqi'].
+         *         List of reconstruction specs to run. Defaults to ['dsi_studio_gqi']
+         *         (scalar maps only; the SimNIBS DTI tensor does not need QSIRecon).
          *     atlases : list[str] | None
          *         List of atlases for connectivity analysis. None (default) = no
          *         connectivity. Set to e.g. ['4S156Parcels', 'AAL116'] if needed.
@@ -9677,8 +9707,9 @@ export interface components {
          *
          *     Attributes
          *     ----------
-         *     output_resolution : float
-         *         Target output resolution in mm.
+         *     output_resolution : float or None
+         *         Isotropic output voxel size in mm. ``None`` (default) uses the native
+         *         DWI voxel size.
          *     cpus : int or None
          *         Number of CPUs to allocate. ``None`` inherits from the current
          *         container.
@@ -9693,7 +9724,12 @@ export interface components {
          *     denoise_method : str
          *         ``"dwidenoise"``, ``"patch2self"``, or ``"none"``.
          *     unringing_method : str
-         *         ``"mrdegibbs"``, ``"rpg"``, or ``"none"``.
+         *         ``"auto"`` (default: ``"rpg"`` for partial-Fourier DWI, else
+         *         ``"mrdegibbs"``), ``"mrdegibbs"``, ``"rpg"``, or ``"none"``.
+         *     mni_normalization : bool
+         *         Run QSIPrep's anatomical normalization to MNI. Only QSIRecon atlases and
+         *         template-space specs need it; fieldmap-less SyN correction turns it on
+         *         by itself.
          *
          *     Raises
          *     ------
@@ -9709,9 +9745,9 @@ export interface components {
         QSIPrepSettings: {
             /**
              * Output Resolution
-             * @default 2
+             * @default null
              */
-            output_resolution: number;
+            output_resolution: number | null;
             /**
              * Cpus
              * @default null
@@ -9741,9 +9777,14 @@ export interface components {
             denoise_method: string;
             /**
              * Unringing Method
-             * @default mrdegibbs
+             * @default auto
              */
             unringing_method: string;
+            /**
+             * Mni Normalization
+             * @default false
+             */
+            mni_normalization: boolean;
         };
         /**
          * QSIReconSettings

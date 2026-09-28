@@ -45,8 +45,9 @@ def run_qsirecon(
     This function spawns QSIRecon Docker containers as siblings to the
     current SimNIBS container using Docker-out-of-Docker (DooD).
 
-    QSIRecon requires QSIPrep output as input. Multiple reconstruction
-    specs can be run sequentially.
+    QSIRecon is optional: it adds tractography, scalar maps and connectivity on
+    top of QSIPrep output. The SimNIBS DTI tensor does not need it. Multiple
+    reconstruction specs can be run sequentially.
 
     Parameters
     ----------
@@ -57,13 +58,12 @@ def run_qsirecon(
     logger : logging.Logger
         Logger for status messages.
     recon_specs : list[str] | None, optional
-        List of reconstruction specifications to run. Default: ['dsi_studio_gqi'].
-        This default produces DTI tensors for SimNIBS anisotropic modeling.
-        Other specs (mrtrix_*, dipy_*, amico_noddi, pyafq_*, etc.) remain available.
+        List of reconstruction specifications to run. Default: ['dsi_studio_gqi']
+        (GQI scalar maps, no tractography). Other specs (mrtrix_*, dipy_*,
+        amico_noddi, pyafq_*, etc.) remain available.
     atlases : list[str] | None, optional
-        List of atlases for connectivity analysis. Default: None (no connectivity).
-        Not needed for DTI extraction. Set to e.g. ['4S156Parcels', 'AAL116']
-        if connectivity matrices are desired.
+        List of atlases for connectivity analysis. Default: None (no
+        connectivity). Needs a QSIPrep run with MNI normalization enabled.
     use_gpu : bool, optional
         Enable GPU acceleration. Default: False.
     cpus : int | None, optional
@@ -85,12 +85,8 @@ def run_qsirecon(
     PreprocessError
         If QSIRecon fails or prerequisites are not met.
     """
-    # Default to dsi_studio_gqi for SimNIBS DTI extraction
     if recon_specs is None:
         recon_specs = [const.QSI_DEFAULT_RECON_SPEC]
-
-    # Atlases are optional — not needed for DTI extraction
-    # Pass through None/empty to skip connectivity workflows
 
     from tit.telemetry import track_operation
     from tit import constants as _const
@@ -111,6 +107,18 @@ def run_qsirecon(
             raise PreprocessError(
                 f"QSIPrep output validation failed: {error_msg}. "
                 "Run QSIPrep first before running QSIRecon."
+            )
+
+        # Atlases are warped from MNI; QSIPrep only writes that transform when its
+        # (opt-in) MNI normalization ran.
+        qsiprep_anat = Path(get_path_manager(project_dir).qsiprep_subject(subject_id))
+        if atlases and not any(
+            qsiprep_anat.glob("**/anat/*_to-MNI152NLin2009cAsym_*xfm.h5")
+        ):
+            raise PreprocessError(
+                "QSIRecon atlases need QSIPrep's MNI normalization, which this "
+                "subject's QSIPrep run skipped. Re-run QSIPrep with MNI "
+                "normalization enabled, or run QSIRecon without atlases."
             )
 
         # No mkdir here — Docker's `-v` creates host directories automatically.

@@ -31,6 +31,7 @@ class DTIQCReportGenerator(BaseReportGenerator):
         self._metrics: dict = {}
         self._color_fa_images: dict = {}
         self._fa_overlay_images: dict = {}
+        self._qc: dict = {}
 
     def _get_default_title(self) -> str:
         return f"DTI Quality Control - Subject {self.subject_id}"
@@ -38,7 +39,7 @@ class DTIQCReportGenerator(BaseReportGenerator):
     def _get_report_prefix(self) -> str:
         return "dti_qc"
 
-    def generate(self, tensor_file: str, t1_file: str) -> Path:
+    def generate(self, tensor_file: str, t1_file: str, qc: dict | None = None) -> Path:
         """Generate the DTI QC report.
 
         Parameters
@@ -47,6 +48,9 @@ class DTIQCReportGenerator(BaseReportGenerator):
             Path to the 6-component tensor NIfTI.
         t1_file : str
             Path to the T1-weighted anatomical NIfTI.
+        qc : dict or None
+            The ``DTI_coregT1_qc.json`` record (registration NCC, chain-vs-NCC
+            displacement, positive-definite fraction, out-of-brain count ...).
 
         Returns
         -------
@@ -58,6 +62,7 @@ class DTIQCReportGenerator(BaseReportGenerator):
 
         self._tensor_file = tensor_file
         self._t1_file = t1_file
+        self._qc = qc or {}
 
         # 1. Compute metrics
         self._metrics = compute_dti_qc_metrics(tensor_file)
@@ -74,40 +79,11 @@ class DTIQCReportGenerator(BaseReportGenerator):
     def _generate_fa_overlay(self, tensor_file: str, t1_file: str) -> dict:
         """Compute FA volume as temp NIfTI and overlay on T1."""
         import nibabel as nib
-        import numpy as np
 
+        from tit.plotting.dti_qc import fa_volume
         from tit.plotting.static_overlay import generate_static_overlay_images
 
-        img = nib.load(tensor_file)
-        data = img.get_fdata(dtype=np.float32)
-        spatial = data.shape[:3]
-
-        nonzero_mask = np.any(data != 0, axis=-1)
-        voxels = data[nonzero_mask]
-
-        N = voxels.shape[0]
-        tensors = np.zeros((N, 3, 3), dtype=np.float32)
-        tensors[:, 0, 0] = voxels[:, 0]
-        tensors[:, 0, 1] = voxels[:, 1]
-        tensors[:, 0, 2] = voxels[:, 2]
-        tensors[:, 1, 0] = voxels[:, 1]
-        tensors[:, 1, 1] = voxels[:, 3]
-        tensors[:, 1, 2] = voxels[:, 4]
-        tensors[:, 2, 0] = voxels[:, 2]
-        tensors[:, 2, 1] = voxels[:, 4]
-        tensors[:, 2, 2] = voxels[:, 5]
-
-        eigenvalues = np.linalg.eigvalsh(tensors)
-        lam_mean = eigenvalues.mean(axis=-1, keepdims=True)
-        lam_sq_sum = np.sum(eigenvalues**2, axis=-1)
-        lam_diff_sq_sum = np.sum((eigenvalues - lam_mean) ** 2, axis=-1)
-        denom = lam_sq_sum.copy()
-        denom[denom == 0] = 1.0
-        fa = np.sqrt(1.5) * np.sqrt(lam_diff_sq_sum) / np.sqrt(denom)
-        fa = np.clip(fa, 0.0, 1.0)
-
-        fa_vol = np.zeros(spatial, dtype=np.float32)
-        fa_vol[nonzero_mask] = fa
+        img, fa_vol = fa_volume(tensor_file)
 
         # Write to temp file and call static overlay
         with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
@@ -155,8 +131,9 @@ class DTIQCReportGenerator(BaseReportGenerator):
             title="Tensor Orientation",
             description=(
                 "Color-coded principal diffusion direction map "
-                "(red=left-right, green=anterior-posterior, "
-                "blue=superior-inferior). Corpus callosum should be red, "
+                "on world (scanner RAS) axes (red=left-right, "
+                "green=anterior-posterior, blue=superior-inferior). "
+                "Corpus callosum should be red, "
                 "corticospinal tract blue, superior longitudinal "
                 "fasciculus green."
             ),
@@ -181,6 +158,31 @@ class DTIQCReportGenerator(BaseReportGenerator):
             title="Tensor Statistics",
             order=2,
         )
+        if self._qc:
+            gate = {
+                key: self._qc[key]
+                for key in (
+                    "passed",
+                    "failures",
+                    "ncc_chain",
+                    "chain_vs_ncc_mm",
+                    "pct_pd",
+                    "pct_wmgm_zero",
+                    "n_out_of_brain",
+                    "wm_md_median",
+                    "wm_fa_median",
+                    "pct_wm_covered",
+                    "pct_gm_covered",
+                )
+                if key in self._qc
+            }
+            section.add_reportlet(
+                MetadataReportlet(
+                    data=gate,
+                    title="QC gate (DTI_coregT1_qc.json)",
+                    display_mode="table",
+                )
+            )
         meta = MetadataReportlet(
             data=self._metrics,
             title="DTI Metrics",
@@ -194,6 +196,7 @@ def create_dti_qc_report(
     subject_id: str,
     tensor_file: str,
     t1_file: str,
+    qc: dict | None = None,
 ) -> Path:
     """Convenience wrapper to generate a DTI QC report.
 
@@ -207,6 +210,8 @@ def create_dti_qc_report(
         Path to the 6-component tensor NIfTI.
     t1_file : str
         Path to the T1-weighted NIfTI.
+    qc : dict or None
+        The ``DTI_coregT1_qc.json`` record, shown as the QC gate table.
 
     Returns
     -------
@@ -214,4 +219,4 @@ def create_dti_qc_report(
         Path to the saved HTML report.
     """
     gen = DTIQCReportGenerator(project_dir=project_dir, subject_id=subject_id)
-    return gen.generate(tensor_file=tensor_file, t1_file=t1_file)
+    return gen.generate(tensor_file=tensor_file, t1_file=t1_file, qc=qc)

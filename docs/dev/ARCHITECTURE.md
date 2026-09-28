@@ -456,14 +456,39 @@ travels through the shared filesystem and is supplied through its required envir
 Each image has its own version constant. Platform emulation and runtime requirements belong in the
 operations documentation, not as timing promises here.
 
-The supported reconstruction path feeds scalar/tensor extraction, registration and SimNIBS tensor
-conversion. The custom scalar-only GQI spec avoids unnecessary connectivity and atlas requirements.
-Other upstream reconstruction specs are not implicitly validated by this integration. Diffusion
-registration and tensor reorientation retain the expert-review limitation recorded in
-[RELEASING.md](RELEASING.md).
+**QSIPrep needs an x86-64 Docker host.** `run_qsiprep` reads `docker info`'s `Architecture` and
+refuses arm64 before anything runs: QSIPrep 26's SynthSeg needs AVX, which emulation lacks. There is
+no Mac-specific path; Mac users copy QSIPrep output in.
+
+**QSIPrep defaults come from the data, advanced options stay opt-in.** Susceptibility distortion
+correction is mandatory: a reverse phase-encoding `fmap/*_epi` for the DWI (TOPUP; `IntendedFor` and
+a derived `TotalReadoutTime` are written into that fieldmap's own sidecar only when missing), else
+reverse-PE DWI series, else `--use-syn-sdc warn`. DWI fieldmaps that exist but cannot be used are a
+preflight problem when none is usable, never a silent fallback. Unringing `auto` is `rpg` for
+`PartialFourier < 1`, else `mrdegibbs`; output resolution defaults to the finest native DWI axis
+(0.1 mm); `--hmc-model eddy --pepolar-method TOPUP --b0-threshold 100` are always explicit;
+`--skip-anat-based-spatial-normalization` is passed unless `mni_normalization` is set or SyN SDC
+runs (SyN places its prior through the MNI transform). Absent settings (`output_resolution: null`,
+`unringing_method: "auto"`, `mni_normalization: false`) reproduce these defaults.
+
+**The DTI tensor is fitted from QSIPrep output, not QSIRecon.** `extract_dti_tensor` fits DIPY WLS on
+b ≤ 1500 using QSIPrep's `.b` table (scanner RAS), maps ACPC → raw T1 with the exact chain
+`A_lps · inv(A_anat) · inv(X)` ([`tensor_math.py`](../../tit/pre/qsi/tensor_math.py): QSIPrep's
+LPS reorientation and header deoblique, then the inverse of `from-ACPC_to-anat`), resamples with
+validity-normalised trilinear interpolation, rotates every tensor by the map's polar factor, masks to
+charm labels 1–3 (WM ∪ GM dilated 2 voxels), and stores `inv(M) T inv(M)ᵀ` with SimNIBS's exact
+`correct_FSL` matrix `M`. A rigid same-modality NCC refinement is a QC measurement only. The gate
+(NCC ≥ 0.90, chain-vs-NCC ≤ 1 mm, PD ≥ 99 %, WM+GM uncovered ≤ 5 %, 0 out of brain, WM median MD in
+0.5–1.1e-3 mm²/s) must pass before `DTI_coregT1_tensor.nii.gz` is written; `DTI_coregT1_qc.json`
+is written either way. The m2m T1 must be on the raw T1w's grid. The DTI stage (G6) depends on QSIPrep
+(G4) and charm (G2a) only. QSIRecon is an optional advanced step; the shipped `dsi_studio_gqi` spec
+is scalar-only (no tractography, no connectivity node); atlases require QSIPrep's MNI normalization.
+Other upstream reconstruction specs are not validated by this integration.
 
 Sources: [`tit/pre/qsi/`](../../tit/pre/qsi/), [`structural.py`](../../tit/pre/structural.py),
-[`GQI scalar spec`](../../resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml).
+[`GQI scalar spec`](../../resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml). Verified by
+`tests/test_pre_qsi_tensor_math.py`, `tests/test_pre_qsi_sdc.py`, `tests/test_pre_qsi_dti.py`,
+`tests/numerical/test_dti_roundtrip.py` and, with `TIT_DTI_REAL`, `tests/numerical/test_dti_real.py`.
 
 ## 10. Internal builds and public availability
 

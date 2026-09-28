@@ -488,7 +488,8 @@ def test_plan_pre_builds_full_dag_for_two_subjects(
         assert stages["G3"]["after"] == [f"{sid}:G2a"]
         assert stages["G4"]["after"] == [f"{sid}:G1"]
         assert stages["G5"]["after"] == [f"{sid}:G4"]
-        assert set(stages["G6"]["after"]) == {f"{sid}:G5", f"{sid}:G2a"}
+        # DTI is fitted from QSIPrep output; QSIRecon (G5) is optional and parallel.
+        assert set(stages["G6"]["after"]) == {f"{sid}:G4", f"{sid}:G2a"}
 
     # top-level subject_ids overrides config.subject_ids (the config's own list is a
     # required-non-empty placeholder here, not what gets planned)

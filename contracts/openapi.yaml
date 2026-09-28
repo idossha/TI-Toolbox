@@ -5295,9 +5295,12 @@ components:
       description: User defaults for processing, separate from resource allocation.
       properties:
         output_resolution:
-          exclusiveMinimum: 0
+          anyOf:
+          - exclusiveMinimum: 0
+            type: number
+          - type: "null"
+          description: Isotropic output voxel size in mm; null uses the native DWI voxel size.
           title: Output Resolution
-          type: number
         image_tag:
           pattern: ^[\w][\w.-]{0,127}$
           title: Image Tag
@@ -5314,11 +5317,17 @@ components:
           type: string
         unringing_method:
           enum:
+          - auto
           - mrdegibbs
           - rpg
           - none
+          description: auto picks rpg for partial-Fourier DWI (PartialFourier < 1), else mrdegibbs.
           title: Unringing Method
           type: string
+        mni_normalization:
+          description: Run QSIPrep's MNI normalization (needed only for QSIRecon atlases; SyN distortion correction enables it itself).
+          title: Mni Normalization
+          type: boolean
       title: QSIPrepPreferences
       type: object
     QSIReconPreferences:
@@ -5463,7 +5472,7 @@ components:
         qsiprep_config:
           allOf:
             - $ref: "#/components/schemas/QSIPrepPreferences"
-          required: [output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method]
+          required: [output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method, mni_normalization]
         qsi_recon_config:
           allOf:
             - $ref: "#/components/schemas/QSIReconPreferences"

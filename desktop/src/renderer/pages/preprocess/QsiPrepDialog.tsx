@@ -43,7 +43,7 @@ export function QsiPrepDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="QSIPrep configuration"
-      description="DWI preprocessing parameters, run via Docker."
+      description="DWI preprocessing, run via Docker on an x86-64 (Linux or Windows) host; QSIPrep cannot run on Apple Silicon."
       footer={
         <>
           <Button
@@ -73,17 +73,18 @@ export function QsiPrepDialog({
           <Field
             layout="stacked"
             label="Output resolution"
-            help="Target output resolution in mm."
+            help="Isotropic voxel size in mm. Leave empty for the DWI's native voxel size."
           >
             <NumberInput
-              value={draft.output_resolution}
+              value={draft.output_resolution ?? undefined}
               onValueChange={(v) =>
-                setDraft((d) => ({ ...d, output_resolution: v ?? 2.0 }))
+                setDraft((d) => ({ ...d, output_resolution: v ?? null }))
               }
+              placeholder="native"
               unit="mm"
               min={0.5}
               max={3.0}
-              step={0.5}
+              step={0.1}
             />
           </Field>
           <Field
@@ -101,8 +102,10 @@ export function QsiPrepDialog({
         </div>
 
         <p className="field-help">
-          CPU, memory, and OpenMP defaults are configured in Settings →
-          Pre-processing.
+          Distortion correction is always on: TOPUP with a reverse
+          phase-encoding fieldmap when the subject has one, otherwise
+          fieldmap-less SyN. CPU, memory, and OpenMP defaults are configured in
+          Settings → Pre-processing.
         </p>
 
         <div style={{ marginTop: "var(--space-4)" }}>
@@ -129,7 +132,7 @@ export function QsiPrepDialog({
             <Field
               layout="stacked"
               label="Unringing method"
-              help="Gibbs ringing removal method."
+              help="auto: rpg for partial-Fourier acquisitions, else mrdegibbs."
             >
               <Select
                 value={draft.unringing_method}
@@ -147,6 +150,15 @@ export function QsiPrepDialog({
                 setDraft((d) => ({ ...d, skip_bids_validation: v }))
               }
               label="Skip BIDS validation (useful for non-BIDS datasets)"
+            />
+          </div>
+          <div style={{ marginTop: "var(--space-2)" }}>
+            <Checkbox
+              checked={draft.mni_normalization ?? false}
+              onCheckedChange={(v) =>
+                setDraft((d) => ({ ...d, mni_normalization: v }))
+              }
+              label="MNI normalization (only needed for QSIRecon connectivity atlases)"
             />
           </div>
         </div>
