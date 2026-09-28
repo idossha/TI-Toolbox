@@ -171,8 +171,8 @@ def collect(sim_dir: str | Path) -> dict:
 
 
 def field_images(rec: dict, t1_path: str | Path) -> dict | None:
-    """Axial, coronal and sagittal envelope panels through the ROI centre (or the grey-matter
-    hot spot), over the T1, with the ROI outline; WebP bytes plus label geometry."""
+    """Axial, coronal and sagittal envelope panels through the grey-matter hot spot, over the T1;
+    WebP bytes plus label geometry."""
     import nibabel as nib
 
     from tit.plotting import slices as s
@@ -191,14 +191,8 @@ def field_images(rec: dict, t1_path: str | Path) -> dict | None:
             return None
         field = np.maximum(field, f)
     brain = field > 0
-    roi = None
-    if rec["roi"] and rec["roi"]["mask"]:
-        m = nib.load(rec["roi"]["mask"])
-        roi, _ = s.canonical(np.asarray(m.dataobj) > 0, m.affine)
-        roi = roi if roi.shape == t1.shape and roi.any() else None
     lo, hi = rec["envelope"]["median"], rec["envelope"]["p99_9"]
-    centre_mask = roi if roi is not None else (field >= hi)
-    centre = np.round(np.argwhere(centre_mask).mean(axis=0)).astype(int)
+    centre = np.round(np.argwhere(field >= hi).mean(axis=0)).astype(int)
     box = s.brain_box(brain)
     grey = np.clip(
         (t1 - np.percentile(t1[brain], 1)) / np.ptp(np.percentile(t1[brain], [1, 99])),
@@ -207,7 +201,7 @@ def field_images(rec: dict, t1_path: str | Path) -> dict | None:
     )
     world = affine[:3, :3] @ centre + affine[:3, 3]
     names = ("sagittal", "coronal", "axial")
-    tiles, outlines, labels = [], [], []
+    tiles, labels = [], []
     for axis in (2, 1, 0):
         rgb = s.overlay(
             s.oriented(grey, axis, centre[axis], box),
@@ -216,32 +210,17 @@ def field_images(rec: dict, t1_path: str | Path) -> dict | None:
             hi,
         )
         tiles.append(rgb)
-        outlines.append(
-            s.oriented(roi, axis, centre[axis], box) if roi is not None else None
-        )
         labels.append(f"{names[axis]} {'xyz'[axis]} = {world[axis]:+.0f} mm")
     image, tile = s.mosaic(tiles, cols=3)
-    mask_mosaic = s.mosaic(
-        [
-            o if o is not None else np.zeros(t.shape[:2], bool)
-            for o, t in zip(outlines, tiles)
-        ],
-        cols=3,
-    )[0]
-    contours = [(mask_mosaic, "#4cc9f0", 1.3)] if roi is not None else []
     return {
-        "image": s.render(image, contours),
+        "image": s.render(image, []),
         "labels": labels,
         "tile": tile,
         "shape": image.shape,
         "lo": lo,
         "hi": hi,
         "stops": s.colour_stops(),
-        "centred_on": (
-            "the ROI centre"
-            if roi is not None
-            else "the grey-matter hot spot (top 0.1 %)"
-        ),
+        "centred_on": "the grey-matter hot spot (top 0.1 %)",
     }
 
 
@@ -472,14 +451,13 @@ def build_html(
     body = ""
     if images:
         labels = c.tile_labels(images["labels"], 3, images["tile"], images["shape"])
-        outline = "The ROI is outlined in cyan. " if roi and roi.get("mask") else ""
         body += c.figure(
             next(fig_no),
             "TI envelope amplitude",
             f'<div class="lightbox"><div class="lb-inner">{c.img(images["image"], "TI envelope over the T1, through " + images["centred_on"])}{labels}</div></div>'
             + _colour_bar(images["lo"], images["hi"], images["stops"]),
             f"Slices through {images['centred_on']}. Coloured where the envelope is above the grey-matter median "
-            f"({images['lo']:.2f} V/m), up to its 99.9th percentile; grey and white matter only. {outline}"
+            f"({images['lo']:.2f} V/m), up to its 99.9th percentile; grey and white matter only. "
             "Neurological convention: subject left on image left.",
         )
     if roi and roi["mean"] is not None:

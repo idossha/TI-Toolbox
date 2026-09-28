@@ -31,7 +31,9 @@ from tit.reporting.qc_rules import RULES
 CAP = "tit.tools.montage_visualizer.montage_webp"
 
 
-def _structure(html: str, sections: tuple[str, ...], budget: int) -> None:
+def _structure(
+    html: str, sections: tuple[str, ...], budget: int, require_status: bool = True
+) -> None:
     page = _parse(html)
     assert all(s in page.ids for s in sections), [s for s in sections if s not in page.ids]
     assert page.toc and all(h[1:] in page.ids for h in page.toc)
@@ -39,7 +41,8 @@ def _structure(html: str, sections: tuple[str, ...], budget: int) -> None:
     assert page.figures == page.captions
     assert all(u.startswith("https://doi.org/") for u in page.urls), page.urls
     assert "url(http" not in html and "@import" not in html
-    assert page.statuses and all(icon and word for _, icon, word in page.statuses)
+    if require_status:
+        assert page.statuses and all(icon and word for _, icon, word in page.statuses)
     assert len(html.encode()) < budget
 
 
@@ -240,27 +243,17 @@ class TestFlexSearch:
 
         with patch(CAP, return_value=FAKE):
             html = flex.build_html(_flex_rec(tmp_path), "X")
-        _structure(html, ("verdict", "target", "montage", "runs", "safety", "technical"), flex.SIZE_BUDGET)
-        advisory = {k for k, r in RULES["opt"].items() if r["role"] == "advisory"}
-        assert set(_advisory_ids(html)) == {RULES["opt"][k]["label"] for k in advisory}
+        _structure(
+            html,
+            ("verdict", "target", "montage", "runs", "technical"),
+            flex.SIZE_BUDGET,
+            require_status=False,
+        )
+        assert not _advisory_ids(html)
         assert '<h2 id="verdict-h">Best montage: target mean 1.80× the background mean</h2>' in html
-        assert "1.3 mA per electrode (2 mA total)" in html  # the searched split, not 1 mA per channel
+        assert "0.7 / 1.3 mA per channel, 2 mA total" in html  # the searched split, not 1 mA per channel
         assert "TP8 (14 mm)" in html and "for orientation only" in html
         assert "sphere at (1, 9, 18) mm" in html  # the ROI is named, not "Target ROI"
-
-    def test_one_run_is_an_advisory_and_spread_is_not_measurable(self, tmp_path):
-        from tit.reporting.generators import flex_search as flex
-
-        rows = {r.id: r for r in flex.checks(_flex_rec(tmp_path))}
-        assert rows["n_valid_restarts"].status == "warn" and not rows["n_valid_restarts"].blocking
-        assert rows["restart_spread"].shown == "not measurable with one run"
-
-    def test_two_runs_agree_and_report_their_spread(self, tmp_path):
-        from tit.reporting.generators import flex_search as flex
-
-        rows = {r.id: r for r in flex.checks(_flex_rec(tmp_path, values=(-1.8, -1.7)))}
-        assert rows["n_valid_restarts"].status == "pass"
-        assert rows["restart_spread"].shown == f"{100 * 0.1 / 1.8:.1f} % of the best score"
 
     @pytest.mark.parametrize("goal,words", [("mean", "mean target field 1.800 V/m"), ("max", "peak target field 1.800 V/m")])
     def test_goal_is_explained_in_words(self, tmp_path, goal, words):

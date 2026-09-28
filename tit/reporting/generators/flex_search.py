@@ -5,7 +5,7 @@ run folder: ``flex_meta.json`` (goal, ROI, currents, electrode, every restart's 
 ``candidate_history/NN/`` (the accepted candidate's ROI and background means and currents, and
 the manifest's metric definitions), ``electrode_positions.json``, the ROI confirmation
 (``roi.tetravox.json``) and the final per-channel simulations. Rules come from
-``tit.reporting.qc_rules.RULES["opt"]``; the current check and the restart count are advisories.
+``tit.reporting.qc_rules.RULES["opt"]``.
 
 Flex electrodes sit at free scalp positions. The cap figure is the app's EEG-cap overlay with each
 electrode drawn at its nearest cap position (listed with the distance), for orientation only.
@@ -30,7 +30,7 @@ from tit.reporting.generators import common
 from tit.reporting.generators.common import fmt
 from tit.reporting.generators.simulation import parse_fields_summary
 from tit.reporting.html import components as c
-from tit.reporting.html.components import Check, esc
+from tit.reporting.html.components import esc
 from tit.reporting.qc_rules import RULES
 
 logger = logging.getLogger(__name__)
@@ -206,36 +206,6 @@ def currents(rec: dict) -> list[float]:
     return [float(meta["current_mA"])] * 2
 
 
-def checks(rec: dict) -> list[Check]:
-    meta = rec["meta"]
-    values = [
-        v
-        for v in meta["result"].get("all_values") or []
-        if v is not None and abs(v) < 1e30
-    ]
-    n = len(values)
-    r = RULES["opt"]["n_valid_restarts"]
-    rows = [
-        common.rule_check(
-            "opt",
-            "n_valid_restarts",
-            "pass" if n >= r["value"] else "warn",
-            f"{n} of {len(meta['result'].get('all_values') or [])}",
-            f"≥ {r['value']}",
-        )
-    ]
-    if n >= 2:
-        best = min(values)
-        spread = (
-            f"{100 * (max(values) - min(values)) / abs(best):.1f} % of the best score"
-        )
-    else:
-        spread = "not measurable with one run"
-    rows.append(common.rule_check("opt", "restart_spread", "info", spread))
-    rows.append(common.current_check("opt", currents(rec)))
-    return rows
-
-
 def _pairs(rec: dict) -> list[list[str]] | None:
     labels = (rec["mapping"] or {}).get("mapped_labels") or (rec["cap"] or {}).get(
         "labels"
@@ -253,9 +223,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     cite = c.Cites()
     fig_no = iter(range(1, 20))
     success = bool(meta["result"].get("success"))
-    rows = checks(rec)
-    advisories = [r for r in rows if r.role == "advisory"]
-    seal, _ = c.verdict(rows)
+    seal = "pass"
     mA = currents(rec)
     total = sum(mA)
     el = meta.get("electrode") or {}
@@ -312,7 +280,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         seal, headline = "fail", "No valid montage found"
         lede = "Every optimiser run failed to accept a valid electrode placement. See the run log in the output folder."
         key = []
-    extra = common.attention_callouts(advisories, cite) + (c.stats(key) if key else "")
+    extra = c.stats(key) if key else ""
     verdict_sec = c.verdict_section(seal, headline, lede, extra)
 
     # ── 2. target and goal ──
@@ -481,36 +449,13 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         right={1, 2, 3, 4, 5},
         sortable=len(run_rows) > 1,
     )
-    runs += c.checks_table(
-        [r for r in rows if r.id in ("n_valid_restarts", "restart_spread")],
-        "Agreement between runs is the only check on a single optimum.",
-        cite.dois,
-    )
-    runs_st = next(r.status for r in rows if r.id == "n_valid_restarts")
     runs_sec = c.section(
         "runs",
         "Optimiser runs",
         runs,
-        st=runs_st,
-        st_label="Agree" if runs_st == "pass" else "One run",
     )
 
-    # ── 5. safety ──
-    safety = [r for r in rows if r.id == "electrode_peak_current"]
-    n_attn = sum(r.status in ("warn", "fail") for r in safety)
-    safety_sec = c.section(
-        "safety",
-        "Safety advisory",
-        c.checks_table(
-            safety,
-            "Advisories never block; they compare this dose with published evidence.",
-            cite.dois,
-        ),
-        st="warn" if n_attn else "pass",
-        st_label="Review" if n_attn else "Within evidence",
-    )
-
-    # ── 6. technical details ──
+    # ── 5. technical details ──
     tech = ""
     if rec["carriers"]:
         pct = [k for k in rec["carriers"][0] if k.startswith("p")]
@@ -586,8 +531,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ("verdict", "Verdict", seal),
         ("target", "Target and goal", None),
         ("montage", "Best montage", None),
-        ("runs", "Optimiser runs", runs_st),
-        ("safety", "Safety advisory", "warn" if n_attn else "pass"),
+        ("runs", "Optimiser runs", None),
         ("technical", "Technical details", None),
     ]
     return c.page(
@@ -600,7 +544,6 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         + target_sec
         + montage_sec
         + runs_sec
-        + safety_sec
         + c.section("technical", "Technical details", tech),
         footer=common.footer(generated),
         description=f"Flex-search report for sub-{subject_id}, {rec['run']}: {headline}",

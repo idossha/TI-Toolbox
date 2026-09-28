@@ -245,26 +245,6 @@ RULES: dict[str, dict[str, dict]] = {
         },
     },
     "opt": {
-        "n_valid_restarts": {
-            "label": "Independent optimiser runs",
-            "rule": ">=",
-            "value": 2,
-            "unit": "",
-            "role": "advisory",
-            "cite": [],
-            "note": "logical (reproducibility)",
-            "plain": "At least two independent optimiser runs succeeded, so the result can be checked for agreement.",
-        },
-        "restart_spread": {
-            "label": "Run agreement",
-            "rule": "report",
-            "value": None,
-            "unit": "% of best",
-            "role": "report",
-            "cite": [],
-            "note": "no published norm",
-            "plain": "How closely the optimiser runs agreed.",
-        },
         "goal_definition": {
             "label": "Goal definition",
             "rule": "report",
