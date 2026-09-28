@@ -3,17 +3,18 @@
 Pins (2026-09-28, ARCHITECTURE.md §14):
 * each page has its sections, every contents link lands on an element, every image has alt text,
   every figure a caption, statuses are icon + word, and nothing is fetched (doi.org links only);
-* the advisories shown are exactly the ``RULES`` advisories for that report, with the rule's label,
-  role and citations; the simulator's current check is an advisory (never blocking) and states the
-  total current; flex-search and ex-search show no checks;
-* a failed software check is named in the verdict; the page stays under its size budget;
+* no run report shows checks or advisories; the simulator leads with the grey-matter envelope
+  (99.9th percentile, median, where its maximum is) and says nothing about an ROI; flex-search embeds the run's
+  own target and valid-scalp figures and draws no cap; ex-search draws no cap;
+* the page stays under its size budget;
 * on every report (DTI QC included) the reference list is exactly what the rendered page cites;
 * the pipelines call the report writers, and a report that cannot be written never fails a run.
 
 Inputs are synthetic files in the formats the pipelines write (SimNIBS log and field-summary lines
 copied in shape from sub-ernie's outputs, values chosen here). The cap image is stand-in bytes: the
 overlay itself is ``tit.tools.montage_visualizer`` (ImageMagick), exercised by the real-data rebuild
-``python -m tit.reporting.generators.<simulation|flex_search|ex_search>``. No pixel goldens.
+``python -m tit.reporting.generators.<simulation|flex_search|ex_search>``, as is the MNI hot-spot
+lookup through charm's warp. No pixel goldens.
 """
 
 from __future__ import annotations
@@ -26,9 +27,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from tests.test_reporting_dti_qc import FAKE, _images, _parse, _record
-from tit.reporting.generators import common
 from tit.reporting.generators import simulation as sim
-from tit.reporting.qc_rules import RULES
 
 CAP = "tit.tools.montage_visualizer.montage_webp"
 
@@ -88,7 +87,7 @@ Field Percentiles
 """
 
 
-def _sim_dir(tmp_path: Path, mA: float = 1.0, imbalance: float = 0.0) -> Path:
+def _sim_dir(tmp_path: Path, mA: float = 1.0) -> Path:
     d = tmp_path / "Simulations" / "M"
     (d / "documentation").mkdir(parents=True)
     (d / "high_Frequency" / "analysis").mkdir(parents=True)
@@ -99,16 +98,20 @@ def _sim_dir(tmp_path: Path, mA: float = 1.0, imbalance: float = 0.0) -> Path:
         "created_at": "2026-09-23T18:41:20",
     }
     (d / "documentation" / "config.json").write_text(json.dumps(config))
-    (d / "documentation" / "simnibs_simulation_20260923-184120.log").write_text(LOG.format(a=mA / 1e3, b=mA / 1e3 + imbalance))
+    (d / "documentation" / "simnibs_simulation_20260923-184120.log").write_text(LOG.format(a=mA / 1e3, b=mA / 1e3))
     (d / "high_Frequency" / "analysis" / "fields_summary.txt").write_text(SUMMARY)
     return d
 
 
-def _with_roi(rec: dict) -> dict:
-    rec["envelope"] = {"median": 0.17, "p99_9": 0.36, "max": 0.48}
-    rec["roi"] = {"name": "thalamus", "space": "voxel", "type": "mask", "mean": 0.2, "max": 0.4, "focality": 1.1,
-                  "gm_mean": 0.18, "n": 100.0, "mask": None, "folder": "thalamus"}
+def _with_envelope(rec: dict, mni=(-12.4, -80.2, 4.0)) -> dict:
+    rec["envelope"] = {"median": 0.17, "p99_9": 0.36, "max": 0.48, "peak_world": [10.0, -60.0, 20.0],
+                       "peak_mni": list(mni) if mni else None}
     return rec
+
+
+def _sim_images() -> dict:
+    return {"image": FAKE, "labels": ["sagittal", "coronal", "axial"], "tile": (100, 80), "shape": (100, 248),
+            "lo": 0.17, "hi": 0.36, "stops": ["#000", "#fff"], "centred_on": "the grey-matter hot spot (top 0.1 %)"}
 
 
 class TestSimulation:
@@ -121,40 +124,30 @@ class TestSimulation:
         assert log["tensor"].endswith("DTI_coregT1_tensor.nii.gz") and log["n_solved"] == 2
         assert log["simnibs"] == "4.6.0" and log["calibration_error_pct"] == [3.4]
 
-    def test_page_structure_and_advisories(self, tmp_path):
-        rec = _with_roi(sim.collect(_sim_dir(tmp_path)))
+    def test_page_structure_and_grey_matter_headline(self, tmp_path):
+        rec = _with_envelope(sim.collect(_sim_dir(tmp_path)))
         with patch(CAP, return_value=FAKE):
+            html = sim.build_html(rec, _sim_images(), "X")
+        _structure(html, ("verdict", "montage", "field", "technical"), sim.SIZE_BUDGET, require_status=False)
+        assert '<h2 id="verdict-h">0.360 V/m peak envelope in grey matter</h2>' in html
+        assert "median 0.170 V/m; its maximum, 0.480 V/m, is at MNI (-12, -80, 4) mm." in html
+        assert "Grey matter maximum" in html and "from the subject's DTI tensor" in html
+        assert "ROI" not in html  # the simulator report says nothing about an ROI
+        assert not _advisory_ids(html) and 'id="safety"' not in html and "Software checks" not in html
+        assert "Electrode current" not in html and 'class="callout' not in html  # no checks, even at 1 mA
+        assert "Montage on the EEG cap" in html  # the cap overlay stays
+
+    def test_peak_falls_back_to_subject_space_without_the_warp(self, tmp_path):
+        rec = _with_envelope(sim.collect(_sim_dir(tmp_path)), mni=None)
+        with patch(CAP, return_value=None):
             html = sim.build_html(rec, None, "X")
-        _structure(html, ("verdict", "montage", "field", "safety", "technical"), sim.SIZE_BUDGET)
-        advisory = {k for k, r in RULES["sim"].items() if r["role"] == "advisory"}
-        assert set(_advisory_ids(html)) == {RULES["sim"][k]["label"] for k in advisory}
-        assert "1 mA per electrode (2 mA total)" in html
-        assert "per channel or to the total" in html  # the unverified Cassarà reading is stated
-        assert '<h2 id="verdict-h">0.200 V/m mean envelope in the ROI</h2>' in html
-        assert "<b>below</b> the published range" in html  # 0.2 < 0.24 V/m at 2 mA total
-        assert "from the subject's DTI tensor" in html
+        assert "its maximum, 0.480 V/m, is at (10, -60, 20) mm, subject space." in html
 
-    def test_brain_current_density_is_the_stated_estimate(self, tmp_path):
-        from tit.constants import CONDUCTIVITY_GRAY_MATTER
-
-        rows = {r.id: r for r in sim.checks(sim.collect(_sim_dir(tmp_path)))}
-        assert rows["brain_peak_J"].shown == f"≈ {CONDUCTIVITY_GRAY_MATTER * (0.2 + 0.3):.2g} A/m² (estimate)"
-        assert rows["brain_peak_J"].status == "pass" and rows["brain_peak_J"].role == "advisory"
-
-    def test_high_current_warns_and_never_blocks(self, tmp_path):
-        rows = sim.checks(sim.collect(_sim_dir(tmp_path, mA=5.0)))
-        current = next(r for r in rows if r.id == "electrode_peak_current")
-        assert current.status == "warn" and not current.blocking
+    def test_high_current_raises_no_advisory(self, tmp_path):
         with patch(CAP, return_value=None):
-            html = sim.build_html(_with_roi(sim.collect(_sim_dir(tmp_path / "b", mA=5.0))), None, "X")
-        assert "Electrode current: 5 mA per electrode (10 mA total) (rule &lt; 4 mA)." in html
-        assert 'class="callout warn"' in html
-
-    def test_unbalanced_currents_fail_the_software_check(self, tmp_path):
-        with patch(CAP, return_value=None):
-            html = sim.build_html(sim.collect(_sim_dir(tmp_path, imbalance=1e-4)), None, "X")
-        assert "Software check failed: Current conservation" in html
-        assert '<details class="raw" open><summary>Software checks' in html
+            html = sim.build_html(_with_envelope(sim.collect(_sim_dir(tmp_path, mA=5.0))), None, "X")
+        assert "5 mA per channel, 10 mA total" in html
+        assert 'class="callout' not in html and "Electrode current" not in html
 
     def test_report_file_and_budget(self, tmp_path):
         d = _sim_dir(tmp_path)
@@ -178,18 +171,10 @@ class TestSimulation:
 
 
 class TestShared:
-    def test_current_check_names_per_electrode_and_total(self):
-        row = common.current_check("sim", [1.5, 0.5])
-        assert row.shown == "1.5 mA per electrode (2 mA total)" and row.status == "pass"
-        assert row.role == "advisory" and list(row.cite) == RULES["sim"]["electrode_peak_current"]["cite"]
+    def test_the_optimisers_have_no_advisories(self):
+        from tit.reporting.qc_rules import RULES
 
-    def test_target_range_numbers_match_the_cited_text(self):
-        r = RULES["sim"]["roi_envelope_V_per_m"]
-        lo, hi = r["range"]
-        assert r["value"].startswith(f"{lo}–{hi} V/m at {r['at_mA_total']:g} mA total")
-
-    def test_current_check_is_an_advisory_and_the_optimisers_have_none(self):
-        assert RULES["sim"]["electrode_peak_current"]["role"] == "advisory"
+        assert "sim" not in RULES  # the simulator report has no checks
         assert not any(r["role"] == "advisory" for r in RULES["opt"].values())
 
 
@@ -228,15 +213,17 @@ def _flex_dir(tmp_path: Path, values=(-1.8,), goal="focality_tf", success=True) 
     (d / "roi.tetravox.json").write_text(json.dumps({"meta": {
         "roi": "", "source": None, "label": None, "volume_mm3": 17426.0, "centroid_ras": [0.8, 9.1, 17.6],
         "gm_overlap": 0.757, "spheres": [{"centre_ras": [1, 9, 18], "radius_mm": 5.0}]}}))
+    from PIL import Image
+
+    Image.new("RGBA", (174, 42), (0, 128, 0, 255)).save(d / "roi.png")
+    Image.new("RGBA", (447, 297), (200, 200, 200, 255)).save(d / "valid_skin_region.png")
     return d
 
 
 def _flex_rec(tmp_path, **kw) -> dict:
     from tit.reporting.generators import flex_search as flex
 
-    rec = flex.collect(_flex_dir(tmp_path, **kw))
-    rec["cap"] = {"net": "EEG10-10_UI_Jurak_2007.csv", "labels": ["TP8", "FT8", "FT7", "T7"], "distances": [14, 16, 15, 6]}
-    return rec
+    return flex.collect(_flex_dir(tmp_path, **kw))
 
 
 class TestFlexSearch:
@@ -254,7 +241,9 @@ class TestFlexSearch:
         assert not _advisory_ids(html)
         assert '<h2 id="verdict-h">Best montage: target mean 1.80× the background mean</h2>' in html
         assert "0.7 / 1.3 mA per channel, 2 mA total" in html  # the searched split, not 1 mA per channel
-        assert "TP8 (14 mm)" in html and "for orientation only" in html
+        assert html.count('<img src="data:image/webp') == 2  # the run's roi.png and valid_skin_region.png
+        assert "The target on the subject's T1" in html and "Where electrodes could go" in html
+        assert "Nearest cap electrode" not in html and "Montage on the EEG cap" not in html
         assert "sphere at (1, 9, 18) mm" in html  # the ROI is named, not "Target ROI"
 
     @pytest.mark.parametrize("goal,words", [("mean", "mean target field 1.800 V/m"), ("max", "peak target field 1.800 V/m")])
@@ -353,6 +342,7 @@ class TestExSearch:
         assert table.count("<tr>") == ex.TOP_N + 1  # header + top 25
         assert html.count('fill="none" stroke="var(--s2)"') == ex.TOP_N - 1  # rings for 2..25
         assert "ellipse 10×10 mm, gel 4 mm" in html and "4.5 / 0.5 mA per channel, 5 mA total" in html
+        assert "Montage on the EEG cap" not in html and "<img" not in html  # no cap overlay
 
     def test_a_full_size_search_stays_under_budget(self, tmp_path):
         from tit.reporting.generators import ex_search as ex
@@ -382,7 +372,7 @@ def _report_html(kind: str, tmp_path: Path) -> str:
         if kind == "dti_qc":
             return dti_qc.build_html(_record(), _images(), "X")
         if kind == "simulation":
-            return sim.build_html(_with_roi(sim.collect(_sim_dir(tmp_path))), None, "X")
+            return sim.build_html(_with_envelope(sim.collect(_sim_dir(tmp_path))), _sim_images(), "X")
         if kind == "flex_search":
             return flex_search.build_html(_flex_rec(tmp_path), "X")
         return ex_search.build_html(_ex_rec(tmp_path), "X")

@@ -4,11 +4,11 @@ Built on :mod:`tit.reporting.html.components` (ARCHITECTURE.md §14). Everything
 run folder: ``flex_meta.json`` (goal, ROI, currents, electrode, every restart's value),
 ``candidate_history/NN/`` (the accepted candidate's ROI and background means and currents, and
 the manifest's metric definitions), ``electrode_positions.json``, the ROI confirmation
-(``roi.tetravox.json``) and the final per-channel simulations. Rules come from
+(``roi.tetravox.json``), the final per-channel simulations and the run's own figures
+(``valid_skin_region.png``, ``roi.png``, embedded as WebP). Rules come from
 ``tit.reporting.qc_rules.RULES["opt"]``.
 
-Flex electrodes sit at free scalp positions. The cap figure is the app's EEG-cap overlay with each
-electrode drawn at its nearest cap position (listed with the distance), for orientation only.
+Flex electrodes sit at free scalp positions, so they are listed by coordinate, not drawn on a cap.
 
 ``tit.opt.flex`` writes one when a run finishes. Rebuild one (nothing is re-optimised)::
 
@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 
 REPORT_PREFIX = "flex_search_report"
 SIZE_BUDGET = 1_000_000
-#: The cap layout used to place free electrodes when the run names no net.
-DEFAULT_NET = "EEG10-10_UI_Jurak_2007.csv"
+#: The run's own figures the report embeds, with their WebP width (px).
+_RUN_FIGURES = {"roi.png": 1200, "valid_skin_region.png": 1000}
 
 _POSTPROC = {
     "max_TI": "the TI envelope in its strongest direction",
@@ -111,42 +111,36 @@ def _best_rows(run_dir: Path) -> list[dict]:
     return out
 
 
-def nearest_cap(positions: list[list[float]], eeg_csv: Path) -> dict | None:
-    """Each optimised position's nearest distinct electrode of the net (Hungarian assignment,
-    :func:`tit.tools.map_electrodes.map_electrodes_to_net`), with the distance in mm."""
-    import numpy as np
+def run_figures(run_dir: Path) -> dict[str, bytes]:
+    """``{file name: WebP bytes}`` for each of :data:`_RUN_FIGURES` the run wrote."""
+    import io
 
-    from tit.opt.ex.buckets import _read_eeg_positions
-    from tit.tools.map_electrodes import map_electrodes_to_net
+    from PIL import Image
 
-    net = {k: v for k, v in _read_eeg_positions(eeg_csv).items() if len(v) == 3}
-    if not net or not positions:
-        return None
-    labels = list(net)
-    result = map_electrodes_to_net(
-        np.asarray(positions, float),
-        np.asarray([net[k] for k in labels], float),
-        labels,
-        list(range(len(positions))),
+    out = {}
+    for name, width in _RUN_FIGURES.items():
+        if (run_dir / name).is_file():
+            image = Image.open(run_dir / name)
+            image.thumbnail((width, width))
+            buf = io.BytesIO()
+            image.save(buf, "WEBP", quality=80, method=6)
+            out[name] = buf.getvalue()
+    return out
+
+
+def _run_figure(rec: dict, fig_no, name: str, title: str, caption: str) -> str:
+    image = rec["figures"].get(name)
+    return (
+        c.figure(next(fig_no), title, c.img(image, caption), caption) if image else ""
     )
-    order = sorted(
-        range(len(positions)), key=lambda i: result["channel_array_indices"][i]
-    )
-    return {
-        "net": eeg_csv.name,
-        "labels": [result["mapped_labels"][i] for i in order],
-        "distances": [float(result["distances"][i]) for i in order],
-    }
 
 
-def collect(run_dir: str | Path, eeg_positions_dir: str | Path | None = None) -> dict:
+def collect(run_dir: str | Path) -> dict:
     """Everything the report shows, from one flex-search run folder."""
     run_dir = Path(run_dir)
     meta = json.loads((run_dir / "flex_meta.json").read_text())
     pos_file = run_dir / "electrode_positions.json"
     positions = json.loads(pos_file.read_text()) if pos_file.is_file() else {}
-    mapping_file = run_dir / "electrode_mapping.json"
-    mapping = json.loads(mapping_file.read_text()) if mapping_file.is_file() else None
     carriers = []
     for d in sorted(run_dir.glob("final_sim_*")):
         f = d / "fields_summary.txt"
@@ -172,22 +166,16 @@ def collect(run_dir: str | Path, eeg_positions_dir: str | Path | None = None) ->
         "restarts": _best_rows(run_dir),
         "positions": positions.get("optimized_positions") or [],
         "channel_array": positions.get("channel_array_indices") or [],
-        "mapping": mapping,
         "carriers": carriers,
         "roi": common.roi_summary(run_dir),
         "simnibs": simnibs,
         "calibration_error_pct": float(calib.group(1)) if calib else None,
-        "cap": None,
+        "figures": run_figures(run_dir),
     }
     config = (
         rec["restarts"][0]["manifest"].get("config") if rec["restarts"] else None
     ) or {}
     rec["config"] = config
-    if eeg_positions_dir and rec["positions"]:
-        net = config.get("eeg_net") or DEFAULT_NET
-        csv_path = Path(eeg_positions_dir) / net
-        if csv_path.is_file():
-            rec["cap"] = nearest_cap(rec["positions"], csv_path)
     return rec
 
 
@@ -204,15 +192,6 @@ def currents(rec: dict) -> list[float]:
     if meta.get("current_split"):
         return [float(v) for v in meta["current_split"]]
     return [float(meta["current_mA"])] * 2
-
-
-def _pairs(rec: dict) -> list[list[str]] | None:
-    labels = (rec["mapping"] or {}).get("mapped_labels") or (rec["cap"] or {}).get(
-        "labels"
-    )
-    if not labels or len(labels) < 4:
-        return None
-    return [labels[i : i + 2] for i in range(0, len(labels) - 1, 2)]
 
 
 def build_html(rec: dict, subject_id: str, generated: datetime | None = None) -> str:
@@ -325,6 +304,13 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         "target",
         "Target and goal",
         c.kv(target)
+        + _run_figure(
+            rec,
+            fig_no,
+            "roi.png",
+            "The target",
+            "The target on the subject's T1 in three planes, as the run confirmed it.",
+        )
         + '<h3 class="sub">How the score is measured</h3>'
         + c.kv(goal_rows)
         + f'<p class="muted" style="font-size:13px;margin-top:10px">{c.inline(g["plain"])} {cite.dois(g["cite"])}</p>',
@@ -332,26 +318,15 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     )
 
     # ── 3. best montage ──
-    body = ""
-    pairs = _pairs(rec)
-    if pairs:
-        mapped = rec["mapping"] is not None
-        body += common.cap_figure(
-            next(fig_no),
-            pairs,
-            (rec["cap"] or {}).get("net")
-            or rec["config"].get("eeg_net")
-            or DEFAULT_NET,
-            mA,
-            "Top view, nose up. "
-            + (
-                "Electrodes as mapped to the net by the run."
-                if mapped
-                else "Flex electrodes sit at free positions; each is drawn at its nearest cap position (distances below), for orientation only."
-            ),
-        )
+    body = _run_figure(
+        rec,
+        fig_no,
+        "valid_skin_region.png",
+        "Where electrodes could go",
+        "Scalp the optimiser could place electrodes on (green) and excluded scalp (grey), "
+        "seen from above, the front and both sides.",
+    )
     if rec["positions"]:
-        near = rec["cap"] or {}
         pos_rows = []
         for i, p in enumerate(rec["positions"]):
             ch, arr = (
@@ -359,21 +334,15 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
                 if i < len(rec["channel_array"])
                 else (i // 2, i % 2)
             )
-            nearest = (
-                f"{esc(near['labels'][i])} ({near['distances'][i]:.0f} mm)"
-                if near.get("labels")
-                else "—"
-            )
             pos_rows.append(
                 [
                     f"Ch {ch + 1}",
                     "+" if arr == 0 else "−",
                     "({:.1f}, {:.1f}, {:.1f})".format(*p),
-                    nearest,
                 ]
             )
         body += c.table(
-            ["Channel", "Pole", "Position (mm, subject)", "Nearest cap electrode"],
+            ["Channel", "Pole", "Position (mm, subject)"],
             pos_rows,
             caption="Optimised electrode centres on the scalp.",
             right={2},
@@ -558,11 +527,8 @@ def create_flex_search_report(
     out_dir: str | Path | None = None,
 ) -> Path:
     """Write the report for one flex-search run folder; into the project's reports unless *out_dir*."""
-    from tit.paths import get_path_manager
-
     t0 = time.time()
-    pm = get_path_manager(str(project_dir))
-    rec = collect(run_dir, pm.eeg_positions(subject_id))
+    rec = collect(run_dir)
     return common.write_report(
         build_html(rec, subject_id),
         project_dir,

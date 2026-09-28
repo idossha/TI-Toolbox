@@ -892,27 +892,26 @@ outputs.** `BaseSimulation.run` writes a simulator report after each montage; `r
 `flex_meta.json` (also when every run failed); `run_ex_search` after `final_output.csv`. A report that
 cannot be written is a warning and never fails the run, and each is recorded as a `report` artifact of
 its job. Each has `python -m tit.reporting.generators.<simulation|flex_search|ex_search> <project>
-<subject> <run>` to rebuild it. The default view is the verdict with key numbers, the montage on the EEG
-cap, and the advisories; software checks, methods, references and the run's configuration are under
-Technical details. The simulator report shows the envelope through the ROI of the newest Analyzer result
-(or the grey-matter hot spot) and the ROI mean against the published TI range; flex-search names the ROI
-from the run's ROI confirmation, states the score in words and lists every multi-start run; ex-search
-charts every montage's ROI mean against focality and lists the top 25 in a sortable table. Budgets:
-simulator 1.5 MB, flex-search and ex-search 1 MB (ernie: 0.33, 0.27, 0.41 MB).
+<subject> <run>` to rebuild it. None of the three has checks; the default view is the verdict with key
+numbers; methods, references and the run's configuration are under Technical details. The simulator
+report leads with the grey-matter envelope (99.9th percentile, median, and the maximum's MNI coordinate
+through charm's warp, read at one voxel; no atlas lookup) and shows the montage on the EEG cap and the envelope
+through the hot spot; it reads no Analyzer result. Flex-search names the ROI from the run's ROI
+confirmation, embeds the run's own `roi.png` and `valid_skin_region.png` as WebP, states the score in
+words and lists every multi-start run; ex-search charts every montage's ROI mean against focality and
+lists the top 25 in a sortable table. Budgets:
+simulator 1.5 MB, flex-search and ex-search 1 MB (ernie, 2026-09-28: 0.32, 0.29, 0.30 MB).
 
 **Montages are drawn on the app's own EEG-cap overlay.** `tit.tools.montage_visualizer.montage_webp` runs
 `visualize_montage` (the image a simulation writes to `montage_imgs/`) into a temporary folder and
-returns WebP; nets without a cap template get the channel list only. Flex electrodes are free positions,
-so the flex report draws each at its nearest cap electrode (`map_electrodes_to_net`) and lists the
-distances. No report draws its own head.
+returns WebP; nets without a cap template get the channel list only. Only the simulator report draws the
+cap: flex electrodes are free positions (listed by coordinate) and ex-search gives the winner as text. No
+report draws its own head.
 
-**Simulator and optimiser rules are `RULES["sim"]` and `RULES["opt"]`.** The simulator's only published
-cut-offs are advisories: electrode current < 4 mA (per electrode, which carries its channel's current;
-the total is shown beside it), with Cassarà 2025's kHz limits stated as unverified per channel or total;
-and estimated peak brain current density < 6.3 A/m². Target field is shown against Rampersad 2019's
-range scaled to the run's total current, never as pass/fail. Solver precision, current conservation and
-the field's order of magnitude are software checks. The flex-search and ex-search reports have no checks;
-`RULES["opt"]` holds only the goal definition and dose record they cite as prose.
+**Optimiser rules are `RULES["opt"]`; the run reports have no checks.** The simulator's current and
+current-density advisories, its target-field range and its software checks were removed on 2026-09-28
+(`RULES["sim"]` is gone); `RULES["opt"]` holds only the goal definition and dose record the optimiser
+reports cite as prose.
 
 **A page lists only the references something on it cites.** Every citation goes through the page's
 `Cites`, which builds the reference list from what was rendered; no generator passes a fixed list, so a

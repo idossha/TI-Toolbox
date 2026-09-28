@@ -1,5 +1,5 @@
 """What the simulator, flex-search and ex-search reports share: the montage on the EEG cap, the
-ROI's name and writing the file, plus the simulator's current advisory.
+ROI's name and writing the file.
 
 The cap figure is the app's own overlay (:func:`tit.tools.montage_visualizer.visualize_montage`,
 the image a simulation writes to ``montage_imgs/``), converted to WebP; nothing here draws a head.
@@ -15,8 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from tit.reporting.html import components as c
-from tit.reporting.html.components import Check, esc
-from tit.reporting.qc_rules import RULES
+from tit.reporting.html.components import esc
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +32,6 @@ CAP_COLOURS = (
     "violet",
 )
 
-#: Cassarà 2025 gives frequency-dependent TI limits; the review could not tell whether they are
-#: per channel or for the total current, so the report says exactly that.
-KHZ_CAUTION = (
-    "Cassarà 2025, Table 3: whether its kHz limits apply per channel or to the total "
-    "current is not verified"
-)
-
 
 def fmt(v: float, digits: int = 3) -> str:
     return f"{v:.{digits}g}"
@@ -48,56 +40,6 @@ def fmt(v: float, digits: int = 3) -> str:
 def per_channel(mA: list[float]) -> str:
     """``"1"`` when every channel carries the same current, else ``"0.7 / 1.3"`` (mA)."""
     return fmt(mA[0]) if len(set(mA)) == 1 else " / ".join(fmt(v) for v in mA)
-
-
-def current_check(section: str, per_channel_mA: list[float]) -> Check:
-    """The electrode-current advisory. Each electrode carries its channel's current, so the peak
-    electrode current is the largest channel current; the total is their sum."""
-    r = RULES[section]["electrode_peak_current"]
-    peak, total = max(per_channel_mA), sum(per_channel_mA)
-    return Check(
-        "electrode_peak_current",
-        r["label"],
-        r["plain"],
-        f"{fmt(peak)} mA per electrode ({fmt(total)} mA total)",
-        f"< {r['value']:g} {r['unit']}",
-        "pass" if peak < r["value"] else "warn",
-        role=r["role"],
-        value=peak,
-        cite=r["cite"],
-        note=KHZ_CAUTION,
-    )
-
-
-def rule_check(
-    section: str, key: str, status: str, shown: str, threshold: str = ""
-) -> Check:
-    """A row for rule *key*, with its label, plain text, role and citations from ``RULES``."""
-    r = RULES[section][key]
-    return Check(
-        key,
-        r["label"],
-        r["plain"],
-        shown,
-        threshold,
-        status,
-        role=r["role"],
-        cite=r["cite"],
-        note=r["note"],
-    )
-
-
-def attention_callouts(checks: list[Check], cite: c.Cites) -> str:
-    """One callout per advisory that needs attention."""
-    return "".join(
-        c.callout(
-            a.status,
-            f"{esc(a.label)}: {esc(a.shown)} (rule {esc(a.threshold)}).",
-            f"<p>{c.inline(a.description)} {cite.dois(list(a.cite))}</p>",
-        )
-        for a in checks
-        if a.role == "advisory" and a.status in ("warn", "fail")
-    )
 
 
 def channel_rows(

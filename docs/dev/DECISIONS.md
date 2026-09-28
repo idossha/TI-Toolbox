@@ -2279,3 +2279,31 @@ removed. Keeping unused registry entries as a library — nothing reads them.
 
 **Evidence.** `tests/test_reporting_runs.py::test_references_are_exactly_what_the_page_cites`
 (all four reports, both directions, from the generators' real output).
+
+
+## 2026-09-28 — Run reports have no checks; the simulator reports grey matter, not an ROI; only the simulator draws the cap
+
+**Decision.** The simulator report drops its ROI content (newest Analyzer result, ROI mean/max/focality,
+the Rampersad 2019 range bar), its electrode-current and brain-current-density advisories and its
+software checks (solver, current conservation, field order); `RULES["sim"]`, `common.current_check`,
+`rule_check`, `attention_callouts` and the five references only those rules cited (Rampersad 2019,
+Huang 2017, Bikson 2016, Antal 2017, Cassarà 2025) are deleted. It leads with the grey-matter envelope's
+99.9th percentile and median and the location of its maximum, in MNI through charm's
+`Conform2MNI_nonl` read at one voxel (subject-space mm without the warp). Flex-search drops the
+nearest-cap overlay and embeds the run's own `roi.png` and `valid_skin_region.png` as WebP;
+ex-search drops the cap overlay. The simulator keeps the cap overlay and the dose table.
+
+**Why.** The maintainer asked for these removals and for the grey-matter headline (2026-09-28). The
+simulator never sets an ROI, so ROI numbers only appeared after a separate Analyzer run; flex electrodes
+are free positions, so a nearest-cap drawing misplaced them.
+
+**Alternatives rejected.** Naming the peak by atlas region — it needs another atlas file read and a
+label table per atlas; the MNI coordinate costs one voxel of a warp charm already wrote (0.23 s on
+sub-ernie). The centroid of voxels above the 99.9th percentile as the location — on sub-ernie it spreads
+22 mm in x and the combined grey/white field puts it in white matter; the maximum is a grey-matter voxel.
+
+**Evidence.** `tests/test_reporting_runs.py` (no checks on any run report, the simulator headline and
+peak with and without the warp, flex-search's two embedded figures, no cap on flex/ex);
+`python -m tit.reporting.generators.<name>` on Dataset 000 sub-ernie in `idossha/ti-toolbox:v3.0.1`:
+simulator 0.32 MB ("0.359 V/m peak envelope in grey matter", maximum 0.485 V/m at MNI (11, 16, -25) mm),
+flex-search 0.29 MB, ex-search 0.30 MB.

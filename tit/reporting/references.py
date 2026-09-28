@@ -46,61 +46,9 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
         "doi": "10.1016/j.neuroimage.2020.117044",
     },
     # ==========================================================================
-    # Field strength, safety and dose (simulator and optimiser reports; DOIs
-    # resolved with OpenAlex 2026-09-28)
+    # Goal definition and dose (optimiser reports; DOIs resolved with
+    # OpenAlex 2026-09-28)
     # ==========================================================================
-    {
-        "key": "rampersad2019_ti_humans",
-        "label": "Rampersad2019",
-        "citation": (
-            "Rampersad S, Roig-Solvas B, Yarossi M, Kulkarni PP, Santarnecchi E, "
-            "et al. Prospects for transcranial temporal interference stimulation "
-            "in humans: a computational study. NeuroImage. 2019."
-        ),
-        "doi": "10.1016/j.neuroimage.2019.116124",
-    },
-    {
-        "key": "huang2017_invivo_fields",
-        "label": "Huang2017",
-        "citation": (
-            "Huang Y, Liu AA, Lafon B, Friedman D, Dayan M, et al. Measurements "
-            "and models of electric fields in the in vivo human brain during "
-            "transcranial electric stimulation. eLife. 2017;6:e18834."
-        ),
-        "doi": "10.7554/eLife.18834",
-    },
-    {
-        "key": "bikson2016_tdcs_safety",
-        "label": "Bikson2016",
-        "citation": (
-            "Bikson M, Grossman P, Thomas C, Zannou AL, Jiang J, et al. Safety of "
-            "transcranial direct current stimulation: evidence based update 2016. "
-            "Brain Stimulation. 2016."
-        ),
-        "doi": "10.1016/j.brs.2016.06.004",
-    },
-    {
-        "key": "antal2017_tes_guidelines",
-        "label": "Antal2017",
-        "citation": (
-            "Antal A, Alekseichuk I, Bikson M, Brockmöller J, Brunoni AR, et al. "
-            "Low intensity transcranial electric stimulation: safety, ethical, "
-            "legal regulatory and application guidelines. Clinical "
-            "Neurophysiology. 2017."
-        ),
-        "doi": "10.1016/j.clinph.2017.06.001",
-    },
-    {
-        "key": "cassara2025_tis_safety",
-        "label": "Cassara2025",
-        "citation": (
-            "Cassarà AM, Newton T, Zhuang K, Regel SJ, Achermann P, et al. "
-            "Recommendations for the safe application of temporal interference "
-            "stimulation in the human brain part II: biophysics, dosimetry, and "
-            "safety recommendations. Bioelectromagnetics. 2025."
-        ),
-        "doi": "10.1002/bem.22536",
-    },
     {
         "key": "saturnino2019_accessibility",
         "label": "Saturnino2019c",
