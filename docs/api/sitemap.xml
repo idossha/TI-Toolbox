@@ -369,14 +369,6 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/focality/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/static_overlay/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/stats/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
@@ -445,10 +437,6 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/report/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/structural/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
@@ -493,10 +481,6 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/project_init/example_data_manager/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/project_init/initializer/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
@@ -505,31 +489,7 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/assembler/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/base/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/protocols/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/templates/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/base_generator/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
@@ -541,39 +501,11 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/preprocessing/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/simulation/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/images/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/metadata/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/references/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/text/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/build/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>

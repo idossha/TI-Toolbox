@@ -608,56 +608,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Report Generation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#simulation-reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Simulation Reports
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#flex-search-reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Flex-Search Reports
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#preprocessing-reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Preprocessing Reports
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#report-building-blocks-reportlets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report Building Blocks (Reportlets)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -1370,56 +1320,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Report Generation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#simulation-reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Simulation Reports
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#flex-search-reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Flex-Search Reports
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#preprocessing-reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Preprocessing Reports
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#report-building-blocks-reportlets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report Building Blocks (Reportlets)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -1533,7 +1433,7 @@ For standalone scripts inside the container, run <code>simnibs_python my_script.
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span><span class="p">,</span> <span class="n">setup_logging</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">run_simulation</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="s2">&quot;/mnt/project&quot;</span><span class="p">)</span>  <span class="c1"># replace with your mounted project path</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="s2">"/mnt/project"</span><span class="p">)</span>  <span class="c1"># replace with your mounted project path</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">setup_logging</span><span class="p">()</span>
 </code></pre></div>
 <p>The launcher sets the project environment for the server and its notebook kernel. Explicit
@@ -1545,19 +1445,19 @@ initialization makes scripts portable to other container sessions.</p>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">run_simulation</span><span class="p">,</span> <span class="n">load_montages</span><span class="p">,</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">)</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Load montages from the project&#39;s montage_list.json</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Load montages from the project's montage_list.json</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">montages</span> <span class="o">=</span> <span class="n">load_montages</span><span class="p">(</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">montage_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;motor_cortex&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">&quot;GSN-HydroCel-185&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">montage_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"motor_cortex"</span><span class="p">],</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">"GSN-HydroCel-185"</span><span class="p">,</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="c1"># Configure the simulation (montages are part of the config)</span>
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SimulationConfig</span><span class="p">(</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">"001"</span><span class="p">,</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">montages</span><span class="o">=</span><span class="n">montages</span><span class="p">,</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">conductivity</span><span class="o">=</span><span class="s2">&quot;scalar&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">conductivity</span><span class="o">=</span><span class="s2">"scalar"</span><span class="p">,</span>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">intensities</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">electrode_shape</span><span class="o">=</span><span class="s2">&quot;ellipse&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">electrode_shape</span><span class="o">=</span><span class="s2">"ellipse"</span><span class="p">,</span>
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">electrode_dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">],</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">gel_thickness</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="p">)</span>
@@ -1575,35 +1475,35 @@ initialization makes scripts portable to other container sessions.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.analyzer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Spherical ROI analysis</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">analyzer</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span><span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span> <span class="n">simulation</span><span class="o">=</span><span class="s2">&quot;motor_cortex&quot;</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="s2">&quot;mesh&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">analyzer</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span><span class="n">subject_id</span><span class="o">=</span><span class="s2">"001"</span><span class="p">,</span> <span class="n">simulation</span><span class="o">=</span><span class="s2">"motor_cortex"</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="s2">"mesh"</span><span class="p">)</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">analyze_sphere</span><span class="p">(</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">42</span><span class="p">,</span> <span class="o">-</span><span class="mi">20</span><span class="p">,</span> <span class="mi">55</span><span class="p">),</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">radius</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">coordinate_space</span><span class="o">=</span><span class="s2">&quot;MNI&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">coordinate_space</span><span class="o">=</span><span class="s2">"MNI"</span><span class="p">,</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">visualize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Access metrics</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ROI Mean:     </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">roi_mean</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> V/m&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ROI Max:      </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">roi_max</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> V/m&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Focality:     </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">roi_focality</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GM Mean:      </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">gm_mean</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> V/m&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;N elements:   </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">n_elements</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ROI Mean:     </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">roi_mean</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> V/m"</span><span class="p">)</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ROI Max:      </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">roi_max</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> V/m"</span><span class="p">)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Focality:     </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">roi_focality</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"GM Mean:      </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">gm_mean</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> V/m"</span><span class="p">)</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"N elements:   </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">n_elements</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="c1"># Cortical atlas ROI analysis</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">result</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">analyze_cortex</span><span class="p">(</span><span class="n">atlas</span><span class="o">=</span><span class="s2">&quot;DK40&quot;</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="s2">&quot;precentral-lh&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">result</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">analyze_cortex</span><span class="p">(</span><span class="n">atlas</span><span class="o">=</span><span class="s2">"DK40"</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="s2">"precentral-lh"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="group-analysis">Group Analysis<a class="headerlink" href="#group-analysis" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.analyzer</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_group_analysis</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">group_result</span> <span class="o">=</span> <span class="n">run_group_analysis</span><span class="p">(</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;001&quot;</span><span class="p">,</span> <span class="s2">&quot;002&quot;</span><span class="p">,</span> <span class="s2">&quot;003&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">simulation</span><span class="o">=</span><span class="s2">&quot;motor_cortex&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">space</span><span class="o">=</span><span class="s2">&quot;mesh&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">analysis_type</span><span class="o">=</span><span class="s2">&quot;spherical&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"001"</span><span class="p">,</span> <span class="s2">"002"</span><span class="p">,</span> <span class="s2">"003"</span><span class="p">],</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">simulation</span><span class="o">=</span><span class="s2">"motor_cortex"</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">space</span><span class="o">=</span><span class="s2">"mesh"</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">analysis_type</span><span class="o">=</span><span class="s2">"spherical"</span><span class="p">,</span>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">42</span><span class="p">,</span> <span class="o">-</span><span class="mi">20</span><span class="p">,</span> <span class="mi">55</span><span class="p">),</span>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">radius</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">coordinate_space</span><span class="o">=</span><span class="s2">&quot;MNI&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">coordinate_space</span><span class="o">=</span><span class="s2">"MNI"</span><span class="p">,</span>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">visualize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
@@ -1616,58 +1516,58 @@ initialization makes scripts portable to other container sessions.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt</span><span class="w"> </span><span class="kn">import</span> <span class="n">FlexConfig</span><span class="p">,</span> <span class="n">run_flex_search</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">FlexConfig</span><span class="p">(</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">goal</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span>              <span class="c1"># &quot;mean&quot;, &quot;max&quot;, or &quot;focality&quot;</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">postproc</span><span class="o">=</span><span class="s2">&quot;max_TI&quot;</span><span class="p">,</span>        <span class="c1"># &quot;max_TI&quot;, &quot;dir_TI_normal&quot;, &quot;dir_TI_tangential&quot;</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">"001"</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">goal</span><span class="o">=</span><span class="s2">"mean"</span><span class="p">,</span>              <span class="c1"># "mean", "max", or "focality"</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">postproc</span><span class="o">=</span><span class="s2">"max_TI"</span><span class="p">,</span>        <span class="c1"># "max_TI", "dir_TI_normal", "dir_TI_tangential"</span>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">current_mA</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">electrode</span><span class="o">=</span><span class="n">FlexConfig</span><span class="o">.</span><span class="n">ElectrodeConfig</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="s2">&quot;ellipse&quot;</span><span class="p">,</span> <span class="n">dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">]),</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">electrode</span><span class="o">=</span><span class="n">FlexConfig</span><span class="o">.</span><span class="n">ElectrodeConfig</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="s2">"ellipse"</span><span class="p">,</span> <span class="n">dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">]),</span>
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">roi</span><span class="o">=</span><span class="n">FlexConfig</span><span class="o">.</span><span class="n">SphericalROI</span><span class="p">(</span><span class="n">x</span><span class="o">=-</span><span class="mi">42</span><span class="p">,</span> <span class="n">y</span><span class="o">=-</span><span class="mi">20</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">55</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">use_mni</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">&quot;GSN-HydroCel-185&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">"GSN-HydroCel-185"</span><span class="p">,</span>
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">n_multistart</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
 <a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
 <a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">result</span> <span class="o">=</span> <span class="n">run_flex_search</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best value: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">best_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">output_folder</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Best value: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">best_value</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Output: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">output_folder</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="exhaustive-search">Exhaustive Search<a class="headerlink" href="#exhaustive-search" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExConfig</span><span class="p">,</span> <span class="n">run_ex_search</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ExConfig</span><span class="p">(</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">leadfield_hdf</span><span class="o">=</span><span class="s2">&quot;/path/to/leadfield.hdf5&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">roi_name</span><span class="o">=</span><span class="s2">&quot;motor_roi&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">electrodes</span><span class="o">=</span><span class="n">ExConfig</span><span class="o">.</span><span class="n">PoolElectrodes</span><span class="p">(</span><span class="n">electrodes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C3&quot;</span><span class="p">,</span> <span class="s2">&quot;C4&quot;</span><span class="p">,</span> <span class="s2">&quot;F3&quot;</span><span class="p">,</span> <span class="s2">&quot;F4&quot;</span><span class="p">,</span> <span class="s2">&quot;P3&quot;</span><span class="p">,</span> <span class="s2">&quot;P4&quot;</span><span class="p">]),</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">"001"</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">leadfield_hdf</span><span class="o">=</span><span class="s2">"/path/to/leadfield.hdf5"</span><span class="p">,</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">roi_name</span><span class="o">=</span><span class="s2">"motor_roi"</span><span class="p">,</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">electrodes</span><span class="o">=</span><span class="n">ExConfig</span><span class="o">.</span><span class="n">PoolElectrodes</span><span class="p">(</span><span class="n">electrodes</span><span class="o">=</span><span class="p">[</span><span class="s2">"C3"</span><span class="p">,</span> <span class="s2">"C4"</span><span class="p">,</span> <span class="s2">"F3"</span><span class="p">,</span> <span class="s2">"F4"</span><span class="p">,</span> <span class="s2">"P3"</span><span class="p">,</span> <span class="s2">"P4"</span><span class="p">]),</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">)</span>
 <a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">result</span> <span class="o">=</span> <span class="n">run_ex_search</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Combinations tested: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">n_combinations</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Results CSV: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">results_csv</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Combinations tested: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">n_combinations</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Results CSV: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">results_csv</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="statistical-testing">Statistical Testing<a class="headerlink" href="#statistical-testing" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">GroupComparisonConfig</span><span class="p">,</span> <span class="n">run_group_comparison</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Load subjects from CSV (classmethod on GroupComparisonConfig)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">subjects</span> <span class="o">=</span> <span class="n">GroupComparisonConfig</span><span class="o">.</span><span class="n">load_subjects</span><span class="p">(</span><span class="s2">&quot;/data/subjects.csv&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">subjects</span> <span class="o">=</span> <span class="n">GroupComparisonConfig</span><span class="o">.</span><span class="n">load_subjects</span><span class="p">(</span><span class="s2">"/data/subjects.csv"</span><span class="p">)</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">config</span> <span class="o">=</span> <span class="n">GroupComparisonConfig</span><span class="p">(</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">analysis_name</span><span class="o">=</span><span class="s2">&quot;responder_comparison&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">analysis_name</span><span class="o">=</span><span class="s2">"responder_comparison"</span><span class="p">,</span>
 <a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">subjects</span><span class="o">=</span><span class="n">subjects</span><span class="p">,</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">test_type</span><span class="o">=</span><span class="s2">&quot;unpaired&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">test_type</span><span class="o">=</span><span class="s2">"unpaired"</span><span class="p">,</span>
 <a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">n_permutations</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
 <a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
 <a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="n">cluster_threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
 <a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">)</span>
 <a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>
 <a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="n">result</span> <span class="o">=</span> <span class="n">run_group_comparison</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Significant clusters: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">n_significant_clusters</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Significant clusters: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">n_significant_clusters</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Output: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="preprocessing">Preprocessing<a class="headerlink" href="#preprocessing" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.pre</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_pipeline</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">exit_code</span> <span class="o">=</span> <span class="n">run_pipeline</span><span class="p">(</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;001&quot;</span><span class="p">,</span> <span class="s2">&quot;002&quot;</span><span class="p">],</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"001"</span><span class="p">,</span> <span class="s2">"002"</span><span class="p">],</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">convert_dicom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">run_fastsurfer</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">fastsurfer_threads</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
@@ -1692,107 +1592,55 @@ initialization makes scripts portable to other container sessions.</p>
 <a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="c1"># Discover subjects from a BIDS project</span>
 <a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="n">project</span> <span class="o">=</span> <span class="s2">&quot;/path/to/bids_project&quot;</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;preprocessing&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="n">project</span> <span class="o">=</span> <span class="s2">"/path/to/bids_project"</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"preprocessing"</span><span class="p">)</span>
 <a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="n">subjects</span> <span class="o">=</span> <span class="n">discover_subjects</span><span class="p">(</span><span class="n">project</span><span class="p">)</span>
 <a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>
 <a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="c1"># Check if head mesh already exists</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">check_m2m_exists</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="s2">&quot;001&quot;</span><span class="p">):</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="n">run_charm</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="s2">&quot;001&quot;</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">check_m2m_exists</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="s2">"001"</span><span class="p">):</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="n">run_charm</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="s2">"001"</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="report-generation">Report Generation<a class="headerlink" href="#report-generation" title="Permanent link">&para;</a></h2>
-<p>TI-Toolbox generates interactive HTML reports for simulations, flex-search results,
-and preprocessing runs.</p>
-<h3 id="simulation-reports">Simulation Reports<a class="headerlink" href="#simulation-reports" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.reporting</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulationReportGenerator</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">report</span> <span class="o">=</span> <span class="n">SimulationReportGenerator</span><span class="p">(</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;/mnt/project&quot;</span><span class="p">,</span>  <span class="c1"># container-visible project path</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">simulation_session_id</span><span class="o">=</span><span class="s2">&quot;motor_cortex&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">)</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="n">report</span><span class="o">.</span><span class="n">add_simulation_parameters</span><span class="p">(</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">conductivity_type</span><span class="o">=</span><span class="s2">&quot;scalar&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="n">simulation_mode</span><span class="o">=</span><span class="s2">&quot;TI&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">&quot;GSN-HydroCel-185&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="n">intensity_ch1</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="n">intensity_ch2</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="p">)</span>
-<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="n">report</span><span class="o">.</span><span class="n">add_montage</span><span class="p">(</span>
-<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="n">montage_name</span><span class="o">=</span><span class="s2">&quot;motor_cortex&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>    <span class="n">electrode_pairs</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;C3&quot;</span><span class="p">,</span> <span class="s2">&quot;C4&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;F3&quot;</span><span class="p">,</span> <span class="s2">&quot;F4&quot;</span><span class="p">)],</span>
-<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>    <span class="n">montage_type</span><span class="o">=</span><span class="s2">&quot;TI&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="p">)</span>
-<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="n">output_path</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>
-<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Report: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p>TI-Toolbox writes one self-contained HTML report per pipeline run. There are five kinds:
+SimNIBS's own charm report (copied from <code>m2m_&lt;id&gt;/charm_report.html</code> when charm finishes), and
+DTI QC, simulator, flex-search and ex-search reports, which the pipelines write themselves when
+they finish. There is no report object to build by hand: each generator reads what its run wrote,
+and rebuilds a report from the command line (inside the container):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>simnibs_python<span class="w"> </span>-m<span class="w"> </span>tit.reporting.generators.dti_qc<span class="w">      </span>/mnt/project<span class="w"> </span><span class="m">001</span><span class="w">                 </span><span class="o">[</span>--out<span class="w"> </span>DIR<span class="o">]</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>simnibs_python<span class="w"> </span>-m<span class="w"> </span>tit.reporting.generators.simulation<span class="w">  </span>/mnt/project<span class="w"> </span><span class="m">001</span><span class="w"> </span>motor_cortex<span class="w">    </span><span class="o">[</span>--out<span class="w"> </span>DIR<span class="o">]</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>simnibs_python<span class="w"> </span>-m<span class="w"> </span>tit.reporting.generators.flex_search<span class="w"> </span>/mnt/project<span class="w"> </span><span class="m">001</span><span class="w"> </span>&lt;run<span class="w"> </span>folder&gt;<span class="w">    </span><span class="o">[</span>--out<span class="w"> </span>DIR<span class="o">]</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>simnibs_python<span class="w"> </span>-m<span class="w"> </span>tit.reporting.generators.ex_search<span class="w">   </span>/mnt/project<span class="w"> </span><span class="m">001</span><span class="w"> </span>&lt;run<span class="w"> </span>name&gt;<span class="w">      </span><span class="o">[</span>--out<span class="w"> </span>DIR<span class="o">]</span>
 </code></pre></div>
-<h3 id="flex-search-reports">Flex-Search Reports<a class="headerlink" href="#flex-search-reports" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.reporting</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_flex_search_report</span>
+<p>or from Python:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.reporting.generators.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_simulation_report</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># Generate from optimization data dict</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">output_path</span> <span class="o">=</span> <span class="n">create_flex_search_report</span><span class="p">(</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;/mnt/project&quot;</span><span class="p">,</span>  <span class="c1"># container-visible project path</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">data</span><span class="o">=</span><span class="n">optimization_data</span><span class="p">,</span>  <span class="c1"># dict with optimization results</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">output_path</span><span class="o">=</span><span class="s2">&quot;/data/my_project/derivatives/ti-toolbox/reports/flex_report.html&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="p">)</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">path</span> <span class="o">=</span> <span class="n">create_simulation_report</span><span class="p">(</span><span class="s2">"/mnt/project"</span><span class="p">,</span> <span class="s2">"001"</span><span class="p">,</span> <span class="s2">"motor_cortex"</span><span class="p">)</span>
 </code></pre></div>
-<h3 id="preprocessing-reports">Preprocessing Reports<a class="headerlink" href="#preprocessing-reports" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.reporting</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_preprocessing_report</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">output_path</span> <span class="o">=</span> <span class="n">create_preprocessing_report</span><span class="p">(</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;/mnt/project&quot;</span><span class="p">,</span>  <span class="c1"># container-visible project path</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">processing_steps</span><span class="o">=</span><span class="p">[],</span>  <span class="c1"># auto-populated if auto_scan=True</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">output_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>     <span class="c1"># auto-generates BIDS-compliant path</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">auto_scan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">)</span>
-</code></pre></div>
-<h3 id="report-building-blocks-reportlets">Report Building Blocks (Reportlets)<a class="headerlink" href="#report-building-blocks-reportlets" title="Permanent link">&para;</a></h3>
-<p>Reports are assembled from reusable reportlets:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.reporting</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">ReportAssembler</span><span class="p">,</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">ReportMetadata</span><span class="p">,</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">MetadataReportlet</span><span class="p">,</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">ImageReportlet</span><span class="p">,</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">TableReportlet</span><span class="p">,</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">ConductivityTableReportlet</span><span class="p">,</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">SummaryCardsReportlet</span><span class="p">,</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>    <span class="n">MethodsBoilerplateReportlet</span><span class="p">,</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="n">TIToolboxReferencesReportlet</span><span class="p">,</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="p">)</span>
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="c1"># Create a custom report</span>
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="n">metadata</span> <span class="o">=</span> <span class="n">ReportMetadata</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;My Analysis&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="n">assembler</span> <span class="o">=</span> <span class="n">ReportAssembler</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Custom Report&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="n">section</span> <span class="o">=</span> <span class="n">assembler</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">&quot;results&quot;</span><span class="p">,</span> <span class="s2">&quot;Results&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Analysis output&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="n">cards</span> <span class="o">=</span> <span class="n">SummaryCardsReportlet</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Key Metrics&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="n">cards</span><span class="o">.</span><span class="n">add_card</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">&quot;ROI Mean&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;0.152 V/m&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#4CAF50&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="n">section</span><span class="o">.</span><span class="n">add_reportlet</span><span class="p">(</span><span class="n">cards</span><span class="p">)</span>
-<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>
-<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="n">assembler</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;/data/output/report.html&quot;</span><span class="p">)</span>
-</code></pre></div>
+<p>A simulator report opens with the grey-matter envelope (99.9th percentile, median and where its
+maximum is), the montage on the EEG cap with its dose, the conductivity model and the envelope in
+three planes through the hot spot. Only the DTI QC report has checks; each shows its role (gate,
+software check, advisory, reported) and citation, and the rules are in
+<code>tit.reporting.qc_rules.RULES</code>.</p>
 <h2 id="mesh-and-nifti-tools">Mesh and NIfTI Tools<a class="headerlink" href="#mesh-and-nifti-tools" title="Permanent link">&para;</a></h2>
 <p>Standalone utilities for working with simulation outputs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.tools.mesh2nii</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_mesh_dir</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.tools.montage_visualizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">visualize_montage</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Convert all meshes in a directory to NIfTI (subject + MNI space)</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">convert_mesh_dir</span><span class="p">(</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">mesh_dir</span><span class="o">=</span><span class="s2">&quot;/data/sim_output/TI/mesh&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;/data/sim_output/TI/niftis&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="n">m2m_dir</span><span class="o">=</span><span class="s2">&quot;/data/derivatives/SimNIBS/sub-001/m2m_001&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="p">)</span>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="c1"># Visualize electrode montage on the scalp</span>
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="n">visualize_montage</span><span class="p">(</span>
-<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>    <span class="n">montage_name</span><span class="o">=</span><span class="s2">&quot;motor_cortex&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>    <span class="n">electrode_pairs</span><span class="o">=</span><span class="p">[[</span><span class="s2">&quot;E030&quot;</span><span class="p">,</span> <span class="s2">&quot;E020&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;E095&quot;</span><span class="p">,</span> <span class="s2">&quot;E070&quot;</span><span class="p">]],</span>
-<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">&quot;GSN-HydroCel-185&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;/data/output/montage_imgs&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>    <span class="n">sim_mode</span><span class="o">=</span><span class="s2">&quot;U&quot;</span><span class="p">,</span>  <span class="c1"># &quot;U&quot; for TI, &quot;M&quot; for mTI</span>
-<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.tools.mesh2nii</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_mesh_dir</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.tools.montage_visualizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">visualize_montage</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Convert all meshes in a directory to NIfTI (subject + MNI space)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">convert_mesh_dir</span><span class="p">(</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">mesh_dir</span><span class="o">=</span><span class="s2">"/data/sim_output/TI/mesh"</span><span class="p">,</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"/data/sim_output/TI/niftis"</span><span class="p">,</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">m2m_dir</span><span class="o">=</span><span class="s2">"/data/derivatives/SimNIBS/sub-001/m2m_001"</span><span class="p">,</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">)</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># Visualize electrode montage on the scalp</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="n">visualize_montage</span><span class="p">(</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    <span class="n">montage_name</span><span class="o">=</span><span class="s2">"motor_cortex"</span><span class="p">,</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>    <span class="n">electrode_pairs</span><span class="o">=</span><span class="p">[[</span><span class="s2">"E030"</span><span class="p">,</span> <span class="s2">"E020"</span><span class="p">],</span> <span class="p">[</span><span class="s2">"E095"</span><span class="p">,</span> <span class="s2">"E070"</span><span class="p">]],</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">"GSN-HydroCel-185"</span><span class="p">,</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"/data/output/montage_imgs"</span><span class="p">,</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>    <span class="n">sim_mode</span><span class="o">=</span><span class="s2">"U"</span><span class="p">,</span>  <span class="c1"># "U" for TI, "M" for mTI</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="key-concepts">Key Concepts<a class="headerlink" href="#key-concepts" title="Permanent link">&para;</a></h2>
 <h3 id="bids-compliance">BIDS Compliance<a class="headerlink" href="#bids-compliance" title="Permanent link">&para;</a></h3>

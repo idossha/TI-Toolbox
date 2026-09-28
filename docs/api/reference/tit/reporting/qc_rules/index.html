@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/">
+        <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/qc_rules/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../html/components/">
       
       
-        <link rel="next" href="common/">
+        <link rel="next" href="../references/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>generators - TI-Toolbox API Reference</title>
+        <title>qc_rules - TI-Toolbox API Reference</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tit.reporting.generators" class="md-skip">
+        <a href="#tit.reporting.qc_rules" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              generators
+              qc_rules
             
           </span>
         </div>
@@ -871,10 +871,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#tit.reporting.generators" class="md-nav__link">
+  <a href="#tit.reporting.qc_rules" class="md-nav__link">
     <span class="md-ellipsis">
       
-        generators
+        qc_rules
       
     </span>
   </a>
@@ -973,7 +973,7 @@
     
     
       <li class="md-path__item">
-        <a href="common/" class="md-path__link">
+        <a href="../generators/common/" class="md-path__link">
           
   <span class="md-ellipsis">
     reporting
@@ -1001,24 +1001,37 @@
   
 
 
-  <h1>generators</h1>
+  <h1>qc_rules</h1>
 
 <div class="doc doc-object doc-module">
 
 
 
-<h2 id="tit.reporting.generators" class="doc doc-heading">
-            <span class="doc doc-object-name doc-module-name">tit.reporting.generators</span>
+<h2 id="tit.reporting.qc_rules" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">tit.reporting.qc_rules</span>
 
 
-<a href="#tit.reporting.generators" class="headerlink" title="Permanent link">&para;</a></h2>
+<a href="#tit.reporting.qc_rules" class="headerlink" title="Permanent link">&para;</a></h2>
 
     <div class="doc doc-contents first">
 
-        <p>One module per report, all on <code>tit.reporting.html</code>: <code>dti_qc</code>, <code>simulation</code>,
-<code>flex_search</code> and <code>ex_search</code> (<code>common</code> holds what the last three share).</p>
-<p>Nothing is imported here, so <code>python -m tit.reporting.generators.&lt;name&gt;</code> runs without a runpy
-warning.</p>
+        <p>Every QC rule a TI-Toolbox report applies, in one dict, each with its role, citation and plain text.</p>
+<p><code>RULES[section][key]</code> holds:</p>
+<ul>
+<li><code>label</code> — the check's name in a report;</li>
+<li><code>rule</code> — <code>&gt;=</code>, <code>&lt;=</code>, <code>&lt;</code>, <code>==</code>, <code>within</code> or <code>report</code> (a value shown with a reference, no pass/fail);</li>
+<li><code>value</code> and <code>unit</code>;</li>
+<li><code>role</code> — <code>gate</code> (blocks and is shown to the user), <code>internal</code> (a software consistency check:
+  blocks too, shown only under Technical details), <code>advisory</code> (warns, never blocks) or <code>report</code>;</li>
+<li><code>cite</code> — DOIs, each also a reference in <code>tit.reporting.references</code>;</li>
+<li><code>note</code> — where a value is TI-Toolbox's own rule rather than a published one;</li>
+<li><code>plain</code> — one sentence a user can read, rendered next to the rule.</li>
+</ul>
+<p>The pipelines (<code>tit.pre.qsi.dti_extractor</code>'s gate, <code>tit.pre.qsi.dti_advisories</code>) and the reports
+read values from here, so a value changes in one place. Rules and citations are from the literature
+review of 2026-09-28 (the only published cut-offs for DTI are the b-table flip test; the rest are
+internal invariants or values shown against a cited reference). The simulator and optimiser reports
+have no checks: <code>opt</code> holds only the goal definition and dose record they cite as prose.</p>
 
 
 
