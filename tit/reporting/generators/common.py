@@ -45,6 +45,11 @@ def fmt(v: float, digits: int = 3) -> str:
     return f"{v:.{digits}g}"
 
 
+def per_channel(mA: list[float]) -> str:
+    """``"1"`` when every channel carries the same current, else ``"0.7 / 1.3"`` (mA)."""
+    return fmt(mA[0]) if len(set(mA)) == 1 else " / ".join(fmt(v) for v in mA)
+
+
 def current_check(section: str, per_channel_mA: list[float]) -> Check:
     """The electrode-current advisory. Each electrode carries its channel's current, so the peak
     electrode current is the largest channel current; the total is their sum."""

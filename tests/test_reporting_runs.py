@@ -286,3 +286,92 @@ class TestFlexSearch:
             flex_run._write_report(MagicMock(subject_id="X"), "/p/run", logger)
         create.assert_called_once_with("/p", "X", "/p/run")
         assert "bad" in logger.warning.call_args[0][0]
+
+
+# ── ex-search ────────────────────────────────────────────────────────────
+
+LEADFIELD_LOG = """[ simnibs 4.6.0 - 2026-09-23 17:38:24,694 - 936 ]INFO: Running simulations
+[ simnibs 4.6.0 - 2026-09-23 17:38:37,711 - 936 ]INFO: Placing Electrode:
+definition: plane
+shape: ellipse
+centre: Fp1
+dimensions: [10, 10]
+thickness:[4]
+"""
+
+
+def _ex_dir(tmp_path: Path, n: int = 40, mA=(1.0, 1.0)) -> Path:
+    import random
+
+    d = tmp_path / "ex"
+    d.mkdir()
+    (d / "run_config.json").write_text(json.dumps({
+        "subject_id": "X", "roi_name": "thal.csv", "roi_radius": 3.0, "leadfield_hdf": "X_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+        "electrode_mode": "bucket", "electrodes": {"e1_plus": ["AF3", "F3"], "e1_minus": ["PO10"], "e2_plus": ["AF4"], "e2_minus": ["Oz"]},
+        "n_combinations": n, "total_current_mA": 2.0, "current_step_mA": 0.5, "channel_limit_mA": 1.5}))
+    rng = random.Random(0)
+    lines = ["Montage,Current_Ch1_mA,Current_Ch2_mA,TImax_ROI,TImean_ROI,TImean_GM,Focality,Composite_Index"]
+    for i in range(n):
+        mean, foc = rng.uniform(0.05, 0.2), rng.uniform(0.9, 1.2)
+        lines.append(f"AF3_PO10 <> AF4_O{i}_I1-{mA[0]}mA_I2-{mA[1]}mA,{mA[0]},{mA[1]},{2 * mean:.4f},{mean:.4f},{mean / foc:.4f},{foc:.4f},{mean * foc:.4f}")
+    lines.append(f"F3_PO10 <> AF4_Oz_I1-{mA[0]}mA_I2-{mA[1]}mA,{mA[0]},{mA[1]},0.5,0.3,0.2,1.5,0.45")  # the known winner
+    (d / "final_output.csv").write_text("\n".join(lines) + "\n")
+    return d
+
+
+def _ex_rec(tmp_path, **kw) -> dict:
+    from tit.reporting.generators import ex_search as ex
+
+    lf = tmp_path / "lf"
+    lf.mkdir()
+    (lf / "simnibs_simulation_20260923-173824.log").write_text(LEADFIELD_LOG)
+    return ex.collect(_ex_dir(tmp_path, **kw), lf)
+
+
+class TestExSearch:
+    def test_results_are_ranked_by_composite_and_parsed(self, tmp_path):
+        rows = _ex_rec(tmp_path)["rows"]
+        assert rows[0]["pairs"] == [["F3", "PO10"], ["AF4", "Oz"]] and rows[0]["Composite_Index"] == 0.45
+        assert [r["Composite_Index"] for r in rows] == sorted((r["Composite_Index"] for r in rows), reverse=True)
+
+    def test_leadfield_geometry_comes_from_its_log(self, tmp_path):
+        from tit.reporting.generators import ex_search as ex
+
+        lf = ex.leadfield_facts(LEADFIELD_LOG)
+        assert (lf["shape"], lf["dimensions"], lf["thickness"], lf["tensor"]) == ("ellipse", "10, 10", "4", None)
+
+    def test_page_structure_advisory_table_and_chart(self, tmp_path):
+        from tit.reporting.generators import ex_search as ex
+
+        with patch(CAP, return_value=FAKE):
+            html = ex.build_html(_ex_rec(tmp_path), "X")
+        _structure(html, ("verdict", "winner", "results", "target", "technical"), ex.SIZE_BUDGET)
+        assert _advisory_ids(html) == [RULES["opt"]["electrode_peak_current"]["label"]]
+        assert '<h2 id="verdict-h">F3–PO10 ‖ AF4–Oz leads 41 montages</h2>' in html
+        table = html.split('sortable">')[1].split("</table>")[0]
+        assert table.count("<tr>") == ex.TOP_N + 1  # header + top 25
+        assert html.count('fill="none" stroke="var(--s2)"') == ex.TOP_N - 1  # rings for 2..25
+        assert "ellipse 10×10 mm, gel 4 mm" in html and "1 mA per electrode (2 mA total)" in html
+
+    def test_a_full_size_search_stays_under_budget(self, tmp_path):
+        from tit.reporting.generators import ex_search as ex
+
+        with patch(CAP, return_value=FAKE):
+            html = ex.build_html(_ex_rec(tmp_path, n=48_000), "X")
+        assert len(html.encode()) < ex.SIZE_BUDGET
+
+    def test_high_winner_current_is_an_advisory(self, tmp_path):
+        from tit.reporting.generators import ex_search as ex
+
+        row = ex.checks(_ex_rec(tmp_path, mA=(4.5, 0.5)))[0]
+        assert row.status == "warn" and not row.blocking and row.shown == "4.5 mA per electrode (5 mA total)"
+
+    def test_ex_search_writes_a_report_and_survives_its_failure(self):
+        from tit.opt.ex import ex as ex_run
+
+        logger = MagicMock()
+        with patch("tit.reporting.generators.ex_search.create_ex_search_report", side_effect=OSError("gone")) as create, \
+                patch("tit.opt.ex.ex.get_path_manager", return_value=MagicMock(project_dir="/p")):
+            ex_run._write_report("X", "/p/run", logger)
+        create.assert_called_once_with("/p", "X", "/p/run")
+        assert "gone" in logger.warning.call_args[0][0]

@@ -304,7 +304,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         key.append(
             (
                 "Currents",
-                f"{' / '.join(fmt(v) for v in mA)}<small>mA</small>",
+                f"{common.per_channel(mA)}<small>mA</small>",
                 f"{fmt(total)} mA total",
             )
         )
@@ -420,7 +420,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ),
         (
             "Currents",
-            f"{' / '.join(fmt(v) for v in mA)} mA per channel, {fmt(total)} mA total"
+            f"{common.per_channel(mA)} mA per channel, {fmt(total)} mA total"
             + (" (split searched)" if meta.get("optimize_current_ratio") else ""),
         ),
         (
@@ -550,7 +550,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     if success and best.get("roi_mean"):
         paras.append(
             f"The best montage gave a mean envelope of {float(best['roi_mean']):.3f} V/m in the target and "
-            f"{float(best['non_roi_mean']):.3f} V/m elsewhere at {' / '.join(fmt(v) for v in mA)} mA."
+            f"{float(best['non_roi_mean']):.3f} V/m elsewhere at {common.per_channel(mA)} mA."
         )
     tech += c.details(
         "Methods and references",

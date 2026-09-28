@@ -197,6 +197,7 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     output_info = process_and_save(results, config, output_dir, logger)
     logger.info(f"Config: {output_info['config_json_path']}")
     logger.info(f"CSV: {output_info['csv_path']}")
+    _write_report(config.subject_id, output_dir, logger)
 
     return ExResult(
         success=True,
@@ -205,3 +206,16 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         results_csv=output_info.get("csv_path"),
         config_json=output_info.get("config_json_path"),
     )
+
+
+def _write_report(subject_id: str, run_dir: str, logger) -> None:
+    """Write the ex-search report from the run folder; a report never fails the search."""
+    from tit.reporting.generators.ex_search import create_ex_search_report
+
+    try:
+        path = create_ex_search_report(
+            get_path_manager().project_dir, subject_id, run_dir
+        )
+        logger.info(f"Ex-search report: {path}")
+    except Exception as exc:  # the search results stand without their report
+        logger.warning(f"Ex-search report could not be written: {exc}")

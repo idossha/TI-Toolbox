@@ -371,11 +371,7 @@ def build_html(
     seal, headline = c.verdict(rows)
     cond = cfg.get("conductivity", "scalar")
     montage = " and ".join("–".join(p) for p in pairs) or rec["name"]
-    per_ch = (
-        fmt(currents[0])
-        if len(set(currents)) == 1
-        else " / ".join(fmt(v) for v in currents)
-    )
+    per_ch = common.per_channel(currents)
 
     # ── 1. verdict ──
     if seal != "fail":
