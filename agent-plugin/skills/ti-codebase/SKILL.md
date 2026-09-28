@@ -58,7 +58,7 @@ tit.analyzer   Analyzer, AnalysisResult, GroupResult, run_group_analysis,
                select_field_file;  tit.atlas re-exported
 tit.stats      run_group_comparison, run_correlation, engine (permutation), nifti,
                surface, nifti_average
-tit.pre        run_pipeline, DICOM->NIfTI, FastSurfer, CHARM, QSIPrep/QSIRecon
+tit.pre        run_pipeline, DICOM->NIfTI, FastSurfer, CHARM, QSIPrep, DIPY DTI fit (qsi/dti_extractor + qsi/tensor_math), optional QSIRecon
 tit.source     forward model + project_fields_to_fsaverage
 tit.reporting  assembler / generators / reportlets (HTML reports)
 tit.plotting, tit.blender, tit.tools, tit.project_init, tit.telemetry, tit.examples

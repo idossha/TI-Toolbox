@@ -206,7 +206,9 @@ known problems, causes and fixes; prefer its answer over your own diagnosis.
 - Montage names must match `montage_list.json` exactly; EEG net names are real
   filenames (e.g. `GSN-HydroCel-185.csv`).
 - ex-search needs a pre-computed leadfield for the same EEG net.
-- Anisotropic conductivity (`vn`/`dir`/`mc`) needs QSIRecon-derived tensors.
+- Anisotropic conductivity (`vn`/`dir`/`mc`) needs `m2m_<id>/DTI_coregT1_tensor.nii.gz`,
+  fitted (DIPY) from QSIPrep output by the DTI step; QSIRecon is optional. QSIPrep
+  itself needs an x86-64 Docker host (it fails at SynthSeg on Apple Silicon).
 - `TI_normal` is **mesh-only**; voxel analysis of it is an error by design.
 - An mTI simulation run before `TI_normal` support existed has no normal mesh —
   requesting it raises `FileNotFoundError`; re-run the simulation.

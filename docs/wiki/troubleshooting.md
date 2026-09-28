@@ -308,6 +308,12 @@ Not possible with two pairs. Use a large sphere covering both targets if focalit
 **Cause:** upstream bug in `qsiprep/interfaces/epi_fmap.py` — the value is read with a bare `.get()` and formatted into an FSL `acqp` line; the code path runs under `--hmc-model eddy` even with no fieldmap. Reported four times upstream, never fixed.
 **Fix:** the toolbox pre-flight (main, → v2.4.1) derives `TotalReadoutTime` or writes a provably inert fallback before the container starts. Manually: add `"TotalReadoutTime"` and `"PhaseEncodingDirection"` to `sub-<id>/dwi/sub-<id>_dwi.json`.
 
+### QSIPrep stops at `synthseg` on an Apple Silicon Mac ("TensorFlow library was compiled to use AVX instructions")
+
+**Applies to:** QSIPrep 26.0.0 on any arm64 Docker host (M-series Macs), under Rosetta or QEMU emulation.
+**Cause:** QSIPrep's anatomical workflow runs `mri_synthseg`, whose TensorFlow build requires AVX instructions; emulation does not provide them, so the node fails and the run stops.
+**Fix:** run QSIPrep on an x86-64 Linux or Windows machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs on the Mac. The toolbox now refuses to start QSIPrep on an arm64 Docker host with this explanation instead of failing mid-run.
+
 ### QSIRecon `dsi_studio_gqi` — `Cannot set the undefined 'plot_reports' attribute`
 
 **Cause:** upstream QSIRecon bug in the `dsi_studio_gqi` spec.

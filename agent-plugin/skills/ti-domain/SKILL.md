@@ -428,7 +428,8 @@ Diffusion-weighted imaging (DWI/DTI) measures water molecule diffusion in brain 
 - **Diffusion tensor**: a 3x3 symmetric matrix at each voxel describing the diffusion ellipsoid. Its eigenvectors indicate fiber directions; its eigenvalues indicate diffusion magnitude along each direction.
 - **Conductivity mapping**: the diffusion tensor is mathematically transformed into a conductivity tensor. The relationship assumes that electrical conductivity and water diffusion share the same anisotropy directions (both follow fiber geometry).
 - **QSIPrep**: preprocessing pipeline for diffusion MRI (motion correction, distortion correction, denoising)
-- **QSIRecon**: reconstruction pipeline (tensor fitting, fiber orientation distribution estimation, tractography)
+- **Tensor fit**: TI-Toolbox fits the tensor itself with DIPY (WLS, b ≤ 1500) on QSIPrep output and maps it into the head model with QSIPrep's exact ACPC → T1 transforms, rotating each tensor
+- **QSIRecon**: optional reconstruction pipeline (fiber orientation distributions, tractography, connectivity); not needed for the SimNIBS tensor
 
 ### Atlas Parcellation Systems
 

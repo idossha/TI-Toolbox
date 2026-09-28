@@ -10,7 +10,8 @@ graph LR
     B -->|FastSurfer seg_only| E([DKT Segmentation])
     C -->|tissue analysis| F([Tissue Report])
     B -->|QSIPrep| G([DWI Preprocessed])
-    G -->|QSIRecon| H([DTI Tensors])
+    G -->|DIPY fit + chain| H([DTI Tensor])
+    C --> H
     style A fill:#1a3a5c,stroke:#48a,color:#fff
     style B fill:#1a5c4a,stroke:#4a8,color:#fff
     style C fill:#1a5c4a,stroke:#4a8,color:#fff
@@ -98,29 +99,26 @@ if not check_m2m_exists(project, "001"):
 
 ## DTI / Diffusion Pipeline
 
-For anisotropic conductivity simulations, TI-Toolbox supports diffusion processing via QSIPrep/QSIRecon Docker containers. The default `dsi_studio_gqi` reconstruction spec directly produces the tensor components SimNIBS needs, and works with both single-shell and multi-shell acquisitions.
+For anisotropic conductivity simulations, QSIPrep (a sibling Docker container) preprocesses the DWI and `extract_dti_tensor` fits the tensor with DIPY (WLS, b ≤ 1500), maps it onto the m2m T1 grid with QSIPrep's exact ACPC → T1 transforms, and writes `DTI_coregT1_tensor.nii.gz` plus `DTI_coregT1_qc.json` only if the QC gate passes. QSIRecon is optional (tractography, scalar maps, connectivity) and not needed for the tensor.
 
 ```python
-from tit.pre import run_qsiprep, run_qsirecon, extract_dti_tensor
+from tit.pre import run_qsiprep, extract_dti_tensor
 import logging
 
 logger = logging.getLogger("my_pipeline")
 project = "/path/to/bids_project"
 
-# Run QSIPrep DWI preprocessing
+# QSIPrep: distortion correction, unringing and output resolution are chosen from the data
 run_qsiprep(project, "001", logger=logger)
 
-# Run QSIRecon reconstruction (default: dsi_studio_gqi)
-run_qsirecon(project, "001", logger=logger)
-
-# Extract DTI tensor for SimNIBS anisotropic conductivity
+# DTI tensor for SimNIBS anisotropic conductivity (needs QSIPrep output and charm)
 extract_dti_tensor(project, "001", logger=logger)
 ```
 
-These steps can also be included in the full pipeline by setting `run_qsiprep=True`, `run_qsirecon=True`, and `extract_dti=True`. Optional configuration dicts (`qsiprep_config`, `qsi_recon_config`) control parameters such as output resolution, recon specs, and atlases.
+In the full pipeline set `run_qsiprep=True` and `extract_dti=True` (`run_qsirecon=True` only for QSIRecon's own outputs). `qsiprep_config` defaults: `output_resolution=None` (native DWI voxel size), `unringing_method="auto"` (rpg for partial-Fourier data, else mrdegibbs), `mni_normalization=False` (enable only for QSIRecon atlases).
 
-!!! note "Validation & Platform Notes"
-    This pipeline is functional and producing stable, consistent results. The full chain warrants further validation by domain experts — community input is welcome. On Apple Silicon Macs, QSIPrep/QSIRecon run under Rosetta 2 emulation and may be slower or less stable; allocate 32 GB+ Docker memory.
+!!! note "Platform"
+    QSIPrep needs an x86-64 (Linux or Windows) Docker host. On Apple Silicon it fails at SynthSeg (TensorFlow needs AVX, which emulation lacks) and `run_qsiprep` refuses to start. Run QSIPrep elsewhere and copy `derivatives/qsiprep/sub-<id>/` into the project; `extract_dti_tensor` runs on any host.
 
 ## BIDS Directory Structure
 
@@ -137,7 +135,7 @@ project_root/
     │       └── segmentation/ # Atlas parcellations
     ├── fastsurfer/sub-001/  # optional DKT deep segmentation
     ├── qsiprep/sub-001/     # QSIPrep DWI outputs (if run)
-    └── qsirecon/sub-001/    # QSIRecon tensor outputs (if run)
+    └── qsirecon/sub-001/    # optional QSIRecon outputs (if run)
 ```
 
 ## API Reference

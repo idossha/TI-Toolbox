@@ -30,8 +30,9 @@ pipelines and viewer scenes.
 - `freesurfer_recon` false → atlas / cortical ROI features unavailable.
 - `leadfields` empty → ex-search cannot run; build a leadfield first (`ex-search`).
 - A simulation with no `mesh_files` / `nifti_files` → the run failed; go to step 3.
-- `qsirecon` false but the user wants `vn`/`dir`/`mc` conductivity → needs
-  diffusion processing.
+- `dti_tensor` false but the user wants `vn`/`dir`/`mc` conductivity → needs
+  diffusion processing: QSIPrep (x86-64 host only), then the DTI step. QSIRecon
+  is not required for the tensor.
 - A flex/ex/mex run directory that does not appear at all → the catalog
   deliberately ignores a run with no completion manifest (`flex_meta.json`,
   `run_config.json`), so a cancelled or in-progress run never shows as a result.

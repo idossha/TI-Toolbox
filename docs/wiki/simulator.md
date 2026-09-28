@@ -160,7 +160,7 @@ The anisotropic models account for fiber orientation, giving more realistic mode
 
 ### DTI Data Preparation
 
-The TI-Toolbox provides integrated DTI processing via QSIPrep and QSIRecon; the pipeline extracts diffusion tensors and converts them to the format required by SimNIBS. For anisotropic simulation, the following file must exist in the m2m directory:
+The TI-Toolbox provides integrated DTI processing: QSIPrep preprocesses the diffusion data and the DTI step fits the tensor with DIPY and writes it in the format SimNIBS reads. For anisotropic simulation, the following file must exist in the m2m directory:
 
 ```
 derivatives/SimNIBS/sub-{id}/m2m_{id}/

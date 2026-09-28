@@ -1,161 +1,153 @@
 ---
 layout: wiki
-title: QSIPrep / QSIRecon
+title: Diffusion (DTI) processing
 permalink: /wiki/diffusion-processing/
 ---
 
-The TI-Toolbox integrates with [QSIPrep](https://qsiprep.readthedocs.io/) and [QSIRecon](https://qsirecon.readthedocs.io/) to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. The pipeline preprocesses raw DWI, reconstructs diffusion tensors, registers them into SimNIBS head-model space, and pre-compensates for SimNIBS's internal FSL tensor rotation — producing a ready-to-use `DTI_coregT1_tensor.nii.gz`.
+TI-Toolbox turns diffusion-weighted imaging (DWI) into the tensor file SimNIBS uses for anisotropic conductivity, `DTI_coregT1_tensor.nii.gz`. [QSIPrep](https://qsiprep.readthedocs.io/) preprocesses the DWI; TI-Toolbox then fits the tensor itself with [DIPY](https://dipy.org/) and maps it into the head model with QSIPrep's own transforms. [QSIRecon](https://qsirecon.readthedocs.io/) is an optional extra for tractography, scalar maps and connectivity; the tensor does not need it.
 
-### Warnings:
+### Platform
 
-This pipeline is functional and producing stable, consistent results. The full chain - QSIRecon tensor output through cross-correlation
-registration and FSL convention pre-compensation - warrants further validation by domain experts. We welcome community input on registration accuracy and downstream simulation fidelity.
+**QSIPrep needs an x86-64 (Intel/AMD) Docker host: Linux, or Windows with Docker Desktop.** It cannot run on Apple Silicon: its SynthSeg step uses TensorFlow built for AVX instructions, which emulation does not provide, and the run stops there. TI-Toolbox refuses to start QSIPrep on an arm64 Docker host and says so. On a Mac, run QSIPrep on an x86-64 machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs anywhere.
 
-Apple Silicon machine have stability issues that are coming from upstream QSI package dependencies.
-
-## Pipeline Overview
-
-Anisotropic conductivity modeling uses DTI to account for the direction-dependent electrical conductivity of brain tissue — white matter conducts current preferentially along fiber tracts.
+## Pipeline overview
 
 ```
-Raw BIDS DWI
+Raw BIDS DWI (+ reverse phase-encoding fieldmap, if acquired)
     |
     v
-[ QSIPrep ]  -->  preprocessed DWI (ACPC space)
+[ QSIPrep ]  -->  preprocessed DWI + gradient table (ACPC space), ACPC <-> T1w transforms
     |
     v
-[ QSIRecon: dsi_studio_gqi ]  -->  6 tensor component maps (txx–tzz)
-    |
+[ DTI step ]  -->  DIPY WLS tensor fit (b <= 1500)
+    |             exact ACPC -> T1 transform chain (NCC check)
+    |             trilinear resampling + tensor rotation + brain mask
+    |             QC gate
     v
-[ DTI Extractor ]  -->  cross-correlation alignment + resampling
-    |                    + FSL convention pre-compensation
-    v
-DTI_coregT1_tensor.nii.gz  -->  SimNIBS anisotropic simulation
+DTI_coregT1_tensor.nii.gz + DTI_coregT1_qc.json  -->  SimNIBS anisotropic simulation
+
+[ QSIRecon ]  (optional)  -->  tractography / scalar maps / connectivity
 ```
 
 ### Requirements
 
-- Raw DWI data in BIDS format (`.nii.gz` + `.bval` + `.bvec`)
-- SimNIBS head model (`m2m` directory from CHARM)
+- Raw DWI in BIDS format (`.nii.gz` + `.bval` + `.bvec` + `.json` sidecar with `PhaseEncodingDirection`)
+- A T1w image, and the SimNIBS head model (`m2m` folder from charm) built from **that same T1w file**
+- An x86-64 host for QSIPrep (above)
 
-## Stage 1: QSIPrep — DWI Preprocessing
+## Stage 1: QSIPrep
 
-QSIPrep takes raw diffusion-weighted images and produces analysis-ready data:
+TI-Toolbox runs QSIPrep 26.0.0 with defaults chosen from your data, so most users never open the settings:
 
-- **Denoising** — MP-PCA denoising and Gibbs ringing removal
-- **Motion and eddy current correction** — head motion and eddy distortion estimation/correction
-- **Susceptibility distortion correction** — EPI distortion correction using fieldmaps or synthetic methods
-- **Coregistration** — alignment to the subject's T1-weighted anatomical
+| Setting | Default | Why |
+|---|---|---|
+| Distortion correction | Always on (see below) | Uncorrected EPI distortion misplaces tensors near the frontal and temporal lobes |
+| Unringing | `auto`: `rpg` when the DWI sidecar has `PartialFourier` < 1, else `mrdegibbs` | `mrdegibbs` assumes full k-space |
+| Denoising | `dwidenoise` | MP-PCA, QSIPrep's recommended default |
+| Head motion / eddy | `eddy` (FSL eddy inside QSIPrep) | stated explicitly |
+| Reverse-PE method | `TOPUP` | stated explicitly |
+| b=0 threshold | 100 s/mm² | stated explicitly |
+| Output resolution | the DWI's native voxel size (finest axis, rounded to 0.1 mm) | no invented resolution |
+| MNI normalization | off | only QSIRecon atlases need it |
 
-See [QSIPrep documentation](https://qsiprep.readthedocs.io/) for full preprocessing details.
+### Distortion correction is mandatory
 
-### QSIPrep Output
+Before QSIPrep starts, TI-Toolbox looks at the subject's `fmap/` folder:
+
+- A **reverse phase-encoding fieldmap** (`fmap/*_epi` whose `acq` label says `dwi`/`dti`, or with no `acq` label and the DWI's matrix, or whose `IntendedFor` already names the DWI) with a `PhaseEncodingDirection` opposite to the DWI's is used with **TOPUP**. If its sidecar lacks `IntendedFor` or `TotalReadoutTime`, TI-Toolbox writes them into that fieldmap's own JSON (the readout time is derived from `EstimatedTotalReadoutTime` or `EffectiveEchoSpacing × (ReconMatrixPE − 1)`). Nothing else in your BIDS folder is touched, and a value that is already there is never overwritten.
+- **DWI series with opposite phase encoding** in `dwi/` are used with TOPUP directly.
+- **No fieldmap**: fieldmap-less **SyN** correction (`--use-syn-sdc warn`). SyN places its prior through the anatomical MNI transform, so MNI normalization is switched on for that run.
+- **A DWI fieldmap that cannot be used** (no sidecar, no `PhaseEncodingDirection`, the same phase encoding as the DWI, or no readout time) is reported. If it is the only one, the run is refused with the reason instead of silently falling back; fix the sidecar, or move the fieldmap out of `fmap/` to accept SyN. When another usable fieldmap exists, the bad one is only logged.
+
+The chosen mode is written to the preprocessing log (`Distortion correction: ...`).
+
+### Advanced options
+
+**Configure QSIPrep** keeps every option: output resolution (leave empty for native), denoising, unringing, BIDS validation, image tag and MNI normalization. CPU, memory and OpenMP threads live in [Pre-processing settings]({{ site.baseurl }}/wiki/pre-processing/#pre-processing-settings).
+
+### QSIPrep output used by TI-Toolbox
 
 ```
 derivatives/qsiprep/sub-{id}/
-├── anat/sub-{id}_space-ACPC_desc-preproc_T1w.nii.gz
+├── anat/
+│   ├── sub-{id}_from-ACPC_to-anat_mode-image_xfm.mat
+│   ├── sub-{id}_space-ACPC_desc-preproc_T1w.nii.gz
+│   └── sub-{id}_space-ACPC_desc-brain_mask.nii.gz
 └── dwi/
     ├── sub-{id}_space-ACPC_desc-preproc_dwi.nii.gz
-    ├── sub-{id}_space-ACPC_desc-preproc_dwi.bval
-    └── sub-{id}_space-ACPC_desc-preproc_dwi.bvec
+    ├── sub-{id}_space-ACPC_desc-preproc_dwi.b          # gradient table, scanner RAS
+    └── sub-{id}_space-ACPC_desc-brain_mask.nii.gz
 ```
 
-## Stage 2: QSIRecon — Tensor Reconstruction
+## Stage 2: the DTI step
 
-QSIRecon supports [over 20 reconstruction workflows](https://qsirecon.readthedocs.io/) — MRtrix CSD, DIPY DKI, NODDI, MAP-MRI, TORTOISE, DSI Studio, and more. We ship **`dsi_studio_gqi`** as the default for SimNIBS because:
+1. **Fit.** DIPY `TensorModel`, weighted least squares, on the shells with b ≤ 1500 s/mm² (the diffusion tensor model holds there; higher shells bias it). QSIPrep's `.b` table is in scanner coordinates, so the fitted tensors are already in world orientation. At least six diffusion-weighted volumes are required.
+2. **Transform chain.** The ACPC → T1 map is composed exactly from QSIPrep's files: its reorientation of the T1w to LPS and removal of any oblique rotation (a step no transform file records), then the inverse of `from-ACPC_to-anat`. A rigid NCC registration of QSIPrep's ACPC T1 to the m2m T1 is run only as a check.
+3. **Resampling.** Tensor components are interpolated trilinearly onto the m2m `T1.nii.gz` grid, normalised by the interpolated brain mask so edge voxels are not dragged towards zero, and every tensor is rotated with the transform. Voxels outside white matter, grey matter and CSF (charm labels 1–3, with white and grey matter dilated by two voxels) are zeroed.
+4. **SimNIBS frame.** SimNIBS rotates stored tensors by $$M = A_{3\times3} / \lVert \text{columns} \rVert$$ (x flipped when $$\det M > 0$$) when it reads them. The file stores $$M^{-1} T_{\text{world}} M^{-\mathsf{T}}$$, so SimNIBS reads back exactly $$T_{\text{world}}$$.
 
-- It directly produces the six tensor component maps (`txx`–`tzz`) that SimNIBS needs
-- It works with both single-shell and multi-shell acquisitions
-- It has proven reliable across our test datasets
+### QC gate
 
-When `dsi_studio_gqi` is run without atlases, TI-Toolbox stages a custom pipeline YAML (`resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml`) as `/tmp/recon_spec.yaml`. This removes the upstream connectivity node, avoiding a mandatory `--atlases` requirement and a reporting bug in QSIRecon >= 1.2.0 while retaining GQI reconstruction and scalar export. Atlas-enabled runs keep the standard `dsi_studio_gqi` spec so connectivity outputs remain available.
+The tensor is written only if every check passes; otherwise the step fails with the reasons and `DTI_coregT1_qc.json` records the numbers.
 
-TI-Toolbox targets the PennLINC 26.0.0 QSIPrep/QSIRecon containers. The 26.0.0 line was smoke-tested for CLI compatibility, but diffusion-derived outputs may differ from older v1.x containers because upstream packaging and dependencies changed.
+| Check | Threshold |
+|---|---|
+| NCC of QSIPrep's ACPC T1 against the m2m T1 under the chain | ≥ 0.90 |
+| Mean brain displacement, chain vs NCC refinement | ≤ 1 mm |
+| Positive-definite tensors | ≥ 99 % |
+| White + grey matter voxels without a tensor | ≤ 5 % |
+| Tensors outside the brain | 0 |
+| White-matter median mean diffusivity | 0.5–1.1 × 10⁻³ mm²/s |
 
-Other recon specs may also produce usable tensors, but they are not currently validated in our extraction pipeline. See the [QSIRecon documentation](https://qsirecon.readthedocs.io/) for the full list of available reconstruction workflows.
+The step also refuses to run when the m2m `T1.nii.gz` is not on the grid of the raw T1w QSIPrep used (charm must have run on the same file), because the transform chain would not apply.
 
-### QSIRecon Output
-
-Six tensor component NIfTIs representing the symmetric diffusion tensor:
-
-```
-derivatives/qsirecon/derivatives/qsirecon-DSIStudio/sub-{id}/dwi/
-    sub-{id}_space-ACPC_model-tensor_param-{txx,txy,txz,tyy,tyz,tzz}_dwimap.nii.gz
-```
-
-```
-    | Dxx  Dxy  Dxz |
-D = | Dxy  Dyy  Dyz |
-    | Dxz  Dyz  Dzz |
-```
-
-## Stage 3: DTI Extraction — Registration to SimNIBS
-
-The DTI extractor bridges QSIRecon output and SimNIBS expectations:
-
-1. **Load** — combines 6 tensor component NIfTIs into a single `(X, Y, Z, 6)` array
-2. **Align** — 3D cross-correlation between the QSIPrep T1 and SimNIBS T1 to find the translation offset (~50 mm between ACPC and SimNIBS coordinates). Pure Python — no FSL or ANTs required
-3. **Resample** — each component onto the SimNIBS T1 grid (0.5 mm isotropic, trilinear interpolation)
-4. **Pre-compensate** — rotates tensors so SimNIBS's internal `correct_FSL` produces correct world-space conductivity tensors. DSI Studio does not apply the implicit x-flip that FSL `dtifit` does, so we store $$R_{\text{fix}} \, T \, R_{\text{fix}}^{\mathsf{T}}$$ such that SimNIBS's $$M \, T_{\text{stored}} \, M^{\mathsf{T}}$$ yields the correct result
-
-### Final Output
+### Output
 
 ```
 derivatives/SimNIBS/sub-{id}/m2m_{id}/
-├── DTI_ACPC_tensor.nii.gz      # Intermediate (ACPC space)
-└── DTI_coregT1_tensor.nii.gz   # Final (SimNIBS T1 space, 4D: X,Y,Z,6)
+├── DTI_coregT1_tensor.nii.gz   # SimNIBS T1 grid, 4D (X, Y, Z, 6), mm²/s
+└── DTI_coregT1_qc.json         # QC gate record
 ```
 
-### QC Report
+A QC report is written alongside: FA on the T1, principal direction coloured on **world** axes (red = left-right, green = anterior-posterior, blue = superior-inferior), tensor statistics and the QC gate table.
 
-An automated QC report is generated after extraction:
+## Stage 3 (optional): QSIRecon
 
-- **FA overlaid on T1** — checks registration quality (WM FA should align with T1 anatomy)
-- **Color-coded FA** — verifies tensor orientations (red=LR, green=AP, blue=SI)
-- **Tensor statistics** — FA mean/median/max, eigenvalue ranges
+QSIRecon offers [over 20 reconstruction workflows](https://qsirecon.readthedocs.io/): MRtrix CSD tractography, DIPY DKI, NODDI, MAP-MRI, TORTOISE, DSI Studio and more. Select it only if you want those outputs. The preselected `dsi_studio_gqi` runs a trimmed spec (`resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml`: GQI scalar maps, no tractography, no connectivity node, which also avoids QSIRecon's mandatory `--atlases` and a reporting bug in QSIRecon ≥ 1.2.0). Choosing connectivity atlases uses the upstream spec and requires a QSIPrep run with **MNI normalization** enabled.
 
 ## Usage
-
-Set processing choices with **Configure QSIPrep** or **Configure QSIRecon**. For saving defaults
-and resource allocation, see [Pre-processing settings]({{ site.baseurl }}/wiki/pre-processing/#pre-processing-settings).
-
-### Full Pipeline
 
 ```python
 from tit import get_path_manager
 from tit.pre import run_pipeline
 
-get_path_manager("/mnt/my_project")  # Your project path inside the container.
+get_path_manager("/mnt/my_project")  # your project path inside the container
 run_pipeline(
     subject_ids=["001"],
-    run_qsiprep=True,
-    run_qsirecon=True,
+    create_m2m=True,     # or an existing m2m built from the same T1w
+    run_qsiprep=True,    # x86-64 host only
     extract_dti=True,
 )
 ```
 
-Once extracted, the tensor is automatically available for anisotropic simulations:
+Then select an anisotropic conductivity model (`vn`, `dir` or `mc`) in the **Simulator**; it uses `DTI_coregT1_tensor.nii.gz`.
 
-1. Navigate to the **Simulator** tab
-2. Select your subject
-3. Under **Conductivity Type**, select one of the anisotropic models (`vn`, `dir` or `mc`)
-4. The simulator will detect and use `DTI_coregT1_tensor.nii.gz`
+Results from TI-Toolbox before this change came from a translation-only alignment without tensor rotation and should be regenerated; see the [changelog]({{ site.baseurl }}/releases/changelog/).
 
-## Docker & Resources
+## Docker and resources
 
-QSIPrep and QSIRecon run as **sibling Docker containers** spawned from the SimNIBS container via Docker-out-of-Docker (DooD). Resource defaults are managed in the linked Pre-processing settings section.
-
-Resource requirements vary widely with acquisition (number of directions, resolution) and hardware; expect QSIPrep to take one to several hours per subject and to need 16 GB+ of RAM.
+QSIPrep and QSIRecon run as sibling Docker containers spawned from the TI-Toolbox container (Docker-out-of-Docker). Expect QSIPrep to take one to several hours per subject on native x86-64 cores and to need 16 GB+ of RAM. The DTI step runs inside the TI-Toolbox container in a few minutes.
 
 ## References
 
-- [QSIPrep documentation](https://qsiprep.readthedocs.io/) — full preprocessing reference
-- [QSIRecon documentation](https://qsirecon.readthedocs.io/) — all 21+ recon specs, 14 atlases, CLI reference
-- [SimNIBS dwi2cond](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html) — SimNIBS native DTI workflow
-- [DSI Studio](https://dsi-studio.labsolver.org/) — GQI reconstruction engine
+- [QSIPrep documentation](https://qsiprep.readthedocs.io/)
+- [QSIRecon documentation](https://qsirecon.readthedocs.io/)
+- [DIPY](https://dipy.org/) — tensor fitting
+- [SimNIBS dwi2cond](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html) — SimNIBS's own FSL-based workflow
 - Cieslak et al. _QSIPrep: an integrative platform for preprocessing and reconstructing diffusion MRI data._ Nature Methods 18, 775–778 (2021). [doi:10.1038/s41592-021-01185-5](https://doi.org/10.1038/s41592-021-01185-5)
+- Garyfallidis et al. _Dipy, a library for the analysis of diffusion MRI data._ Frontiers in Neuroinformatics 8, 8 (2014). [doi:10.3389/fninf.2014.00008](https://doi.org/10.3389/fninf.2014.00008)
 
 ## Related
 
-- [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) — Structural MRI preprocessing
-- [Simulator]({{ site.baseurl }}/wiki/simulator/) — Running TI simulations with anisotropic conductivity
+- [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/)
+- [Simulator]({{ site.baseurl }}/wiki/simulator/) — anisotropic conductivity

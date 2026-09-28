@@ -17,9 +17,9 @@ graph TD
     A --> C[FastSurfer / FreeSurfer]
     A --> D[QSIPrep]
     B --> E[Subject atlas and tissue analysis]
-    D --> F[QSIRecon]
-    F --> G[DTI extraction]
+    D --> G[DTI tensor]
     B --> G
+    D -.-> F[QSIRecon, optional]
 ```
 
 CHARM creates the head model required for simulations. Reconstruction, segmentation and diffusion
@@ -32,7 +32,7 @@ run when their dependencies and the job scheduler's resource budget allow.
 | SimNIBS CHARM | Create the head mesh and subject atlas | Head models below |
 | FastSurfer / FreeSurfer | Segmentation, reconstruction and subregions | [FastSurfer / FreeSurfer]({{ site.baseurl }}/wiki/fastsurfer/) |
 | Tissue analyzer | Inspect tissue segmentation quality | Select after head-model creation |
-| QSIPrep / QSIRecon | Process diffusion data and prepare conductivity tensors | [QSIPrep / QSIRecon]({{ site.baseurl }}/wiki/diffusion-processing/) |
+| QSIPrep → DTI tensor | Preprocess diffusion data (x86-64 host only) and fit the conductivity tensor; QSIRecon is an optional extra | [Diffusion (DTI) processing]({{ site.baseurl }}/wiki/diffusion-processing/) |
 
 ## Required Input Data Structure
 
@@ -126,8 +126,9 @@ job scheduler still constrain execution.
   See the [surfer guide]({{ site.baseurl }}/wiki/fastsurfer/) for setup and permissions.
 - **QSIPrep / QSIRecon:** CPU threads, OpenMP threads and memory limits. **Configure QSIPrep**
   and **Configure QSIRecon** open the same saved processing choices as the run page; saving either
-  dialog remembers them across projects. See the [diffusion guide]({{ site.baseurl }}/wiki/diffusion-processing/)
-  for what those processing choices do.
+  dialog remembers them across projects. The QSIPrep defaults (native resolution, automatic
+  unringing, mandatory distortion correction, no MNI normalization) suit most data; see the
+  [diffusion guide]({{ site.baseurl }}/wiki/diffusion-processing/) for what each choice does.
 - **SimNIBS CHARM:** threads and an Advanced section for anatomical denoising, final segmentation
   resolution and scalp triangle size. Default values follow the installed settings. Scalp triangle
   size controls the scalp surface, not every volume element. Resolution changes affect the head
