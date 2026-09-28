@@ -137,7 +137,7 @@ for downloads and [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/) fo
 - **Runtime capabilities** — `/api/capabilities` reports container tools including FastSurfer; obsolete X11, Freeview, Gmsh and FreeSurfer capability flags are removed. Native viewer availability is detected on the host, not exposed as the retired `tetravox_embed` capability; subject-level `has_freesurfer` remains available.
 
 ---
-### v2.5.0
+### v2.5.0 — August 31, 2026
 
 **Release Date**: August 31, 2026
 
@@ -199,7 +199,7 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 
 ---
 
-### v2.4.0
+### v2.4.0 — July 20, 2026
 
 **Release Date**: July 20, 2026
 
@@ -236,7 +236,7 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 
 ---
 
-### v2.3.2
+### v2.3.2 — June 11, 2026
 
 **Release Date**: June 11, 2026
 
@@ -265,7 +265,7 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 
 ---
 
-### v2.3.1
+### v2.3.1 — May 8, 2026
 
 **Release Date**: May 8, 2026
 
@@ -323,7 +323,7 @@ Focused maintenance release for preprocessing robustness, GUI reliability, QSI c
 
 ---
 
-### v2.3.0
+### v2.3.0 — March 17, 2026
 
 **Release Date**: March 17, 2026
 
@@ -375,7 +375,7 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 ---
 
-### v2.2.4
+### v2.2.4 — January 16, 2026
 
 **Release Date**: January 16, 2026
 
@@ -402,7 +402,7 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 ---
 
-### v2.2.3
+### v2.2.3 — January 7, 2026
 
 **Original Release Date**: January 07, 2026
 **Effective Release Date**: January 14, 2026 (re-uploaded tag with preprocessing refactored to deal with recon-all problem without releasing and official new image. Should be updated automatically to all users without breaking behavior).
@@ -438,7 +438,7 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 ---
 
-### v2.2.2
+### v2.2.2 — December 25, 2025
 
 **Release Date**: December 25, 2025
 
@@ -470,7 +470,7 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 ---
 
-### v2.2.1
+### v2.2.1 — December 4, 2025
 
 **Release Date**: December 04, 2025
 
@@ -512,7 +512,7 @@ $$
 
 ---
 
-### v2.2.0
+### v2.2.0 — November 7, 2025
 
 **Release Date**: November 07, 2025
 
@@ -544,7 +544,7 @@ $$
 
 ---
 
-### v2.1.3
+### v2.1.3 — October 8, 2025
 
 **Release Date**: October 08, 2025
 
@@ -569,7 +569,7 @@ $$
 
 ---
 
-### v2.1.2
+### v2.1.2 — September 8, 2025
 
 **Release Date**: September 08, 2025
 
@@ -590,7 +590,7 @@ $$
 
 ---
 
-### v2.1.1
+### v2.1.1 — August 28, 2025
 
 **Release Date**: August 28, 2025
 
@@ -611,7 +611,7 @@ $$
 
 ---
 
-### v2.1.0
+### v2.1.0 — August 25, 2025
 
 **Release Date**: August 25, 2025
 
@@ -637,7 +637,7 @@ $$
 
 ---
 
-### v2.0.5
+### v2.0.5 — July 10, 2025
 
 **Release Date**: July 10, 2025
 
@@ -662,7 +662,7 @@ $$
 
 ---
 
-### v2.0.4
+### v2.0.4 — June 26, 2025
 
 **Release Date**: June 26, 2025
 
@@ -687,7 +687,7 @@ $$
 
 ---
 
-### v2.0.3
+### v2.0.3 — June 20, 2025
 
 **Release Date**: June 20, 2025
 
@@ -709,7 +709,7 @@ $$
 
 ---
 
-### v2.0.2
+### v2.0.2 — June 19, 2025
 
 **Release Date**: June 19, 2025
 
@@ -739,7 +739,7 @@ $$
 
 ---
 
-### v2.0.1
+### v2.0.1 — June 11, 2025
 
 **Release Date**: June 11, 2025
 
@@ -763,7 +763,7 @@ $$
 
 ---
 
-### v2.0.0
+### v2.0.0 — May 28, 2025
 
 **Release Date**: May 28, 2025
 
