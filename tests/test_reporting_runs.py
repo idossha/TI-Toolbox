@@ -120,8 +120,7 @@ class TestSimulation:
         assert [c_["name"] for c_ in carriers] == ["X_TDCS_1", "X_TDCS_2"]
         assert carriers[1]["p99.9"] == 0.3 and carriers[0]["p95.0"] == 0.05
         log = sim.parse_log(LOG.format(a=0.001, b=0.001))
-        assert log["currents_A"] == [[0.001, -0.001], [0.001, -0.001]]
-        assert log["tensor"].endswith("DTI_coregT1_tensor.nii.gz") and log["n_solved"] == 2
+        assert log["tensor"].endswith("DTI_coregT1_tensor.nii.gz") and log["solver"] == "hypre"
         assert log["simnibs"] == "4.6.0" and log["calibration_error_pct"] == [3.4]
 
     def test_page_structure_and_grey_matter_headline(self, tmp_path):
@@ -343,6 +342,7 @@ class TestExSearch:
         assert html.count('fill="none" stroke="var(--s2)"') == ex.TOP_N - 1  # rings for 2..25
         assert "ellipse 10×10 mm, gel 4 mm" in html and "4.5 / 0.5 mA per channel, 5 mA total" in html
         assert "Montage on the EEG cap" not in html and "<img" not in html  # no cap overlay
+        assert "F3 → PO10, 4.5 mA" in html and "AF4 → Oz, 0.5 mA" in html  # the winner's electrodes
 
     def test_a_full_size_search_stays_under_budget(self, tmp_path):
         from tit.reporting.generators import ex_search as ex

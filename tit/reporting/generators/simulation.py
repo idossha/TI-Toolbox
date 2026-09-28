@@ -2,8 +2,8 @@
 
 Built on :mod:`tit.reporting.html.components` (ARCHITECTURE.md §14) like the DTI report. Everything
 is read from what the simulation wrote: ``documentation/config.json`` (montage, currents,
-electrodes, conductivity), the SimNIBS log (whether the DTI tensor was used, per-carrier currents,
-the solves), ``high_Frequency/analysis/fields_summary.txt`` (per-carrier grey-matter percentiles),
+electrodes, conductivity), the SimNIBS log (whether the DTI tensor was used, the solver, the
+calibration error), ``high_Frequency/analysis/fields_summary.txt`` (per-carrier grey-matter percentiles),
 and the grey/white-matter envelope NIfTIs. The page has no checks.
 
 The default view is the verdict with the grey-matter envelope (99.9th percentile, median and where its
@@ -72,17 +72,13 @@ def parse_fields_summary(text: str) -> list[dict]:
 
 
 def parse_log(text: str) -> dict:
-    """What the SimNIBS log says about the run: carrier currents, the tensor, the solves."""
+    """What the SimNIBS log says about the run: the tensor, the solver, the calibration error, the
+    SimNIBS version."""
     tensor = re.search(r"Using anisotropic .*? based on the file: (\S+)", text)
     solver = re.search(r"Using solver options: (\S+)", text)
     return {
-        "currents_A": [
-            [float(v) for v in m.split(",")]
-            for m in re.findall(r"Currents \(A\): \[([^\]]+)\]", text)
-        ],
         "tensor": tensor.group(1) if tensor else None,
         "solver": solver.group(1) if solver else None,
-        "n_solved": len(re.findall(r"Time to solve:", text)),
         "calibration_error_pct": [
             float(v) for v in re.findall(r"current calibration error: ([\d.]+)%", text)
         ],

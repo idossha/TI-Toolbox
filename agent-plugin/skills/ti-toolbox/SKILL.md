@@ -103,7 +103,8 @@ SimNIBS CHARM head mesh `m2m_<id>`) → **Optimize** electrode positions
 **Simulate** a montage (2 pairs = TI, 4+ even = mTI; fields `TI_max`, optional
 `TI_avg`/`TI_normal`, exposure `hf_peak`/`hf_sar`) → **Analyze** (spherical or atlas
 ROI stats in mesh or voxel space, group analysis) → **Stats** (cluster-based
-permutation, volumetric MNI or fsaverage surface) → **Report** (HTML). The
+permutation, volumetric MNI or fsaverage surface). The head model, DTI, every simulation and
+every flex/ex search write their own HTML report. The
 Simulator is not an optimiser; say so when a user treats it as one.
 
 ## On-disk layout (BIDS + derivatives + the v3 `code/` tree)

@@ -7,8 +7,9 @@ run folder: ``run_config.json`` (buckets, current sweep, ROI name and radius, le
 The goal definition and dose record come from ``tit.reporting.qc_rules.RULES["opt"]``; the page
 has no checks.
 
-The default view is the winner (ranked by composite = ROI mean × focality) with its dose, one
-chart of every montage's ROI mean against focality, the top 25 as a sortable table, and the ROI and ranking in words; methods and the run record are collapsed.
+The default view is the winner (ranked by composite = ROI mean × focality) with its electrodes and
+dose, one chart of every montage's ROI mean against focality, the top 25 as a sortable table, and
+the ROI and ranking in words; methods and the run record are collapsed.
 
 ``tit.opt.ex`` writes one when a search finishes. Rebuild one (nothing is re-searched)::
 
@@ -276,7 +277,13 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     ]
     d = RULES["opt"]["dose_record"]
     winner = (
-        '<h3 class="sub">Dose record</h3>'
+        c.kv(
+            [
+                (f"Channel {i}", f"{esc(' → '.join(p))}, {fmt(m)} mA")
+                for i, (p, m) in enumerate(zip(pairs, mA), 1)
+            ]
+        )
+        + '<h3 class="sub">Dose record</h3>'
         + c.kv(dose)
         + f'<p class="muted" style="font-size:13px;margin-top:10px">{c.inline(d["plain"])} {cite.dois(d["cite"])}</p>'
     )

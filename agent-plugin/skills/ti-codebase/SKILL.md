@@ -60,7 +60,7 @@ tit.stats      run_group_comparison, run_correlation, engine (permutation), nift
                surface, nifti_average
 tit.pre        run_pipeline, DICOM->NIfTI, FastSurfer, CHARM, QSIPrep, DIPY DTI fit (qsi/dti_extractor + qsi/tensor_math), optional QSIRecon
 tit.source     forward model + project_fields_to_fsaverage
-tit.reporting  assembler / generators / reportlets (HTML reports)
+tit.reporting  html/ (the one report layer) + generators/ (dti_qc, simulation, flex_search, ex_search)
 tit.plotting, tit.blender, tit.tools, tit.project_init, tit.telemetry, tit.examples
 
 tit.config_io  (de)serialisation with `_type` discriminators; used by tit.server
@@ -245,9 +245,9 @@ user, from a result they can no longer trust.
 
 ## How to add a new component
 
-**A report generator**: `tit/reporting/generators/my_report.py` inheriting
-`BaseReportGenerator`; implement `_get_default_title`, `_get_report_prefix`,
-`_build_report`; reuse the reportlets in `tit/reporting/reportlets/`.
+**A report generator**: `tit/reporting/generators/my_report.py` with `collect` (read the
+run's outputs), `build_html` (compose `tit.reporting.html.components`) and a `main` for
+`python -m tit.reporting.generators.my_report`; write it with `common.write_report`.
 
 **A new UI page or panel**: the interface lives in `desktop/`, not `tit/`. Add the
 Python side as a config dataclass plus a `__main__.py` runner plus a job kind in

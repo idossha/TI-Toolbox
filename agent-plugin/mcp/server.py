@@ -933,7 +933,6 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "nilearn",
             "tools",
             "project_init",
-            "report",
         ],
         "job_states": [
             "queued",

@@ -5,7 +5,7 @@ permalink: /wiki/jobs/
 ---
 
 Everything in TI-Toolbox v3 is a **job**: pre-processing, a simulation, a search, an
-analysis, a report, a group statistic, a Blender export. A page never runs work in its own process,
+analysis, a group statistic, a Blender export. A page never runs work in its own process,
 and its process is owned by the server. The Jobs page centralizes status and cancellation; run pages also show their submitted jobs in a live Terminal pane.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/jobs-page.png" alt="The Jobs page: 201 jobs of a real project, filterable by state, kind and subject, with elapsed time, CPU and memory per job" style="width: 100%; max-width: 1000px;">
@@ -45,7 +45,7 @@ be watched and cancelled as one thing.
 | Column                  | Notes                                                                                                                                |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **State**               | `queued · running · succeeded · failed · cancelled · skipped · lost`                                                                 |
-| **Kind**                | `pre · sim · flex · flex_adaptive · flex_pareto · ex · mex · analyzer · source · stats · report · nilearn · nifti_average · blender` |
+| **Kind**                | `pre · sim · flex · flex_adaptive · flex_pareto · ex · mex · analyzer · source · stats · nilearn · nifti_average · blender` |
 | **Subjects**            | Every subject the job covers                                                                                                         |
 | **Stage**               | The runner's own current stage and its percentage, e.g. `DICOM conversion · 40 %`                                                    |
 | **Elapsed / CPU / RSS** | Live from the server, not estimated                                                                                                  |

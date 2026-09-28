@@ -940,8 +940,6 @@ TELEMETRY_OP_PRE_QSIPREP = "pre_qsiprep"
 TELEMETRY_OP_PRE_QSIRECON = "pre_qsirecon"
 # -- Statistics --
 TELEMETRY_OP_STATS = "stats_comparison"
-# -- Reporting --
-TELEMETRY_OP_REPORT = "report_generate"
 # -- Blender / visualization --
 TELEMETRY_OP_BLENDER_MONTAGE = "blender_montage"
 TELEMETRY_OP_BLENDER_REGIONS = "blender_regions"

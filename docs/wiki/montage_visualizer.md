@@ -37,7 +37,7 @@ Each EEG net is mapped onto one of two template diagrams in `resources/amv/`:
 | GSN-256  | `GSN-HydroCel-185.csv`, `GSN-HydroCel-256.csv`                                                                       |
 | 10-10    | `EEG10-10_UI_Jurak_2007.csv`, `EEG10-10_Cutini_2011.csv`, `EEG10-20_Okamoto_2004.csv`, `EEG10-10_Neuroelectrics.csv` |
 
-Rendering is skipped (with a warning in the log and a note in the report) for `easycap_BC_TMS64_X21.csv`, `EEG10-20_extended_SPM12`, freehand XYZ montages and flex-search free-coordinate montages, because they have no template positions.
+Rendering is skipped (with a warning in the log; the simulation report then lists the channels without a cap figure) for `easycap_BC_TMS64_X21.csv`, `EEG10-20_extended_SPM12`, freehand XYZ montages and flex-search free-coordinate montages, because they have no template positions.
 
 ## Visual Features
 

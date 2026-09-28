@@ -43,7 +43,7 @@ Every event contains:
 | Field | Meaning |
 |---|---|
 | `client_id` | Random 32-character UUID generated for this installation; it is not derived from an account or device identifier |
-| event name | Operation category such as `sim_ti`, `flex_search`, `analysis`, `pre_fastsurfer`, `stats_comparison`, `report_generate`, or a Blender export |
+| event name | Operation category such as `sim_ti`, `flex_search`, `analysis`, `pre_fastsurfer`, `stats_comparison`, or a Blender export |
 | `tit_version` | Installed TI-Toolbox version |
 | `os_name` | Host OS normalized to `darwin`, `linux`, `windows`, or `unknown` |
 | `os_version` | Host OS release |
@@ -64,7 +64,7 @@ fields are:
 
 The first opt-in also sends one `first_open` event. Current operation categories cover TI/mTI
 simulation; flex and exhaustive optimization; individual and group analysis; preprocessing and
-its CHARM, FastSurfer, DICOM, QSIPrep and QSIRecon stages; statistics; report generation; and
+its CHARM, FastSurfer, DICOM, QSIPrep and QSIRecon stages; statistics; and
 montage, region and vector exports.
 
 The payload contains no dedicated field for a project path or name, subject identifier, directory

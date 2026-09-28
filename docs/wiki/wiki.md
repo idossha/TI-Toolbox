@@ -29,7 +29,7 @@ server fit together.
 - **[AI Assistant](ai-assistant)** - Plugin that teaches Claude Code, Codex, Cursor and other MCP clients how to use TI-Toolbox
 
 ### Embedded Tools
-- **[Reports](reports)** - Understanding HTML simulation reports and results
+- **[Reports](reports)** - The HTML report each head model, DTI step, simulation and search writes
 - **[Logging](logging)** - Comprehensive logging system documentation
 - **[Brain Atlases](atlases)** - The MNI-space atlases shipped with TI-Toolbox, the subject-space parcellations built during pre-processing, and atlas resampling
 - **[Montage Visualizer](montage_visualizer)** - Electrode montage visualization on head

@@ -14,7 +14,7 @@ run_flex_search
 Submodules
 ----------
 builder
-    SimNIBS object construction and HTML report generation.
+    SimNIBS object construction.
 manifest
     Read/write ``flex_meta.json`` run manifests.
 pareto

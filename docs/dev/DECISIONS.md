@@ -2307,3 +2307,24 @@ peak with and without the warp, flex-search's two embedded figures, no cap on fl
 `python -m tit.reporting.generators.<name>` on Dataset 000 sub-ernie in `idossha/ti-toolbox:v3.0.1`:
 simulator 0.32 MB ("0.359 V/m peak envelope in grey matter", maximum 0.485 V/m at MNI (11, 16, -25) mm),
 flex-search 0.29 MB, ex-search 0.30 MB.
+
+
+## 2026-09-28 — PO10 on the 10-10 cap drawing sits on GSN E168, not E159
+
+**Decision.** `resources/amv/10-10.csv` draws PO10 at GSN-256 E168's pixel (1257, 1157), the mirror of
+PO9 on E114 (595, 1158) about the midline (Oz x = 925). This supersedes the E159 placement in "Simulator,
+flex-search and ex-search reports on the one report layer" above; PO9 on E114 stands.
+
+**Why.** Geometry on the same head: in each subject of Dataset 000 with both nets in
+`m2m_<id>/eeg_positions` (CHN, 101, LA; ernie and MNI152 have no GSN-HydroCel-256), SimNIBS's
+EEG10-10_UI_Jurak_2007 PO10 is 3.1–3.3 mm from GSN-HydroCel-256 E168 and 22.0–23.1 mm from E159
+(6th nearest); PO9 is 6.2–6.4 mm from E114, its nearest.
+
+**Alternatives rejected.** Re-placing the neighbours by the same nearest-electrode rule — the existing
+rows follow a mirror-symmetric layout, not nearest electrodes (PO7/PO8 sit on E097/E161, 16.7–20.4 mm
+from their nearest E107/E160; P9/P10 on E106/E169, 25–27 mm from E105/E177), and moving them changes
+every drawn montage that uses them; that is its own decision.
+
+**Evidence.** A distance script over those `eeg_positions` CSVs (nearest GSN electrode per 10-10 name,
+and the rank of the one each drawing row sits on); the ernie simulator report for AF3_PO10_and_AF4_Oz
+draws PO10 at the right-hand mirror of the PO9 position.

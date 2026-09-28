@@ -16,7 +16,7 @@ tit/reporting/
     ├── simulation.py  # simulator        <- tit.sim.base.BaseSimulation.run, per montage
     ├── flex_search.py # flex-search      <- tit.opt.flex.flex (after flex_meta.json)
     ├── ex_search.py   # ex-search        <- tit.opt.ex.ex (after final_output.csv)
-    └── common.py      # what the last three share: current check, cap figure, ROI name, writer
+    └── common.py      # what the last three share: cap figure, ROI name, writer
 ```
 
 TI-Toolbox keeps five report kinds: SimNIBS's own charm report (copied by `tit.pre.charm`), DTI
@@ -33,5 +33,6 @@ simnibs_python -m tit.reporting.generators.ex_search   <project> <subject> <run 
 ```
 
 Reports are written to `derivatives/ti-toolbox/reports/sub-<id>/<kind>_<YYYYMMDD>_<HHMMSS>.html`
-and recorded as a `report` artifact of the running job. The montage figures are the app's own
-EEG-cap overlay (`tit.tools.montage_visualizer`), converted to WebP.
+and recorded as a `report` artifact of the running job. The simulator's montage figure is the app's
+own EEG-cap overlay (`tit.tools.montage_visualizer`), converted to WebP; flex-search and ex-search
+draw no cap.

@@ -34,7 +34,7 @@ _MASK_UPLOAD_LIMIT = 64 * 1024 * 1024
 _MASK_DECOMPRESSED_LIMIT = 512 * 1024 * 1024
 
 # Own CSP for the sandboxed report iframe: reports embed
-# inline <script>/<style> (tit/reporting/core/templates.py) and are derived
+# inline <script>/<style> (tit/reporting/html/components.py) and are derived
 # from run data, so they never run in the app's own origin/CSP. The
 # ``sandbox allow-scripts`` directive is enforced here, server-side --
 # independent of the renderer's own iframe ``sandbox="allow-scripts"``

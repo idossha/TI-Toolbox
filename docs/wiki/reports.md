@@ -21,8 +21,8 @@ dark theme, work offline and can be shared as single files.
 - **Flex-search report** — the target by name with the run's own target figure, what the score means in
   words, the best montage (optimised electrode positions and the valid-scalp figure), the dose, and one
   row per optimizer run.
-- **Ex-search report** — the winning montage with its dose, every montage's ROI mean against focality in
-  one chart, and the top 25 as a sortable table.
+- **Ex-search report** — the winning montage's electrodes and dose, every montage's ROI mean against
+  focality in one chart, the top 25 as a sortable table, and the ROI and ranking in words.
 
 Each opens with the few things you need; methods text with references and the run's configuration are
 under **Technical details**.
@@ -30,7 +30,7 @@ under **Technical details**.
 ## Example: simulation report
 
 A simulation report for `sub-ernie` of the example dataset (AF3–PO10 and AF4–Oz, 1 mA per channel,
-anisotropic conductivity, with a bilateral-thalamus ROI analysis):
+anisotropic conductivity from the subject's DTI tensor):
 
 <iframe src="{{ site.baseurl }}/assets/other/simulation_report_ernie.html"
         width="100%"

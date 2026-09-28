@@ -235,11 +235,11 @@ from tit.reporting.generators.simulation import create_simulation_report
 path = create_simulation_report("/mnt/project", "001", "motor_cortex")
 ```
 
-A simulator report opens with the result and the key numbers, the montage on the EEG cap,
-the conductivity model, the TI envelope through the ROI (when the Analyzer has run on the
-simulation) against the published range, and the safety advisories; rebuild it after an ROI
-analysis to include it. Every check shows its role (gate, software check, advisory, reported)
-and citation; the rules are in `tit.reporting.qc_rules.RULES`.
+A simulator report opens with the grey-matter envelope (99.9th percentile, median and where its
+maximum is), the montage on the EEG cap with its dose, the conductivity model and the envelope in
+three planes through the hot spot. Only the DTI QC report has checks; each shows its role (gate,
+software check, advisory, reported) and citation, and the rules are in
+`tit.reporting.qc_rules.RULES`.
 
 ## Mesh and NIfTI Tools
 

@@ -170,6 +170,7 @@ h3.sub{font-size:15.5px;margin:28px 0 10px}
 
 /* ── figures ──────────────────────────────────────────────────── */
 figure.fig{margin:22px 0 8px}
+figure.fig>img{display:block;max-width:100%;height:auto}
 .fig-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
 .fig-bar .ttl{font-weight:600;font-size:14px}
 .fig-bar .ctl{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
