@@ -322,3 +322,31 @@ def visualize_montage(
             _draw_arc(out_image, *coords[e1], *coords[e2], color, _partner_target(i))
         _draw_legend(out_image, len(electrode_pairs))
         os.replace(out_image, final_image)
+
+
+def montage_webp(
+    electrode_pairs: list[list[str]], eeg_net: str, width: int = 720
+) -> bytes | None:
+    """The image :func:`visualize_montage` draws, as WebP bytes for a report.
+
+    ``None`` when the net has no cap template, a label is not on it, or ImageMagick is
+    missing: a report then shows the electrodes as text only.
+    """
+    import io
+
+    from PIL import Image
+
+    net = eeg_net if eeg_net in _COORD_FILES else f"{eeg_net}.csv"
+    if not is_supported_net(net):
+        return None
+    with TemporaryDirectory(prefix="tit-montage-") as tmp:
+        try:
+            visualize_montage("report", electrode_pairs, net, tmp)
+        except (OSError, subprocess.CalledProcessError, ValueError):
+            return None
+        image = Image.open(os.path.join(tmp, get_expected_output_filename("report")))
+        image = image.convert("RGB")
+        image.thumbnail((width, width))
+        out = io.BytesIO()
+        image.save(out, "WEBP", quality=80, method=6)
+    return out.getvalue()

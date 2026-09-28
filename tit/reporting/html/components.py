@@ -43,7 +43,7 @@ _FONTS = (
 )
 
 # Widgets: theme toggle (system/light/dark; storage may throw in the sandboxed iframe), contents
-# scroll-spy, flicker, plane tabs, slice scrubber, chart tooltips and copy button.
+# scroll-spy, flicker, plane tabs, slice scrubber, chart tooltips, sortable tables and copy button.
 _JS = r"""(()=>{
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const tb=$('#theme-btn');
@@ -78,6 +78,11 @@ const place=(x,y)=>{tip.style.left=Math.min(x+14,innerWidth-tip.offsetWidth-8)+'
 document.addEventListener('pointerover',e=>{const t=e.target.closest('[data-tip]');if(t)show(t);});
 document.addEventListener('pointermove',e=>{if(tip.classList.contains('on'))place(e.clientX,e.clientY);});
 document.addEventListener('pointerout',e=>{if(e.target.closest('[data-tip]'))tip.classList.remove('on');});
+$$('table.sortable').forEach(t=>{const hs=$$('th',t);hs.forEach((h,i)=>{h.tabIndex=0;h.setAttribute('aria-sort','none');
+  const go=()=>{const up=h.getAttribute('aria-sort')!=='ascending',b=t.tBodies[0],val=r=>{const c=r.cells[i],v=c.dataset.v??c.textContent;return isNaN(+v)?v:+v;};
+    [...b.rows].sort((x,y)=>{const p=val(x),q=val(y);return (p>q?1:p<q?-1:0)*(up?1:-1);}).forEach(r=>b.appendChild(r));
+    hs.forEach(o=>o.setAttribute('aria-sort','none'));h.setAttribute('aria-sort',up?'ascending':'descending');};
+  h.addEventListener('click',go);h.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();go();}});});});
 $$('[data-copy]').forEach(b=>b.addEventListener('click',()=>{const txt=document.getElementById(b.dataset.copy).innerText.trim();
   const done=()=>{const o=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=o,1400);};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,()=>{});}));
@@ -311,27 +316,76 @@ def scrubber(
 
 def table(
     head: list[str],
-    rows: list[list[str]],
+    rows: list[list[str | tuple[str, float]]],
     caption: str = "",
     right: set[int] = frozenset(),
     cls: str = "",
+    sortable: bool = False,
 ) -> str:
-    """A data table; cells are trusted HTML. Columns in *right* are right-aligned and tabular."""
+    """A data table; cells are trusted HTML. Columns in *right* are right-aligned and tabular.
+
+    *sortable* makes every header sort the rows (click or Enter); a cell given as
+    ``(html, value)`` sorts by *value* instead of its text.
+    """
     th = "".join(
         f'<th scope="col" class="{"r" if i in right else ""}">{h}</th>'
         for i, h in enumerate(head)
     )
+
+    def td(i: int, cell) -> str:
+        html_, v = cell if isinstance(cell, tuple) else (cell, None)
+        dv = f' data-v="{v:.6g}"' if v is not None else ""
+        return f'<td class="{"r num" if i in right else ""}"{dv}>{html_}</td>'
+
     body = "".join(
-        "<tr>"
-        + "".join(
-            f'<td class="{"r num" if i in right else ""}">{c}</td>'
-            for i, c in enumerate(row)
-        )
-        + "</tr>"
-        for row in rows
+        "<tr>" + "".join(td(i, c) for i, c in enumerate(row)) + "</tr>" for row in rows
     )
     cap = f"<caption>{caption}</caption>" if caption else ""
+    cls = f"{cls} sortable" if sortable else cls
     return f'<div class="tbl-wrap"><table class="tbl {cls}">{cap}<thead><tr>{th}</tr></thead><tbody>{body}</tbody></table></div>'
+
+
+def stats(items: list[tuple[str, str, str]]) -> str:
+    """The key-number strip: ``(label, value HTML, note)`` per tile."""
+    tiles = "".join(
+        f'<div><dt>{esc(k)}</dt><dd><b>{v}</b>{f"<span>{esc(n)}</span>" if n else ""}</dd></div>'
+        for k, v, n in items
+    )
+    return f'<dl class="stats">{tiles}</dl>'
+
+
+def verdict_section(seal: str, headline: str, lede: str, extra: str = "") -> str:
+    """The first section: seal, headline, lede (trusted HTML) and whatever follows (*extra*)."""
+    return (
+        f'<section class="sec" id="verdict" style="padding-top:0" aria-labelledby="verdict-h"><div class="verdict">'
+        f'<div class="verdict-head"><span class="seal {seal}" role="img" aria-label="{STATUS_WORD[seal]}">{icon(seal, 26)}</span>'
+        f'<div><h2 id="verdict-h">{esc(headline)}</h2><p class="lede">{lede}</p></div></div></div>{extra}</section>'
+    )
+
+
+class Cites:
+    """Collects what a page cites, by registry key or DOI, so the reference list shows exactly those."""
+
+    def __init__(self) -> None:
+        self.refs: dict[str, dict] = {}
+
+    def _add(self, refs: list[dict]) -> str:
+        for ref in refs:
+            self.refs.setdefault(ref["label"], ref)
+        return cite(*(ref["label"] for ref in refs))
+
+    def __call__(self, *keys: str) -> str:
+        from tit.reporting.reportlets.references import get_reference_by_key
+
+        return self._add([get_reference_by_key(k) for k in keys])
+
+    def dois(self, dois: list[str]) -> str:
+        from tit.reporting.reportlets.references import get_reference_by_doi
+
+        return self._add([get_reference_by_doi(d) for d in dois])
+
+    def listing(self) -> str:
+        return references([self.refs[k] for k in sorted(self.refs)])
 
 
 def kv(pairs: list[tuple[str, str]]) -> str:

@@ -148,6 +148,21 @@ h3.sub{font-size:15.5px;margin:28px 0 10px}
 .gate td:first-child{width:92px}
 .gate .scale{width:190px}
 .gate .scale svg{display:block}
+.sortable th{cursor:pointer;user-select:none;white-space:nowrap}
+.sortable th::after{content:"↕";opacity:.35;margin-left:4px;font-size:11px}
+.sortable th[aria-sort="ascending"]::after{content:"↑";opacity:1}
+.sortable th[aria-sort="descending"]::after{content:"↓";opacity:1}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;margin:22px 0 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.stats>div{padding:12px 16px 12px 0}
+.stats>div+div{border-left:1px solid var(--rule);padding-left:16px}
+.stats dt{font-size:12px;color:var(--ink-2)}
+.stats dd{margin:2px 0 0;font-variant-numeric:tabular-nums}
+.stats dd b{font-size:24px;font-weight:600;letter-spacing:-.01em}
+.stats dd small{font-size:13px;color:var(--ink-2);margin-left:3px}
+.stats dd span{display:block;font-size:12px;color:var(--ink-2)}
+.cap{background:#fff;border:1px solid var(--rule);border-radius:var(--r-m);padding:8px;max-width:520px}
+.cap img{display:block;width:100%;height:auto}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:28px;align-items:start}
 .kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:0 20px;margin:0;font-size:13.5px}
 .kv dt{color:var(--ink-2);padding:6px 0;border-bottom:1px solid var(--rule)}
 .kv dd{margin:0;padding:6px 0;border-bottom:1px solid var(--rule);font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
@@ -234,7 +249,10 @@ footer.foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);fo
   .mast dl{grid-template-columns:repeat(2,auto)}
   .mast h1{font-size:24px}
   .verdict h2{font-size:23px}
-  .cols{grid-template-columns:1fr}
+  .cols,.split{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats>div+div{border-left:0;padding-left:0}
+  .stats>div{border-top:1px solid var(--rule)}
   .gate thead{display:none}
   .gate tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 14px;padding:12px 0;border-bottom:1px solid var(--rule)}
   .gate tbody tr:last-child{border-bottom:0}

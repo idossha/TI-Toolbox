@@ -24,10 +24,6 @@ from pathlib import Path
 from tit.reporting.html import components as c
 from tit.reporting.html.components import Check, esc
 from tit.reporting.qc_rules import RULES
-from tit.reporting.reportlets.references import (
-    get_reference_by_doi,
-    get_reference_by_key,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -99,27 +95,6 @@ def gate_checks(qc: dict) -> list[Check]:
     return rows
 
 
-class _Cites:
-    """Collects what a page cites, by registry key or DOI, so the reference list shows exactly those."""
-
-    def __init__(self) -> None:
-        self.refs: dict[str, dict] = {}
-
-    def _add(self, refs: list[dict]) -> str:
-        for ref in refs:
-            self.refs.setdefault(ref["label"], ref)
-        return c.cite(*(ref["label"] for ref in refs))
-
-    def __call__(self, *keys: str) -> str:
-        return self._add([get_reference_by_key(k) for k in keys])
-
-    def dois(self, dois: list[str]) -> str:
-        return self._add([get_reference_by_doi(d) for d in dois])
-
-    def listing(self) -> str:
-        return c.references([self.refs[k] for k in sorted(self.refs)])
-
-
 def _motion_chart(
     bvals: list[float], fd: list[float], mean_fd: float, bmax: float
 ) -> str:
@@ -185,7 +160,7 @@ def build_html(
 
     generated = generated or datetime.now()
     sid = esc(subject_id)
-    cite = _Cites()
+    cite = c.Cites()
     fig_no = iter(range(1, 20))
     gates, advs = gate_checks(qc), [Check(**a) for a in qc.get("advisories", [])]
     internal = [g for g in gates if g.role == "internal"]
@@ -283,11 +258,11 @@ def build_html(
         "from being written. Software consistency checks are under Technical details.",
         cite.dois,
     )
-    verdict_sec = (
-        f'<section class="sec" id="verdict" style="padding-top:0" aria-labelledby="verdict-h"><div class="verdict">'
-        f'<div class="verdict-head"><span class="seal {seal}" role="img" aria-label="{c.STATUS_WORD[seal]}">{c.icon(seal, 26)}</span>'
-        f'<div><h2 id="verdict-h">{esc(headline)}</h2><p class="lede">{lede}</p></div></div>{callouts}</div>'
-        f'<h3 class="sub">Quality gate</h3>{gate_table}</section>'
+    verdict_sec = c.verdict_section(
+        seal,
+        headline,
+        lede,
+        callouts + f'<h3 class="sub">Quality gate</h3>{gate_table}',
     )
 
     # ── 2. preprocessing ──

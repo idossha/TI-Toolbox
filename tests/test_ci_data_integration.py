@@ -64,28 +64,31 @@ def test_ci_dcm2niix_available_and_fixture_layout():
 
 
 def test_ci_real_simulation_artifacts_generate_report():
-    """Generate a simulation report from pre-baked real SimNIBS outputs."""
+    """Build the simulator report from pre-baked real SimNIBS outputs (real nibabel/matplotlib)."""
     script = f"""
+    import json
+    import tempfile
     from pathlib import Path
     from tit.paths import get_path_manager
-    from tit.reporting.generators.simulation import SimulationReportGenerator
+    from tit.reporting.generators.simulation import create_simulation_report
 
     pm = get_path_manager({TEST_PROJECT!r})
     sim_dir = Path(pm.simulation({TEST_SUBJECT!r}, {TEST_SIMULATION!r}))
-    assert (sim_dir / 'TI' / 'mesh' / f'{TEST_SIMULATION}_TI.msh').exists(), sim_dir
     assert (sim_dir / 'TI' / 'niftis').is_dir(), sim_dir
-
-    gen = SimulationReportGenerator(project_dir={TEST_PROJECT!r}, subject_id={TEST_SUBJECT!r})
-    gen.add_subject({TEST_SUBJECT!r}, m2m_path=str(Path(pm.m2m({TEST_SUBJECT!r}))), status='completed')
-    gen.add_montage({TEST_SIMULATION!r}, [['Fp1', 'Fp2'], ['C3', 'C4']], montage_type='TI')
-    out = Path(gen.generate(Path({TEST_PROJECT!r}) / 'derivatives' / 'ti-toolbox' / 'reports' / 'ci_test_simulation_report.html'))
-    assert out.exists(), out
-    assert 'ci_test_simulation_report.html' in out.name
-    print(out)
+    config = sim_dir / 'documentation' / 'config.json'
+    if not config.exists():  # the fixture predates config.json; a simulation always writes one
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(json.dumps({{'simulation_name': {TEST_SIMULATION!r}, 'simulation_mode': 'TI',
+            'eeg_net': 'EEG10-10_UI_Jurak_2007.csv', 'conductivity': 'scalar',
+            'electrode_pairs': [['Fp1', 'Fp2'], ['C3', 'C4']], 'intensities': [1.0, 1.0]}}))
+    out = create_simulation_report({TEST_PROJECT!r}, {TEST_SUBJECT!r}, {TEST_SIMULATION!r}, out_dir=tempfile.mkdtemp())
+    html = out.read_text()
+    assert 'id="field"' in html and 'Electrode current' in html, out
+    print(out.name)
     """
 
     result = _run_real_python(script)
-    assert "ci_test_simulation_report.html" in result.stdout
+    assert "simulation_report_" in result.stdout
 
 
 def test_ci_real_voxel_analysis_on_precomputed_nifti():

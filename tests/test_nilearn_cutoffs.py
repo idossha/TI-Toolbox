@@ -6,8 +6,7 @@ is above every real TI field. ernie's MNI-space ``L_Insula`` ``TI_max`` peaks at
 0.3 - 0.1147 V/m and died three frames deep inside matplotlib with ``minvalue must be
 less than or equal to maxvalue`` (job ``287e3e0c2eb94134``), naming neither cutoff nor
 data. Now an unset cutoff is the 95th/99.9th percentile of the loaded field -- the pair
-``tit.reporting.generators.simulation._compute_field_thresholds`` already derives from
-real data -- and an explicit cutoff above the field is refused up front by a message
+the former simulation report derived from real data -- and an explicit cutoff above the field is refused up front by a message
 that names the range.
 
 The synthetic field below is shaped like ernie's: a long tail of small values with a few

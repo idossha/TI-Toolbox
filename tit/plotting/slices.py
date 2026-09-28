@@ -120,6 +120,34 @@ def mosaic(
     return out, (h, w)
 
 
+def overlay(
+    grey: np.ndarray,
+    field: np.ndarray,
+    lo: float,
+    hi: float,
+    cmap: str = "inferno",
+    alpha: float = 0.85,
+) -> np.ndarray:
+    """RGB panel: *grey* (0–1) under *field* coloured from *lo* to *hi*; voxels below *lo* stay grey."""
+    import matplotlib
+
+    colours = matplotlib.colormaps[cmap](np.clip((field - lo) / (hi - lo), 0, 1))[
+        ..., :3
+    ]
+    a = np.where(field >= lo, alpha, 0.0)[..., None]
+    return grey[..., None] * (1 - a) + colours * a
+
+
+def colour_stops(cmap: str = "inferno", n: int = 9) -> list[str]:
+    """*n* evenly spaced colours of *cmap* as hex, for a CSS colour bar matching :func:`overlay`."""
+    import matplotlib
+
+    return [
+        matplotlib.colors.to_hex(matplotlib.colormaps[cmap](i / (n - 1)))
+        for i in range(n)
+    ]
+
+
 def render(img: np.ndarray, contours=(), quality: int = 82) -> bytes:
     """Draw a grey (2-D) or RGB (H, W, 3) panel at 2 px per voxel, with outline contours, as WebP.
 

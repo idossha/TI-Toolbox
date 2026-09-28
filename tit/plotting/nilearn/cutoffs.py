@@ -14,7 +14,6 @@ deep inside matplotlib with ``minvalue must be less than or equal to maxvalue``
 See Also
 --------
 tit.plotting.nilearn.__main__ : Resolves the cutoffs here, before any figure is drawn.
-tit.reporting.generators.simulation : Uses the same p95/p99.9 pair for its own figures.
 """
 
 from __future__ import annotations
@@ -22,9 +21,8 @@ from __future__ import annotations
 import numpy as np
 
 #: Percentiles of the averaged field's non-zero voxels used when a cutoff is not given.
-#: The pair is ``tit.reporting.generators.simulation._compute_field_thresholds``'s --
-#: "the top 5 % of the distribution, minus the top 0.1 % of outliers" -- which is the only
-#: display range in this codebase that has ever been derived from real TI data.
+#: The pair the former simulation report used -- "the top 5 % of the distribution, minus the
+#: top 0.1 % of outliers" -- the first display range here derived from real TI data.
 DEFAULT_MIN_PERCENTILE = 95.0
 DEFAULT_MAX_PERCENTILE = 99.9
 

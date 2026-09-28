@@ -163,6 +163,7 @@ class BaseSimulation(ABC):
         self.logger.info("SimNIBS simulation: \u2713 Complete")
 
         output_mesh = self._post_process(dirs)
+        self._write_report()
         self.logger.info(f"\u2713 {self.montage.name} complete")
 
         return {
@@ -174,6 +175,18 @@ class BaseSimulation(ABC):
         }
 
     # ── Shared helpers ──────────────────────────────────────────────────
+
+    def _write_report(self) -> None:
+        """Write the simulator report; a report that cannot be written never fails the run."""
+        from tit.reporting.generators.simulation import create_simulation_report
+
+        try:
+            path = create_simulation_report(
+                self.pm.project_dir, self.config.subject_id, self.montage.name
+            )
+            self.logger.info(f"Simulation report: {path}")
+        except Exception as exc:  # the simulation stands without its report
+            self.logger.warning(f"Simulation report could not be written: {exc}")
 
     def _init_session(self, output_dir: str) -> sim_struct.SESSION:
         """Create and configure a SimNIBS SESSION with common settings.

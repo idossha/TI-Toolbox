@@ -11,13 +11,11 @@ REPORTS_BASE_DIR
     Default BIDS-relative directory for reports.
 BIDS_VERSION
     BIDS version string used in dataset descriptions.
-SimulationReportGenerator
-    Report for TI / mTI simulation runs.
 FlexSearchReportGenerator / create_flex_search_report
     Report (and convenience function) for flex-search optimization.
 
-The DTI QC report is ``tit.reporting.generators.dti_qc`` (built on ``tit.reporting.html``). It is
-not imported here, so ``python -m tit.reporting.generators.dti_qc`` runs without a runpy warning.
+The DTI QC and simulator reports (``dti_qc``, ``simulation``) are built on ``tit.reporting.html``
+and not imported here, so ``python -m tit.reporting.generators.<name>`` runs without a runpy warning.
 
 See Also
 --------
@@ -28,8 +26,6 @@ tit.reporting.assembler : :class:`ReportAssembler` that stitches reportlets
 
 from .base_generator import BaseReportGenerator, REPORTS_BASE_DIR, BIDS_VERSION
 
-from .simulation import SimulationReportGenerator
-
 from .flex_search import FlexSearchReportGenerator, create_flex_search_report
 
 __all__ = [
@@ -37,8 +33,6 @@ __all__ = [
     "BaseReportGenerator",
     "REPORTS_BASE_DIR",
     "BIDS_VERSION",
-    # Simulation
-    "SimulationReportGenerator",
     # Flex-search
     "FlexSearchReportGenerator",
     "create_flex_search_report",
