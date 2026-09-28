@@ -17,6 +17,8 @@ Route (DECISIONS.md, 2026-09-27 "DTI via DIPY on QSIPrep output"):
 4. Stored in the frame SimNIBS ``cond2elmdata(correct_FSL=True)`` reads back as the
    world tensor, beside ``DTI_coregT1_qc.json``. A tensor that fails the QC gate is
    not written.
+5. Non-blocking advisories and provenance (:mod:`tit.pre.qsi.dti_advisories`) join the
+   QC record, and a DTI QC report is always written, on a failed gate too.
 
 No QSIRecon, no DSI Studio.
 """
@@ -46,13 +48,22 @@ MASK_DILATE_VOX = 2
 #: charm labels kept: WM, GM, CSF.
 BRAIN_LABELS = (1, 2, 3)
 
-#: QC gate. CHN measured 0.984 / 0.04 mm / 100 % / 0.8 % / 0 / 0.68e-3
-#: (dti_eval chn/DTI_coregT1_qc.json); the synthetic round trip NCC 0.9999.
-QC_MIN_NCC = 0.90
-QC_MAX_CHAIN_VS_NCC_MM = 1.0
-QC_MIN_PD_PCT = 99.0
-QC_MAX_WMGM_ZERO_PCT = 5.0
-QC_WM_MD_RANGE = (0.5e-3, 1.1e-3)  # mm^2/s, adult in vivo at b ~ 1000
+#: The recorded ``thresholds`` keys of the QC gate and their rules in ``tit.reporting.qc_rules``.
+#: CHN measured 0.984 / 0.04 mm / 100 % / 0.8 % / 0 / 0.68e-3 (dti_eval chn/DTI_coregT1_qc.json).
+GATE_RULES = {
+    "min_ncc": "ncc_chain",
+    "max_chain_vs_ncc_mm": "chain_vs_ncc_mm",
+    "min_pct_pd": "pct_pd",
+    "max_pct_wmgm_zero": "pct_wmgm_zero",
+    "wm_md_range": "wm_md_median",
+    "max_out_of_brain": "n_out_of_brain",
+}
+
+
+def _gate_thresholds() -> dict:
+    from tit.reporting.qc_rules import value
+
+    return {key: value("dti", rule) for key, rule in GATE_RULES.items()}
 
 
 @dataclass
@@ -71,26 +82,20 @@ class DtiQc:
     passed: bool = False
     failures: list[str] = field(default_factory=list)
     acpc_to_t1: list[list[float]] = field(default_factory=list)
-    thresholds: dict = field(
-        default_factory=lambda: {
-            "min_ncc": QC_MIN_NCC,
-            "max_chain_vs_ncc_mm": QC_MAX_CHAIN_VS_NCC_MM,
-            "min_pct_pd": QC_MIN_PD_PCT,
-            "max_pct_wmgm_zero": QC_MAX_WMGM_ZERO_PCT,
-            "wm_md_range": list(QC_WM_MD_RANGE),
-            "max_out_of_brain": 0,
-        }
-    )
+    thresholds: dict = field(default_factory=_gate_thresholds)
 
     def gate(self) -> None:
-        """Fill ``passed``/``failures`` from the measured values."""
+        """Fill ``passed``/``failures`` from the measured values and ``thresholds``."""
+        t = self.thresholds
         checks = {
-            "ncc_chain": self.ncc_chain >= QC_MIN_NCC,
-            "chain_vs_ncc_mm": self.chain_vs_ncc_mm <= QC_MAX_CHAIN_VS_NCC_MM,
-            "pct_pd": self.pct_pd >= QC_MIN_PD_PCT,
-            "pct_wmgm_zero": self.pct_wmgm_zero <= QC_MAX_WMGM_ZERO_PCT,
-            "wm_md_median": QC_WM_MD_RANGE[0] <= self.wm_md_median <= QC_WM_MD_RANGE[1],
-            "n_out_of_brain": self.n_out_of_brain == 0,
+            "ncc_chain": self.ncc_chain >= t["min_ncc"],
+            "chain_vs_ncc_mm": self.chain_vs_ncc_mm <= t["max_chain_vs_ncc_mm"],
+            "pct_pd": self.pct_pd >= t["min_pct_pd"],
+            "pct_wmgm_zero": self.pct_wmgm_zero <= t["max_pct_wmgm_zero"],
+            "wm_md_median": t["wm_md_range"][0]
+            <= self.wm_md_median
+            <= t["wm_md_range"][1],
+            "n_out_of_brain": self.n_out_of_brain <= t["max_out_of_brain"],
         }
         self.failures = [name for name, ok in checks.items() if not ok]
         self.passed = not self.failures
@@ -350,6 +355,73 @@ def qsiprep_inputs(qsiprep_sub: Path) -> dict[str, Path]:
     return paths
 
 
+# ── advisories and provenance ────────────────────────────────────────────
+
+
+def run_config() -> dict:
+    """Every setting that can move the tensor or its checks; hashed into the QC record."""
+    from tit.reporting.qc_rules import RULES
+
+    return {
+        "DTI_BMAX": DTI_BMAX,
+        "MASK_DILATE_VOX": MASK_DILATE_VOX,
+        "BRAIN_LABELS": list(BRAIN_LABELS),
+        "B0_THRESHOLD": const.QSI_B0_THRESHOLD,
+        "rules": {k: v["value"] for k, v in RULES["dti"].items()},
+    }
+
+
+def record_advisories(
+    qc: dict,
+    vols,
+    project_dir: str,
+    subject_id: str,
+    *,
+    recorded_by: str,
+    logger: logging.Logger,
+) -> None:
+    """Add advisories, measurements and provenance to a QC record, in place.
+
+    Never blocks: a failure is logged and kept as ``advisories_error``, and the QC record and
+    report are still written.
+    """
+    import time
+
+    from . import dti_advisories as adv
+
+    pm = get_path_manager(project_dir)
+    qsiprep_sub = Path(pm.qsiprep_subject(subject_id))
+    m2m_dir = Path(pm.m2m(subject_id))
+    t0 = time.time()
+    try:
+        qc["reference"] = adv.reference(project_dir, subject_id)
+        ref_fa = (qc["reference"] or {}).get("wm_fa_median")
+        qc.update(
+            adv.compute(vols, qsiprep_sub, Path(pm.bids_subject(subject_id)), ref_fa)
+        )
+        dwi = next(
+            iter(
+                sorted(qsiprep_sub.glob("**/dwi/*_space-ACPC_desc-preproc_dwi.nii.gz"))
+            ),
+            None,
+        )
+        inputs = {
+            "tensor": m2m_dir / const.FILE_DTI_TENSOR,
+            "t1": m2m_dir / const.FILE_T1,
+            "labels": m2m_dir / "final_tissues.nii.gz",
+            "mni_warp": m2m_dir / "toMNI" / "Conform2MNI_nonl.nii.gz",
+            "dwi": dwi,
+        }
+        version = qc["acquisition"]["qsiprep"]["version"]
+        qc["provenance"] = adv.provenance(
+            inputs, run_config(), Path(project_dir), version, recorded_by
+        )
+    except Exception as exc:  # non-blocking by design: the gate has already decided
+        logger.warning(f"DTI advisories could not be measured: {exc}")
+        qc["advisories_error"] = str(exc)
+    logger.info(f"DTI advisories and provenance: {time.time() - t0:.0f} s")
+
+
 # ── public API ───────────────────────────────────────────────────────────
 
 
@@ -368,7 +440,8 @@ def extract_dti_tensor(
     ------
     tit.pre.utils.PreprocessError
         Missing inputs, an existing tensor, an m2m T1 that is not the T1w QSIPrep
-        used, or a failed QC gate (the QC JSON is still written; the tensor is not).
+        used, or a failed QC gate (the QC JSON and the report are still written; the
+        tensor is not).
     """
     import nibabel as nib
     from scipy.ndimage import binary_dilation
@@ -460,32 +533,65 @@ def extract_dti_tensor(
         acpc_to_t1=chain.round(6).tolist(),
     )
     qc.gate()
-    qc_path.write_text(json.dumps(asdict(qc), indent=1) + "\n")
     logger.info(
         f"DTI QC: {json.dumps({k: v for k, v in asdict(qc).items() if k not in ('acpc_to_t1', 'thresholds')})}"
     )
-    if not qc.passed:
-        raise PreprocessError(
-            "DTI QC gate failed (" + ", ".join(qc.failures) + f"); see {qc_path}. "
-            "The tensor was not written. Check QSIPrep's report for this subject, and "
-            "that charm ran on the same T1w QSIPrep used."
-        )
+    stored = None
+    if qc.passed:
+        stored = tm.world_to_simnibs(tensors, t1.affine).astype(np.float32)
+        stored[~mask] = 0
+    t6w = np.zeros(t1.shape[:3] + (6,), np.float32)
+    t6w[mask] = tm.unsym(tensors[mask])
+    del tensors
+    if stored is not None:
+        _save_nifti_gz(stored, t1.affine, output_path)
+        logger.info(f"DTI tensor saved to: {output_path}")
+        del stored
 
-    stored = tm.world_to_simnibs(tensors, t1.affine).astype(np.float32)
-    stored[~mask] = 0
-    _save_nifti_gz(stored, t1.affine, output_path)
-    logger.info(f"DTI tensor saved to: {output_path}")
+    from .dti_advisories import DtiVolumes
+
+    warp_path = m2m_dir / "toMNI" / "Conform2MNI_nonl.nii.gz"
+    vols = DtiVolumes.from_arrays(
+        t1.affine,
+        np.asanyarray(t1.dataobj, dtype=np.float32),
+        labels,
+        t6w,
+        (
+            np.asanyarray(nib.load(str(warp_path)).dataobj)
+            if warp_path.is_file()
+            else None
+        ),
+    )
+    del t6w
+    record = asdict(qc)
+    logger.info(
+        "DTI: measuring advisories (orientation, flip test, residual shift, conductivity)"
+    )
+    record_advisories(
+        record,
+        vols,
+        project_dir,
+        subject_id,
+        recorded_by="extract_dti_tensor",
+        logger=logger,
+    )
+    qc_path.write_text(json.dumps(record, indent=1) + "\n")
 
     from tit.reporting.generators.dti_qc import create_dti_qc_report
 
-    report = create_dti_qc_report(
-        project_dir=project_dir,
-        subject_id=subject_id,
-        tensor_file=str(output_path),
-        t1_file=str(t1_path),
-        qc=asdict(qc),
-    )
-    logger.info(f"DTI QC report: {report}")
+    try:
+        report = create_dti_qc_report(project_dir, subject_id, record, vols)
+        logger.info(f"DTI QC report: {report}")
+    except Exception as exc:  # the tensor and QC record stand without their report
+        logger.error(f"DTI QC report could not be written: {exc}")
+    if not qc.passed:
+        raise PreprocessError(
+            "DTI QC gate failed ("
+            + ", ".join(qc.failures)
+            + f"); see {qc_path} and the DTI QC report. "
+            "The tensor was not written. Check QSIPrep's report for this subject, and "
+            "that charm ran on the same T1w QSIPrep used."
+        )
     return output_path
 
 

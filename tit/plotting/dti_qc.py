@@ -1,373 +1,154 @@
-"""
-DTI quality control image generation helpers.
+"""Images for the DTI QC report: WebP bytes plus the label geometry the page needs.
 
-Computes DTI QC metrics (FA, eigenvalues, positive-definiteness) and
-generates color-coded FA direction maps overlaid on T1 for visual QC.
-
-``DTI_coregT1_tensor.nii.gz`` stores components in the frame SimNIBS's
-``correct_FSL`` reads back, not in world coordinates, so every helper here
-first converts the stored 6-vectors to world (scanner RAS) tensors.
+Two figures: the registration flicker (T1w and FA mosaics with the same charm contours) and the
+direction-encoded colour (DEC) stack with its orientation legend. Every panel follows
+:mod:`tit.plotting.slices`: canonical RAS, neurological (subject left on image left), slices chosen
+by MNI coordinate through charm's warp, cropped to the brain. DEC is ``|V1|`` in world RAS
+(red L–R, green A–P, blue S–I) scaled by FA.
 """
 
-from typing import Any
+from __future__ import annotations
 
-# Maximum pixel size for the longest physical dimension of a display slice.
-# Slices are resampled from voxel-space to this display grid using the NIfTI
-# voxel sizes, so the same anatomy always produces the same pixel output
-# regardless of acquisition resolution (following the nilearn / nireports
-# pattern of affine-aware resampling before display).
-_DISPLAY_MAX_PX = 256
+import io
 
+import numpy as np
 
-def world_tensors(tensor_file: str):
-    """``(img, mask, tensors)``: the non-zero voxels' world-frame 3x3 tensors."""
-    import nibabel as nib
-    import numpy as np
+from . import slices as sl
 
-    from tit.pre.qsi.tensor_math import simnibs_to_world
+WM_COLOUR = "#ffd23f"
+PIAL_COLOUR = "#4cc9f0"
+DEC_GAIN = 1.6  # FA-weighted DEC is dark; this makes WM tracts read at report size
+FA_DISPLAY_MAX = 0.85
 
-    img = nib.load(tensor_file)
-    data = img.get_fdata(dtype=np.float32)
-    if data.ndim != 4 or data.shape[-1] != 6:
-        raise ValueError(f"Expected shape (X,Y,Z,6), got {data.shape}")
-    mask = np.any(data != 0, axis=-1)
-    return img, mask, simnibs_to_world(data[mask], img.affine)
+#: MNI targets of every panel (mm). Registration mosaics are 3 x 2 per plane.
+REG_PLANES = {
+    "axial": (2, (-20, -4, 8, 20, 34, 50), "z"),
+    "coronal": (1, (48, 28, 8, -12, -34, -62), "y"),
+    "sagittal": (0, (-40, -24, -8, 8, 24, 40), "x"),
+}
+DEC_STACK_Z = tuple(range(-32, 66, 4))
 
 
-def _fa(eigenvalues):
-    import numpy as np
+def _coordinates(vols, pial: np.ndarray) -> tuple[np.ndarray, bool]:
+    """Per-voxel MNI coordinates from charm's warp, else approximate ones (and ``False``)."""
+    if vols.mni is not None:
+        return vols.mni, True
+    # ponytail: no charm warp -> world mm about the WM+GM centroid, moved to where a typical centroid
+    # sits in MNI; captions then say "approximate". Use the warp when it matters.
+    centre = (
+        vols.affine[:3, :3] @ np.array(np.nonzero(pial)).mean(1) + vols.affine[:3, 3]
+    )
+    grid = np.indices(pial.shape, dtype=np.float32).reshape(3, -1)
+    world = (
+        (vols.affine[:3, :3] @ grid).T
+        + vols.affine[:3, 3]
+        - centre
+        + np.array([0.0, -18.0, 18.0])
+    )
+    return world.reshape(pial.shape + (3,)).astype(np.float32), False
 
-    lam_mean = eigenvalues.mean(axis=-1, keepdims=True)
-    lam_sq_sum = np.sum(eigenvalues**2, axis=-1)
-    lam_diff_sq_sum = np.sum((eigenvalues - lam_mean) ** 2, axis=-1)
-    denom = np.where(lam_sq_sum == 0, 1.0, lam_sq_sum)
-    return np.clip(np.sqrt(1.5) * np.sqrt(lam_diff_sq_sum) / np.sqrt(denom), 0.0, 1.0)
 
+def render_all(vols) -> dict:
+    """Every image of the DTI QC report from :class:`tit.pre.qsi.dti_advisories.DtiVolumes`."""
+    from tit.pre.qsi import tensor_math as tm
 
-def fa_volume(tensor_file: str):
-    """``(img, FA volume)`` on the tensor grid (FA is frame-independent)."""
-    import numpy as np
+    lab = vols.labels
+    valid = vols.valid
+    w, v = tm.eig_desc(tm.sym(vols.t6w[valid]))
+    fa = np.clip(tm.fa_md(w)[0], 0, 1)
+    fa_vol = np.zeros(lab.shape, np.float32)
+    fa_vol[valid] = fa
+    rgb = np.zeros(lab.shape + (3,), np.float32)
+    rgb[valid] = np.abs(v[:, :, 0]) * fa[:, None]
+    del w, v
+    brain, wm, pial = np.isin(lab, (1, 2, 3)), lab == 1, np.isin(lab, (1, 2))
+    csf_t1, wm_t1 = vols.t1[lab == 3], vols.t1[wm]
+    lo = (
+        float(np.percentile(csf_t1, 40))
+        if csf_t1.size
+        else float(np.percentile(vols.t1, 5))
+    )
+    hi = (
+        float(np.percentile(wm_t1, 98))
+        if wm_t1.size
+        else float(np.percentile(vols.t1, 99))
+    )
+    t1n = np.clip((vols.t1 - lo) / max(hi - lo, 1e-6), 0, 1).astype(np.float32)
+    coord, is_mni = _coordinates(vols, pial)
+    box = sl.brain_box(brain, coord[..., 2])
 
-    img, mask, tensors = world_tensors(tensor_file)
-    fa_vol = np.zeros(mask.shape, dtype=np.float32)
-    fa_vol[mask] = _fa(np.linalg.eigvalsh(tensors))
-    return img, fa_vol
+    def pick(axis: int, target: float) -> int:
+        return sl.pick_slice(axis, target, coord[..., axis], brain, box)
 
+    registration = {}
+    for plane, (axis, targets, letter) in REG_PLANES.items():
+        idx = [pick(axis, t) for t in targets]
 
-def compute_dti_qc_metrics(tensor_file: str) -> dict[str, Any]:
-    """Compute DTI quality control metrics from a 6-component tensor NIfTI.
+        def mosaic(vol, idx=idx, axis=axis):
+            return sl.mosaic([sl.oriented(vol, axis, i, box) for i in idx], 3)
 
-    Parameters
-    ----------
-    tensor_file : str
-        Path to a 4D NIfTI with shape (X, Y, Z, 6) containing
-        [Dxx, Dxy, Dxz, Dyy, Dyz, Dzz].
-
-    Returns
-    -------
-    dict
-        Dictionary with voxel counts, eigenvalue statistics, FA statistics,
-        and positive-definiteness percentage.
-    """
-    import numpy as np
-
-    _, nonzero_mask, tensors = world_tensors(tensor_file)
-    total_voxels = int(nonzero_mask.size)
-    nonzero_voxels = int(np.count_nonzero(nonzero_mask))
-
-    if nonzero_voxels == 0:
-        return {
-            "total_voxels": total_voxels,
-            "nonzero_voxels": 0,
-            "pct_nonzero": 0.0,
-            "positive_definite_voxels": 0,
-            "pct_positive_definite": 0.0,
-            "eigenvalue_min": 0.0,
-            "eigenvalue_max": 0.0,
-            "eigenvalue_mean": 0.0,
-            "fa_mean": 0.0,
-            "fa_median": 0.0,
-            "fa_max": 0.0,
+        t1_m, tile = mosaic(t1n)
+        contours = [
+            (mosaic(pial)[0], PIAL_COLOUR, 0.7),
+            (mosaic(wm)[0], WM_COLOUR, 0.9),
+        ]
+        registration[plane] = {
+            "t1": sl.render(t1_m, contours),
+            "fa": sl.render(
+                np.clip(mosaic(fa_vol)[0] / FA_DISPLAY_MAX, 0, 1), contours
+            ),
+            "labels": [f"{letter} = {t:+d}" for t in targets],
+            "cols": 3,
+            "tile": tile,
+            "shape": t1_m.shape[:2],
         }
-
-    # Eigenvalues: (N, 3), sorted ascending
-    eigenvalues = np.linalg.eigvalsh(tensors)
-
-    # Positive-definiteness: all eigenvalues > 0
-    pd_mask = np.all(eigenvalues > 0, axis=-1)
-    pd_voxels = int(np.count_nonzero(pd_mask))
-    fa = _fa(eigenvalues)
-
-    return {
-        "total_voxels": total_voxels,
-        "nonzero_voxels": nonzero_voxels,
-        "pct_nonzero": round(100.0 * nonzero_voxels / total_voxels, 2),
-        "positive_definite_voxels": pd_voxels,
-        "pct_positive_definite": round(100.0 * pd_voxels / nonzero_voxels, 2),
-        "eigenvalue_min": round(float(eigenvalues.min()), 6),
-        "eigenvalue_max": round(float(eigenvalues.max()), 6),
-        "eigenvalue_mean": round(float(eigenvalues.mean()), 6),
-        "fa_mean": round(float(fa.mean()), 4),
-        "fa_median": round(float(np.median(fa)), 4),
-        "fa_max": round(float(fa.max()), 4),
-    }
-
-
-def generate_color_fa_image(
-    tensor_file: str, t1_file: str
-) -> dict[str, list[dict[str, Any]]]:
-    """Generate color-coded FA direction maps overlaid on T1.
-
-    Standard DTI color convention, on **world** (scanner RAS) axes, whatever the
-    voxel order of the grid:
-      R = |V1_x| * FA  (left-right)
-      G = |V1_y| * FA  (anterior-posterior)
-      B = |V1_z| * FA  (superior-inferior)
-
-    Parameters
-    ----------
-    tensor_file : str
-        Path to a 4D NIfTI (X, Y, Z, 6) tensor file.
-    t1_file : str
-        Path to a 3D T1-weighted NIfTI.
-
-    Returns
-    -------
-    dict
-        ``{"axial": [...], "coronal": [...]}`` where each list contains
-        dicts with ``"base64"`` and ``"slice_num"`` keys.
-    """
-    import base64
-    import io
-
-    import matplotlib.pyplot as plt
-    import nibabel as nib
-    import numpy as np
-    from scipy.ndimage import zoom
-
-    # Load data
-    t1_img = nib.load(t1_file)
-    t1_data = t1_img.get_fdata()
-    _, nonzero_mask, tensors = world_tensors(tensor_file)
-
-    # Build RGB color-FA volume -----------------------------------------------
-    spatial = nonzero_mask.shape
-    rgb = np.zeros((*spatial, 3), dtype=np.float32)
-
-    eigenvalues, eigenvectors = np.linalg.eigh(tensors)
-    # V1 = world-frame eigenvector of the largest eigenvalue (last column)
-    v1 = eigenvectors[:, :, -1]  # (N, 3)
-    fa = _fa(eigenvalues)
-
-    # RGB = |V1| * FA
-    rgb_vals = np.abs(v1) * fa[:, np.newaxis]
-    rgb[nonzero_mask] = rgb_vals
-
-    # Resample RGB to T1 shape if needed
-    if spatial != t1_data.shape:
-        zoom_factors = [t1_data.shape[i] / spatial[i] for i in range(3)]
-        rgb = np.stack(
-            [zoom(rgb[..., c], zoom_factors, order=1) for c in range(3)],
-            axis=-1,
+    frames = [
+        sl.render(
+            np.clip(sl.oriented(rgb, 2, pick(2, z), box) * DEC_GAIN, 0, 1), quality=80
         )
-
-    # Also build a scalar FA volume for masking
-    fa_vol = np.zeros(spatial, dtype=np.float32)
-    fa_vol[nonzero_mask] = fa
-    if spatial != t1_data.shape:
-        fa_vol = zoom(fa_vol, zoom_factors, order=1)
-
-    # Normalize T1 for display (same pattern as static_overlay.py)
-    nonzero_t1 = t1_data[t1_data > 0]
-    if nonzero_t1.size == 0:
-        t1_min, t1_max = float(np.min(t1_data)), float(np.max(t1_data))
-    else:
-        t1_min, t1_max = np.percentile(nonzero_t1, [2, 98])
-    denom_t1 = (t1_max - t1_min) if (t1_max - t1_min) != 0 else 1.0
-    t1_normalized = np.clip((t1_data - t1_min) / denom_t1, 0, 1)
-
-    # Voxel sizes (mm) — used to resample slices to a resolution-independent
-    # display grid so that the same anatomy produces the same pixel output
-    # regardless of acquisition resolution.
-    voxel_sizes = t1_img.header.get_zooms()[:3]
-    vx, vy, vz = (float(v) for v in voxel_sizes)
-
-    # Slice positions
-    dims = t1_data.shape
-    num_slices = 7
-
-    def safe_slices(dim_size: int, n: int) -> np.ndarray:
-        start = dim_size // 4
-        end = min((dim_size * 3) // 4, dim_size - 1)
-        return np.linspace(start, end, n).astype(int)
-
-    slice_positions = {
-        "axial": safe_slices(dims[2], num_slices),
-        "coronal": safe_slices(dims[1], num_slices),
-    }
-
-    generated_images: dict[str, list[dict[str, Any]]] = {
-        "axial": [],
-        "coronal": [],
-    }
-
-    # Per-orientation voxel-size mapping (row_vox, col_vox) AFTER rot90.
-    #   axial   [:,:,z] shape (dx,dy) → rot90 → (dy,dx): row=vy, col=vx
-    #   coronal [:, y,:] shape (dx,dz) → rot90 → (dz,dx): row=vz, col=vx
-    orientations = [
-        ("axial", 2, vy, vx),
-        ("coronal", 1, vz, vx),
+        for z in DEC_STACK_Z
     ]
+    sphere, sphere_axes = orientation_sphere()
+    return {
+        "is_mni": is_mni,
+        "registration": registration,
+        "dec": {"z": list(DEC_STACK_Z), "frames": frames},
+        "sphere": sphere,
+        "sphere_axes": sphere_axes,
+    }
 
-    for orientation, axis, row_vox, col_vox in orientations:
-        positions = slice_positions[orientation]
 
-        # Compute display-grid zoom factors for this orientation (constant
-        # across slices of the same orientation).
-        if orientation == "axial":
-            sample_shape = t1_normalized[:, :, positions[0]].shape
-        else:
-            sample_shape = t1_normalized[:, positions[0], :].shape
-        nrows, ncols = sample_shape[1], sample_shape[0]
-        phys_h = nrows * row_vox
-        phys_w = ncols * col_vox
-        scale = _DISPLAY_MAX_PX / max(phys_h, phys_w)
-        target_h = max(1, round(phys_h * scale))
-        target_w = max(1, round(phys_w * scale))
-        zh = target_h / nrows
-        zw = target_w / ncols
+def orientation_sphere(px: int = 220) -> tuple[bytes, dict[str, list[float]]]:
+    """Shaded sphere coloured by ``|direction|`` (PNG with alpha) and the screen position of R, A, S."""
+    from PIL import Image
 
-        for i, slice_pos in enumerate(positions):
-            if orientation == "axial":
-                t1_slice = t1_normalized[:, :, slice_pos]
-                rgb_slice = rgb[:, :, slice_pos, :]
-                fa_slice = fa_vol[:, :, slice_pos]
-            else:  # coronal
-                t1_slice = t1_normalized[:, slice_pos, :]
-                rgb_slice = rgb[:, slice_pos, :, :]
-                fa_slice = fa_vol[:, slice_pos, :]
-
-            # Orientation corrections (same as static_overlay.py)
-            t1_slice = np.rot90(t1_slice, k=1)
-            rgb_slice = np.rot90(rgb_slice, k=1)
-            fa_slice = np.rot90(fa_slice, k=1)
-            if orientation == "coronal":
-                t1_slice = np.fliplr(t1_slice)
-                rgb_slice = np.fliplr(rgb_slice)
-                fa_slice = np.fliplr(fa_slice)
-
-            # Resample to resolution-independent display grid
-            t1_slice = zoom(t1_slice, (zh, zw), order=1)
-            rgb_slice = np.stack(
-                [zoom(rgb_slice[..., c], (zh, zw), order=1) for c in range(3)],
-                axis=-1,
-            )
-            fa_slice = zoom(fa_slice, (zh, zw), order=1)
-
-            # Normalize RGB slice to [0,1] for display
-            rgb_max = rgb_slice.max()
-            if rgb_max > 0:
-                rgb_display = rgb_slice / rgb_max
-            else:
-                rgb_display = rgb_slice
-
-            # Build RGBA overlay with alpha from FA
-            rgba = np.zeros((*rgb_display.shape[:2], 4), dtype=np.float32)
-            rgba[..., :3] = rgb_display
-            rgba[..., 3] = np.where(fa_slice > 0.05, 0.6, 0.0)
-
-            # Figure sized to the resampled pixel grid
-            dpi = 100
-            fig_w = target_w / dpi + 0.3
-            fig_h = target_h / dpi + 0.5
-            fig, ax = plt.subplots(1, 1, figsize=(fig_w, fig_h), dpi=dpi)
-            try:
-                ax.imshow(
-                    t1_slice,
-                    cmap="gray",
-                    alpha=1.0,
-                    aspect="equal",
-                    vmin=0,
-                    vmax=1,
-                )
-                ax.imshow(rgba, aspect="equal")
-
-                ax.set_xticks([])
-                ax.set_yticks([])
-                ax.set_title(
-                    f"{orientation.title()} {i + 1}",
-                    fontsize=12,
-                    fontweight="bold",
-                    pad=10,
-                )
-
-                # Orientation labels
-                if orientation == "axial":
-                    ax.text(
-                        0.05,
-                        0.95,
-                        "L",
-                        transform=ax.transAxes,
-                        fontsize=10,
-                        fontweight="bold",
-                        color="white",
-                        va="top",
-                        ha="left",
-                    )
-                    ax.text(
-                        0.95,
-                        0.95,
-                        "R",
-                        transform=ax.transAxes,
-                        fontsize=10,
-                        fontweight="bold",
-                        color="white",
-                        va="top",
-                        ha="right",
-                    )
-                else:  # coronal
-                    ax.text(
-                        0.05,
-                        0.95,
-                        "R",
-                        transform=ax.transAxes,
-                        fontsize=10,
-                        fontweight="bold",
-                        color="white",
-                        va="top",
-                        ha="left",
-                    )
-                    ax.text(
-                        0.95,
-                        0.95,
-                        "L",
-                        transform=ax.transAxes,
-                        fontsize=10,
-                        fontweight="bold",
-                        color="white",
-                        va="top",
-                        ha="right",
-                    )
-
-                buf = io.BytesIO()
-                plt.savefig(
-                    buf,
-                    dpi=dpi,
-                    bbox_inches="tight",
-                    facecolor="white",
-                    edgecolor="none",
-                    format="png",
-                )
-                buf.seek(0)
-                image_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-            finally:
-                plt.close(fig)
-
-            generated_images[orientation].append(
-                {
-                    "base64": image_base64,
-                    "slice_num": i + 1,
-                }
-            )
-
-    return generated_images
+    view = np.array([0.52, 0.62, 0.58])
+    view /= np.linalg.norm(view)
+    up = np.array([0.0, 0.0, 1.0]) - view[2] * view
+    up /= np.linalg.norm(up)
+    right = np.cross(up, view)
+    u, v = np.meshgrid(np.linspace(-1, 1, px), np.linspace(1, -1, px))
+    r2 = u**2 + v**2
+    n = (
+        u[..., None] * right
+        + v[..., None] * up
+        + np.sqrt(np.clip(1 - r2, 0, 1))[..., None] * view
+    )
+    light = np.array([0.35, 0.45, 0.82])
+    light /= np.linalg.norm(light)
+    lam = np.clip(n @ (0.6 * light + 0.4 * view), 0, 1)
+    col = np.abs(n) * (0.35 + 0.65 * lam[..., None])
+    col = (
+        col
+        / np.maximum(col.max(-1, keepdims=True), 1e-6)
+        * (0.45 + 0.55 * lam[..., None])
+    )
+    alpha = np.clip((1 - np.sqrt(r2)) * px / 2, 0, 1) * (r2 <= 1)
+    buf = io.BytesIO()
+    Image.fromarray(
+        (np.dstack([np.clip(col, 0, 1), alpha]) * 255).astype(np.uint8), "RGBA"
+    ).save(buf, "PNG", optimize=True)
+    axes = {
+        name: [float(e @ right), float(e @ up)] for name, e in zip("RAS", np.eye(3))
+    }
+    return buf.getvalue(), axes

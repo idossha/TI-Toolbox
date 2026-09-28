@@ -50,6 +50,8 @@ include = ["tit*"]
 "tit.server" = ["examples/*.ipynb"]
 # The example-data catalogue: content-addressed sample manifest tit.examples fetches from.
 "tit.examples" = ["catalog.json"]
+# The report design system's stylesheet, widgets and embedded IBM Plex fonts (OFL, see NOTICE).
+"tit.reporting.html" = ["report.css", "report.js", "fonts/*"]
 "tit.scene" = [
   "guide/manifest.json",
   "guide/PROVENANCE.md",

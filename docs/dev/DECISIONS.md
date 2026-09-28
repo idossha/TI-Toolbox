@@ -2131,3 +2131,37 @@ v2.3.0–v3.0.1 must be regenerated. Saved QSIPrep preferences keep an explicit 
 `TIT_DTI_REAL=<Dataset 000> tests/numerical/test_dti_real.py` (CHN QC gate passes, V1 vs the
 prototype). QSIPrep with the new flags on an x86 host (ernie kit) is still outstanding.
 
+## 2026-09-28 — Reports as QC records: one HTML layer, one rules dict, a lean DTI report
+
+**Decision.** Reports are built from `tit/reporting/html/components.py` + `report.css` (shell, components,
+SVG charts, QC-check rows; fonts and images inline, no framework). Every QC value lives in
+`tit/reporting/qc_rules.py` with a role (`gate`, `internal`, `advisory`, `report`), citations and plain
+text. The DTI QC report is rewritten on it, is written on a failed gate too (then the step raises),
+and shows by default only the verdict, the one literature gate (WM median MD, Pierpaoli 1996; Cox 2016),
+advisories that need attention, a preprocessing list, one registration flicker, one fibre-orientation
+figure and FA/MD by tissue; everything else is collapsed. The QC record gains advisories, measurements
+and provenance (`dti_advisories.py`, about 9 s on CHN on an Apple M-series host). `tit.plotting.static_overlay`
+and the old DTI figures are removed; `tit/plotting/slices.py` replaces them with one neurological RAS
+convention. The report CSP allows `font-src data:`, the Results iframe inherits the app's `color-scheme`,
+and the catalog titles `dti_qc_*` reports "DTI QC report".
+
+**Why.** The previous DTI report had no verdict, showed no thresholds, cited nothing specific, mixed
+neurological and radiological panels (3 of 14 panels empty), and was never written when the gate
+failed, the case that most needs it (survey of 2026-09-27). A literature review (2026-09-28) found one
+published DTI cut-off (the b-table flip test has no margin) and one well-referenced range (adult WM MD);
+the other five gate checks are TI-Toolbox's own invariants, so they are labelled software checks rather
+than presented as quality evidence. The first prototype had ten sections and overwhelmed readers.
+
+**Alternatives rejected.** A template engine or a front-end framework for reports: more dependency than
+a few string functions. Keeping the old reportlet path beside the new one for DTI: two ways to render the
+same record. Glyph, coverage and conductivity sections: dropped as default content; the `vn` clamp line
+stays because it equals SimNIBS 4.6 `cond2elmdata` to 3e-14 (`tests/numerical/test_dti_advisories.py`).
+A cached reference-subject analysis: only ernie's WM median FA is shown, computed when the project has
+ernie's tensor.
+
+**Cost.** The DTI step takes about 15 s longer (advisories, hashing a 2 GB DWI, report). QC records
+written before this change lack advisories; the rebuild command measures them. `generate_static_overlay_images`
+is gone from `tit.plotting`.
+
+**Revisit if** a second report type adopts the layer (move its sections into `RULES`), or the published
+thresholds change.

@@ -246,6 +246,14 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   synthetic phantom (DIPY fit leg skips without `dipy`). `tests/numerical/test_dti_real.py` runs the
   whole DTI step on CHN when `TIT_DTI_REAL` names a Dataset-000-shaped root (read only; outputs go
   to a scratch project) and compares V1 with the prototype tensor at `TIT_DTI_PROTO` if set.
+- `tests/numerical/test_dti_advisories.py` pins the DTI advisories on synthetic phantoms (flip test finds a
+  planted x flip, tract orientation on pure L–R fibres, a planted 3 mm residual shift), slice orientation
+  for RAS/LAS/PSR grids, the report size budget, and `vn` conductivity against SimNIBS 4.6
+  `cond2elmdata` (subprocess; skips without SimNIBS, so run it with `simnibs_python` in the image).
+  `tests/test_reporting_dti_qc.py` checks the report's structure without pixels (sections, links, alt
+  text, offline, rows vs `failures`, roles, citations) and that a failed gate still writes the record and
+  report; `tests/test_plotting_slices.py` pins the neurological panel convention. Rebuild CHN's report,
+  read-only on the dataset, with `python -m tit.reporting.generators.dti_qc <root> CHN --out /tmp/x`.
 - `tests/test_blender_process_boundary.py` enables real Blender through `TIT_TEST_BLENDER_BIN`.
   Report its skip when the executable is unavailable. Validate export and reopen separately from
   scientific-environment imports.

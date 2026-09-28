@@ -479,8 +479,12 @@ validity-normalised trilinear interpolation, rotates every tensor by the map's p
 charm labels 1–3 (WM ∪ GM dilated 2 voxels), and stores `inv(M) T inv(M)ᵀ` with SimNIBS's exact
 `correct_FSL` matrix `M`. A rigid same-modality NCC refinement is a QC measurement only. The gate
 (NCC ≥ 0.90, chain-vs-NCC ≤ 1 mm, PD ≥ 99 %, WM+GM uncovered ≤ 5 %, 0 out of brain, WM median MD in
-0.5–1.1e-3 mm²/s) must pass before `DTI_coregT1_tensor.nii.gz` is written; `DTI_coregT1_qc.json`
-is written either way. The m2m T1 must be on the raw T1w's grid. The DTI stage (G6) depends on QSIPrep
+0.5–1.1e-3 mm²/s; values and citations in `tit/reporting/qc_rules.py`) must pass before
+`DTI_coregT1_tensor.nii.gz` is written; `DTI_coregT1_qc.json` and the DTI QC report (§14) are written
+either way, and only then does a failed gate raise. Non-blocking advisories and provenance
+(`tit/pre/qsi/dti_advisories.py`: distortion correction, residual shift, tract orientation, b-table flip
+test, motion, QSIPrep image QC, versions, input SHA-256, configuration hash) join the QC record; an
+advisory that cannot be measured is recorded as `advisories_error` and never blocks. The m2m T1 must be on the raw T1w's grid. The DTI stage (G6) depends on QSIPrep
 (G4) and charm (G2a) only. QSIRecon is an optional advanced step; the shipped `dsi_studio_gqi` spec
 is scalar-only (no tractography, no connectivity node); atlases require QSIPrep's MNI normalization.
 Other upstream reconstruction specs are not validated by this integration.
@@ -488,7 +492,8 @@ Other upstream reconstruction specs are not validated by this integration.
 Sources: [`tit/pre/qsi/`](../../tit/pre/qsi/), [`structural.py`](../../tit/pre/structural.py),
 [`GQI scalar spec`](../../resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml). Verified by
 `tests/test_pre_qsi_tensor_math.py`, `tests/test_pre_qsi_sdc.py`, `tests/test_pre_qsi_dti.py`,
-`tests/numerical/test_dti_roundtrip.py` and, with `TIT_DTI_REAL`, `tests/numerical/test_dti_real.py`.
+`tests/numerical/test_dti_roundtrip.py`, `tests/numerical/test_dti_advisories.py`, `tests/test_reporting_dti_qc.py`
+and, with `TIT_DTI_REAL`, `tests/numerical/test_dti_real.py`.
 
 ## 10. Internal builds and public availability
 
@@ -827,3 +832,45 @@ The candidate plot loads at most 10,000 records in the selected sort order, usin
 500-record requests and an O(n log n) frontier calculation. The limit is displayed and does
 not limit table pagination or recorded files. This bounds client geometry/SVG work without
 silently presenting a page-local plot as a complete history.
+
+## 14. Reports built on the shared HTML layer
+
+**One components module, one stylesheet.** `tit/reporting/html/components.py` holds the page shell
+(contents rail, masthead, light/dark tokens with an in-page theme toggle, print CSS), the components
+a report uses (section, callout, figure, flicker, plane tabs, slice scrubber, table, definition list,
+disclosure, methods with a copy button, references), hand-written SVG charts and the QC-check row;
+`report.css` holds the tokens and layout. Pages are self-contained: CSS, a small script, the IBM Plex
+fonts (OFL, embedded once as `data:`) and WebP/PNG images are inline; the only links are `doi.org`
+references, and the report CSP allows `font-src data:`. A component exists only when a report uses
+it; the DTI QC report is the first and only adopter, and the other generators still use
+`tit/reporting/core` until they are ported. A report inside the desktop app follows the app's theme:
+the Results iframe no longer pins `color-scheme`.
+
+**QC rules live in one dict, with a role and a citation.** `tit/reporting/qc_rules.py` `RULES[section]`
+gives every check its rule, value, unit, role, citations (DOIs in the reference registry), note and one
+plain sentence. Roles: `gate` (blocks, shown to the user), `internal` (a software consistency check that
+blocks but is shown only under Technical details), `advisory` (warns, never blocks), `report` (a value
+beside a cited reference, no pass/fail). A blocking row's status comes only from the record's
+`failures`, so a table never disagrees with the verdict. For DTI the only user-facing gate is white-matter
+median MD; NCC, chain agreement, positive-definiteness, coverage and out-of-brain are internal.
+
+**The DTI report is lean by default.** Verdict (gate table plus a callout per advisory that needs
+attention), a short preprocessing list, one registration flicker (T1w vs FA with charm contours,
+three planes), one direction-encoded colour scrubber with its orientation sphere, FA/MD by tissue;
+everything else (all checks, residual shift by region, a one-line `vn` conductivity note, motion per
+volume, methods and references, versions, input hashes, the QC record) is collapsed under Technical
+details. Budget 2.5 MB (CHN: 1.2 MB). `python -m tit.reporting.generators.dti_qc <project> <subject>
+[--out DIR]` rebuilds a report from the written tensor and QC record, measuring advisories when the
+record predates them.
+
+**Slice figures share one convention.** `tit/plotting/slices.py` reorders every volume to the closest
+RAS voxel order, draws neurological panels (subject left on image left, anterior up in axial,
+superior up in coronal and sagittal, anterior right in sagittal), and picks slices by MNI coordinate
+through charm's `Conform2MNI_nonl` warp, never on a slice with under 200 brain voxels. Without the warp,
+coordinates are approximate and captions say so.
+
+Sources: [`tit/reporting/html/`](../../tit/reporting/html/), [`qc_rules.py`](../../tit/reporting/qc_rules.py),
+[`generators/dti_qc.py`](../../tit/reporting/generators/dti_qc.py), [`plotting/slices.py`](../../tit/plotting/slices.py),
+[`plotting/dti_qc.py`](../../tit/plotting/dti_qc.py), [`pre/qsi/dti_advisories.py`](../../tit/pre/qsi/dti_advisories.py).
+Verified by `tests/test_reporting_dti_qc.py`, `tests/test_plotting_slices.py`,
+`tests/numerical/test_dti_advisories.py` and `desktop/tests/unit/cssRules.test.ts`.

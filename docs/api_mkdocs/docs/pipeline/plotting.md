@@ -117,29 +117,6 @@ output_path = plot_cluster_size_mass_correlation(
 
 Returns `None` if fewer than 2 non-zero data points are available.
 
-## Static Overlay Images
-
-### generate_static_overlay_images
-
-Generates base64-encoded PNG slice images by overlaying a NIfTI field map on a T1 anatomical image. Produces 7 slices per orientation (axial, sagittal, coronal) with neurological convention labels.
-
-```python
-from tit.plotting import generate_static_overlay_images
-
-images = generate_static_overlay_images(
-    t1_file="/data/project/sub-001/anat/sub-001_T1w.nii.gz",
-    overlay_file="/data/project/derivatives/SimNIBS/sub-001/Simulations/TI_max.nii.gz",
-    subject_id="001",          # optional
-    montage_name="motor",      # optional
-    output_dir=None,           # optional, not used for file output
-)
-
-# images is a dict with keys: "axial", "sagittal", "coronal"
-# Each value is a list of dicts with: "base64", "slice_num", "overlay_voxels"
-for entry in images["axial"]:
-    print(f"Slice {entry['slice_num']}: {entry['overlay_voxels']} overlay voxels")
-```
-
 ## Helpers
 
 The `tit.plotting._common` module provides shared utilities used by all plotting functions.
@@ -213,12 +190,6 @@ path = savefig_close(
       show_root_heading: true
 
 ::: tit.plotting.stats.plot_cluster_size_mass_correlation
-    options:
-      show_root_heading: true
-
-### Static Overlays
-
-::: tit.plotting.static_overlay.generate_static_overlay_images
     options:
       show_root_heading: true
 

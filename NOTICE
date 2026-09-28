@@ -180,6 +180,15 @@ redistributed under the FreeSurfer Software License
 FreeSurfer binary, atlas volume or subject data is redistributed.
 
 
+Fonts embedded in HTML reports
+------------------------------
+Files:      tit/reporting/html/fonts/ibm-plex-{sans,mono}-latin-*.woff2
+Copyright:  IBM Corp. (IBM Plex Sans 2019, IBM Plex Mono 2017)
+Licence:    SIL Open Font License 1.1 (tit/reporting/html/fonts/OFL.txt)
+Changes:    none; the Latin subsets as packaged by Fontsource 5.3.0. Every
+            TI-Toolbox HTML report embeds them as data: URIs.
+
+
 Not shipped
 -----------
 The Morel thalamic nuclei atlas (Zenodo record 13918589; (C) University of

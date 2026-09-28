@@ -2,8 +2,8 @@
 
 The numerical route (fit, chain, resampling, SimNIBS frame) runs against the real
 libraries in tests/numerical/test_dti_roundtrip.py; this file covers what the host
-suite can check with nibabel/scipy mocked. QC-gate values are the thresholds the
-module states, not measurements.
+suite can check with nibabel/scipy mocked. QC-gate values are the thresholds of
+tit.reporting.qc_rules, not measurements.
 """
 
 from pathlib import Path
@@ -21,6 +21,7 @@ from tit.pre.qsi.dti_extractor import (
     qsiprep_inputs,
 )
 from tit.pre.utils import PreprocessError
+from tit.reporting.qc_rules import value
 
 MODULE = "tit.pre.qsi.dti_extractor"
 
@@ -96,12 +97,12 @@ class TestQcGate:
     @pytest.mark.parametrize(
         "field,value",
         [
-            ("ncc_chain", dx.QC_MIN_NCC - 0.01),
-            ("chain_vs_ncc_mm", dx.QC_MAX_CHAIN_VS_NCC_MM + 0.1),
-            ("pct_pd", dx.QC_MIN_PD_PCT - 0.5),
-            ("pct_wmgm_zero", dx.QC_MAX_WMGM_ZERO_PCT + 0.1),
-            ("wm_md_median", dx.QC_WM_MD_RANGE[0] * 0.9),
-            ("wm_md_median", dx.QC_WM_MD_RANGE[1] * 1.1),
+            ("ncc_chain", value("dti", "ncc_chain") - 0.01),
+            ("chain_vs_ncc_mm", value("dti", "chain_vs_ncc_mm") + 0.1),
+            ("pct_pd", value("dti", "pct_pd") - 0.5),
+            ("pct_wmgm_zero", value("dti", "pct_wmgm_zero") + 0.1),
+            ("wm_md_median", value("dti", "wm_md_median")[0] * 0.9),
+            ("wm_md_median", value("dti", "wm_md_median")[1] * 1.1),
             ("n_out_of_brain", 1),
         ],
     )
@@ -110,8 +111,10 @@ class TestQcGate:
         assert not qc.passed
         assert qc.failures == [field]
 
-    def test_thresholds_recorded_for_the_report(self):
-        assert _passing_qc().thresholds["min_ncc"] == dx.QC_MIN_NCC
+    def test_thresholds_recorded_from_the_rules(self):
+        recorded = _passing_qc().thresholds
+        assert set(recorded) == set(dx.GATE_RULES)
+        assert all(recorded[k] == value("dti", rule) for k, rule in dx.GATE_RULES.items())
 
 
 class TestFitTensorPreconditions:

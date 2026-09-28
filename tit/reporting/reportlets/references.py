@@ -41,12 +41,24 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
         "key": "saturnino2019_simnibs_fem",
         "label": "Saturnino2019",
         "citation": (
+            "Saturnino GB, Madsen KH, Thielscher A. Electric field "
+            "simulations for transcranial brain stimulation using FEM: an "
+            "efficient implementation and error analysis. Journal of Neural "
+            "Engineering. 2019;16(6):066006."
+        ),
+        "doi": "10.1088/1741-2552/ab41ba",
+    },
+    {
+        "key": "saturnino2019_simnibs21",
+        "label": "Saturnino2019b",
+        "citation": (
             "Saturnino GB, Puonti O, Nielsen JD, Antonenko D, Madsen KH, "
             "Thielscher A. SimNIBS 2.1: a comprehensive pipeline for "
             "individualized electric field modelling for transcranial brain "
-            "stimulation. Journal of Neural Engineering. 2019;16(6):066006."
+            "stimulation. In: Makarov SN, Noetscher GM, Nummenmaa A, eds. "
+            "Brain and Human Body Modeling. Springer; 2019."
         ),
-        "doi": "10.1088/1741-2552/ab41ba",
+        "doi": "10.1007/978-3-030-21293-3_1",
     },
     {
         "key": "thielscher2015_simnibs_tms",
@@ -284,6 +296,206 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
             "NeuroImage. 2009;44(2):399-410."
         ),
         "doi": "10.1016/j.neuroimage.2008.09.009",
+    },
+    {
+        "key": "tuch2001_conductivity",
+        "label": "Tuch2001",
+        "citation": (
+            "Tuch DS, Wedeen VJ, Dale AM, George JS, Belliveau JW. Conductivity "
+            "tensor mapping of the human brain using diffusion tensor MRI. "
+            "Proceedings of the National Academy of Sciences. 2001;98(20):11697-11701."
+        ),
+        "doi": "10.1073/pnas.171473898",
+    },
+    {
+        "key": "opitz2011_tissue_efield",
+        "label": "Opitz2011",
+        "citation": (
+            "Opitz A, Windhoff M, Heidemann RM, Turner R, Thielscher A. How the "
+            "brain tissue shapes the electric field induced by transcranial "
+            "magnetic stimulation. NeuroImage. 2011;58(3):849-859."
+        ),
+        "doi": "10.1016/j.neuroimage.2011.06.069",
+    },
+    {
+        "key": "garyfallidis2014_dipy",
+        "label": "Garyfallidis2014",
+        "citation": (
+            "Garyfallidis E, Brett M, Amirbekian B, Rokem A, van der Walt S, "
+            "Descoteaux M, Nimmo-Smith I, Dipy Contributors. Dipy, a library for "
+            "the analysis of diffusion MRI data. Frontiers in Neuroinformatics. "
+            "2014;8:8."
+        ),
+        "doi": "10.3389/fninf.2014.00008",
+    },
+    {
+        "key": "veraart2016_mppca",
+        "label": "Veraart2016",
+        "citation": (
+            "Veraart J, Novikov DS, Christiaens D, Ades-Aron B, Sijbers J, "
+            "Fieremans E. Denoising of diffusion MRI using random matrix theory. "
+            "NeuroImage. 2016;142:394-406."
+        ),
+        "doi": "10.1016/j.neuroimage.2016.08.016",
+    },
+    {
+        "key": "kellner2016_gibbs",
+        "label": "Kellner2016",
+        "citation": (
+            "Kellner E, Dhital B, Kiselev VG, Reisert M. Gibbs-ringing artifact "
+            "removal based on local subvoxel-shifts. Magnetic Resonance in "
+            "Medicine. 2016;76(5):1574-1581."
+        ),
+        "doi": "10.1002/mrm.26054",
+    },
+    {
+        "key": "andersson2016_eddy",
+        "label": "Andersson2016",
+        "citation": (
+            "Andersson JLR, Sotiropoulos SN. An integrated approach to correction "
+            "for off-resonance effects and subject movement in diffusion MR "
+            "imaging. NeuroImage. 2016;125:1063-1078."
+        ),
+        "doi": "10.1016/j.neuroimage.2015.10.019",
+    },
+    {
+        "key": "tournier2019_mrtrix3",
+        "label": "Tournier2019",
+        "citation": (
+            "Tournier J-D, Smith R, Raffelt D, Tabbara R, Dhollander T, Pietsch M, "
+            "Christiaens D, Jeurissen B, Yeh C-H, Connelly A. MRtrix3: a fast, "
+            "flexible and open software framework for medical image processing "
+            "and visualisation. NeuroImage. 2019;202:116137."
+        ),
+        "doi": "10.1016/j.neuroimage.2019.116137",
+    },
+    {
+        "key": "jeurissen2014_gradient_flip",
+        "label": "Jeurissen2014",
+        "citation": (
+            "Jeurissen B, Leemans A, Sijbers J. Automated correction of "
+            "improperly rotated diffusion gradient orientations in diffusion "
+            "weighted MRI. Medical Image Analysis. 2014;18(7):953-962."
+        ),
+        "doi": "10.1016/j.media.2014.05.012",
+    },
+    # ==========================================================================
+    # DTI quality-control rules (tit/reporting/qc_rules.py); DOIs checked
+    # against OpenAlex 2026-09-28
+    # ==========================================================================
+    {
+        "key": "pierpaoli1996_dti",
+        "label": "Pierpaoli1996",
+        "citation": (
+            "Pierpaoli C, Jezzard P, Basser PJ, Barnett A, Di Chiro G. Diffusion "
+            "tensor MR imaging of the human brain. Radiology. 1996;201(3):637-648."
+        ),
+        "doi": "10.1148/radiology.201.3.8939209",
+    },
+    {
+        "key": "cox2016_ukb_white_matter",
+        "label": "Cox2016",
+        "citation": (
+            "Cox SR, Ritchie SJ, Tucker-Drob EM, Liewald DC, Hagenaars SP, Davies G, "
+            "Wardlaw JM, Gale CR, Bastin ME, Deary IJ. Ageing and brain white matter "
+            "structure in 3,513 UK Biobank participants. Nature Communications. "
+            "2016;7:13629."
+        ),
+        "doi": "10.1038/ncomms13629",
+    },
+    {
+        "key": "jezzard1995_epi_distortion",
+        "label": "Jezzard1995",
+        "citation": (
+            "Jezzard P, Balaban RS. Correction for geometric distortion in echo "
+            "planar images from B0 field variations. Magnetic Resonance in "
+            "Medicine. 1995;34(1):65-73."
+        ),
+        "doi": "10.1002/mrm.1910340111",
+    },
+    {
+        "key": "schilling2019_btable",
+        "label": "Schilling2019",
+        "citation": (
+            "Schilling KG, Yeh F-C, Nath V, Hansen C, Williams O, Resnick S, "
+            "Anderson AW, Landman BA. A fiber coherence index for quality control "
+            "of B-table orientation in diffusion MRI scans. Magnetic Resonance "
+            "Imaging. 2019;58:82-89."
+        ),
+        "doi": "10.1016/j.mri.2019.01.018",
+    },
+    {
+        "key": "roalf2016_dti_qa",
+        "label": "Roalf2016",
+        "citation": (
+            "Roalf DR, Quarmley M, Elliott MA, Satterthwaite TD, Vandekar SN, "
+            "Ruparel K, et al. The impact of quality assurance assessment on "
+            "diffusion tensor imaging outcomes in a large-scale population-based "
+            "cohort. NeuroImage. 2016;125:903-919."
+        ),
+        "doi": "10.1016/j.neuroimage.2015.10.068",
+    },
+    {
+        "key": "yendiki2014_motion",
+        "label": "Yendiki2014",
+        "citation": (
+            "Yendiki A, Koldewyn K, Kakunoori S, Kanwisher N, Fischl B. Spurious "
+            "group differences due to head motion in a diffusion MRI study. "
+            "NeuroImage. 2014;88:79-90."
+        ),
+        "doi": "10.1016/j.neuroimage.2013.11.027",
+    },
+    {
+        "key": "westlye2010_lifespan",
+        "label": "Westlye2010",
+        "citation": (
+            "Westlye LT, Walhovd KB, Dale AM, Bjørnerud A, Due-Tønnessen P, Engvig A, "
+            "et al. Life-span changes of the human brain white matter: diffusion "
+            "tensor imaging (DTI) and volumetry. Cerebral Cortex. "
+            "2010;20(9):2055-2068."
+        ),
+        "doi": "10.1093/cercor/bhp280",
+    },
+    {
+        "key": "lebel2012_lifespan",
+        "label": "Lebel2012",
+        "citation": (
+            "Lebel C, Gee M, Camicioli R, Wieler M, Martin W, Beaulieu C. Diffusion "
+            "tensor imaging of white matter tract evolution over the lifespan. "
+            "NeuroImage. 2012;60(1):340-352."
+        ),
+        "doi": "10.1016/j.neuroimage.2011.11.094",
+    },
+    {
+        "key": "yeh2019_differential_tractography",
+        "label": "Yeh2019",
+        "citation": (
+            "Yeh F-C, Zaydan IM, Suski VR, Lacomis D, Richardson RM, Maroon JC, "
+            "Barrios-Martinez J. Differential tractography as a track-based "
+            "biomarker for neuronal injury. NeuroImage. 2019;202:116131."
+        ),
+        "doi": "10.1016/j.neuroimage.2019.116131",
+    },
+    {
+        "key": "andersson2016_outliers",
+        "label": "Andersson2016b",
+        "citation": (
+            "Andersson JLR, Graham MS, Zsoldos E, Sotiropoulos SN. Incorporating "
+            "outlier detection and replacement into a non-parametric framework for "
+            "movement and distortion correction of diffusion MR images. NeuroImage. "
+            "2016;141:556-572."
+        ),
+        "doi": "10.1016/j.neuroimage.2016.06.058",
+    },
+    {
+        "key": "esteban2019_fmriprep",
+        "label": "Esteban2019",
+        "citation": (
+            "Esteban O, Markiewicz CJ, Blair RW, Moodie CA, Isik AI, Erramuzpe A, "
+            "et al. fMRIPrep: a robust preprocessing pipeline for functional MRI. "
+            "Nature Methods. 2019;16(1):111-116."
+        ),
+        "doi": "10.1038/s41592-018-0235-4",
     },
     # ==========================================================================
     # Meshing & visualization
@@ -567,3 +779,10 @@ def get_reference_by_key(key: str) -> dict[str, str] | None:
         if ref["key"] == resolved_key:
             return ref.copy()
     return None
+
+
+def get_reference_by_doi(doi: str) -> dict | None:
+    """The default reference with this DOI, or ``None``."""
+    return next(
+        (ref.copy() for ref in DEFAULT_REFERENCES if ref.get("doi") == doi), None
+    )

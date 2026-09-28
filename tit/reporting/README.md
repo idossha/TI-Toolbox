@@ -32,6 +32,11 @@ Reportlet (base)              Report Assembler           HTML Output
 ```
 tit/reporting/
 ├── __init__.py                    # Public API
+├── qc_rules.py                    # every QC rule: value, role, citation, plain text
+├── html/                          # shared HTML layer (DTI QC report today)
+│   ├── components.py              # shell, components, SVG charts, QC-check rows
+│   ├── report.css                 # tokens, layout, print
+│   └── fonts/                     # IBM Plex woff2 (OFL), embedded once
 │
 ├── core/                          # Core infrastructure
 │   ├── __init__.py
@@ -53,7 +58,7 @@ tit/reporting/
     ├── preprocessing.py           # PreprocessingReportGenerator
     ├── simulation.py              # SimulationReportGenerator
     ├── flex_search.py             # FlexSearchReportGenerator
-    └── dti_qc.py                  # DTI QC report
+    └── dti_qc.py                  # DTI QC report (on html/; python -m rebuilds one)
 ```
 
 ---

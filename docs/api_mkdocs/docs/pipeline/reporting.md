@@ -150,7 +150,6 @@ The `tit.plotting` module provides visualization functions used by the analysis 
 ```python
 from tit.analyzer.visualizer import save_histogram
 from tit.plotting import (
-    generate_static_overlay_images,
     plot_permutation_null_distribution,
     plot_cluster_size_mass_correlation,
     plot_montage_distributions,
