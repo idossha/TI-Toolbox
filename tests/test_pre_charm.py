@@ -43,8 +43,10 @@ class TestRunCharm:
         runner = MagicMock()
         runner.run.return_value = 0
 
-        run_charm("/proj", "001", logger=logger, runner=runner)
+        with patch(f"{MODULE}.copy_charm_report") as copy_report:
+            run_charm("/proj", "001", logger=logger, runner=runner)
 
+        copy_report.assert_called_once_with("/proj", "001", logger=logger)
         runner.run.assert_called_once()
         cmd = runner.run.call_args[0][0]
         assert cmd[0] == "charm"
@@ -304,3 +306,50 @@ def test_invalid_charm_options_rejected(options):
 
     with pytest.raises(ValueError):
         validate_charm_options(options)
+
+
+# SimNIBS's charm_report.html is one self-contained file: every image is an inline data: URI
+# (checked against Dataset 000's sub-ernie report, 2026-09-28). This stand-in has that shape.
+_CHARM_REPORT = (
+    '<html><head><style>.hidden{display:none}</style></head><body>'
+    '<img id="Tissue labels" src="data:image/webp;base64,UklGRg==">'
+    "<script>var ok = 1;</script></body></html>"
+)
+
+
+class TestCopyCharmReport:
+    """The charm report lands in the subject's report folder, and the catalog lists it."""
+
+    def test_copies_report_and_catalog_lists_it(self, tmp_path):
+        from tit import catalog
+        from tit.paths import get_path_manager
+        from tit.pre.charm import copy_charm_report
+
+        pm = get_path_manager(str(tmp_path))
+        source = Path(pm.m2m("001")) / "charm_report.html"
+        source.parent.mkdir(parents=True)
+        source.write_text(_CHARM_REPORT)
+
+        dest = copy_charm_report(str(tmp_path), "001", logger=MagicMock())
+
+        assert dest == Path(pm.reports()) / "sub-001" / "charm_report.html"
+        assert dest.read_bytes() == source.read_bytes()
+        assert source.is_file()  # copied, not moved: SimNIBS expects it in m2m
+        [entry] = catalog.reports(pm, "001")
+        assert (entry["id"], entry["kind"], entry["title"]) == (
+            "001/charm_report",
+            "charm_report",
+            "Head model (charm) report",
+        )
+        assert catalog.find_report_path(pm, entry["id"]) == str(dest)
+
+    def test_missing_report_is_a_warning_not_a_failure(self, tmp_path):
+        from tit.paths import get_path_manager
+        from tit.pre.charm import copy_charm_report
+
+        pm = get_path_manager(str(tmp_path))
+        logger = MagicMock()
+
+        assert copy_charm_report(str(tmp_path), "001", logger=logger) is None
+        logger.warning.assert_called_once()
+        assert not Path(pm.reports()).exists()

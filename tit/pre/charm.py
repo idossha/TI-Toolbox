@@ -12,6 +12,8 @@ run_charm
     Run SimNIBS ``charm`` for a subject.
 run_subject_atlas
     Create atlas ``.annot`` files from an existing m2m directory.
+copy_charm_report
+    Copy SimNIBS's ``charm_report.html`` into the subject's report folder.
 
 See Also
 --------
@@ -22,6 +24,7 @@ tit.pre.structural.run_pipeline : Full preprocessing pipeline.
 import configparser
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -168,6 +171,34 @@ def run_charm(
             raise PreprocessError(
                 f"charm failed for subject {subject_id} (exit {exit_code})."
             )
+
+        copy_charm_report(project_dir, subject_id, logger=logger)
+
+
+def copy_charm_report(project_dir: str, subject_id: str, *, logger) -> Path | None:
+    """Copy ``m2m_<id>/charm_report.html`` to ``reports/sub-<id>/charm_report.html``.
+
+    The report is SimNIBS's own, self-contained (images are inline ``data:`` URIs), so one
+    file is the whole report. It is copied, not moved: SimNIBS and users expect it in m2m.
+    A missing or uncopyable report is logged and never fails the head model.
+    """
+    pm = get_path_manager(project_dir)
+    source = Path(pm.m2m(subject_id)) / "charm_report.html"
+    if not source.is_file():
+        logger.warning(f"charm wrote no report at {source}")
+        return None
+    dest = Path(pm.reports()) / f"sub-{subject_id}" / "charm_report.html"
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, dest)
+    except OSError as exc:
+        logger.warning(f"Could not copy the charm report to {dest}: {exc}")
+        return None
+    from tit.jobs import events
+
+    events.emit_artifact(str(dest), kind="report", label="Head model (charm) report")
+    logger.info(f"charm report: {dest}")
+    return dest
 
 
 def run_subject_atlas(

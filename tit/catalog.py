@@ -1841,13 +1841,13 @@ def analysis_summary(pm: PathManager, sid: str, sim: str, name: str) -> dict | N
 
 # ── reports ──────────────────────────────────────────────────────────────────
 
-#: The report kinds TI-Toolbox keeps (docs/dev/DECISIONS.md, 2026-09-28): the preprocessing report
-#: (home of the FreeSurfer/FastSurfer recon report), DTI, flex-search, ex-search and simulator.
+#: The report kinds TI-Toolbox keeps (docs/dev/DECISIONS.md, 2026-09-28): SimNIBS's own charm
+#: report (copied in as ``charm_report.html``), DTI, flex-search, ex-search and simulator.
 #: Any other ``<kind>_<timestamp>.html`` is still listed, titled from its kind.
 _REPORT_KIND_TITLES = {
     "simulation_report": "Simulation report",
     "flex_search_report": "Flex-search report",
-    "pre_processing_report": "Preprocessing report",
+    "charm_report": "Head model (charm) report",
     "ex_search_report": "Ex-search report",
     "dti_qc": "DTI QC report",  # files are dti_qc_<YYYYMMDD>_<HHMMSS>.html
 }
