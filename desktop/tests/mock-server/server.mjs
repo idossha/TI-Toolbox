@@ -1257,8 +1257,6 @@ function stagesFor(kind) {
       return ["render"];
     case "project_init":
       return ["project_init"];
-    case "report":
-      return ["render"];
     case "tools":
       return ["run"];
     default:
@@ -1281,9 +1279,7 @@ const LOGGER_FOR = {
   nifti_average: "tit.tools.nifti_average",
   nilearn: "tit.tools.nilearn_visuals",
   project_init: "tit.project_init",
-  // internal-only JobKinds (tit/jobs/spec.py::JOB_KINDS) reachable from the "pre" group DAG
-  // (the per-subject report job) or standalone (an arbitrary module run as a "tools" job).
-  report: "tit.reporting.core.assembler",
+  // internal-only JobKind (tit/jobs/spec.py::JOB_KINDS): an arbitrary module run as a "tools" job.
   tools: "tit.jobs.runner",
 };
 function loggerFor(kind) {
@@ -1321,14 +1317,12 @@ function buildArtifacts(job) {
       ];
     }
     case "pre":
-      // The report is an attachment of the job that produced it, not a job of its own -- the
-      // real server records it here too (JobManager._attach_pre_report).
+      // The charm stage copies SimNIBS's own report into the subject's report folder and records
+      // it as an artifact of its job (tit.pre.charm.copy_charm_report).
       return [
         { path: `${base}/m2m_${subject}/m2m_${subject}.log`, kind: "log", label: "Preprocessing log" },
-        { path: `${base}/m2m_${subject}/report/report.html`, kind: "report", label: "Preprocessing report" },
+        { path: `${PROJECT_ROOT}/derivatives/ti-toolbox/reports/sub-${subject}/charm_report.html`, kind: "report", label: "Head model (charm) report" },
       ];
-    case "report":
-      return [{ path: `${base}/m2m_${subject}/report/report.html`, kind: "report", label: "Preprocessing report" }];
     case "project_init":
       return [{ path: `${PROJECT_ROOT}/dataset_description.json`, kind: "manifest", label: "Project manifest" }];
     default:
@@ -3325,8 +3319,7 @@ route("POST", "/api/jobs", async (ctx) => {
 });
 // Mirrors tit.jobs.plans.plan_preprocessing's G1..G6 stage DAG (own dependency comments there):
 // each stage is only planned when its PreprocessConfig flag is set, every stage job's config is
-// the group's config with every step flag but its own forced False, and a subject with any stage
-// job gets its consolidated report as an attachment of its last stage job, never as a job.
+// the group's config with every step flag but its own forced False. A report is never a job.
 const PRE_STAGE_FLAGS = ["convert_dicom", "create_m2m", "run_fastsurfer", "run_freesurfer", "run_tissue_analysis", "run_qsiprep", "run_qsirecon", "extract_dti"];
 function planPreprocessingStages(config) {
   const cfg = config && typeof config === "object" ? config : {};
@@ -3410,8 +3403,6 @@ route("POST", "/api/jobs/groups", async (ctx) => {
       subjectJobs.push(job);
       created.push(job);
     }
-    // No trailing report job: the real server attaches the consolidated subject report to the
-    // last stage job of the subject (JobManager._attach_pre_report) instead of scheduling one.
   }
   json(ctx.res, 201, { group_id: groupId, jobs: created.map((j) => j.status) });
 });

@@ -8,12 +8,10 @@ simulation parameters, and analysis results.
 from .images import (
     SliceSeriesReportlet,
     MontageImageReportlet,
-    MultiViewBrainReportlet,
 )
 
 from .metadata import (
     ConductivityTableReportlet,
-    ProcessingStepReportlet,
     SummaryCardsReportlet,
     ParameterListReportlet,
     DEFAULT_CONDUCTIVITIES,
@@ -22,8 +20,6 @@ from .metadata import (
 from .text import (
     SimulationMethodsBuilder,
     MethodsBoilerplateReportlet,
-    DescriptionReportlet,
-    CommandLogReportlet,
 )
 
 from .references import (
@@ -37,18 +33,14 @@ __all__ = [
     # Image reportlets
     "SliceSeriesReportlet",
     "MontageImageReportlet",
-    "MultiViewBrainReportlet",
     # Metadata reportlets
     "ConductivityTableReportlet",
-    "ProcessingStepReportlet",
     "SummaryCardsReportlet",
     "ParameterListReportlet",
     "DEFAULT_CONDUCTIVITIES",
     # Text reportlets
     "SimulationMethodsBuilder",
     "MethodsBoilerplateReportlet",
-    "DescriptionReportlet",
-    "CommandLogReportlet",
     # References
     "TIToolboxReferencesReportlet",
     "DEFAULT_REFERENCES",

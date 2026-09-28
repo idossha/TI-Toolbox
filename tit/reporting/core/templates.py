@@ -520,75 +520,6 @@ body {
     text-decoration: underline;
 }
 
-/* Processing Steps */
-.processing-step {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    margin-bottom: var(--spacing-md);
-    overflow: hidden;
-}
-
-.step-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    background: var(--bg-light);
-    cursor: pointer;
-}
-
-.step-status {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    color: white;
-    flex-shrink: 0;
-}
-
-.step-status.completed {
-    background: var(--success-color);
-}
-
-.step-status.failed {
-    background: var(--error-color);
-}
-
-.step-status.skipped {
-    background: var(--text-muted);
-}
-
-.step-status.running {
-    background: var(--info-color);
-}
-
-.step-status.pending {
-    background: var(--border-color);
-    color: var(--text-muted);
-}
-
-.step-name {
-    font-weight: 500;
-    flex: 1;
-}
-
-.step-duration {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-}
-
-.step-content {
-    padding: var(--spacing-md);
-    display: none;
-}
-
-.step-content.expanded {
-    display: block;
-}
-
 /* Conductivity Table */
 .conductivity-table {
     width: 100%;
@@ -707,14 +638,6 @@ function toggleSection(sectionId) {
     const content = section.querySelector('.section-content');
     if (content) {
         content.classList.toggle('collapsed');
-    }
-}
-
-// Toggle processing step details
-function toggleStep(stepId) {
-    const content = document.getElementById(stepId + '-content');
-    if (content) {
-        content.classList.toggle('expanded');
     }
 }
 

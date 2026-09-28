@@ -1053,3 +1053,14 @@ replacement is now controlled solely by explicit `overwrite: true`/`replace_exis
 the request; `check_overwrite_permission` no longer 403s, only 409s pending confirmation. Non-critical
 `/api/validate` findings never blocked queuing server-side, so no behavior changed there. A stale
 `allow_unsafe_overrides` key in a project's `settings.json` is ignored on read, not rejected.
+
+## 2026-09-28 — remove the `report` job kind
+
+Removed `report` from `JobKind`. It ran `tit.pre.report`, the combined preprocessing report, which
+is deleted (`docs/dev/DECISIONS.md`, 2026-09-28); nothing had planned or submitted one since
+2026-09-07. `GET /api/jobs?kind=report` and a submitted `report` job now return 422. A job record
+already on disk with `kind: "report"` still reads back unchanged (`kind` is not validated on load),
+like the `viewer` kind removed before it. Preprocessing reports are now SimNIBS's
+`charm_report.html` (recorded as a `report` artifact on the charm stage job and listed by
+`GET /api/catalog/reports` as kind `charm_report`) and the DTI QC report; `Artifact.kind` values
+are unchanged.

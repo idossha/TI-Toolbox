@@ -738,6 +738,6 @@ _CHECKERS: dict[str, Checker] = {
     "nifti_average": _check_nifti_average,
     "nilearn": _check_nilearn,
     "blender": _check_blender,
-    # project_init creates the tree; report reads whatever exists; tools' arguments are
+    # project_init creates the tree; tools' arguments are
     # already jailed to the project by tit.jobs.kinds.check_tool_args.
 }

@@ -93,8 +93,8 @@ export function plannedStageIds(v: PreprocessConfig): string[] {
   if (v.run_qsiprep) ids.push("G4");
   if (v.run_qsirecon) ids.push("G5");
   if (v.extract_dti) ids.push("G6");
-  // No "report" id: the subject report is an attachment of the job that produced it, so it is
-  // neither a stage column nor a job (maintainer, 2026-09-07).
+  // No "report" id: a report is an attachment of the stage job that wrote it (charm: G2a, DTI:
+  // G6), so it is neither a stage column nor a job (maintainer, 2026-09-07).
   return ids;
 }
 
@@ -278,8 +278,8 @@ function PreprocessPage() {
       submitPreGroup(toSubmitConfig(values, selected, decision, preferences.data), selected),
     onSuccess: (result) => {
       // `result.jobs.length` is not one-per-subject: the mock (and the real `plan_preprocessing`
-      // DAG it mirrors) expands each subject into one job per configured stage (the subject
-      // report is an attachment of the last of those, never a job), so it is reported as a job
+      // DAG it mirrors) expands each subject into one job per configured stage (a report is
+      // written by its own stage job, never a job of its own), so it is reported as a job
       // *count* alongside the subject count the user actually chose.
       notify.success(
         selected.length > 1

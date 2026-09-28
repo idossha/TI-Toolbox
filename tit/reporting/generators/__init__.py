@@ -15,8 +15,6 @@ SimulationReportGenerator
     Report for TI / mTI simulation runs.
 FlexSearchReportGenerator / create_flex_search_report
     Report (and convenience function) for flex-search optimization.
-PreprocessingReportGenerator / create_preprocessing_report
-    Report (and convenience function) for preprocessing pipelines.
 
 The DTI QC report is ``tit.reporting.generators.dti_qc`` (built on ``tit.reporting.html``). It is
 not imported here, so ``python -m tit.reporting.generators.dti_qc`` runs without a runpy warning.
@@ -34,8 +32,6 @@ from .simulation import SimulationReportGenerator
 
 from .flex_search import FlexSearchReportGenerator, create_flex_search_report
 
-from .preprocessing import PreprocessingReportGenerator, create_preprocessing_report
-
 __all__ = [
     # Base
     "BaseReportGenerator",
@@ -46,7 +42,4 @@ __all__ = [
     # Flex-search
     "FlexSearchReportGenerator",
     "create_flex_search_report",
-    # Preprocessing
-    "PreprocessingReportGenerator",
-    "create_preprocessing_report",
 ]

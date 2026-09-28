@@ -1,7 +1,7 @@
 """Reportlet-based reporting system for TI-Toolbox.
 
 A modular, NiPreps-inspired reporting system that generates self-contained
-HTML reports across preprocessing, simulation, and flex-search modules.
+HTML reports for simulation and flex-search.
 Reports follow a section/reportlet architecture: each ``ReportSection``
 contains one or more ``BaseReportlet`` subclasses, and the
 ``ReportAssembler`` renders them into a single HTML document.
@@ -16,16 +16,16 @@ Base reportlets
 Assembler
     ReportAssembler
 Specialized reportlets
-    SliceSeriesReportlet, MontageImageReportlet, MultiViewBrainReportlet,
-    ConductivityTableReportlet, ProcessingStepReportlet,
+    SliceSeriesReportlet, MontageImageReportlet,
+    ConductivityTableReportlet,
     SummaryCardsReportlet, ParameterListReportlet,
-    MethodsBoilerplateReportlet, DescriptionReportlet, CommandLogReportlet,
+    MethodsBoilerplateReportlet,
     TIToolboxReferencesReportlet
 Generators
     BaseReportGenerator, SimulationReportGenerator,
-    FlexSearchReportGenerator, PreprocessingReportGenerator
+    FlexSearchReportGenerator
 Convenience functions
-    create_flex_search_report, create_preprocessing_report,
+    create_flex_search_report,
     get_default_references, get_reference_by_key
 
 See Also
@@ -59,18 +59,14 @@ from .reportlets import (
     # Image reportlets
     SliceSeriesReportlet,
     MontageImageReportlet,
-    MultiViewBrainReportlet,
     # Metadata reportlets
     ConductivityTableReportlet,
-    ProcessingStepReportlet,
     SummaryCardsReportlet,
     ParameterListReportlet,
     DEFAULT_CONDUCTIVITIES,
     # Text reportlets
     SimulationMethodsBuilder,
     MethodsBoilerplateReportlet,
-    DescriptionReportlet,
-    CommandLogReportlet,
     # References
     TIToolboxReferencesReportlet,
     DEFAULT_REFERENCES,
@@ -89,9 +85,6 @@ from .generators import (
     # Flex-search
     FlexSearchReportGenerator,
     create_flex_search_report,
-    # Preprocessing
-    PreprocessingReportGenerator,
-    create_preprocessing_report,
 )
 
 __all__ = [
@@ -114,16 +107,12 @@ __all__ = [
     # Specialized reportlets
     "SliceSeriesReportlet",
     "MontageImageReportlet",
-    "MultiViewBrainReportlet",
     "ConductivityTableReportlet",
-    "ProcessingStepReportlet",
     "SummaryCardsReportlet",
     "ParameterListReportlet",
     "DEFAULT_CONDUCTIVITIES",
     "SimulationMethodsBuilder",
     "MethodsBoilerplateReportlet",
-    "DescriptionReportlet",
-    "CommandLogReportlet",
     "TIToolboxReferencesReportlet",
     "DEFAULT_REFERENCES",
     "get_default_references",
@@ -135,6 +124,4 @@ __all__ = [
     "SimulationReportGenerator",
     "FlexSearchReportGenerator",
     "create_flex_search_report",
-    "PreprocessingReportGenerator",
-    "create_preprocessing_report",
 ]

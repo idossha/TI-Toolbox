@@ -29,13 +29,6 @@ describe("rerun output policy", () => {
     expect(POST.mock.calls[0]?.[1].body.config.forward.overwrite).toBe(overwrite);
   });
 
-  it("allows a fresh report job without calling its unsupported plan endpoint", async () => {
-    const GET = vi.fn().mockResolvedValue({ data: { spec: { ...spec, kind: "report" } }, response: { ok: true } });
-    const POST = vi.fn();
-    expect(await prepareJobRerun("old-report", { GET, POST } as unknown as typeof api)).toMatchObject({ existing: 0, spec: { kind: "report", overwrite: false } });
-    expect(POST).not.toHaveBeenCalled();
-  });
-
   it("does not submit jobs whose destinations cannot be previewed", async () => {
     const GET = vi.fn().mockResolvedValue({ data: { spec: { ...spec, kind: "tools" } }, response: { ok: true } });
     const POST = vi.fn();

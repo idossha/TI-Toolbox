@@ -267,17 +267,14 @@ def test_command_for_leadfield():
     ]
 
 
-def test_command_for_report():
-    """F0: 'report' used to have no MODULE_FOR_KIND entry at all, so every trailing
-    report job of a `pre` group failed with KindError("unknown job kind: 'report'")
-    (jobs 614b666712054f03, d6ccfcce2e2c43ce). tit.pre.report is its runner now."""
-    argv = kinds.command_for("report", {}, "/proj/jobs/abc/spec.json")
-    assert argv == [
-        "simnibs_python",
-        "-m",
-        "tit.pre.report",
-        "/proj/jobs/abc/spec.json",
-    ]
+def test_report_is_no_longer_a_job_kind():
+    """``report`` ran the combined preprocessing report, deleted 2026-09-28
+    (docs/dev/DECISIONS.md); the kind left the contract with it (contracts/CHANGES.md)."""
+    from tit.jobs.spec import CONTRACT_JOB_KINDS, JOB_KINDS
+
+    assert "report" not in JOB_KINDS and "report" not in CONTRACT_JOB_KINDS
+    with pytest.raises(kinds.KindError, match="unknown job kind"):
+        kinds.command_for("report", {}, "/proj/jobs/abc/spec.json")
 
 
 def test_command_for_module_kind_missing_module_raises_clear_error(monkeypatch):
@@ -540,58 +537,6 @@ def test_keys_for_pre_matches_plan_preprocessing_stage_configs():
         assert (
             "subject:001:stage:pre" not in stage_resources
         ), f"{job.label}: fell through to the coarse fallback"
-
-
-def test_keys_for_report_holds_read_locks_for_what_it_scans():
-    """FX2: a per-subject ``report`` job used to request *no* locks at all
-    (`docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)` open issue 1) while ``scan_for_data()`` walked the
-    subject's rawdata and derivatives -- only a top-level "group report" branch existed, and
-    ``plan_preprocessing``'s config has no ``group`` key, so it never fired."""
-    reqs = locks.keys_for(
-        "report",
-        ["001"],
-        {"convert_dicom": True, "create_m2m": True, "run_fastsurfer": True},
-    )
-    resources = _resources(reqs)
-    # what it reads
-    assert ("subject:001:bids", "read") in resources
-    assert ("subject:001:m2m", "read") in resources
-    assert ("subject:001:stage:dicom", "read") in resources
-    assert ("subject:001:stage:charm", "read") in resources
-    assert ("subject:001:stage:fastsurfer", "read") in resources
-    # a stage the group did not run is not locked
-    assert ("subject:001:stage:qsiprep", "read") not in resources
-    # what it writes: its own report, so two reports for one subject serialize
-    assert ("subject:001:report", "write") in resources
-    # nothing it takes may be exclusive apart from that one output
-    assert {mode for _r, mode in resources if _r != "subject:001:report"} == {"read"}
-
-
-def test_keys_for_report_of_a_planned_group_locks_that_subject_only():
-    """A hand-submitted ``report`` job (nothing plans one any more -- a report is an attachment
-    of the job that produced it) must still lock only its own subject, so two subjects' reports
-    can run concurrently."""
-    from tit.config_io import serialize_config
-    from tit.pre.config import PreprocessConfig
-
-    keys = {
-        sid: _resources(
-            locks.keys_for(
-                "report",
-                [sid],
-                serialize_config(
-                    PreprocessConfig(
-                        subject_ids=[sid], convert_dicom=True, create_m2m=True
-                    )
-                ),
-            )
-        )
-        for sid in ("001", "002")
-    }
-    assert keys["001"] and keys["002"]
-    assert not {r for r, _m in keys["001"]} & {r for r, _m in keys["002"]}
-    for sid, resources in keys.items():
-        assert all(r.startswith(f"subject:{sid}:") for r, _m in resources)
 
 
 def test_plan_preprocessing_never_plans_a_report_job():

@@ -26,7 +26,7 @@ from tit.pre.config import PreprocessConfig
 __all__ = ["GROUP_KINDS", "plan_per_subject", "plan_preprocessing"]
 
 #: Job kinds ``POST /api/jobs/groups`` can submit as a per-subject group (R3). ``pre`` expands
-#: into the G1-G6/report DAG below; every other kind is one independent job per subject (per
+#: into the G1-G6 DAG below; every other kind is one independent job per subject (per
 #: ``(subject, config)`` entry, for a page like the Simulator that runs several montages for the
 #: same subject), built by :func:`plan_per_subject`.
 GROUP_KINDS: tuple[str, ...] = (
@@ -166,12 +166,9 @@ def plan_preprocessing(
     - ``G5`` = optional QSIRecon (``run_qsirecon``), after ``G4``
     - ``G6`` = DTI tensor fit (``extract_dti``, DIPY on QSIPrep output), after ``G4``
       and ``G2a`` -- it needs no QSIRecon, so it runs in parallel with ``G5``
-    A report is **not** a stage and never a job of its own. Every stage job writes its
-    own HTML report as a side effect of :func:`tit.pre.structural.run_pipeline`, and the
-    job manager folds the group's stages into one consolidated per-subject report as a
-    post-success attachment of the last stage job to finish for that subject (see
-    :meth:`tit.jobs.manager.JobManager._attach_pre_report`) -- with no job record, no
-    plan row, no cost and no ETA line of its own.
+    A report is **not** a stage and never a job of its own: ``G2a`` copies SimNIBS's
+    ``charm_report.html`` into the subject's report folder and ``G6`` writes the DTI QC
+    report, each as part of its own step.
 
     Each stage job's config is *config* with every step flag except its own forced to
     ``False`` and ``subject_ids`` narrowed to the one subject -- consistent with
@@ -195,7 +192,7 @@ def plan_preprocessing(
     -------
     list of PlannedJob
         Flattened across every subject, most-upstream stage first. Empty for a subject
-        with no step flags set at all (no jobs, no report).
+        with no step flags set at all.
 
     See Also
     --------
@@ -302,9 +299,6 @@ def plan_preprocessing(
             )
             subject_jobs.append(g6)
 
-        # No trailing report job: the consolidated per-subject report is an attachment
-        # the job manager produces after the last stage job for this subject succeeds
-        # (JobManager._attach_pre_report), not a job of its own.
         jobs.extend(subject_jobs)
 
     return jobs

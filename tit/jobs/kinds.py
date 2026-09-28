@@ -49,7 +49,6 @@ MODULE_FOR_KIND: dict[str, str] = {
     "nifti_average": "tit.stats.nifti_average",
     "nilearn": "tit.plotting.nilearn",
     "project_init": "tit.project_init",
-    "report": "tit.pre.report",
 }
 
 # flex_adaptive/flex_pareto still invoke -m tit.opt.flex; the sub-mode is a config field

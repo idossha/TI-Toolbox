@@ -7,7 +7,6 @@ collection, and error tracking.
 """
 
 import json
-import os
 import subprocess
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -113,35 +112,6 @@ class BaseReportGenerator(ABC):
             if result.returncode == 0:
                 self.software_versions["simnibs"] = result.stdout.strip()
         except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError):
-            pass
-
-        # FreeSurfer version
-        try:
-            fs_home = os.environ.get("FREESURFER_HOME", "")
-            if fs_home:
-                version_file = Path(fs_home) / "build-stamp.txt"
-                if version_file.exists():
-                    self.software_versions["freesurfer"] = (
-                        version_file.read_text().strip()
-                    )
-        except (PermissionError, UnicodeDecodeError, OSError):
-            pass
-
-        # dcm2niix version
-        try:
-            result = subprocess.run(
-                ["dcm2niix", "-v"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                # Parse version from output
-                for line in result.stdout.split("\n"):
-                    if "version" in line.lower():
-                        self.software_versions["dcm2niix"] = line.strip()
-                        break
-        except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
     def add_error(

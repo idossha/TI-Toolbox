@@ -617,7 +617,6 @@ def _pre_stage_output_dir(pm: PathManager, sid: str, stage: str) -> str:
         "G4": pm.qsiprep_subject(sid),
         "G5": pm.qsirecon_subject(sid),
         "G6": pm.m2m(sid),
-        "report": pm.reports(),
     }.get(stage, "")
 
 

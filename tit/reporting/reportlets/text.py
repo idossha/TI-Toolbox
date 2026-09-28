@@ -286,7 +286,7 @@ class MethodsBoilerplateReportlet(BaseReportlet):
         Args:
             title: Title for the section
             boilerplate_text: Pre-written boilerplate text
-            pipeline_type: Type of pipeline (simulation, preprocessing, optimization)
+            pipeline_type: Type of pipeline (simulation, optimization)
             parameters: Parameters to include in generated text
         """
         super().__init__(title or "Methods Boilerplate")
@@ -315,8 +315,6 @@ class MethodsBoilerplateReportlet(BaseReportlet):
         match self.pipeline_type:
             case "simulation":
                 return self._generate_simulation_boilerplate()
-            case "preprocessing":
-                return self._generate_preprocessing_boilerplate()
             case "optimization" | "flex-search":
                 return self._generate_optimization_boilerplate()
             case _:
@@ -325,41 +323,6 @@ class MethodsBoilerplateReportlet(BaseReportlet):
     def _generate_simulation_boilerplate(self) -> str:
         """Generate simulation-specific boilerplate."""
         return SimulationMethodsBuilder(self.parameters).build()
-
-    def _generate_preprocessing_boilerplate(self) -> str:
-        """Generate preprocessing-specific boilerplate."""
-        parts = []
-
-        parts.append(
-            "Structural MRI data were preprocessed using TI-Toolbox's "
-            "preprocessing pipeline."
-        )
-
-        # Add FreeSurfer info
-        if self.parameters.get("freesurfer_version"):
-            version = self.parameters.get("freesurfer_version")
-            parts.append(
-                f"Cortical reconstruction was performed using FreeSurfer {version} "
-                "(Fischl, 2012)."
-            )
-
-        # Add SimNIBS info
-        if self.parameters.get("simnibs_version"):
-            version = self.parameters.get("simnibs_version")
-            parts.append(
-                f"Head mesh generation was performed using SimNIBS {version} "
-                "(Thielscher et al., 2015)."
-            )
-
-        # Add DTI info
-        if self.parameters.get("qsiprep_version"):
-            version = self.parameters.get("qsiprep_version")
-            parts.append(
-                f"Diffusion MRI preprocessing was performed using QSIPrep {version} "
-                "(Cieslak et al., 2021) for estimation of anisotropic conductivities."
-            )
-
-        return " ".join(parts)
 
     def _generate_optimization_boilerplate(self) -> str:
         """Generate flex-search/optimization-specific boilerplate."""
@@ -437,173 +400,4 @@ class MethodsBoilerplateReportlet(BaseReportlet):
             "pipeline_type": self.pipeline_type,
             "parameters": self.parameters,
             "boilerplate": self.generate_boilerplate(),
-        }
-
-
-class DescriptionReportlet(BaseReportlet):
-    """
-    Reportlet for displaying descriptive text content.
-
-    Renders paragraphs of text with optional formatting.
-    """
-
-    def __init__(
-        self,
-        content: str,
-        title: str | None = None,
-        format_type: str = "paragraphs",
-    ):
-        """
-        Initialize the description reportlet.
-
-        Args:
-            content: Text content to display
-            title: Optional section title
-            format_type: How to format content (paragraphs, html, preformatted)
-        """
-        super().__init__(title)
-        self.content = content
-        self.format_type = format_type
-
-    @property
-    def reportlet_type(self) -> ReportletType:
-        return ReportletType.TEXT
-
-    def render_html(self) -> str:
-        """Render the description text as HTML."""
-        title_html = f"<h3>{self._title}</h3>" if self._title else ""
-
-        if self.format_type == "html":
-            formatted_content = self.content
-        elif self.format_type == "preformatted":
-            formatted_content = f"<pre>{self._escape_html(self.content)}</pre>"
-        else:
-            # Split into paragraphs
-            paragraphs = self.content.split("\n\n")
-            formatted_content = "".join(
-                f"<p>{p.strip()}</p>" for p in paragraphs if p.strip()
-            )
-
-        return f"""
-        <div class="reportlet description-reportlet" id="{self.reportlet_id}">
-            {title_html}
-            <div class="text-content">
-                {formatted_content}
-            </div>
-        </div>
-        """
-
-    def _escape_html(self, text: str) -> str:
-        """Escape HTML special characters."""
-        return (
-            text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "type": self.reportlet_type.name,
-            "id": self.reportlet_id,
-            "title": self._title,
-            "content": self.content,
-            "format_type": self.format_type,
-        }
-
-
-class CommandLogReportlet(BaseReportlet):
-    """
-    Reportlet for displaying command execution logs.
-
-    Shows commands that were run with their outputs in a
-    terminal-like display.
-    """
-
-    def __init__(
-        self,
-        title: str | None = None,
-        commands: list[dict[str, str]] | None = None,
-    ):
-        """
-        Initialize the command log reportlet.
-
-        Args:
-            title: Optional section title
-            commands: List of command dicts with 'command' and optional 'output'
-        """
-        super().__init__(title or "Command Log")
-        self.commands: list[dict[str, str]] = commands or []
-
-    @property
-    def reportlet_type(self) -> ReportletType:
-        return ReportletType.TEXT
-
-    def add_command(
-        self,
-        command: str,
-        output: str | None = None,
-        status: str = "success",
-    ) -> None:
-        """
-        Add a command to the log.
-
-        Args:
-            command: The command that was executed
-            output: Command output (if any)
-            status: Execution status (success, error)
-        """
-        self.commands.append(
-            {
-                "command": command,
-                "output": output or "",
-                "status": status,
-            }
-        )
-
-    def render_html(self) -> str:
-        """Render the command log as HTML."""
-        if not self.commands:
-            return ""
-
-        command_items = []
-        for cmd in self.commands:
-            status_class = "success" if cmd.get("status") == "success" else "error"
-            output_html = ""
-            if cmd.get("output"):
-                output_html = f'<div class="command-output">{self._escape_html(cmd["output"])}</div>'
-
-            command_items.append(f"""
-                <div class="command-item {status_class}">
-                    <div class="command-prompt">$ {self._escape_html(cmd["command"])}</div>
-                    {output_html}
-                </div>
-                """)
-
-        title_html = f"<h3>{self._title}</h3>" if self._title else ""
-
-        return f"""
-        <div class="reportlet command-log-reportlet" id="{self.reportlet_id}">
-            {title_html}
-            <div class="command-log">
-                {"".join(command_items)}
-            </div>
-        </div>
-        """
-
-    def _escape_html(self, text: str) -> str:
-        """Escape HTML special characters."""
-        return (
-            text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "type": self.reportlet_type.name,
-            "id": self.reportlet_id,
-            "title": self._title,
-            "commands": self.commands,
         }

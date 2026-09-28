@@ -46,7 +46,6 @@ export const JOB_KINDS: JobKind[] = [
   "nilearn",
   "project_init",
   "tools",
-  "report",
 ];
 
 export const JOB_STATES: JobState[] = ["queued", "running", "succeeded", "failed", "cancelled", "skipped", "lost"];
@@ -107,8 +106,6 @@ export function withRerunPolicy(spec: RerunSpec, overwrite: boolean): RerunSpec 
 export async function prepareJobRerun(id: string, client = api): Promise<{ spec: RerunSpec; existing: number }> {
   const detail = unwrap(await client.GET("/api/jobs/{id}", { params: { path: { id } } }), `/api/jobs/${id}`);
   const spec = withRerunPolicy(detail.spec as unknown as RerunSpec, false);
-  // Reports write into their new job directory; they have no shared output plan.
-  if (spec.kind === "report") return { spec, existing: 0 };
   if (spec.kind === "project_init" || spec.kind === "tools") throw new Error("This job has no output preview. Use its original run page to start it again.");
   const plan = unwrap(await client.POST("/api/plan/{kind}", {
     params: { path: { kind: spec.kind } }, body: { config: spec.config, subject_ids: spec.subject_ids, overwrite: false },

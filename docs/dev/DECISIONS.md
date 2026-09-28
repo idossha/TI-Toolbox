@@ -2168,6 +2168,9 @@ thresholds change.
 
 ## 2026-09-28 — Five report kinds and nothing around them; the DTI verdict counts what the page shows
 
+**Superseded 2026-09-28 (in part)** by "Preprocessing reports are SimNIBS's charm report and the DTI
+report" below: the preprocessing report and its recon section are gone.
+
 **Decision.** TI-Toolbox keeps five report kinds: the preprocessing report (home of the
 FreeSurfer/FastSurfer recon report), DTI QC, flex-search, ex-search and simulator. `tit.catalog` no
 longer titles `m_ex_search_report` (no generator ever wrote one). Reports have no PDF export or print
@@ -2196,3 +2199,32 @@ every image is byte-identical. Report 1,231,100 → 1,229,144 bytes; rebuild 16.
 M-series host, 30 → 28 s in `idossha/ti-toolbox:v3.0.1`. `pytest tests/ --ignore=tests/numerical`
 5287 passed, 54 skipped; `tests/numerical/test_dti_advisories.py` and `test_dti_roundtrip.py` in the
 image with dipy 1.12.1: 16 passed.
+
+## 2026-09-28 — Preprocessing reports are SimNIBS's charm report and the DTI report
+
+**Decision.** Preprocessing has two reports. The charm report is SimNIBS's own `charm_report.html`:
+when `charm` exits 0, `tit.pre.charm.copy_charm_report` copies it (never moves it) to
+`derivatives/ti-toolbox/reports/sub-<id>/charm_report.html` and records it as a `report` artifact of the
+charm job; the catalog titles it "Head model (charm) report". The DTI QC report is unchanged. The
+combined preprocessing report is deleted with every section it had (DICOM, atlas, tissue, QSIPrep,
+QSIRecon, FreeSurfer/FastSurfer recon): `tit/reporting/generators/preprocessing.py`, `tit/pre/report.py`,
+`run_pipeline`'s per-stage reports, `JobManager._attach_pre_report`, and the `report` job kind, which
+leaves `JobKind` (`contracts/CHANGES.md`). Reportlets only it used (`ProcessingStepReportlet`,
+`MultiViewBrainReportlet`) and the unused `DescriptionReportlet` and `CommandLogReportlet` go too;
+simulation and flex-search keep the legacy layer. There is no DICOM report.
+
+**Why.** The maintainer decided only charm and DTI reports matter for preprocessing (2026-09-28). SimNIBS
+already writes a reviewed, self-contained charm QC page; re-rendering it in TI-Toolbox duplicated it.
+
+**Alternatives rejected.** Moving the file: SimNIBS and users expect it in m2m. Copying `charm_log.html`
+and assets: the report links to neither, and every image is an inline `data:` URI. A timestamped copy:
+the report describes one head model, and a replaced m2m makes the old copy wrong. Keeping `report` in
+`JobKind` without a runner: a submittable kind that cannot run is the failure the kind was once removed
+for; legacy job records with `kind: "report"` still load, like `viewer`'s.
+
+**Evidence.** In `idossha/ti-toolbox:v3.0.1` with this checkout on `PYTHONPATH`, against a scratch copy of
+Dataset 000's `m2m_ernie`: the copy is byte-identical (13,925,412 bytes, sha256 equal), the source stays,
+`catalog.reports` lists `ernie/charm_report` as "Head model (charm) report", and one `report` artifact
+event is written. Rendered headless in Chromium inside `<iframe sandbox="allow-scripts">` with the served
+`REPORT_CSP` and `nosniff`: all 6 images decode, the viewer script draws the T1/tissue-label panels, no
+CSP violation. `tests/test_pre_charm.py` pins the copy and the catalog entry.

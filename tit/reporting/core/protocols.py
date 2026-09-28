@@ -58,10 +58,7 @@ class SeverityLevel(Enum):
 
 
 class StatusType(Enum):
-    """Status types for processing steps.
-
-    Used by ``ProcessingStepReportlet`` to display step progress.
-    """
+    """Status types for processing steps."""
 
     PENDING = "pending"
     RUNNING = "running"

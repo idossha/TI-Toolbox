@@ -9,10 +9,10 @@ Shapes mirror ``contracts/openapi.yaml`` (``JobKind``, ``JobState``, ``JobProgre
 shape stays exactly what the contract describes plus one harmless additive field
 (``budget_wait``, not ``additionalProperties: false`` in the schema).
 
-``JobKind``'s frozen v1 contract enum (``CONTRACT_JOB_KINDS``) now includes ``tools`` and
-``report`` alongside ``project_init`` (``contracts/CHANGES.md``, 2026-08-27 entry, item 1).
-``project_init`` maps to ``-m tit.project_init`` and ``report`` to ``-m tit.pre.report`` in
-:mod:`tit.jobs.kinds` (ra_14 finding #2; F0, 2026-09-03).
+``JobKind``'s frozen v1 contract enum (``CONTRACT_JOB_KINDS``) includes ``tools`` alongside
+``project_init`` (``contracts/CHANGES.md``, 2026-08-27 entry, item 1); ``project_init`` maps to
+``-m tit.project_init`` in :mod:`tit.jobs.kinds` (ra_14 finding #2). ``report`` left the enum on
+2026-09-28 with the combined preprocessing report it ran (``contracts/CHANGES.md``).
 """
 
 from __future__ import annotations
@@ -40,7 +40,6 @@ JOB_KINDS: tuple[str, ...] = (
     "nilearn",
     "tools",
     "project_init",
-    "report",
 )
 
 # Kinds present in the frozen wire contract's JobKind enum (contracts/openapi.yaml).
@@ -63,7 +62,6 @@ CONTRACT_JOB_KINDS: frozenset[str] = frozenset(
         "nilearn",
         "project_init",
         "tools",
-        "report",
     }
 )
 
@@ -87,7 +85,6 @@ JobKind = Literal[
     "nilearn",
     "project_init",
     "tools",
-    "report",
 ]
 
 # The Literal above and the frozenset are two spellings of one contract enum; drift between them

@@ -454,7 +454,7 @@ ROWS: tuple[Row, ...] = (
         ],
         expect_files=lambda ctx: [ctx.p("sub-102", "anat", "sub-102_T1w.nii.gz")],
         catalog=_catalog_subject_listed("102"),
-        notes="Group route: the DAG is G1 + the trailing `report` job (see pre_report).",
+        notes="Group route: the DAG is G1 alone; a report is never a job of its own.",
     ),
     Row(
         id="pre_charm",
@@ -512,28 +512,6 @@ ROWS: tuple[Row, ...] = (
         budget_s=120.0,
         refusal=(r"requires BIDS DWI data", r"[Nn]o DWI", r"Preprocessing failed"),
         notes="§3 row 'accepted-then-refused readable': the QSIPrep image is never pulled.",
-    ),
-    Row(
-        id="pre_report",
-        kind="pre",
-        behaviour=COMPLETED,
-        subject="102",
-        why_subject="The trailing `report` job of any pre group; ridden on the cheapest one "
-        "(sub-102 DICOM conversion, 12 s measured) so the row costs a report, not a pipeline. "
-        "`replace_existing_outputs` is set so re-converting after pre_dicom in the same "
-        "session is well-defined rather than a race with that row's output.",
-        build=lambda ctx: _pre_submission(
-            ctx, "102", "report", convert_dicom=True, replace_existing_outputs=True
-        ),
-        group_tag="report",
-        budget_s=180.0,
-        banner=(r"^report$", r"Report generated: "),
-        # The report lands in derivatives/ti-toolbox/reports/sub-102/, a directory that
-        # pre-exists and holds the maintainer's own reports; the file itself is claimed from
-        # the job's reported artifacts (Manifest.claim_produced), never the directory.
-        creates=lambda ctx: [ctx.p("sub-102"), ctx.simnibs("102")],
-        notes="Was broken (F0 fixed it): tit/jobs/plans.py planned a kind tit/jobs/kinds.py "
-        "could not run -- 'unknown job kind: report'.",
     ),
     Row(
         id="sim_ti",

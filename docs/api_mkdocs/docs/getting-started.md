@@ -259,17 +259,11 @@ output_path = create_flex_search_report(
 
 ### Preprocessing Reports
 
-```python
-from tit.reporting import create_preprocessing_report
-
-output_path = create_preprocessing_report(
-    project_dir="/mnt/project",  # container-visible project path
-    subject_id="001",
-    processing_steps=[],  # auto-populated if auto_scan=True
-    output_path=None,     # auto-generates BIDS-compliant path
-    auto_scan=True,
-)
-```
+Preprocessing has two reports, neither built here: SimNIBS's own charm report, which
+`tit.pre.charm.run_charm` copies from `m2m_<id>/charm_report.html` into
+`derivatives/ti-toolbox/reports/sub-<id>/charm_report.html` (`copy_charm_report` does it for an existing
+head model), and the DTI QC report the DTI step writes (`python -m tit.reporting.generators.dti_qc
+<project> <subject>` rebuilds one).
 
 ### Report Building Blocks (Reportlets)
 

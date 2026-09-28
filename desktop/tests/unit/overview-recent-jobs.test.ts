@@ -34,7 +34,7 @@ function job(patch: Partial<JobStatus> = {}): JobStatus {
 
 describe("destinationFor", () => {
   it("sends a finished job of a browsable kind to Results, scoped to its subject", () => {
-    for (const kind of ["sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "analyzer", "stats", "report"] as JobStatus["kind"][]) {
+    for (const kind of ["sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "analyzer", "stats"] as JobStatus["kind"][]) {
       expect(destinationFor(job({ kind })), kind).toEqual({ page: "results", subject: "ernie" });
     }
   });

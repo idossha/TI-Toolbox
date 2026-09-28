@@ -505,10 +505,8 @@ def test_kind(
         if jobs:
             _cancel_leftovers(client, jobs)
             # Claim every file *any* job of this submission produced into a shared,
-            # pre-existing directory. Not just the row's own job: a `pre` group's G1 stage
-            # writes its own preprocessing report beside the trailing report job's, and only
-            # the latter was cleaned up before this loop existed (measured 2026-09-03: one
-            # stray pre_processing_report_*.html per run in reports/sub-102).
+            # pre-existing directory, not just the row's own job's (measured 2026-09-03: one
+            # stray report per run in reports/sub-102 before this loop existed).
             for other in jobs:
                 try:
                     for artifact in client.job(other["id"])["artifacts"]:

@@ -367,34 +367,6 @@ def _pre_requests(sid: str, config: dict[str, Any]) -> list[LockRequest]:
     return requests
 
 
-def _report_requests(sid: str, config: dict[str, Any]) -> list[LockRequest]:
-    """What one subject's consolidated preprocessing report needs (``tit.pre.report``).
-
-    The report *reads* whatever the group ran -- ``rawdata/sub-<id>`` and the derivatives of
-    each stage it covers (``PreprocessingReportGenerator.scan_for_data``) -- and *writes* one
-    HTML file for that subject. Its config is the group's own ``PreprocessConfig`` narrowed to
-    one subject with every stage flag left as the caller set it (``tit.jobs.plans``), which is
-    exactly the shape :data:`_PRE_STAGE_FLAGS` reads, so the read set is the same stage
-    resources the ``pre`` jobs take for writing.
-
-    Read locks, not write ones: two reports for different subjects, and a report next to an
-    unrelated subject's ``pre`` job, must still run concurrently. The one write is the report's
-    own output, so two reports for the *same* subject serialize instead of racing on one file.
-    Before this, ``keys_for("report", ...)`` returned nothing at all for a per-subject report
-    (`docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)` open issue 1) -- it scanned a subject's derivatives
-    while anything at all could be rewriting them.
-    """
-    stages = [name for flag_key, name in _PRE_STAGE_FLAGS if config.get(flag_key)]
-    requests = [
-        LockRequest(f"subject:{sid}:stage:{stage}", mode="read")
-        for stage in dict.fromkeys(stages)
-    ]
-    requests.append(LockRequest(f"subject:{sid}:bids", mode="read"))
-    requests.append(LockRequest(f"subject:{sid}:m2m", mode="read"))
-    requests.append(LockRequest(f"subject:{sid}:report", mode="write"))
-    return requests
-
-
 def keys_for(
     kind: str, subject_ids: list[str], config: dict[str, Any] | None = None
 ) -> list[LockRequest]:
@@ -442,8 +414,6 @@ def keys_for(
         elif kind == "source":
             requests.append(LockRequest(f"subject:{sid}:forward"))
             requests.append(LockRequest(f"subject:{sid}:m2m", mode="read"))
-        elif kind == "report":
-            requests.extend(_report_requests(sid, config))
 
     if kind == "stats":
         # GroupComparisonConfig / CorrelationConfig (tit/stats/config.py) -- neither carries an
@@ -455,8 +425,5 @@ def keys_for(
         analysis_type = config.get("mode", "group_comparison")
         name = config.get("analysis_name") or "default"
         requests.append(LockRequest(f"project:stats:{analysis_type}/{name}"))
-    elif kind == "report" and config.get("group"):
-        output_dir = config.get("output_dir", "default")
-        requests.append(LockRequest(f"project:group_analysis:{output_dir}"))
 
     return requests

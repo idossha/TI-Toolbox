@@ -4,13 +4,14 @@ title: TI-Toolbox Reports
 permalink: /wiki/reports/
 ---
 
-The TI-Toolbox generates HTML reports that provide detailed documentation of preprocessing and simulation workflows. These professional reports ensure reproducibility, facilitate quality control, and provide publication-ready methodology descriptions.
+The TI-Toolbox generates HTML reports that document head-model, diffusion and simulation workflows. These professional reports ensure reproducibility, facilitate quality control, and provide publication-ready methodology descriptions.
 
 ## Overview
 
-The toolbox produces three types of reports:
+The toolbox produces these reports:
 
-- **Preprocessing Reports**: Document anatomical data processing pipeline for each subject
+- **Head model (charm) report**: SimNIBS's own charm report, copied from `m2m_<id>/charm_report.html` when charm finishes. Check the segmentation and the T1/T2 registration in its viewer. The original stays in m2m.
+- **DTI QC report**: Written by the DTI tensor step (verdict, quality gate, registration check)
 - **Simulation Reports**: Detail transcranial stimulation simulation parameters and results
 - **Flex-Search Reports**: Summarise an electrode-position optimization run (goal, ROI, best montage, convergence)
 
@@ -50,7 +51,8 @@ _Sections: Simulation Overview, Electrode Montages (with the montage visualizer 
 derivatives/ti-toolbox/reports/
 ├── dataset_description.json
 ├── sub-ernie/
-│   ├── pre_processing_report_20260505_193859.html
+│   ├── charm_report.html
+│   ├── dti_qc_20260927_230922.html
 │   ├── simulation_report_20260826_223702.html
 │   └── flex_search_report_20260730_041200.html
 └── sub-101/
@@ -65,7 +67,8 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/documentation/config.json
 
 ### Naming Convention
 
-- **Preprocessing**: `pre_processing_report_{YYYYMMDD}_{HHMMSS}.html`
+- **Head model (charm)**: `charm_report.html` (one per head model; rebuilding the head model replaces it)
+- **DTI QC**: `dti_qc_{YYYYMMDD}_{HHMMSS}.html`
 - **Simulation**: `simulation_report_{YYYYMMDD}_{HHMMSS}.html`
 - **Flex-Search**: `flex_search_report_{YYYYMMDD}_{HHMMSS}.html`
 - Simulation reports are self-contained HTML files. Methods text, references, and machine-readable provenance are embedded in the HTML; no per-report methods/citation/provenance sidecars are written.

@@ -1341,67 +1341,15 @@ def test_pre_group_submits_no_report_job(manager):
     assert [j["kind"] for j in result["jobs"]] == ["pre"]
 
 
-def test_succeeded_pre_job_attaches_the_report_as_an_artifact(manager, monkeypatch):
-    """The consolidated report is built in-process once the subject's last stage job
-    succeeds, and lands on that job's artifact list -- with no job record of its own."""
-    built: list[tuple[str, dict]] = []
-
-    def _fake_build_report(config, subject_id, **_kw):
-        built.append((subject_id, config))
-        return f"/reports/sub-{subject_id}.html"
-
-    monkeypatch.setattr("tit.pre.report.build_report", _fake_build_report)
-
-    result = manager.submit_plan(
-        _pre_group_plan(convert_dicom=True, create_m2m=True, run_tissue_analysis=True)
-    )
+def test_succeeded_pre_group_gets_no_report_from_the_manager(manager):
+    """The combined preprocessing report is gone (docs/dev/DECISIONS.md, 2026-09-28): the
+    manager attaches nothing; the charm and DTI reports come from their own stage jobs."""
+    result = manager.submit_plan(_pre_group_plan(convert_dicom=True, create_m2m=True))
     ids = [j["id"] for j in result["jobs"]]
-    assert len(ids) == 3
-
-    wait_until(
-        lambda: all(
-            manager.get(i)["state"] in ("succeeded", "failed", "skipped") for i in ids
-        )
-    )
-    reports = wait_until(
-        lambda: [
-            a for i in ids for a in manager.get(i)["artifacts"] if a["kind"] == "report"
-        ]
-        or None
-    )
-    # Exactly one report, for one subject, listing every flag the *group* ran -- not the
-    # one-flag-narrowed config of whichever stage job happened to finish last.
-    assert len(reports) == 1
-    assert reports[0]["path"] == "/reports/sub-001.html"
-    assert len(built) == 1
-    subject_id, config = built[0]
-    assert subject_id == "001"
-    assert config.convert_dicom and config.create_m2m and config.run_tissue_analysis
-    assert config.run_fastsurfer is False
-    # ...and every job in the group is still just a `pre` job.
-    assert {manager.get(i)["kind"] for i in ids} == {"pre"}
-
-
-def test_report_failure_never_fails_its_parent_job(manager, monkeypatch):
-    """A report that cannot be built is a warning and a `report_failed` marker on the job's
-    detail pane -- never a failed job."""
-
-    def _boom(config, subject_id, **_kw):
-        raise RuntimeError("no figures on disk")
-
-    monkeypatch.setattr("tit.pre.report.build_report", _boom)
-
-    result = manager.submit_plan(_pre_group_plan(convert_dicom=True))
-    job_id = result["jobs"][0]["id"]
-    wait_until(
-        lambda: manager.get(job_id)["state"] == "succeeded"
-        and [a for a in manager.get(job_id)["artifacts"] if "report" in a["kind"]]
-    )
-    status = manager.get(job_id)
-    assert status["state"] == "succeeded"
-    failed = [a for a in status["artifacts"] if a["kind"] == "report_failed"]
-    assert len(failed) == 1
-    assert "no figures on disk" in failed[0]["label"]
+    wait_until(lambda: all(manager.get(i)["state"] == "succeeded" for i in ids))
+    assert not [a for i in ids for a in manager.get(i)["artifacts"] if "report" in a["kind"]]
+    with pytest.raises(ValueError, match="unknown job kind"):
+        manager.submit("report", {}, ["001"])
 
 
 @pytest.mark.parametrize("overwrite", [False, True])

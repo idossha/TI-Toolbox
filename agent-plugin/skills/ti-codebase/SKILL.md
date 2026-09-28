@@ -83,7 +83,7 @@ v3 application layer
 `simnibs_python -m <module> <spec_path>`.
 
 Kinds: `pre sim flex flex_adaptive flex_pareto ex mex leadfield analyzer stats
-source blender nifti_average nilearn tools project_init report`.
+source blender nifti_average nilearn tools project_init`.
 States: `queued running succeeded failed cancelled skipped lost`.
 
 - **`scheduler.py` is pure.** `evaluate()` takes a snapshot (the candidate job, all

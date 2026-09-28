@@ -2,7 +2,7 @@
 
 ## Overview
 
-A modular, NiPreps-inspired reporting system for TI-Toolbox that generates self-contained HTML reports across preprocessing, simulation, and flex-search modules.
+A modular, NiPreps-inspired reporting system for TI-Toolbox that generates self-contained HTML reports for simulation, flex-search and DTI QC.
 
 **Key Principles:**
 - Reportlet abstraction (reusable visual/content components)
@@ -47,7 +47,7 @@ tit/reporting/
 │
 ├── reportlets/                    # Specialized reportlets
 │   ├── __init__.py
-│   ├── metadata.py                # ConductivityTableReportlet, ProcessingStepReportlet
+│   ├── metadata.py                # ConductivityTableReportlet, SummaryCardsReportlet, ParameterListReportlet
 │   ├── images.py                  # SliceSeriesReportlet, MontageImageReportlet
 │   ├── text.py                    # MethodsBoilerplateReportlet
 │   └── references.py              # TIToolboxReferencesReportlet
@@ -55,7 +55,6 @@ tit/reporting/
 └── generators/                    # Module-specific generators
     ├── __init__.py
     ├── base_generator.py          # BaseReportGenerator ABC
-    ├── preprocessing.py           # PreprocessingReportGenerator
     ├── simulation.py              # SimulationReportGenerator
     ├── flex_search.py             # FlexSearchReportGenerator
     └── dti_qc.py                  # DTI QC report (on html/; python -m rebuilds one)
@@ -65,13 +64,14 @@ tit/reporting/
 
 ## Integration Status
 
-TI-Toolbox keeps five report kinds (docs/dev/DECISIONS.md, 2026-09-28): the FreeSurfer/FastSurfer
-recon report (inside the preprocessing report), DTI QC, flex-search, ex-search and simulator. Reports
-have no PDF export or print layout, no metadata or sidecar files, no cross-links and no index page.
+TI-Toolbox keeps five report kinds (docs/dev/DECISIONS.md, 2026-09-28): SimNIBS's own charm report,
+DTI QC, flex-search, ex-search and simulator. Preprocessing has only the first two; there is no combined
+preprocessing report and no DICOM report. Reports have no PDF export or print layout, no metadata or
+sidecar files, no cross-links and no index page.
 
 | Report kind | Generator | Called from |
 |---|---|---|
-| preprocessing (recon) | `PreprocessingReportGenerator` | `tit/pre/report.py`, `tit/pre/structural.py` |
+| head model (charm) | none: SimNIBS writes `m2m_<id>/charm_report.html`; `copy_charm_report` copies it | `tit/pre/charm.py` (`run_charm`, after charm exits 0) |
 | DTI QC (with the `DTI_coregT1_qc.json` gate) | `generators/dti_qc.py` | `tit/pre/qsi/dti_extractor.py` |
 | flex-search | `FlexSearchReportGenerator` | `tit/opt/flex/builder.py` |
 | ex-search | none yet (the catalog titles `ex_search_report_*`) | — |
@@ -191,32 +191,6 @@ gen.set_best_solution(
 report_path = gen.generate()
 ```
 
-### Preprocessing Report
-
-```python
-from tit.reporting import PreprocessingReportGenerator
-
-gen = PreprocessingReportGenerator(
-    project_dir='/path/to/project',
-    subject_id='001',
-)
-
-gen.add_processing_step(
-    step_name='DICOM Conversion',
-    description='Convert DICOM files to NIfTI format',
-    status='completed',
-)
-
-gen.add_processing_step(
-    step_name='SimNIBS charm',
-    description='Create head mesh model for simulations',
-    status='completed',
-)
-
-gen.scan_for_data()  # Auto-detect input/output files
-report_path = gen.generate()
-```
-
 ---
 
 ## BIDS Output Structure
@@ -228,7 +202,8 @@ project_dir/
         └── reports/
             ├── dataset_description.json
             └── sub-{id}/
-                ├── pre_processing_report_{timestamp}.html
+                ├── charm_report.html
+                ├── dti_qc_{timestamp}.html
                 ├── simulation_report_{timestamp}.html
                 └── flex_search_report_{timestamp}.html
 ```
@@ -278,7 +253,6 @@ from tit.reporting import (
     SliceSeriesReportlet,
     MontageImageReportlet,
     ConductivityTableReportlet,
-    ProcessingStepReportlet,
     MethodsBoilerplateReportlet,
     TIToolboxReferencesReportlet,
     DEFAULT_CONDUCTIVITIES,
@@ -286,9 +260,7 @@ from tit.reporting import (
     # Generators
     SimulationReportGenerator,
     FlexSearchReportGenerator,
-    PreprocessingReportGenerator,
     create_flex_search_report,
-    create_preprocessing_report,
 
     # Constants
     REPORTS_BASE_DIR,

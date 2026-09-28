@@ -6,12 +6,10 @@ TI-Toolbox generates interactive HTML reports for every stage of the pipeline. R
 graph LR
     SIM_DATA([Simulation Data]) --> GEN[Report Generators]
     FLEX_DATA([Flex-Search Results]) --> GEN
-    PRE_DATA([Preprocessing Info]) --> GEN
     GEN --> HTML([HTML Report])
     GEN --> PLOTS([Plots & Figures])
     style SIM_DATA fill:#1a3a5c,stroke:#48a,color:#fff
     style FLEX_DATA fill:#1a3a5c,stroke:#48a,color:#fff
-    style PRE_DATA fill:#1a3a5c,stroke:#48a,color:#fff
     style GEN fill:#2d5a27,stroke:#4a8,color:#fff
     style HTML fill:#1a5c4a,stroke:#4a8,color:#fff
     style PLOTS fill:#1a5c4a,stroke:#4a8,color:#fff
@@ -72,17 +70,11 @@ output_path = generator.generate()
 
 ### Preprocessing Reports
 
-```python
-from tit.reporting import create_preprocessing_report
-
-output_path = create_preprocessing_report(
-    project_dir="/mnt/project",  # container-visible project path
-    subject_id="001",
-    processing_steps=[],  # list of step dicts passed to add_processing_step()
-    output_path=None,     # auto-generates BIDS-compliant path
-    auto_scan=True,       # auto-scan directories for input/output data
-)
-```
+Preprocessing has two reports, neither built here: SimNIBS's own charm report, which
+`tit.pre.charm.run_charm` copies from `m2m_<id>/charm_report.html` into
+`derivatives/ti-toolbox/reports/sub-<id>/charm_report.html` (`copy_charm_report` does it for an existing
+head model), and the DTI QC report the DTI step writes (`python -m tit.reporting.generators.dti_qc
+<project> <subject>` rebuilds one).
 
 ## Custom Reports with Reportlets
 
@@ -133,15 +125,11 @@ assembler.save("/data/output/report.html")
 |-----------|--------|-------------|
 | `SummaryCardsReportlet` | `metadata` | Colored metric cards (mean, max, focality) |
 | `ConductivityTableReportlet` | `metadata` | Tissue conductivity values used in simulation |
-| `ProcessingStepReportlet` | `metadata` | Collapsible pipeline steps with status and duration |
 | `ParameterListReportlet` | `metadata` | Categorized parameter display |
 | `MethodsBoilerplateReportlet` | `text` | Publication-ready methods text with copy button |
-| `DescriptionReportlet` | `text` | Formatted text paragraphs |
-| `CommandLogReportlet` | `text` | Terminal-style command execution log |
 | `TIToolboxReferencesReportlet` | `references` | Citation list filtered by pipeline components |
 | `SliceSeriesReportlet` | `images` | Multi-slice brain views (axial, sagittal, coronal) |
 | `MontageImageReportlet` | `images` | Electrode montage visualization with pair table |
-| `MultiViewBrainReportlet` | `images` | Side-by-side axial/sagittal/coronal brain views |
 
 ## Plotting Utilities
 
@@ -170,7 +158,8 @@ derivatives/ti-toolbox/
 │   ├── sub-001/
 │   │   ├── simulation_report_20250101_120000.html
 │   │   ├── flex_search_report_20250101_120000.html
-│   │   └── pre_processing_report_20250101_120000.html
+│   │   ├── charm_report.html
+│   │   └── dti_qc_20250101_120000.html
 │   └── dataset_description.json
 └── analysis/
     └── ...
@@ -196,15 +185,6 @@ derivatives/ti-toolbox/
       members_order: source
 
 ::: tit.reporting.generators.flex_search.create_flex_search_report
-    options:
-      show_root_heading: true
-
-::: tit.reporting.generators.preprocessing.PreprocessingReportGenerator
-    options:
-      show_root_heading: true
-      members_order: source
-
-::: tit.reporting.generators.preprocessing.create_preprocessing_report
     options:
       show_root_heading: true
 
@@ -259,23 +239,11 @@ derivatives/ti-toolbox/
     options:
       show_root_heading: true
 
-::: tit.reporting.reportlets.metadata.ProcessingStepReportlet
-    options:
-      show_root_heading: true
-
 ::: tit.reporting.reportlets.metadata.ParameterListReportlet
     options:
       show_root_heading: true
 
 ::: tit.reporting.reportlets.text.MethodsBoilerplateReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.text.DescriptionReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.text.CommandLogReportlet
     options:
       show_root_heading: true
 
@@ -288,9 +256,5 @@ derivatives/ti-toolbox/
       show_root_heading: true
 
 ::: tit.reporting.reportlets.images.MontageImageReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.images.MultiViewBrainReportlet
     options:
       show_root_heading: true

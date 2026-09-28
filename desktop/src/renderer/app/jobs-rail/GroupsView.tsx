@@ -29,23 +29,12 @@ function groupJobs(jobs: JobStatus[]): Map<string, Map<string, JobStatus[]>> {
   return groups;
 }
 
-/**
- * The group's representative kind, for the card header ("pre · 2 subjects"). Not simply
- * `all[0]?.kind`: a preprocessing group's stage job and its own trailing "report" job
- * (`tit.jobs.plans.plan_preprocessing`'s final step, every subject gets exactly one) can share the
- * same millisecond `created_at` with no secondary tiebreaker, and `Array.prototype.sort`'s
- * stability only helps when the input order is itself deterministic — observed in practice
- * flipping which one sorts first once enough other jobs exist in the list for a comparator with a
- * `-1`-on-ties bug (`GET /api/jobs`'s mock implementation) to reorder. Counting occurrences and
- * preferring the non-"report" kind sidesteps the ordering question entirely: "report" is always
- * the trailing, incidental stage, never the group's actual work.
- */
+/** The group's representative kind, for the card header ("pre · 2 subjects"): its most common one. */
 function groupSummary(bySubject: Map<string, JobStatus[]>): { kind: string; total: number; running: number; failed: number } {
   const all = [...bySubject.values()].flat();
   const counts = new Map<string, number>();
   for (const j of all) counts.set(j.kind, (counts.get(j.kind) ?? 0) + 1);
-  const candidates = [...counts.entries()].filter(([kind]) => kind !== "report");
-  const [kind] = (candidates.length > 0 ? candidates : [...counts.entries()]).sort((a, b) => b[1] - a[1])[0] ?? ["—"];
+  const [kind] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["—"];
   return {
     kind,
     total: all.length,

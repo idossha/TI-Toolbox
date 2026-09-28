@@ -149,10 +149,6 @@ def main() -> None:
 
             def _logger_callback(msg: str, level: str) -> None:
                 logger.log(getattr(logging, level.upper(), logging.INFO), msg)
-                if msg.startswith("Report generated: "):
-                    events.emit_artifact(
-                        msg[len("Report generated: ") :], kind="report"
-                    )
 
             exit_code = run_pipeline(
                 subject_ids=config.subject_ids,

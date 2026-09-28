@@ -3,8 +3,6 @@
 Tests for tit/pre/structural.py — run_pipeline coverage.
 
 Covers:
-- report generation
-- Report generation loop (lines 432-505)
 - Individual step flags: run_fastsurfer, run_qsiprep, run_qsirecon, extract_dti
 - Runner stop_event reassignment (line 296)
 """
@@ -31,7 +29,6 @@ from tit.pre.preflight import PreprocessingOutput
 from tit.pre.utils import PreprocessError, CommandRunner
 
 STRUCTURAL = "tit.pre.structural"
-REPORTING = "tit.reporting"
 
 
 @pytest.fixture(autouse=True)
@@ -48,41 +45,6 @@ def _stub_bidsignore():
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-class DummyReportGen:
-    """Stand-in for PreprocessingReportGenerator that records calls."""
-
-    instances: list = []
-
-    def __init__(self, project_dir, subject_id):
-        self.project_dir = project_dir
-        self.subject_id = subject_id
-        self.steps = []
-        self.scanned = False
-        self.generated = False
-        DummyReportGen.instances.append(self)
-
-    def add_processing_step(self, **kwargs):
-        self.steps.append(kwargs)
-
-    def scan_for_data(self):
-        self.scanned = True
-
-    def generate(self):
-        self.generated = True
-        return f"/proj/report_{self.subject_id}.html"
-
-    @classmethod
-    def reset(cls):
-        cls.instances = []
-
-
-@pytest.fixture
-def dummy_report():
-    """Reset DummyReportGen instance tracker before each test."""
-    DummyReportGen.reset()
-    return DummyReportGen
 
 
 @pytest.fixture
@@ -321,135 +283,26 @@ class TestRunSubjectPipeline:
 
 
 # ---------------------------------------------------------------------------
-# run_pipeline — report generation (lines 432-505)
+# run_pipeline — per-run scaffolding
 # ---------------------------------------------------------------------------
 
 
-class TestRunPipelineReports:
-    """Tests for report generation at the end of run_pipeline."""
-
+class TestRunPipelineScaffolding:
     @patch(f"{STRUCTURAL}._run_subject_pipeline")
     @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
     @patch(f"{STRUCTURAL}.ensure_subject_dirs")
     @patch(f"{STRUCTURAL}.get_path_manager")
     def test_scaffolds_bidsignore_once_per_run(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
+        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub
     ):
         """CT output needs .bidsignore, so the pipeline must write it."""
         from tit.pre import structural
 
-        # Stub the report generator like the tests below: the mocked path
-        # manager makes the project root a MagicMock, and the real generator
-        # would write its HTML into a literal MagicMock/ tree in the repo.
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline(["001", "002"], convert_dicom=True, runner=_make_runner())
+        result = run_pipeline(["001", "002"], convert_dicom=True, runner=_make_runner())
 
-        structural.ensure_bidsignore.assert_called_once()
-
-    @patch(f"{STRUCTURAL}._run_subject_pipeline")
-    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
-    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
-    @patch(f"{STRUCTURAL}.get_path_manager")
-    def test_report_generated_for_each_subject(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
-    ):
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            result = run_pipeline(
-                ["001", "002"],
-                convert_dicom=True,
-                runner=_make_runner(),
-            )
         assert result == 0
-        assert len(dummy_report.instances) == 2
-        assert all(inst.generated for inst in dummy_report.instances)
-        assert all(inst.scanned for inst in dummy_report.instances)
-
-    @patch(f"{STRUCTURAL}._run_subject_pipeline")
-    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
-    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
-    @patch(f"{STRUCTURAL}.get_path_manager")
-    def test_report_includes_dicom_step(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
-    ):
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline(["001"], convert_dicom=True, runner=_make_runner())
-        step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
-        assert "DICOM Conversion" in step_names
-
-    @patch(f"{STRUCTURAL}._run_subject_pipeline")
-    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
-    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
-    @patch(f"{STRUCTURAL}.get_path_manager")
-    def test_report_marks_skipped_step(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
-    ):
-        mock_run_sub.return_value = {"DICOM Conversion": None}
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline(["001"], convert_dicom=True, runner=_make_runner())
-
-        step = dummy_report.instances[0].steps[0]
-        assert step["step_name"] == "DICOM Conversion"
-        assert step["status"] == "skipped"
-
-    @patch(f"{STRUCTURAL}._run_subject_pipeline")
-    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
-    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
-    @patch(f"{STRUCTURAL}.get_path_manager")
-    def test_report_includes_charm_steps(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
-    ):
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline(["001"], create_m2m=True, runner=_make_runner())
-        step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
-        assert "SimNIBS charm" in step_names
-        assert "Subject Atlas Segmentation" in step_names
-
-    @patch(f"{STRUCTURAL}._run_subject_pipeline")
-    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
-    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
-    @patch(f"{STRUCTURAL}.get_path_manager")
-    def test_report_includes_all_steps(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
-    ):
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline(
-                ["001"],
-                convert_dicom=True,
-                create_m2m=True,
-                run_fastsurfer=True,
-                run_tissue_analysis=True,
-                run_qsiprep=True,
-                run_qsirecon=True,
-                extract_dti=True,
-                runner=_make_runner(),
-            )
-        step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
-        assert "DICOM Conversion" in step_names
-        assert "SimNIBS charm" in step_names
-        assert "Subject Atlas Segmentation" in step_names
-        assert "FastSurfer segmentation" in step_names
-        assert "Tissue Analysis" in step_names
-        assert "QSIPrep" in step_names
-        assert "QSIRecon" in step_names
-        assert "DTI Tensor Extraction" in step_names
-
-    @patch(f"{STRUCTURAL}._run_subject_pipeline")
-    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
-    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
-    @patch(f"{STRUCTURAL}.get_path_manager")
-    def test_report_logger_callback_called(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
-    ):
-        callback = MagicMock()
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline(
-                ["001"],
-                convert_dicom=True,
-                runner=_make_runner(),
-                logger_callback=callback,
-            )
-        callback.assert_called_once()
-        assert "Report generated" in callback.call_args[0][0]
+        assert mock_run_sub.call_count == 2
+        structural.ensure_bidsignore.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -465,19 +318,18 @@ class TestRunPipelineRunnerStopEvent:
     @patch(f"{STRUCTURAL}.ensure_subject_dirs")
     @patch(f"{STRUCTURAL}.get_path_manager")
     def test_stop_event_reassigned_to_runner(
-        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
+        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub
     ):
         runner = MagicMock(spec=CommandRunner)
         runner.stop_event = MagicMock()
         new_stop = MagicMock()
 
-        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline(
-                ["001"],
-                convert_dicom=True,
-                runner=runner,
-                stop_event=new_stop,
-            )
+        run_pipeline(
+            ["001"],
+            convert_dicom=True,
+            runner=runner,
+            stop_event=new_stop,
+        )
         assert runner.stop_event is new_stop
 
 

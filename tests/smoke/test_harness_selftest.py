@@ -164,16 +164,16 @@ def test_claim_produced_takes_a_file_this_run_wrote_out_of_a_shared_directory(tm
     """A report written beside the maintainer's own reports must still be cleaned up."""
     shared = tmp_path / "reports" / "sub-102"
     shared.mkdir(parents=True)
-    theirs = shared / "pre_processing_report_20260403.html"
+    theirs = shared / "dti_qc_20260403_120000.html"
     theirs.write_text("the maintainer's report")
     os.utime(theirs, (1000.0, 1000.0))
-    ours = shared / "pre_processing_report_20260903.html"
+    ours = shared / "dti_qc_20260903_120000.html"
     ours.write_text("this run's report")
 
     manifest = Manifest(container_root="/mnt/000", host_root=str(tmp_path))
     since = os.path.getmtime(ours) - 1
-    assert manifest.claim_produced("row", "/mnt/000/reports/sub-102/pre_processing_report_20260903.html", since)
-    assert manifest.claim_produced("row", "/mnt/000/reports/sub-102/pre_processing_report_20260403.html", since) is None
+    assert manifest.claim_produced("row", "/mnt/000/reports/sub-102/dti_qc_20260903_120000.html", since)
+    assert manifest.claim_produced("row", "/mnt/000/reports/sub-102/dti_qc_20260403_120000.html", since) is None
 
     manifest.remove_created()
     assert theirs.exists(), "a file older than the job must never be claimed as produced"
@@ -409,12 +409,11 @@ def _job_kinds_from_source() -> set[str]:
 def test_every_job_kind_the_server_accepts_has_a_smoke_row():
     """The `report` failure class: a kind that is planned and submittable but never run.
 
-    Exemptions are named, not implied: `report` is only ever the trailing job of a `pre` group
-    (covered by row pre_report), and flex_adaptive/flex_pareto are the same runner as `flex`
+    Exemptions are named, not implied: flex_adaptive/flex_pareto are the same runner as `flex`
     with one config field changed.
     """
     covered = {r.kind for r in ROWS}
-    exempt = {"report", "flex_adaptive", "flex_pareto"}
+    exempt = {"flex_adaptive", "flex_pareto"}
     known = _job_kinds_from_source() - exempt
     assert known, "no job kinds parsed out of tit/jobs/spec.py"
     assert not (known - covered), f"job kinds with no smoke row: {sorted(known - covered)}"

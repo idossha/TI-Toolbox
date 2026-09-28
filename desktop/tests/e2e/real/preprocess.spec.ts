@@ -10,7 +10,6 @@ import {
   launchElectronApp,
   PROJECT_HOST_ROOT,
   recordPayload,
-  getJobStatus,
   waitForJobTerminal,
   waitForJobTrace,
   type JobStatusLite,
@@ -250,21 +249,6 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
     console.log(
       `real/preprocess: job ${jobId} kind=pre subject=102 stage=dicom state=${finalJob.state} artifacts=${finalJob.artifacts?.length ?? 0} run=${RUN_ID}`,
     );
-
-    // No trailing `report` job exists to wait for any more: the consolidated report is attached
-    // by the server after the job succeeded (JobManager._attach_pre_report), so it is written
-    // *after* the job reached its terminal state. Wait for it to land on the job's own artifact
-    // list before `finally` reads the reports directory — reading it mid-write is exactly how a
-    // run's own report file escaped the mtime cleanup once (found on this test's first real run).
-    await expect
-      .poll(
-        async () => {
-          const j = await getJobStatus(SERVER_URL, TOKEN, jobId);
-          return (j?.artifacts ?? []).some((a) => a.kind === "report" || a.kind === "report_failed");
-        },
-        { timeout: 30_000 },
-      )
-      .toBe(true);
   } finally {
     // The two whole-directory claims: the pre-flight check already proved neither pre-existed, so
     // removing them here (whether the run above succeeded or threw) cannot destroy real data

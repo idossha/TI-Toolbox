@@ -33,9 +33,9 @@ and the live-monitoring behaviour v3 is adding, not replacing.
 2. ~~**The mock's `/api/jobs/groups` creates one job per subject, not a per-stage DAG.**~~
    **Resolved** — `desktop/tests/mock-server/server.mjs`'s `POST /api/jobs/groups` now mirrors
    `tit.jobs.plans.plan_preprocessing`'s `G1={dicom} → G2a={create_m2m} → G2b={recon} → G3={tissue}
-   → G4={qsiprep} → G5={qsirecon} → G6={dti} → report` stage DAG (only a stage whose
-   `PreprocessConfig` flag is set gets planned, chained by `after`, one trailing `"report"` job per
-   subject), several `JobStatus` rows per subject sharing one `group_id` — exactly what
+   → G4={qsiprep} → G5={qsirecon} → G6={dti}` stage DAG (only a stage whose
+   `PreprocessConfig` flag is set gets planned, chained by `after`; a report is never a job),
+   several `JobStatus` rows per subject sharing one `group_id` — exactly what
    `GroupsView.tsx` was already built to render. `tests/e2e/jobs.spec.ts`'s "shows a job group"
    test was still submitting `config: {}` (the old shape's zero-flags-needed assumption, which now
    plans zero stages and creates zero jobs) — updated to set `convert_dicom: true` so the group has

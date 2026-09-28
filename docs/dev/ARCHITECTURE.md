@@ -587,7 +587,7 @@ simulation first", "analyze in mesh space instead"). A `pre` group is checked wi
 group's flags, not per stage, because an early stage supplies what a later one needs. The
 desktop turns the body into one persistent notice, one line per input (`notifySubmitError`,
 `notify.blocked`); `ApiError.missing` carries the list. Kinds with nothing on disk to check
-(`project_init`, `report`, `tools`, whose arguments are jailed separately) return nothing.
+(`project_init`, `tools`, whose arguments are jailed separately) return nothing.
 
 Sources: [`preflight.py`](../../tit/jobs/preflight.py), [`jobs.py`](../../tit/server/routes/jobs.py),
 [`client.ts`](../../desktop/src/renderer/api/client.ts), [`Toast.tsx`](../../desktop/src/renderer/ui/Toast.tsx).
@@ -846,10 +846,20 @@ it; the DTI QC report is the first and only adopter, and the other generators st
 `tit/reporting/core` until they are ported. A report inside the desktop app follows the app's theme:
 the Results iframe no longer pins `color-scheme`.
 
-**Five report kinds, nothing around them.** TI-Toolbox writes the preprocessing report (home of the
-FreeSurfer/FastSurfer recon report), the DTI QC report, and flex-search, ex-search and simulator
-reports; `tit.catalog` titles only those kinds. A report is one HTML file: no PDF export or print
-stylesheet, no metadata or sidecar file, no links to other reports and no index page.
+**Five report kinds, nothing around them.** Preprocessing has two: SimNIBS's own charm report and the
+DTI QC report. The rest are flex-search, ex-search and simulator reports; `tit.catalog` titles only those
+kinds ("Head model (charm) report" for `charm_report`). A report is one HTML file: no PDF export or print
+stylesheet, no metadata or sidecar file, no links to other reports and no index page. There is no combined
+preprocessing report and no DICOM, atlas, tissue, QSIPrep, QSIRecon or FreeSurfer report.
+
+**The charm report is SimNIBS's, copied.** When `charm` exits 0, `tit.pre.charm.copy_charm_report` copies
+`m2m_<id>/charm_report.html` to `derivatives/ti-toolbox/reports/sub-<id>/charm_report.html` (overwriting
+the copy of an earlier head model) and records it as a `report` artifact of the charm job. It copies
+rather than moves because SimNIBS and users expect the file in m2m. The file is self-contained (inline
+CSS and scripts, every image a `data:image/webp` URI; the only links are to the SimNIBS site and
+two papers), so the one file is the whole report and the report CSP (`script-src 'unsafe-inline';
+style-src 'unsafe-inline'; img-src data:`) shows it unchanged. A missing or uncopyable report is a
+warning and never fails the head model. `charm_log.html` stays in m2m; the report does not link to it.
 
 **QC rules live in one dict, with a role and a citation.** `tit/reporting/qc_rules.py` `RULES[section]`
 gives every check its rule, value, unit, role, citations (DOIs in the reference registry), note and one
@@ -878,6 +888,7 @@ coordinates are approximate and captions say so.
 
 Sources: [`tit/reporting/html/`](../../tit/reporting/html/), [`qc_rules.py`](../../tit/reporting/qc_rules.py),
 [`generators/dti_qc.py`](../../tit/reporting/generators/dti_qc.py), [`plotting/slices.py`](../../tit/plotting/slices.py),
-[`plotting/dti_qc.py`](../../tit/plotting/dti_qc.py), [`pre/qsi/dti_advisories.py`](../../tit/pre/qsi/dti_advisories.py).
-Verified by `tests/test_reporting_dti_qc.py`, `tests/test_plotting_slices.py`,
+[`plotting/dti_qc.py`](../../tit/plotting/dti_qc.py), [`pre/qsi/dti_advisories.py`](../../tit/pre/qsi/dti_advisories.py),
+[`pre/charm.py`](../../tit/pre/charm.py).
+Verified by `tests/test_reporting_dti_qc.py`, `tests/test_pre_charm.py`, `tests/test_plotting_slices.py`,
 `tests/numerical/test_dti_advisories.py` and `desktop/tests/unit/cssRules.test.ts`.

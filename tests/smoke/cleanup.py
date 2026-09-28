@@ -97,9 +97,8 @@ class Manifest:
         """Claim a file the job *reported producing*, so it can be cleaned out of a shared dir.
 
         Some outputs land in a directory that legitimately pre-exists and is shared with the
-        maintainer's own data -- a preprocessing report goes to
-        ``derivatives/ti-toolbox/reports/sub-<id>/pre_processing_report_<timestamp>.html``
-        beside every earlier report. Claiming the *directory* would either delete their reports
+        maintainer's own data -- a report goes to
+        ``derivatives/ti-toolbox/reports/sub-<id>/`` beside every earlier report. Claiming the *directory* would either delete their reports
         or (because the directory pre-exists) delete nothing, which is how three smoke reports
         accumulated there on 2026-09-03 before this method existed.
 

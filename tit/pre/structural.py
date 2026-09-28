@@ -142,15 +142,6 @@ def _should_run_output_step(
     )
 
 
-def _report_status(durations: dict[str, float | None], step_name: str) -> str:
-    """Return the report status for a selected step."""
-    return (
-        "skipped"
-        if step_name in durations and durations[step_name] is None
-        else "completed"
-    )
-
-
 def _format_input_problems(problems) -> str:
     lines = ["Missing required preprocessing inputs:"]
     for problem in problems:
@@ -667,11 +658,6 @@ def _run_pipeline_inner(
 
     _install_sigterm_handler(runner)
 
-    # Collect step durations per subject for reporting
-    all_durations: dict[str, dict[str, float | None]] = {
-        sid: {} for sid in subject_list
-    }
-
     common = dict(
         charm_threads=charm_threads,
         charm_options=charm_options,
@@ -693,7 +679,7 @@ def _run_pipeline_inner(
     # is the job scheduler's memory-budgeted decision (tit.jobs), not a
     # thread pool inside this loop.
     for sid in subject_list:
-        d = _run_subject_pipeline(
+        _run_subject_pipeline(
             project_dir,
             sid,
             convert_dicom=convert_dicom,
@@ -705,91 +691,5 @@ def _run_pipeline_inner(
             extract_dti_step=extract_dti,
             **common,
         )
-        all_durations[sid].update(d)
-
-    # Generate HTML reports for each subject
-    from tit.reporting import PreprocessingReportGenerator
-
-    for sid in subject_list:
-        report_gen = PreprocessingReportGenerator(
-            project_dir=project_dir,
-            subject_id=sid,
-        )
-        durations = all_durations[sid]
-
-        if convert_dicom:
-            report_gen.add_processing_step(
-                step_name="DICOM Conversion",
-                description="Convert DICOM files to NIfTI format",
-                status=_report_status(durations, "DICOM Conversion"),
-                duration=durations.get("DICOM Conversion"),
-            )
-
-        if create_m2m:
-            report_gen.add_processing_step(
-                step_name="SimNIBS charm",
-                description="Create head mesh model for simulations",
-                status=_report_status(durations, "SimNIBS charm"),
-                duration=durations.get("SimNIBS charm"),
-            )
-            report_gen.add_processing_step(
-                step_name="Subject Atlas Segmentation",
-                description="Generate atlas-based parcellation",
-                status=_report_status(durations, "Subject Atlas Segmentation"),
-                duration=durations.get("Subject Atlas Segmentation"),
-            )
-
-        if run_fastsurfer:
-            report_gen.add_processing_step(
-                step_name="FastSurfer segmentation",
-                description="Deep-learning cortical and subcortical parcellation",
-                status=_report_status(durations, "FastSurfer segmentation"),
-                duration=durations.get("FastSurfer segmentation"),
-            )
-
-        if run_freesurfer:
-            report_gen.add_processing_step(
-                step_name="FreeSurfer",
-                description="Selected reconstruction and subregion steps",
-                status=_report_status(durations, "FreeSurfer"),
-                duration=durations.get("FreeSurfer"),
-            )
-
-        if run_tissue_analysis:
-            report_gen.add_processing_step(
-                step_name="Tissue Analysis",
-                description="Tissue segmentation and analysis",
-                status=_report_status(durations, "Tissue Analysis"),
-                duration=durations.get("Tissue Analysis"),
-            )
-
-        if run_qsiprep:
-            report_gen.add_processing_step(
-                step_name="QSIPrep",
-                description="Diffusion MRI preprocessing",
-                status=_report_status(durations, "QSIPrep"),
-                duration=durations.get("QSIPrep"),
-            )
-
-        if run_qsirecon:
-            report_gen.add_processing_step(
-                step_name="QSIRecon",
-                description="Diffusion MRI reconstruction",
-                status=_report_status(durations, "QSIRecon"),
-                duration=durations.get("QSIRecon"),
-            )
-
-        if extract_dti:
-            report_gen.add_processing_step(
-                step_name="DTI Tensor Extraction",
-                description="Extract DTI tensors for anisotropic conductivity",
-                status=_report_status(durations, "DTI Tensor Extraction"),
-                duration=durations.get("DTI Tensor Extraction"),
-            )
-
-        report_gen.scan_for_data()
-        report_path = report_gen.generate()
-        if logger_callback:
-            logger_callback(f"Report generated: {report_path}", "info")
 
     return 0

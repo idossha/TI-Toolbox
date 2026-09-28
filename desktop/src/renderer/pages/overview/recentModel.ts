@@ -26,7 +26,6 @@ export const RESULTS_KINDS = new Set([
   "mex",
   "analyzer",
   "stats",
-  "report",
 ]);
 
 export type RecentJobDestination =

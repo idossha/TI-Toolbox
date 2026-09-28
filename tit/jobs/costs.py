@@ -31,7 +31,6 @@ DEFAULT_COSTS: dict[str, Cost] = {
     "nifti_average": Cost(cpus=1, mem_gb=2),
     "nilearn": Cost(cpus=1, mem_gb=2),
     "tools": Cost(cpus=1, mem_gb=1),
-    "report": Cost(cpus=1, mem_gb=2),
 }
 
 _FALLBACK = Cost(cpus=1, mem_gb=2)

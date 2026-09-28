@@ -175,7 +175,7 @@ from a script. Python-level usage is in the `ti-scripting` skill.
 ## Jobs, and what a failure means
 
 Kinds: `pre sim flex flex_adaptive flex_pareto ex mex leadfield analyzer stats
-source blender nifti_average nilearn tools project_init report`.
+source blender nifti_average nilearn tools project_init`.
 States: `queued running succeeded failed cancelled skipped lost`.
 Failure `error.type` values and the wording the UI shows:
 
