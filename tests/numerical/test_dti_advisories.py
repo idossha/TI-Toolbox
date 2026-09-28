@@ -198,5 +198,5 @@ def test_phantom_report_is_under_budget(tmp_path):
           "metrics": {"fa_bins": np.linspace(0, 1, 51).tolist(), "md_bins": np.linspace(0, 3e-3, 61).tolist(),
                       "tissue": tissue_stats(fa, md, labels[labels > 0])}}
     html = gen.build_html(qc, images, "phantom")
-    assert "Passed all 6 blocking checks" in html
+    assert "Quality gate passed" in html
     assert len(html.encode()) < gen.SIZE_BUDGET

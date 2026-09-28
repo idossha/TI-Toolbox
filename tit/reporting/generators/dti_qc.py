@@ -194,6 +194,7 @@ def build_html(
     images: dict,
     subject_id: str,
     generated: datetime | None = None,
+    tensor_written: datetime | None = None,
 ) -> str:
     """The whole report from the QC record and the rendered images (no file access)."""
     import tit
@@ -640,12 +641,18 @@ def build_html(
     )
     tech += c.details("Reproducibility", repro, "versions, input hashes, the QC record")
 
+    if not passed:
+        tensor = ("Tensor", "<b>not written</b>")
+    elif tensor_written:
+        tensor = ("Tensor written", tensor_written.strftime(_STAMP))
+    else:
+        tensor = ("Tensor", "written")
     masthead = c.masthead(
         "Diffusion tensor quality control",
         f"sub-{subject_id}",
         [
             ("Subject", sid),
-            ("Tensor", "written" if passed else "<b>not written</b>"),
+            tensor,
             ("QSIPrep", esc(str(q.get("version") or "—"))),
             ("Report", generated.strftime(_STAMP)),
         ],
@@ -693,11 +700,18 @@ def create_dti_qc_report(
     Written to ``derivatives/ti-toolbox/reports/sub-<id>/dti_qc_<timestamp>.html`` unless *out_dir*
     is given. Works for a failed gate too: *vols* holds the tensor that was computed but not written.
     """
+    from tit import constants as const
     from tit.paths import get_path_manager
     from tit.plotting.dti_qc import render_all
 
     t0 = time.time()
-    html = build_html(qc, render_all(vols), subject_id)
+    written = None
+    if not qc.get("failures"):
+        m2m = Path(get_path_manager(str(project_dir)).m2m(subject_id))
+        tensor = m2m / const.FILE_DTI_TENSOR
+        if tensor.is_file():
+            written = datetime.fromtimestamp(tensor.stat().st_mtime)
+    html = build_html(qc, render_all(vols), subject_id, tensor_written=written)
     out = (
         Path(out_dir)
         if out_dir

@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict
+from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -167,9 +168,10 @@ class TestChecks:
         assert "White-matter diffusivity" in gate_table and "Transform agreement" not in gate_table
         assert all_checks.count('class="role internal"') == 5
 
-    def test_passing_record_verdict_and_callouts(self):
-        html = gen.build_html(_record(), _images(), "X")
-        assert "Passed all 6 blocking checks, 2 advisories need attention" in html
+    def test_passing_record_verdict_callouts_and_tensor_date(self):
+        html = gen.build_html(_record(), _images(), "X", tensor_written=datetime(2026, 9, 27, 14, 3))
+        assert '<h2 id="verdict-h">Quality gate passed · 2 advisories need attention</h2>' in html
+        assert "<dt>Tensor written</dt><dd>2026-09-27 14:03</dd>" in html
         verdict = html.split('id="verdict"')[1].split("</section>")[0]
         assert "No susceptibility distortion correction." in verdict and "sub-X_acq-dwi_dir-PA_epi.nii.gz" in verdict
 
@@ -178,16 +180,21 @@ class TestChecks:
         record["metrics"]["residual_shift"] = {"Frontal (y > 30)": {"n": 1, "corr0": 0.6, "best_ap_mm": 0.0, "best_si_mm": 1.0, "gain": 0.0}}
         record["advisories"] = adv.advisories(record["metrics"], record["sdc"], record["motion"], record["acquisition"], 0.36)
         html = gen.build_html(record, _images(), "X")
-        assert "Passed all 6 blocking checks" in html and "need attention" not in html
+        assert '<h2 id="verdict-h">Quality gate passed</h2>' in html and "need attention" not in html
         assert 'class="callout' not in html.split('id="verdict"')[1].split("</section>")[0]
 
-    def test_failing_record_renders_failed_verdict_and_opens_the_checks(self):
+    def test_failing_record_names_the_failed_checks_and_opens_them(self):
         record = _record({"ncc_chain": 0.5, "n_out_of_brain": 3})
         assert record["failures"] == ["ncc_chain", "n_out_of_brain"]
         html = gen.build_html(record, _images(), "X")
-        assert "Failed 2 of 6 blocking checks — tensor not written" in html
+        assert "Software checks failed: Registration to the head model, Tensors outside the brain — tensor not written" in html
+        assert "<dt>Tensor</dt><dd><b>not written</b></dd>" in html
         assert '<details class="raw" open><summary>All checks' in html
         assert _row_statuses(_tables(html)[1])[:5] == ["fail", "pass", "pass", "pass", "fail"]
+
+    def test_failed_gate_is_named_as_the_quality_gate(self):
+        html = gen.build_html(_record({"wm_md_median": 2.0e-3}), _images(), "X")
+        assert "Quality gate failed: White-matter diffusivity — tensor not written" in html
 
     def test_row_status_comes_from_failures_not_from_the_value(self):
         record = _record()
@@ -260,7 +267,7 @@ class TestReportFile:
         with patch("tit.plotting.dti_qc.render_all", return_value=_images()):
             path = gen.create_dti_qc_report(tmp_path, "X", _record({"pct_pd": 50.0}), vols=None, out_dir=tmp_path / "out")
         assert path.parent == tmp_path / "out" and path.name.startswith("dti_qc_")
-        assert "Failed 1 of 6 blocking checks" in path.read_text()
+        assert "Software check failed: Positive-definite tensors" in path.read_text()
 
 
 # ── extract_dti_tensor: QC record and report before the raise ────────────

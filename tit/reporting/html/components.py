@@ -551,22 +551,27 @@ def gate_status(check_id: str, failures: list[str]) -> str:
 
 
 def verdict(checks: list[Check], consequence: str = "") -> tuple[str, str]:
-    """``(seal kind, headline)``: fail if a blocking check failed, else warn if an advisory needs attention."""
-    blocking = [c for c in checks if c.blocking]
-    n_fail = sum(c.status == "fail" for c in blocking)
-    n_act = sum(c.role == "advisory" and c.status in ("warn", "fail") for c in checks)
-    if n_fail:
-        return "fail", f"Failed {n_fail} of {len(blocking)} blocking checks" + (
-            f" — {consequence}" if consequence else ""
-        )
-    tail = (
-        f", {n_act} {'advisory needs' if n_act == 1 else 'advisories need'} attention"
-        if n_act
-        else ""
-    )
+    """``(seal kind, headline)`` in what the page shows: the quality gate, the failed checks by name,
+    and how many advisories need attention. Software checks are named only when one failed.
+    """
+    failed = [c for c in checks if c.blocking and c.status == "fail"]
+    if failed:
+        parts = []
+        for role, word in (("gate", "quality gate"), ("internal", "software check")):
+            names = [c.label for c in failed if c.role == role]
+            if names:
+                plural = "s" if len(names) > 1 else ""
+                parts.append(f"{word}{plural} failed: {', '.join(names)}")
+        head = "; ".join(parts)
+        tail = f" — {consequence}" if consequence else ""
+        return "fail", head[0].upper() + head[1:] + tail
+    n = sum(c.role == "advisory" and c.status in ("warn", "fail") for c in checks)
+    if not n:
+        return "pass", "Quality gate passed"
     return (
-        "warn" if n_act else "pass"
-    ), f"Passed all {len(blocking)} blocking checks{tail}"
+        "warn",
+        f"Quality gate passed · {n} {'advisory needs' if n == 1 else 'advisories need'} attention",
+    )
 
 
 def checks_table(
