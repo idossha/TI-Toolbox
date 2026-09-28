@@ -22,10 +22,8 @@ Specialized reportlets
     MethodsBoilerplateReportlet,
     TIToolboxReferencesReportlet
 Generators
-    BaseReportGenerator,
-    FlexSearchReportGenerator
+    BaseReportGenerator
 Convenience functions
-    create_flex_search_report,
     get_default_references, get_reference_by_key
 
 See Also
@@ -80,9 +78,6 @@ from .generators import (
     BaseReportGenerator,
     BIDS_VERSION,
     REPORTS_BASE_DIR,
-    # Flex-search
-    FlexSearchReportGenerator,
-    create_flex_search_report,
 )
 
 __all__ = [
@@ -119,6 +114,4 @@ __all__ = [
     "BaseReportGenerator",
     "BIDS_VERSION",
     "REPORTS_BASE_DIR",
-    "FlexSearchReportGenerator",
-    "create_flex_search_report",
 ]

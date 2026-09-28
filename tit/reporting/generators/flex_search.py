@@ -1,752 +1,662 @@
-"""
-Flex-search optimization report generator for TI-Toolbox.
+"""Flex-search report: one self-contained HTML record per flex-search run.
 
-This module provides a report generator for electrode placement
-optimization results from the flex-search algorithm.
+Built on :mod:`tit.reporting.html.components` (ARCHITECTURE.md §14). Everything is read from the
+run folder: ``flex_meta.json`` (goal, ROI, currents, electrode, every restart's value),
+``candidate_history/NN/`` (the accepted candidate's ROI and background means and currents, and
+the manifest's metric definitions), ``electrode_positions.json``, the ROI confirmation
+(``roi.tetravox.json``) and the final per-channel simulations. Rules come from
+``tit.reporting.qc_rules.RULES["opt"]``; the current check and the restart count are advisories.
+
+Flex electrodes sit at free scalp positions. The cap figure is the app's EEG-cap overlay with each
+electrode drawn at its nearest cap position (listed with the distance), for orientation only.
+
+``tit.opt.flex`` writes one when a run finishes. Rebuild one (nothing is re-optimised)::
+
+    simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run folder> [--out DIR]
 """
 
+from __future__ import annotations
+
+import argparse
+import csv
 import json
+import logging
+import re
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
-from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet, TextReportlet
-from ..reportlets.images import MontageImageReportlet
-from ..reportlets.metadata import SummaryCardsReportlet, ParameterListReportlet
-from .base_generator import BaseReportGenerator
+from tit.reporting.generators import common
+from tit.reporting.generators.common import fmt
+from tit.reporting.generators.simulation import parse_fields_summary
+from tit.reporting.html import components as c
+from tit.reporting.html.components import Check, esc
+from tit.reporting.qc_rules import RULES
+
+logger = logging.getLogger(__name__)
+
+REPORT_PREFIX = "flex_search_report"
+SIZE_BUDGET = 1_000_000
+#: The cap layout used to place free electrodes when the run names no net.
+DEFAULT_NET = "EEG10-10_UI_Jurak_2007.csv"
+
+_POSTPROC = {
+    "max_TI": "the TI envelope in its strongest direction",
+    "dir_TI_normal": "the TI envelope normal to the cortex",
+    "dir_TI_tangential": "the TI envelope tangential to the cortex",
+}
 
 
-class FlexSearchReportGenerator(BaseReportGenerator):
+_BACKGROUND = {
+    "everything_else": "everything outside the target, in the optimised tissue",
+    "specific": "a second region you chose",
+}
+_METRIC = {
+    "roi_mean": "Target mean",
+    "roi_p99_9": "Target 99.9th pct",
+    "non_roi_mean": "Background mean",
+    "non_roi_p95": "Background 95th pct",
+    "target_background_ratio": "Target ÷ background",
+}
+
+
+def goal_words(meta: dict) -> tuple[str, str, float]:
+    """``(what the goal maximises, what the score means, the score as a user reads it)``.
+
+    The optimiser minimises, so every score is the negative of the quantity it maximises.
     """
-    Report generator for flex-search optimization results.
-
-    Creates comprehensive HTML reports including:
-    - Optimization configuration
-    - Target ROI specification
-    - Search results and rankings
-    - Best solution details
-    - Visualization of optimal electrode placement
-    """
-
-    def __init__(
-        self,
-        project_dir: str | Path,
-        subject_id: str,
-        session_id: str | None = None,
-    ):
-        """
-        Initialize the flex-search report generator.
-
-        Args:
-            project_dir: Path to the project directory
-            subject_id: BIDS subject ID
-            session_id: Optional session identifier
-        """
-        super().__init__(
-            project_dir=project_dir,
-            subject_id=subject_id,
-            session_id=session_id,
-            report_type="flex-search",
+    goal, v = meta.get("goal"), -float(meta["result"]["best_value"])
+    w = float(meta.get("intensity_weight") or 0.0)
+    if goal == "mean":
+        return "the mean field in the target", f"mean target field {v:.3f} V/m", v
+    if goal == "max":
+        return (
+            "the peak (99.9th percentile) field in the target",
+            f"peak target field {v:.3f} V/m",
+            v,
         )
+    if goal == "focality":
+        return (
+            "focality by SimNIBS's threshold-based ROC measure",
+            f"ROC focality score {v:.2f} (100 × (√2 − ROC distance); higher is more focal)",
+            v,
+        )
+    power = "" if not w else f"<sup>{1 + w:g}</sup>"
+    return (
+        "the target's mean field relative to everywhere else",
+        f"target mean{power} {v:.2f}× the background mean",
+        v,
+    )
 
-        # Flex-search specific data
-        self.config: dict[str, Any] = {}
-        self.roi_info: dict[str, Any] = {}
-        self.search_results: list[dict[str, Any]] = []
-        self.best_solution: dict[str, Any] | None = None
-        self.optimization_metrics: dict[str, Any] = {}
 
-    def _get_default_title(self) -> str:
-        return f"Flex-Search Optimization Report - Subject {self.subject_id}"
+def _best_rows(run_dir: Path) -> list[dict]:
+    """Per restart: the accepted candidate's row (``candidates.csv``) plus its manifest."""
+    out = []
+    for hist in sorted((run_dir / "candidate_history").glob("*")):
+        manifest = (
+            json.loads((hist / "candidate_manifest.json").read_text())
+            if (hist / "candidate_manifest.json").is_file()
+            else {}
+        )
+        row = {}
+        if (hist / "candidates.csv").is_file():
+            accepted = manifest.get("accepted_candidate_id")
+            for r in csv.DictReader((hist / "candidates.csv").open()):
+                if r["candidate_id"] == accepted or (
+                    not accepted
+                    and (not row or float(r["objective"]) < float(row["objective"]))
+                ):
+                    row = r
+        out.append({"restart": hist.name, "row": row, "manifest": manifest})
+    return out
 
-    def _get_report_prefix(self) -> str:
-        return "flex_search_report"
 
-    def set_configuration(
-        self,
-        electrode_net: str | None = None,
-        optimization_target: str | None = None,
-        n_candidates: int = 100,
-        selection_method: str = "best",
-        intensity_ch1: float = 1.0,
-        intensity_ch2: float = 1.0,
-        **kwargs,
-    ) -> None:
-        """
-        Set the optimization configuration.
+def nearest_cap(positions: list[list[float]], eeg_csv: Path) -> dict | None:
+    """Each optimised position's nearest distinct electrode of the net (Hungarian assignment,
+    :func:`tit.tools.map_electrodes.map_electrodes_to_net`), with the distance in mm."""
+    import numpy as np
 
-        Args:
-            electrode_net: EEG net used
-            optimization_target: Target metric to optimize
-            n_candidates: Number of candidate solutions evaluated
-            selection_method: Method for selecting best solution
-            intensity_ch1: Channel 1 intensity
-            intensity_ch2: Channel 2 intensity
-            **kwargs: Additional configuration
-        """
-        self.config = {
-            "electrode_net": electrode_net,
-            "optimization_target": optimization_target,
-            "n_candidates": n_candidates,
-            "selection_method": selection_method,
-            "intensity_ch1": intensity_ch1,
-            "intensity_ch2": intensity_ch2,
-            **kwargs,
-        }
+    from tit.opt.ex.buckets import _read_eeg_positions
+    from tit.tools.map_electrodes import map_electrodes_to_net
 
-    def set_roi_info(
-        self,
-        roi_name: str,
-        roi_type: str = "mask",
-        coordinates: list[float] | None = None,
-        radius: float | None = None,
-        volume_mm3: float | None = None,
-        n_voxels: int | None = None,
-        **kwargs,
-    ) -> None:
-        """
-        Set the target ROI information.
+    net = {k: v for k, v in _read_eeg_positions(eeg_csv).items() if len(v) == 3}
+    if not net or not positions:
+        return None
+    labels = list(net)
+    result = map_electrodes_to_net(
+        np.asarray(positions, float),
+        np.asarray([net[k] for k in labels], float),
+        labels,
+        list(range(len(positions))),
+    )
+    order = sorted(
+        range(len(positions)), key=lambda i: result["channel_array_indices"][i]
+    )
+    return {
+        "net": eeg_csv.name,
+        "labels": [result["mapped_labels"][i] for i in order],
+        "distances": [float(result["distances"][i]) for i in order],
+    }
 
-        Args:
-            roi_name: Name of the target ROI
-            roi_type: Type of ROI (mask, sphere, coordinates)
-            coordinates: Center coordinates (if applicable)
-            radius: Radius in mm (if sphere)
-            volume_mm3: ROI volume in mm³
-            n_voxels: Number of voxels in ROI
-            **kwargs: Additional ROI info
-        """
-        self.roi_info = {
-            "name": roi_name,
-            "type": roi_type,
-            "coordinates": coordinates,
-            "radius": radius,
-            "volume_mm3": volume_mm3,
-            "n_voxels": n_voxels,
-            **kwargs,
-        }
 
-    def add_search_result(
-        self,
-        rank: int,
-        electrode_1a: str,
-        electrode_1b: str,
-        electrode_2a: str,
-        electrode_2b: str,
-        score: float,
-        mean_field_roi: float | None = None,
-        max_field_roi: float | None = None,
-        focality: float | None = None,
-        **metrics,
-    ) -> None:
-        """
-        Add a search result entry.
+def collect(run_dir: str | Path, eeg_positions_dir: str | Path | None = None) -> dict:
+    """Everything the report shows, from one flex-search run folder."""
+    run_dir = Path(run_dir)
+    meta = json.loads((run_dir / "flex_meta.json").read_text())
+    pos_file = run_dir / "electrode_positions.json"
+    positions = json.loads(pos_file.read_text()) if pos_file.is_file() else {}
+    mapping_file = run_dir / "electrode_mapping.json"
+    mapping = json.loads(mapping_file.read_text()) if mapping_file.is_file() else None
+    carriers = []
+    for d in sorted(run_dir.glob("final_sim_*")):
+        f = d / "fields_summary.txt"
+        if f.is_file():
+            carriers += parse_fields_summary(f.read_text())
+    logs = sorted(run_dir.glob("simnibs_optimization_*.log"))
+    simnibs = None
+    if logs:
+        m = re.search(r"simnibs (\d[\w.]*)", logs[-1].read_text(errors="replace"))
+        simnibs = m.group(1) if m else None
+    summary = run_dir / "summary.txt"
+    calib = (
+        re.search(
+            r"calibration error exceeded 10%! Estimated error value: ([\d.]+)%",
+            summary.read_text(),
+        )
+        if summary.is_file()
+        else None
+    )
+    rec = {
+        "run": run_dir.name,
+        "meta": meta,
+        "restarts": _best_rows(run_dir),
+        "positions": positions.get("optimized_positions") or [],
+        "channel_array": positions.get("channel_array_indices") or [],
+        "mapping": mapping,
+        "carriers": carriers,
+        "roi": common.roi_summary(run_dir),
+        "simnibs": simnibs,
+        "calibration_error_pct": float(calib.group(1)) if calib else None,
+        "cap": None,
+    }
+    config = (
+        rec["restarts"][0]["manifest"].get("config") if rec["restarts"] else None
+    ) or {}
+    rec["config"] = config
+    if eeg_positions_dir and rec["positions"]:
+        net = config.get("eeg_net") or DEFAULT_NET
+        csv_path = Path(eeg_positions_dir) / net
+        if csv_path.is_file():
+            rec["cap"] = nearest_cap(rec["positions"], csv_path)
+    return rec
 
-        Args:
-            rank: Ranking of this solution
-            electrode_1a: First electrode of pair 1
-            electrode_1b: Second electrode of pair 1
-            electrode_2a: First electrode of pair 2
-            electrode_2b: Second electrode of pair 2
-            score: Optimization score
-            mean_field_roi: Mean field in ROI (V/m)
-            max_field_roi: Max field in ROI (V/m)
-            focality: Focality metric
-            **metrics: Additional metrics
-        """
-        self.search_results.append(
-            {
-                "rank": rank,
-                "electrode_1a": electrode_1a,
-                "electrode_1b": electrode_1b,
-                "electrode_2a": electrode_2a,
-                "electrode_2b": electrode_2b,
-                "pair_1": (
-                    f"{electrode_1a}-{electrode_1b}"
-                    if electrode_1a and electrode_1b
+
+def currents(rec: dict) -> list[float]:
+    """Per-channel currents of the accepted montage (the searched split when there is one)."""
+    meta = rec["meta"]
+    best = (
+        rec["restarts"][meta["result"].get("best_run_index") or 0]["row"]
+        if rec["restarts"]
+        else {}
+    )
+    if best.get("current_ch1_mA"):
+        return [float(best["current_ch1_mA"]), float(best["current_ch2_mA"])]
+    if meta.get("current_split"):
+        return [float(v) for v in meta["current_split"]]
+    return [float(meta["current_mA"])] * 2
+
+
+def checks(rec: dict) -> list[Check]:
+    meta = rec["meta"]
+    values = [
+        v
+        for v in meta["result"].get("all_values") or []
+        if v is not None and abs(v) < 1e30
+    ]
+    n = len(values)
+    r = RULES["opt"]["n_valid_restarts"]
+    rows = [
+        common.rule_check(
+            "opt",
+            "n_valid_restarts",
+            "pass" if n >= r["value"] else "warn",
+            f"{n} of {len(meta['result'].get('all_values') or [])}",
+            f"≥ {r['value']}",
+        )
+    ]
+    if n >= 2:
+        best = min(values)
+        spread = (
+            f"{100 * (max(values) - min(values)) / abs(best):.1f} % of the best score"
+        )
+    else:
+        spread = "not measurable with one run"
+    rows.append(common.rule_check("opt", "restart_spread", "info", spread))
+    rows.append(common.current_check("opt", currents(rec)))
+    return rows
+
+
+def _pairs(rec: dict) -> list[list[str]] | None:
+    labels = (rec["mapping"] or {}).get("mapped_labels") or (rec["cap"] or {}).get(
+        "labels"
+    )
+    if not labels or len(labels) < 4:
+        return None
+    return [labels[i : i + 2] for i in range(0, len(labels) - 1, 2)]
+
+
+def build_html(rec: dict, subject_id: str, generated: datetime | None = None) -> str:
+    import tit
+
+    generated = generated or datetime.now()
+    meta, roi = rec["meta"], rec["roi"] or {"name": "target ROI"}
+    cite = c.Cites()
+    fig_no = iter(range(1, 20))
+    success = bool(meta["result"].get("success"))
+    rows = checks(rec)
+    advisories = [r for r in rows if r.role == "advisory"]
+    seal, _ = c.verdict(rows)
+    mA = currents(rec)
+    total = sum(mA)
+    el = meta.get("electrode") or {}
+    dims = "×".join(f"{d:g}" for d in el.get("dimensions") or [])
+    best_i = meta["result"].get("best_run_index") or 0
+    best = rec["restarts"][best_i]["row"] if rec["restarts"] else {}
+    defs = (
+        rec["restarts"][best_i]["manifest"].get("metric_definitions", {})
+        if rec["restarts"]
+        else {}
+    )
+    roi_name = esc(roi["name"])
+
+    # ── 1. verdict ──
+    if success:
+        maximises, score_txt, _ = goal_words(meta)
+        headline = f"Best montage: {re.sub('<[^>]+>', '', score_txt)}"
+        lede = (
+            f"Flex-search placed {len(mA)} channels of {esc(el.get('shape', ''))} {dims} mm electrodes freely on the scalp "
+            f"to maximise {maximises} in the <b>{roi_name}</b>, using {esc(_POSTPROC.get(meta.get('postproc'), meta.get('postproc', '')))}."
+        )
+        key = []
+        if best.get("roi_mean"):
+            key.append(
+                (
+                    "Target mean",
+                    f"{float(best['roi_mean']):.3f}<small>V/m</small>",
+                    f"99.9th pct {float(best['roi_p99_9']):.3f} V/m",
+                )
+            )
+            key.append(
+                (
+                    "Background mean",
+                    f"{float(best['non_roi_mean']):.3f}<small>V/m</small>",
+                    "everywhere else",
+                )
+            )
+            if best.get("target_background_ratio"):
+                key.append(
+                    (
+                        "Target ÷ background",
+                        f"{float(best['target_background_ratio']):.2f}<small>×</small>",
+                        "mean over mean",
+                    )
+                )
+        key.append(
+            (
+                "Currents",
+                f"{' / '.join(fmt(v) for v in mA)}<small>mA</small>",
+                f"{fmt(total)} mA total",
+            )
+        )
+    else:
+        seal, headline = "fail", "No valid montage found"
+        lede = "Every optimiser run failed to accept a valid electrode placement. See the run log in the output folder."
+        key = []
+    extra = common.attention_callouts(advisories, cite) + (c.stats(key) if key else "")
+    verdict_sec = c.verdict_section(seal, headline, lede, extra)
+
+    # ── 2. target and goal ──
+    target = [("Target", roi_name)]
+    if roi.get("atlas"):
+        target.append(("Atlas", esc(roi["atlas"])))
+    if roi.get("volume_mm3"):
+        target.append(
+            (
+                "Size",
+                f"{roi['volume_mm3'] / 1000:.1f} cm³"
+                + (
+                    f", {100 * roi['gm_overlap']:.0f} % grey matter"
+                    if roi.get("gm_overlap") is not None
                     else ""
                 ),
-                "pair_2": (
-                    f"{electrode_2a}-{electrode_2b}"
-                    if electrode_2a and electrode_2b
-                    else ""
-                ),
-                "score": score,
-                "mean_field_roi": mean_field_roi,
-                "max_field_roi": max_field_roi,
-                "focality": focality,
-                **metrics,
-            }
-        )
-
-    def set_best_solution(
-        self,
-        electrode_pairs: list[dict[str, str]],
-        score: float,
-        metrics: dict[str, Any],
-        montage_image_base64: str | None = None,
-        field_map_base64: str | None = None,
-        skin_region_image_base64: str | None = None,
-        electrode_coordinates: list[list[float]] | None = None,
-        channel_array_indices: list[list[int]] | None = None,
-        mapped_labels: list[str] | None = None,
-        mapped_positions: list[list[float]] | None = None,
-    ) -> None:
-        """
-        Set the best (selected) solution.
-
-        Args:
-            electrode_pairs: List of electrode pair specs
-            score: Final optimization score
-            metrics: Solution metrics
-            montage_image_base64: Base64 montage visualization
-            field_map_base64: Base64 field map visualization
-            skin_region_image_base64: Base64 valid-skin-region visualization
-            electrode_coordinates: Optimized electrode XYZ positions
-            channel_array_indices: Channel/array index per electrode
-            mapped_labels: EEG net electrode labels (e.g. E061)
-            mapped_positions: Mapped electrode XYZ positions
-        """
-        self.best_solution = {
-            "electrode_pairs": electrode_pairs,
-            "score": score,
-            "metrics": metrics,
-            "montage_image_base64": montage_image_base64,
-            "field_map_base64": field_map_base64,
-            "skin_region_image_base64": skin_region_image_base64,
-            "electrode_coordinates": electrode_coordinates,
-            "channel_array_indices": channel_array_indices,
-            "mapped_labels": mapped_labels,
-            "mapped_positions": mapped_positions,
-        }
-
-    def populate_from_data(self, data: dict[str, Any]) -> None:
-        """
-        Populate the report from a data dictionary.
-
-        Args:
-            data: Dictionary containing all optimization data
-        """
-        # Configuration
-        if "config" in data:
-            self.config = data["config"]
-
-        # ROI info
-        if "roi" in data:
-            self.roi_info = data["roi"]
-
-        # Search results
-        if "results" in data:
-            for i, result in enumerate(data["results"]):
-                self.add_search_result(rank=i + 1, **result)
-
-        # Best solution
-        if "best_solution" in data:
-            self.best_solution = data["best_solution"]
-
-        # Optimization metrics
-        if "metrics" in data:
-            self.optimization_metrics = data["metrics"]
-
-    def load_from_output_dir(self, output_dir: str | Path) -> None:
-        """
-        Load optimization data from an output directory.
-
-        Args:
-            output_dir: Path to the flex-search output directory
-        """
-        output_dir = Path(output_dir)
-
-        # Try to load results JSON
-        results_file = output_dir / "optimization_results.json"
-        if results_file.exists():
-            with open(results_file) as f:
-                data = json.load(f)
-                self.populate_from_data(data)
-
-        # Try to load configuration
-        config_file = output_dir / "config.json"
-        if config_file.exists():
-            with open(config_file) as f:
-                self.config = json.load(f)
-
-    def _build_summary_section(self) -> None:
-        """Build the summary section."""
-        section = self.assembler.add_section(
-            section_id="summary",
-            title="Summary",
-            order=0,
-        )
-
-        cards = SummaryCardsReportlet(columns=4)
-
-        # Subject
-        cards.add_card(
-            label="Subject",
-            value=self.subject_id,
-        )
-
-        # Target ROI
-        roi_name = self.roi_info.get("name", "Unknown")
-        cards.add_card(
-            label="Target ROI",
-            value=roi_name,
-        )
-
-        # Goal
-        goal = self.config.get("optimization_goal") or self.config.get(
-            "optimization_target"
-        )
-        if goal:
-            cards.add_card(
-                label="Goal",
-                value=goal,
             )
-
-        # Post-processing
-        postproc = self.config.get("post_processing") or self.config.get("postproc")
-        if postproc:
-            cards.add_card(
-                label="Post-processing",
-                value=postproc,
+        )
+    if roi.get("centroid"):
+        target.append(
+            (
+                "Centre",
+                "({:.0f}, {:.0f}, {:.0f}) mm, subject space".format(*roi["centroid"]),
             )
-
-        # Candidates evaluated
-        n_candidates = self.config.get("n_candidates", len(self.search_results))
-        cards.add_card(
-            label="Candidates",
-            value=n_candidates,
         )
-
-        # Starts
-        n_starts = self.config.get("n_starts")
-        if n_starts is not None:
-            cards.add_card(
-                label="Starts",
-                value=n_starts,
-            )
-
-        # Best score
-        if self.best_solution:
-            score = self.best_solution.get("score", 0)
-            cards.add_card(
-                label="Best Score",
-                value=f"{score:.4f}",
-                color="#28a745",
-            )
-
-        section.add_reportlet(cards)
-
-    def _build_config_section(self) -> None:
-        """Build the configuration section."""
-        if not self.config:
-            return
-
-        section = self.assembler.add_section(
-            section_id="configuration",
-            title="Configuration",
-            order=10,
-        )
-
-        param_list = ParameterListReportlet(title="Optimization Settings")
-
-        # Group config parameters
-        main_params = {
-            "electrode_net": self.config.get("electrode_net"),
-            "optimization_goal": self.config.get("optimization_goal"),
-            "optimization_target": self.config.get("optimization_target"),
-            "post_processing": self.config.get("post_processing")
-            or self.config.get("postproc"),
-            "n_starts": self.config.get("n_starts"),
-            "selection_method": self.config.get("selection_method"),
-            "n_candidates": self.config.get("n_candidates"),
-        }
-        param_list.add_category(
-            "Optimization", {k: v for k, v in main_params.items() if v is not None}
-        )
-
-        electrode_params = {
-            "electrode_shape": self.config.get("electrode_shape"),
-            "electrode_dimensions_mm": self.config.get("electrode_dimensions_mm"),
-            "electrode_thickness_mm": self.config.get("electrode_thickness_mm"),
-            "electrode_current_mA": self.config.get("electrode_current_mA"),
-            "channel_1_intensity": self.config.get("intensity_ch1"),
-            "channel_2_intensity": self.config.get("intensity_ch2"),
-            "min_electrode_distance_mm": self.config.get("min_electrode_distance_mm"),
-            "electrode_net": self.config.get("electrode_net"),
-            "mapping_enabled": self.config.get("mapping_enabled"),
-            "run_final_simulation": self.config.get("run_final_electrode_simulation"),
-        }
-        param_list.add_category(
-            "Electrodes", {k: v for k, v in electrode_params.items() if v is not None}
-        )
-
-        algorithm_params = {
-            "max_iterations": self.config.get("max_iterations"),
-            "population_size": self.config.get("population_size"),
-            "tolerance": self.config.get("tolerance"),
-            "mutation": self.config.get("mutation"),
-            "recombination": self.config.get("recombination"),
-            "thresholds": self.config.get("thresholds"),
-            "non_roi_method": self.config.get("non_roi_method"),
-            "anisotropy_type": self.config.get("anisotropy_type"),
-            "cpu_cores": self.config.get("cpu_cores"),
-        }
-        param_list.add_category(
-            "Algorithm", {k: v for k, v in algorithm_params.items() if v is not None}
-        )
-
-        output_params = {
-            "detailed_results": self.config.get("detailed_results"),
-            "visualize_valid_skin_region": self.config.get(
-                "visualize_valid_skin_region"
+    g = RULES["opt"]["goal_definition"]
+    goal_rows = [
+        (
+            "Goal",
+            f"<code>{esc(meta.get('goal', ''))}</code>: {goal_words(meta)[0] if success else ''}",
+        ),
+        (
+            "Background",
+            _BACKGROUND.get(
+                meta.get("non_roi_method"), esc(str(meta.get("non_roi_method") or "—"))
             ),
-            "skin_visualization_net": self.config.get("skin_visualization_net"),
-            "disable_mapping_simulation": self.config.get("disable_mapping_simulation"),
-        }
-        param_list.add_category(
-            "Output", {k: v for k, v in output_params.items() if v is not None}
+        ),
+    ]
+    for k, v in defs.items():
+        goal_rows.append((_METRIC.get(k, k.replace("_", " ")), esc(v)))
+    target_sec = c.section(
+        "target",
+        "Target and goal",
+        c.kv(target)
+        + '<h3 class="sub">How the score is measured</h3>'
+        + c.kv(goal_rows)
+        + f'<p class="muted" style="font-size:13px;margin-top:10px">{c.inline(g["plain"])} {cite.dois(g["cite"])}</p>',
+        lead="What the optimiser aimed at, in the words it used.",
+    )
+
+    # ── 3. best montage ──
+    body = ""
+    pairs = _pairs(rec)
+    if pairs:
+        mapped = rec["mapping"] is not None
+        body += common.cap_figure(
+            next(fig_no),
+            pairs,
+            (rec["cap"] or {}).get("net")
+            or rec["config"].get("eeg_net")
+            or DEFAULT_NET,
+            mA,
+            "Top view, nose up. "
+            + (
+                "Electrodes as mapped to the net by the run."
+                if mapped
+                else "Flex electrodes sit at free positions; each is drawn at its nearest cap position (distances below), for orientation only."
+            ),
         )
-
-        section.add_reportlet(param_list)
-
-    def _build_roi_section(self) -> None:
-        """Build the ROI information section."""
-        if not self.roi_info:
-            return
-
-        section = self.assembler.add_section(
-            section_id="roi",
-            title="Target Region of Interest",
-            order=20,
-        )
-
-        roi_data = {
-            "name": self.roi_info.get("name", "Unknown"),
-            "target_approach": self.roi_info.get("type", "mask"),
-        }
-
-        coordinates = self.roi_info.get("coordinates")
-        if coordinates:
-            roi_data["coordinates"] = coordinates
-        if self.roi_info.get("coordinate_space"):
-            roi_data["coordinate_space"] = self.roi_info.get("coordinate_space")
-        if self.roi_info.get("radius"):
-            roi_data["radius_mm"] = self.roi_info["radius"]
-        if self.roi_info.get("hemisphere"):
-            roi_data["hemisphere"] = self.roi_info.get("hemisphere")
-        if self.roi_info.get("atlas"):
-            roi_data["atlas"] = self.roi_info.get("atlas")
-        if self.roi_info.get("atlas_label") is not None:
-            roi_data["atlas_label"] = self.roi_info.get("atlas_label")
-        if self.roi_info.get("volume_atlas"):
-            roi_data["volume_atlas"] = self.roi_info.get("volume_atlas")
-        if self.roi_info.get("volume_label") is not None:
-            roi_data["volume_label"] = self.roi_info.get("volume_label")
-        if self.roi_info.get("volume_mm3"):
-            roi_data["volume_mm3"] = f"{self.roi_info['volume_mm3']:.1f}"
-        if self.roi_info.get("n_voxels"):
-            roi_data["n_voxels"] = self.roi_info["n_voxels"]
-        if self.roi_info.get("non_roi_method"):
-            roi_data["non_roi_method"] = self.roi_info.get("non_roi_method")
-        if self.roi_info.get("non_roi_coordinates"):
-            roi_data["non_roi_coordinates"] = self.roi_info.get("non_roi_coordinates")
-        if self.roi_info.get("non_roi_radius"):
-            roi_data["non_roi_radius_mm"] = self.roi_info.get("non_roi_radius")
-        if self.roi_info.get("non_roi_coordinate_space"):
-            roi_data["non_roi_coordinate_space"] = self.roi_info.get(
-                "non_roi_coordinate_space"
+    if rec["positions"]:
+        near = rec["cap"] or {}
+        pos_rows = []
+        for i, p in enumerate(rec["positions"]):
+            ch, arr = (
+                rec["channel_array"][i]
+                if i < len(rec["channel_array"])
+                else (i // 2, i % 2)
             )
-        if self.roi_info.get("non_roi_atlas"):
-            roi_data["non_roi_atlas"] = self.roi_info.get("non_roi_atlas")
-        if self.roi_info.get("non_roi_label") is not None:
-            roi_data["non_roi_label"] = self.roi_info.get("non_roi_label")
-
-        roi_metadata = MetadataReportlet(
-            data=roi_data,
-            title="ROI Specification",
-            display_mode="table",
-        )
-        section.add_reportlet(roi_metadata)
-
-    def _build_results_section(self) -> None:
-        """Build the results table section."""
-        if not self.search_results:
-            return
-
-        section = self.assembler.add_section(
-            section_id="results",
-            title="Search Results",
-            description=f"Top {min(20, len(self.search_results))} electrode configurations ranked by optimization score.",
-            order=30,
-        )
-
-        # Prepare table data (top 20)
-        table_data = []
-        for result in sorted(self.search_results, key=lambda x: x["rank"])[:20]:
-            row = {
-                "Rank": result["rank"],
-                "Score": f"{result['score']:.4f}",
-            }
-            mapped_labels = result.get("mapped_labels") or []
-            if result.get("pair_1"):
-                row["Pair 1"] = result.get("pair_1", "")
-            elif len(mapped_labels) >= 2:
-                row["Pair 1"] = f"{mapped_labels[0]}-{mapped_labels[1]}"
-            if result.get("pair_2"):
-                row["Pair 2"] = result.get("pair_2", "")
-            elif len(mapped_labels) >= 4:
-                row["Pair 2"] = f"{mapped_labels[2]}-{mapped_labels[3]}"
-            if mapped_labels:
-                row["Mapped Labels"] = ", ".join(str(label) for label in mapped_labels)
-            if result.get("mean_field_roi") is not None:
-                row["Mean Field (V/m)"] = f"{result['mean_field_roi']:.4f}"
-            if result.get("focality") is not None:
-                row["Focality"] = f"{result['focality']:.4f}"
-            table_data.append(row)
-
-        results_table = TableReportlet(
-            data=table_data,
-            title="Ranked Configurations",
-            striped=True,
-        )
-        section.add_reportlet(results_table)
-
-    def _build_best_solution_section(self) -> None:
-        """Build the best solution section."""
-        if not self.best_solution:
-            return
-
-        section = self.assembler.add_section(
-            section_id="best_solution",
-            title="Optimal Solution",
-            order=40,
-        )
-
-        # Solution summary
-        pairs = self.best_solution.get("electrode_pairs", [])
-        pair_strings = []
-        for pair in pairs:
-            if isinstance(pair, dict):
-                e1 = pair.get("electrode1", "?")
-                e2 = pair.get("electrode2", "?")
-                if e1 and e2:
-                    pair_strings.append(f"{e1}-{e2}")
-            else:
-                pair_strings.append(str(pair))
-
-        solution_data = {
-            "optimization_score": f"{self.best_solution.get('score', 0):.4f}",
-        }
-        if pair_strings:
-            solution_data["electrode_configuration"] = " | ".join(pair_strings)
-
-        # Add metrics
-        metrics = self.best_solution.get("metrics", {})
-        for key, value in metrics.items():
-            if isinstance(value, float):
-                solution_data[key] = f"{value:.4f}"
-            else:
-                solution_data[key] = value
-
-        solution_metadata = MetadataReportlet(
-            data=solution_data,
-            title="Selected Configuration",
-            display_mode="cards",
-            columns=3,
-        )
-        section.add_reportlet(solution_metadata)
-
-        # Electrode coordinates
-        electrode_coords = self.best_solution.get("electrode_coordinates")
-        if electrode_coords:
-            indices = self.best_solution.get("channel_array_indices") or []
-            mapped_labels = self.best_solution.get("mapped_labels") or []
-            coord_rows = []
-            for idx, coords in enumerate(electrode_coords):
-                row: dict[str, Any] = {"Electrode": idx + 1}
-                if idx < len(mapped_labels):
-                    row["Label"] = mapped_labels[idx]
-                if isinstance(coords, (list, tuple)) and len(coords) >= 3:
-                    row["X"] = f"{coords[0]:.2f}"
-                    row["Y"] = f"{coords[1]:.2f}"
-                    row["Z"] = f"{coords[2]:.2f}"
-                else:
-                    row["Coordinates"] = str(coords)
-                if idx < len(indices):
-                    row["Channel"] = indices[idx][0]
-                    row["Array"] = indices[idx][1]
-                coord_rows.append(row)
-
-            coord_table = TableReportlet(
-                data=coord_rows,
-                title="Optimized Electrode Coordinates (Subject Space)",
-                striped=True,
+            nearest = (
+                f"{esc(near['labels'][i])} ({near['distances'][i]:.0f} mm)"
+                if near.get("labels")
+                else "—"
             )
-            section.add_reportlet(coord_table)
-
-        # Mapped electrode positions (when EEG net mapping was used)
-        mapped_positions = self.best_solution.get("mapped_positions")
-        mapped_labels = self.best_solution.get("mapped_labels")
-        if mapped_positions and mapped_labels:
-            indices = self.best_solution.get("channel_array_indices") or []
-            mapped_rows = []
-            for idx, coords in enumerate(mapped_positions):
-                row: dict[str, Any] = {"Electrode": idx + 1}
-                if idx < len(mapped_labels):
-                    row["Label"] = mapped_labels[idx]
-                if isinstance(coords, (list, tuple)) and len(coords) >= 3:
-                    row["X"] = f"{coords[0]:.2f}"
-                    row["Y"] = f"{coords[1]:.2f}"
-                    row["Z"] = f"{coords[2]:.2f}"
-                if idx < len(indices):
-                    row["Channel"] = indices[idx][0]
-                    row["Array"] = indices[idx][1]
-                mapped_rows.append(row)
-
-            mapped_table = TableReportlet(
-                data=mapped_rows,
-                title="Mapped EEG Net Electrodes",
-                striped=True,
+            pos_rows.append(
+                [
+                    f"Ch {ch + 1}",
+                    "+" if arr == 0 else "−",
+                    "({:.1f}, {:.1f}, {:.1f})".format(*p),
+                    nearest,
+                ]
             )
-            section.add_reportlet(mapped_table)
+        body += c.table(
+            ["Channel", "Pole", "Position (mm, subject)", "Nearest cap electrode"],
+            pos_rows,
+            caption="Optimised electrode centres on the scalp.",
+            right={2},
+        )
+    d = RULES["opt"]["dose_record"]
+    dose = [
+        (
+            "Electrodes",
+            esc(
+                f"{el.get('shape', '?')} {dims} mm, gel {el.get('gel_thickness', '?')} mm"
+            ),
+        ),
+        (
+            "Currents",
+            f"{' / '.join(fmt(v) for v in mA)} mA per channel, {fmt(total)} mA total"
+            + (" (split searched)" if meta.get("optimize_current_ratio") else ""),
+        ),
+        (
+            "Carrier frequencies",
+            "not part of the field model (quasi-static); set them on the stimulator",
+        ),
+        ("Minimum electrode distance", f"{meta.get('min_electrode_distance', '—')} mm"),
+    ]
+    body += (
+        '<h3 class="sub">Dose record</h3>'
+        + c.kv(dose)
+        + (
+            f'<p class="muted" style="font-size:13px;margin-top:10px">{c.inline(d["plain"])} {cite.dois(d["cite"])}</p>'
+        )
+    )
+    montage_sec = c.section(
+        "montage",
+        "Best montage",
+        body,
+        lead="Where to place the electrodes and how much current to use.",
+    )
 
-        # Montage visualization
-        if self.best_solution.get("montage_image_base64"):
-            montage_img = ImageReportlet(
-                title="Electrode Montage",
-                caption="Optimal electrode placement",
-                width="520px",
-            )
-            montage_img.set_base64_data(self.best_solution["montage_image_base64"])
-            section.add_reportlet(montage_img)
-        else:
-            section.add_reportlet(
-                TextReportlet(
-                    title="Electrode Montage Unavailable",
-                    content=(
-                        "No electrode montage image was found for this flex-search "
-                        "report. The optimized and mapped electrode tables above "
-                        "remain the source of truth for the selected configuration."
-                    ),
-                )
-            )
-
-        # Valid skin region visualization
-        if self.best_solution.get("skin_region_image_base64"):
-            skin_img = ImageReportlet(
-                title="Valid Skin Region",
-                caption=(
-                    "Valid and invalid scalp regions used by flex-search for "
-                    "electrode placement"
+    # ── 4. runs ──
+    run_rows = []
+    for i, r in enumerate(rec["restarts"]):
+        row, man = r["row"], r["manifest"]
+        val = (meta["result"].get("all_values") or [None] * (i + 1))[i]
+        ok = val is not None and abs(val) < 1e30
+        run_rows.append(
+            [
+                f"{i + 1}" + (" (best)" if i == best_i and success else ""),
+                (f"{-val:.3f}", -val) if ok else ("failed", -1e9),
+                (
+                    (f"{float(row['roi_mean']):.3f}", float(row["roi_mean"]))
+                    if row.get("roi_mean")
+                    else "—"
                 ),
-                width="820px",
-            )
-            skin_img.set_base64_data(self.best_solution["skin_region_image_base64"])
-            section.add_reportlet(skin_img)
-
-        # Field map visualization
-        if self.best_solution.get("field_map_base64"):
-            field_img = ImageReportlet(
-                title="Electric Field Distribution",
-                caption="TI modulation envelope in target region",
-            )
-            field_img.set_base64_data(self.best_solution["field_map_base64"])
-            section.add_reportlet(field_img)
-        else:
-            section.add_reportlet(
-                TextReportlet(
-                    title="Electric Field Visualization Unavailable",
-                    content=(
-                        "No optional field-map image was embedded in this report. "
-                        "Run the final mapped-electrode simulation and field "
-                        "visualization steps to generate this image."
-                    ),
-                )
-            )
-
-    def _build_computer_friendly_section(self) -> None:
-        """Build final machine-readable flex-search report output."""
-        section = self.assembler.add_section(
-            section_id="computer_friendly_output",
-            title="Computer-Friendly Output",
-            description="JSON payload for automated audit and downstream reuse.",
-            order=110,
+                (
+                    (f"{float(row['non_roi_mean']):.3f}", float(row["non_roi_mean"]))
+                    if row.get("non_roi_mean")
+                    else "—"
+                ),
+                (f"{man.get('valid_candidates', 0):,}", man.get("valid_candidates", 0)),
+                (f"{man.get('evaluations', 0):,}", man.get("evaluations", 0)),
+            ]
         )
-        section.add_reportlet(
-            TextReportlet(
-                title="Flex-Search Report JSON",
-                content=json.dumps(self._build_computer_friendly_payload(), indent=2),
-                content_type="code",
-                copyable=True,
-                monospace=True,
+    runs = c.table(
+        [
+            "Run",
+            "Score",
+            "Target mean (V/m)",
+            "Background mean (V/m)",
+            "Valid placements",
+            "Evaluations",
+        ],
+        run_rows,
+        caption="One row per independent optimiser run (multi-start); the score is the quantity the goal maximises.",
+        right={1, 2, 3, 4, 5},
+        sortable=len(run_rows) > 1,
+    )
+    runs += c.checks_table(
+        [r for r in rows if r.id in ("n_valid_restarts", "restart_spread")],
+        "Agreement between runs is the only check on a single optimum.",
+        cite.dois,
+    )
+    runs_st = next(r.status for r in rows if r.id == "n_valid_restarts")
+    runs_sec = c.section(
+        "runs",
+        "Optimiser runs",
+        runs,
+        st=runs_st,
+        st_label="Agree" if runs_st == "pass" else "One run",
+    )
+
+    # ── 5. safety ──
+    safety = [r for r in rows if r.id == "electrode_peak_current"]
+    n_attn = sum(r.status in ("warn", "fail") for r in safety)
+    safety_sec = c.section(
+        "safety",
+        "Safety advisory",
+        c.checks_table(
+            safety,
+            "Advisories never block; they compare this dose with published evidence.",
+            cite.dois,
+        ),
+        st="warn" if n_attn else "pass",
+        st_label="Review" if n_attn else "Within evidence",
+    )
+
+    # ── 6. technical details ──
+    tech = ""
+    if rec["carriers"]:
+        pct = [k for k in rec["carriers"][0] if k.startswith("p")]
+        tech += c.details(
+            "Final simulation per channel",
+            c.table(
+                ["Channel"] + [f"{k[1:]} %" for k in pct],
+                [
+                    [f"Ch {i + 1}"] + [f"{cr[k]:.3f}" for k in pct]
+                    for i, cr in enumerate(rec["carriers"])
+                ],
+                caption="Each channel alone at its current, grey-matter |E| percentiles (V/m) from SimNIBS's field summary.",
+                right=set(range(1, 1 + len(pct))),
             )
+            + (
+                f'<p class="muted" style="font-size:13px;margin-top:10px">SimNIBS estimated the current calibration error at {rec["calibration_error_pct"]:g} %, above its 10 % warning.</p>'
+                if rec["calibration_error_pct"]
+                else ""
+            ),
+            "the winning electrodes simulated one channel at a time",
         )
-
-    def _build_computer_friendly_payload(self) -> dict[str, Any]:
-        """Return machine-readable flex-search report metadata and results."""
-        return {
-            "generated_by": {
-                "name": "TI-Toolbox",
-                "version": self.software_versions.get("ti_toolbox", "unknown"),
-            },
-            "report_type": self.report_type,
-            "session_id": self.session_id,
-            "subject_id": self.subject_id,
-            "project_dir": str(self.project_dir),
-            "software_versions": self.software_versions,
-            "configuration": self.config,
-            "roi": self.roi_info,
-            "search_results": self.search_results,
-            "best_solution": self.best_solution,
-            "optimization_metrics": self.optimization_metrics,
-            "warnings": self.warnings,
-            "errors": self.errors,
-        }
-
-    def _get_methods_parameters(self) -> dict[str, Any]:
-        """Get parameters for methods boilerplate."""
-        params = super()._get_methods_parameters()
-        params.update(
-            {
-                "optimization_method": "flex-search",
-                "target_region": self.roi_info.get("name"),
-                "n_candidates": self.config.get("n_candidates"),
-            }
+    man = rec["restarts"][best_i]["manifest"] if rec["restarts"] else {}
+    term = (man.get("optimizer_termination") or {}).get("global") or {}
+    paras = [
+        f"Electrode positions for temporal interference stimulation {cite('grossman2017_ti')} were optimised in TI-Toolbox "
+        f"{cite('haber2026_titoolbox')} with SimNIBS {esc(rec['simnibs'] or '')} {cite('saturnino2019_simnibs21')} and its leadfield-free "
+        f"framework {cite.dois(['10.1016/j.compbiomed.2025.110648'])}, on the head model of subject {esc(subject_id)} {cite('puonti2020_charm')}. "
+        f"Two channels of {esc(el.get('shape', ''))} {dims} mm electrodes were placed by differential evolution "
+        f"({len(rec['restarts'])} run{'s' if len(rec['restarts']) != 1 else ''}"
+        + (
+            f", {term['evaluations']:,} evaluations and {term.get('iterations', '?')} iterations in the best"
+            if term.get("evaluations")
+            else ""
         )
-        return params
+        + f") to maximise {goal_words(meta)[0] if success else 'the goal'} in the {roi_name}.",
+    ]
+    if success and best.get("roi_mean"):
+        paras.append(
+            f"The best montage gave a mean envelope of {float(best['roi_mean']):.3f} V/m in the target and "
+            f"{float(best['non_roi_mean']):.3f} V/m elsewhere at {' / '.join(fmt(v) for v in mA)} mA."
+        )
+    tech += c.details(
+        "Methods and references",
+        c.methods(paras) + '<h3 class="sub">References</h3>' + cite.listing(),
+        "boilerplate generated from this run; check before use",
+    )
+    run = [
+        ("Run folder", esc(rec["run"])),
+        ("Created", esc(str(meta.get("created", "—")).replace("T", " ")[:16])),
+        ("TI-Toolbox", esc(tit.__version__)),
+        ("SimNIBS", esc(rec["simnibs"] or "not recorded")),
+        ("Conductivity", esc(rec["config"].get("anisotropy_type", "—"))),
+    ]
+    tech += c.details(
+        "Run record",
+        c.kv(run)
+        + '<h3 class="sub">flex_meta.json</h3>'
+        + c.code(json.dumps(meta, indent=1)),
+        "versions and the manifest as written",
+    )
 
-    def _build_report(self) -> None:
-        """Build the complete flex-search report."""
-        self._build_summary_section()
-        self._build_config_section()
-        self._build_roi_section()
-        self._build_results_section()
-        self._build_best_solution_section()
-        self._build_computer_friendly_section()
+    masthead = c.masthead(
+        "Flex-search",
+        f"sub-{subject_id}, {rec['run']}",
+        [
+            ("Subject", esc(subject_id)),
+            ("Goal", esc(meta.get("goal", "—"))),
+            ("Runs", str(len(rec["restarts"]))),
+            ("Report", generated.strftime(common.STAMP)),
+        ],
+    )
+    toc = [
+        ("verdict", "Verdict", seal),
+        ("target", "Target and goal", None),
+        ("montage", "Best montage", None),
+        ("runs", "Optimiser runs", runs_st),
+        ("safety", "Safety advisory", "warn" if n_attn else "pass"),
+        ("technical", "Technical details", None),
+    ]
+    return c.page(
+        title=f"sub-{subject_id} flex-search",
+        kind="Flex-search report",
+        subject=f"sub-{subject_id}",
+        toc=toc,
+        body=masthead
+        + verdict_sec
+        + target_sec
+        + montage_sec
+        + runs_sec
+        + safety_sec
+        + c.section("technical", "Technical details", tech),
+        footer=common.footer(generated),
+        description=f"Flex-search report for sub-{subject_id}, {rec['run']}: {headline}",
+        generator=f"TI-Toolbox {tit.__version__}",
+    )
 
 
 def create_flex_search_report(
     project_dir: str | Path,
     subject_id: str,
-    data: dict[str, Any],
-    output_path: str | Path | None = None,
+    run_dir: str | Path,
+    out_dir: str | Path | None = None,
 ) -> Path:
-    """
-    Convenience function to create a flex-search report.
+    """Write the report for one flex-search run folder; into the project's reports unless *out_dir*."""
+    from tit.paths import get_path_manager
 
-    Args:
-        project_dir: Path to project directory
-        subject_id: BIDS subject ID
-        data: Dictionary containing optimization data
-        output_path: Optional custom output path
-
-    Returns:
-        Path to the generated report
-    """
-    generator = FlexSearchReportGenerator(
-        project_dir=project_dir,
-        subject_id=subject_id,
+    t0 = time.time()
+    pm = get_path_manager(str(project_dir))
+    rec = collect(run_dir, pm.eeg_positions(subject_id))
+    return common.write_report(
+        build_html(rec, subject_id),
+        project_dir,
+        subject_id,
+        REPORT_PREFIX,
+        SIZE_BUDGET,
+        out_dir,
+        t0,
+        label="Flex-search report",
     )
-    generator.populate_from_data(data)
-    return generator.generate(output_path)
+
+
+def main(argv: list[str] | None = None) -> int:
+    from tit.paths import get_path_manager
+
+    parser = argparse.ArgumentParser(
+        description="Rebuild a flex-search report from its run folder."
+    )
+    parser.add_argument("project_dir")
+    parser.add_argument("subject_id")
+    parser.add_argument("run", help="run folder name under flex-search/, or a path")
+    parser.add_argument(
+        "--out", help="write the report here instead of into the project"
+    )
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    t0 = time.time()
+    run = Path(args.run)
+    if not run.is_dir():
+        run = (
+            Path(get_path_manager(args.project_dir).flex_search(args.subject_id))
+            / args.run
+        )
+    path = create_flex_search_report(args.project_dir, args.subject_id, run, args.out)
+    print(f"{path} {path.stat().st_size / 1e6:.2f} MB in {time.time() - t0:.1f} s")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

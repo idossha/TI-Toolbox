@@ -88,7 +88,6 @@ class TestRunFlexSearch:
         assert result.best_value == -0.025
         assert result.best_run_index == 0
         assert len(result.function_values) == 1
-        mock_builder.generate_report.assert_called_once()
 
     @patch("tit.opt.flex.manifest.write_manifest")
     @patch("tit.opt.flex.utils.generate_label", return_value="test_label")
@@ -492,7 +491,6 @@ def test_nonfinite_restart_cannot_displace_recorded_finite_winner(
     ]
     monkeypatch.setattr(flex.builder, "build_optimization", MagicMock(side_effect=opts))
     monkeypatch.setattr(flex.builder, "configure_optimizer_options", lambda *args: None)
-    monkeypatch.setattr(flex.builder, "generate_report", lambda *args: None)
     result = flex._run_flex_search_inner(
         _make_config(n_multistart=2, output_folder=str(tmp_path / "out"))
     )

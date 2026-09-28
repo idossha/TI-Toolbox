@@ -306,6 +306,7 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
         )
         label = generate_label(config)
         write_manifest(base_folder, config, result, label)
+        _write_report(config, base_folder, logger)
         return result
 
     best_idx = int(np.argmin(np.where(valid_mask, fvals, np.inf)))
@@ -348,9 +349,6 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     # -- Valid skin-region visualization --
     create_valid_skin_region_visualization(config, base_folder, logger)
 
-    # -- Report --
-    builder.generate_report(config, n, fvals, best_idx, base_folder, logger)
-
     result = FlexResult(
         success=True,
         output_folder=base_folder,
@@ -362,5 +360,19 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     # -- Write manifest --
     label = generate_label(config)
     write_manifest(base_folder, config, result, label, current_split=splits[best_idx])
+    _write_report(config, base_folder, logger)
 
     return result
+
+
+def _write_report(config: FlexConfig, run_dir: str, logger) -> None:
+    """Write the flex-search report from the run folder; a report never fails the run."""
+    from tit.reporting.generators.flex_search import create_flex_search_report
+
+    try:
+        path = create_flex_search_report(
+            get_path_manager().project_dir, config.subject_id, run_dir
+        )
+        logger.info(f"Flex-search report: {path}")
+    except Exception as exc:  # the optimisation stands without its report
+        logger.warning(f"Flex-search report could not be written: {exc}")

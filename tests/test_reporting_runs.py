@@ -186,3 +186,103 @@ class TestShared:
     @pytest.mark.parametrize("section", ["sim", "opt"])
     def test_current_checks_are_advisories(self, section):
         assert RULES[section]["electrode_peak_current"]["role"] == "advisory"
+
+
+# ── flex-search ──────────────────────────────────────────────────────────
+
+CANDIDATES = (
+    "candidate_id,evaluation,objective,roi_mean,roi_p99_9,non_roi_mean,non_roi_p95,target_background_ratio,current_ch1_mA,current_ch2_mA,geometry_file\n"
+    "r:1,1,-1.15,0.12,0.21,0.10,0.17,1.15,1.1,0.9,g.jsonl\n"
+    "r:9,9,-1.8,0.04,0.08,0.022,0.034,1.8,0.7,1.3,g.jsonl\n"
+)
+
+
+def _flex_dir(tmp_path: Path, values=(-1.8,), goal="focality_tf", success=True) -> Path:
+    d = tmp_path / "run"
+    meta = {
+        "created": "2026-09-19T14:51:52", "subject_id": "X", "goal": goal, "postproc": "max_TI", "current_mA": 1,
+        "electrode": {"shape": "ellipse", "dimensions": [8, 8], "gel_thickness": 4}, "non_roi_method": "everything_else",
+        "intensity_weight": 0.0, "optimize_current_ratio": True, "current_split": [0.7, 1.3], "n_multistart": len(values),
+        "min_electrode_distance": 5,
+        "result": {"success": success, "best_value": min(values), "best_run_index": 0 if success else -1, "all_values": list(values)},
+    }
+    for i, _ in enumerate(values):
+        h = d / "candidate_history" / f"{i:02d}"
+        h.mkdir(parents=True)
+        (h / "candidates.csv").write_text(CANDIDATES)
+        (h / "candidate_manifest.json").write_text(json.dumps({
+            "accepted_candidate_id": "r:9", "evaluations": 3536, "valid_candidates": 1447,
+            "metric_definitions": {"roi_mean": "unweighted mean of target samples, V/m"},
+            "optimizer_termination": {"global": {"evaluations": 3536, "iterations": 33}}, "config": {"anisotropy_type": "scalar"}}))
+    (d / "flex_meta.json").write_text(json.dumps(meta))
+    (d / "electrode_positions.json").write_text(json.dumps({
+        "optimized_positions": [[82, -6, 5], [81, 31, 21], [-77, 27, 18], [-78, 5, 8]],
+        "channel_array_indices": [[0, 0], [0, 1], [1, 0], [1, 1]]}))
+    (d / "final_sim_0").mkdir()
+    (d / "final_sim_0" / "fields_summary.txt").write_text(SUMMARY.split("\n\n\n")[0])
+    (d / "roi.tetravox.json").write_text(json.dumps({"meta": {
+        "roi": "", "source": None, "label": None, "volume_mm3": 17426.0, "centroid_ras": [0.8, 9.1, 17.6],
+        "gm_overlap": 0.757, "spheres": [{"centre_ras": [1, 9, 18], "radius_mm": 5.0}]}}))
+    return d
+
+
+def _flex_rec(tmp_path, **kw) -> dict:
+    from tit.reporting.generators import flex_search as flex
+
+    rec = flex.collect(_flex_dir(tmp_path, **kw))
+    rec["cap"] = {"net": "EEG10-10_UI_Jurak_2007.csv", "labels": ["TP8", "FT8", "FT7", "T7"], "distances": [14, 16, 15, 6]}
+    return rec
+
+
+class TestFlexSearch:
+    def test_page_structure_advisories_and_plain_score(self, tmp_path):
+        from tit.reporting.generators import flex_search as flex
+
+        with patch(CAP, return_value=FAKE):
+            html = flex.build_html(_flex_rec(tmp_path), "X")
+        _structure(html, ("verdict", "target", "montage", "runs", "safety", "technical"), flex.SIZE_BUDGET)
+        advisory = {k for k, r in RULES["opt"].items() if r["role"] == "advisory"}
+        assert set(_advisory_ids(html)) == {RULES["opt"][k]["label"] for k in advisory}
+        assert '<h2 id="verdict-h">Best montage: target mean 1.80× the background mean</h2>' in html
+        assert "1.3 mA per electrode (2 mA total)" in html  # the searched split, not 1 mA per channel
+        assert "TP8 (14 mm)" in html and "for orientation only" in html
+        assert "sphere at (1, 9, 18) mm" in html  # the ROI is named, not "Target ROI"
+
+    def test_one_run_is_an_advisory_and_spread_is_not_measurable(self, tmp_path):
+        from tit.reporting.generators import flex_search as flex
+
+        rows = {r.id: r for r in flex.checks(_flex_rec(tmp_path))}
+        assert rows["n_valid_restarts"].status == "warn" and not rows["n_valid_restarts"].blocking
+        assert rows["restart_spread"].shown == "not measurable with one run"
+
+    def test_two_runs_agree_and_report_their_spread(self, tmp_path):
+        from tit.reporting.generators import flex_search as flex
+
+        rows = {r.id: r for r in flex.checks(_flex_rec(tmp_path, values=(-1.8, -1.7)))}
+        assert rows["n_valid_restarts"].status == "pass"
+        assert rows["restart_spread"].shown == f"{100 * 0.1 / 1.8:.1f} % of the best score"
+
+    @pytest.mark.parametrize("goal,words", [("mean", "mean target field 1.800 V/m"), ("max", "peak target field 1.800 V/m")])
+    def test_goal_is_explained_in_words(self, tmp_path, goal, words):
+        from tit.reporting.generators import flex_search as flex
+
+        with patch(CAP, return_value=None):
+            html = flex.build_html(_flex_rec(tmp_path, goal=goal), "X")
+        assert f'<h2 id="verdict-h">Best montage: {words}</h2>' in html
+
+    def test_failed_run_still_reports(self, tmp_path):
+        from tit.reporting.generators import flex_search as flex
+
+        with patch(CAP, return_value=None):
+            html = flex.build_html(_flex_rec(tmp_path, values=(1e300,), success=False), "X")
+        assert '<h2 id="verdict-h">No valid montage found</h2>' in html
+
+    def test_flex_run_writes_a_report_and_survives_its_failure(self):
+        from tit.opt.flex import flex as flex_run
+
+        logger = MagicMock()
+        with patch("tit.reporting.generators.flex_search.create_flex_search_report", side_effect=ValueError("bad")) as create, \
+                patch("tit.opt.flex.flex.get_path_manager", return_value=MagicMock(project_dir="/p")):
+            flex_run._write_report(MagicMock(subject_id="X"), "/p/run", logger)
+        create.assert_called_once_with("/p", "X", "/p/run")
+        assert "bad" in logger.warning.call_args[0][0]
