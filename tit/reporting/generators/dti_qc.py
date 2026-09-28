@@ -24,6 +24,10 @@ from pathlib import Path
 from tit.reporting.html import components as c
 from tit.reporting.html.components import Check, esc
 from tit.reporting.qc_rules import RULES
+from tit.reporting.reportlets.references import (
+    get_reference_by_doi,
+    get_reference_by_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,22 +50,6 @@ _GATES = {
 }
 _OP = {">=": "≥", "<=": "≤", "==": "="}
 
-#: Methods citations by visible label -> stable key in tit.reporting.reportlets.references.
-_METHOD_REFS = {
-    "Andersson2016": "andersson2016_eddy",
-    "Cieslak2021": "cieslak2021_qsiprep",
-    "Garyfallidis2014": "garyfallidis2014_dipy",
-    "Nipype2011": "gorgolewski2011_nipype",
-    "Haber2026": "haber2026_titoolbox",
-    "Kellner2016": "kellner2016_gibbs",
-    "Opitz2011": "opitz2011_tissue_efield",
-    "Puonti2020": "puonti2020_charm",
-    "Rullmann2009": "rullmann2009_dti_conductivity",
-    "Saturnino2019b": "saturnino2019_simnibs21",
-    "Tournier2019": "tournier2019_mrtrix3",
-    "Tuch2001": "tuch2001_conductivity",
-    "Veraart2016": "veraart2016_mppca",
-}
 _PE = {
     "Anterior-Posterior": "A→P",
     "Posterior-Anterior": "P→A",
@@ -112,25 +100,21 @@ def gate_checks(qc: dict) -> list[Check]:
 
 
 class _Cites:
-    """Collects what a page cites, by label or by DOI, so the reference list shows exactly those."""
+    """Collects what a page cites, by registry key or DOI, so the reference list shows exactly those."""
 
     def __init__(self) -> None:
         self.refs: dict[str, dict] = {}
 
-    def __call__(self, *labels: str) -> str:
-        from tit.reporting.reportlets.references import get_reference_by_key
-
-        for label in labels:
-            self.refs.setdefault(label, get_reference_by_key(_METHOD_REFS[label]))
-        return c.cite(*labels)
-
-    def dois(self, dois: list[str]) -> str:
-        from tit.reporting.reportlets.references import get_reference_by_doi
-
-        refs = [get_reference_by_doi(d) for d in dois]
+    def _add(self, refs: list[dict]) -> str:
         for ref in refs:
             self.refs.setdefault(ref["label"], ref)
         return c.cite(*(ref["label"] for ref in refs))
+
+    def __call__(self, *keys: str) -> str:
+        return self._add([get_reference_by_key(k) for k in keys])
+
+    def dois(self, dois: list[str]) -> str:
+        return self._add([get_reference_by_doi(d) for d in dois])
 
     def listing(self) -> str:
         return c.references([self.refs[k] for k in sorted(self.refs)])
@@ -563,14 +547,16 @@ def build_html(
     if sc.get("Manufacturer") and q.get("version"):
         pre = []
         if q.get("denoise_method") == "dwidenoise":
-            pre.append(f"MP-PCA denoising {cite('Veraart2016')}")
+            pre.append(f"MP-PCA denoising {cite('veraart2016_mppca')}")
         if q.get("unringing_method") == "mrdegibbs":
-            pre.append(f"Gibbs-ringing removal {cite('Kellner2016')}")
+            pre.append(f"Gibbs-ringing removal {cite('kellner2016_gibbs')}")
         steps = (
-            [" and ".join(pre) + f" in MRtrix3 {cite('Tournier2019')}"] if pre else []
+            [" and ".join(pre) + f" in MRtrix3 {cite('tournier2019_mrtrix3')}"]
+            if pre
+            else []
         )
         steps.append(
-            f"head-motion and eddy-current correction with FSL eddy {cite('Andersson2016')}"
+            f"head-motion and eddy-current correction with FSL eddy {cite('andersson2016_eddy')}"
             if q.get("hmc_model") == "eddy"
             else "head-motion correction"
         )
@@ -582,19 +568,19 @@ def build_html(
         )
         paras.append(
             f"Diffusion-weighted images ({scanner}; {len(bvals)} volumes: {shells} s/mm²) were preprocessed with QSIPrep "
-            f"{esc(q['version'])} {cite('Cieslak2021')}, based on Nipype {cite('Nipype2011')}: {', '.join(steps)}"
+            f"{esc(q['version'])} {cite('cieslak2021_qsiprep')}, based on Nipype {cite('gorgolewski2011_nipype')}: {', '.join(steps)}"
             f" and resampling to {q.get('output_resolution') or '?'} mm AC-PC space. {sdc_txt}"
         )
     paras.append(
-        f"Diffusion tensors were fitted by weighted least squares in DIPY {cite('Garyfallidis2014')} to the volumes with b ≤ {bmax:g} s/mm², "
+        f"Diffusion tensors were fitted by weighted least squares in DIPY {cite('garyfallidis2014_dipy')} to the volumes with b ≤ {bmax:g} s/mm², "
         "mapped into the head model's T1 space with QSIPrep's AC-PC-to-T1w transform, resampled by normalised trilinear interpolation, "
         "reoriented by the rotation factor of that transform, and restricted to the dilated white- and grey-matter mask of the charm "
-        f"segmentation {cite('Puonti2020')} (TI-Toolbox {cite('Haber2026')}). The tensor was accepted when white-matter median diffusivity "
+        f"segmentation {cite('puonti2020_charm')} (TI-Toolbox {cite('haber2026_titoolbox')}). The tensor was accepted when white-matter median diffusivity "
         f"lay in {md_range} {cite.dois(RULES['dti']['wm_md_median']['cite'])} and software consistency checks passed."
     )
     paras.append(
-        f"For anisotropic simulations, SimNIBS {cite('Saturnino2019b')} maps diffusion to conductivity tensors by direct scaling "
-        f"{cite('Tuch2001', 'Rullmann2009')} or volume normalisation {cite('Opitz2011')}."
+        f"For anisotropic simulations, SimNIBS {cite('saturnino2019_simnibs21')} maps diffusion to conductivity tensors by direct scaling "
+        f"{cite('tuch2001_conductivity', 'rullmann2009_dti_conductivity')} or volume normalisation {cite('opitz2011_tissue_efield')}."
     )
     tech += c.details(
         "Methods and references",
