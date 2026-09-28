@@ -3,12 +3,12 @@ TI-Toolbox Version Information
 Contains version, tool, and system information for the TI-Toolbox application.
 """
 
-__version__ = "3.0.1"
+__version__ = "3.0.2"
 
 # TI-Toolbox Core Information
 TI_CSC_INFO = {
-    "version": "3.0.1",
-    "release_date": "September 23, 2026",
+    "version": "3.0.2",
+    "release_date": "September 28, 2026",
     "build": "stable",
 }
 
@@ -16,7 +16,7 @@ TI_CSC_INFO = {
 DOCKER_IMAGES = {
     "core": {
         "version": "2.5.0",
-        "tag": "idossha/ti-toolbox:v3.0.1",
+        "tag": "idossha/ti-toolbox:v3.0.2",
         "description": "Core SimNIBS image with TI tools",
         "size": "~9GB",
     },
