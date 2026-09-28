@@ -1,135 +1,31 @@
 # Reporting & Visualization
 
-TI-Toolbox generates interactive HTML reports for every stage of the pipeline. Reports are assembled from reusable building blocks called **reportlets** and saved to BIDS-compliant paths.
+TI-Toolbox writes one self-contained HTML report per pipeline run. There are five kinds:
+SimNIBS's own charm report (copied from `m2m_<id>/charm_report.html` when charm finishes), and
+DTI QC, simulator, flex-search and ex-search reports, which the pipelines write themselves when
+they finish. There is no report object to build by hand: each generator reads what its run wrote,
+and rebuilds a report from the command line (inside the container):
 
-```mermaid
-graph LR
-    SIM_DATA([Simulation Data]) --> GEN[Report Generators]
-    FLEX_DATA([Flex-Search Results]) --> GEN
-    GEN --> HTML([HTML Report])
-    GEN --> PLOTS([Plots & Figures])
-    style SIM_DATA fill:#1a3a5c,stroke:#48a,color:#fff
-    style FLEX_DATA fill:#1a3a5c,stroke:#48a,color:#fff
-    style GEN fill:#2d5a27,stroke:#4a8,color:#fff
-    style HTML fill:#1a5c4a,stroke:#4a8,color:#fff
-    style PLOTS fill:#1a5c4a,stroke:#4a8,color:#fff
+```bash
+simnibs_python -m tit.reporting.generators.dti_qc      /mnt/project 001                 [--out DIR]
+simnibs_python -m tit.reporting.generators.simulation  /mnt/project 001 motor_cortex    [--out DIR]
+simnibs_python -m tit.reporting.generators.flex_search /mnt/project 001 <run folder>    [--out DIR]
+simnibs_python -m tit.reporting.generators.ex_search   /mnt/project 001 <run name>      [--out DIR]
 ```
 
-## Report Generators
-
-### Simulation Reports
+or from Python:
 
 ```python
-from tit.reporting import SimulationReportGenerator
+from tit.reporting.generators.simulation import create_simulation_report
 
-report = SimulationReportGenerator(
-    project_dir="/mnt/project",  # container-visible project path
-    simulation_session_id="motor_cortex",
-    subject_id="001",
-)
-report.add_simulation_parameters(
-    conductivity_type="scalar",
-    simulation_mode="TI",
-    eeg_net="GSN-HydroCel-185",
-    intensity_ch1=1.0,
-    intensity_ch2=1.0,
-)
-report.add_montage(
-    montage_name="motor_cortex",
-    electrode_pairs=[("C3", "C4"), ("F3", "F4")],
-    montage_type="TI",
-)
-output_path = report.generate()
+path = create_simulation_report("/mnt/project", "001", "motor_cortex")
 ```
 
-### Flex-Search Reports
-
-```python
-from tit.reporting import create_flex_search_report
-
-output_path = create_flex_search_report(
-    project_dir="/mnt/project",  # container-visible project path
-    subject_id="001",
-    data={"config": {...}, "results": [...], "best_solution": {...}},
-    output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
-)
-```
-
-For loading results from an output directory, use the class directly:
-
-```python
-from tit.reporting import FlexSearchReportGenerator
-
-generator = FlexSearchReportGenerator(
-    project_dir="/mnt/project",  # container-visible project path
-    subject_id="001",
-)
-generator.load_from_output_dir("/data/my_project/derivatives/SimNIBS/sub-001/flex-search/run_01")
-output_path = generator.generate()
-```
-
-### Preprocessing Reports
-
-Preprocessing has two reports, neither built here: SimNIBS's own charm report, which
-`tit.pre.charm.run_charm` copies from `m2m_<id>/charm_report.html` into
-`derivatives/ti-toolbox/reports/sub-<id>/charm_report.html` (`copy_charm_report` does it for an existing
-head model), and the DTI QC report the DTI step writes (`python -m tit.reporting.generators.dti_qc
-<project> <subject>` rebuilds one).
-
-## Custom Reports with Reportlets
-
-Reports are assembled from reusable components called reportlets. Use this approach to build custom reports:
-
-```python
-from tit.reporting import (
-    ReportAssembler,
-    ReportMetadata,
-    MetadataReportlet,
-    ImageReportlet,
-    TableReportlet,
-    SummaryCardsReportlet,
-    MethodsBoilerplateReportlet,
-)
-
-# Create the assembler
-metadata = ReportMetadata(title="My Analysis", subject_id="001")
-assembler = ReportAssembler(metadata=metadata, title="Custom Report")
-
-# Add sections with reportlets
-section = assembler.add_section("results", "Results", description="Analysis output")
-
-cards = SummaryCardsReportlet(title="Key Metrics", columns=4)
-cards.add_card(label="ROI Mean", value="0.152 V/m", color="#4CAF50")
-cards.add_card(label="Focality", value="0.83", color="#2196F3")
-section.add_reportlet(cards)
-
-assembler.save("/data/output/report.html")
-```
-
-### Available Reportlets
-
-**Base reportlets** (in `tit.reporting.core.base`):
-
-| Reportlet | Description |
-|-----------|-------------|
-| `MetadataReportlet` | Key-value pairs displayed as a table or card grid |
-| `ImageReportlet` | Embedded images (from path, bytes, or PIL) with captions |
-| `TableReportlet` | Data tables from lists of dicts, lists of lists, or DataFrames |
-| `TextReportlet` | Plain text, HTML, or code blocks with optional copy-to-clipboard |
-| `ErrorReportlet` | Error and warning messages with severity levels |
-| `ReferencesReportlet` | Formatted citation list with DOI/URL links |
-
-**Specialized reportlets** (in `tit.reporting.reportlets`):
-
-| Reportlet | Module | Description |
-|-----------|--------|-------------|
-| `SummaryCardsReportlet` | `metadata` | Colored metric cards (mean, max, focality) |
-| `ConductivityTableReportlet` | `metadata` | Tissue conductivity values used in simulation |
-| `ParameterListReportlet` | `metadata` | Categorized parameter display |
-| `MethodsBoilerplateReportlet` | `text` | Publication-ready methods text with copy button |
-| `TIToolboxReferencesReportlet` | `references` | Citation list filtered by pipeline components |
-| `SliceSeriesReportlet` | `images` | Multi-slice brain views (axial, sagittal, coronal) |
-| `MontageImageReportlet` | `images` | Electrode montage visualization with pair table |
+A simulator report opens with the result and the key numbers, the montage on the EEG cap,
+the conductivity model, the TI envelope through the ROI (when the Analyzer has run on the
+simulation) against the published range, and the safety advisories; rebuild it after an ROI
+analysis to include it. Every check shows its role (gate, software check, advisory, reported)
+and citation; the rules are in `tit.reporting.qc_rules.RULES`.
 
 ## Plotting Utilities
 
@@ -153,108 +49,28 @@ from tit.plotting import (
 Reports are saved under the BIDS derivatives tree:
 
 ```
-derivatives/ti-toolbox/
-├── reports/
-│   ├── sub-001/
-│   │   ├── simulation_report_20250101_120000.html
-│   │   ├── flex_search_report_20250101_120000.html
-│   │   ├── charm_report.html
-│   │   └── dti_qc_20250101_120000.html
-│   └── dataset_description.json
-└── analysis/
-    └── ...
+derivatives/ti-toolbox/reports/sub-001/
+├── charm_report.html
+├── dti_qc_20250101_120000.html
+├── simulation_report_20250101_120000.html
+├── flex_search_report_20250101_120000.html
+└── ex_search_report_20250101_120000.html
 ```
 
 ## API Reference
 
-### Report Generators
-
-::: tit.reporting.generators.base_generator.BaseReportGenerator
+::: tit.reporting.generators.simulation.create_simulation_report
     options:
       show_root_heading: true
-      members_order: source
-
-::: tit.reporting.generators.simulation.SimulationReportGenerator
-    options:
-      show_root_heading: true
-      members_order: source
-
-::: tit.reporting.generators.flex_search.FlexSearchReportGenerator
-    options:
-      show_root_heading: true
-      members_order: source
 
 ::: tit.reporting.generators.flex_search.create_flex_search_report
     options:
       show_root_heading: true
 
-### Report Assembly
-
-::: tit.reporting.core.assembler.ReportAssembler
-    options:
-      show_root_heading: true
-      members_order: source
-
-::: tit.reporting.core.protocols.ReportMetadata
+::: tit.reporting.generators.ex_search.create_ex_search_report
     options:
       show_root_heading: true
 
-::: tit.reporting.core.protocols.ReportSection
-    options:
-      show_root_heading: true
-
-### Base Reportlets
-
-::: tit.reporting.core.base.MetadataReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.core.base.ImageReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.core.base.TableReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.core.base.TextReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.core.base.ErrorReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.core.base.ReferencesReportlet
-    options:
-      show_root_heading: true
-
-### Specialized Reportlets
-
-::: tit.reporting.reportlets.metadata.SummaryCardsReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.metadata.ConductivityTableReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.metadata.ParameterListReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.text.MethodsBoilerplateReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.references.TIToolboxReferencesReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.images.SliceSeriesReportlet
-    options:
-      show_root_heading: true
-
-::: tit.reporting.reportlets.images.MontageImageReportlet
+::: tit.reporting.generators.dti_qc.create_dti_qc_report
     options:
       show_root_heading: true

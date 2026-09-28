@@ -2228,3 +2228,32 @@ Dataset 000's `m2m_ernie`: the copy is byte-identical (13,925,412 bytes, sha256 
 event is written. Rendered headless in Chromium inside `<iframe sandbox="allow-scripts">` with the served
 `REPORT_CSP` and `nosniff`: all 6 images decode, the viewer script draws the T1/tissue-label panels, no
 CSP violation. `tests/test_pre_charm.py` pins the copy and the catalog entry.
+
+## 2026-09-28 — Simulator, flex-search and ex-search reports on the one report layer; the reportlet layer is gone
+
+**Decision.** The simulator, flex-search and ex-search reports are rebuilt on `tit/reporting/html`
+and written by their pipelines from the run's own outputs (ARCHITECTURE.md §14); the reportlet and
+assembler layer (`tit/reporting/core`, `reportlets/`, `base_generator.py`) and its tests are deleted,
+leaving one report layer. The reference registry moves to `tit/reporting/references.py` as data.
+Montage figures reuse the app's EEG-cap overlay (`montage_visualizer.visualize_montage`, as WebP);
+`resources/amv/10-10.csv` gains PO9/PO10 (on GSN E114/E159) because the ernie ex-search winner
+AF3–PO10 could not be drawn. `RULES["sim"]` and `RULES["opt"]` are the literature review's rules
+(2026-09-28): the current checks are advisories, the target field is reported against Rampersad
+2019's range, and the rest are software checks.
+
+**Why.** No pipeline called the old simulation generator, so simulations had no report; the flex
+report printed "Target ROI" and a bare score and weighed 7.4 MB (a 3.7 MB skin PNG); ex-search had
+none. Two report layers meant two stylesheets and two ways to cite. The maintainer asked for a lean
+default view, cited thresholds only, the cap overlay the app already shows, and no PDF, sidecars,
+cross-links or index (2026-09-28).
+
+**Alternatives rejected.** A new scalp drawing for reports (the prototype's) — a second picture of
+the same montage that could disagree with the app's. Porting the reportlets onto the new CSS — they
+exist only for the old generators. Pass/fail on target field strength — the published range comes
+from optimised montages at deep targets and is context, not a limit. Treating Cassarà 2025's kHz
+limits as per channel or as total — the review could not verify which.
+
+**Evidence.** `tests/test_reporting_runs.py` (sections, advisories against `RULES`, current
+wording, budgets including a 48,000-montage search); `python -m tit.reporting.generators.<name>` on
+Dataset 000 sub-ernie: simulator 0.33 MB, flex-search 0.27 MB (was 7.4 MB), ex-search 0.41 MB.
+

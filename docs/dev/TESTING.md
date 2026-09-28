@@ -254,6 +254,13 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   text, offline, rows vs `failures`, roles, citations) and that a failed gate still writes the record and
   report; `tests/test_plotting_slices.py` pins the neurological panel convention. Rebuild CHN's report,
   read-only on the dataset, with `python -m tit.reporting.generators.dti_qc <root> CHN --out /tmp/x`.
+- `tests/test_reporting_runs.py` checks the simulator, flex-search and ex-search reports the same way
+  (sections, links, alt text, offline, icon + word, advisories equal to `RULES["sim"|"opt"]`, current
+  wording with the total, size budgets including a 48,000-montage search) on synthetic run folders in
+  the pipelines' formats, and that each pipeline survives a report that cannot be written. The cap image
+  is stubbed there; the real overlay (ImageMagick) runs in the rebuilds on sub-ernie, e.g.
+  `python -m tit.reporting.generators.simulation <root> ernie AF3_PO10_and_AF4_Oz --out /tmp/x`
+  (`flex_search <run folder>`, `ex_search <run name>` likewise).
 - `tests/test_blender_process_boundary.py` enables real Blender through `TIT_TEST_BLENDER_BIN`.
   Report its skip when the executable is unavailable. Validate export and reopen separately from
   scientific-environment imports.

@@ -214,85 +214,32 @@ if not check_m2m_exists(project, "001"):
 
 ## Report Generation
 
-TI-Toolbox generates interactive HTML reports for simulations, flex-search results,
-and preprocessing runs.
+TI-Toolbox writes one self-contained HTML report per pipeline run. There are five kinds:
+SimNIBS's own charm report (copied from `m2m_<id>/charm_report.html` when charm finishes), and
+DTI QC, simulator, flex-search and ex-search reports, which the pipelines write themselves when
+they finish. There is no report object to build by hand: each generator reads what its run wrote,
+and rebuilds a report from the command line (inside the container):
 
-### Simulation Reports
-
-```python
-from tit.reporting import SimulationReportGenerator
-
-report = SimulationReportGenerator(
-    project_dir="/mnt/project",  # container-visible project path
-    simulation_session_id="motor_cortex",
-    subject_id="001",
-)
-report.add_simulation_parameters(
-    conductivity_type="scalar",
-    simulation_mode="TI",
-    eeg_net="GSN-HydroCel-185",
-    intensity_ch1=1.0,
-    intensity_ch2=1.0,
-)
-report.add_montage(
-    montage_name="motor_cortex",
-    electrode_pairs=[("C3", "C4"), ("F3", "F4")],
-    montage_type="TI",
-)
-output_path = report.generate()
-print(f"Report: {output_path}")
+```bash
+simnibs_python -m tit.reporting.generators.dti_qc      /mnt/project 001                 [--out DIR]
+simnibs_python -m tit.reporting.generators.simulation  /mnt/project 001 motor_cortex    [--out DIR]
+simnibs_python -m tit.reporting.generators.flex_search /mnt/project 001 <run folder>    [--out DIR]
+simnibs_python -m tit.reporting.generators.ex_search   /mnt/project 001 <run name>      [--out DIR]
 ```
 
-### Flex-Search Reports
+or from Python:
 
 ```python
-from tit.reporting import create_flex_search_report
+from tit.reporting.generators.simulation import create_simulation_report
 
-# Generate from optimization data dict
-output_path = create_flex_search_report(
-    project_dir="/mnt/project",  # container-visible project path
-    subject_id="001",
-    data=optimization_data,  # dict with optimization results
-    output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
-)
+path = create_simulation_report("/mnt/project", "001", "motor_cortex")
 ```
 
-### Preprocessing Reports
-
-Preprocessing has two reports, neither built here: SimNIBS's own charm report, which
-`tit.pre.charm.run_charm` copies from `m2m_<id>/charm_report.html` into
-`derivatives/ti-toolbox/reports/sub-<id>/charm_report.html` (`copy_charm_report` does it for an existing
-head model), and the DTI QC report the DTI step writes (`python -m tit.reporting.generators.dti_qc
-<project> <subject>` rebuilds one).
-
-### Report Building Blocks (Reportlets)
-
-Reports are assembled from reusable reportlets:
-
-```python
-from tit.reporting import (
-    ReportAssembler,
-    ReportMetadata,
-    MetadataReportlet,
-    ImageReportlet,
-    TableReportlet,
-    ConductivityTableReportlet,
-    SummaryCardsReportlet,
-    MethodsBoilerplateReportlet,
-    TIToolboxReferencesReportlet,
-)
-
-# Create a custom report
-metadata = ReportMetadata(title="My Analysis", subject_id="001")
-assembler = ReportAssembler(metadata=metadata, title="Custom Report")
-
-section = assembler.add_section("results", "Results", description="Analysis output")
-cards = SummaryCardsReportlet(title="Key Metrics")
-cards.add_card(label="ROI Mean", value="0.152 V/m", color="#4CAF50")
-section.add_reportlet(cards)
-
-assembler.save("/data/output/report.html")
-```
+A simulator report opens with the result and the key numbers, the montage on the EEG cap,
+the conductivity model, the TI envelope through the ROI (when the Analyzer has run on the
+simulation) against the published range, and the safety advisories; rebuild it after an ROI
+analysis to include it. Every check shows its role (gate, software check, advisory, reported)
+and citation; the rules are in `tit.reporting.qc_rules.RULES`.
 
 ## Mesh and NIfTI Tools
 

@@ -1,17 +1,11 @@
+"""The citations TI-Toolbox reports use, as data: one dict per paper.
+
+``key`` is the stable id a generator cites by, ``label`` the visible tag (``[Haber2026]``),
+``citation`` the text and ``doi`` the link. ``tit.reporting.qc_rules`` cites rules by DOI, and every
+such DOI must be here (``tests/test_reporting_dti_qc.py``). Pages collect what they cite with
+:class:`tit.reporting.html.components.Cites`.
 """
-References reportlet for TI-Toolbox reports.
 
-This module provides the default citations and references used across
-TI-Toolbox reports.  References use stable internal IDs while rendering
-human-readable citation tags in reports and adjacent citation artifacts.
-"""
-
-from typing import Any
-
-from ..core.base import ReferencesReportlet
-
-# Default TI-Toolbox references.  ``key`` is the stable machine ID used for
-# de-duplication and BibTeX entries; ``label`` is the visible citation tag.
 DEFAULT_REFERENCES: list[dict[str, str]] = [
     # ==========================================================================
     # Core TI-Toolbox, TI & SimNIBS references
@@ -341,7 +335,7 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
     # Flex-search / optimization references
     # ==========================================================================
     {
-        "key": "weise2024_leadfield_free",
+        "key": "weise2025_leadfield_free",
         "label": "Weise2025",
         "citation": (
             "Weise K, Madsen KH, Worbs T, Knosche TR, Korshoj A, Thielscher A. "
@@ -597,254 +591,23 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
 ]
 
 # Backwards-compatible aliases accepted by add_default_reference/get_reference_by_key.
-REFERENCE_ALIASES: dict[str, str] = {
-    "ti": "grossman2017_ti",
-    "ti theory": "grossman2017_ti",
-    "haber2026": "haber2026_titoolbox",
-    "ti-toolbox": "haber2026_titoolbox",
-    "titoolbox": "haber2026_titoolbox",
-    "ti toolbox": "haber2026_titoolbox",
-    "simnibs": "saturnino2019_simnibs_fem",
-    "simnibs4": "saturnino2019_simnibs_fem",
-    "charm": "puonti2020_charm",
-    "charm segmentation": "puonti2020_charm",
-    "multipolar_ti": "botzanowski2025_mti",
-    "multipolar ti": "botzanowski2025_mti",
-    "electrode_params": "saturnino2015_electrodes",
-    "electrode parameters": "saturnino2015_electrodes",
-    "quasi_static": "gaugain2023_quasistatic",
-    "quasi-static approximation": "gaugain2023_quasistatic",
-    "electric field determinants": "opitz2015_tdcs_determinants",
-    "tdcs_determinants": "opitz2015_tdcs_determinants",
-    "icbm": "mazziotta2001_icbm",
-    "international consortium for brain mapping (icbm)": "mazziotta2001_icbm",
-    "glasser": "glasser2016_hcp_mmp",
-    "glasser atlas": "glasser2016_hcp_mmp",
-    "destrieux": "destrieux2010_atlas",
-    "destrieux atlas": "destrieux2010_atlas",
-    "mcrib": "alexander2019_dkt",
-    "desikan-killiany-tourville atlas": "alexander2019_dkt",
-    "eeg_positions": "jurcak2007_eeg_positions",
-    "eeg positions": "jurcak2007_eeg_positions",
-    "freesurfer": "fischl2012_freesurfer",
-    "bids": "bids2016",
-    "brain imaging data structure (bids)": "bids2016",
-    "bids_apps": "gorgolewski2017_bids_apps",
-    "bids apps": "gorgolewski2017_bids_apps",
-    "qsiprep": "cieslak2021_qsiprep",
-    "dcm2niix": "li2016_dcm2niix",
-    "dicom to nifti converter (dcm2niix)": "li2016_dcm2niix",
-    "nilearn": "abraham2014_nilearn",
-    "nilearn2014": "abraham2014_nilearn",
-    "nipype": "gorgolewski2011_nipype",
-    "nipype2011": "gorgolewski2011_nipype",
-    "leadfield_free": "weise2024_leadfield_free",
-    "leadfield-free optimization framework": "weise2024_leadfield_free",
-    "charmed": "assaf2005_charmed",
-    "dti_conductivity": "rullmann2009_dti_conductivity",
-    "gmsh": "geuzaine2009_gmsh",
-}
-
-
-class TIToolboxReferencesReportlet(ReferencesReportlet):
-    """
-    Specialized references reportlet with TI-Toolbox default citations.
-
-    Automatically includes relevant citations based on the pipeline
-    components used.
-    """
-
-    def __init__(
-        self,
-        title: str | None = None,
-        include_defaults: bool = True,
-        pipeline_components: list[str] | None = None,
-        show_empty_warning: bool = False,
-    ):
-        """
-        Initialize the TI-Toolbox references reportlet.
-
-        Args:
-            title: Section title
-            include_defaults: Whether to include default TI-Toolbox refs
-            pipeline_components: List of components used (to filter refs)
-            show_empty_warning: Render a developer-facing empty-ref warning
-        """
-        super().__init__(
-            title=title or "References", show_empty_warning=show_empty_warning
-        )
-
-        self.pipeline_components = pipeline_components or []
-
-        if include_defaults:
-            self._add_default_references()
-
-    def _add_default_references(self) -> None:
-        """Add default references based on pipeline components."""
-        report_type_refs = {
-            "simulation": [
-                "haber2026_titoolbox",
-                "grossman2017_ti",
-                "saturnino2019_simnibs_fem",
-                "saturnino2015_electrodes",
-                "puonti2020_charm",
-                "gaugain2023_quasistatic",
-                "jurcak2007_eeg_positions",
-                "bids2016",
-            ],
-            "simulator": [
-                "haber2026_titoolbox",
-                "grossman2017_ti",
-                "saturnino2019_simnibs_fem",
-                "saturnino2015_electrodes",
-                "puonti2020_charm",
-                "gaugain2023_quasistatic",
-                "jurcak2007_eeg_positions",
-                "bids2016",
-            ],
-            "flex-search": [
-                "haber2026_titoolbox",
-                "grossman2017_ti",
-                "saturnino2019_simnibs_fem",
-                "puonti2020_charm",
-                "weise2024_leadfield_free",
-                "alexander2019_dkt",
-                "destrieux2010_atlas",
-                "glasser2016_hcp_mmp",
-            ],
-        }
-
-        component_ref_map = {
-            "freesurfer": ["fischl2012_freesurfer"],
-            "qsiprep": ["cieslak2021_qsiprep"],
-            "dcm2niix": ["li2016_dcm2niix"],
-            "dti": [
-                "assaf2005_charmed",
-                "rullmann2009_dti_conductivity",
-                "cieslak2021_qsiprep",
-            ],
-            "anisotropic": ["assaf2005_charmed", "rullmann2009_dti_conductivity"],
-            "glasser": ["glasser2016_hcp_mmp"],
-            "destrieux": ["destrieux2010_atlas"],
-            "mcrib": ["alexander2019_dkt"],
-            "icbm": ["mazziotta2001_icbm"],
-            "bids": ["bids2016", "gorgolewski2017_bids_apps"],
-            "eeg": ["jurcak2007_eeg_positions", "egi_sensor_nets"],
-            "electrodes": ["saturnino2015_electrodes", "jurcak2007_eeg_positions"],
-            "mesh": ["geuzaine2009_gmsh"],
-            "visualization": ["blender"],
-            "nilearn": ["abraham2014_nilearn"],
-            "nipype": ["gorgolewski2011_nipype"],
-            "mti": ["botzanowski2025_mti"],
-            "multipolar": ["botzanowski2025_mti"],
-        }
-
-        refs_to_add: list[str] = []
-
-        for component in self.pipeline_components:
-            component_lower = str(component).lower()
-            if component_lower in report_type_refs:
-                refs_to_add.extend(report_type_refs[component_lower])
-
-        if not refs_to_add:
-            refs_to_add.extend(
-                [
-                    "haber2026_titoolbox",
-                    "grossman2017_ti",
-                    "saturnino2019_simnibs_fem",
-                    "puonti2020_charm",
-                ]
-            )
-
-        for component in self.pipeline_components:
-            component_lower = str(component).lower()
-            refs_to_add.extend(component_ref_map.get(component_lower, []))
-
-        self._add_references_by_ids(refs_to_add)
-
-    def _add_references_by_ids(self, reference_ids: list[str]) -> None:
-        """Add selected references in registry order, de-duplicated by key."""
-        selected = set(reference_ids)
-        for ref_data in DEFAULT_REFERENCES:
-            if ref_data["key"] in selected:
-                self.add_reference(
-                    key=ref_data["key"],
-                    label=ref_data.get("label"),
-                    citation=ref_data["citation"],
-                    doi=ref_data.get("doi"),
-                    url=ref_data.get("url"),
-                )
-
-    @staticmethod
-    def _resolve_reference_key(key: str) -> str:
-        """Resolve stable IDs, visible labels, and legacy aliases."""
-        key_norm = str(key).strip()
-        lower = key_norm.lower()
-        if lower in REFERENCE_ALIASES:
-            return REFERENCE_ALIASES[lower]
-        for ref_data in DEFAULT_REFERENCES:
-            if key_norm == ref_data["key"] or key_norm == ref_data.get("label"):
-                return ref_data["key"]
-            if (
-                lower == ref_data["key"].lower()
-                or lower == ref_data.get("label", "").lower()
-            ):
-                return ref_data["key"]
-        return key_norm
-
-    def add_default_reference(self, key: str) -> bool:
-        """
-        Add a default reference by stable key, visible label, or legacy alias.
-
-        Args:
-            key: The reference key (e.g., 'grossman2017_ti' or 'FreeSurfer')
-
-        Returns:
-            True if reference was found and added, False otherwise
-        """
-        resolved_key = self._resolve_reference_key(key)
-        for ref_data in DEFAULT_REFERENCES:
-            if ref_data["key"] == resolved_key:
-                self.add_reference(
-                    key=ref_data["key"],
-                    label=ref_data.get("label"),
-                    citation=ref_data["citation"],
-                    doi=ref_data.get("doi"),
-                    url=ref_data.get("url"),
-                )
-                return True
-        return False
-
-
-def get_default_references() -> list[dict[str, str]]:
-    """
-    Get the list of default TI-Toolbox references.
-
-    Returns:
-        List of reference dictionaries
-    """
-    return [ref.copy() for ref in DEFAULT_REFERENCES]
 
 
 def get_reference_by_key(key: str) -> dict[str, str] | None:
-    """
-    Get a specific reference by stable key, visible label, or legacy alias.
-
-    Args:
-        key: The reference key or alias
-
-    Returns:
-        Reference dictionary or None if not found
-    """
-    resolved_key = TIToolboxReferencesReportlet._resolve_reference_key(key)
-    for ref in DEFAULT_REFERENCES:
-        if ref["key"] == resolved_key:
-            return ref.copy()
-    return None
+    """The reference with this stable key or visible label (any case), or ``None``."""
+    k = str(key).strip().lower()
+    return next(
+        (
+            ref.copy()
+            for ref in DEFAULT_REFERENCES
+            if k in (ref["key"].lower(), ref.get("label", "").lower())
+        ),
+        None,
+    )
 
 
 def get_reference_by_doi(doi: str) -> dict | None:
-    """The default reference with this DOI, or ``None``."""
+    """The reference with this DOI, or ``None``."""
     return next(
         (ref.copy() for ref in DEFAULT_REFERENCES if ref.get("doi") == doi), None
     )

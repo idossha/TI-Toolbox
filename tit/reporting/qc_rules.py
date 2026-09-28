@@ -7,7 +7,7 @@
 * ``value`` and ``unit``;
 * ``role`` — ``gate`` (blocks and is shown to the user), ``internal`` (a software consistency check:
   blocks too, shown only under Technical details), ``advisory`` (warns, never blocks) or ``report``;
-* ``cite`` — DOIs, each also a reference in ``tit.reporting.reportlets.references``;
+* ``cite`` — DOIs, each also a reference in ``tit.reporting.references``;
 * ``note`` — where a value is TI-Toolbox's own rule rather than a published one;
 * ``plain`` — one sentence a user can read, rendered next to the rule.
 

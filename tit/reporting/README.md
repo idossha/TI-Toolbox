@@ -1,269 +1,37 @@
-# TI-Toolbox Reportlet-Based Reporting System
+# tit.reporting
 
-## Overview
-
-A modular, NiPreps-inspired reporting system for TI-Toolbox that generates self-contained HTML reports for simulation, flex-search and DTI QC.
-
-**Key Principles:**
-- Reportlet abstraction (reusable visual/content components)
-- Self-contained HTML with embedded base64 images
-- BIDS-compliant output structure
-- Modern, clean design
-
----
-
-## Architecture
-
-```
-Reportlet (base)              Report Assembler           HTML Output
-     │                              │                        │
-     ├── MetadataReportlet    ─────►│◄───── Sections ──────► │ <header>
-     ├── ImageReportlet       ─────►│                        │ <nav> TOC
-     ├── TableReportlet       ─────►│                        │ <main>
-     ├── TextReportlet        ─────►│                        │   └── sections
-     ├── ErrorReportlet       ─────►│                        │ <footer>
-     └── ReferencesReportlet  ─────►│                        │
-```
-
----
-
-## File Structure
+Self-contained HTML reports, one per pipeline run. The contract is
+[ARCHITECTURE.md §14](../../docs/dev/ARCHITECTURE.md); this file only maps the package.
 
 ```
 tit/reporting/
-├── __init__.py                    # Public API
-├── qc_rules.py                    # every QC rule: value, role, citation, plain text
-├── html/                          # shared HTML layer (DTI QC report today)
-│   ├── components.py              # shell, components, SVG charts, QC-check rows
-│   ├── report.css                 # tokens, layout
-│   └── fonts/                     # IBM Plex woff2 (OFL), embedded once
-│
-├── core/                          # Core infrastructure
-│   ├── __init__.py
-│   ├── protocols.py               # Reportlet protocol, enums
-│   ├── base.py                    # Base reportlet classes
-│   ├── assembler.py               # ReportAssembler, ReportSection
-│   └── templates.py               # CSS/JS templates
-│
-├── reportlets/                    # Specialized reportlets
-│   ├── __init__.py
-│   ├── metadata.py                # ConductivityTableReportlet, SummaryCardsReportlet, ParameterListReportlet
-│   ├── images.py                  # SliceSeriesReportlet, MontageImageReportlet
-│   ├── text.py                    # MethodsBoilerplateReportlet
-│   └── references.py              # TIToolboxReferencesReportlet
-│
-└── generators/                    # Module-specific generators
-    ├── __init__.py
-    ├── base_generator.py          # BaseReportGenerator ABC
-    ├── simulation.py              # SimulationReportGenerator
-    ├── flex_search.py             # FlexSearchReportGenerator
-    └── dti_qc.py                  # DTI QC report (on html/; python -m rebuilds one)
+├── qc_rules.py        # every rule: value, role (gate/internal/advisory/report), citation, plain text
+├── references.py      # the cited papers, as data (key, label, citation, DOI)
+├── html/
+│   ├── components.py  # page shell, components, SVG charts, Check rows, Cites
+│   ├── report.css     # tokens (light/dark), layout
+│   └── fonts/         # IBM Plex woff2 (OFL), embedded once
+└── generators/
+    ├── dti_qc.py      # DTI QC           <- tit.pre.qsi.dti_extractor
+    ├── simulation.py  # simulator        <- tit.sim.base.BaseSimulation.run, per montage
+    ├── flex_search.py # flex-search      <- tit.opt.flex.flex (after flex_meta.json)
+    ├── ex_search.py   # ex-search        <- tit.opt.ex.ex (after final_output.csv)
+    └── common.py      # what the last three share: current check, cap figure, ROI name, writer
 ```
 
----
+TI-Toolbox keeps five report kinds: SimNIBS's own charm report (copied by `tit.pre.charm`), DTI
+QC, simulator, flex-search and ex-search. There is no PDF export or print layout, no sidecar file,
+no cross-link and no index page.
 
-## Integration Status
-
-TI-Toolbox keeps five report kinds (docs/dev/DECISIONS.md, 2026-09-28): SimNIBS's own charm report,
-DTI QC, flex-search, ex-search and simulator. Preprocessing has only the first two; there is no combined
-preprocessing report and no DICOM report. Reports have no PDF export or print layout, no metadata or
-sidecar files, no cross-links and no index page.
-
-| Report kind | Generator | Called from |
-|---|---|---|
-| head model (charm) | none: SimNIBS writes `m2m_<id>/charm_report.html`; `copy_charm_report` copies it | `tit/pre/charm.py` (`run_charm`, after charm exits 0) |
-| DTI QC (with the `DTI_coregT1_qc.json` gate) | `generators/dti_qc.py` | `tit/pre/qsi/dti_extractor.py` |
-| flex-search | `FlexSearchReportGenerator` | `tit/opt/flex/builder.py` |
-| ex-search | none yet (the catalog titles `ex_search_report_*`) | — |
-| simulator | `SimulationReportGenerator` | constructed by its callers directly; no pipeline module imports it |
-
----
-
-## Usage Examples
-
-### Basic Report Assembly
-
-```python
-from tit.reporting import (
-    ReportAssembler,
-    MetadataReportlet,
-    TableReportlet,
-)
-
-# Create assembler
-assembler = ReportAssembler(title='My Report')
-
-# Add a section
-section = assembler.add_section('summary', 'Summary')
-
-# Add reportlets
-section.add_reportlet(MetadataReportlet(
-    data={'Subject': '001', 'Session': 'test'},
-    display_mode='cards',
-    columns=2
-))
-
-section.add_reportlet(TableReportlet(
-    data=[{'Name': 'Test', 'Value': 42}],
-    title='Results'
-))
-
-# Render and save
-assembler.save('/path/to/report.html')
-```
-
-### Simulation Report
-
-```python
-from tit.reporting import SimulationReportGenerator
-
-gen = SimulationReportGenerator(
-    project_dir='/path/to/project',
-    subject_id='001',
-)
-
-gen.add_simulation_parameters(
-    conductivity_type='scalar',
-    simulation_mode='TI',
-    intensity_ch1=2.0,
-)
-
-gen.add_electrode_parameters(
-    shape='circular',
-    dimensions='10x10 mm',
-    gel_thickness=2.0,
-)
-
-gen.add_subject(
-    subject_id='001',
-    m2m_path='/path/to/m2m_001',
-    status='completed',
-)
-
-gen.add_montage(
-    montage_name='motor_cortex',
-    electrode_pairs=[{'electrode1': 'F3', 'electrode2': 'F4'}],
-)
-
-gen.add_simulation_result(
-    subject_id='001',
-    montage_name='motor_cortex',
-    status='completed',
-)
-
-report_path = gen.generate()
-```
-
-### Flex-Search Report
-
-```python
-from tit.reporting import FlexSearchReportGenerator
-
-gen = FlexSearchReportGenerator(
-    project_dir='/path/to/project',
-    subject_id='001',
-)
-
-gen.set_configuration(
-    optimization_target='mean_field',
-    n_candidates=100,
-)
-
-gen.set_roi_info(
-    roi_name='hippocampus',
-    roi_type='atlas',
-)
-
-gen.add_search_result(
-    rank=1,
-    electrode_1a='F3',
-    electrode_1b='F4',
-    electrode_2a='P3',
-    electrode_2b='P4',
-    score=0.95,
-)
-
-gen.set_best_solution(
-    electrode_pairs=[('F3', 'F4'), ('P3', 'P4')],
-    score=0.95,
-)
-
-report_path = gen.generate()
-```
-
----
-
-## BIDS Output Structure
+Every generator reads only what its run wrote and rebuilds from the command line:
 
 ```
-project_dir/
-└── derivatives/
-    └── ti-toolbox/
-        └── reports/
-            ├── dataset_description.json
-            └── sub-{id}/
-                ├── charm_report.html
-                ├── dti_qc_{timestamp}.html
-                ├── simulation_report_{timestamp}.html
-                └── flex_search_report_{timestamp}.html
+simnibs_python -m tit.reporting.generators.dti_qc      <project> <subject>              [--out DIR]
+simnibs_python -m tit.reporting.generators.simulation  <project> <subject> <simulation> [--out DIR]
+simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run folder> [--out DIR]
+simnibs_python -m tit.reporting.generators.ex_search   <project> <subject> <run name>   [--out DIR]
 ```
 
----
-
-## CSS Design
-
-- **Header**: Gradient `#667eea` → `#764ba2` (purple)
-- **Cards**: Grid layout with `#f8f9fa` background
-- **Status**: Green (completed), Red (failed), Gray (skipped)
-- **Tables**: Clean borders, alternating rows
-- **Boilerplate**: Monospace font, light background, copy button
-- **Responsive**: Single column on mobile
-
----
-
-## Default References
-
-The system includes default citations for:
-- Temporal Interference (Grossman et al., 2017)
-- SimNIBS (Thielscher et al., 2015; Saturnino et al., 2019)
-- FreeSurfer (Fischl, 2012)
-- QSIPrep (Cieslak et al., 2021)
-- dcm2niix (Li et al., 2016)
-
----
-
-## API Summary
-
-```python
-from tit.reporting import (
-    # Core
-    ReportAssembler,
-    ReportMetadata,
-    ReportSection,
-
-    # Base Reportlets
-    MetadataReportlet,
-    ImageReportlet,
-    TableReportlet,
-    TextReportlet,
-    ErrorReportlet,
-    ReferencesReportlet,
-
-    # Specialized Reportlets
-    SliceSeriesReportlet,
-    MontageImageReportlet,
-    ConductivityTableReportlet,
-    MethodsBoilerplateReportlet,
-    TIToolboxReferencesReportlet,
-    DEFAULT_CONDUCTIVITIES,
-
-    # Generators
-    SimulationReportGenerator,
-    FlexSearchReportGenerator,
-    create_flex_search_report,
-
-    # Constants
-    REPORTS_BASE_DIR,
-    BIDS_VERSION,
-)
-```
+Reports are written to `derivatives/ti-toolbox/reports/sub-<id>/<kind>_<YYYYMMDD>_<HHMMSS>.html`
+and recorded as a `report` artifact of the running job. The montage figures are the app's own
+EEG-cap overlay (`tit.tools.montage_visualizer`), converted to WebP.

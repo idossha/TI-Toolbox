@@ -375,12 +375,12 @@ class Cites:
         return cite(*(ref["label"] for ref in refs))
 
     def __call__(self, *keys: str) -> str:
-        from tit.reporting.reportlets.references import get_reference_by_key
+        from tit.reporting.references import get_reference_by_key
 
         return self._add([get_reference_by_key(k) for k in keys])
 
     def dois(self, dois: list[str]) -> str:
-        from tit.reporting.reportlets.references import get_reference_by_doi
+        from tit.reporting.references import get_reference_by_doi
 
         return self._add([get_reference_by_doi(d) for d in dois])
 
@@ -417,7 +417,7 @@ def methods(paragraphs: list[str]) -> str:
 
 
 def references(refs: list[dict]) -> str:
-    """Reference list from ``tit.reporting.reportlets.references`` entries (label, citation, doi)."""
+    """Reference list from ``tit.reporting.references`` entries (label, citation, doi)."""
     items = "".join(
         f'<li id="ref-{esc(r["label"])}"><span class="k">{esc(r["label"])}</span><span>{esc(r["citation"])}'
         + (

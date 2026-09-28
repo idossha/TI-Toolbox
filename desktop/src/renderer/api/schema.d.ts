@@ -8933,9 +8933,9 @@ export interface components {
          *     min_cutoff : float or None, optional
          *         Minimum threshold (V/m, or a percentile when *use_percentiles* is
          *         true). ``None`` -- the default -- is data-driven: the 95th
-         *         percentile of the averaged field's non-zero voxels, the same
-         *         display floor ``tit.reporting`` already uses for its own field
-         *         figures. A fixed default in V/m cannot work here: a real TI field
+         *         percentile of the averaged field's non-zero voxels, the display
+         *         floor the former simulation report derived from real TI fields.
+         *         A fixed default in V/m cannot work here: a real TI field
          *         peaks around 0.1 V/m, so the former ``0.3`` was above every voxel
          *         of every run and the job died inside matplotlib.
          *     max_cutoff : float or None, optional

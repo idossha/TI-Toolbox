@@ -842,9 +842,10 @@ disclosure, methods with a copy button, references), hand-written SVG charts and
 `report.css` holds the tokens and layout. Pages are self-contained: CSS, a small script, the IBM Plex
 fonts (OFL, embedded once as `data:`) and WebP/PNG images are inline; the only links are `doi.org`
 references, and the report CSP allows `font-src data:`. A component exists only when a report uses
-it; the DTI QC report is the first and only adopter, and the other generators still use
-`tit/reporting/core` until they are ported. A report inside the desktop app follows the app's theme:
-the Results iframe no longer pins `color-scheme`.
+it (two reports at least): all four generated reports use it, and it is the only report layer (the
+reportlet/assembler layer was removed on 2026-09-28). `tit/reporting/references.py` is the cited-paper
+registry, as data. A report inside the desktop app follows the app's theme: the Results iframe no longer
+pins `color-scheme`.
 
 **Five report kinds, nothing around them.** Preprocessing has two: SimNIBS's own charm report and the
 DTI QC report. The rest are flex-search, ex-search and simulator reports; `tit.catalog` titles only those
@@ -886,9 +887,36 @@ superior up in coronal and sagittal, anterior right in sagittal), and picks slic
 through charm's `Conform2MNI_nonl` warp, never on a slice with under 200 brain voxels. Without the warp,
 coordinates are approximate and captions say so.
 
+**Simulator, flex-search and ex-search reports are written by their pipelines and read only the run's
+outputs.** `BaseSimulation.run` writes a simulator report after each montage; `run_flex_search` after
+`flex_meta.json` (also when every run failed); `run_ex_search` after `final_output.csv`. A report that
+cannot be written is a warning and never fails the run, and each is recorded as a `report` artifact of
+its job. Each has `python -m tit.reporting.generators.<simulation|flex_search|ex_search> <project>
+<subject> <run>` to rebuild it. The default view is the verdict with key numbers, the montage on the EEG
+cap, and the advisories; software checks, methods, references and the run's configuration are under
+Technical details. The simulator report shows the envelope through the ROI of the newest Analyzer result
+(or the grey-matter hot spot) and the ROI mean against the published TI range; flex-search names the ROI
+from the run's ROI confirmation, states the score in words and lists every multi-start run; ex-search
+charts every montage's ROI mean against focality and lists the top 25 in a sortable table. Budgets:
+simulator 1.5 MB, flex-search and ex-search 1 MB (ernie: 0.33, 0.27, 0.41 MB).
+
+**Montages are drawn on the app's own EEG-cap overlay.** `tit.tools.montage_visualizer.montage_webp` runs
+`visualize_montage` (the image a simulation writes to `montage_imgs/`) into a temporary folder and
+returns WebP; nets without a cap template get the channel list only. Flex electrodes are free positions,
+so the flex report draws each at its nearest cap electrode (`map_electrodes_to_net`) and lists the
+distances. No report draws its own head.
+
+**Simulator and optimiser rules are `RULES["sim"]` and `RULES["opt"]`.** Their only published cut-offs
+are advisories: electrode current < 4 mA (per electrode, which carries its channel's current; the total
+is shown beside it), with Cassarà 2025's kHz limits stated as unverified per channel or total; estimated
+peak brain current density < 6.3 A/m²; and at least two valid multi-start runs. Target field is shown
+against Rampersad 2019's range scaled to the run's total current, never as pass/fail. Solver precision,
+current conservation and the field's order of magnitude are software checks.
+
 Sources: [`tit/reporting/html/`](../../tit/reporting/html/), [`qc_rules.py`](../../tit/reporting/qc_rules.py),
+[`generators/`](../../tit/reporting/generators/), [`tools/montage_visualizer.py`](../../tit/tools/montage_visualizer.py),
 [`generators/dti_qc.py`](../../tit/reporting/generators/dti_qc.py), [`plotting/slices.py`](../../tit/plotting/slices.py),
 [`plotting/dti_qc.py`](../../tit/plotting/dti_qc.py), [`pre/qsi/dti_advisories.py`](../../tit/pre/qsi/dti_advisories.py),
 [`pre/charm.py`](../../tit/pre/charm.py).
-Verified by `tests/test_reporting_dti_qc.py`, `tests/test_pre_charm.py`, `tests/test_plotting_slices.py`,
+Verified by `tests/test_reporting_dti_qc.py`, `tests/test_reporting_runs.py`, `tests/test_pre_charm.py`, `tests/test_plotting_slices.py`,
 `tests/numerical/test_dti_advisories.py` and `desktop/tests/unit/cssRules.test.ts`.

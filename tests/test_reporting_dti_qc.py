@@ -36,7 +36,7 @@ from tit.pre.qsi.dti_extractor import DtiQc
 from tit.reporting.generators import dti_qc as gen
 from tit.reporting.html import components as c
 from tit.reporting.qc_rules import RULES
-from tit.reporting.reportlets.references import get_reference_by_doi
+from tit.reporting.references import get_reference_by_doi
 
 SECTIONS = ("verdict", "preprocessing", "registration", "orientation", "diffusivity", "technical")
 FAKE = b"RIFF\x00\x00\x00\x00WEBPVP8 "

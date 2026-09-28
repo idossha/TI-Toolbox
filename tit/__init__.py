@@ -25,7 +25,7 @@ server
 cli
     Command-line tools built on a shared ``BaseCLI`` base class.
 reporting
-    HTML report generation with composable reportlets.
+    Self-contained HTML reports (DTI QC, simulator, flex-search, ex-search).
 
 Public API
 ----------
