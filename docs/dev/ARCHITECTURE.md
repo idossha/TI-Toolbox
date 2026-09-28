@@ -836,7 +836,8 @@ silently presenting a page-local plot as a complete history.
 ## 14. Reports built on the shared HTML layer
 
 **One components module, one stylesheet.** `tit/reporting/html/components.py` holds the page shell
-(contents rail, masthead, light/dark tokens with an in-page theme toggle, print CSS), the components
+(contents rail, masthead, light/dark tokens with an in-page theme toggle; no print stylesheet, since PDF
+export is not offered), the components
 a report uses (section, callout, figure, flicker, plane tabs, slice scrubber, table, definition list,
 disclosure, methods with a copy button, references), hand-written SVG charts and the QC-check row;
 `report.css` holds the tokens and layout. Pages are self-contained: CSS, a small script, the IBM Plex

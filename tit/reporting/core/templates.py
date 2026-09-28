@@ -668,27 +668,6 @@ body {
         width: 40%;
     }
 }
-
-/* Print styles */
-@media print {
-    .report-nav {
-        display: none;
-    }
-
-    .report-header {
-        background: var(--primary-gradient-start) !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-
-    .report-section {
-        break-inside: avoid;
-    }
-
-    .copy-btn {
-        display: none;
-    }
-}
 """
 
 DEFAULT_JS_SCRIPTS = """

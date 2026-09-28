@@ -43,8 +43,7 @@ _FONTS = (
 )
 
 # Widgets: theme toggle (system/light/dark; storage may throw in the sandboxed iframe), contents
-# scroll-spy, flicker, plane tabs, slice scrubber, chart tooltips, copy button, and
-# opening every <details> for print.
+# scroll-spy, flicker, plane tabs, slice scrubber, chart tooltips and copy button.
 _JS = r"""(()=>{
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const tb=$('#theme-btn');
@@ -82,8 +81,6 @@ document.addEventListener('pointerout',e=>{if(e.target.closest('[data-tip]'))tip
 $$('[data-copy]').forEach(b=>b.addEventListener('click',()=>{const txt=document.getElementById(b.dataset.copy).innerText.trim();
   const done=()=>{const o=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=o,1400);};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,()=>{});}));
-addEventListener('beforeprint',()=>$$('details').forEach(d=>{d.dataset.wasOpen=d.open;d.open=true;}));
-addEventListener('afterprint',()=>$$('details').forEach(d=>{d.open=d.dataset.wasOpen==='true';}));
 })();"""
 
 
@@ -187,7 +184,7 @@ def page(
   <ol class="toc">{toc_html}</ol>
   <div class="rail-foot">
     <div class="meta">{esc(subject)}</div>
-    <button class="tbtn no-print" id="theme-btn" type="button" aria-label="Switch colour theme"><span>Theme: system</span></button>
+    <button class="tbtn" id="theme-btn" type="button" aria-label="Switch colour theme"><span>Theme: system</span></button>
   </div>
 </nav>
 <main class="sheet" id="top">
@@ -305,7 +302,7 @@ def scrubber(
     data = json.dumps({"frames": uris, "labels": labels, "alt": alt})
     return (
         f'<div class="scrub"><div class="lightbox"><div class="lb-inner"><img src="{uris[start]}" alt="{esc(alt)} {esc(labels[start])}">{extra}</div></div>'
-        f'<div class="scrub-row no-print"><label for="scrub{num}">Slice</label>'
+        f'<div class="scrub-row"><label for="scrub{num}">Slice</label>'
         f'<input id="scrub{num}" type="range" min="0" max="{len(frames) - 1}" value="{start}" step="1">'
         f'<output for="scrub{num}">{esc(labels[start])}</output></div>'
         f'<script type="application/json">{data}</script></div>'

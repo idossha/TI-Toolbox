@@ -1,4 +1,4 @@
-/* TI-Toolbox report design system: tokens, shell, components, print. See tit/reporting/html/components.py. */
+/* TI-Toolbox report design system: tokens, shell, components. See tit/reporting/html/components.py. */
 :root{
   color-scheme:light;
   --page:#e8ecf1; --paper:#ffffff; --paper-2:#f3f5f8; --paper-3:#e9edf2;
@@ -253,32 +253,6 @@ footer.foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);fo
   *{transition:none!important}
 }
 
-/* ── print: one continuous record ─────────────────────────────── */
-@media print{
-  @page{size:A4;margin:14mm 12mm}
-  :root{color-scheme:light}
-  body{background:#fff;font-size:10.5pt}
-  .shell{display:block}
-  .rail,.fig-bar .ctl,.tbtn,.scrub input,.no-print{display:none!important}
-  .sheet{border:0}
-  .sheet-inner{max-width:none;padding:0}
-  section.sec{padding-top:18pt;break-before:auto}
-  .sec-h{break-after:avoid}
-  figure.fig,tr,.callout{break-inside:avoid}
-  .lightbox img{max-height:115mm;width:auto;max-width:100%;margin:0 auto}
-  .chart{max-width:100%}
-  .methods{max-width:none;padding:12pt}
-  .lightbox{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .flick{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-  .flick img+img{position:static;width:100%;opacity:1!important;animation:none!important}
-  .flick .lb-label{display:none}
-  [data-panel][hidden]{display:block!important}
-  .flick .tag{display:none}
-  details.raw{border:0}
-  details.raw>div{display:block}
-  pre.code{max-height:none;white-space:pre-wrap}
-  a{color:inherit;text-decoration:none}
-}
 @media (forced-colors:active){
   .st svg,.seal{forced-color-adjust:auto}
   .seg button[aria-pressed="true"]{border:2px solid CanvasText}
