@@ -137,7 +137,21 @@ $$
 
 This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$, requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply.
 
-Under the shipped positional wiring, each field is one carrier, so both metrics include **every** channel field. Shared-frequency fields would require coherent vector summation first. Both metrics are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+Under the shipped positional wiring, each field is one carrier, so both metrics include **every** channel field. Shared-frequency fields require coherent vector summation first; the one place the toolbox models that is the carrier-only control below. Both metrics are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+
+#### Carrier-only controls (ΔF = 0) {#carrier-only-controls}
+
+A carrier-only control drives both pairs of a 2-pair montage at the **same** frequency (e.g. 15,000 / 15,000 Hz), phase-locked and in phase, so there is no beat and no envelope. The two carriers then add into one fixed field $$\mathbf{E}_1 + \mathbf{E}_2$$ that oscillates at the carrier frequency, and the TI worst case above — which is only reached because two different frequencies sweep through every relative phase — never occurs. Following Cassarà et al. 2025 Part II (_Bioelectromagnetics_ 46(1), e22536, doi:10.1002/bem.22536; p. 8: "coherent field superposition was used for identical frequencies"), the carriers are summed coherently:
+
+$$
+\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert,
+\qquad
+\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2
+$$
+
+instead of $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$ and $$\lVert \mathbf{E}_1 \rVert^2 + \lVert \mathbf{E}_2 \rVert^2$$. For `hf_peak` the two agree where the carrier fields are within 90° of each other and differ where they are not; `hf_sar` gains the cross term $$2\,\mathbf{E}_1 \cdot \mathbf{E}_2$$ (up to twice the TI value for aligned carriers, down to zero for opposed equal ones). With $$\lVert \mathbf{E}_1 \rVert = 1$$ and $$\lVert \mathbf{E}_2 \rVert = 0.8$$ V/m at 120°, the TI worst case is 1.56 V/m while the carrier-only peak is 0.92 V/m. "In phase" means what the simulation's sign convention defines: each pair's first electrode is driven positive at the same instant.
+
+`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak` and/or `hf_sar`. Use it for carrier-only or sham-style controls that deliver kHz carriers without interference. Set it with `SimulationConfig(carrier_only=True, output_fields=["hf_peak", "hf_sar"])` or the **Carrier-only control** checkbox in a Simulator job's settings (see [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)). The run records `carrier_only` in its `documentation/config.json`, and the fsaverage projection reads it from there.
 
 ### Spatial domain: how the analyzer summarises a field
 

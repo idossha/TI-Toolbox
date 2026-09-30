@@ -111,6 +111,8 @@ cfg = SimulationConfig(
     map_to_fsavg=True,
     output_fields=["TI_max"])           # + "TI_avg", "hf_peak", "hf_sar"
 run_simulation(cfg)
+# ΔF = 0 carrier-only control (2-pair TI; coherent carriers, no envelope fields):
+# SimulationConfig(..., carrier_only=True, output_fields=["hf_peak", "hf_sar"])
 ```
 2 pairs → TI, 4+ (even) → mTI, detected automatically. Outputs:
 `Simulations/<name>/TI/{mesh,niftis}` plus MNI-space NIfTIs. `TI_normal` is written
