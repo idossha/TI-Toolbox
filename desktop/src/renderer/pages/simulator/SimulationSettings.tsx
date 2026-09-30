@@ -7,12 +7,30 @@ import { Select } from "../../ui/Select";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Checkbox } from "../../ui/Toggle";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
-import { CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, type JobSettings } from "./types";
+import { CARRIER_FIELDS, CARRIER_ONLY_HELP, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, type JobSettings } from "./types";
 
-/** Shared per-job simulation controls, used by the Simulator. */
-export function SimulationSettings({ value: draft, onChange: setDraft }: { value: JobSettings; onChange: (value: JobSettings) => void }) {
+/**
+ * Shared per-job simulation controls, used by the Simulator. `carrierOnlyAllowed` is false for an
+ * mTI job: a carrier-only (ΔF = 0) control is defined for 2-pair TI only.
+ */
+export function SimulationSettings({
+  value: draft,
+  onChange: setDraft,
+  carrierOnlyAllowed = true,
+}: {
+  value: JobSettings;
+  onChange: (value: JobSettings) => void;
+  carrierOnlyAllowed?: boolean;
+}) {
   const [tissueOpen, setTissueOpen] = useState(false);
   const invalid = draft.outputFields.length === 0;
+  const carrierOnly = !!draft.carrierOnly && carrierOnlyAllowed;
+  // Turning it on keeps whichever carrier fields were already ticked, else selects both: the
+  // envelope fields are undefined without a beat.
+  const setCarrierOnly = (on: boolean) => {
+    const kept = draft.outputFields.filter((n) => CARRIER_FIELDS.includes(n));
+    setDraft({ ...draft, carrierOnly: on, outputFields: on ? (kept.length ? kept : [...CARRIER_FIELDS]) : draft.outputFields });
+  };
   return <>
         <div className="job-settings-form" data-testid="job-settings-form">
           <section>
@@ -104,11 +122,27 @@ export function SimulationSettings({ value: draft, onChange: setDraft }: { value
 
           <section>
             <h4>Output fields</h4>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+              <label
+                className="checkbox-label-row"
+                title={carrierOnlyAllowed ? undefined : "Carrier-only controls are defined for 2-pair TI montages only."}
+              >
+                <Checkbox
+                  checked={carrierOnly}
+                  disabled={!carrierOnlyAllowed}
+                  onCheckedChange={setCarrierOnly}
+                  aria-label="Carrier-only control"
+                />
+                Carrier-only control (ΔF = 0, coherent carriers)
+              </label>
+              <HelpIcon variant="plain" title="Carrier-only control" text={CARRIER_ONLY_HELP} label="About carrier-only control" />
+            </div>
             <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
               {OUTPUT_FIELDS.map((f) => (
                 <label key={f.name} title={f.description} className="checkbox-label-row">
                   <Checkbox
                     checked={draft.outputFields.includes(f.name)}
+                    disabled={carrierOnly && !CARRIER_FIELDS.includes(f.name)}
                     onCheckedChange={(checked) =>
                       setDraft({
                         ...draft,

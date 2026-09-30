@@ -352,9 +352,10 @@ def test_shared_frequency_would_need_a_coherent_presum_and_never_occurs():
     ``hf_sar`` over the raw fields would understate exposure by the cross term
     (a factor of 2 for two equal aligned fields).  That is why the metric is
     stated over *carriers*.  Positional wiring gives every field its own
-    frequency, so the case cannot arise -- and ``Montage`` has no field with
-    which to express it.  If a future montage regains one, the coherent
-    pre-sum belongs in ``tit.fields`` and this test is the specification.
+    frequency, so the case cannot arise from a montage -- ``Montage`` has no
+    field with which to express it.  The one deliberate exception is the
+    ΔF = 0 carrier-only control (``SimulationConfig.carrier_only``), which
+    uses ``coherent=True``; see the next test.
     """
     from dataclasses import fields as dataclass_fields
 
@@ -378,6 +379,34 @@ def test_shared_frequency_would_need_a_coherent_presum_and_never_occurs():
     # And there is no way to declare the shared-frequency wiring.
     assert "channels" not in {f.name for f in dataclass_fields(Montage)}
     assert "channels" not in hf_sar.__code__.co_varnames
+
+
+def test_carrier_only_coherent_metrics_match_a_measured_same_frequency_field():
+    """ΔF = 0, in phase (``coherent=True``): measured, not argued.
+
+    Both pairs driven at one frequency and one phase are a single fixed field
+    ``(E1 + E2) cos(wt)``, so the true peak is ``|E1 + E2|`` and the true
+    time-average of ``|E|^2`` is ``|E1 + E2|^2 / 2`` -- never the beat worst
+    case ``|E1 - E2|``.  The worked example (|E1| = 1, |E2| = 0.8, 120 deg)
+    is where the two differ most visibly: 0.917 against the TI 1.562.
+    """
+    from tit.fields import hf_peak, hf_sar
+
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = 0.8 * np.array([np.cos(np.radians(120)), np.sin(np.radians(120)), 0.0])
+    same = (_FREQS[0], _FREQS[0])
+    in_phase = (0.3, 0.3)
+
+    peak = _true_peak([e1, e2], same, in_phase)
+    mean_square = _true_mean_square([e1, e2], same, in_phase)
+
+    got_peak = float(hf_peak(*_as_rows(e1, e2), coherent=True)[0])
+    got_sar = float(hf_sar(*_as_rows(e1, e2), coherent=True)[0])
+    assert got_peak == pytest.approx(peak, rel=1e-5)  # sampling grid: 2000 samples/cycle
+    assert got_sar == pytest.approx(2.0 * mean_square, rel=1e-9)
+    assert got_peak == pytest.approx(0.9165, abs=1e-4)  # sqrt(1 + 0.64 - 0.8)
+    # The TI worst case is what a beat would reach, and the in-phase field never does.
+    assert float(hf_peak(*_as_rows(e1, e2))[0]) == pytest.approx(1.5620, abs=1e-4)  # sqrt(2.44)
 
 
 # --------------------------------------------------------------------------

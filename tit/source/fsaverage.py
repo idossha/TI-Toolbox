@@ -44,6 +44,7 @@ tit.source.forward.prepare_forward : The companion forward pipeline.
 
 from __future__ import annotations
 
+import json
 import logging
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -92,6 +93,21 @@ def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, ...]:
             f"found {len(matches)}"
         )
     return tuple(matches)
+
+
+def _recorded_carrier_only(pm, subject_id: str, sim: str) -> bool:
+    """Did the run record itself as a ΔF = 0 carrier-only control?
+
+    Read from the run's own ``documentation/config.json`` (written by
+    :func:`tit.sim.utils.create_simulation_config_file`), so a post-hoc
+    projection adds the carriers the way the simulation did.  A run without
+    the key predates carrier-only mode and is an ordinary TI run.
+    """
+    path = Path(pm.simulation(subject_id, sim)) / "documentation" / "config.json"
+    try:
+        return bool(json.loads(path.read_text()).get("carrier_only", False))
+    except (OSError, ValueError):
+        return False
 
 
 def _load_carrier_mesh(vol_path: Path):
@@ -244,8 +260,9 @@ def _compute_fields(
             errors.append(f"carriers: {exc!r}")
         else:
             # Cassarà 2025 safety metrics (same formulas as the volume output).
-            _project("hf_peak", lambda: hf_peak(*e_fields))
-            _project("hf_sar", lambda: hf_sar(*e_fields))
+            coherent = _recorded_carrier_only(pm, subject_id, sim)
+            _project("hf_peak", lambda: hf_peak(*e_fields, coherent=coherent))
+            _project("hf_sar", lambda: hf_sar(*e_fields, coherent=coherent))
 
     if not out:
         raise ValueError(

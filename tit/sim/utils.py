@@ -672,6 +672,8 @@ def create_simulation_config_file(
         "electrode_coordinates": electrode_coordinates,
         "electrode_coordinate_source": electrode_coordinate_source,
         "intensities": config.intensities,
+        "output_fields": config.output_fields,
+        "carrier_only": config.carrier_only,
         "electrode_geometry": {
             "shape": config.electrode_shape,
             "dimensions": config.electrode_dimensions,
@@ -940,6 +942,7 @@ def build_simulation_config_for_job(
     electrode_dimensions: list[float],
     gel_thickness: float,
     output_fields: list[str] | None = None,
+    carrier_only: bool = False,
 ) -> SimulationConfig:
     """Build the backend config for one subject/montage job."""
     kwargs = {}
@@ -953,6 +956,7 @@ def build_simulation_config_for_job(
         electrode_shape=electrode_shape,
         electrode_dimensions=electrode_dimensions,
         gel_thickness=gel_thickness,
+        carrier_only=carrier_only,
         **kwargs,
     )
 
@@ -1163,9 +1167,14 @@ def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> 
     try:
         # overwrite=True: this montage's overlays were just (re)written, so any
         # cached projection from a prior run of the same montage name is stale.
-        _, status, msg = project_subject(
-            config.subject_id, montage.name, FsavgMapConfig(overwrite=True)
+        # A carrier-only run has no envelope overlays; its coherent carrier
+        # sum is read back from the run's config.json by the projection.
+        cfg = (
+            FsavgMapConfig(overwrite=True, fields=("hf_peak", "hf_sar"))
+            if config.carrier_only
+            else FsavgMapConfig(overwrite=True)
         )
+        _, status, msg = project_subject(config.subject_id, montage.name, cfg)
         logger.info("fsaverage projection [%s] %s: %s", status, montage.name, msg)
     except Exception as exc:  # noqa: BLE001 - auxiliary step, never fatal
         logger.warning("fsaverage projection failed for %s: %r", montage.name, exc)

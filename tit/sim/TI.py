@@ -160,10 +160,16 @@ class TISimulation(BaseSimulation):
             # Carrier-exposure safety map (Cassarà 2025): peak carrier field.
             # Written as a volume field so it flows to subject-/MNI-space
             # NIfTIs alongside TI_max.
-            mout.add_element_field(hf_peak(ef1.value, ef2.value), const.FIELD_HF_PEAK)
+            mout.add_element_field(
+                hf_peak(ef1.value, ef2.value, coherent=self.config.carrier_only),
+                const.FIELD_HF_PEAK,
+            )
         if const.FIELD_HF_SAR in selected:
             # Carrier-exposure safety map (Cassarà 2025): heating driver.
-            mout.add_element_field(hf_sar(ef1.value, ef2.value), const.FIELD_HF_SAR)
+            mout.add_element_field(
+                hf_sar(ef1.value, ef2.value, coherent=self.config.carrier_only),
+                const.FIELD_HF_SAR,
+            )
 
         view_field = (
             const.FIELD_TI_MAX
@@ -177,7 +183,8 @@ class TISimulation(BaseSimulation):
         )
         self.logger.info(f"TI mesh saved: {ti_path}")
 
-        self._calculate_ti_normal(dirs["hf_dir"], dirs["ti_mesh"], name)
+        if not self.config.carrier_only:  # ΔF = 0: no envelope to project
+            self._calculate_ti_normal(dirs["hf_dir"], dirs["ti_mesh"], name)
 
         self.logger.info("Field extraction: Started")
         extract_fields(

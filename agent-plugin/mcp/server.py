@@ -1017,7 +1017,11 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "with no 1/2; calibrated SAR = (sigma/2rho)*hf_sar; RMS carrier field = "
             "sqrt(hf_sar/2) — the 1/2 appears once, in the calibration. "
             "hf_peak = max over signs |sum_c s_c E_c|, exact for <= 8 carriers "
-            "(EXACT_SIGN_ENUM_MAX_FIELDS), a lower bound above that.",
+            "(EXACT_SIGN_ENUM_MAX_FIELDS), a lower bound above that. "
+            "Carrier-only control (SimulationConfig(carrier_only=True), 2-pair TI only): "
+            "both pairs at one frequency and in phase (dF = 0), no envelope, so "
+            "hf_peak = |E1+E2| and hf_sar = |E1+E2|^2 (coherent=True) and output_fields "
+            "may only be hf_peak/hf_sar; TI_max/TI_avg/TI_normal are not computed.",
             "integrity_rule": "Numerical behavior changes in tit/stats, tit/analyzer, tit/calc, tit/fields "
             "or tit/sim need (1) a test in tests/numerical/ against the REAL libraries, "
             "asserting the claim independently rather than retyping the implementation, and "

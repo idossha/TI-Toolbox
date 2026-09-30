@@ -61,6 +61,9 @@ export interface JobSettings {
   outputFields: string[];
   mapToMni?: boolean;
   mapToFsavg?: boolean;
+  /** ΔF = 0 carrier-only control: both pairs at one frequency, in phase — no envelope; only the
+   *  carrier fields are computed (`SimulationConfig.carrier_only`). 2-pair TI only. */
+  carrierOnly?: boolean;
   customConductivities: Record<string, number>;
 }
 
@@ -75,6 +78,7 @@ export const DEFAULT_JOB_SETTINGS: JobSettings = {
   outputFields: ["TI_max"],
   mapToMni: false,
   mapToFsavg: false,
+  carrierOnly: false,
   customConductivities: {},
 };
 
@@ -110,6 +114,7 @@ export function settingsSummary(settings: JobSettings, defaults: JobSettings): s
   if (settings.outputFields.join(",") !== defaults.outputFields.join(",")) parts.push(settings.outputFields.join(", ") || "no fields");
   if (!!settings.mapToMni !== !!defaults.mapToMni) parts.push(settings.mapToMni ? "MNI" : "no MNI");
   if (!!settings.mapToFsavg !== !!defaults.mapToFsavg) parts.push(settings.mapToFsavg ? "fsaverage" : "no fsaverage");
+  if (!!settings.carrierOnly !== !!defaults.carrierOnly) parts.push(settings.carrierOnly ? "carrier-only" : "TI");
   return parts.join(" · ");
 }
 
@@ -149,6 +154,11 @@ export function rowPairCount(row: SelectedRow): number {
   return row.pairs?.length ?? row.xyzPairs?.length ?? 0;
 }
 
+/** A carrier-only (ΔF = 0) control is a 2-pair TI job; `SimulationConfig` rejects it for mTI. */
+export function carrierOnlyAllowed(row: SelectedRow): boolean {
+  return row.kind !== "multi_polar" && inferMontageKind(rowPairCount(row)) === "uni_polar";
+}
+
 export const TISSUE_TABLE: { number: number; name: string; defaultValue: number; reference: string }[] = [
   { number: 1, name: "White matter", defaultValue: 0.126, reference: "Wagner et al., 2004" },
   { number: 2, name: "Gray matter", defaultValue: 0.275, reference: "Wagner et al., 2004" },
@@ -177,8 +187,17 @@ export const OUTPUT_FIELDS: OutputFieldSpec[] = [
   { name: "hf_sar", description: "Sum of carrier power, sum_i |E_i|^2. Proportional to SAR but not calibrated: SAR = (sigma/2*rho)*hf_sar (Cassarà et al. 2025)." },
 ];
 
+/** The only fields defined without an envelope — what a carrier-only (ΔF = 0) job may compute. */
+export const CARRIER_FIELDS = ["hf_peak", "hf_sar"];
+
+export const CARRIER_ONLY_HELP =
+  "A control with no temporal interference: both pairs run at the same carrier frequency (ΔF = 0) and in phase, " +
+  "so there is no beat and no envelope. The carriers add as one fixed field, so hf_peak = |E1+E2| and hf_sar = |E1+E2|² " +
+  "(coherent superposition, Cassarà et al. 2025) instead of the TI worst case max(|E1+E2|, |E1−E2|). " +
+  "Only hf_peak and hf_sar are computed; TI_max, TI_avg and TI_normal are undefined. 2-pair TI montages only.";
+
 export const OUTPUT_FIELDS_HELP =
-  "Which volume fields to compute and write for each simulation. TI_normal (surface normal component) is always computed for 2-pair TI and is not a choice here. " +
+  "Which volume fields to compute and write for each simulation. TI_normal (surface normal component) is always computed for 2-pair TI (except carrier-only controls) and is not a choice here. " +
   "Cost: TI_avg adds a direction sweep; hf_peak and hf_sar are effectively free alongside a field that is already being computed.";
 
 /** Which montage bucket a montage lives in: `uni_polar_montages` / `multi_polar_montages`. */

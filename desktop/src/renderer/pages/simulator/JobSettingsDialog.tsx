@@ -18,7 +18,7 @@ import { useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { Dialog } from "../../ui/Overlay";
 import { Button } from "../../ui/Button";
-import type { JobSettings, SelectedRow } from "./types";
+import { carrierOnlyAllowed, type JobSettings, type SelectedRow } from "./types";
 import { SimulationSettings } from "./SimulationSettings";
 
 export interface JobSettingsDialogProps {
@@ -81,7 +81,7 @@ export function JobSettingsDialog({ row, defaults, onClose, onSave }: JobSetting
           </div>
         }
       >
-        <SimulationSettings value={draft} onChange={setDraft} />
+        <SimulationSettings value={draft} onChange={setDraft} carrierOnlyAllowed={row ? carrierOnlyAllowed(row) : true} />
       </Dialog>
     </>
   );

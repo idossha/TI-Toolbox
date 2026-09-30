@@ -379,6 +379,52 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   await third.getByRole("button", { name: /^Remove job / }).click();
 });
 
+/**
+ * Carrier-only (ΔF = 0) controls: `SimulationConfig.carrier_only` rejects envelope fields and mTI,
+ * so the dialog must never let a job ask for either — and the claim is about what reaches the
+ * server, not how the checkbox looks.
+ */
+test("a carrier-only job sends carrier_only with carrier fields only, and an mTI job cannot opt in", async () => {
+  await clearMontageRows();
+  const ti = montageRows().first();
+  await configureMontageJob(page, ti, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
+  const mti = await addJobRow(page);
+  await configureMontageJob(page, mti, { subject: "ernie", net: "GSN-HydroCel-185", montage: "mTI_F3F4_P3P4 · mTI" });
+
+  await mti.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  let dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("checkbox", { name: "Carrier-only control" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await ti.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByRole("checkbox", { name: "Carrier-only control" }).click();
+  await expect(dialog.getByRole("checkbox", { name: "TI_max" })).toBeDisabled();
+  await expect(dialog.getByRole("checkbox", { name: "TI_avg" })).toBeDisabled();
+  await expect(dialog.getByRole("checkbox", { name: "hf_peak" })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "hf_sar" })).toBeChecked();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  const bodies: Record<string, unknown>[] = [];
+  const collect = (r: Request) => {
+    if (r.method() === "POST" && /\/api\/jobs(\/groups)?$/.test(new URL(r.url()).pathname)) bodies.push(r.postDataJSON() as Record<string, unknown>);
+  };
+  page.on("request", collect);
+  await page.getByTestId("run-button").click();
+  await answerExistingOutputs(page);
+  await expect.poll(() => bodies.length, { timeout: 20_000 }).toBeGreaterThan(0);
+  page.off("request", collect);
+
+  const group = bodies[0] as { subject_configs?: { config: Record<string, unknown> }[] };
+  const configs = (group.subject_configs ?? []).map((e) => e.config);
+  const byMontage = (name: string) => configs.find((c) => ((c.montages as { name: string }[]) ?? []).some((m) => m.name === name))!;
+  expect(byMontage("F3_F4").carrier_only).toBe(true);
+  expect(byMontage("F3_F4").output_fields).toEqual(["hf_peak", "hf_sar"]);
+  expect(byMontage("mTI_F3F4_P3P4")).not.toHaveProperty("carrier_only");
+});
+
 test("the page is the jobs table — no page-level electrode, conductivity or output-field form", async () => {
   // 2026-09-06: those three sections used to sit under the table and apply to every job. They are
   // gone; each row carries its own, edited in the row's own dialog (`Job settings`), and a new row

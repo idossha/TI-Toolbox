@@ -141,7 +141,7 @@ class TestFsavgHelpers:
         with pytest.raises(FileNotFoundError):
             fsaverage._carrier_volume_meshes(pm, "001", "TI_sim")
 
-    def test_hf_peak_and_hf_sar_from_carrier_e(self, monkeypatch):
+    def test_hf_peak_and_hf_sar_from_carrier_e(self, monkeypatch, tmp_path):
         """Both derive from the interpolated vector E (Cassarà formulas)."""
         import numpy as np
 
@@ -172,6 +172,22 @@ class TestFsavgHelpers:
         )
         assert out["hf_peak"][0] == pytest.approx(2.0)
         assert out["hf_sar"][0] == pytest.approx(2.0)
+
+        # ΔF = 0 carrier-only, as the run recorded it in documentation/config.json:
+        # the same anti-parallel carriers cancel coherently.
+        from types import SimpleNamespace
+
+        doc = tmp_path / "documentation"
+        doc.mkdir()
+        (doc / "config.json").write_text('{"carrier_only": true}')
+        pm = SimpleNamespace(
+            simulation=lambda sid, sim: str(tmp_path), m2m=lambda sid: str(tmp_path)
+        )
+        out = fsaverage._compute_fields(
+            pm, "001", "TI_sim", FsavgMapConfig(fields=("hf_peak", "hf_sar"))
+        )
+        assert out["hf_peak"][0] == pytest.approx(0.0)
+        assert out["hf_sar"][0] == pytest.approx(0.0)
 
     def test_carrier_interp_failure_keeps_ti_fields(self, monkeypatch):
         """A carrier E-interpolation failure skips hf_max/magnitude, keeps TI."""
