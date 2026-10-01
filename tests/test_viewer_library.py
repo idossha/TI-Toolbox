@@ -378,6 +378,23 @@ def test_meshes_are_offered_in_both_spaces(pm: PathManager) -> None:
         assert [m["name"] for m in sim["meshes"]] == ["grey_L_Insula_TI.msh"]
 
 
+def test_the_fsaverage_projection_is_offered_only_in_mni_scenes(pm: PathManager) -> None:
+    """It is a template-space surface: over this subject's T1 it would be a misregistration."""
+    msh = Path(pm.sim_fsaverage_fields("ernie", "L_Insula", 5))
+    msh.parent.mkdir()
+    msh.write_bytes(b"$MeshFormat")
+    Path(f"{msh}.opt").write_text("")  # Gmsh options, not a mesh
+    msh.with_suffix(".json").write_text("{}")
+    subject = viewspec.viewer_tree("ernie", "subject", ["L_Insula"])["simulations"][0]
+    assert [m["name"] for m in subject["meshes"]] == ["grey_L_Insula_TI.msh"]
+    mni = viewspec.viewer_tree("ernie", "mni", ["L_Insula"])["simulations"][0]
+    offered = [m for m in mni["meshes"] if m["path"] == str(msh)]
+    assert [(m["kind"], m["label"]) for m in offered] == [
+        ("mesh", "fsaverage5 projection")
+    ]
+    assert len(mni["meshes"]) == 2
+
+
 def test_the_tree_offers_only_files_a_scene_can_use(pm: PathManager) -> None:
     """A CSV is not a volume; a registration sphere is a ball, not anatomy."""
     tree = viewspec.viewer_tree("ernie", "subject", ["L_Insula"])

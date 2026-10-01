@@ -197,6 +197,11 @@ def _run_fsavg_map(config: SourceConfig) -> int:
     )
 
     results = project_fields_to_fsaverage(pairs, cfg)
+    pm = get_path_manager()
+    for sid, sim in pairs:
+        path = pm.sim_fsaverage_fields(sid, sim, cfg.fsaverage_spacing)
+        if os.path.isfile(path):
+            events.emit_artifact(path, kind="mesh", label=os.path.basename(path))
     failed = sorted({sid for sid, status, _ in results if status == "failed"})
     events.emit_result({"n_pairs": len(pairs), "failed": failed})
     if failed:

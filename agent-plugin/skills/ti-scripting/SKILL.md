@@ -209,9 +209,22 @@ simnibs_python -m tit.source fsavg_config.json
 ```
 `tit.source.project_fields_to_fsaverage` projects `TI_max`, `TI_normal`, `hf_peak`,
 `hf_sar` onto fsaverage post hoc (spacings 5/6/7), writing
-`sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.npz`. Confirm the mTI coverage
+`<sim>/fsaverage/sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.msh`
+(`pm.sim_fsaverage_fields(sid, sim, spacing)`): the fsaverage central surfaces, lh
+nodes then rh, one node field per quantity, with a `.msh.opt` Gmsh view and a `.json`
+provenance sidecar. It opens in the Viewer and Gmsh. Read values under `simnibs_python`
+with `tit.source.fsaverage.read_fsaverage_field(path, "TI_max")` (or
+`mesh_io.read_msh(path).field["TI_max"].value`). It is the only format surface stats
+read; a simulation without it needs its projection re-run. Confirm the mTI coverage
 against `read_source_file("tit/source/fsaverage.py")` before promising it — the
 module and `docs/wiki/simulator.md` disagree today.
+
+A surface stats run (`space="fsaverage"`) writes `surface_stats.msh` in its output dir
+(node fields `t`, `p`, `sig_mask`, `cluster_id`, `r` for correlation, and
+`mean_field` or `mean_responders`/`mean_non_responders`; read them with
+`tit.source.fsaverage.read_fsaverage_fields(path)`), `surface_stats.json` (settings,
+subjects), and CSVs: `significant_clusters.csv`, `null_distribution.csv`,
+`cluster_subject_values.csv` (subject × cluster mean field, long format).
 
 ## JSON config runners (what the app does)
 

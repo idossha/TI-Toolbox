@@ -176,3 +176,25 @@ def test_detail_prefers_a_clusters_csv_over_the_log(pm: PathManager) -> None:
     assert detail["clusters"]["columns"] == ["id", "size", "stat_value", "p_value"]
     assert detail["clusters"]["rows"] == [["7", "42", "3.5", "0.01"]]
     assert detail["status"] == "ok"
+
+
+def test_detail_of_a_surface_run_lists_the_mesh_and_tables(pm: PathManager) -> None:
+    """``surface_stats.msh`` is a mesh the Viewer opens; its Gmsh ``.opt`` is not a result."""
+    files = [
+        "surface_stats.msh",
+        "surface_stats.msh.opt",
+        "surface_stats.json",
+        "significant_clusters.csv",
+        "null_distribution.csv",
+        "cluster_subject_values.csv",
+    ]
+    _write_run(pm, "surface", OK_LOG, files)
+    detail = catalog.group_stats_detail(pm, "group_comparison", "surface")
+    kinds = {os.path.basename(a["path"]): a["kind"] for a in detail["artifacts"]}
+    assert "surface_stats.msh.opt" not in kinds
+    assert kinds["surface_stats.msh"] == "mesh"
+    assert kinds["null_distribution.csv"] == "csv"
+    assert kinds["cluster_subject_values.csv"] == "csv"
+    labels = [a["label"] for a in detail["artifacts"]][:4]
+    assert labels[0] == "Significant clusters"
+    assert "Surface statistics map (fsaverage)" in labels

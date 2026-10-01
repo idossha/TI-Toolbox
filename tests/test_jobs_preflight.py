@@ -318,12 +318,16 @@ def test_stats_fsaverage_space_needs_the_projection(project: Path) -> None:
     pm = get_path_manager()
     subjects = [{"subject_id": SID, "simulation_name": SIM, "response": 1}]
     cfg = {"subjects": subjects, "space": "fsaverage", "fsaverage_spacing": 5}
-    npz = (
+    msh = (
         Path(pm.sim_fsaverage(SID, SIM))
-        / f"sub-{SID}_sim-{SIM}_space-fsaverage5_fields.npz"
+        / f"sub-{SID}_sim-{SIM}_space-fsaverage5_fields.msh"
     )
-    assert missing_paths(preflight("stats", cfg, str(project))) == [str(npz)]
-    touch(npz)
+    # A projection from before the .msh format is not read, so it does not count.
+    touch(msh.with_suffix(".npz"))
+    found = preflight("stats", cfg, str(project))
+    assert missing_paths(found) == [str(msh)]
+    assert "Re-run the fsaverage projection" in found[0].how_to_fix
+    touch(msh)
     assert preflight("stats", cfg, str(project)) == []
 
 

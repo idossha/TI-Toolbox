@@ -1366,6 +1366,16 @@ def _simulation_branch(pm, subject: str, simulation: str, space: str) -> dict[st
                 # SimNIBS's filing, not a claim about the geometry.
                 (surfaces if node["kind"] == "surface" else bucket).append(node)
 
+    # The fsaverage projection is template-space (fsaverage = MNI305, a few mm from MNI152), so
+    # an MNI scene can take it and a subject scene cannot.
+    if space == "mni":
+        for path in sorted(
+            glob.glob(os.path.join(pm.sim_fsaverage(subject, simulation), "*.msh"))
+        ):
+            space_tag = os.path.basename(path).split("_space-")[-1]
+            label = f"{space_tag.removesuffix('_fields.msh')} projection"
+            meshes.append(_tree_node(path, label=label))
+
     # The grey-matter-masked field is the one a reader wants first: the whole-head copy is mostly
     # skull and CSF, where the number is not the thing being reported.
     for node in fields:

@@ -13,14 +13,13 @@ geometry only (vertex coordinates + triangle faces), no code.
 
 This is a deliberate choice, not just a convenience: `tit/source/fsaverage.py`
 projects each subject's fields onto fsaverage via SimNIBS's own
-`cross_subject_map(..., subsampling_to=spacing)`, so the field caches
-`tit/stats/surface.py` clusters are already indexed in *SimNIBS's* fsaverage
-vertex ordering. Building the adjacency graph from the same source keeps the
-graph and the data it clusters on the same vertex numbering; sourcing the
-adjacency mesh from nilearn's separately-distributed fsaverage instead would
-risk a silent vertex-order mismatch between the two (unverified either way,
-since no lane compared the two orderings directly -- picking the SimNIBS
-source removes the question rather than answering it).
+`cross_subject_map(..., subsampling_to=spacing)` and writes them onto
+SimNIBS's fsaverage central template (`*_fields.msh`), so the projections
+`tit/stats/surface.py` clusters are indexed in *SimNIBS's* fsaverage vertex
+ordering. Building the adjacency graph from the same source keeps the graph and
+the data it clusters on the same vertex numbering.
+`tests/numerical/test_fsaverage_msh.py` pins that these files equal SimNIBS's
+template and that the morph's output index is the template's vertex index.
 
 ## Files
 

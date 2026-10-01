@@ -88,7 +88,7 @@ class FsavgMapConfig:
     workers : int
         Number of subjects projected in parallel (1 = serial).
     overwrite : bool
-        Re-project even when a cached ``.npz`` already exists.
+        Re-project even when the fsaverage ``.msh`` already exists.
     """
 
     fields: tuple[str, ...] = field(default_factory=lambda: VALID_FSAVG_FIELDS)

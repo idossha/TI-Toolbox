@@ -406,7 +406,7 @@
   align-items: center;
   gap: var(--space-1);
 }
-/* A file with nothing to preview — a NIfTI, a mesh, an .npz — is not a button. Same box, same
+/* A file with nothing to preview — a NIfTI, a mesh — is not a button. Same box, same
  * height, no hover, no pointer: the affordance tells the truth about what will happen. */
 .results-file-static {
   cursor: default;

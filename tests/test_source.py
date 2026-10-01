@@ -1,6 +1,7 @@
 """Tests for the ``tit.source`` EEG forward / fsaverage-map module."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock as _MagicMock
 
 import pytest
@@ -101,10 +102,8 @@ class TestFsavgHelpers:
             )
 
     def test_output_path_naming(self, init_pm):
-        from tit.source import fsaverage
-
-        path = fsaverage._output_path(init_pm, "001", "TI_sim", 5)
-        assert path.name == "sub-001_sim-TI_sim_space-fsaverage5_fields.npz"
+        path = Path(init_pm.sim_fsaverage_fields("001", "TI_sim", 5))
+        assert path.name == "sub-001_sim-TI_sim_space-fsaverage5_fields.msh"
         assert str(path.parent).endswith("Simulations/TI_sim/fsaverage")
 
     def test_carrier_volume_meshes_skips_central_overlays(self, tmp_path):
@@ -324,6 +323,45 @@ class TestMainDispatch:
         assert exc_info.value.code == 0
         assert captured["pairs"] == [("001", "TI_sim")]
         assert captured["fields"] == ("TI_max",)
+
+    def test_fsavg_mode_lists_the_written_msh_as_a_viewable_artifact(
+        self, tmp_project, tmp_path, monkeypatch
+    ):
+        """The Jobs rail offers 'Open in Tetravox' only on artifacts it is told about."""
+        from tit.jobs import events
+        from tit.source import __main__ as entry
+
+        msh = (
+            tmp_project
+            / "derivatives/SimNIBS/sub-001/Simulations/TI_sim/fsaverage"
+            / "sub-001_sim-TI_sim_space-fsaverage5_fields.msh"
+        )
+
+        def project(pairs, cfg):
+            msh.parent.mkdir(parents=True)
+            msh.write_bytes(b"$MeshFormat")
+            return [("001", "ok", msh.name)]
+
+        emitted = []
+        monkeypatch.setattr("tit.source.fsaverage.project_fields_to_fsaverage", project)
+        monkeypatch.setattr(
+            events,
+            "emit_artifact",
+            lambda path, kind, label=None: emitted.append((path, kind)),
+        )
+        config_path = self._write_config(
+            tmp_path,
+            str(tmp_project),
+            mode="fsavg_map",
+            pairs=[
+                {"subject_id": "001", "simulation": "TI_sim"},
+                {"subject_id": "002", "simulation": "TI_sim"},  # nothing written
+            ],
+        )
+        monkeypatch.setattr("sys.argv", ["tit.source", config_path])
+        with pytest.raises(SystemExit):
+            entry.main()
+        assert emitted == [(str(msh), "mesh")]
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,8 @@
 The volumetric engine (:mod:`tit.stats.engine`) clusters voxels with
 ``scipy.ndimage.label`` on a 3-D grid -- which has no meaning for surface
 vertices.  This module is the surface counterpart: it stacks the per-subject
-fsaverage field caches written by :func:`tit.source.project_fields_to_fsaverage`
+fsaverage field projections (``.msh``) written by
+:func:`tit.source.project_fields_to_fsaverage`
 into a ``(n_vertices, n_subjects)`` matrix and runs the *same* statistics with
 the *same* cluster conventions, swapping the grid clustering for graph
 connected-components over the fsaverage triangle adjacency.
@@ -26,13 +27,14 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 import numpy as np
 
 from tit.constants import FSAVG_NODES as _FSAVG_NODES
 from tit.paths import get_path_manager
 from tit.source.config import VALID_FSAVG_FIELDS
-from tit.source.fsaverage import _output_path
+from tit.source.fsaverage import read_fsaverage_field, write_fsaverage_msh
 
 from .config import CorrelationResult, GroupComparisonResult
 from .engine import (
@@ -56,14 +58,17 @@ _ADJ_CACHE: dict[int, "object"] = {}
 def load_group_surface_data(
     subjects: list[tuple[str, str]], field: str, spacing: int
 ) -> tuple[np.ndarray, list[str]]:
-    """Stack per-subject fsaverage field caches into ``(n_vertices, n_subjects)``.
+    """Stack per-subject fsaverage projections into ``(n_vertices, n_subjects)``.
+
+    Each column is one node field of a ``*_space-fsaverage<N>_fields.msh``
+    (:func:`tit.source.fsaverage.write_fsaverage_msh`).
 
     Parameters
     ----------
     subjects : list of (str, str)
         ``(subject_id, simulation_name)`` pairs (bare ids, no ``sub-`` prefix).
     field : str
-        Which cached field to load -- one of :data:`VALID_FSAVG_FIELDS`.
+        Which projected field to load -- one of :data:`VALID_FSAVG_FIELDS`.
     spacing : int
         fsaverage subdivision factor (5, 6, or 7).
 
@@ -80,22 +85,17 @@ def load_group_surface_data(
     columns: list[np.ndarray] = []
     ids: list[str] = []
     for sid, sim in subjects:
-        npz_path = _output_path(pm, sid, sim, spacing)
-        if not npz_path.exists():
+        msh_path = Path(pm.sim_fsaverage_fields(sid, sim, spacing))
+        if not msh_path.exists():
             raise FileNotFoundError(
-                f"No fsaverage cache for {sid}/{sim}: {npz_path}. "
-                "Run the simulation with map_to_fsavg=True (default) first."
+                f"No fsaverage projection for {sid}/{sim}: {msh_path}. "
+                "Re-run its fsaverage projection (the Simulator's 'Map fields to "
+                "fsaverage' or the Source panel's fsaverage mapping) first."
             )
-        with np.load(npz_path) as data:
-            if field not in data:
-                raise KeyError(
-                    f"{npz_path.name} has no field {field!r}; "
-                    f"available: {[k for k in data.files if k in VALID_FSAVG_FIELDS]}"
-                )
-            arr = np.asarray(data[field], dtype=np.float64).reshape(-1)
+        arr = read_fsaverage_field(msh_path, field)
         if arr.shape[0] != expected:
             raise ValueError(
-                f"{npz_path.name}: expected {expected} fsaverage{spacing} vertices, "
+                f"{msh_path.name}: expected {expected} fsaverage{spacing} vertices, "
                 f"got {arr.shape[0]}"
             )
         columns.append(arr)
@@ -169,7 +169,7 @@ def build_fsaverage_adjacency(spacing: int):
 
     No edges cross the hemisphere boundary, so a slow-wave cluster can never
     bridge the two hemispheres through a spurious midline edge -- matching the
-    ``[lh; rh]`` node ordering the field caches are written in.
+    ``[lh; rh]`` node ordering the field projections are written in.
 
     Mesh source, tried in order (see ``resources/fsaverage/README.md`` for
     why the bundled source is preferred on correctness grounds, not just to
@@ -359,23 +359,73 @@ def _output_dir_and_log(analysis_type, analysis_name, callback_handler):
     return output_dir, log, log_file
 
 
-def _save_surface_npz(output_dir, **maps):
-    path = os.path.join(output_dir, "surface_maps.npz")
-    np.savez_compressed(path, **maps)
-    return path
+def _write_surface_outputs(
+    output_dir, config, metadata, maps, clusters, null, data, subjects, column
+):
+    """Write a surface run's map and tables.
 
-
-def _write_clusters_csv(output_dir, clusters):
+    * ``surface_stats.msh`` -- *maps* plus ``cluster_id`` (0 = none, else the
+      ``significant_clusters.csv`` id) as node fields on the fsaverage template,
+      through the projections' own writer, with its ``.opt`` and a ``.json``
+      sidecar holding *metadata*.
+    * ``significant_clusters.csv`` -- one row per significant cluster.
+    * ``null_distribution.csv`` -- the max cluster statistic of each permutation.
+    * ``cluster_subject_values.csv`` -- long format: each subject's mean field
+      over each significant cluster; *subjects* are ``(id, simulation, value)``
+      rows in *data*'s column order and *column* names the value.
+    """
     import csv
 
+    cluster_id = np.zeros(data.shape[0])
+    for c in clusters:
+        cluster_id[c["vertices"]] = c["id"]
+    msh_path = os.path.join(output_dir, "surface_stats.msh")
+    write_fsaverage_msh(
+        Path(msh_path),
+        {**maps, "cluster_id": cluster_id},
+        config.fsaverage_spacing,
+        metadata,
+    )
+
     path = os.path.join(output_dir, "significant_clusters.csv")
-    keys = ["id", "size", "stat_value", "p_value", "peak_r", "mean_r"]
     with open(path, "w", newline="") as fh:
+        keys = ["id", "size", "stat_value", "p_value", "peak_r", "mean_r"]
         writer = csv.DictWriter(fh, fieldnames=keys, extrasaction="ignore")
         writer.writeheader()
+        writer.writerows(clusters)
+
+    with open(os.path.join(output_dir, "null_distribution.csv"), "w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["permutation", "max_cluster_stat"])
+        writer.writerows((i, repr(float(v))) for i, v in enumerate(null, 1))
+
+    path = os.path.join(output_dir, "cluster_subject_values.csv")
+    with open(path, "w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(
+            ["subject_id", "simulation", column, "cluster_id", "mean_field"]
+        )
         for c in clusters:
-            writer.writerow(c)
-    return path
+            means = data[c["vertices"]].mean(axis=0)
+            for (sid, sim, value), mean in zip(subjects, means):
+                writer.writerow([sid, sim, value, c["id"], repr(float(mean))])
+    return msh_path
+
+
+def _run_metadata(config, analysis_type, subjects):
+    """The ``surface_stats.json`` sidecar: what was run, on whom."""
+    return {
+        "analysis_type": analysis_type,
+        "analysis_name": config.analysis_name,
+        "field": config.fsaverage_field,
+        "fsaverage_spacing": config.fsaverage_spacing,
+        **subjects,
+        "n_permutations": config.n_permutations,
+        "alpha": config.alpha,
+        "cluster_threshold": config.cluster_threshold,
+        "cluster_stat": config.cluster_stat.value,
+        "seed": None,  # the permutations draw from an unseeded generator
+    }
 
 
 def run_surface_correlation(
@@ -483,11 +533,34 @@ def run_surface_correlation(
             obs["p_value"],
         )
 
-    npz_path = _save_surface_npz(
-        output_dir, r=r_full, t=t_full, p=p_full, sig_mask=sig_mask, null=null
+    metadata = _run_metadata(
+        config,
+        "correlation",
+        {
+            "correlation_type": ctype,
+            "n_subjects": len(ids),
+            "subjects": [s.subject_id for s in config.subjects],
+            "responses": effect.tolist(),
+        },
     )
-    _write_clusters_csv(output_dir, sig_clusters)
-    log.info("Saved surface maps -> %s", npz_path)
+    msh_path = _write_surface_outputs(
+        output_dir,
+        config,
+        metadata,
+        {
+            "r": r_full,
+            "t": t_full,
+            "p": p_full,
+            "sig_mask": sig_mask,
+            "mean_field": data.mean(axis=1),
+        },
+        sig_clusters,
+        null,
+        data,
+        [(s.subject_id, s.simulation_name, s.effect_size) for s in config.subjects],
+        "response",
+    )
+    log.info("Saved surface maps -> %s", msh_path)
 
     return CorrelationResult(
         success=True,
@@ -601,11 +674,38 @@ def run_surface_group_comparison(
             obs["p_value"],
         )
 
-    npz_path = _save_surface_npz(
-        output_dir, t=t_full, p=p_full, sig_mask=sig_mask, null=null
+    metadata = _run_metadata(
+        config,
+        "group_comparison",
+        {
+            "test_type": config.test_type.value,
+            "alternative": alt,
+            "n_subjects": n_total,
+            "groups": {
+                config.group1_name: [s.subject_id for s in resp],
+                config.group2_name: [s.subject_id for s in non],
+            },
+        },
     )
-    _write_clusters_csv(output_dir, sig_clusters)
-    log.info("Saved surface maps -> %s", npz_path)
+    msh_path = _write_surface_outputs(
+        output_dir,
+        config,
+        metadata,
+        {
+            "t": t_full,
+            "p": p_full,
+            "sig_mask": sig_mask,
+            "mean_responders": data[:, :n_resp].mean(axis=1),
+            "mean_non_responders": data[:, n_resp:].mean(axis=1),
+        },
+        sig_clusters,
+        null,
+        data,
+        [(s.subject_id, s.simulation_name, config.group1_name) for s in resp]
+        + [(s.subject_id, s.simulation_name, config.group2_name) for s in non],
+        "group",
+    )
+    log.info("Saved surface maps -> %s", msh_path)
 
     return GroupComparisonResult(
         success=True,
