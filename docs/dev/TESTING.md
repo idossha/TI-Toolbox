@@ -246,6 +246,11 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   synthetic phantom (DIPY fit leg skips without `dipy`). `tests/numerical/test_dti_real.py` runs the
   whole DTI step on CHN when `TIT_DTI_REAL` names a Dataset-000-shaped root (read only; outputs go
   to a scratch project) and compares V1 with the prototype tensor at `TIT_DTI_PROTO` if set.
+- `tests/numerical/test_fsaverage_msh.py` pins the fsaverage projection `.msh` against real SimNIBS
+  (subprocess; skips without it, so run it with `simnibs_python`): the morph's output index is the
+  template vertex index, lh-then-rh layout, the vendored `resources/fsaverage` equals the template, the
+  write → `load_group_surface_data` round trip, and Gmsh's own reader. Its FreeSurfer-sphere leg reads
+  `$MNE_DATA` (default `~/mne_data`) `MNE-fsaverage-data` and skips without it.
 - `tests/numerical/test_dti_advisories.py` pins the DTI advisories on synthetic phantoms (flip test finds a
   planted x flip, tract orientation on pure L–R fibres, a planted 3 mm residual shift), slice orientation
   for RAS/LAS/PSR grids, the report size budget, and `vn` conductivity against SimNIBS 4.6

@@ -59,6 +59,21 @@ For a terminal run, save that code as a script and run `simnibs_python map_field
 This maps existing outputs without rerunning simulation. For new simulations, enable
 **Map fields to fsaverage** in the job’s settings before running it.
 
+Each projection is written beside its simulation as
+`Simulations/<sim>/fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`: the fsaverage
+central surfaces (left hemisphere, then right) with each field as a node field, the layout
+SimNIBS uses for its own `fsavg_overlays`. Open it in the Viewer (an MNI-space scene lists it
+under the simulation's meshes) or in Gmsh, which picks up the `.msh.opt` view file beside it. A
+`.json` sidecar with the same name records the subject, simulation, fields and whether the run
+was a carrier-only control. To read the values in a script, run it with `simnibs_python`:
+
+```python
+from simnibs.mesh_tools import mesh_io
+
+mesh = mesh_io.read_msh(path)
+ti_max = mesh.field["TI_max"].value  # one value per fsaverage vertex, lh then rh
+```
+
 Two former extensions no longer exist as panels: **Electrode Placement** is now the Simulator's
 [free-hand mode]({{ site.baseurl }}/wiki/electrode-placement/), and **Subject Info** is the
 [Overview]({{ site.baseurl }}/wiki/overview/) page.

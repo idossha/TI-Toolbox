@@ -448,6 +448,15 @@ Flex exposes Mean TImax, Max TImax (ROI 99.9th percentile), Threshold-free focal
 Threshold-based focality. The latter retains fixed, adaptive and multi-threshold execution;
 “Multi-threshold” is a presentation label for the existing `pareto` strategy, not a new objective.
 
+The fsaverage projection of a simulation is one SimNIBS surface mesh per spacing,
+`PathManager.sim_fsaverage_fields` (`<sim>/fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`):
+SimNIBS's fsaverage central template, lh nodes then rh, one node field per quantity, with its Gmsh
+`.msh.opt` and a same-stem `.json` provenance sidecar — the layout of SimNIBS's own `fsavg_overlays`,
+so it opens in the Viewer and Gmsh. It is the only projection format written or read: surface statistics
+(`tit/stats/surface.py`) read its node fields, and a missing `.msh` is a missing input that names the
+re-projection. Writer and reader both run under `simnibs_python` with SimNIBS's mesh I/O; node order is
+pinned by `tests/numerical/test_fsaverage_msh.py`.
+
 ## 9. DWI preprocessing runs as sibling containers
 
 QSIPrep and QSIRecon run as sibling containers through the Docker socket, not inside the core image.

@@ -1074,3 +1074,13 @@ computed, so `output_fields` may only hold `hf_peak`/`hf_sar` and every montage 
 The run records the flag in `documentation/config.json`, and the fsaverage projection
 (`FsavgMapConfig`, unchanged) reads it from there. Existing clients that omit it get the previous
 behaviour.
+
+## 2026-09-30 — the fsaverage projection is a `.msh`
+
+No schema shape changes. `FsavgMapConfig.overwrite`'s description now names the `.msh` the
+projection writes (`<sim>/fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`) instead of
+a `.npz` cache; regenerated `config.schema.json`, `openapi.json` and `schema.d.ts` differ only in
+that string. `SimulationDetail.meshes` may now include `MeshRef` entries with `kind: "fsaverage"`
+(the projection; `kind` was already a free string), and a `source` job in `fsavg_map` mode reports
+each written projection as an `artifact` event with `kind: "mesh"`. Clients that ignore unknown
+mesh kinds behave as before.

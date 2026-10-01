@@ -32,6 +32,12 @@ Unlike SimNIBS's native ``map_to_fsavg`` (which only runs at simulation time and
 only emits ``TI_max``), this works *post-hoc* on any finished simulation and on
 the derived ``TI_normal`` / ``hf_peak`` / ``hf_sar`` quantities.
 
+Output, in ``<sim>/fsaverage/``: ``sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh``
+-- the fsaverage central surfaces (lh nodes, then rh) with each field as a node
+field, openable in Gmsh or the Viewer -- plus its ``.msh.opt`` Gmsh view and a
+same-stem ``.json`` provenance sidecar (``subject_id``, ``simulation``,
+``carrier_only``, ``fields``).
+
 Runs under ``simnibs_python`` (reads SimNIBS meshes)::
 
     simnibs_python -m tit.source fsavg_config.json
@@ -278,9 +284,47 @@ def _compute_fields(
     return out
 
 
-def _output_path(pm, subject_id: str, sim: str, spacing: int) -> Path:
-    out_dir = Path(pm.sim_fsaverage(subject_id, sim))
-    return out_dir / f"sub-{subject_id}_sim-{sim}_space-fsaverage{spacing}_fields.npz"
+def write_fsaverage_msh(
+    path: Path, maps: dict[str, np.ndarray], spacing: int, provenance: dict
+) -> None:
+    """Write ``[lh; rh]`` fsaverage values as a viewable SimNIBS surface mesh.
+
+    Follows SimNIBS's own ``fsavg_overlays/<name>_fsavg.msh`` (``join_and_write`` in
+    :func:`simnibs.utils.transformations.middle_gm_interpolation`): the template
+    central surfaces joined lh then rh, one node field per quantity, and the Gmsh
+    ``.opt`` view beside it.  The template shares its vertex numbering with the
+    sphere :func:`cross_subject_map` resamples onto, so value ``i`` lands on node
+    ``i`` (``tests/numerical/test_fsaverage_msh.py``).  ``.msh`` carries no free
+    metadata, so *provenance* goes to a same-stem ``.json`` sidecar (BIDS style).
+    """
+    from simnibs.mesh_tools import mesh_io
+
+    surfs = mesh_io.load_fsaverage_template("central", spacing)
+    mesh = surfs["lh"].join_mesh(surfs["rh"])
+    for name, values in maps.items():
+        mesh.add_node_field(np.asarray(values, dtype=float), name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    mesh_io.write_msh(mesh, str(path))
+    mesh.view(visible_fields=next(iter(maps))).write_opt(str(path))
+    path.with_suffix(".json").write_text(
+        json.dumps({**provenance, "fields": list(maps)}, indent=2) + "\n"
+    )
+
+
+def read_fsaverage_field(path: Path, field: str) -> np.ndarray:
+    """One node field of a projection written by :func:`write_fsaverage_msh`.
+
+    Uses SimNIBS's reader: every caller (``tit.stats``, scripts) runs under
+    ``simnibs_python``, like the writer.
+    """
+    from simnibs.mesh_tools import mesh_io
+
+    mesh = mesh_io.read_msh(str(path))
+    if field not in mesh.field:
+        raise KeyError(
+            f"{path.name} has no field {field!r}; available: {sorted(mesh.field)}"
+        )
+    return np.asarray(mesh.field[field].value, dtype=np.float64).reshape(-1)
 
 
 def project_subject(
@@ -288,21 +332,29 @@ def project_subject(
     sim: str,
     cfg: FsavgMapConfig,
 ) -> tuple[str, str, str]:
-    """Project one (subject, simulation) and cache the result as ``.npz``.
+    """Project one (subject, simulation) and write it as an fsaverage ``.msh``.
 
     Returns ``(subject_id, status, message)`` where status is one of
     ``{"ok", "cached", "failed"}`` so batch runs can record and continue.
     """
     pm = get_path_manager()
-    out_path = _output_path(pm, subject_id, sim, cfg.fsaverage_spacing)
+    out_path = Path(pm.sim_fsaverage_fields(subject_id, sim, cfg.fsaverage_spacing))
     if out_path.exists() and not cfg.overwrite:
         return subject_id, "cached", out_path.name
     try:
         maps = _compute_fields(pm, subject_id, sim, cfg)
     except Exception as exc:  # noqa: BLE001 - record per-subject and continue
         return subject_id, "failed", repr(exc)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(out_path, subject_id=subject_id, simulation=sim, **maps)
+    write_fsaverage_msh(
+        out_path,
+        maps,
+        cfg.fsaverage_spacing,
+        {
+            "subject_id": subject_id,
+            "simulation": sim,
+            "carrier_only": _recorded_carrier_only(pm, subject_id, sim),
+        },
+    )
     medians = ", ".join(f"{k} med={np.median(v):.3f}" for k, v in maps.items())
     return subject_id, "ok", f"{medians} -> {out_path.name}"
 

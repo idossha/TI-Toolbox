@@ -2867,7 +2867,7 @@
       "additionalProperties": false
     },
     "FsavgMapConfig": {
-      "description": "Parameters for projecting simulation field outputs onto fsaverage.\n\nAttributes\n----------\nfields : tuple of str\n    Which field quantities to project.  Any of\n    :data:`VALID_FSAVG_FIELDS` (``\"TI_max\"``, ``\"TI_normal\"``,\n    ``\"hf_peak\"``, ``\"hf_sar\"``).\nfsaverage_spacing : int\n    fsaverage subdivision factor (5, 6, or 7) to morph onto.\nworkers : int\n    Number of subjects projected in parallel (1 = serial).\noverwrite : bool\n    Re-project even when a cached ``.npz`` already exists.",
+      "description": "Parameters for projecting simulation field outputs onto fsaverage.\n\nAttributes\n----------\nfields : tuple of str\n    Which field quantities to project.  Any of\n    :data:`VALID_FSAVG_FIELDS` (``\"TI_max\"``, ``\"TI_normal\"``,\n    ``\"hf_peak\"``, ``\"hf_sar\"``).\nfsaverage_spacing : int\n    fsaverage subdivision factor (5, 6, or 7) to morph onto.\nworkers : int\n    Number of subjects projected in parallel (1 = serial).\noverwrite : bool\n    Re-project even when the fsaverage ``.msh`` already exists.",
       "properties": {
         "fields": {
           "items": {

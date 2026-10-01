@@ -135,7 +135,7 @@ Configure subjects based on the selected analysis mode:
 - **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
 
 #### Analysis Space
-Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"` (surface-based, using the per-simulation fsaverage projections; `fsaverage_field` default `TI_max`, `fsaverage_spacing` default 5).
+Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"` (surface-based, using the per-simulation fsaverage projections; `fsaverage_field` default `TI_max`, `fsaverage_spacing` default 5). Each subject needs its `fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`; if one is missing the run stops before it starts and names the file — re-run that simulation's fsaverage projection (the Simulator's **Map fields to fsaverage**, or the Source panel's fsaverage mapping). Older `_fields.npz` projections are not read; re-run the projection for those simulations.
 
 ## Workflow Examples
 

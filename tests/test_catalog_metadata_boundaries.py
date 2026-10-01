@@ -100,6 +100,20 @@ def test_simulation_directory_and_leaf_metadata(tree):
     assert catalog.simulation_detail(pm, "001", "simA")["niftis"] == []
 
 
+def test_simulation_detail_lists_the_fsaverage_projection(tree):
+    """The Results pane lists the projection beside the simulation's other meshes."""
+    pm, root, outside = tree
+    (Path(pm.simulation("001", "simA")) / "TI").mkdir(parents=True)
+    fsavg = Path(pm.sim_fsaverage("001", "simA"))
+    fsavg.mkdir()
+    msh = fsavg / "sub-001_sim-simA_space-fsaverage5_fields.msh"
+    for path in (msh, Path(f"{msh}.opt"), msh.with_suffix(".json")):
+        path.touch()
+    assert catalog.simulation_detail(pm, "001", "simA")["meshes"] == [
+        {"path": str(msh), "kind": "fsaverage"}
+    ]
+
+
 def test_sourcedata_and_ct_leaf_metadata(tree):
     pm, root, outside = tree
     (outside / "scan").touch()

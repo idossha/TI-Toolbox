@@ -2355,3 +2355,44 @@ pass as a result. Allowing mTI: a carrier-only control is defined here for the t
 (time-domain reference); `tests/test_fields.py::TestCoherentCarrierOnly`; `tests/test_sim_config.py`,
 `tests/test_plan_routes.py::test_validate_sim_reports_carrier_only_errors`, `tests/test_source.py`;
 `desktop/tests/unit/simulator-defaults.test.ts`.
+
+
+## 2026-09-30 — The fsaverage projection is a viewable SimNIBS `.msh`; `.npz` is no longer read
+
+**Decision.** `tit.source.fsaverage` writes each projection as
+`<sim>/fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh` (`PathManager.sim_fsaverage_fields`):
+SimNIBS's fsaverage central template (`mesh_io.load_fsaverage_template("central", N)`), lh joined to rh,
+one node field per quantity (`TI_max`, `TI_normal`, `hf_peak`, `hf_sar`, float64), plus the Gmsh
+`.msh.opt` view — the `join_and_write` layout SimNIBS uses for `fsavg_overlays/<name>_fsavg.msh`.
+Provenance (`subject_id`, `simulation`, `carrier_only`, `fields`) goes to a same-stem `.json` sidecar.
+`tit.stats.surface` reads the `.msh` with SimNIBS's `mesh_io.read_msh`; the `.npz` cache is neither
+written nor read, and old `.npz` files are left on disk. Missing projections are refused by preflight
+and by the loader with the re-projection to run. The catalog lists the file as a `fsaverage` mesh,
+MNI-space Viewer scenes offer it, and the `fsavg_map` runner reports it as a mesh artifact.
+
+**Why.** The `.npz` was a values-only cache nobody could open; a `.msh` opens in the Viewer and Gmsh
+like every other simulation output, and follows SimNIBS's own convention for the same data. The template
+shares its face array with the fsaverage sphere `cross_subject_map(..., subsampling_to=N)` resamples
+onto, so value `i` is node `i` with no reindexing. Every reader already runs under `simnibs_python`
+(`simnibs_python -m tit.stats`, the documented scripting interpreter), so SimNIBS's reader serves
+without a hand-written parser.
+
+**Cost.** Disk ~4× (measured [local, SimNIBS 4.6, 4 random float fields]: fsaverage5 2.5 MB vs 0.6 MB
+`npz`; fsaverage7 40.6 MB vs 9.9 MB); read 4 ms / 69 ms, negligible beside a permutation run. Projects
+with `.npz`-only projections must re-run the fsaverage projection before surface statistics.
+
+**Alternatives rejected.** Keeping a `.npz` fallback in the readers: two formats to test and document
+for a cache that re-projects in seconds. Provenance inside the `.msh`: the format has no free metadata
+block; extra node fields named after strings would be abuse, and a sidecar is the BIDS idiom. A
+hand-written value-only `.msh` reader for SimNIBS-less interpreters: no such reader exists today.
+
+**Revisit if** a reader must run without SimNIBS (e.g. the host server), or projection disk use matters
+at fsaverage7 scale.
+
+**Evidence.** `tests/numerical/test_fsaverage_msh.py` (real SimNIBS: morph output index = template vertex
+index; lh-then-rh layout; vendored `resources/fsaverage` = template; round trip through
+`load_group_surface_data`; Gmsh's own reader sees every field; FreeSurfer's `fsaverage/surf/?h.sphere`
+= SimNIBS sphere-7 with sphere-5/6 as its prefix), `tests/test_stats_surface.py::TestLoadGroupSurfaceData`,
+`tests/test_jobs_preflight.py::test_stats_fsaverage_space_needs_the_projection`,
+`tests/test_viewer_library.py::test_the_fsaverage_projection_is_offered_only_in_mni_scenes`,
+`tests/test_catalog_metadata_boundaries.py::test_simulation_detail_lists_the_fsaverage_projection`.

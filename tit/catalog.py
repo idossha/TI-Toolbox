@@ -764,6 +764,13 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
             )
         )
 
+    # The fsaverage projection (tit.source.fsaverage): template-space surfaces, one per spacing.
+    meshes.extend(
+        _dir_meshes(
+            pm.sim_fsaverage(sid, sim), "fsaverage", project_root=pm.project_dir
+        )
+    )
+
     fields = sorted({n["field"] for n in niftis if n["field"]})
     spaces = sorted({n["space"] for n in niftis})
     all_reports = reports(pm, sid) or []

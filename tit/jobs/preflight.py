@@ -631,17 +631,15 @@ def _check_stats(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
             sid, sim = entry.get("subject_id"), entry.get("simulation_name")
             if not (isinstance(sid, str) and isinstance(sim, str)):
                 continue
-            npz = (
-                Path(pm.sim_fsaverage(sid, sim))
-                / f"sub-{sid}_sim-{sim}_space-fsaverage{spacing}_fields.npz"
-            )
-            if not npz.is_file():
+            msh = Path(pm.sim_fsaverage_fields(sid, sim, spacing))
+            if not msh.is_file():
                 missing.append(
                     MissingInput(
                         f"fsaverage projection for sub-{sid} / {sim}",
-                        str(npz),
-                        f"Run the {sim} simulation for sub-{sid} with map_to_fsavg enabled "
-                        "(or the Source panel's fsaverage projection) first.",
+                        str(msh),
+                        f"Re-run the fsaverage projection for sub-{sid} / {sim}: the "
+                        "Simulator's 'Map fields to fsaverage', or the Source panel's "
+                        "fsaverage mapping.",
                     )
                 )
         return missing

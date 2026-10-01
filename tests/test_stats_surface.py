@@ -2,8 +2,8 @@
 
 scipy / nilearn are mocked in this environment, so the adjacency build and
 permutation clustering can't run numerically here -- those are exercised in the
-container. What's covered: config wiring for the ``space`` option, the npz
-loader (real numpy), the runner dispatch from ``tit.stats.permutation``, the
+container. What's covered: config wiring for the ``space`` option, the ``.msh``
+loader (SimNIBS's reader faked at the ``mesh_io`` boundary), the runner dispatch from ``tit.stats.permutation``, the
 GIFTI-reading contract of the vendored fsaverage mesh loader (nibabel is
 mocked too; darrays hold real numpy arrays), and
 ``build_fsaverage_adjacency``'s bundled -> nilearn -> error fallback order
@@ -13,6 +13,7 @@ vendored files runs on the host in docs/dev/DECISIONS.md § 2026-09-03 (One Dock
 """
 
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # tit.stats.__init__ -> permutation -> engine imports scipy submodules the global
@@ -81,17 +82,35 @@ class TestSurfaceConfig:
 
 
 # ---------------------------------------------------------------------------
-# Loader (real numpy)
+# Loader (.msh through a faked mesh_io.read_msh)
 # ---------------------------------------------------------------------------
 
 
 class TestLoadGroupSurfaceData:
-    def _write_cache(self, pm, sid, sim, spacing, **fields):
-        from tit.source.fsaverage import _output_path
+    """The reader goes through SimNIBS's ``mesh_io.read_msh`` (mocked here; the
+    real write -> read round trip is ``tests/numerical/test_fsaverage_msh.py``)."""
 
-        path = _output_path(pm, sid, sim, spacing)
+    @pytest.fixture(autouse=True)
+    def _fake_read_msh(self, monkeypatch):
+        from types import SimpleNamespace
+
+        meshes: dict[str, dict] = {}
+        mesh_io = sys.modules["simnibs.mesh_tools.mesh_io"]
+
+        def read_msh(path):
+            fields = meshes[str(path)]
+            return SimpleNamespace(
+                field={k: SimpleNamespace(value=v) for k, v in fields.items()}
+            )
+
+        monkeypatch.setattr(mesh_io, "read_msh", read_msh, raising=False)
+        self._meshes = meshes
+
+    def _write_projection(self, pm, sid, sim, spacing, **fields):
+        path = Path(pm.sim_fsaverage_fields(sid, sim, spacing))
         path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(path, subject_id=sid, simulation=sim, **fields)
+        path.write_bytes(b"$MeshFormat")
+        self._meshes[str(path)] = fields
         return path
 
     def test_stacks_subjects_in_order(self, init_pm):
@@ -99,8 +118,8 @@ class TestLoadGroupSurfaceData:
         from tit.stats import surface
 
         n = _FSAVG_NODES[5]
-        self._write_cache(init_pm, "001", "TI_sim", 5, TI_max=np.full(n, 1.0))
-        self._write_cache(init_pm, "002", "TI_sim", 5, TI_max=np.full(n, 2.0))
+        self._write_projection(init_pm, "001", "TI_sim", 5, TI_max=np.full(n, 1.0))
+        self._write_projection(init_pm, "002", "TI_sim", 5, TI_max=np.full(n, 2.0))
 
         data, ids = surface.load_group_surface_data(
             [("001", "TI_sim"), ("002", "TI_sim")], "TI_max", 5
@@ -109,25 +128,33 @@ class TestLoadGroupSurfaceData:
         assert ids == ["001", "002"]
         assert data[0, 0] == 1.0 and data[0, 1] == 2.0
 
-    def test_missing_cache_raises(self, init_pm):
+    def test_missing_projection_says_to_rerun_it(self, init_pm):
         from tit.stats import surface
 
-        with pytest.raises(FileNotFoundError):
+        # A projection from before the .msh format is not read.
+        legacy = Path(init_pm.sim_fsaverage_fields("999", "TI_sim", 5)).with_suffix(
+            ".npz"
+        )
+        legacy.parent.mkdir(parents=True)
+        legacy.write_bytes(b"PK")
+        with pytest.raises(FileNotFoundError, match="Re-run its fsaverage projection"):
             surface.load_group_surface_data([("999", "TI_sim")], "TI_max", 5)
 
     def test_missing_field_raises(self, init_pm):
         from tit.source.fsaverage import _FSAVG_NODES
         from tit.stats import surface
 
-        self._write_cache(init_pm, "001", "TI_sim", 5, TI_max=np.zeros(_FSAVG_NODES[5]))
+        self._write_projection(
+            init_pm, "001", "TI_sim", 5, TI_max=np.zeros(_FSAVG_NODES[5])
+        )
         with pytest.raises(KeyError):
-            # hf_peak is a valid field but absent from this cache -> KeyError
+            # hf_peak is a valid field but absent from this projection -> KeyError
             surface.load_group_surface_data([("001", "TI_sim")], "hf_peak", 5)
 
     def test_wrong_node_count_raises(self, init_pm):
         from tit.stats import surface
 
-        self._write_cache(init_pm, "001", "TI_sim", 5, TI_max=np.zeros(10))
+        self._write_projection(init_pm, "001", "TI_sim", 5, TI_max=np.zeros(10))
         with pytest.raises(ValueError):
             surface.load_group_surface_data([("001", "TI_sim")], "TI_max", 5)
 

@@ -3,7 +3,8 @@
 The volumetric engine (:mod:`tit.stats.engine`) clusters voxels with
 ``scipy.ndimage.label`` on a 3-D grid -- which has no meaning for surface
 vertices.  This module is the surface counterpart: it stacks the per-subject
-fsaverage field caches written by :func:`tit.source.project_fields_to_fsaverage`
+fsaverage field projections (``.msh``) written by
+:func:`tit.source.project_fields_to_fsaverage`
 into a ``(n_vertices, n_subjects)`` matrix and runs the *same* statistics with
 the *same* cluster conventions, swapping the grid clustering for graph
 connected-components over the fsaverage triangle adjacency.
@@ -26,13 +27,14 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 import numpy as np
 
 from tit.constants import FSAVG_NODES as _FSAVG_NODES
 from tit.paths import get_path_manager
 from tit.source.config import VALID_FSAVG_FIELDS
-from tit.source.fsaverage import _output_path
+from tit.source.fsaverage import read_fsaverage_field
 
 from .config import CorrelationResult, GroupComparisonResult
 from .engine import (
@@ -56,14 +58,17 @@ _ADJ_CACHE: dict[int, "object"] = {}
 def load_group_surface_data(
     subjects: list[tuple[str, str]], field: str, spacing: int
 ) -> tuple[np.ndarray, list[str]]:
-    """Stack per-subject fsaverage field caches into ``(n_vertices, n_subjects)``.
+    """Stack per-subject fsaverage projections into ``(n_vertices, n_subjects)``.
+
+    Each column is one node field of a ``*_space-fsaverage<N>_fields.msh``
+    (:func:`tit.source.fsaverage.write_fsaverage_msh`).
 
     Parameters
     ----------
     subjects : list of (str, str)
         ``(subject_id, simulation_name)`` pairs (bare ids, no ``sub-`` prefix).
     field : str
-        Which cached field to load -- one of :data:`VALID_FSAVG_FIELDS`.
+        Which projected field to load -- one of :data:`VALID_FSAVG_FIELDS`.
     spacing : int
         fsaverage subdivision factor (5, 6, or 7).
 
@@ -80,22 +85,17 @@ def load_group_surface_data(
     columns: list[np.ndarray] = []
     ids: list[str] = []
     for sid, sim in subjects:
-        npz_path = _output_path(pm, sid, sim, spacing)
-        if not npz_path.exists():
+        msh_path = Path(pm.sim_fsaverage_fields(sid, sim, spacing))
+        if not msh_path.exists():
             raise FileNotFoundError(
-                f"No fsaverage cache for {sid}/{sim}: {npz_path}. "
-                "Run the simulation with map_to_fsavg=True (default) first."
+                f"No fsaverage projection for {sid}/{sim}: {msh_path}. "
+                "Re-run its fsaverage projection (the Simulator's 'Map fields to "
+                "fsaverage' or the Source panel's fsaverage mapping) first."
             )
-        with np.load(npz_path) as data:
-            if field not in data:
-                raise KeyError(
-                    f"{npz_path.name} has no field {field!r}; "
-                    f"available: {[k for k in data.files if k in VALID_FSAVG_FIELDS]}"
-                )
-            arr = np.asarray(data[field], dtype=np.float64).reshape(-1)
+        arr = read_fsaverage_field(msh_path, field)
         if arr.shape[0] != expected:
             raise ValueError(
-                f"{npz_path.name}: expected {expected} fsaverage{spacing} vertices, "
+                f"{msh_path.name}: expected {expected} fsaverage{spacing} vertices, "
                 f"got {arr.shape[0]}"
             )
         columns.append(arr)
@@ -169,7 +169,7 @@ def build_fsaverage_adjacency(spacing: int):
 
     No edges cross the hemisphere boundary, so a slow-wave cluster can never
     bridge the two hemispheres through a spurious midline edge -- matching the
-    ``[lh; rh]`` node ordering the field caches are written in.
+    ``[lh; rh]`` node ordering the field projections are written in.
 
     Mesh source, tried in order (see ``resources/fsaverage/README.md`` for
     why the bundled source is preferred on correctness grounds, not just to
