@@ -135,7 +135,7 @@ Configure subjects based on the selected analysis mode:
 - **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
 
 #### Analysis Space
-Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"` (surface-based, using the per-simulation fsaverage projections; `fsaverage_field` default `TI_max`, `fsaverage_spacing` default 5). Each subject needs its `fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`; if one is missing the run stops before it starts and names the file — re-run that simulation's fsaverage projection (the Simulator's **Map fields to fsaverage**, or the Source panel's fsaverage mapping). Older `_fields.npz` projections are not read; re-run the projection for those simulations.
+Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"` (surface-based, using the per-simulation fsaverage projections; `fsaverage_field` default `TI_max`, `fsaverage_spacing` default 5). Each subject needs its `fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`; if one is missing the run stops before it starts and names the file — re-run that simulation's fsaverage projection (the Simulator's **Map fields to fsaverage**, or the Source panel's fsaverage mapping). Projections written by versions before the `.msh` format are not read; re-run the projection for those simulations.
 
 ## Workflow Examples
 
@@ -203,6 +203,31 @@ correlation/hippocampus_effect_size_correlation/
 ├── analysis_TIMESTAMP.log                  # Processing log
 └── config.json                             # Analysis configuration
 ```
+
+#### fsaverage surface output
+With `analysis_space = "fsaverage"` the run writes a surface map and tables instead of NIfTIs:
+```
+correlation/insula_dose_response/
+├── surface_stats.msh             # fsaverage surface (lh, then rh) with node fields:
+│                                 #   t, p, sig_mask, cluster_id, r (correlation only),
+│                                 #   mean_field (correlation) or mean_responders /
+│                                 #   mean_non_responders (classification)
+├── surface_stats.msh.opt         # Gmsh view settings
+├── surface_stats.json            # analysis type and name, field, spacing, subjects
+│                                 #   (per group), permutations, alpha, threshold, statistic
+├── significant_clusters.csv      # one row per significant cluster (id, size, stat, p, r)
+├── null_distribution.csv         # max cluster statistic of each permutation
+├── cluster_subject_values.csv    # subject_id, simulation, group|response, cluster_id,
+│                                 #   mean_field — each subject's mean field in each cluster
+└── *_analysis_TIMESTAMP.log
+```
+`cluster_id` is 0 outside clusters and otherwise the `id` in `significant_clusters.csv`.
+Open `surface_stats.msh` in the Viewer (**Open in Tetravox** on the job) or Gmsh, and take
+`cluster_subject_values.csv` to R or a spreadsheet for follow-up statistics and plots. To
+paint the effect and cluster maps on the inflated cortex as PDFs, run
+`tit.plotting.nilearn.render_surface_stats_result("…/surface_stats.msh", out_dir)` under
+`simnibs_python`. Surface runs from earlier versions have none of these files and are not
+converted; re-run the analysis to get them.
 
 **Example classification findings (illustrative):**
 - Significant cluster in left hippocampus (p = 0.008, 1,245 voxels)

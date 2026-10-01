@@ -2081,7 +2081,10 @@ _STATS_FILE_LABELS = {
     "analysis_summary.txt": "Analysis summary",
     "permutation_details.txt": "Permutation details",
     "significant_clusters.csv": "Significant clusters",
-    "surface_maps.npz": "Surface maps",
+    "surface_stats.msh": "Surface statistics map (fsaverage)",
+    "surface_stats.json": "Surface statistics settings",
+    "null_distribution.csv": "Permutation null distribution (table)",
+    "cluster_subject_values.csv": "Cluster values per subject",
 }
 
 _STATS_KIND_BY_EXT = {
@@ -2090,7 +2093,7 @@ _STATS_KIND_BY_EXT = {
     ".csv": "csv",
     ".txt": "text",
     ".log": "log",
-    ".npz": "npz",
+    ".msh": "mesh",
     ".json": "json",
 }
 
@@ -2248,7 +2251,8 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
     artifacts: list[dict] = []
     for filename in names:
         path = _jailed(pm, os.path.join(run_dir, filename))
-        if path is None or not os.path.isfile(path):
+        # A Gmsh options file rides beside its .msh; there is nothing in it to read.
+        if path is None or not os.path.isfile(path) or filename.endswith(".opt"):
             continue
         if filename.endswith(".nii.gz") or filename.endswith(".nii"):
             kind = "nifti"

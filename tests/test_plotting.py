@@ -10,6 +10,7 @@ Covers:
 
 import os
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch, call
 
 import numpy as np
@@ -705,13 +706,23 @@ class TestRenderFsaverageMap:
         from tit.source.fsaverage import _FSAVG_NODES
 
         n = _FSAVG_NODES[5]
-        npz = tmp_path / "surface_maps.npz"
-        np.savez_compressed(
-            npz,
-            r=np.zeros(n),
-            t=np.zeros(n),
-            p=np.ones(n),
-            sig_mask=np.concatenate([np.ones(10), np.zeros(n - 10)]),
+        msh = tmp_path / "surface_stats.msh"
+        msh.write_bytes(b"$MeshFormat")
+        fields = {
+            "r": np.zeros(n),
+            "t": np.zeros(n),
+            "p": np.ones(n),
+            "sig_mask": np.concatenate([np.ones(10), np.zeros(n - 10)]),
+        }
+        # SimNIBS's reader is faked at the mesh_io boundary; the real .msh round trip is
+        # tests/numerical/test_fsaverage_msh.py.
+        monkeypatch.setattr(
+            sys.modules["simnibs.mesh_tools.mesh_io"],
+            "read_msh",
+            lambda path: SimpleNamespace(
+                field={k: SimpleNamespace(value=v) for k, v in fields.items()}
+            ),
+            raising=False,
         )
         calls = []
         monkeypatch.setattr(
@@ -720,7 +731,7 @@ class TestRenderFsaverageMap:
             lambda values, spacing=5, **kw: calls.append(kw.get("title"))
             or kw.get("out_path"),
         )
-        written = surface.render_surface_stats_result(str(npz), str(tmp_path / "out"))
+        written = surface.render_surface_stats_result(str(msh), str(tmp_path / "out"))
         # effect (r) map + significant-cluster map.
         assert len(written) == 2
         assert "r map" in calls and "significant clusters" in calls

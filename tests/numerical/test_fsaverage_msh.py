@@ -18,6 +18,12 @@ mocks ``simnibs`` in-process):
    fsaverage data, read with nibabel) is SimNIBS's sphere-7, and its first 10242 / 40962
    vertices are sphere-5 / sphere-6 -- the icosahedral prefix FreeSurfer's fsaverage5/6 are
    built on. Skips, with a reason, when that data is not on the machine.
+5. **Group outputs.** A surface correlation and a group comparison over synthetic subject
+   projections (one planted patch) write ``surface_stats.msh`` whose ``cluster_id`` matches
+   ``significant_clusters.csv`` and ``sig_mask``, whose group means equal the inputs' means,
+   a ``null_distribution.csv`` of ``n_permutations`` rows, and a ``cluster_subject_values.csv``
+   whose means equal the inputs averaged over each cluster; the nilearn renderer draws its
+   PDFs from that ``.msh`` (Agg backend, no window).
 
 Expected values come from the synthetic inputs and FreeSurfer's files, never the writer.
 Reproduce: ``simnibs_python -m pytest tests/numerical/test_fsaverage_msh.py -q``
@@ -204,6 +210,122 @@ def _check_freesurfer_sphere() -> None:
             assert np.abs(fs[: len(s)] - s).max() < 1e-4, (hemi, spacing)
 
 
+_N_PERM = 40
+
+
+def _surface_case(tmp: str, analysis: str) -> None:
+    """Run one surface analysis on planted data and check every output against the inputs."""
+    import csv
+    import json
+
+    import numpy as np
+    from simnibs.mesh_tools import mesh_io
+
+    from tit.constants import FSAVG_NODES
+    from tit.paths import get_path_manager
+    from tit.plotting.nilearn.surface import render_surface_stats_result
+    from tit.source.fsaverage import read_fsaverage_fields, write_fsaverage_msh
+    from tit.stats.config import CorrelationConfig, GroupComparisonConfig
+
+    pm = get_path_manager(tmp)
+    n = FSAVG_NODES[5]
+    lh = mesh_io.load_fsaverage_template("central", 5)["lh"].nodes.node_coord
+    patch = np.zeros(n, bool)
+    patch[: n // 2] = np.linalg.norm(lh - lh[0], axis=1) < 20.0
+    rng = np.random.default_rng(1)
+    gains = np.arange(1.0, 11.0)
+    inputs = {}
+    for k, gain in enumerate(gains):
+        sid = f"{k + 1:03d}"
+        if analysis == "group_comparison":
+            gain = 2.0 if k < 5 else 0.0
+        inputs[sid] = 1.0 + gain * patch + 0.01 * rng.normal(size=n)
+        write_fsaverage_msh(
+            Path(pm.sim_fsaverage_fields(sid, "sim", 5)),
+            {"TI_max": inputs[sid]},
+            5,
+            {"subject_id": sid, "simulation": "sim"},
+        )
+    ids = list(inputs)
+    stack = np.column_stack([inputs[s] for s in ids])
+
+    if analysis == "correlation":
+        from tit.stats.surface import run_surface_correlation as run
+
+        config = CorrelationConfig(
+            analysis_name="surf",
+            subjects=[
+                CorrelationConfig.Subject(s, "sim", g) for s, g in zip(ids, gains)
+            ],
+            space=CorrelationConfig.AnalysisSpace.FSAVERAGE,
+            n_permutations=_N_PERM,
+            use_weights=False,
+        )
+        means = {"mean_field": stack.mean(axis=1)}
+        values = {s: str(g) for s, g in zip(ids, gains)}
+    else:
+        from tit.stats.surface import run_surface_group_comparison as run
+
+        config = GroupComparisonConfig(
+            analysis_name="surf",
+            subjects=[
+                GroupComparisonConfig.Subject(s, "sim", int(k < 5))
+                for k, s in enumerate(ids)
+            ],
+            space=GroupComparisonConfig.AnalysisSpace.FSAVERAGE,
+            n_permutations=_N_PERM,
+        )
+        means = {
+            "mean_responders": stack[:, :5].mean(axis=1),
+            "mean_non_responders": stack[:, 5:].mean(axis=1),
+        }
+        values = {
+            s: "Responders" if k < 5 else "Non-Responders" for k, s in enumerate(ids)
+        }
+
+    out = Path(run(config).output_dir)
+    fields = read_fsaverage_fields(out / "surface_stats.msh")
+    for name, mean in means.items():
+        assert np.allclose(fields[name], mean), name
+    cluster_id = fields["cluster_id"]
+    with open(out / "significant_clusters.csv") as fh:
+        clusters = list(csv.DictReader(fh))
+    assert clusters, "the planted patch must come out significant"
+    assert {int(c["id"]) for c in clusters} == set(np.unique(cluster_id)) - {0}
+    for c in clusters:
+        assert int(c["size"]) == int((cluster_id == int(c["id"])).sum())
+    assert np.array_equal(fields["sig_mask"] > 0, cluster_id > 0)
+    assert (cluster_id[patch] > 0).mean() > 0.9
+
+    with open(out / "null_distribution.csv") as fh:
+        assert len(list(csv.DictReader(fh))) == _N_PERM
+    with open(out / "cluster_subject_values.csv") as fh:
+        rows = list(csv.DictReader(fh))
+    column = "response" if analysis == "correlation" else "group"
+    assert len(rows) == len(ids) * len(clusters)
+    for row in rows:
+        want = inputs[row["subject_id"]][cluster_id == int(row["cluster_id"])].mean()
+        assert abs(float(row["mean_field"]) - want) < 1e-9
+        assert row[column] == values[row["subject_id"]]
+    meta = json.loads((out / "surface_stats.json").read_text())
+    assert meta["analysis_type"] == analysis and meta["n_permutations"] == _N_PERM
+    assert meta["fsaverage_spacing"] == 5 and meta["field"] == "TI_max"
+
+    pdfs = render_surface_stats_result(
+        str(out / "surface_stats.msh"), str(out / "figs")
+    )
+    assert len(pdfs) == 2
+    assert all(Path(pdf).stat().st_size > 1000 for pdf in pdfs)
+
+
+def _check_surface_correlation_outputs(tmp: str) -> None:
+    _surface_case(tmp, "correlation")
+
+
+def _check_surface_group_outputs(tmp: str) -> None:
+    _surface_case(tmp, "group_comparison")
+
+
 # ── tests ───────────────────────────────────────────────────────────────────
 
 
@@ -221,3 +343,15 @@ def test_gmsh_opens_it_with_every_field(tmp_path) -> None:
 
 def test_simnibs_fsaverage_sphere_is_freesurfers() -> None:
     _run("_check_freesurfer_sphere")
+
+
+def test_surface_correlation_writes_msh_and_tables_matching_the_inputs(
+    tmp_path,
+) -> None:
+    _run("_check_surface_correlation_outputs", str(tmp_path))
+
+
+def test_surface_group_comparison_writes_msh_and_tables_matching_the_inputs(
+    tmp_path,
+) -> None:
+    _run("_check_surface_group_outputs", str(tmp_path))

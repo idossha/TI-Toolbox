@@ -8,15 +8,15 @@ t/r map, or a thresholded significant-cluster mask -- directly on the
 fsaverage inflated surface (lateral + medial, both hemispheres), the layout
 used for cortical group figures.
 
-Inputs are the ``(n_vertices,)`` arrays produced by
-:func:`tit.source.project_fields_to_fsaverage` (per-subject field caches) and by
-:mod:`tit.stats.surface` (group ``surface_maps.npz``).  The vertex order is
-``[lh; rh]``, matching nilearn's left/right hemispheres.
+Inputs are the ``(n_vertices,)`` node fields of the fsaverage ``.msh`` files
+written by :func:`tit.source.project_fields_to_fsaverage` (per-subject
+projections) and by :mod:`tit.stats.surface` (group ``surface_stats.msh``).  The
+vertex order is ``[lh; rh]``, matching nilearn's left/right hemispheres.
 
 See Also
 --------
 tit.plotting.nilearn.visualizer.NilearnVisualizer : Volume / volume-to-surface.
-tit.stats.surface : Produces the surface stats ``.npz`` rendered here.
+tit.stats.surface : Produces the ``surface_stats.msh`` rendered here.
 """
 
 from __future__ import annotations
@@ -119,9 +119,9 @@ def render_fsaverage_map(
 
 
 def render_surface_stats_result(
-    npz_path: str, out_dir: str, spacing: int | None = None
+    msh_path: str, out_dir: str, spacing: int | None = None
 ):
-    """Render a :mod:`tit.stats.surface` ``surface_maps.npz`` to PDFs.
+    """Render a :mod:`tit.stats.surface` ``surface_stats.msh`` to PDFs.
 
     Paints the effect map (signed ``r`` if present, else ``t``) and the
     thresholded significant-cluster mask onto the inflated cortex.  *spacing* is
@@ -134,14 +134,12 @@ def render_surface_stats_result(
     """
     os.makedirs(out_dir, exist_ok=True)
     written: list[str] = []
-    with np.load(npz_path) as data:
-        effect_key = "r" if "r" in data.files else "t"
-        effect = np.asarray(data[effect_key], dtype=float)
-        sig_mask = (
-            np.asarray(data["sig_mask"], dtype=float)
-            if "sig_mask" in data.files
-            else None
-        )
+    from tit.source.fsaverage import read_fsaverage_fields
+
+    data = read_fsaverage_fields(msh_path)
+    effect_key = "r" if "r" in data else "t"
+    effect = data[effect_key]
+    sig_mask = data.get("sig_mask")
 
     if spacing is None:
         by_nodes = {n: s for s, n in _FSAVG_NODES.items()}

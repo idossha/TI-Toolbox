@@ -219,6 +219,13 @@ read; a simulation without it needs its projection re-run. Confirm the mTI cover
 against `read_source_file("tit/source/fsaverage.py")` before promising it — the
 module and `docs/wiki/simulator.md` disagree today.
 
+A surface stats run (`space="fsaverage"`) writes `surface_stats.msh` in its output dir
+(node fields `t`, `p`, `sig_mask`, `cluster_id`, `r` for correlation, and
+`mean_field` or `mean_responders`/`mean_non_responders`; read them with
+`tit.source.fsaverage.read_fsaverage_fields(path)`), `surface_stats.json` (settings,
+subjects), and CSVs: `significant_clusters.csv`, `null_distribution.csv`,
+`cluster_subject_values.csv` (subject × cluster mean field, long format).
+
 ## JSON config runners (what the app does)
 
 ```bash

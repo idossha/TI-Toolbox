@@ -2396,3 +2396,39 @@ index; lh-then-rh layout; vendored `resources/fsaverage` = template; round trip 
 `tests/test_jobs_preflight.py::test_stats_fsaverage_space_needs_the_projection`,
 `tests/test_viewer_library.py::test_the_fsaverage_projection_is_offered_only_in_mni_scenes`,
 `tests/test_catalog_metadata_boundaries.py::test_simulation_detail_lists_the_fsaverage_projection`.
+
+
+## 2026-09-30 — fsaverage data is `.msh` end to end; surface-stats tables are CSV
+
+**Decision.** A surface cluster-permutation run (`tit/stats/surface.py`) writes `surface_stats.msh`
+through the projections' writer (`write_fsaverage_msh`: fsaverage central template, lh then rh) with
+node fields `t`, `p`, `sig_mask`, `cluster_id` (0 = none, else the `significant_clusters.csv` id), `r`
+for correlation and the mean input field (`mean_field`, or `mean_responders`/`mean_non_responders`),
+plus `.msh.opt` and a `surface_stats.json` of the run's settings and subjects. Its non-map data are CSV:
+`significant_clusters.csv`, `null_distribution.csv` (one row per permutation) and
+`cluster_subject_values.csv` (subject × cluster mean field, long format). `surface_maps.npz` is gone,
+old ones are neither read nor deleted, and `render_surface_stats_result` reads the `.msh`. The Results
+catalog lists the `.msh` as a mesh and hides its `.opt`; the generic `.npz` kind is removed.
+
+**Why.** Same reason as the projections (entry above): a map people can open beats an archive only
+Python reads, and one format for every fsaverage file means one writer, one reader and one test. The
+tables go to CSV because their consumers are R and spreadsheets; `cluster_subject_values.csv` is the
+export follow-up analyses need, which the `.npz` never carried.
+
+**Cost.** A surface run's map file grows like the projections' (~4×). Old surface runs must be re-run
+to get the new files.
+
+**Alternatives rejected.** A per-vertex CSV (the `.msh` is the map; a 20k–330k-row table is neither
+viewable nor small). Keeping the null distribution inside the `.msh` (it is not per-vertex).
+
+**Left as is.** `tit/blender/montage_publication.py` hands the scalp geometry to the Blender process
+through a temporary `scalp.npz` read by `montage_scene.py` (`allow_pickle=False`). It is an
+in-process-pair handoff inside a temp directory, never user data, and Blender's Python has numpy but
+not SimNIBS, so `.msh` would need a parser there for no user benefit.
+
+**Evidence.** `tests/numerical/test_fsaverage_msh.py::test_surface_correlation_writes_msh_and_tables_matching_the_inputs`
+and `::test_surface_group_comparison_writes_msh_and_tables_matching_the_inputs` (real SimNIBS, scipy,
+nilearn: `cluster_id` = CSV ids and sizes, `sig_mask` = `cluster_id > 0`, means and per-subject cluster
+means recomputed from the synthetic inputs, null rows = `n_permutations`, two PDFs rendered from the
+`.msh`); `tests/test_catalog_group_stats.py::test_detail_of_a_surface_run_lists_the_mesh_and_tables`;
+`tests/test_plotting.py::TestRenderFsaverageMap`.

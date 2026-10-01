@@ -250,7 +250,9 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   (subprocess; skips without it, so run it with `simnibs_python`): the morph's output index is the
   template vertex index, lh-then-rh layout, the vendored `resources/fsaverage` equals the template, the
   write → `load_group_surface_data` round trip, and Gmsh's own reader. Its FreeSurfer-sphere leg reads
-  `$MNE_DATA` (default `~/mne_data`) `MNE-fsaverage-data` and skips without it.
+  `$MNE_DATA` (default `~/mne_data`) `MNE-fsaverage-data` and skips without it. Its surface-stats legs run
+  a correlation and a group comparison over planted subject projections and check `surface_stats.msh`,
+  the three CSVs and the rendered PDFs against the inputs.
 - `tests/numerical/test_dti_advisories.py` pins the DTI advisories on synthetic phantoms (flip test finds a
   planted x flip, tract orientation on pure L–R fibres, a planted 3 mm residual shift), slice orientation
   for RAS/LAS/PSR grids, the report size budget, and `vn` conductivity against SimNIBS 4.6

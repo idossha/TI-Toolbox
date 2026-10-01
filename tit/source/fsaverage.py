@@ -311,20 +311,29 @@ def write_fsaverage_msh(
     )
 
 
-def read_fsaverage_field(path: Path, field: str) -> np.ndarray:
-    """One node field of a projection written by :func:`write_fsaverage_msh`.
+def read_fsaverage_fields(path: Path) -> dict[str, np.ndarray]:
+    """Every node field of a mesh written by :func:`write_fsaverage_msh`.
 
-    Uses SimNIBS's reader: every caller (``tit.stats``, scripts) runs under
-    ``simnibs_python``, like the writer.
+    Uses SimNIBS's reader: every caller (``tit.stats``, ``tit.plotting``,
+    scripts) runs under ``simnibs_python``, like the writer.
     """
     from simnibs.mesh_tools import mesh_io
 
     mesh = mesh_io.read_msh(str(path))
-    if field not in mesh.field:
+    return {
+        name: np.asarray(data.value, dtype=np.float64).reshape(-1)
+        for name, data in mesh.field.items()
+    }
+
+
+def read_fsaverage_field(path: Path, field: str) -> np.ndarray:
+    """One node field of a mesh written by :func:`write_fsaverage_msh`."""
+    fields = read_fsaverage_fields(path)
+    if field not in fields:
         raise KeyError(
-            f"{path.name} has no field {field!r}; available: {sorted(mesh.field)}"
+            f"{path.name} has no field {field!r}; available: {sorted(fields)}"
         )
-    return np.asarray(mesh.field[field].value, dtype=np.float64).reshape(-1)
+    return fields[field]
 
 
 def project_subject(

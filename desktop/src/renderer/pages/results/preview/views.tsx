@@ -131,7 +131,6 @@ const FIELD_KINDS: Record<string, string> = {
   png: "PNG",
   log: "log",
   text: "TXT",
-  npz: "NPZ",
 };
 
 /**

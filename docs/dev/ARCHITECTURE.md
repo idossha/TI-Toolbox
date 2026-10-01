@@ -455,7 +455,11 @@ SimNIBS's fsaverage central template, lh nodes then rh, one node field per quant
 so it opens in the Viewer and Gmsh. It is the only projection format written or read: surface statistics
 (`tit/stats/surface.py`) read its node fields, and a missing `.msh` is a missing input that names the
 re-projection. Writer and reader both run under `simnibs_python` with SimNIBS's mesh I/O; node order is
-pinned by `tests/numerical/test_fsaverage_msh.py`.
+pinned by `tests/numerical/test_fsaverage_msh.py`. A surface statistics run writes its maps the same way,
+through the same writer, as `surface_stats.msh` (`t`, `p`, `sig_mask`, `cluster_id`, `r` for correlation,
+and the group or cohort mean field) with a `.json` of its settings, and its tables as CSV
+(`significant_clusters.csv`, `null_distribution.csv`, `cluster_subject_values.csv`). fsaverage data is
+`.msh` end to end; no fsaverage output is `.npz`.
 
 ## 9. DWI preprocessing runs as sibling containers
 
