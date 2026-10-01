@@ -36,6 +36,15 @@ than the E-fields themselves, must be summed"; Part II, p. 16: total power
 deposition "is equal to the summed combination from all channels (incoherent
 field superposition)").
 
+Carrier-only control (``coherent=True``).  When every pair is driven at the
+*same* frequency and in phase (a ΔF = 0 control), the carriers do not drift in
+relative phase, so the field is the single vector ``sum_c E_c`` and the
+worst case over sign choices is never realised.  Per the Part II rule above,
+the fields then add coherently: ``hf_peak = |sum_c E_c|`` and
+``hf_sar = |sum_c E_c|^2``.  This assumes the stimulator starts the channels
+in phase with each pair's first electrode on the same output polarity, which
+is how the simulation assigns ``[+I, -I]``.
+
 Both are distinct from the stimulation-relevant modulation envelope
 (``TI_max`` / ``TI_normal``), computed in :mod:`tit.calc`.
 
@@ -197,7 +206,7 @@ def hf_peak_is_exact(n_fields: int) -> bool:
     return int(n_fields) <= EXACT_SIGN_ENUM_MAX_FIELDS
 
 
-def hf_peak(*fields) -> np.ndarray:
+def hf_peak(*fields, coherent: bool = False) -> np.ndarray:
     """Peak carrier field: max over sign choices of the carrier vector sum.
 
     Each field is one carrier (positional wiring).  Carriers combine at their
@@ -219,6 +228,9 @@ def hf_peak(*fields) -> np.ndarray:
     *fields : array-like, shape ``(..., 3)``
         Two or more carrier E-field vectors (one per electrode pair), all
         the same shape.
+    coherent : bool
+        All carriers share one frequency and phase (ΔF = 0 carrier-only
+        control): return ``|sum_c E_c|`` instead of the worst case over signs.
 
     Returns
     -------
@@ -226,6 +238,8 @@ def hf_peak(*fields) -> np.ndarray:
         The worst-case peak carrier field magnitude.
     """
     stack, shape = _stack_fields(fields)
+    if coherent:
+        return np.linalg.norm(stack.sum(axis=0), axis=-1).reshape(shape[:-1])
     n = stack.shape[0]
     if n <= EXACT_SIGN_ENUM_MAX_FIELDS:
         flat = _hf_peak_exact(stack)
@@ -234,7 +248,7 @@ def hf_peak(*fields) -> np.ndarray:
     return flat.reshape(shape[:-1])
 
 
-def hf_sar(*fields) -> np.ndarray:
+def hf_sar(*fields, coherent: bool = False) -> np.ndarray:
     """Incoherent carrier heating driver, proportional to SAR: ``sum_c |E_c|^2``.
 
     Each field is one carrier (positional wiring), and the carriers sit at
@@ -256,6 +270,9 @@ def hf_sar(*fields) -> np.ndarray:
     *fields : array-like, shape ``(..., 3)``
         Two or more carrier E-field vectors (one per electrode pair), all
         the same shape.
+    coherent : bool
+        All carriers share one frequency and phase (ΔF = 0 carrier-only
+        control): the amplitudes add first, giving ``|sum_c E_c|^2``.
 
     Returns
     -------
@@ -263,5 +280,7 @@ def hf_sar(*fields) -> np.ndarray:
         ``sum_c |E_c|^2`` in ``(V/m)^2`` — proportional to tissue heating.
     """
     stack, shape = _stack_fields(fields)
+    if coherent:
+        return (np.linalg.norm(stack.sum(axis=0), axis=-1) ** 2).reshape(shape[:-1])
     flat = np.sum(np.linalg.norm(stack, axis=-1) ** 2, axis=0)
     return flat.reshape(shape[:-1])

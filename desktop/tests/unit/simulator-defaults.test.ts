@@ -10,6 +10,7 @@ import {
   emptyRow,
   inferMontageKind,
   isRunnableRow,
+  carrierOnlyAllowed,
   polarityLabel,
   type SelectedRow,
 } from "../../src/renderer/pages/simulator/types";
@@ -200,6 +201,54 @@ describe("Simulator page configs validate against contracts/generated/config.sch
     };
     const config = buildSimulationConfig(row, { ...baseParams, customConductivities: { 2: 0.3 } });
     expect(config.tissue_conductivities).toEqual({ 2: 0.3 });
+  });
+
+  // SimulationConfig.carrier_only (tit/sim/config.py): ΔF = 0 has no envelope, so the server
+  // rejects any output field but hf_peak/hf_sar and any montage that is not 2-pair TI.
+  const tiRow: SelectedRow = {
+    id: "carrier",
+    subjectId: "ernie",
+    source: "montage",
+    kind: "uni_polar",
+    eegNet: "GSN-HydroCel-185",
+    name: "F3_F4",
+    pairs: [
+      ["E24", "E124"],
+      ["E67", "E77"],
+    ],
+    currents: "1.0,1.0",
+  };
+
+  it("a carrier-only TI job sends the flag and only the carrier fields, and validates", async () => {
+    const config = buildSimulationConfig(tiRow, { ...baseParams, carrierOnly: true, outputFields: ["TI_max", "TI_avg", "hf_sar"] });
+    expect(config.carrier_only).toBe(true);
+    expect(config.output_fields).toEqual(["hf_sar"]);
+    expect(await validate("SimulationConfig", config)).toMatchObject({ valid: true, errors: {} });
+  });
+
+  it("a carrier-only job with no carrier field ticked computes both carrier fields", () => {
+    const config = buildSimulationConfig(tiRow, { ...baseParams, carrierOnly: true, outputFields: ["TI_max"] });
+    expect(config.output_fields).toEqual(["hf_peak", "hf_sar"]);
+  });
+
+  it("an ordinary job omits carrier_only, so an older server sees the previous body", () => {
+    expect(buildSimulationConfig(tiRow, baseParams)).not.toHaveProperty("carrier_only");
+    expect(buildSimulationConfig(tiRow, { ...baseParams, carrierOnly: false })).not.toHaveProperty("carrier_only");
+  });
+
+  it("an mTI job is never carrier-only, even with the setting seeded from a TI job", () => {
+    const mti: SelectedRow = {
+      ...tiRow,
+      kind: "multi_polar",
+      pairs: [...tiRow.pairs!, ["E36", "E104"], ["E58", "E96"]],
+      currents: "1.0,1.0,1.0,1.0",
+    };
+    expect(carrierOnlyAllowed(mti)).toBe(false);
+    expect(carrierOnlyAllowed({ ...mti, kind: undefined })).toBe(false);
+    expect(carrierOnlyAllowed(tiRow)).toBe(true);
+    const config = buildSimulationConfig(mti, { ...baseParams, carrierOnly: true, outputFields: ["TI_max", "hf_peak"] });
+    expect(config).not.toHaveProperty("carrier_only");
+    expect(config.output_fields).toEqual(["TI_max", "hf_peak"]);
   });
 });
 

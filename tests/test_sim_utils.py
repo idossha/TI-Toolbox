@@ -414,6 +414,25 @@ class TestCreateSimulationConfigFile:
         assert data["electrode_coordinates"] is None
         assert data["electrode_coordinate_source"] is None
 
+    def test_records_carrier_only_so_the_run_is_self_describing(self, tmp_path):
+        montage = Montage(
+            name="M1",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("AF3", "AF4"), ("C5", "C6")],
+            eeg_net="EEG10-10_Cutini_2011.csv",
+        )
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[montage],
+            carrier_only=True,
+            output_fields=["hf_peak"],
+        )
+        create_simulation_config_file(config, montage, str(tmp_path), MagicMock())
+
+        data = json.loads((tmp_path / "config.json").read_text())
+        assert data["carrier_only"] is True
+        assert data["output_fields"] == ["hf_peak"]
+
     def test_writes_xyz_coordinates_for_freehand_montage(self, tmp_path):
         logger = MagicMock()
         montage = Montage(

@@ -6668,6 +6668,13 @@ export interface components {
          *         already reads) -- deprecated in favor of this field, which is
          *         visible in the job's config and its manifest instead of being an
          *         invisible process-environment side channel.
+         *     carrier_only : bool
+         *         Carrier-only control: both pairs run at the same frequency, in phase
+         *         (ΔF = 0), so there is no beat.  ``hf_peak``/``hf_sar`` then add the
+         *         carriers coherently (``|E1+E2|``, see :mod:`tit.fields`) and no
+         *         envelope field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.
+         *         Requires a 2-pair TI montage and ``output_fields`` from ``hf_peak``/
+         *         ``hf_sar``.  Default ``False``.
          *
          *     Raises
          *     ------
@@ -6676,8 +6683,9 @@ export interface components {
          *         *output_fields* contains an unknown name or is empty, if any
          *         montage has a pair that is not exactly two electrodes, if
          *         *intensities* is shorter than a montage needs (2 for TI, one per
-         *         pair for mTI), or if *tissue_conductivities* contains a
-         *         non-positive value.  Filesystem checks (the m2m directory, the
+         *         pair for mTI), if *tissue_conductivities* contains a
+         *         non-positive value, or if *carrier_only* is set with an envelope
+         *         output field or a montage that is not 2-pair TI.  Filesystem checks (the m2m directory, the
          *         EEG-net CSV) happen later, in :func:`run_simulation`.
          *
          *     Examples
@@ -6699,6 +6707,16 @@ export interface components {
          *     ... )
          *     >>> cfg.map_to_surf, cfg.output_fields
          *     (True, ['TI_max', 'hf_peak'])
+         *
+         *     A carrier-only control of the same montage (both pairs at one
+         *     frequency, in phase; no envelope, so only carrier fields):
+         *
+         *     >>> sham = SimulationConfig(
+         *     ...     subject_id="ernie", montages=[montage], intensities=[1.0, 1.0],
+         *     ...     carrier_only=True, output_fields=["hf_peak", "hf_sar"],
+         *     ... )
+         *     >>> sham.carrier_only
+         *     True
          *
          *     Then ``run_simulation(cfg)`` (needs SimNIBS and the subject's m2m
          *     directory).
@@ -6787,6 +6805,11 @@ export interface components {
             tissue_conductivities: {
                 [key: string]: number;
             } | null;
+            /**
+             * Carrier Only
+             * @default false
+             */
+            carrier_only: boolean;
         };
         /**
          * Montage

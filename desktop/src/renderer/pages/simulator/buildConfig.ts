@@ -1,4 +1,4 @@
-import { settingsFor, type JobSettings, type SelectedRow } from "./types";
+import { CARRIER_FIELDS, carrierOnlyAllowed, settingsFor, type JobSettings, type SelectedRow } from "./types";
 import type { CustomConductivities } from "./ConductivityDialog";
 import type { MontageSources } from "./api";
 
@@ -31,6 +31,11 @@ function parseIntensities(s: string): number[] {
  */
 export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams): Record<string, unknown> {
   const params = settingsFor(row, defaults) as GlobalParams;
+  // Carrier-only is a 2-pair control; an mTI row (e.g. seeded from a carrier-only row) runs as
+  // ordinary mTI, whose carriers are distinct frequencies by construction.
+  const carrierOnly = !!params.carrierOnly && carrierOnlyAllowed(row);
+  const carrierFields = params.outputFields.filter((f) => CARRIER_FIELDS.includes(f));
+  const outputFields = carrierOnly ? (carrierFields.length ? carrierFields : [...CARRIER_FIELDS]) : params.outputFields;
   // A flex row is `flex_mapped` when it carries an EEG net (its electrodes are that cap's labels)
   // and `flex_free` when it does not (the optimiser's own XYZ coordinates) — the same distinction
   // `Montage.Mode` makes, and the reason a run with no mapping file is still simulable.
@@ -66,9 +71,11 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     electrode_shape: params.electrodeShape,
     electrode_dimensions: params.dimensions,
     gel_thickness: params.gelThickness,
-    output_fields: params.outputFields,
+    output_fields: outputFields,
     map_to_mni: params.mapToMni ?? false,
     map_to_fsavg: params.mapToFsavg ?? false,
+    // Only sent when on: absent is the previous behaviour, for a server that predates the field.
+    ...(carrierOnly ? { carrier_only: true } : {}),
   };
   if (row.candidate) delete config.tissue_conductivities;
   if (Object.keys(params.customConductivities).length > 0) {

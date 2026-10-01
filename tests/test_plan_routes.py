@@ -119,6 +119,32 @@ def test_validate_sim_rejects_a_misspelled_key(client: TestClient) -> None:
     assert "conductivety" in body["errors"][0]["message"]
 
 
+def test_validate_sim_reports_carrier_only_errors(client: TestClient) -> None:
+    """ΔF = 0 has no envelope: TI_max is reported against output_fields, and a
+    4-pair (mTI) montage against carrier_only; carrier fields alone are ok."""
+
+    def check(**overrides):
+        resp = client.post(
+            "/api/validate/sim",
+            json={"config": _sim_config(carrier_only=True, **overrides)},
+            headers=BEARER,
+        )
+        assert resp.status_code == 200
+        return resp.json()
+
+    body = check()
+    assert body["ok"] is False
+    assert body["errors"][0]["path"] == "output_fields"
+    assert "TI_max" in body["errors"][0]["message"]
+
+    mti = {**_montage(), "electrode_pairs": [["E1", "E2"], ["E3", "E4"]] * 2}
+    body = check(output_fields=["hf_peak"], montages=[mti], intensities=[1.0] * 4)
+    assert body["ok"] is False
+    assert body["errors"][0]["path"] == "carrier_only"
+
+    assert check(output_fields=["hf_peak", "hf_sar"]) == {"ok": True, "errors": []}
+
+
 def test_validate_sim_reports_error_for_bad_output_fields(client: TestClient) -> None:
     # "Invalid output field(s) [...]" doesn't literally contain the identifier
     # "output_fields", so _guess_field_path's heuristic falls back to "" (whole-config)

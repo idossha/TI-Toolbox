@@ -233,6 +233,57 @@ class TestHfSar:
             hf_sar(np.zeros((5, 3)), np.zeros((6, 3)))
 
 
+def _time_sampled_peak_same_frequency(e1, e2, n_samples=20_001):
+    """Independent reference: max_t |E1 cos wt + E2 cos wt| over one period."""
+    c = np.cos(np.linspace(0.0, 2 * np.pi, n_samples))[:, None, None]
+    return np.linalg.norm(c * e1[None] + c * e2[None], axis=-1).max(axis=0)
+
+
+class TestCoherentCarrierOnly:
+    """ΔF = 0, in phase: one fixed field E1+E2, no beat (Cassarà Part II p. 8)."""
+
+    def test_obtuse_angle_uses_sum_not_difference(self):
+        # 120 deg apart: the beat worst case |E1-E2| never occurs without a beat
+        e1 = np.array([[1.0, 0, 0]])
+        e2 = 0.8 * np.array([[np.cos(np.radians(120)), np.sin(np.radians(120)), 0]])
+        assert hf_peak(e1, e2, coherent=True)[0] == pytest.approx(
+            np.linalg.norm(e1 + e2)
+        )
+        assert hf_peak(e1, e2, coherent=True)[0] < hf_peak(e1, e2)[0]
+
+    def test_matches_time_sampled_field(self):
+        rng = np.random.default_rng(7)
+        e1, e2 = rng.normal(size=(2, 50, 3))
+        np.testing.assert_allclose(
+            hf_peak(e1, e2, coherent=True),
+            _time_sampled_peak_same_frequency(e1, e2),
+            rtol=1e-6,
+        )
+
+    def test_never_exceeds_beat_worst_case(self):
+        rng = np.random.default_rng(8)
+        e1, e2 = rng.normal(size=(2, 200, 3))
+        assert np.all(hf_peak(e1, e2, coherent=True) <= hf_peak(e1, e2) + 1e-12)
+
+    def test_antiparallel_equal_carriers_cancel(self):
+        e1 = np.array([[1.0, 0, 0]])
+        assert hf_peak(e1, -e1, coherent=True)[0] == pytest.approx(0.0)
+        assert hf_sar(e1, -e1, coherent=True)[0] == pytest.approx(0.0)
+
+    def test_sar_is_squared_vector_sum(self):
+        e1 = np.array([[3.0, 0, 0]])
+        e2 = np.array([[0.0, 4.0, 0]])
+        assert hf_sar(e1, e2, coherent=True)[0] == pytest.approx(25.0)
+        assert hf_sar(e1, e1, coherent=True)[0] == pytest.approx(
+            36.0
+        )  # vs 18 incoherent
+
+    def test_default_is_unchanged(self):
+        rng = np.random.default_rng(9)
+        e1, e2 = rng.normal(size=(2, 30, 3))
+        np.testing.assert_array_equal(hf_peak(e1, e2, coherent=False), hf_peak(e1, e2))
+
+
 @pytest.mark.unit
 def test_hf_peak_exactness_flag_tracks_the_enumeration_limit():
     """Audit item: N > EXACT_SIGN_ENUM_MAX_FIELDS gives a lower bound."""

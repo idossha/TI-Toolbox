@@ -725,6 +725,13 @@ hf_sar  = sum_c |E_c|^2                                              ((V/m)^2)
   100 mA for 2 °C in skin.
 - `TI_max`, `TI_avg`, `TI_normal` and everything downstream in the analyzer and
   statistics were never affected by the carrier-grouping question.
+- **Carrier-only control (ΔF = 0).** `SimulationConfig(carrier_only=True)` models
+  both pairs at the *same* frequency and in phase (each pair's first electrode +I
+  at the same instant): one fixed field, no beat, no envelope. The carriers then add
+  coherently — `hf_peak = |E1+E2|`, `hf_sar = |E1+E2|^2` (`coherent=True`) — rather
+  than the TI worst case. Only `hf_peak`/`hf_sar` may be requested; `TI_max`,
+  `TI_avg`, `TI_normal` are undefined and not computed; 2-pair TI only. Example
+  |E1| = 1, |E2| = 0.8 at 120°: TI worst case 1.56, carrier-only 0.92.
 
 **Deliberately not computed** (do not claim the toolbox reports them): current
 density `J = σE` (needs the 2 mm ICNIRP averaging kernel and per-tissue σ),

@@ -9,7 +9,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
-Nothing yet.
+- **New: carrier-only control simulations (ΔF = 0)** — a Simulator job can now run as a carrier-only control: both pairs at the same frequency and in phase, so there is no beat. Tick **Job settings ▸ Output fields ▸ Carrier-only control (ΔF = 0, coherent carriers)**, or pass `SimulationConfig(carrier_only=True, output_fields=["hf_peak", "hf_sar"])`. The carriers then add as one fixed field: `hf_peak` is `|E1+E2|` and `hf_sar` is `|E1+E2|²` (Cassarà 2025 Part II: coherent superposition at identical frequencies), where the TI worst case `max(|E1+E2|, |E1-E2|)` would overstate the peak wherever the two fields are more than 90° apart. No envelope field (`TI_max`, `TI_avg`, `TI_normal`) is computed, and the option is for 2-pair TI only (disabled for mTI jobs). The run records `carrier_only` in its `documentation/config.json`, and fsaverage projection honours it. `tit.fields.hf_peak`/`hf_sar` gain `coherent=`. Existing simulations and scripts are unchanged. See [Carrier-only control](https://idossha.github.io/TI-Toolbox/wiki/simulator/#carrier-only-control).
 
 ### v3.0.2 — September 28, 2026 (Latest Release)
 

@@ -1064,3 +1064,13 @@ like the `viewer` kind removed before it. Preprocessing reports are now SimNIBS'
 `charm_report.html` (recorded as a `report` artifact on the charm stage job and listed by
 `GET /api/catalog/reports` as kind `charm_report`) and the DTI QC report; `Artifact.kind` values
 are unchanged.
+
+## 2026-09-30 — `carrier_only` on `SimulationConfig`
+
+`SimulationConfig` gains optional `carrier_only: bool` (default `false`). It marks a ΔF = 0
+carrier-only control: `hf_peak`/`hf_sar` add the carriers coherently and no envelope field is
+computed, so `output_fields` may only hold `hf_peak`/`hf_sar` and every montage must be 2-pair TI
+(422 otherwise; `POST /api/validate/sim` reports it against `output_fields` / `carrier_only`).
+The run records the flag in `documentation/config.json`, and the fsaverage projection
+(`FsavgMapConfig`, unchanged) reads it from there. Existing clients that omit it get the previous
+behaviour.

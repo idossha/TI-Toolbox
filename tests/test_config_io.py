@@ -206,6 +206,23 @@ class TestWriteReadRoundTrip:
         finally:
             os.unlink(path)
 
+    def test_simulation_carrier_only_round_trips(self):
+        from tit.config_io import deserialize_config
+        from tit.sim.config import SimulationConfig
+
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[],
+            carrier_only=True,
+            output_fields=["hf_peak", "hf_sar"],
+        )
+        data = json.loads(json.dumps(serialize_config(config)))
+        assert data["carrier_only"] is True
+        data.pop("project_dir")  # as tit.sim.__main__ does before deserialising
+        back = deserialize_config(SimulationConfig, data, strict=True)
+        assert back.carrier_only is True
+        assert back.output_fields == ["hf_peak", "hf_sar"]
+
     def test_simulation_montage_display_name_serializes(self):
         from tit.sim.config import Montage, SimulationConfig
 

@@ -17,6 +17,7 @@ The Simulator computes the full FEM temporal interference field. It sits between
 - **EEG Net**: Dropdown selection of available electrode configurations
 - **Conductivity Model**: Four anisotropy types (`scalar`, `vn`, `dir`, `mc`) with configurable bounds (see [Conductivity and Anisotropy](#conductivity-and-anisotropy))
 - **Output Fields**: Checkboxes for `TI_max` (default), `TI_avg`, `hf_peak` and `hf_sar`; at least one must be selected
+- **Carrier-only control (ΔF = 0, coherent carriers)**: Checkbox in a job's settings, above the output fields; runs the montage as a same-frequency control with no envelope (see [Carrier-only control](#carrier-only-control))
 - **Real-time Logging**: Simulation progress and status updates
 
 ---
@@ -142,6 +143,30 @@ Per-channel high-frequency meshes are renamed `TDCS_1..N` -> `TDCS_A..Z` when mo
 `SimulationConfig.output_fields` gates which volume-mesh fields are computed and written -- it defaults to `["TI_max"]` **only**. `TI_avg` and the safety fields (`hf_peak`, `hf_sar`) must be opted into; the four selectable names are exactly `("TI_max", "TI_avg", "hf_peak", "hf_sar")` (`const.SELECTABLE_OUTPUT_FIELDS`). The gating skips the _computation_, not just the write -- unrequested fields are never evaluated. In the GUI (shared by TI and mTI), output fields are checkboxes with only `TI_max` pre-checked; submitting with none checked is rejected with "Select at least one output field."
 
 What each field _means_ — the beat-envelope modulation depth, the direction-averaged envelope, and the carrier-exposure safety metrics — is documented once, under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest).
+
+## Carrier-only control (ΔF = 0) {#carrier-only-control}
+
+A carrier-only control delivers the same two kHz carriers as a TI montage but at the **same** frequency and in phase (e.g. 15,000 / 15,000 Hz instead of 15,000 / 15,010 Hz), so there is no interference beat. Use it for carrier-only or sham-style control conditions: the tissue receives kHz exposure without an envelope.
+
+Without a beat the two carriers add coherently into one fixed field, so the exposure metrics become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2$$ rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
+
+- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_sar` are selected, and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more pairs) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
+- **From Python or a JSON config**:
+
+```python
+from tit.sim import SimulationConfig, run_simulation
+
+cfg = SimulationConfig(
+    subject_id="101",
+    montages=montages,              # 2-pair TI montages only
+    intensities=[1.0, 1.0],
+    carrier_only=True,
+    output_fields=["hf_peak", "hf_sar"],
+)
+run_simulation(cfg)
+```
+
+`SimulationConfig` rejects `carrier_only=True` with any envelope output field or with an mTI montage, and `POST /api/validate/sim` reports the same errors. The run records `carrier_only` and `output_fields` in `documentation/config.json`, so a result says how it was computed.
 
 ---
 

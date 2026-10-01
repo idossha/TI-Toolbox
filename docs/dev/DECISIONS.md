@@ -2328,3 +2328,30 @@ every drawn montage that uses them; that is its own decision.
 **Evidence.** A distance script over those `eeg_positions` CSVs (nearest GSN electrode per 10-10 name,
 and the rank of the one each drawing row sits on); the ernie simulator report for AF3_PO10_and_AF4_Oz
 draws PO10 at the right-hand mirror of the PO9 position.
+
+
+## 2026-09-30 — Carrier-only (ΔF = 0) controls sum the carriers coherently and record the flag in the run
+
+**Decision.** `SimulationConfig.carrier_only` (default `False`) models a 2-pair montage driven at one
+frequency, in phase. `hf_peak`/`hf_sar` then take `coherent=True` (`|E1+E2|`, `|E1+E2|²`), no envelope
+field is computed, and `output_fields` may only name `hf_peak`/`hf_sar`. The run writes `carrier_only`
+into `documentation/config.json`; the fsaverage projection reads it from there rather than from its own
+config. The Simulator exposes it as a per-job checkbox, disabled for mTI rows; the desktop sends the key
+only when it is on.
+
+**Why.** Cassarà 2025 Part II p. 8: "coherent field superposition was used for identical frequencies".
+The TI worst case `max(|E1+E2|, |E1−E2|)` is reached only because two different frequencies sweep every
+relative phase; without a beat it overstates the peak wherever the carriers are more than 90° apart
+(|E1| = 1, |E2| = 0.8 at 120°: 1.56 vs 0.92 V/m). "In phase" is the simulation's existing sign
+convention (each pair's first electrode +I). Reading the run's own record makes a post-hoc projection
+agree with the simulation without the user restating how it was run.
+
+**Alternatives rejected.** An `FsavgMapConfig.carrier_only` flag (the first draft): a post-hoc projection
+from the GUI panel or a script that omitted it would silently use the TI formula on a carrier-only run.
+Computing `TI_max` as zero: an envelope that does not exist is undefined, not zero, and a zero map would
+pass as a result. Allowing mTI: a carrier-only control is defined here for the two-carrier case only.
+
+**Evidence.** `tests/numerical/test_sci07_exposure_channels.py::test_carrier_only_coherent_metrics_match_a_measured_same_frequency_field`
+(time-domain reference); `tests/test_fields.py::TestCoherentCarrierOnly`; `tests/test_sim_config.py`,
+`tests/test_plan_routes.py::test_validate_sim_reports_carrier_only_errors`, `tests/test_source.py`;
+`desktop/tests/unit/simulator-defaults.test.ts`.

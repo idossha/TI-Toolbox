@@ -325,6 +325,36 @@ class TestSimulationConfig:
         with pytest.raises(ValueError, match="output_fields must not be empty"):
             SimulationConfig(subject_id="001", montages=[], output_fields=[])
 
+    def test_carrier_only_rejects_envelope_fields(self):
+        # ΔF = 0 has no envelope, so TI_max is undefined rather than zero
+        with pytest.raises(ValueError, match="carrier_only has no envelope"):
+            SimulationConfig(subject_id="001", montages=[], carrier_only=True)
+
+    def test_carrier_only_rejects_mti(self):
+        m = Montage(
+            name="m",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("C3", "C4"), ("F3", "F4"), ("P3", "P4"), ("O1", "O2")],
+            eeg_net="net.csv",
+        )
+        with pytest.raises(ValueError, match="2-pair TI"):
+            SimulationConfig(
+                subject_id="001",
+                montages=[m],
+                intensities=[1.0] * 4,
+                carrier_only=True,
+                output_fields=["hf_peak"],
+            )
+
+    def test_carrier_only_accepts_carrier_fields(self):
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[],
+            carrier_only=True,
+            output_fields=["hf_peak", "hf_sar"],
+        )
+        assert config.carrier_only
+
     def test_with_montages(self):
         m = Montage(
             name="test",

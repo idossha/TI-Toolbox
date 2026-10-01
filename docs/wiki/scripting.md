@@ -202,6 +202,7 @@ run_simulation(cfg)
 | `gel_thickness` | Gel thickness (mm) | `4.0` |
 | `rubber_thickness` | Rubber thickness (mm) | `2.0` |
 | `output_fields` | Output fields (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`) | `["TI_max"]` |
+| `carrier_only` | Carrier-only control (ΔF = 0): coherent `hf_peak`/`hf_sar`, no envelope fields; 2-pair TI with `output_fields` from `hf_peak`/`hf_sar` ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
 | `map_to_surf` / `map_to_vol` / `map_to_mni` / `map_to_fsavg` | Output mapping checkboxes | `True` / `False` / `False` / `True` |
 
 Two electrode pairs run a TI simulation, four or more run mTI — the API picks for you.
