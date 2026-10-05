@@ -18,7 +18,7 @@ import shutil
 import struct
 import subprocess
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 
 from tit import constants as const
 from tit.paths import get_path_manager
@@ -30,85 +30,37 @@ _NIFTI2_HEADER_SIZE = 540
 _SHORT_DWI_VOLUMES = 16
 
 
-def docker_host_path(path: str) -> str:
-    """Map a Windows drive path to Docker Desktop's VM path; POSIX unchanged."""
-    m = re.match(r"^([A-Za-z]):[\\/]*(.*)$", path)
-    if not m:
-        return path
-    rest = m.group(2).replace("\\", "/").rstrip("/")
-    return f"/run/desktop/mnt/host/{m.group(1).lower()}" + (f"/{rest}" if rest else "")
+def host_path(path: str) -> PurePath:
+    """*path* as the Docker host writes it (``C:\\Users\\me`` or ``/Users/me``).
 
-
-def resolve_host_project_path(container_path: str) -> str:
+    The host may be Windows while this code runs in a Linux container, so joins
+    and ``is_absolute`` must use the host's path flavour. Docker Desktop accepts
+    the native Windows form as a bind source, as v2 relied on.
     """
-    Resolve a container path to the corresponding host path for Docker mounts.
-
-    When running inside the SimNIBS container, project directories are mounted
-    at /mnt/$PROJECT_DIR_NAME. However, sibling containers (QSIPrep/QSIRecon)
-    need to mount the original host path, not the container path.
-
-    The LOCAL_PROJECT_DIR environment variable contains the host machine's
-    absolute path to the project directory.
-
-    Parameters
-    ----------
-    container_path : str
-        Path as seen from inside the SimNIBS container (e.g., /mnt/myproject).
-
-    Returns
-    -------
-    str
-        The corresponding host path for Docker volume mounts.
-
-    Raises
-    ------
-    ValueError
-        If LOCAL_PROJECT_DIR is not set or the path cannot be resolved.
-    """
-    local_project_dir = os.environ.get(const.ENV_LOCAL_PROJECT_DIR)
-    if not local_project_dir:
-        raise ValueError(
-            f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
-            "This is required for spawning sibling Docker containers."
-        )
-    local_project_dir = docker_host_path(local_project_dir)
-
-    # If the container_path starts with /mnt/, replace with host path
-    container_path = str(container_path)
-    if container_path.startswith(const.DOCKER_MOUNT_PREFIX):
-        # Extract the relative path after /mnt/project_name/
-        parts = container_path.split(os.sep)
-        # /mnt/project_name -> parts[0]='', parts[1]='mnt', parts[2]=project_name
-        if len(parts) > 3:
-            relative_path = os.sep.join(parts[3:])
-            return os.path.join(local_project_dir, relative_path)
-        else:
-            return local_project_dir
-
-    return container_path
+    if re.match(r"^([A-Za-z]:|\\\\)", path):
+        return PureWindowsPath(path)
+    return PurePosixPath(path)
 
 
 def get_host_project_dir() -> str:
-    """
-    Get the host machine's project directory path.
-
-    Returns
-    -------
-    str
-        Absolute path to the project directory on the host machine.
+    """The host's project directory (``LOCAL_PROJECT_DIR``), for sibling-container mounts.
 
     Raises
     ------
     ValueError
-        If LOCAL_PROJECT_DIR is not set.
+        If LOCAL_PROJECT_DIR is unset or not an absolute host path.
     """
-    local_project_dir = os.environ.get(const.ENV_LOCAL_PROJECT_DIR)
+    local_project_dir = os.environ.get(const.ENV_LOCAL_PROJECT_DIR, "").strip()
     if not local_project_dir:
         raise ValueError(
             f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
             "This is required for spawning sibling Docker containers."
         )
-    return docker_host_path(local_project_dir)
+    if not host_path(local_project_dir).is_absolute():
+        raise ValueError(
+            f"{const.ENV_LOCAL_PROJECT_DIR} must be an absolute host path, got {local_project_dir!r}."
+        )
+    return local_project_dir
 
 
 def check_image_exists(image: str, tag: str) -> bool:

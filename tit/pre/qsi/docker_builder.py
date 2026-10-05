@@ -12,7 +12,7 @@ import os
 import shutil
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from tit import constants as const
 
@@ -33,6 +33,7 @@ _CUSTOM_PIPELINE_MAP = {
 from .config import QSIPrepConfig, QSIReconConfig
 from .utils import (
     get_host_project_dir,
+    host_path,
     get_inherited_dood_resources,
     format_memory_limit,
 )
@@ -140,7 +141,7 @@ class DockerCommandBuilder:
         self.project_dir = project_dir
         self.paths = paths or DockerPaths()
 
-        self._host_project_dir = get_host_project_dir()
+        self._host_project_dir = host_path(get_host_project_dir())
         self._host_license_path = self._stage_fs_license()
 
     def _label_args(self, kind: str) -> list[str]:
@@ -169,7 +170,7 @@ class DockerCommandBuilder:
             return None
         dest = Path(self.project_dir) / ".freesurfer_license.txt"
         shutil.copy2(src, dest)
-        return str(Path(self._host_project_dir) / ".freesurfer_license.txt")
+        return str(self._host_project_dir / ".freesurfer_license.txt")
 
     def _stage_custom_pipeline(self, yaml_filename: str) -> tuple[str, str]:
         """Stage a custom pipeline YAML into the project root for DooD mounting."""
@@ -187,9 +188,9 @@ class DockerCommandBuilder:
         dest = Path(self.project_dir) / staged_name
         shutil.copy2(src, dest)
 
-        host_path = str(Path(self._host_project_dir) / staged_name)
+        host_spec = str(self._host_project_dir / staged_name)
         container_path = "/tmp/recon_spec.yaml"
-        return container_path, host_path
+        return container_path, host_spec
 
     def build_qsiprep_cmd(self, config: QSIPrepConfig) -> list[str]:
         """
@@ -252,10 +253,10 @@ class DockerCommandBuilder:
         # BIDS data is at project root
         cmd.extend(["-v", f"{self._host_project_dir}:{self.paths.bids_dir}:ro"])
 
-        qsiprep_output = str(Path(self._host_project_dir) / "derivatives" / "qsiprep")
+        qsiprep_output = str(self._host_project_dir / "derivatives" / "qsiprep")
         cmd.extend(["-v", f"{qsiprep_output}:{self.paths.output_dir}"])
 
-        work_dir = str(Path(self._host_project_dir) / "derivatives" / ".qsiprep_work")
+        work_dir = str(self._host_project_dir / "derivatives" / ".qsiprep_work")
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
         if self._host_license_path:
@@ -360,13 +361,13 @@ class DockerCommandBuilder:
         if self._host_license_path:
             cmd.extend(["-e", f"FS_LICENSE={self.paths.license_file}"])
 
-        qsiprep_output = str(Path(self._host_project_dir) / "derivatives" / "qsiprep")
+        qsiprep_output = str(self._host_project_dir / "derivatives" / "qsiprep")
         cmd.extend(["-v", f"{qsiprep_output}:{self.paths.bids_dir}:ro"])
 
-        qsirecon_output = str(Path(self._host_project_dir) / "derivatives" / "qsirecon")
+        qsirecon_output = str(self._host_project_dir / "derivatives" / "qsirecon")
         cmd.extend(["-v", f"{qsirecon_output}:{self.paths.output_dir}"])
 
-        work_dir = str(Path(self._host_project_dir) / "derivatives" / ".qsirecon_work")
+        work_dir = str(self._host_project_dir / "derivatives" / ".qsirecon_work")
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
         if self._host_license_path:
@@ -413,7 +414,7 @@ class DockerCommandBuilder:
 
         return cmd
 
-    def get_output_dir(self, pipeline: str) -> Path:
+    def get_output_dir(self, pipeline: str) -> PurePath:
         """
         Get the output directory path for a pipeline.
 
@@ -427,4 +428,4 @@ class DockerCommandBuilder:
         Path
             Path to the output directory.
         """
-        return Path(self._host_project_dir) / "derivatives" / pipeline
+        return self._host_project_dir / "derivatives" / pipeline

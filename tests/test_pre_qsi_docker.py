@@ -48,7 +48,7 @@ class TestDockerCommandBuilder:
     """Tests for DockerCommandBuilder."""
 
     def test_init(self, builder):
-        assert builder._host_project_dir == "/host/project"
+        assert str(builder._host_project_dir) == "/host/project"
         assert builder._host_license_path == "/host/project/.freesurfer_license.txt"
 
     def test_custom_paths(self, tmp_path):

@@ -12,7 +12,7 @@ import uuid
 
 from tit.paths import get_path_manager, validate_subject_id
 from .qsi.docker_builder import resolve_fs_license_path
-from .qsi.utils import docker_host_path, get_inherited_dood_resources, format_memory_limit
+from .qsi.utils import format_memory_limit, get_inherited_dood_resources, host_path
 from .utils import CommandRunner, PreprocessError, _find_anat_files
 
 IMAGE = "idossha/ti-toolbox:freesurfer-20260910"
@@ -82,7 +82,7 @@ def run_freesurfer(
         raise PreprocessError(
             "LOCAL_PROJECT_DIR is required to launch FreeSurfer from Docker."
         )
-    host_project = Path(docker_host_path(host_root or str(project)))
+    host_project = host_path(host_root or str(project))
     if not host_project.is_absolute():
         raise PreprocessError("LOCAL_PROJECT_DIR must be an absolute host path.")
     if not recon_all:

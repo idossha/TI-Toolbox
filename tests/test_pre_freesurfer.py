@@ -284,14 +284,11 @@ def test_reconstruction_automatically_mounts_bundled_license(
     assert not list(Path(pm.project_dir).glob(".freesurfer-*"))
 
 
-def test_windows_host_project_is_mapped_to_docker_desktop_path(project, monkeypatch):
+def test_windows_host_project_mounts_native_path(project, monkeypatch):
     pm, _ = project
     monkeypatch.setenv("LOCAL_PROJECT_DIR", "C:\\Users\\me\\proj")
     runner = Mock()
-    runner.run.return_value = 0
-    with pytest.raises(PreprocessError):
-        fs.run_freesurfer("001", subregions=["thalamus"], runner=runner, logger=Mock())
-    # validate_reconstruction fails before launch; use recon-all instead
+
     def success(argv, **kwargs):
         complete(pm)
         return 0
@@ -299,4 +296,7 @@ def test_windows_host_project_is_mapped_to_docker_desktop_path(project, monkeypa
     runner.run.side_effect = success
     fs.run_freesurfer("001", recon_all=True, runner=runner, logger=Mock())
     argv = runner.run.call_args_list[0].args[0]
-    assert f"/run/desktop/mnt/host/c/Users/me/proj:{pm.project_dir}" in argv
+    assert f"C:\\Users\\me\\proj:{pm.project_dir}" in argv
+    license_mount = argv[argv.index("-v", argv.index("-v") + 1) + 1]
+    assert license_mount.startswith("C:\\Users\\me\\proj\\.freesurfer-")
+    assert license_mount.endswith("\\license.txt:/run/license.txt:ro")
