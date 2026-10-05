@@ -108,7 +108,6 @@ def get_host_project_dir() -> str:
             f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
             "This is required for spawning sibling Docker containers."
         )
-    local_project_dir = docker_host_path(local_project_dir)
     return docker_host_path(local_project_dir)
 
 
