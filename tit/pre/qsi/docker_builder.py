@@ -31,9 +31,8 @@ _CUSTOM_PIPELINE_MAP = {
     "dsi_studio_gqi": "dsi_studio_gqi_scalar.yaml",
 }
 from .config import QSIPrepConfig, QSIReconConfig
+from tit.host_path import bind_mount, flavour, get_host_project_dir
 from .utils import (
-    get_host_project_dir,
-    host_path,
     get_inherited_dood_resources,
     format_memory_limit,
 )
@@ -141,7 +140,7 @@ class DockerCommandBuilder:
         self.project_dir = project_dir
         self.paths = paths or DockerPaths()
 
-        self._host_project_dir = host_path(get_host_project_dir())
+        self._host_project_dir = flavour(get_host_project_dir())
         self._host_license_path = self._stage_fs_license()
 
     def _label_args(self, kind: str) -> list[str]:
@@ -251,17 +250,21 @@ class DockerCommandBuilder:
 
         # Volume mounts - mount host project directory
         # BIDS data is at project root
-        cmd.extend(["-v", f"{self._host_project_dir}:{self.paths.bids_dir}:ro"])
+        cmd.extend(
+            bind_mount(self._host_project_dir, self.paths.bids_dir, readonly=True)
+        )
 
         qsiprep_output = str(self._host_project_dir / "derivatives" / "qsiprep")
-        cmd.extend(["-v", f"{qsiprep_output}:{self.paths.output_dir}"])
+        cmd.extend(bind_mount(qsiprep_output, self.paths.output_dir))
 
         work_dir = str(self._host_project_dir / "derivatives" / ".qsiprep_work")
-        cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
+        cmd.extend(bind_mount(work_dir, self.paths.work_dir))
 
         if self._host_license_path:
             cmd.extend(
-                ["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"]
+                bind_mount(
+                    self._host_license_path, self.paths.license_file, readonly=True
+                )
             )
 
         cmd.append(image)
@@ -362,27 +365,29 @@ class DockerCommandBuilder:
             cmd.extend(["-e", f"FS_LICENSE={self.paths.license_file}"])
 
         qsiprep_output = str(self._host_project_dir / "derivatives" / "qsiprep")
-        cmd.extend(["-v", f"{qsiprep_output}:{self.paths.bids_dir}:ro"])
+        cmd.extend(bind_mount(qsiprep_output, self.paths.bids_dir, readonly=True))
 
         qsirecon_output = str(self._host_project_dir / "derivatives" / "qsirecon")
-        cmd.extend(["-v", f"{qsirecon_output}:{self.paths.output_dir}"])
+        cmd.extend(bind_mount(qsirecon_output, self.paths.output_dir))
 
         work_dir = str(self._host_project_dir / "derivatives" / ".qsirecon_work")
-        cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
+        cmd.extend(bind_mount(work_dir, self.paths.work_dir))
 
         if self._host_license_path:
             cmd.extend(
-                ["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"]
+                bind_mount(
+                    self._host_license_path, self.paths.license_file, readonly=True
+                )
             )
 
         # Determine recon spec and stage custom YAML before appending image,
-        # so we can add the file mount with the other -v flags.
+        # so we can add the file mount with the other mounts.
         container_spec = recon_spec
         if not config.atlases and recon_spec in _CUSTOM_PIPELINE_MAP:
             container_spec, host_yaml = self._stage_custom_pipeline(
                 _CUSTOM_PIPELINE_MAP[recon_spec]
             )
-            cmd.extend(["-v", f"{host_yaml}:{container_spec}:ro"])
+            cmd.extend(bind_mount(host_yaml, container_spec, readonly=True))
 
         cmd.append(image)
 

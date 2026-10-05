@@ -8,6 +8,7 @@ The build and release procedure is [docs/dev/RELEASING.md](../../docs/dev/RELEAS
 | `deploy-docs.yml` | push to `main` touching `docs/**` | Builds and deploys the Jekyll documentation site. |
 | `code-ql-analysis.yml` | push / PR / schedule | CodeQL static analysis. |
 | `python-security.yml` | push / PR / schedule | Python dependency and code security scanning. |
+| `host-paths.yml` | push / PR touching the host-path rules | Runs `tests/test_host_path_table.py` and `desktop/tests/unit/paths.test.ts` on Linux, macOS and Windows runners. |
 
 The generic build pipeline packages `desktop/` with Node 22.12.0. All modes build
 `idossha/ti-toolbox:vX.Y.Z` from the runtime version. Rebuilding and pushing replaces

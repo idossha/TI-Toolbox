@@ -72,7 +72,7 @@ def pm(tmp_path: Path, monkeypatch) -> PathManager:
 
 def _open(monkeypatch, host_root: str | None, **body):
     monkeypatch.setattr(
-        "tit.server.host_path.host_project_dir", lambda _container: host_root
+        "tit.host_path.host_project_dir", lambda _container: host_root
     )
     return viewers.view_open({"kind": "subject", "subject": "ernie", **body})
 

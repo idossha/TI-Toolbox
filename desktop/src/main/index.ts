@@ -19,15 +19,7 @@ import { stack } from "./stackHost";
 import { notifyJobCompletions, setJobFinishedListener, showNativeNotification, stopNotifyingJobCompletions } from "./jobsNotifier";
 import type { NotifyResult } from "../shared/jobNotifications";
 import { renderPlatesForJob } from "./roiPlates";
-import {
-  containerToHostPath,
-  hasDotSegment,
-  hostToContainerPath,
-  mapContainerToHostViaProjectRoot,
-  mapHostToContainerViaProjectRoot,
-  type HostPlatform,
-  type ProjectMount,
-} from "../shared/paths";
+import { containerToHostPath, hasDotSegment, hostToContainerPath, projectDirName, type HostPlatform } from "../shared/paths";
 import { createQuitGate } from "../shared/quitGate";
 import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
 import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "./window";
@@ -353,6 +345,17 @@ async function getProjectRoot(): Promise<{ containerPath: string; hostPath: stri
   }
 }
 
+/** The stack this app started (`/mnt/<name>`), else `GET /api/project`'s own pair. */
+async function knownProjectRoots(): Promise<{ containerPath: string; hostPath: string | null } | null> {
+  const current = stack.getCurrent();
+  if (!current) return getProjectRoot();
+  try {
+    return { containerPath: `/mnt/${projectDirName(current.hostProjectDir)}`, hostPath: current.hostProjectDir };
+  } catch {
+    return null;
+  }
+}
+
 export type PathResolveResult = { ok: true; path: string } | { ok: false; reason: string };
 
 /**
@@ -372,20 +375,10 @@ export type PathResolveResult = { ok: true; path: string } | { ok: false; reason
  */
 async function resolveHostPathStrict(pathFromServer: string): Promise<PathResolveResult> {
   if (hasDotSegment(pathFromServer)) return { ok: false, reason: "path contains a '.' or '..' segment" };
-  const current = stack.getCurrent();
-  if (current) {
-    const mount: ProjectMount = { hostDir: current.hostProjectDir, platform: toHostPlatform(process.platform) };
-    const mapped = containerToHostPath(pathFromServer, mount);
-    if (mapped) return { ok: true, path: mapped };
-    return { ok: false, reason: "path is outside the mounted project" };
-  }
-  const project = await getProjectRoot();
-  if (project) {
-    const mapped = mapContainerToHostViaProjectRoot(pathFromServer, project.containerPath, project.hostPath, toHostPlatform(process.platform));
-    if (mapped) return { ok: true, path: mapped };
-    return { ok: false, reason: "path is outside the project" };
-  }
-  return { ok: false, reason: "no known project mount to resolve this path against" };
+  const project = await knownProjectRoots();
+  if (!project) return { ok: false, reason: "no known project mount to resolve this path against" };
+  const mapped = containerToHostPath(pathFromServer, project.containerPath, project.hostPath, toHostPlatform(process.platform));
+  return mapped ? { ok: true, path: mapped } : { ok: false, reason: "path is outside the project" };
 }
 
 /**
@@ -412,23 +405,14 @@ async function jobArtifactPaths(jobId: string): Promise<string[]> {
 }
 
 async function resolveContainerPathForBrowse(hostPath: string): Promise<string | null> {
-  const current = stack.getCurrent();
-  if (current) {
-    const mount: ProjectMount = { hostDir: current.hostProjectDir, platform: toHostPlatform(process.platform) };
-    const mapped = hostToContainerPath(hostPath, mount);
-    if (mapped) return mapped;
-    log("warn", "selectFile: chosen path is outside the mounted project");
+  const project = await knownProjectRoots();
+  if (!project) {
+    log("warn", "selectFile: no known project mount to map the chosen path into");
     return null;
   }
-  const project = await getProjectRoot();
-  if (project) {
-    const mapped = mapHostToContainerViaProjectRoot(hostPath, project.containerPath, project.hostPath, toHostPlatform(process.platform));
-    if (mapped) return mapped;
-    log("warn", "selectFile: chosen path is outside the project");
-    return null;
-  }
-  log("warn", "selectFile: no known project mount to map the chosen path into");
-  return null;
+  const mapped = hostToContainerPath(hostPath, project.hostPath, project.containerPath, toHostPlatform(process.platform));
+  if (!mapped) log("warn", "selectFile: chosen path is outside the project");
+  return mapped;
 }
 
 async function getRunningJobIds(): Promise<string[]> {

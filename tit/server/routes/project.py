@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from tit.paths import get_path_manager
-from tit.server.host_path import host_project_dir
+from tit.host_path import host_project_dir
 from tit.server.schemas import Project, ProjectStatus
 
 router = APIRouter()
@@ -35,7 +35,7 @@ router = APIRouter()
 def project() -> Project:
     """``host_path`` is ``LOCAL_PROJECT_DIR`` when set, else read off this server's own
     container (bind mount, then the ``tit.host_project_dir`` label) -- see
-    :mod:`tit.server.host_path` for why the environment variable alone left every v3
+    :mod:`tit.host_path` for why the environment variable alone left every v3
     container answering ``null``."""
     pm = get_path_manager()
     container_path = pm.project_dir or ""

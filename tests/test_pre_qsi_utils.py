@@ -16,53 +16,13 @@ from tit.pre.qsi.utils import (
     check_image_exists,
     format_memory_limit,
     get_container_resource_limits,
-    get_host_project_dir,
     get_inherited_dood_resources,
     pull_image_if_needed,
-    host_path,
     validate_bids_dwi,
     validate_qsiprep_output,
 )
 
 MODULE = "tit.pre.qsi.utils"
-
-
-class TestGetHostProjectDir:
-    """Tests for get_host_project_dir."""
-
-    @patch.dict(os.environ, {"LOCAL_PROJECT_DIR": "/host/proj"})
-    def test_returns_env_var(self):
-        assert get_host_project_dir() == "/host/proj"
-
-    @patch.dict(os.environ, {}, clear=True)
-    def test_no_env_raises(self):
-        os.environ.pop("LOCAL_PROJECT_DIR", None)
-        with pytest.raises(ValueError, match="LOCAL_PROJECT_DIR"):
-            get_host_project_dir()
-
-    @patch.dict(os.environ, {"LOCAL_PROJECT_DIR": "proj"})
-    def test_relative_raises(self):
-        with pytest.raises(ValueError, match="absolute"):
-            get_host_project_dir()
-
-    @patch.dict(os.environ, {"LOCAL_PROJECT_DIR": "C:\\Users\\me\\proj"})
-    def test_windows_path_passes_through(self):
-        assert get_host_project_dir() == "C:\\Users\\me\\proj"
-
-
-@pytest.mark.parametrize(
-    "raw,joined",
-    [
-        ("C:\\Users\\me\\proj", "C:\\Users\\me\\proj\\derivatives\\qsiprep"),
-        ("D:/data/proj", "D:\\data\\proj\\derivatives\\qsiprep"),
-        ("\\\\server\\share\\proj", "\\\\server\\share\\proj\\derivatives\\qsiprep"),
-        ("/Users/me/proj", "/Users/me/proj/derivatives/qsiprep"),
-    ],
-)
-def test_host_path_joins_in_host_flavour(raw, joined):
-    p = host_path(raw)
-    assert p.is_absolute()
-    assert str(p / "derivatives" / "qsiprep") == joined
 
 
 class TestCheckImageExists:

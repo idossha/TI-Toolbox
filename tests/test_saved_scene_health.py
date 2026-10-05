@@ -16,7 +16,7 @@ def project(tmp_path, monkeypatch):
     reset_path_manager()
     get_path_manager(str(tmp_path))
     monkeypatch.setattr(
-        "tit.server.host_path.host_project_dir", lambda _: "C:\\Users\\me\\project"
+        "tit.host_path.host_project_dir", lambda _: "C:\\Users\\me\\project"
     )
     directory = Path(lib.saved_scene_dir())
     directory.mkdir(parents=True)
@@ -44,6 +44,21 @@ def test_native_host_path_missing_and_restored(project):
     (root / "volume.nii").write_bytes(b"not parsed")
     assert lib.list_scenes()["scenes"][0]["health"] == "valid"
     assert target.exists()
+
+
+@pytest.mark.parametrize(
+    "reference,health",
+    [
+        ("c:\\users\\me\\project\\volume.nii", "valid"),  # Windows paths fold case
+        ("C:/Users/me/project/volume.nii", "valid"),
+        ("C:\\Users\\me\\projectx\\volume.nii", "unchecked"),  # sibling, not inside
+    ],
+)
+def test_windows_host_reference_variants(project, reference, health):
+    root, directory = project
+    (root / "volume.nii").write_bytes(b"not parsed")
+    write_scene(directory, reference)
+    assert lib.list_scenes()["scenes"][0]["health"] == health
 
 
 def test_relative_sidecar_and_broken_dataset_reference(project):

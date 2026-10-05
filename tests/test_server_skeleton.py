@@ -441,10 +441,10 @@ def test_capabilities_shape(client: TestClient) -> None:
 def test_project_shape(client: TestClient, project: Path, monkeypatch) -> None:
     monkeypatch.delenv("LOCAL_PROJECT_DIR", raising=False)
     # With the variable unset the route asks this server's own container for the mapping
-    # (tit/server/host_path.py). Pin "there is no container" so the assertion below is about
+    # (tit/host_path.py). Pin "there is no container" so the assertion below is about
     # the response shape and not about where the suite happens to be running -- the resolver's
-    # own behaviour is covered by tests/test_server_host_path.py.
-    from tit.server import host_path as host_path_mod
+    # own behaviour is covered by tests/test_host_path.py.
+    from tit import host_path as host_path_mod
 
     host_path_mod.clear_cache()
     monkeypatch.setattr(host_path_mod, "own_container_id", lambda: None)

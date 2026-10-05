@@ -1,4 +1,4 @@
-"""``tit.server.host_path`` — resolving the project's *host* directory (lane FX2).
+"""``tit.host_path`` — resolving the project's *host* directory (lane FX2).
 
 The failure these pin: ``GET /api/project`` answered ``host_path: null`` on every v3 container,
 because the only source it read (``LOCAL_PROJECT_DIR``) is interpolated into the compose file's
@@ -21,7 +21,7 @@ pytest.importorskip("psutil")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from tit.paths import get_path_manager  # noqa: E402
-from tit.server import host_path as host_path_mod  # noqa: E402
+from tit import host_path as host_path_mod  # noqa: E402
 from tit.server.app import create_app  # noqa: E402
 from tit.server.settings import ServerSettings  # noqa: E402
 
