@@ -23,6 +23,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from tit.host_path import project_dir_name
+
 __all__ = [
     "LABEL_HOST_DIR",
     "LABEL_PROJECT",
@@ -386,7 +388,7 @@ def build_env(
     """
     return {
         "LOCAL_PROJECT_DIR": host_project_dir,
-        "PROJECT_DIR_NAME": Path(host_project_dir).name,
+        "PROJECT_DIR_NAME": project_dir_name(host_project_dir),
         "TIT_USER_CONFIG": user_config,
         "TIT_HOST_OS": platform.system().lower(),
         "TIT_HOST_OS_VERSION": platform.release(),

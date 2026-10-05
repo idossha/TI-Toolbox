@@ -1,4 +1,11 @@
-"""Where this server's project directory lives *on the host*, when that can be known.
+"""Host <-> container path handling: the one place that knows a host path's flavour.
+
+The server runs in a Linux container while the Docker host may be Windows, macOS or Linux,
+so a host path is parsed in *its own* flavour (:func:`flavour`), never with ``os.path``.
+``desktop/src/shared/paths.ts`` holds the same rules; both suites read
+``tests/fixtures/host_paths.json`` so they cannot drift.
+
+Where this server's project directory lives *on the host*, when that can be known:
 
 ``GET /api/project`` reports ``container_path`` (what the server itself sees, e.g.
 ``/mnt/000``) and ``host_path`` (``/Users/me/datasets/000``). Only the second one lets a
@@ -31,9 +38,12 @@ cached per project directory, so a running server makes at most one Engine call 
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import os
 import re
+from pathlib import PurePath, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from tit import constants as const
@@ -76,18 +86,86 @@ def host_project_dir(container_path: str) -> str | None:
     return resolved
 
 
-def _join_host(source: str, suffix: str) -> str:
-    """``source`` + the container-side remainder, in *the host's* separator.
+_WINDOWS_RE = re.compile(r"^([A-Za-z]:|[\\/]{2})")
 
-    The mount's ``Source`` is written the way the host writes paths -- on a Windows host that is
-    ``C:\\Users\\me\\data`` while ``suffix`` is always a POSIX fragment from the container side,
-    so a naive concatenation would hand a client a mixed-separator path.
+
+def flavour(path: str) -> PurePath:
+    """*path* in the flavour it is written in: a drive letter or a UNC prefix (``\\\\`` or
+    ``//``) is Windows, anything else POSIX, so joins and ``is_absolute`` follow the host.
     """
-    if not suffix:
-        return source.rstrip("/").rstrip("\\") or source
-    if "\\" in source and "/" not in source:
-        return source.rstrip("\\") + suffix.replace("/", "\\")
-    return source.rstrip("/") + suffix
+    if _WINDOWS_RE.match(path):
+        return PureWindowsPath(path)
+    return PurePosixPath(path)
+
+
+def project_dir_name(host_dir: str) -> str:
+    """The ``<name>`` in ``/mnt/<name>`` the compose stack mounts *host_dir* at.
+
+    Raises ``ValueError`` for a drive or share root, which has no name to mount under.
+    """
+    name = flavour(host_dir.strip()).name
+    if not name:
+        raise ValueError(f"Project directory has no name: {host_dir!r}")
+    return name
+
+
+def to_host(container_path: str, container_root: str, host_root: str) -> str | None:
+    """*container_path* re-rooted onto *host_root* in the host's separator, or ``None`` when
+    it is not under *container_root* (``/mnt/000x`` is not under ``/mnt/000``)."""
+    try:
+        rest = PurePosixPath(container_path).relative_to(container_root).parts
+    except ValueError:
+        return None
+    if ".." in rest:
+        return None
+    return str(flavour(host_root).joinpath(*rest))
+
+
+def to_container(host: str, host_root: str, container_root: str) -> str | None:
+    """*host* re-rooted onto *container_root*, or ``None`` when it is not under *host_root*.
+
+    A Windows root compares case-insensitively (``c:\\users`` is ``C:\\Users``).
+    """
+    root, target = flavour(host_root), flavour(host)
+    if type(root) is not type(target):
+        return None
+    try:
+        rest = target.relative_to(root).parts
+    except ValueError:
+        return None
+    if ".." in rest:
+        return None
+    return str(PurePosixPath(container_root).joinpath(*rest))
+
+
+def get_host_project_dir() -> str:
+    """The host's project directory (``LOCAL_PROJECT_DIR``), for sibling-container mounts.
+
+    Raises ``ValueError`` if it is unset or not an absolute host path.
+    """
+    value = os.environ.get(const.ENV_LOCAL_PROJECT_DIR, "").strip()
+    if not value:
+        raise ValueError(
+            f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
+            "This is required for spawning sibling Docker containers."
+        )
+    if not flavour(value).is_absolute():
+        raise ValueError(
+            f"{const.ENV_LOCAL_PROJECT_DIR} must be an absolute host path, got {value!r}."
+        )
+    return value
+
+
+def bind_mount(source: object, target: object, *, readonly: bool = False) -> list[str]:
+    """``docker run`` argv for one bind mount: ``--mount``, not ``-v``, whose colon-separated
+    form is ambiguous with a Windows ``C:\\`` source; CSV quoting covers a comma in a path.
+    """
+    fields = ["type=bind", f"source={source}", f"target={target}"]
+    if readonly:
+        fields.append("readonly")
+    buf = io.StringIO()
+    csv.writer(buf, lineterminator="").writerow(fields)
+    return ["--mount", buf.getvalue()]
 
 
 def host_dir_from_inspect(info: dict[str, Any], container_path: str) -> str | None:
@@ -110,16 +188,11 @@ def host_dir_from_inspect(info: dict[str, Any], container_path: str) -> str | No
         destination = (mount.get("Destination") or "").rstrip("/")
         if not source or not destination:
             continue
-        if target == destination:
-            suffix = ""
-        elif target.startswith(destination + "/"):
-            suffix = target[len(destination) :]
-        else:
-            continue
+        host = to_host(target, destination, source)
         # The longest matching destination wins: with both `/mnt` and `/mnt/000` mounted, the
         # project dir belongs to `/mnt/000`.
-        if best is None or len(destination) > best[0]:
-            best = (len(destination), _join_host(source, suffix))
+        if host is not None and (best is None or len(destination) > best[0]):
+            best = (len(destination), host)
     if best is not None:
         return best[1]
     labels = (info.get("Config") or {}).get("Labels") or {}

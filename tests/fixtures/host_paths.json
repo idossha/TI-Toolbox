@@ -1,0 +1,49 @@
+{
+  "_about": "Host <-> container path cases shared by tests/test_host_path_table.py (tit/host_path.py) and desktop/tests/unit/paths.test.ts (desktop/src/shared/paths.ts). groundTruth: authored -- expected values are written from Docker's /mnt/<name> mount convention and Windows/POSIX path syntax, not produced by either implementation. platform is the desktop host platform (TS folds case on win32/darwin); Python folds case for Windows-syntax paths only, so POSIX case-variant cases are kept out of this shared table. null = rejected.",
+  "to_host": [
+    {"why": "Windows host, backslash root", "container": "/mnt/proj/derivatives/x.nii.gz", "container_root": "/mnt/proj", "host_root": "C:\\Users\\me\\proj", "platform": "win32", "expected": "C:\\Users\\me\\proj\\derivatives\\x.nii.gz"},
+    {"why": "forward-slash Windows root is rewritten in host separators", "container": "/mnt/proj/derivatives/x.nii.gz", "container_root": "/mnt/proj", "host_root": "C:/Users/me/proj", "platform": "win32", "expected": "C:\\Users\\me\\proj\\derivatives\\x.nii.gz"},
+    {"why": "trailing backslash on host root", "container": "/mnt/proj/a.txt", "container_root": "/mnt/proj", "host_root": "C:\\Users\\me\\proj\\", "platform": "win32", "expected": "C:\\Users\\me\\proj\\a.txt"},
+    {"why": "project root itself", "container": "/mnt/proj", "container_root": "/mnt/proj", "host_root": "C:\\Users\\me\\proj", "platform": "win32", "expected": "C:\\Users\\me\\proj"},
+    {"why": "UNC share, backslashes", "container": "/mnt/proj/a.txt", "container_root": "/mnt/proj", "host_root": "\\\\server\\share\\proj", "platform": "win32", "expected": "\\\\server\\share\\proj\\a.txt"},
+    {"why": "UNC share written with forward slashes", "container": "/mnt/proj/a.txt", "container_root": "/mnt/proj", "host_root": "//server/share/proj", "platform": "win32", "expected": "\\\\server\\share\\proj\\a.txt"},
+    {"why": "drive root as host root", "container": "/mnt/x/a.txt", "container_root": "/mnt/x", "host_root": "C:\\", "platform": "win32", "expected": "C:\\a.txt"},
+    {"why": "space in POSIX host path", "container": "/mnt/my proj/a b.txt", "container_root": "/mnt/my proj", "host_root": "/Users/me/my proj", "platform": "darwin", "expected": "/Users/me/my proj/a b.txt"},
+    {"why": "colon in POSIX host path is not a drive", "container": "/mnt/a:b/x", "container_root": "/mnt/a:b", "host_root": "/Users/me/a:b", "platform": "darwin", "expected": "/Users/me/a:b/x"},
+    {"why": "trailing slash on POSIX host root", "container": "/mnt/proj/a", "container_root": "/mnt/proj", "host_root": "/Users/me/proj/", "platform": "darwin", "expected": "/Users/me/proj/a"},
+    {"why": "sibling dir sharing the prefix is outside (/mnt/000x vs /mnt/000)", "container": "/mnt/000x/a", "container_root": "/mnt/000", "host_root": "/home/me/000", "platform": "linux", "expected": null},
+    {"why": "nested container path, trailing slash on container root", "container": "/mnt/000/a/b/c.nii", "container_root": "/mnt/000/", "host_root": "/home/me/000", "platform": "linux", "expected": "/home/me/000/a/b/c.nii"},
+    {"why": "project nested inside the mount", "container": "/mnt/000/sub/a", "container_root": "/mnt/000/sub", "host_root": "C:\\data\\000\\sub", "platform": "win32", "expected": "C:\\data\\000\\sub\\a"},
+    {"why": "dot-dot never escapes the root", "container": "/mnt/000/../etc/passwd", "container_root": "/mnt/000", "host_root": "/home/me/000", "platform": "linux", "expected": null}
+  ],
+  "to_container": [
+    {"why": "Windows host path", "host": "C:\\Users\\me\\proj\\a\\b.txt", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": "/mnt/proj/a/b.txt"},
+    {"why": "case variant of a Windows root is the same directory", "host": "c:\\users\\me\\proj\\a.txt", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": "/mnt/proj/a.txt"},
+    {"why": "forward slashes and a trailing backslash on the root", "host": "C:/Users/me/proj/a.txt", "host_root": "C:\\Users\\me\\proj\\", "container_root": "/mnt/proj", "platform": "win32", "expected": "/mnt/proj/a.txt"},
+    {"why": "project root itself", "host": "C:\\Users\\me\\proj", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": "/mnt/proj"},
+    {"why": "sibling dir sharing the prefix is outside", "host": "C:\\Users\\me\\projx\\a.txt", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": null},
+    {"why": "other drive is outside", "host": "D:\\Users\\me\\proj\\a.txt", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": null},
+    {"why": "UNC path against a forward-slash UNC root", "host": "\\\\server\\share\\proj\\a.txt", "host_root": "//server/share/proj", "container_root": "/mnt/proj", "platform": "win32", "expected": "/mnt/proj/a.txt"},
+    {"why": "a container path is not a Windows host path", "host": "/mnt/proj/a.txt", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": null},
+    {"why": "space in POSIX path", "host": "/Users/me/my proj/a.txt", "host_root": "/Users/me/my proj", "container_root": "/mnt/my proj", "platform": "darwin", "expected": "/mnt/my proj/a.txt"},
+    {"why": "colon in POSIX path", "host": "/Users/me/a:b/x", "host_root": "/Users/me/a:b", "container_root": "/mnt/a:b", "platform": "darwin", "expected": "/mnt/a:b/x"},
+    {"why": "POSIX sibling sharing the prefix is outside", "host": "/home/me/000x/a", "host_root": "/home/me/000", "container_root": "/mnt/000", "platform": "linux", "expected": null},
+    {"why": "dot-dot never escapes the root", "host": "C:\\Users\\me\\proj\\..\\secret.txt", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": null}
+  ],
+  "project_dir_name": [
+    {"host_dir": "C:\\Users\\me\\proj", "expected": "proj"},
+    {"host_dir": "C:/Users/me/proj", "expected": "proj"},
+    {"host_dir": "c:\\users\\me\\proj", "expected": "proj"},
+    {"host_dir": "C:\\Users\\me\\proj\\", "expected": "proj"},
+    {"host_dir": "C:/Users/me/proj/", "expected": "proj"},
+    {"host_dir": "\\\\server\\share\\proj", "expected": "proj"},
+    {"host_dir": "//server/share/proj", "expected": "proj"},
+    {"host_dir": "/Users/me/my proj", "expected": "my proj"},
+    {"host_dir": "/Users/me/a:b", "expected": "a:b"},
+    {"host_dir": "/Users/me/proj/", "expected": "proj"},
+    {"host_dir": "C:\\", "expected": null},
+    {"host_dir": "C:", "expected": null},
+    {"host_dir": "\\\\server\\share", "expected": null},
+    {"host_dir": "/", "expected": null}
+  ]
+}

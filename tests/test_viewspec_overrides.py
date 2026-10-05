@@ -209,7 +209,7 @@ def test_an_unknown_extra_is_ignored(pm: PathManager) -> None:
 def test_dry_run_resolves_everything_and_writes_no_file(
     pm: PathManager, monkeypatch
 ) -> None:
-    monkeypatch.setattr("tit.server.host_path.host_project_dir", lambda _c: None)
+    monkeypatch.setattr("tit.host_path.host_project_dir", lambda _c: None)
     result = viewers.view_open(
         {
             "kind": "subject",
@@ -227,7 +227,7 @@ def test_dry_run_resolves_everything_and_writes_no_file(
 def test_the_route_reports_each_resolved_file_with_its_size(
     pm: PathManager, monkeypatch
 ) -> None:
-    monkeypatch.setattr("tit.server.host_path.host_project_dir", lambda _c: None)
+    monkeypatch.setattr("tit.host_path.host_project_dir", lambda _c: None)
     result = viewers.view_open({"kind": "subject", "subject": "ernie"})
     by_name = {row["name"]: row for row in result["files"]}
     assert by_name
@@ -239,7 +239,7 @@ def test_the_route_reports_each_resolved_file_with_its_size(
 def test_the_route_passes_overrides_through_to_the_file_it_writes(
     pm: PathManager, monkeypatch
 ) -> None:
-    monkeypatch.setattr("tit.server.host_path.host_project_dir", lambda _c: None)
+    monkeypatch.setattr("tit.host_path.host_project_dir", lambda _c: None)
     result = viewers.view_open(
         {
             "kind": "subject",
@@ -424,7 +424,7 @@ def test_a_list_with_nothing_usable_in_it_is_a_404_not_an_empty_scene(
 def test_the_route_writes_exactly_the_files_it_was_given(
     sim: PathManager, monkeypatch
 ) -> None:
-    monkeypatch.setattr("tit.server.host_path.host_project_dir", lambda _c: None)
+    monkeypatch.setattr("tit.host_path.host_project_dir", lambda _c: None)
     t1 = os.path.join(sim.m2m("ernie"), "T1.nii.gz")
     result = viewers.view_open(
         {"kind": "simulation", "subject": "ernie", "simulation": "Thalamus", "files": [t1]}

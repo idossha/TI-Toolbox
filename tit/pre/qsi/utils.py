@@ -13,12 +13,11 @@ import json
 import logging
 import math
 import os
-import re
 import shutil
 import struct
 import subprocess
 from dataclasses import dataclass
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 from tit import constants as const
 from tit.paths import get_path_manager
@@ -28,39 +27,6 @@ _NIFTI2_HEADER_SIZE = 540
 
 # QSIPrep warns below this and assumes the series is a reverse-phase-encode scan.
 _SHORT_DWI_VOLUMES = 16
-
-
-def host_path(path: str) -> PurePath:
-    """*path* as the Docker host writes it (``C:\\Users\\me`` or ``/Users/me``).
-
-    The host may be Windows while this code runs in a Linux container, so joins
-    and ``is_absolute`` must use the host's path flavour. Docker Desktop accepts
-    the native Windows form as a bind source, as v2 relied on.
-    """
-    if re.match(r"^([A-Za-z]:|\\\\)", path):
-        return PureWindowsPath(path)
-    return PurePosixPath(path)
-
-
-def get_host_project_dir() -> str:
-    """The host's project directory (``LOCAL_PROJECT_DIR``), for sibling-container mounts.
-
-    Raises
-    ------
-    ValueError
-        If LOCAL_PROJECT_DIR is unset or not an absolute host path.
-    """
-    local_project_dir = os.environ.get(const.ENV_LOCAL_PROJECT_DIR, "").strip()
-    if not local_project_dir:
-        raise ValueError(
-            f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
-            "This is required for spawning sibling Docker containers."
-        )
-    if not host_path(local_project_dir).is_absolute():
-        raise ValueError(
-            f"{const.ENV_LOCAL_PROJECT_DIR} must be an absolute host path, got {local_project_dir!r}."
-        )
-    return local_project_dir
 
 
 def check_image_exists(image: str, tag: str) -> bool:

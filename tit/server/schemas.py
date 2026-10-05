@@ -129,7 +129,7 @@ class ViewerOpen(BaseModel):
     inside this container; ``host_path`` is the same file as the *host* sees
     it, and is what the Electron shell hands to the Tetravox desktop app.
     ``host_path`` is ``None`` when this server cannot know its project's host
-    root (:mod:`tit.server.host_path`) -- the app then offers the scene as a
+    root (:mod:`tit.host_path`) -- the app then offers the scene as a
     download instead of a launch.
     """
 
@@ -175,7 +175,7 @@ class Project(BaseModel):
         description=(
             "the host directory container_path is mounted from, when it can be known: "
             "LOCAL_PROJECT_DIR when set, else this server's own container definition "
-            "(bind mount, then the tit.host_project_dir label) -- see tit/server/host_path.py"
+            "(bind mount, then the tit.host_project_dir label) -- see tit/host_path.py"
         ),
     )
     name: str
