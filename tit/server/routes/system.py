@@ -388,7 +388,7 @@ def _own_container(client: Any) -> OwnContainer | None:
     ``None`` is the normal answer on a developer's host, where the server is a plain process and
     there is no container at all -- the panel says so rather than inventing one.
     """
-    from tit.server.host_path import own_container_id
+    from tit.host_path import own_container_id
 
     container_id = own_container_id()
     if not container_id:

@@ -65,6 +65,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from tit import viewspec
 from tit.catalog import classify_view_file
+from tit.host_path import to_host
 from tit.server.schemas import EntityName, SubjectId, ViewerOpen, ViewSpec
 
 router = APIRouter()
@@ -321,28 +322,6 @@ def _container_path_from_raw_url(url: str) -> str | None:
     return "/" + unquote(url[len(viewspec.RAW_ROUTE_PREFIX) :])
 
 
-def _to_host(container_path: str, container_root: str, host_root: str) -> str:
-    """``container_path`` re-rooted onto the host, keeping the *host's* separator.
-
-    A Windows host's project root is ``C:\\Users\\me\\data`` while every path
-    this server produces is POSIX, so the remainder is translated rather than
-    concatenated -- the same rule :func:`tit.server.host_path._join_host` uses
-    for the project root itself.
-    """
-    root = container_root.rstrip("/")
-    if container_path == root:
-        remainder = ""
-    elif container_path.startswith(root + "/"):
-        remainder = container_path[len(root) :]
-    else:
-        return container_path
-    if not remainder:
-        return host_root
-    if "\\" in host_root and "/" not in host_root:
-        return host_root.rstrip("\\") + remainder.replace("/", "\\")
-    return host_root.rstrip("/") + remainder
-
-
 def localise_scene_paths(
     scene: dict[str, Any], container_root: str, host_root: str | None
 ) -> dict[str, Any]:
@@ -362,7 +341,7 @@ def localise_scene_paths(
             return url
         if host_root is None:
             return container
-        return _to_host(container, container_root, host_root)
+        return to_host(container, container_root, host_root) or container
 
     out = copy.deepcopy(scene)
     for dataset in out.get("datasets", []):
@@ -385,7 +364,7 @@ def native_scene(scene: dict[str, Any]) -> dict[str, Any]:
     from pathlib import Path
     import hashlib
     from tit.paths import get_path_manager, is_within
-    from tit.server.host_path import host_project_dir
+    from tit.host_path import host_project_dir, to_container
     from tit.server.routes.files import _resolve_jailed
 
     root = get_path_manager().project_dir or ""
@@ -403,10 +382,7 @@ def native_scene(scene: dict[str, Any]) -> dict[str, Any]:
         path = _container_path_from_raw_url(value) or value
         # A scene previously saved for this host can be exported again.
         if host:
-            normal_host = host.replace("\\", "/").rstrip("/")
-            normal_path = path.replace("\\", "/")
-            if normal_path.startswith(normal_host + "/"):
-                path = root.rstrip("/") + normal_path[len(normal_host) :]
+            path = to_container(path, host, root) or path
         resolved = _resolve_jailed(path, roots=viewspec.raw_jail_roots())
         if not is_within(root, str(resolved)):
             # References shipped inside the image are not mounted on the host. Copy only
@@ -417,7 +393,7 @@ def native_scene(scene: dict[str, Any]) -> dict[str, Any]:
             )
             atomic_viewer_write(target, resolved.read_bytes())
             resolved = Path(target)
-        return _to_host(str(resolved), root, host) if host else str(resolved)
+        return (to_host(str(resolved), root, host) if host else None) or str(resolved)
 
     for dataset in datasets:
         if not isinstance(dataset, dict):
@@ -449,7 +425,7 @@ def native_scene(scene: dict[str, Any]) -> dict[str, Any]:
 def export_scene(body: dict[str, Any] | None = Body(None)) -> dict[str, Any]:
     """Preserve camera/layers and write host-addressed files for the native viewer."""
     from tit.paths import get_path_manager
-    from tit.server.host_path import host_project_dir
+    from tit.host_path import host_project_dir
     from tit.server.routes.viewer_library import _slug, _MAX_SCENE_BYTES
 
     payload = body or {}
@@ -471,7 +447,7 @@ def export_scene(body: dict[str, Any] | None = Body(None)) -> dict[str, Any]:
     return {
         "scene_path": target,
         "path": target,
-        "host_path": _to_host(target, root, host) if host else None,
+        "host_path": to_host(target, root, host) if host else None,
         "scene": localised,
     }
 
@@ -599,7 +575,7 @@ def view_open(
     about what is in the scene, with nothing to say which was right.
     """
     from tit.paths import get_path_manager
-    from tit.server.host_path import host_project_dir
+    from tit.host_path import host_project_dir
 
     payload = body or {}
     kind = str(payload.get("kind") or "")
@@ -661,7 +637,7 @@ def view_open(
         "path": target,
         "scene_path": target,
         "host_path": (
-            _to_host(target, container_root, host_root) if host_root else None
+            to_host(target, container_root, host_root) if host_root else None
         ),
         "scene": localised,
         # The in-origin addressing, from the SAME resolution: `scene` is what

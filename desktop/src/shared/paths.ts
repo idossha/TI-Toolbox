@@ -10,7 +10,8 @@
  *
  * Pure and dependency-free on purpose: no `node:path` (its separator/casing rules are those of
  * the machine running the code, not of the host platform a path string claims to be from), so the
- * same test suite can exercise Windows/WSL/macOS path shapes from any CI runner.
+ * same test suite can exercise Windows/WSL/macOS path shapes from any CI runner. `tit/host_path.py`
+ * holds the same rules; both suites read `tests/fixtures/host_paths.json` so they cannot drift.
  */
 
 export type HostPlatform = "darwin" | "win32" | "linux";
@@ -28,16 +29,6 @@ export function hasDotSegment(path: string): boolean {
     .split(/[/\\]+/)
     .some((segment) => segment === "." || segment === "..");
 }
-
-/** Which host directory is mounted into the container, and in what platform's path syntax. */
-export interface ProjectMount {
-  /** Absolute host path to the project root, in the host's native syntax (e.g. `C:\Users\a\p`). */
-  hostDir: string;
-  /** Platform `hostDir` belongs to — governs case sensitivity and the reconstructed separator. */
-  platform: HostPlatform;
-}
-
-const MOUNT_PREFIX = "/mnt";
 
 interface ParsedHostPath {
   /** `"/"` (POSIX), `"C:/"` (a Windows drive) or `"//server/share/"` (UNC, incl. WSL `\\wsl.localhost\...`). */
@@ -106,94 +97,65 @@ function rootsEqual(a: string, b: string): boolean {
   return segmentsEqual(a, b, true);
 }
 
-function projectDirName(mount: ProjectMount): string {
-  const { segments } = parseHostPath(mount.hostDir);
+
+/**
+ * The `<name>` in `/mnt/<name>` the compose stack mounts `hostDir` at. Throws for a drive or share
+ * root, which has no name. `tit/host_path.py`'s `project_dir_name` is the same rule.
+ */
+export function projectDirName(hostDir: string): string {
+  const { segments } = parseHostPath(hostDir);
   const name = segments[segments.length - 1];
-  if (!name) throw new Error(`Project directory has no name: ${mount.hostDir}`);
+  if (!name) throw new Error(`Project directory has no name: ${hostDir}`);
   return name;
 }
 
-/**
- * Map an absolute host path under `mount.hostDir` to its container path under `/mnt/<name>`.
- * Returns `null` if `hostPath` is not inside the mounted project (nothing else is visible to the
- * container, so there is no path to give back).
- */
-export function hostToContainerPath(hostPath: string, mount: ProjectMount): string | null {
-  const project = parseHostPath(mount.hostDir);
-  const target = parseHostPath(hostPath);
-  if (project.segments.length === 0 || !rootsEqual(target.root, project.root)) return null;
-  const ci = isCaseInsensitive(mount.platform);
-  if (target.segments.length < project.segments.length) return null;
-  for (let i = 0; i < project.segments.length; i++) {
-    if (!segmentsEqual(target.segments[i] ?? "", project.segments[i] ?? "", ci)) return null;
-  }
-  const rest = target.segments.slice(project.segments.length);
-  return [`${MOUNT_PREFIX}/${projectDirName(mount)}`, ...rest].join("/");
+function normContainerPath(path: string): string {
+  return path.trim().replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
 /**
- * Map a container path under `/mnt/<name>` back to its absolute host path in `mount.platform`'s
- * native syntax. Returns `null` if `containerPath` is not under the mounted project's prefix.
+ * A container path under `containerRoot` -> the host path under `hostRoot`, in `platform`'s native
+ * syntax. `null` when `hostRoot` is unknown (`Project.host_path` was null) or the path is not under
+ * `containerRoot` (`/mnt/000x` is not under `/mnt/000`). `tit/host_path.py`'s `to_host` agrees.
  */
-export function containerToHostPath(containerPath: string, mount: ProjectMount): string | null {
-  const norm = containerPath.trim().replace(/\\/g, "/");
-  const prefix = `${MOUNT_PREFIX}/${projectDirName(mount)}`;
-  if (norm !== prefix && !norm.startsWith(prefix + "/")) return null;
-  const rest = norm.slice(prefix.length).split("/").filter(Boolean);
-  const project = parseHostPath(mount.hostDir);
-  return joinHostPath(project.root, [...project.segments, ...rest], mount.platform);
-}
-
-/**
- * General form of `containerToHostPath`, for a project this app did not itself mount (no
- * `stack.start`-owned `ProjectMount`, e.g. a manually-connected external server or one launched
- * outside the compose stack): maps a container path to its host equivalent given an explicit
- * `(containerRoot, hostRoot)` pair instead of assuming the `/mnt/<name>` convention `stack.start`
- * always uses. `GET /api/project`'s `container_path`/`host_path` is exactly such a pair (`Project`
- * schema, `contracts/openapi.yaml`). Returns `null` if `hostRoot` is unknown (`host_path` was
- * `null` — the server itself doesn't know it either, e.g. JupyterHub-hosted) or `containerPath`
- * is not under `containerRoot`.
- */
-export function mapContainerToHostViaProjectRoot(
+export function containerToHostPath(
   containerPath: string,
   containerRoot: string,
   hostRoot: string | null,
   platform: HostPlatform,
 ): string | null {
   if (!hostRoot) return null;
-  const norm = containerPath.trim().replace(/\\/g, "/");
-  const prefix = containerRoot.trim().replace(/\\/g, "/").replace(/\/+$/, "");
+  const norm = normContainerPath(containerPath);
+  const prefix = normContainerPath(containerRoot);
   if (norm !== prefix && !norm.startsWith(prefix + "/")) return null;
   const rest = norm.slice(prefix.length).split("/").filter(Boolean);
+  if (rest.includes("..")) return null;
   const project = parseHostPath(hostRoot);
   return joinHostPath(project.root, [...project.segments, ...rest], platform);
 }
 
 /**
- * The reverse of `mapContainerToHostViaProjectRoot`: maps an absolute host path back to its
- * container-path equivalent given an explicit `(containerRoot, hostRoot)` pair, for a project this
- * app did not itself mount (no `stack.start`-owned `ProjectMount`). Used by the file/directory
- * picker (`tit:selectFile`/`tit:selectDirectory`) so a host path the user just picked is handed to
- * the renderer as the container path its `PathInput` fields expect (ra_13 finding 8), not the raw
- * host path. Returns `null` if `hostRoot` is unknown or `hostPath` is not inside it — the caller
- * returns `undefined` (with the reason logged) rather than leaking an un-mappable host path.
+ * A host path under `hostRoot` -> its container path under `containerRoot`, folding case on Windows
+ * and macOS hosts. `null` when `hostRoot` is unknown or `hostPath` is outside it. Used by the file
+ * picker so a page receives the container path its `PathInput` expects, never a raw host path.
+ * `tit/host_path.py`'s `to_container` agrees (it folds case for Windows-syntax paths only).
  */
-export function mapHostToContainerViaProjectRoot(
+export function hostToContainerPath(
   hostPath: string,
-  containerRoot: string,
   hostRoot: string | null,
+  containerRoot: string,
   platform: HostPlatform,
 ): string | null {
   if (!hostRoot) return null;
   const project = parseHostPath(hostRoot);
   const target = parseHostPath(hostPath);
-  if (project.segments.length === 0 || !rootsEqual(target.root, project.root)) return null;
+  if (!project.root || !rootsEqual(target.root, project.root)) return null;
   const ci = isCaseInsensitive(platform);
   if (target.segments.length < project.segments.length) return null;
   for (let i = 0; i < project.segments.length; i++) {
     if (!segmentsEqual(target.segments[i] ?? "", project.segments[i] ?? "", ci)) return null;
   }
   const rest = target.segments.slice(project.segments.length);
-  const prefix = containerRoot.trim().replace(/\\/g, "/").replace(/\/+$/, "");
-  return [prefix, ...rest].join("/");
+  if (rest.includes("..")) return null;
+  return [normContainerPath(containerRoot), ...rest].join("/") || "/";
 }

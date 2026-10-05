@@ -16,55 +16,13 @@ from tit.pre.qsi.utils import (
     check_image_exists,
     format_memory_limit,
     get_container_resource_limits,
-    get_host_project_dir,
     get_inherited_dood_resources,
     pull_image_if_needed,
-    resolve_host_project_path,
     validate_bids_dwi,
     validate_qsiprep_output,
 )
 
 MODULE = "tit.pre.qsi.utils"
-
-
-class TestResolveHostProjectPath:
-    """Tests for resolve_host_project_path."""
-
-    @patch.dict(os.environ, {"LOCAL_PROJECT_DIR": "/host/myproject"})
-    def test_replaces_mnt_path(self):
-        result = resolve_host_project_path("/mnt/myproject/sub-001/anat")
-        assert result == "/host/myproject/sub-001/anat"
-
-    @patch.dict(os.environ, {"LOCAL_PROJECT_DIR": "/host/myproject"})
-    def test_short_mnt_path(self):
-        result = resolve_host_project_path("/mnt/myproject")
-        assert result == "/host/myproject"
-
-    @patch.dict(os.environ, {"LOCAL_PROJECT_DIR": "/host/myproject"})
-    def test_non_mnt_path_unchanged(self):
-        result = resolve_host_project_path("/some/other/path")
-        assert result == "/some/other/path"
-
-    @patch.dict(os.environ, {}, clear=True)
-    def test_no_env_var_raises(self):
-        # Remove the env var if it exists
-        os.environ.pop("LOCAL_PROJECT_DIR", None)
-        with pytest.raises(ValueError, match="LOCAL_PROJECT_DIR"):
-            resolve_host_project_path("/mnt/proj")
-
-
-class TestGetHostProjectDir:
-    """Tests for get_host_project_dir."""
-
-    @patch.dict(os.environ, {"LOCAL_PROJECT_DIR": "/host/proj"})
-    def test_returns_env_var(self):
-        assert get_host_project_dir() == "/host/proj"
-
-    @patch.dict(os.environ, {}, clear=True)
-    def test_no_env_raises(self):
-        os.environ.pop("LOCAL_PROJECT_DIR", None)
-        with pytest.raises(ValueError, match="LOCAL_PROJECT_DIR"):
-            get_host_project_dir()
 
 
 class TestCheckImageExists:

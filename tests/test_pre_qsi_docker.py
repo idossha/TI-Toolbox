@@ -48,7 +48,7 @@ class TestDockerCommandBuilder:
     """Tests for DockerCommandBuilder."""
 
     def test_init(self, builder):
-        assert builder._host_project_dir == "/host/project"
+        assert str(builder._host_project_dir) == "/host/project"
         assert builder._host_license_path == "/host/project/.freesurfer_license.txt"
 
     def test_custom_paths(self, tmp_path):
@@ -161,18 +161,23 @@ class TestBuildQsiprepCmd:
         cmd = builder.build_qsiprep_cmd(config)
 
         # Check volume mounts
-        v_indices = [i for i, x in enumerate(cmd) if x == "-v"]
-        assert len(v_indices) >= 3  # bids, output, work (+ optional license)
+        mounts = [cmd[i + 1] for i, x in enumerate(cmd) if x == "--mount"]
+        assert "-v" not in cmd
+        assert mounts[:3] == [
+            "type=bind,source=/host/project,target=/data,readonly",
+            "type=bind,source=/host/project/derivatives/qsiprep,target=/out",
+            "type=bind,source=/host/project/derivatives/.qsiprep_work,target=/work",
+        ]
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_fs_license_uses_host_path(self, mock_resources, builder):
         """License mount source must be the host path, not container path."""
         config = QSIPrepConfig(subject_id="001")
         cmd = builder.build_qsiprep_cmd(config)
-        v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
+        v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "--mount"]
         license_mounts = [v for v in v_args if "license" in v]
         assert len(license_mounts) == 1
-        assert license_mounts[0].startswith("/host/project/")
+        assert license_mounts[0].startswith("type=bind,source=/host/project/")
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_fs_license(self, mock_resources, tmp_path):
@@ -259,8 +264,11 @@ class TestBuildQsireconCmd:
         )
         assert staged_yaml.read_text() == source_yaml.read_text()
 
-        v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
-        assert f"{staged_yaml}:/tmp/recon_spec.yaml:ro" in v_args
+        v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "--mount"]
+        assert (
+            f"type=bind,source={staged_yaml},target=/tmp/recon_spec.yaml,readonly"
+            in v_args
+        )
         idx = cmd.index("--recon-spec")
         assert cmd[idx + 1] == "/tmp/recon_spec.yaml"
 

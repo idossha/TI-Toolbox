@@ -216,8 +216,8 @@ def test_qsi_stages_bundled_license_for_both_sibling_containers(tmp_path, monkey
     ]
     for command in commands:
         assert (
-            "/host/project/.freesurfer_license.txt:/opt/freesurfer/license.txt:ro"
-            in command
+            "type=bind,source=/host/project/.freesurfer_license.txt,"
+            "target=/opt/freesurfer/license.txt,readonly" in command
         )
         assert "FS_LICENSE=/opt/freesurfer/license.txt" in command
         assert (

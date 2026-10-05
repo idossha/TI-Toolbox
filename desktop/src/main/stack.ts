@@ -26,7 +26,8 @@
  * second, drifting one.
  */
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { projectDirName } from "../shared/paths";
 import { stat } from "node:fs/promises";
 import {
   LABEL_HOST_DIR,
@@ -357,7 +358,7 @@ export class StackManager {
     const staticDir = options.staticDir ?? process.env.TIT_STATIC_DIR;
     const env = buildStackEnv({
       hostProjectDir,
-      projectDirName: basename(hostProjectDir),
+      projectDirName: projectDirName(hostProjectDir),
       userConfigDir: ensureUserConfigDir(),
       port,
       token,

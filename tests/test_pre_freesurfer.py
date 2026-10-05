@@ -65,7 +65,7 @@ def test_reconstruction_mounts_and_cleanup(project):
     for argv in commands:
         assert "--rm" in argv
         assert "tit.job_id=job-123" in argv
-        assert f"/host/project:{pm.project_dir}" in argv
+        assert f"type=bind,source=/host/project,target={pm.project_dir}" in argv
         assert argv[argv.index("--cpus") + 1] == "2"
         assert "idossha/ti-toolbox:freesurfer-20260910" in argv
     assert "-i" in commands[0]
@@ -212,7 +212,7 @@ def test_container_requires_host_project_mapping(project, monkeypatch):
         lambda path: True if str(path) == "/.dockerenv" else real_exists(path),
     )
     runner = Mock()
-    with pytest.raises(PreprocessError, match="LOCAL_PROJECT_DIR is required"):
+    with pytest.raises(PreprocessError, match="LOCAL_PROJECT_DIR"):
         fs.run_freesurfer("001", runner=runner, logger=Mock())
     runner.run.assert_not_called()
 
@@ -266,8 +266,14 @@ def test_reconstruction_automatically_mounts_bundled_license(
     monkeypatch.setattr(prefs, "BUNDLED_FS_LICENSE_PATH", bundled)
 
     def success(argv, **kwargs):
-        mount = next(arg for arg in argv if arg.endswith(":/run/license.txt:ro"))
-        host_path = Path(mount.removesuffix(":/run/license.txt:ro"))
+        mount = next(
+            arg for arg in argv if arg.endswith(",target=/run/license.txt,readonly")
+        )
+        host_path = Path(
+            mount.removeprefix("type=bind,source=").removesuffix(
+                ",target=/run/license.txt,readonly"
+            )
+        )
         staged = Path(pm.project_dir) / host_path.relative_to("/host/project")
         assert (
             hashlib.sha256(staged.read_bytes()).digest()
@@ -282,3 +288,22 @@ def test_reconstruction_automatically_mounts_bundled_license(
     fs.run_freesurfer("001", subregions=[], runner=runner, logger=Mock())
     runner.run.assert_called_once()
     assert not list(Path(pm.project_dir).glob(".freesurfer-*"))
+
+
+def test_windows_host_project_mounts_native_path(project, monkeypatch):
+    pm, _ = project
+    monkeypatch.setenv("LOCAL_PROJECT_DIR", "C:\\Users\\me\\proj")
+    runner = Mock()
+
+    def success(argv, **kwargs):
+        complete(pm)
+        return 0
+
+    runner.run.side_effect = success
+    fs.run_freesurfer("001", recon_all=True, runner=runner, logger=Mock())
+    argv = runner.run.call_args_list[0].args[0]
+    assert "-v" not in argv
+    mounts = [argv[i + 1] for i, x in enumerate(argv) if x == "--mount"]
+    assert mounts[0] == f"type=bind,source=C:\\Users\\me\\proj,target={pm.project_dir}"
+    assert mounts[1].startswith("type=bind,source=C:\\Users\\me\\proj\\.freesurfer-")
+    assert mounts[1].endswith("\\license.txt,target=/run/license.txt,readonly")

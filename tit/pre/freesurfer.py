@@ -10,9 +10,11 @@ import subprocess
 import tempfile
 import uuid
 
+from tit import constants as const
+from tit.host_path import bind_mount, flavour, get_host_project_dir
 from tit.paths import get_path_manager, validate_subject_id
 from .qsi.docker_builder import resolve_fs_license_path
-from .qsi.utils import get_inherited_dood_resources, format_memory_limit
+from .qsi.utils import format_memory_limit, get_inherited_dood_resources
 from .utils import CommandRunner, PreprocessError, _find_anat_files
 
 IMAGE = "idossha/ti-toolbox:freesurfer-20260910"
@@ -77,14 +79,14 @@ def run_freesurfer(
         raise PreprocessError("Select recon-all or at least one FreeSurfer subregion.")
     pm = get_path_manager()
     project = Path(pm.project_dir).resolve()
-    host_root = os.environ.get("LOCAL_PROJECT_DIR")
-    if not host_root and Path("/.dockerenv").exists():
-        raise PreprocessError(
-            "LOCAL_PROJECT_DIR is required to launch FreeSurfer from Docker."
-        )
-    host_project = Path(host_root or str(project))
-    if not host_project.is_absolute():
-        raise PreprocessError("LOCAL_PROJECT_DIR must be an absolute host path.")
+    # Outside Docker with no LOCAL_PROJECT_DIR the host *is* this machine.
+    host_root = str(project)
+    if os.environ.get(const.ENV_LOCAL_PROJECT_DIR) or Path("/.dockerenv").exists():
+        try:
+            host_root = get_host_project_dir()
+        except ValueError as exc:
+            raise PreprocessError(f"Cannot launch FreeSurfer: {exc}") from exc
+    host_project = flavour(host_root)
     if not recon_all:
         validate_reconstruction(subject_id)
     license_path = resolve_fs_license_path()
@@ -169,10 +171,8 @@ def run_freesurfer(
                     "FS_LICENSE=/run/license.txt",
                     "-e",
                     f"OMP_NUM_THREADS={cpus}",
-                    "-v",
-                    f"{host_project}:{project}",
-                    "-v",
-                    f"{host_license}:/run/license.txt:ro",
+                    *bind_mount(host_project, project),
+                    *bind_mount(host_license, "/run/license.txt", readonly=True),
                     IMAGE,
                     *command,
                 ]

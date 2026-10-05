@@ -40,6 +40,7 @@ import os
 import re
 import stat
 from datetime import datetime, timezone
+from pathlib import PureWindowsPath
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
@@ -253,7 +254,7 @@ def _thumbnail_bytes(data_url: Any) -> bytes | None:
 def _scene_health(path: str) -> dict[str, Any]:
     """Check bounded scene metadata and project references without reading dataset contents."""
     from tit.paths import get_path_manager
-    from tit.server.host_path import host_project_dir
+    from tit.host_path import flavour, host_project_dir, to_container
     from tit.server.routes.viewers import _container_path_from_raw_url
 
     counts: dict[str, int] = {}
@@ -324,15 +325,17 @@ def _scene_health(path: str) -> dict[str, Any]:
         return result("invalid", "Scene is unreadable or contains invalid references")
 
     root = os.path.abspath(get_path_manager().project_dir or "")
-    host = (host_project_dir(root) or "").replace("\\", "/").rstrip("/")
+    host = host_project_dir(root)
     missing = unchecked = unsafe = 0
     for alternatives in references:
         available = outside = False
         for value in alternatives:
-            candidate = _container_path_from_raw_url(value) or value.replace("\\", "/")
-            if host and candidate.startswith(host + "/"):
-                candidate = root + candidate[len(host) :]
-            elif "://" in candidate or re.match(r"^[A-Za-z]:", candidate):
+            candidate = (
+                _container_path_from_raw_url(value)
+                or (to_container(value, host, root) if host else None)
+                or value.replace("\\", "/")
+            )
+            if "://" in candidate or isinstance(flavour(candidate), PureWindowsPath):
                 outside = True
                 continue
             if not os.path.isabs(candidate):
@@ -508,14 +511,14 @@ def save_scene(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str,
     }
     _write_json(meta_path, meta)
 
-    from tit.server.host_path import host_project_dir
+    from tit.host_path import host_project_dir, to_host
     from tit.paths import get_path_manager
 
     container_root = get_path_manager().project_dir or ""
     host_root = host_project_dir(container_root)
     host_path = None
-    if host_root and container_root and target.startswith(container_root):
-        host_path = os.path.join(host_root, os.path.relpath(target, container_root))
+    if host_root and container_root:
+        host_path = to_host(target, container_root, host_root)
 
     return {
         **meta,

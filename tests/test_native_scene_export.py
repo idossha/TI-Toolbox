@@ -19,9 +19,7 @@ def project(tmp_path, monkeypatch):
     root = tmp_path / "project"
     root.mkdir()
     get_path_manager(str(root))
-    monkeypatch.setattr(
-        "tit.server.host_path.host_project_dir", lambda _: "/host/project"
-    )
+    monkeypatch.setattr("tit.host_path.host_project_dir", lambda _: "/host/project")
     monkeypatch.setattr(viewspec, "raw_jail_roots", lambda: [root])
     yield root
     reset_path_manager()
@@ -101,6 +99,30 @@ def test_saved_scene_uses_native_paths_and_can_be_saved_again(project):
     assert (
         Path(again["scene_path"]).read_text() == Path(result["scene_path"]).read_text()
     )
+
+
+def test_windows_host_save_and_resave_keep_the_hosts_separator(project, monkeypatch):
+    """Windows LOCAL_PROJECT_DIR: the saved scene and its host_path use backslashes only
+    (os.path.join gave ``C:\\...\\project/code/...``), and a reference written with another
+    drive-letter case or forward slashes still maps back into the project."""
+    monkeypatch.setattr(
+        "tit.host_path.host_project_dir", lambda _: "C:\\Users\\me\\project"
+    )
+    data = project / "volume.nii"
+    data.write_bytes(b"volume")
+    result = viewer_library.save_scene("win scene", {"scene": scene(data)})
+    saved = json.loads(Path(result["scene_path"]).read_text())
+    assert saved["datasets"][0]["path"] == "C:\\Users\\me\\project\\volume.nii"
+    assert result["host_path"].startswith("C:\\Users\\me\\project\\code\\ti-toolbox\\")
+    assert "/" not in result["host_path"]
+    for variant in (
+        "c:\\users\\me\\project\\volume.nii",
+        "C:/Users/me/project/volume.nii",
+    ):
+        saved["datasets"][0]["path"] = variant
+        again = viewer_library.save_scene("win scene", {"scene": saved})
+        resaved = json.loads(Path(again["scene_path"]).read_text())
+        assert resaved["datasets"][0]["path"] == "C:\\Users\\me\\project\\volume.nii"
 
 
 def test_native_save_destination_uses_project_library_without_writing_scene(project):
