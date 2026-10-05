@@ -13,6 +13,7 @@ import json
 import logging
 import math
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -27,6 +28,15 @@ _NIFTI2_HEADER_SIZE = 540
 
 # QSIPrep warns below this and assumes the series is a reverse-phase-encode scan.
 _SHORT_DWI_VOLUMES = 16
+
+
+def docker_host_path(path: str) -> str:
+    """Map a Windows drive path to Docker Desktop's VM path; POSIX unchanged."""
+    m = re.match(r"^([A-Za-z]):[\\/]*(.*)$", path)
+    if not m:
+        return path
+    rest = m.group(2).replace("\\", "/").rstrip("/")
+    return f"/run/desktop/mnt/host/{m.group(1).lower()}" + (f"/{rest}" if rest else "")
 
 
 def resolve_host_project_path(container_path: str) -> str:
@@ -61,6 +71,7 @@ def resolve_host_project_path(container_path: str) -> str:
             f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
             "This is required for spawning sibling Docker containers."
         )
+    local_project_dir = docker_host_path(local_project_dir)
 
     # If the container_path starts with /mnt/, replace with host path
     container_path = str(container_path)
@@ -97,7 +108,8 @@ def get_host_project_dir() -> str:
             f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
             "This is required for spawning sibling Docker containers."
         )
-    return local_project_dir
+    local_project_dir = docker_host_path(local_project_dir)
+    return docker_host_path(local_project_dir)
 
 
 def check_image_exists(image: str, tag: str) -> bool:

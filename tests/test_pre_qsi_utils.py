@@ -594,3 +594,25 @@ class TestGetInheritedDoodResources:
     def test_minimum_memory(self, mock_cpu, mock_proc, mock_limits):
         cpus, mem = get_inherited_dood_resources()
         assert mem >= 4  # Minimum 4GB
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("C:\\Users\\me\\proj", "/run/desktop/mnt/host/c/Users/me/proj"),
+        ("D:/a/b/", "/run/desktop/mnt/host/d/a/b"),
+        ("/host/proj", "/host/proj"),
+    ],
+)
+def test_docker_host_path(raw, expected):
+    from tit.pre.qsi.utils import docker_host_path
+
+    assert docker_host_path(raw) == expected
+
+
+def test_windows_local_project_dir_is_converted(monkeypatch):
+    monkeypatch.setenv("LOCAL_PROJECT_DIR", "C:\\Users\\me\\proj")
+    assert get_host_project_dir() == "/run/desktop/mnt/host/c/Users/me/proj"
+    assert resolve_host_project_path(
+        f"{const.DOCKER_MOUNT_PREFIX}proj/derivatives"
+    ).startswith("/run/desktop/mnt/host/c/Users/me/proj")
