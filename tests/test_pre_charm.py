@@ -76,11 +76,12 @@ class TestRunCharm:
         assert "--forceqform" in cmd
         assert str(t2) in cmd
 
+    @patch("tit.surfer_settings.available_threads", return_value=8)
     @patch(f"{MODULE}._get_form_flag", return_value="--forcesform")
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
     def test_keeps_openblas_single_threaded(
-        self, mock_find, mock_gpm, mock_flag, mock_pm, tmp_path
+        self, mock_find, mock_gpm, mock_flag, mock_cap, mock_pm, tmp_path
     ):
         """OpenBLAS must stay single-threaded even when OMP threads are raised,
         or concurrent samseg/gems callers overflow its thread-metadata table

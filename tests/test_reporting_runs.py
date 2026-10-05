@@ -212,7 +212,7 @@ def _flex_dir(tmp_path: Path, values=(-1.8,), goal="focality_tf", success=True) 
     (d / "roi.tetravox.json").write_text(json.dumps({"meta": {
         "roi": "", "source": None, "label": None, "volume_mm3": 17426.0, "centroid_ras": [0.8, 9.1, 17.6],
         "gm_overlap": 0.757, "spheres": [{"centre_ras": [1, 9, 18], "radius_mm": 5.0}]}}))
-    from PIL import Image
+    Image = pytest.importorskip("PIL.Image")
 
     Image.new("RGBA", (174, 42), (0, 128, 0, 255)).save(d / "roi.png")
     Image.new("RGBA", (447, 297), (200, 200, 200, 255)).save(d / "valid_skin_region.png")
