@@ -388,3 +388,58 @@ def test_references_are_exactly_what_the_page_cites(tmp_path, kind):
     assert cited, "the page cites nothing, so there is nothing to check"
     assert listed - cited == set(), f"listed but not cited on the page: {listed - cited}"
     assert cited - listed == set(), f"cited on the page but not listed: {cited - listed}"
+
+
+# ── a cortical (.annot) target must not be read as a volume ──────────────
+
+
+def _annot_scene(run_dir: Path, annot: str) -> None:
+    (run_dir / "roi.tetravox.json").write_text(json.dumps({"meta": {
+        "roi": "lh.insula", "source": [annot], "label": [1], "space": "subject",
+        "voxels": 1234, "unit": "vertices", "volume_mm3": None, "centroid_ras": [-40.0, 5.0, 2.0],
+        "gm_overlap": 0.9}}))
+
+
+def test_annot_target_is_named_from_the_annot_not_loaded_as_a_volume(tmp_path, monkeypatch):
+    import tit.opt.roi_spec as roi_spec
+    from tit.reporting.generators import common, flex_search as flex
+
+    def no_volume(*a, **k):
+        raise AssertionError("an .annot target was sent to the volume atlas reader")
+
+    monkeypatch.setattr(roi_spec, "resolve_volume_label_names", no_volume)
+    monkeypatch.setattr("nibabel.freesurfer.read_annot", lambda p: ([0, 1], [], [b"unknown", b"insula"]))
+    run = _flex_dir(tmp_path)
+    _annot_scene(run, str(tmp_path / "lh.CHN_DK40.annot"))
+
+    roi = common.roi_summary(run)
+    assert roi["name"] == "lh.insula" and roi["atlas"] == "CHN_DK40 (lh)" and roi["vertices"] == 1234
+    with patch(CAP, return_value=None):
+        html = flex.build_html(flex.collect(run), "X")
+    assert "lh.insula" in html and "1,234 cortical surface vertices" in html
+
+
+def test_volume_target_still_uses_the_label_table(tmp_path, monkeypatch):
+    import tit.opt.roi_spec as roi_spec
+    from tit.reporting.generators import common
+
+    monkeypatch.setattr(roi_spec, "resolve_volume_label_names", lambda p, s: {10: "Left-Thalamus"})
+    run = _flex_dir(tmp_path)
+    atlas = tmp_path / "labeling.nii.gz"
+    atlas.write_bytes(b"")
+    (run / "roi.tetravox.json").write_text(json.dumps({"meta": {
+        "roi": "", "source": [str(atlas)], "label": [10], "space": "subject", "volume_mm3": 5000.0}}))
+    roi = common.roi_summary(run)
+    assert roi["name"] == "Left Thalamus" and roi["atlas"] == "labeling" and roi["vertices"] is None
+
+
+def test_unreadable_annot_still_reports(tmp_path, monkeypatch):
+    from tit.reporting.generators import common
+
+    def unreadable(path):
+        raise OSError("not a FreeSurfer annotation")
+
+    monkeypatch.setattr("nibabel.freesurfer.read_annot", unreadable)
+    run = _flex_dir(tmp_path)
+    _annot_scene(run, str(tmp_path / "lh.CHN_DK40.annot"))
+    assert common.roi_summary(run)["name"] == "lh label 1"
