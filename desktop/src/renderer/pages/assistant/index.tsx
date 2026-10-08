@@ -38,24 +38,27 @@ export const CLI_INFO: Record<TitAssistantCli, { name: string; install: string; 
 };
 
 export const EFFORT_OPTIONS: { value: TitAssistantEffort; label: string }[] = [
-  { value: "medium", label: "Medium (recommended)" },
-  { value: "low", label: "Low" },
+  { value: "low", label: "Low (default)" },
+  { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
   { value: "default", label: "My CLI default" },
 ];
 export const MODEL_OPTIONS: { value: TitAssistantModel; label: string }[] = [
   { value: "default", label: "My CLI default" },
   { value: "opus", label: "Opus" },
-  { value: "sonnet", label: "Sonnet" },
+  { value: "sonnet", label: "Sonnet (default)" },
   { value: "haiku", label: "Haiku" },
   { value: "fable", label: "Fable" },
 ];
-export const EFFORT_TIP = "Medium is the best balance for planning jobs; higher is slower and uses more of your plan's limits.";
+export const EFFORT_TIP = "Low is fast and light on your plan's limits; raise it if plans need more careful reasoning.";
 
 /** Per CLI, kept in this app only; main re-validates every value it is sent. */
 type SessionOptions = Required<TitAssistantOptions>;
 export const OPTIONS_KEY = "tit-assistant-options";
-const DEFAULT_OPTIONS: SessionOptions = { effort: "medium", model: "default" };
+const DEFAULT_OPTIONS: Record<TitAssistantCli, SessionOptions> = {
+  claude: { effort: "low", model: "sonnet" },
+  codex: { effort: "low", model: "default" },
+};
 
 export function readOptions(): Record<TitAssistantCli, SessionOptions> {
   const stored: Partial<Record<TitAssistantCli, Partial<SessionOptions>>> = (() => {
@@ -66,9 +69,9 @@ export function readOptions(): Record<TitAssistantCli, SessionOptions> {
     }
   })();
   const pick = (cli: TitAssistantCli): SessionOptions => ({
-    effort: EFFORT_OPTIONS.find((o) => o.value === stored[cli]?.effort)?.value ?? DEFAULT_OPTIONS.effort,
+    effort: EFFORT_OPTIONS.find((o) => o.value === stored[cli]?.effort)?.value ?? DEFAULT_OPTIONS[cli].effort,
     // Codex has no model menu: its model is always the CLI's own.
-    model: cli === "claude" ? MODEL_OPTIONS.find((o) => o.value === stored[cli]?.model)?.value ?? DEFAULT_OPTIONS.model : "default",
+    model: cli === "claude" ? MODEL_OPTIONS.find((o) => o.value === stored[cli]?.model)?.value ?? DEFAULT_OPTIONS.claude.model : "default",
   });
   return { claude: pick("claude"), codex: pick("codex") };
 }

@@ -34,12 +34,17 @@ export const MODELS: Record<TitAssistantCli, readonly TitAssistantModel[]> = {
   codex: ["default"],
 };
 export type AssistantOptions = Required<TitAssistantOptions>;
+/** Low effort for both; Claude Code on Sonnet, Codex on its own model. */
+const DEFAULTS: Record<TitAssistantCli, AssistantOptions> = {
+  claude: { effort: "low", model: "sonnet" },
+  codex: { effort: "low", model: "default" },
+};
 
-/** The renderer's options as the flags' source, or undefined for anything off the allowlist. Absent = Medium. */
+/** The renderer's options as the flags' source, or undefined for anything off the allowlist. Absent = the CLI's defaults. */
 export function parseAssistantOptions(cli: TitAssistantCli, raw: unknown): AssistantOptions | undefined {
-  if (raw === undefined || raw === null) return { effort: "medium", model: "default" };
+  if (raw === undefined || raw === null) return DEFAULTS[cli];
   if (typeof raw !== "object" || Array.isArray(raw)) return undefined;
-  const { effort = "medium", model = "default", ...extra } = raw as Record<string, unknown>;
+  const { effort = DEFAULTS[cli].effort, model = DEFAULTS[cli].model, ...extra } = raw as Record<string, unknown>;
   if (Object.keys(extra).length) return undefined;
   if (!EFFORTS.includes(effort as TitAssistantEffort) || !MODELS[cli].includes(model as TitAssistantModel)) return undefined;
   return { effort: effort as TitAssistantEffort, model: model as TitAssistantModel };
@@ -137,7 +142,7 @@ export interface LaunchOptions {
   searchPath: string;
   baseEnv: NodeJS.ProcessEnv;
   platform: NodeJS.Platform;
-  /** From `parseAssistantOptions`; absent = Medium effort, the CLI's own model. */
+  /** From `parseAssistantOptions`; absent = the CLI's defaults (DEFAULTS). */
   options?: AssistantOptions;
 }
 
@@ -162,7 +167,7 @@ export interface Launch {
 export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
   const sep = o.platform === "win32" ? "\\" : "/";
   const plugin = (...parts: string[]) => [o.pluginDir.replace(/[\\/]+$/, ""), ...parts].join(sep);
-  const { effort, model } = o.options ?? { effort: "medium", model: "default" };
+  const { effort, model } = o.options ?? DEFAULTS[cli];
   let args: string[];
   if (cli === "claude") {
     args = ["--plugin-dir", o.pluginDir];

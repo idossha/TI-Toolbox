@@ -76,11 +76,13 @@ describe("CLI detection", () => {
 
 describe("session options", () => {
   const codexSettings = (args: string[]) => args.filter((a) => a.startsWith("model_reasoning_effort=") || a === "-m");
-  it("defaults to Medium effort and the CLI's own model, for both CLIs", () => {
-    for (const cli of ["claude", "codex"] as const) expect(parseAssistantOptions(cli, undefined)).toEqual({ effort: "medium", model: "default" });
-    expect(parseAssistantOptions("claude", {})).toEqual({ effort: "medium", model: "default" });
-    expect(buildLaunch("claude", base).args.slice(-2)).toEqual(["--effort", "medium"]);
-    expect(buildLaunch("codex", base).args.slice(-2)).toEqual(["-c", 'model_reasoning_effort="medium"']);
+  it("defaults to Low effort for both CLIs, Sonnet for Claude Code and the CLI's own model for Codex", () => {
+    expect(parseAssistantOptions("claude", undefined)).toEqual({ effort: "low", model: "sonnet" });
+    expect(parseAssistantOptions("claude", {})).toEqual({ effort: "low", model: "sonnet" });
+    expect(parseAssistantOptions("codex", undefined)).toEqual({ effort: "low", model: "default" });
+    expect(parseAssistantOptions("codex", {})).toEqual({ effort: "low", model: "default" });
+    expect(buildLaunch("claude", base).args.slice(-4)).toEqual(["--effort", "low", "--model", "sonnet"]);
+    expect(buildLaunch("codex", base).args.slice(-2)).toEqual(["-c", 'model_reasoning_effort="low"']);
   });
   it("builds Claude's --effort and --model from the chosen values", () => {
     for (const effort of ["low", "medium", "high"] as const) {
@@ -120,7 +122,7 @@ describe("launch", () => {
   it("attaches the bundled plugin to Claude Code for this session only", () => {
     const launch = buildLaunch("claude", base);
     expect(launch.file).toBe(base.executable);
-    expect(launch.args).toEqual(["--plugin-dir", base.pluginDir, "--effort", "medium"]);
+    expect(launch.args).toEqual(["--plugin-dir", base.pluginDir, "--effort", "low", "--model", "sonnet"]);
     expect(launch.cwd).toBe(base.projectDir);
   });
   it("registers both MCP servers and the pipeline guidance for Codex without touching ~/.codex", () => {

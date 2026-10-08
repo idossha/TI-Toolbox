@@ -2660,21 +2660,21 @@ the text testable (an always-on live region for a full-screen TUI) instead of an
 **Evidence.** `desktop/tests/e2e/assistant.spec.ts` "the terminal's rows fit the card exactly…".
 
 \n
-## 2026-10-08 — The Assistant starts at Medium effort, and the user can pick effort and model
+## 2026-10-08 — The Assistant starts at Low effort, and the user can pick effort and model
 
 **Decision.** `assistant.start` and `assistant.openInTerminal` take an optional second payload,
 `{ effort?, model? }`, enums only — a change to a frozen bridge entry, not a new one (the budget
-stays 24). Effort is `medium` (default, "Medium (recommended)"), `low`, `high` or `default` ("My CLI
+stays 24). Effort is `low` (default, "Low (default)"), `medium`, `high` or `default` ("My CLI
 default": no flag); model is `default`, `opus`, `sonnet`, `haiku`, `fable` for Claude Code and only
 `default` for Codex. Main validates against an allowlist (anything else is `Untrusted assistant
 request.`) and builds the argv: Claude Code `--effort <level>` and `--model <alias>`, Codex
 `-c model_reasoning_effort="<level>"`; the system-terminal script gets the same flags because it
-runs the same launch. The page remembers the choice per CLI in `localStorage` (like the execution
+runs the same launch. The Claude Code default is `--model sonnet`, Codex keeps its own model. The page remembers the choice per CLI in `localStorage` (like the execution
 preferences), applies it on the next Start/Restart and says "Applies on restart" while a running
 session differs. The menus stop at High.
 
-**Why.** The maintainer asked for a visible control with Medium as the default: proposing a job
-plan does not need the slowest, most plan-limit-hungry setting. Verified 2026-10-08 on
+**Why.** The maintainer asked for a visible control with Low effort (and Sonnet for Claude Code) as the
+default: proposing a job plan does not need the slowest, most plan-limit-hungry setting. Verified 2026-10-08 on
 Claude Code 2.1.294 and codex-cli 0.155.1: `claude --effort bogus` only warns ("Valid values: low,
 medium, high, xhigh, max") and carries on with the default, so the allowlist is ours; `--model opus|
 sonnet|haiku|fable` each started a session on the latest model of that family
@@ -2690,5 +2690,5 @@ effects outside the app); a new bridge entry (budget).
 
 **Evidence.** `desktop/src/main/assistant.test.ts` "session options" (argv per CLI and option,
 defaults, rejected values); `desktop/tests/unit/assistant-page.test.tsx` (persistence, hint);
-`desktop/tests/e2e/assistant.spec.ts` (the stand-in receives `--effort medium` by default and then
+`desktop/tests/e2e/assistant.spec.ts` (the stand-in receives `--effort low --model sonnet` by default and then
 the chosen flags; the header fits at 1024 and 1440).

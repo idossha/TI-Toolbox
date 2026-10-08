@@ -3,7 +3,7 @@
  * finds a CLI on PATH, starts it in a real host PTY in the project folder with the bundled plugin
  * flag and the session's server URL/token in its environment, carries keystrokes to it, reports its
  * exit, and shows the not-installed state for the other CLI. Its Effort and Model menus decide the
- * flags the stand-in receives (Medium by default, then what the user chose). The second test pins the terminal's
+ * flags the stand-in receives (Low effort on Sonnet by default, then what the user chose). The second test pins the terminal's
  * geometry: the grid xterm draws and the size the PTY is told both fit the card exactly, above the
  * jobs rail, at several window sizes, in both themes, with the rail expanded too.
  *
@@ -103,8 +103,7 @@ test("runs the user's CLI in a host terminal with the plugin and the session att
   await expect(page.getByText("Running", { exact: true })).toBeVisible();
   const text = await terminalText();
   expect(text).toContain("agent-plugin");
-  expect(text).toMatch(/args=--plugin-dir \S+ --effort medium\r?\n?$/m);
-  expect(text).not.toContain("--model");
+  expect(text).toMatch(/args=--plugin-dir \S+ --effort low --model sonnet\r?\n?$/m);
   expect(text).toContain(`cwd=${dirs.project}`);
   expect(text).toContain(`server=${SERVER_URL} token=present`);
 
@@ -121,9 +120,9 @@ test("runs the user's CLI in a host terminal with the plugin and the session att
   await page.getByRole("combobox", { name: "Effort" }).click();
   await page.getByRole("option", { name: "High" }).click();
   await page.getByRole("combobox", { name: "Model" }).click();
-  await page.getByRole("option", { name: "Sonnet" }).click();
+  await page.getByRole("option", { name: "Haiku" }).click();
   await page.getByRole("button", { name: "Start Claude Code" }).click();
-  await expect.poll(terminalText, { timeout: 15_000 }).toContain("--effort high --model sonnet");
+  await expect.poll(terminalText, { timeout: 15_000 }).toContain("--effort high --model haiku");
 
   await page.getByRole("radio", { name: "Codex" }).click();
   await expect(page.getByText("Codex is not installed")).toBeVisible();
