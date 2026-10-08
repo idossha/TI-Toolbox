@@ -604,11 +604,16 @@ def _side(name: str, hemi: Optional[str]) -> Optional[str]:
     return None
 
 
+#: (atlas path, label id) -> region name, from find_regions, so a proposal's card can name its
+#: target ("Left-Thalamus") instead of showing label ids only.
+_REGION_NAMES: Dict[Tuple[str, Any], str] = {}
+
+
 def _roi(atlas: Dict[str, Any], regions: List[Dict[str, Any]]) -> Dict[str, Any]:
     """The FlexConfig ROI wire object the desktop builds (pages/_shared/roi/types.ts roiToConfig)."""
     if atlas.get("kind") == "surface":
         hemis = [r.get("hemi") or "lh" for r in regions]
-        return {
+        roi = {
             "_type": "AtlasROI",
             "atlas_path": [
                 re.sub(r"(^|/)lh\.", rf"\g<1>{h}.", atlas["path"]) for h in hemis
@@ -616,13 +621,28 @@ def _roi(atlas: Dict[str, Any], regions: List[Dict[str, Any]]) -> Dict[str, Any]
             "label": [r["id"] for r in regions],
             "hemisphere": hemis,
         }
-    return {
-        "_type": "SubcorticalROI",
-        "atlas_path": [atlas["path"]] * len(regions),
-        "label": [r["id"] for r in regions],
-        "tissues": "GM",
-        "atlas_space": "subject",
-    }
+    else:
+        roi = {
+            "_type": "SubcorticalROI",
+            "atlas_path": [atlas["path"]] * len(regions),
+            "label": [r["id"] for r in regions],
+            "tissues": "GM",
+            "atlas_space": "subject",
+        }
+    for path, region in zip(roi["atlas_path"], regions):
+        _REGION_NAMES[(path, region["id"])] = region["name"]
+    return roi
+
+
+def _target_note(roi: Any) -> Optional[str]:
+    """The note 'Target: Left-Thalamus, Right-Thalamus' for an ROI find_regions built."""
+    if not isinstance(roi, dict):
+        return None
+    pairs = zip(roi.get("atlas_path") or [], roi.get("label") or [])
+    names = [_REGION_NAMES.get((p, label)) for p, label in pairs]
+    if not names or None in names:
+        return None
+    return "Target: " + ", ".join(dict.fromkeys(names))
 
 
 def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -1054,8 +1074,12 @@ def _step_for_proposal(raw: Any) -> Dict[str, Any]:
     else:
         config = _with_app_defaults(kind, config)
     config.pop("subject_ids", None)  # the step's subject_ids decide
+    note = raw.get("note") or (
+        _target_note(config.get("roi")) if kind in FLEX_KINDS else None
+    )
     return {
-        **{k: raw[k] for k in ("id", "note", "overwrite", "after") if k in raw},
+        **{k: raw[k] for k in ("id", "overwrite", "after") if k in raw},
+        **({"note": note} if note else {}),
         "kind": kind,
         "config": config,
         "subject_ids": _subject_ids(raw.get("subject_ids")),

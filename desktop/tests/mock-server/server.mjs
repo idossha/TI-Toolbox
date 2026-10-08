@@ -3259,6 +3259,7 @@ route("POST", "/api/__mock/reset", (ctx) => {
     if (!TERMINAL.has(job.status.state)) cleared++;
   }
   jobRegistry.clear();
+  proposalStore.clear();
   for (const client of wsJobClients) client.subs.clear();
   notebookStore.clear();
   notebooksSeeded.deleted = false;
@@ -4062,7 +4063,8 @@ route("POST", "/api/proposals", async (ctx) => {
     error: null,
     skipped: null,
     resolved: null,
-    plan: emptyPlan(),
+    // Mock convenience: a spec may hand in the plan the real server would compute (an overwrite).
+    plan: { ...emptyPlan(), ...(s.plan ?? {}) },
   }));
   const p = {
     id: randomBytes(8).toString("hex"),

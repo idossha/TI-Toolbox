@@ -6,7 +6,7 @@ permalink: /wiki/ai-assistant/
 
 TI-Toolbox ships a small, free plugin that teaches AI coding assistants — **Claude Code**, **OpenAI Codex**, **Cursor**, or any tool that speaks the Model Context Protocol (MCP) — how the toolbox works. Once installed, your assistant can answer questions from this wiki, write correct `tit` scripts, and look at your project folder to tell you what is missing, instead of guessing.
 
-> The knowledge tools are **read-only**. A second, optional set of tools lets your assistant run jobs for you through the TI-Toolbox you have open (see [Let your assistant run pipelines](#let-your-assistant-run-pipelines)); it asks you before replacing any result. Network access only fetches public documentation/source from GitHub when you do not have a local checkout. Tool results, including project names and requested configuration text, are passed to your chosen assistant; that assistant's own data policies apply.
+> The knowledge tools are **read-only**. A second, optional set of tools lets your assistant run jobs for you through the TI-Toolbox you have open (see [Let your assistant run pipelines](#let-your-assistant-run-pipelines)); by default it only proposes them, and you approve each plan in the app. Network access only fetches public documentation/source from GitHub when you do not have a local checkout. Tool results, including project names and requested configuration text, are passed to your chosen assistant; that assistant's own data policies apply.
 
 ## What it does
 
@@ -86,7 +86,26 @@ With the TI-Toolbox desktop app open on your project, you can ask for work inste
 
 > *Organise the raw scans in ~/Downloads/scan into BIDS as sub-101, preprocess them, run a flex-search targeting the bilateral thalamus with high intensity, then simulate the best montage.*
 
-The assistant then looks at the scans and proposes which series is the T1w, T2w, CT or DWI; copies them into the project's `sourcedata/sub-101/` (it never moves or overwrites your files); starts pre-processing; finds the left and right thalamus in that subject's own atlas; plans the flex-search and tells you the estimated time; and, once it has finished, simulates the winning electrodes. Each step is an ordinary job: it appears in **Jobs** and in the page's terminal as it runs, writes the same outputs and reports as a job you start yourself, and can be cancelled from the app. Before anything would replace an existing result the assistant stops and asks you.
+The assistant then looks at the scans and proposes which series is the T1w, T2w, CT or DWI; copies them into the project's `sourcedata/sub-101/` (it never moves or overwrites your files); and **proposes** the work as a plan for you to approve: pre-processing first, then — once it can find the left and right thalamus in that subject's own atlas — the flex-search and a simulation of its winning electrodes. Each approved step is an ordinary job: it appears in **Jobs** and in the page's terminal as it runs, writes the same outputs and reports as a job you start yourself, carries a small **agent** badge, and can be cancelled from the app.
+
+### Approving a plan
+
+Nothing the assistant asks for runs until you approve it. Its plan appears as a card at the top of the **Jobs** page, and the **Jobs** item in the side bar shows how many plans are waiting (a notice pops up when one arrives). The card shows:
+
+- the title, the assistant's reasoning, and which assistant sent it (Claude Code, Codex, ...);
+- each step in order — what it does (pre-process, flex-search, simulate the flex result, ...), for which subjects, and its key settings in plain terms (goal, target region, current, electrode size, run name, currents), with the folder it will write and an estimated time;
+- which steps wait for others ("after step 1"): a later step starts by itself when the steps it waits on have succeeded — a simulation of a flex-search result picks up that run's electrodes and currents once it exists;
+- in red, **any existing result the plan would replace**.
+
+Then:
+
+- **Approve and run** queues the plan. You can close the assistant: the app runs the remaining steps itself, and the card follows each step live (waiting, queued, running, succeeded, failed); click a job id to open it in the table. If a step fails, the steps after it are skipped; **Retry step** runs it again once you have fixed the cause.
+- **Edit** a step first to change its subjects, run name, current or currents, or any setting in its JSON config, and to allow it to replace existing output. The card re-checks the step as you save. What you approve is what runs, and the assistant is told what you changed.
+- **Reject…** with an optional note, such as *"use the right thalamus"*. The assistant reads your note and asks you what to change; it does not send the same plan again unchanged.
+
+A plan that would replace an existing result cannot be approved until you allow replacing on that step (or give it a new run name), and a plan with an error or a missing input cannot be approved at all.
+
+To let the assistant queue jobs directly, without a plan card, turn on **Settings ▸ Project ▸ AI assistant ▸ Agent may submit without approval**. It then asks you in the chat before replacing an existing result. This is a rule the assistant's tools follow, not a lock: anything with the app's session token can do what the app can.
 
 **It uses your own assistant and your own login.** Claude Code runs on your Claude Pro/Max login, Codex on your ChatGPT login. TI-Toolbox never sees, stores or forwards those credentials and has no AI service of its own; the job tools talk only to the TI-Toolbox running on your computer.
 
@@ -109,7 +128,7 @@ The job server needs the `docker` command on the assistant's `PATH`. With severa
 
 ## Privacy and safety
 
-- The knowledge tools are read-only. The job tools only copy raw scans into `sourcedata/` (never overwriting) and submit, follow or cancel jobs through the running app; they never delete files, and replacing a result needs your explicit yes.
+- The knowledge tools are read-only. The job tools only copy raw scans into `sourcedata/` (never overwriting), propose plans for your approval (or, if you allowed it, submit jobs), and follow or cancel jobs through the running app; they never delete files, and replacing a result needs your explicit yes.
 - Project inspection only lists directory and file names — it never opens imaging data.
 - Source/doc access is restricted to approved repository trees and manifests, including `tit/`, `desktop/src/`, `desktop/tests/`, `contracts/`, `agent-plugin/`, docs and scripts.
 - Set `TI_TOOLBOX_OFFLINE=1` to forbid network access entirely (requires a local clone).
@@ -124,5 +143,7 @@ The job server needs the `docker` command on the assistant's `PATH`. With severa
 | Stale answers | Delete the cache: `rm -rf ~/.cache/ti-toolbox-mcp`. |
 | "No running TI-Toolbox found" | Open the desktop app on your project (or run `tit launch`), then ask again. |
 | "docker was not found on PATH" | Add Docker's folder (`which docker`) to the job server's environment in your assistant's MCP settings. |
+| The assistant says its job was refused (HTTP 403) | Approval is on: it should propose a plan instead; look for the card on the **Jobs** page. |
+| A plan card shows "Cannot run as proposed" | A step has an error or a missing input (often: pre-process first). Reject it with a note, or edit the step. |
 
 For the plugin's internals (skills layout, server architecture, tests), see [Agent Plugin Internals]({{ site.baseurl }}/wiki/agent-plugin/).

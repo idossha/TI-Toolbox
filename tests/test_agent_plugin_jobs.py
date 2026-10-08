@@ -710,7 +710,12 @@ def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
         title="Optimise for the thalamus",
         rationale="you asked for the strongest field",
         steps=[
-            {"id": "opt", "kind": "flex", "config": {"goal": "mean"}, "subject_ids": ["101"]},
+            {
+                "id": "opt",
+                "kind": "flex",
+                "config": {"goal": "mean"},
+                "subject_ids": ["101"],
+            },
             {
                 "id": "sim",
                 "kind": "sim_from_flex",
@@ -731,6 +736,35 @@ def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
     assert sim["config"]["flex_step"] == "opt"
     assert sim["config"]["conductivity"] == "scalar"  # the Simulator page's default
     assert "intensities" not in sim["config"]  # the run's own currents decide
+
+
+def test_propose_pipeline_names_a_target_find_regions_returned(js, fake):
+    lab = (
+        "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"
+    )
+    fake.routes[("GET", "/api/catalog/atlases")] = [
+        {"id": "labeling.nii.gz", "path": lab, "kind": "volume"}
+    ]
+    fake.routes[("GET", "/api/catalog/atlases/regions")] = [
+        {"id": 10, "name": "Left-Thalamus", "hemi": None},
+        {"id": 49, "name": "Right-Thalamus", "hemi": None},
+    ]
+    fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, _proposal())
+    roi = call(js, "find_regions", subject_id="101", query="thalamus")[1]["atlases"][0][
+        "rois"
+    ]["all"]
+    steps = [
+        {"id": "opt", "kind": "flex", "config": {"roi": roi}, "subject_ids": ["101"]}
+    ]
+    assert not call(js, "propose_pipeline", title="t", rationale="r", steps=steps)[0]
+    sent = fake.sent("POST", "/api/proposals")[-1]["body"]["steps"][0]
+    assert sent["note"] == "Target: Left-Thalamus, Right-Thalamus"
+    # The agent's own note wins.
+    steps[0]["note"] = "both thalami"
+    call(js, "propose_pipeline", title="t", rationale="r", steps=steps)
+    assert fake.sent("POST", "/api/proposals")[-1]["body"]["steps"][0]["note"] == (
+        "both thalami"
+    )
 
 
 def test_propose_pipeline_with_errors_shows_the_user_nothing(js, fake):
@@ -755,7 +789,9 @@ def test_wait_for_approval_reports_rejection_and_edits(js, fake):
         200,
         next(answers),
     )
-    err, out = call(js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=5)
+    err, out = call(
+        js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=5
+    )
     assert not err, out
     assert out["decision"] == "rejected" and out["note"] == "use the left side"
     assert "unchanged" in out["next"]
@@ -771,7 +807,9 @@ def test_wait_for_approval_reports_rejection_and_edits(js, fake):
     assert step["job_ids"] == ["j1"]
 
     fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal()
-    err, out = call(js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=0)
+    err, out = call(
+        js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=0
+    )
     assert not err and out["decision"] == "pending" and "again" in out["next"]
 
 
@@ -940,7 +978,9 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         spec = json.loads(Path(spec_path(str(project), job_id)).read_text())
         assert spec["created_by"] == "agent"
         assert spec["tags"] == [f"proposal:{pid}"]
-        assert spec["config"]["map_to_fsavg"] is False  # the app default the plugin filled
+        assert (
+            spec["config"]["map_to_fsavg"] is False
+        )  # the app default the plugin filled
         err, status = call(js, "get_proposal", proposal_id=pid)
         assert not err and status["status"] == "succeeded", status
 
