@@ -48,7 +48,10 @@ export async function setJobNet(page: Page, row: Locator, option: string): Promi
  */
 async function pickBy(page: Page, row: Locator, label: string, option: string): Promise<void> {
   const trigger = row.getByRole("combobox", { name: label, exact: true });
+  // Enabled, not just visible: a row's Montage select stays disabled until the render that follows
+  // its net pick, and a raw mouse click lands on the disabled trigger as a no-op (no listbox opens).
   await expect(trigger).toBeVisible();
+  await expect(trigger).toBeEnabled();
   // A real mouse click at the trigger's centre: `locator.click()`'s hit-target check reports the
   // cell's own parent as the hit inside a two-line row, so the pointer is driven directly rather
   // than the actionability assertion being forced off. The option list proves it opened.
