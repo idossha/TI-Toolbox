@@ -368,8 +368,12 @@ cover oversized backfill and ordered batch draining.
 
 Agent proposals (ARCHITECTURE §6): `tests/test_proposals_routes.py` drives create/edit/approve/
 reject/run against the real job manager on the fake runner, including a `sim_from_flex` step the
-server queues after a fake flex job and a failed step skipping its dependant;
-`tests/test_flex_simulation_resolver.py` pins the flex-run → montage rule;
+server queues after a fake flex job and a failed step skipping its dependant, a dry run's lock
+waits and finished-plan retention; `tests/test_flex_simulation_resolver.py` pins the flex-run →
+montage rule, including one electrode pairing (an out-of-order `channel_array_indices` fixture)
+and cached mappings read without re-mapping; `tests/test_output_jail.py` refuses outputs outside
+the project on plan, both submit routes and a proposal step; `tests/test_region_rois.py` pins the
+region search over subject and MNI atlases against the shared ROI table;
 `tests/test_agent_plugin_jobs.py` runs the MCP verbs against a fake server and, in
 `test_against_the_real_server_jobs_are_recorded_as_agent`, against the real app over HTTP;
 `desktop/tests/unit/proposal-card.test.tsx` covers the card.
@@ -435,8 +439,9 @@ focused Viewer/Jobs/shell E2E tests pass. The 13 path/export tests also pass in 
 
 ### Assistant pane (host terminal)
 
-`desktop/src/main/assistant.test.ts` pins login-shell `PATH` discovery, CLI detection, the exact
-Claude Code/Codex launch, the token's path (environment, never a log line) and one real node-pty run;
+`desktop/src/main/assistant.test.ts` pins login-shell `PATH` discovery, CLI detection, the plugin
+servers' Python (`findPython` on mocked macOS/Linux/Windows PATHs, passed as `TIT_PYTHON` and as
+Codex's `command`), the exact Claude Code/Codex launch, the token's path (environment, never a log line) and one real node-pty run;
 when `codex` is installed it also asks that Codex to parse the generated `-c` overrides, and prints
 `skipping: …` otherwise. `tests/unit/assistant-page.test.tsx` covers the page states with xterm
 stubbed. `tests/e2e/assistant.spec.ts` runs a stand-in `claude` from the page offscreen against the
