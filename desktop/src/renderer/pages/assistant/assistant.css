@@ -1,36 +1,76 @@
+/*
+ * The page is a fixed-height column at every width: header, callouts, then the terminal card,
+ * which takes the rest. Below 1140px `ui/components.css` lets `.page-layout` grow with its content
+ * (`height: auto`) so stacked forms scroll with the shell — a terminal must not: it would grow past
+ * the window and its last rows would sit under the jobs rail. Same idiom as the Viewer's, with two
+ * classes so it wins over that breakpoint's single-class rule.
+ */
+.page-layout.assistant-layout {
+  height: calc(100% + var(--page-pad) * 2);
+}
+@media (max-width: 899px) {
+  .page-layout.assistant-layout {
+    height: calc(100% + var(--page-pad-sm) * 2);
+  }
+}
+.assistant-layout .page-layout-main,
+.assistant-layout .page-layout-main-scroll {
+  overflow: hidden;
+}
+.assistant-layout .page-layout-main-scroll {
+  display: flex;
+  flex-direction: column;
+}
+
 .assistant {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  height: 100%;
+  flex: 1;
   min-height: 0;
+  min-width: 0;
   padding: var(--pane-pad);
   background: var(--surface);
 }
 
-.assistant-bar {
+.assistant-head {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: none;
+  min-width: 0;
 }
 
-.assistant-note {
-  color: var(--ink-2);
-  font-size: 12px;
+/* One 28px row, never wrapped: the actions keep their size, the hint row below truncates. */
+.assistant-toolbar,
+.assistant-hints {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+.assistant-toolbar {
+  height: var(--row-h);
+}
+.assistant-hints {
+  height: 24px;
+}
+.assistant-toolbar > *,
+.assistant-hints > * {
+  flex: none;
 }
 
 .assistant-actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   margin-left: auto;
 }
 
-.assistant-prompts {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+.assistant-hints-label {
+  color: var(--ink-2);
+  font-size: 12px;
 }
 
 .assistant-chip {
@@ -38,11 +78,31 @@
   border: 1px solid var(--line);
   font: inherit;
   font-size: 12px;
+  transition: background-color var(--duration-fast), border-color var(--duration-fast);
 }
-
+.assistant-chip:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.assistant-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
 .assistant-chip:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+.assistant-note {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 16px;
+  margin-left: var(--space-2);
+  /* The only element that gives way at a narrow width; the title carries the full sentence. */
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .assistant-link {
@@ -55,20 +115,33 @@
   cursor: pointer;
 }
 
+/*
+ * The card owns the padding; the terminal's host has none. FitAddon sizes the grid from its host's
+ * computed height (a border-box height here) minus the padding of xterm's own element, so padding
+ * on the host was counted as rows and the last row was drawn under the card's clipped edge.
+ */
 .assistant-terminals {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  display: flex;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   overflow: hidden;
+  padding: var(--space-2) var(--space-1) var(--space-2) var(--space-3);
   background: var(--surface);
+  cursor: text;
+}
+.assistant-terminals:focus-within {
+  border-color: var(--line-strong);
 }
 
 .assistant-terminal {
-  height: 100%;
-  padding: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
-
 .assistant-terminal[hidden] {
   display: none;
 }

@@ -21,6 +21,7 @@ vi.mock("@xterm/xterm", () => ({
     loadAddon() {}
     open() {}
     onData() { return { dispose() {} }; }
+    onResize() { return { dispose() {} }; }
     write(data: string) { written.push(data); }
     reset() {}
     focus() {}
@@ -28,6 +29,9 @@ vi.mock("@xterm/xterm", () => ({
   },
 }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
+vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));
+const linkHandlers: ((event: MouseEvent, uri: string) => void)[] = [];
+vi.mock("@xterm/addon-web-links", () => ({ WebLinksAddon: class { constructor(handler: (event: MouseEvent, uri: string) => void) { linkHandlers.push(handler); } } }));
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
 const { AssistantPanel, CLI_INFO, EXAMPLE_PROMPTS } = await import("../../src/renderer/pages/assistant/index");
@@ -120,10 +124,12 @@ it("runs a session: start with the terminal's size, output, an example prompt ty
   await render(<AssistantPanel bridge={bridge} />);
   const chip = button(EXAMPLE_PROMPTS[0]!.label);
   expect(chip.disabled).toBe(true);
+  expect(container.textContent).toContain("Not started");
   await act(async () => button("Start Claude Code").click());
   await settle();
   expect(bridge.start).toHaveBeenCalledWith("claude", 90, 20);
   expect(button("Restart")).toBeTruthy();
+  expect(container.textContent).toContain("Running");
   act(() => listeners.forEach((l) => l({ cli: "claude", type: "data", data: "Welcome to Claude Code" })));
   act(() => listeners.forEach((l) => l({ cli: "codex", type: "data", data: "not mine" })));
   expect(written.filter((w) => w === "Welcome to Claude Code")).toHaveLength(1);
@@ -132,7 +138,30 @@ it("runs a session: start with the terminal's size, output, an example prompt ty
   expect(EXAMPLE_PROMPTS[0]!.text).not.toMatch(/[\r\n]/);
   act(() => listeners.forEach((l) => l({ cli: "claude", type: "exit", code: 0 })));
   expect(written.some((w) => w.includes("exited with code 0"))).toBe(true);
+  expect(container.textContent).toContain("Exited (code 0)");
   expect(button("Start Claude Code")).toBeTruthy();
+});
+
+it("says a session it stopped is stopped, not exited", async () => {
+  makeBridge({ cli: "claude", installed: true, loggedIn: true, running: false });
+  await render(<AssistantPanel bridge={bridge} />);
+  await act(async () => button("Start Claude Code").click());
+  await settle();
+  await act(async () => button("Stop").click());
+  await settle();
+  expect(bridge.kill).toHaveBeenCalledWith("claude");
+  expect(container.textContent).toContain("Stopped");
+  expect(button("Start Claude Code")).toBeTruthy();
+});
+
+it("opens a link the CLI printed through the app's http(s)-only openExternal", async () => {
+  makeBridge({ cli: "claude", installed: true, loggedIn: true, running: false });
+  window.tit = { openExternal: vi.fn() } as unknown as TitBridge;
+  linkHandlers.length = 0;
+  await render(<AssistantPanel bridge={bridge} />);
+  expect(linkHandlers).toHaveLength(2);
+  linkHandlers[0]!(new MouseEvent("click"), "https://example.org/docs");
+  expect(window.tit!.openExternal).toHaveBeenCalledWith("https://example.org/docs");
 });
 
 it("reports a failed start", async () => {
