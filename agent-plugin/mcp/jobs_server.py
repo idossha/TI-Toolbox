@@ -38,9 +38,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import stdio_loop  # noqa: E402  (this directory, whatever the working directory is)
+from stdio_loop import ToolError  # noqa: E402
+
 SERVER_NAME = "ti-toolbox-jobs"
-SERVER_VERSION = "0.5.0"
-PROTOCOL_VERSION = "2025-06-18"
+SERVER_VERSION = "0.6.0"
 
 STACK_ID = "ti-toolbox-v3"  # tit/launch.py STACK_ID, desktop/src/shared/compose.ts
 LABEL_STACK = "tit.stack"
@@ -151,10 +154,6 @@ NO_STACK = (
     "`tit launch`), then call connect again. For a native runtime set TIT_SERVER_URL and "
     "TIT_SERVER_TOKEN."
 )
-
-
-class ToolError(Exception):
-    """A tool failure reported to the agent as ``isError: true`` text."""
 
 
 # --------------------------------------------------------------------------
@@ -981,44 +980,6 @@ def _wait_budget(args: Dict[str, Any]) -> float:
     return min(max(float(args.get("timeout_s", default)), 0.0), MAX_WAIT_S)
 
 
-#: The tools/call being served on this thread: its progress token and cancel event.
-_CALL = threading.local()
-
-
-def _pause(seconds: float) -> bool:
-    """Sleep between polls; True when the client cancelled the call (stop waiting)."""
-    cancel = getattr(_CALL, "cancel", None)
-    if cancel is None:
-        time.sleep(seconds)
-        return False
-    return cancel.wait(seconds)
-
-
-def _progress(message: str) -> None:
-    """A notifications/progress for the current call, when its client asked for them: shows in
-    the client's task list and keeps an idle timer from expiring. At most every 30 s unless the
-    message changes."""
-    token = getattr(_CALL, "token", None)
-    if token is None:
-        return
-    now = time.monotonic()
-    if message == getattr(_CALL, "said", None) and now - _CALL.said_at < 30:
-        return
-    _CALL.said, _CALL.said_at = message, now
-    _CALL.count = getattr(_CALL, "count", 0) + 1
-    _write(
-        {
-            "jsonrpc": "2.0",
-            "method": "notifications/progress",
-            "params": {
-                "progressToken": token,
-                "progress": _CALL.count,
-                "message": message,
-            },
-        }
-    )
-
-
 def _poll(check: Callable[[], Any], timeout: float) -> Any:
     """Call ``check`` until it returns something truthy, the budget ends or the call is
     cancelled; returns its last value."""
@@ -1027,7 +988,7 @@ def _poll(check: Callable[[], Any], timeout: float) -> Any:
     while True:
         value = check()
         left = deadline - time.monotonic()
-        if value or left <= 0 or _pause(min(poll, left)):
+        if value or left <= 0 or stdio_loop.pause(min(poll, left)):
             return value
 
 
@@ -1051,7 +1012,7 @@ def tool_wait_for_job(args: Dict[str, Any]) -> Dict[str, Any]:
 
     def check() -> bool:
         statuses.update({i: _job_status(i) for i in ids})
-        _progress("; ".join(_job_line(s) for s in statuses.values()))
+        stdio_loop.progress("; ".join(_job_line(s) for s in statuses.values()))
         return all(s.get("state") in TERMINAL_STATES for s in statuses.values())
 
     done = _poll(check, _wait_budget(args))
@@ -1329,7 +1290,7 @@ def tool_watch_proposal(args: Dict[str, Any]) -> Dict[str, Any]:
     def check() -> bool:
         latest.update(_api("GET", path))
         running = [s["id"] + " " + s["state"] for s in latest["steps"]]
-        _progress(f"{latest['status']}: " + ", ".join(running))
+        stdio_loop.progress(f"{latest['status']}: " + ", ".join(running))
         return bool(_new_events(latest, mark=False))
 
     _poll(check, _wait_budget(args))
@@ -1624,151 +1585,27 @@ TOOLS: List[Dict[str, Any]] = [
     },
 ]
 
-_HANDLERS: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
-    t["name"]: t["handler"] for t in TOOLS
-}
+
+def _on_initialize(params: Dict[str, Any]) -> None:
+    global _CLIENT
+    _CLIENT = (params.get("clientInfo") or {}).get("name") or None
 
 
-# --------------------------------------------------------------------------
-# JSON-RPC / MCP plumbing (same wire behaviour as server.py)
-# --------------------------------------------------------------------------
-
-
-def _result(id_: Any, result: Any) -> Dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": id_, "result": result}
-
-
-def _text(id_: Any, text: str, is_error: bool) -> Dict[str, Any]:
-    return _result(
-        id_, {"content": [{"type": "text", "text": text}], "isError": is_error}
-    )
-
-
-def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    method, id_ = msg.get("method"), msg.get("id")
-    params = msg.get("params") or {}
-    if method == "initialize":
-        global _CLIENT
-        _CLIENT = (params.get("clientInfo") or {}).get("name") or None
-        return _result(
-            id_,
-            {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-                "instructions": (
-                    "Runs TI-Toolbox jobs through the app the user has open; every job appears "
-                    "live in its job list. Call connect first: unless it says "
-                    "approval_required is false, jobs need the user's approval -- propose the "
-                    "whole pipeline with propose_pipeline, then watch_proposal as the last call "
-                    "of the turn (it runs in the background and returns on the next change; "
-                    "never keep the user waiting on it). If the request leaves the subject, "
-                    "target, what to run or the goal open, ask before proposing. Raw scans: "
-                    "inspect_raw_data "
-                    "-> confirm -> stage_raw_data. Targets: find_regions, never invented atlas "
-                    "paths or labels. Plan before proposing or submitting; never resubmit a "
-                    "rejected plan unchanged."
-                ),
-            },
-        )
-    if method == "notifications/cancelled":
-        cancel = _CANCELS.get(params.get("requestId"))
-        if cancel is not None:
-            cancel.set()
-        return None
-    if method == "notifications/initialized":
-        return None
-    if method == "ping":
-        return _result(id_, {})
-    if method == "tools/list":
-        return _result(
-            id_,
-            {"tools": [{k: v for k, v in t.items() if k != "handler"} for t in TOOLS]},
-        )
-    if method == "tools/call":
-        fn = _HANDLERS.get(params.get("name"))
-        if fn is None:
-            return {
-                "jsonrpc": "2.0",
-                "id": id_,
-                "error": {
-                    "code": -32602,
-                    "message": f"Unknown tool: {params.get('name')}",
-                },
-            }
-        _CALL.token = (params.get("_meta") or {}).get("progressToken")
-        _CALL.cancel = _CANCELS.setdefault(id_, threading.Event())
-        _CALL.said = None
-        try:
-            out = fn(params.get("arguments") or {})
-            return _text(id_, json.dumps(out, indent=2, ensure_ascii=False), False)
-        except ToolError as exc:
-            return _text(id_, str(exc), True)
-        except Exception as exc:  # noqa: BLE001 - report, never crash the server
-            return _text(id_, f"{type(exc).__name__}: {exc}", True)
-        finally:
-            _CANCELS.pop(id_, None)
-            _CALL.token = _CALL.cancel = None
-    if id_ is None:
-        return None
-    return {
-        "jsonrpc": "2.0",
-        "id": id_,
-        "error": {"code": -32601, "message": f"Method not found: {method}"},
-    }
-
-
-#: In-flight tools/call id -> its cancel event (set by notifications/cancelled).
-_CANCELS: Dict[Any, threading.Event] = {}
-_WRITE_LOCK = threading.Lock()
-
-
-def _write(message: Dict[str, Any]) -> None:
-    line = (json.dumps(message, ensure_ascii=False) + "\n").encode("utf-8")
-    with _WRITE_LOCK:
-        sys.stdout.buffer.write(line)
-        sys.stdout.buffer.flush()
-
-
-def _respond(msg: Any) -> None:
-    resp = handle(msg) if isinstance(msg, dict) else None
-    if resp is not None:
-        _write(resp)
-
-
-def serve() -> None:
-    """Each tools/call runs on its own thread, so a long wait (which Claude Code moves to the
-    background) never holds up the agent's other calls; everything else is answered in order.
-    When stdin closes, waits stop and every call still in flight is answered before exiting.
-    """
-    workers: List[threading.Thread] = []
-    for raw in sys.stdin.buffer:
-        line = raw.strip()
-        if not line:
-            continue
-        try:
-            msg = json.loads(line)
-        except json.JSONDecodeError:
-            _write(
-                {
-                    "jsonrpc": "2.0",
-                    "id": None,
-                    "error": {"code": -32700, "message": "Parse error"},
-                }
-            )
-            continue
-        if isinstance(msg, dict) and msg.get("method") == "tools/call":
-            _CANCELS[msg.get("id")] = threading.Event()  # before a cancel can arrive
-            worker = threading.Thread(target=_respond, args=(msg,), daemon=True)
-            worker.start()
-            workers = [w for w in workers if w.is_alive()] + [worker]
-        else:
-            _respond(msg)
-    for cancel in list(_CANCELS.values()):
-        cancel.set()
-    for worker in workers:
-        worker.join()
+handle = stdio_loop.handler(
+    SERVER_NAME,
+    SERVER_VERSION,
+    "Runs TI-Toolbox jobs through the app the user has open; every job appears live in its "
+    "job list. Call connect first: unless it says approval_required is false, jobs need the "
+    "user's approval -- propose the whole pipeline with propose_pipeline, then watch_proposal "
+    "as the last call of the turn (it runs in the background and returns on the next change; "
+    "never keep the user waiting on it). If the request leaves the subject, target, what to "
+    "run or the goal open, ask before proposing. Raw scans: inspect_raw_data -> confirm -> "
+    "stage_raw_data. Targets: find_regions, never invented atlas paths or labels. Plan before "
+    "proposing or submitting; never resubmit a rejected plan unchanged.",
+    TOOLS,
+    on_initialize=_on_initialize,
+)
 
 
 if __name__ == "__main__":
-    serve()
+    stdio_loop.serve(handle)
