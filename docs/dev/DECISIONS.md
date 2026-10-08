@@ -2821,3 +2821,21 @@ its table is self-checking).
 **Evidence.** `tests/test_region_rois.py` (shared table incl. the MNI case; subject atlases first,
 then MNI with `space`); `tests/test_atlas_segstats.py::TestManifestNamedLut` (the manifest table
 names a shipped atlas; a cache named from another table is rebuilt once).
+
+## 2026-10-08 — The kind -> config class table is served; the plugin's copy is deleted
+
+**Decision.** `dev/build_schema.py` writes `x-kind-classes` (`SIMPLE_KIND_CLASS` plus
+`AMBIGUOUS_KIND_DEFAULT` from `tit.server.routes.validate`) into `config.schema.json`, which
+`GET /api/schema` serves; the agent plugin's `get_config_schema` resolves a kind through it and
+its `SCHEMA_CLASS` dict is gone. Additive contract key.
+
+**Why.** The plugin's table was a hand copy of the server's (nine of fourteen kinds), the same
+drift the run-page defaults had before `x-app-defaults`.
+
+**Alternatives rejected.** `get_config_schema` sending the kind to a new route (the schema
+document is already fetched for the `$defs` and the defaults); keeping the copy with a sync test
+(two tables and a test instead of one table).
+
+**Evidence.** `tests/test_config_schema.py::TestBuildSchemaScript::test_build_schema_serves_the_servers_kind_to_class_table`;
+`tests/test_agent_plugin_jobs.py::test_against_the_real_server_jobs_are_recorded_as_agent`
+(`get_config_schema(kind="flex_adaptive")` -> `FlexConfig` over HTTP).

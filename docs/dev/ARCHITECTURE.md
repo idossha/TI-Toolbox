@@ -239,6 +239,9 @@ from `x-app-defaults[kind]` over the class's schema `default`s. The server fills
 `POST /api/validate/{kind}`, `/api/plan/{kind}`, `/api/jobs/preflight`, `/api/jobs`,
 `/api/jobs/groups` including each `subject_configs` entry — and into every proposal step (a
 `sim_from_flex` step takes `sim`'s). The app's own requests are unchanged: they send whole configs.
+The same document carries `x-kind-classes`, the job kind -> config class table the validate and
+plan routes use (`tit.server.routes.validate`), which the plugin's `get_config_schema` reads
+instead of keeping a copy.
 Excluded alternatives: a copy of the table in the plugin or the renderer (the two drifted from the
 pages by hand); filling defaults for every creator (a script that omits a field means the
 dataclass default); a page-side fallback while the schema loads (a second copy, and a first frame

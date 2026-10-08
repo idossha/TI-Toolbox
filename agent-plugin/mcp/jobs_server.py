@@ -58,17 +58,6 @@ FLEX_KINDS = ("flex", "flex_adaptive", "flex_pareto")
 SUBJECT_ID_RE = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 )  # tit.paths.SUBJECT_ID_RE
-SCHEMA_CLASS = {
-    "pre": "PreprocessConfig",
-    "sim": "SimulationConfig",
-    "flex": "FlexConfig",
-    "flex_adaptive": "FlexConfig",
-    "flex_pareto": "FlexConfig",
-    "ex": "ExConfig",
-    "mex": "MExConfig",
-    "leadfield": "LeadfieldConfig",
-    "analyzer": "AnalyzerConfig",
-}
 
 NO_STACK = (
     "No running TI-Toolbox found. Open the TI-Toolbox desktop app on your project (or run "
@@ -336,12 +325,14 @@ def _refs(node: Any, out: set) -> set:
 
 def tool_get_config_schema(args: Dict[str, Any]) -> Dict[str, Any]:
     kind = str(args.get("kind", ""))
-    name = SCHEMA_CLASS.get(kind, kind)
     doc = _api("GET", "/api/schema") or {}
+    # The server's own kind -> class table (tit.server.routes.validate), served in the schema.
+    kinds = doc.get("x-kind-classes", {})
+    name = kinds.get(kind, kind)
     defs = doc.get("$defs", {})
     if name not in defs:
         raise ToolError(
-            f"unknown kind/config class {kind!r}; kinds: {', '.join(SCHEMA_CLASS)}"
+            f"unknown kind/config class {kind!r}; kinds: {', '.join(kinds)}"
         )
     wanted, todo = {name}, [name]
     while todo:

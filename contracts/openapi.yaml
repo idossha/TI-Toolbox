@@ -1225,9 +1225,11 @@ paths:
       summary: The full generated schema.json (every config dataclass as a JSON Schema $def)
       description: >-
         `contracts/generated/config.schema.json`: `$defs` (one per config class),
-        `x-tit-classes` (class name -> Python import path) and `x-app-defaults` (job kind ->
+        `x-tit-classes` (class name -> Python import path), `x-app-defaults` (job kind ->
         the values the desktop run pages start with where they differ from or add to the
-        class's own `default`s; `tit/server/app_defaults.py`). The run pages initialise their
+        class's own `default`s; `tit/server/app_defaults.py`) and `x-kind-classes` (job kind ->
+        the config class `/api/validate` and `/api/plan` use for it; for `stats`/`blender` the
+        one used when `config._type` is absent). The run pages initialise their
         forms from `x-app-defaults[kind]` over the `$defs` defaults, and the server fills the
         same values into an agent's config (`created_by: agent`) and every proposal step.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]

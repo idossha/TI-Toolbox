@@ -6,9 +6,11 @@ Every class in ``tit.config_io.CONFIG_CLASS_REGISTRY`` contributes one
 ``tit.config_io.json_schema()`` call needs, merged into a single draft
 2020-12 document. The document also carries an ``"x-tit-classes"`` index
 (name -> Python import path) so a caller can go from a schema name straight
-to the class that produced it, and ``"x-app-defaults"``: per job kind, what the
+to the class that produced it, ``"x-app-defaults"``: per job kind, what the
 desktop run pages start with where it differs from those classes' defaults
-(:mod:`tit.server.app_defaults`).
+(:mod:`tit.server.app_defaults`), and ``"x-kind-classes"``: per job kind, the config class
+the server validates and plans it with (:mod:`tit.server.routes.validate`; a kind with
+several classes maps to the one used when ``config._type`` is absent).
 
 Usage::
 
@@ -47,7 +49,8 @@ def build_schema() -> dict:
     dict
         ``{"$schema": ..., "$defs": {<16 names + their nested types>},
         "x-tit-classes": {<16 names>: "<dotted.import.path>"},
-        "x-app-defaults": tit.server.app_defaults.APP_DEFAULTS}``.
+        "x-app-defaults": tit.server.app_defaults.APP_DEFAULTS,
+        "x-kind-classes": {<job kind>: "<class name>"}}``.
 
     Raises
     ------
@@ -60,6 +63,7 @@ def build_schema() -> dict:
     """
     from tit.config_io import CONFIG_CLASS_REGISTRY, json_schema, resolve_config_class
     from tit.server.app_defaults import APP_DEFAULTS
+    from tit.server.routes.validate import AMBIGUOUS_KIND_DEFAULT, SIMPLE_KIND_CLASS
 
     combined_defs: dict[str, dict] = {}
 
@@ -85,6 +89,9 @@ def build_schema() -> dict:
         "x-tit-classes": dict(sorted(CONFIG_CLASS_REGISTRY.items())),
         # What the desktop run pages start with, per job kind, over these classes' defaults.
         "x-app-defaults": APP_DEFAULTS,
+        # Which class each job kind is validated and planned with (the agent plugin's
+        # get_config_schema reads it instead of keeping its own copy).
+        "x-kind-classes": {**SIMPLE_KIND_CLASS, **AMBIGUOUS_KIND_DEFAULT},
     }
 
 

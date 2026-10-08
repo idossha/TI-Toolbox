@@ -1133,3 +1133,11 @@ always present). Additive: a client that ignores `space` sees extra entries afte
 subject-space ones, each with a ready ROI. Region names of the Glasser, Schaefer and MASSP MNI
 atlases (here and in `GET /api/catalog/atlases/regions`) now come from the colour table
 `resources/atlas/manifest.json` names, not FreeSurfer's.
+
+## 2026-10-08 — `x-kind-classes` in `/api/schema`
+
+`config.schema.json` (and so `GET /api/schema`) gains a top-level `x-kind-classes`: job kind ->
+the config class name `POST /api/validate/{kind}` and `/api/plan/{kind}` use
+(`tit.server.routes.validate.SIMPLE_KIND_CLASS`, plus `AMBIGUOUS_KIND_DEFAULT` for `stats` and
+`blender`). The agent plugin's `get_config_schema` reads it and no longer carries its own copy.
+Additive: `$defs` and the other keys are unchanged.
