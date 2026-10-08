@@ -157,35 +157,58 @@
   flex: 1 1 auto;
   max-width: 420px;
 }
+/* The inline step editor: the run pages' Field rows (a narrower label column) in a grid that
+ * wraps to one column, aligned with the step's facts (26px), actions right-aligned in a footer. */
 .proposal-editor {
+  --field-label-w: 96px;
   margin-left: 26px;
-  padding: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
-  background: var(--surface-2);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  align-items: flex-start;
 }
 .proposal-editor-fields {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-1) var(--space-4);
 }
-.proposal-editor-fields label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.proposal-editor-json > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--row-h);
+  color: var(--ink-2);
+  cursor: pointer;
+  list-style: none;
 }
-.proposal-editor-json {
-  width: 100%;
+.proposal-editor-json > summary::-webkit-details-marker {
+  display: none;
 }
-.proposal-editor-json textarea {
-  width: 100%;
-  font-family: var(--font-mono);
+.proposal-editor-json-chevron {
+  transition: transform 120ms;
+}
+.proposal-editor-json[open] .proposal-editor-json-chevron {
+  transform: rotate(90deg);
+}
+.proposal-editor-json > textarea {
+  display: block;
+  height: auto;
+  min-height: calc(10 * 18px + 2 * var(--space-2));
+  padding: var(--space-2);
   font-size: 12px;
+  line-height: 18px;
+  resize: vertical;
+}
+.proposal-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
 }
 /* The Jobs row's waiting-proposals count (NavRail). In the icon rail it sits on the icon. */
 .nav-badge {

@@ -16,6 +16,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { approveProposal, dismissProposal, editStep, rejectProposal, runStep } from "../../src/renderer/app/proposals/api";
 import { ProposalCard, ProposalsStrip } from "../../src/renderer/app/proposals/ProposalCard";
@@ -115,14 +116,25 @@ afterEach(() => {
   container.remove();
 });
 
-function render(p: Proposal, jobs: Record<string, JobStatus> = {}, onOpenJob = vi.fn()) {
-  act(() =>
-    root.render(
-      <QueryClientProvider client={client}>
-        <ProposalCard proposal={p} jobs={jobs} onOpenJob={onOpenJob} />
-      </QueryClientProvider>,
-    ),
+/** The card on /jobs; any other route prints where "Open in form" went and what it carried. */
+function Landed() {
+  const location = useLocation();
+  return <pre data-testid="landed">{JSON.stringify({ path: location.pathname, state: location.state })}</pre>;
+}
+function inApp(node: React.ReactNode) {
+  return (
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/jobs"]}>
+        <Routes>
+          <Route path="/jobs" element={node} />
+          <Route path="*" element={<Landed />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
+}
+function render(p: Proposal, jobs: Record<string, JobStatus> = {}, onOpenJob = vi.fn()) {
+  act(() => root.render(inApp(<ProposalCard proposal={p} jobs={jobs} onOpenJob={onOpenJob} />)));
   return onOpenJob;
 }
 const button = (name: string) => [...container.querySelectorAll("button")].find((b) => b.textContent?.trim() === name);
@@ -214,6 +226,58 @@ it("edits a step's run name and the replace permission", async () => {
   expect(edit.subject_ids).toEqual(["101"]);
 });
 
+it("the editor's actions are one footer (Open in form, Cancel, Save step) and Cancel closes it", () => {
+  render(proposal());
+  act(() => button("Edit")!.click());
+  const editor = container.querySelector('[data-testid="proposal-editor-opt"]')!;
+  expect(button("Close")).toBeUndefined(); // no second close control in the step's head
+  expect(container.querySelector('[data-testid="proposal-step-opt"] .proposal-step-end')?.textContent).not.toContain("Edit");
+  const footer = editor.querySelector(".proposal-editor-actions")!;
+  expect([...footer.querySelectorAll("button")].map((b) => b.textContent?.trim())).toEqual(["Open in form", "Cancel", "Save step"]);
+  // The checkbox is the shared one: box and its label in one row element.
+  const row = editor.querySelector(".checkbox-label-row")!;
+  expect(row.querySelector('button[role="checkbox"]')).not.toBeNull();
+  expect(row.textContent).toBe("Replace existing output");
+  expect(editor.querySelector("details.proposal-editor-json")?.hasAttribute("open")).toBe(false); // JSON folded
+  act(() => button("Cancel")!.click());
+  expect(container.querySelector('[data-testid="proposal-editor-opt"]')).toBeNull();
+  expect(button("Edit")).toBeDefined();
+});
+
+it("Open in form goes to the step's run page with the step, carrying what was typed", () => {
+  render(proposal());
+  const [flexEdit, simEdit] = [...container.querySelectorAll("button")].filter((b) => b.textContent?.trim() === "Edit");
+  act(() => simEdit!.click());
+  act(() => flexEdit!.click());
+  const editor = container.querySelector('[data-testid="proposal-editor-opt"]')!;
+  type(editor.querySelector('input[aria-label="Run name"]')!, "thalamus_v2");
+  act(() => (editor.querySelector('button[role="checkbox"]') as HTMLButtonElement).click());
+  act(() => [...editor.querySelectorAll("button")].find((b) => b.textContent === "Open in form")!.click());
+  const landed = JSON.parse(container.querySelector('[data-testid="landed"]')!.textContent!);
+  expect(landed.path).toBe("/optimizer");
+  expect(landed.state.planStep).toMatchObject({
+    proposalId: "abcdef0123456789",
+    stepId: "opt",
+    number: 1,
+    title: "Maximise the field in the left thalamus",
+    kind: "flex",
+    subjectIds: ["101"],
+    overwrite: true,
+  });
+  expect(landed.state.planStep.config.output_folder).toBe("thalamus_v2");
+  expect(landed.state.planStep.config.goal).toBe("mean");
+});
+
+it("a sim_from_flex step opens on the Simulator, naming its flex step's run", () => {
+  render(proposal());
+  const simEdit = [...container.querySelectorAll("button")].filter((b) => b.textContent?.trim() === "Edit")[1]!;
+  act(() => simEdit.click());
+  act(() => button("Open in form")!.click());
+  const landed = JSON.parse(container.querySelector('[data-testid="landed"]')!.textContent!);
+  expect(landed.path).toBe("/simulator");
+  expect(landed.state.planStep).toMatchObject({ stepId: "sim", number: 2, kind: "sim_from_flex", flexRun: "thalamus_mean" });
+});
+
 it("after approval follows each step's jobs live and opens them", () => {
   const p = proposal({ status: "running", decision: { state: "approved", at: "2026-10-07T10:01:00+00:00", note: null } });
   p.steps[0] = { ...p.steps[0]!, state: "queued", job_ids: ["job00001aaaa"] };
@@ -239,13 +303,7 @@ it("keeps undecided and in-flight plans, and only a day of the rest", () => {
 });
 
 function renderStrip(proposals: Proposal[], onOpenJob = vi.fn()) {
-  act(() =>
-    root.render(
-      <QueryClientProvider client={client}>
-        <ProposalsStrip proposals={proposals} jobs={{}} onOpenJob={onOpenJob} />
-      </QueryClientProvider>,
-    ),
-  );
+  act(() => root.render(inApp(<ProposalsStrip proposals={proposals} jobs={{}} onOpenJob={onOpenJob} />)));
   return onOpenJob;
 }
 const done = (id: string, extra: Partial<Proposal> = {}) =>

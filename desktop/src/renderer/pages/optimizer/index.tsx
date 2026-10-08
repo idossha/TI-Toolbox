@@ -41,7 +41,9 @@ import { Button, IconButton } from "../../ui/Button";
 import { Popover } from "../../ui/Overlay";
 import { Callout, EmptyState } from "../../ui/Feedback";
 import { notify, notifySubmitError } from "../../ui/Toast";
-import { getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
+import { getAtlases, getAtlasRegions, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
+import { PlanStepBanner, usePlanStepActions, usePlanStepEdit, type PlanStepTarget } from "../../app/proposals/stepForm";
+import { optStepEdit, optStepRows } from "./planStep";
 import { subjectsBlockedReason } from "../_shared/subjects";
 import {
   RunPanel,
@@ -147,6 +149,40 @@ function useAtlasResolver(keys: AtlasKey[]): (subject: string, roi: RoiValue) =>
     const list = key ? byId[atlasKeyId(key)] : undefined;
     return (atlasId: string) => list?.find((a) => a.id === atlasId);
   };
+}
+
+type QueryClient = ReturnType<typeof useQueryClient>;
+
+/**
+ * A plan step's rows (`planStep.ts`) with the catalog they are read against: the subject's atlases
+ * (to find an ROI's atlas by its path) and its regions' names, under the picker's own query keys.
+ */
+async function loadStepRows(queryClient: QueryClient, step: PlanStepTarget): Promise<{ rows: OptimizerRow[]; unresolved: boolean }> {
+  const subject = step.subjectIds[0] ?? "";
+  const atlasLists = await Promise.all(
+    ([["cortical", undefined], ["subcortical", "subject"], ["subcortical", "mni"]] as const).map(([kind, space]) =>
+      queryClient
+        .fetchQuery({
+          queryKey: kind === "subcortical" ? ["atlases", subject, kind, space] : ["atlases", subject, kind],
+          queryFn: () => getAtlases(subject, kind, space),
+        })
+        .catch(() => [] as Atlas[]),
+    ),
+  );
+  let unresolved = false;
+  const rows = optStepRows(step, atlasLists.flat(), () => (unresolved = true));
+  const named = async (roi: RoiValue): Promise<RoiValue> => {
+    if ((roi.mode !== "cortical" && roi.mode !== "subcortical") || !roi.atlas) return roi;
+    const atlas = roi.atlas;
+    const regions = roi.mode === "cortical"
+      ? (await Promise.all((["lh", "rh"] as const).map((hemi) => queryClient.fetchQuery({ queryKey: ["atlas-regions", subject, atlas, hemi], queryFn: () => getAtlasRegions(subject, atlas, hemi) }).catch(() => [])))).flat()
+      : await queryClient.fetchQuery({ queryKey: ["atlas-regions", subject, atlas, roi.space], queryFn: () => getAtlasRegions(subject, atlas) }).catch(() => []);
+    const name = (id: number, hemi?: string) => regions.find((r) => r.id === id && (roi.mode !== "cortical" || (r.hemi ?? hemi) === hemi))?.name;
+    return { ...roi, regions: roi.regions.map((r) => ({ ...r, name: name(r.id, r.hemi) ?? r.name })) } as RoiValue;
+  };
+  const roi = rows[0] ? await named(rows[0].roi) : undefined;
+  const nonRoi = rows[0] ? await named(rows[0].nonRoi) : undefined;
+  return { rows: rows.map((r) => ({ ...r, roi: roi ?? r.roi, nonRoi: nonRoi ?? r.nonRoi })), unresolved };
 }
 
 function OptimizerPage() {
@@ -449,6 +485,22 @@ function OptimizerPage() {
     return Promise.all(planQueries.map((q) => q.refetch()));
   }
 
+  // "Open in form" from a plan card: the step's rows in this table, Save to plan instead of Run.
+  const planStep = usePlanStepEdit({
+    snapshot: () => ({ rows, activeRowId }),
+    load: async (step) => {
+      const loaded = await loadStepRows(queryClient, step);
+      setRows(loaded.rows);
+      setActiveRowId(loaded.rows[0]?.id ?? null);
+      if (loaded.unresolved) notify.info("The step's target is not in this subject's atlas catalog; choose it again before saving.");
+    },
+    restore: (stash) => {
+      setRows(stash.rows);
+      setActiveRowId(stash.activeRowId);
+    },
+  });
+  const planActions = usePlanStepActions(planStep, () => optStepEdit(planStep.step!, rows, { atlas: atlasFor, leadfield: leadfieldFor }));
+
   function handleRunClick(): void {
     // §4.2 rule 8: the primary stays enabled; pressing it with an unresolvable plan says why.
     if (blockedReason) {
@@ -462,7 +514,7 @@ function OptimizerPage() {
     }
     submit.mutate("ask");
   }
-  useRunShortcut(handleRunClick);
+  useRunShortcut(handleRunClick, !planStep.step);
 
   const runLabel = jobs.length > 1 ? `Run ${jobs.length} searches` : "Run search";
 
@@ -547,8 +599,9 @@ function OptimizerPage() {
         <ActionBar
           digest={digest}
           blocked={!!blockedReason}
+          secondary={planStep.step ? planActions.secondary : undefined}
           primary={
-            <Button
+            planStep.step ? planActions.primary : <Button
               variant="primary"
               loading={submit.isPending}
               disabled={!!blockedReason}
@@ -563,6 +616,7 @@ function OptimizerPage() {
       }
     >
       <RunWork fill={false}>
+        {planStep.step && <PlanStepBanner step={planStep.step} />}
         {/*
          * JOBS: the one table where a run is described, first on the page and `data-tier="1"` (§8 —
          * never closed by the fill controller). It replaces the page-level Subjects table *and* the

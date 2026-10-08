@@ -49,6 +49,9 @@ export interface SelectedRow {
   settings?: JobSettings;
   /** Original candidate configuration preserves poses and provenance through normal job planning. */
   candidate?: { id: string; requestId?: string; run: string; config: Record<string, unknown>; originalConfig?: Record<string, unknown>; originalCurrents: string; originalSettings: JobSettings };
+  /** A plan step's flex step (`planStep.ts`): this row simulates that step's run, which does not
+   *  exist until the step has run, so it has no electrodes yet and only its placement is chosen. */
+  planFlexStep?: string;
 
 }
 
