@@ -35,7 +35,7 @@ Inside a Claude Code session, run:
 /plugin install ti-toolbox@ti-toolbox
 ```
 
-That's it. Skills load on demand and the MCP server starts with each session. Python 3.9+ must be installed and available on your PATH.
+That's it. Skills load on demand and the MCP server starts with each session. Python 3.9+ must be installed and available on your PATH as `python3`. **Windows:** Python there is usually `py` or `python`, not `python3`; set `TIT_PYTHON` once (`setx TIT_PYTHON py` in a Command Prompt, then open a new terminal) and the plugin's servers use it. The **Assistant** page sets it for you.
 
 Try:
 
@@ -160,7 +160,7 @@ To let the assistant queue jobs directly, without a plan card, turn on **Setting
 
 | Symptom | Fix |
 |---------|-----|
-| "MCP server failed to start" | Run `python3 --version` (needs 3.9+). On Windows use `python` instead of `python3` in the config. |
+| "MCP server failed to start" | Run `python3 --version` (needs 3.9+). On Windows set `TIT_PYTHON` to your Python (`setx TIT_PYTHON py`) for the Claude Code plugin, or use `py`/`python` instead of `python3` in a Codex or other client config. |
 | Tools return "HTTP 403/429" | GitHub rate limit for unauthenticated requests; wait a few minutes or clone the repo and set `TI_TOOLBOX_ROOT`. |
 | `find_symbol` / `search_source` say they need a local checkout | Those two tools grep the source tree; clone the repo and set `TI_TOOLBOX_ROOT=/path/to/TI-Toolbox`. |
 | Stale answers | Delete the cache: `rm -rf ~/.cache/ti-toolbox-mcp`. |

@@ -656,9 +656,10 @@ paths:
       tags: [catalog]
       summary: Search a subject's atlases for a structure, with ready FlexConfig ROIs
       description: >-
-        Every region of the subject's own atlases (subject space) whose name contains each word
-        of `q`, ignoring case, punctuation and the side words left, right, bilateral, both, lh,
-        rh; one entry per atlas with a match. `rois.all` targets every match (both sides),
+        Every region of the subject's own atlases (subject space), then of the MNI volume atlases
+        the toolbox ships (the Optimizer picker's MNI subcortical list), whose name contains each
+        word of `q`, ignoring case, punctuation and the side words left, right, bilateral, both,
+        lh, rh; one entry per atlas with a match, with its `space`. `rois.all` targets every match (both sides),
         `rois.left`/`rois.right` one side when a match names it. The ROI construction is the
         desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by
         `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.
@@ -1224,9 +1225,11 @@ paths:
       summary: The full generated schema.json (every config dataclass as a JSON Schema $def)
       description: >-
         `contracts/generated/config.schema.json`: `$defs` (one per config class),
-        `x-tit-classes` (class name -> Python import path) and `x-app-defaults` (job kind ->
+        `x-tit-classes` (class name -> Python import path), `x-app-defaults` (job kind ->
         the values the desktop run pages start with where they differ from or add to the
-        class's own `default`s; `tit/server/app_defaults.py`). The run pages initialise their
+        class's own `default`s; `tit/server/app_defaults.py`) and `x-kind-classes` (job kind ->
+        the config class `/api/validate` and `/api/plan` use for it; for `stats`/`blender` the
+        one used when `config._type` is absent). The run pages initialise their
         forms from `x-app-defaults[kind]` over the `$defs` defaults, and the server fills the
         same values into an agent's config (`created_by: agent`) and every proposal step.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
@@ -1335,6 +1338,11 @@ paths:
                 $ref: "#/components/schemas/PlanResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: >-
+            a config that does not deserialize for the kind, or an output folder outside the
+            project (an absolute `output_folder`/`output_dir` elsewhere, or a name that climbs
+            out): "Outputs must stay inside the project folder …"
 
   # ------------------------------------------------------------------------------------- jobs (v1)
   /api/jobs:
@@ -1389,9 +1397,9 @@ paths:
         "422":
           description: >-
             unknown kind, malformed body, a config the kind's runner could not
-            deserialize (e.g. a sim config with no subject_id/montages), or -- as a
-            MissingInputs body -- a required input file that is not on disk; no job
-            record is created
+            deserialize (e.g. a sim config with no subject_id/montages), an output folder
+            outside the project (whatever `overwrite` says), or -- as a MissingInputs body
+            -- a required input file that is not on disk; no job record is created
           content:
             application/json:
               schema:
@@ -1448,8 +1456,9 @@ paths:
         "422":
           description: >-
             unsupported kind, malformed body, a config that does not deserialize
-            for the kind, or -- as a MissingInputs body -- a required input file of
-            any planned job that is not on disk; no job record is created
+            for the kind, an output folder outside the project (whatever `overwrite`
+            says), or -- as a MissingInputs body -- a required input file of any planned
+            job that is not on disk; no job record is created
           content:
             application/json:
               schema:
@@ -4798,10 +4807,16 @@ components:
           enum: [lh, rh, null]
     RegionMatch:
       type: object
-      required: [atlas, kind, matches, rois]
+      required: [atlas, kind, space, matches, rois]
       properties:
         atlas: { type: string, description: the Atlas id }
         kind: { type: string, enum: [surface, volume] }
+        space:
+          type: string
+          enum: [subject, mni]
+          description: >-
+            subject for the subject's own atlases, mni for a shipped MNI volume atlas (its ROIs
+            carry `atlas_space: mni`; the optimiser warps it to the subject)
         matches:
           type: array
           description: the matching Region rows, each with `side` (left, right or null)
@@ -4810,8 +4825,8 @@ components:
           type: object
           required: [all]
           description: >-
-            FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM in
-            subject space for a volume), to use verbatim as FlexConfig.roi.
+            FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM and
+            `atlas_space` = the entry's `space` for a volume), to use verbatim as FlexConfig.roi.
           properties:
             all: { type: object, additionalProperties: true }
             left: { type: object, additionalProperties: true }
@@ -5628,6 +5643,12 @@ components:
         will_overwrite:
           type: array
           items: { type: string }
+        lock_conflicts:
+          type: array
+          description: >-
+            running jobs holding a lock this step needs (POST /api/plan's `lock_conflicts`):
+            the step waits for them once queued; absent on a record planned before this field
+          items: { $ref: "#/components/schemas/LockConflict" }
         eta_minutes: { type: [number, "null"] }
         warnings:
           type: array

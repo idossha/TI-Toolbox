@@ -1073,7 +1073,7 @@ export interface paths {
         };
         /**
          * Search a subject's atlases for a structure, with ready FlexConfig ROIs
-         * @description Every region of the subject's own atlases (subject space) whose name contains each word of `q`, ignoring case, punctuation and the side words left, right, bilateral, both, lh, rh; one entry per atlas with a match. `rois.all` targets every match (both sides), `rois.left`/`rois.right` one side when a match names it. The ROI construction is the desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.
+         * @description Every region of the subject's own atlases (subject space), then of the MNI volume atlases the toolbox ships (the Optimizer picker's MNI subcortical list), whose name contains each word of `q`, ignoring case, punctuation and the side words left, right, bilateral, both, lh, rh; one entry per atlas with a match, with its `space`. `rois.all` targets every match (both sides), `rois.left`/`rois.right` one side when a match names it. The ROI construction is the desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.
          */
         get: {
             parameters: {
@@ -2032,7 +2032,7 @@ export interface paths {
         };
         /**
          * The full generated schema.json (every config dataclass as a JSON Schema $def)
-         * @description `contracts/generated/config.schema.json`: `$defs` (one per config class), `x-tit-classes` (class name -> Python import path) and `x-app-defaults` (job kind -> the values the desktop run pages start with where they differ from or add to the class's own `default`s; `tit/server/app_defaults.py`). The run pages initialise their forms from `x-app-defaults[kind]` over the `$defs` defaults, and the server fills the same values into an agent's config (`created_by: agent`) and every proposal step.
+         * @description `contracts/generated/config.schema.json`: `$defs` (one per config class), `x-tit-classes` (class name -> Python import path), `x-app-defaults` (job kind -> the values the desktop run pages start with where they differ from or add to the class's own `default`s; `tit/server/app_defaults.py`) and `x-kind-classes` (job kind -> the config class `/api/validate` and `/api/plan` use for it; for `stats`/`blender` the one used when `config._type` is absent). The run pages initialise their forms from `x-app-defaults[kind]` over the `$defs` defaults, and the server fills the same values into an agent's config (`created_by: agent`) and every proposal step.
          */
         get: {
             parameters: {
@@ -2198,6 +2198,13 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+                /** @description a config that does not deserialize for the kind, or an output folder outside the project (an absolute `output_folder`/`output_dir` elsewhere, or a name that climbs out): "Outputs must stay inside the project folder …" */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         delete?: never;
@@ -2263,7 +2270,7 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-                /** @description unknown kind, malformed body, a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages), or -- as a MissingInputs body -- a required input file that is not on disk; no job record is created */
+                /** @description unknown kind, malformed body, a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages), an output folder outside the project (whatever `overwrite` says), or -- as a MissingInputs body -- a required input file that is not on disk; no job record is created */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -2364,7 +2371,7 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-                /** @description unsupported kind, malformed body, a config that does not deserialize for the kind, or -- as a MissingInputs body -- a required input file of any planned job that is not on disk; no job record is created */
+                /** @description unsupported kind, malformed body, a config that does not deserialize for the kind, an output folder outside the project (whatever `overwrite` says), or -- as a MissingInputs body -- a required input file of any planned job that is not on disk; no job record is created */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -6474,11 +6481,16 @@ export interface components {
             atlas: string;
             /** @enum {string} */
             kind: "surface" | "volume";
+            /**
+             * @description subject for the subject's own atlases, mni for a shipped MNI volume atlas (its ROIs carry `atlas_space: mni`; the optimiser warps it to the subject)
+             * @enum {string}
+             */
+            space: "subject" | "mni";
             /** @description the matching Region rows, each with `side` (left, right or null) */
             matches: {
                 [key: string]: unknown;
             }[];
-            /** @description FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM in subject space for a volume), to use verbatim as FlexConfig.roi. */
+            /** @description FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM and `atlas_space` = the entry's `space` for a volume), to use verbatim as FlexConfig.roi. */
             rois: {
                 all: {
                     [key: string]: unknown;
@@ -6966,6 +6978,8 @@ export interface components {
                 exists: boolean;
             }[];
             will_overwrite: string[];
+            /** @description running jobs holding a lock this step needs (POST /api/plan's `lock_conflicts`): the step waits for them once queued; absent on a record planned before this field */
+            lock_conflicts?: components["schemas"]["LockConflict"][];
             eta_minutes?: number | null;
             warnings: string[];
             /** @description why this step cannot be planned until a step it waits on has finished */

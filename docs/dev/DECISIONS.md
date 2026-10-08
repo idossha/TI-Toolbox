@@ -2492,7 +2492,8 @@ and a flex result's montage does not exist until the run does. One resolver for 
 keeps the plugin and the server from choosing different electrodes or currents.
 
 **Cost.** A dependent step's jobs appear in the job list only when they are queued, so the card,
-not the list, shows what is still to come. Proposals are never pruned (a few KB each). The
+not the list, shows what is still to come. Proposals are never pruned (a few KB each;
+**superseded 2026-10-08**: they follow the job retention rule, entry below). The
 approval is not a security boundary: the agent's MCP server holds the server token, and anything
 with the token can call approve or flip the setting; it binds a cooperating agent that uses the
 plugin's tools.
@@ -2746,3 +2747,151 @@ generator for four lines).
 **Evidence.** `tests/test_region_rois.py` (shared table, search, route 200/404/422);
 `desktop/tests/unit/roi-region-table.test.ts`; `tests/test_agent_plugin_jobs.py` (passthrough and
 the proposal note).
+
+## 2026-10-08 — One electrode-pairing rule for a flex-search result
+
+**Decision.** Every path that turns a finished flex-search run into a montage pairs its electrodes
+with `tit.catalog.pair_by_channel` — the optimiser's `[channel, array]` per electrode
+(`_save_optimized_positions` in `resources/map-electrodes/tes_flex_optimization.py`, carried into
+`electrode_mapping_<net>.json` by the Hungarian mapping), consecutive only when that record is
+absent or unusable — and keeps every channel. `resolve_flex_montage` (used by `/api/plan`'s flex
+montage sources and `/api/catalog/flex-runs/{run}/mapping`) reads its pairs through the catalog's
+readers (`flex_optimized_pairs`, `read_flex_mapping`); `resolve_flex_simulation` (the agent's
+`sim_from_flex` and `GET /api/sim-from-flex`) builds its montage through `resolve_flex_montage`,
+which reads a net the run is already mapped to instead of re-mapping it and rewriting the cache.
+Wire shapes are unchanged.
+
+**Why.** `resolve_flex_montage` paired the first four electrodes consecutively while the catalog
+(what the Simulator page shows) paired by channel, so a record listed out of channel order gave
+`/api/plan` and the agent different electrodes than the page, and an mTI run lost its third and
+fourth channel there. The optimiser writes channel-major order today, so results produced by
+TI-Toolbox's own flex-search do not move; only out-of-order records and mTI runs did.
+
+**Alternatives rejected.** Consecutive pairing everywhere (ignores what the optimiser recorded);
+re-mapping on every request (rewrote the cache the catalog reads and repeated the assignment).
+
+**Evidence.** `tests/test_flex_simulation_resolver.py` (an out-of-order fixture: catalog,
+`resolve_flex_montage` optimized and mapped, and `resolve_flex_simulation` agree; a cached net is
+read with the mapping refused; a new net is mapped once, then read);
+`tests/test_montage_sources.py`, `tests/test_montage_source_safety.py`.
+
+## 2026-10-08 — A job may not write outside the project
+
+**Decision.** `tit.server.routes.plan.plan` refuses (422) a plan whose job output folder resolves
+outside the project, and `check_overwrite_permission` now plans every submission, `overwrite` or
+not, so `/api/jobs`, `/api/jobs/groups`, reruns and approved proposal steps are refused the same
+way; a proposal step shows it as a planning error and cannot be approved. Contract: documented
+422s, no shape change.
+
+**Why.** An absolute `FlexConfig.output_folder` (or `AnalyzerConfig.output_dir`, a blender
+`output_dir`, or a name with `../`) let a job — an agent's in particular — write anywhere the
+container can, and `overwrite: true` skipped the only planning step submission made. The plan
+already resolves each job's destination for every kind, so one check there covers every field.
+The desktop's run pages send only folders the server resolved under the project (the Optimizer
+plans with `output_folder: null` and joins the run name to the folder it gets back).
+
+**Alternatives rejected.** Checking each path field per kind (a new field would slip through);
+rejecting every absolute folder (the Optimizer's own submissions are absolute paths inside the
+project).
+
+**Evidence.** `tests/test_output_jail.py` (plan, both submit routes with `overwrite: true`, a
+climbing name, a proposal dry run and approval).
+
+## 2026-10-08 — Region search covers the shipped MNI atlases; their names come from the manifest
+
+**Decision.** `tit.catalog.find_regions` (`GET /api/catalog/regions`, the agent's `find_regions`)
+searches the subject's own atlases and then the MNI volume atlases the Optimizer's ROI picker
+offers (`atlases(..., space="mni", kind="subcortical")`); each entry carries `space`, and an MNI
+entry's ROIs are the `SubcorticalROI` with `atlas_space: "mni"` the picker builds
+(`tests/fixtures/region_rois.json` gains that case). `tit.atlas.segstats.resolve_lut_for_atlas`
+names a shipped MNI atlas's labels from the table `resources/atlas/manifest.json` lists for it
+(`manifest_lut`, the lookup `tit.opt.roi_spec._find_volume_lut` already made), and a region cache
+(`<atlas>_labels.txt`) for such an atlas records that table (`# lut <name>`) so one named before is
+rebuilt once. Contract: `RegionMatch.space` (additive).
+
+**Why.** An agent could not target what the picker offers in MNI space (CIT168 nuclei, MASSP,
+Harvard-Oxford). Searching them exposed a picker bug: the Glasser, Schaefer and MASSP tables are
+not `{stem}_LUT.txt`, so their labels were named from FreeSurfer's table (Glasser label 1 read
+"Left-Cerebral-Exterior", Schaefer label 10 "Left-Thalamus"); a name search would have handed an
+agent a cortical parcel for "thalamus".
+
+**Alternatives rejected.** MNI search behind a flag (the agent cannot know to ask);
+deleting stale caches at startup (the image's resources may be read-only, and a cache that names
+its table is self-checking).
+
+**Evidence.** `tests/test_region_rois.py` (shared table incl. the MNI case; subject atlases first,
+then MNI with `space`); `tests/test_atlas_segstats.py::TestManifestNamedLut` (the manifest table
+names a shipped atlas; a cache named from another table is rebuilt once).
+
+## 2026-10-08 — The kind -> config class table is served; the plugin's copy is deleted
+
+**Decision.** `dev/build_schema.py` writes `x-kind-classes` (`SIMPLE_KIND_CLASS` plus
+`AMBIGUOUS_KIND_DEFAULT` from `tit.server.routes.validate`) into `config.schema.json`, which
+`GET /api/schema` serves; the agent plugin's `get_config_schema` resolves a kind through it and
+its `SCHEMA_CLASS` dict is gone. Additive contract key.
+
+**Why.** The plugin's table was a hand copy of the server's (nine of fourteen kinds), the same
+drift the run-page defaults had before `x-app-defaults`.
+
+**Alternatives rejected.** `get_config_schema` sending the kind to a new route (the schema
+document is already fetched for the `$defs` and the defaults); keeping the copy with a sync test
+(two tables and a test instead of one table).
+
+**Evidence.** `tests/test_config_schema.py::TestBuildSchemaScript::test_build_schema_serves_the_servers_kind_to_class_table`;
+`tests/test_agent_plugin_jobs.py::test_against_the_real_server_jobs_are_recorded_as_agent`
+(`get_config_schema(kind="flex_adaptive")` -> `FlexConfig` over HTTP).
+
+## 2026-10-08 — A proposal step's plan reports lock waits
+
+**Decision.** `tit.server.proposals._plan_step` copies the plan route's `lock_conflicts` into the
+step's plan (`ProposalStepPlan.lock_conflicts`, additive), so `propose_pipeline`'s dry run names
+the running jobs a step would queue behind, as `plan_job` does. **Why.** The step already called
+`plan()`, which computes them; dropping them made the dry run say less than `plan_job`.
+**Alternatives rejected.** A second lock query in the proposal engine (two code paths for one
+answer). **Evidence.** `tests/test_proposals_routes.py::test_a_dry_run_names_the_running_job_a_step_would_wait_for`;
+`tests/test_agent_plugin_jobs.py::test_propose_pipeline_reports_the_lock_waits_its_dry_run_found`.
+
+## 2026-10-08 — Finished proposals follow the job registry's retention rule
+
+**Decision.** Jobs are pruned (terminal ones older than 30 days or beyond the newest 200, when the
+job manager starts), so proposals are too, by the same rule: `tit.jobs.registry.expired` is the one
+selector, `JobRegistry.prune` and `tit.server.proposals.prune` both call it, and the proposal
+watcher prunes finished (succeeded, rejected, failed) plans when it starts; pending and running
+plans are kept whatever their age. Supersedes the "Proposals are never pruned" cost line of
+"Agent jobs need the user's approval; the server runs the approved plan" (2026-10-07). No
+contract change.
+
+**Why.** A deliberate parity decision: a plan's card links its jobs, so keeping the plan after
+its jobs are gone leaves a card of lost steps, and dropping it earlier loses the record of what
+was approved while its jobs still show.
+
+**Alternatives rejected.** Keeping proposals forever (they outlive the jobs they describe); a
+separate proposal retention setting (a second rule for one history).
+
+**Evidence.** `tests/test_proposals_routes.py::test_finished_plans_are_pruned_by_the_job_registrys_rule`;
+`tests/test_jobs_registry.py::test_registry_prune_keeps_running_and_recent_terminal`,
+`::test_registry_prune_keep_count` (unchanged, through the shared selector).
+
+## 2026-10-08 — The plugin's MCP servers run `${TIT_PYTHON:-python3}`
+
+**Decision.** `agent-plugin/.mcp.json` starts both servers with `"command": "${TIT_PYTHON:-python3}"`.
+The desktop's Assistant page resolves the interpreter in main (`findPython` in
+`desktop/src/main/assistant.ts`: `python3` on macOS/Linux; `py`, then `python`, then `python3` on
+Windows) on the session's PATH and passes it as `TIT_PYTHON` to Claude Code (a value the user set
+wins) and as `mcp_servers.*.command` to Codex; with none found the launch keeps `python3`. A
+marketplace install on Windows needs `setx TIT_PYTHON py` once (plugin README, AI Assistant wiki
+page).
+
+**Why.** Windows has no `python3` unless the Microsoft Store alias is installed (python.org gives
+`py` and `python`), so the plugin's servers failed to start there. Claude Code's `.mcp.json` has no
+per-platform command (plugins reference, checked 2026-10-08) but expands `${VAR:-default}` in
+`command`; verified with Claude Code 2.1.295: `claude --plugin-dir agent-plugin mcp list` runs
+`python3` unset, `/usr/bin/python3` with `TIT_PYTHON=/usr/bin/python3`, and reports ENOENT for a
+bad value.
+
+**Alternatives rejected.** A launcher script (a `.py` cannot be spawned directly on Windows and a
+`.cmd`/`.sh` pair is two shims for one variable); `"command": "python"` (absent on macOS and most
+Linux); a `userConfig` prompt (every user answers a question only Windows needs).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` ("finds the plugin's Python…", "hands the
+plugin's servers the resolved Python…"); `claude plugin validate agent-plugin`.

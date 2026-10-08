@@ -3287,5 +3287,21 @@
       "current_step": 0.2,
       "channel_limit": 1.6
     }
+  },
+  "x-kind-classes": {
+    "pre": "PreprocessConfig",
+    "sim": "SimulationConfig",
+    "flex": "FlexConfig",
+    "flex_adaptive": "FlexConfig",
+    "flex_pareto": "FlexConfig",
+    "ex": "ExConfig",
+    "mex": "MExConfig",
+    "leadfield": "LeadfieldConfig",
+    "analyzer": "AnalyzerConfig",
+    "source": "SourceConfig",
+    "nifti_average": "NiftiAverageConfig",
+    "nilearn": "NilearnConfig",
+    "stats": "GroupComparisonConfig",
+    "blender": "MontageConfig"
   }
 }

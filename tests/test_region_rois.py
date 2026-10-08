@@ -19,7 +19,9 @@ import pytest
 from tit import catalog
 
 TABLE = json.loads(
-    (Path(__file__).parent / "fixtures" / "region_rois.json").read_text(encoding="utf-8")
+    (Path(__file__).parent / "fixtures" / "region_rois.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 
@@ -48,23 +50,43 @@ REGIONS = {
 }
 
 
+MNI = "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"
+REGIONS["HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"] = [
+    {"id": 4, "name": "Left-Thalamus", "hemi": None},
+    {"id": 15, "name": "Right-Thalamus", "hemi": None},
+]
+
+
 @pytest.fixture()
 def atlases(monkeypatch):
-    found = [
-        {"id": "labeling.nii.gz", "path": LAB, "kind": "volume"},
-        {"id": "DK40", "path": ANNOT, "kind": "surface"},
-    ]
+    found = {
+        ("subject", None): [
+            {"id": "labeling.nii.gz", "path": LAB, "kind": "volume"},
+            {"id": "DK40", "path": ANNOT, "kind": "surface"},
+        ],
+        # What the Optimizer's picker lists in MNI space: the shipped volume atlases.
+        ("mni", "subcortical"): [
+            {
+                "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+                "path": MNI,
+                "kind": "volume",
+            }
+        ],
+    }
     monkeypatch.setattr(
-        catalog, "atlases", lambda pm, sid: found if sid == "101" else None
+        catalog,
+        "atlases",
+        lambda pm, sid, space=None, kind=None: (
+            found.get((space or "subject", kind), []) if sid == "101" else None
+        ),
     )
-    monkeypatch.setattr(
-        catalog, "atlas_regions", lambda pm, sid, atlas: REGIONS[atlas]
-    )
+    monkeypatch.setattr(catalog, "atlas_regions", lambda pm, sid, atlas: REGIONS[atlas])
 
 
 def test_find_regions_splits_sides_and_ignores_side_words(atlases):
-    [hit] = catalog.find_regions(None, "101", "bilateral thalamus")
+    hit, _mni = catalog.find_regions(None, "101", "bilateral thalamus")
     assert hit["atlas"] == "labeling.nii.gz" and hit["kind"] == "volume"
+    assert hit["space"] == "subject" and hit["rois"]["all"]["atlas_space"] == "subject"
     assert [m["side"] for m in hit["matches"]] == ["left", "right"]
     assert hit["rois"]["all"]["label"] == [10, 49]
     assert hit["rois"]["left"]["label"] == [10]
@@ -73,6 +95,9 @@ def test_find_regions_splits_sides_and_ignores_side_words(atlases):
     [hit] = catalog.find_regions(None, "101", "precentral")
     assert hit["rois"]["all"]["atlas_path"] == [ANNOT, ANNOT.replace("/lh.", "/rh.")]
     assert catalog.find_regions(None, "101", "amygdala") == []
+    assert [h["space"] for h in catalog.find_regions(None, "101", "precentral")] == [
+        "subject"
+    ]
     assert catalog.find_regions(None, "999", "thalamus") is None
     with pytest.raises(ValueError, match="name a structure"):
         catalog.find_regions(None, "101", "left")
@@ -94,5 +119,27 @@ def test_regions_route(atlases, monkeypatch, tmp_path):
     auth = {"Authorization": "Bearer t"}
     ok = client.get("/api/catalog/regions?subject=101&q=thalamus", headers=auth)
     assert ok.status_code == 200 and ok.json()[0]["rois"]["all"]["label"] == [10, 49]
-    assert client.get("/api/catalog/regions?subject=101&q=both", headers=auth).status_code == 422
-    assert client.get("/api/catalog/regions?subject=999&q=thalamus", headers=auth).status_code == 404
+    assert (
+        client.get("/api/catalog/regions?subject=101&q=both", headers=auth).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            "/api/catalog/regions?subject=999&q=thalamus", headers=auth
+        ).status_code
+        == 404
+    )
+
+
+def test_find_regions_searches_the_shipped_mni_volumes_after_the_subjects_own(atlases):
+    """An MNI hit is the ROI the picker builds for the same selection in MNI space (the shared
+    table's Harvard-Oxford case)."""
+    [case] = [c for c in TABLE["cases"] if c["atlas"]["path"] == MNI]
+    hits = catalog.find_regions(None, "101", "thalamus")
+    assert [(h["atlas"], h["space"]) for h in hits] == [
+        ("labeling.nii.gz", "subject"),
+        ("HarvardOxford-sub-maxprob-thr25-1mm.nii.gz", "mni"),
+    ]
+    assert hits[1]["rois"]["all"] == case["roi"]
+    assert hits[1]["rois"]["left"]["label"] == [4]
+    assert hits[1]["rois"]["right"]["label"] == [15]

@@ -14,10 +14,13 @@ def check_overwrite_permission(
     *,
     overwrite: bool = False,
 ) -> None:
-    """Reject replacement of existing outputs without explicit confirmation.
+    """Reject outputs outside the project (422) and, without explicit confirmation, the
+    replacement of existing ones (409).
 
-    Use the same filesystem-backed output resolution as the run receipt. Flags alone
-    do not imply data loss: a first run remains valid even if its config permits replacement.
+    Use the same filesystem-backed output resolution as the run receipt
+    (:func:`tit.server.routes.plan.plan`, which refuses an output outside the project). Flags
+    alone do not imply data loss: a first run remains valid even if its config permits
+    replacement.
     """
     from tit.server.routes.plan import ALL_KINDS, PlanRequest, plan
 
@@ -30,12 +33,12 @@ def check_overwrite_permission(
         # skip/refuse existing stages instead of deleting them when it is unset, and treat
         # it as sufficient confirmation, exactly like sim's `overwrite` flag, when it is set.
         return
-    if overwrite:
-        return
     receipt = plan(
         kind,
         PlanRequest(config=config, subject_ids=subject_ids, overwrite=overwrite),
     )
+    if overwrite:
+        return
     conflicts = [job.output_dir for job in receipt.jobs if job.will_overwrite]
     if conflicts:
         raise HTTPException(

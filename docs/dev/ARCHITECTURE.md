@@ -217,8 +217,11 @@ plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of
 sends `agent` and only the fields the agent chose, and writes nothing on the host — raw scans are
 copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the agent's own file tools, under its CLI's
 permission prompts. An agent's target region comes from `GET /api/catalog/regions?subject=&q=`
-(`tit.catalog.find_regions`): the subject's atlas regions matching a structure name, with ready
-`rois.all|left|right`. Its ROI construction (`tit.catalog.region_roi`) and the ROI picker's
+(`tit.catalog.find_regions`): the regions matching a structure name in the subject's own atlases
+and then in the shipped MNI volume atlases the Optimizer's picker lists for MNI space, each entry
+with its `space` and ready `rois.all|left|right` (an MNI one a `SubcorticalROI` with
+`atlas_space: "mni"`). A shipped MNI atlas's regions are named from the colour table
+`resources/atlas/manifest.json` gives it (`tit.atlas.segstats.manifest_lut`), for the picker too. Its ROI construction (`tit.catalog.region_roi`) and the ROI picker's
 `roiToConfig` are one rule kept in two languages — the picker rebuilds its ROI synchronously on
 every selection for the live plan — and `tests/fixtures/region_rois.json` drives both. Excluded
 alternative: a server-side "agent" API or an in-container agent, which would need the user's AI
@@ -236,6 +239,9 @@ from `x-app-defaults[kind]` over the class's schema `default`s. The server fills
 `POST /api/validate/{kind}`, `/api/plan/{kind}`, `/api/jobs/preflight`, `/api/jobs`,
 `/api/jobs/groups` including each `subject_configs` entry — and into every proposal step (a
 `sim_from_flex` step takes `sim`'s). The app's own requests are unchanged: they send whole configs.
+The same document carries `x-kind-classes`, the job kind -> config class table the validate and
+plan routes use (`tit.server.routes.validate`), which the plugin's `get_config_schema` reads
+instead of keeping a copy.
 Excluded alternatives: a copy of the table in the plugin or the renderer (the two drifted from the
 pages by hand); filling defaults for every creator (a script that omits a field means the
 dataclass default); a page-side fallback while the schema loads (a second copy, and a first frame
@@ -248,7 +254,8 @@ decides whether those routes accept `created_by: "agent"`; off, they answer 403 
 (`POST /api/proposals`: title, rationale, ordered steps `{id, kind, config, subject_ids, after,
 note, overwrite}`), stored as `code/ti-toolbox/proposals/<id>.json` by
 [`proposals.py`](../../tit/server/proposals.py), which plans every step with the validate, plan
-and preflight functions the run pages use and pushes `{"type": "proposal"}` on `/ws/jobs` (the
+and preflight functions the run pages use (outputs, replacements, ETA and the plan route's lock
+waits, `plan.lock_conflicts`, on a dry run as on a stored proposal) and pushes `{"type": "proposal"}` on `/ws/jobs` (the
 renderer toasts a newly pending plan; main's job notifier shows a native banner for it while the
 window is unfocused and notifications are on). While
 pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit);
@@ -260,10 +267,21 @@ itself**: steps with no `after` at once, as jobs with the proposer's `created_by
 watcher follows the job manager's status stream), `skipped` when one did not. A `sim_from_flex`
 step names an earlier flex step or a finished run and is resolved at that moment by
 `tit.sim.montage_sources.resolve_flex_simulation`, which `GET /api/sim-from-flex` also serves to
-the agent plugin's `simulate_flex_result`. Step and proposal states are derived from the jobs at
+the agent plugin's `simulate_flex_result`. **A flex run's electrodes are paired one way
+everywhere:** by the optimiser's own `channel_array_indices` (`tit.catalog.pair_by_channel`;
+consecutive only when that record is missing), with every channel kept, for the Simulator's flex
+rows (`GET /api/catalog/flex-runs`), its Map-to-net (`…/mapping`), `/api/plan`'s flex montage
+sources and `resolve_flex_simulation`, which all build the montage through
+`resolve_flex_montage`. A net the run is already mapped to is read from its
+`electrode_mapping_<net>.json`; the Hungarian mapping runs and the cache is written only the first
+time. Excluded alternative: consecutive pairing of the first four electrodes (it disagreed with
+the catalog for an out-of-order record and dropped the extra channels of an mTI run). Step and proposal states are derived from the jobs at
 read time. A finished plan (done, rejected or failed) can be dismissed (`POST /api/proposals/{id}/dismiss`,
 stored as `dismissed_at`; the default list omits it); the Jobs page shows only pending and
-in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Excluded
+in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Finished
+proposals are kept as long as finished jobs: `tit.jobs.registry.expired` (older than 30 days, or
+beyond the newest 200) prunes both, jobs when the job manager starts and proposals when the
+proposal watcher starts. Excluded
 alternatives: queuing dependent steps up front with job-level `after` (the
 submit-time preflight refuses a flex job whose head model a queued `pre` will make, and a
 `sim_from_flex` montage does not exist yet); an agent that waits and submits each step (it
@@ -281,7 +299,12 @@ inherited `PATH`), runs it with cwd = the session's host project folder and adds
 reaches this app's server in Docker and native runtimes alike. The bundled `agent-plugin/`
 (`Resources/agent-plugin`, or the checkout's) is attached for that session only: Claude Code with
 `--plugin-dir`, Codex with `-c mcp_servers.ti-toolbox{,-jobs}.*` overrides, `env_vars` forwarding
-the two variables and a `developer_instructions` pointer to `ti-run-pipelines`. Nothing is written
+the two variables and a `developer_instructions` pointer to `ti-run-pipelines`. The plugin's
+`.mcp.json` starts both servers with `${TIT_PYTHON:-python3}` (Claude Code has no per-platform
+command; it expands variables with a default); main resolves the interpreter on the same PATH
+(`findPython`: `python3`; on Windows `py`, then `python`, then `python3`) and passes it as
+`TIT_PYTHON` to Claude Code (unless the user set it) and as the Codex servers' `command`. A
+plugin installed from the marketplace uses `python3` unless the user sets `TIT_PYTHON`. Nothing is written
 to `~/.claude` or `~/.codex`; login state is the exit status of the CLI's own status command
 (`claude auth status`, `codex login status`), its output discarded. The token is never an argument
 and never logged. A session needs the main window's top frame, a loopback server origin and an
@@ -685,6 +708,14 @@ A run page treats that 409 as the existing-outputs question, not an error, so th
 when its cached plan lagged the disk; Skip submits only the jobs a freshly fetched plan calls new.
 Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
 retain native existence protection. Caller environment variables cannot supply permission.
+
+**Outputs stay inside the project.** The plan route resolves every job's output folder, and any
+that lies outside the project (an absolute `output_folder`/`output_dir` elsewhere, or a run,
+montage, analysis or output name that climbs out) is a 422 on `/api/plan`, on `/api/jobs`,
+`/api/jobs/groups` and reruns whatever `overwrite` says (`check_overwrite_permission` always plans),
+and a planning error on a proposal step, which blocks its approval. The run pages only send folders
+the server resolved under the project. Excluded alternative: a jail per config field (every new
+output field would need its own; the plan already names each job's destination).
 
 Sources: [`overwrite_policy.py`](../../tit/server/overwrite_policy.py),
 [`ExistingOutputsDialog.tsx`](../../desktop/src/renderer/pages/_shared/run/ExistingOutputsDialog.tsx),

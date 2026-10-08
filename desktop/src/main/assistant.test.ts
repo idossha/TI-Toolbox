@@ -10,7 +10,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { buildLaunch, createAssistantSessions, findExecutable, isLoggedIn, isLoopbackOrigin, loginShellPath, parseAssistantOptions, shQuote, tomlString, type PtyProcess } from "./assistant";
+import { buildLaunch, createAssistantSessions, findExecutable, findPython, isLoggedIn, isLoopbackOrigin, loginShellPath, parseAssistantOptions, shQuote, tomlString, type PtyProcess } from "./assistant";
 import type { TitAssistantEvent } from "../shared/tit-bridge";
 
 const TOKEN = "tok-3f9a-secret";
@@ -61,6 +61,17 @@ describe("CLI detection", () => {
   it("finds npm's .cmd shim on Windows", () => {
     const present = new Set(["C:\\Users\\u\\AppData\\Roaming\\npm\\codex.cmd"]);
     expect(findExecutable("codex", "C:\\Windows;C:\\Users\\u\\AppData\\Roaming\\npm\\", "win32", (p) => present.has(p))).toBe("C:\\Users\\u\\AppData\\Roaming\\npm\\codex.cmd");
+  });
+  it("finds the plugin's Python: python3 on macOS and Linux; py, then python, then python3 on Windows", () => {
+    const on = (...files: string[]) => (path: string) => files.includes(path);
+    expect(findPython("/usr/local/bin:/usr/bin", "darwin", on("/usr/bin/python3", "/usr/local/bin/python"))).toBe("/usr/bin/python3");
+    expect(findPython("/usr/bin", "linux", on("/usr/bin/python"))).toBeUndefined();
+    const winPath = "C:\\Users\\u\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Windows;C:\\Python312";
+    const store = "C:\\Users\\u\\AppData\\Local\\Microsoft\\WindowsApps\\python.exe";
+    expect(findPython(winPath, "win32", on(store, "C:\\Windows\\py.exe", "C:\\Python312\\python.exe"))).toBe("C:\\Windows\\py.exe");
+    expect(findPython(winPath, "win32", on(store, "C:\\Python312\\python.exe"))).toBe(store);
+    expect(findPython(winPath, "win32", on("C:\\Python312\\python3.exe"))).toBe("C:\\Python312\\python3.exe");
+    expect(findPython(winPath, "win32", on())).toBeUndefined();
   });
   it("reads login state from the status command's exit code only", async () => {
     const seen: string[][] = [];
@@ -155,6 +166,17 @@ describe("launch", () => {
     expect(launch.file).toBe("cmd.exe");
     expect(launch.args.slice(0, 4)).toEqual(["/d", "/s", "/c", "C:\\npm\\codex.cmd"]);
     expect(launch.args).toContain("mcp_servers.ti-toolbox-jobs.args=['C:\\TI\\resources\\agent-plugin\\mcp\\jobs_server.py']");
+  });
+  it("hands the plugin's servers the resolved Python: TIT_PYTHON for Claude Code, the command for Codex", () => {
+    // The plugin's .mcp.json runs `${TIT_PYTHON:-python3}`.
+    const python = "C:\\Windows\\py.exe";
+    expect(buildLaunch("claude", { ...base, python }).env.TIT_PYTHON).toBe(python);
+    expect(buildLaunch("claude", { ...base, python, baseEnv: { ...base.baseEnv, TIT_PYTHON: "/opt/py/bin/python3" } }).env.TIT_PYTHON).toBe("/opt/py/bin/python3");
+    expect(buildLaunch("claude", base).env.TIT_PYTHON).toBeUndefined();
+    const codex = buildLaunch("codex", { ...base, platform: "win32", python, executable: "C:\\npm\\codex.exe", pluginDir: "C:\\TI\\agent-plugin" });
+    expect(codex.args).toContain("mcp_servers.ti-toolbox.command='C:\\Windows\\py.exe'");
+    expect(codex.args).toContain("mcp_servers.ti-toolbox-jobs.command='C:\\Windows\\py.exe'");
+    expect(buildLaunch("codex", base).args).toContain("mcp_servers.ti-toolbox-jobs.command='python3'");
   });
   it("quotes TOML and shell values safely", () => {
     expect(tomlString("/a b/c")).toBe("'/a b/c'");

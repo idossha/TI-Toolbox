@@ -114,6 +114,41 @@ _THALAMIC_NUCLEI_STEM_PREFIX = "ThalamicNuclei"
 _THALAMIC_NUCLEI_LUT_FILENAME = "ThalamicNuclei_LUT.txt"
 
 
+def manifest_lut(atlas_path: str) -> Path | None:
+    """The colour table ``resources/atlas/manifest.json`` names for a shipped MNI atlas, when it
+    sits beside *atlas_path*; else ``None``.
+
+    The Glasser, Schaefer and MASSP tables do not follow the ``{stem}_LUT.txt`` rule, so without
+    this their labels were named from the FreeSurfer table. The same lookup the optimiser's ROI
+    naming makes (``tit.opt.roi_spec._find_volume_lut``).
+    """
+    from tit.atlas.manifest import mni_atlas_entry
+
+    atlas = Path(atlas_path)
+    described = mni_atlas_entry(atlas.name)
+    if not described or not described.get("labels"):
+        return None
+    table = atlas.with_name(described["labels"])
+    return table if table.is_file() else None
+
+
+def cache_names_from(labels_file: str, lut_file: Path | None) -> bool:
+    """Whether the ``_labels.txt`` cache *labels_file* was named from *lut_file*.
+
+    Always true without a manifest table: other caches (including real ``mri_segstats`` ones)
+    are trusted as before. A shipped MNI atlas's cache must record its table (``# lut <name>``),
+    so a cache named from the FreeSurfer table before :func:`manifest_lut` existed is rebuilt.
+    """
+    if lut_file is None:
+        return True
+    try:
+        with open(labels_file) as fh:
+            header = [line.strip() for line in fh if line.startswith("#")]
+    except OSError:
+        return False
+    return f"# lut {lut_file.name}" in header
+
+
 def resolve_lut_for_atlas(atlas_path: str) -> dict[int, str]:
     """Pick the LUT that names *atlas_path*'s integer labels.
 
@@ -121,8 +156,9 @@ def resolve_lut_for_atlas(atlas_path: str) -> dict[int, str]:
     display names elsewhere in the codebase
     (:func:`tit.opt.roi_spec.resolve_volume_label_names`,
     ``RoiPickerWidget._find_volume_lut``): a sidecar colour table sitting
-    next to the atlas file wins (``labeling_LUT.txt`` for charm's
-    ``labeling.nii.gz``, else ``{stem}_LUT.txt``); for the legacy thalamic-
+    next to the atlas file wins (the ``labels`` table
+    ``resources/atlas/manifest.json`` names for a shipped MNI atlas, ``labeling_LUT.txt`` for
+    charm's ``labeling.nii.gz``, else ``{stem}_LUT.txt``); for the legacy thalamic-
     nuclei atlas family (``ThalamicNuclei.v13.T1*.mgz``) the vendored
     ``resources/atlas/ThalamicNuclei_LUT.txt`` is tried next (FreeSurfer's
     own id -> name table for that atlas, absent from the general-purpose
@@ -162,6 +198,9 @@ def resolve_lut_for_atlas(atlas_path: str) -> dict[int, str]:
     stem = _strip_nifti_suffix(atlas.name)
 
     candidates = []
+    shipped = manifest_lut(atlas_path)
+    if shipped is not None:
+        candidates.append(shipped)
     if atlas.name == "labeling.nii.gz":
         candidates.append(atlas.with_name("labeling_LUT.txt"))
     candidates.append(atlas.with_name(f"{stem}_LUT.txt"))
@@ -232,7 +271,7 @@ def compute_segstats(
     return out
 
 
-def format_segstats_sum(stats: list[SegStat]) -> str:
+def format_segstats_sum(stats: list[SegStat], lut_file: Path | None = None) -> str:
     """Render *stats* in ``mri_segstats --sum``'s own text layout.
 
     Kept byte-compatible with FreeSurfer's historical output columns
@@ -248,6 +287,8 @@ def format_segstats_sum(stats: list[SegStat]) -> str:
         f"# NRows {len(stats)}\n",
         "# ColHeaders Index SegId NVoxels Volume_mm3 StructName\n",
     ]
+    if lut_file is not None:
+        lines.insert(2, f"# lut {lut_file.name}\n")
     for index, stat in enumerate(stats, start=1):
         lines.append(
             f"{index:3d} {stat.seg_id:5d} {stat.n_voxels:10d} "
@@ -256,7 +297,9 @@ def format_segstats_sum(stats: list[SegStat]) -> str:
     return "".join(lines)
 
 
-def write_segstats_sum(stats: list[SegStat], out_path: str) -> None:
+def write_segstats_sum(
+    stats: list[SegStat], out_path: str, lut_file: Path | None = None
+) -> None:
     """Write :func:`format_segstats_sum`'s text to *out_path*."""
     with open(out_path, "w") as fh:
-        fh.write(format_segstats_sum(stats))
+        fh.write(format_segstats_sum(stats, lut_file))

@@ -58,17 +58,6 @@ FLEX_KINDS = ("flex", "flex_adaptive", "flex_pareto")
 SUBJECT_ID_RE = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 )  # tit.paths.SUBJECT_ID_RE
-SCHEMA_CLASS = {
-    "pre": "PreprocessConfig",
-    "sim": "SimulationConfig",
-    "flex": "FlexConfig",
-    "flex_adaptive": "FlexConfig",
-    "flex_pareto": "FlexConfig",
-    "ex": "ExConfig",
-    "mex": "MExConfig",
-    "leadfield": "LeadfieldConfig",
-    "analyzer": "AnalyzerConfig",
-}
 
 NO_STACK = (
     "No running TI-Toolbox found. Open the TI-Toolbox desktop app on your project (or run "
@@ -291,9 +280,10 @@ def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
     )
     if not found:
         raise ToolError(
-            f"no region of sub-{subject}'s atlases matches {args.get('query')!r}. Atlases exist "
-            "only after preprocessing (charm/FastSurfer); try another spelling or ask the user "
-            "for coordinates (SphericalROI)."
+            f"no region of sub-{subject}'s atlases or the shipped MNI atlases matches "
+            f"{args.get('query')!r}. The subject's own atlases exist only after preprocessing "
+            "(charm/FastSurfer); try another spelling or ask the user for coordinates "
+            "(SphericalROI)."
         )
     for hit in found:  # rois.all is every match, in order
         all_roi = hit["rois"]["all"]
@@ -308,7 +298,10 @@ def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
         "atlases": found,
         "how_to_use": "Copy one rois.* object verbatim into FlexConfig.roi. 'all' is the union "
         "of every match (both sides, i.e. bilateral); 'left'/'right' are one side. Surface "
-        "(AtlasROI) targets cortex, volume (SubcorticalROI) targets deep structures.",
+        "(AtlasROI) targets cortex, volume (SubcorticalROI) targets deep structures. Prefer a "
+        "space 'subject' atlas (the subject's own anatomy); a space 'mni' atlas is a template "
+        "parcellation warped to the subject, for structures the subject's atlases lack (e.g. "
+        "CIT168 nuclei) or when the user names that atlas.",
     }
 
 
@@ -332,12 +325,14 @@ def _refs(node: Any, out: set) -> set:
 
 def tool_get_config_schema(args: Dict[str, Any]) -> Dict[str, Any]:
     kind = str(args.get("kind", ""))
-    name = SCHEMA_CLASS.get(kind, kind)
     doc = _api("GET", "/api/schema") or {}
+    # The server's own kind -> class table (tit.server.routes.validate), served in the schema.
+    kinds = doc.get("x-kind-classes", {})
+    name = kinds.get(kind, kind)
     defs = doc.get("$defs", {})
     if name not in defs:
         raise ToolError(
-            f"unknown kind/config class {kind!r}; kinds: {', '.join(SCHEMA_CLASS)}"
+            f"unknown kind/config class {kind!r}; kinds: {', '.join(kinds)}"
         )
     wanted, todo = {name}, [name]
     while todo:
@@ -732,6 +727,7 @@ def _step_summary(step: Dict[str, Any]) -> Dict[str, Any]:
         "errors",
         "missing_inputs",
         "will_overwrite",
+        "lock_conflicts",
         "deferred",
         "eta_minutes",
     ):
@@ -976,9 +972,10 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "find_regions",
-        "description": "Search one subject's atlases for a structure (e.g. 'thalamus', "
-        "'precentral') and return ready-to-use FlexConfig ROI objects: rois.all (bilateral "
-        "union), rois.left, rois.right. Never invent atlas paths or label ids -- use these.",
+        "description": "Search one subject's atlases, then the shipped MNI atlases, for a "
+        "structure (e.g. 'thalamus', 'precentral') and return ready-to-use FlexConfig ROI "
+        "objects per atlas (with its space: subject or mni): rois.all (bilateral union), "
+        "rois.left, rois.right. Never invent atlas paths or label ids -- use these.",
         "inputSchema": _schema(
             {"subject_id": _STR, "query": _STR}, ("subject_id", "query")
         ),

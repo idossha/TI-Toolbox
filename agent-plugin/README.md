@@ -13,7 +13,10 @@ It has three parts, usable together or separately:
 | **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
 
 Plugin version **0.6.0** (`.claude-plugin/plugin.json`). Both servers are
-Python 3.9+ with **no dependencies** (they share `mcp/stdio_loop.py`, the JSON-RPC stdio loop). The read-only server reads from a local
+Python 3.9+ with **no dependencies** (they share `mcp/stdio_loop.py`, the JSON-RPC stdio
+loop). The plugin starts them with `${TIT_PYTHON:-python3}`, so on Windows, where Python is
+usually `py` or `python`, set `TIT_PYTHON` once (`setx TIT_PYTHON py`); the desktop app's
+Assistant page sets it itself. The read-only server reads from a local
 TI-Toolbox checkout when one is present, otherwise it fetches the files from GitHub (`main`) and caches them in `~/.cache/ti-toolbox-mcp`.
 
 **No setup at all:** the desktop app's **Assistant** page runs your own Claude Code
@@ -217,7 +220,7 @@ clients using the `mcpServers` JSON format, merge this entry into their configur
 
 Other clients may use different configuration keys; the command and arguments
 stay the same. HTTP-only clients cannot launch this stdio server directly. On
-Windows, use the installed Python executable and an absolute Windows script path.
+Windows, use the installed Python executable (`py` or `python`) and an absolute Windows script path.
 The server must run on a machine that can read the project directory being
 inspected; a host server needs the host path, not a container's `/mnt/...` path.
 

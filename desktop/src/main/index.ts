@@ -25,7 +25,7 @@ import { containerToHostPath, hasDotSegment, hostToContainerPath, projectDirName
 import { createQuitGate } from "../shared/quitGate";
 import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
 import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "./window";
-import { buildLaunch, createAssistantSessions, findExecutable, isAssistantCli, isLoggedIn, isLoopbackOrigin, loginShellPath, openInSystemTerminal, parseAssistantOptions, type Launch, type SpawnPty } from "./assistant";
+import { buildLaunch, createAssistantSessions, findExecutable, findPython, isAssistantCli, isLoggedIn, isLoopbackOrigin, loginShellPath, openInSystemTerminal, parseAssistantOptions, type Launch, type SpawnPty } from "./assistant";
 import type {
   TitAssistantCli,
   TitAssistantStatus,
@@ -718,7 +718,7 @@ async function assistantLaunch(cli: TitAssistantCli, rawOptions?: unknown): Prom
   const executable = findExecutable(cli, searchPath, process.platform);
   if (!executable) return { error: `${cli} was not found on your PATH.` };
   return {
-    launch: buildLaunch(cli, { executable, pluginDir, projectDir, serverUrl: session.origin, token: session.token, searchPath, baseEnv: process.env, platform: process.platform, options }),
+    launch: buildLaunch(cli, { executable, pluginDir, projectDir, serverUrl: session.origin, token: session.token, searchPath, baseEnv: process.env, platform: process.platform, options, python: findPython(searchPath, process.platform) }),
   };
 }
 

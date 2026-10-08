@@ -48,6 +48,40 @@ def _storage_path(project_dir: str, path: str) -> str:
         raise PermissionError("Job storage path escapes the project directory") from exc
 
 
+def expired(
+    finished: list[tuple[str, str, str | None]],
+    *,
+    keep_count: int = DEFAULT_RETENTION_COUNT,
+    keep_days: float = DEFAULT_RETENTION_DAYS,
+    now: float | None = None,
+) -> list[str]:
+    """The retention rule for finished records: which of *finished* to drop.
+
+    *finished* is ``(id, created_at, finished_at)`` per finished record (ISO-8601 times). A record
+    finished more than *keep_days* ago goes, and so do the oldest beyond the newest *keep_count*.
+    Shared by the job registry (:meth:`JobRegistry.prune`) and the agent proposals
+    (:func:`tit.server.proposals.prune`), so both keep the same history.
+    """
+    import datetime as _dt
+
+    now = now if now is not None else time.time()
+    cutoff = now - keep_days * 86400
+    ordered = sorted(finished, key=lambda item: item[1])  # oldest first
+    removed: list[str] = []
+    for record_id, created_at, finished_at in ordered:
+        try:
+            ts = _dt.datetime.fromisoformat(finished_at or created_at).timestamp()
+        except (TypeError, ValueError):
+            ts = now
+        if ts < cutoff:
+            removed.append(record_id)
+    remaining = [item[0] for item in ordered if item[0] not in removed]
+    overflow = len(remaining) - keep_count
+    if overflow > 0:
+        removed.extend(remaining[:overflow])
+    return removed
+
+
 def jobs_root(project_dir: str) -> str:
     return _storage_path(
         project_dir, os.path.join(project_dir, "code", "ti-toolbox", "jobs")
@@ -231,36 +265,12 @@ class JobRegistry:
             TERMINAL_STATES,
         )  # local import: avoid a cycle at module load
 
-        now = now if now is not None else time.time()
-        cutoff = now - keep_days * 86400
-        records: list[tuple[str, JobStatus]] = []
+        finished: list[tuple[str, str, str | None]] = []
         for job_id in self.list_ids():
             status = self.read_status(job_id)
-            if status is not None:
-                records.append((job_id, status))
-        terminal = [(jid, st) for jid, st in records if st.state in TERMINAL_STATES]
-        terminal.sort(key=lambda pair: pair[1].created_at)  # oldest first
-
-        removed: list[str] = []
-        # Age-based
-        for job_id, status in terminal:
-            finished = status.finished_at or status.created_at
-            try:
-                # created_at/finished_at are ISO-8601; string compare works for same-format
-                # timestamps, but be defensive and just compare via time.time() fallback.
-                import datetime as _dt
-
-                ts = _dt.datetime.fromisoformat(finished).timestamp()
-            except ValueError:
-                ts = now
-            if ts < cutoff:
-                removed.append(job_id)
-
-        # Count-based: beyond keep_count oldest terminal jobs (not already marked)
-        remaining_terminal = [jid for jid, _ in terminal if jid not in removed]
-        overflow = len(remaining_terminal) - keep_count
-        if overflow > 0:
-            removed.extend(remaining_terminal[:overflow])
+            if status is not None and status.state in TERMINAL_STATES:
+                finished.append((job_id, status.created_at, status.finished_at))
+        removed = expired(finished, keep_count=keep_count, keep_days=keep_days, now=now)
 
         for job_id in removed:
             self.delete(job_id)

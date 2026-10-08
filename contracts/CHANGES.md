@@ -1113,3 +1113,38 @@ regions matching a structure name, per atlas, with ready `FlexConfig` ROIs (`roi
 `.right`) built by `tit.catalog.region_roi`, the rule the desktop's ROI picker follows. 404 for an
 unknown subject, 422 for a query of side words only. Additive; the agent plugin's `find_regions`
 now calls it instead of building ROIs itself.
+
+## 2026-10-08 — outputs outside the project are refused
+
+`POST /api/plan/{kind}`, `POST /api/jobs` and `POST /api/jobs/groups` answer 422 ("Outputs must
+stay inside the project folder …") when a job would write outside the project: an absolute
+`FlexConfig.output_folder`, `AnalyzerConfig.output_dir` or blender `output_dir` elsewhere on disk,
+or a run/montage/analysis/output name that climbs out. The jobs routes do so whatever `overwrite`
+says, and a proposal step carries the same sentence in `plan.errors`, so it cannot be approved.
+No schema shape changes; documented 422s only. The desktop run pages already send folders the
+server resolved under the project.
+
+## 2026-10-08 — `GET /api/catalog/regions` searches the shipped MNI atlases too
+
+After the subject's own atlases, the route searches the MNI volume atlases the Optimizer's ROI
+picker offers (`GET /api/catalog/atlases?space=mni&kind=subcortical`); their ROIs are
+`SubcorticalROI` with `atlas_space: "mni"`. `RegionMatch` gains `space` (`subject` | `mni`,
+always present). Additive: a client that ignores `space` sees extra entries after the
+subject-space ones, each with a ready ROI. Region names of the Glasser, Schaefer and MASSP MNI
+atlases (here and in `GET /api/catalog/atlases/regions`) now come from the colour table
+`resources/atlas/manifest.json` names, not FreeSurfer's.
+
+## 2026-10-08 — `x-kind-classes` in `/api/schema`
+
+`config.schema.json` (and so `GET /api/schema`) gains a top-level `x-kind-classes`: job kind ->
+the config class name `POST /api/validate/{kind}` and `/api/plan/{kind}` use
+(`tit.server.routes.validate.SIMPLE_KIND_CLASS`, plus `AMBIGUOUS_KIND_DEFAULT` for `stats` and
+`blender`). The agent plugin's `get_config_schema` reads it and no longer carries its own copy.
+Additive: `$defs` and the other keys are unchanged.
+
+## 2026-10-08 — a proposal step's plan names its lock waits
+
+`ProposalStepPlan` gains optional `lock_conflicts` (`LockConflict[]`): the running jobs holding a
+lock the step needs, from the same `POST /api/plan` check `plan_job` reports, on a dry run and a
+stored proposal alike. Additive: absent on records planned before, and clients that ignore it
+behave as before.
