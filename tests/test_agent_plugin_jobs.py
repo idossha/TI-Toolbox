@@ -2,8 +2,9 @@
 
 What this pins: discovery (env first, then the `tit.stack=ti-toolbox-v3` container, one project
 at a time), the request each verb sends to tit.server, host-side staging that copies and never
-overwrites or escapes `sourcedata/sub-<id>/`, the ROI objects find_regions builds, and the
-flex-result -> simulation chain.
+overwrites or escapes `sourcedata/sub-<id>/`, the ROI objects find_regions builds, the
+flex-result -> simulation chain, watch_proposal returning once per change, and (2026-10-08)
+the stdio server answering other calls while a wait runs, with progress and cancellation.
 
 Where the expected values come from: request shapes are the routes' own contracts
 (contracts/openapi.yaml JobSpec/JobGroupRequest, PlanRequest, MontageSources) and the desktop's
@@ -726,7 +727,7 @@ def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
     )
     assert not err, out
     assert out["proposed"] and out["proposal_id"] == "abcdef0123456789"
-    assert "wait_for_approval" in out["next"]
+    assert "watch_proposal" in out["next"] and "background" in out["next"]
     dry, real = [r["body"] for r in fake.sent("POST", "/api/proposals")]
     assert dry["dry_run"] is True and "dry_run" not in real
     assert real["created_by"] == "agent" and real["client"] == "Claude Code"
@@ -783,34 +784,91 @@ def test_propose_pipeline_with_errors_shows_the_user_nothing(js, fake):
     assert len(fake.sent("POST", "/api/proposals")) == 1  # the dry run only
 
 
-def test_wait_for_approval_reports_rejection_and_edits(js, fake):
+def test_watch_proposal_reports_a_rejection_with_the_users_note(js, fake):
     answers = iter([_proposal(), _proposal("rejected", note="use the left side")])
     fake.routes[("GET", "/api/proposals/abcdef0123456789")] = lambda q, b: (
         200,
         next(answers),
     )
-    err, out = call(
-        js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=5
-    )
+    err, out = call(js, "watch_proposal", proposal_id="abcdef0123456789", timeout_s=5)
     assert not err, out
-    assert out["decision"] == "rejected" and out["note"] == "use the left side"
-    assert "unchanged" in out["next"]
+    assert out["changed"] and out["done"] and out["events"] == ["rejected"]
+    assert out["note"] == "use the left side" and "unchanged" in out["next"]
 
-    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal(
-        "approved", edited_config={"goal": "max"}
-    )
-    err, out = call(js, "wait_for_approval", proposal_id="abcdef0123456789")
+
+def test_watch_proposal_returns_once_per_change_until_done(js, fake):
+    """pending -> approved (edited) -> step running (no change) -> step succeeded (done)."""
+    route = ("GET", "/api/proposals/abcdef0123456789")
+    pid = "abcdef0123456789"
+    fake.routes[route] = _proposal()
+    err, out = call(js, "watch_proposal", proposal_id=pid, timeout_s=0)
+    assert not err and not out["changed"] and out["decision"] == "pending"
+    assert "Say nothing" in out["next"]
+
+    fake.routes[route] = _proposal("approved", edited_config={"goal": "max"})
+    err, out = call(js, "watch_proposal", proposal_id=pid, timeout_s=5)
     assert not err, out
-    assert out["decision"] == "approved" and out["edited_by_user"] is True
+    assert out["events"] == ["approved"] and out["edited_by_user"] is True
     [step] = out["steps"]
     assert step["edited"] and step["approved_config"] == {"goal": "max"}
-    assert step["job_ids"] == ["j1"]
+    assert step["job_ids"] == ["j1"] and not out["done"]
 
-    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal()
-    err, out = call(
-        js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=0
+    # The decision was reported, so the same proposal is no longer a change.
+    err, out = call(js, "watch_proposal", proposal_id=pid, timeout_s=0)
+    assert not err and not out["changed"] and out["events"] == []
+
+    finished = _proposal("approved")
+    finished["status"] = "succeeded"
+    finished["steps"][0]["state"] = "succeeded"
+    fake.routes[route] = finished
+    fake.routes[("GET", "/api/jobs/j1")] = {
+        "status": {"id": "j1", "kind": "flex", "state": "succeeded"}
+    }
+    fake.routes[("GET", "/api/jobs/j1/log")] = "best mean field 0.365 V/m\n"
+    fake.routes[("GET", "/api/jobs/j1/artifacts")] = {
+        "folder": "/p/flex/run",
+        "files": [{"path": "/p/flex/run/report.html", "kind": "report", "label": "r"}],
+    }
+    err, out = call(js, "watch_proposal", proposal_id=pid, timeout_s=5)
+    assert not err, out
+    assert out["events"] == ["step opt succeeded"] and out["done"]
+    [done] = out["finished"]
+    [job] = done["jobs"]
+    assert job["output_folder"] == "/p/flex/run"
+    assert job["log_tail"] == ["best mean field 0.365 V/m"]
+    assert "final summary" in out["next"]
+
+
+def _initialize(js, client):
+    js.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {"clientInfo": {"name": client, "version": "1"}},
+        }
     )
-    assert not err and out["decision"] == "pending" and "again" in out["next"]
+
+
+@pytest.mark.parametrize(
+    "client, args, budget",
+    [
+        ("claude-code", {}, 1500.0),  # the client backgrounds it, so it may wait long
+        ("codex-mcp-client", {}, 45.0),  # under Codex's 60 s per-tool timeout
+        ("claude-code", {"timeout_s": 99999}, 1500.0),
+        ("codex-mcp-client", {"timeout_s": -3}, 0.0),
+    ],
+)
+def test_wait_budget_follows_the_client(js, client, args, budget):
+    _initialize(js, client)
+    assert js._wait_budget(args) == budget
+
+
+def test_codex_is_told_to_end_the_turn_and_offer_status(js, fake):
+    _initialize(js, "codex-mcp-client")
+    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal()
+    err, out = call(js, "watch_proposal", proposal_id="abcdef0123456789", timeout_s=0)
+    assert not err and "'status'" in out["next"] and "timeout_s=0" in out["next"]
 
 
 def test_get_proposal_summarises_steps(js, fake):
@@ -841,7 +899,7 @@ def test_every_tool_declares_honest_annotations(js):
         "get_config_schema",
         "plan_job",
         "wait_for_job",
-        "wait_for_approval",
+        "watch_proposal",
         "get_proposal",
     }
     assert {n for n, h in hints.items() if h.get("destructiveHint")} == {
@@ -850,6 +908,90 @@ def test_every_tool_declares_honest_annotations(js):
         "simulate_flex_result",
     }
     assert all(t["inputSchema"]["type"] == "object" for t in tools)
+
+
+def test_a_waiting_watch_never_holds_up_other_calls_and_stops_on_cancel(fake):
+    """Over the real stdio entry point. Claude Code sends the agent's next call while a
+    backgrounded one still runs (seen with a stub server under claude 2.1.294, 2026-10-08),
+    so a pending watch must not block get_proposal; notifications/cancelled (TaskStop) ends it;
+    progress goes to the token the client sent."""
+    import os
+    import subprocess
+    import sys
+    import time
+
+    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal()
+    proc = subprocess.Popen(
+        [sys.executable, str(JOBS_SERVER)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        env={
+            **os.environ,
+            "TIT_SERVER_URL": fake.url,
+            "TIT_SERVER_TOKEN": TOKEN,
+            "TIT_AGENT_POLL_S": "0.05",
+        },
+    )
+
+    def send(msg):
+        proc.stdin.write((json.dumps(msg) + "\n").encode())
+        proc.stdin.flush()
+
+    def read():
+        return json.loads(proc.stdout.readline())
+
+    try:
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"clientInfo": {"name": "claude-code", "version": "2"}},
+            }
+        )
+        assert read()["id"] == 1
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "watch_proposal",
+                    "arguments": {"proposal_id": "abcdef0123456789"},
+                    "_meta": {"progressToken": "tok-2"},
+                },
+            }
+        )
+        progress = read()  # the watch's first poll
+        assert progress["method"] == "notifications/progress"
+        assert progress["params"]["progressToken"] == "tok-2"
+        assert progress["params"]["message"].startswith("pending")
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_proposal",
+                    "arguments": {"proposal_id": "abcdef0123456789"},
+                },
+            }
+        )
+        assert read()["id"] == 3  # answered while the watch still waits
+        started = time.monotonic()
+        send(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/cancelled",
+                "params": {"requestId": 2},
+            }
+        )
+        watch = read()
+        assert watch["id"] == 2 and time.monotonic() - started < 5
+        assert json.loads(watch["result"]["content"][0]["text"])["changed"] is False
+    finally:
+        proc.kill()
+        proc.wait(timeout=5)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -951,8 +1093,8 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         )
         assert not err and proposed["proposed"], proposed
         pid = proposed["proposal_id"]
-        err, waiting = call(js, "wait_for_approval", proposal_id=pid, timeout_s=0)
-        assert not err and waiting["decision"] == "pending"
+        err, waiting = call(js, "watch_proposal", proposal_id=pid, timeout_s=0)
+        assert not err and waiting["decision"] == "pending" and not waiting["changed"]
 
         def as_user(method, path, body=None):  # what the app's Approve button sends
             req = urllib.request.Request(
@@ -968,8 +1110,8 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
                 return json.loads(resp.read())
 
         as_user("POST", f"/api/proposals/{pid}/approve", {})
-        err, approved = call(js, "wait_for_approval", proposal_id=pid)
-        assert not err and approved["decision"] == "approved", approved
+        err, approved = call(js, "watch_proposal", proposal_id=pid, timeout_s=5)
+        assert not err and approved["events"] == ["approved"], approved
         [job_id] = approved["steps"][0]["job_ids"]
 
         err, done = call(js, "wait_for_job", job_ids=[job_id], timeout_s=20)

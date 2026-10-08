@@ -26,6 +26,9 @@ const STATUS_ARGS: Record<TitAssistantCli, string[]> = { claude: ["auth", "statu
 
 const PATH_MARK = "__TIT_PATH__";
 
+/** `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS` for Assistant sessions (code.claude.com/docs/en/mcp, "Automatic backgrounding"). */
+export const CLAUDE_MCP_BACKGROUND_MS = 5000;
+
 type Run = (file: string, args: string[], options: { env: NodeJS.ProcessEnv; timeout: number; shell?: boolean }) => Promise<{ code: number; stdout: string }>;
 
 export const runFile: Run = (file, args, options) =>
@@ -157,6 +160,10 @@ export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
     env[key] = value;
   }
   Object.assign(env, { PATH: o.searchPath, TERM: "xterm-256color", COLORTERM: "truecolor", TIT_SERVER_URL: o.serverUrl, TIT_SERVER_TOKEN: o.token });
+  // Claude Code moves an MCP call still running after this delay (default 120 s) to a background
+  // task and wakes the agent when it returns; 5 s lets `watch_proposal` free the conversation at
+  // once instead of after two minutes. A value the user set themselves wins.
+  if (cli === "claude" && env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS === undefined) env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS = String(CLAUDE_MCP_BACKGROUND_MS);
   if (needsShell(o.executable, o.platform)) {
     // ponytail: unverified on Windows; ConPTY cannot start a .cmd shim itself, cmd.exe can.
     return { file: "cmd.exe", args: ["/d", "/s", "/c", o.executable, ...args], cwd: o.projectDir, env };
@@ -243,7 +250,9 @@ export const shQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 export function openInSystemTerminal(launch: Launch, platform: NodeJS.Platform, scratchDir: string, spawnDetached: (file: string, args: string[], env: Record<string, string>, cwd: string) => void): void {
   if (platform === "darwin") {
     const script = join(scratchDir, `ti-toolbox-assistant-${process.pid}-${Date.now()}.command`);
-    const exports = ["PATH", "TERM", "COLORTERM", "TIT_SERVER_URL", "TIT_SERVER_TOKEN"].map((key) => `export ${key}=${shQuote(launch.env[key] ?? "")}`);
+    const exports = ["PATH", "TERM", "COLORTERM", "TIT_SERVER_URL", "TIT_SERVER_TOKEN", "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS"]
+      .filter((key) => launch.env[key] !== undefined)
+      .map((key) => `export ${key}=${shQuote(launch.env[key]!)}`);
     const body = ["#!/bin/sh", 'rm -f -- "$0"', ...exports, `cd ${shQuote(launch.cwd)} || exit 1`, `exec ${[launch.file, ...launch.args].map(shQuote).join(" ")}`, ""].join("\n");
     if (existsSync(script)) rmSync(script);
     writeFileSync(script, body, { mode: 0o700 });

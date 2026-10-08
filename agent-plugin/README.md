@@ -12,7 +12,7 @@ It has three parts, usable together or separately:
 | **MCP server `ti-toolbox`** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
 | **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: stage raw scans into `sourcedata/`, preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
 
-Plugin version **0.4.0** (`.claude-plugin/plugin.json`). Both servers are single
+Plugin version **0.5.0** (`.claude-plugin/plugin.json`). Both servers are single
 Python 3.9+ files with **no dependencies**. The read-only server reads from a local
 TI-Toolbox checkout when one is present, otherwise it fetches the files from GitHub (`main`) and caches them in `~/.cache/ti-toolbox-mcp`.
 
@@ -70,12 +70,19 @@ With several projects open, the agent is asked which one.
 | `get_config_schema` | The config schema of a job kind and the app defaults the server fills in |
 | `plan_job` | Validation errors, missing inputs, output folders, what would be overwritten, ETA. Reads only |
 | `propose_pipeline` | Puts a multi-step plan in front of you for approval (validated and planned by the app first) |
-| `wait_for_approval` | Waits for your decision; returns the approved (possibly edited) steps and their job ids, or your note |
+| `watch_proposal` | Returns on the plan's next change: your decision (with any edits, or your note), a finished step with its outputs, or all done |
 | `get_proposal` | Each step's state (waiting, queued, running, succeeded, ...) and job ids |
 | `submit_job` | Queues a job directly — only when you allowed it in Settings |
-| `wait_for_job` | Waits up to `timeout_s` (default 50 s), then reports state, log tail and outputs |
+| `wait_for_job` | Waits for directly submitted jobs, then reports state, log tail and outputs |
 | `cancel_job` | Cancels a queued or running job |
 | `simulate_flex_result` | Turns a finished flex-search run into a simulation in one call (direct mode; otherwise a `sim_from_flex` proposal step) |
+
+**Waiting never holds up the chat.** After proposing, the agent's last call of the turn is
+`watch_proposal`, which returns only when something changes. Claude Code moves an MCP call
+that is still running to a background task — after 2 minutes by default, after 5 s from the
+Assistant page, or at once when you type — and wakes the agent when it returns; the server
+answers the agent's other calls meanwhile. In your own terminal, `export
+CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` gives the same 5 s.
 
 Jobs it starts are recorded with `created_by: "agent"` in their `spec.json` and run
 exactly like the app's own jobs: same queue, same outputs, same reports. Fields the
@@ -156,8 +163,9 @@ command = "python3"
 args = ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/jobs_server.py"]
 ```
 
-`wait_for_job` returns within its `timeout_s` (default 50 s), under any client's tool
-timeout. Staging a very large DICOM folder can take longer; raise `tool_timeout_sec`
+Codex has no background tool calls, so `watch_proposal` and `wait_for_job` return
+within 45 s for it (under its 60 s tool timeout); the agent then ends its turn and you
+say "status" when you want news. Staging a very large DICOM folder can take longer; raise `tool_timeout_sec`
 in the `ti-toolbox-jobs` table if a staging call times out. If `connect` reports that
 `docker` was not found, the server's environment lacks Docker's folder on `PATH`: add a
 `[mcp_servers.ti-toolbox-jobs.env]` table with `PATH = "..."` including the folder

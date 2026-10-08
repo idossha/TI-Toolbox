@@ -69,8 +69,8 @@ host — there is nothing for a user to paste.
 
 **To run jobs for the user** (stage raw scans, preprocess, optimise, simulate) use the
 `ti-toolbox-jobs` server and follow the `ti-run-pipelines` skill: `connect` first,
-`find_regions` for ROIs, `propose_pipeline` and `wait_for_approval` (the user approves the
-plan in the app, which then queues it), `wait_for_job` to follow. Jobs go through the app the
+`find_regions` for ROIs, `propose_pipeline` (the user approves the plan in the app, which
+then queues it) and `watch_proposal` to follow without blocking the conversation. Jobs go through the app the
 user has open and show up in its job list.
 
 If the MCP server is unavailable, fetch the same Markdown from

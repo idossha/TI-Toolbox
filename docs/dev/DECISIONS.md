@@ -2595,3 +2595,38 @@ reaching it, exit shown, Codex not installed, no token in `main.log`);
 `desktop/tests/e2e/packaged-launch.spec.ts` (the packaged main loads node-pty and runs a PTY);
 `desktop/tests/unit/package-runtime.test.ts` and `node scripts/verify-package.mjs` against
 `--dir` builds for mac-arm64, mac (x64) and win-unpacked.
+
+## 2026-10-08 — The agent's waits run in the background; it asks before guessing
+
+**Decision.** The job server's `wait_for_approval` is replaced by `watch_proposal`, which returns
+only on a proposal's next change (decision, a step reaching a final state, all done), with the
+finished steps' output folders, files and log tails. Waits default to 1500 s for Claude Code and
+45 s for other clients (`initialize`'s `clientInfo.name`), send `notifications/progress` to the
+client's token, and stop on `notifications/cancelled`. Each `tools/call` runs on its own thread.
+The Assistant page starts Claude Code with `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` unless the
+user set it. The `ti-run-pipelines` skill makes the watch the last call of a turn and adds an
+ask-first rule for a missing subject, target, run type or goal. Plugin 0.5.0.
+
+**Why.** The frozen chat was Claude Code's automatic backgrounding, not the agent: an MCP call in
+the main conversation moves to a background task only after 120 s (`te=120000`, gated by
+`tengu_mcp_auto_background`, default on, in the 2.1.294 binary; documented at
+code.claude.com/docs/en/mcp), or at once when the user types. `wait_for_approval` returned after
+its 50 s default, so the agent re-called it in the foreground indefinitely; the agent's own
+`wait_for_job(timeout_s=600)` crossed 120 s and became the "MCP task" that worked. MCP
+task-augmented calls (`execution.taskSupport`) exist in the binary but behind `tengu_mcp_tasks`
+(default off). A stub server under `claude -p` with `CLAUDE_AUTO_BACKGROUND_TASKS=1` and a 3 s
+threshold showed the move after 3 s, a progress token on every call, the turn ending, the result
+waking the agent, and the agent's next call arriving while the first still ran — which a
+single-threaded server would have held up for the whole wait. codex-cli 0.155.1 ran the same
+calls in sequence inside the turn (its per-tool timeout is 60 s), so Codex gets a short wait and
+a "say status" turn end.
+
+**Alternatives rejected.** MCP tasks (off behind a flag; a task store for one wait). A
+`run_in_background` Bash watcher script (permission prompts, plugin path and token plumbing).
+Polling with short waits (a foreground call per poll, the observed freeze). Setting
+`CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS` globally (outside the app's reach; documented instead).
+
+**Evidence.** `tests/test_agent_plugin_jobs.py` (`watch_proposal` once per change, rejection, the
+per-client budget, and over the real stdio entry point: a pending watch does not block
+`get_proposal`, progress carries the client's token, cancel ends it);
+`desktop/src/main/assistant.test.ts` (the launch environment).

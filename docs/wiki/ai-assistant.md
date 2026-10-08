@@ -98,6 +98,10 @@ The assistant then looks at the scans and proposes which series is the T1w, T2w,
   args = ["/Users/you/TI-Toolbox/agent-plugin/mcp/jobs_server.py"]
   ```
 
+**It asks before it guesses.** If your request leaves something important open — which subject, the target, whether to simulate a montage you have or optimise one first, the goal or current — the assistant asks one question first: it can propose a sensible default (shown in one line) or ask you a few quick questions. Run names and similar details it fills in itself.
+
+**You can keep talking while it waits.** After proposing, the assistant says the plan is waiting on the **Jobs** page and stops; it is woken when you approve or reject it, and again as each step finishes, and reports the output folders, key numbers and reports, then a summary at the end. In Claude Code the waiting runs as a background task (listed under `/tasks`); from the Assistant page it moves there within seconds, and in your own terminal after two minutes or as soon as you type. Codex cannot wait in the background: it checks for about 45 seconds, then asks you to say **status** whenever you want an update.
+
 The job server needs the `docker` command on the assistant's `PATH`, except when started from the Assistant page below. With several projects open at once, the assistant asks which one you mean.
 
 ### The Assistant page in the desktop app

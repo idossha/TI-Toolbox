@@ -100,6 +100,11 @@ describe("launch", () => {
     expect(env.LANG).toBe("en_US.UTF-8");
     expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined();
   });
+  it("lets Claude Code move a waiting MCP call to the background after 5 s, unless the user chose a delay", () => {
+    expect(buildLaunch("claude", base).env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS).toBe("5000");
+    expect(buildLaunch("claude", { ...base, baseEnv: { ...base.baseEnv, CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "0" } }).env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS).toBe("0");
+    expect(buildLaunch("codex", base).env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS).toBeUndefined();
+  });
   it("leaves one PATH key on Windows and starts a .cmd shim through cmd.exe", () => {
     const launch = buildLaunch("codex", { ...base, platform: "win32", executable: "C:\\npm\\codex.cmd", pluginDir: "C:\\TI\\resources\\agent-plugin", baseEnv: { Path: "C:\\Windows" }, searchPath: "C:\\Windows;C:\\npm" });
     expect(Object.keys(launch.env).filter((k) => k.toUpperCase() === "PATH")).toEqual(["PATH"]);

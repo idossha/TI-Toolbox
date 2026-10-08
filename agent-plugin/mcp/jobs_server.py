@@ -30,6 +30,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -38,7 +39,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 SERVER_NAME = "ti-toolbox-jobs"
-SERVER_VERSION = "0.4.0"
+SERVER_VERSION = "0.5.0"
 PROTOCOL_VERSION = "2025-06-18"
 
 STACK_ID = "ti-toolbox-v3"  # tit/launch.py STACK_ID, desktop/src/shared/compose.ts
@@ -330,8 +331,13 @@ def tool_connect(args: Dict[str, Any]) -> Dict[str, Any]:
             "Plan with plan_job before submit_job; jobs appear live in the desktop app."
             if direct
             else "The user approves agent jobs in the app: plan, then propose_pipeline and "
-            "wait_for_approval. submit_job / simulate_flex_result are refused."
+            "watch_proposal. submit_job / simulate_flex_result are refused."
         ),
+        "before_proposing": "Check the request names subject(s), target (region or "
+        "coordinates), what to run (simulate a given montage / optimise first / both), goal "
+        "or intensity, and the electrode net if it matters. Anything consequential missing or "
+        "ambiguous: ask ONE question offering a default flow (in one line) or a few quick "
+        "questions. Fill low-stakes gaps (run names) yourself.",
     }
 
 
@@ -955,35 +961,110 @@ def _finished(job_id: str, status: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+#: The longest a wait blocks: under Claude Code's 30-minute idle limit for stdio servers even
+#: when the client sends no progress token (code.claude.com/docs/en/mcp, "Timeout configuration").
+MAX_WAIT_S = 1500.0
+#: A client without background tool calls (Codex: 60 s per-tool timeout, calls run in the turn)
+#: gets a short wait, so the turn ends and the user can ask for "status" later.
+SHORT_WAIT_S = 45.0
+
+
+def _backgrounds_waits() -> bool:
+    """Claude Code moves a long MCP call to a background task and wakes the agent when it
+    returns (automatic backgrounding, 120 s by default, CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS).
+    """
+    return str(_CLIENT or "").lower() == "claude-code"
+
+
+def _wait_budget(args: Dict[str, Any]) -> float:
+    default = MAX_WAIT_S if _backgrounds_waits() else SHORT_WAIT_S
+    return min(max(float(args.get("timeout_s", default)), 0.0), MAX_WAIT_S)
+
+
+#: The tools/call being served on this thread: its progress token and cancel event.
+_CALL = threading.local()
+
+
+def _pause(seconds: float) -> bool:
+    """Sleep between polls; True when the client cancelled the call (stop waiting)."""
+    cancel = getattr(_CALL, "cancel", None)
+    if cancel is None:
+        time.sleep(seconds)
+        return False
+    return cancel.wait(seconds)
+
+
+def _progress(message: str) -> None:
+    """A notifications/progress for the current call, when its client asked for them: shows in
+    the client's task list and keeps an idle timer from expiring. At most every 30 s unless the
+    message changes."""
+    token = getattr(_CALL, "token", None)
+    if token is None:
+        return
+    now = time.monotonic()
+    if message == getattr(_CALL, "said", None) and now - _CALL.said_at < 30:
+        return
+    _CALL.said, _CALL.said_at = message, now
+    _CALL.count = getattr(_CALL, "count", 0) + 1
+    _write(
+        {
+            "jsonrpc": "2.0",
+            "method": "notifications/progress",
+            "params": {
+                "progressToken": token,
+                "progress": _CALL.count,
+                "message": message,
+            },
+        }
+    )
+
+
+def _poll(check: Callable[[], Any], timeout: float) -> Any:
+    """Call ``check`` until it returns something truthy, the budget ends or the call is
+    cancelled; returns its last value."""
+    poll = float(os.environ.get("TIT_AGENT_POLL_S", "3"))
+    deadline = time.monotonic() + timeout
+    while True:
+        value = check()
+        left = deadline - time.monotonic()
+        if value or left <= 0 or _pause(min(poll, left)):
+            return value
+
+
+def _job_status(job_id: str) -> Dict[str, Any]:
+    return _api("GET", f"/api/jobs/{urllib.parse.quote(job_id, safe='')}")["status"]
+
+
+def _job_line(status: Dict[str, Any]) -> str:
+    pct = (status.get("progress") or {}).get("pct")
+    return f"{status.get('kind')} {status.get('state')}" + (
+        f" {pct:.0f}%" if isinstance(pct, (int, float)) and pct else ""
+    )
+
+
 def tool_wait_for_job(args: Dict[str, Any]) -> Dict[str, Any]:
     ids = args.get("job_ids") or args.get("job_id")
     ids = [ids] if isinstance(ids, str) else ids
     if not isinstance(ids, list) or not ids or not all(isinstance(i, str) for i in ids):
         raise ToolError("job_ids must be a non-empty list of job ids")
-    timeout = min(max(float(args.get("timeout_s", 50)), 0.0), 600.0)
-    poll = float(os.environ.get("TIT_AGENT_POLL_S", "3"))
-    deadline = time.monotonic() + timeout
-    while True:
-        statuses = {
-            i: _api("GET", f"/api/jobs/{urllib.parse.quote(i, safe='')}")["status"]
-            for i in ids
-        }
-        pending = [
-            i for i, s in statuses.items() if s.get("state") not in TERMINAL_STATES
-        ]
-        if not pending or time.monotonic() >= deadline:
-            break
-        time.sleep(min(poll, max(deadline - time.monotonic(), 0.0)))
+    statuses: Dict[str, Dict[str, Any]] = {}
+
+    def check() -> bool:
+        statuses.update({i: _job_status(i) for i in ids})
+        _progress("; ".join(_job_line(s) for s in statuses.values()))
+        return all(s.get("state") in TERMINAL_STATES for s in statuses.values())
+
+    done = _poll(check, _wait_budget(args))
     return {
-        "done": not pending,
+        "done": done,
         "jobs": [
-            _job_summary(s) if i in pending else _finished(i, s)
+            _finished(i, s) if s.get("state") in TERMINAL_STATES else _job_summary(s)
             for i, s in statuses.items()
         ],
         "next": (
-            "Still running: call wait_for_job again."
-            if pending
-            else "All finished. Report states and output paths to the user."
+            "All finished. Report states and output paths to the user."
+            if done
+            else "Still running: call wait_for_job again."
         ),
     }
 
@@ -1140,8 +1221,16 @@ def tool_propose_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
         "proposal_id": created["id"],
         "status": created["status"],
         "steps": [_step_summary(s) for s in created["steps"]],
-        "next": "Tell the user the plan is waiting for their approval in TI-Toolbox (Jobs "
-        "page), then call wait_for_approval(proposal_id). Do not submit these jobs yourself.",
+        "next": "Write ONE line to the user: the plan is waiting for their approval on the "
+        "TI-Toolbox Jobs page and you will pick it up from there. Then call "
+        "watch_proposal(proposal_id) as the last thing in this turn"
+        + (
+            "; it runs in the background, so end your turn as soon as it is moved there."
+            if _backgrounds_waits()
+            else " (it returns within a minute); if it is still pending, end your turn and "
+            "tell the user to say 'status' anytime."
+        )
+        + " Do not submit these jobs yourself.",
     }
     if any(s.get("will_overwrite") for s in steps):
         out["note"] = (
@@ -1157,45 +1246,123 @@ def _quoted(proposal_id: Any) -> str:
     return urllib.parse.quote(proposal_id, safe="")
 
 
-def tool_wait_for_approval(args: Dict[str, Any]) -> Dict[str, Any]:
-    path = f"/api/proposals/{_quoted(args.get('proposal_id'))}"
-    timeout = min(max(float(args.get("timeout_s", 50)), 0.0), 600.0)
-    poll = float(os.environ.get("TIT_AGENT_POLL_S", "3"))
-    deadline = time.monotonic() + timeout
-    while True:
-        proposal = _api("GET", path)
-        if proposal["decision"]["state"] != "pending" or time.monotonic() >= deadline:
-            break
-        time.sleep(min(poll, max(deadline - time.monotonic(), 0.0)))
-    decision = proposal["decision"]
-    out: Dict[str, Any] = {"decision": decision["state"], "note": decision.get("note")}
-    if decision["state"] == "pending":
-        out["next"] = "Still waiting for the user: call wait_for_approval again."
-    elif decision["state"] == "rejected":
-        out["next"] = (
+#: Proposal statuses after which nothing else happens, and step states that are final.
+PROPOSAL_DONE = ("succeeded", "failed", "rejected")
+STEP_DONE = ("succeeded", "failed", "skipped", "error")
+#: proposal id -> what watch_proposal already reported ("decision", step ids), so each call
+#: returns on the *next* change. ponytail: in this process only; a restarted server reports the
+#: current decision and finished steps once more, which is harmless.
+_REPORTED: Dict[str, set] = {}
+_REPORTED_LOCK = threading.Lock()
+
+
+def _new_events(proposal: Dict[str, Any], mark: bool) -> List[Tuple[str, Any]]:
+    """("decision", state) and ("step", step) not reported yet; marked reported when ``mark``."""
+    with _REPORTED_LOCK:
+        seen = _REPORTED.setdefault(proposal["id"], set())
+        events: List[Tuple[str, Any]] = []
+        if proposal["decision"]["state"] != "pending" and "decision" not in seen:
+            events.append(("decision", proposal["decision"]["state"]))
+        events += [
+            ("step", s)
+            for s in proposal["steps"]
+            if s.get("state") in STEP_DONE and s["id"] not in seen
+        ]
+        if mark:
+            seen.update(
+                "decision" if kind == "decision" else s["id"] for kind, s in events
+            )
+        return events
+
+
+def _approved_steps(proposal: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Each step's summary, with the config that will run where the user edited it."""
+    proposed = {s["id"]: s for s in proposal.get("proposed_steps") or []}
+    out = []
+    for step in proposal["steps"]:
+        summary = _step_summary(step)
+        original = proposed.get(step["id"]) or {}
+        if (step["config"], step["subject_ids"], step.get("overwrite")) != (
+            original.get("config"),
+            original.get("subject_ids"),
+            original.get("overwrite"),
+        ):
+            summary["edited"] = True
+            summary["approved_config"] = step["config"]
+        out.append(summary)
+    return out
+
+
+def _watch_next(status: str, changed: bool) -> str:
+    again = (
+        "call watch_proposal again as the last thing in your turn (it runs in the background) "
+        "and end the turn"
+        if _backgrounds_waits()
+        else "end your turn and tell the user to say 'status' anytime; then call "
+        "watch_proposal(proposal_id, timeout_s=0)"
+    )
+    if status == "rejected":
+        return (
             "The user rejected the plan. Tell them, quote their note, and ask what to change; "
-            "never propose the same plan again unchanged."
+            "never propose the same plan again unchanged. Stop watching."
         )
+    if status in PROPOSAL_DONE:
+        return (
+            "All steps are finished. Give the final summary: each step's state, output folder, "
+            "report (*.html) and the key numbers in its log_tail; for a failure quote error and "
+            "log_tail. Stop watching."
+        )
+    if not changed:
+        return "Nothing changed yet. Say nothing to the user; " + again + "."
+    return (
+        "Report only what changed, in two or three lines (approved / the user's edits / the "
+        "finished step's output folder, report path and key numbers), then "
+        + again
+        + "."
+    )
+
+
+def tool_watch_proposal(args: Dict[str, Any]) -> Dict[str, Any]:
+    path = f"/api/proposals/{_quoted(args.get('proposal_id'))}"
+    latest: Dict[str, Any] = {}
+
+    def check() -> bool:
+        latest.update(_api("GET", path))
+        running = [s["id"] + " " + s["state"] for s in latest["steps"]]
+        _progress(f"{latest['status']}: " + ", ".join(running))
+        return bool(_new_events(latest, mark=False))
+
+    _poll(check, _wait_budget(args))
+    proposal = latest
+    events = _new_events(proposal, mark=True)
+    decision = proposal["decision"]
+    out: Dict[str, Any] = {
+        "proposal_id": proposal["id"],
+        "title": proposal.get("title"),
+        "status": proposal["status"],
+        "decision": decision["state"],
+        "changed": bool(events),
+        "done": proposal["status"] in PROPOSAL_DONE,
+        "events": [
+            ev if kind == "decision" else f"step {ev['id']} {ev['state']}"
+            for kind, ev in events
+        ],
+    }
+    if decision.get("note"):
+        out["note"] = decision["note"]
+    if ("decision", "approved") in events:
+        out["edited_by_user"] = bool(proposal.get("edited"))
+        out["steps"] = _approved_steps(proposal)
     else:
-        proposed = {s["id"]: s for s in proposal["proposed_steps"]}
-        out["edited_by_user"] = proposal.get("edited", False)
-        out["steps"] = []
-        for step in proposal["steps"]:
-            summary = _step_summary(step)
-            original = proposed.get(step["id"]) or {}
-            if (step["config"], step["subject_ids"], step["overwrite"]) != (
-                original.get("config"),
-                original.get("subject_ids"),
-                original.get("overwrite"),
-            ):
-                summary["edited"] = True
-                summary["approved_config"] = step["config"]
-            out["steps"].append(summary)
-        out["next"] = (
-            "Approved: the app queued the steps itself (later steps start when the ones they "
-            "wait on succeed). Follow with wait_for_job(job_ids) and get_proposal; report what "
-            "the user changed, if anything."
-        )
+        out["steps"] = [_step_summary(s) for s in proposal["steps"]]
+    finished = []
+    for kind, step in events:
+        if kind == "step":
+            jobs = [_finished(j, _job_status(j)) for j in step.get("job_ids") or []]
+            finished.append({"step": step["id"], "state": step["state"], "jobs": jobs})
+    if finished:
+        out["finished"] = finished
+    out["next"] = _watch_next(proposal["status"], bool(events))
     return out
 
 
@@ -1344,9 +1511,11 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "wait_for_job",
-        "description": "Wait up to timeout_s (default 50, max 600) for jobs to finish. Returns each "
-        "job's state; finished jobs also get their log tail, output folder and files. Call again "
-        "while done=false -- preprocessing and optimisation take tens of minutes.",
+        "description": "Wait for jobs to finish (direct mode; for a proposal use watch_proposal). "
+        "Returns each job's state; finished jobs also get their log tail, output folder and "
+        "files. Waits up to timeout_s (max 1500; default 1500 in Claude Code, which runs it in "
+        "the background and wakes you when it returns -- end your turn meanwhile; 45 elsewhere). "
+        "Call again while done=false.",
         "inputSchema": _schema(
             {
                 "job_ids": {"type": "array", "items": _STR},
@@ -1396,7 +1565,10 @@ TOOLS: List[Dict[str, Any]] = [
         "intensities and SimulationConfig fields). Omitted fields take the app's defaults; a "
         "flex step without output_folder gets a timestamped run name. The server validates and "
         "plans every step first; with errors nothing is shown to the user. After approval the "
-        "app queues the steps itself -- a step starts when every step in its after succeeded.",
+        "app queues the steps itself -- a step starts when every step in its after succeeded. "
+        "Before proposing, the request must name the subject(s), the target, what to run "
+        "(simulate a given montage, optimise, or both) and the goal; if any of these is "
+        "missing or ambiguous, ask the user first instead of guessing. Then watch_proposal.",
         "inputSchema": _schema(
             {
                 "title": _STR,
@@ -1427,20 +1599,25 @@ TOOLS: List[Dict[str, Any]] = [
         "handler": tool_propose_pipeline,
     },
     {
-        "name": "wait_for_approval",
-        "description": "Wait up to timeout_s (default 50, max 600) for the user to approve or "
-        "reject a proposal. Approved: each step with its job ids and, where the user edited it, "
-        "the config that will run. Rejected: the user's note. Call again while pending.",
+        "name": "watch_proposal",
+        "description": "Follow a proposal until its NEXT change: the user approves or rejects "
+        "it, a step finishes, or everything is done. Returns changed, events, every step's "
+        "state, finished steps' output folders / files / log tails, and next. Call it as the "
+        "last thing in your turn, right after one line telling the user what you are waiting "
+        "for. Claude Code runs it in the background (default timeout_s 1500) and wakes you "
+        "with its result: end your turn, never sit waiting. Other clients: it returns within "
+        "45 s; end the turn and, when the user asks for status, call it with timeout_s=0. "
+        "Keep one watch per proposal.",
         "inputSchema": _schema(
             {"proposal_id": _STR, "timeout_s": {"type": "number"}}, ("proposal_id",)
         ),
         "annotations": _hints(True),
-        "handler": tool_wait_for_approval,
+        "handler": tool_watch_proposal,
     },
     {
         "name": "get_proposal",
         "description": "A proposal's status and each step's state (proposed, waiting, queued, "
-        "running, succeeded, failed, skipped, error) with its job ids.",
+        "running, succeeded, failed, skipped, error) with its job ids. Returns at once.",
         "inputSchema": _schema({"proposal_id": _STR}, ("proposal_id",)),
         "annotations": _hints(True),
         "handler": tool_get_proposal,
@@ -1483,15 +1660,23 @@ def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                     "Runs TI-Toolbox jobs through the app the user has open; every job appears "
                     "live in its job list. Call connect first: unless it says "
                     "approval_required is false, jobs need the user's approval -- propose the "
-                    "whole pipeline with propose_pipeline, wait_for_approval, then follow the "
-                    "queued jobs with wait_for_job / get_proposal. Raw scans: inspect_raw_data "
+                    "whole pipeline with propose_pipeline, then watch_proposal as the last call "
+                    "of the turn (it runs in the background and returns on the next change; "
+                    "never keep the user waiting on it). If the request leaves the subject, "
+                    "target, what to run or the goal open, ask before proposing. Raw scans: "
+                    "inspect_raw_data "
                     "-> confirm -> stage_raw_data. Targets: find_regions, never invented atlas "
                     "paths or labels. Plan before proposing or submitting; never resubmit a "
                     "rejected plan unchanged."
                 ),
             },
         )
-    if method in ("notifications/initialized", "notifications/cancelled"):
+    if method == "notifications/cancelled":
+        cancel = _CANCELS.get(params.get("requestId"))
+        if cancel is not None:
+            cancel.set()
+        return None
+    if method == "notifications/initialized":
         return None
     if method == "ping":
         return _result(id_, {})
@@ -1511,6 +1696,9 @@ def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                     "message": f"Unknown tool: {params.get('name')}",
                 },
             }
+        _CALL.token = (params.get("_meta") or {}).get("progressToken")
+        _CALL.cancel = _CANCELS.setdefault(id_, threading.Event())
+        _CALL.said = None
         try:
             out = fn(params.get("arguments") or {})
             return _text(id_, json.dumps(out, indent=2, ensure_ascii=False), False)
@@ -1518,6 +1706,9 @@ def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             return _text(id_, str(exc), True)
         except Exception as exc:  # noqa: BLE001 - report, never crash the server
             return _text(id_, f"{type(exc).__name__}: {exc}", True)
+        finally:
+            _CANCELS.pop(id_, None)
+            _CALL.token = _CALL.cancel = None
     if id_ is None:
         return None
     return {
@@ -1527,24 +1718,56 @@ def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
+#: In-flight tools/call id -> its cancel event (set by notifications/cancelled).
+_CANCELS: Dict[Any, threading.Event] = {}
+_WRITE_LOCK = threading.Lock()
+
+
+def _write(message: Dict[str, Any]) -> None:
+    line = (json.dumps(message, ensure_ascii=False) + "\n").encode("utf-8")
+    with _WRITE_LOCK:
+        sys.stdout.buffer.write(line)
+        sys.stdout.buffer.flush()
+
+
+def _respond(msg: Any) -> None:
+    resp = handle(msg) if isinstance(msg, dict) else None
+    if resp is not None:
+        _write(resp)
+
+
 def serve() -> None:
+    """Each tools/call runs on its own thread, so a long wait (which Claude Code moves to the
+    background) never holds up the agent's other calls; everything else is answered in order.
+    When stdin closes, waits stop and every call still in flight is answered before exiting.
+    """
+    workers: List[threading.Thread] = []
     for raw in sys.stdin.buffer:
         line = raw.strip()
         if not line:
             continue
         try:
-            resp = handle(json.loads(line))
+            msg = json.loads(line)
         except json.JSONDecodeError:
-            resp = {
-                "jsonrpc": "2.0",
-                "id": None,
-                "error": {"code": -32700, "message": "Parse error"},
-            }
-        if resp is not None:
-            sys.stdout.buffer.write(
-                (json.dumps(resp, ensure_ascii=False) + "\n").encode("utf-8")
+            _write(
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "Parse error"},
+                }
             )
-            sys.stdout.buffer.flush()
+            continue
+        if isinstance(msg, dict) and msg.get("method") == "tools/call":
+            _CANCELS[msg.get("id")] = threading.Event()  # before a cancel can arrive
+            worker = threading.Thread(target=_respond, args=(msg,), daemon=True)
+            worker.start()
+            workers = [w for w in workers if w.is_alive()] + [worker]
+        else:
+            _respond(msg)
+    for cancel in list(_CANCELS.values()):
+        cancel.set()
+    for worker in workers:
+        worker.join()
 
 
 if __name__ == "__main__":
