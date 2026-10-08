@@ -12,7 +12,7 @@
 import { execFile } from "node:child_process";
 import { accessSync, constants, existsSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { TitAssistantCli, TitAssistantEffort, TitAssistantEvent, TitAssistantModel, TitAssistantOptions } from "../shared/tit-bridge";
 
 export const ASSISTANT_CLIS: readonly TitAssistantCli[] = ["claude", "codex"];
@@ -283,7 +283,13 @@ export const shQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
  * carries the URL/token, lives in the user-only app data directory and deletes itself on its first
  * line. Linux and Windows pass the environment to the terminal they start instead; no file.
  */
-export function openInSystemTerminal(launch: Launch, platform: NodeJS.Platform, scratchDir: string, spawnDetached: (file: string, args: string[], env: Record<string, string>, cwd: string) => void): void {
+export function openInSystemTerminal(
+  launch: Launch,
+  platform: NodeJS.Platform,
+  scratchDir: string,
+  spawnDetached: (file: string, args: string[], env: Record<string, string>, cwd: string) => void,
+  which: (bin: string) => string | undefined = (bin) => (bin.includes("/") ? (isExecutable(bin) ? bin : undefined) : findExecutable(bin, launch.env.PATH ?? "", platform)),
+): void {
   if (platform === "darwin") {
     const script = join(scratchDir, `ti-toolbox-assistant-${process.pid}-${Date.now()}.command`);
     const exports = ["PATH", "TERM", "COLORTERM", "TIT_SERVER_URL", "TIT_SERVER_TOKEN", "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS"]
@@ -297,9 +303,39 @@ export function openInSystemTerminal(launch: Launch, platform: NodeJS.Platform, 
     // ponytail: unverified on Windows; `start` hands its environment to the new console.
     spawnDetached("cmd.exe", ["/d", "/c", "start", '""', "/D", launch.cwd, "cmd.exe", "/k", launch.file, ...launch.args], launch.env, launch.cwd);
   } else {
-    // ponytail: Debian's alternatives link only; other desktops get the pane or a copied command.
-    spawnDetached("x-terminal-emulator", ["-e", launch.file, ...launch.args], launch.env, launch.cwd);
+    const terminal = linuxTerminalCommand(which, launch.env, launch.cwd, [launch.file, ...launch.args]);
+    if (!terminal) throw new Error(NO_LINUX_TERMINAL);
+    spawnDetached(terminal.file, terminal.args, launch.env, launch.cwd);
   }
+}
+
+/**
+ * Linux terminals in the order they are tried after `$TERMINAL`, each with its own way of taking
+ * a working directory and a command (argv, never a shell string, so nothing needs quoting). The
+ * spawn's `cwd` covers the ones with no directory flag. `$TERMINAL` named after one of these gets
+ * its flags; any other gets the near-universal `-e`.
+ */
+const LINUX_TERMINALS: Record<string, (dir: string, command: string[]) => string[]> = {
+  "x-terminal-emulator": (_dir, command) => ["-e", ...command],
+  "gnome-terminal": (dir, command) => [`--working-directory=${dir}`, "--", ...command],
+  konsole: (dir, command) => ["--workdir", dir, "-e", ...command],
+  "xfce4-terminal": (dir, command) => [`--working-directory=${dir}`, "-x", ...command],
+  kitty: (dir, command) => ["--directory", dir, ...command],
+  alacritty: (dir, command) => ["--working-directory", dir, "-e", ...command],
+  xterm: (_dir, command) => ["-e", ...command],
+};
+
+export const NO_LINUX_TERMINAL =
+  "No terminal application was found. Install one (gnome-terminal, konsole, xfce4-terminal, kitty, alacritty or xterm) or set $TERMINAL, or use the terminal on this page.";
+
+/** The first terminal found: `$TERMINAL`, then `LINUX_TERMINALS` in order; undefined when none is installed. */
+export function linuxTerminalCommand(which: (bin: string) => string | undefined, env: NodeJS.ProcessEnv, dir: string, command: string[]): { file: string; args: string[] } | undefined {
+  const preferred = env.TERMINAL?.trim();
+  for (const name of [...(preferred ? [preferred] : []), ...Object.keys(LINUX_TERMINALS)]) {
+    const file = which(name);
+    if (file) return { file, args: (LINUX_TERMINALS[basename(name)] ?? LINUX_TERMINALS.xterm!)(dir, command) };
+  }
+  return undefined;
 }
 
 export type ProjectPath = { ok: true; path: string; directory: boolean } | { ok: false; error: string };

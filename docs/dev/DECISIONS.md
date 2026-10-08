@@ -2781,3 +2781,26 @@ escape, prefix sibling, missing, non-strings); `desktop/tests/unit/assistant-pat
 (which printed paths match, Windows case and separators, link columns after wide characters on a
 real xterm buffer); `desktop/tests/e2e/assistant.spec.ts` "a project path the CLI prints is a link
 …" (hover pointer on project paths only, the missing-file toast, main's refusals).
+
+## 2026-10-08 — Linux "Open in system terminal" tries the common terminals, not one link
+
+**Decision.** On Linux the Assistant's system-terminal launch runs the first of `$TERMINAL`,
+`x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `xterm`
+found on the login-shell `PATH` (`linuxTerminalCommand` in `desktop/src/main/assistant.ts`), with
+that terminal's own flags: `--working-directory=<dir> --` (gnome-terminal), `--workdir <dir> -e`
+(konsole), `--working-directory=<dir> -x` (xfce4-terminal), `--directory <dir>` (kitty),
+`--working-directory <dir> -e` (alacritty), and `-e` for xterm, Debian's alternatives link and any
+`$TERMINAL` not in the list (a listed one named by path gets its own flags). The CLI and its
+arguments follow as argv, never a shell string; the spawn's cwd covers terminals with no directory
+flag. None found is an error naming what to install.
+
+**Why.** Only Debian-family systems have `x-terminal-emulator`; on Fedora, Arch or a KDE/Xfce
+desktop the button failed silently (the spawn's error went only to the log).
+
+**Alternatives rejected.** `xdg-terminal-exec` (not installed on most distributions yet); a
+`sh -c` command string (needs quoting of every argument for no gain — each terminal takes argv);
+asking the user for a terminal in Settings (a preference for what `$TERMINAL` already says).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "Linux system terminal" (argv per terminal with
+a mocked lookup, the order, `$TERMINAL` known/unknown/by path, none found). Not exercised on a
+Linux desktop.

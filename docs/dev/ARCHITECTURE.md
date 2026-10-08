@@ -292,8 +292,10 @@ and never logged. A session needs the main window's top frame, a loopback server
 existing local project folder; there is at most one per CLI, a new start replaces it, and every
 session ends on a main-frame navigation (connect, project switch or close, reload), window close
 and app quit. **Open in system terminal** starts the same launch in Terminal (macOS: a self-deleting
-`.command` script in user data, because LaunchServices passes no environment), `x-terminal-emulator`
-(Linux) or a new console (Windows). **Effort and Model** are per-CLI
+`.command` script in user data, because LaunchServices passes no environment), the first of
+`$TERMINAL`, `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`,
+`alacritty`, `xterm` found on the login-shell `PATH`, each with its own directory and command flags
+(Linux; none found is an error that says what to install), or a new console (Windows). **Effort and Model** are per-CLI
 session options the page keeps in `localStorage` and sends with `start`/`openInTerminal`; main maps
 them to `--effort <level>` and `--model <alias>` (Claude Code) or `-c model_reasoning_effort="<level>"`
 (Codex; no model flag), and passes nothing for "My CLI default". The default is Medium for both CLIs,
