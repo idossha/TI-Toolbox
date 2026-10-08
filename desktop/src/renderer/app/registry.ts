@@ -108,7 +108,8 @@ export const NAV_ORDER = [
 ] as const;
 
 /**
- * Pinned to the bottom below a spacer, in this order: **System · Settings · Help**.
+ * Pinned to the bottom below a spacer, in this order: **Assistant · System · Settings · Help**
+ * (Assistant added 2026-10-07: the user's own agent, ARCHITECTURE §6).
  *
  * None of the three takes a rail digit — the workflow digits belong to the workflow rows (see
  * `shortcutForSlot`). Settings keeps ⌘, and Help the `?` sheet; System has no chord at all, which
@@ -118,7 +119,7 @@ export const NAV_ORDER = [
  * Settings over there in the bottom left corner of the UI"*), and the order reads correctly for
  * what these are: the machine, then this install's preferences, then the manual.
  */
-export const PINNED_ORDER = ["system", "settings", "help"] as const;
+export const PINNED_ORDER = ["assistant", "system", "settings", "help"] as const;
 
 /** ⌘, opens Settings. The rail's digits are ⌘0–⌘9 and the workflow digits belong to workflow rows, so this
  *  alias is now Settings' only chord, and the `?` sheet spells it. */

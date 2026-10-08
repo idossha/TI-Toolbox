@@ -59,6 +59,7 @@ const simulations = loadJson("simulations.json");
 const version = loadJson("version.json");
 const capabilities = loadJson("capabilities.json");
 const project = loadJson("project.json");
+const FIXTURE_HOST_PATH = project.host_path;
 const montageListSeed = loadJson("montage_list.json");
 const atlases = loadJson("atlases.json");
 const atlasRegions = loadJson("atlas_regions.json");
@@ -3268,6 +3269,7 @@ route("POST", "/api/__mock/reset", (ctx) => {
     for (const ws of kernel.sockets) ws.close();
   }
   kernelStore.clear();
+  project.host_path = FIXTURE_HOST_PATH;
   json(ctx.res, 200, { jobs_cleared: cleared });
 });
 // Mock-only: switch the project the overview routes describe (3 or 30 subjects). See
@@ -3284,6 +3286,12 @@ route("POST", "/api/__mock/project-status", async (ctx) => {
 });
 route("POST", "/api/__mock/project", async (ctx) => {
   const body = await ctx.body();
+  // `{"host_path": "<dir>"}` points `GET /api/project` at a real host folder for this launch (the
+  // Assistant spec needs a cwd that exists); `null` or `/api/__mock/reset` restores the fixture's.
+  if (body && "host_path" in body) {
+    project.host_path = body.host_path ?? FIXTURE_HOST_PATH;
+    return json(ctx.res, 200, { host_path: project.host_path });
+  }
   const n = Number(body?.subjects ?? 3);
   if (!overviewProjects[n]) return json(ctx.res, 422, { detail: "subjects must be 3 or 30" });
   overview = overviewProjects[n];

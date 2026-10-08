@@ -1,4 +1,6 @@
+import { spawn as spawnChild } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { stat, writeFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -23,7 +25,10 @@ import { containerToHostPath, hasDotSegment, hostToContainerPath, projectDirName
 import { createQuitGate } from "../shared/quitGate";
 import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
 import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "./window";
+import { buildLaunch, createAssistantSessions, findExecutable, isAssistantCli, isLoggedIn, isLoopbackOrigin, loginShellPath, openInSystemTerminal, type Launch, type SpawnPty } from "./assistant";
 import type {
+  TitAssistantCli,
+  TitAssistantStatus,
   TitConnectArgs,
   TitConnectResult,
   TitSelectFileOptions,
@@ -640,7 +645,10 @@ function createWindow(): BrowserWindow {
     event.preventDefault();
     void handleQuitRequest(win, quitWithWatchdog);
   });
+  // A new page (project switch or close, reload) owns no terminal: end every Assistant session.
+  win.webContents.on("did-navigate", () => assistant.killAll());
   win.on("closed", () => {
+    assistant.killAll();
     mainWindow = null;
   });
   return win;
@@ -668,6 +676,57 @@ function guardChildWindow(win: BrowserWindow): void {
     openExternalIfWeb(url);
     return { action: "deny" };
   });
+}
+
+// The Assistant pane's host terminals (ARCHITECTURE §6). node-pty is loaded on first use so a
+// missing or broken native binary disables only this pane, never the app's startup.
+let spawnPty: SpawnPty | undefined;
+const assistant = createAssistantSessions(
+  (file, args, options) => {
+    if (!spawnPty) throw new Error("The terminal module is not loaded.");
+    return spawnPty(file, args, options);
+  },
+  (event) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("tit:assistant:event", event);
+  },
+  (message) => log("info", message),
+);
+let assistantPath: Promise<string> | undefined;
+// An automated run uses its own PATH so a test's stand-in CLI wins over the developer's real one.
+const assistantSearchPath = () =>
+  (assistantPath ??= process.env.TIT_E2E_TOKEN ? Promise.resolve(process.env.PATH ?? "") : loginShellPath(process.env, process.platform));
+
+/** The bundled agent plugin: `Resources/agent-plugin` when packaged, the checkout's otherwise. */
+function assistantPluginDir(): string | undefined {
+  return [join(process.resourcesPath, "agent-plugin"), join(app.getAppPath(), "..", "agent-plugin")].find((dir) =>
+    existsSync(join(dir, ".claude-plugin", "plugin.json")),
+  );
+}
+
+/** Everything a launch needs from the connected session, or why there is none. */
+async function assistantLaunch(cli: TitAssistantCli): Promise<{ launch: Launch } | { error: string }> {
+  const session = activeSession;
+  if (!session) return { error: "Open a project first." };
+  if (!isLoopbackOrigin(session.origin)) return { error: "The Assistant runs only with a TI-Toolbox on this computer." };
+  const projectDir = stack.getCurrent()?.hostProjectDir ?? nativeRuntime.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined;
+  if (!projectDir || !existsSync(projectDir)) return { error: "This session has no project folder on this computer." };
+  const pluginDir = assistantPluginDir();
+  if (!pluginDir) return { error: "The TI-Toolbox agent plugin is missing from this installation." };
+  const searchPath = await assistantSearchPath();
+  const executable = findExecutable(cli, searchPath, process.platform);
+  if (!executable) return { error: `${cli} was not found on your PATH.` };
+  return {
+    launch: buildLaunch(cli, { executable, pluginDir, projectDir, serverUrl: session.origin, token: session.token, searchPath, baseEnv: process.env, platform: process.platform }),
+  };
+}
+
+async function assistantStatus(cli: TitAssistantCli): Promise<TitAssistantStatus> {
+  const searchPath = await assistantSearchPath();
+  const executable = findExecutable(cli, searchPath, process.platform);
+  if (!executable) return { cli, installed: false, running: false };
+  const prepared = await assistantLaunch(cli);
+  const loggedIn = await isLoggedIn(cli, executable, { ...process.env, PATH: searchPath }, process.platform).catch(() => false);
+  return { cli, installed: true, loggedIn, running: assistant.running(cli), ...("error" in prepared ? { unavailable: prepared.error } : {}) };
 }
 
 function registerIpc(): void {
@@ -823,6 +882,57 @@ function registerIpc(): void {
         },
       });
     } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
+  });
+
+  // Only the main window's top frame may drive a host terminal; `assistantLaunch` adds the
+  // local-session rule. The renderer names a CLI, never a command, path or environment.
+  const fromMainFrame = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) =>
+    mainWindow !== null && e.sender === mainWindow.webContents && e.senderFrame === mainWindow.webContents.mainFrame;
+  ipcMain.handle("tit:assistant:detect", async (e, cli: unknown): Promise<TitAssistantStatus | undefined> => {
+    if (!fromMainFrame(e) || !isAssistantCli(cli)) return undefined;
+    return assistantStatus(cli);
+  });
+  ipcMain.handle("tit:assistant:start", async (e, cli: unknown, cols: unknown, rows: unknown) => {
+    if (!fromMainFrame(e) || !isAssistantCli(cli)) return { ok: false, error: "Untrusted assistant request." };
+    const prepared = await assistantLaunch(cli);
+    if ("error" in prepared) return { ok: false, error: prepared.error };
+    try {
+      // Resolved from the main bundle like any CommonJS require: in a package that is
+      // app.asar/node_modules/node-pty, which Electron serves from app.asar.unpacked.
+      spawnPty ??= (createRequire(__filename)("node-pty") as typeof import("node-pty")).spawn as unknown as SpawnPty;
+      assistant.start(cli, prepared.launch, cols, rows);
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log("error", `assistant: could not start ${cli}: ${message}`);
+      return { ok: false, error: `Could not start ${cli}: ${message}` };
+    }
+  });
+  ipcMain.on("tit:assistant:write", (e, cli: unknown, data: unknown) => {
+    if (fromMainFrame(e) && isAssistantCli(cli)) assistant.write(cli, data);
+  });
+  ipcMain.on("tit:assistant:resize", (e, cli: unknown, cols: unknown, rows: unknown) => {
+    if (fromMainFrame(e) && isAssistantCli(cli)) assistant.resize(cli, cols, rows);
+  });
+  ipcMain.handle("tit:assistant:kill", (e, cli: unknown) => {
+    if (fromMainFrame(e) && isAssistantCli(cli)) assistant.kill(cli);
+  });
+  ipcMain.handle("tit:assistant:openInTerminal", async (e, cli: unknown) => {
+    if (!fromMainFrame(e) || !isAssistantCli(cli)) return { ok: false, error: "Untrusted assistant request." };
+    if (!mayShowSystemUi(WINDOW_MODE)) return { ok: false, error: "System terminals are disabled in automated tests." };
+    const prepared = await assistantLaunch(cli);
+    if ("error" in prepared) return { ok: false, error: prepared.error };
+    try {
+      openInSystemTerminal(prepared.launch, process.platform, app.getPath("userData"), (file, args, env, cwd) => {
+        const child = spawnChild(file, args, { env, cwd, detached: true, stdio: "ignore" });
+        child.on("error", (error) => log("warn", `assistant: system terminal: ${error.message}`));
+        child.unref();
+      });
+      log("info", `assistant: opened ${cli} in the system terminal`);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
   });
 
   ipcMain.handle("tit:fastsurfer:status", async (e) => {
@@ -1076,6 +1186,8 @@ app.on("window-all-closed", () => {
   // Staying dock-resident would keep CLI launchers waiting after Docker has stopped.
   quitWithWatchdog();
 });
+
+app.on("will-quit", () => assistant.killAll());
 
 app.on("before-quit", (event) => {
   // Covers quit paths that do not go through a window close first (Cmd+Q, app.quit() elsewhere —

@@ -30,7 +30,7 @@ rationale below consolidates later amendments without treating superseded design
 | 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
 | 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
 | 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
-| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19. `smoke.spec.ts` enforces the exact list | live, amended 2026-09-19 |
+| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-07 |
 | 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
 | 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
 | 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
@@ -2512,3 +2512,86 @@ malformed proposals); `tests/test_jobs_routes.py::test_an_agent_cannot_submit_un
 `tests/test_flex_simulation_resolver.py`; `tests/test_agent_plugin_jobs.py` (proposal verbs, and
 `test_against_the_real_server_jobs_are_recorded_as_agent`: refused submit -> propose -> approve
 over HTTP -> queued as `agent`).
+
+## 2026-10-07 — The Assistant pane: the user's own Claude Code or Codex in a host terminal
+
+**Decision.** The desktop app gains an Assistant page (pinned above System) that runs the user's own
+`claude` or `codex` CLI in a host pseudo-terminal, in the session's project folder, with the bundled
+`agent-plugin/` attached for that session and `TIT_SERVER_URL`/`TIT_SERVER_TOKEN` of the connected
+session in its environment (ARCHITECTURE §6). The preload bridge gains one optional namespace,
+`assistant` (`detect`, `start`, `write`, `resize`, `kill`, `onEvent`, `openInTerminal`): 23 → 24
+top-level entries (ADR row 14). The renderer names only `"claude" | "codex"`; main decides the
+executable, arguments, cwd and environment. Two dependencies: **node-pty 1.1.0** (main, shipped
+unpacked) and **@xterm/xterm 6.0.0 + @xterm/addon-fit 0.11.0** (renderer, bundled). The packaged app
+carries `agent-plugin/` as an extraResource. This closes the "Users drive jobs from their own agent"
+entry's "Revisit if the desktop gains an 'open my agent here' terminal action": the env pair also
+replaces `docker inspect` discovery for sessions started here, so native runtimes work. A session
+started here is an ordinary agent to the server: it proposes plans and the user approves them on the
+Jobs page (entry above), unless the project allows direct submission.
+
+**Flags, as verified on 2026-10-07** (Claude Code 2.1.293, codex-cli 0.155.1, this Mac):
+- Claude Code: `--plugin-dir <Resources>/agent-plugin`. `claude --plugin-dir … plugin list --json`
+  lists it as `ti-toolbox@inline` (scope `session`) beside an installed `ti-toolbox@ti-toolbox`, and
+  `claude --plugin-dir … mcp list` registers `plugin:ti-toolbox:ti-toolbox` and
+  `…:ti-toolbox-jobs` once each, both connected: no double registration, and the session gets the
+  app's own plugin version (the installed marketplace copy here was 0.2.0, without the job server).
+  A plugin MCP server inherits the CLI's environment (an env-dumping server saw both variables).
+- Codex: `-c mcp_servers.ti-toolbox.command='python3'`, `….args=['…/mcp/server.py']`, the same two
+  for `ti-toolbox-jobs`, `-c mcp_servers.ti-toolbox-jobs.env_vars=['TIT_SERVER_URL','TIT_SERVER_TOKEN']`
+  and `-c developer_instructions='…read …/skills/ti-run-pipelines/SKILL.md…'`. `codex … mcp get
+  ti-toolbox-jobs --json` parses them (re-run by `assistant.test.ts` when codex is installed);
+  `codex … debug prompt-input` shows the instruction in the model input; an env-dumping server saw
+  the two variables only with `env_vars` (Codex starts MCP servers with a minimal environment).
+- Login state: `claude auth status` and `codex login status` exit 0 signed in, 1 signed out (signed
+  out reproduced with an empty `CLAUDE_CONFIG_DIR` / `CODEX_HOME`). Only the exit code is read.
+
+**Why.** The "Users drive jobs" entry let a user's agent drive jobs, but only after a manual plugin install,
+a Codex config edit and Docker on the agent's PATH; most users never open a terminal. Running the
+CLI on the host keeps the user's own login and our no-credentials rule; the container has neither
+the CLI nor the login. Session-only flags leave `~/.claude` and `~/.codex` untouched. node-pty is
+the PTY VS Code ships: N-API, so its Node-ABI binary loads in Electron 44 without `electron-rebuild`
+(`npmRebuild: false` stays), and its single package carries darwin-arm64 **and** darwin-x64 plus
+win32-x64 prebuilds, so the release job's one arm64 macOS runner packages both Mac arches. Linux
+compiles it during `npm ci` (verified in `node:22-bookworm`, amd64: `build/Release/pty.node`, a PTY
+echo). xterm.js is the standard terminal emulator for the web; the renderer had none (the existing
+"Terminal" is the job-log console, §6).
+
+**Cost.** A native module in the package: `files`/`asarUnpack` entries, ~1 MB unpacked on macOS,
+2.8 MB on Windows (debug symbols and win32-arm64 excluded). node-pty 1.1.0 publishes the macOS
+`spawn-helper` without its executable bit (every spawn failed with `posix_spawnp failed` under
+Electron 44); `scripts/fix-node-pty.mjs` restores it at `postinstall`, and `verify-package.mjs`
+checks it. The MCP servers still need the host's `python3`. The renderer bundle grows by xterm.
+
+**Security.** A served page can already reach the host through Docker's socket in its container,
+but the bridge still narrows the new capability: top-frame sender, loopback server origin, an
+existing local project folder, a two-value CLI enum, sizes clamped, input capped at 1 MiB per
+write. The token reaches only the CLI's environment (and, for **Open in system terminal** on macOS,
+a 0700 script in user data that deletes itself on its first line); it is never an argument or a log
+line.
+
+**Alternatives rejected.** `@lydell/node-pty` (per-platform optional packages: npm installs only the
+runner's arch, so the x64 Mac app would ship without a binary) and
+`@homebridge/node-pty-prebuilt-multiarch` (per-ABI prebuilds tied to Electron releases). Running the
+CLI in the container's terminal. Writing MCP entries into the user's CLI configuration. Inlining the
+6 KB `ti-run-pipelines` skill into Codex's argv (Windows command-line limit, quoting through
+`cmd.exe`); a one-line pointer to the bundled file is enough. Probing `claude plugin list --json`
+to skip `--plugin-dir` when a plugin is installed (the session copy already supersedes it without
+duplication, and its version matches the app).
+
+**Revisit if** node-pty ships `spawn-helper` executable (delete `fix-node-pty.mjs`), Codex gains a
+plugin-directory flag, or a Windows/Linux acceptance run disagrees with the unverified paths below.
+
+**Not verified here.** Windows ConPTY sessions and the `.cmd` shim route through `cmd.exe`, the
+Windows and Linux **Open in system terminal** routes, and signing/notarisation of the unpacked
+`pty.node`/`spawn-helper` (electron-builder signs Mach-O files in `app.asar.unpacked` with the app;
+only the release job has the identity). A Linux package was not built on this Mac.
+
+**Evidence.** `desktop/src/main/assistant.test.ts` (login-shell PATH, detection, exact launch per
+CLI, env holds the token and no log does, sessions, a real node-pty run, the installed Codex parsing
+the overrides); `desktop/tests/unit/assistant-page.test.tsx` (states);
+`desktop/tests/e2e/assistant.spec.ts` (offscreen: a stand-in `claude` started from the page in the
+project folder with `--plugin-dir`, the server URL and a token in its environment, typed input
+reaching it, exit shown, Codex not installed, no token in `main.log`);
+`desktop/tests/e2e/packaged-launch.spec.ts` (the packaged main loads node-pty and runs a PTY);
+`desktop/tests/unit/package-runtime.test.ts` and `node scripts/verify-package.mjs` against
+`--dir` builds for mac-arm64, mac (x64) and win-unpacked.

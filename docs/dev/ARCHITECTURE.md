@@ -173,9 +173,12 @@ UI tests run hidden and assess state, geometry and rendering assertions. An unav
 is unverified, not passed.
 
 Frozen paths are [`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
-The preload bridge has 23 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
+The preload bridge has 24 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
 `saveNativeTetravoxScene` adds native snapshot saving; `onNotificationSound` lets main have the
-window play a job banner's TI-Toolbox sound. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
+window play a job banner's TI-Toolbox sound; `assistant` (optional: absent means no Assistant pane)
+is the host terminal of §6's user-run agent — `detect`, `start`, `write`, `resize`, `kill`,
+`onEvent`, `openInTerminal`, each taking only `"claude" | "codex"` (plus terminal size or typed
+input), validated in main. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
@@ -238,6 +241,30 @@ submit-time preflight refuses a flex job whose head model a queued `pre` will ma
 would have to stay connected for hours). The setting and the proposal routes are rules for a
 cooperating agent, not a security boundary: anything holding the server token can call every
 route, including approve.
+
+**The user's own agent runs in a host terminal.** The Assistant page (`pages/assistant`, pinned
+above System) hosts xterm.js over a node-pty pseudo-terminal that Electron main spawns on the host
+— not in the container, where neither the CLI nor its login lives. The renderer can name only
+`claude` or `codex`; main resolves the executable on the user's login-shell `PATH` (an interactive
+login shell's `$PATH`, plus `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; Windows uses the
+inherited `PATH`), runs it with cwd = the session's host project folder and adds
+`TIT_SERVER_URL`/`TIT_SERVER_TOKEN` of the connected session to its environment, so the job server
+reaches this app's server in Docker and native runtimes alike. The bundled `agent-plugin/`
+(`Resources/agent-plugin`, or the checkout's) is attached for that session only: Claude Code with
+`--plugin-dir`, Codex with `-c mcp_servers.ti-toolbox{,-jobs}.*` overrides, `env_vars` forwarding
+the two variables and a `developer_instructions` pointer to `ti-run-pipelines`. Nothing is written
+to `~/.claude` or `~/.codex`; login state is the exit status of the CLI's own status command
+(`claude auth status`, `codex login status`), its output discarded. The token is never an argument
+and never logged. A session needs the main window's top frame, a loopback server origin and an
+existing local project folder; there is at most one per CLI, a new start replaces it, and every
+session ends on a main-frame navigation (connect, project switch or close, reload), window close
+and app quit. **Open in system terminal** starts the same launch in Terminal (macOS: a self-deleting
+`.command` script in user data, because LaunchServices passes no environment), `x-terminal-emulator`
+(Linux) or a new console (Windows). Excluded alternatives: running the CLI inside the container (no
+CLI, no login there); a renderer-supplied command line (a served page could run anything on the
+host); writing MCP entries into the user's CLI configuration (persistent side effects outside the
+app). Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
+[`Assistant page`](../../desktop/src/renderer/pages/assistant/index.tsx).
 
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)
 normalizes and merges events; [`JobConsole`](../../desktop/src/renderer/ui/Jobs.tsx) renders them.

@@ -42,6 +42,15 @@ on this computer. The one secret it handles is that TI-Toolbox's local session
 token, which it reads from the running container (as `tit launch` does) and never
 returns to the agent.
 
+**From the desktop app.** The app's **Assistant** page runs your own `claude` or `codex`
+in a terminal in the project folder with this plugin (the copy bundled with the app, so
+its version matches) attached for that session only — Claude Code with `--plugin-dir`,
+Codex with `-c mcp_servers.ti-toolbox*.…` overrides and a `developer_instructions`
+pointer to `skills/ti-run-pipelines/SKILL.md` — and with `TIT_SERVER_URL`/`TIT_SERVER_TOKEN`
+for the open session in the environment. Nothing is written to `~/.claude` or `~/.codex`;
+an installed `ti-toolbox` plugin is superseded for that session, not registered twice.
+No setup below is needed for that route.
+
 **Requirements.** The desktop app (or `tit launch`) open on your project, and
 `docker` on the agent's `PATH`. For a server without Docker, set
 `TIT_SERVER_URL` and `TIT_SERVER_TOKEN` in the agent's environment instead.

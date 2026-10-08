@@ -39,6 +39,24 @@ test.describe("packaged Docker launcher", () => {
     }
   });
 
+  test("loads the packaged terminal module and runs a harmless command in a pseudo-terminal", async () => {
+    const userData = mkdtempSync(join(tmpdir(), "tit-packaged-userdata-"));
+    ownedDirs.push(userData);
+    app = await electron.launch({ executablePath: APP_BIN!, env: { ...process.env, TIT_USER_DATA_DIR: userData, TIT_E2E_OFFSCREEN: "1" } });
+    await app.firstWindow();
+    // The same resolution the Assistant uses (a require from the main bundle): app.asar →
+    // app.asar.unpacked/node_modules/node-pty, its native binary and, on macOS, spawn-helper.
+    const output = await app.evaluate(() => new Promise<string>((resolve, reject) => {
+      const pty = process.mainModule!.require("node-pty") as typeof import("node-pty");
+      const windows = process.platform === "win32";
+      const term = pty.spawn(windows ? "cmd.exe" : "/bin/echo", windows ? ["/c", "echo", "pty-ok"] : ["pty-ok"], { cols: 80, rows: 24, cwd: process.cwd(), env: process.env as Record<string, string> });
+      let text = "";
+      term.onData((data) => { text += data; });
+      term.onExit(({ exitCode }) => (exitCode === 0 ? resolve(text) : reject(new Error(`exit ${exitCode}: ${text}`))));
+    }));
+    expect(output).toContain("pty-ok");
+  });
+
   test("opens usable Docker controls with the packaged version, stays hidden, and closes normally", async () => {
     const project = mkdtempSync(join(tmpdir(), "tit-packaged-project-"));
     const userData = mkdtempSync(join(tmpdir(), "tit-packaged-userdata-"));

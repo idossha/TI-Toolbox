@@ -432,3 +432,16 @@ assertions passed but its external metadata monitor ended inconclusive due to un
 process ancestry. This does not establish OS foreground behavior or Windows/Linux package support.
 TI typecheck, lint (existing warnings), production build and 1,850 desktop unit tests pass; all 23
 focused Viewer/Jobs/shell E2E tests pass. The 13 path/export tests also pass in Linux Python 3.11.
+
+### Assistant pane (host terminal)
+
+`desktop/src/main/assistant.test.ts` pins login-shell `PATH` discovery, CLI detection, the exact
+Claude Code/Codex launch, the token's path (environment, never a log line) and one real node-pty run;
+when `codex` is installed it also asks that Codex to parse the generated `-c` overrides, and prints
+`skipping: …` otherwise. `tests/unit/assistant-page.test.tsx` covers the page states with xterm
+stubbed. `tests/e2e/assistant.spec.ts` runs a stand-in `claude` from the page offscreen against the
+mock (it never runs the developer's real CLI: automated runs search only their own `PATH`), and
+`tests/e2e/packaged-launch.spec.ts` proves the packaged main loads node-pty. `verify-package.mjs`
+checks node-pty, its macOS `spawn-helper` mode and the staged `agent-plugin/`. Not covered by any of
+these: Windows ConPTY sessions, the system-terminal routes on Linux/Windows, a real signed-in CLI
+session, and notarisation of the unpacked native files.

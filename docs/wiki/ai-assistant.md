@@ -88,6 +88,36 @@ With the TI-Toolbox desktop app open on your project, you can ask for work inste
 
 The assistant then looks at the scans and proposes which series is the T1w, T2w, CT or DWI; copies them into the project's `sourcedata/sub-101/` (it never moves or overwrites your files); and **proposes** the work as a plan for you to approve: pre-processing first, then — once it can find the left and right thalamus in that subject's own atlas — the flex-search and a simulation of its winning electrodes. Each approved step is an ordinary job: it appears in **Jobs** and in the page's terminal as it runs, writes the same outputs and reports as a job you start yourself, carries a small **agent** badge, and can be cancelled from the app.
 
+**It uses your own assistant and your own login.** Claude Code runs on your Claude Pro/Max login, Codex on your ChatGPT login. TI-Toolbox never sees, stores or forwards those credentials and has no AI service of its own; the job tools talk only to the TI-Toolbox running on your computer.
+
+- **Claude Code:** nothing more to do; the plugin installed above includes the job server (`ti-toolbox-jobs`) and the `ti-run-pipelines` skill.
+- **Codex:** register the second server too, and expose the `ti-run-pipelines` skill as described in the [plugin README](https://github.com/idossha/TI-Toolbox/blob/main/agent-plugin/README.md#codex-cli-or-desktop):
+  ```toml
+  [mcp_servers.ti-toolbox-jobs]
+  command = "python3"
+  args = ["/Users/you/TI-Toolbox/agent-plugin/mcp/jobs_server.py"]
+  ```
+
+The job server needs the `docker` command on the assistant's `PATH`, except when started from the Assistant page below. With several projects open at once, the assistant asks which one you mean.
+
+### The Assistant page in the desktop app
+
+No setup at all: open **Assistant** in the desktop app's rail (just above System). It is a real terminal running your own `claude` or `codex` on your computer, in your project folder, already connected to the TI-Toolbox you have open — there is nothing to install or configure in TI-Toolbox itself.
+
+1. Pick **Claude Code** or **Codex** at the top.
+2. **Start** it. If it is not signed in yet, sign in inside the pane: type `/login` in Claude Code; Codex asks you to sign in with ChatGPT when it starts.
+3. Ask for what you want, or click an example such as **Bilateral thalamus pipeline**: it types the request into the assistant's input so you can edit it before pressing Enter.
+4. The assistant proposes the work as a plan; approve it on the **Jobs** page (see [Approving a plan](#approving-a-plan)). Nothing runs before you do.
+
+The app starts the assistant with the TI-Toolbox plugin of the same version attached for that session only (Claude Code: `--plugin-dir`; Codex: `-c mcp_servers.…` overrides plus a pointer to the `ti-run-pipelines` guide). Nothing is written to your `~/.claude` or `~/.codex`, and a plugin you installed yourself is not registered twice. It also tells the job tools exactly which TI-Toolbox to use, so the page works without Docker on the assistant's `PATH`, with a native (non-Docker) session too.
+
+- **Not installed?** The page says so and shows the install command (Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`; Codex: `npm install -g @openai/codex`). Install it in a terminal, then click **check again**. TI-Toolbox finds it on the same `PATH` your terminal uses.
+- **Prefer your own terminal?** **Open in system terminal** starts the same session in Terminal (macOS), the default terminal (Linux, through `x-terminal-emulator`) or a console window (Windows).
+- **Restart** starts a fresh session; **Stop** ends it. Closing the project, switching projects or quitting the app ends every Assistant session.
+- The Assistant page needs the desktop app and a project on this computer; in a browser session it explains this instead.
+
+Your login stays with your assistant: TI-Toolbox never sees, stores or forwards it, and only checks whether the assistant reports itself signed in.
+
 ### Approving a plan
 
 Nothing the assistant asks for runs until you approve it. Its plan appears as a card at the top of the **Jobs** page, and the **Jobs** item in the side bar shows how many plans are waiting (a notice pops up when one arrives). The card shows:
@@ -106,18 +136,6 @@ Then:
 A plan that would replace an existing result cannot be approved until you allow replacing on that step (or give it a new run name), and a plan with an error or a missing input cannot be approved at all.
 
 To let the assistant queue jobs directly, without a plan card, turn on **Settings ▸ Project ▸ AI assistant ▸ Agent may submit without approval**. It then asks you in the chat before replacing an existing result. This is a rule the assistant's tools follow, not a lock: anything with the app's session token can do what the app can.
-
-**It uses your own assistant and your own login.** Claude Code runs on your Claude Pro/Max login, Codex on your ChatGPT login. TI-Toolbox never sees, stores or forwards those credentials and has no AI service of its own; the job tools talk only to the TI-Toolbox running on your computer.
-
-- **Claude Code:** nothing more to do; the plugin installed above includes the job server (`ti-toolbox-jobs`) and the `ti-run-pipelines` skill.
-- **Codex:** register the second server too, and expose the `ti-run-pipelines` skill as described in the [plugin README](https://github.com/idossha/TI-Toolbox/blob/main/agent-plugin/README.md#codex-cli-or-desktop):
-  ```toml
-  [mcp_servers.ti-toolbox-jobs]
-  command = "python3"
-  args = ["/Users/you/TI-Toolbox/agent-plugin/mcp/jobs_server.py"]
-  ```
-
-The job server needs the `docker` command on the assistant's `PATH`. With several projects open at once, the assistant asks which one you mean.
 
 ## Using it well
 
@@ -142,8 +160,9 @@ The job server needs the `docker` command on the assistant's `PATH`. With severa
 | `find_symbol` / `search_source` say they need a local checkout | Those two tools grep the source tree; clone the repo and set `TI_TOOLBOX_ROOT=/path/to/TI-Toolbox`. |
 | Stale answers | Delete the cache: `rm -rf ~/.cache/ti-toolbox-mcp`. |
 | "No running TI-Toolbox found" | Open the desktop app on your project (or run `tit launch`), then ask again. |
-| "docker was not found on PATH" | Add Docker's folder (`which docker`) to the job server's environment in your assistant's MCP settings. |
+| "docker was not found on PATH" | Add Docker's folder (`which docker`) to the job server's environment in your assistant's MCP settings, or use the desktop app's **Assistant** page, which needs no Docker on the `PATH`. |
 | The assistant says its job was refused (HTTP 403) | Approval is on: it should propose a plan instead; look for the card on the **Jobs** page. |
 | A plan card shows "Cannot run as proposed" | A step has an error or a missing input (often: pre-process first). Reject it with a note, or edit the step. |
+| Assistant page says "not installed" although it works in your terminal | TI-Toolbox reads the `PATH` of a login shell. Make sure the folder holding `claude`/`codex` is added in your shell profile (`~/.zprofile`, `~/.zshrc` or `~/.bashrc`), then click **check again**. |
 
 For the plugin's internals (skills layout, server architecture, tests), see [Agent Plugin Internals]({{ site.baseurl }}/wiki/agent-plugin/).
