@@ -30,7 +30,7 @@ rationale below consolidates later amendments without treating superseded design
 | 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
 | 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
 | 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
-| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-07 |
+| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07; `assistant.start`/`openInTerminal` gained an options argument 2026-10-08, no new entry). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-08 |
 | 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
 | 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
 | 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
@@ -2659,3 +2659,36 @@ the text testable (an always-on live region for a full-screen TUI) instead of an
 
 **Evidence.** `desktop/tests/e2e/assistant.spec.ts` "the terminal's rows fit the card exactly…".
 
+\n
+## 2026-10-08 — The Assistant starts at Medium effort, and the user can pick effort and model
+
+**Decision.** `assistant.start` and `assistant.openInTerminal` take an optional second payload,
+`{ effort?, model? }`, enums only — a change to a frozen bridge entry, not a new one (the budget
+stays 24). Effort is `medium` (default, "Medium (recommended)"), `low`, `high` or `default` ("My CLI
+default": no flag); model is `default`, `opus`, `sonnet`, `haiku`, `fable` for Claude Code and only
+`default` for Codex. Main validates against an allowlist (anything else is `Untrusted assistant
+request.`) and builds the argv: Claude Code `--effort <level>` and `--model <alias>`, Codex
+`-c model_reasoning_effort="<level>"`; the system-terminal script gets the same flags because it
+runs the same launch. The page remembers the choice per CLI in `localStorage` (like the execution
+preferences), applies it on the next Start/Restart and says "Applies on restart" while a running
+session differs. The menus stop at High.
+
+**Why.** The maintainer asked for a visible control with Medium as the default: proposing a job
+plan does not need the slowest, most plan-limit-hungry setting. Verified 2026-10-08 on
+Claude Code 2.1.294 and codex-cli 0.155.1: `claude --effort bogus` only warns ("Valid values: low,
+medium, high, xhigh, max") and carries on with the default, so the allowlist is ours; `--model opus|
+sonnet|haiku|fable` each started a session on the latest model of that family
+(`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`); `codex debug
+models` lists `low, medium, high, xhigh, max` as supported reasoning levels (`xhigh` on every
+model, `max` not on gpt-5.5) and does not reject an unknown value at parse time.
+
+**Alternatives rejected.** Free-text model or effort (a renderer-chosen argument is exactly what
+§6 forbids); a Codex model menu (its models are an account-dependent catalog with no stable
+aliases); `xhigh`/`max` in the menu (not on every Codex model; `/effort` reaches them in-session);
+writing the setting into `~/.claude/settings.json` or `~/.codex/config.toml` (persistent side
+effects outside the app); a new bridge entry (budget).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "session options" (argv per CLI and option,
+defaults, rejected values); `desktop/tests/unit/assistant-page.test.tsx` (persistence, hint);
+`desktop/tests/e2e/assistant.spec.ts` (the stand-in receives `--effort medium` by default and then
+the chosen flags; the header fits at 1024 and 1440).

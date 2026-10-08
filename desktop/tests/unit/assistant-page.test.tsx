@@ -34,11 +34,16 @@ const linkHandlers: ((event: MouseEvent, uri: string) => void)[] = [];
 vi.mock("@xterm/addon-web-links", () => ({ WebLinksAddon: class { constructor(handler: (event: MouseEvent, uri: string) => void) { linkHandlers.push(handler); } } }));
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
-const { AssistantPanel, CLI_INFO, EXAMPLE_PROMPTS } = await import("../../src/renderer/pages/assistant/index");
+const { AssistantPanel, CLI_INFO, EXAMPLE_PROMPTS, OPTIONS_KEY, EFFORT_TIP } = await import("../../src/renderer/pages/assistant/index");
 const page = (await import("../../src/renderer/pages/assistant/index")).default;
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class { observe() {} disconnect() {} };
+// Radix's select reads pointer capture, which jsdom lacks (same shim as help-popover.test.tsx).
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => {};
+Element.prototype.releasePointerCapture ??= () => {};
+Element.prototype.scrollIntoView ??= () => {};
 
 let container: HTMLDivElement;
 let root: Root;
@@ -61,6 +66,11 @@ function makeBridge(status: TitAssistantStatus) {
 
 beforeEach(() => {
   written.length = 0;
+  const store = new Map<string, string>(); // this jsdom's localStorage has no clear()
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) },
+  });
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -127,7 +137,7 @@ it("runs a session: start with the terminal's size, output, an example prompt ty
   expect(container.textContent).toContain("Not started");
   await act(async () => button("Start Claude Code").click());
   await settle();
-  expect(bridge.start).toHaveBeenCalledWith("claude", 90, 20);
+  expect(bridge.start).toHaveBeenCalledWith("claude", 90, 20, { effort: "medium", model: "default" });
   expect(button("Restart")).toBeTruthy();
   expect(container.textContent).toContain("Running");
   act(() => listeners.forEach((l) => l({ cli: "claude", type: "data", data: "Welcome to Claude Code" })));
@@ -171,4 +181,82 @@ it("reports a failed start", async () => {
   await act(async () => button("Start Claude Code").click());
   await settle();
   expect(container.textContent).toContain("only with a TI-Toolbox on this computer");
+});
+
+/** Radix's select opens on pointerdown and lists its options in a portal. */
+async function choose(label: string, option: string) {
+  const trigger = container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+  await act(async () => {
+    trigger.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerType: "mouse" }));
+  });
+  const item = [...document.querySelectorAll<HTMLElement>("[role=option]")].find((el) => el.textContent === option)!;
+  await act(async () => {
+    item.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0, pointerType: "mouse" }));
+    item.click();
+  });
+  await settle();
+}
+const trigger = (label: string) => container.querySelector(`button[aria-label="${label}"]`)?.textContent;
+
+it("starts with Medium effort and the CLI's own model, and explains the effort choice", async () => {
+  makeBridge({ cli: "claude", installed: true, loggedIn: true, running: false });
+  await render(<AssistantPanel bridge={bridge} />);
+  expect(trigger("Effort")).toBe("Medium (recommended)");
+  expect(trigger("Model")).toBe("My CLI default");
+  expect(container.querySelector(`[title="${EFFORT_TIP}"]`)).toBeTruthy();
+  expect(container.textContent).not.toContain("Applies on restart");
+});
+
+it("sends the chosen options on start, remembers them per CLI across mounts, and gives Codex no model menu", async () => {
+  makeBridge({ cli: "claude", installed: true, loggedIn: true, running: false });
+  await render(<AssistantPanel bridge={bridge} />);
+  await choose("Effort", "High");
+  await choose("Model", "Sonnet");
+  expect(JSON.parse(window.localStorage.getItem(OPTIONS_KEY)!).claude).toEqual({ effort: "high", model: "sonnet" });
+  await act(async () => button("Start Claude Code").click());
+  await settle();
+  expect(bridge.start).toHaveBeenCalledWith("claude", 90, 20, { effort: "high", model: "sonnet" });
+  await act(async () => button("Open in system terminal").click());
+  expect(bridge.openInTerminal).toHaveBeenCalledWith("claude", { effort: "high", model: "sonnet" });
+
+  act(() => [...container.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === "Codex")!.click());
+  await settle();
+  expect(trigger("Effort")).toBe("Medium (recommended)");
+  expect(trigger("Model")).toBeUndefined();
+  await choose("Effort", "Low");
+  expect(JSON.parse(window.localStorage.getItem(OPTIONS_KEY)!)).toMatchObject({ claude: { effort: "high", model: "sonnet" }, codex: { effort: "low", model: "default" } });
+
+  act(() => root.unmount());
+  root = createRoot(container);
+  await render(<AssistantPanel bridge={bridge} />);
+  expect(trigger("Effort")).toBe("High");
+  expect(trigger("Model")).toBe("Sonnet");
+});
+
+it("ignores a stored value that is no longer on the menu", async () => {
+  window.localStorage.setItem(OPTIONS_KEY, JSON.stringify({ claude: { effort: "bogus", model: "gpt" }, codex: { model: "opus" } }));
+  makeBridge({ cli: "claude", installed: true, loggedIn: true, running: false });
+  await render(<AssistantPanel bridge={bridge} />);
+  expect(trigger("Effort")).toBe("Medium (recommended)");
+  expect(trigger("Model")).toBe("My CLI default");
+});
+
+it("says a change applies on restart while a session runs, and not after the restart", async () => {
+  makeBridge({ cli: "claude", installed: true, loggedIn: true, running: false });
+  await render(<AssistantPanel bridge={bridge} />);
+  await choose("Effort", "Low");
+  expect(container.textContent).not.toContain("Applies on restart");
+  await act(async () => button("Start Claude Code").click());
+  await settle();
+  expect(container.textContent).not.toContain("Applies on restart");
+  await choose("Effort", "High");
+  expect(container.textContent).toContain("Applies on restart");
+  await choose("Effort", "Low");
+  expect(container.textContent).not.toContain("Applies on restart");
+  await choose("Model", "Haiku");
+  expect(container.textContent).toContain("Applies on restart");
+  await act(async () => button("Restart").click());
+  await settle();
+  expect(bridge.start).toHaveBeenLastCalledWith("claude", 90, 20, { effort: "low", model: "haiku" });
+  expect(container.textContent).not.toContain("Applies on restart");
 });

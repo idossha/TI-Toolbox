@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   TitAssistantCli,
   TitAssistantEvent,
+  TitAssistantOptions,
   TitBridge,
   TitConnectArgs,
   TitSelectFileOptions,
@@ -56,7 +57,7 @@ const tit: TitBridge = {
   },
   assistant: {
     detect: (cli: TitAssistantCli) => ipcRenderer.invoke("tit:assistant:detect", cli),
-    start: (cli: TitAssistantCli, cols: number, rows: number) => ipcRenderer.invoke("tit:assistant:start", cli, cols, rows),
+    start: (cli: TitAssistantCli, cols: number, rows: number, options?: TitAssistantOptions) => ipcRenderer.invoke("tit:assistant:start", cli, cols, rows, options),
     write: (cli: TitAssistantCli, data: string) => ipcRenderer.send("tit:assistant:write", cli, String(data)),
     resize: (cli: TitAssistantCli, cols: number, rows: number) => ipcRenderer.send("tit:assistant:resize", cli, cols, rows),
     kill: (cli: TitAssistantCli) => ipcRenderer.invoke("tit:assistant:kill", cli),
@@ -65,7 +66,7 @@ const tit: TitBridge = {
       ipcRenderer.on("tit:assistant:event", handler);
       return () => ipcRenderer.removeListener("tit:assistant:event", handler);
     },
-    openInTerminal: (cli: TitAssistantCli) => ipcRenderer.invoke("tit:assistant:openInTerminal", cli),
+    openInTerminal: (cli: TitAssistantCli, options?: TitAssistantOptions) => ipcRenderer.invoke("tit:assistant:openInTerminal", cli, options),
   },
   stack: {
     switchProject: (hostProjectDir?: string): Promise<TitStackStopResult> => ipcRenderer.invoke("tit:stack:switchProject", hostProjectDir),

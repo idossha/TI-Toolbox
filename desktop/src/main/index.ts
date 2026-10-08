@@ -25,7 +25,7 @@ import { containerToHostPath, hasDotSegment, hostToContainerPath, projectDirName
 import { createQuitGate } from "../shared/quitGate";
 import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
 import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "./window";
-import { buildLaunch, createAssistantSessions, findExecutable, isAssistantCli, isLoggedIn, isLoopbackOrigin, loginShellPath, openInSystemTerminal, type Launch, type SpawnPty } from "./assistant";
+import { buildLaunch, createAssistantSessions, findExecutable, isAssistantCli, isLoggedIn, isLoopbackOrigin, loginShellPath, openInSystemTerminal, parseAssistantOptions, type Launch, type SpawnPty } from "./assistant";
 import type {
   TitAssistantCli,
   TitAssistantStatus,
@@ -704,7 +704,9 @@ function assistantPluginDir(): string | undefined {
 }
 
 /** Everything a launch needs from the connected session, or why there is none. */
-async function assistantLaunch(cli: TitAssistantCli): Promise<{ launch: Launch } | { error: string }> {
+async function assistantLaunch(cli: TitAssistantCli, rawOptions?: unknown): Promise<{ launch: Launch } | { error: string }> {
+  const options = parseAssistantOptions(cli, rawOptions);
+  if (!options) return { error: "Untrusted assistant request." };
   const session = activeSession;
   if (!session) return { error: "Open a project first." };
   if (!isLoopbackOrigin(session.origin)) return { error: "The Assistant runs only with a TI-Toolbox on this computer." };
@@ -716,7 +718,7 @@ async function assistantLaunch(cli: TitAssistantCli): Promise<{ launch: Launch }
   const executable = findExecutable(cli, searchPath, process.platform);
   if (!executable) return { error: `${cli} was not found on your PATH.` };
   return {
-    launch: buildLaunch(cli, { executable, pluginDir, projectDir, serverUrl: session.origin, token: session.token, searchPath, baseEnv: process.env, platform: process.platform }),
+    launch: buildLaunch(cli, { executable, pluginDir, projectDir, serverUrl: session.origin, token: session.token, searchPath, baseEnv: process.env, platform: process.platform, options }),
   };
 }
 
@@ -892,9 +894,9 @@ function registerIpc(): void {
     if (!fromMainFrame(e) || !isAssistantCli(cli)) return undefined;
     return assistantStatus(cli);
   });
-  ipcMain.handle("tit:assistant:start", async (e, cli: unknown, cols: unknown, rows: unknown) => {
+  ipcMain.handle("tit:assistant:start", async (e, cli: unknown, cols: unknown, rows: unknown, options: unknown) => {
     if (!fromMainFrame(e) || !isAssistantCli(cli)) return { ok: false, error: "Untrusted assistant request." };
-    const prepared = await assistantLaunch(cli);
+    const prepared = await assistantLaunch(cli, options);
     if ("error" in prepared) return { ok: false, error: prepared.error };
     try {
       // Resolved from the main bundle like any CommonJS require: in a package that is
@@ -917,10 +919,10 @@ function registerIpc(): void {
   ipcMain.handle("tit:assistant:kill", (e, cli: unknown) => {
     if (fromMainFrame(e) && isAssistantCli(cli)) assistant.kill(cli);
   });
-  ipcMain.handle("tit:assistant:openInTerminal", async (e, cli: unknown) => {
+  ipcMain.handle("tit:assistant:openInTerminal", async (e, cli: unknown, options: unknown) => {
     if (!fromMainFrame(e) || !isAssistantCli(cli)) return { ok: false, error: "Untrusted assistant request." };
     if (!mayShowSystemUi(WINDOW_MODE)) return { ok: false, error: "System terminals are disabled in automated tests." };
-    const prepared = await assistantLaunch(cli);
+    const prepared = await assistantLaunch(cli, options);
     if ("error" in prepared) return { ok: false, error: prepared.error };
     try {
       openInSystemTerminal(prepared.launch, process.platform, app.getPath("userData"), (file, args, env, cwd) => {

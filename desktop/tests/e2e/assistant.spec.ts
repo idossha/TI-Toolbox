@@ -2,7 +2,8 @@
  * The Assistant pane end to end (ARCHITECTURE §6), offscreen, against the mock server: the page
  * finds a CLI on PATH, starts it in a real host PTY in the project folder with the bundled plugin
  * flag and the session's server URL/token in its environment, carries keystrokes to it, reports its
- * exit, and shows the not-installed state for the other CLI. The second test pins the terminal's
+ * exit, and shows the not-installed state for the other CLI. Its Effort and Model menus decide the
+ * flags the stand-in receives (Medium by default, then what the user chose). The second test pins the terminal's
  * geometry: the grid xterm draws and the size the PTY is told both fit the card exactly, above the
  * jobs rail, at several window sizes, in both themes, with the rail expanded too.
  *
@@ -102,6 +103,8 @@ test("runs the user's CLI in a host terminal with the plugin and the session att
   await expect(page.getByText("Running", { exact: true })).toBeVisible();
   const text = await terminalText();
   expect(text).toContain("agent-plugin");
+  expect(text).toMatch(/args=--plugin-dir \S+ --effort medium\r?\n?$/m);
+  expect(text).not.toContain("--model");
   expect(text).toContain(`cwd=${dirs.project}`);
   expect(text).toContain(`server=${SERVER_URL} token=present`);
 
@@ -113,6 +116,14 @@ test("runs the user's CLI in a host terminal with the plugin and the session att
   await expect.poll(terminalText).toContain("Claude Code exited with code 0");
   await expect(page.getByText("Exited (code 0)")).toBeVisible();
   await expect(page.getByRole("button", { name: "Start Claude Code" })).toBeVisible();
+
+  // A choice is remembered and reaches the next start's flags.
+  await page.getByRole("combobox", { name: "Effort" }).click();
+  await page.getByRole("option", { name: "High" }).click();
+  await page.getByRole("combobox", { name: "Model" }).click();
+  await page.getByRole("option", { name: "Sonnet" }).click();
+  await page.getByRole("button", { name: "Start Claude Code" }).click();
+  await expect.poll(terminalText, { timeout: 15_000 }).toContain("--effort high --model sonnet");
 
   await page.getByRole("radio", { name: "Codex" }).click();
   await expect(page.getByText("Codex is not installed")).toBeVisible();
@@ -243,4 +254,62 @@ test("the terminal's rows fit the card exactly, above the jobs rail, at every si
   await page.getByRole("button", { name: "Expand jobs rail" }).click();
   await expectFits("rail expanded");
   await page.screenshot({ path: join(ARTIFACTS, "assistant-dark-1280x900-rail.png") });
+});
+
+test("the effort and model menus fit the header without wrapping, in both themes", async () => {
+  test.setTimeout(90_000);
+  await openAssistant(standIn('#!/bin/sh\nif [ "$1" = auth ]; then exit 0; fi\nsleep 60\n'), { width: 1024, height: 700 });
+  await expect(page.getByRole("combobox", { name: "Effort" })).toBeVisible();
+  for (const theme of ["light", "dark"] as const) {
+    await setTheme(page, theme);
+    for (const width of [1024, 1440]) {
+      await page.setViewportSize({ width, height: 700 });
+      const rows = await page.evaluate(() =>
+        [".assistant-toolbar", ".assistant-hints"].map((selector) => {
+          const row = document.querySelector(selector)!;
+          const box = row.getBoundingClientRect();
+          return {
+            selector,
+            height: box.height,
+            overflow: row.scrollWidth - row.clientWidth,
+            // Every child inside the row, and one line: nothing wrapped under another.
+            outside: [...row.children].filter((el) => el.getBoundingClientRect().right > box.right + 0.5).length,
+          };
+        }),
+      );
+      const truncated = await page.evaluate(() =>
+        ["Effort", "Model"].map((name) => {
+          const value = document.querySelector(`button[aria-label="${name}"] .picker-value`)!;
+          // scrollWidth reads 0 for this flex item: compare the text's own width instead.
+          const text = document.createRange();
+          text.selectNodeContents(value);
+          return Math.max(0, Math.round(text.getBoundingClientRect().width - value.getBoundingClientRect().width));
+        }),
+      );
+      await page.screenshot({ path: join(ARTIFACTS, `assistant-effort-${theme}-${width}.png`), clip: { x: 0, y: 0, width, height: 140 } });
+      for (const row of rows) {
+        expect(row.height, `${theme} ${width} ${row.selector}: one 28px line`).toBeLessThanOrEqual(28);
+        expect(row.overflow, `${theme} ${width} ${row.selector}: nothing spills out`).toBeLessThanOrEqual(0);
+        expect(row.outside, `${theme} ${width} ${row.selector}: every control inside`).toBe(0);
+      }
+      expect(truncated, `${theme} ${width}: both menus show their whole value`).toEqual([0, 0]); // ellipsis would make the range wider than its box
+    }
+  }
+
+  // Running, with a change waiting for a restart: the row is at its widest and still one line.
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await page.getByRole("button", { name: "Start Claude Code" }).click();
+  await expect(page.getByText("Running", { exact: true })).toBeVisible();
+  await page.getByRole("combobox", { name: "Effort" }).click();
+  await page.getByRole("option", { name: "High" }).click();
+  await expect(page.getByText("Applies on restart")).toBeVisible();
+  const widest = await page.evaluate(() =>
+    [".assistant-toolbar", ".assistant-hints"].map((selector) => {
+      const row = document.querySelector(selector)!;
+      const right = row.getBoundingClientRect().right;
+      return { height: row.getBoundingClientRect().height, overflow: row.scrollWidth - row.clientWidth, outside: [...row.children].filter((el) => el.getBoundingClientRect().right > right + 0.5).length };
+    }),
+  );
+  await page.screenshot({ path: join(ARTIFACTS, "assistant-effort-dark-1024-restart.png"), clip: { x: 0, y: 0, width: 1024, height: 140 } });
+  for (const row of widest) expect(row).toEqual({ height: 28, overflow: 0, outside: 0 });
 });
