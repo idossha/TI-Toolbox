@@ -1113,3 +1113,13 @@ regions matching a structure name, per atlas, with ready `FlexConfig` ROIs (`roi
 `.right`) built by `tit.catalog.region_roi`, the rule the desktop's ROI picker follows. 404 for an
 unknown subject, 422 for a query of side words only. Additive; the agent plugin's `find_regions`
 now calls it instead of building ROIs itself.
+
+## 2026-10-08 — outputs outside the project are refused
+
+`POST /api/plan/{kind}`, `POST /api/jobs` and `POST /api/jobs/groups` answer 422 ("Outputs must
+stay inside the project folder …") when a job would write outside the project: an absolute
+`FlexConfig.output_folder`, `AnalyzerConfig.output_dir` or blender `output_dir` elsewhere on disk,
+or a run/montage/analysis/output name that climbs out. The jobs routes do so whatever `overwrite`
+says, and a proposal step carries the same sentence in `plan.errors`, so it cannot be approved.
+No schema shape changes; documented 422s only. The desktop run pages already send folders the
+server resolved under the project.

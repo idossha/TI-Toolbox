@@ -2198,6 +2198,13 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+                /** @description a config that does not deserialize for the kind, or an output folder outside the project (an absolute `output_folder`/`output_dir` elsewhere, or a name that climbs out): "Outputs must stay inside the project folder …" */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         delete?: never;
@@ -2263,7 +2270,7 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-                /** @description unknown kind, malformed body, a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages), or -- as a MissingInputs body -- a required input file that is not on disk; no job record is created */
+                /** @description unknown kind, malformed body, a config the kind's runner could not deserialize (e.g. a sim config with no subject_id/montages), an output folder outside the project (whatever `overwrite` says), or -- as a MissingInputs body -- a required input file that is not on disk; no job record is created */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -2364,7 +2371,7 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-                /** @description unsupported kind, malformed body, a config that does not deserialize for the kind, or -- as a MissingInputs body -- a required input file of any planned job that is not on disk; no job record is created */
+                /** @description unsupported kind, malformed body, a config that does not deserialize for the kind, an output folder outside the project (whatever `overwrite` says), or -- as a MissingInputs body -- a required input file of any planned job that is not on disk; no job record is created */
                 422: {
                     headers: {
                         [name: string]: unknown;

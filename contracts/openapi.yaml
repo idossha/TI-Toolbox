@@ -1335,6 +1335,11 @@ paths:
                 $ref: "#/components/schemas/PlanResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: >-
+            a config that does not deserialize for the kind, or an output folder outside the
+            project (an absolute `output_folder`/`output_dir` elsewhere, or a name that climbs
+            out): "Outputs must stay inside the project folder …"
 
   # ------------------------------------------------------------------------------------- jobs (v1)
   /api/jobs:
@@ -1389,9 +1394,9 @@ paths:
         "422":
           description: >-
             unknown kind, malformed body, a config the kind's runner could not
-            deserialize (e.g. a sim config with no subject_id/montages), or -- as a
-            MissingInputs body -- a required input file that is not on disk; no job
-            record is created
+            deserialize (e.g. a sim config with no subject_id/montages), an output folder
+            outside the project (whatever `overwrite` says), or -- as a MissingInputs body
+            -- a required input file that is not on disk; no job record is created
           content:
             application/json:
               schema:
@@ -1448,8 +1453,9 @@ paths:
         "422":
           description: >-
             unsupported kind, malformed body, a config that does not deserialize
-            for the kind, or -- as a MissingInputs body -- a required input file of
-            any planned job that is not on disk; no job record is created
+            for the kind, an output folder outside the project (whatever `overwrite`
+            says), or -- as a MissingInputs body -- a required input file of any planned
+            job that is not on disk; no job record is created
           content:
             application/json:
               schema:

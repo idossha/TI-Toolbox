@@ -694,6 +694,14 @@ when its cached plan lagged the disk; Skip submits only the jobs a freshly fetch
 Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
 retain native existence protection. Caller environment variables cannot supply permission.
 
+**Outputs stay inside the project.** The plan route resolves every job's output folder, and any
+that lies outside the project (an absolute `output_folder`/`output_dir` elsewhere, or a run,
+montage, analysis or output name that climbs out) is a 422 on `/api/plan`, on `/api/jobs`,
+`/api/jobs/groups` and reruns whatever `overwrite` says (`check_overwrite_permission` always plans),
+and a planning error on a proposal step, which blocks its approval. The run pages only send folders
+the server resolved under the project. Excluded alternative: a jail per config field (every new
+output field would need its own; the plan already names each job's destination).
+
 Sources: [`overwrite_policy.py`](../../tit/server/overwrite_policy.py),
 [`ExistingOutputsDialog.tsx`](../../desktop/src/renderer/pages/_shared/run/ExistingOutputsDialog.tsx),
 [`JobDetailPane.tsx`](../../desktop/src/renderer/app/jobs-rail/JobDetailPane.tsx).

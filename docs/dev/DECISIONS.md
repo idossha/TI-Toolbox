@@ -2773,3 +2773,25 @@ re-mapping on every request (rewrote the cache the catalog reads and repeated th
 `resolve_flex_montage` optimized and mapped, and `resolve_flex_simulation` agree; a cached net is
 read with the mapping refused; a new net is mapped once, then read);
 `tests/test_montage_sources.py`, `tests/test_montage_source_safety.py`.
+
+## 2026-10-08 — A job may not write outside the project
+
+**Decision.** `tit.server.routes.plan.plan` refuses (422) a plan whose job output folder resolves
+outside the project, and `check_overwrite_permission` now plans every submission, `overwrite` or
+not, so `/api/jobs`, `/api/jobs/groups`, reruns and approved proposal steps are refused the same
+way; a proposal step shows it as a planning error and cannot be approved. Contract: documented
+422s, no shape change.
+
+**Why.** An absolute `FlexConfig.output_folder` (or `AnalyzerConfig.output_dir`, a blender
+`output_dir`, or a name with `../`) let a job — an agent's in particular — write anywhere the
+container can, and `overwrite: true` skipped the only planning step submission made. The plan
+already resolves each job's destination for every kind, so one check there covers every field.
+The desktop's run pages send only folders the server resolved under the project (the Optimizer
+plans with `output_folder: null` and joins the run name to the folder it gets back).
+
+**Alternatives rejected.** Checking each path field per kind (a new field would slip through);
+rejecting every absolute folder (the Optimizer's own submissions are absolute paths inside the
+project).
+
+**Evidence.** `tests/test_output_jail.py` (plan, both submit routes with `overwrite: true`, a
+climbing name, a proposal dry run and approval).
