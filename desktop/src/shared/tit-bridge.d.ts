@@ -117,6 +117,41 @@ export interface TitNativeTetravoxProgress {
   total?: number;
 }
 
+/** The two agent CLIs the Assistant pane can run; the renderer can name nothing else. */
+export type TitAssistantCli = "claude" | "codex";
+
+export interface TitAssistantStatus {
+  cli: TitAssistantCli;
+  /** Found on the user's login-shell PATH. */
+  installed: boolean;
+  /** Exit status of the CLI's own login-status command; absent when not installed. */
+  loggedIn?: boolean;
+  running: boolean;
+  /** Why a session cannot start here (no local project, remote server, no PTY support). */
+  unavailable?: string;
+}
+
+export type TitAssistantEvent =
+  | { cli: TitAssistantCli; type: "data"; data: string }
+  | { cli: TitAssistantCli; type: "exit"; code: number };
+
+/**
+ * A host pseudo-terminal running the user's own `claude` or `codex` (ARCHITECTURE §6). Main picks
+ * the executable, arguments, directory and environment; the token never crosses this bridge.
+ */
+export interface TitAssistantBridge {
+  detect(cli: TitAssistantCli): Promise<TitAssistantStatus>;
+  /** Start (or restart) the CLI's session in the connected project folder. */
+  start(cli: TitAssistantCli, cols: number, rows: number): Promise<{ ok: true } | { ok: false; error: string }>;
+  write(cli: TitAssistantCli, data: string): void;
+  resize(cli: TitAssistantCli, cols: number, rows: number): void;
+  kill(cli: TitAssistantCli): Promise<void>;
+  /** Output and exit of every session. Returns the unsubscribe function. */
+  onEvent(listener: (event: TitAssistantEvent) => void): () => void;
+  /** The same launch in the host's own terminal application. */
+  openInTerminal(cli: TitAssistantCli): Promise<{ ok: true } | { ok: false; error: string }>;
+}
+
 export interface TitBridge {
   /** Save the live native scene into the active project; the renderer supplies a name, never a path. */
   previewNativeTetravoxScene?(path: string): Promise<{ ok: boolean; reason?: string }>;
@@ -202,6 +237,8 @@ export interface TitBridge {
   onNotificationSound(listener: (sound: string, failed: boolean) => void): () => void;
   stack: TitStackBridge;
   fastsurfer?: TitFastSurferBridge;
+  /** Optional: absent in older shells and in a browser, where the Assistant page explains itself. */
+  assistant?: TitAssistantBridge;
 }
 
 declare global {

@@ -151,10 +151,13 @@ test("launcher connects and the shell renders its chrome around the landing page
   // action, so the total is twenty-one entries. The later 2026-09-22 entry (TetraVox's own update
   // popup asks TI to install) adds the newest-release check, so the total is twenty-two. The
   // 2026-09-23 notification-sounds entry adds `onNotificationSound` (main has no audio API, so a job
-  // banner's TI-Toolbox sound plays in this window): twenty-three.
+  // banner's TI-Toolbox sound plays in this window): twenty-three. The 2026-10-07 Assistant entry
+  // adds `assistant`, one namespace for the host terminal running the user's own Claude Code or
+  // Codex (the renderer names the CLI only): twenty-four.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
+    "assistant",
     "checkNativeTetravoxUpdate",
     "connect",
     "fastsurfer",

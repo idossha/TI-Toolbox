@@ -149,7 +149,8 @@ const FORBIDDEN = [
   { label: "tit/gui (deleted PyQt GUI)", test: (p) => p.startsWith("tit/gui/") || p.includes("/tit/gui/") },
   { label: "playwright config", test: (p) => p.endsWith("playwright.config.ts") },
   { label: "e2e/unit tests", test: (p) => p === "tests" || p.startsWith("tests/") },
-  { label: "node_modules", test: (p) => p.startsWith("node_modules/") || p.includes("/node_modules/") },
+  // node-pty is the one shipped module (the Assistant's native terminal); check 9 inspects it.
+  { label: "node_modules", test: (p) => !p.startsWith("node_modules/node-pty/") && (p.startsWith("node_modules/") || p.includes("/node_modules/")) },
   { label: "runtime staging scratch dir", test: (p) => p.startsWith(".runtime-staging/") },
   { label: "TypeScript sources", test: (p) => p.startsWith("src/") && p.endsWith(".ts") },
   { label: "electron-builder config", test: (p) => p === "electron-builder.yml" },
@@ -319,6 +320,25 @@ function main() {
 
   // --- 8. executable exists and is the right name --------------------------------------------------
   check("executable present", existsSync(app.executable), app.executable);
+
+  // --- 9. the Assistant pane's native terminal and agent plugin --------------------------------
+  // node-pty must sit outside the asar (dlopen and posix_spawn cannot read inside it) with a
+  // binary for this platform; on macOS its `spawn-helper` must be executable, or every spawn
+  // fails with "posix_spawnp failed" (node-pty 1.1.0 publishes it without the bit; see
+  // scripts/fix-node-pty.mjs). Linux builds pty.node from source during `npm ci`.
+  const pty = join(app.resourcesDir, "app.asar.unpacked", "node_modules", "node-pty");
+  check("node-pty unpacked beside the asar", existsSync(join(pty, "lib", "index.js")), pty);
+  const binaries = { darwin: ["prebuilds/darwin-arm64/pty.node", "prebuilds/darwin-x64/pty.node"], win32: ["prebuilds/win32-x64/pty.node", "prebuilds/win32-x64/conpty.node"], linux: ["build/Release/pty.node"] }[app.kind];
+  for (const binary of binaries) check(`node-pty binary: ${binary}`, existsSync(join(pty, binary)));
+  if (app.kind === "darwin") {
+    for (const arch of ["arm64", "x64"]) {
+      const helper = join(pty, "prebuilds", `darwin-${arch}`, "spawn-helper");
+      check(`node-pty spawn-helper executable (${arch})`, existsSync(helper) && (statSync(helper).mode & 0o111) !== 0, helper);
+    }
+  }
+  for (const file of [".claude-plugin/plugin.json", ".mcp.json", "mcp/jobs_server.py", "mcp/server.py", "skills/ti-run-pipelines/SKILL.md"]) {
+    check(`agent plugin staged: ${file}`, existsSync(join(app.resourcesDir, "agent-plugin", file)));
+  }
 
   return finish();
 }

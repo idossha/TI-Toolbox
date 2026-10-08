@@ -1,0 +1,73 @@
+.assistant {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+  padding: var(--pane-pad);
+  background: var(--surface);
+}
+
+.assistant-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.assistant-note {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.assistant-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.assistant-prompts {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.assistant-chip {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  font: inherit;
+  font-size: 12px;
+}
+
+.assistant-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.assistant-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.assistant-terminals {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.assistant-terminal {
+  height: 100%;
+  padding: var(--space-2);
+}
+
+.assistant-terminal[hidden] {
+  display: none;
+}

@@ -100,6 +100,23 @@ The assistant then looks at the scans and proposes which series is the T1w, T2w,
 
 The job server needs the `docker` command on the assistant's `PATH`. With several projects open at once, the assistant asks which one you mean.
 
+### The Assistant page in the desktop app
+
+The quickest way: open **Assistant** in the desktop app's rail (just above System). It is a real terminal running your own `claude` or `codex` on your computer, in your project folder, already connected to the TI-Toolbox you have open — there is nothing to install or configure in TI-Toolbox itself.
+
+1. Pick **Claude Code** or **Codex** at the top.
+2. **Start** it. If it is not signed in yet, sign in inside the pane: type `/login` in Claude Code; Codex asks you to sign in with ChatGPT when it starts.
+3. Ask for what you want, or click an example such as **Bilateral thalamus pipeline**: it types the request into the assistant's input so you can edit it before pressing Enter.
+
+The app starts the assistant with the TI-Toolbox plugin of the same version attached for that session only (Claude Code: `--plugin-dir`; Codex: `-c mcp_servers.…` overrides plus a pointer to the `ti-run-pipelines` guide). Nothing is written to your `~/.claude` or `~/.codex`, and a plugin you installed yourself is not registered twice. It also tells the job tools exactly which TI-Toolbox to use, so the page works without Docker on the assistant's `PATH`, with a native (non-Docker) session too.
+
+- **Not installed?** The page says so and shows the install command (Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`; Codex: `npm install -g @openai/codex`). Install it in a terminal, then click **check again**. TI-Toolbox finds it on the same `PATH` your terminal uses.
+- **Prefer your own terminal?** **Open in system terminal** starts the same session in Terminal (macOS), the default terminal (Linux, through `x-terminal-emulator`) or a console window (Windows).
+- **Restart** starts a fresh session; **Stop** ends it. Closing the project, switching projects or quitting the app ends every Assistant session.
+- The Assistant page needs the desktop app and a project on this computer; in a browser session it explains this instead.
+
+Your login stays with your assistant: TI-Toolbox never sees, stores or forwards it, and only checks whether the assistant reports itself signed in.
+
 ## Using it well
 
 - **Give it your project path.** `inspect_project` needs the absolute path of your BIDS project (the folder you point the desktop app at). On the host that is e.g. `/Users/you/Studies/my_project`; inside the container it is `/mnt/my_project`.
@@ -123,6 +140,7 @@ The job server needs the `docker` command on the assistant's `PATH`. With severa
 | `find_symbol` / `search_source` say they need a local checkout | Those two tools grep the source tree; clone the repo and set `TI_TOOLBOX_ROOT=/path/to/TI-Toolbox`. |
 | Stale answers | Delete the cache: `rm -rf ~/.cache/ti-toolbox-mcp`. |
 | "No running TI-Toolbox found" | Open the desktop app on your project (or run `tit launch`), then ask again. |
-| "docker was not found on PATH" | Add Docker's folder (`which docker`) to the job server's environment in your assistant's MCP settings. |
+| "docker was not found on PATH" | Add Docker's folder (`which docker`) to the job server's environment in your assistant's MCP settings, or use the desktop app's **Assistant** page, which needs no Docker on the `PATH`. |
+| Assistant page says "not installed" although it works in your terminal | TI-Toolbox reads the `PATH` of a login shell. Make sure the folder holding `claude`/`codex` is added in your shell profile (`~/.zprofile`, `~/.zshrc` or `~/.bashrc`), then click **check again**. |
 
 For the plugin's internals (skills layout, server architecture, tests), see [Agent Plugin Internals]({{ site.baseurl }}/wiki/agent-plugin/).

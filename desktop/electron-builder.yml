@@ -57,6 +57,25 @@ files:
   - out/**
   - package.json
   - '!node_modules/**'
+  # The one exception: node-pty, the Assistant pane's native pseudo-terminal (ARCHITECTURE §6).
+  # A native module cannot be bundled, so it ships as-is and is unpacked from the asar below. It is
+  # N-API, so the Node-ABI binary loads in Electron unchanged (`npmRebuild: false` stays): macOS
+  # arm64+x64 and Windows x64 come from its own prebuilds, Linux from the `npm ci` source build
+  # (build/Release). Debug symbols, sources and the unused arm64-Windows build are left out.
+  - node_modules/node-pty/package.json
+  - node_modules/node-pty/lib/**
+  - node_modules/node-pty/prebuilds/**
+  - node_modules/node-pty/build/Release/*.node
+  - '!node_modules/node-pty/lib/**/*.test.js'
+  - '!node_modules/node-pty/lib/**/*.map'
+  - '!node_modules/node-pty/prebuilds/**/*.pdb'
+  - '!node_modules/node-pty/prebuilds/win32-arm64/**'
+
+# node-pty's .node files and its macOS `spawn-helper` executable must be real files: dlopen and
+# posix_spawn cannot read inside an asar. node-pty itself rewrites `app.asar` to
+# `app.asar.unpacked` for the helper path. electron-builder signs these Mach-O files with the app.
+asarUnpack:
+  - node_modules/node-pty/**
 
 # The renderer bundle, staged as a real directory beside the asar (not inside it): a natively
 # spawned `tit.server` child process is a plain OS process with no asar access, so
@@ -74,6 +93,15 @@ extraResources:
   # `scripts/verify-package.mjs` asserts is present.
   - from: ../docker-compose.yml
     to: docker-compose.yml
+  # The agent plugin the Assistant pane attaches to the user's own Claude Code (`--plugin-dir`) or
+  # Codex (`-c mcp_servers.*`): skills plus the two stdio MCP servers, run by the host's python3.
+  # `src/main/index.ts#assistantPluginDir` looks for `Resources/agent-plugin` first.
+  - from: ../agent-plugin
+    to: agent-plugin
+    filter:
+      - '**/*'
+      - '!**/__pycache__/**'
+      - '!mcp/test_*.py'
 
 asar: true
 npmRebuild: false
