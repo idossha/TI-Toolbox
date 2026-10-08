@@ -263,35 +263,39 @@ test("the effort and model menus fit the header without wrapping, in both themes
     await setTheme(page, theme);
     for (const width of [1024, 1440]) {
       await page.setViewportSize({ width, height: 700 });
-      const rows = await page.evaluate(() =>
-        [".assistant-toolbar", ".assistant-hints"].map((selector) => {
-          const row = document.querySelector(selector)!;
-          const box = row.getBoundingClientRect();
-          return {
-            selector,
-            height: box.height,
-            overflow: row.scrollWidth - row.clientWidth,
-            // Every child inside the row, and one line: nothing wrapped under another.
-            outside: [...row.children].filter((el) => el.getBoundingClientRect().right > box.right + 0.5).length,
-          };
-        }),
-      );
-      const truncated = await page.evaluate(() =>
-        ["Effort", "Model"].map((name) => {
-          const value = document.querySelector(`button[aria-label="${name}"] .picker-value`)!;
-          // scrollWidth reads 0 for this flex item: compare the text's own width instead.
-          const text = document.createRange();
-          text.selectNodeContents(value);
-          return Math.max(0, Math.round(text.getBoundingClientRect().width - value.getBoundingClientRect().width));
-        }),
-      );
+      // Measured once the resize has settled: right after 1440 -> 1024 the row reads 5px wider
+      // than its box for a frame (seen only on the dark pass, the only one that shrinks into 1024).
+      await expect(async () => {
+        const rows = await page.evaluate(() =>
+          [".assistant-toolbar", ".assistant-hints"].map((selector) => {
+            const row = document.querySelector(selector)!;
+            const box = row.getBoundingClientRect();
+            return {
+              selector,
+              height: box.height,
+              overflow: row.scrollWidth - row.clientWidth,
+              // Every child inside the row, and one line: nothing wrapped under another.
+              outside: [...row.children].filter((el) => el.getBoundingClientRect().right > box.right + 0.5).length,
+            };
+          }),
+        );
+        const truncated = await page.evaluate(() =>
+          ["Effort", "Model"].map((name) => {
+            const value = document.querySelector(`button[aria-label="${name}"] .picker-value`)!;
+            // scrollWidth reads 0 for this flex item: compare the text's own width instead.
+            const text = document.createRange();
+            text.selectNodeContents(value);
+            return Math.max(0, Math.round(text.getBoundingClientRect().width - value.getBoundingClientRect().width));
+          }),
+        );
+        for (const row of rows) {
+          expect(row.height, `${theme} ${width} ${row.selector}: one 28px line`).toBeLessThanOrEqual(28);
+          expect(row.overflow, `${theme} ${width} ${row.selector}: nothing spills out`).toBeLessThanOrEqual(0);
+          expect(row.outside, `${theme} ${width} ${row.selector}: every control inside`).toBe(0);
+        }
+        expect(truncated, `${theme} ${width}: both menus show their whole value`).toEqual([0, 0]); // ellipsis would make the range wider than its box
+      }).toPass({ timeout: 5_000 });
       await page.screenshot({ path: join(ARTIFACTS, `assistant-effort-${theme}-${width}.png`), clip: { x: 0, y: 0, width, height: 140 } });
-      for (const row of rows) {
-        expect(row.height, `${theme} ${width} ${row.selector}: one 28px line`).toBeLessThanOrEqual(28);
-        expect(row.overflow, `${theme} ${width} ${row.selector}: nothing spills out`).toBeLessThanOrEqual(0);
-        expect(row.outside, `${theme} ${width} ${row.selector}: every control inside`).toBe(0);
-      }
-      expect(truncated, `${theme} ${width}: both menus show their whole value`).toEqual([0, 0]); // ellipsis would make the range wider than its box
     }
   }
 
