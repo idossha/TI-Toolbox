@@ -134,7 +134,7 @@ Nothing the assistant asks for runs until you approve it. Its plan appears as a 
 
 Then:
 
-- **Approve and run** queues the plan. You can close the assistant: the app runs the remaining steps itself, and the card follows each step live (waiting, queued, running, succeeded, failed); click a job id to open it in the table. If a step fails, the steps after it are skipped; **Retry step** runs it again once you have fixed the cause.
+- **Approve and run** queues the plan. You can close the assistant: the app runs the remaining steps itself, and the card follows each step live (waiting, queued, running, succeeded, failed); click a job id to open it in the table. If a step fails, the steps after it are skipped; **Retry step** runs it again once you have fixed the cause. A plan with a failed step stays on Jobs as a full card (done and rejected plans fold into **Finished plans**) until you dismiss it with the **×** in its header.
 - **Edit** a step first to change its subjects, run name, current or currents, or any setting in its JSON config, and to allow it to replace existing output. The card re-checks the step as you save. What you approve is what runs, and the assistant is told what you changed.
 - **Reject…** with an optional note, such as *"use the right thalamus"*. The assistant reads your note and asks you what to change; it does not send the same plan again unchanged.
 

@@ -17,7 +17,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { approveProposal, dismissProposal, editStep, rejectProposal } from "../../src/renderer/app/proposals/api";
+import { approveProposal, dismissProposal, editStep, rejectProposal, runStep } from "../../src/renderer/app/proposals/api";
 import { ProposalCard, ProposalsStrip } from "../../src/renderer/app/proposals/ProposalCard";
 import { liveStepState, overwrites, stepFacts, visibleProposals, type Proposal } from "../../src/renderer/app/proposals/model";
 import type { JobStatus } from "../../src/renderer/app/jobs/types";
@@ -234,7 +234,8 @@ it("keeps undecided and in-flight plans, and only a day of the rest", () => {
   const old = { ...proposal(), id: "old", status: "succeeded", updated_at: "2026-10-01T00:00:00Z" } as Proposal;
   const recent = { ...proposal(), id: "recent", status: "rejected", updated_at: "2026-10-08T11:00:00Z" } as Proposal;
   const waiting = { ...proposal(), id: "waiting", updated_at: "2026-09-01T00:00:00Z" } as Proposal;
-  expect(visibleProposals([old, recent, waiting], now).map((p) => p.id)).toEqual(["recent", "waiting"]);
+  const failed = { ...proposal(), id: "failed", status: "failed", updated_at: "2026-09-01T00:00:00Z" } as Proposal; // stays until dismissed
+  expect(visibleProposals([old, recent, waiting, failed], now).map((p) => p.id)).toEqual(["recent", "waiting", "failed"]);
 });
 
 function renderStrip(proposals: Proposal[], onOpenJob = vi.fn()) {
@@ -250,17 +251,43 @@ function renderStrip(proposals: Proposal[], onOpenJob = vi.fn()) {
 const done = (id: string, extra: Partial<Proposal> = {}) =>
   proposal({ id, title: `Plan ${id}`, status: "succeeded", decision: { state: "approved", at: null, note: null }, ...extra });
 
-it("renders only plans that need you or are in flight as cards; finished ones fold into a list", () => {
+it("renders plans that need you, are in flight or failed as cards; done and rejected ones fold into a list", () => {
   const running = proposal({ id: "run", title: "Plan run", status: "running" });
   const failed = done("failed", { status: "failed" });
   failed.steps[0] = { ...failed.steps[0]!, job_ids: ["job00001aaaa"] };
-  renderStrip([done("ok"), proposal({ id: "wait" }), running, proposal({ id: "no", title: "Plan no", status: "rejected" }), failed]);
+  renderStrip([done("ok"), failed, proposal({ id: "wait" }), running, proposal({ id: "no", title: "Plan no", status: "rejected" })]);
   const cards = [...container.querySelectorAll('[data-testid="proposal-card"]')];
-  expect(cards.map((c) => c.getAttribute("data-status"))).toEqual(["pending", "running"]); // pending first
+  expect(cards.map((c) => c.getAttribute("data-status"))).toEqual(["pending", "running", "failed"]); // pending, running, failed
   const toggle = container.querySelector(".finished-plans-toggle")!;
-  expect(toggle.textContent).toContain("Finished plans (3)");
+  expect(toggle.textContent).toContain("Finished plans (2)");
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
   expect(container.querySelectorAll('[data-testid="finished-plan"]')).toHaveLength(0); // collapsed by default
+});
+
+it("keeps a failed plan as a full card with its failed step, job link, Retry and Dismiss", async () => {
+  const failed = done("failed", { status: "failed" });
+  failed.steps[0] = { ...failed.steps[0]!, state: "succeeded", job_ids: ["job0000aaaa"] };
+  failed.steps[1] = { ...failed.steps[1]!, state: "failed", job_ids: ["job00001bbbb"] };
+  vi.mocked(runStep).mockResolvedValue(done("failed", { status: "running" }));
+  vi.mocked(dismissProposal).mockResolvedValue(failed);
+  client.setQueryData(["proposals"], [failed]);
+  const onOpenJob = renderStrip([failed]);
+  expect(container.querySelector('[data-testid="proposal-card"]')?.getAttribute("data-status")).toBe("failed");
+  expect(container.querySelector('[data-testid="finished-plans"]')).toBeNull();
+  expect(container.querySelector('[data-testid="proposal-step-sim"]')?.getAttribute("data-state")).toBe("failed");
+  act(() => button("job00001")!.click());
+  expect(onOpenJob).toHaveBeenCalledWith("job00001bbbb");
+
+  const retries = [...container.querySelectorAll("button")].filter((b) => b.textContent?.trim() === "Retry step");
+  expect(retries).toHaveLength(1); // only the failed step, not the succeeded one
+  act(() => retries[0]!.click());
+  await settle();
+  expect(runStep).toHaveBeenCalledWith("failed", "sim");
+
+  act(() => (container.querySelector('button[aria-label^="Dismiss"]') as HTMLButtonElement).click());
+  await settle();
+  expect(dismissProposal).toHaveBeenCalledWith("failed");
+  expect(client.getQueryData(["proposals"])).toEqual([]);
 });
 
 it("shows no finished disclosure when nothing is finished", () => {
@@ -270,13 +297,13 @@ it("shows no finished disclosure when nothing is finished", () => {
 
 it("lists finished plans compactly, remembers open, opens their jobs and dismisses", async () => {
   vi.mocked(dismissProposal).mockResolvedValue(done("ok"));
-  const failed = done("failed", { status: "failed" });
+  const failed = done("failed", { status: "rejected" });
   failed.steps[0] = { ...failed.steps[0]!, job_ids: ["job00001aaaa"] };
   client.setQueryData(["proposals"], [done("ok"), failed]);
   const onOpenJob = renderStrip([done("ok"), failed]);
   act(() => (container.querySelector(".finished-plans-toggle") as HTMLButtonElement).click());
   const rows = [...container.querySelectorAll('[data-testid="finished-plan"]')];
-  expect(rows.map((r) => r.getAttribute("data-status"))).toEqual(["succeeded", "failed"]);
+  expect(rows.map((r) => r.getAttribute("data-status"))).toEqual(["succeeded", "rejected"]);
   expect(rows[0]!.textContent).toContain("Plan ok");
   expect(rows[0]!.textContent).toContain("done");
   expect(rows[0]!.textContent).toContain("from Claude Code");
