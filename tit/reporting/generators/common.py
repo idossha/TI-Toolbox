@@ -92,6 +92,25 @@ def _local_atlas(path: str) -> str:
     return resolve_resource_path("atlas", os.path.basename(path))
 
 
+def _annot_region(path: str, label) -> tuple[str, str]:
+    """``(region name, atlas label)`` of one ``.annot`` target; ``label`` indexes the colortable.
+
+    Falls back to the bare label when the file is not on this machine or cannot be read -- a
+    report never fails over a name.
+    """
+    hemi, _, rest = Path(path).name.partition(".")
+    atlas = f"{rest.removesuffix('.annot')} ({hemi})"
+    name = f"{hemi} label {label}"
+    try:
+        from nibabel.freesurfer import read_annot
+
+        region = read_annot(path)[2][int(label)]
+        name = f"{hemi}.{region.decode() if isinstance(region, bytes) else region}"
+    except (OSError, ValueError, IndexError, TypeError):
+        pass
+    return name, atlas
+
+
 def roi_summary(run_dir: str | Path) -> dict | None:
     """The target as the run's ROI confirmation recorded it (``roi.tetravox.json``), with label
     names from the atlas's lookup table: ``{name, atlas, volume_mm3, centroid, gm_overlap}``.
@@ -110,14 +129,17 @@ def roi_summary(run_dir: str | Path) -> dict | None:
         spaces = meta.get("space")
         spaces = spaces if isinstance(spaces, list) else [spaces] * len(sources)
         names = []
+        stems = {}
         for src, lab, space in zip(sources, labels, spaces):
+            if str(src).endswith(".annot"):  # a cortical surface target, not a volume
+                label_name, stem = _annot_region(str(src), lab)
+                names.append(label_name)
+                stems[stem] = None
+                continue
             table = resolve_volume_label_names(_local_atlas(src), space or "subject")
             names.append(table.get(int(lab), f"label {lab}").replace("-", " "))
+            stems[Path(src).name.split(".nii")[0] + (" (MNI)" if space == "mni" else "")] = None
         name = " + ".join(dict.fromkeys(names))
-        stems = dict.fromkeys(
-            Path(s).name.split(".nii")[0] + (" (MNI)" if sp == "mni" else "")
-            for s, sp in zip(sources, spaces)
-        )
         atlas = ", ".join(stems)
     for s in meta.get("spheres") or []:
         x, y, z = s["centre_ras"]
@@ -129,6 +151,7 @@ def roi_summary(run_dir: str | Path) -> dict | None:
         "name": name or "target ROI",
         "atlas": atlas,
         "volume_mm3": meta.get("volume_mm3"),
+        "vertices": meta["voxels"] if meta.get("unit") == "vertices" else None,
         "centroid": meta.get("centroid_ras"),
         "gm_overlap": meta.get("gm_overlap"),
     }
