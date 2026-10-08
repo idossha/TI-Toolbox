@@ -31,6 +31,7 @@ import { Info, Target, Workflow } from "lucide-react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { PageDef } from "../../app/registry";
+import { withAppDefaults } from "../../forms/appDefaults";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { useJobsStream } from "../../app/jobs/useJobsStream";
@@ -650,7 +651,7 @@ const page: PageDef = {
   order: 30,
   icon: Target,
   shortcut: "4",
-  Component: OptimizerPage,
+  Component: withAppDefaults(OptimizerPage),
   enabled: true,
 };
 

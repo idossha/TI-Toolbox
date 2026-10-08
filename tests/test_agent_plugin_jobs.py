@@ -314,7 +314,7 @@ def _plan_routes(fake, will_overwrite=False):
     fake.routes[("POST", "/api/plan/sim")] = plan
 
 
-def test_plan_job_fills_app_defaults_and_names_the_run_folder(js, fake):
+def test_plan_job_sends_the_agents_fields_and_names_the_run_folder(js, fake):
     _plan_routes(fake)
     err, out = call(
         js,
@@ -325,18 +325,19 @@ def test_plan_job_fills_app_defaults_and_names_the_run_folder(js, fake):
     )
     assert not err, out
     assert out["ok"] and out["eta_minutes"] == 12.5
-    validated = fake.sent("POST", "/api/validate/flex")[0]["body"]["config"]
-    assert validated["subject_id"] == "101"
-    assert validated["current_mA"] == 2.0  # the agent's value wins
-    assert (
-        validated["max_iterations"] == 500
-    )  # the Optimizer page's default, not the dataclass's
-    assert validated["electrode"] == {
-        "shape": "ellipse",
-        "dimensions": [8, 8],
-        "gel_thickness": 4,
+    # Only what the agent chose: the server fills the app's defaults for created_by "agent".
+    sent = fake.sent("POST", "/api/validate/flex")[0]["body"]
+    assert sent == {
+        "config": {
+            "roi": ROI,
+            "current_mA": 2.0,
+            "output_folder": f"{FLEX_ROOT}/thalamus_max",
+            "subject_id": "101",
+        },
+        "created_by": "agent",
     }
-    assert validated["output_folder"] == f"{FLEX_ROOT}/thalamus_max"
+    for path in ("/api/jobs/preflight", "/api/plan/flex"):
+        assert {r["body"]["created_by"] for r in fake.sent("POST", path)} == {"agent"}
     probe = fake.sent("POST", "/api/plan/flex")[0]["body"]["config"]
     assert probe["output_folder"] is None
 
@@ -384,11 +385,12 @@ def test_submit_job_uses_the_group_route_like_the_app(js, fake):
         "101",
         "102",
     ]
-    assert body["subject_configs"][0]["config"]["map_to_fsavg"] is False  # app default
+    # The server fills the app's defaults.
+    assert "map_to_fsavg" not in body["subject_configs"][0]["config"]
     assert "overwrite" not in body
 
 
-def test_submit_preprocess_is_one_group_with_the_apps_defaults(js, fake):
+def test_submit_preprocess_is_one_group(js, fake):
     fake.routes[("POST", "/api/jobs/groups")] = {"group_id": "g", "jobs": []}
     err, out = call(
         js,
@@ -400,11 +402,7 @@ def test_submit_preprocess_is_one_group_with_the_apps_defaults(js, fake):
     assert not err, out
     body = fake.sent("POST", "/api/jobs/groups")[0]["body"]
     assert body["subject_ids"] == ["101"] and body["created_by"] == "agent"
-    assert body["config"]["subject_ids"] == ["101"]
-    assert (
-        body["config"]["convert_dicom"] and body["config"]["create_m2m"]
-    )  # Pre-processing page
-    assert body["config"]["run_fastsurfer"] is False  # the agent's choice wins
+    assert body["config"] == {"run_fastsurfer": False, "subject_ids": ["101"]}
     assert "subject_configs" not in body
     err, text = call(
         js, "submit_job", kind="pre", config={}, subject_ids=["101"], after=["j1"]
@@ -582,7 +580,7 @@ def _proposal(state="pending", note=None, edited_config=None):
     }
 
 
-def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
+def test_propose_pipeline_dry_runs_then_creates(js, fake):
     js.handle(
         {
             "jsonrpc": "2.0",
@@ -618,12 +616,10 @@ def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
     dry, real = [r["body"] for r in fake.sent("POST", "/api/proposals")]
     assert dry["dry_run"] is True and "dry_run" not in real
     assert real["created_by"] == "agent" and real["client"] == "Claude Code"
+    # As the agent wrote them: the server fills the app's defaults.
     flex, sim = real["steps"]
-    assert flex["config"]["n_multistart"] == 1  # the Optimizer page's default
-    assert flex["config"]["goal"] == "mean"
-    assert sim["config"]["flex_step"] == "opt"
-    assert sim["config"]["conductivity"] == "scalar"  # the Simulator page's default
-    assert "intensities" not in sim["config"]  # the run's own currents decide
+    assert flex["config"] == {"goal": "mean"}
+    assert sim["config"] == {"flex_step": "opt"}
 
 
 def test_propose_pipeline_names_a_target_find_regions_returned(js, fake):
@@ -947,6 +943,11 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         assert not err, out
         assert [s["id"] for s in out["subjects"]] == ["101"]
         assert out["approval_required"] is True  # the default
+        err, schema = call(js, "get_config_schema", kind="flex_adaptive")
+        assert not err and schema["class"] == "FlexConfig"
+        # The Optimizer page's values (tit/server/app_defaults.py), served in /api/schema.
+        assert schema["app_defaults_filled_in"]["goal"] == "focality"
+        assert schema["app_defaults_filled_in"]["max_iterations"] == 500
 
         montage = {
             "_type": "Montage",
@@ -1008,7 +1009,7 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         assert spec["tags"] == [f"proposal:{pid}"]
         assert (
             spec["config"]["map_to_fsavg"] is False
-        )  # the app default the plugin filled
+        )  # the app default the server filled
         err, status = call(js, "get_proposal", proposal_id=pid)
         assert not err and status["status"] == "succeeded", status
 
@@ -1023,6 +1024,8 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         assert sub["group_id"]
         err, done = call(js, "wait_for_job", job_ids=sub["job_ids"], timeout_s=20)
         assert not err and done["jobs"][0]["state"] == "succeeded", done
+        spec = json.loads(Path(spec_path(str(project), sub["job_ids"][0])).read_text())
+        assert spec["config"]["map_to_fsavg"] is False  # filled for created_by "agent"
     finally:
         server.should_exit = True
         thread.join(timeout=10)

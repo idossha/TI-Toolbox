@@ -18,6 +18,11 @@ Config-schema-driven form infrastructure shared by every page. Owned by F2 (desi
   `qsi*_config`, `SimulationConfig`'s `Montage`, ...) still resolves; called with an already-loaded
   schema **object**, it compiles that object in isolation, so a self-contained test fixture with no
   cross-`$defs` refs of its own still works without a network fetch.
+- `appDefaults.tsx` — `appDefaults(kind, configClass)`: what a run page starts with, `x-app-defaults[kind]`
+  of the same document (`tit/server/app_defaults.py`) over the class's schema `default`s;
+  `withAppDefaults(Page)` renders a page only once the document has loaded, so the pages' default
+  builders can read it synchronously. Unit tests load the committed file
+  (`tests/unit/setup-app-defaults.ts`).
 - `SchemaField.tsx` — renders one property generically (enum → Select, boolean → Switch, number →
   NumberInput, array-of-strings → MultiSelect, else TextInput). Reach for a hand-built `Field` +
   ui primitive instead when a property needs page-specific behaviour (nested objects, coordinate

@@ -45,6 +45,7 @@ from tit.jobs.spec import (
     utcnow_iso,
 )
 from tit.paths import is_valid_subject_id
+from tit.server.app_defaults import with_app_defaults
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,8 @@ def _checked_step(raw: Any, earlier: dict[str, dict[str, Any]]) -> dict[str, Any
         raise _bad(
             f"step {step_id}: after must name earlier steps ({sorted(earlier) or 'none'})"
         )
-    config = dict(config)
+    # The run pages' defaults under what the agent sent; a sim_from_flex step is a simulation.
+    config = with_app_defaults("sim" if kind == SIM_FROM_FLEX else kind, config)
     if kind in FLEX_KINDS:
         config["output_folder"] = _flex_run_name(config)
     if kind == SIM_FROM_FLEX:

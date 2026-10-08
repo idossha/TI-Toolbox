@@ -4,6 +4,7 @@ import { Zap, Info, Workflow } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import type { Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
+import { withAppDefaults } from "../../forms/appDefaults";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { Callout, EmptyState } from "../../ui/Feedback";
@@ -18,7 +19,7 @@ import { JobSettingsDialog } from "./JobSettingsDialog";
 import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
 import {
-  DEFAULT_JOB_SETTINGS,
+  defaultJobSettings,
   emptyRow,
   isRunnableRow,
   type JobSettings,
@@ -162,10 +163,10 @@ function SimulatorPage() {
 
   /**
    * What a row that carries no settings of its own runs with, and what `Reset to defaults` returns
-   * to: the built-ins (`DEFAULT_JOB_SETTINGS`), not a page control. A row seeded from the last
+   * to: the built-ins (`defaultJobSettings()`), not a page control. A row seeded from the last
    * edited one carries a copy, so it shows as customised and is unaffected by anything else.
    */
-  const params: GlobalParams = DEFAULT_JOB_SETTINGS as GlobalParams;
+  const params = useMemo(() => defaultJobSettings() as GlobalParams, []);
 
   // The subject clause of the blocked sentence is still the shared grammar's, but it is now about
   // the subjects the ROWS name rather than a page-level tick list.
@@ -389,7 +390,7 @@ const page: PageDef = {
   icon: Zap,
   // DESIGN.md §9 binding shortcut map: Simulator is Cmd/Ctrl+3.
   shortcut: "3",
-  Component: SimulatorPageWithFreehandDraft,
+  Component: withAppDefaults(SimulatorPageWithFreehandDraft),
   enabled: true,
 };
 

@@ -69,77 +69,6 @@ SCHEMA_CLASS = {
     "analyzer": "AnalyzerConfig",
 }
 
-# What the desktop app sends when the user leaves a control alone, so an agent job that omits a
-# field runs with the app's value, not the dataclass default.
-# ponytail: hand-mirrored from desktop/src/renderer/pages/preprocess/config.ts defaultConfig,
-# pages/simulator/types.ts DEFAULT_JOB_SETTINGS and pages/optimizer/flexConfig.ts
-# defaultFlexFormState/buildFlexConfig; move server-side if they start drifting.
-PRE_UI_DEFAULTS: Dict[str, Any] = {
-    "convert_dicom": True,
-    "run_fastsurfer": True,
-    "run_freesurfer": False,
-    "freesurfer_recon_all": True,
-    "freesurfer_subregions": ["thalamus", "hippo-amygdala"],
-    "freesurfer_threads": None,
-    "charm_options": None,
-    "charm_threads": None,
-    "fastsurfer_threads": None,
-    "create_m2m": True,
-    "run_tissue_analysis": False,
-    "run_qsiprep": False,
-    "run_qsirecon": False,
-    "qsiprep_config": None,
-    "qsi_recon_config": None,
-    "extract_dti": False,
-    "skip_existing_outputs": True,
-    "replace_existing_outputs": False,
-}
-SIM_UI_DEFAULTS: Dict[str, Any] = {
-    "conductivity": "scalar",
-    "aniso_maxratio": 10,
-    "aniso_maxcond": 2,
-    "intensities": [1.0, 1.0],
-    "electrode_shape": "ellipse",
-    "electrode_dimensions": [8, 8],
-    "gel_thickness": 4,
-    "output_fields": ["TI_max"],
-    "map_to_mni": False,
-    "map_to_fsavg": False,
-}
-FLEX_UI_DEFAULTS: Dict[str, Any] = {
-    "goal": "mean",
-    "postproc": "max_TI",
-    "anisotropy_type": "scalar",
-    "aniso_maxratio": 10.0,
-    "aniso_maxcond": 2.0,
-    "current_mA": 1.0,
-    "electrode": {"shape": "ellipse", "dimensions": [8, 8], "gel_thickness": 4},
-    "non_roi_method": None,
-    "non_roi": None,
-    "thresholds": None,
-    "intensity_weight": 0.0,
-    "optimize_current_ratio": False,
-    "ratio_total_mA": None,
-    "ratio_levels": 21,
-    "eeg_net": None,
-    "enable_mapping": False,
-    "disable_mapping_simulation": False,
-    "output_folder": None,
-    "run_final_electrode_simulation": False,
-    "n_multistart": 1,
-    "max_iterations": 500,
-    "population_size": 13,
-    "tolerance": 0.1,
-    "mutation": "0.01,0.5",
-    "recombination": 0.7,
-    "min_electrode_distance": 5.0,
-    "detailed_results": False,
-    "visualize_valid_skin_region": True,
-    "skin_visualization_net": None,
-    "skin_region_margin_mm": 0.0,
-    "avoid_landmark_regions": True,
-}
-
 NO_STACK = (
     "No running TI-Toolbox found. Open the TI-Toolbox desktop app on your project (or run "
     "`tit launch`), then call connect again. For a native runtime set TIT_SERVER_URL and "
@@ -467,7 +396,8 @@ def _refs(node: Any, out: set) -> set:
 def tool_get_config_schema(args: Dict[str, Any]) -> Dict[str, Any]:
     kind = str(args.get("kind", ""))
     name = SCHEMA_CLASS.get(kind, kind)
-    defs = (_api("GET", "/api/schema") or {}).get("$defs", {})
+    doc = _api("GET", "/api/schema") or {}
+    defs = doc.get("$defs", {})
     if name not in defs:
         raise ToolError(
             f"unknown kind/config class {kind!r}; kinds: {', '.join(SCHEMA_CLASS)}"
@@ -480,37 +410,9 @@ def tool_get_config_schema(args: Dict[str, Any]) -> Dict[str, Any]:
                 todo.append(ref)
     out: Dict[str, Any] = {"class": name, "schema": defs[name]}
     out["$defs"] = {k: defs[k] for k in sorted(wanted - {name})}
-    if kind in FLEX_KINDS:
-        out["app_defaults_filled_in"] = FLEX_UI_DEFAULTS
-    elif kind == "sim":
-        out["app_defaults_filled_in"] = SIM_UI_DEFAULTS
-    elif kind == "pre":
-        out["app_defaults_filled_in"] = PRE_UI_DEFAULTS
+    # What the app's pages start with; the server fills these into omitted fields.
+    out["app_defaults_filled_in"] = doc.get("x-app-defaults", {}).get(kind, {})
     return out
-
-
-def _with_app_defaults(kind: str, config: Dict[str, Any]) -> Dict[str, Any]:
-    if kind == "pre":
-        return {**PRE_UI_DEFAULTS, **config}
-    if kind == "sim":
-        return {**SIM_UI_DEFAULTS, **config}
-    if kind not in FLEX_KINDS:
-        return dict(config)
-    merged = {**FLEX_UI_DEFAULTS, **config}
-    merged["electrode"] = {
-        **FLEX_UI_DEFAULTS["electrode"],
-        **(config.get("electrode") or {}),
-    }
-    if (
-        merged["goal"] in ("focality", "focality_tf")
-        and merged["non_roi_method"] is None
-    ):
-        merged["non_roi_method"] = "everything_else"
-    if kind == "flex_adaptive" and not merged.get("adaptive"):
-        merged["adaptive"] = {"nonroi_percentage": 20, "roi_percentage": 80}
-    if kind == "flex_pareto" and not merged.get("pareto"):
-        merged["pareto"] = {"roi_pcts": [80], "nonroi_pcts": [20, 30, 40]}
-    return merged
 
 
 def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
@@ -532,6 +434,7 @@ def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
         {
             "config": {**config, "subject_id": subject, "output_folder": None},
             "subject_ids": [subject],
+            "created_by": CREATED_BY,
         },
     )
     parent = os.path.dirname(probe["jobs"][0]["output_dir"])
@@ -541,10 +444,10 @@ def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
 def _prepare(
     kind: str, config: Any, subject_ids: List[str]
 ) -> List[Tuple[str, Dict[str, Any]]]:
-    """One ``(subject, config)`` per job, with app defaults and the subject's own id filled in."""
+    """One ``(subject, config)`` per job, with the subject's own id filled in (the server fills
+    the app's defaults: every request says ``created_by: "agent"``)."""
     if not isinstance(config, dict):
         raise ToolError("config must be an object")
-    config = _with_app_defaults(kind, config)
     if kind == "pre":
         return [("", {**config, "subject_ids": subject_ids})]
     entries = []
@@ -562,7 +465,11 @@ def _plan(
     plans, errors, missing = [], [], []
     for sid, config in entries:
         subjects = [sid] if sid else config["subject_ids"]
-        check = _api("POST", f"/api/validate/{kind}", {"config": config})
+        check = _api(
+            "POST",
+            f"/api/validate/{kind}",
+            {"config": config, "created_by": CREATED_BY},
+        )
         if not check.get("ok"):
             errors.extend(check.get("errors") or [])
             continue
@@ -570,14 +477,24 @@ def _plan(
             _api(
                 "POST",
                 "/api/jobs/preflight",
-                {"kind": kind, "config": config, "subject_ids": subjects},
+                {
+                    "kind": kind,
+                    "config": config,
+                    "subject_ids": subjects,
+                    "created_by": CREATED_BY,
+                },
             ).get("missing", [])
         )
         plans.append(
             _api(
                 "POST",
                 f"/api/plan/{kind}",
-                {"config": config, "subject_ids": subjects, "overwrite": overwrite},
+                {
+                    "config": config,
+                    "subject_ids": subjects,
+                    "overwrite": overwrite,
+                    "created_by": CREATED_BY,
+                },
             )
         )
     jobs = [j for p in plans for j in p.get("jobs", [])]
@@ -850,12 +767,9 @@ def _step_for_proposal(raw: Any) -> Dict[str, Any]:
     config = raw.get("config") or {}
     if not isinstance(config, dict):
         raise ToolError(f"step {raw.get('id')}: config must be an object")
-    if kind == "sim_from_flex":  # the run's own currents unless the agent names some
-        defaults = {k: v for k, v in SIM_UI_DEFAULTS.items() if k != "intensities"}
-        config = {**defaults, **config}
-    else:
-        config = _with_app_defaults(kind, config)
-    config.pop("subject_ids", None)  # the step's subject_ids decide
+    config = {
+        k: v for k, v in config.items() if k != "subject_ids"
+    }  # the step's decide
     note = raw.get("note") or (
         _target_note(config.get("roi")) if kind in FLEX_KINDS else None
     )

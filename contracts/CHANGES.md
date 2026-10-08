@@ -1093,3 +1093,15 @@ New path `POST /api/proposals/{id}/dismiss` hides a finished proposal (status `s
 dismissed plans unless it is true. `GET /api/proposals/{id}` still returns them. A retried step
 clears the dismissal. Additive: clients that ignore both behave as before, except that a dismissed
 plan no longer appears in the default list.
+
+## 2026-10-08 — run-page defaults in `/api/schema`; agent configs get them
+
+`config.schema.json` (and so `GET /api/schema`) gains a top-level `x-app-defaults`: per job kind
+(`pre`, `sim`, `flex`, `flex_adaptive`, `flex_pareto`, `ex`), the values the desktop run pages
+start with where they differ from or add to the class's own `default`s, from
+`tit/server/app_defaults.py`; the run pages now initialise their forms from it. `POST
+/api/validate/{kind}` and `POST /api/plan/{kind}` take an optional `created_by`; with `"agent"`
+(there, on `POST /api/jobs/preflight`, `/api/jobs` and `/api/jobs/groups`, including every
+`subject_configs` entry) the server fills that kind's entry into the fields the config omits, and
+every proposal step gets it too. Additive: a client that sends no `created_by`, or another creator,
+gets exactly the previous behaviour, and `$defs` are unchanged.

@@ -4,7 +4,9 @@
  * electrode_config.py` (`ElectrodeConfigWidget`), `tit/gui/components/solver_params.py`
  * (`SolverParamsWidget`). See PARITY.md for the full checklist this was built against.
  */
+import { appDefaults } from "../../forms/appDefaults";
 import type { RoiConfig } from "../_shared/roi/types";
+import type { components } from "../../api/schema";
 import type { FlexConfigWire } from "./api";
 
 export type OptGoal = "mean" | "max" | "focality" | "focality_tf";
@@ -63,49 +65,59 @@ export interface FlexFormState {
   eegNet: string | undefined;
 }
 
+type FlexDefaults = components["schemas"]["FlexConfig"];
+
+/** The form's starting values: `x-app-defaults.flex` (and the adaptive / multi-threshold kinds'
+ *  own settings) over `FlexConfig`'s; the choices with no config field of their own are below. */
 export function defaultFlexFormState(): FlexFormState {
+  const d = appDefaults("flex", "FlexConfig") as FlexDefaults;
+  const adaptive = (appDefaults("flex_adaptive", "FlexConfig") as FlexDefaults).adaptive!;
+  const pareto = (appDefaults("flex_pareto", "FlexConfig") as FlexDefaults).pareto as { roi_pcts: number[]; nonroi_pcts: number[] };
+  const [mutationMin, mutationMax] = (d.mutation as string).split(",").map(Number) as [number, number];
+  const [dimensionWidth, dimensionHeight] = d.electrode.dimensions as [number, number];
   return {
-    goal: "mean",
-    postproc: "max_TI",
-    anisotropyType: "scalar",
-    anisoMaxratio: 10.0,
-    anisoMaxcond: 2.0,
+    goal: d.goal,
+    postproc: d.postproc,
+    anisotropyType: d.anisotropy_type as FlexFormState["anisotropyType"],
+    anisoMaxratio: d.aniso_maxratio,
+    anisoMaxcond: d.aniso_maxcond,
 
-    currentMA: 1.0,
-    electrodeShape: "ellipse",
-    dimensionWidth: 8,
-    dimensionHeight: 8,
-    gelThickness: 4,
-    minElectrodeDistance: 5.0,
+    currentMA: d.current_mA,
+    electrodeShape: d.electrode.shape as ElectrodeShape,
+    dimensionWidth,
+    dimensionHeight,
+    gelThickness: d.electrode.gel_thickness,
+    minElectrodeDistance: d.min_electrode_distance,
 
-    optimizeCurrentRatio: false,
-    ratioLevels: 21,
-    ratioTotalMA: undefined,
+    optimizeCurrentRatio: d.optimize_current_ratio,
+    ratioLevels: d.ratio_levels,
+    ratioTotalMA: d.ratio_total_mA ?? undefined,
 
+    // A focality search's non-ROI and threshold mode: what FlexConfig's own None amounts to.
     nonRoiMethod: "everything_else",
-    intensityWeight: 0.0,
+    intensityWeight: d.intensity_weight,
     focalityMode: "adaptive",
     manualThresholds: "",
-    adaptiveNonRoiPct: 20,
-    adaptiveRoiPct: 80,
-    paretoRoiPcts: "80",
-    paretoNonRoiPcts: "20,30,40",
+    adaptiveNonRoiPct: adaptive.nonroi_percentage,
+    adaptiveRoiPct: adaptive.roi_percentage,
+    paretoRoiPcts: pareto.roi_pcts.join(","),
+    paretoNonRoiPcts: pareto.nonroi_pcts.join(","),
 
-    nMultistart: 1,
-    maxIterations: 500,
-    populationSize: 13,
-    tolerance: 0.1,
-    mutationMin: 0.01,
-    mutationMax: 0.5,
-    recombination: 0.7,
-    skinRegionMarginMm: 0.0,
-    avoidLandmarkRegions: true,
-    visualizeSkinElectrodes: false,
-    skinVisualizationNet: undefined,
+    nMultistart: d.n_multistart,
+    maxIterations: d.max_iterations as number,
+    populationSize: d.population_size as number,
+    tolerance: d.tolerance as number,
+    mutationMin,
+    mutationMax,
+    recombination: d.recombination as number,
+    skinRegionMarginMm: d.skin_region_margin_mm,
+    avoidLandmarkRegions: d.avoid_landmark_regions,
+    visualizeSkinElectrodes: d.skin_visualization_net != null,
+    skinVisualizationNet: d.skin_visualization_net ?? undefined,
 
-    runFinalElectrodeSimulation: false,
-    enableMapping: false,
-    eegNet: undefined,
+    runFinalElectrodeSimulation: d.run_final_electrode_simulation,
+    enableMapping: d.enable_mapping,
+    eegNet: d.eeg_net ?? undefined,
   };
 }
 

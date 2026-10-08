@@ -83,6 +83,7 @@ from pydantic import BaseModel
 from tit.jobs.spec import JobKind
 from tit.server.schemas import SubjectId
 from tit.paths import PathManager, get_path_manager
+from tit.server.app_defaults import with_app_defaults
 from tit.server.routes.validate import ALL_KINDS, KindNotConfigurable, cls_for
 
 router = APIRouter()
@@ -108,6 +109,8 @@ class PlanRequest(BaseModel):
     #: field names) for one release, preferring this field when both are present -- see
     #: _montage_sources_for_request.
     montage_sources: dict[str, Any] | None = None
+    #: ``"agent"`` fills the run pages' defaults into ``config`` (:mod:`tit.server.app_defaults`).
+    created_by: str | None = None
 
 
 class PlanJob(BaseModel):
@@ -857,6 +860,8 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
 
     if kind not in ALL_KINDS:
         raise HTTPException(status_code=404, detail=f"unknown kind: {kind}")
+    if body.created_by == "agent":
+        body.config = with_app_defaults(kind, body.config)
 
     warnings: list[str] = []
 

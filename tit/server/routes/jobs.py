@@ -24,6 +24,7 @@ from tit.jobs.manager import JobManager
 from tit.jobs.preflight import preflight
 from tit.jobs.spec import CREATED_BY_VALUES, JOB_KINDS, JOB_STATES
 from tit.paths import is_valid_subject_id
+from tit.server.app_defaults import with_app_defaults
 from tit.server.overwrite_policy import check_overwrite_permission
 
 logger = logging.getLogger(__name__)
@@ -171,6 +172,8 @@ def preflight_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[st
     if not isinstance(config, dict):
         raise HTTPException(status_code=422, detail="config must be an object")
     subject_ids = _checked_subject_ids(body.get("subject_ids") or [])
+    if body.get("created_by") == "agent":
+        config = with_app_defaults(kind, config)
     if kind == "pre" and subject_ids and not config.get("subject_ids"):
         config = {**config, "subject_ids": subject_ids}
     found = preflight(kind, config, _manager(request).project_dir)
@@ -196,6 +199,9 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
         raise HTTPException(status_code=422, detail="config must be an object")
     subject_ids = _checked_subject_ids(body.get("subject_ids"))
     created_by = _created_by(body)
+    # An agent sends only what it chose; the rest is the run pages' (tit.server.app_defaults).
+    if created_by == "agent":
+        config = with_app_defaults(kind, config)
     # `/api/jobs/groups` gets this for free: `plan_per_subject` round-trips every generated
     # config through the kind's dataclass. This single-job route did not, so a config the
     # runner cannot deserialise (a `sim` config with no `subject_id`/`montages`) was accepted,
@@ -265,6 +271,19 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
         )
     subject_ids = _checked_subject_ids(body.get("subject_ids"))
     created_by = _created_by(body)
+    subject_configs = body.get("subject_configs")
+    # An agent sends only what it chose; the rest is the run pages' (tit.server.app_defaults).
+    if created_by == "agent":
+        config = with_app_defaults(kind, config)
+        if isinstance(subject_configs, list):
+            subject_configs = [
+                (
+                    {**e, "config": with_app_defaults(kind, e.get("config"))}
+                    if isinstance(e, dict)
+                    else e
+                )
+                for e in subject_configs
+            ]
     tags = body.get("tags") or []
     if not isinstance(tags, list):
         raise HTTPException(status_code=422, detail="tags must be an array")
@@ -274,7 +293,7 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
             kind,
             config,
             subject_ids,
-            subject_configs=body.get("subject_configs"),
+            subject_configs=subject_configs,
             tags=tags,
             overwrite=bool(body.get("overwrite", False)),
         )
