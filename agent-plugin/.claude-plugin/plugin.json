@@ -1,7 +1,7 @@
 {
   "name": "ti-toolbox",
   "displayName": "TI-Toolbox",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Teaches coding agents the Temporal Interference Toolbox v3 (the Electron desktop app, the FastAPI tit.server, the tit science core, the wiki, developer references, the Python API, project layout and TI domain knowledge) with a read-only MCP server, and lets your own agent run pipelines through the running app with a second, job-driving MCP server: stage raw scans, preprocess, optimise, simulate.",
   "author": {
     "name": "Ido Haber",

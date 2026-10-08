@@ -13,6 +13,8 @@ export interface JobsStreamState {
   eventsByJob: Record<string, JobEvent[]>;
   attempt: number;
   lastError?: string;
+  /** Bumped on every `{type: "proposal"}` message; `app/proposals` refetches on change. */
+  proposalRev?: number;
 }
 
 export interface WebSocketLike {
@@ -218,6 +220,8 @@ export class JobsStream {
         const events = [...existing, msg.event];
         if (events.length > this.maxEventsPerJob) events.splice(0, events.length - this.maxEventsPerJob);
         this.set({ eventsByJob: { ...this.state.eventsByJob, [msg.job_id]: events } });
+      } else if (msg.type === "proposal") {
+        this.set({ proposalRev: (this.state.proposalRev ?? 0) + 1 });
       }
     };
     socket.onerror = () => {

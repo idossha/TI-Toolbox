@@ -236,10 +236,47 @@ def _recorded_creator(project: Path, job_id: str) -> str:
     return json.loads(Path(spec_path(str(project), job_id)).read_text())["created_by"]
 
 
+def allow_agent_submissions(client: TestClient, on: bool = True) -> None:
+    """Settings > Project > AI assistant: "Agent may submit without approval"."""
+    r = client.put(
+        "/api/settings",
+        headers=BEARER,
+        json={"panels": [], "theme": "system", "agent_auto_submit": on},
+    )
+    assert r.status_code == 200 and r.json()["agent_auto_submit"] is on, r.text
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_an_agent_cannot_submit_until_the_user_allows_it(
+    client: TestClient, route: str
+) -> None:
+    """ARCHITECTURE §6: the setting is off by default, an agent's direct submission is a 403
+    naming propose_pipeline, and the app's own submission (no created_by) is unaffected."""
+    assert client.get("/api/settings", headers=BEARER).json()["agent_auto_submit"] is False
+    body = {"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]}
+    refused = client.post(route, headers=BEARER, json={**body, "created_by": "agent"})
+    assert refused.status_code == 403
+    assert "propose_pipeline" in refused.json()["detail"]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+    assert client.post(route, headers=BEARER, json=body).status_code == 201
+
+    allow_agent_submissions(client)
+    allowed = client.post(
+        route,
+        headers=BEARER,
+        json={**body, "created_by": "agent", "overwrite": True},
+    )
+    assert allowed.status_code == 201, allowed.text
+    allow_agent_submissions(client, on=False)
+    again = client.post(route, headers=BEARER, json={**body, "created_by": "agent"})
+    assert again.status_code == 403
+
+
 def test_submit_records_who_submitted_defaulting_to_gui(
     client: TestClient, project: Path
 ) -> None:
     """The agent plugin names itself; the app sends nothing and stays "gui" (contract JobSpec)."""
+    allow_agent_submissions(client)
     job = {"kind": "tools", "config": {"__fake": {"duration_s": 0.01}}}
     plain = client.post("/api/jobs", headers=BEARER, json={**job, "subject_ids": ["001"]})
     agent = client.post(
@@ -250,11 +287,14 @@ def test_submit_records_who_submitted_defaulting_to_gui(
     assert plain.status_code == agent.status_code == 201, (plain.text, agent.text)
     assert _recorded_creator(project, plain.json()["id"]) == "gui"
     assert _recorded_creator(project, agent.json()["id"]) == "agent"
+    # The job row carries it too, so the app can badge agent jobs.
+    assert agent.json()["created_by"] == "agent" and plain.json()["created_by"] == "gui"
 
 
 def test_group_records_the_agent_on_every_member(
     client: TestClient, project: Path
 ) -> None:
+    allow_agent_submissions(client)
     r = client.post(
         "/api/jobs/groups",
         headers=BEARER,

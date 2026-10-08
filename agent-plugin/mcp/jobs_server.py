@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 SERVER_NAME = "ti-toolbox-jobs"
-SERVER_VERSION = "0.3.0"
+SERVER_VERSION = "0.4.0"
 PROTOCOL_VERSION = "2025-06-18"
 
 STACK_ID = "ti-toolbox-v3"  # tit/launch.py STACK_ID, desktop/src/shared/compose.ts
@@ -312,6 +312,8 @@ def tool_connect(args: Dict[str, Any]) -> Dict[str, Any]:
         _CONN["host_project"] = project.get("host_path")
     subjects = _api("GET", "/api/catalog/subjects").get("subjects", [])
     jobs = _api("GET", "/api/jobs" + _q(limit=200)) or []
+    # An app older than proposals has no such setting and no approval step.
+    direct = (_api("GET", "/api/settings") or {}).get("agent_auto_submit", True) is True
     return {
         "server": _CONN["origin"],
         "project": {
@@ -323,7 +325,13 @@ def tool_connect(args: Dict[str, Any]) -> Dict[str, Any]:
         "active_jobs": [
             _job_summary(j) for j in jobs if j.get("state") not in TERMINAL_STATES
         ],
-        "next": "Plan with plan_job before submit_job; jobs appear live in the desktop app.",
+        "approval_required": not direct,
+        "next": (
+            "Plan with plan_job before submit_job; jobs appear live in the desktop app."
+            if direct
+            else "The user approves agent jobs in the app: plan, then propose_pipeline and "
+            "wait_for_approval. submit_job / simulate_flex_result are refused."
+        ),
     }
 
 
@@ -596,11 +604,16 @@ def _side(name: str, hemi: Optional[str]) -> Optional[str]:
     return None
 
 
+#: (atlas path, label id) -> region name, from find_regions, so a proposal's card can name its
+#: target ("Left-Thalamus") instead of showing label ids only.
+_REGION_NAMES: Dict[Tuple[str, Any], str] = {}
+
+
 def _roi(atlas: Dict[str, Any], regions: List[Dict[str, Any]]) -> Dict[str, Any]:
     """The FlexConfig ROI wire object the desktop builds (pages/_shared/roi/types.ts roiToConfig)."""
     if atlas.get("kind") == "surface":
         hemis = [r.get("hemi") or "lh" for r in regions]
-        return {
+        roi = {
             "_type": "AtlasROI",
             "atlas_path": [
                 re.sub(r"(^|/)lh\.", rf"\g<1>{h}.", atlas["path"]) for h in hemis
@@ -608,13 +621,28 @@ def _roi(atlas: Dict[str, Any], regions: List[Dict[str, Any]]) -> Dict[str, Any]
             "label": [r["id"] for r in regions],
             "hemisphere": hemis,
         }
-    return {
-        "_type": "SubcorticalROI",
-        "atlas_path": [atlas["path"]] * len(regions),
-        "label": [r["id"] for r in regions],
-        "tissues": "GM",
-        "atlas_space": "subject",
-    }
+    else:
+        roi = {
+            "_type": "SubcorticalROI",
+            "atlas_path": [atlas["path"]] * len(regions),
+            "label": [r["id"] for r in regions],
+            "tissues": "GM",
+            "atlas_space": "subject",
+        }
+    for path, region in zip(roi["atlas_path"], regions):
+        _REGION_NAMES[(path, region["id"])] = region["name"]
+    return roi
+
+
+def _target_note(roi: Any) -> Optional[str]:
+    """The note 'Target: Left-Thalamus, Right-Thalamus' for an ROI find_regions built."""
+    if not isinstance(roi, dict):
+        return None
+    pairs = zip(roi.get("atlas_path") or [], roi.get("label") or [])
+    names = [_REGION_NAMES.get((p, label)) for p, label in pairs]
+    if not names or None in names:
+        return None
+    return "Target: " + ", ".join(dict.fromkeys(names))
 
 
 def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -974,86 +1002,33 @@ def tool_cancel_job(args: Dict[str, Any]) -> Dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-def _net_stem(name: str) -> str:
-    return name[:-4] if name.lower().endswith(".csv") else name
-
-
 def tool_simulate_flex_result(args: Dict[str, Any]) -> Dict[str, Any]:
     subject = _subject_id(args.get("subject_id"))
-    runs = _api("GET", "/api/catalog/flex-runs" + _q(subject=subject)) or []
-    if not runs:
-        raise ToolError(f"sub-{subject} has no finished flex-search run")
-    wanted = args.get("flex_run")
-    if wanted:
-        wanted = os.path.basename(str(wanted).rstrip("/"))
-        run = next((r for r in runs if r["name"] == wanted), None)
-        if run is None:
-            names = ", ".join(r["name"] for r in runs)
-            raise ToolError(f"no flex run {wanted!r} for sub-{subject}; runs: {names}")
-    else:
-        run = max(runs, key=lambda r: str(r.get("created") or ""))
-    eeg_net = args.get("eeg_net")
-    mappings = run.get("mappings") or []
-    pairs: Optional[List[List[Any]]] = None
-    if eeg_net:
-        hit = next(
-            (m for m in mappings if _net_stem(m["eeg_net"]) == _net_stem(str(eeg_net))),
-            None,
-        )
-        if hit is None:  # the app maps on demand (Simulator "Map to net")
-            net = (
-                str(eeg_net)
-                if str(eeg_net).lower().endswith(".csv")
-                else f"{eeg_net}.csv"
-            )
-            hit = _api(
-                "GET",
-                f"/api/catalog/flex-runs/{urllib.parse.quote(run['name'], safe='')}/mapping"
-                + _q(subject=subject, eeg_net=net),
-            )
-        eeg_net, pairs = hit["eeg_net"], hit["pairs"]
-    elif mappings:  # the Simulator's default placement: the first mapped net
-        eeg_net, pairs = mappings[0]["eeg_net"], mappings[0]["pairs"]
-    else:
-        eeg_net, pairs = None, run.get("optimized")
-    if not pairs:
-        raise ToolError(f"flex run {run['name']} has no usable electrode positions")
-    manifest = run.get("manifest") or {}
-    intensities = args.get("intensities")
-    intensity_source = "given"
-    if not intensities:
-        if manifest.get("current_split"):
-            intensities, intensity_source = (
-                manifest["current_split"],
-                "the run's optimised split",
-            )
-        elif manifest.get("current_mA"):
-            current = float(manifest["current_mA"])
-            intensities = [current] * max(2, len(pairs))
-            intensity_source = "the run's current_mA per channel"
-        else:
-            intensities, intensity_source = [1.0] * max(2, len(pairs)), "app default"
+    # The server owns the run -> montage resolution (tit.sim.montage_sources
+    # .resolve_flex_simulation), the same one an approved proposal's sim_from_flex step uses.
+    found = _api(
+        "GET",
+        "/api/sim-from-flex"
+        + _q(
+            subject=subject, flex_run=args.get("flex_run"), eeg_net=args.get("eeg_net")
+        ),
+    )
+    intensities = args.get("intensities") or found["intensities"]
     config = {
         **(args.get("overrides") or {}),
-        "montages": [
-            {
-                "_type": "Montage",
-                "name": run["name"],
-                "mode": "flex_mapped" if eeg_net else "flex_free",
-                "electrode_pairs": pairs,
-                "eeg_net": eeg_net,
-            }
-        ],
+        "montages": [found["montage"]],
         "intensities": intensities,
     }
     entries = _prepare("sim", config, [subject])
     overwrite = bool(args.get("overwrite", False))
     plan = _plan("sim", entries, overwrite)
     out: Dict[str, Any] = {
-        "flex_run": run["name"],
-        "placement": f"mapped to {eeg_net}" if eeg_net else "optimised XYZ (flex_free)",
+        "flex_run": found["flex_run"],
+        "placement": found["placement"],
         "intensities_mA": intensities,
-        "intensities_from": intensity_source,
+        "intensities_from": (
+            "given" if args.get("intensities") else found["intensities_from"]
+        ),
         "plan": plan,
     }
     if not plan["ok"]:
@@ -1071,6 +1046,168 @@ def tool_simulate_flex_result(args: Dict[str, Any]) -> Dict[str, Any]:
     out.update(_submit("sim", entries, [subject], overwrite))
     out["submitted"] = True
     return out
+
+
+# --------------------------------------------------------------------------
+# Proposals: the agent proposes, the user approves in the app, the app queues
+# --------------------------------------------------------------------------
+
+#: initialize's clientInfo.name -> the name the approval card shows.
+CLIENT_LABELS = {
+    "claude-code": "Claude Code",
+    "codex": "Codex",
+    "codex-mcp-client": "Codex",
+}
+_CLIENT: Optional[str] = None
+
+
+def _step_for_proposal(raw: Any) -> Dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise ToolError("each step must be an object")
+    kind = str(raw.get("kind", ""))
+    config = raw.get("config") or {}
+    if not isinstance(config, dict):
+        raise ToolError(f"step {raw.get('id')}: config must be an object")
+    if kind == "sim_from_flex":  # the run's own currents unless the agent names some
+        defaults = {k: v for k, v in SIM_UI_DEFAULTS.items() if k != "intensities"}
+        config = {**defaults, **config}
+    else:
+        config = _with_app_defaults(kind, config)
+    config.pop("subject_ids", None)  # the step's subject_ids decide
+    note = raw.get("note") or (
+        _target_note(config.get("roi")) if kind in FLEX_KINDS else None
+    )
+    return {
+        **{k: raw[k] for k in ("id", "overwrite", "after") if k in raw},
+        **({"note": note} if note else {}),
+        "kind": kind,
+        "config": config,
+        "subject_ids": _subject_ids(raw.get("subject_ids")),
+    }
+
+
+def _step_summary(step: Dict[str, Any]) -> Dict[str, Any]:
+    plan = step.get("plan") or {}
+    out = {
+        "id": step["id"],
+        "kind": step["kind"],
+        "subject_ids": step["subject_ids"],
+        "state": step.get("state"),
+        "job_ids": step.get("job_ids") or [],
+    }
+    for key in (
+        "errors",
+        "missing_inputs",
+        "will_overwrite",
+        "deferred",
+        "eta_minutes",
+    ):
+        if plan.get(key):
+            out[key] = plan[key]
+    outputs = [o["output_dir"] for o in plan.get("outputs") or []]
+    if outputs:
+        out["output_dirs"] = outputs
+    for key in ("error", "skipped", "resolved"):
+        if step.get(key):
+            out[key] = step[key]
+    return out
+
+
+def tool_propose_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
+    raw_steps = args.get("steps")
+    if not isinstance(raw_steps, list) or not raw_steps:
+        raise ToolError("steps must be a non-empty list")
+    body: Dict[str, Any] = {
+        "title": args.get("title"),
+        "rationale": args.get("rationale") or "",
+        "steps": [_step_for_proposal(s) for s in raw_steps],
+        "created_by": CREATED_BY,
+        "client": CLIENT_LABELS.get(str(_CLIENT or "").lower(), _CLIENT),
+    }
+    draft = _api("POST", "/api/proposals", {**body, "dry_run": True})
+    steps = [_step_summary(s) for s in draft["steps"]]
+    blocking = [s for s in steps if s.get("errors") or s.get("missing_inputs")]
+    if blocking:
+        return {
+            "proposed": False,
+            "steps": steps,
+            "next": "Nothing was shown to the user. Fix the errors / missing inputs above "
+            "(run a 'pre' step first for missing head models) and call propose_pipeline again.",
+        }
+    created = _api("POST", "/api/proposals", body)
+    out: Dict[str, Any] = {
+        "proposed": True,
+        "proposal_id": created["id"],
+        "status": created["status"],
+        "steps": [_step_summary(s) for s in created["steps"]],
+        "next": "Tell the user the plan is waiting for their approval in TI-Toolbox (Jobs "
+        "page), then call wait_for_approval(proposal_id). Do not submit these jobs yourself.",
+    }
+    if any(s.get("will_overwrite") for s in steps):
+        out["note"] = (
+            "Some steps would replace existing output: approval needs the user to allow "
+            "replacing on the card (or edit the run name)."
+        )
+    return out
+
+
+def _quoted(proposal_id: Any) -> str:
+    if not isinstance(proposal_id, str) or not proposal_id:
+        raise ToolError("proposal_id is required")
+    return urllib.parse.quote(proposal_id, safe="")
+
+
+def tool_wait_for_approval(args: Dict[str, Any]) -> Dict[str, Any]:
+    path = f"/api/proposals/{_quoted(args.get('proposal_id'))}"
+    timeout = min(max(float(args.get("timeout_s", 50)), 0.0), 600.0)
+    poll = float(os.environ.get("TIT_AGENT_POLL_S", "3"))
+    deadline = time.monotonic() + timeout
+    while True:
+        proposal = _api("GET", path)
+        if proposal["decision"]["state"] != "pending" or time.monotonic() >= deadline:
+            break
+        time.sleep(min(poll, max(deadline - time.monotonic(), 0.0)))
+    decision = proposal["decision"]
+    out: Dict[str, Any] = {"decision": decision["state"], "note": decision.get("note")}
+    if decision["state"] == "pending":
+        out["next"] = "Still waiting for the user: call wait_for_approval again."
+    elif decision["state"] == "rejected":
+        out["next"] = (
+            "The user rejected the plan. Tell them, quote their note, and ask what to change; "
+            "never propose the same plan again unchanged."
+        )
+    else:
+        proposed = {s["id"]: s for s in proposal["proposed_steps"]}
+        out["edited_by_user"] = proposal.get("edited", False)
+        out["steps"] = []
+        for step in proposal["steps"]:
+            summary = _step_summary(step)
+            original = proposed.get(step["id"]) or {}
+            if (step["config"], step["subject_ids"], step["overwrite"]) != (
+                original.get("config"),
+                original.get("subject_ids"),
+                original.get("overwrite"),
+            ):
+                summary["edited"] = True
+                summary["approved_config"] = step["config"]
+            out["steps"].append(summary)
+        out["next"] = (
+            "Approved: the app queued the steps itself (later steps start when the ones they "
+            "wait on succeed). Follow with wait_for_job(job_ids) and get_proposal; report what "
+            "the user changed, if anything."
+        )
+    return out
+
+
+def tool_get_proposal(args: Dict[str, Any]) -> Dict[str, Any]:
+    proposal = _api("GET", f"/api/proposals/{_quoted(args.get('proposal_id'))}")
+    return {
+        "proposal_id": proposal["id"],
+        "title": proposal["title"],
+        "status": proposal["status"],
+        "decision": proposal["decision"],
+        "steps": [_step_summary(s) for s in proposal["steps"]],
+    }
 
 
 # --------------------------------------------------------------------------
@@ -1185,10 +1322,13 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "submit_job",
-        "description": "Queue a job in the running app (visible live in its job list). One job per "
-        "subject; kind='pre' queues the full preprocessing stage graph. Omitted fields take the "
-        "app's defaults; subject_id is filled per subject. overwrite=true replaces existing output "
-        "-- only after the user agreed. after=[job ids] waits for other jobs.",
+        "description": "Queue a job directly, without the user's approval. Only works when the "
+        "user turned on 'Agent may submit without approval' in the app (connect reports "
+        "approval_required=false); otherwise the app refuses it (HTTP 403) and you must use "
+        "propose_pipeline. One job per subject; kind='pre' queues the full preprocessing stage "
+        "graph. Omitted fields take the app's defaults; subject_id is filled per subject. "
+        "overwrite=true replaces existing output -- only after the user agreed. after=[job ids] "
+        "waits for other jobs.",
         "inputSchema": _schema(
             {
                 "kind": _KIND,
@@ -1230,7 +1370,8 @@ TOOLS: List[Dict[str, Any]] = [
         "for a flex row: picks the run (default: newest), the placement (eeg_net, else the "
         "first mapped net, else the optimised XYZ), the run's own currents, plans, and submits "
         "unless it would overwrite (then asks for overwrite=true). overrides merges extra "
-        "SimulationConfig fields.",
+        "SimulationConfig fields. Submitting needs approval_required=false; otherwise use "
+        "dry_run=true to preview and propose a sim_from_flex step with config.flex_run.",
         "inputSchema": _schema(
             {
                 "subject_id": _STR,
@@ -1245,6 +1386,64 @@ TOOLS: List[Dict[str, Any]] = [
         ),
         "annotations": _hints(False, destructive=True),
         "handler": tool_simulate_flex_result,
+    },
+    {
+        "name": "propose_pipeline",
+        "description": "Propose a plan for the user to approve in the app (a card on its Jobs "
+        "page). steps run in order: each {id, kind, config, subject_ids, after?: [earlier step "
+        "ids], note?, overwrite?}. kind is a job kind or 'sim_from_flex' (config.flex_step = an "
+        "earlier flex step's id, or config.flex_run = a finished run's name; optional eeg_net, "
+        "intensities and SimulationConfig fields). Omitted fields take the app's defaults; a "
+        "flex step without output_folder gets a timestamped run name. The server validates and "
+        "plans every step first; with errors nothing is shown to the user. After approval the "
+        "app queues the steps itself -- a step starts when every step in its after succeeded.",
+        "inputSchema": _schema(
+            {
+                "title": _STR,
+                "rationale": {
+                    "type": "string",
+                    "description": "why this plan, in the user's terms",
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": _STR,
+                            "kind": _KIND,
+                            "config": {"type": "object"},
+                            "subject_ids": _SUBJECTS,
+                            "after": {"type": "array", "items": _STR},
+                            "note": _STR,
+                            "overwrite": {"type": "boolean"},
+                        },
+                        "required": ["id", "kind", "config", "subject_ids"],
+                    },
+                },
+            },
+            ("title", "rationale", "steps"),
+        ),
+        "annotations": _hints(False, destructive=False),
+        "handler": tool_propose_pipeline,
+    },
+    {
+        "name": "wait_for_approval",
+        "description": "Wait up to timeout_s (default 50, max 600) for the user to approve or "
+        "reject a proposal. Approved: each step with its job ids and, where the user edited it, "
+        "the config that will run. Rejected: the user's note. Call again while pending.",
+        "inputSchema": _schema(
+            {"proposal_id": _STR, "timeout_s": {"type": "number"}}, ("proposal_id",)
+        ),
+        "annotations": _hints(True),
+        "handler": tool_wait_for_approval,
+    },
+    {
+        "name": "get_proposal",
+        "description": "A proposal's status and each step's state (proposed, waiting, queued, "
+        "running, succeeded, failed, skipped, error) with its job ids.",
+        "inputSchema": _schema({"proposal_id": _STR}, ("proposal_id",)),
+        "annotations": _hints(True),
+        "handler": tool_get_proposal,
     },
 ]
 
@@ -1272,6 +1471,8 @@ def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     method, id_ = msg.get("method"), msg.get("id")
     params = msg.get("params") or {}
     if method == "initialize":
+        global _CLIENT
+        _CLIENT = (params.get("clientInfo") or {}).get("name") or None
         return _result(
             id_,
             {
@@ -1280,11 +1481,13 @@ def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
                 "instructions": (
                     "Runs TI-Toolbox jobs through the app the user has open; every job appears "
-                    "live in its job list. Call connect first. Raw scans: inspect_raw_data -> "
-                    "confirm -> stage_raw_data -> submit_job(kind='pre'). Targets: find_regions, "
-                    "never invented atlas paths or labels. Always plan_job before submit_job and "
-                    "ask the user before overwrite=true. Follow jobs with wait_for_job; "
-                    "simulate_flex_result turns a flex-search result into a simulation."
+                    "live in its job list. Call connect first: unless it says "
+                    "approval_required is false, jobs need the user's approval -- propose the "
+                    "whole pipeline with propose_pipeline, wait_for_approval, then follow the "
+                    "queued jobs with wait_for_job / get_proposal. Raw scans: inspect_raw_data "
+                    "-> confirm -> stage_raw_data. Targets: find_regions, never invented atlas "
+                    "paths or labels. Plan before proposing or submitting; never resubmit a "
+                    "rejected plan unchanged."
                 ),
             },
         )

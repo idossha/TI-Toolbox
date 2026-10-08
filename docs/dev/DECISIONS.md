@@ -2466,3 +2466,49 @@ project).
 `tests/test_agent_plugin_jobs.py` (fake server per verb, plus
 `test_against_the_real_server_jobs_are_recorded_as_agent` over HTTP to the real app);
 `agent-plugin/mcp/test_stdio.py::JobsServerStdioTests`.
+
+## 2026-10-07 — Agent jobs need the user's approval; the server runs the approved plan
+
+**Decision.** An agent's direct submission (`created_by: "agent"` on `POST /api/jobs` or
+`/api/jobs/groups`) is refused with 403 unless the project setting `agent_auto_submit`
+("Agent may submit without approval") is on; it is off by default. The agent proposes instead:
+`/api/proposals` stores a plan per project (`code/ti-toolbox/proposals/<id>.json`), plans each
+step server-side, and the user approves, edits or rejects it in the app. On approval the server
+queues the steps itself: roots at once, dependants when every job of the steps they name has
+succeeded, through the same `plan_submission` checks `/api/jobs/groups` makes. A `sim_from_flex`
+step is resolved when its flex step has finished, by `resolve_flex_simulation`, which moved from
+the agent plugin into `tit.sim.montage_sources` and is served as `GET /api/sim-from-flex`.
+Contract (additive): `Settings.agent_auto_submit`, `JobStatus.created_by`, the proposal paths
+and schemas, and a `proposal` variant of `JobsWsServerMessage`. Supersedes nothing; extends the
+entry above.
+
+**Why.** An agent that queues hours of FEM work, or replaces results, on its own reading of a
+request is the failure users fear most; a plan card the user reads (outputs, overwrites, ETA,
+the settings in their terms) and approves keeps the user directing the work while the agent does
+the typing. The server queues approved steps so the agent need not stay connected for a
+multi-hour pipeline. Dependants are deferred, not queued with job-level `after`, because
+submission preflight refuses a job whose inputs a predecessor will produce (flex after `pre`)
+and a flex result's montage does not exist until the run does. One resolver for flex -> sim
+keeps the plugin and the server from choosing different electrodes or currents.
+
+**Cost.** A dependent step's jobs appear in the job list only when they are queued, so the card,
+not the list, shows what is still to come. Proposals are never pruned (a few KB each). The
+approval is not a security boundary: the agent's MCP server holds the server token, and anything
+with the token can call approve or flip the setting; it binds a cooperating agent that uses the
+plugin's tools.
+
+**Alternatives rejected.** Agent-side sequencing with `wait_for_job` then `submit_job` (the
+agent must stay connected; a closed laptop lid stops the pipeline). Queuing the whole DAG up
+front with `after` (refused by preflight; no montage yet). Cookie-only approval routes (an agent
+with the token can mint a cookie, so it adds friction, not protection).
+
+**Revisit if** the token ever stops being a single full-access secret (then approve can require
+a user session), or proposals need retention.
+
+**Evidence.** `tests/test_proposals_routes.py` (create/plan, reject, edit then approve, approve
+with edits, refusal while a step would overwrite, deferred `sim_from_flex` queued by the server
+after a fake flex job, error then `run` retry, failed prerequisite skips its dependant,
+malformed proposals); `tests/test_jobs_routes.py::test_an_agent_cannot_submit_until_the_user_allows_it`;
+`tests/test_flex_simulation_resolver.py`; `tests/test_agent_plugin_jobs.py` (proposal verbs, and
+`test_against_the_real_server_jobs_are_recorded_as_agent`: refused submit -> propose -> approve
+over HTTP -> queued as `agent`).

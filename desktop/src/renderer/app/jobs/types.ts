@@ -43,6 +43,12 @@ export interface JobEvent {
   outputs?: unknown;
 }
 
-export type JobsWsServerMessage = { type: "job"; job: JobStatus } | { type: "event"; job_id: string; event: JobEvent };
+/** An agent's plan awaiting (or past) the user's approval — `tit.server.proposals`. */
+export type Proposal = components["schemas"]["Proposal"];
+
+export type JobsWsServerMessage =
+  | { type: "job"; job: JobStatus }
+  | { type: "event"; job_id: string; event: JobEvent }
+  | { type: "proposal"; proposal: Proposal };
 
 export type JobsWsClientMessage = { subscribe: Record<string, number> } | { unsubscribe: string[] };

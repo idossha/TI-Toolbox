@@ -306,6 +306,28 @@ function SettingsPage() {
           </CardBody>
         </Card>
 
+        <Card>
+          <CardHeader title="AI assistant" />
+          <CardBody>
+            {form && (
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                <Switch
+                  id="settings-agent-auto-submit"
+                  checked={form.agent_auto_submit === true}
+                  onCheckedChange={(on) => patch({ agent_auto_submit: on })}
+                  aria-label="Agent may submit without approval"
+                />
+                <label htmlFor="settings-agent-auto-submit" className="field-label" style={{ cursor: "pointer" }}>
+                  Agent may submit without approval
+                </label>
+              </div>
+            )}
+            <p className="field-help" style={{ marginTop: "var(--space-2)" }}>
+              Off: your AI agent (Claude Code, Codex) proposes plans that you approve on the Jobs page before anything runs. On: it queues jobs itself.
+            </p>
+          </CardBody>
+        </Card>
+
         <NotificationsCard />
 
         <Card>

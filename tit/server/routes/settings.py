@@ -83,7 +83,9 @@ def _save_project_settings(data: dict[str, Any]) -> None:
 class Telemetry(BaseModel):
     """``contracts/openapi.yaml``'s ``Telemetry``."""
 
-    consented: bool = Field(description="has the user been asked, whatever they answered")
+    consented: bool = Field(
+        description="has the user been asked, whatever they answered"
+    )
     enabled: bool
 
 
@@ -99,6 +101,18 @@ class Settings(BaseModel):
     )
     image_tag: str | None = None
     theme: Literal["system", "light", "dark"]
+    agent_auto_submit: bool = Field(
+        default=False,
+        description=(
+            "let an AI agent (created_by agent) queue jobs without the user's approval; off "
+            "means it must propose them (/api/proposals)"
+        ),
+    )
+
+
+def agent_auto_submit() -> bool:
+    """Project setting: may an agent submit jobs directly? Off (the default) means it proposes."""
+    return _load_project_settings().get("agent_auto_submit") is True
 
 
 def _read_settings() -> dict[str, Any]:
@@ -114,6 +128,7 @@ def _read_settings() -> dict[str, Any]:
         "panels": [p for p in project.get("panels", []) if p in _VALID_PANELS],
         "image_tag": project.get("image_tag"),
         "theme": project.get("theme", "system"),
+        "agent_auto_submit": project.get("agent_auto_submit") is True,
     }
 
 
@@ -163,6 +178,8 @@ def put_settings(body: dict[str, Any]) -> Settings:
             "panels": _validate_panels(body.get("panels", [])),
             "image_tag": body.get("image_tag"),
             "theme": _validate_theme(body.get("theme", "system")),
+            # Absent (an older client) is off: the safe direction for a permission.
+            "agent_auto_submit": body.get("agent_auto_submit") is True,
         }
     )
     return Settings.model_validate(_read_settings())
