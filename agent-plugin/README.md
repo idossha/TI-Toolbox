@@ -67,7 +67,7 @@ With several projects open, the agent is asked which one.
 | Tool | What it does |
 |------|--------------|
 | `connect` | Finds the open TI-Toolbox; project folder, subjects and what each has, queued/running jobs |
-| `find_regions` | Searches a subject's atlases ("thalamus") and returns ready ROI objects: bilateral, left, right |
+| `find_regions` | Searches a subject's atlases ("thalamus") and returns ready ROI objects: bilateral, left, right (the app's `GET /api/catalog/regions`) |
 | `get_config_schema` | The config schema of a job kind and the app defaults the server fills in |
 | `plan_job` | Validation errors, missing inputs, output folders, what would be overwritten, ETA. Reads only |
 | `propose_pipeline` | Puts a multi-step plan in front of you for approval (validated and planned by the app first) |
@@ -87,7 +87,8 @@ CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` gives the same 5 s.
 
 Jobs it starts are recorded with `created_by: "agent"` in their `spec.json` and run
 exactly like the app's own jobs: same queue, same outputs, same reports. Fields the
-agent leaves out take the values the app's pages send by default.
+agent leaves out take the values the app's pages start with: the app fills them in from
+the same table its pages read (`get_config_schema` shows it).
 
 ## What changed in v3
 
