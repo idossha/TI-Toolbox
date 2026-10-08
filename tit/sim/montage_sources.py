@@ -52,6 +52,7 @@ __all__ = [
     "flex_montage_name",
     "list_flex_run_options",
     "resolve_flex_montage",
+    "resolve_flex_simulation",
     "list_freehand_configs",
     "resolve_freehand_montage",
 ]
@@ -288,6 +289,99 @@ def resolve_flex_montage(
         eeg_net=eeg_net,
         display_name=display_name,
     )
+
+
+def _net_stem(name: str) -> str:
+    return name[:-4] if name.lower().endswith(".csv") else name
+
+
+def resolve_flex_simulation(
+    pm: PathManager,
+    subject_id: str,
+    flex_run: str | None = None,
+    *,
+    eeg_net: str | None = None,
+    intensities: list[float] | None = None,
+) -> dict[str, Any]:
+    """What the Simulator does for a flex row: the run's electrodes and currents as one montage.
+
+    The single source for turning a finished flex-search run into a ``SimulationConfig``
+    montage -- ``POST /api/sim-from-flex`` (the agent plugin's ``simulate_flex_result``) and a
+    proposal's deferred ``sim_from_flex`` step (:mod:`tit.server.proposals`) both call it.
+
+    The run is *flex_run* (a folder name or path; its basename is used), else the newest run.
+    Placement is *eeg_net*'s labels (mapped on demand, cached beside the run), else the first
+    net the run is already mapped to, else the optimised XYZ (``flex_free``). Currents are
+    *intensities*, else the run's optimised split, else its ``current_mA`` per channel, else
+    1 mA per channel.
+
+    Returns ``{flex_run, eeg_net, placement, intensities, intensities_from, montage}`` where
+    ``montage`` is a serialised ``Montage`` named after the run. Raises :class:`ValueError` for
+    an unknown subject, no run, an unknown run or a run without usable positions.
+    """
+    from tit import catalog
+
+    runs = catalog.flex_runs(pm, subject_id)
+    if runs is None:
+        raise ValueError(f"unknown subject: {subject_id}")
+    if not runs:
+        raise ValueError(f"sub-{subject_id} has no finished flex-search run")
+    if flex_run:
+        wanted = os.path.basename(str(flex_run).rstrip("/"))
+        run = next((r for r in runs if r["name"] == wanted), None)
+        if run is None:
+            names = ", ".join(r["name"] for r in runs)
+            raise ValueError(
+                f"no finished flex run {wanted!r} for sub-{subject_id}; runs: {names}"
+            )
+    else:
+        run = max(runs, key=lambda r: str(r.get("created") or ""))
+    mappings = run.get("mappings") or []
+    if eeg_net:
+        hit = next(
+            (m for m in mappings if _net_stem(m["eeg_net"]) == _net_stem(eeg_net)),
+            None,
+        )
+        if hit is None:  # the Simulator's "Map to net": map now, cached beside the run
+            net = f"{_net_stem(eeg_net)}.csv"
+            montage = resolve_flex_montage(
+                pm, subject_id, run["name"], "mapped", eeg_net=net
+            )
+            hit = {
+                "eeg_net": net,
+                "pairs": [list(p) for p in montage.electrode_pairs],
+            }
+        net, pairs = hit["eeg_net"], hit["pairs"]
+    elif mappings:  # the Simulator's default placement: the first mapped net
+        net, pairs = mappings[0]["eeg_net"], mappings[0]["pairs"]
+    else:
+        net, pairs = None, run.get("optimized")
+    if not pairs:
+        raise ValueError(f"flex run {run['name']} has no usable electrode positions")
+    manifest = run.get("manifest") or {}
+    if intensities:
+        currents, source = [float(i) for i in intensities], "given"
+    elif manifest.get("current_split"):
+        currents, source = list(manifest["current_split"]), "the run's optimised split"
+    elif manifest.get("current_mA"):
+        currents = [float(manifest["current_mA"])] * max(2, len(pairs))
+        source = "the run's current_mA per channel"
+    else:
+        currents, source = [1.0] * max(2, len(pairs)), "app default"
+    return {
+        "flex_run": run["name"],
+        "eeg_net": net,
+        "placement": f"mapped to {net}" if net else "optimised XYZ (flex_free)",
+        "intensities": currents,
+        "intensities_from": source,
+        "montage": {
+            "_type": "Montage",
+            "name": run["name"],
+            "mode": "flex_mapped" if net else "flex_free",
+            "electrode_pairs": pairs,
+            "eeg_net": net,
+        },
+    }
 
 
 def list_freehand_configs(pm: PathManager, subject_id: str) -> list[str]:

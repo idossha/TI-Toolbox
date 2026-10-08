@@ -417,6 +417,25 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/settings", "GET", "/api/settings");
     await call("/api/settings", "PUT", "/api/settings", { body: { theme: "dark", panels: [], telemetry: { consented: true, enabled: false } } });
 
+    // agent proposals (v1): propose -> edit -> approve (a job is queued as `agent`) -> run is 409;
+    // a second proposal is rejected.
+    const step = { id: "sim", kind: "sim", subject_ids: ["ernie"], config: { montages: [] } };
+    const { json: created } = await call("/api/proposals", "POST", "/api/proposals", { body: { title: "Simulate", steps: [step], client: "Claude Code" } });
+    const pid = (created as { id: string }).id;
+    await call("/api/proposals", "GET", "/api/proposals");
+    await call("/api/proposals/{id}", "GET", `/api/proposals/${pid}`);
+    await call("/api/proposals/{id}/steps/{step_id}", "PATCH", `/api/proposals/${pid}/steps/sim`, { body: { overwrite: true } });
+    const { json: approved } = await call("/api/proposals/{id}/approve", "POST", `/api/proposals/${pid}/approve`, { body: {} });
+    const [agentJobId] = (approved as { steps: { job_ids: string[] }[] }).steps[0]!.job_ids;
+    const { json: queued } = await call("/api/jobs/{id}", "GET", `/api/jobs/${agentJobId}`);
+    expect((queued as { status: { created_by: string } }).status.created_by).toBe("agent");
+    const run = await call("/api/proposals/{id}/steps/{step_id}/run", "POST", `/api/proposals/${pid}/steps/sim/run`);
+    expect(run.res.status).toBe(409);
+    const { json: other } = await call("/api/proposals", "POST", "/api/proposals", { body: { title: "Other", steps: [step] } });
+    const { json: rejected } = await call("/api/proposals/{id}/reject", "POST", `/api/proposals/${(other as { id: string }).id}/reject`, { body: { note: "no" } });
+    expect((rejected as { status: string }).status).toBe("rejected");
+    await call("/api/sim-from-flex", "GET", "/api/sim-from-flex?subject=ernie");
+
     // Logged out last (Bearer auth, not the cookie session, so nothing above depended on it).
     await call("/auth/logout", "POST", "/auth/logout");
 

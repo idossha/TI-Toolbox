@@ -9,6 +9,7 @@ the concurrency cap it carries is enforced by the scheduler, never by client-sid
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Annotated, Any
 
@@ -51,16 +52,35 @@ def _checked_subject_ids(subject_ids: Any) -> list[str]:
     return list(subject_ids)
 
 
+#: Why a direct agent submission is refused while approval is required (ARCHITECTURE §6).
+AGENT_NEEDS_APPROVAL = (
+    "TI-Toolbox requires the user's approval for agent-submitted jobs. Propose the work with "
+    "propose_pipeline (POST /api/proposals) and wait for the user to approve it in the app; "
+    "approved steps are queued by the app itself. The user can allow direct agent submissions "
+    "in Settings > Project > AI assistant."
+)
+
+
 def _created_by(body: dict[str, Any]) -> str:
     """Who submitted: ``"gui"`` unless the client names itself (the agent plugin sends
     ``"agent"``). Recorded in ``spec.json`` and passed to the runner as ``TIT_INTERFACE``; the
-    job itself runs identically whoever submitted it."""
+    job itself runs identically whoever submitted it.
+
+    ``"agent"`` is refused (403) unless the project setting ``agent_auto_submit`` is on: an
+    agent proposes (``/api/proposals``) and the user approves. A rule for a cooperating agent,
+    not a security boundary -- whoever holds the server token can do anything the app can.
+    """
     value = body.get("created_by", "gui")
     if value not in CREATED_BY_VALUES:
         raise HTTPException(
             status_code=422,
             detail=f"created_by must be one of {list(CREATED_BY_VALUES)}",
         )
+    if value == "agent":
+        from tit.server.routes.settings import agent_auto_submit
+
+        if not agent_auto_submit():
+            raise HTTPException(status_code=403, detail=AGENT_NEEDS_APPROVAL)
     return value
 
 
@@ -248,26 +268,96 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
     tags = body.get("tags") or []
     if not isinstance(tags, list):
         raise HTTPException(status_code=422, detail="tags must be an array")
-    overwrite = bool(body.get("overwrite", False))
+    try:
+        planned = plan_submission(
+            _manager(request),
+            kind,
+            config,
+            subject_ids,
+            subject_configs=body.get("subject_configs"),
+            tags=tags,
+            overwrite=bool(body.get("overwrite", False)),
+        )
+    except InputsMissing as exc:
+        return exc.response
+    return _manager(request).submit_plan(planned, created_by=created_by)
 
+
+class InputsMissing(Exception):
+    """:func:`plan_submission`'s refusal: ``response`` is the route's 422 body as sent."""
+
+    def __init__(self, response: JSONResponse) -> None:
+        super().__init__("Missing inputs")
+        self.response = response
+        self.missing: list[dict[str, Any]] = json.loads(response.body)["missing"]
+
+
+def plan_submission(
+    manager: JobManager,
+    kind: str,
+    config: dict[str, Any],
+    subject_ids: list[str],
+    *,
+    subject_configs: Any = None,
+    tags: list[str] | None = None,
+    overwrite: bool = False,
+) -> list[Any]:
+    """Every check ``POST /api/jobs/groups`` makes, returning the jobs it would submit.
+
+    Shared with the proposal engine (:mod:`tit.server.proposals`), which queues an approved
+    step through exactly this path. Group kinds expand as :func:`submit_group` documents; any
+    other kind becomes one job per subject with that subject's id in its config (what the agent
+    plugin's ``submit_job`` sends to ``POST /api/jobs``). Raises :class:`HTTPException`
+    (422/409/501) or :class:`InputsMissing`.
+    """
+    from tit.jobs.plans import GROUP_KINDS
+    from tit.jobs.spec import PlannedJob
+
+    tags = list(tags or [])
     if kind == "pre":
         planned = _plan_pre_group(config, subject_ids)
         _check_freesurfer_inputs(kind, config, subject_ids)
         # The whole group's flags at once: an early stage (DICOM conversion) supplies what a
         # later one (charm) needs, which a per-stage sweep could not know.
-        refused = _missing_inputs(_manager(request), [(kind, config, subject_ids)])
+        refused = _missing_inputs(manager, [(kind, config, subject_ids)])
     else:
-        planned = _plan_generic_group(kind, config, subject_ids, body, tags, overwrite)
+        if kind in GROUP_KINDS:
+            planned = _plan_generic_group(
+                kind,
+                config,
+                subject_ids,
+                {"subject_configs": subject_configs},
+                tags,
+                overwrite,
+            )
+        else:
+            planned = []
+            for sid in subject_ids:
+                entry = {**config, "subject_id": sid}
+                try:
+                    check_job_config(kind, entry)
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+                planned.append(
+                    PlannedJob(
+                        label=f"{sid}:{kind}",
+                        kind=kind,
+                        config=entry,
+                        subject_ids=[sid],
+                        tags=tags,
+                        overwrite=overwrite,
+                    )
+                )
         refused = _missing_inputs(
-            _manager(request), [(j.kind, j.config, j.subject_ids) for j in planned]
+            manager, [(j.kind, j.config, j.subject_ids) for j in planned]
         )
     if refused is not None:
-        return refused
+        raise InputsMissing(refused)
     for job in planned:
         check_overwrite_permission(
             job.kind, job.config, job.subject_ids, overwrite=job.overwrite
         )
-    return _manager(request).submit_plan(planned, created_by=created_by)
+    return planned
 
 
 def _plan_pre_group(config: dict[str, Any], subject_ids: list[str]) -> list[Any]:

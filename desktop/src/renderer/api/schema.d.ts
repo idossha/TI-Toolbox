@@ -2656,6 +2656,367 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent proposals, newest first */
+        get: {
+            parameters: {
+                query?: {
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /** Propose a pipeline for the user to approve (each step validated and planned) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProposalRequest"];
+                };
+            };
+            responses: {
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description a bad body (the detail names the field or step) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proposals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One proposal with live step states */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proposals/{id}/steps/{step_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a pending step (config, subject_ids, overwrite); the step is re-planned */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    step_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProposalStepEdit"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description a bad body (the detail names the field or step) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/proposals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve (optionally with edited steps); the server queues the steps
+         * @description Every step is re-planned first. A step error, a missing input of a step that waits on nothing, or an output a step would replace without overwrite refuses the approval (409) and nothing is queued. Otherwise steps with no `after` are queued at once and the rest by the server as the steps they wait on succeed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        steps?: components["schemas"]["ProposalStepEdit"][];
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description already decided, or a step is not runnable as planned */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a bad body (the detail names the field or step) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proposals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject with an optional note */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description already decided */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proposals/{id}/steps/{step_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue one approved step now (retry a failed, errored or skipped step) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    step_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description not approved, already queued/running/succeeded, or waiting on a step */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sim-from-flex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A finished flex-search run's electrodes and currents as a simulation montage
+         * @description tit.sim.montage_sources.resolve_flex_simulation -- the Simulator's flex-row rule, shared by the agent plugin's simulate_flex_result and a proposal's sim_from_flex step. The run is flex_run, else the newest; placement is eeg_net (mapped on demand), else the first mapped net, else the optimised XYZ (flex_free); currents are the run's split, else its current_mA per channel, else 1 mA.
+         */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    flex_run?: string;
+                    eeg_net?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FlexSimulation"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/view/{kind}": {
         parameters: {
             query?: never;
@@ -6297,6 +6658,8 @@ export interface components {
             rss_peak?: number | null;
             /** @description Simple mean of `rss` over the counted samples, bytes; kept after the job finishes. */
             rss_avg?: number | null;
+            /** @description JobSpec.created_by copied onto the row (the app badges agent jobs); null on a record written before the field existed. */
+            created_by?: string | null;
             /** @description Container path to this job's raw stdout/stderr log (`code/ti-toolbox/jobs/<id>/stdout.log`), the same file `GET /api/jobs/{id}/log` serves. Present so `pages/jobs/JobDetailDrawer.tsx` can show/copy it without reconstructing the path convention client-side (ra_13 finding 6). */
             log_path?: string | null;
         };
@@ -6420,6 +6783,118 @@ export interface components {
             type: "event";
             job_id: string;
             event: components["schemas"]["Event"];
+        } | {
+            /** @enum {string} */
+            type: "proposal";
+            proposal: components["schemas"]["Proposal"];
+        };
+        ProposalStepInput: {
+            id: string;
+            /** @description a JobKind, or sim_from_flex (a simulation of a flex step's or run's result) */
+            kind: string;
+            /** @description The kind's config. A flex step's output_folder is a run name (assigned when empty). sim_from_flex takes flex_step (an earlier flex step id) or flex_run (a finished run's name), optional eeg_net and intensities, and any SimulationConfig field. */
+            config: {
+                [key: string]: unknown;
+            };
+            subject_ids: string[];
+            /** @description earlier step ids that must succeed first (sim_from_flex adds its flex_step) */
+            after?: string[];
+            note?: string;
+            overwrite?: boolean;
+        };
+        ProposalRequest: {
+            title: string;
+            rationale?: string;
+            steps: components["schemas"]["ProposalStepInput"][];
+            /** @enum {string} */
+            created_by?: "gui" | "browser" | "api" | "notebook" | "agent";
+            /** @description the agent's name shown on the card (Claude Code, Codex) */
+            client?: string;
+            /** @description plan and return without saving (status draft) */
+            dry_run?: boolean;
+        };
+        ProposalStepEdit: {
+            /** @description required inside an approve body's steps */
+            id?: string;
+            config?: {
+                [key: string]: unknown;
+            };
+            subject_ids?: string[];
+            overwrite?: boolean;
+        };
+        ProposalStepPlan: {
+            errors: string[];
+            missing_inputs: components["schemas"]["MissingInput"][];
+            outputs: {
+                subject: string;
+                output_dir: string;
+                exists: boolean;
+            }[];
+            will_overwrite: string[];
+            eta_minutes?: number | null;
+            warnings: string[];
+            /** @description why this step cannot be planned until a step it waits on has finished */
+            deferred?: string | null;
+        };
+        ProposalStep: {
+            id: string;
+            kind: string;
+            config: {
+                [key: string]: unknown;
+            };
+            subject_ids: string[];
+            after: string[];
+            note?: string;
+            overwrite: boolean;
+            job_ids: string[];
+            /** @enum {string} */
+            state: "proposed" | "waiting" | "queued" | "running" | "succeeded" | "failed" | "skipped" | "error";
+            error?: string | null;
+            skipped?: string | null;
+            /** @description sim_from_flex only -- per subject, the run, placement and currents used */
+            resolved?: {
+                [key: string]: unknown;
+            } | null;
+            plan?: components["schemas"]["ProposalStepPlan"] | null;
+        };
+        Proposal: {
+            id: string;
+            title: string;
+            rationale?: string;
+            created_by: string;
+            client?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /**
+             * @description derived -- the decision, then the approved steps' states
+             * @enum {string}
+             */
+            status: "draft" | "pending" | "rejected" | "running" | "succeeded" | "failed";
+            decision: {
+                /** @enum {string} */
+                state: "pending" | "approved" | "rejected";
+                at?: string | null;
+                note?: string | null;
+            };
+            steps: components["schemas"]["ProposalStep"][];
+            /** @description the agent's original steps (id, kind, config, subject_ids, after, overwrite) */
+            proposed_steps: {
+                [key: string]: unknown;
+            }[];
+            /** @description the user changed a step before approving */
+            edited: boolean;
+        };
+        FlexSimulation: {
+            flex_run: string;
+            eeg_net?: string | null;
+            placement: string;
+            intensities: number[];
+            intensities_from: string;
+            montage: {
+                [key: string]: unknown;
+            };
         };
         ViewLayer: {
             path: string;
@@ -6586,6 +7061,8 @@ export interface components {
             image_tag?: string | null;
             /** @enum {string} */
             theme: "system" | "light" | "dark";
+            /** @description "Agent may submit without approval" (Settings > Project > AI assistant). Off (the default, and what an absent field means on PUT) makes POST /api/jobs and /api/jobs/groups refuse created_by agent with 403; the agent proposes instead (/api/proposals). */
+            agent_auto_submit?: boolean;
         };
         /**
          * SimulationConfig

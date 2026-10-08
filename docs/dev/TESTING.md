@@ -366,6 +366,14 @@ retention and stability after succeeded/failed/cancelled states. `jobsStream.tes
 reconnect cursors and shared consumers; `tests/test_jobs_manager.py` and `tests/test_jobs_routes.py`
 cover oversized backfill and ordered batch draining.
 
+Agent proposals (ARCHITECTURE §6): `tests/test_proposals_routes.py` drives create/edit/approve/
+reject/run against the real job manager on the fake runner, including a `sim_from_flex` step the
+server queues after a fake flex job and a failed step skipping its dependant;
+`tests/test_flex_simulation_resolver.py` pins the flex-run → montage rule;
+`tests/test_agent_plugin_jobs.py` runs the MCP verbs against a fake server and, in
+`test_against_the_real_server_jobs_are_recorded_as_agent`, against the real app over HTTP;
+`desktop/tests/unit/proposal-card.test.tsx` covers the card.
+
 
 ### Native viewer lifecycle release gate
 

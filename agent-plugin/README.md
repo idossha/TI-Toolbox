@@ -23,6 +23,17 @@ preprocess them, run a flex-search on the bilateral thalamus for maximum intensi
 then simulate the best montage"* — and the agent calls a short chain of
 `ti-toolbox-jobs` tools, asking you before it replaces anything.
 
+**You approve, the app runs.** By default the agent cannot queue jobs itself: it
+proposes the whole pipeline (`propose_pipeline`) and the plan appears as a card on
+the app's **Jobs** page, with each step's subjects, settings, output folders,
+anything it would replace, and an ETA. Approve it (after editing a step if you
+like) or reject it with a note the agent reads. Once approved, the app queues the
+steps itself — a later step starts when the ones it waits on succeed — so the
+agent does not have to stay connected. **Settings ▸ Project ▸ AI assistant ▸
+Agent may submit without approval** lets the agent submit directly instead. This
+is a rule the plugin follows, not a lock: anything with the app's session token
+can do what the app can.
+
 **Your agent, your login.** The agent is your own Claude Code (with your Claude
 Pro/Max login) or Codex CLI (with your ChatGPT login). TI-Toolbox never sees,
 stores or forwards those credentials and adds no AI service of its own: the job
@@ -44,12 +55,15 @@ With several projects open, the agent is asked which one.
 | `find_regions` | Searches a subject's atlases ("thalamus") and returns ready ROI objects: bilateral, left, right |
 | `get_config_schema` | The config schema of a job kind and the app defaults the server fills in |
 | `plan_job` | Validation errors, missing inputs, output folders, what would be overwritten, ETA. Reads only |
-| `submit_job` | Queues a job (or the preprocessing stage graph) exactly as the app's pages do |
+| `propose_pipeline` | Puts a multi-step plan in front of you for approval (validated and planned by the app first) |
+| `wait_for_approval` | Waits for your decision; returns the approved (possibly edited) steps and their job ids, or your note |
+| `get_proposal` | Each step's state (waiting, queued, running, succeeded, ...) and job ids |
+| `submit_job` | Queues a job directly — only when you allowed it in Settings |
 | `wait_for_job` | Waits up to `timeout_s` (default 50 s), then reports state, log tail and outputs |
 | `cancel_job` | Cancels a queued or running job |
-| `simulate_flex_result` | Turns a finished flex-search run into a simulation in one call |
+| `simulate_flex_result` | Turns a finished flex-search run into a simulation in one call (direct mode; otherwise a `sim_from_flex` proposal step) |
 
-Jobs it submits are recorded with `created_by: "agent"` in their `spec.json` and run
+Jobs it starts are recorded with `created_by: "agent"` in their `spec.json` and run
 exactly like the app's own jobs: same queue, same outputs, same reports. Fields the
 agent leaves out take the values the app's pages send by default.
 

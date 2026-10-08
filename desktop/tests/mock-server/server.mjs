@@ -1585,7 +1585,7 @@ function tick() {
 }
 setInterval(tick, 400);
 
-function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite = false, group_id = null, startImmediately = false }) {
+function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite = false, group_id = null, startImmediately = false, created_by = "gui" }) {
   const id = makeJobId();
   const job = {
     // Raw ms, sibling to (never inside) `status` -- `status` is sent verbatim over the wire
@@ -1616,6 +1616,7 @@ function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite
       cpu_percent_avg: null,
       rss_peak: null,
       rss_avg: null,
+      created_by,
       // The real server records where the runner's log file is written (`JobStatus.log_path` in
       // contracts/openapi.yaml), and the UI's "Reveal log file" actions exist only when it is
       // set -- so the mock sets it too, at the path `tit.jobs` uses.
@@ -4003,6 +4004,150 @@ route("PUT", "/api/cpu-limit", async (ctx) => {
 });
 
 // --- settings (v1) ---
+// Agent proposals (tit.server.proposals). The mock plans nothing (no errors, no outputs) and, on
+// approval, queues every step that waits on nothing as an `agent` job; a dependent step stays
+// `waiting` -- the deferred queuing is the real server's, pinned in tests/test_proposals_routes.py.
+// ponytail: dependent steps never advance here; add it when an e2e needs a two-step plan to run.
+const proposalStore = new Map();
+const PROPOSAL_ID_RE = /^[0-9a-f]{16}$/;
+function proposalView(p) {
+  const steps = p.steps.map((s) => {
+    let state = "proposed";
+    if (p.decision.state === "approved") {
+      const states = s.job_ids.map((id) => jobRegistry.get(id)?.status.state ?? "lost");
+      if (!states.length) state = "waiting";
+      else if (states.every((x) => x === "succeeded")) state = "succeeded";
+      else if (states.some((x) => ["failed", "cancelled", "lost", "skipped"].includes(x))) state = "failed";
+      else state = states.includes("running") ? "running" : "queued";
+    }
+    return { ...s, state };
+  });
+  let status = p.decision.state;
+  if (status === "approved") {
+    const states = steps.map((s) => s.state);
+    status = states.some((x) => ["waiting", "queued", "running"].includes(x)) ? "running" : states.every((x) => x === "succeeded") ? "succeeded" : "failed";
+  }
+  return { ...p, steps, status, edited: JSON.stringify(p.steps.map((s) => s.config)) !== JSON.stringify(p.proposed_steps.map((s) => s.config)) };
+}
+function broadcastProposal(p) {
+  const payload = JSON.stringify({ type: "proposal", proposal: proposalView(p) });
+  for (const client of wsJobClients) if (client.ws.readyState === client.ws.OPEN) client.ws.send(payload);
+}
+function pendingProposal(ctx) {
+  const p = PROPOSAL_ID_RE.test(ctx.params.id) ? proposalStore.get(ctx.params.id) : undefined;
+  if (!p) return json(ctx.res, 404, { detail: "unknown proposal" }), null;
+  if (p.decision.state !== "pending") return json(ctx.res, 409, { detail: `proposal is already ${p.decision.state}` }), null;
+  return p;
+}
+const emptyPlan = () => ({ errors: [], missing_inputs: [], outputs: [], will_overwrite: [], eta_minutes: null, warnings: [], deferred: null });
+route("GET", "/api/proposals", (ctx) => {
+  const status = ctx.url.searchParams.get("status");
+  const all = [...proposalStore.values()].map(proposalView).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  json(ctx.res, 200, status ? all.filter((p) => p.status === status) : all);
+});
+route("POST", "/api/proposals", async (ctx) => {
+  const body = await ctx.body();
+  if (!body || typeof body.title !== "string" || !body.title.trim() || !Array.isArray(body.steps) || !body.steps.length) {
+    return json(ctx.res, 422, { detail: "a proposal needs a title and steps" });
+  }
+  const steps = body.steps.map((s) => ({
+    id: s.id,
+    kind: s.kind,
+    config: s.config ?? {},
+    subject_ids: s.subject_ids ?? [],
+    after: s.after ?? (s.config?.flex_step ? [s.config.flex_step] : []),
+    note: s.note ?? "",
+    overwrite: s.overwrite === true,
+    job_ids: [],
+    error: null,
+    skipped: null,
+    resolved: null,
+    plan: emptyPlan(),
+  }));
+  const p = {
+    id: randomBytes(8).toString("hex"),
+    title: body.title,
+    rationale: body.rationale ?? "",
+    created_by: body.created_by ?? "agent",
+    client: body.client ?? null,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    decision: { state: "pending", at: null, note: null },
+    steps,
+    proposed_steps: steps.map(({ id, kind, config, subject_ids, after, overwrite }) => ({ id, kind, config, subject_ids, after, overwrite })),
+  };
+  if (body.dry_run === true) return json(ctx.res, 201, { ...proposalView(p), status: "draft" });
+  proposalStore.set(p.id, p);
+  broadcastProposal(p);
+  json(ctx.res, 201, proposalView(p));
+});
+route("GET", "/api/proposals/:id", (ctx) => {
+  const p = proposalStore.get(ctx.params.id);
+  if (!p) return json(ctx.res, 404, { detail: "unknown proposal" });
+  json(ctx.res, 200, proposalView(p));
+});
+route("PATCH", "/api/proposals/:id/steps/:step_id", async (ctx) => {
+  const p = pendingProposal(ctx);
+  if (!p) return;
+  const body = await ctx.body();
+  const step = p.steps.find((s) => s.id === ctx.params.step_id);
+  if (!step) return json(ctx.res, 422, { detail: `no step ${ctx.params.step_id}` });
+  for (const key of ["config", "subject_ids", "overwrite"]) if (body && key in body) step[key] = body[key];
+  p.updated_at = nowIso();
+  broadcastProposal(p);
+  json(ctx.res, 200, proposalView(p));
+});
+route("POST", "/api/proposals/:id/approve", async (ctx) => {
+  const p = pendingProposal(ctx);
+  if (!p) return;
+  const body = (await ctx.body()) ?? {};
+  p.decision = { state: "approved", at: nowIso(), note: body.note ?? null };
+  for (const step of p.steps.filter((s) => s.after.length === 0)) {
+    const job = createJob({ kind: step.kind, config: step.config, subject_ids: step.subject_ids, tags: [`proposal:${p.id}`], overwrite: step.overwrite, created_by: p.created_by });
+    step.job_ids = [job.status.id];
+  }
+  p.updated_at = nowIso();
+  broadcastProposal(p);
+  json(ctx.res, 200, proposalView(p));
+});
+route("POST", "/api/proposals/:id/reject", async (ctx) => {
+  const p = pendingProposal(ctx);
+  if (!p) return;
+  const body = (await ctx.body()) ?? {};
+  p.decision = { state: "rejected", at: nowIso(), note: body.note ?? null };
+  p.updated_at = nowIso();
+  broadcastProposal(p);
+  json(ctx.res, 200, proposalView(p));
+});
+route("POST", "/api/proposals/:id/steps/:step_id/run", (ctx) => {
+  const p = proposalStore.get(ctx.params.id);
+  if (!p) return json(ctx.res, 404, { detail: "unknown proposal" });
+  const view = proposalView(p);
+  const step = view.steps.find((s) => s.id === ctx.params.step_id);
+  if (!step) return json(ctx.res, 404, { detail: "unknown step" });
+  if (p.decision.state !== "approved" || ["queued", "running", "succeeded"].includes(step.state)) {
+    return json(ctx.res, 409, { detail: `step ${step.id} is ${step.state}` });
+  }
+  const job = createJob({ kind: step.kind, config: step.config, subject_ids: step.subject_ids, tags: [`proposal:${p.id}`], created_by: p.created_by });
+  p.steps.find((s) => s.id === step.id).job_ids = [job.status.id];
+  broadcastProposal(p);
+  json(ctx.res, 200, proposalView(p));
+});
+route("GET", "/api/sim-from-flex", (ctx) => {
+  const wanted = ctx.url.searchParams.get("flex_run");
+  const run = (flexRuns[ctx.url.searchParams.get("subject")] ?? []).find((r) => !wanted || r.name === wanted);
+  if (!run) return json(ctx.res, 404, { detail: "no finished flex run" });
+  const mapping = (run.mappings ?? [])[0];
+  json(ctx.res, 200, {
+    flex_run: run.name,
+    eeg_net: mapping?.eeg_net ?? null,
+    placement: mapping ? `mapped to ${mapping.eeg_net}` : "optimised XYZ (flex_free)",
+    intensities: [1, 1],
+    intensities_from: "app default",
+    montage: { _type: "Montage", name: run.name, mode: mapping ? "flex_mapped" : "flex_free", electrode_pairs: mapping?.pairs ?? run.optimized ?? [], eeg_net: mapping?.eeg_net ?? null },
+  });
+});
+
 route("GET", "/api/settings", (ctx) => json(ctx.res, 200, settingsStore));
 route("PUT", "/api/settings", async (ctx) => {
   const body = await ctx.body();

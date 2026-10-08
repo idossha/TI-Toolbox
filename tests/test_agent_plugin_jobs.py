@@ -142,13 +142,18 @@ def test_connect_uses_env_and_never_returns_the_token(js, fake):
         {"id": "j1", "kind": "pre", "state": "running", "subject_ids": ["101"]},
         {"id": "j0", "kind": "sim", "state": "succeeded", "subject_ids": ["101"]},
     ]
+    fake.routes[("GET", "/api/settings")] = {"agent_auto_submit": False}
     err, out = call(js, "connect")
     assert not err, out
     assert out["project"]["host_path"] == str(fake.project)
     assert out["subjects"][0]["id"] == "101"
     assert [j["id"] for j in out["active_jobs"]] == ["j1"]
+    assert out["approval_required"] is True and "propose_pipeline" in out["next"]
     assert TOKEN not in json.dumps(out)
     assert {r["auth"] for r in fake.requests} == {f"Bearer {TOKEN}"}
+    # An app from before proposals has no such setting and no approval step.
+    fake.routes[("GET", "/api/settings")] = {"theme": "system"}
+    assert call(js, "connect")[1]["approval_required"] is False
 
 
 def _docker(monkeypatch, js, containers):
@@ -582,14 +587,21 @@ def test_wait_for_job_times_out_without_failing(js, fake):
 # flex -> sim
 # ---------------------------------------------------------------------------------------------
 
-FLEX_RUN = {
-    "name": "thalamus_max",
-    "created": "2026-10-07T10:00:00",
-    "manifest": {"current_mA": 2.0, "current_split": None},
-    "mappings": [
-        {"eeg_net": "GSN-HydroCel-185.csv", "pairs": [["E1", "E2"], ["E3", "E4"]]}
-    ],
-    "optimized": [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [1, 1, 1]]],
+#: GET /api/sim-from-flex's answer (tit.sim.montage_sources.resolve_flex_simulation, whose
+#: run/placement/current rules are pinned in tests/test_flex_simulation_resolver.py).
+RESOLVED = {
+    "flex_run": "thalamus_max",
+    "eeg_net": "GSN-HydroCel-185.csv",
+    "placement": "mapped to GSN-HydroCel-185.csv",
+    "intensities": [2.0, 2.0],
+    "intensities_from": "the run's current_mA per channel",
+    "montage": {
+        "_type": "Montage",
+        "name": "thalamus_max",
+        "mode": "flex_mapped",
+        "electrode_pairs": [["E1", "E2"], ["E3", "E4"]],
+        "eeg_net": "GSN-HydroCel-185.csv",
+    },
 }
 
 
@@ -600,58 +612,176 @@ def _groups(fake):
     )
 
 
-def test_simulate_flex_result_submits_the_mapped_montage_at_the_runs_current(js, fake):
+def test_simulate_flex_result_asks_the_server_and_submits_its_montage(js, fake):
     _plan_routes(fake)
     _groups(fake)
-    fake.routes[("GET", "/api/catalog/flex-runs")] = [FLEX_RUN]
-    err, out = call(js, "simulate_flex_result", subject_id="101")
+    fake.routes[("GET", "/api/sim-from-flex")] = RESOLVED
+    err, out = call(
+        js, "simulate_flex_result", subject_id="101", eeg_net="GSN-HydroCel-185"
+    )
     assert not err, out
     assert out["submitted"] and out["job_ids"] == ["s1"]
+    assert fake.sent("GET", "/api/sim-from-flex")[0]["query"] == {
+        "subject": "101",
+        "eeg_net": "GSN-HydroCel-185",
+    }
     config = fake.sent("POST", "/api/jobs/groups")[0]["body"]["subject_configs"][0][
         "config"
     ]
-    assert config["montages"] == [
-        {
-            "_type": "Montage",
-            "name": "thalamus_max",
-            "mode": "flex_mapped",
-            "electrode_pairs": [["E1", "E2"], ["E3", "E4"]],
-            "eeg_net": "GSN-HydroCel-185.csv",
-        }
-    ]
+    assert config["montages"] == [RESOLVED["montage"]]
     assert config["intensities"] == [2.0, 2.0]
     assert config["subject_id"] == "101"
+    assert out["intensities_from"] == RESOLVED["intensities_from"]
 
 
-def test_simulate_flex_result_free_xyz_and_on_demand_mapping(js, fake):
+def test_simulate_flex_result_given_currents_win_and_dry_run_submits_nothing(js, fake):
     _plan_routes(fake)
     _groups(fake)
-    run = {**FLEX_RUN, "mappings": []}
-    fake.routes[("GET", "/api/catalog/flex-runs")] = [run]
-    fake.routes[("GET", "/api/catalog/flex-runs/thalamus_max/mapping")] = {
-        "eeg_net": "EEG10-10_UI_Jurak_2007.csv",
-        "pairs": [["Fz", "Cz"], ["P3", "P4"]],
-    }
-    err, out = call(js, "simulate_flex_result", subject_id="101", dry_run=True)
-    assert not err and not out["submitted"]
-    sent = fake.sent("POST", "/api/validate/sim")[0]["body"]["config"]["montages"][0]
-    assert sent["mode"] == "flex_free" and sent["eeg_net"] is None
-
+    fake.routes[("GET", "/api/sim-from-flex")] = RESOLVED
     err, out = call(
-        js, "simulate_flex_result", subject_id="101", eeg_net="EEG10-10_UI_Jurak_2007"
+        js,
+        "simulate_flex_result",
+        subject_id="101",
+        flex_run="thalamus_max",
+        intensities=[1.5, 0.5],
+        dry_run=True,
     )
-    assert not err, out
-    asked = fake.sent("GET", "/api/catalog/flex-runs/thalamus_max/mapping")[0]["query"]
-    assert asked == {"subject": "101", "eeg_net": "EEG10-10_UI_Jurak_2007.csv"}
+    assert not err and not out["submitted"]
+    assert out["intensities_mA"] == [1.5, 0.5] and out["intensities_from"] == "given"
+    sent = fake.sent("POST", "/api/validate/sim")[0]["body"]["config"]
+    assert sent["intensities"] == [1.5, 0.5]
+    assert fake.sent("POST", "/api/jobs/groups") == []
 
 
 def test_simulate_flex_result_will_not_overwrite_unasked(js, fake):
     _plan_routes(fake, will_overwrite=True)
     _groups(fake)
-    fake.routes[("GET", "/api/catalog/flex-runs")] = [FLEX_RUN]
+    fake.routes[("GET", "/api/sim-from-flex")] = RESOLVED
     err, out = call(js, "simulate_flex_result", subject_id="101")
     assert not err and not out["submitted"]
     assert fake.sent("POST", "/api/jobs/groups") == []
+
+
+# ---------------------------------------------------------------------------------------------
+# proposals
+# ---------------------------------------------------------------------------------------------
+
+
+def _proposal(state="pending", note=None, edited_config=None):
+    proposed = {
+        "id": "opt",
+        "kind": "flex",
+        "config": {"goal": "mean"},
+        "subject_ids": ["101"],
+        "after": [],
+        "overwrite": False,
+    }
+    step = {
+        **proposed,
+        "config": edited_config or proposed["config"],
+        "state": "queued" if state == "approved" else "proposed",
+        "job_ids": ["j1"] if state == "approved" else [],
+        "plan": {"outputs": [{"output_dir": "/p/flex/run"}], "eta_minutes": 30.0},
+    }
+    return {
+        "id": "abcdef0123456789",
+        "title": "Optimise",
+        "status": "running" if state == "approved" else state,
+        "decision": {"state": state, "at": None, "note": note},
+        "steps": [step],
+        "proposed_steps": [proposed],
+        "edited": edited_config is not None,
+    }
+
+
+def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
+    js.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {"clientInfo": {"name": "claude-code", "version": "2"}},
+        }
+    )
+    fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, _proposal())
+    err, out = call(
+        js,
+        "propose_pipeline",
+        title="Optimise for the thalamus",
+        rationale="you asked for the strongest field",
+        steps=[
+            {"id": "opt", "kind": "flex", "config": {"goal": "mean"}, "subject_ids": ["101"]},
+            {
+                "id": "sim",
+                "kind": "sim_from_flex",
+                "config": {"flex_step": "opt"},
+                "subject_ids": ["101"],
+            },
+        ],
+    )
+    assert not err, out
+    assert out["proposed"] and out["proposal_id"] == "abcdef0123456789"
+    assert "wait_for_approval" in out["next"]
+    dry, real = [r["body"] for r in fake.sent("POST", "/api/proposals")]
+    assert dry["dry_run"] is True and "dry_run" not in real
+    assert real["created_by"] == "agent" and real["client"] == "Claude Code"
+    flex, sim = real["steps"]
+    assert flex["config"]["n_multistart"] == 1  # the Optimizer page's default
+    assert flex["config"]["goal"] == "mean"
+    assert sim["config"]["flex_step"] == "opt"
+    assert sim["config"]["conductivity"] == "scalar"  # the Simulator page's default
+    assert "intensities" not in sim["config"]  # the run's own currents decide
+
+
+def test_propose_pipeline_with_errors_shows_the_user_nothing(js, fake):
+    bad = _proposal()
+    bad["steps"][0]["plan"] = {"errors": ["roi: missing"]}
+    fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, bad)
+    err, out = call(
+        js,
+        "propose_pipeline",
+        title="t",
+        rationale="r",
+        steps=[{"id": "opt", "kind": "flex", "config": {}, "subject_ids": ["101"]}],
+    )
+    assert not err and out["proposed"] is False
+    assert out["steps"][0]["errors"] == ["roi: missing"]
+    assert len(fake.sent("POST", "/api/proposals")) == 1  # the dry run only
+
+
+def test_wait_for_approval_reports_rejection_and_edits(js, fake):
+    answers = iter([_proposal(), _proposal("rejected", note="use the left side")])
+    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = lambda q, b: (
+        200,
+        next(answers),
+    )
+    err, out = call(js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=5)
+    assert not err, out
+    assert out["decision"] == "rejected" and out["note"] == "use the left side"
+    assert "unchanged" in out["next"]
+
+    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal(
+        "approved", edited_config={"goal": "max"}
+    )
+    err, out = call(js, "wait_for_approval", proposal_id="abcdef0123456789")
+    assert not err, out
+    assert out["decision"] == "approved" and out["edited_by_user"] is True
+    [step] = out["steps"]
+    assert step["edited"] and step["approved_config"] == {"goal": "max"}
+    assert step["job_ids"] == ["j1"]
+
+    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal()
+    err, out = call(js, "wait_for_approval", proposal_id="abcdef0123456789", timeout_s=0)
+    assert not err and out["decision"] == "pending" and "again" in out["next"]
+
+
+def test_get_proposal_summarises_steps(js, fake):
+    fake.routes[("GET", "/api/proposals/abcdef0123456789")] = _proposal("approved")
+    err, out = call(js, "get_proposal", proposal_id="abcdef0123456789")
+    assert not err, out
+    assert out["status"] == "running"
+    assert out["steps"][0]["state"] == "queued"
+    assert out["steps"][0]["output_dirs"] == ["/p/flex/run"]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -664,7 +794,7 @@ def test_every_tool_declares_honest_annotations(js):
         "tools"
     ]
     hints = {t["name"]: t["annotations"] for t in tools}
-    assert len(hints) == 10
+    assert len(hints) == 13
     read_only = {n for n, h in hints.items() if h["readOnlyHint"]}
     assert read_only == {
         "connect",
@@ -673,6 +803,8 @@ def test_every_tool_declares_honest_annotations(js):
         "get_config_schema",
         "plan_job",
         "wait_for_job",
+        "wait_for_approval",
+        "get_proposal",
     }
     assert {n for n, h in hints.items() if h.get("destructiveHint")} == {
         "submit_job",
@@ -688,12 +820,15 @@ def test_every_tool_declares_honest_annotations(js):
 
 
 def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp_path):
-    """connect -> plan_job -> submit_job -> wait_for_job over HTTP to the real FastAPI app."""
+    """Over HTTP to the real FastAPI app: connect -> plan_job -> submit_job refused ->
+    propose_pipeline -> the user approves -> the server queues it -> wait_for_job; then, with
+    direct submissions allowed, submit_job -> wait_for_job."""
     pytest.importorskip("fastapi")
     uvicorn = pytest.importorskip("uvicorn")
     import os
     import sys
     import time
+    import urllib.request
 
     from tit.jobs import bootstrap
     from tit.jobs.manager import JobManager
@@ -745,6 +880,7 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         err, out = call(js, "connect")
         assert not err, out
         assert [s["id"] for s in out["subjects"]] == ["101"]
+        assert out["approval_required"] is True  # the default
 
         montage = {
             "_type": "Montage",
@@ -764,17 +900,61 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
             os.path.join("Simulations", "m1")
         )
 
-        err, sub = call(js, "submit_job", **args)
-        assert not err, sub
-        [job_id] = sub["job_ids"]
-        assert sub["group_id"]
+        # Approval required: a direct submission is refused and names the way forward.
+        err, text = call(js, "submit_job", **args)
+        assert err and "HTTP 403" in text and "propose_pipeline" in text
+
+        err, proposed = call(
+            js,
+            "propose_pipeline",
+            title="Simulate m1",
+            rationale="the user asked",
+            steps=[{"id": "sim", **args}],
+        )
+        assert not err and proposed["proposed"], proposed
+        pid = proposed["proposal_id"]
+        err, waiting = call(js, "wait_for_approval", proposal_id=pid, timeout_s=0)
+        assert not err and waiting["decision"] == "pending"
+
+        def as_user(method, path, body=None):  # what the app's Approve button sends
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}{path}",
+                data=json.dumps(body).encode() if body is not None else None,
+                method=method,
+                headers={
+                    "Authorization": f"Bearer {TOKEN}",
+                    "Content-Type": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read())
+
+        as_user("POST", f"/api/proposals/{pid}/approve", {})
+        err, approved = call(js, "wait_for_approval", proposal_id=pid)
+        assert not err and approved["decision"] == "approved", approved
+        [job_id] = approved["steps"][0]["job_ids"]
 
         err, done = call(js, "wait_for_job", job_ids=[job_id], timeout_s=20)
         assert not err, done
         assert done["done"] and done["jobs"][0]["state"] == "succeeded"
         spec = json.loads(Path(spec_path(str(project), job_id)).read_text())
         assert spec["created_by"] == "agent"
-        assert spec["config"]["map_to_fsavg"] is False
+        assert spec["tags"] == [f"proposal:{pid}"]
+        assert spec["config"]["map_to_fsavg"] is False  # the app default the plugin filled
+        err, status = call(js, "get_proposal", proposal_id=pid)
+        assert not err and status["status"] == "succeeded", status
+
+        # The user allows direct submissions: submit_job goes straight to the queue.
+        as_user(
+            "PUT",
+            "/api/settings",
+            {"panels": [], "theme": "system", "agent_auto_submit": True},
+        )
+        err, sub = call(js, "submit_job", **{**args, "overwrite": True})
+        assert not err, sub
+        assert sub["group_id"]
+        err, done = call(js, "wait_for_job", job_ids=sub["job_ids"], timeout_s=20)
+        assert not err and done["jobs"][0]["state"] == "succeeded", done
     finally:
         server.should_exit = True
         thread.join(timeout=10)

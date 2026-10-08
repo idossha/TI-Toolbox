@@ -214,6 +214,31 @@ outside the bind-mounted project. Excluded alternative: a server-side "agent" AP
 in-container agent, which would need the user's AI credentials; the user's own agent runs on the
 host instead.
 
+**An agent proposes; the user approves; the server runs.** The project setting
+`agent_auto_submit` ("Agent may submit without approval", `GET/PUT /api/settings`, default off)
+decides whether those routes accept `created_by: "agent"`; off, they answer 403 naming
+`propose_pipeline`, and every other creator is unaffected. The agent instead posts a proposal
+(`POST /api/proposals`: title, rationale, ordered steps `{id, kind, config, subject_ids, after,
+note, overwrite}`), stored as `code/ti-toolbox/proposals/<id>.json` by
+[`proposals.py`](../../tit/server/proposals.py), which plans every step with the validate, plan
+and preflight functions the run pages use and pushes `{"type": "proposal"}` on `/ws/jobs`. While
+pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit);
+`proposed_steps` keeps the agent's version and what is approved is what runs. Approval re-plans
+every step and is refused (409) while a step has an error, a step waiting on nothing lacks an
+input, or a step would replace output without `overwrite`. **The server queues approved steps
+itself**: steps with no `after` at once, as jobs with the proposer's `created_by` and a
+`proposal:<id>` tag; a dependent step when every job of the steps it names has succeeded (a
+watcher follows the job manager's status stream), `skipped` when one did not. A `sim_from_flex`
+step names an earlier flex step or a finished run and is resolved at that moment by
+`tit.sim.montage_sources.resolve_flex_simulation`, which `GET /api/sim-from-flex` also serves to
+the agent plugin's `simulate_flex_result`. Step and proposal states are derived from the jobs at
+read time. Excluded alternatives: queuing dependent steps up front with job-level `after` (the
+submit-time preflight refuses a flex job whose head model a queued `pre` will make, and a
+`sim_from_flex` montage does not exist yet); an agent that waits and submits each step (it
+would have to stay connected for hours). The setting and the proposal routes are rules for a
+cooperating agent, not a security boundary: anything holding the server token can call every
+route, including approve.
+
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)
 normalizes and merges events; [`JobConsole`](../../desktop/src/renderer/ui/Jobs.tsx) renders them.
 Clear hides lines through a local sequence watermark and never deletes server events or log files.

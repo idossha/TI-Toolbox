@@ -8,5 +8,6 @@
     "quick-notes"
   ],
   "image_tag": "idossha/simnibs:v2.3.1",
-  "theme": "system"
+  "theme": "system",
+  "agent_auto_submit": false
 }

@@ -2,7 +2,8 @@
 
 Server -> client: ``{"type": "job", "job": <JobStatus>}`` for *every* job's transition
 (unconditional — the jobs rail needs this regardless of what's open); ``{"type": "event",
-"job_id": ..., "event": <Event>}`` only for jobs the client has subscribed to, in ``seq`` order.
+"job_id": ..., "event": <Event>}`` only for jobs the client has subscribed to, in ``seq`` order; ``{"type": "proposal", "proposal": <Proposal>}`` whenever an agent proposal is
+created, edited, decided or advances (:mod:`tit.server.proposals`).
 Client -> server: ``{"subscribe": {"<job_id>": <since_seq>}}`` / ``{"unsubscribe": [job_id, ...]}``.
 
 Follows the exact pattern of ``tit/server/ws.py`` (``/ws/system``): origin check, then auth,
@@ -90,6 +91,12 @@ async def ws_jobs(ws: WebSocket) -> None:
         return lambda event: {"type": "event", "job_id": job_id, "event": event}
 
     status_task = asyncio.create_task(_pump(status_q, _wrap_status, out_queue))
+    from tit.server import proposals
+
+    proposal_q = proposals.subscribe()
+    proposal_task = asyncio.create_task(
+        _pump(proposal_q, lambda p: {"type": "proposal", "proposal": p}, out_queue)
+    )
 
     async def _sender() -> None:
         while True:
@@ -139,11 +146,13 @@ async def ws_jobs(ws: WebSocket) -> None:
         logger.exception("/ws/jobs: connection failed")
     finally:
         status_task.cancel()
+        proposal_task.cancel()
         sender_task.cancel()
         manager.unsubscribe_status(status_q)
+        proposals.unsubscribe(proposal_q)
         for job_id in list(event_subs):
             _unsubscribe(job_id)
-        for task in (status_task, sender_task):
+        for task in (status_task, proposal_task, sender_task):
             with _suppress_cancelled():
                 await task
 
