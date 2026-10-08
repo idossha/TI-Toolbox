@@ -336,7 +336,7 @@ function main() {
       check(`node-pty spawn-helper executable (${arch})`, existsSync(helper) && (statSync(helper).mode & 0o111) !== 0, helper);
     }
   }
-  for (const file of [".claude-plugin/plugin.json", ".mcp.json", "mcp/jobs_server.py", "mcp/server.py", "skills/ti-run-pipelines/SKILL.md"]) {
+  for (const file of [".claude-plugin/plugin.json", ".mcp.json", "mcp/jobs_server.py", "mcp/server.py", "mcp/stdio_loop.py", "skills/ti-run-pipelines/SKILL.md"]) {
     check(`agent plugin staged: ${file}`, existsSync(join(app.resourcesDir, "agent-plugin", file)));
   }
 

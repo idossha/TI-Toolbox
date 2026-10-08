@@ -1,4 +1,4 @@
-import { DEFAULT_JOB_SETTINGS, newRowId, type JobSettings, type SelectedRow } from "./types";
+import { defaultJobSettings, newRowId, type JobSettings, type SelectedRow } from "./types";
 
 interface CandidateHandoff { id: string; requestId?: string; subject: string; kind: string; run: string; config: Record<string, unknown> }
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -16,15 +16,16 @@ export function candidateRow(value: unknown): SelectedRow {
   const named = pairs.every((pair) => Array.isArray(pair) && pair.length === 2 && pair.every((v) => typeof v === "string"));
   const placed = pairs.every((pair) => Array.isArray(pair) && pair.length === 2 && pair.every(xyz));
   if (!named && !placed) throw new Error("Candidate electrode pairs are invalid.");
+  const defaults = defaultJobSettings();
   const settings: JobSettings = {
-    ...DEFAULT_JOB_SETTINGS,
-    conductivity: typeof config.conductivity === "string" ? config.conductivity : DEFAULT_JOB_SETTINGS.conductivity,
-    anisoMaxratio: typeof config.aniso_maxratio === "number" ? config.aniso_maxratio : DEFAULT_JOB_SETTINGS.anisoMaxratio,
-    anisoMaxcond: typeof config.aniso_maxcond === "number" ? config.aniso_maxcond : DEFAULT_JOB_SETTINGS.anisoMaxcond,
+    ...defaults,
+    conductivity: typeof config.conductivity === "string" ? config.conductivity : defaults.conductivity,
+    anisoMaxratio: typeof config.aniso_maxratio === "number" ? config.aniso_maxratio : defaults.anisoMaxratio,
+    anisoMaxcond: typeof config.aniso_maxcond === "number" ? config.aniso_maxcond : defaults.anisoMaxcond,
     electrodeShape: config.electrode_shape === "rect" ? "rect" : "ellipse",
-    dimensions: numbers(config.electrode_dimensions) && config.electrode_dimensions.length === 2 ? config.electrode_dimensions as [number, number] : DEFAULT_JOB_SETTINGS.dimensions,
-    gelThickness: typeof config.gel_thickness === "number" ? config.gel_thickness : DEFAULT_JOB_SETTINGS.gelThickness,
-    outputFields: Array.isArray(config.output_fields) && config.output_fields.every((v) => typeof v === "string") ? config.output_fields : DEFAULT_JOB_SETTINGS.outputFields,
+    dimensions: numbers(config.electrode_dimensions) && config.electrode_dimensions.length === 2 ? config.electrode_dimensions as [number, number] : defaults.dimensions,
+    gelThickness: typeof config.gel_thickness === "number" ? config.gel_thickness : defaults.gelThickness,
+    outputFields: Array.isArray(config.output_fields) && config.output_fields.every((v) => typeof v === "string") ? config.output_fields : defaults.outputFields,
     mapToMni: config.map_to_mni === true,
     mapToFsavg: config.map_to_fsavg === true,
     customConductivities: object(config.tissue_conductivities) ? config.tissue_conductivities as Record<string, number> : {},

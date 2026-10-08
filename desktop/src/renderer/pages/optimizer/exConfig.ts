@@ -8,6 +8,7 @@
  * `atlas_path` (resolved through the catalog) instead of the atlas *id* the old local picker put
  * in that field.
  */
+import { appDefaults } from "../../forms/appDefaults";
 import type { RoiValue, AtlasLookup } from "../_shared/roi";
 import type { ExConfigBody, MExConfigBody } from "./api";
 
@@ -68,23 +69,27 @@ export interface MExFormState {
   symmetryPairing: "within_pairs" | "cross_pairs";
 }
 
+/** `x-app-defaults.ex` over `ExConfig`'s defaults; the electrodes start empty. */
 export function defaultExFormState(): ExFormState {
+  const d = appDefaults("ex", "ExConfig") as Partial<ExConfigBody>;
   return {
     electrodeMode: "bucketed",
     buckets: { e1_plus: [], e1_minus: [], e2_plus: [], e2_minus: [] },
     pool: [],
-    totalCurrent: 2.0,
-    currentStep: 0.2,
-    channelLimit: 1.6,
+    totalCurrent: d.total_current as number,
+    currentStep: d.current_step as number,
+    channelLimit: d.channel_limit ?? null,
   };
 }
 
+/** `MExConfig`'s own defaults (the page adds none); the electrodes start empty. */
 export function defaultMExFormState(): MExFormState {
+  const d = appDefaults("mex", "MExConfig") as Partial<MExConfigBody>;
   return {
     buckets: Object.fromEntries(MEX_BUCKET_KEYS.map((k) => [k, []])),
-    currentMa: 2.0,
-    symmetricBucket: false,
-    symmetryPairing: "within_pairs",
+    currentMa: d.current_mA as number,
+    symmetricBucket: d.symmetric_bucket as boolean,
+    symmetryPairing: d.symmetry_pairing as MExFormState["symmetryPairing"],
   };
 }
 

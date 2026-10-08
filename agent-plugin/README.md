@@ -10,10 +10,10 @@ It has three parts, usable together or separately:
 |------|-------------------------|
 | **Skills** (`skills/*/SKILL.md`) | Orientation, scripting API cheat-sheet, TI domain knowledge, codebase conventions, a `/troubleshoot-project` command, and `ti-run-pipelines` (the playbook for running jobs) |
 | **MCP server `ti-toolbox`** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
-| **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: stage raw scans into `sourcedata/`, preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
+| **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
 
-Plugin version **0.5.0** (`.claude-plugin/plugin.json`). Both servers are single
-Python 3.9+ files with **no dependencies**. The read-only server reads from a local
+Plugin version **0.6.0** (`.claude-plugin/plugin.json`). Both servers are
+Python 3.9+ with **no dependencies** (they share `mcp/stdio_loop.py`, the JSON-RPC stdio loop). The read-only server reads from a local
 TI-Toolbox checkout when one is present, otherwise it fetches the files from GitHub (`main`) and caches them in `~/.cache/ti-toolbox-mcp`.
 
 **No setup at all:** the desktop app's **Assistant** page runs your own Claude Code
@@ -26,7 +26,10 @@ sections further down are for using the plugin from your own terminal or editor.
 Ask in plain words — *"organise the raw scans in ~/Downloads/scan as sub-101,
 preprocess them, run a flex-search on the bilateral thalamus for maximum intensity,
 then simulate the best montage"* — and the agent calls a short chain of
-`ti-toolbox-jobs` tools, asking you before it replaces anything.
+`ti-toolbox-jobs` tools, asking you before it replaces anything. Raw scans are
+copied (never moved) into the project's `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the
+agent's own file tools, which ask your permission first; the agent asks you when a
+series' modality is unclear.
 
 **You approve, the app runs.** By default the agent cannot queue jobs itself: it
 proposes the whole pipeline (`propose_pipeline`) and the plan appears as a card on
@@ -64,9 +67,7 @@ With several projects open, the agent is asked which one.
 | Tool | What it does |
 |------|--------------|
 | `connect` | Finds the open TI-Toolbox; project folder, subjects and what each has, queued/running jobs |
-| `inspect_raw_data` | Lists a raw folder, guesses each series' modality (DICOM header / file name), proposes a mapping. Reads only |
-| `stage_raw_data` | Copies (never moves, never overwrites) scans into `sourcedata/sub-<id>/<T1w\|T2w\|ct\|dwi>/` |
-| `find_regions` | Searches a subject's atlases ("thalamus") and returns ready ROI objects: bilateral, left, right |
+| `find_regions` | Searches a subject's atlases ("thalamus") and returns ready ROI objects: bilateral, left, right (the app's `GET /api/catalog/regions`) |
 | `get_config_schema` | The config schema of a job kind and the app defaults the server fills in |
 | `plan_job` | Validation errors, missing inputs, output folders, what would be overwritten, ETA. Reads only |
 | `propose_pipeline` | Puts a multi-step plan in front of you for approval (validated and planned by the app first) |
@@ -86,7 +87,8 @@ CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` gives the same 5 s.
 
 Jobs it starts are recorded with `created_by: "agent"` in their `spec.json` and run
 exactly like the app's own jobs: same queue, same outputs, same reports. Fields the
-agent leaves out take the values the app's pages send by default.
+agent leaves out take the values the app's pages start with: the app fills them in from
+the same table its pages read (`get_config_schema` shows it).
 
 ## What changed in v3
 

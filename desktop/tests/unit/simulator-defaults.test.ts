@@ -14,7 +14,7 @@ import {
   polarityLabel,
   type SelectedRow,
 } from "../../src/renderer/pages/simulator/types";
-import { DEFAULT_JOB_SETTINGS, isCustomised, settingsFor, settingsSummary, type JobSettings } from "../../src/renderer/pages/simulator/types";
+import { defaultJobSettings, isCustomised, settingsFor, settingsSummary, type JobSettings } from "../../src/renderer/pages/simulator/types";
 import { removeGroup } from "../../src/renderer/ui/ElectrodePairsEditor";
 import {
   currentValues,
@@ -486,7 +486,7 @@ describe("the Simulator's plan columns", () => {
  * reaches — the ones that never disagreed, and only those.
  */
 describe("per-job settings", () => {
-  const defaults: JobSettings = DEFAULT_JOB_SETTINGS;
+  const defaults: JobSettings = defaultJobSettings();
   const row = (over: Partial<SelectedRow> = {}): SelectedRow => ({
     ...emptyRow("ernie"),
     name: "F3_F4",

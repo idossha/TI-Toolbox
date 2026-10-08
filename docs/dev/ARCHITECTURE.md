@@ -212,12 +212,34 @@ jobs. Sources: [`jobs routes`](../../tit/server/routes/jobs.py),
 optional `created_by` (`gui`, `browser`, `api`, `notebook`, `agent`); absent means `gui`, any other
 value is a 422. It is recorded in `spec.json` and passed to the runner as `TIT_INTERFACE`, and
 nothing else depends on it, so an agent's job queues, runs, reports and renders exactly like the
-app's. The agent plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of
-these routes: it sends `agent`, fills omitted fields with the run pages' defaults, and stages raw
-scans by copying them into `sourcedata/sub-<id>/<modality>/` itself, because no route reads
-outside the bind-mounted project. Excluded alternative: a server-side "agent" API or an
-in-container agent, which would need the user's AI credentials; the user's own agent runs on the
-host instead.
+app's, except that an agent's config gets the run pages' defaults (next paragraph). The agent
+plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of these routes: it
+sends `agent` and only the fields the agent chose, and writes nothing on the host — raw scans are
+copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the agent's own file tools, under its CLI's
+permission prompts. An agent's target region comes from `GET /api/catalog/regions?subject=&q=`
+(`tit.catalog.find_regions`): the subject's atlas regions matching a structure name, with ready
+`rois.all|left|right`. Its ROI construction (`tit.catalog.region_roi`) and the ROI picker's
+`roiToConfig` are one rule kept in two languages — the picker rebuilds its ROI synchronously on
+every selection for the live plan — and `tests/fixtures/region_rois.json` drives both. Excluded
+alternative: a server-side "agent" API or an in-container agent, which would need the user's AI
+credentials; the user's own agent runs on the host instead.
+
+**App defaults: one table, served.** What the Pre-processing, Simulator and Optimizer pages start
+with, where it differs from or adds to the config class's own defaults, is
+[`tit/server/app_defaults.py`](../../tit/server/app_defaults.py) `APP_DEFAULTS` (per job kind:
+`pre`, `sim`, `flex`, `flex_adaptive`, `flex_pareto`, `ex`; `mex` starts at `MExConfig`'s own).
+`dev/build_schema.py` writes it into `config.schema.json` as `x-app-defaults`, which
+`GET /api/schema` serves; each run page renders once that document has loaded
+([`forms/appDefaults.tsx`](../../desktop/src/renderer/forms/appDefaults.tsx)) and builds its form
+from `x-app-defaults[kind]` over the class's schema `default`s. The server fills the same entry
+(one level deep; sent fields win) into a config sent with `created_by: "agent"` —
+`POST /api/validate/{kind}`, `/api/plan/{kind}`, `/api/jobs/preflight`, `/api/jobs`,
+`/api/jobs/groups` including each `subject_configs` entry — and into every proposal step (a
+`sim_from_flex` step takes `sim`'s). The app's own requests are unchanged: they send whole configs.
+Excluded alternatives: a copy of the table in the plugin or the renderer (the two drifted from the
+pages by hand); filling defaults for every creator (a script that omits a field means the
+dataclass default); a page-side fallback while the schema loads (a second copy, and a first frame
+with values the server does not have).
 
 **An agent proposes; the user approves; the server runs.** The project setting
 `agent_auto_submit` ("Agent may submit without approval", `GET/PUT /api/settings`, default off)

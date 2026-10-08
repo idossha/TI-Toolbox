@@ -2040,6 +2040,12 @@ route("GET", "/api/catalog/atlases/regions", (ctx) => {
   if (!regions) return json(ctx.res, 404, { detail: "unknown atlas" });
   json(ctx.res, 200, regions);
 });
+// The agent plugin's region search (tit.catalog.find_regions); the app never calls it, so the mock
+// only answers with the shape: no matches.
+route("GET", "/api/catalog/regions", (ctx) => {
+  if (!subjectDetail(ctx.url.searchParams.get("subject"))) return json(ctx.res, 404, { detail: "unknown subject" });
+  json(ctx.res, 200, []);
+});
 // The sub-cortical exporter's label browser. A handful of real FreeSurfer aseg ids, with the
 // voxel counts that make the list readable — enough to prove the picker writes chosen *ids* into
 // `SubcorticalConfig.labels`, which is the only thing a mock can honestly prove here.

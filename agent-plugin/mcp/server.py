@@ -34,15 +34,19 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import stdio_loop  # noqa: E402  (this directory, whatever the working directory is)
+from stdio_loop import ToolError  # noqa: E402
 
 SERVER_NAME = "ti-toolbox"
-SERVER_VERSION = "0.2.0"
-PROTOCOL_VERSION = "2025-06-18"
+SERVER_VERSION = "0.6.0"
 
 GITHUB_OWNER = "idossha"
 GITHUB_REPO = "TI-Toolbox"
@@ -99,10 +103,6 @@ CACHE_DIR = Path(
 OFFLINE = os.environ.get("TI_TOOLBOX_OFFLINE") == "1"
 
 
-class ToolError(Exception):
-    """Raised for user-facing tool failures (reported as isError results)."""
-
-
 # --------------------------------------------------------------------------
 # File access: local checkout first, GitHub raw second (cached)
 # --------------------------------------------------------------------------
@@ -135,6 +135,14 @@ def _http_get(url: str, timeout: float = 20.0) -> bytes:
         raise ToolError(f"Network error fetching {url}: {e.reason}") from e
 
 
+def _write_cache(path: Path, data: bytes) -> None:
+    """Replace a cache file atomically: tool calls run concurrently (stdio_loop)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
+
+
 def read_repo_file(path: str, *, max_age_s: float = CACHE_TTL_S) -> str:
     """Return the text of a repo file (local checkout, then cache, then GitHub)."""
     rel = _safe_rel(path)
@@ -149,8 +157,7 @@ def read_repo_file(path: str, *, max_age_s: float = CACHE_TTL_S) -> str:
         return cached.read_text(encoding="utf-8", errors="replace")
 
     data = _http_get(f"{RAW_BASE}/{GIT_REF}/{rel}")
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_bytes(data)
+    _write_cache(cached, data)
     return data.decode("utf-8", errors="replace")
 
 
@@ -180,8 +187,7 @@ def list_repo_dir(path: str, *, max_age_s: float = CACHE_TTL_S) -> List[str]:
         for e in entries
         if not e["name"].startswith(".") and e["name"] not in _SKIP_DIRS
     )
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_text(json.dumps(names))
+    _write_cache(cached, json.dumps(names).encode("utf-8"))
     return names
 
 
@@ -1320,110 +1326,19 @@ TOOLS: List[Dict[str, Any]] = [
     },
 ]
 
-_HANDLERS: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
-    t["name"]: t["handler"] for t in TOOLS
-}
-
-
-def _public_tools() -> List[Dict[str, Any]]:
-    return [{k: v for k, v in t.items() if k != "handler"} for t in TOOLS]
-
-
-# --------------------------------------------------------------------------
-# JSON-RPC / MCP plumbing
-# --------------------------------------------------------------------------
-
-
-def _result(id_: Any, result: Any) -> Dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": id_, "result": result}
-
-
-def _error(id_: Any, code: int, message: str) -> Dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": id_, "error": {"code": code, "message": message}}
-
-
-def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    method = msg.get("method")
-    id_ = msg.get("id")
-    params = msg.get("params") or {}
-
-    if method == "initialize":
-        return _result(
-            id_,
-            {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-                "instructions": (
-                    "Read-only knowledge server for TI-Toolbox (temporal interference stimulation toolbox). "
-                    "Start with get_quick_facts. v3 is an Electron desktop app plus a FastAPI server "
-                    "(tit.server) in the Docker image plus the shared `tit` science core; the PyQt GUI "
-                    "(tit/gui) was deleted, so never cite it. Use search_wiki/read_wiki_page for "
-                    "user-facing questions, read_dev_doc for how the system is built and verified, "
-                    "read_source_file/find_symbol for exact API signatures, list_launch_paths for how to "
-                    "run it, and inspect_project on the user's project directory before diagnosing "
-                    "missing outputs."
-                ),
-            },
-        )
-    if method in ("notifications/initialized", "notifications/cancelled"):
-        return None
-    if method == "ping":
-        return _result(id_, {})
-    if method == "tools/list":
-        return _result(id_, {"tools": _public_tools()})
-    if method == "tools/call":
-        name = params.get("name")
-        fn = _HANDLERS.get(name)
-        if fn is None:
-            return _error(id_, -32602, f"Unknown tool: {name}")
-        try:
-            out = fn(params.get("arguments") or {})
-            return _result(
-                id_,
-                {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(out, indent=2, ensure_ascii=False),
-                        }
-                    ],
-                    "isError": False,
-                },
-            )
-        except ToolError as e:
-            return _result(
-                id_, {"content": [{"type": "text", "text": str(e)}], "isError": True}
-            )
-        except Exception as e:  # noqa: BLE001 - report, never crash the server
-            return _result(
-                id_,
-                {
-                    "content": [{"type": "text", "text": f"{type(e).__name__}: {e}"}],
-                    "isError": True,
-                },
-            )
-    if id_ is None:
-        return None  # unknown notification
-    return _error(id_, -32601, f"Method not found: {method}")
-
-
-def serve() -> None:
-    stdin = sys.stdin.buffer
-    stdout = sys.stdout.buffer
-    for raw in stdin:
-        line = raw.strip()
-        if not line:
-            continue
-        try:
-            msg = json.loads(line)
-        except json.JSONDecodeError:
-            resp = _error(None, -32700, "Parse error")
-        else:
-            resp = handle(msg)
-        if resp is not None:
-            stdout.write((json.dumps(resp, ensure_ascii=False) + "\n").encode("utf-8"))
-            stdout.flush()
+handle = stdio_loop.handler(
+    SERVER_NAME,
+    SERVER_VERSION,
+    "Read-only knowledge server for TI-Toolbox (temporal interference stimulation toolbox). "
+    "Start with get_quick_facts. v3 is an Electron desktop app plus a FastAPI server "
+    "(tit.server) in the Docker image plus the shared `tit` science core; the PyQt GUI "
+    "(tit/gui) was deleted, so never cite it. Use search_wiki/read_wiki_page for "
+    "user-facing questions, read_dev_doc for how the system is built and verified, "
+    "read_source_file/find_symbol for exact API signatures, list_launch_paths for how to "
+    "run it, and inspect_project on the user's project directory before diagnosing "
+    "missing outputs.",
+    TOOLS,
+)
 
 
 def _call(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -1528,4 +1443,4 @@ def selftest() -> int:
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
         sys.exit(selftest())
-    serve()
+    stdio_loop.serve(handle)

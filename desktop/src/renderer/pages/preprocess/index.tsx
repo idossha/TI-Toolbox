@@ -5,6 +5,7 @@ import { getSurferSettings, putSurferSettings, type SurferSettings } from "../se
 import { Workflow } from "lucide-react";
 import { getSubjects, type Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
+import { withAppDefaults } from "../../forms/appDefaults";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession, usePageSessionRef } from "../../app/pageSession";
 import { createAjvResolver } from "../../forms/ajvResolver";
@@ -413,7 +414,7 @@ const page: PageDef = {
   order: 10,
   icon: Workflow,
   shortcut: "2",
-  Component: PreprocessPage,
+  Component: withAppDefaults(PreprocessPage),
   enabled: true,
 };
 

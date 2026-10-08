@@ -203,6 +203,8 @@ def _guess_field_path(message: str, cls: type) -> str:
 
 class ValidateRequest(BaseModel):
     config: dict[str, Any]
+    #: ``"agent"`` fills the run pages' defaults into ``config`` (:mod:`tit.server.app_defaults`).
+    created_by: str | None = None
 
 
 class ValidateError(BaseModel):
@@ -237,6 +239,10 @@ def validate(kind: str, body: ValidateRequest) -> ValidateResult:
         # No dataclass registered for this kind yet -- nothing to check (see module docstring).
         return ValidateResult(ok=True, errors=[])
 
+    if body.created_by == "agent":
+        from tit.server.app_defaults import with_app_defaults
+
+        body.config = with_app_defaults(kind, body.config)
     config = {k: v for k, v in body.config.items() if k not in ENVELOPE_KEYS}
     try:
         parsed = deserialize_config(cls, config, strict=True)

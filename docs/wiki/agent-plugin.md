@@ -32,7 +32,7 @@ tests/test_agent_plugin_jobs.py
 
 ## MCP server
 
-`agent-plugin/mcp/server.py` implements JSON-RPC 2.0 over newline-delimited stdio (the MCP stdio transport) by hand — no SDK, no dependencies, so it runs on any user's Python.
+`agent-plugin/mcp/server.py` implements JSON-RPC 2.0 over newline-delimited stdio (the MCP stdio transport) by hand — no SDK, no dependencies, so it runs on any user's Python. The loop itself is `agent-plugin/mcp/stdio_loop.py`, shared with the job server: each `tools/call` runs on its own thread, with progress notifications, `notifications/cancelled` and a clean shutdown when stdin closes; each server puts its own directory on `sys.path` to import it, so it starts from any working directory.
 
 **Source resolution.** On start it looks for a TI-Toolbox checkout: `TI_TOOLBOX_ROOT`, otherwise the first ancestor of `server.py` containing `tit/` and `docs/wiki/`. With a checkout, every tool reads the working tree (so `claude --plugin-dir ./agent-plugin` from the repo gives you live source). Without one, files are fetched from `raw.githubusercontent.com` / the GitHub contents API at `TI_TOOLBOX_REF` (default `main`) and cached for 24 h in `TI_TOOLBOX_CACHE` (default `~/.cache/ti-toolbox-mcp`).
 
@@ -54,9 +54,9 @@ Every payload is capped at 60 kB. Tool failures are returned as `isError: true` 
 
 ## Job server
 
-`agent-plugin/mcp/jobs_server.py` (`ti-toolbox-jobs`) uses the same hand-written stdio JSON-RPC and drives the **running** `tit.server`; it never runs science itself. It finds the server through `TIT_SERVER_URL` + `TIT_SERVER_TOKEN` when both are set, otherwise by `docker ps --filter label=tit.stack=ti-toolbox-v3` and `docker inspect` (token and port from the container's environment, the host project from its `tit.host_project_dir` label — the same rule as `tit launch`). The token is never returned to the agent.
+`agent-plugin/mcp/jobs_server.py` (`ti-toolbox-jobs`) runs on the same `stdio_loop.py` and drives the **running** `tit.server`; it never runs science itself. It finds the server through `TIT_SERVER_URL` + `TIT_SERVER_TOKEN` when both are set, otherwise by `docker ps --filter label=tit.stack=ti-toolbox-v3` and `docker inspect` (token and port from the container's environment, the host project from its `tit.host_project_dir` label — the same rule as `tit launch`). The token is never returned to the agent.
 
-Jobs go through `POST /api/jobs/groups` (per-subject kinds, as the run pages submit them) or `POST /api/jobs` (with `after`), carrying `created_by: "agent"`. Omitted config fields are filled with the defaults the Pre-processing, Simulator and Optimizer pages send (mirrored at the top of the file), and a flex run's `output_folder` is resolved to an absolute folder before submission, as the Optimizer does, so its run name is known up front. Raw-data staging is the only host-side write: it copies into `<host project>/sourcedata/sub-<id>/<modality>/`, refuses any existing target and any path that resolves outside that folder. Tool annotations mark which tools are read-only and which may replace results.
+Jobs go through `POST /api/jobs/groups` (per-subject kinds, as the run pages submit them) or `POST /api/jobs` (with `after`), carrying `created_by: "agent"` and only the fields the agent chose: the server fills the rest from the run pages' own defaults (`tit/server/app_defaults.py`, served as `x-app-defaults` in `GET /api/schema`, which `get_config_schema` shows), on validate, plan and preflight too. `find_regions` is `GET /api/catalog/regions` passed through. A flex run's `output_folder` is resolved to an absolute folder before submission, as the Optimizer does, so its run name is known up front. It writes no files on the host: raw scans are copied into `sourcedata/` by the agent's own file tools, under its CLI's permission prompts. Tool annotations mark which tools are read-only and which may replace results.
 
 ## Skills
 
@@ -75,7 +75,7 @@ claude plugin validate .claude-plugin/marketplace.json
 claude --plugin-dir ./agent-plugin                        # run Claude Code with the working-tree plugin
 ```
 
-To test remote mode, copy `server.py` outside the repo and run `--selftest`; it should report `repo root: (none -> GitHub)`.
+To test remote mode, copy `server.py` and `stdio_loop.py` outside the repo and run `--selftest`; it should report `repo root: (none -> GitHub)`.
 
 ## Releasing
 

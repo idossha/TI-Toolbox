@@ -2692,3 +2692,57 @@ effects outside the app); a new bridge entry (budget).
 defaults, rejected values); `desktop/tests/unit/assistant-page.test.tsx` (persistence, hint);
 `desktop/tests/e2e/assistant.spec.ts` (the stand-in receives `--effort low --model sonnet` by default and then
 the chosen flags; the header fits at 1024 and 1440).
+
+## 2026-10-08 — The run pages' defaults are one server table; agents send only what they chose
+
+**Decision.** `tit/server/app_defaults.py` `APP_DEFAULTS` holds, per job kind, what the
+Pre-processing, Simulator and Optimizer pages start with where it differs from or adds to the
+config class's own defaults (`pre`: DICOM conversion, FastSurfer, charm, skip existing,
+FreeSurfer subregions; `sim`: `map_to_fsavg` off plus the two `default_factory` values the schema
+cannot carry; `flex*`: goal, field, 1 mA, the 8×8 mm ellipse and the solver settings, focality goal
+and threshold settings for `flex_adaptive`/`flex_pareto`; `ex`: 0.2 mA steps, 1.6 mA channel
+limit). `dev/build_schema.py` writes it into `config.schema.json` as `x-app-defaults`, served by
+`GET /api/schema`; the pages render once that document has loaded and build their forms from it.
+The server fills it into any config sent with `created_by: "agent"` (validate, plan, preflight,
+jobs, groups) and into every proposal step. The agent plugin's `FLEX_UI_DEFAULTS`,
+`PRE_UI_DEFAULTS`, `SIM_UI_DEFAULTS` and `_with_app_defaults` are deleted. A frozen-surface change
+(`contracts/`): additive, and absent `created_by` or another creator behaves as before.
+
+**Why.** The plugin carried a hand copy of the renderer's literals ("move server-side if they start
+drifting"), and the renderer its own; three copies of one fact.
+
+**Alternatives rejected.** A `GET /api/defaults/{kind}` route (the schema document is already
+served, cached and mocked, and is where a form's other defaults come from); bundling the generated
+JSON into the renderer (a 145 kB import for a few values, and not what the server serves);
+keeping a renderer fallback while the schema loads (a second copy); filling defaults for every
+creator (a script that omits a field means the dataclass default).
+
+**Evidence.** `desktop/tests/unit/app-defaults.test.ts` (each page's starting values equal the
+literals it had at 07ee0ac0); `tests/test_jobs_routes.py::test_an_agents_config_gets_the_run_pages_defaults`;
+`tests/test_agent_plugin_jobs.py` (the plugin sends only the agent's fields; against the real app
+the job's spec carries the page default).
+
+## 2026-10-08 — Region lookup and its ROIs are served; the picker keeps one shared rule
+
+**Decision.** `GET /api/catalog/regions?subject=&q=` (`tit.catalog.find_regions`) finds the
+subject's atlas regions whose names hold every word of the query (side words ignored) and returns,
+per atlas, the matches and ready `FlexConfig` ROIs `rois.all|left|right` built by
+`tit.catalog.region_roi`. The agent plugin's `find_regions` passes it through (it only remembers
+region names for a proposal's "Target: …" note); its own atlas walk, side split and ROI builder are
+deleted. The desktop's `roiToConfig` keeps building the picker's ROI in TypeScript, and
+`tests/fixtures/region_rois.json` drives both implementations (`tests/test_region_rois.py`,
+`desktop/tests/unit/roi-region-table.test.ts`). Additive contract path and schema (`RegionMatch`).
+
+**Why.** The plugin rebuilt the renderer's ROI rule by hand. The picker cannot simply call the
+server instead: it builds the ROI from an arbitrary chip selection (not a name query) on every
+click for the live plan and cost, synchronously, alongside spherical and mask modes that have no
+server counterpart; a request per click would make plan building async for no new truth. The rule
+itself is four lines, so one table both must pass is the smaller single source.
+
+**Alternatives rejected.** A server route that builds an ROI from a selection, called by the picker
+(async plan building, a round trip per click); generating the TypeScript from Python (a code
+generator for four lines).
+
+**Evidence.** `tests/test_region_rois.py` (shared table, search, route 200/404/422);
+`desktop/tests/unit/roi-region-table.test.ts`; `tests/test_agent_plugin_jobs.py` (passthrough and
+the proposal note).

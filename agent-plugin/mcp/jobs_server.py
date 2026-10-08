@@ -19,7 +19,8 @@ Discovery
    from its ``tit.host_project_dir`` label). With several projects open, ``connect`` takes the
    project path to pick one.
 
-Zero third-party dependencies, Python 3.9+, JSON-RPC 2.0 over newline-delimited stdio.
+Zero third-party dependencies, Python 3.9+, JSON-RPC 2.0 over newline-delimited stdio
+(``stdio_loop.py``, shared with ``server.py``).
 """
 
 from __future__ import annotations
@@ -38,9 +39,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import stdio_loop  # noqa: E402  (this directory, whatever the working directory is)
+from stdio_loop import ToolError  # noqa: E402
+
 SERVER_NAME = "ti-toolbox-jobs"
-SERVER_VERSION = "0.5.0"
-PROTOCOL_VERSION = "2025-06-18"
+SERVER_VERSION = "0.6.0"
 
 STACK_ID = "ti-toolbox-v3"  # tit/launch.py STACK_ID, desktop/src/shared/compose.ts
 LABEL_STACK = "tit.stack"
@@ -54,15 +58,6 @@ FLEX_KINDS = ("flex", "flex_adaptive", "flex_pareto")
 SUBJECT_ID_RE = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 )  # tit.paths.SUBJECT_ID_RE
-MODALITIES = {
-    "t1w": "T1w",
-    "t2w": "T2w",
-    "ct": "ct",
-    "dwi": "dwi",
-}  # tit.pre.dicom2nifti
-NIFTI_SUFFIXES = (".nii.gz", ".nii")
-ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
-SIDECAR_SUFFIXES = (".json", ".bval", ".bvec")
 SCHEMA_CLASS = {
     "pre": "PreprocessConfig",
     "sim": "SimulationConfig",
@@ -75,86 +70,11 @@ SCHEMA_CLASS = {
     "analyzer": "AnalyzerConfig",
 }
 
-# What the desktop app sends when the user leaves a control alone, so an agent job that omits a
-# field runs with the app's value, not the dataclass default.
-# ponytail: hand-mirrored from desktop/src/renderer/pages/preprocess/config.ts defaultConfig,
-# pages/simulator/types.ts DEFAULT_JOB_SETTINGS and pages/optimizer/flexConfig.ts
-# defaultFlexFormState/buildFlexConfig; move server-side if they start drifting.
-PRE_UI_DEFAULTS: Dict[str, Any] = {
-    "convert_dicom": True,
-    "run_fastsurfer": True,
-    "run_freesurfer": False,
-    "freesurfer_recon_all": True,
-    "freesurfer_subregions": ["thalamus", "hippo-amygdala"],
-    "freesurfer_threads": None,
-    "charm_options": None,
-    "charm_threads": None,
-    "fastsurfer_threads": None,
-    "create_m2m": True,
-    "run_tissue_analysis": False,
-    "run_qsiprep": False,
-    "run_qsirecon": False,
-    "qsiprep_config": None,
-    "qsi_recon_config": None,
-    "extract_dti": False,
-    "skip_existing_outputs": True,
-    "replace_existing_outputs": False,
-}
-SIM_UI_DEFAULTS: Dict[str, Any] = {
-    "conductivity": "scalar",
-    "aniso_maxratio": 10,
-    "aniso_maxcond": 2,
-    "intensities": [1.0, 1.0],
-    "electrode_shape": "ellipse",
-    "electrode_dimensions": [8, 8],
-    "gel_thickness": 4,
-    "output_fields": ["TI_max"],
-    "map_to_mni": False,
-    "map_to_fsavg": False,
-}
-FLEX_UI_DEFAULTS: Dict[str, Any] = {
-    "goal": "mean",
-    "postproc": "max_TI",
-    "anisotropy_type": "scalar",
-    "aniso_maxratio": 10.0,
-    "aniso_maxcond": 2.0,
-    "current_mA": 1.0,
-    "electrode": {"shape": "ellipse", "dimensions": [8, 8], "gel_thickness": 4},
-    "non_roi_method": None,
-    "non_roi": None,
-    "thresholds": None,
-    "intensity_weight": 0.0,
-    "optimize_current_ratio": False,
-    "ratio_total_mA": None,
-    "ratio_levels": 21,
-    "eeg_net": None,
-    "enable_mapping": False,
-    "disable_mapping_simulation": False,
-    "output_folder": None,
-    "run_final_electrode_simulation": False,
-    "n_multistart": 1,
-    "max_iterations": 500,
-    "population_size": 13,
-    "tolerance": 0.1,
-    "mutation": "0.01,0.5",
-    "recombination": 0.7,
-    "min_electrode_distance": 5.0,
-    "detailed_results": False,
-    "visualize_valid_skin_region": True,
-    "skin_visualization_net": None,
-    "skin_region_margin_mm": 0.0,
-    "avoid_landmark_regions": True,
-}
-
 NO_STACK = (
     "No running TI-Toolbox found. Open the TI-Toolbox desktop app on your project (or run "
     "`tit launch`), then call connect again. For a native runtime set TIT_SERVER_URL and "
     "TIT_SERVER_TOKEN."
 )
-
-
-class ToolError(Exception):
-    """A tool failure reported to the agent as ``isError: true`` text."""
 
 
 # --------------------------------------------------------------------------
@@ -342,306 +262,16 @@ def tool_connect(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
-# Raw data: inspect + stage (host-side; the server cannot see outside the project)
-# --------------------------------------------------------------------------
-
-_DICOM_TAGS = {
-    "SeriesDescription": b"\x08\x00\x3e\x10",
-    "ProtocolName": b"\x18\x00\x30\x10",
-    "Modality": b"\x08\x00\x60\x00",
-}
-
-
-def _dicom_fields(path: Path) -> Optional[Dict[str, str]]:
-    """A few header strings of a Part-10 DICOM file, or ``None`` when it is not one.
-
-    ponytail: byte search for the tag in the first 64 KiB instead of a real element walk; a
-    stray match inside an earlier value is possible but rare, and the guess is only a proposal
-    the user confirms. Files without the 128-byte preamble are not recognised.
-    """
-    try:
-        with open(path, "rb") as fh:
-            head = fh.read(65536)
-    except OSError:
-        return None
-    if head[128:132] != b"DICM":
-        return None
-    out: Dict[str, str] = {}
-    for name, tag in _DICOM_TAGS.items():
-        i = head.find(tag, 132)
-        if i < 0:
-            continue
-        j = i + 4
-        vr = head[j : j + 2]
-        if len(vr) == 2 and vr.isalpha() and vr.isupper():  # explicit VR: 2-byte length
-            n, j = int.from_bytes(head[j + 2 : j + 4], "little"), j + 4
-        else:  # implicit VR: 4-byte length
-            n, j = int.from_bytes(head[j : j + 4], "little"), j + 4
-        if 0 < n <= 256:
-            out[name] = head[j : j + n].decode("latin-1").strip(" \x00")
-    return out
-
-
-def _guess_modality(text: str, dicom_modality: str = "") -> Tuple[Optional[str], str]:
-    t = text.lower()
-    if dicom_modality.upper() == "CT" or re.search(r"(^|[^a-z])ct([^a-z]|$)", t):
-        return "ct", "CT"
-    skip = re.search(
-        r"locali[sz]er|scout|survey|aahead|(^|[^a-z])(adc|fa|colfa|trace|tensor|sbref|"
-        r"phase|swi|bold|fmri|rest|asl|perf|t2star)([^a-z]|$)|flair",
-        t,
-    )
-    if skip:
-        return (
-            None,
-            f"'{skip.group(0).strip('_- ')}' series are not used by preprocessing",
-        )
-    if re.search(r"dwi|dti|diff|dmri|hardi|multishell", t):
-        return "dwi", "diffusion keyword"
-    if re.search(r"t2", t):
-        return "T2w", "T2 keyword"
-    if re.search(r"t1|mprage|mp2rage|spgr|bravo|tfl", t):
-        return "T1w", "T1 keyword"
-    return None, "no modality keyword"
-
-
-def _visible(name: str) -> bool:
-    return not name.startswith(".")  # also drops AppleDouble "._*" files
-
-
-def _lower_suffix(name: str, suffixes: Tuple[str, ...]) -> Optional[str]:
-    lowered = name.lower()
-    return next((s for s in suffixes if lowered.endswith(s)), None)
-
-
-def tool_inspect_raw_data(args: Dict[str, Any]) -> Dict[str, Any]:
-    root = Path(os.path.expanduser(str(args.get("path", "")))).resolve()
-    if not root.is_dir():
-        raise ToolError(f"not a folder on this machine: {root}")
-    entries: List[Dict[str, Any]] = []
-    scanned = 0
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if _visible(d))
-        files = sorted(f for f in filenames if _visible(f))
-        scanned += len(files)
-        if scanned > 100_000:
-            raise ToolError(
-                "more than 100000 files; point inspect_raw_data at a subfolder"
-            )
-        dicoms: List[Dict[str, str]] = []
-        for name in files:
-            path = Path(dirpath) / name
-            if _lower_suffix(name, NIFTI_SUFFIXES) or _lower_suffix(
-                name, ARCHIVE_SUFFIXES
-            ):
-                kind = "nifti" if _lower_suffix(name, NIFTI_SUFFIXES) else "archive"
-                guess, why = _guess_modality(name)
-                entries.append(
-                    {
-                        "source": str(path),
-                        "kind": kind,
-                        "files": 1,
-                        "guess": guess,
-                        "why": why,
-                    }
-                )
-            elif len(dicoms) < 500 and not _lower_suffix(name, SIDECAR_SUFFIXES):
-                fields = _dicom_fields(path)
-                if fields is not None:
-                    dicoms.append(fields)
-        if dicoms:
-            series = sorted(
-                {
-                    d.get("SeriesDescription") or d.get("ProtocolName") or "?"
-                    for d in dicoms
-                }
-            )
-            modality_tags = {d.get("Modality", "") for d in dicoms}
-            guesses = {
-                _guess_modality(
-                    s, next(iter(modality_tags)) if len(modality_tags) == 1 else ""
-                )
-                for s in series
-            }
-            guess, why = (
-                next(iter(guesses)) if len(guesses) == 1 else (None, "mixed series")
-            )
-            if len(series) > 1:
-                why += f"; the folder holds {len(series)} series and all of them are imported"
-            entries.append(
-                {
-                    "source": dirpath,
-                    "kind": "dicom",
-                    "files": len(files),
-                    "series": series,
-                    "guess": guess,
-                    "why": why,
-                }
-            )
-    mapping: Dict[str, List[str]] = {}
-    for entry in entries:
-        if entry["guess"]:
-            mapping.setdefault(entry["guess"], []).append(entry["source"])
-    notes = [
-        f"{m}: {len(p)} candidates -- ask the user which one to stage"
-        for m, p in mapping.items()
-        if len(p) > 1
-    ]
-    if "T1w" not in mapping:
-        notes.append("No T1w candidate found; preprocessing (charm) needs a T1w.")
-    return {
-        "root": str(root),
-        "entries": entries,
-        "proposed_mapping": mapping,
-        "notes": notes,
-        "next": "Confirm the mapping with the user, then call stage_raw_data.",
-    }
-
-
-def _host_project() -> Path:
-    conn = _conn()
-    host = conn.get("host_project") or _api("GET", "/api/project").get("host_path")
-    if not host or not os.path.isdir(host):
-        raise ToolError(
-            f"the project folder ({host or 'unknown'}) is not visible from this machine, so raw "
-            "data cannot be staged from here"
-        )
-    return Path(host).resolve()
-
-
-def _staging_pairs(src: Path, dest_dir: Path) -> List[Tuple[Path, Path]]:
-    if src.is_dir():
-        pairs = []
-        for dirpath, dirnames, filenames in os.walk(src):
-            dirnames[:] = [d for d in dirnames if _visible(d)]
-            for name in filenames:
-                if _visible(name):
-                    file = Path(dirpath) / name
-                    pairs.append((file, dest_dir / src.name / file.relative_to(src)))
-        return pairs
-    pairs = [(src, dest_dir / src.name)]
-    nifti = _lower_suffix(src.name, NIFTI_SUFFIXES)
-    if (
-        nifti
-    ):  # the gradient table and JSON travel with their image (dicom2nifti._copy_sidecars)
-        stem = src.name[: -len(nifti)]
-        for suffix in SIDECAR_SUFFIXES:
-            sidecar = src.with_name(stem + suffix)
-            if sidecar.is_file():
-                pairs.append((sidecar, dest_dir / sidecar.name))
-    return pairs
-
-
-def tool_stage_raw_data(args: Dict[str, Any]) -> Dict[str, Any]:
-    subject = _subject_id(args.get("subject_id"))
-    mapping = args.get("mapping")
-    if not isinstance(mapping, dict) or not mapping:
-        raise ToolError(
-            'mapping must be an object like {"T1w": ["/abs/path"], "dwi": [...]}'
-        )
-    project = _host_project()
-    subject_dir = project / "sourcedata" / f"sub-{subject}"
-    pairs: List[Tuple[Path, Path]] = []
-    for modality, sources in mapping.items():
-        canonical = MODALITIES.get(str(modality).lower())
-        if canonical is None:
-            raise ToolError(
-                f"unknown modality {modality!r}; use one of T1w, T2w, ct, dwi"
-            )
-        for source in [sources] if isinstance(sources, str) else sources:
-            src = Path(os.path.expanduser(str(source)))
-            if not src.is_absolute() or not src.exists():
-                raise ToolError(f"source must be an existing absolute path: {source}")
-            src = src.resolve()
-            sourcedata = project / "sourcedata"
-            if (
-                src == sourcedata
-                or sourcedata in src.parents
-                or src in subject_dir.parents
-            ):
-                raise ToolError(
-                    f"{src} overlaps the staging area; stage from somewhere else"
-                )
-            pairs.extend(_staging_pairs(src, subject_dir / canonical))
-    if not pairs:
-        raise ToolError("nothing to copy (the sources hold no visible files)")
-    seen = set()
-    for _, dest in pairs:
-        real = os.path.realpath(dest)
-        if not real.startswith(str(subject_dir.resolve()) + os.sep):
-            raise ToolError(f"refusing to write outside {subject_dir}: {dest}")
-        if real in seen or os.path.lexists(dest):
-            raise ToolError(
-                f"{dest} already exists (or two sources share that name); nothing was copied. "
-                "Staging never overwrites -- remove it yourself or stage under another subject id."
-            )
-        seen.add(real)
-    copied_bytes = 0
-    for src, dest in pairs:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
-        copied_bytes += dest.stat().st_size
-    return {
-        "subject_id": subject,
-        "staged_files": len(pairs),
-        "bytes": copied_bytes,
-        "destination": str(subject_dir),
-        "modalities": sorted({MODALITIES[str(m).lower()] for m in mapping}),
-        "next": "submit_job(kind='pre', subject_ids=[...], config={'convert_dicom': true, "
-        "'create_m2m': true, ...}) after plan_job.",
-    }
-
-
-# --------------------------------------------------------------------------
 # Regions
 # --------------------------------------------------------------------------
-
-_SIDE_WORDS = {"left", "right", "bilateral", "both", "lh", "rh"}
-
-
-def _side(name: str, hemi: Optional[str]) -> Optional[str]:
-    if hemi in ("lh", "rh"):
-        return "left" if hemi == "lh" else "right"
-    n = name.lower()
-    if re.search(r"(^|[^a-z])(left|lh|l)([^a-z]|$)", n):
-        return "left"
-    if re.search(r"(^|[^a-z])(right|rh|r)([^a-z]|$)", n):
-        return "right"
-    return None
-
 
 #: (atlas path, label id) -> region name, from find_regions, so a proposal's card can name its
 #: target ("Left-Thalamus") instead of showing label ids only.
 _REGION_NAMES: Dict[Tuple[str, Any], str] = {}
 
 
-def _roi(atlas: Dict[str, Any], regions: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """The FlexConfig ROI wire object the desktop builds (pages/_shared/roi/types.ts roiToConfig)."""
-    if atlas.get("kind") == "surface":
-        hemis = [r.get("hemi") or "lh" for r in regions]
-        roi = {
-            "_type": "AtlasROI",
-            "atlas_path": [
-                re.sub(r"(^|/)lh\.", rf"\g<1>{h}.", atlas["path"]) for h in hemis
-            ],
-            "label": [r["id"] for r in regions],
-            "hemisphere": hemis,
-        }
-    else:
-        roi = {
-            "_type": "SubcorticalROI",
-            "atlas_path": [atlas["path"]] * len(regions),
-            "label": [r["id"] for r in regions],
-            "tissues": "GM",
-            "atlas_space": "subject",
-        }
-    for path, region in zip(roi["atlas_path"], regions):
-        _REGION_NAMES[(path, region["id"])] = region["name"]
-    return roi
-
-
 def _target_note(roi: Any) -> Optional[str]:
-    """The note 'Target: Left-Thalamus, Right-Thalamus' for an ROI find_regions built."""
+    """The note 'Target: Left-Thalamus, Right-Thalamus' for an ROI find_regions returned."""
     if not isinstance(roi, dict):
         return None
     pairs = zip(roi.get("atlas_path") or [], roi.get("label") or [])
@@ -653,54 +283,29 @@ def _target_note(roi: Any) -> Optional[str]:
 
 def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
     subject = _subject_id(args.get("subject_id"))
-    words = [w for w in re.findall(r"[a-z0-9]+", str(args.get("query", "")).lower())]
-    words = [w for w in words if w not in _SIDE_WORDS]
-    if not words:
-        raise ToolError("query must name a structure, e.g. 'thalamus' or 'precentral'")
-    found, skipped = [], []
-    for atlas in _api("GET", "/api/catalog/atlases" + _q(subject=subject)) or []:
-        try:
-            regions = _api(
-                "GET",
-                "/api/catalog/atlases/regions" + _q(subject=subject, atlas=atlas["id"]),
-            )
-        except ToolError as exc:
-            skipped.append(f"{atlas['id']}: {exc}")
-            continue
-        matches = [
-            r
-            for r in regions or []
-            if all(w in re.sub(r"[^a-z0-9]", "", r["name"].lower()) for w in words)
-        ]
-        if not matches:
-            continue
-        for r in matches:
-            r["side"] = _side(r["name"], r.get("hemi"))
-        rois = {"all": _roi(atlas, matches)}
-        for side in ("left", "right"):
-            picked = [r for r in matches if r["side"] == side]
-            if picked:
-                rois[side] = _roi(atlas, picked)
-        found.append(
-            {
-                "atlas": atlas["id"],
-                "kind": atlas.get("kind"),
-                "matches": matches[:60],
-                "rois": rois,
-            }
-        )
+    # The server searches the subject's atlases and builds the ROIs (tit.catalog.find_regions,
+    # the same construction as the app's ROI picker).
+    found = _api(
+        "GET",
+        "/api/catalog/regions" + _q(subject=subject, q=str(args.get("query", ""))),
+    )
     if not found:
         raise ToolError(
-            f"no region of sub-{subject}'s atlases matches {args.get('query')!r}"
-            + (f" (skipped: {'; '.join(skipped)})" if skipped else "")
-            + ". Atlases exist only after preprocessing (charm/FastSurfer); try another "
-            "spelling or ask the user for coordinates (SphericalROI)."
+            f"no region of sub-{subject}'s atlases matches {args.get('query')!r}. Atlases exist "
+            "only after preprocessing (charm/FastSurfer); try another spelling or ask the user "
+            "for coordinates (SphericalROI)."
         )
+    for hit in found:  # rois.all is every match, in order
+        all_roi = hit["rois"]["all"]
+        for path, label, region in zip(
+            all_roi["atlas_path"], all_roi["label"], hit["matches"]
+        ):
+            _REGION_NAMES[(path, label)] = region["name"]
+        hit["matches"] = hit["matches"][:60]
     return {
         "subject_id": subject,
         "query": args.get("query"),
         "atlases": found,
-        "skipped": skipped,
         "how_to_use": "Copy one rois.* object verbatim into FlexConfig.roi. 'all' is the union "
         "of every match (both sides, i.e. bilateral); 'left'/'right' are one side. Surface "
         "(AtlasROI) targets cortex, volume (SubcorticalROI) targets deep structures.",
@@ -728,7 +333,8 @@ def _refs(node: Any, out: set) -> set:
 def tool_get_config_schema(args: Dict[str, Any]) -> Dict[str, Any]:
     kind = str(args.get("kind", ""))
     name = SCHEMA_CLASS.get(kind, kind)
-    defs = (_api("GET", "/api/schema") or {}).get("$defs", {})
+    doc = _api("GET", "/api/schema") or {}
+    defs = doc.get("$defs", {})
     if name not in defs:
         raise ToolError(
             f"unknown kind/config class {kind!r}; kinds: {', '.join(SCHEMA_CLASS)}"
@@ -741,37 +347,9 @@ def tool_get_config_schema(args: Dict[str, Any]) -> Dict[str, Any]:
                 todo.append(ref)
     out: Dict[str, Any] = {"class": name, "schema": defs[name]}
     out["$defs"] = {k: defs[k] for k in sorted(wanted - {name})}
-    if kind in FLEX_KINDS:
-        out["app_defaults_filled_in"] = FLEX_UI_DEFAULTS
-    elif kind == "sim":
-        out["app_defaults_filled_in"] = SIM_UI_DEFAULTS
-    elif kind == "pre":
-        out["app_defaults_filled_in"] = PRE_UI_DEFAULTS
+    # What the app's pages start with; the server fills these into omitted fields.
+    out["app_defaults_filled_in"] = doc.get("x-app-defaults", {}).get(kind, {})
     return out
-
-
-def _with_app_defaults(kind: str, config: Dict[str, Any]) -> Dict[str, Any]:
-    if kind == "pre":
-        return {**PRE_UI_DEFAULTS, **config}
-    if kind == "sim":
-        return {**SIM_UI_DEFAULTS, **config}
-    if kind not in FLEX_KINDS:
-        return dict(config)
-    merged = {**FLEX_UI_DEFAULTS, **config}
-    merged["electrode"] = {
-        **FLEX_UI_DEFAULTS["electrode"],
-        **(config.get("electrode") or {}),
-    }
-    if (
-        merged["goal"] in ("focality", "focality_tf")
-        and merged["non_roi_method"] is None
-    ):
-        merged["non_roi_method"] = "everything_else"
-    if kind == "flex_adaptive" and not merged.get("adaptive"):
-        merged["adaptive"] = {"nonroi_percentage": 20, "roi_percentage": 80}
-    if kind == "flex_pareto" and not merged.get("pareto"):
-        merged["pareto"] = {"roi_pcts": [80], "nonroi_pcts": [20, 30, 40]}
-    return merged
 
 
 def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
@@ -793,6 +371,7 @@ def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
         {
             "config": {**config, "subject_id": subject, "output_folder": None},
             "subject_ids": [subject],
+            "created_by": CREATED_BY,
         },
     )
     parent = os.path.dirname(probe["jobs"][0]["output_dir"])
@@ -802,10 +381,10 @@ def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
 def _prepare(
     kind: str, config: Any, subject_ids: List[str]
 ) -> List[Tuple[str, Dict[str, Any]]]:
-    """One ``(subject, config)`` per job, with app defaults and the subject's own id filled in."""
+    """One ``(subject, config)`` per job, with the subject's own id filled in (the server fills
+    the app's defaults: every request says ``created_by: "agent"``)."""
     if not isinstance(config, dict):
         raise ToolError("config must be an object")
-    config = _with_app_defaults(kind, config)
     if kind == "pre":
         return [("", {**config, "subject_ids": subject_ids})]
     entries = []
@@ -823,7 +402,11 @@ def _plan(
     plans, errors, missing = [], [], []
     for sid, config in entries:
         subjects = [sid] if sid else config["subject_ids"]
-        check = _api("POST", f"/api/validate/{kind}", {"config": config})
+        check = _api(
+            "POST",
+            f"/api/validate/{kind}",
+            {"config": config, "created_by": CREATED_BY},
+        )
         if not check.get("ok"):
             errors.extend(check.get("errors") or [])
             continue
@@ -831,14 +414,24 @@ def _plan(
             _api(
                 "POST",
                 "/api/jobs/preflight",
-                {"kind": kind, "config": config, "subject_ids": subjects},
+                {
+                    "kind": kind,
+                    "config": config,
+                    "subject_ids": subjects,
+                    "created_by": CREATED_BY,
+                },
             ).get("missing", [])
         )
         plans.append(
             _api(
                 "POST",
                 f"/api/plan/{kind}",
-                {"config": config, "subject_ids": subjects, "overwrite": overwrite},
+                {
+                    "config": config,
+                    "subject_ids": subjects,
+                    "overwrite": overwrite,
+                    "created_by": CREATED_BY,
+                },
             )
         )
     jobs = [j for p in plans for j in p.get("jobs", [])]
@@ -981,44 +574,6 @@ def _wait_budget(args: Dict[str, Any]) -> float:
     return min(max(float(args.get("timeout_s", default)), 0.0), MAX_WAIT_S)
 
 
-#: The tools/call being served on this thread: its progress token and cancel event.
-_CALL = threading.local()
-
-
-def _pause(seconds: float) -> bool:
-    """Sleep between polls; True when the client cancelled the call (stop waiting)."""
-    cancel = getattr(_CALL, "cancel", None)
-    if cancel is None:
-        time.sleep(seconds)
-        return False
-    return cancel.wait(seconds)
-
-
-def _progress(message: str) -> None:
-    """A notifications/progress for the current call, when its client asked for them: shows in
-    the client's task list and keeps an idle timer from expiring. At most every 30 s unless the
-    message changes."""
-    token = getattr(_CALL, "token", None)
-    if token is None:
-        return
-    now = time.monotonic()
-    if message == getattr(_CALL, "said", None) and now - _CALL.said_at < 30:
-        return
-    _CALL.said, _CALL.said_at = message, now
-    _CALL.count = getattr(_CALL, "count", 0) + 1
-    _write(
-        {
-            "jsonrpc": "2.0",
-            "method": "notifications/progress",
-            "params": {
-                "progressToken": token,
-                "progress": _CALL.count,
-                "message": message,
-            },
-        }
-    )
-
-
 def _poll(check: Callable[[], Any], timeout: float) -> Any:
     """Call ``check`` until it returns something truthy, the budget ends or the call is
     cancelled; returns its last value."""
@@ -1027,7 +582,7 @@ def _poll(check: Callable[[], Any], timeout: float) -> Any:
     while True:
         value = check()
         left = deadline - time.monotonic()
-        if value or left <= 0 or _pause(min(poll, left)):
+        if value or left <= 0 or stdio_loop.pause(min(poll, left)):
             return value
 
 
@@ -1051,7 +606,7 @@ def tool_wait_for_job(args: Dict[str, Any]) -> Dict[str, Any]:
 
     def check() -> bool:
         statuses.update({i: _job_status(i) for i in ids})
-        _progress("; ".join(_job_line(s) for s in statuses.values()))
+        stdio_loop.progress("; ".join(_job_line(s) for s in statuses.values()))
         return all(s.get("state") in TERMINAL_STATES for s in statuses.values())
 
     done = _poll(check, _wait_budget(args))
@@ -1149,12 +704,9 @@ def _step_for_proposal(raw: Any) -> Dict[str, Any]:
     config = raw.get("config") or {}
     if not isinstance(config, dict):
         raise ToolError(f"step {raw.get('id')}: config must be an object")
-    if kind == "sim_from_flex":  # the run's own currents unless the agent names some
-        defaults = {k: v for k, v in SIM_UI_DEFAULTS.items() if k != "intensities"}
-        config = {**defaults, **config}
-    else:
-        config = _with_app_defaults(kind, config)
-    config.pop("subject_ids", None)  # the step's subject_ids decide
+    config = {
+        k: v for k, v in config.items() if k != "subject_ids"
+    }  # the step's decide
     note = raw.get("note") or (
         _target_note(config.get("roi")) if kind in FLEX_KINDS else None
     )
@@ -1329,7 +881,7 @@ def tool_watch_proposal(args: Dict[str, Any]) -> Dict[str, Any]:
     def check() -> bool:
         latest.update(_api("GET", path))
         running = [s["id"] + " " + s["state"] for s in latest["steps"]]
-        _progress(f"{latest['status']}: " + ", ".join(running))
+        stdio_loop.progress(f"{latest['status']}: " + ", ".join(running))
         return bool(_new_events(latest, mark=False))
 
     _poll(check, _wait_budget(args))
@@ -1421,35 +973,6 @@ TOOLS: List[Dict[str, Any]] = [
         "inputSchema": _schema({"project": _STR}),
         "annotations": _hints(True),
         "handler": tool_connect,
-    },
-    {
-        "name": "inspect_raw_data",
-        "description": "Look at a folder of raw scans on this computer (DICOM series, NIfTI, "
-        "archives), guess each one's modality (T1w/T2w/ct/dwi) and propose a staging mapping. "
-        "Reads only.",
-        "inputSchema": _schema({"path": _STR}, ("path",)),
-        "annotations": _hints(True),
-        "handler": tool_inspect_raw_data,
-    },
-    {
-        "name": "stage_raw_data",
-        "description": "Copy (never move, never overwrite) raw scans into the project's "
-        "sourcedata/sub-<id>/<modality>/ so preprocessing with convert_dicom can import them. "
-        "mapping is {modality: [absolute file or folder paths]} with modality T1w, T2w, ct or dwi.",
-        "inputSchema": _schema(
-            {
-                "subject_id": _STR,
-                "mapping": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "anyOf": [_STR, {"type": "array", "items": _STR}]
-                    },
-                },
-            },
-            ("subject_id", "mapping"),
-        ),
-        "annotations": _hints(False, destructive=False),
-        "handler": tool_stage_raw_data,
     },
     {
         "name": "find_regions",
@@ -1624,151 +1147,28 @@ TOOLS: List[Dict[str, Any]] = [
     },
 ]
 
-_HANDLERS: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
-    t["name"]: t["handler"] for t in TOOLS
-}
+
+def _on_initialize(params: Dict[str, Any]) -> None:
+    global _CLIENT
+    _CLIENT = (params.get("clientInfo") or {}).get("name") or None
 
 
-# --------------------------------------------------------------------------
-# JSON-RPC / MCP plumbing (same wire behaviour as server.py)
-# --------------------------------------------------------------------------
-
-
-def _result(id_: Any, result: Any) -> Dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": id_, "result": result}
-
-
-def _text(id_: Any, text: str, is_error: bool) -> Dict[str, Any]:
-    return _result(
-        id_, {"content": [{"type": "text", "text": text}], "isError": is_error}
-    )
-
-
-def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    method, id_ = msg.get("method"), msg.get("id")
-    params = msg.get("params") or {}
-    if method == "initialize":
-        global _CLIENT
-        _CLIENT = (params.get("clientInfo") or {}).get("name") or None
-        return _result(
-            id_,
-            {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-                "instructions": (
-                    "Runs TI-Toolbox jobs through the app the user has open; every job appears "
-                    "live in its job list. Call connect first: unless it says "
-                    "approval_required is false, jobs need the user's approval -- propose the "
-                    "whole pipeline with propose_pipeline, then watch_proposal as the last call "
-                    "of the turn (it runs in the background and returns on the next change; "
-                    "never keep the user waiting on it). If the request leaves the subject, "
-                    "target, what to run or the goal open, ask before proposing. Raw scans: "
-                    "inspect_raw_data "
-                    "-> confirm -> stage_raw_data. Targets: find_regions, never invented atlas "
-                    "paths or labels. Plan before proposing or submitting; never resubmit a "
-                    "rejected plan unchanged."
-                ),
-            },
-        )
-    if method == "notifications/cancelled":
-        cancel = _CANCELS.get(params.get("requestId"))
-        if cancel is not None:
-            cancel.set()
-        return None
-    if method == "notifications/initialized":
-        return None
-    if method == "ping":
-        return _result(id_, {})
-    if method == "tools/list":
-        return _result(
-            id_,
-            {"tools": [{k: v for k, v in t.items() if k != "handler"} for t in TOOLS]},
-        )
-    if method == "tools/call":
-        fn = _HANDLERS.get(params.get("name"))
-        if fn is None:
-            return {
-                "jsonrpc": "2.0",
-                "id": id_,
-                "error": {
-                    "code": -32602,
-                    "message": f"Unknown tool: {params.get('name')}",
-                },
-            }
-        _CALL.token = (params.get("_meta") or {}).get("progressToken")
-        _CALL.cancel = _CANCELS.setdefault(id_, threading.Event())
-        _CALL.said = None
-        try:
-            out = fn(params.get("arguments") or {})
-            return _text(id_, json.dumps(out, indent=2, ensure_ascii=False), False)
-        except ToolError as exc:
-            return _text(id_, str(exc), True)
-        except Exception as exc:  # noqa: BLE001 - report, never crash the server
-            return _text(id_, f"{type(exc).__name__}: {exc}", True)
-        finally:
-            _CANCELS.pop(id_, None)
-            _CALL.token = _CALL.cancel = None
-    if id_ is None:
-        return None
-    return {
-        "jsonrpc": "2.0",
-        "id": id_,
-        "error": {"code": -32601, "message": f"Method not found: {method}"},
-    }
-
-
-#: In-flight tools/call id -> its cancel event (set by notifications/cancelled).
-_CANCELS: Dict[Any, threading.Event] = {}
-_WRITE_LOCK = threading.Lock()
-
-
-def _write(message: Dict[str, Any]) -> None:
-    line = (json.dumps(message, ensure_ascii=False) + "\n").encode("utf-8")
-    with _WRITE_LOCK:
-        sys.stdout.buffer.write(line)
-        sys.stdout.buffer.flush()
-
-
-def _respond(msg: Any) -> None:
-    resp = handle(msg) if isinstance(msg, dict) else None
-    if resp is not None:
-        _write(resp)
-
-
-def serve() -> None:
-    """Each tools/call runs on its own thread, so a long wait (which Claude Code moves to the
-    background) never holds up the agent's other calls; everything else is answered in order.
-    When stdin closes, waits stop and every call still in flight is answered before exiting.
-    """
-    workers: List[threading.Thread] = []
-    for raw in sys.stdin.buffer:
-        line = raw.strip()
-        if not line:
-            continue
-        try:
-            msg = json.loads(line)
-        except json.JSONDecodeError:
-            _write(
-                {
-                    "jsonrpc": "2.0",
-                    "id": None,
-                    "error": {"code": -32700, "message": "Parse error"},
-                }
-            )
-            continue
-        if isinstance(msg, dict) and msg.get("method") == "tools/call":
-            _CANCELS[msg.get("id")] = threading.Event()  # before a cancel can arrive
-            worker = threading.Thread(target=_respond, args=(msg,), daemon=True)
-            worker.start()
-            workers = [w for w in workers if w.is_alive()] + [worker]
-        else:
-            _respond(msg)
-    for cancel in list(_CANCELS.values()):
-        cancel.set()
-    for worker in workers:
-        worker.join()
+handle = stdio_loop.handler(
+    SERVER_NAME,
+    SERVER_VERSION,
+    "Runs TI-Toolbox jobs through the app the user has open; every job appears live in its "
+    "job list. Call connect first: unless it says approval_required is false, jobs need the "
+    "user's approval -- propose the whole pipeline with propose_pipeline, then watch_proposal "
+    "as the last call of the turn (it runs in the background and returns on the next change; "
+    "never keep the user waiting on it). If the request leaves the subject, target, what to "
+    "run or the goal open, ask before proposing. Raw scans: copy them yourself into "
+    "<connect's project.host_path>/sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/ (never move or "
+    "overwrite), then propose a pre step. Targets: find_regions, never invented atlas paths or labels. Plan before "
+    "proposing or submitting; never resubmit a rejected plan unchanged.",
+    TOOLS,
+    on_initialize=_on_initialize,
+)
 
 
 if __name__ == "__main__":
-    serve()
+    stdio_loop.serve(handle)

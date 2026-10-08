@@ -64,6 +64,7 @@ class StdioTests(unittest.TestCase):
                 },
             ]
         )
+        responses.sort(key=lambda r: r["id"])  # tools/call answers on its own thread
         self.assertEqual([r["id"] for r in responses], [1, 2, 3])
         self.assertTrue(all(r["jsonrpc"] == "2.0" for r in responses))
         self.assertEqual(responses[0]["result"]["protocolVersion"], "2025-06-18")
@@ -86,8 +87,9 @@ class StdioTests(unittest.TestCase):
                 {"jsonrpc": "2.0", "id": 2, "method": "ping"},
             ]
         )
-        self.assertEqual(responses[0]["error"]["code"], -32602)
-        self.assertEqual(responses[1], {"jsonrpc": "2.0", "id": 2, "result": {}})
+        by_id = {r["id"]: r for r in responses}  # tools/call answers on its own thread
+        self.assertEqual(by_id[1]["error"]["code"], -32602)
+        self.assertEqual(by_id[2], {"jsonrpc": "2.0", "id": 2, "result": {}})
 
     def test_tool_failure_is_content_error(self):
         responses = self.exchange(
@@ -137,7 +139,9 @@ class JobsServerStdioTests(unittest.TestCase):
                 timeout=20,
                 check=True,
             )
-        listed, connected = [json.loads(line) for line in result.stdout.splitlines()]
+        listed, connected = sorted(
+            map(json.loads, result.stdout.splitlines()), key=lambda r: r["id"]
+        )
         names = {tool["name"] for tool in listed["result"]["tools"]}
         self.assertIn("submit_job", names)
         self.assertTrue(connected["result"]["isError"])

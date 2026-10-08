@@ -67,7 +67,7 @@ host — there is nothing for a user to paste.
 | What changed in vX.Y.Z? | `read_changelog(version)` |
 | Which versions are shipped? | `get_toolbox_version` |
 
-**To run jobs for the user** (stage raw scans, preprocess, optimise, simulate) use the
+**To run jobs for the user** (preprocess, optimise, simulate) use the
 `ti-toolbox-jobs` server and follow the `ti-run-pipelines` skill: `connect` first,
 `find_regions` for ROIs, `propose_pipeline` (the user approves the plan in the app, which
 then queues it) and `watch_proposal` to follow without blocking the conversation. Jobs go through the app the

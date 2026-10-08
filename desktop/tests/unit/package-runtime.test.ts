@@ -15,6 +15,7 @@ const ASSISTANT_FILES = [
   'agent-plugin/.mcp.json',
   'agent-plugin/mcp/jobs_server.py',
   'agent-plugin/mcp/server.py',
+  'agent-plugin/mcp/stdio_loop.py',
   'agent-plugin/skills/ti-run-pipelines/SKILL.md',
 ];
 
@@ -76,7 +77,7 @@ for (const asar of [true, false]) describe(asar ? 'asar runtime' : 'unpacked run
     expect(result.status, result.stdout + result.stderr).toBe(1);
     expect(result.stdout + result.stderr).toContain('yaml');
   });
-  for (const missing of ['app.asar.unpacked/node_modules/node-pty/build/Release/pty.node', 'agent-plugin/mcp/jobs_server.py']) it(`rejects a package without ${missing.split('/').at(-1)}`, () => {
+  for (const missing of ['app.asar.unpacked/node_modules/node-pty/build/Release/pty.node', 'agent-plugin/mcp/jobs_server.py', 'agent-plugin/mcp/stdio_loop.py']) it(`rejects a package without ${missing.split('/').at(-1)}`, () => {
     const result = verify(asar, undefined, missing);
     expect(result.status, result.stdout + result.stderr).toBe(1);
     expect(result.stdout).toMatch(/FAIL (node-pty binary|agent plugin staged)/);

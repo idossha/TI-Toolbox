@@ -1,16 +1,15 @@
 """Tests for the agent plugin's job driver (agent-plugin/mcp/jobs_server.py), 2026-10-07.
 
 What this pins: discovery (env first, then the `tit.stack=ti-toolbox-v3` container, one project
-at a time), the request each verb sends to tit.server, host-side staging that copies and never
-overwrites or escapes `sourcedata/sub-<id>/`, the ROI objects find_regions builds, the
+at a time), the request each verb sends to tit.server (only the agent's own fields, with
+created_by "agent"), find_regions passing the server's answer through, the
 flex-result -> simulation chain, watch_proposal returning once per change, and (2026-10-08)
 the stdio server answering other calls while a wait runs, with progress and cancellation.
 
 Where the expected values come from: request shapes are the routes' own contracts
 (contracts/openapi.yaml JobSpec/JobGroupRequest, PlanRequest, MontageSources) and the desktop's
 builders (pages/_shared/roi/types.ts roiToConfig, pages/simulator/buildConfig.ts), restated by
-hand (groundTruth: authored). The DICOM fixtures are hand-built Part-10 bytes per DICOM PS3.10
-(preamble, "DICM", explicit- and implicit-VR elements), not written by the reader under test.
+hand (groundTruth: authored).
 The last test drives the real FastAPI app (fake runner) over HTTP, so the wire shapes are also
 checked against the server rather than against this file's fake.
 
@@ -23,7 +22,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import struct
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -220,168 +218,44 @@ def test_no_stack_says_how_to_start_one(js, monkeypatch):
 
 
 # ---------------------------------------------------------------------------------------------
-# raw data
-# ---------------------------------------------------------------------------------------------
-
-
-def _dicom(path: Path, description: str, *, explicit=True, modality="MR"):
-    """Part-10 bytes: 128-byte preamble, DICM, then (0008,0060) and (0008,103E) elements."""
-
-    def element(group, elem, vr, value):
-        value = value.encode() + (b" " if len(value) % 2 else b"")
-        tag = struct.pack("<HH", group, elem)
-        if explicit:
-            return tag + vr + struct.pack("<H", len(value)) + value
-        return tag + struct.pack("<I", len(value)) + value
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(
-        b"\0" * 128
-        + b"DICM"
-        + element(0x0008, 0x0060, b"CS", modality)
-        + element(0x0008, 0x103E, b"LO", description)
-    )
-
-
-def test_inspect_raw_data_guesses_modalities(js, tmp_path):
-    raw = tmp_path / "scan"
-    for i in range(3):
-        _dicom(raw / "s002" / f"IM{i:04d}", "T1_MPRAGE_SAG_1mm")
-    _dicom(raw / "s005" / "IM0001", "ep2d_diff_mddw_64", explicit=False)
-    _dicom(raw / "s001" / "IM0001", "AAHead_Scout")
-    _dicom(raw / "ct" / "1.dcm", "Head 1.0", modality="CT")
-    (raw / "nifti").mkdir()
-    (raw / "nifti" / "sub-01_T2w.nii.gz").write_bytes(b"x")
-    (raw / "s002" / "._IM0000").write_bytes(b"appledouble")
-
-    err, out = call(js, "inspect_raw_data", path=str(raw))
-    assert not err, out
-    assert out["proposed_mapping"] == {
-        "T1w": [str(raw.resolve() / "s002")],
-        "ct": [str(raw.resolve() / "ct")],
-        "dwi": [str(raw.resolve() / "s005")],
-        "T2w": [str(raw.resolve() / "nifti" / "sub-01_T2w.nii.gz")],
-    }
-    by_source = {e["source"]: e for e in out["entries"]}
-    assert by_source[str(raw.resolve() / "s002")]["series"] == ["T1_MPRAGE_SAG_1mm"]
-    assert by_source[str(raw.resolve() / "s002")]["files"] == 3  # dotfiles ignored
-    assert by_source[str(raw.resolve() / "s001")]["guess"] is None
-
-
-def test_stage_copies_with_sidecars_and_refuses_to_overwrite(js, fake, tmp_path):
-    raw = tmp_path / "raw"
-    for i in range(2):
-        _dicom(raw / "T1_series" / f"IM{i}", "T1_MPRAGE")
-    (raw / "dwi.nii.gz").write_bytes(b"dwi")
-    (raw / "dwi.bval").write_text("0 1000")
-    (raw / "dwi.bvec").write_text("0 1")
-    mapping = {"T1w": [str(raw / "T1_series")], "DWI": str(raw / "dwi.nii.gz")}
-
-    err, out = call(js, "stage_raw_data", subject_id="101", mapping=mapping)
-    assert not err, out
-    sub = fake.project / "sourcedata" / "sub-101"
-    assert sorted(
-        p.relative_to(sub).as_posix() for p in sub.rglob("*") if p.is_file()
-    ) == [
-        "T1w/T1_series/IM0",
-        "T1w/T1_series/IM1",
-        "dwi/dwi.bval",
-        "dwi/dwi.bvec",
-        "dwi/dwi.nii.gz",
-    ]
-    assert (raw / "dwi.nii.gz").exists()  # copied, not moved
-
-    (raw / "T2.nii").write_bytes(b"t2")
-    err, text = call(
-        js,
-        "stage_raw_data",
-        subject_id="101",
-        mapping={**mapping, "T2w": [str(raw / "T2.nii")]},
-    )
-    assert err and "already exists" in text
-    assert not (sub / "T2w").exists()  # nothing copied when any target exists
-
-
-@pytest.mark.parametrize(
-    "subject_id, mapping, message",
-    [
-        ("../evil", {"T1w": ["/tmp"]}, "invalid subject id"),
-        ("101", {"flair": ["/tmp"]}, "unknown modality"),
-        ("101", {"T1w": ["relative/path"]}, "absolute"),
-    ],
-)
-def test_stage_rejects_bad_input(js, fake, subject_id, mapping, message):
-    err, text = call(js, "stage_raw_data", subject_id=subject_id, mapping=mapping)
-    assert err and message in text
-    assert not (fake.project / "sourcedata").exists()
-
-
-def test_stage_refuses_a_path_that_escapes_the_subject_folder(js, fake, tmp_path):
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    (fake.project / "sourcedata" / "sub-101").mkdir(parents=True)
-    (fake.project / "sourcedata" / "sub-101" / "T1w").symlink_to(outside)
-    src = tmp_path / "t1.nii.gz"
-    src.write_bytes(b"t1")
-    err, text = call(
-        js, "stage_raw_data", subject_id="101", mapping={"T1w": [str(src)]}
-    )
-    assert err and "outside" in text
-    assert list(outside.iterdir()) == []
-
-
-# ---------------------------------------------------------------------------------------------
 # find_regions
 # ---------------------------------------------------------------------------------------------
 
 
-def test_find_regions_builds_the_desktops_roi_objects(js, fake):
-    lab = (
-        "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"
-    )
-    annot = "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.101_DK40.annot"
-    fake.routes[("GET", "/api/catalog/atlases")] = [
-        {"id": "labeling.nii.gz", "path": lab, "kind": "volume"},
-        {"id": "DK40", "path": annot, "kind": "surface"},
-    ]
-    regions = {
-        "labeling.nii.gz": [
-            {"id": 10, "name": "Left-Thalamus", "hemi": None},
-            {"id": 49, "name": "Right-Thalamus", "hemi": None},
-            {"id": 17, "name": "Left-Hippocampus", "hemi": None},
+LAB = "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"
+#: GET /api/catalog/regions's answer for "thalamus" (tit.catalog.find_regions, whose search and
+#: ROI construction are pinned in tests/test_region_rois.py).
+THALAMUS = [
+    {
+        "atlas": "labeling.nii.gz",
+        "kind": "volume",
+        "matches": [
+            {"id": 10, "name": "Left-Thalamus", "hemi": None, "side": "left"},
+            {"id": 49, "name": "Right-Thalamus", "hemi": None, "side": "right"},
         ],
-        "DK40": [
-            {"id": 24, "name": "precentral", "hemi": "lh"},
-            {"id": 24, "name": "precentral", "hemi": "rh"},
-        ],
+        "rois": {
+            "all": {
+                "_type": "SubcorticalROI",
+                "atlas_path": [LAB, LAB],
+                "label": [10, 49],
+                "tissues": "GM",
+                "atlas_space": "subject",
+            },
+        },
     }
-    fake.routes[("GET", "/api/catalog/atlases/regions")] = lambda q, b: (
-        200,
-        regions[q["atlas"]],
-    )
+]
 
+
+def test_find_regions_passes_the_servers_answer_through(js, fake):
+    fake.routes[("GET", "/api/catalog/regions")] = THALAMUS
     err, out = call(js, "find_regions", subject_id="101", query="bilateral thalamus")
     assert not err, out
-    [hit] = out["atlases"]
-    assert hit["rois"]["all"] == {
-        "_type": "SubcorticalROI",
-        "atlas_path": [lab, lab],
-        "label": [10, 49],
-        "tissues": "GM",
-        "atlas_space": "subject",
+    assert out["atlases"] == THALAMUS
+    assert fake.sent("GET", "/api/catalog/regions")[0]["query"] == {
+        "subject": "101",
+        "q": "bilateral thalamus",
     }
-    assert hit["rois"]["left"]["label"] == [10]
-    assert hit["rois"]["right"]["label"] == [49]
-
-    err, out = call(js, "find_regions", subject_id="101", query="precentral")
-    [hit] = out["atlases"]
-    assert hit["rois"]["all"] == {
-        "_type": "AtlasROI",
-        "atlas_path": [annot, annot.replace("/lh.", "/rh.")],
-        "label": [24, 24],
-        "hemisphere": ["lh", "rh"],
-    }
-
+    fake.routes[("GET", "/api/catalog/regions")] = []
     err, text = call(js, "find_regions", subject_id="101", query="amygdala")
     assert err and "no region" in text
 
@@ -427,7 +301,7 @@ def _plan_routes(fake, will_overwrite=False):
     fake.routes[("POST", "/api/plan/sim")] = plan
 
 
-def test_plan_job_fills_app_defaults_and_names_the_run_folder(js, fake):
+def test_plan_job_sends_the_agents_fields_and_names_the_run_folder(js, fake):
     _plan_routes(fake)
     err, out = call(
         js,
@@ -438,18 +312,19 @@ def test_plan_job_fills_app_defaults_and_names_the_run_folder(js, fake):
     )
     assert not err, out
     assert out["ok"] and out["eta_minutes"] == 12.5
-    validated = fake.sent("POST", "/api/validate/flex")[0]["body"]["config"]
-    assert validated["subject_id"] == "101"
-    assert validated["current_mA"] == 2.0  # the agent's value wins
-    assert (
-        validated["max_iterations"] == 500
-    )  # the Optimizer page's default, not the dataclass's
-    assert validated["electrode"] == {
-        "shape": "ellipse",
-        "dimensions": [8, 8],
-        "gel_thickness": 4,
+    # Only what the agent chose: the server fills the app's defaults for created_by "agent".
+    sent = fake.sent("POST", "/api/validate/flex")[0]["body"]
+    assert sent == {
+        "config": {
+            "roi": ROI,
+            "current_mA": 2.0,
+            "output_folder": f"{FLEX_ROOT}/thalamus_max",
+            "subject_id": "101",
+        },
+        "created_by": "agent",
     }
-    assert validated["output_folder"] == f"{FLEX_ROOT}/thalamus_max"
+    for path in ("/api/jobs/preflight", "/api/plan/flex"):
+        assert {r["body"]["created_by"] for r in fake.sent("POST", path)} == {"agent"}
     probe = fake.sent("POST", "/api/plan/flex")[0]["body"]["config"]
     assert probe["output_folder"] is None
 
@@ -497,11 +372,12 @@ def test_submit_job_uses_the_group_route_like_the_app(js, fake):
         "101",
         "102",
     ]
-    assert body["subject_configs"][0]["config"]["map_to_fsavg"] is False  # app default
+    # The server fills the app's defaults.
+    assert "map_to_fsavg" not in body["subject_configs"][0]["config"]
     assert "overwrite" not in body
 
 
-def test_submit_preprocess_is_one_group_with_the_apps_defaults(js, fake):
+def test_submit_preprocess_is_one_group(js, fake):
     fake.routes[("POST", "/api/jobs/groups")] = {"group_id": "g", "jobs": []}
     err, out = call(
         js,
@@ -513,11 +389,7 @@ def test_submit_preprocess_is_one_group_with_the_apps_defaults(js, fake):
     assert not err, out
     body = fake.sent("POST", "/api/jobs/groups")[0]["body"]
     assert body["subject_ids"] == ["101"] and body["created_by"] == "agent"
-    assert body["config"]["subject_ids"] == ["101"]
-    assert (
-        body["config"]["convert_dicom"] and body["config"]["create_m2m"]
-    )  # Pre-processing page
-    assert body["config"]["run_fastsurfer"] is False  # the agent's choice wins
+    assert body["config"] == {"run_fastsurfer": False, "subject_ids": ["101"]}
     assert "subject_configs" not in body
     err, text = call(
         js, "submit_job", kind="pre", config={}, subject_ids=["101"], after=["j1"]
@@ -695,7 +567,7 @@ def _proposal(state="pending", note=None, edited_config=None):
     }
 
 
-def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
+def test_propose_pipeline_dry_runs_then_creates(js, fake):
     js.handle(
         {
             "jsonrpc": "2.0",
@@ -731,25 +603,14 @@ def test_propose_pipeline_fills_defaults_dry_runs_then_creates(js, fake):
     dry, real = [r["body"] for r in fake.sent("POST", "/api/proposals")]
     assert dry["dry_run"] is True and "dry_run" not in real
     assert real["created_by"] == "agent" and real["client"] == "Claude Code"
+    # As the agent wrote them: the server fills the app's defaults.
     flex, sim = real["steps"]
-    assert flex["config"]["n_multistart"] == 1  # the Optimizer page's default
-    assert flex["config"]["goal"] == "mean"
-    assert sim["config"]["flex_step"] == "opt"
-    assert sim["config"]["conductivity"] == "scalar"  # the Simulator page's default
-    assert "intensities" not in sim["config"]  # the run's own currents decide
+    assert flex["config"] == {"goal": "mean"}
+    assert sim["config"] == {"flex_step": "opt"}
 
 
 def test_propose_pipeline_names_a_target_find_regions_returned(js, fake):
-    lab = (
-        "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"
-    )
-    fake.routes[("GET", "/api/catalog/atlases")] = [
-        {"id": "labeling.nii.gz", "path": lab, "kind": "volume"}
-    ]
-    fake.routes[("GET", "/api/catalog/atlases/regions")] = [
-        {"id": 10, "name": "Left-Thalamus", "hemi": None},
-        {"id": 49, "name": "Right-Thalamus", "hemi": None},
-    ]
+    fake.routes[("GET", "/api/catalog/regions")] = THALAMUS
     fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, _proposal())
     roi = call(js, "find_regions", subject_id="101", query="thalamus")[1]["atlases"][0][
         "rois"
@@ -890,11 +751,10 @@ def test_every_tool_declares_honest_annotations(js):
         "tools"
     ]
     hints = {t["name"]: t["annotations"] for t in tools}
-    assert len(hints) == 13
+    assert len(hints) == 11
     read_only = {n for n, h in hints.items() if h["readOnlyHint"]}
     assert read_only == {
         "connect",
-        "inspect_raw_data",
         "find_regions",
         "get_config_schema",
         "plan_job",
@@ -1061,6 +921,11 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         assert not err, out
         assert [s["id"] for s in out["subjects"]] == ["101"]
         assert out["approval_required"] is True  # the default
+        err, schema = call(js, "get_config_schema", kind="flex_adaptive")
+        assert not err and schema["class"] == "FlexConfig"
+        # The Optimizer page's values (tit/server/app_defaults.py), served in /api/schema.
+        assert schema["app_defaults_filled_in"]["goal"] == "focality"
+        assert schema["app_defaults_filled_in"]["max_iterations"] == 500
 
         montage = {
             "_type": "Montage",
@@ -1122,7 +987,7 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         assert spec["tags"] == [f"proposal:{pid}"]
         assert (
             spec["config"]["map_to_fsavg"] is False
-        )  # the app default the plugin filled
+        )  # the app default the server filled
         err, status = call(js, "get_proposal", proposal_id=pid)
         assert not err and status["status"] == "succeeded", status
 
@@ -1137,6 +1002,8 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         assert sub["group_id"]
         err, done = call(js, "wait_for_job", job_ids=sub["job_ids"], timeout_s=20)
         assert not err and done["jobs"][0]["state"] == "succeeded", done
+        spec = json.loads(Path(spec_path(str(project), sub["job_ids"][0])).read_text())
+        assert spec["config"]["map_to_fsavg"] is False  # filled for created_by "agent"
     finally:
         server.should_exit = True
         thread.join(timeout=10)

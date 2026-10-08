@@ -271,7 +271,8 @@ class TestProtocol:
         )
 
     def test_tool_schemas_are_objects(self, srv):
-        for t in srv._public_tools():
+        listed = srv.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+        for t in listed["result"]["tools"]:
             assert t["inputSchema"]["type"] == "object" and "handler" not in t
 
     def test_stdio_roundtrip(self, project):
@@ -312,11 +313,14 @@ class TestProtocol:
             timeout=60,
         )
         assert proc.returncode == 0, proc.stderr
-        out = [json.loads(l) for l in proc.stdout.splitlines() if l.strip()]
-        assert out[0]["result"]["serverInfo"]["name"] == "ti-toolbox"
-        assert {t["name"] for t in out[1]["result"]["tools"]} >= {
+        # tools/call answers on its own thread, so match responses by id, not by order.
+        out = {
+            r["id"]: r for r in map(json.loads, proc.stdout.splitlines()) if r
+        }
+        assert out[1]["result"]["serverInfo"]["name"] == "ti-toolbox"
+        assert {t["name"] for t in out[2]["result"]["tools"]} >= {
             "inspect_project",
             "search_wiki",
         }
-        assert out[2]["result"]["isError"] is False
-        assert out[3]["error"]["code"] == -32700
+        assert out[3]["result"]["isError"] is False
+        assert out[None]["error"]["code"] == -32700

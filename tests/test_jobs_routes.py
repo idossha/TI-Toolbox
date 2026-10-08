@@ -300,15 +300,43 @@ def test_group_records_the_agent_on_every_member(
         headers=BEARER,
         json={
             "kind": "pre",
-            "config": {"subject_ids": ["001"], "convert_dicom": True, "create_m2m": True},
+            # The page's default would add FastSurfer; the agent's own value wins.
+            "config": {"subject_ids": ["001"], "run_fastsurfer": False},
             "subject_ids": ["001"],
             "created_by": "agent",
         },
     )
     assert r.status_code == 201, r.text
     jobs = r.json()["jobs"]
-    assert len(jobs) == 2
+    assert len(jobs) == 2  # DICOM conversion + charm: the Pre-processing page's defaults
     assert {_recorded_creator(project, j["id"]) for j in jobs} == {"agent"}
+
+
+def _recorded_config(project: Path, job_id: str) -> dict:
+    from tit.jobs.registry import spec_path
+
+    return json.loads(Path(spec_path(str(project), job_id)).read_text())["config"]
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_an_agents_config_gets_the_run_pages_defaults(
+    client: TestClient, project: Path, route: str
+) -> None:
+    """tit.server.app_defaults: an agent sends only what it chose and runs what the Simulator
+    page would (map_to_fsavg off, where SimulationConfig's own default is on); the app's own
+    submission, which sends whole configs, is left as sent."""
+    allow_agent_submissions(client)
+    body = {"kind": "sim", "subject_ids": ["001"], "overwrite": True}
+    config = {**_sim_config("001"), "conductivity": "vn"}
+    agent = client.post(
+        route, headers=BEARER, json={**body, "config": config, "created_by": "agent"}
+    )
+    plain = client.post(route, headers=BEARER, json={**body, "config": config})
+    assert agent.status_code == plain.status_code == 201, (agent.text, plain.text)
+    agent_id, plain_id = (r.json().get("jobs", [r.json()])[0]["id"] for r in (agent, plain))
+    filled = _recorded_config(project, agent_id)
+    assert filled["map_to_fsavg"] is False and filled["conductivity"] == "vn"
+    assert _recorded_config(project, plain_id).get("map_to_fsavg") is not False
 
 
 @pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])

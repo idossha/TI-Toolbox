@@ -1,6 +1,6 @@
 ---
 name: ti-run-pipelines
-description: Run TI-Toolbox pipelines for the user through the app they have open — stage raw DICOM/NIfTI into BIDS, preprocess (charm head model), flex-search or ex-search optimisation, simulate a montage or an optimisation result, and follow the jobs. Use when the user asks you to DO something with their data in TI-Toolbox ("preprocess sub-101", "optimise for the thalamus", "simulate the best montage"), not to explain it. Needs the ti-toolbox-jobs MCP server.
+description: Run TI-Toolbox pipelines for the user through the app they have open — copy raw DICOM/NIfTI into the project's sourcedata, preprocess (charm head model), flex-search or ex-search optimisation, simulate a montage or an optimisation result, and follow the jobs. Use when the user asks you to DO something with their data in TI-Toolbox ("preprocess sub-101", "optimise for the thalamus", "simulate the best montage"), not to explain it. Needs the ti-toolbox-jobs MCP server.
 user-invocable: false
 ---
 
@@ -75,14 +75,33 @@ into `derivatives/` by hand.
    from `watch_proposal` (`finished`) or `wait_for_job`. On failure, quote the `error` and the last log lines, then check the
    `troubleshooting` wiki page (read-only server) before guessing.
 
+## Raw scans
+
+There is no staging tool: copy the scans yourself with your own file tools (the CLI asks the
+user's permission) into the project folder `connect` returned (`project.host_path`):
+
+```text
+<host_path>/sourcedata/sub-<id>/T1w/   # required: the T1-weighted series (DICOM folder, archive or NIfTI)
+                               /T2w/   # optional, recommended
+                               /ct/    # optional CT
+                               /dwi/   # optional diffusion (with its .bval/.bvec/.json beside a NIfTI)
+```
+
+- **Copy, never move, never overwrite.** If a target file or folder already exists, stop and ask.
+- One series per modality folder: everything in it is imported. DICOM folders are searched
+  recursively; archives (`.zip`, `.tar`, `.tar.gz`, `.tgz`) and `.nii`/`.nii.gz` also work
+  (the layout is the `pre-processing` wiki page's).
+- **Confirm the modality with the user when unsure** — read the folder and file names (and,
+  for DICOM, the series description) and ask about anything ambiguous: several T1w
+  candidates, localiser/scout series, FLAIR, no T1w at all. Preprocessing needs a T1w.
+- Then propose a `pre` step for that subject (`config: {}` takes the Pre-processing page's
+  defaults, including DICOM conversion).
+
 ## Recipe: raw scans → head model → optimise → simulate
 
 ```text
-connect                                               # approval_required: true
-inspect_raw_data(path="~/Downloads/scan")            # proposes {"T1w": [...], "T2w": [...]}
-  -> confirm the mapping with the user if anything is ambiguous (several T1w candidates,
-     "mixed series", no T1w)
-stage_raw_data(subject_id="101", mapping={...})       # copies into sourcedata/sub-101/<modality>/
+connect                                               # approval_required: true; project.host_path
+copy the scans into <host_path>/sourcedata/sub-101/<T1w|T2w|ct|dwi>/   # your own file tools
 propose_pipeline(title="Head model for sub-101", rationale="...",
   steps=[{"id": "pre", "kind": "pre", "subject_ids": ["101"], "config": {}}])
 watch_proposal(proposal_id=...)                       # last call of the turn; wakes you on changes
