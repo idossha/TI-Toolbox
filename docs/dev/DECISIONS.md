@@ -2721,3 +2721,28 @@ creator (a script that omits a field means the dataclass default).
 literals it had at 07ee0ac0); `tests/test_jobs_routes.py::test_an_agents_config_gets_the_run_pages_defaults`;
 `tests/test_agent_plugin_jobs.py` (the plugin sends only the agent's fields; against the real app
 the job's spec carries the page default).
+
+## 2026-10-08 — Region lookup and its ROIs are served; the picker keeps one shared rule
+
+**Decision.** `GET /api/catalog/regions?subject=&q=` (`tit.catalog.find_regions`) finds the
+subject's atlas regions whose names hold every word of the query (side words ignored) and returns,
+per atlas, the matches and ready `FlexConfig` ROIs `rois.all|left|right` built by
+`tit.catalog.region_roi`. The agent plugin's `find_regions` passes it through (it only remembers
+region names for a proposal's "Target: …" note); its own atlas walk, side split and ROI builder are
+deleted. The desktop's `roiToConfig` keeps building the picker's ROI in TypeScript, and
+`tests/fixtures/region_rois.json` drives both implementations (`tests/test_region_rois.py`,
+`desktop/tests/unit/roi-region-table.test.ts`). Additive contract path and schema (`RegionMatch`).
+
+**Why.** The plugin rebuilt the renderer's ROI rule by hand. The picker cannot simply call the
+server instead: it builds the ROI from an arbitrary chip selection (not a name query) on every
+click for the live plan and cost, synchronously, alongside spherical and mask modes that have no
+server counterpart; a request per click would make plan building async for no new truth. The rule
+itself is four lines, so one table both must pass is the smaller single source.
+
+**Alternatives rejected.** A server route that builds an ROI from a selection, called by the picker
+(async plan building, a round trip per click); generating the TypeScript from Python (a code
+generator for four lines).
+
+**Evidence.** `tests/test_region_rois.py` (shared table, search, route 200/404/422);
+`desktop/tests/unit/roi-region-table.test.ts`; `tests/test_agent_plugin_jobs.py` (passthrough and
+the proposal note).

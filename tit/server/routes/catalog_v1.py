@@ -159,6 +159,18 @@ def atlas_regions(
     )
 
 
+@router.get(
+    "/api/catalog/regions",
+    summary="Search a subject's atlases for a structure, with ready FlexConfig ROIs",
+)
+def regions(subject: Annotated[SubjectId, Query()], q: str = Query(...)) -> list[dict]:
+    try:
+        found = catalog.find_regions(_pm(), subject, q)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _or_404(found, f"Unknown subject: {subject}")
+
+
 @router.get("/api/catalog/nifti/labels", summary="Integer labels of a NIfTI volume")
 def nifti_labels(
     subject: Annotated[SubjectId, Query()],

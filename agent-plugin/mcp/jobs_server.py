@@ -264,52 +264,13 @@ def tool_connect(args: Dict[str, Any]) -> Dict[str, Any]:
 # Regions
 # --------------------------------------------------------------------------
 
-_SIDE_WORDS = {"left", "right", "bilateral", "both", "lh", "rh"}
-
-
-def _side(name: str, hemi: Optional[str]) -> Optional[str]:
-    if hemi in ("lh", "rh"):
-        return "left" if hemi == "lh" else "right"
-    n = name.lower()
-    if re.search(r"(^|[^a-z])(left|lh|l)([^a-z]|$)", n):
-        return "left"
-    if re.search(r"(^|[^a-z])(right|rh|r)([^a-z]|$)", n):
-        return "right"
-    return None
-
-
 #: (atlas path, label id) -> region name, from find_regions, so a proposal's card can name its
 #: target ("Left-Thalamus") instead of showing label ids only.
 _REGION_NAMES: Dict[Tuple[str, Any], str] = {}
 
 
-def _roi(atlas: Dict[str, Any], regions: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """The FlexConfig ROI wire object the desktop builds (pages/_shared/roi/types.ts roiToConfig)."""
-    if atlas.get("kind") == "surface":
-        hemis = [r.get("hemi") or "lh" for r in regions]
-        roi = {
-            "_type": "AtlasROI",
-            "atlas_path": [
-                re.sub(r"(^|/)lh\.", rf"\g<1>{h}.", atlas["path"]) for h in hemis
-            ],
-            "label": [r["id"] for r in regions],
-            "hemisphere": hemis,
-        }
-    else:
-        roi = {
-            "_type": "SubcorticalROI",
-            "atlas_path": [atlas["path"]] * len(regions),
-            "label": [r["id"] for r in regions],
-            "tissues": "GM",
-            "atlas_space": "subject",
-        }
-    for path, region in zip(roi["atlas_path"], regions):
-        _REGION_NAMES[(path, region["id"])] = region["name"]
-    return roi
-
-
 def _target_note(roi: Any) -> Optional[str]:
-    """The note 'Target: Left-Thalamus, Right-Thalamus' for an ROI find_regions built."""
+    """The note 'Target: Left-Thalamus, Right-Thalamus' for an ROI find_regions returned."""
     if not isinstance(roi, dict):
         return None
     pairs = zip(roi.get("atlas_path") or [], roi.get("label") or [])
@@ -321,54 +282,29 @@ def _target_note(roi: Any) -> Optional[str]:
 
 def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
     subject = _subject_id(args.get("subject_id"))
-    words = [w for w in re.findall(r"[a-z0-9]+", str(args.get("query", "")).lower())]
-    words = [w for w in words if w not in _SIDE_WORDS]
-    if not words:
-        raise ToolError("query must name a structure, e.g. 'thalamus' or 'precentral'")
-    found, skipped = [], []
-    for atlas in _api("GET", "/api/catalog/atlases" + _q(subject=subject)) or []:
-        try:
-            regions = _api(
-                "GET",
-                "/api/catalog/atlases/regions" + _q(subject=subject, atlas=atlas["id"]),
-            )
-        except ToolError as exc:
-            skipped.append(f"{atlas['id']}: {exc}")
-            continue
-        matches = [
-            r
-            for r in regions or []
-            if all(w in re.sub(r"[^a-z0-9]", "", r["name"].lower()) for w in words)
-        ]
-        if not matches:
-            continue
-        for r in matches:
-            r["side"] = _side(r["name"], r.get("hemi"))
-        rois = {"all": _roi(atlas, matches)}
-        for side in ("left", "right"):
-            picked = [r for r in matches if r["side"] == side]
-            if picked:
-                rois[side] = _roi(atlas, picked)
-        found.append(
-            {
-                "atlas": atlas["id"],
-                "kind": atlas.get("kind"),
-                "matches": matches[:60],
-                "rois": rois,
-            }
-        )
+    # The server searches the subject's atlases and builds the ROIs (tit.catalog.find_regions,
+    # the same construction as the app's ROI picker).
+    found = _api(
+        "GET",
+        "/api/catalog/regions" + _q(subject=subject, q=str(args.get("query", ""))),
+    )
     if not found:
         raise ToolError(
-            f"no region of sub-{subject}'s atlases matches {args.get('query')!r}"
-            + (f" (skipped: {'; '.join(skipped)})" if skipped else "")
-            + ". Atlases exist only after preprocessing (charm/FastSurfer); try another "
-            "spelling or ask the user for coordinates (SphericalROI)."
+            f"no region of sub-{subject}'s atlases matches {args.get('query')!r}. Atlases exist "
+            "only after preprocessing (charm/FastSurfer); try another spelling or ask the user "
+            "for coordinates (SphericalROI)."
         )
+    for hit in found:  # rois.all is every match, in order
+        all_roi = hit["rois"]["all"]
+        for path, label, region in zip(
+            all_roi["atlas_path"], all_roi["label"], hit["matches"]
+        ):
+            _REGION_NAMES[(path, label)] = region["name"]
+        hit["matches"] = hit["matches"][:60]
     return {
         "subject_id": subject,
         "query": args.get("query"),
         "atlases": found,
-        "skipped": skipped,
         "how_to_use": "Copy one rois.* object verbatim into FlexConfig.roi. 'all' is the union "
         "of every match (both sides, i.e. bilateral); 'left'/'right' are one side. Surface "
         "(AtlasROI) targets cortex, volume (SubcorticalROI) targets deep structures.",

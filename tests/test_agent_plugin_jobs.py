@@ -1,8 +1,8 @@
 """Tests for the agent plugin's job driver (agent-plugin/mcp/jobs_server.py), 2026-10-07.
 
 What this pins: discovery (env first, then the `tit.stack=ti-toolbox-v3` container, one project
-at a time), the request each verb sends to tit.server, find_regions passing the server's
-answer through, the
+at a time), the request each verb sends to tit.server (only the agent's own fields, with
+created_by "agent"), find_regions passing the server's answer through, the
 flex-result -> simulation chain, watch_proposal returning once per change, and (2026-10-08)
 the stdio server answering other calls while a wait runs, with progress and cancellation.
 
@@ -222,53 +222,40 @@ def test_no_stack_says_how_to_start_one(js, monkeypatch):
 # ---------------------------------------------------------------------------------------------
 
 
-def test_find_regions_builds_the_desktops_roi_objects(js, fake):
-    lab = (
-        "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"
-    )
-    annot = "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.101_DK40.annot"
-    fake.routes[("GET", "/api/catalog/atlases")] = [
-        {"id": "labeling.nii.gz", "path": lab, "kind": "volume"},
-        {"id": "DK40", "path": annot, "kind": "surface"},
-    ]
-    regions = {
-        "labeling.nii.gz": [
-            {"id": 10, "name": "Left-Thalamus", "hemi": None},
-            {"id": 49, "name": "Right-Thalamus", "hemi": None},
-            {"id": 17, "name": "Left-Hippocampus", "hemi": None},
+LAB = "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"
+#: GET /api/catalog/regions's answer for "thalamus" (tit.catalog.find_regions, whose search and
+#: ROI construction are pinned in tests/test_region_rois.py).
+THALAMUS = [
+    {
+        "atlas": "labeling.nii.gz",
+        "kind": "volume",
+        "matches": [
+            {"id": 10, "name": "Left-Thalamus", "hemi": None, "side": "left"},
+            {"id": 49, "name": "Right-Thalamus", "hemi": None, "side": "right"},
         ],
-        "DK40": [
-            {"id": 24, "name": "precentral", "hemi": "lh"},
-            {"id": 24, "name": "precentral", "hemi": "rh"},
-        ],
+        "rois": {
+            "all": {
+                "_type": "SubcorticalROI",
+                "atlas_path": [LAB, LAB],
+                "label": [10, 49],
+                "tissues": "GM",
+                "atlas_space": "subject",
+            },
+        },
     }
-    fake.routes[("GET", "/api/catalog/atlases/regions")] = lambda q, b: (
-        200,
-        regions[q["atlas"]],
-    )
+]
 
+
+def test_find_regions_passes_the_servers_answer_through(js, fake):
+    fake.routes[("GET", "/api/catalog/regions")] = THALAMUS
     err, out = call(js, "find_regions", subject_id="101", query="bilateral thalamus")
     assert not err, out
-    [hit] = out["atlases"]
-    assert hit["rois"]["all"] == {
-        "_type": "SubcorticalROI",
-        "atlas_path": [lab, lab],
-        "label": [10, 49],
-        "tissues": "GM",
-        "atlas_space": "subject",
+    assert out["atlases"] == THALAMUS
+    assert fake.sent("GET", "/api/catalog/regions")[0]["query"] == {
+        "subject": "101",
+        "q": "bilateral thalamus",
     }
-    assert hit["rois"]["left"]["label"] == [10]
-    assert hit["rois"]["right"]["label"] == [49]
-
-    err, out = call(js, "find_regions", subject_id="101", query="precentral")
-    [hit] = out["atlases"]
-    assert hit["rois"]["all"] == {
-        "_type": "AtlasROI",
-        "atlas_path": [annot, annot.replace("/lh.", "/rh.")],
-        "label": [24, 24],
-        "hemisphere": ["lh", "rh"],
-    }
-
+    fake.routes[("GET", "/api/catalog/regions")] = []
     err, text = call(js, "find_regions", subject_id="101", query="amygdala")
     assert err and "no region" in text
 
@@ -623,16 +610,7 @@ def test_propose_pipeline_dry_runs_then_creates(js, fake):
 
 
 def test_propose_pipeline_names_a_target_find_regions_returned(js, fake):
-    lab = (
-        "/mnt/project/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"
-    )
-    fake.routes[("GET", "/api/catalog/atlases")] = [
-        {"id": "labeling.nii.gz", "path": lab, "kind": "volume"}
-    ]
-    fake.routes[("GET", "/api/catalog/atlases/regions")] = [
-        {"id": 10, "name": "Left-Thalamus", "hemi": None},
-        {"id": 49, "name": "Right-Thalamus", "hemi": None},
-    ]
+    fake.routes[("GET", "/api/catalog/regions")] = THALAMUS
     fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, _proposal())
     roi = call(js, "find_regions", subject_id="101", query="thalamus")[1]["atlases"][0][
         "rois"

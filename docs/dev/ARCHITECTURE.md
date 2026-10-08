@@ -216,8 +216,13 @@ app's, except that an agent's config gets the run pages' defaults (next paragrap
 plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of these routes: it
 sends `agent` and only the fields the agent chose, and writes nothing on the host — raw scans are
 copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the agent's own file tools, under its CLI's
-permission prompts. Excluded alternative: a server-side "agent" API or an in-container agent, which
-would need the user's AI credentials; the user's own agent runs on the host instead.
+permission prompts. An agent's target region comes from `GET /api/catalog/regions?subject=&q=`
+(`tit.catalog.find_regions`): the subject's atlas regions matching a structure name, with ready
+`rois.all|left|right`. Its ROI construction (`tit.catalog.region_roi`) and the ROI picker's
+`roiToConfig` are one rule kept in two languages — the picker rebuilds its ROI synchronously on
+every selection for the live plan — and `tests/fixtures/region_rois.json` drives both. Excluded
+alternative: a server-side "agent" API or an in-container agent, which would need the user's AI
+credentials; the user's own agent runs on the host instead.
 
 **App defaults: one table, served.** What the Pre-processing, Simulator and Optimizer pages start
 with, where it differs from or adds to the config class's own defaults, is

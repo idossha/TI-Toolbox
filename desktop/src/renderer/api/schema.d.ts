@@ -1064,6 +1064,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search a subject's atlases for a structure, with ready FlexConfig ROIs
+         * @description Every region of the subject's own atlases (subject space) whose name contains each word of `q`, ignoring case, punctuation and the side words left, right, bilateral, both, lh, rh; one entry per atlas with a match. `rois.all` targets every match (both sides), `rois.left`/`rois.right` one side when a match names it. The ROI construction is the desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.
+         */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    q: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RegionMatch"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description unknown subject */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description `q` names no structure (only side words) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/nifti/labels": {
         parameters: {
             query?: never;
@@ -6412,6 +6468,28 @@ export interface components {
             name: string;
             /** @enum {string|null} */
             hemi: "lh" | "rh" | null;
+        };
+        RegionMatch: {
+            /** @description the Atlas id */
+            atlas: string;
+            /** @enum {string} */
+            kind: "surface" | "volume";
+            /** @description the matching Region rows, each with `side` (left, right or null) */
+            matches: {
+                [key: string]: unknown;
+            }[];
+            /** @description FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM in subject space for a volume), to use verbatim as FlexConfig.roi. */
+            rois: {
+                all: {
+                    [key: string]: unknown;
+                };
+                left?: {
+                    [key: string]: unknown;
+                };
+                right?: {
+                    [key: string]: unknown;
+                };
+            };
         };
         /** @description One integer label present in a segmentation volume. `id` is the voxel value (what `SubcorticalConfig.labels` carries), `name` comes from a sidecar colour table or the bundled FreeSurfer LUT and falls back to `Label {id}`, and `n_voxels` is how many voxels carry it — the size cue that tells a stray label from a real structure. */
         NiftiLabel: {

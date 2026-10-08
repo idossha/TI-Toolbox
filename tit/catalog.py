@@ -1137,6 +1137,90 @@ def atlas_regions(
     return out
 
 
+def region_roi(
+    atlas: dict, regions: list[dict], tissues: str = "GM", space: str = "subject"
+) -> dict:
+    """The ``FlexConfig`` ROI targeting *regions* (``atlas_regions`` rows) of *atlas* (an
+    :func:`atlases` entry): an ``AtlasROI`` for a surface atlas, each region read from its own
+    hemisphere's file (the ``lh.`` of the atlas path swapped for the region's ``hemi``), a
+    ``SubcorticalROI`` for a volume, the atlas path once per region.
+
+    The desktop's picker builds the same object from its selection (``roiToConfig`` in
+    ``desktop/src/renderer/pages/_shared/roi/types.ts``); ``tests/fixtures/region_rois.json``
+    pins both to one table.
+    """
+    labels = [r["id"] for r in regions]
+    if atlas.get("kind") == "surface":
+        hemis = [r.get("hemi") or "lh" for r in regions]
+        return {
+            "_type": "AtlasROI",
+            "atlas_path": [
+                re.sub(r"(^|/)lh\.", rf"\g<1>{h}.", atlas["path"], count=1)
+                for h in hemis
+            ],
+            "label": labels,
+            "hemisphere": hemis,
+        }
+    return {
+        "_type": "SubcorticalROI",
+        "atlas_path": [atlas["path"]] * len(regions),
+        "label": labels,
+        "tissues": tissues,
+        "atlas_space": space,
+    }
+
+
+#: Words of a region query that pick a side rather than name a structure.
+_SIDE_WORDS = {"left", "right", "bilateral", "both", "lh", "rh"}
+
+
+def _region_side(region: dict) -> str | None:
+    if region.get("hemi") in ("lh", "rh"):
+        return "left" if region["hemi"] == "lh" else "right"
+    name = region["name"].lower()
+    for side, words in (("left", "left|lh|l"), ("right", "right|rh|r")):
+        if re.search(rf"(^|[^a-z])({words})([^a-z]|$)", name):
+            return side
+    return None
+
+
+def find_regions(pm: PathManager, sid: str, query: str) -> list[dict] | None:
+    """Every region of *sid*'s own atlases whose name holds each word of *query*, per atlas,
+    with ready ROIs: ``rois.all`` (every match, i.e. both sides) and ``rois.left`` /
+    ``rois.right`` when a side matched. Side words ("left", "bilateral", ...) are ignored;
+    ``None`` for an unknown subject, :class:`ValueError` when *query* names no structure.
+    """
+    found = atlases(pm, sid)
+    if found is None:
+        return None
+    words = [w for w in re.findall(r"[a-z0-9]+", query.lower()) if w not in _SIDE_WORDS]
+    if not words:
+        raise ValueError("query must name a structure, e.g. 'thalamus' or 'precentral'")
+    out = []
+    for atlas in found:
+        matches = [
+            {**r, "side": _region_side(r)}
+            for r in atlas_regions(pm, sid, atlas["id"]) or []
+            if all(w in re.sub(r"[^a-z0-9]", "", r["name"].lower()) for w in words)
+        ]
+        if not matches:
+            continue
+        rois = {"all": region_roi(atlas, matches)}
+        for side in ("left", "right"):
+            picked = [r for r in matches if r["side"] == side]
+            if picked:
+                rois[side] = region_roi(atlas, picked)
+        out.append(
+            {
+                "atlas": atlas["id"],
+                "kind": atlas["kind"],
+                "matches": matches,
+                "rois": rois,
+            }
+        )
+    return out
+
+
 def _jailed_atlas_path(root: str, path: str) -> str | None:
     """Contain the volume and its derived cache/LUT paths, including dangling symlinks."""
     resolved = os.path.realpath(path)
