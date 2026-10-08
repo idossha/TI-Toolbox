@@ -6308,6 +6308,11 @@ export interface components {
             after?: string[];
             tags?: string[];
             overwrite?: boolean;
+            /**
+             * @description Who submitted the job, recorded in its spec.json and passed to the runner as TIT_INTERFACE. Optional on submit; absent means gui. The agent plugin's job server sends agent. The job runs identically whoever submitted it.
+             * @enum {string}
+             */
+            created_by?: "gui" | "browser" | "api" | "notebook" | "agent";
         };
         OutputFile: {
             /** @description absolute container path */
@@ -6344,6 +6349,11 @@ export interface components {
             tags?: string[];
             /** @description Replace existing output instead of skipping it, for every job in the group (the same flag POST /api/jobs takes per job). Ignored for kind=pre, which carries that policy in its own config's skip_existing_outputs / replace_existing_outputs flags. */
             overwrite?: boolean;
+            /**
+             * @description Copied onto every job in the group; absent means gui (see JobSpec.created_by).
+             * @enum {string}
+             */
+            created_by?: "gui" | "browser" | "api" | "notebook" | "agent";
         };
         /** @description One input a job needs that is not on disk (tit.jobs.preflight): what it is, the named path it was expected at, and how to produce it. */
         MissingInput: {

@@ -108,7 +108,7 @@ TERMINAL_STATES: frozenset[str] = frozenset(
     {"succeeded", "failed", "cancelled", "skipped", "lost"}
 )
 
-CREATED_BY_VALUES: tuple[str, ...] = ("gui", "browser", "api", "notebook")
+CREATED_BY_VALUES: tuple[str, ...] = ("gui", "browser", "api", "notebook", "agent")
 
 EVENT_TYPES: tuple[str, ...] = (
     "log",

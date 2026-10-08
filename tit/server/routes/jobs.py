@@ -21,7 +21,7 @@ from tit.jobs.bootstrap import get_manager
 from tit.jobs.config_check import check_job_config
 from tit.jobs.manager import JobManager
 from tit.jobs.preflight import preflight
-from tit.jobs.spec import JOB_KINDS, JOB_STATES
+from tit.jobs.spec import CREATED_BY_VALUES, JOB_KINDS, JOB_STATES
 from tit.paths import is_valid_subject_id
 from tit.server.overwrite_policy import check_overwrite_permission
 
@@ -49,6 +49,19 @@ def _checked_subject_ids(subject_ids: Any) -> list[str]:
                 ),
             )
     return list(subject_ids)
+
+
+def _created_by(body: dict[str, Any]) -> str:
+    """Who submitted: ``"gui"`` unless the client names itself (the agent plugin sends
+    ``"agent"``). Recorded in ``spec.json`` and passed to the runner as ``TIT_INTERFACE``; the
+    job itself runs identically whoever submitted it."""
+    value = body.get("created_by", "gui")
+    if value not in CREATED_BY_VALUES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"created_by must be one of {list(CREATED_BY_VALUES)}",
+        )
+    return value
 
 
 def _manager(request: Request) -> JobManager:
@@ -162,6 +175,7 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
     if not isinstance(config, dict):
         raise HTTPException(status_code=422, detail="config must be an object")
     subject_ids = _checked_subject_ids(body.get("subject_ids"))
+    created_by = _created_by(body)
     # `/api/jobs/groups` gets this for free: `plan_per_subject` round-trips every generated
     # config through the kind's dataclass. This single-job route did not, so a config the
     # runner cannot deserialise (a `sim` config with no `subject_id`/`montages`) was accepted,
@@ -185,7 +199,7 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
             after=body.get("after"),
             tags=body.get("tags"),
             overwrite=bool(body.get("overwrite", False)),
-            created_by="gui",
+            created_by=created_by,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -230,6 +244,7 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
             status_code=422, detail="config must be an object and subject_ids an array"
         )
     subject_ids = _checked_subject_ids(body.get("subject_ids"))
+    created_by = _created_by(body)
     tags = body.get("tags") or []
     if not isinstance(tags, list):
         raise HTTPException(status_code=422, detail="tags must be an array")
@@ -252,7 +267,7 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
         check_overwrite_permission(
             job.kind, job.config, job.subject_ids, overwrite=job.overwrite
         )
-    return _manager(request).submit_plan(planned, created_by="gui")
+    return _manager(request).submit_plan(planned, created_by=created_by)
 
 
 def _plan_pre_group(config: dict[str, Any], subject_ids: list[str]) -> list[Any]:

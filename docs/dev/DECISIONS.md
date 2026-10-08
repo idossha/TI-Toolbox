@@ -2432,3 +2432,37 @@ nilearn: `cluster_id` = CSV ids and sizes, `sig_mask` = `cluster_id > 0`, means 
 means recomputed from the synthetic inputs, null rows = `n_permutations`, two PDFs rendered from the
 `.msh`); `tests/test_catalog_group_stats.py::test_detail_of_a_surface_run_lists_the_mesh_and_tables`;
 `tests/test_plotting.py::TestRenderFsaverageMap`.
+
+## 2026-10-07 — Users drive jobs from their own agent; jobs record `created_by: "agent"`
+
+**Decision.** The agent plugin gains a second, write-capable MCP server, `ti-toolbox-jobs`
+(`agent-plugin/mcp/jobs_server.py`), that submits jobs through the running `tit.server` exactly as
+the run pages do (`/api/jobs/groups` per subject, `/api/plan` and `/api/validate` first) and
+copies raw scans into `sourcedata/sub-<id>/<modality>/` on the host. Both submit routes accept an
+optional `created_by`, restricted to `tit.jobs.spec.CREATED_BY_VALUES`, which gains `agent`;
+absent stays `gui`. Contract: `JobSpec.created_by`, `JobGroupRequest.created_by` (additive).
+
+**Why.** Users already have Claude Code or Codex on a subscription login; letting that agent queue
+real jobs gives them a natural-language front end without TI-Toolbox handling any AI credential
+or shipping an AI service. Going through the job API (not `simnibs_python` in a shell) keeps the
+queue, locks, one-job-per-product rule, live job list, outputs and reports identical to app-started
+runs. A separate server keeps the read-only knowledge server read-only, so a client can grant one
+without the other. Staging is host-side because the raw folder is outside the bind mount.
+
+**Cost.** The job server mirrors the run pages' default configs (Pre-processing, Simulator,
+Optimizer flex) by hand; a changed page default must be copied there. Raw-scan modality guesses
+are heuristics (DICOM header strings, file names) that the agent must confirm with the user.
+
+**Alternatives rejected.** An embedded agent or server-side LLM route (needs the user's
+credentials or our own API keys). Adding write tools to the read-only server (one permission for
+two very different risks). A staging route on the server (it cannot see host paths outside the
+project).
+
+**Revisit if** page defaults drift from the mirror (move them server-side), or the desktop gains an
+"open my agent here" terminal action.
+
+**Evidence.** `tests/test_jobs_routes.py::test_submit_records_who_submitted_defaulting_to_gui`,
+`::test_group_records_the_agent_on_every_member`, `::test_submit_rejects_an_unknown_created_by`;
+`tests/test_agent_plugin_jobs.py` (fake server per verb, plus
+`test_against_the_real_server_jobs_are_recorded_as_agent` over HTTP to the real app);
+`agent-plugin/mcp/test_stdio.py::JobsServerStdioTests`.

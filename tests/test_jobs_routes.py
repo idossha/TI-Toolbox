@@ -230,6 +230,63 @@ def test_submit_validation_errors(client: TestClient) -> None:
     )
 
 
+def _recorded_creator(project: Path, job_id: str) -> str:
+    from tit.jobs.registry import spec_path
+
+    return json.loads(Path(spec_path(str(project), job_id)).read_text())["created_by"]
+
+
+def test_submit_records_who_submitted_defaulting_to_gui(
+    client: TestClient, project: Path
+) -> None:
+    """The agent plugin names itself; the app sends nothing and stays "gui" (contract JobSpec)."""
+    job = {"kind": "tools", "config": {"__fake": {"duration_s": 0.01}}}
+    plain = client.post("/api/jobs", headers=BEARER, json={**job, "subject_ids": ["001"]})
+    agent = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={**job, "subject_ids": ["002"], "created_by": "agent"},
+    )
+    assert plain.status_code == agent.status_code == 201, (plain.text, agent.text)
+    assert _recorded_creator(project, plain.json()["id"]) == "gui"
+    assert _recorded_creator(project, agent.json()["id"]) == "agent"
+
+
+def test_group_records_the_agent_on_every_member(
+    client: TestClient, project: Path
+) -> None:
+    r = client.post(
+        "/api/jobs/groups",
+        headers=BEARER,
+        json={
+            "kind": "pre",
+            "config": {"subject_ids": ["001"], "convert_dicom": True, "create_m2m": True},
+            "subject_ids": ["001"],
+            "created_by": "agent",
+        },
+    )
+    assert r.status_code == 201, r.text
+    jobs = r.json()["jobs"]
+    assert len(jobs) == 2
+    assert {_recorded_creator(project, j["id"]) for j in jobs} == {"agent"}
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_submit_rejects_an_unknown_created_by(client: TestClient, route: str) -> None:
+    r = client.post(
+        route,
+        headers=BEARER,
+        json={
+            "kind": "sim",
+            "config": _sim_config("001"),
+            "subject_ids": ["001"],
+            "created_by": "root",
+        },
+    )
+    assert r.status_code == 422
+    assert "created_by" in r.text
+
+
 def test_submit_rejects_a_subject_id_that_is_not_one(
     client: TestClient, project: Path
 ) -> None:

@@ -10536,6 +10536,17 @@
           },
           "overwrite": {
             "type": "boolean"
+          },
+          "created_by": {
+            "type": "string",
+            "enum": [
+              "gui",
+              "browser",
+              "api",
+              "notebook",
+              "agent"
+            ],
+            "description": "Who submitted the job, recorded in its spec.json and passed to the runner as TIT_INTERFACE. Optional on submit; absent means gui. The agent plugin's job server sends agent. The job runs identically whoever submitted it."
           }
         }
       },
@@ -10670,6 +10681,17 @@
           "overwrite": {
             "type": "boolean",
             "description": "Replace existing output instead of skipping it, for every job in the group (the same flag POST /api/jobs takes per job). Ignored for kind=pre, which carries that policy in its own config's skip_existing_outputs / replace_existing_outputs flags."
+          },
+          "created_by": {
+            "type": "string",
+            "enum": [
+              "gui",
+              "browser",
+              "api",
+              "notebook",
+              "agent"
+            ],
+            "description": "Copied onto every job in the group; absent means gui (see JobSpec.created_by)."
           }
         }
       },

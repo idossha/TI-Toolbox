@@ -203,6 +203,17 @@ several FEM-class jobs of one product contend for the same machine. Cohort analy
 jobs. Sources: [`jobs routes`](../../tit/server/routes/jobs.py),
 [`scheduler.py`](../../tit/jobs/scheduler.py).
 
+**An agent submits through the same routes.** `POST /api/jobs` and `/api/jobs/groups` take an
+optional `created_by` (`gui`, `browser`, `api`, `notebook`, `agent`); absent means `gui`, any other
+value is a 422. It is recorded in `spec.json` and passed to the runner as `TIT_INTERFACE`, and
+nothing else depends on it, so an agent's job queues, runs, reports and renders exactly like the
+app's. The agent plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of
+these routes: it sends `agent`, fills omitted fields with the run pages' defaults, and stages raw
+scans by copying them into `sourcedata/sub-<id>/<modality>/` itself, because no route reads
+outside the bind-mounted project. Excluded alternative: a server-side "agent" API or an
+in-container agent, which would need the user's AI credentials; the user's own agent runs on the
+host instead.
+
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)
 normalizes and merges events; [`JobConsole`](../../desktop/src/renderer/ui/Jobs.tsx) renders them.
 Clear hides lines through a local sequence watermark and never deletes server events or log files.
