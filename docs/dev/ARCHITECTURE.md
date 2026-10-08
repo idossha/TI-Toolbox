@@ -217,8 +217,11 @@ plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of
 sends `agent` and only the fields the agent chose, and writes nothing on the host — raw scans are
 copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the agent's own file tools, under its CLI's
 permission prompts. An agent's target region comes from `GET /api/catalog/regions?subject=&q=`
-(`tit.catalog.find_regions`): the subject's atlas regions matching a structure name, with ready
-`rois.all|left|right`. Its ROI construction (`tit.catalog.region_roi`) and the ROI picker's
+(`tit.catalog.find_regions`): the regions matching a structure name in the subject's own atlases
+and then in the shipped MNI volume atlases the Optimizer's picker lists for MNI space, each entry
+with its `space` and ready `rois.all|left|right` (an MNI one a `SubcorticalROI` with
+`atlas_space: "mni"`). A shipped MNI atlas's regions are named from the colour table
+`resources/atlas/manifest.json` gives it (`tit.atlas.segstats.manifest_lut`), for the picker too. Its ROI construction (`tit.catalog.region_roi`) and the ROI picker's
 `roiToConfig` are one rule kept in two languages — the picker rebuilds its ROI synchronously on
 every selection for the live plan — and `tests/fixtures/region_rois.json` drives both. Excluded
 alternative: a server-side "agent" API or an in-container agent, which would need the user's AI

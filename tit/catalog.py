@@ -1185,10 +1185,15 @@ def _region_side(region: dict) -> str | None:
 
 
 def find_regions(pm: PathManager, sid: str, query: str) -> list[dict] | None:
-    """Every region of *sid*'s own atlases whose name holds each word of *query*, per atlas,
-    with ready ROIs: ``rois.all`` (every match, i.e. both sides) and ``rois.left`` /
+    """Every region of *sid*'s atlases whose name holds each word of *query*, per atlas, with
+    ready ROIs: ``rois.all`` (every match, i.e. both sides) and ``rois.left`` /
     ``rois.right`` when a side matched. Side words ("left", "bilateral", ...) are ignored;
     ``None`` for an unknown subject, :class:`ValueError` when *query* names no structure.
+
+    The atlases searched are the ones the Optimizer's ROI picker offers: the subject's own
+    (``space: "subject"``) and then the shipped MNI volume atlases (``space: "mni"``,
+    ``atlases(..., space="mni", kind="subcortical")``), whose ROI is a ``SubcorticalROI`` with
+    ``atlas_space: "mni"`` -- the object the picker builds for an MNI selection.
     """
     found = atlases(pm, sid)
     if found is None:
@@ -1196,8 +1201,11 @@ def find_regions(pm: PathManager, sid: str, query: str) -> list[dict] | None:
     words = [w for w in re.findall(r"[a-z0-9]+", query.lower()) if w not in _SIDE_WORDS]
     if not words:
         raise ValueError("query must name a structure, e.g. 'thalamus' or 'precentral'")
+    searched = [(atlas, "subject") for atlas in found] + [
+        (atlas, "mni") for atlas in atlases(pm, sid, "mni", "subcortical") or []
+    ]
     out = []
-    for atlas in found:
+    for atlas, space in searched:
         matches = [
             {**r, "side": _region_side(r)}
             for r in atlas_regions(pm, sid, atlas["id"]) or []
@@ -1205,15 +1213,16 @@ def find_regions(pm: PathManager, sid: str, query: str) -> list[dict] | None:
         ]
         if not matches:
             continue
-        rois = {"all": region_roi(atlas, matches)}
+        rois = {"all": region_roi(atlas, matches, space=space)}
         for side in ("left", "right"):
             picked = [r for r in matches if r["side"] == side]
             if picked:
-                rois[side] = region_roi(atlas, picked)
+                rois[side] = region_roi(atlas, picked, space=space)
         out.append(
             {
                 "atlas": atlas["id"],
                 "kind": atlas["kind"],
+                "space": space,
                 "matches": matches,
                 "rois": rois,
             }

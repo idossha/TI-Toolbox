@@ -291,9 +291,10 @@ def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
     )
     if not found:
         raise ToolError(
-            f"no region of sub-{subject}'s atlases matches {args.get('query')!r}. Atlases exist "
-            "only after preprocessing (charm/FastSurfer); try another spelling or ask the user "
-            "for coordinates (SphericalROI)."
+            f"no region of sub-{subject}'s atlases or the shipped MNI atlases matches "
+            f"{args.get('query')!r}. The subject's own atlases exist only after preprocessing "
+            "(charm/FastSurfer); try another spelling or ask the user for coordinates "
+            "(SphericalROI)."
         )
     for hit in found:  # rois.all is every match, in order
         all_roi = hit["rois"]["all"]
@@ -308,7 +309,10 @@ def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
         "atlases": found,
         "how_to_use": "Copy one rois.* object verbatim into FlexConfig.roi. 'all' is the union "
         "of every match (both sides, i.e. bilateral); 'left'/'right' are one side. Surface "
-        "(AtlasROI) targets cortex, volume (SubcorticalROI) targets deep structures.",
+        "(AtlasROI) targets cortex, volume (SubcorticalROI) targets deep structures. Prefer a "
+        "space 'subject' atlas (the subject's own anatomy); a space 'mni' atlas is a template "
+        "parcellation warped to the subject, for structures the subject's atlases lack (e.g. "
+        "CIT168 nuclei) or when the user names that atlas.",
     }
 
 
@@ -976,9 +980,10 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "find_regions",
-        "description": "Search one subject's atlases for a structure (e.g. 'thalamus', "
-        "'precentral') and return ready-to-use FlexConfig ROI objects: rois.all (bilateral "
-        "union), rois.left, rois.right. Never invent atlas paths or label ids -- use these.",
+        "description": "Search one subject's atlases, then the shipped MNI atlases, for a "
+        "structure (e.g. 'thalamus', 'precentral') and return ready-to-use FlexConfig ROI "
+        "objects per atlas (with its space: subject or mni): rois.all (bilateral union), "
+        "rois.left, rois.right. Never invent atlas paths or label ids -- use these.",
         "inputSchema": _schema(
             {"subject_id": _STR, "query": _STR}, ("subject_id", "query")
         ),

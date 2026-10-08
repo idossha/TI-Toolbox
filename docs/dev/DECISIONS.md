@@ -2795,3 +2795,29 @@ project).
 
 **Evidence.** `tests/test_output_jail.py` (plan, both submit routes with `overwrite: true`, a
 climbing name, a proposal dry run and approval).
+
+## 2026-10-08 — Region search covers the shipped MNI atlases; their names come from the manifest
+
+**Decision.** `tit.catalog.find_regions` (`GET /api/catalog/regions`, the agent's `find_regions`)
+searches the subject's own atlases and then the MNI volume atlases the Optimizer's ROI picker
+offers (`atlases(..., space="mni", kind="subcortical")`); each entry carries `space`, and an MNI
+entry's ROIs are the `SubcorticalROI` with `atlas_space: "mni"` the picker builds
+(`tests/fixtures/region_rois.json` gains that case). `tit.atlas.segstats.resolve_lut_for_atlas`
+names a shipped MNI atlas's labels from the table `resources/atlas/manifest.json` lists for it
+(`manifest_lut`, the lookup `tit.opt.roi_spec._find_volume_lut` already made), and a region cache
+(`<atlas>_labels.txt`) for such an atlas records that table (`# lut <name>`) so one named before is
+rebuilt once. Contract: `RegionMatch.space` (additive).
+
+**Why.** An agent could not target what the picker offers in MNI space (CIT168 nuclei, MASSP,
+Harvard-Oxford). Searching them exposed a picker bug: the Glasser, Schaefer and MASSP tables are
+not `{stem}_LUT.txt`, so their labels were named from FreeSurfer's table (Glasser label 1 read
+"Left-Cerebral-Exterior", Schaefer label 10 "Left-Thalamus"); a name search would have handed an
+agent a cortical parcel for "thalamus".
+
+**Alternatives rejected.** MNI search behind a flag (the agent cannot know to ask);
+deleting stale caches at startup (the image's resources may be read-only, and a cache that names
+its table is self-checking).
+
+**Evidence.** `tests/test_region_rois.py` (shared table incl. the MNI case; subject atlases first,
+then MNI with `space`); `tests/test_atlas_segstats.py::TestManifestNamedLut` (the manifest table
+names a shipped atlas; a cache named from another table is rebuilt once).

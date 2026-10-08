@@ -1073,7 +1073,7 @@ export interface paths {
         };
         /**
          * Search a subject's atlases for a structure, with ready FlexConfig ROIs
-         * @description Every region of the subject's own atlases (subject space) whose name contains each word of `q`, ignoring case, punctuation and the side words left, right, bilateral, both, lh, rh; one entry per atlas with a match. `rois.all` targets every match (both sides), `rois.left`/`rois.right` one side when a match names it. The ROI construction is the desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.
+         * @description Every region of the subject's own atlases (subject space), then of the MNI volume atlases the toolbox ships (the Optimizer picker's MNI subcortical list), whose name contains each word of `q`, ignoring case, punctuation and the side words left, right, bilateral, both, lh, rh; one entry per atlas with a match, with its `space`. `rois.all` targets every match (both sides), `rois.left`/`rois.right` one side when a match names it. The ROI construction is the desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.
          */
         get: {
             parameters: {
@@ -6481,11 +6481,16 @@ export interface components {
             atlas: string;
             /** @enum {string} */
             kind: "surface" | "volume";
+            /**
+             * @description subject for the subject's own atlases, mni for a shipped MNI volume atlas (its ROIs carry `atlas_space: mni`; the optimiser warps it to the subject)
+             * @enum {string}
+             */
+            space: "subject" | "mni";
             /** @description the matching Region rows, each with `side` (left, right or null) */
             matches: {
                 [key: string]: unknown;
             }[];
-            /** @description FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM in subject space for a volume), to use verbatim as FlexConfig.roi. */
+            /** @description FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM and `atlas_space` = the entry's `space` for a volume), to use verbatim as FlexConfig.roi. */
             rois: {
                 all: {
                     [key: string]: unknown;

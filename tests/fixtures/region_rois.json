@@ -1,5 +1,5 @@
 {
-  "_about": "Atlas regions -> FlexConfig ROI, shared by tests/test_region_rois.py (tit.catalog.region_roi, which the agent's find_regions uses) and desktop/tests/unit/roi-region-table.test.ts (roiToConfig, the run pages' ROI picker), so the two constructions cannot drift. groundTruth: authored -- written from the AtlasROI / SubcorticalROI fields in contracts/generated/config.schema.json (one atlas_path and label per region; a cortical region read from its own hemisphere's .annot) and the catalog's Atlas/Region shapes, not produced by either implementation. tissues/space apply to volume atlases only (the picker's subcortical tissues and space; the agent's find_regions uses GM and subject).",
+  "_about": "Atlas regions -> FlexConfig ROI, shared by tests/test_region_rois.py (tit.catalog.region_roi, which the agent's find_regions uses) and desktop/tests/unit/roi-region-table.test.ts (roiToConfig, the run pages' ROI picker), so the two constructions cannot drift. groundTruth: authored -- written from the AtlasROI / SubcorticalROI fields in contracts/generated/config.schema.json (one atlas_path and label per region; a cortical region read from its own hemisphere's .annot) and the catalog's Atlas/Region shapes, not produced by either implementation. tissues/space apply to volume atlases only (the picker's subcortical tissues and space; the agent's find_regions uses GM, in subject space for the subject's own atlases and MNI space for the shipped MNI volumes).",
   "cases": [
     {
       "why": "volume atlas, both thalami: the atlas path once per label",
@@ -26,6 +26,20 @@
         "atlas_path": ["/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz"],
         "label": [7],
         "tissues": "both",
+        "atlas_space": "mni"
+      }
+    },
+    {
+      "why": "packaged MNI volume as find_regions offers it (GM, MNI space): both thalami of Harvard-Oxford subcortical, ids 4 and 15 from its shipped _LUT.txt",
+      "atlas": {"path": "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz", "kind": "volume"},
+      "regions": [{"id": 4, "name": "Left-Thalamus", "hemi": null}, {"id": 15, "name": "Right-Thalamus", "hemi": null}],
+      "tissues": "GM",
+      "space": "mni",
+      "roi": {
+        "_type": "SubcorticalROI",
+        "atlas_path": ["/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz", "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"],
+        "label": [4, 15],
+        "tissues": "GM",
         "atlas_space": "mni"
       }
     },

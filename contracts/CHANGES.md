@@ -1123,3 +1123,13 @@ or a run/montage/analysis/output name that climbs out. The jobs routes do so wha
 says, and a proposal step carries the same sentence in `plan.errors`, so it cannot be approved.
 No schema shape changes; documented 422s only. The desktop run pages already send folders the
 server resolved under the project.
+
+## 2026-10-08 — `GET /api/catalog/regions` searches the shipped MNI atlases too
+
+After the subject's own atlases, the route searches the MNI volume atlases the Optimizer's ROI
+picker offers (`GET /api/catalog/atlases?space=mni&kind=subcortical`); their ROIs are
+`SubcorticalROI` with `atlas_space: "mni"`. `RegionMatch` gains `space` (`subject` | `mni`,
+always present). Additive: a client that ignores `space` sees extra entries after the
+subject-space ones, each with a ready ROI. Region names of the Glasser, Schaefer and MASSP MNI
+atlases (here and in `GET /api/catalog/atlases/regions`) now come from the colour table
+`resources/atlas/manifest.json` names, not FreeSurfer's.

@@ -144,7 +144,9 @@ it backgrounds like `watch_proposal`), and `simulate_flex_result` for a flex res
 
 ROI choice: `find_regions` returns `SubcorticalROI` (volume atlas — deep structures such as
 thalamus, hippocampus, amygdala) and `AtlasROI` (cortical surface atlas). Paste the object
-verbatim into `roi`. For a target given as coordinates use
+verbatim into `roi`. Each atlas has a `space`: prefer `subject` (the subject's own anatomy); use
+an `mni` one (a shipped template atlas such as CIT168 or Harvard-Oxford, warped to the subject)
+for a structure the subject's atlases lack or when the user names that atlas. For a target given as coordinates use
 `{"_type": "SphericalROI", "x": [..], "y": [..], "z": [..], "radius": [..], "use_mni": true,
 "volumetric": true, "tissues": "GM"}` — `volumetric: true` for deep targets. ex-search takes
 different targets (an ROI CSV and a leadfield); read `get_config_schema(kind="ex")` first.
