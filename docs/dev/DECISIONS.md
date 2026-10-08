@@ -2758,7 +2758,8 @@ relative ones starting `./`, `../`, `derivatives/`, `sourcedata/`, `code/`, `raw
 characters with no NUL, resolves it against the project folder (`path.resolve`), resolves symlinks
 on both sides (`realpath`), requires the result to exist and to lie inside the folder's real path
 (`relative` neither absolute nor starting with a `..` segment), and then reveals a file in
-Finder/Explorer (`shell.showItemInFolder`) or opens a folder (`shell.openPath`). The same
+Finder/Explorer (`shell.showItemInFolder`) or opens a folder (`shell.openPath`; a macOS `.app`
+bundle, a folder `openPath` would launch, is revealed instead). The same
 loopback-session rule as `start` applies; an automated run (`mayShowSystemUi` false) validates and
 opens nothing. A refusal comes back as `{ ok: false, error }` and the page shows it as a toast.
 

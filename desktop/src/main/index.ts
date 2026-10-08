@@ -936,7 +936,8 @@ function registerIpc(): void {
     const resolved = resolveProjectPath(path, project.projectDir);
     if (!resolved.ok) return resolved;
     if (!mayShowSystemUi(WINDOW_MODE)) return { ok: true };
-    if (!resolved.directory) {
+    // A macOS app bundle is a folder that openPath would launch, so it is revealed like a file.
+    if (!resolved.directory || /\.app$/i.test(resolved.path)) {
       shell.showItemInFolder(resolved.path);
       return { ok: true };
     }
