@@ -376,3 +376,35 @@ def test_a_failed_step_skips_the_steps_that_wait_on_it(client: TestClient) -> No
     assert [s["state"] for s in done["steps"]] == ["failed", "skipped"]
     assert "first" in done["steps"][1]["skipped"]
     assert done["steps"][1]["job_ids"] == []
+
+
+def ids(client: TestClient, query: str = "") -> list[str]:
+    return [p["id"] for p in client.get(f"/api/proposals{query}", headers=BEARER).json()]
+
+
+def test_dismiss_hides_a_finished_plan_and_broadcasts(client: TestClient) -> None:
+    pid = propose(client)["id"]
+    client.post(f"/api/proposals/{pid}/reject", headers=BEARER, json={})
+    with client.websocket_connect(f"{WS}?token={TOKEN}") as ws:
+        r = client.post(f"/api/proposals/{pid}/dismiss", headers=BEARER)
+        message = ws.receive_json()
+    assert r.status_code == 200 and r.json()["dismissed_at"]
+    assert message["type"] == "proposal" and message["proposal"]["dismissed_at"]
+    assert ids(client) == []
+    assert ids(client, "?include_dismissed=true") == [pid]
+    assert get(client, pid)["status"] == "rejected"  # still readable by id
+
+
+def test_a_waiting_plan_cannot_be_dismissed(client: TestClient) -> None:
+    pid = propose(client)["id"]
+    r = client.post(f"/api/proposals/{pid}/dismiss", headers=BEARER)
+    assert r.status_code == 409
+    assert ids(client) == [pid]
+
+
+def test_a_finished_approved_plan_can_be_dismissed(client: TestClient) -> None:
+    pid = propose(client)["id"]
+    client.post(f"/api/proposals/{pid}/approve", headers=BEARER, json={})
+    assert finished(client, pid)["status"] == "succeeded"
+    assert client.post(f"/api/proposals/{pid}/dismiss", headers=BEARER).status_code == 200
+    assert ids(client) == []

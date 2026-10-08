@@ -470,13 +470,20 @@ def create(manager: Any, body: dict[str, Any]) -> dict[str, Any]:
         return _publish(record, manager)
 
 
-def list_views(manager: Any, status: str | None = None) -> list[dict[str, Any]]:
+def list_views(
+    manager: Any, status: str | None = None, include_dismissed: bool = False
+) -> list[dict[str, Any]]:
     ensure_watcher(manager)
     with _LOCK:
         records = _all(manager.project_dir)
     views = [view(r, manager) for r in records]
     views.sort(key=lambda v: v["created_at"], reverse=True)
-    return [v for v in views if status is None or v["status"] == status]
+    return [
+        v
+        for v in views
+        if (status is None or v["status"] == status)
+        and (include_dismissed or not v.get("dismissed_at"))
+    ]
 
 
 def get_view(manager: Any, proposal_id: str) -> dict[str, Any]:
@@ -591,6 +598,21 @@ def reject(manager: Any, proposal_id: str, note: str | None = None) -> dict[str,
         return _publish(record, manager)
 
 
+def dismiss(manager: Any, proposal_id: str) -> dict[str, Any]:
+    """Hide a finished proposal (done, rejected or failed) from the default list."""
+    with _LOCK:
+        record = _load(manager.project_dir, proposal_id)
+        status = view(record, manager)["status"]
+        if status not in ("succeeded", "rejected", "failed"):
+            raise HTTPException(
+                status_code=409,
+                detail=f"proposal {proposal_id} is {status}; only a finished plan can be dismissed",
+            )
+        record["dismissed_at"] = utcnow_iso()
+        _save(manager.project_dir, record)
+        return _publish(record, manager)
+
+
 def _dependants(record: dict[str, Any], step_id: str) -> list[dict[str, Any]]:
     found, frontier = [], {step_id}
     for step in record["steps"]:
@@ -625,6 +647,7 @@ def run_step(manager: Any, proposal_id: str, step_id: str) -> dict[str, Any]:
             )
         for later in [step, *_dependants(record, step_id)]:
             later.update(job_ids=[], error=None, skipped=None)
+        record.pop("dismissed_at", None)  # running again: it is not finished any more
         _submit(record, step, manager)
         _save(manager.project_dir, record)
         _advance(record, manager)

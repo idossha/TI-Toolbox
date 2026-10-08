@@ -434,6 +434,11 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     const { json: other } = await call("/api/proposals", "POST", "/api/proposals", { body: { title: "Other", steps: [step] } });
     const { json: rejected } = await call("/api/proposals/{id}/reject", "POST", `/api/proposals/${(other as { id: string }).id}/reject`, { body: { note: "no" } });
     expect((rejected as { status: string }).status).toBe("rejected");
+    const otherId = (other as { id: string }).id;
+    expect((await call("/api/proposals/{id}/dismiss", "POST", `/api/proposals/${pid}/dismiss`)).res.status).toBe(409);
+    await call("/api/proposals/{id}/dismiss", "POST", `/api/proposals/${otherId}/dismiss`);
+    const { json: listed } = await call("/api/proposals", "GET", "/api/proposals?include_dismissed=true");
+    expect((listed as { id: string }[]).map((x) => x.id)).toContain(otherId);
     await call("/api/sim-from-flex", "GET", "/api/sim-from-flex?subject=ernie");
 
     // Logged out last (Bearer auth, not the cookie session, so nothing above depended on it).

@@ -29,6 +29,10 @@ export async function rejectProposal(id: string, note?: string): Promise<Proposa
   return unwrap(await api.POST("/api/proposals/{id}/reject", { params: { path: { id } }, body: { note } }), "/api/proposals/reject");
 }
 
+export async function dismissProposal(id: string): Promise<Proposal> {
+  return unwrap(await api.POST("/api/proposals/{id}/dismiss", { params: { path: { id } } }), "/api/proposals/dismiss");
+}
+
 export async function editStep(id: string, stepId: string, edit: StepEdit): Promise<Proposal> {
   return unwrap(
     await api.PATCH("/api/proposals/{id}/steps/{step_id}", { params: { path: { id, step_id: stepId } }, body: edit }),

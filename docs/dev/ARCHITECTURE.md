@@ -237,7 +237,10 @@ watcher follows the job manager's status stream), `skipped` when one did not. A 
 step names an earlier flex step or a finished run and is resolved at that moment by
 `tit.sim.montage_sources.resolve_flex_simulation`, which `GET /api/sim-from-flex` also serves to
 the agent plugin's `simulate_flex_result`. Step and proposal states are derived from the jobs at
-read time. Excluded alternatives: queuing dependent steps up front with job-level `after` (the
+read time. A finished plan (done, rejected or failed) can be dismissed (`POST /api/proposals/{id}/dismiss`,
+stored as `dismissed_at`; the default list omits it); the Jobs page shows only pending and
+in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Excluded
+alternatives: queuing dependent steps up front with job-level `after` (the
 submit-time preflight refuses a flex job whose head model a queued `pre` will make, and a
 `sim_from_flex` montage does not exist yet); an agent that waits and submits each step (it
 would have to stay connected for hours). The setting and the proposal routes are rules for a
