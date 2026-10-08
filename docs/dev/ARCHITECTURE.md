@@ -270,7 +270,13 @@ server answers each `tools/call` on its own thread so the agent's other calls ar
 Excluded alternatives: running the CLI inside the container (no
 CLI, no login there); a renderer-supplied command line (a served page could run anything on the
 host); writing MCP entries into the user's CLI configuration (persistent side effects outside the
-app). Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
+app). The pane draws with xterm's WebGL renderer, falling back to its DOM renderer when no GPU
+context is available or one is lost; WebGL is what draws box-drawing and block characters as
+joined cells (`customGlyphs`), which the DOM renderer leaves to the font. The page is a fixed-height
+column at every window width, the terminal's host carries no padding (FitAddon counts its host's
+height), and the grid is refitted on every host resize and the new size sent to the PTY. Printed
+http(s) links open through `openExternal`; printed file paths are not links, because `openPath`
+resolves server paths, not the host paths a CLI prints. Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
 [`Assistant page`](../../desktop/src/renderer/pages/assistant/index.tsx).
 
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)

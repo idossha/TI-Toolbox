@@ -440,7 +440,13 @@ Claude Code/Codex launch, the token's path (environment, never a log line) and o
 when `codex` is installed it also asks that Codex to parse the generated `-c` overrides, and prints
 `skipping: …` otherwise. `tests/unit/assistant-page.test.tsx` covers the page states with xterm
 stubbed. `tests/e2e/assistant.spec.ts` runs a stand-in `claude` from the page offscreen against the
-mock (it never runs the developer's real CLI: automated runs search only their own `PATH`), and
+mock (it never runs the developer's real CLI: automated runs search only their own `PATH`); its
+second test draws a Claude Code–shaped screen (block-glyph logo, long transcript, full-width box,
+status line on the last row) and asserts at 1280×900, 1024×680 and 1680×1050 in both themes, and
+with the jobs rail expanded, that the grid and the PTY size fit the card with less than one row
+spare, above the rail, with no page overflow, on the WebGL renderer. It reads the terminal through
+the `xterm` handle an e2e build (`VITE_SCENE_HOOKS=1`) hangs on the host element, and writes
+`assistant-<theme>-<w>x<h>.png` screenshots to `TIT_E2E_ARTIFACTS`; and
 `tests/e2e/packaged-launch.spec.ts` proves the packaged main loads node-pty. `verify-package.mjs`
 checks node-pty, its macOS `spawn-helper` mode and the staged `agent-plugin/`. Not covered by any of
 these: Windows ConPTY sessions, the system-terminal routes on Linux/Windows, a real signed-in CLI

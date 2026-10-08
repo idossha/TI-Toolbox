@@ -2630,3 +2630,32 @@ Polling with short waits (a foreground call per poll, the observed freeze). Sett
 per-client budget, and over the real stdio entry point: a pending watch does not block
 `get_proposal`, progress carries the client's token, cancel ends it);
 `desktop/src/main/assistant.test.ts` (the launch environment).
+
+## 2026-10-08 — The Assistant terminal draws with WebGL and fits its card exactly
+
+**Decision.** The Assistant pane loads **@xterm/addon-webgl 0.19.0** (falling back to xterm's DOM
+renderer when WebGL is unavailable or its context is lost) and **@xterm/addon-web-links 0.12.0**
+(printed http(s) links open through the existing `openExternal`; no bridge entry, still 24). The
+terminal's host has no padding (the card has it), the page keeps a fixed height below 1140 px, and
+xterm opens only after the mono font has loaded. ANSI colours are GitHub's light and dark terminal
+palettes, `minimumContrastRatio` is 4.5, and the terminal follows `<html data-theme>` and the OS
+scheme rather than the theme store.
+
+**Why.** Measured on the previous page (e2e stand-in, 2026-10-08): FitAddon reads its host's
+computed height, which with `box-sizing: border-box` included the host's 16 px padding, so at
+1280×900 it fitted 49 rows (735 px) into 726 px of content and the last row's lower half sat under
+the card's clipped edge — the cut-off status line. Below 1140 px `.page-layout { height: auto }`
+let the page grow to its content: at 1024×680 the terminal was 128 rows, 2050 px tall, the shell
+scrolled 1414 px and the CLI drew its status line under the jobs rail. The DOM renderer draws
+block and box characters with the font; the app bundles only Plex Mono's Latin subset, so the
+logo's quadrants came from a fallback font with gaps between cells (the broken "▘▘" fragments).
+xterm's default white and bright white were invisible on the light theme.
+
+**Alternatives rejected.** The DOM renderer with a font that has block glyphs (cells still do not
+join at a line height above 1, and Claude Code's symbols still fall back); the canvas renderer
+addon (no release for xterm 6); a link provider for file paths (`openPath` maps server paths; a
+host-path open needs a new bridge entry, and the budget is frozen at 24); `screenReaderMode` to make
+the text testable (an always-on live region for a full-screen TUI) instead of an e2e-only handle.
+
+**Evidence.** `desktop/tests/e2e/assistant.spec.ts` "the terminal's rows fit the card exactly…".
+
