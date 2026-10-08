@@ -16,9 +16,10 @@ import type { PageDef } from "../../app/registry";
 import { PageLayout } from "../../ui/Layout";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState } from "../../ui/Feedback";
+import { Select } from "../../ui/Select";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Chip } from "../../ui/Status";
-import type { TitAssistantBridge, TitAssistantCli, TitAssistantStatus } from "../../../shared/tit-bridge";
+import type { TitAssistantBridge, TitAssistantCli, TitAssistantEffort, TitAssistantModel, TitAssistantOptions, TitAssistantStatus } from "../../../shared/tit-bridge";
 import "./assistant.css";
 
 export const CLI_INFO: Record<TitAssistantCli, { name: string; install: string; docs: string; login: string }> = {
@@ -35,6 +36,42 @@ export const CLI_INFO: Record<TitAssistantCli, { name: string; install: string; 
     login: "Start it here and choose Sign in with ChatGPT (or run codex login in a terminal).",
   },
 };
+
+export const EFFORT_OPTIONS: { value: TitAssistantEffort; label: string }[] = [
+  { value: "medium", label: "Medium (recommended)" },
+  { value: "low", label: "Low" },
+  { value: "high", label: "High" },
+  { value: "default", label: "My CLI default" },
+];
+export const MODEL_OPTIONS: { value: TitAssistantModel; label: string }[] = [
+  { value: "default", label: "My CLI default" },
+  { value: "opus", label: "Opus" },
+  { value: "sonnet", label: "Sonnet" },
+  { value: "haiku", label: "Haiku" },
+  { value: "fable", label: "Fable" },
+];
+export const EFFORT_TIP = "Medium is the best balance for planning jobs; higher is slower and uses more of your plan's limits.";
+
+/** Per CLI, kept in this app only; main re-validates every value it is sent. */
+type SessionOptions = Required<TitAssistantOptions>;
+export const OPTIONS_KEY = "tit-assistant-options";
+const DEFAULT_OPTIONS: SessionOptions = { effort: "medium", model: "default" };
+
+export function readOptions(): Record<TitAssistantCli, SessionOptions> {
+  const stored: Partial<Record<TitAssistantCli, Partial<SessionOptions>>> = (() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(OPTIONS_KEY) ?? "{}") ?? {};
+    } catch {
+      return {};
+    }
+  })();
+  const pick = (cli: TitAssistantCli): SessionOptions => ({
+    effort: EFFORT_OPTIONS.find((o) => o.value === stored[cli]?.effort)?.value ?? DEFAULT_OPTIONS.effort,
+    // Codex has no model menu: its model is always the CLI's own.
+    model: cli === "claude" ? MODEL_OPTIONS.find((o) => o.value === stored[cli]?.model)?.value ?? DEFAULT_OPTIONS.model : "default",
+  });
+  return { claude: pick("claude"), codex: pick("codex") };
+}
 
 export const EXAMPLE_PROMPTS: { label: string; text: string }[] = [
   {
@@ -195,6 +232,9 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
   const [sessions, setSessions] = useState<Partial<Record<TitAssistantCli, Session>>>({});
   const [error, setError] = useState<string | undefined>();
   const [starting, setStarting] = useState(false);
+  const [options, setOptions] = useState(readOptions);
+  // What each running session was started with, to tell the user a change waits for a restart.
+  const [applied, setApplied] = useState<Partial<Record<TitAssistantCli, SessionOptions>>>({});
   const terms = useRef<Partial<Record<TitAssistantCli, Terminal>>>({});
 
   // Detection runs the CLI's own status command; "check again" re-asks.
@@ -213,15 +253,26 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
     for (const which of ["claude", "codex"] as const) void bridge.kill(which);
   }, [bridge]);
 
+  const chooseOption = (patch: Partial<SessionOptions>) => {
+    const next = { ...options, [cli]: { ...options[cli], ...patch } };
+    setOptions(next);
+    try {
+      window.localStorage.setItem(OPTIONS_KEY, JSON.stringify(next));
+    } catch {
+      // best-effort persistence only
+    }
+  };
+
   const start = async () => {
     setError(undefined);
     setStarting(true);
     try {
       const term = terms.current[cli];
       term?.reset();
-      const result = await bridge.start(cli, term?.cols ?? 100, term?.rows ?? 30);
+      const result = await bridge.start(cli, term?.cols ?? 100, term?.rows ?? 30, options[cli]);
       if (!result.ok) setError(result.error);
       else {
+        setApplied((prev) => ({ ...prev, [cli]: options[cli] }));
         setSessions((prev) => ({ ...prev, [cli]: "running" }));
         term?.focus();
       }
@@ -237,7 +288,7 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
 
   const openInTerminal = async () => {
     setError(undefined);
-    const result = await bridge.openInTerminal(cli);
+    const result = await bridge.openInTerminal(cli, options[cli]);
     if (!result.ok) setError(result.error);
   };
 
@@ -250,6 +301,7 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
   const current = detection.data ?? undefined;
   const info = CLI_INFO[cli];
   const isRunning = sessions[cli] === "running";
+  const waitsForRestart = isRunning && (applied[cli]?.effort !== options[cli].effort || applied[cli]?.model !== options[cli].model);
   const cannotRun = !current?.installed || !!current?.unavailable;
   const credentials = `Your own ${info.name} login — TI-Toolbox never sees your credentials.`;
   const approval = "By default it proposes the jobs as a plan; nothing runs until you approve it on the Jobs page.";
@@ -291,6 +343,23 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
             </button>
           ))}
           <span className="assistant-note" title={approval}>{approval}</span>
+          <span className="assistant-options" role="group" aria-label="Session options">
+            {waitsForRestart && <span className="assistant-option-label" role="status">Applies on restart</span>}
+            <span className="assistant-option" title={EFFORT_TIP}>
+              <span className="assistant-option-label">Effort</span>
+              <span className="assistant-option-select assistant-option-effort">
+                <Select aria-label="Effort" value={options[cli].effort} onValueChange={(effort) => chooseOption({ effort: effort as TitAssistantEffort })} options={EFFORT_OPTIONS} />
+              </span>
+            </span>
+            {cli === "claude" && (
+              <span className="assistant-option">
+                <span className="assistant-option-label">Model</span>
+                <span className="assistant-option-select assistant-option-model">
+                  <Select aria-label="Model" value={options[cli].model} onValueChange={(model) => chooseOption({ model: model as TitAssistantModel })} options={MODEL_OPTIONS} />
+                </span>
+              </span>
+            )}
+          </span>
         </div>
       </header>
 

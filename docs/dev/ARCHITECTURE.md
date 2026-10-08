@@ -178,7 +178,9 @@ The preload bridge has 24 top-level entries, enforced by `desktop/tests/e2e/smok
 window play a job banner's TI-Toolbox sound; `assistant` (optional: absent means no Assistant pane)
 is the host terminal of §6's user-run agent — `detect`, `start`, `write`, `resize`, `kill`,
 `onEvent`, `openInTerminal`, each taking only `"claude" | "codex"` (plus terminal size or typed
-input), validated in main. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
+input), validated in main; `start` and `openInTerminal` also take an optional options object of
+enums only (`effort`: low, medium, high, default; `model`: default, opus, sonnet, haiku, fable —
+Codex: default only), checked against an allowlist in main, which builds the flags itself. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
@@ -265,7 +267,12 @@ existing local project folder; there is at most one per CLI, a new start replace
 session ends on a main-frame navigation (connect, project switch or close, reload), window close
 and app quit. **Open in system terminal** starts the same launch in Terminal (macOS: a self-deleting
 `.command` script in user data, because LaunchServices passes no environment), `x-terminal-emulator`
-(Linux) or a new console (Windows). Claude Code sessions also get
+(Linux) or a new console (Windows). **Effort and Model** are per-CLI
+session options the page keeps in `localStorage` and sends with `start`/`openInTerminal`; main maps
+them to `--effort <level>` and `--model <alias>` (Claude Code) or `-c model_reasoning_effort="<level>"`
+(Codex; no model flag), and passes nothing for "My CLI default". The default is Medium for both CLIs,
+a change while a session runs applies on the next Start, and nothing is written to the CLIs' own
+configuration. Claude Code sessions also get
 `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` unless the user set it: the job server's waits
 (`watch_proposal`, `wait_for_job`) block until the next change, Claude Code moves a call still
 running after that delay to a background task and wakes the agent with its result, and the job

@@ -13,12 +13,36 @@ import { execFile } from "node:child_process";
 import { accessSync, constants, existsSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { TitAssistantCli, TitAssistantEvent } from "../shared/tit-bridge";
+import type { TitAssistantCli, TitAssistantEffort, TitAssistantEvent, TitAssistantModel, TitAssistantOptions } from "../shared/tit-bridge";
 
 export const ASSISTANT_CLIS: readonly TitAssistantCli[] = ["claude", "codex"];
 
 export function isAssistantCli(value: unknown): value is TitAssistantCli {
   return value === "claude" || value === "codex";
+}
+
+/**
+ * Session options. Accepted values, verified 2026-10-08: `claude --effort` takes low, medium, high,
+ * xhigh, max (a bogus value only warns, hence the allowlist here) and `--model` the aliases
+ * opus, sonnet, haiku, fable (each started a session on its latest model); Codex takes
+ * `-c model_reasoning_effort=<level>` with low, medium, high, xhigh, max in its model catalog
+ * (`codex debug models`). The menu stops at high; `/effort` inside the session reaches the rest.
+ */
+export const EFFORTS: readonly TitAssistantEffort[] = ["low", "medium", "high", "default"];
+export const MODELS: Record<TitAssistantCli, readonly TitAssistantModel[]> = {
+  claude: ["default", "opus", "sonnet", "haiku", "fable"],
+  codex: ["default"],
+};
+export type AssistantOptions = Required<TitAssistantOptions>;
+
+/** The renderer's options as the flags' source, or undefined for anything off the allowlist. Absent = Medium. */
+export function parseAssistantOptions(cli: TitAssistantCli, raw: unknown): AssistantOptions | undefined {
+  if (raw === undefined || raw === null) return { effort: "medium", model: "default" };
+  if (typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const { effort = "medium", model = "default", ...extra } = raw as Record<string, unknown>;
+  if (Object.keys(extra).length) return undefined;
+  if (!EFFORTS.includes(effort as TitAssistantEffort) || !MODELS[cli].includes(model as TitAssistantModel)) return undefined;
+  return { effort: effort as TitAssistantEffort, model: model as TitAssistantModel };
 }
 
 /** The CLI's own login-status command: exit 0 = signed in, 1 = not (both verified 2026-10-07). */
@@ -113,6 +137,8 @@ export interface LaunchOptions {
   searchPath: string;
   baseEnv: NodeJS.ProcessEnv;
   platform: NodeJS.Platform;
+  /** From `parseAssistantOptions`; absent = Medium effort, the CLI's own model. */
+  options?: AssistantOptions;
 }
 
 export interface Launch {
@@ -136,9 +162,12 @@ export interface Launch {
 export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
   const sep = o.platform === "win32" ? "\\" : "/";
   const plugin = (...parts: string[]) => [o.pluginDir.replace(/[\\/]+$/, ""), ...parts].join(sep);
+  const { effort, model } = o.options ?? { effort: "medium", model: "default" };
   let args: string[];
   if (cli === "claude") {
     args = ["--plugin-dir", o.pluginDir];
+    if (effort !== "default") args.push("--effort", effort);
+    if (model !== "default") args.push("--model", model);
   } else {
     const python = "python3";
     const instructions =
@@ -153,6 +182,8 @@ export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
       "-c", `mcp_servers.ti-toolbox-jobs.env_vars=['TIT_SERVER_URL','TIT_SERVER_TOKEN']`,
       "-c", `developer_instructions=${tomlString(instructions)}`,
     ];
+    // Enum values only (parseAssistantOptions), so the literal needs no escaping.
+    if (effort !== "default") args.push("-c", `model_reasoning_effort="${effort}"`);
   }
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(o.baseEnv)) {

@@ -10,7 +10,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { buildLaunch, createAssistantSessions, findExecutable, isLoggedIn, isLoopbackOrigin, loginShellPath, shQuote, tomlString, type PtyProcess } from "./assistant";
+import { buildLaunch, createAssistantSessions, findExecutable, isLoggedIn, isLoopbackOrigin, loginShellPath, parseAssistantOptions, shQuote, tomlString, type PtyProcess } from "./assistant";
 import type { TitAssistantEvent } from "../shared/tit-bridge";
 
 const TOKEN = "tok-3f9a-secret";
@@ -74,11 +74,53 @@ describe("CLI detection", () => {
   });
 });
 
+describe("session options", () => {
+  const codexSettings = (args: string[]) => args.filter((a) => a.startsWith("model_reasoning_effort=") || a === "-m");
+  it("defaults to Medium effort and the CLI's own model, for both CLIs", () => {
+    for (const cli of ["claude", "codex"] as const) expect(parseAssistantOptions(cli, undefined)).toEqual({ effort: "medium", model: "default" });
+    expect(parseAssistantOptions("claude", {})).toEqual({ effort: "medium", model: "default" });
+    expect(buildLaunch("claude", base).args.slice(-2)).toEqual(["--effort", "medium"]);
+    expect(buildLaunch("codex", base).args.slice(-2)).toEqual(["-c", 'model_reasoning_effort="medium"']);
+  });
+  it("builds Claude's --effort and --model from the chosen values", () => {
+    for (const effort of ["low", "medium", "high"] as const) {
+      expect(buildLaunch("claude", { ...base, options: { effort, model: "default" } }).args).toEqual(["--plugin-dir", base.pluginDir, "--effort", effort]);
+    }
+    for (const model of ["opus", "sonnet", "haiku", "fable"] as const) {
+      expect(buildLaunch("claude", { ...base, options: { effort: "high", model } }).args).toEqual(["--plugin-dir", base.pluginDir, "--effort", "high", "--model", model]);
+    }
+  });
+  it("builds Codex's reasoning effort override and never a model", () => {
+    for (const effort of ["low", "medium", "high"] as const) {
+      const args = buildLaunch("codex", { ...base, options: { effort, model: "default" } }).args;
+      expect(args.slice(-2)).toEqual(["-c", `model_reasoning_effort="${effort}"`]);
+      expect(codexSettings(args)).toEqual([`model_reasoning_effort="${effort}"`]);
+    }
+  });
+  it("passes nothing for My CLI default", () => {
+    const claude = buildLaunch("claude", { ...base, options: { effort: "default", model: "default" } }).args;
+    expect(claude).toEqual(["--plugin-dir", base.pluginDir]);
+    expect(codexSettings(buildLaunch("codex", { ...base, options: { effort: "default", model: "default" } }).args)).toEqual([]);
+  });
+  it("rejects anything off the allowlist", () => {
+    expect(parseAssistantOptions("claude", { effort: "max" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { effort: "high; rm -rf /" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { model: "claude-opus-5-5" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { model: "--dangerously-skip-permissions" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { effort: 3 })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { plugin: "/tmp/x" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", "high")).toBeUndefined();
+    expect(parseAssistantOptions("claude", ["high"])).toBeUndefined();
+    expect(parseAssistantOptions("codex", { model: "opus" })).toBeUndefined();
+    expect(parseAssistantOptions("codex", { effort: "xhigh" })).toBeUndefined();
+  });
+});
+
 describe("launch", () => {
   it("attaches the bundled plugin to Claude Code for this session only", () => {
     const launch = buildLaunch("claude", base);
     expect(launch.file).toBe(base.executable);
-    expect(launch.args).toEqual(["--plugin-dir", base.pluginDir]);
+    expect(launch.args).toEqual(["--plugin-dir", base.pluginDir, "--effort", "medium"]);
     expect(launch.cwd).toBe(base.projectDir);
   });
   it("registers both MCP servers and the pipeline guidance for Codex without touching ~/.codex", () => {

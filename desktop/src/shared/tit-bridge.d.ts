@@ -120,6 +120,18 @@ export interface TitNativeTetravoxProgress {
 /** The two agent CLIs the Assistant pane can run; the renderer can name nothing else. */
 export type TitAssistantCli = "claude" | "codex";
 
+/**
+ * Per-session options, enums only; main validates them against its own allowlist and builds the
+ * flags. `"default"` passes nothing, so the CLI keeps its own setting. Absent = effort `"medium"`.
+ */
+export type TitAssistantEffort = "low" | "medium" | "high" | "default";
+export type TitAssistantModel = "default" | "opus" | "sonnet" | "haiku" | "fable";
+export interface TitAssistantOptions {
+  effort?: TitAssistantEffort;
+  /** Claude Code only; Codex accepts `"default"`. */
+  model?: TitAssistantModel;
+}
+
 export interface TitAssistantStatus {
   cli: TitAssistantCli;
   /** Found on the user's login-shell PATH. */
@@ -142,14 +154,14 @@ export type TitAssistantEvent =
 export interface TitAssistantBridge {
   detect(cli: TitAssistantCli): Promise<TitAssistantStatus>;
   /** Start (or restart) the CLI's session in the connected project folder. */
-  start(cli: TitAssistantCli, cols: number, rows: number): Promise<{ ok: true } | { ok: false; error: string }>;
+  start(cli: TitAssistantCli, cols: number, rows: number, options?: TitAssistantOptions): Promise<{ ok: true } | { ok: false; error: string }>;
   write(cli: TitAssistantCli, data: string): void;
   resize(cli: TitAssistantCli, cols: number, rows: number): void;
   kill(cli: TitAssistantCli): Promise<void>;
   /** Output and exit of every session. Returns the unsubscribe function. */
   onEvent(listener: (event: TitAssistantEvent) => void): () => void;
   /** The same launch in the host's own terminal application. */
-  openInTerminal(cli: TitAssistantCli): Promise<{ ok: true } | { ok: false; error: string }>;
+  openInTerminal(cli: TitAssistantCli, options?: TitAssistantOptions): Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 export interface TitBridge {

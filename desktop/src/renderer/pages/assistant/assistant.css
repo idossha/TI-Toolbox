@@ -54,7 +54,7 @@
   height: var(--row-h);
 }
 .assistant-hints {
-  height: 24px;
+  height: var(--row-h);
 }
 .assistant-toolbar > *,
 .assistant-hints > * {
@@ -144,4 +144,31 @@
 }
 .assistant-terminal[hidden] {
   display: none;
+}
+
+/* Session options, right end of the hints row: a quiet label and a compact select each. The note
+   beside them gives way first, so neither row wraps at the 1024px minimum width. */
+.assistant-options {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: var(--space-2);
+}
+.assistant-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.assistant-option-label {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.assistant-option-select {
+  display: block;
+}
+.assistant-option-effort {
+  width: 188px;
+}
+.assistant-option-model {
+  width: 142px;
 }
