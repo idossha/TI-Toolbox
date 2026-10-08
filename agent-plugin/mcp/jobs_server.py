@@ -19,7 +19,8 @@ Discovery
    from its ``tit.host_project_dir`` label). With several projects open, ``connect`` takes the
    project path to pick one.
 
-Zero third-party dependencies, Python 3.9+, JSON-RPC 2.0 over newline-delimited stdio.
+Zero third-party dependencies, Python 3.9+, JSON-RPC 2.0 over newline-delimited stdio
+(``stdio_loop.py``, shared with ``server.py``).
 """
 
 from __future__ import annotations
