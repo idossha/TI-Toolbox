@@ -103,6 +103,20 @@ def test_find_regions_splits_sides_and_ignores_side_words(atlases):
         catalog.find_regions(None, "101", "left")
 
 
+def test_there_are_search_cases_to_check():
+    assert any(c["matches"] for c in TABLE["search"])
+    assert any(not c["matches"] for c in TABLE["search"])
+
+
+@pytest.mark.parametrize("case", TABLE["search"], ids=lambda c: c["why"])
+def test_find_regions_matches_whole_words_of_a_name(case, atlases, monkeypatch):
+    monkeypatch.setattr(
+        catalog, "atlas_regions", lambda pm, sid, atlas: [{"id": 1, "name": case["name"], "hemi": None}]
+    )
+    hits = catalog.find_regions(None, "101", case["query"])
+    assert bool(hits) is case["matches"]
+
+
 def test_regions_route(atlases, monkeypatch, tmp_path):
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient

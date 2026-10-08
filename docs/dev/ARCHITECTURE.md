@@ -221,7 +221,8 @@ plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of
 sends `agent` and only the fields the agent chose, and writes nothing on the host — raw scans are
 copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the agent's own file tools, under its CLI's
 permission prompts. An agent's target region comes from `GET /api/catalog/regions?subject=&q=`
-(`tit.catalog.find_regions`): the regions matching a structure name in the subject's own atlases
+(`tit.catalog.find_regions`): the regions whose names have the query's words as whole words
+("thalamus" is not "Hypothalamus"; side words dropped) in the subject's own atlases
 and then in the shipped MNI volume atlases the Optimizer's picker lists for MNI space, each entry
 with its `space` and ready `rois.all|left|right` (an MNI one a `SubcorticalROI` with
 `atlas_space: "mni"`). A shipped MNI atlas's regions are named from the colour table

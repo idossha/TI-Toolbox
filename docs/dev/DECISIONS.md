@@ -3018,3 +3018,24 @@ ex CSVs; unreadable atlases); `tests/test_proposals_routes.py::test_a_step_plan_
 `tests/test_agent_plugin_jobs.py::test_propose_pipeline_reports_the_target_the_server_named`;
 `tests/test_reporting_runs.py` (report names unchanged); `desktop/tests/unit/proposal-card.test.tsx`
 "names the target the server resolved…".
+
+## 2026-10-08 — Region search matches whole words of a name
+
+**Decision.** `tit.catalog.find_regions` (`GET /api/catalog/regions`, the agent's `find_regions`)
+matches a region when every query word is a whole word of its name — split on non-alphanumerics,
+case-insensitive, the name's side words `left/right/lh/rh/l/r` dropped — or when the query's words
+joined are one word of it (`_name_matches`). The query's own side words are ignored as before.
+`tests/fixtures/region_rois.json` gains a `search` table (Hypothalamus the negative case). The
+Optimizer's region list keeps the substring filter every `SelectionList` shares.
+
+**Why.** The old rule tested each word as a substring of the name with punctuation removed, so
+"thalamus" found "Hypothalamus" and an agent asked for the thalamus targeted both.
+
+**Alternatives rejected.** Exact whole-name matching (misses "Left-Thalamus-Proper" and
+"ctx-lh-precuneus"); applying the rule to the picker's filter (it filters as the user types, where
+"thal" must already show the thalamus — a different purpose); a fuzzy matcher (a new dependency
+and a score threshold to tune). Known cost: "frontal" alone no longer finds DK's one-word
+"superiorfrontal" (the agent searches again with the full name).
+
+**Evidence.** `tests/test_region_rois.py::test_find_regions_matches_whole_words_of_a_name` (the
+table's `search` cases; red on the old rule for Hypothalamus and superiorfrontal).

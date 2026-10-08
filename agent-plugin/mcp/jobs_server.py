@@ -953,7 +953,8 @@ TOOLS: List[Dict[str, Any]] = [
         "description": "Search one subject's atlases, then the shipped MNI atlases, for a "
         "structure (e.g. 'thalamus', 'precentral') and return ready-to-use FlexConfig ROI "
         "objects per atlas (with its space: subject or mni): rois.all (bilateral union), "
-        "rois.left, rois.right. Never invent atlas paths or label ids -- use these.",
+        "rois.left, rois.right. Words match whole words of a region name ('thalamus' does not "
+        "find 'Hypothalamus'). Never invent atlas paths or label ids -- use these.",
         "inputSchema": _schema(
             {"subject_id": _STR, "query": _STR}, ("subject_id", "query")
         ),

@@ -1158,3 +1158,11 @@ table) or `.annot` colortable, spheres by centre and radius, ex-search ROI CSV n
 card shows it as the step's Target; the agent plugin no longer writes a "Target: …" step note.
 Additive: `null` for steps without an ROI, absent on records planned before, and clients that
 ignore it behave as before.
+
+## 2026-10-08 — `GET /api/catalog/regions` matches whole words of a region name
+
+`q`'s words must now be whole words of a region name (split on non-alphanumerics, ignoring case
+and the name's side words left/right/lh/rh/l/r), or the words joined must be one ("superior
+frontal" still finds DK's "superiorfrontal"). "thalamus" finds "Left-Thalamus" and
+"Thalamus-left" but no longer "Hypothalamus"; "frontal" no longer finds "superiorfrontal". No
+shape change; a narrower match set.

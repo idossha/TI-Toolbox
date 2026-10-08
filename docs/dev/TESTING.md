@@ -373,7 +373,8 @@ waits and finished-plan retention; `tests/test_flex_simulation_resolver.py` pins
 montage rule, including one electrode pairing (an out-of-order `channel_array_indices` fixture)
 and cached mappings read without re-mapping; `tests/test_output_jail.py` refuses outputs outside
 the project on plan, both submit routes and a proposal step; `tests/test_region_rois.py` pins the
-region search over subject and MNI atlases against the shared ROI table; `tests/test_roi_target.py`
+region search over subject and MNI atlases against the shared ROI table, and its whole-word name
+rule against the table's `search` cases; `tests/test_roi_target.py`
 pins how a step's (and a report's) target is named from authored colour tables;
 `tests/test_agent_plugin_jobs.py` runs the MCP verbs against a fake server and, in
 `test_against_the_real_server_jobs_are_recorded_as_agent`, against the real app over HTTP;

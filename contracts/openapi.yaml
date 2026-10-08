@@ -657,9 +657,11 @@ paths:
       summary: Search a subject's atlases for a structure, with ready FlexConfig ROIs
       description: >-
         Every region of the subject's own atlases (subject space), then of the MNI volume atlases
-        the toolbox ships (the Optimizer picker's MNI subcortical list), whose name contains each
-        word of `q`, ignoring case, punctuation and the side words left, right, bilateral, both,
-        lh, rh; one entry per atlas with a match, with its `space`. `rois.all` targets every match (both sides),
+        the toolbox ships (the Optimizer picker's MNI subcortical list), whose name has each word
+        of `q` as a whole word (names split on non-alphanumerics, ignoring case and the side words
+        left, right, lh, rh, l, r; or the query's words joined are one word of the name), so
+        "thalamus" finds "Left-Thalamus" but not "Hypothalamus"; the query's own side words left,
+        right, bilateral, both, lh, rh are ignored; one entry per atlas with a match, with its `space`. `rois.all` targets every match (both sides),
         `rois.left`/`rois.right` one side when a match names it. The ROI construction is the
         desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by
         `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.

@@ -1172,6 +1172,16 @@ def region_roi(
 
 #: Words of a region query that pick a side rather than name a structure.
 _SIDE_WORDS = {"left", "right", "bilateral", "both", "lh", "rh"}
+#: Words of a region *name* that say its side ("Left-Thalamus", "ctx-lh-precuneus", "NAC_L").
+_NAME_SIDE_WORDS = {"left", "right", "lh", "rh", "l", "r"}
+
+
+def _name_matches(name: str, words: list[str]) -> bool:
+    """Whether every query word is a whole word of *name* (case-insensitive, split on
+    non-alphanumerics, side words dropped), or the words joined are one ("superior frontal" for
+    DK's "superiorfrontal"). "thalamus" is not "Hypothalamus"."""
+    tokens = set(re.findall(r"[a-z0-9]+", name.lower())) - _NAME_SIDE_WORDS
+    return all(w in tokens for w in words) or "".join(words) in tokens
 
 
 def _region_side(region: dict) -> str | None:
@@ -1185,7 +1195,8 @@ def _region_side(region: dict) -> str | None:
 
 
 def find_regions(pm: PathManager, sid: str, query: str) -> list[dict] | None:
-    """Every region of *sid*'s atlases whose name holds each word of *query*, per atlas, with
+    """Every region of *sid*'s atlases whose name has each word of *query* as a whole word
+    (:func:`_name_matches`), per atlas, with
     ready ROIs: ``rois.all`` (every match, i.e. both sides) and ``rois.left`` /
     ``rois.right`` when a side matched. Side words ("left", "bilateral", ...) are ignored;
     ``None`` for an unknown subject, :class:`ValueError` when *query* names no structure.
@@ -1209,7 +1220,7 @@ def find_regions(pm: PathManager, sid: str, query: str) -> list[dict] | None:
         matches = [
             {**r, "side": _region_side(r)}
             for r in atlas_regions(pm, sid, atlas["id"]) or []
-            if all(w in re.sub(r"[^a-z0-9]", "", r["name"].lower()) for w in words)
+            if _name_matches(r["name"], words)
         ]
         if not matches:
             continue
