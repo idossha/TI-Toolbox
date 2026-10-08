@@ -43,6 +43,7 @@ from tests.test_jobs_routes import (  # noqa: E402,F401  (fixtures)
     wait_until,
 )
 from tit.jobs.registry import spec_path  # noqa: E402
+from tit.server.app_defaults import APP_DEFAULTS  # noqa: E402
 from tit.paths import get_path_manager  # noqa: E402
 
 NET = "GSN-HydroCel-185.csv"
@@ -270,6 +271,10 @@ def test_sim_from_flex_is_queued_by_the_server_when_its_flex_finishes(
     assert done["steps"][1]["resolved"]["001"]["intensities_from"].startswith(
         "the run's"
     )
+    # The Simulator's app defaults fill what the agent left out, and never the currents: the
+    # run's own current_mA (2.0 above) wins over the table, which carries no intensities.
+    assert spec["config"]["output_fields"] == APP_DEFAULTS["sim"]["output_fields"]
+    assert "intensities" not in APP_DEFAULTS["sim"]
 
 
 def test_a_failed_prerequisite_skips_its_dependants_and_run_retries(
