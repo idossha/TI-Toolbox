@@ -1,11 +1,11 @@
 {
   "mcpServers": {
     "ti-toolbox": {
-      "command": "python3",
+      "command": "${TIT_PYTHON:-python3}",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"]
     },
     "ti-toolbox-jobs": {
-      "command": "python3",
+      "command": "${TIT_PYTHON:-python3}",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/jobs_server.py"]
     }
   }

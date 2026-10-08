@@ -119,6 +119,21 @@ export function findExecutable(name: string, searchPath: string, platform: NodeJ
   return undefined;
 }
 
+/**
+ * The Python that runs the plugin's two MCP servers (stdlib-only, Python 3.9+). `python3` on macOS
+ * and Linux; on Windows the `py` launcher (python.org installs), else `python` (also the Microsoft
+ * Store install), else `python3`, because Windows has no `python3` unless the Store alias is set
+ * up. Undefined when none is on the PATH: the launch then keeps the plugin's own `python3` default.
+ */
+export function findPython(searchPath: string, platform: NodeJS.Platform, exists: (path: string) => boolean = isExecutable): string | undefined {
+  const names = platform === "win32" ? ["py", "python", "python3"] : ["python3"];
+  for (const name of names) {
+    const found = findExecutable(name, searchPath, platform, exists);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 const needsShell = (executable: string, platform: NodeJS.Platform) => platform === "win32" && /\.(cmd|bat)$/i.test(executable);
 
 export async function isLoggedIn(cli: TitAssistantCli, executable: string, env: NodeJS.ProcessEnv, platform: NodeJS.Platform, run: Run = runFile): Promise<boolean> {
@@ -144,6 +159,8 @@ export interface LaunchOptions {
   platform: NodeJS.Platform;
   /** From `parseAssistantOptions`; absent = the CLI's defaults (DEFAULTS). */
   options?: AssistantOptions;
+  /** From `findPython`; absent = `python3`, the plugin's own default. */
+  python?: string;
 }
 
 export interface Launch {
@@ -158,6 +175,10 @@ export interface Launch {
  * already installed `ti-toolbox@ti-toolbox`, Claude Code lists the session copy as
  * `ti-toolbox@inline` and registers each of its MCP servers once (`claude --plugin-dir … mcp list`,
  * 2.1.293), so nothing is registered twice and the tools match this app's version.
+ *
+ * The plugin's `.mcp.json` starts both servers with `${TIT_PYTHON:-python3}` (Claude Code expands
+ * it; there is no per-platform command), so a Claude Code session gets `TIT_PYTHON` = `findPython`'s
+ * answer unless the user set it, and Codex is given the same interpreter as its `command`.
  *
  * Codex has no plugin directory flag: `-c mcp_servers.<name>.*` overrides register both servers for
  * this run only, `env_vars` forwards the server URL/token (Codex starts MCP servers with a minimal
@@ -174,7 +195,7 @@ export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
     if (effort !== "default") args.push("--effort", effort);
     if (model !== "default") args.push("--model", model);
   } else {
-    const python = "python3";
+    const python = o.python ?? "python3";
     const instructions =
       "TI-Toolbox is open on this project folder and its job server is reachable through the ti-toolbox-jobs MCP tools. " +
       `When the user asks you to run TI-Toolbox pipelines (stage scans, preprocess, optimise, simulate), first read ${plugin("skills", "ti-run-pipelines", "SKILL.md")} and follow it. ` +
@@ -200,6 +221,7 @@ export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
   // task and wakes the agent when it returns; 5 s lets `watch_proposal` free the conversation at
   // once instead of after two minutes. A value the user set themselves wins.
   if (cli === "claude" && env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS === undefined) env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS = String(CLAUDE_MCP_BACKGROUND_MS);
+  if (cli === "claude" && o.python && env.TIT_PYTHON === undefined) env.TIT_PYTHON = o.python;
   if (needsShell(o.executable, o.platform)) {
     // ponytail: unverified on Windows; ConPTY cannot start a .cmd shim itself, cmd.exe can.
     return { file: "cmd.exe", args: ["/d", "/s", "/c", o.executable, ...args], cwd: o.projectDir, env };
@@ -286,7 +308,7 @@ export const shQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 export function openInSystemTerminal(launch: Launch, platform: NodeJS.Platform, scratchDir: string, spawnDetached: (file: string, args: string[], env: Record<string, string>, cwd: string) => void): void {
   if (platform === "darwin") {
     const script = join(scratchDir, `ti-toolbox-assistant-${process.pid}-${Date.now()}.command`);
-    const exports = ["PATH", "TERM", "COLORTERM", "TIT_SERVER_URL", "TIT_SERVER_TOKEN", "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS"]
+    const exports = ["PATH", "TERM", "COLORTERM", "TIT_SERVER_URL", "TIT_SERVER_TOKEN", "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS", "TIT_PYTHON"]
       .filter((key) => launch.env[key] !== undefined)
       .map((key) => `export ${key}=${shQuote(launch.env[key]!)}`);
     const body = ["#!/bin/sh", 'rm -f -- "$0"', ...exports, `cd ${shQuote(launch.cwd)} || exit 1`, `exec ${[launch.file, ...launch.args].map(shQuote).join(" ")}`, ""].join("\n");

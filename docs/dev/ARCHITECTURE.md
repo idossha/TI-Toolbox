@@ -299,7 +299,12 @@ inherited `PATH`), runs it with cwd = the session's host project folder and adds
 reaches this app's server in Docker and native runtimes alike. The bundled `agent-plugin/`
 (`Resources/agent-plugin`, or the checkout's) is attached for that session only: Claude Code with
 `--plugin-dir`, Codex with `-c mcp_servers.ti-toolbox{,-jobs}.*` overrides, `env_vars` forwarding
-the two variables and a `developer_instructions` pointer to `ti-run-pipelines`. Nothing is written
+the two variables and a `developer_instructions` pointer to `ti-run-pipelines`. The plugin's
+`.mcp.json` starts both servers with `${TIT_PYTHON:-python3}` (Claude Code has no per-platform
+command; it expands variables with a default); main resolves the interpreter on the same PATH
+(`findPython`: `python3`; on Windows `py`, then `python`, then `python3`) and passes it as
+`TIT_PYTHON` to Claude Code (unless the user set it) and as the Codex servers' `command`. A
+plugin installed from the marketplace uses `python3` unless the user sets `TIT_PYTHON`. Nothing is written
 to `~/.claude` or `~/.codex`; login state is the exit status of the CLI's own status command
 (`claude auth status`, `codex login status`), its output discarded. The token is never an argument
 and never logged. A session needs the main window's top frame, a loopback server origin and an

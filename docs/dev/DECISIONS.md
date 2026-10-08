@@ -2871,3 +2871,27 @@ separate proposal retention setting (a second rule for one history).
 **Evidence.** `tests/test_proposals_routes.py::test_finished_plans_are_pruned_by_the_job_registrys_rule`;
 `tests/test_jobs_registry.py::test_registry_prune_keeps_running_and_recent_terminal`,
 `::test_registry_prune_keep_count` (unchanged, through the shared selector).
+
+## 2026-10-08 — The plugin's MCP servers run `${TIT_PYTHON:-python3}`
+
+**Decision.** `agent-plugin/.mcp.json` starts both servers with `"command": "${TIT_PYTHON:-python3}"`.
+The desktop's Assistant page resolves the interpreter in main (`findPython` in
+`desktop/src/main/assistant.ts`: `python3` on macOS/Linux; `py`, then `python`, then `python3` on
+Windows) on the session's PATH and passes it as `TIT_PYTHON` to Claude Code (a value the user set
+wins) and as `mcp_servers.*.command` to Codex; with none found the launch keeps `python3`. A
+marketplace install on Windows needs `setx TIT_PYTHON py` once (plugin README, AI Assistant wiki
+page).
+
+**Why.** Windows has no `python3` unless the Microsoft Store alias is installed (python.org gives
+`py` and `python`), so the plugin's servers failed to start there. Claude Code's `.mcp.json` has no
+per-platform command (plugins reference, checked 2026-10-08) but expands `${VAR:-default}` in
+`command`; verified with Claude Code 2.1.295: `claude --plugin-dir agent-plugin mcp list` runs
+`python3` unset, `/usr/bin/python3` with `TIT_PYTHON=/usr/bin/python3`, and reports ENOENT for a
+bad value.
+
+**Alternatives rejected.** A launcher script (a `.py` cannot be spawned directly on Windows and a
+`.cmd`/`.sh` pair is two shims for one variable); `"command": "python"` (absent on macOS and most
+Linux); a `userConfig` prompt (every user answers a question only Windows needs).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` ("finds the plugin's Python…", "hands the
+plugin's servers the resolved Python…"); `claude plugin validate agent-plugin`.
