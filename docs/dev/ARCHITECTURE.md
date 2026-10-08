@@ -353,7 +353,8 @@ height), and the grid is refitted on every host resize and the new size sent to 
 http(s) links open through `openExternal`. Printed file paths are links too
 ([`pathLinks.ts`](../../desktop/src/renderer/pages/assistant/pathLinks.ts)): an absolute path inside
 the session's project folder, or a relative one starting `./`, `../` or a project top-level folder
-(`derivatives/`, `sourcedata/`, `code/`, `rawdata/`, `sub-<id>/`); a click goes to
+(`derivatives/`, `sourcedata/`, `code/`, `rawdata/`, `sub-<id>/`), matched on the logical line (rows
+xterm soft-wrapped, `isWrapped`, joined), so a wrapped path is one link from any of its rows; a click goes to
 `assistant.openPath`, never the app-wide `openPath`, which maps server paths, not the host paths a
 CLI prints. Main's containment check is the authority; the renderer's match only decides what is
 underlined, and a refusal is a toast. Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),

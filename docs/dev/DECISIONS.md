@@ -2930,7 +2930,7 @@ their default application (an arbitrary associated program per click).
 folder" (absolute, relative, `./`, symlinked project folder; `..`, absolute outside, symlink
 escape, prefix sibling, missing, non-strings); `desktop/tests/unit/assistant-path-links.test.ts`
 (which printed paths match, Windows case and separators, link columns after wide characters on a
-real xterm buffer); `desktop/tests/e2e/assistant.spec.ts` "a project path the CLI prints is a link
+real xterm buffer, a path soft-wrapped over three rows linked whole from each of them); `desktop/tests/e2e/assistant.spec.ts` "a project path the CLI prints is a link
 …" (hover pointer on project paths only, the missing-file toast, main's refusals).
 
 ## 2026-10-08 — Linux "Open in system terminal" tries the common terminals, not one link

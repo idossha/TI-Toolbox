@@ -52,20 +52,42 @@ function rowText(line: IBufferLine, term: Terminal): { text: string; columns: nu
 }
 
 /**
- * xterm link provider for one row at a time.
- * ponytail: a path soft-wrapped across two rows links only its first row's part; join wrapped rows if CLIs print such paths.
+ * The logical line holding 0-based row *y*: that row joined with the rows soft-wrapped onto it
+ * (xterm's `isWrapped`), plus each character's 0-based cell.
  */
+function logicalLine(term: Terminal, y: number): { text: string; cells: { x: number; y: number }[] } {
+  const buffer = term.buffer.active;
+  let start = y;
+  while (start > 0 && buffer.getLine(start)?.isWrapped) start--;
+  let text = "";
+  const cells: { x: number; y: number }[] = [];
+  for (let row = start; ; row++) {
+    const line = buffer.getLine(row);
+    if (!line || (row > start && !line.isWrapped)) break;
+    const part = rowText(line, term);
+    text += part.text;
+    for (const x of part.columns) cells.push({ x, y: row });
+  }
+  return { text, cells };
+}
+
+/** xterm link provider: each path on the asked row's logical line, so a wrapped path is one link from any of its rows. */
 export function pathLinkProvider(term: Terminal, root: () => string | undefined, windows: boolean, open: (path: string) => void): ILinkProvider {
   return {
     provideLinks(y, callback) {
-      const line = term.buffer.active.getLine(y - 1);
-      if (!line) return callback(undefined);
-      const { text, columns } = rowText(line, term);
-      const links: ILink[] = findPaths(text, root(), windows).map((m) => ({
-        text: m.text,
-        range: { start: { x: columns[m.index]! + 1, y }, end: { x: columns[m.index + m.text.length - 1]! + 1, y } },
-        activate: () => open(m.text),
-      }));
+      if (!term.buffer.active.getLine(y - 1)) return callback(undefined);
+      const { text, cells } = logicalLine(term, y - 1);
+      const links: ILink[] = findPaths(text, root(), windows)
+        .map((m) => {
+          const first = cells[m.index]!;
+          const last = cells[m.index + m.text.length - 1]!;
+          return {
+            text: m.text,
+            range: { start: { x: first.x + 1, y: first.y + 1 }, end: { x: last.x + 1, y: last.y + 1 } },
+            activate: () => open(m.text),
+          };
+        })
+        .filter((link) => link.range.start.y <= y && y <= link.range.end.y);
       callback(links.length ? links : undefined);
     },
   };

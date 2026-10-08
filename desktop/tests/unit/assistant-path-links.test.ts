@@ -65,4 +65,23 @@ describe("pathLinkProvider", () => {
     expect(opened).toEqual(["derivatives/a.json"]);
     term.dispose();
   });
+
+  it("links a path soft-wrapped across rows as one link, from any of its rows", async () => {
+    // 20 columns: "saved " + the 39-character path fill rows 1-3; xterm marks rows 2-3 isWrapped.
+    const term = new Terminal({ cols: 20, rows: 6, allowProposedApi: true });
+    const path = "derivatives/SimNIBS/sub-CHN/flex/a.json";
+    await new Promise<void>((done) => term.write(`saved ${path}\r\nnext derivatives/b`, done));
+    expect(term.buffer.active.getLine(1)!.isWrapped).toBe(true);
+    const provider = pathLinkProvider(term, () => ROOT, false, () => {});
+    const at = (y: number) => new Promise<ILink[] | undefined>((done) => provider.provideLinks(y, done));
+    // The path starts after "saved " (0-based cell 6: row 1, column 7) and ends at cell 6 + 39 - 1 = 44: row 3, column 5.
+    const whole = { text: path, range: { start: { x: 7, y: 1 }, end: { x: 5, y: 3 } } };
+    for (const y of [1, 2, 3]) {
+      const links = await at(y);
+      expect(links?.map((l) => ({ text: l.text, range: l.range }))).toEqual([whole]);
+    }
+    // The next logical line is its own: only its path, on its own row.
+    expect((await at(4))?.map((l) => l.text)).toEqual(["derivatives/b"]);
+    term.dispose();
+  });
 });
