@@ -120,7 +120,7 @@ Your login stays with your assistant: TI-Toolbox never sees, stores or forwards 
 
 ### Approving a plan
 
-Nothing the assistant asks for runs until you approve it. Its plan appears as a card at the top of the **Jobs** page, and the **Jobs** item in the side bar shows how many plans are waiting (a notice pops up when one arrives). The card shows:
+Nothing the assistant asks for runs until you approve it. Its plan appears as a card at the top of the **Jobs** page, and the **Jobs** item in the side bar shows how many plans are waiting (a notice pops up when one arrives, and a system notification when the app is in the background). The card shows:
 
 - the title, the assistant's reasoning, and which assistant sent it (Claude Code, Codex, ...);
 - each step in order — what it does (pre-process, flex-search, simulate the flex result, ...), for which subjects, and its key settings in plain terms (goal, target region, current, electrode size, run name, currents), with the folder it will write and an estimated time;
