@@ -249,6 +249,11 @@ export function ProposalCard({
     },
     onError: (e) => notify.error("Could not reject the plan.", errorText(e)),
   });
+  const dismiss = useMutation({
+    mutationFn: () => dismissProposal(proposal.id),
+    onSuccess: () => queryClient.setQueryData<Proposal[]>(PROPOSALS_KEY, (all) => all?.filter((x) => x.id !== proposal.id)),
+    onError: (e) => notify.error("Could not dismiss the plan.", errorText(e)),
+  });
   const pending = proposal.status === "pending";
   const replaced = overwrites(proposal);
   const problems = blockers(proposal);
@@ -264,6 +269,16 @@ export function ProposalCard({
           <Chip kind={STATUS_KIND[proposal.status]} dot={proposal.status === "running"} pulse={proposal.status === "running"}>
             {STATUS_LABEL[proposal.status]}
           </Chip>
+          {proposal.status === "failed" && (
+            <IconButton
+              aria-label={`Dismiss “${proposal.title}”`}
+              title="Dismiss"
+              size="sm"
+              icon={<X size={14} aria-hidden />}
+              disabled={dismiss.isPending}
+              onClick={() => dismiss.mutate()}
+            />
+          )}
         </span>
       </header>
       {proposal.rationale && <p className="proposal-rationale">{proposal.rationale}</p>}
@@ -416,8 +431,9 @@ function FinishedPlans({ proposals, onOpenJob }: { proposals: readonly Proposal[
 }
 
 /**
- * The Jobs page's strip of plans: a card for each one that needs the user or is in flight
- * (pending first), and the finished ones folded into a "Finished plans (N)" disclosure.
+ * The Jobs page's strip of plans: a card for each one that needs the user, is in flight or failed
+ * (pending, then running, then failed), and the done/rejected ones folded into a "Finished plans
+ * (N)" disclosure. A failed card keeps its per-step Retry until the user dismisses it.
  */
 export function ProposalsStrip({
   proposals,
@@ -430,7 +446,8 @@ export function ProposalsStrip({
 }) {
   if (proposals.length === 0) return null;
   const finished = proposals.filter(isFinished);
-  const active = proposals.filter((p) => !isFinished(p)).sort((a, b) => Number(b.status === "pending") - Number(a.status === "pending"));
+  const rank = (p: Proposal) => (p.status === "pending" ? 0 : p.status === "failed" ? 2 : 1); // pending, running, failed
+  const active = proposals.filter((p) => !isFinished(p)).sort((a, b) => rank(a) - rank(b));
   return (
     <div className="proposals-strip" data-testid="proposals-strip">
       {active.map((p) => (

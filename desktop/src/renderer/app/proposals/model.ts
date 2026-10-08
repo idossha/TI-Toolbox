@@ -154,16 +154,20 @@ export function proposer(p: Proposal): string {
   return p.client || (p.created_by === "agent" ? "your AI agent" : p.created_by);
 }
 
-/** Proposals the Jobs page shows: everything undecided or in flight, and the last day's rest. */
+/** Proposals the Jobs page shows: everything undecided, in flight or failed (until dismissed), and the last day's rest. */
 export function visibleProposals(all: readonly Proposal[], now = Date.now()): Proposal[] {
   return all.filter(
-    (p) => p.status === "pending" || p.status === "running" || now - Date.parse(p.updated_at ?? p.created_at) < 86_400_000,
+    (p) =>
+      p.status === "pending" ||
+      p.status === "running" ||
+      p.status === "failed" ||
+      now - Date.parse(p.updated_at ?? p.created_at) < 86_400_000,
   );
 }
 
-/** Decided and over: done, rejected or failed. These leave the card strip for the finished list. */
+/** Done or rejected: these leave the card strip for the finished list. A failed plan stays a full card (with Retry) until dismissed. */
 export function isFinished(p: Proposal): boolean {
-  return p.status === "succeeded" || p.status === "rejected" || p.status === "failed";
+  return p.status === "succeeded" || p.status === "rejected";
 }
 
 export function pendingCount(all: readonly Proposal[] | undefined): number {

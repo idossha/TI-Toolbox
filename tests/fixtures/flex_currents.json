@@ -1,0 +1,8 @@
+[
+  {"case": "optimised split wins over current_mA", "manifest": {"current_split": [1.5, 0.5], "current_mA": 2.0}, "pairs": 2, "currents": [1.5, 0.5]},
+  {"case": "current_mA per channel", "manifest": {"current_mA": 2.0}, "pairs": 2, "currents": [2.0, 2.0]},
+  {"case": "current_mA never fewer than two channels", "manifest": {"current_mA": 1.5}, "pairs": 0, "currents": [1.5, 1.5]},
+  {"case": "null split falls through to current_mA", "manifest": {"current_split": null, "current_mA": 3.0}, "pairs": 2, "currents": [3.0, 3.0]},
+  {"case": "empty manifest is 1 mA per channel", "manifest": {}, "pairs": 2, "currents": [1.0, 1.0]},
+  {"case": "no manifest current, four pairs", "manifest": {"goal": "mean"}, "pairs": 4, "currents": [1.0, 1.0, 1.0, 1.0]}
+]

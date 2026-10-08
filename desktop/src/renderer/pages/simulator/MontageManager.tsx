@@ -42,7 +42,7 @@ import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
 import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
-import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
+import { flexCurrents, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
 import { useFreehandDraft } from "./freehandDraft";
 import "./simulator-page.css";
@@ -644,18 +644,21 @@ export function JobsTable({
   }
 
   /** The placements a flex row can be simulated in, for the row's own subject and run. */
+  const runOfRow = (row: SelectedRow) => (flexBySubject[row.subjectId] ?? []).find((r) => r.name === row.name);
+
   function placementsForRow(row: SelectedRow): FlexPlacement[] {
-    const run = (flexBySubject[row.subjectId] ?? []).find((r) => r.name === row.name);
+    const run = runOfRow(row);
     return run ? placementsFor(run) : [];
   }
 
+  /** A flex row's currents are the run's own (optimised split, else its current_mA), editable after. */
   function applyFlexPlacement(row: SelectedRow, placement: FlexPlacement) {
     const numPairs = placement.pairs?.length ?? placement.xyzPairs?.length ?? 0;
     patch(row.id, {
       eegNet: placement.value === OPTIMIZED ? undefined : placement.value,
       pairs: placement.pairs,
       xyzPairs: placement.xyzPairs,
-      currents: defaultCurrents(numPairs),
+      currents: flexCurrents(runOfRow(row), numPairs),
     });
   }
 
@@ -709,7 +712,7 @@ export function JobsTable({
       onRowsChange(
         rowsRef.current.map((r) =>
           r.id === row.id && r.eegNet === net
-            ? { ...r, pairs, xyzPairs: undefined, currents: defaultCurrents(pairs.length) }
+            ? { ...r, pairs, xyzPairs: undefined, currents: flexCurrents(runOfRow(r), pairs.length) }
             : r,
         ),
       );
@@ -749,7 +752,7 @@ export function JobsTable({
       eegNet: first && first.value !== OPTIMIZED ? first.value : undefined,
       pairs: first?.pairs,
       xyzPairs: first?.xyzPairs,
-      currents: defaultCurrents(numPairs),
+      currents: flexCurrents(run, numPairs),
     });
   }
 
