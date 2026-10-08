@@ -262,7 +262,12 @@ existing local project folder; there is at most one per CLI, a new start replace
 session ends on a main-frame navigation (connect, project switch or close, reload), window close
 and app quit. **Open in system terminal** starts the same launch in Terminal (macOS: a self-deleting
 `.command` script in user data, because LaunchServices passes no environment), `x-terminal-emulator`
-(Linux) or a new console (Windows). Excluded alternatives: running the CLI inside the container (no
+(Linux) or a new console (Windows). Claude Code sessions also get
+`CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` unless the user set it: the job server's waits
+(`watch_proposal`, `wait_for_job`) block until the next change, Claude Code moves a call still
+running after that delay to a background task and wakes the agent with its result, and the job
+server answers each `tools/call` on its own thread so the agent's other calls are not held up.
+Excluded alternatives: running the CLI inside the container (no
 CLI, no login there); a renderer-supplied command line (a served page could run anything on the
 host); writing MCP entries into the user's CLI configuration (persistent side effects outside the
 app). Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
