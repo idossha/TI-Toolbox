@@ -25,7 +25,7 @@ import { containerToHostPath, hasDotSegment, hostToContainerPath, projectDirName
 import { createQuitGate } from "../shared/quitGate";
 import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
 import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "./window";
-import { buildLaunch, createAssistantSessions, findExecutable, findPython, isAssistantCli, isLoggedIn, isLoopbackOrigin, loginShellPath, openInSystemTerminal, parseAssistantOptions, type Launch, type SpawnPty } from "./assistant";
+import { buildLaunch, createAssistantSessions, findExecutable, findPython, isAssistantCli, isLoggedIn, isLoopbackOrigin, loginShellPath, openInSystemTerminal, parseAssistantOptions, resolveProjectPath, type Launch, type SpawnPty } from "./assistant";
 import type {
   TitAssistantCli,
   TitAssistantStatus,
@@ -704,14 +704,22 @@ function assistantPluginDir(): string | undefined {
 }
 
 /** Everything a launch needs from the connected session, or why there is none. */
-async function assistantLaunch(cli: TitAssistantCli, rawOptions?: unknown): Promise<{ launch: Launch } | { error: string }> {
-  const options = parseAssistantOptions(cli, rawOptions);
-  if (!options) return { error: "Untrusted assistant request." };
+/** The local session and its host project folder (every Assistant session's cwd), or why there is none. */
+async function assistantProject(): Promise<{ session: NonNullable<typeof activeSession>; projectDir: string } | { error: string }> {
   const session = activeSession;
   if (!session) return { error: "Open a project first." };
   if (!isLoopbackOrigin(session.origin)) return { error: "The Assistant runs only with a TI-Toolbox on this computer." };
   const projectDir = stack.getCurrent()?.hostProjectDir ?? nativeRuntime.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined;
   if (!projectDir || !existsSync(projectDir)) return { error: "This session has no project folder on this computer." };
+  return { session, projectDir };
+}
+
+async function assistantLaunch(cli: TitAssistantCli, rawOptions?: unknown): Promise<{ launch: Launch } | { error: string }> {
+  const options = parseAssistantOptions(cli, rawOptions);
+  if (!options) return { error: "Untrusted assistant request." };
+  const project = await assistantProject();
+  if ("error" in project) return project;
+  const { session, projectDir } = project;
   const pluginDir = assistantPluginDir();
   if (!pluginDir) return { error: "The TI-Toolbox agent plugin is missing from this installation." };
   const searchPath = await assistantSearchPath();
@@ -903,7 +911,7 @@ function registerIpc(): void {
       // app.asar/node_modules/node-pty, which Electron serves from app.asar.unpacked.
       spawnPty ??= (createRequire(__filename)("node-pty") as typeof import("node-pty")).spawn as unknown as SpawnPty;
       assistant.start(cli, prepared.launch, cols, rows);
-      return { ok: true };
+      return { ok: true, cwd: prepared.launch.cwd };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log("error", `assistant: could not start ${cli}: ${message}`);
@@ -918,6 +926,23 @@ function registerIpc(): void {
   });
   ipcMain.handle("tit:assistant:kill", (e, cli: unknown) => {
     if (fromMainFrame(e) && isAssistantCli(cli)) assistant.kill(cli);
+  });
+  // A path a session printed: revealed (a file) or opened (a folder) only when it is really inside
+  // the project folder. Automated runs validate and stop short of Finder/Explorer.
+  ipcMain.handle("tit:assistant:openPath", async (e, path: unknown): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!fromMainFrame(e)) return { ok: false, error: "Untrusted assistant request." };
+    const project = await assistantProject();
+    if ("error" in project) return { ok: false, error: project.error };
+    const resolved = resolveProjectPath(path, project.projectDir);
+    if (!resolved.ok) return resolved;
+    if (!mayShowSystemUi(WINDOW_MODE)) return { ok: true };
+    // A macOS app bundle is a folder that openPath would launch, so it is revealed like a file.
+    if (!resolved.directory || /\.app$/i.test(resolved.path)) {
+      shell.showItemInFolder(resolved.path);
+      return { ok: true };
+    }
+    const error = await shell.openPath(resolved.path);
+    return error ? { ok: false, error } : { ok: true };
   });
   ipcMain.handle("tit:assistant:openInTerminal", async (e, cli: unknown, options: unknown) => {
     if (!fromMainFrame(e) || !isAssistantCli(cli)) return { ok: false, error: "Untrusted assistant request." };

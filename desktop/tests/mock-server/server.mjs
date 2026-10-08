@@ -1345,6 +1345,8 @@ function broadcastJob(job) {
   for (const client of wsJobClients) {
     if (client.ws.readyState === client.ws.OPEN) client.ws.send(payload);
   }
+  // A finished job may be what an approved plan's next step waits on (advanceProposals).
+  if (TERMINAL.has(job.status.state)) queueMicrotask(() => advanceProposals(job.status.id));
 }
 function lastLogLines(job, n) {
   return job.events
@@ -4020,17 +4022,48 @@ route("PUT", "/api/cpu-limit", async (ctx) => {
 
 // --- settings (v1) ---
 // Agent proposals (tit.server.proposals). The mock plans nothing (no errors, no outputs) and, on
-// approval, queues every step that waits on nothing as an `agent` job; a dependent step stays
-// `waiting` -- the deferred queuing is the real server's, pinned in tests/test_proposals_routes.py.
-// ponytail: dependent steps never advance here; add it when an e2e needs a two-step plan to run.
+// approval, queues every step that waits on nothing as an `agent` job; a dependent step is queued
+// when every step it waits on has succeeded and skipped when one did not (advanceProposals,
+// mirroring `_advance`, which tests/test_proposals_routes.py pins). A sim_from_flex step runs as a
+// `sim` job on its config unresolved: the mock has no flex result to read.
 const proposalStore = new Map();
 const PROPOSAL_ID_RE = /^[0-9a-f]{16}$/;
+function proposalStepJob(p, step) {
+  const kind = step.kind === "sim_from_flex" ? "sim" : step.kind;
+  return createJob({ kind, config: step.config, subject_ids: step.subject_ids, tags: [`proposal:${p.id}`], overwrite: step.overwrite, created_by: p.created_by });
+}
+/** `advance_all`: advance every approved plan; publish those that changed or own *finishedJob*. */
+function advanceProposals(finishedJob) {
+  for (const p of proposalStore.values()) {
+    if (p.decision.state !== "approved") continue;
+    const state = Object.fromEntries(proposalView(p).steps.map((s) => [s.id, s.state]));
+    let changed = false;
+    for (const step of p.steps) {
+      // Steps only wait on earlier steps, so one pass in order settles them (as `_advance`).
+      if (state[step.id] !== "waiting" || step.after.length === 0) continue;
+      const before = step.after.map((a) => state[a]);
+      if (before.some((s) => ["failed", "error", "skipped"].includes(s))) {
+        step.skipped = `step ${step.after.filter((_, i) => before[i] !== "succeeded").join(", ")} did not succeed`;
+        state[step.id] = "skipped";
+        changed = true;
+      } else if (before.every((s) => s === "succeeded")) {
+        step.job_ids = [proposalStepJob(p, step).status.id];
+        state[step.id] = "queued";
+        changed = true;
+      }
+    }
+    if (changed) p.updated_at = nowIso();
+    if (changed || p.steps.some((s) => s.job_ids.includes(finishedJob))) broadcastProposal(p);
+  }
+}
 function proposalView(p) {
   const steps = p.steps.map((s) => {
     let state = "proposed";
     if (p.decision.state === "approved") {
       const states = s.job_ids.map((id) => jobRegistry.get(id)?.status.state ?? "lost");
-      if (!states.length) state = "waiting";
+      if (s.error) state = "error";
+      else if (s.skipped) state = "skipped";
+      else if (!states.length) state = "waiting";
       else if (states.every((x) => x === "succeeded")) state = "succeeded";
       else if (states.some((x) => ["failed", "cancelled", "lost", "skipped"].includes(x))) state = "failed";
       else state = states.includes("running") ? "running" : "queued";
@@ -4122,10 +4155,7 @@ route("POST", "/api/proposals/:id/approve", async (ctx) => {
   if (!p) return;
   const body = (await ctx.body()) ?? {};
   p.decision = { state: "approved", at: nowIso(), note: body.note ?? null };
-  for (const step of p.steps.filter((s) => s.after.length === 0)) {
-    const job = createJob({ kind: step.kind, config: step.config, subject_ids: step.subject_ids, tags: [`proposal:${p.id}`], overwrite: step.overwrite, created_by: p.created_by });
-    step.job_ids = [job.status.id];
-  }
+  for (const step of p.steps.filter((s) => s.after.length === 0)) step.job_ids = [proposalStepJob(p, step).status.id];
   p.updated_at = nowIso();
   broadcastProposal(p);
   json(ctx.res, 200, proposalView(p));
@@ -4158,8 +4188,10 @@ route("POST", "/api/proposals/:id/steps/:step_id/run", (ctx) => {
   if (p.decision.state !== "approved" || ["queued", "running", "succeeded"].includes(step.state)) {
     return json(ctx.res, 409, { detail: `step ${step.id} is ${step.state}` });
   }
-  const job = createJob({ kind: step.kind, config: step.config, subject_ids: step.subject_ids, tags: [`proposal:${p.id}`], created_by: p.created_by });
-  p.steps.find((s) => s.id === step.id).job_ids = [job.status.id];
+  const record = p.steps.find((s) => s.id === step.id);
+  Object.assign(record, { job_ids: [proposalStepJob(p, record).status.id], error: null, skipped: null });
+  // Steps skipped because of it wait for it again (`run_step`).
+  for (const later of p.steps) if (later.skipped && later.after.includes(record.id)) Object.assign(later, { job_ids: [], skipped: null });
   broadcastProposal(p);
   json(ctx.res, 200, proposalView(p));
 });

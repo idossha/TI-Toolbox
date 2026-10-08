@@ -33,6 +33,8 @@ import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
 import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
+import { PlanStepBanner, usePlanStepActions, usePlanStepEdit } from "../../app/proposals/stepForm";
+import { simStepEdit, simStepRows } from "./planStep";
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -179,6 +181,17 @@ function SimulatorPage() {
 
   const plan = useSimPlan(runnableRows, params, planSubjects, runnableRows.length === 0 ? null : subjectsBlocked);
 
+  // "Open in form" from a plan card: the step's rows in this table, Save to plan instead of Run.
+  const planStep = usePlanStepEdit({
+    snapshot: () => rows,
+    load: (step) => {
+      setRows(simStepRows(step));
+      setMontagePreview(null);
+    },
+    restore: setRows,
+  });
+  const planActions = usePlanStepActions(planStep, () => simStepEdit(planStep.step!, rows, params));
+
   const digest = plan.model ? (jobCountLabel(plan.model) ?? "Resolving the plan…") : (plan.blockedReason ?? "Resolving the plan…");
 
   function setDraftPairs(pairs: [string, string][]): void {
@@ -290,9 +303,17 @@ function SimulatorPage() {
             }
           />
         }
-          actionBar={<ActionBar digest={digest} blocked={!!plan.blockedReason} primary={runButton} />}
+          actionBar={
+            <ActionBar
+              digest={digest}
+              blocked={!!plan.blockedReason}
+              secondary={planStep.step ? planActions.secondary : undefined}
+              primary={planStep.step ? planActions.primary : runButton}
+            />
+          }
       >
         <RunWork>
+          {planStep.step && <PlanStepBanner step={planStep.step} />}
           {candidateError && <Callout kind="danger">{candidateError}</Callout>}
           {rows.some((row) => row.candidate) && <Callout kind="info">
             Choose optimized positions or snap to a cap. Review the montage before running.

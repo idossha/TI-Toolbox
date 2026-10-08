@@ -117,7 +117,8 @@ The app starts the assistant with the TI-Toolbox plugin of the same version atta
 
 - **Effort and Model.** Two small menus at the right of the example-prompt row set how hard your assistant thinks and, for Claude Code, which model it uses. **Low** effort is the default (with **Sonnet** for Claude Code): it is fast and light on your plan's limits, and you can raise it if plans need more careful reasoning. **My CLI default** passes nothing, so your assistant keeps its own setting. The choice is remembered per assistant and applies the next time you Start or Restart (the page says so while a session is running); `/effort` and `/model` inside the session still work.
 - **Not installed?** The page says so and shows the install command (Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`; Codex: `npm install -g @openai/codex`). Install it in a terminal, then click **check again**. TI-Toolbox finds it on the same `PATH` your terminal uses.
-- **Prefer your own terminal?** **Open in system terminal** starts the same session in Terminal (macOS), the default terminal (Linux, through `x-terminal-emulator`) or a console window (Windows).
+- **Paths are links.** A path the assistant prints that is inside your project folder, absolute or relative such as `derivatives/…` or `./…`, underlines when you hover it; click to reveal the file in Finder/Explorer or open the folder. TI-Toolbox never opens anything outside the project folder.
+- **Prefer your own terminal?** **Open in system terminal** starts the same session in Terminal (macOS), a console window (Windows) or, on Linux, `$TERMINAL` if set, otherwise the first of x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, kitty, alacritty or xterm it finds.
 - **Restart** starts a fresh session; **Stop** ends it. Closing the project, switching projects or quitting the app ends every Assistant session.
 - The Assistant page needs the desktop app and a project on this computer; in a browser session it explains this instead.
 
@@ -125,7 +126,7 @@ Your login stays with your assistant: TI-Toolbox never sees, stores or forwards 
 
 ### Approving a plan
 
-Nothing the assistant asks for runs until you approve it. Its plan appears as a card at the top of the **Jobs** page, and the **Jobs** item in the side bar shows how many plans are waiting (a notice pops up when one arrives, and a system notification when the app is in the background). The card shows:
+Nothing the assistant asks for runs until you approve it. Its plan appears as a card at the top of the **Jobs** page, and the **Jobs** item in the side bar shows how many plans are waiting (a notice pops up when one arrives, and a system notification when the app is in the background). The **Overview** also lists each waiting plan on one line (*"Claude Code proposes …"*); **Review** opens its card on Jobs. The card shows:
 
 - the title, the assistant's reasoning, and which assistant sent it (Claude Code, Codex, ...);
 - each step in order — what it does (pre-process, flex-search, simulate the flex result, ...), for which subjects, and its key settings in plain terms (goal, target region, current, electrode size, run name, currents), with the folder it will write and an estimated time;
@@ -136,6 +137,7 @@ Then:
 
 - **Approve and run** queues the plan. You can close the assistant: the app runs the remaining steps itself, and the card follows each step live (waiting, queued, running, succeeded, failed); click a job id to open it in the table. If a step fails, the steps after it are skipped; **Retry step** runs it again once you have fixed the cause. A plan with a failed step stays on Jobs as a full card (done and rejected plans fold into **Finished plans**) until you dismiss it with the **×** in its header.
 - **Edit** a step first to change its subjects, run name, current or currents, or any setting in its JSON config, and to allow it to replace existing output. The card re-checks the step as you save. What you approve is what runs, and the assistant is told what you changed.
+- **Open in form** (in a step's editor) edits the step on its own page — Pre-processing, the Simulator or the Optimizer — with every control that page has. The page shows **Editing plan step: *plan* · step N** and its button becomes **Save to plan**, which writes the step back to the plan and returns to **Jobs**; **Cancel** returns without saving. Whatever you had on that page before comes back afterwards. A "simulate the flex-search result" step opens as a **Flex result** row for the run its flex step will write: choose the EEG net to map it onto and, if you like, the currents (empty means the run's own). A step stays the same kind of job and runs the same settings for all its subjects, so the page tells you instead of saving when your changes would break that; ask the assistant for a new plan instead.
 - **Reject…** with an optional note, such as *"use the right thalamus"*. The assistant reads your note and asks you what to change; it does not send the same plan again unchanged.
 
 A plan that would replace an existing result cannot be approved until you allow replacing on that step (or give it a new run name), and a plan with an error or a missing input cannot be approved at all.

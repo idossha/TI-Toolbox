@@ -121,6 +121,11 @@ function JobsPage() {
       restorePane();
     }
   }, [location.key, location.pathname, location.state, restorePane]);
+  // Arriving from a plan link (the Overview notice, a saved "Open in form"): bring its card into view.
+  const focusProposal = (location.state as { proposalId?: string } | null)?.proposalId;
+  useEffect(() => {
+    if (focusProposal) document.getElementById(`proposal-${focusProposal}`)?.scrollIntoView({ block: "nearest" });
+  }, [focusProposal, location.key, proposals.length]);
 
 
   // Empty state (fix round, lane FIX-D, defect 4). It used to be DESIGN.md §4.4's *whole-page*

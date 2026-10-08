@@ -30,7 +30,7 @@ rationale below consolidates later amendments without treating superseded design
 | 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
 | 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
 | 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
-| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07; `assistant.start`/`openInTerminal` gained an options argument 2026-10-08, no new entry). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-08 |
+| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07; `assistant.start`/`openInTerminal` gained an options argument 2026-10-08, and `assistant.openPath` a method of that namespace the same day, no new entry). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-08 |
 | 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
 | 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
 | 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
@@ -2895,3 +2895,97 @@ Linux); a `userConfig` prompt (every user answers a question only Windows needs)
 
 **Evidence.** `desktop/src/main/assistant.test.ts` ("finds the plugin's Python…", "hands the
 plugin's servers the resolved Python…"); `claude plugin validate agent-plugin`.
+
+## 2026-10-08 — Paths the Assistant's CLI prints are links, opened only inside the project folder
+
+**Decision.** `assistant.openPath(path)` is a new method of the existing `assistant` bridge
+namespace (frozen surface; the top-level budget stays 24), and `assistant.start` now also returns
+`cwd`, the session's host project folder. The Assistant terminal registers an xterm link provider
+(`pages/assistant/pathLinks.ts`) that underlines, on hover, absolute paths inside that folder and
+relative ones starting `./`, `../`, `derivatives/`, `sourcedata/`, `code/`, `rawdata/` or
+`sub-<id>/`. A click sends the printed text to main, which takes a string of at most 4096
+characters with no NUL, resolves it against the project folder (`path.resolve`), resolves symlinks
+on both sides (`realpath`), requires the result to exist and to lie inside the folder's real path
+(`relative` neither absolute nor starting with a `..` segment), and then reveals a file in
+Finder/Explorer (`shell.showItemInFolder`) or opens a folder (`shell.openPath`; a macOS `.app`
+bundle, a folder `openPath` would launch, is revealed instead). The same
+loopback-session rule as `start` applies; an automated run (`mayShowSystemUi` false) validates and
+opens nothing. A refusal comes back as `{ ok: false, error }` and the page shows it as a toast.
+
+**Why.** The CLI's answers name the outputs it made (`derivatives/SimNIBS/sub-CHN/flex-search/…`),
+and the user's next act is to look at them. The app-wide `openPath`/`showItemInFolder` cannot take
+these: they map *container* paths to host paths, and a CLI on the host prints host paths, often
+relative to its cwd. Revealing rather than opening a file keeps a click from launching whatever
+the OS associates with `.json` or `.nii.gz` (and keeps TetraVox scenes going through the Viewer,
+decision 2026-09-22).
+
+**Alternatives rejected.** Linking every absolute path and letting main refuse (underlines `/etc`
+and `~/.claude` paths that can only fail); a second `WebLinksAddon` with a path regex (it drops
+every match that is not a URL); the renderer resolving the path itself (a served page must not
+decide what a host shell call touches); a new top-level bridge entry (budget); opening files with
+their default application (an arbitrary associated program per click).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "a printed path, checked against the project
+folder" (absolute, relative, `./`, symlinked project folder; `..`, absolute outside, symlink
+escape, prefix sibling, missing, non-strings); `desktop/tests/unit/assistant-path-links.test.ts`
+(which printed paths match, Windows case and separators, link columns after wide characters on a
+real xterm buffer); `desktop/tests/e2e/assistant.spec.ts` "a project path the CLI prints is a link
+…" (hover pointer on project paths only, the missing-file toast, main's refusals).
+
+## 2026-10-08 — Linux "Open in system terminal" tries the common terminals, not one link
+
+**Decision.** On Linux the Assistant's system-terminal launch runs the first of `$TERMINAL`,
+`x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `xterm`
+found on the login-shell `PATH` (`linuxTerminalCommand` in `desktop/src/main/assistant.ts`), with
+that terminal's own flags: `--working-directory=<dir> --` (gnome-terminal), `--workdir <dir> -e`
+(konsole), `--working-directory=<dir> -x` (xfce4-terminal), `--directory <dir>` (kitty),
+`--working-directory <dir> -e` (alacritty), and `-e` for xterm, Debian's alternatives link and any
+`$TERMINAL` not in the list (a listed one named by path gets its own flags). The CLI and its
+arguments follow as argv, never a shell string; the spawn's cwd covers terminals with no directory
+flag. None found is an error naming what to install.
+
+**Why.** Only Debian-family systems have `x-terminal-emulator`; on Fedora, Arch or a KDE/Xfce
+desktop the button failed silently (the spawn's error went only to the log).
+
+**Alternatives rejected.** `xdg-terminal-exec` (not installed on most distributions yet); a
+`sh -c` command string (needs quoting of every argument for no gain — each terminal takes argv);
+asking the user for a terminal in Settings (a preference for what `$TERMINAL` already says).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "Linux system terminal" (argv per terminal with
+a mocked lookup, the order, `$TERMINAL` known/unknown/by path, none found). Not exercised on a
+Linux desktop.
+
+## 2026-10-08 — A plan step is edited in full on its own run page ("Open in form")
+
+**Decision.** The plan card's inline editor keeps the few fields people change most (subjects,
+run name, current or currents, replace existing output) and the config JSON, now on the run
+pages' own `Field`, `NumberInput`, `Checkbox` and `Button` components with its actions in one
+footer. Its **Open in form** navigates to the step's run page — Pre-processing (`pre`), Simulator
+(`sim`, `sim_from_flex`), Optimizer (`flex`, `flex_adaptive`, `flex_pareto`, `ex`, `mex`) — with the
+step (and anything typed in the editor) in the router state. The page sets its own draft aside,
+loads the step with its config→form mapping (`preStepValues`, `simulator/planStep.ts`,
+`optimizer/planStep.ts`: the inverses of `buildSimulationConfig`, `buildFlexConfig`,
+`buildExConfig`/`buildMExConfig` and `roiToConfig`, an atlas found in the subject's catalog by
+its path), shows an "Editing plan step" banner, and swaps Run for **Save to plan** (and ⌘⏎), which
+builds the step's edit through the page's own builder over the step's config (fields the form does
+not show are kept) and sends the existing `PATCH /api/proposals/{id}/steps/{step_id}`; Cancel
+restores the draft. A `sim_from_flex` step whose flex step has not run is a Flex-result row naming
+that run (`SelectedRow.planFlexStep`): its placement and currents can be set, "the run's own"
+when left alone. The form is refused, with the reason, when it would change the step's kind (the
+route edits config and subjects only) or say different settings per subject (a step is one config
+for all its subjects). Pending plans also show on the Overview, one line each with Review.
+
+**Why.** The card could change a run name and a current; everything else (a target, electrodes,
+solver settings, stages) meant editing raw JSON or rejecting the plan. The run pages already are
+the forms for those configs, with their validation, pickers and plan preview.
+
+**Alternatives rejected.** A full form inside the card (a second implementation of every run page
+that would drift from them); a new "draft step" server route (the step-edit route already
+re-plans); changing a step's kind from the form (a different step; the agent proposes a new plan);
+fanning a step out to per-subject configs (a proposal step has one config by contract).
+
+**Evidence.** `desktop/tests/unit/plan-step-form.test.ts` (each inverse undoes its builder; a
+saved step keeps unknown fields and its kind; refusals); `desktop/tests/unit/proposal-card.test.tsx`
+(footer actions, Open in form's route and state); `desktop/tests/e2e/proposals.spec.ts` (Optimizer,
+Simulator and Pre-processing save flows, the 1024 px editor fit, the Overview notice, and a
+two-step plan run to done against the mock, which now queues dependent steps like `_advance`).

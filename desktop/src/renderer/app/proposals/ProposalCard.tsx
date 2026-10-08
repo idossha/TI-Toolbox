@@ -4,13 +4,15 @@
  * Approve / Reject / Edit. After approval the same card follows each step's live state and links
  * its jobs. The server decides everything; this file only shows and asks.
  */
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Bot, ChevronRight, X } from "lucide-react";
 import { ApiError } from "../../api/client";
 import { Button, IconButton } from "../../ui/Button";
 import { Callout } from "../../ui/Feedback";
-import { TextInput, Textarea } from "../../ui/Field";
+import { Field, TextInput, Textarea } from "../../ui/Field";
+import { NumberInput } from "../../ui/NumberInput";
 import { Chip } from "../../ui/Status";
 import { Checkbox } from "../../ui/Toggle";
 import { notify } from "../../ui/Toast";
@@ -29,6 +31,7 @@ import {
   type Proposal,
   type ProposalStep,
 } from "./model";
+import { planStepTarget, stepRoute } from "./stepForm";
 import "./proposals.css";
 
 const STATUS_KIND = { draft: "neutral", pending: "warning", rejected: "neutral", running: "accent", succeeded: "success", failed: "danger" } as const;
@@ -43,8 +46,26 @@ function errorText(e: unknown): string {
   return e instanceof ApiError || e instanceof Error ? e.message : String(e);
 }
 
-/** Inline editor for one pending step: the fields people change most, and the config itself. */
-function StepEditor({ step, onSave, saving }: { step: ProposalStep; onSave: (edit: StepEdit) => void; saving: boolean }) {
+/**
+ * Inline editor for one pending step: the fields people change most, the config itself (folded),
+ * and the way to the full run-page form ("Open in form", `stepForm.tsx`), which carries what is
+ * typed here. The run pages' own Field / input / checkbox / button components.
+ */
+function StepEditor({
+  proposal,
+  step,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  proposal: Proposal;
+  step: ProposalStep;
+  onSave: (edit: StepEdit) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const navigate = useNavigate();
+  const id = useId();
   const [text, setText] = useState(() => JSON.stringify(step.config, null, 2));
   const [subjects, setSubjects] = useState(step.subject_ids.join(", "));
   const [overwrite, setOverwrite] = useState(step.overwrite);
@@ -55,69 +76,95 @@ function StepEditor({ step, onSave, saving }: { step: ProposalStep; onSave: (edi
   } catch {
     parsed = null;
   }
-  const setField = (key: string, value: unknown) => parsed && setText(JSON.stringify({ ...parsed, [key]: value }, null, 2));
+  const setField = (key: string, value: unknown) => parsed && setText(JSON.stringify({ ...parsed, [key]: value }, null, 2)); // undefined drops the key
+  const subjectIds = subjects.split(",").map((s) => s.trim()).filter(Boolean);
   const flex = step.kind.startsWith("flex");
   const sim = step.kind === "sim" || step.kind === "sim_from_flex";
+  const route = stepRoute(step.kind);
   return (
     <div className="proposal-editor" data-testid={`proposal-editor-${step.id}`}>
       <div className="proposal-editor-fields">
-        <label>
-          <span className="field-label">Subjects</span>
-          <TextInput value={subjects} onChange={(e) => setSubjects(e.target.value)} aria-label="Subjects" />
-        </label>
+        <Field label="Subjects" htmlFor={`${id}-subjects`}>
+          <TextInput id={`${id}-subjects`} value={subjects} onChange={(e) => setSubjects(e.target.value)} aria-label="Subjects" />
+        </Field>
         {flex && parsed && (
           <>
-            <label>
-              <span className="field-label">Run name</span>
-              <TextInput value={String(parsed.output_folder ?? "")} onChange={(e) => setField("output_folder", e.target.value)} aria-label="Run name" />
-            </label>
-            <label>
-              <span className="field-label">Current (mA per channel)</span>
-              <TextInput
-                inputMode="decimal"
-                value={String(parsed.current_mA ?? "")}
-                onChange={(e) => setField("current_mA", Number(e.target.value))}
+            <Field label="Run name" htmlFor={`${id}-run`}>
+              <TextInput id={`${id}-run`} value={String(parsed.output_folder ?? "")} onChange={(e) => setField("output_folder", e.target.value)} aria-label="Run name" />
+            </Field>
+            <Field label="Current" htmlFor={`${id}-current`} help="Per channel.">
+              <NumberInput
+                id={`${id}-current`}
+                unit="mA"
+                step={0.1}
+                min={0}
+                value={typeof parsed.current_mA === "number" ? parsed.current_mA : undefined}
+                onValueChange={(v) => setField("current_mA", v)}
                 aria-label="Current per channel"
               />
-            </label>
+            </Field>
           </>
         )}
         {sim && parsed && (
-          <label>
-            <span className="field-label">Currents (mA, comma-separated; empty = the run's own)</span>
+          <Field label="Currents" htmlFor={`${id}-currents`} help="mA per channel, comma-separated. Empty: the flex run's own.">
             <TextInput
+              id={`${id}-currents`}
+              placeholder={step.kind === "sim_from_flex" ? "the run's own" : "e.g. 1, 1"}
               value={Array.isArray(parsed.intensities) ? parsed.intensities.join(", ") : ""}
               onChange={(e) => {
                 const values = e.target.value.split(",").map((v) => v.trim()).filter(Boolean).map(Number);
-                if (values.length) setField("intensities", values);
-                else if (parsed) setText(JSON.stringify({ ...parsed, intensities: undefined }, null, 2)); // undefined drops the key
+                setField("intensities", values.length ? values : undefined);
               }}
               aria-label="Currents"
             />
-          </label>
+          </Field>
         )}
-        <Checkbox checked={overwrite} onCheckedChange={setOverwrite} label="Replace existing output" />
       </div>
+      <Checkbox checked={overwrite} onCheckedChange={setOverwrite} label="Replace existing output" />
       <details className="proposal-editor-json">
-        <summary>Config (JSON)</summary>
-        <Textarea rows={10} value={text} invalid={parsed === null} onChange={(e) => setText(e.target.value)} aria-label="Step config JSON" spellCheck={false} />
+        <summary>
+          <ChevronRight size={12} aria-hidden className="proposal-editor-json-chevron" />
+          Config (JSON)
+        </summary>
+        <Textarea
+          className="control-mono"
+          rows={12}
+          value={text}
+          invalid={parsed === null}
+          onChange={(e) => setText(e.target.value)}
+          aria-label="Step config JSON"
+          spellCheck={false}
+        />
       </details>
-      <Button
-        size="sm"
-        variant="secondary"
-        loading={saving}
-        disabled={parsed === null}
-        onClick={() =>
-          parsed &&
-          onSave({
-            config: parsed,
-            subject_ids: subjects.split(",").map((s) => s.trim()).filter(Boolean),
-            overwrite,
-          })
-        }
-      >
-        Save step
-      </Button>
+      <footer className="proposal-editor-actions">
+        {route && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={parsed === null}
+            title="Edit this step on its run page, with the full form"
+            onClick={() => {
+              if (!parsed) return;
+              onCancel(); // the form takes over; the card is closed when the user comes back
+              navigate(route, { state: { planStep: planStepTarget(proposal, { ...step, config: parsed, subject_ids: subjectIds, overwrite }) } });
+            }}
+          >
+            Open in form
+          </Button>
+        )}
+        <Button size="sm" variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          loading={saving}
+          disabled={parsed === null}
+          onClick={() => parsed && onSave({ config: parsed, subject_ids: subjectIds, overwrite })}
+        >
+          Save step
+        </Button>
+      </footer>
     </div>
   );
 }
@@ -169,9 +216,9 @@ function StepRow({
               {state}
             </Chip>
           )}
-          {pending && (
-            <Button size="sm" variant="ghost" onClick={() => setEditing((v) => !v)} aria-expanded={editing}>
-              {editing ? "Close" : "Edit"}
+          {pending && !editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)} aria-expanded={false}>
+              Edit
             </Button>
           )}
           {(state === "failed" || state === "error" || state === "skipped") && proposal.decision.state === "approved" && (
@@ -215,7 +262,9 @@ function StepRow({
           ))}
         </div>
       )}
-      {editing && <StepEditor step={step} saving={save.isPending} onSave={(edit) => save.mutate(edit)} />}
+      {editing && (
+        <StepEditor proposal={proposal} step={step} saving={save.isPending} onSave={(edit) => save.mutate(edit)} onCancel={() => setEditing(false)} />
+      )}
     </li>
   );
 }
@@ -259,7 +308,7 @@ export function ProposalCard({
   const problems = blockers(proposal);
   const eta = minutes(totalEta(proposal));
   return (
-    <section className="proposal-card" data-testid="proposal-card" data-status={proposal.status} aria-label={`Plan: ${proposal.title}`}>
+    <section id={`proposal-${proposal.id}`} className="proposal-card" data-testid="proposal-card" data-status={proposal.status} aria-label={`Plan: ${proposal.title}`}>
       <header className="proposal-head">
         <Bot size={16} aria-hidden />
         <h3 className="proposal-title">{proposal.title}</h3>

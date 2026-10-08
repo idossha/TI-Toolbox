@@ -9,8 +9,11 @@
  * Windows `.cmd` and system-terminal launches are deliberately not exercised here (no Windows host).
  */
 import { execFileSync } from "node:child_process";
-import { describe, expect, it } from "vitest";
-import { buildLaunch, createAssistantSessions, findExecutable, findPython, isLoggedIn, isLoopbackOrigin, loginShellPath, parseAssistantOptions, shQuote, tomlString, type PtyProcess } from "./assistant";
+import { beforeAll, describe, expect, it } from "vitest";
+import { buildLaunch, createAssistantSessions, findExecutable, findPython, isLoggedIn, isLoopbackOrigin, linuxTerminalCommand, loginShellPath, NO_LINUX_TERMINAL, openInSystemTerminal, parseAssistantOptions, resolveProjectPath, shQuote, tomlString, type PtyProcess } from "./assistant";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { TitAssistantEvent } from "../shared/tit-bridge";
 
 const TOKEN = "tok-3f9a-secret";
@@ -188,6 +191,83 @@ describe("launch", () => {
     expect(isLoopbackOrigin("http://localhost:8765")).toBe(true);
     expect(isLoopbackOrigin("https://lab-server.example.org")).toBe(false);
     expect(isLoopbackOrigin("not a url")).toBe(false);
+  });
+});
+
+// Each terminal's argv is what its own --help documents (gnome-terminal `--working-directory=` and
+// `--`, konsole `--workdir` and `-e`, xfce4-terminal `-x`, kitty `--directory`, alacritty
+// `--working-directory` and `-e`; xterm and Debian's x-terminal-emulator `-e`). Not run on Linux here.
+describe("Linux system terminal", () => {
+  const command = ["/home/u/.local/bin/claude", "--plugin-dir", "/opt/ti/agent-plugin"];
+  const only = (name: string) => (bin: string) => (bin === name ? `/usr/bin/${name}` : undefined);
+  const DIR = "/data/my project";
+  it.each([
+    ["x-terminal-emulator", ["-e", ...command]],
+    ["gnome-terminal", [`--working-directory=${DIR}`, "--", ...command]],
+    ["konsole", ["--workdir", DIR, "-e", ...command]],
+    ["xfce4-terminal", [`--working-directory=${DIR}`, "-x", ...command]],
+    ["kitty", ["--directory", DIR, ...command]],
+    ["alacritty", ["--working-directory", DIR, "-e", ...command]],
+    ["xterm", ["-e", ...command]],
+  ])("starts %s with its own directory and command flags", (name, args) => {
+    expect(linuxTerminalCommand(only(name), {}, DIR, command)).toEqual({ file: `/usr/bin/${name}`, args });
+  });
+  it("tries $TERMINAL first, then the list in order", () => {
+    const all = (bin: string) => `/usr/bin/${bin}`;
+    expect(linuxTerminalCommand(all, { TERMINAL: "kitty" }, DIR, command)?.file).toBe("/usr/bin/kitty");
+    expect(linuxTerminalCommand(all, {}, DIR, command)?.file).toBe("/usr/bin/x-terminal-emulator");
+    expect(linuxTerminalCommand((bin) => (bin === "konsole" || bin === "xterm" ? `/usr/bin/${bin}` : undefined), {}, DIR, command)?.file).toBe("/usr/bin/konsole");
+  });
+  it("gives an unknown $TERMINAL the common -e, and a known one by path its own flags", () => {
+    expect(linuxTerminalCommand((bin) => (bin === "foot" ? "/usr/bin/foot" : undefined), { TERMINAL: "foot" }, DIR, command)).toEqual({ file: "/usr/bin/foot", args: ["-e", ...command] });
+    expect(linuxTerminalCommand((bin) => (bin === "/opt/kitty/bin/kitty" ? bin : undefined), { TERMINAL: "/opt/kitty/bin/kitty" }, DIR, command)?.args.slice(0, 2)).toEqual(["--directory", DIR]);
+  });
+  it("says what to install when no terminal is found, and starts nothing", () => {
+    expect(linuxTerminalCommand(() => undefined, { TERMINAL: "missing" }, DIR, command)).toBeUndefined();
+    const spawned: string[] = [];
+    const launch = { file: command[0]!, args: command.slice(1), cwd: DIR, env: {} };
+    expect(() => openInSystemTerminal(launch, "linux", "/tmp", (file) => spawned.push(file), () => undefined)).toThrow(NO_LINUX_TERMINAL);
+    expect(spawned).toEqual([]);
+    openInSystemTerminal(launch, "linux", "/tmp", (file, args, _env, cwd) => spawned.push(file, args[0]!, cwd), only("xterm"));
+    expect(spawned).toEqual(["/usr/bin/xterm", "-e", DIR]);
+  });
+});
+
+// Expected outcomes follow from the rule itself (real path inside the real project folder, and
+// existing), on a temporary tree built here with a symlink pointing out of it.
+describe.skipIf(process.platform === "win32")("a printed path, checked against the project folder", () => {
+  let root = "";
+  let project = "";
+  // In beforeAll: a skipped describe's body is still collected, and Windows cannot make these links.
+  beforeAll(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), "tit-openpath-")));
+    project = join(root, "project");
+    mkdirSync(join(project, "derivatives", "SimNIBS"), { recursive: true });
+    writeFileSync(join(project, "derivatives", "SimNIBS", "a.json"), "{}");
+    writeFileSync(join(root, "secret.txt"), "x");
+    symlinkSync(join(root, "secret.txt"), join(project, "escape.txt"));
+    symlinkSync(project, join(root, "project-link"));
+  });
+
+  it("resolves absolute and project-relative paths to the real file or folder", () => {
+    expect(resolveProjectPath(join(project, "derivatives", "SimNIBS", "a.json"), project)).toEqual({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json"), directory: false });
+    expect(resolveProjectPath("derivatives/SimNIBS/a.json", project)).toEqual({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json"), directory: false });
+    expect(resolveProjectPath("./derivatives", project)).toEqual({ ok: true, path: join(project, "derivatives"), directory: true });
+    expect(resolveProjectPath(project, project)).toMatchObject({ ok: true, directory: true });
+    // A project opened through a symlinked folder still contains its own files.
+    expect(resolveProjectPath("derivatives/SimNIBS/a.json", join(root, "project-link"))).toMatchObject({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json") });
+  });
+  it("refuses anything outside the project, through .. or a symlink", () => {
+    expect(resolveProjectPath("../secret.txt", project)).toEqual({ ok: false, error: "../secret.txt is outside the project folder." });
+    expect(resolveProjectPath(join(root, "secret.txt"), project)).toMatchObject({ ok: false });
+    expect(resolveProjectPath("derivatives/../../secret.txt", project)).toMatchObject({ ok: false });
+    expect(resolveProjectPath("escape.txt", project)).toEqual({ ok: false, error: "escape.txt is outside the project folder." });
+    expect(resolveProjectPath(`${project}-sibling`, project)).toMatchObject({ ok: false });
+  });
+  it("refuses what does not exist and anything that is not a path string", () => {
+    expect(resolveProjectPath("derivatives/missing.nii.gz", project)).toEqual({ ok: false, error: "derivatives/missing.nii.gz does not exist." });
+    for (const bad of [undefined, 42, "", "a\0b", "x".repeat(5000)]) expect(resolveProjectPath(bad, project)).toEqual({ ok: false, error: "Not a file path." });
+    expect(resolveProjectPath("a.json", join(root, "gone"))).toEqual({ ok: false, error: "The project folder is not on this computer." });
   });
 });
 

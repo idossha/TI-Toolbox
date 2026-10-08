@@ -177,10 +177,14 @@ The preload bridge has 24 top-level entries, enforced by `desktop/tests/e2e/smok
 `saveNativeTetravoxScene` adds native snapshot saving; `onNotificationSound` lets main have the
 window play a job banner's TI-Toolbox sound; `assistant` (optional: absent means no Assistant pane)
 is the host terminal of §6's user-run agent — `detect`, `start`, `write`, `resize`, `kill`,
-`onEvent`, `openInTerminal`, each taking only `"claude" | "codex"` (plus terminal size or typed
-input), validated in main; `start` and `openInTerminal` also take an optional options object of
+`onEvent`, `openInTerminal`, `openPath` — all but `openPath` taking only `"claude" | "codex"` (plus
+terminal size or typed input), validated in main; `start` and `openInTerminal` also take an optional options object of
 enums only (`effort`: low, medium, high, default; `model`: default, opus, sonnet, haiku, fable —
-Codex: default only), checked against an allowlist in main, which builds the flags itself. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
+Codex: default only), checked against an allowlist in main, which builds the flags itself; `start`
+also returns the session's host project folder (`cwd`), and `openPath` takes one path string a
+session printed, which main resolves against that folder, accepts only when its real path
+(symlinks resolved) exists inside the folder's real path, and then reveals (a file) or opens (a
+folder). Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
@@ -258,8 +262,17 @@ and preflight functions the run pages use (outputs, replacements, ETA and the pl
 waits, `plan.lock_conflicts`, on a dry run as on a stored proposal) and pushes `{"type": "proposal"}` on `/ws/jobs` (the
 renderer toasts a newly pending plan; main's job notifier shows a native banner for it while the
 window is unfocused and notifications are on). While
-pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit);
-`proposed_steps` keeps the agent's version and what is approved is what runs. Approval re-plans
+pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit), on
+the card (subjects, run name, currents, the replace permission and the config JSON) or on the
+step's own run page: **Open in form** opens Pre-processing, the Simulator (a `sim_from_flex` step
+as a Flex-result row naming its flex step's run) or the Optimizer with the page's draft put aside
+and the step loaded through that page's config→form mapping
+([`stepForm.tsx`](../../desktop/src/renderer/app/proposals/stepForm.tsx)); the primary becomes
+**Save to plan**, which sends the form back through the page's own builder as the step's edit, and
+Cancel restores the draft. A step keeps its kind and runs one config on all its subjects, so a
+form that would change the kind or differ per subject is refused with the reason, not saved.
+`proposed_steps` keeps the agent's version and what is approved is what runs. Besides the Jobs
+badge, the Overview lists each pending plan on one line with **Review**, which opens its card. Approval re-plans
 every step and is refused (409) while a step has an error, a step waiting on nothing lacks an
 input, or a step would replace output without `overwrite`. **The server queues approved steps
 itself**: steps with no `after` at once, as jobs with the proposer's `created_by` and a
@@ -282,7 +295,8 @@ in-flight plans as cards and finished ones in a collapsed "Finished plans" list.
 proposals are kept as long as finished jobs: `tit.jobs.registry.expired` (older than 30 days, or
 beyond the newest 200) prunes both, jobs when the job manager starts and proposals when the
 proposal watcher starts. Excluded
-alternatives: queuing dependent steps up front with job-level `after` (the
+alternatives: a second form inside the card for every setting (a parallel UI drifting from the run
+pages); queuing dependent steps up front with job-level `after` (the
 submit-time preflight refuses a flex job whose head model a queued `pre` will make, and a
 `sim_from_flex` montage does not exist yet); an agent that waits and submits each step (it
 would have to stay connected for hours). The setting and the proposal routes are rules for a
@@ -311,8 +325,10 @@ and never logged. A session needs the main window's top frame, a loopback server
 existing local project folder; there is at most one per CLI, a new start replaces it, and every
 session ends on a main-frame navigation (connect, project switch or close, reload), window close
 and app quit. **Open in system terminal** starts the same launch in Terminal (macOS: a self-deleting
-`.command` script in user data, because LaunchServices passes no environment), `x-terminal-emulator`
-(Linux) or a new console (Windows). **Effort and Model** are per-CLI
+`.command` script in user data, because LaunchServices passes no environment), the first of
+`$TERMINAL`, `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`,
+`alacritty`, `xterm` found on the login-shell `PATH`, each with its own directory and command flags
+(Linux; none found is an error that says what to install), or a new console (Windows). **Effort and Model** are per-CLI
 session options the page keeps in `localStorage` and sends with `start`/`openInTerminal`; main maps
 them to `--effort <level>` and `--model <alias>` (Claude Code) or `-c model_reasoning_effort="<level>"`
 (Codex; no model flag), and passes nothing for "My CLI default". The default is Medium for both CLIs,
@@ -330,8 +346,13 @@ context is available or one is lost; WebGL is what draws box-drawing and block c
 joined cells (`customGlyphs`), which the DOM renderer leaves to the font. The page is a fixed-height
 column at every window width, the terminal's host carries no padding (FitAddon counts its host's
 height), and the grid is refitted on every host resize and the new size sent to the PTY. Printed
-http(s) links open through `openExternal`; printed file paths are not links, because `openPath`
-resolves server paths, not the host paths a CLI prints. Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
+http(s) links open through `openExternal`. Printed file paths are links too
+([`pathLinks.ts`](../../desktop/src/renderer/pages/assistant/pathLinks.ts)): an absolute path inside
+the session's project folder, or a relative one starting `./`, `../` or a project top-level folder
+(`derivatives/`, `sourcedata/`, `code/`, `rawdata/`, `sub-<id>/`); a click goes to
+`assistant.openPath`, never the app-wide `openPath`, which maps server paths, not the host paths a
+CLI prints. Main's containment check is the authority; the renderer's match only decides what is
+underlined, and a refusal is a toast. Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
 [`Assistant page`](../../desktop/src/renderer/pages/assistant/index.tsx).
 
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)

@@ -19,7 +19,9 @@ import { Callout, EmptyState } from "../../ui/Feedback";
 import { Select } from "../../ui/Select";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Chip } from "../../ui/Status";
+import { notify } from "../../ui/Toast";
 import type { TitAssistantBridge, TitAssistantCli, TitAssistantEffort, TitAssistantModel, TitAssistantOptions, TitAssistantStatus } from "../../../shared/tit-bridge";
+import { pathLinkProvider } from "./pathLinks";
 import "./assistant.css";
 
 export const CLI_INFO: Record<TitAssistantCli, { name: string; install: string; docs: string; login: string }> = {
@@ -132,7 +134,20 @@ function terminalTheme(): ITheme {
 const TEST_HOOKS = import.meta.env.DEV || import.meta.env.VITE_SCENE_HOOKS === "1";
 
 /** One xterm per CLI, kept for the page's life so switching CLIs keeps each scrollback. */
-function AssistantTerminal({ bridge, cli, visible, onReady }: { bridge: TitAssistantBridge; cli: TitAssistantCli; visible: boolean; onReady: (term: Terminal) => void }) {
+function AssistantTerminal({
+  bridge,
+  cli,
+  visible,
+  onReady,
+  projectDir,
+}: {
+  bridge: TitAssistantBridge;
+  cli: TitAssistantCli;
+  visible: boolean;
+  onReady: (term: Terminal) => void;
+  /** The running session's host project folder, read whenever a row is scanned for paths. */
+  projectDir: () => string | undefined;
+}) {
   const host = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -153,6 +168,14 @@ function AssistantTerminal({ bridge, cli, visible, onReady }: { bridge: TitAssis
     term.loadAddon(fit);
     // http(s) only: `openExternal` refuses every other scheme in main.
     term.loadAddon(new WebLinksAddon((_event, uri) => void window.tit?.openExternal(uri)));
+    // File paths in the project: main reveals the file or opens the folder, or says why not.
+    const paths = term.registerLinkProvider(
+      pathLinkProvider(term, projectDir, window.tit?.platform?.() === "win32", (path) => {
+        void bridge.openPath(path).then((result) => {
+          if (!result.ok) notify.error(`Could not open ${path}`, result.error);
+        });
+      }),
+    );
     const input = term.onData((data) => bridge.write(cli, data));
     const resized = term.onResize(({ cols, rows }) => bridge.resize(cli, cols, rows));
     const off = bridge.onEvent((event) => {
@@ -212,6 +235,7 @@ function AssistantTerminal({ bridge, cli, visible, onReady }: { bridge: TitAssis
       off();
       input.dispose();
       resized.dispose();
+      paths.dispose();
       term.dispose();
     };
     // The terminal lives as long as the page; the bridge and CLI never change for one instance.
@@ -239,6 +263,7 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
   // What each running session was started with, to tell the user a change waits for a restart.
   const [applied, setApplied] = useState<Partial<Record<TitAssistantCli, SessionOptions>>>({});
   const terms = useRef<Partial<Record<TitAssistantCli, Terminal>>>({});
+  const projectDirs = useRef<Partial<Record<TitAssistantCli, string>>>({});
 
   // Detection runs the CLI's own status command; "check again" re-asks.
   const detection = useQuery({
@@ -276,6 +301,7 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
       if (!result.ok) setError(result.error);
       else {
         setApplied((prev) => ({ ...prev, [cli]: options[cli] }));
+        projectDirs.current[cli] = result.cwd;
         setSessions((prev) => ({ ...prev, [cli]: "running" }));
         term?.focus();
       }
@@ -382,7 +408,14 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
       {/* A click on the card's padding focuses the terminal too, not only a click on its grid. */}
       <div className="assistant-terminals" onClick={() => terms.current[cli]?.focus()}>
         {(["claude", "codex"] as const).map((which) => (
-          <AssistantTerminal key={which} bridge={bridge} cli={which} visible={which === cli} onReady={(term) => (terms.current[which] = term)} />
+          <AssistantTerminal
+            key={which}
+            bridge={bridge}
+            cli={which}
+            visible={which === cli}
+            onReady={(term) => (terms.current[which] = term)}
+            projectDir={() => projectDirs.current[which]}
+          />
         ))}
       </div>
     </div>

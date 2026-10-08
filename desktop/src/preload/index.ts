@@ -67,6 +67,7 @@ const tit: TitBridge = {
       return () => ipcRenderer.removeListener("tit:assistant:event", handler);
     },
     openInTerminal: (cli: TitAssistantCli, options?: TitAssistantOptions) => ipcRenderer.invoke("tit:assistant:openInTerminal", cli, options),
+    openPath: (path: string) => ipcRenderer.invoke("tit:assistant:openPath", String(path)),
   },
   stack: {
     switchProject: (hostProjectDir?: string): Promise<TitStackStopResult> => ipcRenderer.invoke("tit:stack:switchProject", hostProjectDir),
