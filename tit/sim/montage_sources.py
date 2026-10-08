@@ -52,6 +52,7 @@ __all__ = [
     "flex_montage_name",
     "list_flex_run_options",
     "resolve_flex_montage",
+    "flex_currents",
     "resolve_flex_simulation",
     "list_freehand_configs",
     "resolve_freehand_montage",
@@ -295,6 +296,26 @@ def _net_stem(name: str) -> str:
     return name[:-4] if name.lower().endswith(".csv") else name
 
 
+def flex_currents(manifest: dict[str, Any], num_pairs: int) -> tuple[list[float], str]:
+    """A flex run's own simulation currents (mA) and where they came from.
+
+    The run's optimised ``current_split``, else its ``current_mA`` per channel, else 1 mA per
+    channel. The Simulator page applies the same order to the catalog's manifest in
+    ``desktop/src/renderer/pages/simulator/FlexTab.tsx`` (``flexCurrents``); both are pinned by
+    ``tests/fixtures/flex_currents.json``.
+    """
+    if manifest.get("current_split"):
+        return [
+            float(c) for c in manifest["current_split"]
+        ], "the run's optimised split"
+    if manifest.get("current_mA"):
+        return (
+            [float(manifest["current_mA"])] * max(2, num_pairs),
+            "the run's current_mA per channel",
+        )
+    return [1.0] * max(2, num_pairs), "app default"
+
+
 def resolve_flex_simulation(
     pm: PathManager,
     subject_id: str,
@@ -358,16 +379,10 @@ def resolve_flex_simulation(
         net, pairs = None, run.get("optimized")
     if not pairs:
         raise ValueError(f"flex run {run['name']} has no usable electrode positions")
-    manifest = run.get("manifest") or {}
     if intensities:
         currents, source = [float(i) for i in intensities], "given"
-    elif manifest.get("current_split"):
-        currents, source = list(manifest["current_split"]), "the run's optimised split"
-    elif manifest.get("current_mA"):
-        currents = [float(manifest["current_mA"])] * max(2, len(pairs))
-        source = "the run's current_mA per channel"
     else:
-        currents, source = [1.0] * max(2, len(pairs)), "app default"
+        currents, source = flex_currents(run.get("manifest") or {}, len(pairs))
     return {
         "flex_run": run["name"],
         "eeg_net": net,

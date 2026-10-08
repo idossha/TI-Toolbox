@@ -17,6 +17,9 @@ Reproduce: .venv/bin/python -m pytest tests/test_flex_simulation_resolver.py -q
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from tit.sim import montage_sources
@@ -124,3 +127,22 @@ def test_no_run_and_unknown_run_are_errors(runs):
         1.0,
         1.0,
     ]  # no manifest current: 1 mA per channel
+
+
+FLEX_CURRENTS = json.loads(
+    (Path(__file__).parent / "fixtures" / "flex_currents.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", FLEX_CURRENTS, ids=lambda c: c["case"])
+def test_flex_currents_order_is_split_then_current_mA_then_one_mA(case):
+    # The same table pins the Simulator page (desktop/tests/unit/flex-currents.test.ts).
+    currents, _ = montage_sources.flex_currents(case["manifest"], case["pairs"])
+    assert currents == case["currents"]
+
+
+def test_resolved_currents_come_from_flex_currents(runs):
+    runs.append(run("a", "2026-10-07", manifest={"current_split": [0.7, 1.3]}))
+    out = resolve()
+    assert out["intensities"] == [0.7, 1.3]
+    assert out["intensities_from"] == "the run's optimised split"
