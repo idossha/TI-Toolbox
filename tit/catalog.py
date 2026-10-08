@@ -1554,16 +1554,19 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
 # ── flex-search runs ─────────────────────────────────────────────────────────
 
 
-def _pair_by_channel(
-    electrodes: list, channel_array_indices: list | None
-) -> list[list]:
+def pair_by_channel(electrodes: list, channel_array_indices: list | None) -> list[list]:
     """Group *electrodes* into ``[a, b]`` pairs, one pair per stimulation channel.
 
-    ``channel_array_indices`` is flex-search's own ``[[channel, array], ...]``
-    bookkeeping (``electrode_positions.json`` / ``electrode_mapping_*.json``):
-    entry *i* says which channel and which of that channel's two arrays
-    electrode *i* belongs to. When it is missing or unusable the electrodes are
-    paired consecutively, which is what ``resolve_flex_montage`` does.
+    The one electrode-pairing rule for a flex-search result: the Simulator's flex rows (via
+    :func:`flex_runs`), ``POST /api/plan``'s flex montage sources, the run-mapping route and
+    agent ``sim_from_flex`` steps (all via
+    :func:`tit.sim.montage_sources.resolve_flex_montage`) pair through it.
+    ``channel_array_indices`` is the optimiser's own ``[[channel, array], ...]`` bookkeeping
+    (``_save_optimized_positions`` in ``resources/map-electrodes/tes_flex_optimization.py``
+    writes one entry per electrode, carried through ``electrode_mapping_*.json`` by the
+    Hungarian mapping): entry *i* says which channel and which of that channel's two arrays
+    electrode *i* belongs to, so the pairs follow the channels whatever order the electrodes
+    are listed in. When it is missing or unusable the electrodes are paired consecutively.
     """
     if isinstance(channel_array_indices, list) and len(channel_array_indices) == len(
         electrodes
@@ -1601,6 +1604,26 @@ def _read_json(path: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def read_flex_mapping(path: str) -> dict | None:
+    """One ``electrode_mapping_<net>.json`` as ``{eeg_net, pairs}``, or ``None`` when unusable
+    (unreadable, or fewer than four labels)."""
+    data = _read_json(path)
+    if data is None:
+        return None
+    labels = [
+        label for label in data.get("mapped_labels") or [] if isinstance(label, str)
+    ]
+    if len(labels) < 4:
+        return None
+    net = data.get("eeg_net")
+    if not isinstance(net, str) or not net:
+        net = os.path.basename(path)[len("electrode_mapping_") : -len(".json")] + ".csv"
+    return {
+        "eeg_net": net,
+        "pairs": pair_by_channel(labels, data.get("channel_array_indices")),
+    }
+
+
 def _flex_mappings(run_dir: str, *, project_root: str | None = None) -> list[dict]:
     """EEG-label pairs already mapped for this run, one entry per net.
 
@@ -1621,27 +1644,13 @@ def _flex_mappings(run_dir: str, *, project_root: str | None = None) -> list[dic
         path = os.path.join(run_dir, name)
         if project_root and not is_within(project_root, path):
             continue
-        data = _read_json(path)
-        if data is None:
-            continue
-        labels = [
-            label for label in data.get("mapped_labels") or [] if isinstance(label, str)
-        ]
-        if len(labels) < 4:
-            continue
-        net = data.get("eeg_net")
-        if not isinstance(net, str) or not net:
-            net = name[len("electrode_mapping_") : -len(".json")] + ".csv"
-        out.append(
-            {
-                "eeg_net": net,
-                "pairs": _pair_by_channel(labels, data.get("channel_array_indices")),
-            }
-        )
+        mapping = read_flex_mapping(path)
+        if mapping is not None:
+            out.append(mapping)
     return out
 
 
-def _flex_optimized_pairs(
+def flex_optimized_pairs(
     run_dir: str, *, project_root: str | None = None
 ) -> list[list] | None:
     """The run's free (un-mapped) XYZ electrode pairs, or ``None``.
@@ -1663,7 +1672,7 @@ def _flex_optimized_pairs(
     ]
     if len(positions) < 4:
         return None
-    return _pair_by_channel(
+    return pair_by_channel(
         [list(p) for p in positions], data.get("channel_array_indices")
     )
 
@@ -1698,9 +1707,7 @@ def flex_runs(pm: PathManager, sid: str) -> list[dict] | None:
                 # none of them, so a client that reads only `manifest` has no way to
                 # turn a run into a `Montage` for submission (simulator PARITY.md #4).
                 "mappings": _flex_mappings(run_dir, project_root=pm.project_dir),
-                "optimized": _flex_optimized_pairs(
-                    run_dir, project_root=pm.project_dir
-                ),
+                "optimized": flex_optimized_pairs(run_dir, project_root=pm.project_dir),
                 "artifacts": _dir_artifacts(run_dir, project_root=pm.project_dir),
             }
         )

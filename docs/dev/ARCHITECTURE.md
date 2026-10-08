@@ -260,7 +260,15 @@ itself**: steps with no `after` at once, as jobs with the proposer's `created_by
 watcher follows the job manager's status stream), `skipped` when one did not. A `sim_from_flex`
 step names an earlier flex step or a finished run and is resolved at that moment by
 `tit.sim.montage_sources.resolve_flex_simulation`, which `GET /api/sim-from-flex` also serves to
-the agent plugin's `simulate_flex_result`. Step and proposal states are derived from the jobs at
+the agent plugin's `simulate_flex_result`. **A flex run's electrodes are paired one way
+everywhere:** by the optimiser's own `channel_array_indices` (`tit.catalog.pair_by_channel`;
+consecutive only when that record is missing), with every channel kept, for the Simulator's flex
+rows (`GET /api/catalog/flex-runs`), its Map-to-net (`…/mapping`), `/api/plan`'s flex montage
+sources and `resolve_flex_simulation`, which all build the montage through
+`resolve_flex_montage`. A net the run is already mapped to is read from its
+`electrode_mapping_<net>.json`; the Hungarian mapping runs and the cache is written only the first
+time. Excluded alternative: consecutive pairing of the first four electrodes (it disagreed with
+the catalog for an out-of-order record and dropped the extra channels of an mTI run). Step and proposal states are derived from the jobs at
 read time. A finished plan (done, rejected or failed) can be dismissed (`POST /api/proposals/{id}/dismiss`,
 stored as `dismissed_at`; the default list omits it); the Jobs page shows only pending and
 in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Excluded

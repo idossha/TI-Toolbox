@@ -2746,3 +2746,30 @@ generator for four lines).
 **Evidence.** `tests/test_region_rois.py` (shared table, search, route 200/404/422);
 `desktop/tests/unit/roi-region-table.test.ts`; `tests/test_agent_plugin_jobs.py` (passthrough and
 the proposal note).
+
+## 2026-10-08 — One electrode-pairing rule for a flex-search result
+
+**Decision.** Every path that turns a finished flex-search run into a montage pairs its electrodes
+with `tit.catalog.pair_by_channel` — the optimiser's `[channel, array]` per electrode
+(`_save_optimized_positions` in `resources/map-electrodes/tes_flex_optimization.py`, carried into
+`electrode_mapping_<net>.json` by the Hungarian mapping), consecutive only when that record is
+absent or unusable — and keeps every channel. `resolve_flex_montage` (used by `/api/plan`'s flex
+montage sources and `/api/catalog/flex-runs/{run}/mapping`) reads its pairs through the catalog's
+readers (`flex_optimized_pairs`, `read_flex_mapping`); `resolve_flex_simulation` (the agent's
+`sim_from_flex` and `GET /api/sim-from-flex`) builds its montage through `resolve_flex_montage`,
+which reads a net the run is already mapped to instead of re-mapping it and rewriting the cache.
+Wire shapes are unchanged.
+
+**Why.** `resolve_flex_montage` paired the first four electrodes consecutively while the catalog
+(what the Simulator page shows) paired by channel, so a record listed out of channel order gave
+`/api/plan` and the agent different electrodes than the page, and an mTI run lost its third and
+fourth channel there. The optimiser writes channel-major order today, so results produced by
+TI-Toolbox's own flex-search do not move; only out-of-order records and mTI runs did.
+
+**Alternatives rejected.** Consecutive pairing everywhere (ignores what the optimiser recorded);
+re-mapping on every request (rewrote the cache the catalog reads and repeated the assignment).
+
+**Evidence.** `tests/test_flex_simulation_resolver.py` (an out-of-order fixture: catalog,
+`resolve_flex_montage` optimized and mapped, and `resolve_flex_simulation` agree; a cached net is
+read with the mapping refused; a new net is mapped once, then read);
+`tests/test_montage_sources.py`, `tests/test_montage_source_safety.py`.
