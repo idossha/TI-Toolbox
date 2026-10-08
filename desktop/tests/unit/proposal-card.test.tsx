@@ -17,8 +17,8 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { approveProposal, editStep, rejectProposal } from "../../src/renderer/app/proposals/api";
-import { ProposalCard } from "../../src/renderer/app/proposals/ProposalCard";
+import { approveProposal, dismissProposal, editStep, rejectProposal } from "../../src/renderer/app/proposals/api";
+import { ProposalCard, ProposalsStrip } from "../../src/renderer/app/proposals/ProposalCard";
 import { liveStepState, overwrites, stepFacts, visibleProposals, type Proposal } from "../../src/renderer/app/proposals/model";
 import type { JobStatus } from "../../src/renderer/app/jobs/types";
 
@@ -26,6 +26,7 @@ vi.mock("../../src/renderer/app/proposals/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/renderer/app/proposals/api")>()),
   approveProposal: vi.fn(),
   rejectProposal: vi.fn(),
+  dismissProposal: vi.fn(),
   editStep: vi.fn(),
   runStep: vi.fn(),
 }));
@@ -98,6 +99,11 @@ let root: Root;
 let client: QueryClient;
 beforeEach(() => {
   vi.resetAllMocks();
+  const store = new Map<string, string>(); // this jsdom's localStorage has no clear()
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) },
+  });
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -229,4 +235,64 @@ it("keeps undecided and in-flight plans, and only a day of the rest", () => {
   const recent = { ...proposal(), id: "recent", status: "rejected", updated_at: "2026-10-08T11:00:00Z" } as Proposal;
   const waiting = { ...proposal(), id: "waiting", updated_at: "2026-09-01T00:00:00Z" } as Proposal;
   expect(visibleProposals([old, recent, waiting], now).map((p) => p.id)).toEqual(["recent", "waiting"]);
+});
+
+function renderStrip(proposals: Proposal[], onOpenJob = vi.fn()) {
+  act(() =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <ProposalsStrip proposals={proposals} jobs={{}} onOpenJob={onOpenJob} />
+      </QueryClientProvider>,
+    ),
+  );
+  return onOpenJob;
+}
+const done = (id: string, extra: Partial<Proposal> = {}) =>
+  proposal({ id, title: `Plan ${id}`, status: "succeeded", decision: { state: "approved", at: null, note: null }, ...extra });
+
+it("renders only plans that need you or are in flight as cards; finished ones fold into a list", () => {
+  const running = proposal({ id: "run", title: "Plan run", status: "running" });
+  const failed = done("failed", { status: "failed" });
+  failed.steps[0] = { ...failed.steps[0]!, job_ids: ["job00001aaaa"] };
+  renderStrip([done("ok"), proposal({ id: "wait" }), running, proposal({ id: "no", title: "Plan no", status: "rejected" }), failed]);
+  const cards = [...container.querySelectorAll('[data-testid="proposal-card"]')];
+  expect(cards.map((c) => c.getAttribute("data-status"))).toEqual(["pending", "running"]); // pending first
+  const toggle = container.querySelector(".finished-plans-toggle")!;
+  expect(toggle.textContent).toContain("Finished plans (3)");
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(container.querySelectorAll('[data-testid="finished-plan"]')).toHaveLength(0); // collapsed by default
+});
+
+it("shows no finished disclosure when nothing is finished", () => {
+  renderStrip([proposal()]);
+  expect(container.querySelector('[data-testid="finished-plans"]')).toBeNull();
+});
+
+it("lists finished plans compactly, remembers open, opens their jobs and dismisses", async () => {
+  vi.mocked(dismissProposal).mockResolvedValue(done("ok"));
+  const failed = done("failed", { status: "failed" });
+  failed.steps[0] = { ...failed.steps[0]!, job_ids: ["job00001aaaa"] };
+  client.setQueryData(["proposals"], [done("ok"), failed]);
+  const onOpenJob = renderStrip([done("ok"), failed]);
+  act(() => (container.querySelector(".finished-plans-toggle") as HTMLButtonElement).click());
+  const rows = [...container.querySelectorAll('[data-testid="finished-plan"]')];
+  expect(rows.map((r) => r.getAttribute("data-status"))).toEqual(["succeeded", "failed"]);
+  expect(rows[0]!.textContent).toContain("Plan ok");
+  expect(rows[0]!.textContent).toContain("done");
+  expect(rows[0]!.textContent).toContain("from Claude Code");
+  expect(container.querySelector('[data-testid="proposal-card"]')).toBeNull();
+  expect(window.localStorage.getItem("tit-finished-plans-open")).toBe("1");
+
+  act(() => button("job00001")!.click());
+  expect(onOpenJob).toHaveBeenCalledWith("job00001aaaa");
+
+  act(() => (rows[0]!.querySelector('button[aria-label^="Dismiss"]') as HTMLButtonElement).click());
+  await settle();
+  expect(dismissProposal).toHaveBeenCalledWith("ok");
+  expect((client.getQueryData(["proposals"]) as Proposal[]).map((p) => p.id)).toEqual(["failed"]);
+
+  act(() => root.unmount());
+  root = createRoot(container);
+  renderStrip([failed]); // a fresh mount reads the remembered state
+  expect(container.querySelectorAll('[data-testid="finished-plan"]')).toHaveLength(1);
 });

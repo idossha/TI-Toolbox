@@ -161,6 +161,11 @@ export function visibleProposals(all: readonly Proposal[], now = Date.now()): Pr
   );
 }
 
+/** Decided and over: done, rejected or failed. These leave the card strip for the finished list. */
+export function isFinished(p: Proposal): boolean {
+  return p.status === "succeeded" || p.status === "rejected" || p.status === "failed";
+}
+
 export function pendingCount(all: readonly Proposal[] | undefined): number {
   return (all ?? []).filter((p) => p.status === "pending").length;
 }

@@ -1084,3 +1084,12 @@ that string. `SimulationDetail.meshes` may now include `MeshRef` entries with `k
 (the projection; `kind` was already a free string), and a `source` job in `fsavg_map` mode reports
 each written projection as an `artifact` event with `kind: "mesh"`. Clients that ignore unknown
 mesh kinds behave as before.
+
+## 2026-10-08 — dismissing a finished agent plan
+
+New path `POST /api/proposals/{id}/dismiss` hides a finished proposal (status `succeeded`,
+`rejected` or `failed`; 409 while it is `pending` or `running`). `Proposal` gains optional
+`dismissed_at`; `GET /api/proposals` gains optional `include_dismissed` (default `false`) and omits
+dismissed plans unless it is true. `GET /api/proposals/{id}` still returns them. A retried step
+clears the dismissal. Additive: clients that ignore both behave as before, except that a dismissed
+plan no longer appears in the default list.

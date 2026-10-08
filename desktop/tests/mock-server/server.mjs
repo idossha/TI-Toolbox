@@ -4051,7 +4051,11 @@ function pendingProposal(ctx) {
 const emptyPlan = () => ({ errors: [], missing_inputs: [], outputs: [], will_overwrite: [], eta_minutes: null, warnings: [], deferred: null });
 route("GET", "/api/proposals", (ctx) => {
   const status = ctx.url.searchParams.get("status");
-  const all = [...proposalStore.values()].map(proposalView).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const withDismissed = ctx.url.searchParams.get("include_dismissed") === "true";
+  const all = [...proposalStore.values()]
+    .map(proposalView)
+    .filter((p) => withDismissed || !p.dismissed_at)
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   json(ctx.res, 200, status ? all.filter((p) => p.status === status) : all);
 });
 route("POST", "/api/proposals", async (ctx) => {
@@ -4125,6 +4129,16 @@ route("POST", "/api/proposals/:id/reject", async (ctx) => {
   if (!p) return;
   const body = (await ctx.body()) ?? {};
   p.decision = { state: "rejected", at: nowIso(), note: body.note ?? null };
+  p.updated_at = nowIso();
+  broadcastProposal(p);
+  json(ctx.res, 200, proposalView(p));
+});
+route("POST", "/api/proposals/:id/dismiss", (ctx) => {
+  const p = PROPOSAL_ID_RE.test(ctx.params.id) ? proposalStore.get(ctx.params.id) : undefined;
+  if (!p) return json(ctx.res, 404, { detail: "unknown proposal" });
+  const status = proposalView(p).status;
+  if (!["succeeded", "rejected", "failed"].includes(status)) return json(ctx.res, 409, { detail: `proposal is ${status}` });
+  p.dismissed_at = nowIso();
   p.updated_at = nowIso();
   broadcastProposal(p);
   json(ctx.res, 200, proposalView(p));

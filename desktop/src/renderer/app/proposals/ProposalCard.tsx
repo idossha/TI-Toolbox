@@ -6,18 +6,19 @@
  */
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bot, ChevronRight } from "lucide-react";
+import { Bot, ChevronRight, X } from "lucide-react";
 import { ApiError } from "../../api/client";
-import { Button } from "../../ui/Button";
+import { Button, IconButton } from "../../ui/Button";
 import { Callout } from "../../ui/Feedback";
 import { TextInput, Textarea } from "../../ui/Field";
 import { Chip } from "../../ui/Status";
 import { Checkbox } from "../../ui/Toggle";
 import { notify } from "../../ui/Toast";
 import type { JobStatus } from "../jobs/types";
-import { approveProposal, editStep, PROPOSALS_KEY, rejectProposal, runStep, type StepEdit } from "./api";
+import { approveProposal, dismissProposal, editStep, PROPOSALS_KEY, rejectProposal, runStep, type StepEdit } from "./api";
 import {
   blockers,
+  isFinished,
   kindLabel,
   liveStepState,
   overwrites,
@@ -339,7 +340,85 @@ export function ProposalCard({
   );
 }
 
-/** The Jobs page's strip of plan cards: pending first, then the ones in flight or just done. */
+const FINISHED_OPEN_KEY = "tit-finished-plans-open";
+
+function readOpen(): boolean {
+  try {
+    return window.localStorage.getItem(FINISHED_OPEN_KEY) === "1";
+  } catch {
+    return false; // localStorage unavailable: collapsed
+  }
+}
+
+function FinishedRow({ proposal, onOpenJob }: { proposal: Proposal; onOpenJob?: (jobId: string) => void }) {
+  const queryClient = useQueryClient();
+  const dismiss = useMutation({
+    mutationFn: () => dismissProposal(proposal.id),
+    onSuccess: () => queryClient.setQueryData<Proposal[]>(PROPOSALS_KEY, (all) => all?.filter((x) => x.id !== proposal.id)),
+    onError: (e) => notify.error("Could not dismiss the plan.", errorText(e)),
+  });
+  const at = proposal.updated_at ?? proposal.created_at;
+  return (
+    <li className="finished-plan" data-testid="finished-plan" data-status={proposal.status}>
+      <span className="proposal-title">{proposal.title}</span>
+      <Chip kind={STATUS_KIND[proposal.status]}>{STATUS_LABEL[proposal.status]}</Chip>
+      <span className="text-caption">from {proposer(proposal)}</span>
+      <time className="text-caption tabular-nums" dateTime={at}>
+        {new Date(at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+      </time>
+      {onOpenJob &&
+        proposal.steps
+          .flatMap((s) => s.job_ids)
+          .map((id) => (
+            <button key={id} type="button" className="proposal-job-link mono" onClick={() => onOpenJob(id)}>
+              {id.slice(0, 8)}
+            </button>
+          ))}
+      <IconButton
+        className="finished-plan-dismiss"
+        aria-label={`Dismiss “${proposal.title}”`}
+        title="Dismiss"
+        size="sm"
+        icon={<X size={14} aria-hidden />}
+        disabled={dismiss.isPending}
+        onClick={() => dismiss.mutate()}
+      />
+    </li>
+  );
+}
+
+/** "Finished plans (N)": one line collapsed; expanded, a compact row per plan with Dismiss. */
+function FinishedPlans({ proposals, onOpenJob }: { proposals: readonly Proposal[]; onOpenJob?: (jobId: string) => void }) {
+  const [open, setOpen] = useState(readOpen);
+  const toggle = () => {
+    try {
+      window.localStorage.setItem(FINISHED_OPEN_KEY, open ? "0" : "1");
+    } catch {
+      // best-effort persistence only
+    }
+    setOpen(!open);
+  };
+  return (
+    <div className="finished-plans" data-testid="finished-plans">
+      <button type="button" className="finished-plans-toggle text-caption" aria-expanded={open} onClick={toggle}>
+        <ChevronRight size={12} aria-hidden className={open ? "finished-plans-chevron open" : "finished-plans-chevron"} />
+        Finished plans ({proposals.length})
+      </button>
+      {open && (
+        <ul className="finished-plans-list">
+          {proposals.map((p) => (
+            <FinishedRow key={p.id} proposal={p} onOpenJob={onOpenJob} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Jobs page's strip of plans: a card for each one that needs the user or is in flight
+ * (pending first), and the finished ones folded into a "Finished plans (N)" disclosure.
+ */
 export function ProposalsStrip({
   proposals,
   jobs,
@@ -350,12 +429,14 @@ export function ProposalsStrip({
   onOpenJob?: (jobId: string) => void;
 }) {
   if (proposals.length === 0) return null;
-  const ordered = [...proposals].sort((a, b) => Number(b.status === "pending") - Number(a.status === "pending"));
+  const finished = proposals.filter(isFinished);
+  const active = proposals.filter((p) => !isFinished(p)).sort((a, b) => Number(b.status === "pending") - Number(a.status === "pending"));
   return (
     <div className="proposals-strip" data-testid="proposals-strip">
-      {ordered.map((p) => (
+      {active.map((p) => (
         <ProposalCard key={p.id} proposal={p} jobs={jobs} onOpenJob={onOpenJob} />
       ))}
+      {finished.length > 0 && <FinishedPlans proposals={finished} onOpenJob={onOpenJob} />}
     </div>
   );
 }

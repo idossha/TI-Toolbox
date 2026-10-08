@@ -1603,6 +1603,11 @@ paths:
           name: status
           required: false
           schema: { type: string }
+        - in: query
+          name: include_dismissed
+          required: false
+          schema: { type: boolean, default: false }
+          description: also list plans the user dismissed (omitted by default)
       responses:
         "200":
           content:
@@ -1748,6 +1753,26 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           description: already decided
+  /api/proposals/{id}/dismiss:
+    post:
+      tags: [jobs]
+      summary: Hide a finished plan (done, rejected or failed) from the default list
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: the plan is still waiting or running
   /api/proposals/{id}/steps/{step_id}/run:
     post:
       tags: [jobs]
@@ -5574,6 +5599,7 @@ components:
         client: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        dismissed_at: { type: [string, "null"], description: when the user dismissed this finished plan }
         status:
           type: string
           enum: [draft, pending, rejected, running, succeeded, failed]

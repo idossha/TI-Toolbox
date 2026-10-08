@@ -2668,6 +2668,8 @@ export interface paths {
             parameters: {
                 query?: {
                     status?: string;
+                    /** @description also list plans the user dismissed (omitted by default) */
+                    include_dismissed?: boolean;
                 };
                 header?: never;
                 path?: never;
@@ -2913,6 +2915,51 @@ export interface paths {
                 };
                 401: components["responses"]["Unauthorized"];
                 /** @description already decided */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proposals/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hide a finished plan (done, rejected or failed) from the default list */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description the plan is still waiting or running */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -6867,6 +6914,8 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at?: string;
+            /** @description when the user dismissed this finished plan */
+            dismissed_at?: string | null;
             /**
              * @description derived -- the decision, then the approved steps' states
              * @enum {string}

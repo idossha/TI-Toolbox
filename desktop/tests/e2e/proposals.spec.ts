@@ -98,16 +98,33 @@ test("a proposed plan is counted, shown as a card, and approving it queues an ag
   await page.screenshot({ path: join(ARTIFACTS, "proposal-approved.png") });
 });
 
-test("rejecting sends the note and Settings has the approval switch", async () => {
+test("rejecting sends the note, folds the plan into Finished plans, and Settings has the approval switch", async () => {
   const id = await propose();
   await page.getByRole("link", { name: "Jobs", exact: true }).click();
   const card = page.getByTestId("proposal-card");
   await card.getByRole("button", { name: "Reject…" }).click();
   await card.getByLabel("Rejection note").fill("use the left thalamus only");
   await card.getByRole("button", { name: "Reject plan" }).click();
-  await expect(card).toHaveAttribute("data-status", "rejected");
+  // A decided plan is no card any more: it folds into the collapsed "Finished plans" disclosure.
+  await expect(card).toHaveCount(0);
+  const finished = page.getByTestId("finished-plans");
+  await expect(finished).toContainText("Finished plans (1)");
+  await expect(page.getByTestId("finished-plan")).toHaveCount(0);
+  await page.screenshot({ path: join(ARTIFACTS, "finished-plans-collapsed.png") });
+  await finished.getByRole("button", { name: /Finished plans/ }).click();
+  const row = page.getByTestId("finished-plan");
+  await expect(row).toContainText("Maximise the field in the bilateral thalamus");
+  await expect(row).toContainText("rejected");
+  await expect(row).toContainText("from Claude Code");
+  await page.screenshot({ path: join(ARTIFACTS, "finished-plans-expanded.png") });
   const stored = await (await page.request.get(`${SERVER_URL}/api/proposals/${id}`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json();
   expect(stored.decision).toMatchObject({ state: "rejected", note: "use the left thalamus only" });
+
+  // Dismiss persists on the server: gone from the list and from the default listing.
+  await row.getByRole("button", { name: /^Dismiss/ }).click();
+  await expect(finished).toHaveCount(0);
+  const listed = await (await page.request.get(`${SERVER_URL}/api/proposals`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json();
+  expect((listed as { id: string }[]).map((p) => p.id)).not.toContain(id);
 
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   const toggle = page.getByRole("switch", { name: "Agent may submit without approval" });

@@ -28,9 +28,11 @@ def _note(body: dict[str, Any] | None) -> Any:
 
 @router.get("/api/proposals", summary="Agent proposals, newest first")
 def list_proposals(
-    request: Request, status: str | None = Query(default=None)
+    request: Request,
+    status: str | None = Query(default=None),
+    include_dismissed: bool = Query(default=False),
 ) -> list[dict[str, Any]]:
-    return _engine().list_views(get_manager(request.app), status)
+    return _engine().list_views(get_manager(request.app), status, include_dismissed)
 
 
 @router.post(
@@ -84,6 +86,15 @@ def reject_proposal(
     request: Request, id: str, body: dict[str, Any] | None = Body(default=None)
 ) -> dict[str, Any]:
     return _engine().reject(get_manager(request.app), id, _note(body))
+
+
+@router.post(
+    "/api/proposals/{id}/dismiss",
+    summary="Hide a finished plan (done, rejected or failed) from the default list",
+    responses={409: {"description": "the plan is still waiting or running"}},
+)
+def dismiss_proposal(request: Request, id: str) -> dict[str, Any]:
+    return _engine().dismiss(get_manager(request.app), id)
 
 
 @router.post(
