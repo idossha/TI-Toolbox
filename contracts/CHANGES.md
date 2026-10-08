@@ -1141,3 +1141,10 @@ the config class name `POST /api/validate/{kind}` and `/api/plan/{kind}` use
 (`tit.server.routes.validate.SIMPLE_KIND_CLASS`, plus `AMBIGUOUS_KIND_DEFAULT` for `stats` and
 `blender`). The agent plugin's `get_config_schema` reads it and no longer carries its own copy.
 Additive: `$defs` and the other keys are unchanged.
+
+## 2026-10-08 — a proposal step's plan names its lock waits
+
+`ProposalStepPlan` gains optional `lock_conflicts` (`LockConflict[]`): the running jobs holding a
+lock the step needs, from the same `POST /api/plan` check `plan_job` reports, on a dry run and a
+stored proposal alike. Additive: absent on records planned before, and clients that ignore it
+behave as before.

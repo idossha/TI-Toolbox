@@ -2839,3 +2839,13 @@ document is already fetched for the `$defs` and the defaults); keeping the copy 
 **Evidence.** `tests/test_config_schema.py::TestBuildSchemaScript::test_build_schema_serves_the_servers_kind_to_class_table`;
 `tests/test_agent_plugin_jobs.py::test_against_the_real_server_jobs_are_recorded_as_agent`
 (`get_config_schema(kind="flex_adaptive")` -> `FlexConfig` over HTTP).
+
+## 2026-10-08 — A proposal step's plan reports lock waits
+
+**Decision.** `tit.server.proposals._plan_step` copies the plan route's `lock_conflicts` into the
+step's plan (`ProposalStepPlan.lock_conflicts`, additive), so `propose_pipeline`'s dry run names
+the running jobs a step would queue behind, as `plan_job` does. **Why.** The step already called
+`plan()`, which computes them; dropping them made the dry run say less than `plan_job`.
+**Alternatives rejected.** A second lock query in the proposal engine (two code paths for one
+answer). **Evidence.** `tests/test_proposals_routes.py::test_a_dry_run_names_the_running_job_a_step_would_wait_for`;
+`tests/test_agent_plugin_jobs.py::test_propose_pipeline_reports_the_lock_waits_its_dry_run_found`.

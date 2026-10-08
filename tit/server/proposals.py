@@ -298,6 +298,7 @@ def _plan_step(record: dict[str, Any], step: dict[str, Any], manager: Any) -> No
         "missing_inputs": [],
         "outputs": [],
         "will_overwrite": [],
+        "lock_conflicts": [],
         "eta_minutes": None,
         "warnings": [],
         "deferred": None,
@@ -350,6 +351,10 @@ def _plan_step(record: dict[str, Any], step: dict[str, Any], manager: Any) -> No
             if job.will_overwrite:
                 out["will_overwrite"].append(job.output_dir)
         out["warnings"].extend(result.warnings)
+        # The plan route's lock-wait check: which running jobs this step would queue behind.
+        for conflict in result.lock_conflicts:
+            if conflict.model_dump() not in out["lock_conflicts"]:
+                out["lock_conflicts"].append(conflict.model_dump())
         if result.cost.eta_minutes:
             eta += result.cost.eta_minutes
     out["eta_minutes"] = eta or None

@@ -6978,6 +6978,8 @@ export interface components {
                 exists: boolean;
             }[];
             will_overwrite: string[];
+            /** @description running jobs holding a lock this step needs (POST /api/plan's `lock_conflicts`): the step waits for them once queued; absent on a record planned before this field */
+            lock_conflicts?: components["schemas"]["LockConflict"][];
             eta_minutes?: number | null;
             warnings: string[];
             /** @description why this step cannot be planned until a step it waits on has finished */

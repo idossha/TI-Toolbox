@@ -384,7 +384,9 @@ def test_a_failed_step_skips_the_steps_that_wait_on_it(client: TestClient) -> No
 
 
 def ids(client: TestClient, query: str = "") -> list[str]:
-    return [p["id"] for p in client.get(f"/api/proposals{query}", headers=BEARER).json()]
+    return [
+        p["id"] for p in client.get(f"/api/proposals{query}", headers=BEARER).json()
+    ]
 
 
 def test_dismiss_hides_a_finished_plan_and_broadcasts(client: TestClient) -> None:
@@ -411,5 +413,39 @@ def test_a_finished_approved_plan_can_be_dismissed(client: TestClient) -> None:
     pid = propose(client)["id"]
     client.post(f"/api/proposals/{pid}/approve", headers=BEARER, json={})
     assert finished(client, pid)["status"] == "succeeded"
-    assert client.post(f"/api/proposals/{pid}/dismiss", headers=BEARER).status_code == 200
+    assert (
+        client.post(f"/api/proposals/{pid}/dismiss", headers=BEARER).status_code == 200
+    )
     assert ids(client) == []
+
+
+def test_a_dry_run_names_the_running_job_a_step_would_wait_for(
+    client: TestClient, monkeypatch
+) -> None:
+    """The step's plan carries the plan route's own lock-wait answer (2026-10-08), as plan_job
+    does; the lock bookkeeping itself is pinned in tests/test_jobs_manager.py."""
+    from tit.server.routes import plan as plan_route
+
+    held = {
+        "key": "subject:001:simulations:write",
+        "held_by": "abcdef0123456789",
+        "kind": "sim",
+        "subject": "001",
+        "started_at": "2026-10-08T10:00:00+00:00",
+    }
+    asked = []
+
+    def conflicts(kind, subject_ids, config):
+        asked.append((kind, subject_ids))
+        return [plan_route.LockConflict(**held)]
+
+    monkeypatch.setattr(plan_route, "_plan_lock_conflicts", conflicts)
+    draft = client.post(
+        "/api/proposals",
+        headers=BEARER,
+        json={"title": "Simulate m1", "steps": [sim_step()], "dry_run": True},
+    )
+    assert draft.status_code == 201, draft.text
+    assert draft.json()["status"] == "draft"
+    assert draft.json()["steps"][0]["plan"]["lock_conflicts"] == [held]
+    assert asked == [("sim", ["001"])]

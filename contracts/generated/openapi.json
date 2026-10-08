@@ -11713,6 +11713,13 @@
               "type": "string"
             }
           },
+          "lock_conflicts": {
+            "type": "array",
+            "description": "running jobs holding a lock this step needs (POST /api/plan's `lock_conflicts`): the step waits for them once queued; absent on a record planned before this field",
+            "items": {
+              "$ref": "#/components/schemas/LockConflict"
+            }
+          },
           "eta_minutes": {
             "type": [
               "number",

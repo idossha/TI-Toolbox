@@ -254,7 +254,8 @@ decides whether those routes accept `created_by: "agent"`; off, they answer 403 
 (`POST /api/proposals`: title, rationale, ordered steps `{id, kind, config, subject_ids, after,
 note, overwrite}`), stored as `code/ti-toolbox/proposals/<id>.json` by
 [`proposals.py`](../../tit/server/proposals.py), which plans every step with the validate, plan
-and preflight functions the run pages use and pushes `{"type": "proposal"}` on `/ws/jobs` (the
+and preflight functions the run pages use (outputs, replacements, ETA and the plan route's lock
+waits, `plan.lock_conflicts`, on a dry run as on a stored proposal) and pushes `{"type": "proposal"}` on `/ws/jobs` (the
 renderer toasts a newly pending plan; main's job notifier shows a native banner for it while the
 window is unfocused and notifications are on). While
 pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit);

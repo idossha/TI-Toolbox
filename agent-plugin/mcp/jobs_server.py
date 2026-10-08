@@ -727,6 +727,7 @@ def _step_summary(step: Dict[str, Any]) -> Dict[str, Any]:
         "errors",
         "missing_inputs",
         "will_overwrite",
+        "lock_conflicts",
         "deferred",
         "eta_minutes",
     ):

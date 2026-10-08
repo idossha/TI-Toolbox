@@ -1008,3 +1008,23 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
         server.should_exit = True
         thread.join(timeout=10)
         bootstrap.reset_manager()
+
+
+def test_propose_pipeline_reports_the_lock_waits_its_dry_run_found(js, fake):
+    """Like plan_job, the agent hears which running job a step would queue behind."""
+    held = {"key": "subject:101:flex:write", "held_by": "j1", "kind": "flex"}
+    waiting = _proposal()
+    waiting["steps"][0]["plan"] = {
+        **waiting["steps"][0]["plan"],
+        "lock_conflicts": [held],
+    }
+    fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, waiting)
+    err, out = call(
+        js,
+        "propose_pipeline",
+        title="t",
+        rationale="r",
+        steps=[{"id": "opt", "kind": "flex", "config": {}, "subject_ids": ["101"]}],
+    )
+    assert not err and out["proposed"]
+    assert out["steps"][0]["lock_conflicts"] == [held]
