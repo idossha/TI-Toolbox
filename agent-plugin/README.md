@@ -12,9 +12,14 @@ It has three parts, usable together or separately:
 | **MCP server `ti-toolbox`** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
 | **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: stage raw scans into `sourcedata/`, preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
 
-Both servers are single Python 3.9+ files with **no dependencies**. The read-only
-server reads from a local TI-Toolbox checkout when one is present, otherwise it
-fetches the files from GitHub (`main`) and caches them in `~/.cache/ti-toolbox-mcp`.
+Plugin version **0.4.0** (`.claude-plugin/plugin.json`). Both servers are single
+Python 3.9+ files with **no dependencies**. The read-only server reads from a local
+TI-Toolbox checkout when one is present, otherwise it fetches the files from GitHub (`main`) and caches them in `~/.cache/ti-toolbox-mcp`.
+
+**No setup at all:** the desktop app's **Assistant** page runs your own Claude Code
+or Codex with this plugin (the copy bundled with the app) already attached; see
+[From the desktop app](#run-pipelines-with-your-own-agent) below. The install
+sections further down are for using the plugin from your own terminal or editor.
 
 ## Run pipelines with your own agent
 
@@ -52,7 +57,7 @@ an installed `ti-toolbox` plugin is superseded for that session, not registered 
 No setup below is needed for that route.
 
 **Requirements.** The desktop app (or `tit launch`) open on your project, and
-`docker` on the agent's `PATH`. For a server without Docker, set
+`docker` on the agent's `PATH` (not needed from the Assistant page). For a server without Docker, set
 `TIT_SERVER_URL` and `TIT_SERVER_TOKEN` in the agent's environment instead.
 With several projects open, the agent is asked which one.
 
