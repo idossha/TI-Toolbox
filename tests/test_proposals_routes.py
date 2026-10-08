@@ -481,3 +481,27 @@ def test_finished_plans_are_pruned_by_the_job_registrys_rule(
     assert left == {recent, waiting}
     # The count rule too: beyond the newest keep_count finished plans.
     assert proposals.prune(manager, keep_count=0) == [recent]
+
+
+def test_a_step_plan_names_its_target_from_the_atlas(
+    client: TestClient, project: Path
+) -> None:
+    """The card's "Target" comes from the server (2026-10-08): label ids named from the atlas's
+    own colour table (written here), for any ROI, not only one the agent's find_regions built.
+    The naming rules themselves are pinned in tests/test_roi_target.py."""
+    seg = Path(get_path_manager(str(project)).m2m("001")) / "segmentation"
+    seg.mkdir(parents=True, exist_ok=True)
+    (seg / "labeling.nii.gz").write_bytes(b"")
+    (seg / "labeling_LUT.txt").write_text("10 Left-Thalamus 0 118 14 0\n49 Right-Thalamus 0 118 14 0\n")
+    roi = {
+        "_type": "SubcorticalROI",
+        "atlas_path": [str(seg / "labeling.nii.gz")] * 2,
+        "label": [10, 49],
+        "tissues": "GM",
+        "atlas_space": "subject",
+    }
+    flex = {"id": "opt", "kind": "flex", "config": {**FLEX, "roi": roi, "output_folder": "thal"}, "subject_ids": ["001"]}
+    proposal = propose(client, flex, sim_step())
+    opt, sim = proposal["steps"]
+    assert opt["plan"]["target"] == "Left-Thalamus, Right-Thalamus"
+    assert sim["plan"]["target"] is None  # a simulation has no ROI

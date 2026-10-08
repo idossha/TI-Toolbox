@@ -609,25 +609,24 @@ def test_propose_pipeline_dry_runs_then_creates(js, fake):
     assert sim["config"] == {"flex_step": "opt"}
 
 
-def test_propose_pipeline_names_a_target_find_regions_returned(js, fake):
-    fake.routes[("GET", "/api/catalog/regions")] = THALAMUS
-    fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, _proposal())
-    roi = call(js, "find_regions", subject_id="101", query="thalamus")[1]["atlases"][0][
-        "rois"
-    ]["all"]
+def test_propose_pipeline_reports_the_target_the_server_named(js, fake):
+    """The server names a step's target in its plan (tit.opt.roi_spec.config_target); the plugin
+    adds no note of its own and only passes the agent's through."""
+    named = _proposal()
+    named["steps"][0]["plan"]["target"] = "Left-Thalamus, Right-Thalamus"
+    fake.routes[("POST", "/api/proposals")] = lambda q, b: (201, named)
     steps = [
-        {"id": "opt", "kind": "flex", "config": {"roi": roi}, "subject_ids": ["101"]}
+        {"id": "opt", "kind": "flex", "config": {"roi": THALAMUS[0]["rois"]["all"]}, "subject_ids": ["101"]}
     ]
-    assert not call(js, "propose_pipeline", title="t", rationale="r", steps=steps)[0]
-    sent = fake.sent("POST", "/api/proposals")[-1]["body"]["steps"][0]
-    assert sent["note"] == "Target: Left-Thalamus, Right-Thalamus"
-    # The agent's own note wins.
+    err, out = call(js, "propose_pipeline", title="t", rationale="r", steps=steps)
+    assert not err, out
+    assert out["steps"][0]["target"] == "Left-Thalamus, Right-Thalamus"
+    assert "note" not in fake.sent("POST", "/api/proposals")[-1]["body"]["steps"][0]
     steps[0]["note"] = "both thalami"
     call(js, "propose_pipeline", title="t", rationale="r", steps=steps)
     assert fake.sent("POST", "/api/proposals")[-1]["body"]["steps"][0]["note"] == (
         "both thalami"
     )
-
 
 def test_propose_pipeline_with_errors_shows_the_user_nothing(js, fake):
     bad = _proposal()

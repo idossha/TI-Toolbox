@@ -167,6 +167,16 @@ it("states each step's settings in the user's terms", () => {
   expect(overwrites(p)).toEqual([{ step: "opt", path: "/p/flex-search/thalamus_mean", allowed: false }]);
 });
 
+it("names the target the server resolved, falling back to the ROI's labels", () => {
+  const p = proposal();
+  const [flex] = p.steps;
+  const named = { ...flex!, plan: { ...flex!.plan!, target: "Left-Thalamus" } };
+  expect(Object.fromEntries(stepFacts(named, p.steps)).Target).toBe("Left-Thalamus");
+  const ex = { ...flex!, kind: "ex", config: { run_name: "r", leadfield_hdf: "lf.hdf5" }, plan: { ...flex!.plan!, target: "L-Insula" } };
+  expect(Object.fromEntries(stepFacts(ex, p.steps)).Target).toBe("L-Insula");
+  expect(Object.fromEntries(stepFacts({ ...ex, plan: { ...ex.plan, target: null } }, p.steps)).Target).toBeUndefined();
+});
+
 it("shows the plan, warns loudly about replaced output, and approves", async () => {
   vi.mocked(approveProposal).mockResolvedValue(proposal({ status: "running" }));
   render(proposal());

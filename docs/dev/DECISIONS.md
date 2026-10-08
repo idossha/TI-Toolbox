@@ -2729,7 +2729,8 @@ the job's spec carries the page default).
 subject's atlas regions whose names hold every word of the query (side words ignored) and returns,
 per atlas, the matches and ready `FlexConfig` ROIs `rois.all|left|right` built by
 `tit.catalog.region_roi`. The agent plugin's `find_regions` passes it through (it only remembers
-region names for a proposal's "Target: …" note); its own atlas walk, side split and ROI builder are
+region names for a proposal's "Target: …" note; **superseded 2026-10-08**, the server names a
+step's target); its own atlas walk, side split and ROI builder are
 deleted. The desktop's `roiToConfig` keeps building the picker's ROI in TypeScript, and
 `tests/fixtures/region_rois.json` drives both implementations (`tests/test_region_rois.py`,
 `desktop/tests/unit/roi-region-table.test.ts`). Additive contract path and schema (`RegionMatch`).
@@ -2989,3 +2990,31 @@ saved step keeps unknown fields and its kind; refusals); `desktop/tests/unit/pro
 (footer actions, Open in form's route and state); `desktop/tests/e2e/proposals.spec.ts` (Optimizer,
 Simulator and Pre-processing save flows, the 1024 px editor fit, the Overview notice, and a
 two-step plan run to done against the mock, which now queues dependent steps like `_advance`).
+
+## 2026-10-08 — The server names a proposal step's target; the plugin's region memory is gone
+
+**Decision.** `tit.server.proposals._plan_step` sets `plan.target` for flex, ex and mex steps from
+`tit.opt.roi_spec.config_target(config)`: a `SubcorticalROI`/`AtlasROI`'s labels through
+`region_name` (a volume label from the atlas's colour table, a shipped MNI atlas's from its
+manifest table; an `.annot` label from its colortable, `lh.insula`), a `SphericalROI`'s centres
+and radii, an ex/mex config's ROI CSV names and `roi_atlas` regions; the bare label when an atlas
+cannot be read. The plan card's Target row shows it, falling back to the label ids. The flex/ex
+reports' `roi_summary` names its regions through the same `region_name` (its `_local_atlas` and
+`_annot_region` helpers are gone). The agent plugin's `_REGION_NAMES` memory and the
+"Target: …" step note it wrote are deleted; `propose_pipeline`'s step summaries carry `target`.
+Contract: `ProposalStepPlan.target` (additive). Supersedes the "it only remembers region names for
+a proposal's 'Target: …' note" clause of "Region lookup and its ROIs are served" (2026-10-08).
+
+**Why.** Only an ROI the plugin had seen from `find_regions` in the same session was named; an ROI
+the agent wrote itself, one edited on the card or in Open in form, or one from a restarted plugin
+showed label ids. The server already reads every atlas the step names when it plans it.
+
+**Alternatives rejected.** Keeping the plugin memory and adding a server fallback (two sources of
+one name); naming in the renderer (it would need every atlas's colour table client-side);
+storing names in the step's config (not a `FlexConfig` field; it would drift on edit).
+
+**Evidence.** `tests/test_roi_target.py` (authored LUT, manifest table and colortable; spheres;
+ex CSVs; unreadable atlases); `tests/test_proposals_routes.py::test_a_step_plan_names_its_target_from_the_atlas`;
+`tests/test_agent_plugin_jobs.py::test_propose_pipeline_reports_the_target_the_server_named`;
+`tests/test_reporting_runs.py` (report names unchanged); `desktop/tests/unit/proposal-card.test.tsx`
+"names the target the server resolved…".

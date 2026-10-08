@@ -6984,6 +6984,8 @@ export interface components {
             warnings: string[];
             /** @description why this step cannot be planned until a step it waits on has finished */
             deferred?: string | null;
+            /** @description what a flex/ex/mex step targets, by name (`tit.opt.roi_spec.config_target`): atlas labels named from the atlas's colour table or `.annot` colortable ("Left-Thalamus, Right-Thalamus", "lh.precuneus"), a sphere by centre and radius, ex-search ROI CSV names; null when the step has no ROI; absent on a record planned before this field */
+            target?: string | null;
         };
         ProposalStep: {
             id: string;

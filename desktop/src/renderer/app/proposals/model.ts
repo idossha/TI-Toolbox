@@ -39,7 +39,7 @@ const num = (v: unknown): number | undefined => (typeof v === "number" && Number
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const base = (p: unknown): string => (typeof p === "string" ? (p.split("/").pop() ?? p) : "");
 
-/** A FlexConfig ROI object as one line: what it is, which atlas or where. */
+/** A FlexConfig ROI object as one line, for a step the server has not named (`plan.target`): what it is, which atlas or where. */
 export function roiLabel(roi: unknown): string {
   if (!roi || typeof roi !== "object") return "—";
   const r = roi as Config;
@@ -70,7 +70,7 @@ export function stepFacts(step: ProposalStep, steps: readonly ProposalStep[]): [
   };
   if (step.kind.startsWith("flex")) {
     add("Goal", GOAL_LABEL[String(c.goal)] ?? c.goal);
-    add("Target", roiLabel(c.roi));
+    add("Target", step.plan?.target ?? roiLabel(c.roi));
     add("Current", num(c.current_mA) !== undefined ? `${c.current_mA} mA per channel` : undefined);
     const e = (c.electrode ?? {}) as Config;
     add("Electrodes", e.shape ? `${e.shape} ${list(e.dimensions).join(" × ")} mm` : undefined);
@@ -104,6 +104,7 @@ export function stepFacts(step: ProposalStep, steps: readonly ProposalStep[]): [
     ].filter(Boolean);
     add("Stages", stages.join(", "));
   } else if (step.kind === "ex" || step.kind === "mex") {
+    add("Target", step.plan?.target);
     add("Run name", c.run_name);
     add("Leadfield", base(c.leadfield_hdf));
   }

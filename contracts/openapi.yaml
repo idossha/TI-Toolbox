@@ -5656,6 +5656,13 @@ components:
         deferred:
           type: [string, "null"]
           description: why this step cannot be planned until a step it waits on has finished
+        target:
+          type: [string, "null"]
+          description: >-
+            what a flex/ex/mex step targets, by name (`tit.opt.roi_spec.config_target`): atlas
+            labels named from the atlas's colour table or `.annot` colortable ("Left-Thalamus,
+            Right-Thalamus", "lh.precuneus"), a sphere by centre and radius, ex-search ROI CSV
+            names; null when the step has no ROI; absent on a record planned before this field
     ProposalStep:
       type: object
       required: [id, kind, config, subject_ids, after, overwrite, job_ids, state]

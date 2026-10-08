@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -83,34 +82,6 @@ def cap_figure(
     )
 
 
-def _local_atlas(path: str) -> str:
-    """An atlas path recorded inside the container, resolved to this machine's resources."""
-    if os.path.isfile(path):
-        return path
-    from tit.paths import resolve_resource_path
-
-    return resolve_resource_path("atlas", os.path.basename(path))
-
-
-def _annot_region(path: str, label) -> tuple[str, str]:
-    """``(region name, atlas label)`` of one ``.annot`` target; ``label`` indexes the colortable.
-
-    Falls back to the bare label when the file is not on this machine or cannot be read -- a
-    report never fails over a name.
-    """
-    hemi, _, rest = Path(path).name.partition(".")
-    atlas = f"{rest.removesuffix('.annot')} ({hemi})"
-    name = f"{hemi} label {label}"
-    try:
-        from nibabel.freesurfer import read_annot
-
-        region = read_annot(path)[2][int(label)]
-        name = f"{hemi}.{region.decode() if isinstance(region, bytes) else region}"
-    except (OSError, ValueError, IndexError, TypeError):
-        pass
-    return name, atlas
-
-
 def roi_summary(run_dir: str | Path) -> dict | None:
     """The target as the run's ROI confirmation recorded it (``roi.tetravox.json``), with label
     names from the atlas's lookup table: ``{name, atlas, volume_mm3, centroid, gm_overlap}``.
@@ -122,7 +93,7 @@ def roi_summary(run_dir: str | Path) -> dict | None:
     name, atlas = meta.get("roi") or "", ""
     sources, labels = meta.get("source"), meta.get("label")
     if sources and labels is not None:
-        from tit.opt.roi_spec import resolve_volume_label_names
+        from tit.opt.roi_spec import region_name
 
         sources = sources if isinstance(sources, list) else [sources]
         labels = labels if isinstance(labels, list) else [labels]
@@ -131,13 +102,13 @@ def roi_summary(run_dir: str | Path) -> dict | None:
         names = []
         stems = {}
         for src, lab, space in zip(sources, labels, spaces):
-            if str(src).endswith(".annot"):  # a cortical surface target, not a volume
-                label_name, stem = _annot_region(str(src), lab)
-                names.append(label_name)
-                stems[stem] = None
+            src = str(src)
+            if src.endswith(".annot"):  # a cortical surface target, not a volume
+                hemi, _, rest = Path(src).name.partition(".")
+                names.append(region_name(src, lab))
+                stems[f"{rest.removesuffix('.annot')} ({hemi})"] = None
                 continue
-            table = resolve_volume_label_names(_local_atlas(src), space or "subject")
-            names.append(table.get(int(lab), f"label {lab}").replace("-", " "))
+            names.append(region_name(src, lab, space or "subject").replace("-", " "))
             stems[Path(src).name.split(".nii")[0] + (" (MNI)" if space == "mni" else "")] = None
         name = " + ".join(dict.fromkeys(names))
         atlas = ", ".join(stems)

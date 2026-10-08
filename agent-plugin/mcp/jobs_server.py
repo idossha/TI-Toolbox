@@ -254,22 +254,6 @@ def tool_connect(args: Dict[str, Any]) -> Dict[str, Any]:
 # Regions
 # --------------------------------------------------------------------------
 
-#: (atlas path, label id) -> region name, from find_regions, so a proposal's card can name its
-#: target ("Left-Thalamus") instead of showing label ids only.
-_REGION_NAMES: Dict[Tuple[str, Any], str] = {}
-
-
-def _target_note(roi: Any) -> Optional[str]:
-    """The note 'Target: Left-Thalamus, Right-Thalamus' for an ROI find_regions returned."""
-    if not isinstance(roi, dict):
-        return None
-    pairs = zip(roi.get("atlas_path") or [], roi.get("label") or [])
-    names = [_REGION_NAMES.get((p, label)) for p, label in pairs]
-    if not names or None in names:
-        return None
-    return "Target: " + ", ".join(dict.fromkeys(names))
-
-
 def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
     subject = _subject_id(args.get("subject_id"))
     # The server searches the subject's atlases and builds the ROIs (tit.catalog.find_regions,
@@ -285,12 +269,7 @@ def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
             "(charm/FastSurfer); try another spelling or ask the user for coordinates "
             "(SphericalROI)."
         )
-    for hit in found:  # rois.all is every match, in order
-        all_roi = hit["rois"]["all"]
-        for path, label, region in zip(
-            all_roi["atlas_path"], all_roi["label"], hit["matches"]
-        ):
-            _REGION_NAMES[(path, label)] = region["name"]
+    for hit in found:
         hit["matches"] = hit["matches"][:60]
     return {
         "subject_id": subject,
@@ -702,9 +681,7 @@ def _step_for_proposal(raw: Any) -> Dict[str, Any]:
     config = {
         k: v for k, v in config.items() if k != "subject_ids"
     }  # the step's decide
-    note = raw.get("note") or (
-        _target_note(config.get("roi")) if kind in FLEX_KINDS else None
-    )
+    note = raw.get("note")
     return {
         **{k: raw[k] for k in ("id", "overwrite", "after") if k in raw},
         **({"note": note} if note else {}),
@@ -730,6 +707,7 @@ def _step_summary(step: Dict[str, Any]) -> Dict[str, Any]:
         "lock_conflicts",
         "deferred",
         "eta_minutes",
+        "target",
     ):
         if plan.get(key):
             out[key] = plan[key]

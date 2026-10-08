@@ -301,8 +301,13 @@ def _plan_step(record: dict[str, Any], step: dict[str, Any], manager: Any) -> No
         "eta_minutes": None,
         "warnings": [],
         "deferred": None,
+        "target": None,
     }
     step["plan"] = out
+    if step["kind"] in (*FLEX_KINDS, "ex", "mex"):
+        from tit.opt.roi_spec import config_target
+
+        out["target"] = config_target(step["config"])
     if step["kind"] == SIM_FROM_FLEX and step["config"].get("flex_step"):
         source = step["config"]["flex_step"]
         out["deferred"] = (

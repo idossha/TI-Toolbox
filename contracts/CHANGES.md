@@ -1148,3 +1148,13 @@ Additive: `$defs` and the other keys are unchanged.
 lock the step needs, from the same `POST /api/plan` check `plan_job` reports, on a dry run and a
 stored proposal alike. Additive: absent on records planned before, and clients that ignore it
 behave as before.
+
+## 2026-10-08 — a proposal step's plan names its target
+
+`ProposalStepPlan` gains optional `target` (`string | null`): what a flex/ex/mex step targets, by
+name, resolved by the server from the step's config (`tit.opt.roi_spec.config_target`) — atlas
+label ids named from the atlas's own colour table (a shipped MNI atlas's from its manifest
+table) or `.annot` colortable, spheres by centre and radius, ex-search ROI CSV names. The plan
+card shows it as the step's Target; the agent plugin no longer writes a "Target: …" step note.
+Additive: `null` for steps without an ROI, absent on records planned before, and clients that
+ignore it behave as before.

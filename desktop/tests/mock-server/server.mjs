@@ -4087,7 +4087,7 @@ function pendingProposal(ctx) {
   if (p.decision.state !== "pending") return json(ctx.res, 409, { detail: `proposal is already ${p.decision.state}` }), null;
   return p;
 }
-const emptyPlan = () => ({ errors: [], missing_inputs: [], outputs: [], will_overwrite: [], eta_minutes: null, warnings: [], deferred: null });
+const emptyPlan = () => ({ errors: [], missing_inputs: [], outputs: [], will_overwrite: [], eta_minutes: null, warnings: [], deferred: null, target: null });
 route("GET", "/api/proposals", (ctx) => {
   const status = ctx.url.searchParams.get("status");
   const withDismissed = ctx.url.searchParams.get("include_dismissed") === "true";

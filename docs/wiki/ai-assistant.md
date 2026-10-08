@@ -129,7 +129,7 @@ Your login stays with your assistant: TI-Toolbox never sees, stores or forwards 
 Nothing the assistant asks for runs until you approve it. Its plan appears as a card at the top of the **Jobs** page, and the **Jobs** item in the side bar shows how many plans are waiting (a notice pops up when one arrives, and a system notification when the app is in the background). The **Overview** also lists each waiting plan on one line (*"Claude Code proposes …"*); **Review** opens its card on Jobs. The card shows:
 
 - the title, the assistant's reasoning, and which assistant sent it (Claude Code, Codex, ...);
-- each step in order — what it does (pre-process, flex-search, simulate the flex result, ...), for which subjects, and its key settings in plain terms (goal, target region, current, electrode size, run name, currents), with the folder it will write and an estimated time;
+- each step in order — what it does (pre-process, flex-search, simulate the flex result, ...), for which subjects, and its key settings in plain terms (goal, target region by name — for example *Left-Thalamus, Right-Thalamus* — current, electrode size, run name, currents), with the folder it will write and an estimated time;
 - which steps wait for others ("after step 1"): a later step starts by itself when the steps it waits on have succeeded — a simulation of a flex-search result picks up that run's electrodes and currents once it exists;
 - in red, **any existing result the plan would replace**.
 
