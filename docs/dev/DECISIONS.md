@@ -2492,7 +2492,8 @@ and a flex result's montage does not exist until the run does. One resolver for 
 keeps the plugin and the server from choosing different electrodes or currents.
 
 **Cost.** A dependent step's jobs appear in the job list only when they are queued, so the card,
-not the list, shows what is still to come. Proposals are never pruned (a few KB each). The
+not the list, shows what is still to come. Proposals are never pruned (a few KB each;
+**superseded 2026-10-08**: they follow the job retention rule, entry below). The
 approval is not a security boundary: the agent's MCP server holds the server token, and anything
 with the token can call approve or flip the setting; it binds a cooperating agent that uses the
 plugin's tools.
@@ -2849,3 +2850,24 @@ the running jobs a step would queue behind, as `plan_job` does. **Why.** The ste
 **Alternatives rejected.** A second lock query in the proposal engine (two code paths for one
 answer). **Evidence.** `tests/test_proposals_routes.py::test_a_dry_run_names_the_running_job_a_step_would_wait_for`;
 `tests/test_agent_plugin_jobs.py::test_propose_pipeline_reports_the_lock_waits_its_dry_run_found`.
+
+## 2026-10-08 — Finished proposals follow the job registry's retention rule
+
+**Decision.** Jobs are pruned (terminal ones older than 30 days or beyond the newest 200, when the
+job manager starts), so proposals are too, by the same rule: `tit.jobs.registry.expired` is the one
+selector, `JobRegistry.prune` and `tit.server.proposals.prune` both call it, and the proposal
+watcher prunes finished (succeeded, rejected, failed) plans when it starts; pending and running
+plans are kept whatever their age. Supersedes the "Proposals are never pruned" cost line of
+"Agent jobs need the user's approval; the server runs the approved plan" (2026-10-07). No
+contract change.
+
+**Why.** A deliberate parity decision: a plan's card links its jobs, so keeping the plan after
+its jobs are gone leaves a card of lost steps, and dropping it earlier loses the record of what
+was approved while its jobs still show.
+
+**Alternatives rejected.** Keeping proposals forever (they outlive the jobs they describe); a
+separate proposal retention setting (a second rule for one history).
+
+**Evidence.** `tests/test_proposals_routes.py::test_finished_plans_are_pruned_by_the_job_registrys_rule`;
+`tests/test_jobs_registry.py::test_registry_prune_keeps_running_and_recent_terminal`,
+`::test_registry_prune_keep_count` (unchanged, through the shared selector).

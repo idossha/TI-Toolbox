@@ -278,7 +278,10 @@ time. Excluded alternative: consecutive pairing of the first four electrodes (it
 the catalog for an out-of-order record and dropped the extra channels of an mTI run). Step and proposal states are derived from the jobs at
 read time. A finished plan (done, rejected or failed) can be dismissed (`POST /api/proposals/{id}/dismiss`,
 stored as `dismissed_at`; the default list omits it); the Jobs page shows only pending and
-in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Excluded
+in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Finished
+proposals are kept as long as finished jobs: `tit.jobs.registry.expired` (older than 30 days, or
+beyond the newest 200) prunes both, jobs when the job manager starts and proposals when the
+proposal watcher starts. Excluded
 alternatives: queuing dependent steps up front with job-level `after` (the
 submit-time preflight refuses a flex job whose head model a queued `pre` will make, and a
 `sim_from_flex` montage does not exist yet); an agent that waits and submits each step (it

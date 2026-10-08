@@ -99,7 +99,6 @@ def _save(project_dir: str, record: dict[str, Any]) -> None:
 
 
 def _all(project_dir: str) -> list[dict[str, Any]]:
-    # ponytail: proposals are never pruned; a few KB each, add retention if they pile up.
     try:
         names = os.listdir(proposals_root(project_dir))
     except OSError:
@@ -733,12 +732,37 @@ def advance_all(manager: Any, finished_job: str | None = None) -> None:
                 _publish(record, manager)
 
 
+def prune(manager: Any, **retention: Any) -> list[str]:
+    """Delete finished proposals (succeeded, rejected or failed) by the job registry's own
+    retention rule (:func:`tit.jobs.registry.expired`: older than 30 days, or beyond the newest
+    200), so a plan's record lasts as long as its jobs'. Pending and running plans are kept.
+    Returns the removed ids; *retention* passes ``keep_count``/``keep_days``/``now`` through.
+    """
+    from tit.jobs.registry import expired
+
+    with _LOCK:
+        finished = [
+            (record["id"], record.get("created_at", ""), record.get("updated_at"))
+            for record in _all(manager.project_dir)
+            if view(record, manager)["status"] in ("succeeded", "rejected", "failed")
+        ]
+        removed = expired(finished, **retention)
+        for proposal_id in removed:
+            with contextlib.suppress(OSError):
+                os.unlink(_path(manager.project_dir, proposal_id))
+    if removed:
+        logger.info("proposals: pruned %d old plan(s)", len(removed))
+    return removed
+
+
 def ensure_watcher(manager: Any) -> None:
-    """Start (once per job manager) the thread that advances proposals as jobs finish."""
+    """Start (once per job manager) the thread that advances proposals as jobs finish, after
+    pruning old finished ones (the job manager prunes its jobs when it starts)."""
     with _LOCK:
         if id(manager) in _WATCHED:
             return
         _WATCHED.add(id(manager))
+    prune(manager)
     q = manager.subscribe_status()
 
     def watch() -> None:

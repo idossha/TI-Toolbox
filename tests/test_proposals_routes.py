@@ -449,3 +449,35 @@ def test_a_dry_run_names_the_running_job_a_step_would_wait_for(
     assert draft.json()["status"] == "draft"
     assert draft.json()["steps"][0]["plan"]["lock_conflicts"] == [held]
     assert asked == [("sim", ["001"])]
+
+
+def test_finished_plans_are_pruned_by_the_job_registrys_rule(
+    client: TestClient, project: Path
+) -> None:
+    """Proposals keep the history jobs keep (tit.jobs.registry.expired, 2026-10-08): a finished
+    plan last changed more than 30 days ago goes; a pending one stays whatever its age.
+    """
+    from tit.jobs import bootstrap
+    from tit.server import proposals
+
+    old, recent, waiting = (propose(client)["id"] for _ in range(3))
+    for pid in (old, recent):
+        client.post(f"/api/proposals/{pid}/reject", headers=BEARER, json={})
+    long_ago = "2026-01-01T00:00:00+00:00"  # more than 30 days before now (2026-10-08)
+    for pid in (old, waiting):
+        path = Path(proposals._path(str(project), pid))
+        record = json.loads(path.read_text())
+        record["created_at"] = record["updated_at"] = long_ago
+        path.write_text(json.dumps(record))
+
+    manager = bootstrap.get_manager()
+    assert proposals.prune(manager) == [old]
+    left = {
+        p["id"]
+        for p in client.get(
+            "/api/proposals?include_dismissed=true", headers=BEARER
+        ).json()
+    }
+    assert left == {recent, waiting}
+    # The count rule too: beyond the newest keep_count finished plans.
+    assert proposals.prune(manager, keep_count=0) == [recent]
