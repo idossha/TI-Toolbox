@@ -316,3 +316,83 @@ test("the effort and model menus fit the header without wrapping, in both themes
   await page.screenshot({ path: join(ARTIFACTS, "assistant-effort-dark-1024-restart.png"), clip: { x: 0, y: 0, width: 1024, height: 140 } });
   for (const row of widest) expect(row).toEqual({ height: 28, overflow: 0, outside: 0 });
 });
+
+/**
+ * Paths the CLI prints are links (ARCHITECTURE §5 `assistant.openPath`): a project path, absolute
+ * or relative, gets xterm's hover pointer; a path outside the project does not; a click on one that
+ * does not exist says so; main refuses `..` out of the project. Automated runs validate and never
+ * open Finder/Explorer (`mayShowSystemUi`). Hover screenshot: `TIT_E2E_ARTIFACTS/assistant-path-links.png`.
+ */
+test("a project path the CLI prints is a link main checks against the project folder", async () => {
+  const dirs = standIn(
+    [
+      "#!/bin/sh",
+      'if [ "$1" = auth ]; then exit 0; fi',
+      'printf "Wrote %s/derivatives/SimNIBS/sub-CHN/flex-search/insula/opt.json\\r\\n" "$PWD"',
+      'printf "Relative: derivatives/SimNIBS/sub-CHN/flex-search/insula and derivatives/missing.nii.gz\\r\\n"',
+      'printf "Outside: /etc/hosts\\r\\n"',
+      "read line",
+      "",
+    ].join("\n"),
+  );
+  const run = join(dirs.project, "derivatives", "SimNIBS", "sub-CHN", "flex-search", "insula");
+  mkdirSync(run, { recursive: true });
+  writeFileSync(join(run, "opt.json"), "{}");
+  await openAssistant(dirs);
+  await page.getByRole("button", { name: "Start Claude Code" }).click();
+  await expect.poll(terminalText, { timeout: 15_000 }).toContain("Outside: /etc/hosts");
+
+  /** The screen point over the third character of *needle* (viewport rows; cell size from the screen box). */
+  const pointAt = (needle: string) =>
+    page.evaluate((needle) => {
+      const host = document.querySelector('[data-testid="assistant-terminal-claude"]') as Host;
+      const term = host.xterm!;
+      const screen = host.querySelector(".xterm-screen")!.getBoundingClientRect();
+      const buffer = term.buffer.active;
+      for (let row = 0; row < term.rows; row++) {
+        const col = buffer.getLine(buffer.viewportY + row)?.translateToString(true).indexOf(needle) ?? -1;
+        if (col >= 0) return { x: screen.left + ((col + 2.5) * screen.width) / term.cols, y: screen.top + ((row + 0.5) * screen.height) / term.rows };
+      }
+      throw new Error(`${needle} is not on screen`);
+    }, needle);
+  const pointer = () => page.evaluate(() => !!document.querySelector('[data-testid="assistant-terminal-claude"] .xterm-cursor-pointer'));
+  const hover = async (needle: string) => {
+    const { x, y } = await pointAt(needle);
+    await page.mouse.move(x, y, { steps: 4 });
+  };
+  const click = async (needle: string) => {
+    const { x, y } = await pointAt(needle);
+    await page.mouse.click(x, y);
+  };
+
+  await hover(`${dirs.project}/derivatives`);
+  await expect.poll(pointer).toBe(true);
+  await hover("/etc/hosts");
+  await expect.poll(pointer).toBe(false);
+  await hover("derivatives/SimNIBS/sub-CHN/flex-search/insula and");
+  await expect.poll(pointer).toBe(true);
+  // Offscreen capture shrinks the WebGL text canvas (the other assistant shots show it too), so the
+  // review shot is taken after a forced context loss, on xterm's DOM fallback, still hovering.
+  await page.evaluate(() => {
+    const canvas = [...document.querySelectorAll('[data-testid="assistant-terminal-claude"] canvas')].find((c) => (c as HTMLCanvasElement).getContext("webgl2"));
+    ((canvas as HTMLCanvasElement).getContext("webgl2")!.getExtension("WEBGL_lose_context"))!.loseContext();
+  });
+  await expect(page.getByTestId("assistant-terminal-claude")).toHaveAttribute("data-renderer", "dom");
+  // Another cell of the same link: xterm skips a move that stays in the cell it last resolved.
+  await hover("SimNIBS/sub-CHN/flex-search/insula and");
+  await expect.poll(pointer).toBe(true);
+  mkdirSync(ARTIFACTS, { recursive: true });
+  await page.getByTestId("assistant-terminal-claude").screenshot({ path: join(ARTIFACTS, "assistant-path-links.png") });
+
+  // A real folder is accepted without a word (offscreen: validated, not opened); a missing file is refused aloud.
+  await click("derivatives/SimNIBS/sub-CHN/flex-search/insula and");
+  await click("derivatives/missing.nii.gz");
+  await expect(page.getByText("Could not open derivatives/missing.nii.gz")).toBeVisible();
+  await expect(page.getByText(/Could not open derivatives\/SimNIBS/)).toHaveCount(0);
+
+  const asked = (path: string) => page.evaluate((path) => window.tit!.assistant!.openPath(path), path);
+  expect(await asked("derivatives/SimNIBS/sub-CHN/flex-search/insula/opt.json")).toEqual({ ok: true });
+  expect(await asked(join(run, "opt.json"))).toEqual({ ok: true });
+  expect(await asked("../user-data")).toEqual({ ok: false, error: "../user-data is outside the project folder." });
+  expect(await asked("/etc/hosts")).toMatchObject({ ok: false });
+});

@@ -30,7 +30,7 @@ rationale below consolidates later amendments without treating superseded design
 | 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
 | 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
 | 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
-| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07; `assistant.start`/`openInTerminal` gained an options argument 2026-10-08, no new entry). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-08 |
+| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07; `assistant.start`/`openInTerminal` gained an options argument 2026-10-08, and `assistant.openPath` a method of that namespace the same day, no new entry). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-08 |
 | 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
 | 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
 | 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
@@ -2746,3 +2746,38 @@ generator for four lines).
 **Evidence.** `tests/test_region_rois.py` (shared table, search, route 200/404/422);
 `desktop/tests/unit/roi-region-table.test.ts`; `tests/test_agent_plugin_jobs.py` (passthrough and
 the proposal note).
+
+## 2026-10-08 — Paths the Assistant's CLI prints are links, opened only inside the project folder
+
+**Decision.** `assistant.openPath(path)` is a new method of the existing `assistant` bridge
+namespace (frozen surface; the top-level budget stays 24), and `assistant.start` now also returns
+`cwd`, the session's host project folder. The Assistant terminal registers an xterm link provider
+(`pages/assistant/pathLinks.ts`) that underlines, on hover, absolute paths inside that folder and
+relative ones starting `./`, `../`, `derivatives/`, `sourcedata/`, `code/`, `rawdata/` or
+`sub-<id>/`. A click sends the printed text to main, which takes a string of at most 4096
+characters with no NUL, resolves it against the project folder (`path.resolve`), resolves symlinks
+on both sides (`realpath`), requires the result to exist and to lie inside the folder's real path
+(`relative` neither absolute nor starting with a `..` segment), and then reveals a file in
+Finder/Explorer (`shell.showItemInFolder`) or opens a folder (`shell.openPath`). The same
+loopback-session rule as `start` applies; an automated run (`mayShowSystemUi` false) validates and
+opens nothing. A refusal comes back as `{ ok: false, error }` and the page shows it as a toast.
+
+**Why.** The CLI's answers name the outputs it made (`derivatives/SimNIBS/sub-CHN/flex-search/…`),
+and the user's next act is to look at them. The app-wide `openPath`/`showItemInFolder` cannot take
+these: they map *container* paths to host paths, and a CLI on the host prints host paths, often
+relative to its cwd. Revealing rather than opening a file keeps a click from launching whatever
+the OS associates with `.json` or `.nii.gz` (and keeps TetraVox scenes going through the Viewer,
+decision 2026-09-22).
+
+**Alternatives rejected.** Linking every absolute path and letting main refuse (underlines `/etc`
+and `~/.claude` paths that can only fail); a second `WebLinksAddon` with a path regex (it drops
+every match that is not a URL); the renderer resolving the path itself (a served page must not
+decide what a host shell call touches); a new top-level bridge entry (budget); opening files with
+their default application (an arbitrary associated program per click).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "a printed path, checked against the project
+folder" (absolute, relative, `./`, symlinked project folder; `..`, absolute outside, symlink
+escape, prefix sibling, missing, non-strings); `desktop/tests/unit/assistant-path-links.test.ts`
+(which printed paths match, Windows case and separators, link columns after wide characters on a
+real xterm buffer); `desktop/tests/e2e/assistant.spec.ts` "a project path the CLI prints is a link
+…" (hover pointer on project paths only, the missing-file toast, main's refusals).

@@ -10,9 +10,9 @@
  * argument, directory and environment value is decided here.
  */
 import { execFile } from "node:child_process";
-import { accessSync, constants, existsSync, rmSync, writeFileSync } from "node:fs";
+import { accessSync, constants, existsSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { TitAssistantCli, TitAssistantEffort, TitAssistantEvent, TitAssistantModel, TitAssistantOptions } from "../shared/tit-bridge";
 
 export const ASSISTANT_CLIS: readonly TitAssistantCli[] = ["claude", "codex"];
@@ -300,5 +300,31 @@ export function openInSystemTerminal(launch: Launch, platform: NodeJS.Platform, 
     // ponytail: Debian's alternatives link only; other desktops get the pane or a copied command.
     spawnDetached("x-terminal-emulator", ["-e", launch.file, ...launch.args], launch.env, launch.cwd);
   }
+}
+
+export type ProjectPath = { ok: true; path: string; directory: boolean } | { ok: false; error: string };
+
+/**
+ * A path an Assistant session printed (absolute, or relative to the project folder it runs in) as
+ * the real path it names, only when that is inside the project folder and exists. Symlinks are
+ * resolved on both sides first, so neither `..` nor a link can reach outside.
+ */
+export function resolveProjectPath(raw: unknown, projectDir: string): ProjectPath {
+  if (typeof raw !== "string" || !raw || raw.length > 4096 || raw.includes("\0")) return { ok: false, error: "Not a file path." };
+  let root: string;
+  let real: string;
+  try {
+    root = realpathSync(projectDir);
+  } catch {
+    return { ok: false, error: "The project folder is not on this computer." };
+  }
+  try {
+    real = realpathSync(resolve(projectDir, raw));
+  } catch {
+    return { ok: false, error: `${raw} does not exist.` };
+  }
+  const rel = relative(root, real);
+  if (isAbsolute(rel) || rel.split(sep)[0] === "..") return { ok: false, error: `${raw} is outside the project folder.` };
+  return { ok: true, path: real, directory: statSync(real).isDirectory() };
 }
 

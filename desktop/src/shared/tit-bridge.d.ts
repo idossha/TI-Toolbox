@@ -153,8 +153,8 @@ export type TitAssistantEvent =
  */
 export interface TitAssistantBridge {
   detect(cli: TitAssistantCli): Promise<TitAssistantStatus>;
-  /** Start (or restart) the CLI's session in the connected project folder. */
-  start(cli: TitAssistantCli, cols: number, rows: number, options?: TitAssistantOptions): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Start (or restart) the CLI's session in the connected project folder; `cwd` is that host folder. */
+  start(cli: TitAssistantCli, cols: number, rows: number, options?: TitAssistantOptions): Promise<{ ok: true; cwd?: string } | { ok: false; error: string }>;
   write(cli: TitAssistantCli, data: string): void;
   resize(cli: TitAssistantCli, cols: number, rows: number): void;
   kill(cli: TitAssistantCli): Promise<void>;
@@ -162,6 +162,11 @@ export interface TitAssistantBridge {
   onEvent(listener: (event: TitAssistantEvent) => void): () => void;
   /** The same launch in the host's own terminal application. */
   openInTerminal(cli: TitAssistantCli, options?: TitAssistantOptions): Promise<{ ok: true } | { ok: false; error: string }>;
+  /**
+   * A path a session printed, absolute or relative to the project folder: main reveals a file in
+   * Finder/Explorer or opens a folder, only when its real path is inside the project folder and exists.
+   */
+  openPath(path: string): Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 export interface TitBridge {

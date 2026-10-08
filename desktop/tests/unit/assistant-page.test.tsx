@@ -19,6 +19,7 @@ vi.mock("@xterm/xterm", () => ({
     rows = 20;
     options: Record<string, unknown> = {};
     loadAddon() {}
+    registerLinkProvider() { return { dispose() {} }; }
     open() {}
     onData() { return { dispose() {} }; }
     onResize() { return { dispose() {} }; }
@@ -60,6 +61,7 @@ function makeBridge(status: TitAssistantStatus) {
     kill: vi.fn().mockResolvedValue(undefined),
     onEvent: vi.fn((listener: (event: TitAssistantEvent) => void) => { listeners.push(listener); return () => {}; }),
     openInTerminal: vi.fn().mockResolvedValue({ ok: true }),
+    openPath: vi.fn().mockResolvedValue({ ok: true }),
   } as never;
   return bridge;
 }

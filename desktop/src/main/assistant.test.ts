@@ -9,8 +9,11 @@
  * Windows `.cmd` and system-terminal launches are deliberately not exercised here (no Windows host).
  */
 import { execFileSync } from "node:child_process";
-import { describe, expect, it } from "vitest";
-import { buildLaunch, createAssistantSessions, findExecutable, isLoggedIn, isLoopbackOrigin, loginShellPath, parseAssistantOptions, shQuote, tomlString, type PtyProcess } from "./assistant";
+import { beforeAll, describe, expect, it } from "vitest";
+import { buildLaunch, createAssistantSessions, findExecutable, isLoggedIn, isLoopbackOrigin, loginShellPath, parseAssistantOptions, resolveProjectPath, shQuote, tomlString, type PtyProcess } from "./assistant";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { TitAssistantEvent } from "../shared/tit-bridge";
 
 const TOKEN = "tok-3f9a-secret";
@@ -166,6 +169,44 @@ describe("launch", () => {
     expect(isLoopbackOrigin("http://localhost:8765")).toBe(true);
     expect(isLoopbackOrigin("https://lab-server.example.org")).toBe(false);
     expect(isLoopbackOrigin("not a url")).toBe(false);
+  });
+});
+
+// Expected outcomes follow from the rule itself (real path inside the real project folder, and
+// existing), on a temporary tree built here with a symlink pointing out of it.
+describe.skipIf(process.platform === "win32")("a printed path, checked against the project folder", () => {
+  let root = "";
+  let project = "";
+  // In beforeAll: a skipped describe's body is still collected, and Windows cannot make these links.
+  beforeAll(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), "tit-openpath-")));
+    project = join(root, "project");
+    mkdirSync(join(project, "derivatives", "SimNIBS"), { recursive: true });
+    writeFileSync(join(project, "derivatives", "SimNIBS", "a.json"), "{}");
+    writeFileSync(join(root, "secret.txt"), "x");
+    symlinkSync(join(root, "secret.txt"), join(project, "escape.txt"));
+    symlinkSync(project, join(root, "project-link"));
+  });
+
+  it("resolves absolute and project-relative paths to the real file or folder", () => {
+    expect(resolveProjectPath(join(project, "derivatives", "SimNIBS", "a.json"), project)).toEqual({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json"), directory: false });
+    expect(resolveProjectPath("derivatives/SimNIBS/a.json", project)).toEqual({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json"), directory: false });
+    expect(resolveProjectPath("./derivatives", project)).toEqual({ ok: true, path: join(project, "derivatives"), directory: true });
+    expect(resolveProjectPath(project, project)).toMatchObject({ ok: true, directory: true });
+    // A project opened through a symlinked folder still contains its own files.
+    expect(resolveProjectPath("derivatives/SimNIBS/a.json", join(root, "project-link"))).toMatchObject({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json") });
+  });
+  it("refuses anything outside the project, through .. or a symlink", () => {
+    expect(resolveProjectPath("../secret.txt", project)).toEqual({ ok: false, error: "../secret.txt is outside the project folder." });
+    expect(resolveProjectPath(join(root, "secret.txt"), project)).toMatchObject({ ok: false });
+    expect(resolveProjectPath("derivatives/../../secret.txt", project)).toMatchObject({ ok: false });
+    expect(resolveProjectPath("escape.txt", project)).toEqual({ ok: false, error: "escape.txt is outside the project folder." });
+    expect(resolveProjectPath(`${project}-sibling`, project)).toMatchObject({ ok: false });
+  });
+  it("refuses what does not exist and anything that is not a path string", () => {
+    expect(resolveProjectPath("derivatives/missing.nii.gz", project)).toEqual({ ok: false, error: "derivatives/missing.nii.gz does not exist." });
+    for (const bad of [undefined, 42, "", "a\0b", "x".repeat(5000)]) expect(resolveProjectPath(bad, project)).toEqual({ ok: false, error: "Not a file path." });
+    expect(resolveProjectPath("a.json", join(root, "gone"))).toEqual({ ok: false, error: "The project folder is not on this computer." });
   });
 });
 

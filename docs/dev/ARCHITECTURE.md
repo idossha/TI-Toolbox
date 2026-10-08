@@ -177,10 +177,14 @@ The preload bridge has 24 top-level entries, enforced by `desktop/tests/e2e/smok
 `saveNativeTetravoxScene` adds native snapshot saving; `onNotificationSound` lets main have the
 window play a job banner's TI-Toolbox sound; `assistant` (optional: absent means no Assistant pane)
 is the host terminal of §6's user-run agent — `detect`, `start`, `write`, `resize`, `kill`,
-`onEvent`, `openInTerminal`, each taking only `"claude" | "codex"` (plus terminal size or typed
-input), validated in main; `start` and `openInTerminal` also take an optional options object of
+`onEvent`, `openInTerminal`, `openPath` — all but `openPath` taking only `"claude" | "codex"` (plus
+terminal size or typed input), validated in main; `start` and `openInTerminal` also take an optional options object of
 enums only (`effort`: low, medium, high, default; `model`: default, opus, sonnet, haiku, fable —
-Codex: default only), checked against an allowlist in main, which builds the flags itself. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
+Codex: default only), checked against an allowlist in main, which builds the flags itself; `start`
+also returns the session's host project folder (`cwd`), and `openPath` takes one path string a
+session printed, which main resolves against that folder, accepts only when its real path
+(symlinks resolved) exists inside the folder's real path, and then reveals (a file) or opens (a
+folder). Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
@@ -307,8 +311,13 @@ context is available or one is lost; WebGL is what draws box-drawing and block c
 joined cells (`customGlyphs`), which the DOM renderer leaves to the font. The page is a fixed-height
 column at every window width, the terminal's host carries no padding (FitAddon counts its host's
 height), and the grid is refitted on every host resize and the new size sent to the PTY. Printed
-http(s) links open through `openExternal`; printed file paths are not links, because `openPath`
-resolves server paths, not the host paths a CLI prints. Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
+http(s) links open through `openExternal`. Printed file paths are links too
+([`pathLinks.ts`](../../desktop/src/renderer/pages/assistant/pathLinks.ts)): an absolute path inside
+the session's project folder, or a relative one starting `./`, `../` or a project top-level folder
+(`derivatives/`, `sourcedata/`, `code/`, `rawdata/`, `sub-<id>/`); a click goes to
+`assistant.openPath`, never the app-wide `openPath`, which maps server paths, not the host paths a
+CLI prints. Main's containment check is the authority; the renderer's match only decides what is
+underlined, and a refusal is a toast. Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
 [`Assistant page`](../../desktop/src/renderer/pages/assistant/index.tsx).
 
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)
