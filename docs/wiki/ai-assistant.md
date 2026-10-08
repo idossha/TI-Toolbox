@@ -86,7 +86,7 @@ With the TI-Toolbox desktop app open on your project, you can ask for work inste
 
 > *Organise the raw scans in ~/Downloads/scan into BIDS as sub-101, preprocess them, run a flex-search targeting the bilateral thalamus with high intensity, then simulate the best montage.*
 
-The assistant then looks at the scans and proposes which series is the T1w, T2w, CT or DWI; copies them into the project's `sourcedata/sub-101/` (it never moves or overwrites your files); and **proposes** the work as a plan for you to approve: pre-processing first, then — once it can find the left and right thalamus in that subject's own atlas — the flex-search and a simulation of its winning electrodes. Each approved step is an ordinary job: it appears in **Jobs** and in the page's terminal as it runs, writes the same outputs and reports as a job you start yourself, carries a small **agent** badge, and can be cancelled from the app.
+The assistant then looks at the scans, asks you when it is unsure which series is the T1w, T2w, CT or DWI, and copies them into the project's `sourcedata/sub-101/<T1w|T2w|ct|dwi>/` with its own file tools — your CLI asks your permission for each copy, and it never moves or overwrites your files. It then **proposes** the work as a plan for you to approve: pre-processing first, then — once it can find the left and right thalamus in that subject's own atlas — the flex-search and a simulation of its winning electrodes. Each approved step is an ordinary job: it appears in **Jobs** and in the page's terminal as it runs, writes the same outputs and reports as a job you start yourself, carries a small **agent** badge, and can be cancelled from the app.
 
 **It uses your own assistant and your own login.** Claude Code runs on your Claude Pro/Max login, Codex on your ChatGPT login. TI-Toolbox never sees, stores or forwards those credentials and has no AI service of its own; the job tools talk only to the TI-Toolbox running on your computer.
 
@@ -151,7 +151,7 @@ To let the assistant queue jobs directly, without a plan card, turn on **Setting
 
 ## Privacy and safety
 
-- The knowledge tools are read-only. The job tools only copy raw scans into `sourcedata/` (never overwriting), propose plans for your approval (or, if you allowed it, submit jobs), and follow or cancel jobs through the running app; they never delete files, and replacing a result needs your explicit yes.
+- The knowledge tools are read-only. The job tools propose plans for your approval (or, if you allowed it, submit jobs), and follow or cancel jobs through the running app; they never write or delete files themselves, and replacing a result needs your explicit yes. Copying raw scans into the project is done by the assistant's own file tools, with your CLI's permission.
 - Project inspection only lists directory and file names — it never opens imaging data.
 - Source/doc access is restricted to approved repository trees and manifests, including `tit/`, `desktop/src/`, `desktop/tests/`, `contracts/`, `agent-plugin/`, docs and scripts.
 - Set `TI_TOOLBOX_OFFLINE=1` to forbid network access entirely (requires a local clone).

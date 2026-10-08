@@ -1,16 +1,15 @@
 """Tests for the agent plugin's job driver (agent-plugin/mcp/jobs_server.py), 2026-10-07.
 
 What this pins: discovery (env first, then the `tit.stack=ti-toolbox-v3` container, one project
-at a time), the request each verb sends to tit.server, host-side staging that copies and never
-overwrites or escapes `sourcedata/sub-<id>/`, the ROI objects find_regions builds, the
+at a time), the request each verb sends to tit.server, find_regions passing the server's
+answer through, the
 flex-result -> simulation chain, watch_proposal returning once per change, and (2026-10-08)
 the stdio server answering other calls while a wait runs, with progress and cancellation.
 
 Where the expected values come from: request shapes are the routes' own contracts
 (contracts/openapi.yaml JobSpec/JobGroupRequest, PlanRequest, MontageSources) and the desktop's
 builders (pages/_shared/roi/types.ts roiToConfig, pages/simulator/buildConfig.ts), restated by
-hand (groundTruth: authored). The DICOM fixtures are hand-built Part-10 bytes per DICOM PS3.10
-(preamble, "DICM", explicit- and implicit-VR elements), not written by the reader under test.
+hand (groundTruth: authored).
 The last test drives the real FastAPI app (fake runner) over HTTP, so the wire shapes are also
 checked against the server rather than against this file's fake.
 
@@ -23,7 +22,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import struct
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -217,117 +215,6 @@ def test_no_stack_says_how_to_start_one(js, monkeypatch):
     _docker(monkeypatch, js, [])
     err, text = call(js, "connect")
     assert err and "open the ti-toolbox desktop app" in text.lower()
-
-
-# ---------------------------------------------------------------------------------------------
-# raw data
-# ---------------------------------------------------------------------------------------------
-
-
-def _dicom(path: Path, description: str, *, explicit=True, modality="MR"):
-    """Part-10 bytes: 128-byte preamble, DICM, then (0008,0060) and (0008,103E) elements."""
-
-    def element(group, elem, vr, value):
-        value = value.encode() + (b" " if len(value) % 2 else b"")
-        tag = struct.pack("<HH", group, elem)
-        if explicit:
-            return tag + vr + struct.pack("<H", len(value)) + value
-        return tag + struct.pack("<I", len(value)) + value
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(
-        b"\0" * 128
-        + b"DICM"
-        + element(0x0008, 0x0060, b"CS", modality)
-        + element(0x0008, 0x103E, b"LO", description)
-    )
-
-
-def test_inspect_raw_data_guesses_modalities(js, tmp_path):
-    raw = tmp_path / "scan"
-    for i in range(3):
-        _dicom(raw / "s002" / f"IM{i:04d}", "T1_MPRAGE_SAG_1mm")
-    _dicom(raw / "s005" / "IM0001", "ep2d_diff_mddw_64", explicit=False)
-    _dicom(raw / "s001" / "IM0001", "AAHead_Scout")
-    _dicom(raw / "ct" / "1.dcm", "Head 1.0", modality="CT")
-    (raw / "nifti").mkdir()
-    (raw / "nifti" / "sub-01_T2w.nii.gz").write_bytes(b"x")
-    (raw / "s002" / "._IM0000").write_bytes(b"appledouble")
-
-    err, out = call(js, "inspect_raw_data", path=str(raw))
-    assert not err, out
-    assert out["proposed_mapping"] == {
-        "T1w": [str(raw.resolve() / "s002")],
-        "ct": [str(raw.resolve() / "ct")],
-        "dwi": [str(raw.resolve() / "s005")],
-        "T2w": [str(raw.resolve() / "nifti" / "sub-01_T2w.nii.gz")],
-    }
-    by_source = {e["source"]: e for e in out["entries"]}
-    assert by_source[str(raw.resolve() / "s002")]["series"] == ["T1_MPRAGE_SAG_1mm"]
-    assert by_source[str(raw.resolve() / "s002")]["files"] == 3  # dotfiles ignored
-    assert by_source[str(raw.resolve() / "s001")]["guess"] is None
-
-
-def test_stage_copies_with_sidecars_and_refuses_to_overwrite(js, fake, tmp_path):
-    raw = tmp_path / "raw"
-    for i in range(2):
-        _dicom(raw / "T1_series" / f"IM{i}", "T1_MPRAGE")
-    (raw / "dwi.nii.gz").write_bytes(b"dwi")
-    (raw / "dwi.bval").write_text("0 1000")
-    (raw / "dwi.bvec").write_text("0 1")
-    mapping = {"T1w": [str(raw / "T1_series")], "DWI": str(raw / "dwi.nii.gz")}
-
-    err, out = call(js, "stage_raw_data", subject_id="101", mapping=mapping)
-    assert not err, out
-    sub = fake.project / "sourcedata" / "sub-101"
-    assert sorted(
-        p.relative_to(sub).as_posix() for p in sub.rglob("*") if p.is_file()
-    ) == [
-        "T1w/T1_series/IM0",
-        "T1w/T1_series/IM1",
-        "dwi/dwi.bval",
-        "dwi/dwi.bvec",
-        "dwi/dwi.nii.gz",
-    ]
-    assert (raw / "dwi.nii.gz").exists()  # copied, not moved
-
-    (raw / "T2.nii").write_bytes(b"t2")
-    err, text = call(
-        js,
-        "stage_raw_data",
-        subject_id="101",
-        mapping={**mapping, "T2w": [str(raw / "T2.nii")]},
-    )
-    assert err and "already exists" in text
-    assert not (sub / "T2w").exists()  # nothing copied when any target exists
-
-
-@pytest.mark.parametrize(
-    "subject_id, mapping, message",
-    [
-        ("../evil", {"T1w": ["/tmp"]}, "invalid subject id"),
-        ("101", {"flair": ["/tmp"]}, "unknown modality"),
-        ("101", {"T1w": ["relative/path"]}, "absolute"),
-    ],
-)
-def test_stage_rejects_bad_input(js, fake, subject_id, mapping, message):
-    err, text = call(js, "stage_raw_data", subject_id=subject_id, mapping=mapping)
-    assert err and message in text
-    assert not (fake.project / "sourcedata").exists()
-
-
-def test_stage_refuses_a_path_that_escapes_the_subject_folder(js, fake, tmp_path):
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    (fake.project / "sourcedata" / "sub-101").mkdir(parents=True)
-    (fake.project / "sourcedata" / "sub-101" / "T1w").symlink_to(outside)
-    src = tmp_path / "t1.nii.gz"
-    src.write_bytes(b"t1")
-    err, text = call(
-        js, "stage_raw_data", subject_id="101", mapping={"T1w": [str(src)]}
-    )
-    assert err and "outside" in text
-    assert list(outside.iterdir()) == []
 
 
 # ---------------------------------------------------------------------------------------------
@@ -890,11 +777,10 @@ def test_every_tool_declares_honest_annotations(js):
         "tools"
     ]
     hints = {t["name"]: t["annotations"] for t in tools}
-    assert len(hints) == 13
+    assert len(hints) == 11
     read_only = {n for n, h in hints.items() if h["readOnlyHint"]}
     assert read_only == {
         "connect",
-        "inspect_raw_data",
         "find_regions",
         "get_config_schema",
         "plan_job",
