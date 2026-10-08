@@ -101,6 +101,7 @@ it("tells a signed-out user how to sign in, and still lets them start", async ()
   await render(<AssistantPanel bridge={bridge} />);
   expect(container.textContent).toContain(CLI_INFO.claude.login);
   expect(container.textContent).toContain("TI-Toolbox never sees your credentials");
+  expect(container.textContent).toContain("nothing runs until you approve it on the Jobs page");
   expect(button("Start Claude Code").disabled).toBe(false);
 });
 

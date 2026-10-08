@@ -220,6 +220,7 @@ export function AssistantPanel({ bridge }: { bridge: TitAssistantBridge }) {
             {prompt.label}
           </button>
         ))}
+        <span className="assistant-note">By default it proposes the jobs as a plan; nothing runs until you approve it on the Jobs page.</span>
       </div>
 
       <div className="assistant-terminals">
