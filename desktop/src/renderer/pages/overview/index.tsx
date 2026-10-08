@@ -6,6 +6,7 @@ import { Eye, LayoutGrid, Search } from "lucide-react";
 import type { PageDef } from "../../app/registry";
 import { useSubjectContext } from "../../app/subjectContext";
 import { useOpenInViewer } from "../../app/openInViewer";
+import { PendingPlansNotice } from "../../app/proposals/PendingPlansNotice";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
 import { PageLayout } from "../../ui/Layout";
@@ -178,7 +179,7 @@ function OverviewPage() {
   if (data && rows.length === 0) {
     return (
       <PageLayout variant="browse">
-        <div className="overview-page"><div className="overview-project-toolbar"><AddExampleData /><SwitchProject /></div><ProjectInsights /><EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." /></div>
+        <div className="overview-page"><div className="overview-project-toolbar"><AddExampleData /><SwitchProject /></div><PendingPlansNotice /><ProjectInsights /><EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." /></div>
       </PageLayout>
     );
   }
@@ -186,7 +187,7 @@ function OverviewPage() {
   return (
     <PageLayout variant="browse" rightPaneKind="preview" rightPaneWidth={360} rightPane={detail}>
       <div className="overview-page" style={{ ["--overview-cols" as string]: COLUMNS }}>
-        <div className="overview-project-toolbar"><AddExampleData /><SwitchProject /></div>
+        <div className="overview-project-toolbar"><AddExampleData /><SwitchProject /></div><PendingPlansNotice />
         {overviewQuery.error && <Callout kind="danger">Could not load this project's overview.</Callout>}
         {overviewQuery.isPending && <Skeleton rows={4} />}
 

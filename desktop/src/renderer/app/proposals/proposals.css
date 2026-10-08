@@ -210,6 +210,35 @@
   padding-top: var(--space-2);
   border-top: 1px solid var(--line);
 }
+/* Pending plans outside Jobs (PendingPlansNotice.tsx): one 32px line per plan, the card's warning edge. */
+.pending-plans {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.pending-plan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-card);
+  box-shadow: inset 3px 0 0 var(--warning);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+}
+.pending-plan-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 /* The Jobs row's waiting-proposals count (NavRail). In the icon rail it sits on the icon. */
 .nav-badge {
   margin-left: auto;

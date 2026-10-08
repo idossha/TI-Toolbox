@@ -2804,3 +2804,38 @@ asking the user for a terminal in Settings (a preference for what `$TERMINAL` al
 **Evidence.** `desktop/src/main/assistant.test.ts` "Linux system terminal" (argv per terminal with
 a mocked lookup, the order, `$TERMINAL` known/unknown/by path, none found). Not exercised on a
 Linux desktop.
+
+## 2026-10-08 — A plan step is edited in full on its own run page ("Open in form")
+
+**Decision.** The plan card's inline editor keeps the few fields people change most (subjects,
+run name, current or currents, replace existing output) and the config JSON, now on the run
+pages' own `Field`, `NumberInput`, `Checkbox` and `Button` components with its actions in one
+footer. Its **Open in form** navigates to the step's run page — Pre-processing (`pre`), Simulator
+(`sim`, `sim_from_flex`), Optimizer (`flex`, `flex_adaptive`, `flex_pareto`, `ex`, `mex`) — with the
+step (and anything typed in the editor) in the router state. The page sets its own draft aside,
+loads the step with its config→form mapping (`preStepValues`, `simulator/planStep.ts`,
+`optimizer/planStep.ts`: the inverses of `buildSimulationConfig`, `buildFlexConfig`,
+`buildExConfig`/`buildMExConfig` and `roiToConfig`, an atlas found in the subject's catalog by
+its path), shows an "Editing plan step" banner, and swaps Run for **Save to plan** (and ⌘⏎), which
+builds the step's edit through the page's own builder over the step's config (fields the form does
+not show are kept) and sends the existing `PATCH /api/proposals/{id}/steps/{step_id}`; Cancel
+restores the draft. A `sim_from_flex` step whose flex step has not run is a Flex-result row naming
+that run (`SelectedRow.planFlexStep`): its placement and currents can be set, "the run's own"
+when left alone. The form is refused, with the reason, when it would change the step's kind (the
+route edits config and subjects only) or say different settings per subject (a step is one config
+for all its subjects). Pending plans also show on the Overview, one line each with Review.
+
+**Why.** The card could change a run name and a current; everything else (a target, electrodes,
+solver settings, stages) meant editing raw JSON or rejecting the plan. The run pages already are
+the forms for those configs, with their validation, pickers and plan preview.
+
+**Alternatives rejected.** A full form inside the card (a second implementation of every run page
+that would drift from them); a new "draft step" server route (the step-edit route already
+re-plans); changing a step's kind from the form (a different step; the agent proposes a new plan);
+fanning a step out to per-subject configs (a proposal step has one config by contract).
+
+**Evidence.** `desktop/tests/unit/plan-step-form.test.ts` (each inverse undoes its builder; a
+saved step keeps unknown fields and its kind; refusals); `desktop/tests/unit/proposal-card.test.tsx`
+(footer actions, Open in form's route and state); `desktop/tests/e2e/proposals.spec.ts` (Optimizer,
+Simulator and Pre-processing save flows, the 1024 px editor fit, the Overview notice, and a
+two-step plan run to done against the mock, which now queues dependent steps like `_advance`).

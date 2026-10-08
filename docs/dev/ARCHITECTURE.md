@@ -255,8 +255,17 @@ note, overwrite}`), stored as `code/ti-toolbox/proposals/<id>.json` by
 and preflight functions the run pages use and pushes `{"type": "proposal"}` on `/ws/jobs` (the
 renderer toasts a newly pending plan; main's job notifier shows a native banner for it while the
 window is unfocused and notifications are on). While
-pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit);
-`proposed_steps` keeps the agent's version and what is approved is what runs. Approval re-plans
+pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit), on
+the card (subjects, run name, currents, the replace permission and the config JSON) or on the
+step's own run page: **Open in form** opens Pre-processing, the Simulator (a `sim_from_flex` step
+as a Flex-result row naming its flex step's run) or the Optimizer with the page's draft put aside
+and the step loaded through that page's config→form mapping
+([`stepForm.tsx`](../../desktop/src/renderer/app/proposals/stepForm.tsx)); the primary becomes
+**Save to plan**, which sends the form back through the page's own builder as the step's edit, and
+Cancel restores the draft. A step keeps its kind and runs one config on all its subjects, so a
+form that would change the kind or differ per subject is refused with the reason, not saved.
+`proposed_steps` keeps the agent's version and what is approved is what runs. Besides the Jobs
+badge, the Overview lists each pending plan on one line with **Review**, which opens its card. Approval re-plans
 every step and is refused (409) while a step has an error, a step waiting on nothing lacks an
 input, or a step would replace output without `overwrite`. **The server queues approved steps
 itself**: steps with no `after` at once, as jobs with the proposer's `created_by` and a
@@ -268,7 +277,8 @@ the agent plugin's `simulate_flex_result`. Step and proposal states are derived 
 read time. A finished plan (done, rejected or failed) can be dismissed (`POST /api/proposals/{id}/dismiss`,
 stored as `dismissed_at`; the default list omits it); the Jobs page shows only pending and
 in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Excluded
-alternatives: queuing dependent steps up front with job-level `after` (the
+alternatives: a second form inside the card for every setting (a parallel UI drifting from the run
+pages); queuing dependent steps up front with job-level `after` (the
 submit-time preflight refuses a flex job whose head model a queued `pre` will make, and a
 `sim_from_flex` montage does not exist yet); an agent that waits and submits each step (it
 would have to stay connected for hours). The setting and the proposal routes are rules for a
