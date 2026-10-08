@@ -8,7 +8,7 @@
     {
       "name": "ti-toolbox",
       "source": "./agent-plugin",
-      "description": "TI-Toolbox knowledge for coding agents: skills (usage, scripting API, domain, codebase) + MCP server (wiki/source reader, project inspector).",
+      "description": "TI-Toolbox for AI agents: skills (usage, scripting API, domain, codebase, running pipelines) + MCP servers (read-only wiki/source/project reader; job driver for the running app).",
       "category": "science",
       "keywords": ["temporal-interference", "simnibs", "neurostimulation"]
     }

@@ -147,9 +147,11 @@ A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/
 ## The agent plugin
 
 An installable plugin under [`agent-plugin/`](agent-plugin/README.md) gives Claude Code, Codex and
-any MCP client five skills (orientation, scripting API, TI domain knowledge, codebase conventions)
-plus a read-only MCP server that searches the wiki, reads `tit` source, finds symbols and inspects
-a user's project directory. In Claude Code:
+any MCP client six skills (orientation, scripting API, TI domain knowledge, codebase conventions,
+troubleshooting, running pipelines), a read-only MCP server that searches the wiki, reads `tit`
+source, finds symbols and inspects a user's project directory, and a job-driving MCP server
+(`agent-plugin/mcp/jobs_server.py`) that submits jobs through the running `tit.server` with
+`created_by: "agent"`. In Claude Code:
 
 ```text
 /plugin marketplace add idossha/TI-Toolbox

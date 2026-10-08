@@ -13,16 +13,19 @@ AGENTS.md                            # repo-wide agent instructions (Codex/Curso
 .claude-plugin/marketplace.json      # makes the repo a Claude Code plugin marketplace
 agent-plugin/
   .claude-plugin/plugin.json         # plugin manifest
-  .mcp.json                          # registers mcp/server.py via ${CLAUDE_PLUGIN_ROOT}
-  mcp/server.py                      # MCP server, stdlib only, Python 3.9+
+  .mcp.json                          # registers both servers via ${CLAUDE_PLUGIN_ROOT}
+  mcp/server.py                      # read-only knowledge server, stdlib only, Python 3.9+
+  mcp/jobs_server.py                 # job driver (ti-toolbox-jobs), stdlib only, Python 3.9+
   skills/
     ti-toolbox/SKILL.md              # orientation (auto-loaded)
     ti-scripting/SKILL.md            # Python API cheat-sheet (auto-loaded)
     ti-domain/SKILL.md               # TI physics/neuroscience background (auto-loaded)
     ti-codebase/SKILL.md             # module graph and conventions (auto-loaded)
     troubleshoot-project/SKILL.md    # /ti-toolbox:troubleshoot-project <root> [subject]
+    ti-run-pipelines/SKILL.md        # playbook for the job tools (auto-loaded)
   README.md
 tests/test_agent_plugin_mcp.py
+tests/test_agent_plugin_jobs.py
 ```
 
 `AGENTS.md` at the repo root is the single source of project context for agents working *on* the codebase; the plugin is for agents working *with* the toolbox. Keep the two consistent when the architecture changes.
@@ -47,7 +50,13 @@ tests/test_agent_plugin_mcp.py
 
 Every payload is capped at 60 kB. Tool failures are returned as `isError: true` results, never as crashes.
 
-**Adding a tool.** Write a `tool_<name>(args) -> dict` function, append an entry to `TOOLS` with a JSON-schema `inputSchema`, and add a test. Keep tools read-only; anything that writes belongs in the toolbox proper, not in the agent surface.
+**Adding a tool.** Write a `tool_<name>(args) -> dict` function, append an entry to `TOOLS` with a JSON-schema `inputSchema`, and add a test. Keep this server's tools read-only; anything that changes state belongs in the job server below.
+
+## Job server
+
+`agent-plugin/mcp/jobs_server.py` (`ti-toolbox-jobs`) uses the same hand-written stdio JSON-RPC and drives the **running** `tit.server`; it never runs science itself. It finds the server through `TIT_SERVER_URL` + `TIT_SERVER_TOKEN` when both are set, otherwise by `docker ps --filter label=tit.stack=ti-toolbox-v3` and `docker inspect` (token and port from the container's environment, the host project from its `tit.host_project_dir` label — the same rule as `tit launch`). The token is never returned to the agent.
+
+Jobs go through `POST /api/jobs/groups` (per-subject kinds, as the run pages submit them) or `POST /api/jobs` (with `after`), carrying `created_by: "agent"`. Omitted config fields are filled with the defaults the Pre-processing, Simulator and Optimizer pages send (mirrored at the top of the file), and a flex run's `output_folder` is resolved to an absolute folder before submission, as the Optimizer does, so its run name is known up front. Raw-data staging is the only host-side write: it copies into `<host project>/sourcedata/sub-<id>/<modality>/`, refuses any existing target and any path that resolves outside that folder. Tool annotations mark which tools are read-only and which may replace results.
 
 ## Skills
 
@@ -60,6 +69,7 @@ Skills are Markdown with YAML front matter. `user-invocable: false` marks backgr
 ```bash
 python3 agent-plugin/mcp/server.py --selftest            # smoke test, local or remote mode
 pytest tests/test_agent_plugin_mcp.py -q                  # tools, path guards, fake BIDS project, stdio round-trip
+pytest tests/test_agent_plugin_jobs.py -q                 # job server: fake server + one run against the real app
 claude plugin validate agent-plugin                       # manifest check
 claude plugin validate .claude-plugin/marketplace.json
 claude --plugin-dir ./agent-plugin                        # run Claude Code with the working-tree plugin

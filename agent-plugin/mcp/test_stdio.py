@@ -107,5 +107,42 @@ class StdioTests(unittest.TestCase):
         self.assertEqual(responses[0]["result"]["content"][0]["type"], "text")
 
 
+class JobsServerStdioTests(unittest.TestCase):
+    def test_lists_tools_and_reports_a_missing_stack_as_a_tool_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = {
+                k: v
+                for k, v in os.environ.items()
+                if k not in ("TIT_SERVER_URL", "TIT_SERVER_TOKEN")
+            }
+            env["PATH"] = directory  # no docker on PATH
+            result = subprocess.run(
+                [sys.executable, str(SERVER.with_name("jobs_server.py"))],
+                input="".join(
+                    json.dumps(m) + "\n"
+                    for m in [
+                        {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 2,
+                            "method": "tools/call",
+                            "params": {"name": "connect", "arguments": {}},
+                        },
+                    ]
+                ),
+                capture_output=True,
+                text=True,
+                cwd=directory,
+                env=env,
+                timeout=20,
+                check=True,
+            )
+        listed, connected = [json.loads(line) for line in result.stdout.splitlines()]
+        names = {tool["name"] for tool in listed["result"]["tools"]}
+        self.assertIn("submit_job", names)
+        self.assertTrue(connected["result"]["isError"])
+        self.assertIn("TI-Toolbox", connected["result"]["content"][0]["text"])
+
+
 if __name__ == "__main__":
     unittest.main()
