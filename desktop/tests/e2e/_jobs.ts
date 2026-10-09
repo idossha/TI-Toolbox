@@ -297,6 +297,9 @@ export async function addOptRow(page: Page): Promise<Locator> {
 
 /** Empties the table, so a spec's job counts are exact rather than additive. */
 export async function clearOptRows(page: Page): Promise<void> {
+  // The page renders nothing until the app defaults load (`withAppDefaults`), and then its seeded
+  // first row: count the rows only once the table is there, or a fresh launch's row slips past.
+  await expect(page.getByRole("button", { name: "Add job", exact: true })).toBeVisible();
   const remove = page.getByRole("button", { name: /^Remove job / });
   for (let i = (await remove.count()) - 1; i >= 0; i--) await remove.first().click();
   await expect(optRows(page)).toHaveCount(0);
