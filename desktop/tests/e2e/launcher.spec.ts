@@ -195,6 +195,7 @@ test("connected pages cannot directly start stacks or change settings but can pi
   await app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, projectDir);
+  const before = await page.evaluate(() => window.tit!.getSettings());
   const results = await page.evaluate(async (dir) => {
     const [start, settings] = await Promise.all([
       window.tit!.stack.start(dir),
@@ -204,7 +205,10 @@ test("connected pages cannot directly start stacks or change settings but can pi
     return { start, settings, dir2 };
   }, projectDir);
   expect(results.start).toEqual({ ok: false, error: "unknown sender" });
-  expect(results.settings).toEqual({});
+  // A served page may write only `notifications` (8e4dda46, `tit:setSettings` in main/index.ts), so
+  // the call answers with what it wrote — the settings unchanged; the refused key was not stored.
+  expect(before.lastProjectDir).not.toBe("/should/not/persist");
+  expect(results.settings).toEqual(before);
   expect(results.dir2).toBe(projectDir);
 
   // The stack is still running and status is still readable (not launcher-gated) — the refusals
