@@ -62,6 +62,9 @@ test("announces a newer release once per session, in the nav rail and in Setting
   await setTheme(page, "light");
   await dialog.getByRole("button", { name: "Later" }).click();
   await expect(dialog).toHaveCount(0);
+  // The project home's labelled rail does not scroll sideways either.
+  await expect(page.getByTestId("nav-rail")).toHaveAttribute("data-rail-mode", "labels");
+  expect(await page.getByTestId("nav-rail").evaluate((el) => el.scrollWidth - el.clientWidth), "labelled rail has no horizontal overflow").toBe(0);
 
   // Connecting reloads the window; the same process does not ask again, nor fetch again.
   await connectLauncher(page, SERVER_URL, TOKEN);
@@ -73,9 +76,11 @@ test("announces a newer release once per session, in the nav rail and in Setting
   await expect(label).toHaveAccessibleName(`TI-Toolbox ${LATEST} is available (you have ${CURRENT})`);
   await expect(page.getByRole("dialog", { name: "Update available" })).toHaveCount(0);
   expect(feedHits).toBe(1);
-  // The 56px icon rail (1280 px window) holds the whole label: inside the rail, text not clipped.
-  // (The rail's own 1px horizontal overflow predates the label, so it is not measured here.)
-  await expect(page.getByTestId("nav-rail")).toHaveAttribute("data-rail-mode", "icons");
+  // The 56px icon rail (1280 px window) holds the whole label: inside the rail, text not clipped,
+  // and the rail itself never scrolls sideways (its 40px rows used to overflow a 39px content box).
+  const rail = page.getByTestId("nav-rail");
+  await expect(rail).toHaveAttribute("data-rail-mode", "icons");
+  expect(await rail.evaluate((el) => el.scrollWidth - el.clientWidth), "icon rail has no horizontal overflow").toBe(0);
   const fit = await label.evaluate((el) => {
     const rail = el.closest(".nav-rail")!;
     const box = el.getBoundingClientRect();

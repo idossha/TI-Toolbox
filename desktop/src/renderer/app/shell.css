@@ -73,6 +73,10 @@
 .nav-rail-icons {
   width: var(--nav-w-icons);
   align-items: center;
+  /* The 40px rows must fit the content box: 56px border-box minus the 1px right border leaves 55px,
+   * and the default 8px + 8px padding left 39px, so every row hung 0.5px past the right padding
+   * edge and the rail scrolled sideways by 1px. Same row positions as before, no overflow. */
+  padding-inline: calc((var(--nav-w-icons) - 1px - 40px) / 2);
 }
 .nav-rail-icons .nav-label {
   display: none;
