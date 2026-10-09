@@ -575,7 +575,9 @@ function Preview({
   }
 
   return (
-    <div className="results-preview" data-testid="results-preview">
+    // `aria-busy` while this kind's summary is in flight: an analysis's header already has its
+    // Subject/Simulation rows from the catalog, so a painted header does not mean a loaded pane.
+    <div className="results-preview" data-testid="results-preview" aria-busy={pending || undefined}>
       <div className="results-preview-header">
         <span className="results-preview-title" title={node.label}>
           {node.label}

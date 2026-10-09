@@ -1069,10 +1069,14 @@ test("an opaque surface shows only its outer sheet — no inner layer bleeds thr
   const skin = page.getByRole("slider", { name: "Skin opacity", exact: true });
   await skin.focus();
   await page.keyboard.press("Home");
+  // 50 %: the control frame, where the inner sheets ARE visible. Not 0 %: since f5041aaf a part
+  // at opacity 0 is dropped from every pass (`ordered()` in glScene.ts), so it would measure an
+  // empty frame rather than the sheet path — and so is the skin from here on.
   const gm = page.getByRole("slider", { name: "GM opacity", exact: true });
   await gm.focus();
-  await page.keyboard.press("Home"); // 0 %: the control frame, where the inner sheets ARE visible.
-  await expect(gm).toHaveAttribute("aria-valuenow", "0");
+  await page.keyboard.press("Home");
+  for (let i = 0; i < 5; i += 1) await page.keyboard.press("PageUp"); // +10 each
+  await expect(gm).toHaveAttribute("aria-valuenow", "50");
 
   const state = await readScene(page);
   const { widthCss, heightCss } = state.canvas;
@@ -1091,8 +1095,8 @@ test("an opaque surface shows only its outer sheet — no inner layer bleeds thr
     if (!read) throw new Error("samplePixels returned null — no renderer or no camera");
     return read as number[][];
   };
-  // Both surfaces translucent: 5 draws each for the two sheet phases, plus the two-surface marker
-  // depth pre-pass and one instanced marker draw.
+  // The grey matter translucent and the skin gone: 5 draws for its two sheet phases, plus the
+  // one-surface marker depth pre-pass and one instanced marker draw.
   const translucentDrawCalls = (await readScene(page)).stats.drawCalls;
   const transparent = await sample();
 
@@ -1100,7 +1104,7 @@ test("an opaque surface shows only its outer sheet — no inner layer bleeds thr
   await page.keyboard.press("End"); // 100 %
   await expect(gm).toHaveAttribute("aria-valuenow", "100");
   // …and the peel machinery is bypassed for the opaque surface: ONE draw call for it instead of
-  // five, so 13 becomes 9. Read before `sample()`, which renders its own frame without the markers.
+  // five, so 7 becomes 3. Read before `sample()`, which renders its own frame without the markers.
   const opaqueDrawCalls = (await readScene(page)).stats.drawCalls;
   const opaque = await sample();
 
@@ -1132,6 +1136,6 @@ test("an opaque surface shows only its outer sheet — no inner layer bleeds thr
     ).toBeGreaterThan(10);
   }
 
-  expect(translucentDrawCalls).toBe(13);
-  expect(opaqueDrawCalls).toBe(9);
+  expect(translucentDrawCalls).toBe(7);
+  expect(opaqueDrawCalls).toBe(3);
 });

@@ -47,11 +47,13 @@ async function openResults(subject: string): Promise<void> {
 /**
  * The `data-testid`s of the pane's sections, in the order they are painted.
  *
- * Waits for the header block first: every kind builds its header from a manifest read through
- * `GET /api/files/text`, so a pane read the instant it is selected can be one section short.
+ * Waits for the pane to stop being busy, not just for its header: an analysis's header has its
+ * Subject/Simulation rows from the catalog before `results.csv` arrives, so a pane read the instant
+ * its header painted could be one section short (key numbers missing — intermittent).
  */
 async function sectionOrder(): Promise<string[]> {
   await expect(page.getByTestId("results-header-block")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("results-preview")).not.toHaveAttribute("aria-busy", "true", { timeout: 15_000 });
   return page.evaluate(() =>
     [...document.querySelectorAll('[data-testid="results-preview"] .results-preview-section')]
       .map((el) => {
