@@ -169,6 +169,21 @@ export interface TitAssistantBridge {
   openPath(path: string): Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
+/** TI-Toolbox's own newest-release check; never rejects (a failed lookup is `error`). */
+export interface TitAppUpdate {
+  /** This desktop app's version. */
+  current: string;
+  /** Newest published release (`x.y.z`), or null when it could not be read. */
+  latest: string | null;
+  available: boolean;
+  /** The release page (`html_url`) to download the new installer from. */
+  url: string | null;
+  /** Why there is no answer: offline, an HTTP error, an unreadable feed, or checks off in this build. */
+  error: string | null;
+  /** True on the one answer per app process that should announce the update with a popup. */
+  prompt: boolean;
+}
+
 export interface TitBridge {
   /** Save the live native scene into the active project; the renderer supplies a name, never a path. */
   previewNativeTetravoxScene?(path: string): Promise<{ ok: boolean; reason?: string }>;
@@ -188,6 +203,11 @@ export interface TitBridge {
   platform(): NodeJS.Platform;
   /** Version of the desktop shell (package.json), not of the toolbox image. */
   appVersion(): Promise<string>;
+  /**
+   * Is a newer TI-Toolbox published? Main asks GitHub once per app process and keeps the answer;
+   * `force` (Settings ▸ Check again) asks again. Off in dev builds and automated tests.
+   */
+  checkAppUpdate?(force?: boolean): Promise<TitAppUpdate>;
   /** Open an http(s)/mailto URL in the host's default browser (scheme-checked in main). */
   openExternal(url: string): Promise<void>;
   /**

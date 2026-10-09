@@ -32,6 +32,7 @@ const tit: TitBridge = {
   openNativeTetravox: (path: string) => ipcRenderer.invoke("tit:tetravox:open", path),
   platform: () => process.platform,
   appVersion: () => ipcRenderer.invoke("tit:appVersion"),
+  checkAppUpdate: (force?: boolean) => ipcRenderer.invoke("tit:checkAppUpdate", force === true),
   openExternal: (url: string) => ipcRenderer.invoke("tit:openExternal", String(url)),
   connect: (args?: TitConnectArgs) =>
     ipcRenderer.invoke("tit:connect", args ? { url: String(args.url), token: String(args.token) } : null),

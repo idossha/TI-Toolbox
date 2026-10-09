@@ -4,6 +4,7 @@ import { Callout, DefinitionList, Skeleton } from "../../ui/Feedback";
 import { isElectron } from "../../env";
 import { getVersion } from "./api";
 import { ExternalLinkButton } from "./links";
+import { AppUpdateCard } from "../../app/appUpdate";
 
 export function AboutTab() {
   const version = useQuery({ queryKey: ["help-version"], queryFn: getVersion });
@@ -29,18 +30,21 @@ export function AboutTab() {
         </CardBody>
       </Card>
 
-      <Card>
-        <CardHeader title="Updates" />
-        <CardBody>
-          <Callout kind="info">
-            Automatic update checks aren't wired up yet in v3 — the toolbox ships as a Docker image, so updating means{" "}
-            <code className="mono">docker compose pull</code>. Check the release notes for what's new.
-          </Callout>
-          <div style={{ marginTop: "var(--space-3)" }}>
-            <ExternalLinkButton href="https://github.com/idossha/TI-Toolbox/releases">View releases</ExternalLinkButton>
-          </div>
-        </CardBody>
-      </Card>
+      {isElectron ? (
+        <AppUpdateCard />
+      ) : (
+        <Card>
+          <CardHeader title="Updates" />
+          <CardBody>
+            <p className="field-help" style={{ margin: 0 }}>
+              New versions ship as a new desktop installer on the releases page, with notes on what changed.
+            </p>
+            <div style={{ marginTop: "var(--space-3)" }}>
+              <ExternalLinkButton href="https://github.com/idossha/TI-Toolbox/releases">View releases</ExternalLinkButton>
+            </div>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }

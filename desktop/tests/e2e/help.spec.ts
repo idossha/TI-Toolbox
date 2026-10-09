@@ -91,7 +91,9 @@ test("every Help tab renders, and Docs frames the published website", async () =
   expect(bodyText).not.toMatch(/freeview|gmsh|x11/i);
 
   await page.getByRole("tab", { name: "About" }).click();
-  await expect(page.getByText("Automatic update checks aren't wired up yet")).toBeVisible();
+  // The About tab shares Settings ▸ Updates' card; automated runs make no release request.
+  await expect(page.getByTestId("app-update-card")).toHaveAttribute("data-status", "error");
+  await expect(page.getByText("Update checks are off in development builds.")).toBeVisible();
 
   await page.getByRole("tab", { name: "Cite" }).click();
   // Real assertion: the citation text that "Copy citation" would copy is present and correct on

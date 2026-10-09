@@ -21,6 +21,7 @@ import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { TitNativeTetravoxStatus, TitNativeTetravoxProgress } from "../shared/tit-bridge";
+import { compareVersions } from "./updates";
 
 /**
  * Plain file operations. Electron patches `fs` so that every `*.asar` looks like a directory and
@@ -71,17 +72,6 @@ const execFileAsync = promisify(execFile);
 export function compatibleViewerVersion(version: string): boolean {
   const parts = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
   return !!parts && (Number(parts[1]) > 0 || Number(parts[2]) >= 4);
-}
-
-/** Newest-first comparison of two `x.y.z` versions. */
-export function compareViewerVersions(a: string, b: string): number {
-  const left = a.split(".").map(Number);
-  const right = b.split(".").map(Number);
-  for (let index = 0; index < 3; index += 1) {
-    const difference = (left[index] ?? 0) - (right[index] ?? 0);
-    if (difference) return difference;
-  }
-  return 0;
 }
 
 export interface InstalledViewer { executable: string; directory: string; version: string }
@@ -388,7 +378,7 @@ async function install(userData: string, replace: boolean): Promise<TitNativeTet
 
   const { version, assets } = await latestViewerRelease();
   if (!compatibleViewerVersion(version)) throw new Error(`TetraVox ${version} is not compatible with this TI-Toolbox release.`);
-  if (existing.installed && compareViewerVersions(existing.version, version) >= 0) return existing;
+  if (existing.installed && compareVersions(existing.version, version) >= 0) return existing;
   const paths = nativeViewerPaths(userData, process.platform, process.arch, version);
   const { release, directory } = paths;
   if (!release || !paths.executable) throw new Error("TI-Toolbox has no TetraVox package for this platform.");
@@ -501,7 +491,7 @@ export async function openNativeViewer(userData: string, scene: string, selected
 /** Settings ▸ Viewer's "is there a newer TetraVox?": the same release lookup Update installs from. */
 export async function checkViewerUpdate(userData: string, fetchImpl: typeof fetch = fetch): Promise<{ latest: string; newer: boolean }> {
   const [status, { version }] = await Promise.all([nativeViewerStatus(userData), latestViewerRelease(fetchImpl)]);
-  return { latest: version, newer: status.installed && compatibleViewerVersion(version) && compareViewerVersions(version, status.version) > 0 };
+  return { latest: version, newer: status.installed && compatibleViewerVersion(version) && compareVersions(version, status.version) > 0 };
 }
 
 /* ------------------------------------------------------------ update requested from TetraVox */

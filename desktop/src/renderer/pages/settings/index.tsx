@@ -24,6 +24,7 @@ import "./settings-page.css";
 import { SurferSettingsCard } from "./SurferSettingsCard";
 import { CpuLimitField } from "./CpuLimitField";
 import { NotificationsCard } from "./NotificationsCard";
+import { AppUpdateCard } from "../../app/appUpdate";
 
 /**
  * Settings and Help are the two pages DESIGN.md §2.3 still allows a header — the orchestrator's
@@ -48,6 +49,8 @@ const SETTINGS_TABS = [
   { id: "extensions", label: "Extensions" },
   { id: "viewer", label: "Viewer" },
   { id: "server", label: "Server" },
+  // TI-Toolbox's own release check runs in the desktop app's main process; a browser has none.
+  ...(isElectron ? [{ id: "updates", label: "Updates" }] : []),
 ];
 
 const PANEL_INFO: { id: PanelId; label: string; description: string }[] = [
@@ -437,6 +440,11 @@ function SettingsPage() {
         </Card>
 
           </TabsPrimitive.Content>
+          {isElectron && (
+            <TabsPrimitive.Content value="updates" forceMount className="settings-panel">
+              <AppUpdateCard />
+            </TabsPrimitive.Content>
+          )}
         </TabsPrimitive.Root>
 
         <div className="settings-save">

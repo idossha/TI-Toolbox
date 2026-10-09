@@ -495,3 +495,49 @@
   color: var(--ink-2);
   cursor: default;
 }
+
+/* ---------- Version label (nav rail footer, `appUpdate.tsx`) ---------- */
+.nav-version {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.nav-rail:not(.nav-rail-icons) .nav-version {
+  justify-content: flex-start;
+}
+/* 40px of icon rail: drop the "v" and tighten the dot so the label never scrolls the rail. */
+.nav-rail-icons .nav-version {
+  max-width: 100%;
+  gap: 3px;
+  padding: var(--space-1) 0;
+  font-size: 10px;
+}
+.nav-rail-icons .nav-version-v {
+  display: none;
+}
+/* The pinned section's `margin-top: auto` keeps it at the bottom; the label sits just under it. */
+.nav-version-update {
+  color: var(--accent);
+  cursor: pointer;
+}
+.nav-version-update:hover {
+  background: var(--accent-soft);
+}
+.nav-version-update:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.nav-rail-icons .nav-version-update .status-dot {
+  width: 5px;
+  height: 5px;
+}

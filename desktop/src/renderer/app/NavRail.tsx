@@ -6,6 +6,7 @@ import { isMac } from "./keyboard";
 import { isProjectHome } from "../env";
 import { Tooltip } from "../ui/Overlay";
 import { PendingProposalsBadge } from "./proposals/PendingProposalsBadge";
+import { AppVersionLabel } from "./appUpdate";
 
 /**
  * The width at which the rail carries labels — the same literal as `shell.css`.
@@ -318,6 +319,7 @@ export function NavRail() {
           </div>
         </div>
       ))}
+      <AppVersionLabel />
     </nav>
   );
 }
