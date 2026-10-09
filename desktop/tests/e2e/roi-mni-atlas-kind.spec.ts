@@ -40,13 +40,17 @@ function pickerSwitch(root: Locator): Locator {
 
 /** Every atlas the picker's own atlas combobox offers, with the popover closed again. */
 async function atlasOptions(root: Locator, label: string): Promise<string[]> {
-  await field(label, root).locator(".combobox-trigger").click();
+  const trigger = field(label, root).locator(".combobox-trigger");
+  await trigger.click();
   const listbox = page.getByRole("listbox");
   await expect(listbox).toBeVisible();
   const names = (await page.getByRole("option").allInnerTexts()).map((t) => t.trim());
-  // Close the listbox only: a second Escape after it has already gone would reach the editor
-  // dialog and close it too, and the test's Done click would then time out.
-  await page.keyboard.press("Escape");
+  // Close the listbox by toggling its trigger, not with Escape. Radix moves the Escape listener
+  // from the editor dialog to the popover one render after the popover mounts, so an Escape sent
+  // a few ms after the list appears could reach both layers and close the editor too (measured
+  // 2026-10-09: one keydown removed listbox and editor together in 3 of 5 runs after
+  // roi-idiom.spec.ts). The trigger is the popover's own toggle and has no such window.
+  await trigger.click();
   await expect(listbox).toHaveCount(0);
   return names;
 }

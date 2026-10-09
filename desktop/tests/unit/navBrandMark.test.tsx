@@ -12,6 +12,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// The version label reads the update query; it has its own test (app-update.test.tsx).
+vi.mock("../../src/renderer/app/appUpdate", () => ({ AppVersionLabel: () => null }));
 vi.mock("../../src/renderer/app/registry", () => ({
   useNavSections: () => [
     {
