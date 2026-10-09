@@ -251,14 +251,16 @@ test("openPath and showItemInFolder reject dot-segments and out-of-mount paths (
   expect(dotSegment).toEqual({ ok: false, reason: "path contains a '.' or '..' segment" });
 
   const outsideMount = await page.evaluate(() => window.tit!.openPath("/mnt/some-other-project/file.txt"));
-  expect(outsideMount).toEqual({ ok: false, reason: "path is outside the mounted project" });
+  // One reason for every known mount since e44c15c6 merged the started-stack and /api/project
+  // branches of `resolveHostPathStrict` into one mapping path.
+  expect(outsideMount).toEqual({ ok: false, reason: "path is outside the project" });
 
   // showItemInFolder applies the identical checks and never reaches `shell.showItemInFolder` for a
   // rejected path — no Finder/Explorer window should appear as a side effect of this test.
   const revealDotSegment = await page.evaluate((name) => window.tit!.showItemInFolder(`/mnt/${name}/a/../../escape`), mountName);
   expect(revealDotSegment).toEqual({ ok: false, reason: "path contains a '.' or '..' segment" });
   const revealOutside = await page.evaluate(() => window.tit!.showItemInFolder("/mnt/some-other-project/file.txt"));
-  expect(revealOutside).toEqual({ ok: false, reason: "path is outside the mounted project" });
+  expect(revealOutside).toEqual({ ok: false, reason: "path is outside the project" });
 });
 
 test("Docker missing, Podman and a failed image pull each get their own message", async () => {
