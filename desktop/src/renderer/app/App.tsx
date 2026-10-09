@@ -7,6 +7,7 @@ import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Shell } from "./Shell";
 import { ToastHost } from "../ui/Toast";
 import { landingPage, useEnabledPages } from "./registry";
+import { AppUpdatePrompt } from "./appUpdate";
 
 // Only the very first paint's initial route: MemoryRouter's `initialEntries` is read once, at
 // construction, so it must be a plain value computed before the QueryClient has any data — the
@@ -22,7 +23,12 @@ const firstPage = landingPage();
 export function App() {
   // Job banners' TI-Toolbox sounds, sent by main (`main/jobsNotifier.ts`). Desktop only.
   useEffect(() => window.tit?.onNotificationSound?.(playNotificationSound), []);
-  return isProjectHome ? <ProjectHome /> : <ConnectedApp />;
+  return (
+    <>
+      {isProjectHome ? <ProjectHome /> : <ConnectedApp />}
+      <AppUpdatePrompt />
+    </>
+  );
 }
 
 function ProjectHome() {

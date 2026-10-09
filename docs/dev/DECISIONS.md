@@ -3039,3 +3039,36 @@ and a score threshold to tune). Known cost: "frontal" alone no longer finds DK's
 
 **Evidence.** `tests/test_region_rois.py::test_find_regions_matches_whole_words_of_a_name` (the
 table's `search` cases; red on the old rule for Hypothalamus and superiorfrontal).
+
+## 2026-10-09 — TI-Toolbox announces its own new releases
+
+**Decision.** The desktop app checks for a newer TI-Toolbox itself. Main
+(`desktop/src/main/updates.ts`) GETs `https://api.github.com/repos/idossha/TI-Toolbox/releases/latest`
+(a `User-Agent`, a 10 s timeout, no token), ignores drafts and prereleases, compares the tag without
+its `v` to `app.getVersion()`, keeps the answer for the process lifetime, and never rejects:
+`{current, latest, available, url, error, prompt}`, `url` being the release's `html_url`. One
+optional bridge entry, `checkAppUpdate(force?)`, brings the preload budget to 25 (ARCHITECTURE §5);
+`force` is Settings ▸ Updates' **Check again**. `prompt` is true on one answer per process, so the
+load popup ("TI-Toolbox X is available (you have Y)", **Download** / **Later**) shows once per
+session although the window reloads on every project switch. The nav rail's footer always shows
+the version (browser sessions: the server's `tit_version`; no check) with an accent dot when an
+update is out, linking to Settings ▸ Updates (on the project home, where Settings is unreachable,
+to the release page). Help ▸ About shows the same card. Checks run only in packaged apps and never
+with `TIT_E2E_TOKEN`/`TIT_E2E_OFFSCREEN`; `TIT_UPDATE_CHECK=1|0` forces them on or off and
+`TIT_UPDATE_FEED_URL` replaces the feed. TetraVox's version comparison moved here
+(`compareVersions`) instead of a second copy.
+
+**Why.** Help ▸ About said update checks "aren't wired up yet", so users learned of releases only by
+visiting GitHub. Updating is installing the new desktop installer, which then fetches its matching
+image itself (`stack.ts`), so the notice only has to point at the release page.
+
+**Alternatives rejected.** electron-updater auto-install (a new dependency, code-signed update
+feeds per platform, and a silent swap of the app under a running job); a server-side check through
+`tit.server` (the browser session has no installer to update, and the image is not what the user
+installs); "Skip this version" in `localStorage` (each project origin, `app://launcher` and
+`http://127.0.0.1:<port>`, has its own storage, so the skip would not hold — deferred until a user
+asks); a `dismissed` flag via a second bridge entry (main's `prompt` already gives once per session).
+
+**Evidence.** `desktop/src/main/updates.test.ts`; `desktop/tests/unit/app-update.test.tsx`;
+`desktop/tests/e2e/app-update.spec.ts` (fixture feed, popup once, nav label, Settings ▸ Updates);
+`desktop/tests/e2e/smoke.spec.ts` (bridge keys); `desktop/tests/e2e/help.spec.ts` (About card).

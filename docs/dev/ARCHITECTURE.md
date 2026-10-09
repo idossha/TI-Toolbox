@@ -173,7 +173,12 @@ UI tests run hidden and assess state, geometry and rendering assertions. An unav
 is unverified, not passed.
 
 Frozen paths are [`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
-The preload bridge has 24 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
+The preload bridge has 25 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
+`checkAppUpdate` (optional: absent means no update notice) reads TI-Toolbox's newest published
+release once per app process in main ([`updates.ts`](../../desktop/src/main/updates.ts)) and never
+rejects — `{current, latest, available, url, error, prompt}`, `prompt` true on one answer per
+process; it takes only `force`, makes no request in unpackaged or automated runs unless
+`TIT_UPDATE_CHECK=1`, and reads `TIT_UPDATE_FEED_URL` in place of the GitHub feed;
 `saveNativeTetravoxScene` adds native snapshot saving; `onNotificationSound` lets main have the
 window play a job banner's TI-Toolbox sound; `assistant` (optional: absent means no Assistant pane)
 is the host terminal of §6's user-run agent — `detect`, `start`, `write`, `resize`, `kill`,

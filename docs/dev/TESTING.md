@@ -458,3 +458,18 @@ the `xterm` handle an e2e build (`VITE_SCENE_HOOKS=1`) hangs on the host element
 checks node-pty, its macOS `spawn-helper` mode and the staged `agent-plugin/`. Not covered by any of
 these: Windows ConPTY sessions, the system-terminal routes on Linux/Windows, a real signed-in CLI
 session, and notarisation of the unpacked native files.
+
+### TI-Toolbox update notice
+
+`desktop/src/main/updates.test.ts` pins version order (numeric, missing parts as 0), when checks run
+(packaged only; never with `TIT_E2E_TOKEN`/`TIT_E2E_OFFSCREEN`; `TIT_UPDATE_CHECK` forces either
+way), one cached lookup per process, `prompt` on exactly one answer, and every failure (offline,
+HTTP error, unreadable body, unparsable tag, draft, prerelease) returned as `error` with a fake
+fetch; the versions are authored, not read from GitHub. `tests/unit/app-update.test.tsx` covers the
+popup (only for the `prompt` answer; Later and Download close it), the card's three states and Check
+again, and the nav label. `tests/e2e/app-update.spec.ts` points `TIT_UPDATE_FEED_URL` at a local
+fixture feed one minor above `package.json`'s version, asserts the popup at load, no second popup or
+feed request after connecting, the nav label and its fit in the icon rail, Settings ▸ Updates and
+Check again, records `shell.openExternal` instead of opening a browser, and writes
+`app-update-{popup,rail,settings}-{light,dark}.png` to `TIT_E2E_ARTIFACTS`. Not covered: the real
+GitHub feed (rate limits, a proxy) and a packaged build's default-on path.

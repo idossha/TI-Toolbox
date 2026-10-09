@@ -153,11 +153,14 @@ test("launcher connects and the shell renders its chrome around the landing page
   // 2026-09-23 notification-sounds entry adds `onNotificationSound` (main has no audio API, so a job
   // banner's TI-Toolbox sound plays in this window): twenty-three. The 2026-10-07 Assistant entry
   // adds `assistant`, one namespace for the host terminal running the user's own Claude Code or
-  // Codex (the renderer names the CLI only): twenty-four.
+  // Codex (the renderer names the CLI only): twenty-four. The 2026-10-09 update-notice entry adds
+  // `checkAppUpdate`, TI-Toolbox's own newest-release check (read-only, no arguments but `force`):
+  // twenty-five.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
     "assistant",
+    "checkAppUpdate",
     "checkNativeTetravoxUpdate",
     "connect",
     "fastsurfer",

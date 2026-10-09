@@ -523,11 +523,13 @@ function CorticalPanel({
       <Field label="Space" help="Which anatomy the atlas and the 3D pane are in. The same control sits above the pane; both write the row's one space.">
         <RoiSpaceControl value={value} onChange={onChange} label="Atlas space" id="roi-picker-space" disabled={disabled} />
       </Field>
-      {value.space === "mni" && (atlases.data ?? []).length === 0 && !atlases.isFetching && (
+      {value.space === "mni" && (atlases.data ?? []).length === 0 && !atlases.isLoading && (
         <Callout kind="info">Every atlas TI-Toolbox ships in MNI space is a label volume (see <code>resources/atlas/manifest.json</code>), including the Glasser HCP-MMP1.0 cortical parcellation. Choose Subcortical to target them, or switch back to Subject for this subject&rsquo;s own surface parcellations.</Callout>
       )}
       <Field label="Atlas" required help="FreeSurfer surface atlas (.annot) whose parcellation the regions below come from.">
-        {atlases.isFetching ? (
+        {/* First load only: a background refetch (a finished job invalidates ["atlases"]) must not
+            unmount an atlas dropdown the user has open. */}
+        {atlases.isLoading ? (
           <Skeleton height={32} />
         ) : (
           <Combobox
@@ -600,7 +602,9 @@ function SubcorticalPanel({
         <Select value={value.tissues} onValueChange={(v) => onChange({ ...value, tissues: v as TissueKind })} options={TISSUE_OPTIONS} disabled={disabled} />
       </Field>
       <Field label="Volume atlas" required help="Volumetric atlas whose labels the regions below come from.">
-        {atlases.isFetching ? (
+        {/* First load only: a background refetch (a finished job invalidates ["atlases"]) must not
+            unmount an atlas dropdown the user has open. */}
+        {atlases.isLoading ? (
           <Skeleton height={32} />
         ) : (
           <Combobox
