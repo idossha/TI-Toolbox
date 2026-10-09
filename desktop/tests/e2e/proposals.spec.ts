@@ -169,11 +169,10 @@ test("an approved two-step plan runs its dependent step when the first succeeds,
   const id = await propose(true);
   await page.getByRole("link", { name: "Jobs", exact: true }).click();
   await page.getByTestId("proposal-card").getByRole("button", { name: "Approve and run" }).click();
-  await expect(page.getByTestId("proposal-step-sim")).toHaveAttribute("data-state", "waiting");
-  // The flex job finishes, the server-side advance queues the simulation, and it finishes too.
-  await expect(page.getByTestId("proposal-step-opt")).toHaveAttribute("data-state", "succeeded", { timeout: 20_000 });
-  await expect(page.getByTestId("proposal-step-sim").locator("button.proposal-job-link")).toHaveCount(1, { timeout: 20_000 });
-  // Done folds the card into Finished plans.
+  // Done folds the card into Finished plans. The fresh plan's jobs take ~0.5 s each, so the card's
+  // in-between states (sim waiting, opt succeeded with sim running) last less than one of
+  // Playwright's 1 s polls: asserting them raced the plan and failed whenever it finished between
+  // two polls. The live in-between card is pinned by the first test, whose jobs take seconds.
   await expect(page.getByTestId("proposal-card")).toHaveCount(0, { timeout: 20_000 });
   await expect(page.getByTestId("finished-plans")).toContainText("Finished plans (1)");
   const record = await stored(id);
@@ -182,6 +181,10 @@ test("an approved two-step plan runs its dependent step when the first succeeds,
     ["opt", "succeeded", 1],
     ["sim", "succeeded", 1],
   ]);
+  // The dependent step was queued only once the first had succeeded (the server-side advance).
+  const job = async (jobId: string) => (await (await page.request.get(`${SERVER_URL}/api/jobs/${jobId}`, { headers: auth })).json()).status;
+  const [opt, sim] = [await job(record.steps[0].job_ids[0]), await job(record.steps[1].job_ids[0])];
+  expect(sim.created_at >= opt.finished_at).toBe(true);
 });
 
 test("the inline step editor fits at 1024 px: whole run name, checkbox beside its label, actions in one footer", async () => {

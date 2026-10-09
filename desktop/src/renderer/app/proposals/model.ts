@@ -111,8 +111,15 @@ export function stepFacts(step: ProposalStep, steps: readonly ProposalStep[]): [
   return rows;
 }
 
-/** Live step state: the job store when it knows every job of the step, else the server's. */
+const SETTLED: readonly StepState[] = ["succeeded", "failed", "skipped", "error"];
+
+/**
+ * Live step state: the job store when it knows every job of the step, else the server's. A step
+ * the server has settled stays settled: a job's terminal state is final for its id, so a store
+ * that still says "running" for it has missed a message and is stale, not newer.
+ */
 export function liveStepState(step: ProposalStep, jobs: Record<string, JobStatus>): StepState {
+  if (SETTLED.includes(step.state)) return step.state;
   const known = step.job_ids.map((id) => jobs[id]).filter((j): j is JobStatus => j !== undefined);
   if (step.job_ids.length === 0 || known.length !== step.job_ids.length) return step.state;
   const states = known.map((j) => j.state);

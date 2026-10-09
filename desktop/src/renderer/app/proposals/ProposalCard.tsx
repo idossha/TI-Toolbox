@@ -5,7 +5,7 @@
  * its jobs. The server decides everything; this file only shows and asks.
  */
 import { useId, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Bot, ChevronRight, X } from "lucide-react";
 import { ApiError } from "../../api/client";
@@ -44,6 +44,17 @@ function minutes(m: number | null | undefined): string | null {
 
 function errorText(e: unknown): string {
   return e instanceof ApiError || e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * Show a route's reply at once, then re-read the list. The reply is the plan as the server saw it
+ * when it answered; /ws/jobs can have delivered (and the list refetched) a newer one before the
+ * reply is handled, and written last it would freeze the card there — say "running" over a plan
+ * that is already done — until the next proposal message, which may never come.
+ */
+function showReply(queryClient: QueryClient, p: Proposal): void {
+  queryClient.setQueryData<Proposal[]>(PROPOSALS_KEY, (all) => all?.map((x) => (x.id === p.id ? p : x)));
+  void queryClient.invalidateQueries({ queryKey: PROPOSALS_KEY });
 }
 
 /**
@@ -186,7 +197,7 @@ function StepRow({
   const [editing, setEditing] = useState(false);
   const pending = proposal.status === "pending";
   const state = liveStepState(step, jobs);
-  const replace = (p: Proposal) => queryClient.setQueryData<Proposal[]>(PROPOSALS_KEY, (all) => all?.map((x) => (x.id === p.id ? p : x)));
+  const replace = (p: Proposal) => showReply(queryClient, p);
   const save = useMutation({
     mutationFn: (edit: StepEdit) => editStep(proposal.id, step.id, edit),
     onSuccess: (p) => {
@@ -281,7 +292,7 @@ export function ProposalCard({
   const queryClient = useQueryClient();
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
-  const replace = (p: Proposal) => queryClient.setQueryData<Proposal[]>(PROPOSALS_KEY, (all) => all?.map((x) => (x.id === p.id ? p : x)));
+  const replace = (p: Proposal) => showReply(queryClient, p);
   const approve = useMutation({
     mutationFn: () => approveProposal(proposal.id),
     onSuccess: (p) => {

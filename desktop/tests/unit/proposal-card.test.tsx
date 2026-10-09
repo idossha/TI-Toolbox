@@ -6,7 +6,8 @@
  * danger callout that says whether replacing is allowed; Approve is disabled while the server
  * would refuse; Approve / Reject (with the note) / Edit (with the edited run name) call the
  * proposal routes; after approval a step's state follows its jobs in the live store and its job
- * opens on click.
+ * opens on click, a step the server has settled is not undone by a stale store, and a route's
+ * reply handled after a newer refetch does not freeze the card at the reply's moment.
  *
  * Where the expected values come from: the fixture below is authored here in the contract's
  * `Proposal` shape (contracts/openapi.yaml), so every expected string restates the fixture, not
@@ -15,16 +16,17 @@
  */
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { approveProposal, dismissProposal, editStep, rejectProposal, runStep } from "../../src/renderer/app/proposals/api";
+import { approveProposal, dismissProposal, editStep, listProposals, PROPOSALS_KEY, rejectProposal, runStep } from "../../src/renderer/app/proposals/api";
 import { ProposalCard, ProposalsStrip } from "../../src/renderer/app/proposals/ProposalCard";
 import { liveStepState, overwrites, stepFacts, visibleProposals, type Proposal } from "../../src/renderer/app/proposals/model";
 import type { JobStatus } from "../../src/renderer/app/jobs/types";
 
 vi.mock("../../src/renderer/app/proposals/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/renderer/app/proposals/api")>()),
+  listProposals: vi.fn(),
   approveProposal: vi.fn(),
   rejectProposal: vi.fn(),
   dismissProposal: vi.fn(),
@@ -301,6 +303,52 @@ it("after approval follows each step's jobs live and opens them", () => {
   expect(button("Approve and run")).toBeUndefined();
   act(() => button("job00001")!.click());
   expect(onOpenJob).toHaveBeenCalledWith("job00001aaaa");
+});
+
+it("a step the server has settled stays settled when the live store still says running", () => {
+  // A job's terminal state is final for that job id, so a "running" left in the store (a terminal
+  // /ws/jobs message lost across a reconnect whose resync failed) is stale, never newer.
+  const step = { ...proposal().steps[0]!, state: "succeeded", job_ids: ["job00001aaaa"] } as Proposal["steps"][number];
+  const stale = { job00001aaaa: { id: "job00001aaaa", state: "running" } as JobStatus };
+  expect(liveStepState(step, stale)).toBe("succeeded");
+  expect(liveStepState({ ...step, state: "failed" }, stale)).toBe("failed");
+  expect(liveStepState({ ...step, state: "queued" }, stale)).toBe("running"); // in flight: the store is the newer
+});
+
+it("an approve reply that lands after a newer refetch does not freeze the plan at approval time", async () => {
+  // The order a loaded machine can produce in proposals.spec.ts: /ws/jobs announces the plan's
+  // progress and the refetch shows it done before the approve request's own reply is handled.
+  const approved = { decision: { state: "approved", at: "2026-10-07T10:01:00+00:00", note: null } } as const;
+  const atApproval = proposal({ status: "running", ...approved });
+  atApproval.steps[0] = { ...atApproval.steps[0]!, overwrite: true, state: "running", job_ids: ["job00001aaaa"] };
+  atApproval.steps[1] = { ...atApproval.steps[1]!, state: "waiting" };
+  const finished = proposal({ status: "succeeded", ...approved, updated_at: "2026-10-07T10:02:00+00:00" });
+  finished.steps[0] = { ...atApproval.steps[0], state: "succeeded" };
+  finished.steps[1] = { ...finished.steps[1]!, state: "succeeded", job_ids: ["job00002bbbb"] };
+  const pending = proposal();
+  pending.steps[0] = { ...pending.steps[0]!, overwrite: true };
+  let reply: (p: Proposal) => void = () => undefined;
+  vi.mocked(approveProposal).mockReturnValue(new Promise((resolve) => (reply = resolve)));
+  vi.mocked(listProposals).mockResolvedValue([pending]);
+  function Strip() {
+    const { data } = useQuery({ queryKey: PROPOSALS_KEY, queryFn: listProposals });
+    return <ProposalsStrip proposals={data ?? []} jobs={{}} />;
+  }
+  const card = () => container.querySelector('[data-testid="proposal-card"]');
+  const idle = () => vi.waitFor(() => expect(client.isMutating() + client.isFetching()).toBe(0));
+  act(() => root.render(inApp(<Strip />)));
+  await vi.waitFor(() => expect(button("Approve and run")).toBeDefined());
+  act(() => button("Approve and run")!.click());
+  vi.mocked(listProposals).mockResolvedValue([finished]);
+  await act(() => client.invalidateQueries({ queryKey: PROPOSALS_KEY })); // the /ws/jobs proposal message
+  await vi.waitFor(() => expect(card()).toBeNull()); // done: folded away
+  await act(async () => {
+    reply(atApproval); // the approve reply, last
+    await idle();
+  });
+  await settle();
+  expect(card()).toBeNull();
+  expect(container.querySelector(".finished-plans-toggle")?.textContent).toContain("Finished plans (1)");
 });
 
 it("keeps undecided and in-flight plans, and only a day of the rest", () => {
