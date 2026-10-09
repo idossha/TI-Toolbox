@@ -1137,6 +1137,110 @@ def atlas_regions(
     return out
 
 
+def region_roi(
+    atlas: dict, regions: list[dict], tissues: str = "GM", space: str = "subject"
+) -> dict:
+    """The ``FlexConfig`` ROI targeting *regions* (``atlas_regions`` rows) of *atlas* (an
+    :func:`atlases` entry): an ``AtlasROI`` for a surface atlas, each region read from its own
+    hemisphere's file (the ``lh.`` of the atlas path swapped for the region's ``hemi``), a
+    ``SubcorticalROI`` for a volume, the atlas path once per region.
+
+    The desktop's picker builds the same object from its selection (``roiToConfig`` in
+    ``desktop/src/renderer/pages/_shared/roi/types.ts``); ``tests/fixtures/region_rois.json``
+    pins both to one table.
+    """
+    labels = [r["id"] for r in regions]
+    if atlas.get("kind") == "surface":
+        hemis = [r.get("hemi") or "lh" for r in regions]
+        return {
+            "_type": "AtlasROI",
+            "atlas_path": [
+                re.sub(r"(^|/)lh\.", rf"\g<1>{h}.", atlas["path"], count=1)
+                for h in hemis
+            ],
+            "label": labels,
+            "hemisphere": hemis,
+        }
+    return {
+        "_type": "SubcorticalROI",
+        "atlas_path": [atlas["path"]] * len(regions),
+        "label": labels,
+        "tissues": tissues,
+        "atlas_space": space,
+    }
+
+
+#: Words of a region query that pick a side rather than name a structure.
+_SIDE_WORDS = {"left", "right", "bilateral", "both", "lh", "rh"}
+#: Words of a region *name* that say its side ("Left-Thalamus", "ctx-lh-precuneus", "NAC_L").
+_NAME_SIDE_WORDS = {"left", "right", "lh", "rh", "l", "r"}
+
+
+def _name_matches(name: str, words: list[str]) -> bool:
+    """Whether every query word is a whole word of *name* (case-insensitive, split on
+    non-alphanumerics, side words dropped), or the words joined are one ("superior frontal" for
+    DK's "superiorfrontal"). "thalamus" is not "Hypothalamus"."""
+    tokens = set(re.findall(r"[a-z0-9]+", name.lower())) - _NAME_SIDE_WORDS
+    return all(w in tokens for w in words) or "".join(words) in tokens
+
+
+def _region_side(region: dict) -> str | None:
+    if region.get("hemi") in ("lh", "rh"):
+        return "left" if region["hemi"] == "lh" else "right"
+    name = region["name"].lower()
+    for side, words in (("left", "left|lh|l"), ("right", "right|rh|r")):
+        if re.search(rf"(^|[^a-z])({words})([^a-z]|$)", name):
+            return side
+    return None
+
+
+def find_regions(pm: PathManager, sid: str, query: str) -> list[dict] | None:
+    """Every region of *sid*'s atlases whose name has each word of *query* as a whole word
+    (:func:`_name_matches`), per atlas, with
+    ready ROIs: ``rois.all`` (every match, i.e. both sides) and ``rois.left`` /
+    ``rois.right`` when a side matched. Side words ("left", "bilateral", ...) are ignored;
+    ``None`` for an unknown subject, :class:`ValueError` when *query* names no structure.
+
+    The atlases searched are the ones the Optimizer's ROI picker offers: the subject's own
+    (``space: "subject"``) and then the shipped MNI volume atlases (``space: "mni"``,
+    ``atlases(..., space="mni", kind="subcortical")``), whose ROI is a ``SubcorticalROI`` with
+    ``atlas_space: "mni"`` -- the object the picker builds for an MNI selection.
+    """
+    found = atlases(pm, sid)
+    if found is None:
+        return None
+    words = [w for w in re.findall(r"[a-z0-9]+", query.lower()) if w not in _SIDE_WORDS]
+    if not words:
+        raise ValueError("query must name a structure, e.g. 'thalamus' or 'precentral'")
+    searched = [(atlas, "subject") for atlas in found] + [
+        (atlas, "mni") for atlas in atlases(pm, sid, "mni", "subcortical") or []
+    ]
+    out = []
+    for atlas, space in searched:
+        matches = [
+            {**r, "side": _region_side(r)}
+            for r in atlas_regions(pm, sid, atlas["id"]) or []
+            if _name_matches(r["name"], words)
+        ]
+        if not matches:
+            continue
+        rois = {"all": region_roi(atlas, matches, space=space)}
+        for side in ("left", "right"):
+            picked = [r for r in matches if r["side"] == side]
+            if picked:
+                rois[side] = region_roi(atlas, picked, space=space)
+        out.append(
+            {
+                "atlas": atlas["id"],
+                "kind": atlas["kind"],
+                "space": space,
+                "matches": matches,
+                "rois": rois,
+            }
+        )
+    return out
+
+
 def _jailed_atlas_path(root: str, path: str) -> str | None:
     """Contain the volume and its derived cache/LUT paths, including dangling symlinks."""
     resolved = os.path.realpath(path)
@@ -1470,16 +1574,19 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
 # ── flex-search runs ─────────────────────────────────────────────────────────
 
 
-def _pair_by_channel(
-    electrodes: list, channel_array_indices: list | None
-) -> list[list]:
+def pair_by_channel(electrodes: list, channel_array_indices: list | None) -> list[list]:
     """Group *electrodes* into ``[a, b]`` pairs, one pair per stimulation channel.
 
-    ``channel_array_indices`` is flex-search's own ``[[channel, array], ...]``
-    bookkeeping (``electrode_positions.json`` / ``electrode_mapping_*.json``):
-    entry *i* says which channel and which of that channel's two arrays
-    electrode *i* belongs to. When it is missing or unusable the electrodes are
-    paired consecutively, which is what ``resolve_flex_montage`` does.
+    The one electrode-pairing rule for a flex-search result: the Simulator's flex rows (via
+    :func:`flex_runs`), ``POST /api/plan``'s flex montage sources, the run-mapping route and
+    agent ``sim_from_flex`` steps (all via
+    :func:`tit.sim.montage_sources.resolve_flex_montage`) pair through it.
+    ``channel_array_indices`` is the optimiser's own ``[[channel, array], ...]`` bookkeeping
+    (``_save_optimized_positions`` in ``resources/map-electrodes/tes_flex_optimization.py``
+    writes one entry per electrode, carried through ``electrode_mapping_*.json`` by the
+    Hungarian mapping): entry *i* says which channel and which of that channel's two arrays
+    electrode *i* belongs to, so the pairs follow the channels whatever order the electrodes
+    are listed in. When it is missing or unusable the electrodes are paired consecutively.
     """
     if isinstance(channel_array_indices, list) and len(channel_array_indices) == len(
         electrodes
@@ -1517,6 +1624,26 @@ def _read_json(path: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def read_flex_mapping(path: str) -> dict | None:
+    """One ``electrode_mapping_<net>.json`` as ``{eeg_net, pairs}``, or ``None`` when unusable
+    (unreadable, or fewer than four labels)."""
+    data = _read_json(path)
+    if data is None:
+        return None
+    labels = [
+        label for label in data.get("mapped_labels") or [] if isinstance(label, str)
+    ]
+    if len(labels) < 4:
+        return None
+    net = data.get("eeg_net")
+    if not isinstance(net, str) or not net:
+        net = os.path.basename(path)[len("electrode_mapping_") : -len(".json")] + ".csv"
+    return {
+        "eeg_net": net,
+        "pairs": pair_by_channel(labels, data.get("channel_array_indices")),
+    }
+
+
 def _flex_mappings(run_dir: str, *, project_root: str | None = None) -> list[dict]:
     """EEG-label pairs already mapped for this run, one entry per net.
 
@@ -1537,27 +1664,13 @@ def _flex_mappings(run_dir: str, *, project_root: str | None = None) -> list[dic
         path = os.path.join(run_dir, name)
         if project_root and not is_within(project_root, path):
             continue
-        data = _read_json(path)
-        if data is None:
-            continue
-        labels = [
-            label for label in data.get("mapped_labels") or [] if isinstance(label, str)
-        ]
-        if len(labels) < 4:
-            continue
-        net = data.get("eeg_net")
-        if not isinstance(net, str) or not net:
-            net = name[len("electrode_mapping_") : -len(".json")] + ".csv"
-        out.append(
-            {
-                "eeg_net": net,
-                "pairs": _pair_by_channel(labels, data.get("channel_array_indices")),
-            }
-        )
+        mapping = read_flex_mapping(path)
+        if mapping is not None:
+            out.append(mapping)
     return out
 
 
-def _flex_optimized_pairs(
+def flex_optimized_pairs(
     run_dir: str, *, project_root: str | None = None
 ) -> list[list] | None:
     """The run's free (un-mapped) XYZ electrode pairs, or ``None``.
@@ -1579,7 +1692,7 @@ def _flex_optimized_pairs(
     ]
     if len(positions) < 4:
         return None
-    return _pair_by_channel(
+    return pair_by_channel(
         [list(p) for p in positions], data.get("channel_array_indices")
     )
 
@@ -1614,9 +1727,7 @@ def flex_runs(pm: PathManager, sid: str) -> list[dict] | None:
                 # none of them, so a client that reads only `manifest` has no way to
                 # turn a run into a `Montage` for submission (simulator PARITY.md #4).
                 "mappings": _flex_mappings(run_dir, project_root=pm.project_dir),
-                "optimized": _flex_optimized_pairs(
-                    run_dir, project_root=pm.project_dir
-                ),
+                "optimized": flex_optimized_pairs(run_dir, project_root=pm.project_dir),
                 "artifacts": _dir_artifacts(run_dir, project_root=pm.project_dir),
             }
         )

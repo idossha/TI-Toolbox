@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { frontierIds, intensityColor, metricDefinition, tradeoffCandidates, type Candidate } from "../../src/renderer/pages/results/candidates/model";
 import { candidateMetricsChanged, candidateRow, patchCandidateRow } from "../../src/renderer/pages/simulator/candidateHandoff";
 import { buildSimulationConfig } from "../../src/renderer/pages/simulator/buildConfig";
-import { DEFAULT_JOB_SETTINGS } from "../../src/renderer/pages/simulator/types";
+import { defaultJobSettings } from "../../src/renderer/pages/simulator/types";
 import { GOAL_OPTIONS } from "../../src/renderer/pages/optimizer/FlexSections";
 
 const candidate = (id: string, target: number, background: number, key = "same-head-domain"): Candidate => ({ id, objective: -100, objective_label: "Minimized cost", objective_direction: "minimize", metrics: { roi_mean: target, background_p95: background }, metric_labels: {}, comparison_key: key, positions: [] });
@@ -33,10 +33,10 @@ describe("candidate comparison", () => {
 describe("normal simulation handoff", () => {
   it("preserves every pose, signed current, and original configuration field", () => {
     const row = candidateRow(handoff);
-    expect(buildSimulationConfig(row, DEFAULT_JOB_SETTINGS)).toEqual(config);
+    expect(buildSimulationConfig(row, defaultJobSettings())).toEqual(config);
     expect(candidateMetricsChanged(row)).toBe(false);
     const changed = { ...row, currents: "0.8,-1.2", settings: { ...row.settings!, dimensions: [13, 19] as [number, number] } };
-    const built = buildSimulationConfig(changed, DEFAULT_JOB_SETTINGS);
+    const built = buildSimulationConfig(changed, defaultJobSettings());
     expect(built.intensities).toEqual([0.8, -1.2]);
     expect(built.electrode_dimensions).toEqual([13, 19]);
     expect((built.montages as typeof config.montages)[0]?.electrode_poses).toEqual(poses);

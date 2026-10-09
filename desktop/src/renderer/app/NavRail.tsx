@@ -5,6 +5,7 @@ import { pageById, pagePath, useNavSections, type ResolvedPage } from "./registr
 import { isMac } from "./keyboard";
 import { isProjectHome } from "../env";
 import { Tooltip } from "../ui/Overlay";
+import { PendingProposalsBadge } from "./proposals/PendingProposalsBadge";
 
 /**
  * The width at which the rail carries labels — the same literal as `shell.css`.
@@ -240,6 +241,7 @@ export function NavRail() {
                 >
                   <Icon size={16} aria-hidden />
                   <span className="nav-label">{page.title}</span>
+                  {page.id === "jobs" && <PendingProposalsBadge />}
                 </NavLink>
               );
               // Indented rows under the page's own (maintainer, 2026-09-06: "the left menu has two

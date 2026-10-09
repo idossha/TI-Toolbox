@@ -4,16 +4,94 @@ Teaches AI coding agents (Claude Code, Codex, Cursor, any MCP client) how the
 **Temporal Interference Toolbox** works, so they can answer questions, write
 `tit` scripts, and debug your project without hallucinating the API.
 
-It has two parts, usable together or separately:
+It has three parts, usable together or separately:
 
 | Part | What it gives the agent |
 |------|-------------------------|
-| **Skills** (`skills/*/SKILL.md`) | Orientation, scripting API cheat-sheet, TI domain knowledge, codebase conventions, a `/troubleshoot-project` command |
-| **MCP server** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
+| **Skills** (`skills/*/SKILL.md`) | Orientation, scripting API cheat-sheet, TI domain knowledge, codebase conventions, a `/troubleshoot-project` command, and `ti-run-pipelines` (the playbook for running jobs) |
+| **MCP server `ti-toolbox`** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
+| **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
 
-The MCP server is a single Python 3.9+ file with **no dependencies**. It reads
-from a local TI-Toolbox checkout when one is present, otherwise it fetches the
-files from GitHub (`main`) and caches them in `~/.cache/ti-toolbox-mcp`.
+Plugin version **0.6.0** (`.claude-plugin/plugin.json`). Both servers are
+Python 3.9+ with **no dependencies** (they share `mcp/stdio_loop.py`, the JSON-RPC stdio
+loop). The plugin starts them with `${TIT_PYTHON:-python3}`, so on Windows, where Python is
+usually `py` or `python`, set `TIT_PYTHON` once (`setx TIT_PYTHON py`); the desktop app's
+Assistant page sets it itself. The read-only server reads from a local
+TI-Toolbox checkout when one is present, otherwise it fetches the files from GitHub (`main`) and caches them in `~/.cache/ti-toolbox-mcp`.
+
+**No setup at all:** the desktop app's **Assistant** page runs your own Claude Code
+or Codex with this plugin (the copy bundled with the app) already attached; see
+[From the desktop app](#run-pipelines-with-your-own-agent) below. The install
+sections further down are for using the plugin from your own terminal or editor.
+
+## Run pipelines with your own agent
+
+Ask in plain words — *"organise the raw scans in ~/Downloads/scan as sub-101,
+preprocess them, run a flex-search on the bilateral thalamus for maximum intensity,
+then simulate the best montage"* — and the agent calls a short chain of
+`ti-toolbox-jobs` tools, asking you before it replaces anything. Raw scans are
+copied (never moved) into the project's `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the
+agent's own file tools, which ask your permission first; the agent asks you when a
+series' modality is unclear.
+
+**You approve, the app runs.** By default the agent cannot queue jobs itself: it
+proposes the whole pipeline (`propose_pipeline`) and the plan appears as a card on
+the app's **Jobs** page, with each step's subjects, settings, output folders,
+anything it would replace, and an ETA. Approve it (after editing a step if you
+like) or reject it with a note the agent reads. Once approved, the app queues the
+steps itself — a later step starts when the ones it waits on succeed — so the
+agent does not have to stay connected. **Settings ▸ Project ▸ AI assistant ▸
+Agent may submit without approval** lets the agent submit directly instead. This
+is a rule the plugin follows, not a lock: anything with the app's session token
+can do what the app can.
+
+**Your agent, your login.** The agent is your own Claude Code (with your Claude
+Pro/Max login) or Codex CLI (with your ChatGPT login). TI-Toolbox never sees,
+stores or forwards those credentials and adds no AI service of its own: the job
+server is a local process your agent starts, and it talks only to the TI-Toolbox
+on this computer. The one secret it handles is that TI-Toolbox's local session
+token, which it reads from the running container (as `tit launch` does) and never
+returns to the agent.
+
+**From the desktop app.** The app's **Assistant** page runs your own `claude` or `codex`
+in a terminal in the project folder with this plugin (the copy bundled with the app, so
+its version matches) attached for that session only — Claude Code with `--plugin-dir`,
+Codex with `-c mcp_servers.ti-toolbox*.…` overrides and a `developer_instructions`
+pointer to `skills/ti-run-pipelines/SKILL.md` — and with `TIT_SERVER_URL`/`TIT_SERVER_TOKEN`
+for the open session in the environment. Nothing is written to `~/.claude` or `~/.codex`;
+an installed `ti-toolbox` plugin is superseded for that session, not registered twice.
+No setup below is needed for that route.
+
+**Requirements.** The desktop app (or `tit launch`) open on your project, and
+`docker` on the agent's `PATH` (not needed from the Assistant page). For a server without Docker, set
+`TIT_SERVER_URL` and `TIT_SERVER_TOKEN` in the agent's environment instead.
+With several projects open, the agent is asked which one.
+
+| Tool | What it does |
+|------|--------------|
+| `connect` | Finds the open TI-Toolbox; project folder, subjects and what each has, queued/running jobs |
+| `find_regions` | Searches a subject's atlases ("thalamus") and returns ready ROI objects: bilateral, left, right (the app's `GET /api/catalog/regions`) |
+| `get_config_schema` | The config schema of a job kind and the app defaults the server fills in |
+| `plan_job` | Validation errors, missing inputs, output folders, what would be overwritten, ETA. Reads only |
+| `propose_pipeline` | Puts a multi-step plan in front of you for approval (validated and planned by the app first) |
+| `watch_proposal` | Returns on the plan's next change: your decision (with any edits, or your note), a finished step with its outputs, or all done |
+| `get_proposal` | Each step's state (waiting, queued, running, succeeded, ...) and job ids |
+| `submit_job` | Queues a job directly — only when you allowed it in Settings |
+| `wait_for_job` | Waits for directly submitted jobs, then reports state, log tail and outputs |
+| `cancel_job` | Cancels a queued or running job |
+| `simulate_flex_result` | Turns a finished flex-search run into a simulation in one call (direct mode; otherwise a `sim_from_flex` proposal step) |
+
+**Waiting never holds up the chat.** After proposing, the agent's last call of the turn is
+`watch_proposal`, which returns only when something changes. Claude Code moves an MCP call
+that is still running to a background task — after 2 minutes by default, after 5 s from the
+Assistant page, or at once when you type — and wakes the agent when it returns; the server
+answers the agent's other calls meanwhile. In your own terminal, `export
+CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` gives the same 5 s.
+
+Jobs it starts are recorded with `created_by: "agent"` in their `spec.json` and run
+exactly like the app's own jobs: same queue, same outputs, same reports. Fields the
+agent leaves out take the values the app's pages start with: the app fills them in from
+the same table its pages read (`get_config_schema` shows it).
 
 ## What changed in v3
 
@@ -70,10 +148,11 @@ become available).
 
 ## Codex (CLI or desktop)
 
-Register the stdio server with the CLI (replace the checkout path):
+Register both stdio servers with the CLI (replace the checkout path):
 
 ```bash
 codex mcp add ti-toolbox -- python3 /absolute/path/to/TI-Toolbox/agent-plugin/mcp/server.py
+codex mcp add ti-toolbox-jobs -- python3 /absolute/path/to/TI-Toolbox/agent-plugin/mcp/jobs_server.py
 codex mcp list
 ```
 
@@ -83,14 +162,26 @@ Or add the equivalent configuration to `~/.codex/config.toml`:
 [mcp_servers.ti-toolbox]
 command = "python3"
 args = ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/server.py"]
+
+[mcp_servers.ti-toolbox-jobs]
+command = "python3"
+args = ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/jobs_server.py"]
 ```
+
+Codex has no background tool calls, so `watch_proposal` and `wait_for_job` return
+within 45 s for it (under its 60 s tool timeout); the agent then ends its turn and you
+say "status" when you want news. Staging a very large DICOM folder can take longer; raise `tool_timeout_sec`
+in the `ti-toolbox-jobs` table if a staging call times out. If `connect` reports that
+`docker` was not found, the server's environment lacks Docker's folder on `PATH`: add a
+`[mcp_servers.ti-toolbox-jobs.env]` table with `PATH = "..."` including the folder
+`which docker` prints.
 
 The server detects the checkout from its own location; its working directory does
 not matter. Restart the client after configuration changes, then ask it to call
 `get_quick_facts` and `read_dev_doc` with `name: "ARCHITECTURE"`. A configuration listing
 alone does not prove the server connected. See the [official Codex MCP guide](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
-Skills are installed separately from MCP. Copy or symlink each of the five folders
+Skills are installed separately from MCP. Copy or symlink each of the six folders
 under `agent-plugin/skills/` into your project's `.agents/skills/` or your personal
 `~/.agents/skills/`, preserving any existing folders. Codex supports both locations
 and symlinks; see the [official skill discovery guide](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills).
@@ -101,8 +192,9 @@ mkdir -p .agents/skills
 ln -s ../../agent-plugin/skills/ti-toolbox .agents/skills/ti-toolbox
 ```
 
-Repeat for `ti-scripting`, `ti-domain`, `ti-codebase` and `troubleshoot-project` as
-needed. Do not overwrite an existing installation. Alternatively, tell the agent
+Repeat for `ti-scripting`, `ti-domain`, `ti-codebase`, `troubleshoot-project` and
+`ti-run-pipelines` as needed (`ti-run-pipelines` is the one that tells the agent how to
+drive jobs). Do not overwrite an existing installation. Alternatively, tell the agent
 to read the appropriate `agent-plugin/skills/<name>/SKILL.md` directly; that works
 without automatic skill discovery.
 
@@ -117,6 +209,10 @@ clients using the `mcpServers` JSON format, merge this entry into their configur
     "ti-toolbox": {
       "command": "python3",
       "args": ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/server.py"]
+    },
+    "ti-toolbox-jobs": {
+      "command": "python3",
+      "args": ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/jobs_server.py"]
     }
   }
 }
@@ -124,7 +220,7 @@ clients using the `mcpServers` JSON format, merge this entry into their configur
 
 Other clients may use different configuration keys; the command and arguments
 stay the same. HTTP-only clients cannot launch this stdio server directly. On
-Windows, use the installed Python executable and an absolute Windows script path.
+Windows, use the installed Python executable (`py` or `python`) and an absolute Windows script path.
 The server must run on a machine that can read the project directory being
 inspected; a host server needs the host path, not a container's `/mnt/...` path.
 
@@ -143,12 +239,14 @@ For troubleshooting, supply the project root and optional subject in the request
 | `TI_TOOLBOX_REF` | Git ref for GitHub fetches (default `main`) |
 | `TI_TOOLBOX_CACHE` | Cache directory (default `~/.cache/ti-toolbox-mcp`) |
 | `TI_TOOLBOX_OFFLINE=1` | Never touch the network |
+| `TIT_SERVER_URL`, `TIT_SERVER_TOKEN` | `ti-toolbox-jobs` only: use this server instead of finding the running container (both must be set) |
 
 ## Smoke test
 
 ```bash
 python3 agent-plugin/mcp/server.py --selftest
 python3 -m unittest discover -s agent-plugin/mcp -p "test_*.py" -v
+.venv/bin/python -m pytest tests/test_agent_plugin_jobs.py -q    # job server, incl. one run against the real app
 ```
 
 This calls **every** registered tool once against the current checkout — including
@@ -170,7 +268,8 @@ Codex, Claude Code or every other client has been tested end to end.
 `inspect_project`, `read_project_config`
 (\* need a local checkout).
 
-All tools are read-only. `inspect_project` and `read_project_config` only look at
+All `ti-toolbox` tools are read-only (the `ti-toolbox-jobs` tools are listed
+above). `inspect_project` and `read_project_config` only look at
 the path you pass them; source tools are restricted to `tit/`, `scripts/`, `docs/`,
 `tests/`, `container/`, `dev/`, `contracts/`, `desktop/src/`, `desktop/tests/`,
 `agent-plugin/` and a short list of top-level manifests.

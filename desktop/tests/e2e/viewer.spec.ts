@@ -235,6 +235,10 @@ test("Viewer panels contain a large scene library without scrolling the page", a
   const builder = page.getByTestId("viewer-builder-scroll");
   for (const size of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { width: 1024, height: 768 }]) {
     await page.setViewportSize(size);
+    // The rail's width is React state set from a resize listener (`useLabelledRail`), one render
+    // after the viewport changes: measured before it, the two boxes below come from two different
+    // layouts (1440 -> 1280 shrank the rail by 160 px between them). Wait for the rail first.
+    await expect(page.getByTestId("nav-rail")).toHaveAttribute("data-rail-mode", size.width >= 1440 ? "labels" : "icons");
     const left = await builder.boundingBox();
     const right = await library.boundingBox();
     expect(left).not.toBeNull(); expect(right).not.toBeNull();

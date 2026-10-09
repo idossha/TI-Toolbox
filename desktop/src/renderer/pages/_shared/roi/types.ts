@@ -181,7 +181,11 @@ export function atlasPathForHemi(atlas: AtlasLookup, hemi: "lh" | "rh"): string 
   return atlas.path.replace(/(^|\/)lh\./, `$1${hemi}.`);
 }
 
-/** Build the wire-shaped ROI config, or `undefined` while the value is incomplete. */
+/**
+ * Build the wire-shaped ROI config, or `undefined` while the value is incomplete. An atlas
+ * selection follows the same rule as the server's `tit.catalog.region_roi` (the agent's
+ * `find_regions`); `tests/fixtures/region_rois.json` pins both.
+ */
 export function roiToConfig(value: RoiValue, atlasLookup: (atlas: string) => AtlasLookup | undefined): RoiConfig | undefined {
   if (!isRoiComplete(value)) return undefined;
   // `saved` is not a FlexConfig ROI shape — ex/mEx read it through `exTargets()` instead.

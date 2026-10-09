@@ -163,6 +163,15 @@ export function formatJobNotification(job: FinishedJob, detail: NotificationPref
 /** The Settings card's "Send test notification" banner: a made-up simulation, worded like a real one. */
 export const SAMPLE_FINISHED_JOB: FinishedJob = { kind: "sim", state: "succeeded", subject_ids: ["ernie"], config: { montages: [{ name: "test_montage" }] } };
 
+/**
+ * The banner for an agent's plan that arrived pending (`{"type": "proposal"}` on `/ws/jobs`), or
+ * undefined: notifications off, not pending, or the window focused — the in-app toast covers that.
+ */
+export function proposalNotification(prefs: NotificationPrefs, proposal: { status?: string; title?: string; client?: string | null }, focused: boolean): { title: string; body: string } | undefined {
+  if (!prefs.enabled || focused || proposal.status !== "pending") return undefined;
+  return { title: "A plan is waiting for your approval", body: `${proposal.client || "Your AI agent"}: ${proposal.title || "a plan"} — review it on the Jobs page.` };
+}
+
 /** What `window.tit.notify` reports: the banner was shown, or why not. */
 export type NotifyResult = { ok: true } | { ok: false; reason: string; hint?: string };
 

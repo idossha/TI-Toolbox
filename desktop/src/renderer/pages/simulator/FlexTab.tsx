@@ -23,6 +23,7 @@
  * no `montage_sources` field: a submitted job carries a fully-resolved `Montage`.
  */
 import type { FlexRun } from "./api";
+import { defaultCurrents } from "./types";
 
 /** The free-XYZ placement's option value; anything else is an EEG-net filename. */
 export const OPTIMIZED = "__optimized__";
@@ -50,6 +51,19 @@ export function placementsFor(run: FlexRun): FlexPlacement[] {
     .map((p) => [p[0], p[1]] as [[number, number, number], [number, number, number]]);
   if (optimized.length > 0) out.push({ value: OPTIMIZED, label: "Optimised positions (XYZ)", xyzPairs: optimized });
   return out;
+}
+
+/**
+ * The run's own currents as a row's wire string: its optimised `current_split`, else its
+ * `current_mA` per channel, else 1 mA per channel. Same order as the server's
+ * `tit.sim.montage_sources.flex_currents` (`resolve_flex_simulation`); both are pinned by
+ * `tests/fixtures/flex_currents.json`.
+ */
+export function flexCurrents(run: FlexRun | undefined, numPairs: number): string {
+  const manifest = (run?.manifest ?? {}) as { current_split?: number[] | null; current_mA?: number | null };
+  if (manifest.current_split?.length) return manifest.current_split.join(",");
+  const mA = Number(manifest.current_mA);
+  return mA > 0 ? Array(Math.max(2, numPairs)).fill(String(mA)).join(",") : defaultCurrents(numPairs);
 }
 
 /** One row's electrode summary — labels when mapped, a coordinate count when free. */

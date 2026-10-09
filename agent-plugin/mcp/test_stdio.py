@@ -64,6 +64,7 @@ class StdioTests(unittest.TestCase):
                 },
             ]
         )
+        responses.sort(key=lambda r: r["id"])  # tools/call answers on its own thread
         self.assertEqual([r["id"] for r in responses], [1, 2, 3])
         self.assertTrue(all(r["jsonrpc"] == "2.0" for r in responses))
         self.assertEqual(responses[0]["result"]["protocolVersion"], "2025-06-18")
@@ -86,8 +87,9 @@ class StdioTests(unittest.TestCase):
                 {"jsonrpc": "2.0", "id": 2, "method": "ping"},
             ]
         )
-        self.assertEqual(responses[0]["error"]["code"], -32602)
-        self.assertEqual(responses[1], {"jsonrpc": "2.0", "id": 2, "result": {}})
+        by_id = {r["id"]: r for r in responses}  # tools/call answers on its own thread
+        self.assertEqual(by_id[1]["error"]["code"], -32602)
+        self.assertEqual(by_id[2], {"jsonrpc": "2.0", "id": 2, "result": {}})
 
     def test_tool_failure_is_content_error(self):
         responses = self.exchange(
@@ -105,6 +107,45 @@ class StdioTests(unittest.TestCase):
         )
         self.assertTrue(responses[0]["result"]["isError"])
         self.assertEqual(responses[0]["result"]["content"][0]["type"], "text")
+
+
+class JobsServerStdioTests(unittest.TestCase):
+    def test_lists_tools_and_reports_a_missing_stack_as_a_tool_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = {
+                k: v
+                for k, v in os.environ.items()
+                if k not in ("TIT_SERVER_URL", "TIT_SERVER_TOKEN")
+            }
+            env["PATH"] = directory  # no docker on PATH
+            result = subprocess.run(
+                [sys.executable, str(SERVER.with_name("jobs_server.py"))],
+                input="".join(
+                    json.dumps(m) + "\n"
+                    for m in [
+                        {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 2,
+                            "method": "tools/call",
+                            "params": {"name": "connect", "arguments": {}},
+                        },
+                    ]
+                ),
+                capture_output=True,
+                text=True,
+                cwd=directory,
+                env=env,
+                timeout=20,
+                check=True,
+            )
+        listed, connected = sorted(
+            map(json.loads, result.stdout.splitlines()), key=lambda r: r["id"]
+        )
+        names = {tool["name"] for tool in listed["result"]["tools"]}
+        self.assertIn("submit_job", names)
+        self.assertTrue(connected["result"]["isError"])
+        self.assertIn("TI-Toolbox", connected["result"]["content"][0]["text"])
 
 
 if __name__ == "__main__":

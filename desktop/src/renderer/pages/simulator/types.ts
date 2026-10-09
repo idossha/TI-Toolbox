@@ -1,3 +1,5 @@
+import { appDefaults } from "../../forms/appDefaults";
+
 /**
  * One row of the Simulator's **Jobs table** = one job = one `SimulationConfig` with exactly one
  * `Montage` (`tit.sim.utils.build_simulation_config_for_job`).
@@ -47,6 +49,9 @@ export interface SelectedRow {
   settings?: JobSettings;
   /** Original candidate configuration preserves poses and provenance through normal job planning. */
   candidate?: { id: string; requestId?: string; run: string; config: Record<string, unknown>; originalConfig?: Record<string, unknown>; originalCurrents: string; originalSettings: JobSettings };
+  /** A plan step's flex step (`planStep.ts`): this row simulates that step's run, which does not
+   *  exist until the step has run, so it has no electrodes yet and only its placement is chosen. */
+  planFlexStep?: string;
 
 }
 
@@ -67,20 +72,23 @@ export interface JobSettings {
   customConductivities: Record<string, number>;
 }
 
-/** The page's own defaults, as they start: SimNIBS's own, and the one field 2.5.0 wrote. */
-export const DEFAULT_JOB_SETTINGS: JobSettings = {
-  conductivity: "scalar",
-  anisoMaxratio: 10,
-  anisoMaxcond: 2,
-  electrodeShape: "ellipse",
-  dimensions: [8, 8],
-  gelThickness: 4,
-  outputFields: ["TI_max"],
-  mapToMni: false,
-  mapToFsavg: false,
-  carrierOnly: false,
-  customConductivities: {},
-};
+/** The page's own defaults, as they start: `x-app-defaults.sim` over `SimulationConfig`'s own. */
+export function defaultJobSettings(): JobSettings {
+  const d = appDefaults("sim", "SimulationConfig");
+  return {
+    conductivity: d.conductivity as string,
+    anisoMaxratio: d.aniso_maxratio as number,
+    anisoMaxcond: d.aniso_maxcond as number,
+    electrodeShape: d.electrode_shape as JobSettings["electrodeShape"],
+    dimensions: d.electrode_dimensions as [number, number],
+    gelThickness: d.gel_thickness as number,
+    outputFields: d.output_fields as string[],
+    mapToMni: d.map_to_mni as boolean,
+    mapToFsavg: d.map_to_fsavg as boolean,
+    carrierOnly: d.carrier_only as boolean,
+    customConductivities: (d.tissue_conductivities ?? {}) as Record<string, number>,
+  };
+}
 
 /** What this row will actually run with: its own settings, or the page's defaults. */
 export function settingsFor(row: SelectedRow, defaults: JobSettings): JobSettings {

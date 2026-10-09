@@ -1084,3 +1084,85 @@ that string. `SimulationDetail.meshes` may now include `MeshRef` entries with `k
 (the projection; `kind` was already a free string), and a `source` job in `fsavg_map` mode reports
 each written projection as an `artifact` event with `kind: "mesh"`. Clients that ignore unknown
 mesh kinds behave as before.
+
+## 2026-10-08 — dismissing a finished agent plan
+
+New path `POST /api/proposals/{id}/dismiss` hides a finished proposal (status `succeeded`,
+`rejected` or `failed`; 409 while it is `pending` or `running`). `Proposal` gains optional
+`dismissed_at`; `GET /api/proposals` gains optional `include_dismissed` (default `false`) and omits
+dismissed plans unless it is true. `GET /api/proposals/{id}` still returns them. A retried step
+clears the dismissal. Additive: clients that ignore both behave as before, except that a dismissed
+plan no longer appears in the default list.
+
+## 2026-10-08 — run-page defaults in `/api/schema`; agent configs get them
+
+`config.schema.json` (and so `GET /api/schema`) gains a top-level `x-app-defaults`: per job kind
+(`pre`, `sim`, `flex`, `flex_adaptive`, `flex_pareto`, `ex`), the values the desktop run pages
+start with where they differ from or add to the class's own `default`s, from
+`tit/server/app_defaults.py`; the run pages now initialise their forms from it. `POST
+/api/validate/{kind}` and `POST /api/plan/{kind}` take an optional `created_by`; with `"agent"`
+(there, on `POST /api/jobs/preflight`, `/api/jobs` and `/api/jobs/groups`, including every
+`subject_configs` entry) the server fills that kind's entry into the fields the config omits, and
+every proposal step gets it too. Additive: a client that sends no `created_by`, or another creator,
+gets exactly the previous behaviour, and `$defs` are unchanged.
+
+## 2026-10-08 — `GET /api/catalog/regions`
+
+New path `GET /api/catalog/regions?subject=&q=` and schema `RegionMatch`: a subject's atlas
+regions matching a structure name, per atlas, with ready `FlexConfig` ROIs (`rois.all`, `.left`,
+`.right`) built by `tit.catalog.region_roi`, the rule the desktop's ROI picker follows. 404 for an
+unknown subject, 422 for a query of side words only. Additive; the agent plugin's `find_regions`
+now calls it instead of building ROIs itself.
+
+## 2026-10-08 — outputs outside the project are refused
+
+`POST /api/plan/{kind}`, `POST /api/jobs` and `POST /api/jobs/groups` answer 422 ("Outputs must
+stay inside the project folder …") when a job would write outside the project: an absolute
+`FlexConfig.output_folder`, `AnalyzerConfig.output_dir` or blender `output_dir` elsewhere on disk,
+or a run/montage/analysis/output name that climbs out. The jobs routes do so whatever `overwrite`
+says, and a proposal step carries the same sentence in `plan.errors`, so it cannot be approved.
+No schema shape changes; documented 422s only. The desktop run pages already send folders the
+server resolved under the project.
+
+## 2026-10-08 — `GET /api/catalog/regions` searches the shipped MNI atlases too
+
+After the subject's own atlases, the route searches the MNI volume atlases the Optimizer's ROI
+picker offers (`GET /api/catalog/atlases?space=mni&kind=subcortical`); their ROIs are
+`SubcorticalROI` with `atlas_space: "mni"`. `RegionMatch` gains `space` (`subject` | `mni`,
+always present). Additive: a client that ignores `space` sees extra entries after the
+subject-space ones, each with a ready ROI. Region names of the Glasser, Schaefer and MASSP MNI
+atlases (here and in `GET /api/catalog/atlases/regions`) now come from the colour table
+`resources/atlas/manifest.json` names, not FreeSurfer's.
+
+## 2026-10-08 — `x-kind-classes` in `/api/schema`
+
+`config.schema.json` (and so `GET /api/schema`) gains a top-level `x-kind-classes`: job kind ->
+the config class name `POST /api/validate/{kind}` and `/api/plan/{kind}` use
+(`tit.server.routes.validate.SIMPLE_KIND_CLASS`, plus `AMBIGUOUS_KIND_DEFAULT` for `stats` and
+`blender`). The agent plugin's `get_config_schema` reads it and no longer carries its own copy.
+Additive: `$defs` and the other keys are unchanged.
+
+## 2026-10-08 — a proposal step's plan names its lock waits
+
+`ProposalStepPlan` gains optional `lock_conflicts` (`LockConflict[]`): the running jobs holding a
+lock the step needs, from the same `POST /api/plan` check `plan_job` reports, on a dry run and a
+stored proposal alike. Additive: absent on records planned before, and clients that ignore it
+behave as before.
+
+## 2026-10-08 — a proposal step's plan names its target
+
+`ProposalStepPlan` gains optional `target` (`string | null`): what a flex/ex/mex step targets, by
+name, resolved by the server from the step's config (`tit.opt.roi_spec.config_target`) — atlas
+label ids named from the atlas's own colour table (a shipped MNI atlas's from its manifest
+table) or `.annot` colortable, spheres by centre and radius, ex-search ROI CSV names. The plan
+card shows it as the step's Target; the agent plugin no longer writes a "Target: …" step note.
+Additive: `null` for steps without an ROI, absent on records planned before, and clients that
+ignore it behave as before.
+
+## 2026-10-08 — `GET /api/catalog/regions` matches whole words of a region name
+
+`q`'s words must now be whole words of a region name (split on non-alphanumerics, ignoring case
+and the name's side words left/right/lh/rh/l/r), or the words joined must be one ("superior
+frontal" still finds DK's "superiorfrontal"). "thalamus" finds "Left-Thalamus" and
+"Thalamus-left" but no longer "Hypothalamus"; "frontal" no longer finds "superiorfrontal". No
+shape change; a narrower match set.

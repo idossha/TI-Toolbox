@@ -1,0 +1,313 @@
+/* Plan cards (ProposalCard.tsx): the Jobs page's density — 12-13px text, 28px rows, one card
+ * border, no shadows of their own. Tokens only (ui/tokens.css). */
+.proposals-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  flex: none;
+}
+.proposal-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.proposal-card[data-status="pending"] {
+  border-color: var(--warning);
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+.proposal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  color: var(--ink);
+}
+.proposal-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.proposal-head-end,
+.proposal-step-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.proposal-rationale,
+.proposal-step-note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.proposal-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+.proposal-step {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 12px;
+}
+.proposal-step-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+}
+.proposal-step-index {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+.proposal-step-kind {
+  font-weight: 600;
+  color: var(--ink);
+}
+.proposal-step-subjects {
+  color: var(--ink-2);
+}
+.proposal-facts {
+  margin: 0 0 0 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-4);
+}
+.proposal-facts > div {
+  display: flex;
+  gap: var(--space-1);
+}
+.proposal-facts dt {
+  color: var(--ink-3);
+}
+.proposal-facts dd {
+  margin: 0;
+  color: var(--ink);
+}
+.proposal-output,
+.proposal-step-deferred,
+.proposal-step-jobs,
+.proposal-step .proposal-danger-text,
+.proposal-step-note {
+  margin-left: 26px;
+}
+.proposal-output {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.proposal-output-exists {
+  color: var(--danger);
+}
+.proposal-danger-text {
+  color: var(--danger);
+  font-weight: 600;
+  margin: 0;
+}
+.proposal-step-jobs {
+  display: flex;
+  gap: var(--space-2);
+}
+.proposal-job-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+}
+.proposal-list {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+.proposal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.proposal-actions > .text-caption {
+  margin-right: auto;
+}
+.proposal-note {
+  flex: 1 1 auto;
+  max-width: 420px;
+}
+/* The inline step editor: the run pages' Field rows (a narrower label column) in a grid that
+ * wraps to one column, aligned with the step's facts (26px), actions right-aligned in a footer. */
+.proposal-editor {
+  --field-label-w: 96px;
+  margin-left: 26px;
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.proposal-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-1) var(--space-4);
+}
+.proposal-editor-json > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--row-h);
+  color: var(--ink-2);
+  cursor: pointer;
+  list-style: none;
+}
+.proposal-editor-json > summary::-webkit-details-marker {
+  display: none;
+}
+.proposal-editor-json-chevron {
+  transition: transform 120ms;
+}
+.proposal-editor-json[open] .proposal-editor-json-chevron {
+  transform: rotate(90deg);
+}
+.proposal-editor-json > textarea {
+  display: block;
+  height: auto;
+  min-height: calc(10 * 18px + 2 * var(--space-2));
+  padding: var(--space-2);
+  font-size: 12px;
+  line-height: 18px;
+  resize: vertical;
+}
+.proposal-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+/* Pending plans outside Jobs (PendingPlansNotice.tsx): one 32px line per plan, the card's warning edge. */
+.pending-plans {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.pending-plan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-card);
+  box-shadow: inset 3px 0 0 var(--warning);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+}
+.pending-plan-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* The Jobs row's waiting-proposals count (NavRail). In the icon rail it sits on the icon. */
+.nav-badge {
+  margin-left: auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-chip);
+  background: var(--warning);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-rail-icons .nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  margin: 0;
+}
+.nav-rail-icons .nav-item {
+  position: relative;
+}
+
+/* Finished plans (ProposalCard.tsx): a one-line disclosure, then one compact row per plan. */
+.finished-plans-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  min-height: var(--row-h);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.finished-plans-chevron {
+  transition: transform 120ms;
+}
+.finished-plans-chevron.open {
+  transform: rotate(90deg);
+}
+.finished-plans-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.finished-plan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  font-size: 12px;
+}
+.finished-plan + .finished-plan {
+  border-top: 1px solid var(--line);
+}
+.finished-plan .proposal-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.finished-plan-dismiss {
+  margin-left: auto;
+}

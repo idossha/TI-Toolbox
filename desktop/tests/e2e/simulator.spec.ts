@@ -529,11 +529,12 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
       expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.75);
       expect(row.pageHeaderHeight).toBe(0);
       expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
-      // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the
-      // window, ceilinged so the work pane keeps its >=560 px floor. 576 at 1280; at 1440 the
-      // ceiling binds, not the 45 %, so 610.
-      expect(row.panes.right).toBe(row.width >= 1440 ? 610 : 576);
-      expect(row.panes.work).toBeGreaterThanOrEqual(560);
+      // ARCHITECTURE §11 / DECISIONS 2026-09-23 "The run split is sized in pixels" (4ede08f4): the
+      // pane's 45 vw default is clamped so the Jobs pane keeps 640 px of the split box. The clamp
+      // binds at both sizes: 1280 - 56 nav - 2 x 16 pad = 1192, 1192 - 6 handle - 640 = 546 (45 vw
+      // would be 576); 1440 - 216 nav - 2 x 24 pad = 1176, 1176 - 6 - 640 = 530 (45 vw: 648).
+      expect(row.panes.right).toBe(row.width >= 1440 ? 530 : 546);
+      expect(row.panes.work).toBe(640);
     }
 
     const first = rows.find((r) => r.width === 1280 && r.theme === "light");

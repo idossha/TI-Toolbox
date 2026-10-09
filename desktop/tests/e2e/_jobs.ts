@@ -48,7 +48,10 @@ export async function setJobNet(page: Page, row: Locator, option: string): Promi
  */
 async function pickBy(page: Page, row: Locator, label: string, option: string): Promise<void> {
   const trigger = row.getByRole("combobox", { name: label, exact: true });
+  // Enabled, not just visible: a row's Montage select stays disabled until the render that follows
+  // its net pick, and a raw mouse click lands on the disabled trigger as a no-op (no listbox opens).
   await expect(trigger).toBeVisible();
+  await expect(trigger).toBeEnabled();
   // A real mouse click at the trigger's centre: `locator.click()`'s hit-target check reports the
   // cell's own parent as the hit inside a two-line row, so the pointer is driven directly rather
   // than the actionability assertion being forced off. The option list proves it opened.
@@ -294,6 +297,9 @@ export async function addOptRow(page: Page): Promise<Locator> {
 
 /** Empties the table, so a spec's job counts are exact rather than additive. */
 export async function clearOptRows(page: Page): Promise<void> {
+  // The page renders nothing until the app defaults load (`withAppDefaults`), and then its seeded
+  // first row: count the rows only once the table is there, or a fresh launch's row slips past.
+  await expect(page.getByRole("button", { name: "Add job", exact: true })).toBeVisible();
   const remove = page.getByRole("button", { name: /^Remove job / });
   for (let i = (await remove.count()) - 1; i >= 0; i--) await remove.first().click();
   await expect(optRows(page)).toHaveCount(0);

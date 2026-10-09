@@ -113,7 +113,7 @@ test("the rail pins System directly above Settings", async () => {
   await connect();
 
   const pinned = page.locator(".nav-section-pinned a");
-  await expect(pinned).toHaveText(["System", "Settings", "Help"]);
+  await expect(pinned).toHaveText(["Assistant", "System", "Settings", "Help"]);
 
   // "Above" is a geometric claim, so it is checked geometrically rather than by list order alone.
   const system = (await page.getByRole("link", { name: "System", exact: true }).boundingBox())!;

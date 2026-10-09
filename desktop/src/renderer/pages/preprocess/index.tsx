@@ -5,6 +5,7 @@ import { getSurferSettings, putSurferSettings, type SurferSettings } from "../se
 import { Workflow } from "lucide-react";
 import { getSubjects, type Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
+import { withAppDefaults } from "../../forms/appDefaults";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession, usePageSessionRef } from "../../app/pageSession";
 import { createAjvResolver } from "../../forms/ajvResolver";
@@ -40,6 +41,8 @@ import { QsiPrepDialog } from "./QsiPrepDialog";
 import { QsiReconDialog } from "./QsiReconDialog";
 import { PreprocessSteps } from "./PreprocessSteps";
 import { defaultConfig } from "./config";
+import { PlanStepBanner, usePlanStepActions, usePlanStepEdit, type PlanStepTarget } from "../../app/proposals/stepForm";
+import type { StepEdit } from "../../app/proposals/api";
 import "./preprocess.css";
 
 export type ExistingOutputPolicy = "skip" | "replace";
@@ -75,6 +78,20 @@ export function toSubmitConfig(
     skip_existing_outputs: policy === "skip",
     replace_existing_outputs: policy === "replace",
   };
+}
+
+/** The form a plan step opens in (`stepForm.tsx`): the page's defaults under the step's config. */
+export function preStepValues(step: PlanStepTarget): PreprocessConfig {
+  return { ...defaultConfig(), ...(step.config as Partial<PreprocessConfig>), subject_ids: [] };
+}
+
+/** "Save to plan": the step's config with the form's values over it, for the selected subjects. */
+export function preStepEdit(step: PlanStepTarget, values: PreprocessConfig, subjects: string[]): StepEdit {
+  if (subjects.length === 0) throw new Error("Select at least one subject.");
+  if (plannedSteps(values).length === 0) throw new Error("Select at least one processing step.");
+  const config: Record<string, unknown> = { ...step.config, ...values };
+  delete config.subject_ids; // the step's own field, below
+  return { config, subject_ids: subjects };
 }
 
 /** Execution order mirrors `run_pipeline` in `tit/pre/structural.py` exactly. */
@@ -235,6 +252,20 @@ function PreprocessPage() {
     return () => sub.unsubscribe();
   }, [form, writeConfig]);
 
+  // "Open in form" from a plan card: the step's config in this form, Save to plan instead of Run.
+  const planStep = usePlanStepEdit({
+    snapshot: () => ({ values: form.getValues(), selected }),
+    load: (step) => {
+      form.reset(preStepValues(step));
+      setSelected(step.subjectIds);
+    },
+    restore: (stash) => {
+      form.reset(stash.values);
+      setSelected(stash.selected);
+    },
+  });
+  const planActions = usePlanStepActions(planStep, () => preStepEdit(planStep.step!, form.getValues(), selected));
+
   const submitConfig = useMemo(() => toSubmitConfig(values, selected, policy, preferences.data), [values, selected, policy, preferences.data]);
   const steps = useMemo(() => plannedSteps(values), [values]);
   const stageIds = useMemo(() => plannedStageIds(values), [values]);
@@ -313,7 +344,7 @@ function PreprocessPage() {
     runNow();
   }
 
-  useRunShortcut(handleRunClick);
+  useRunShortcut(handleRunClick, !planStep.step);
 
   const counts = planCounts(plan);
   const digest = plan ? (jobCountLabel(plan) ?? "Resolving the plan…") : (blockedReason ?? "Resolving the plan…");
@@ -338,8 +369,9 @@ function PreprocessPage() {
         <ActionBar
           digest={digest}
           blocked={!!blockedReason}
+          secondary={planStep.step ? planActions.secondary : undefined}
           primary={
-            <Button
+            planStep.step ? planActions.primary : <Button
               variant="primary"
               loading={submit.isPending}
               disabled={!!blockedReason}
@@ -354,6 +386,7 @@ function PreprocessPage() {
       }
     >
       <RunWork>
+        {planStep.step && <PlanStepBanner step={planStep.step} />}
         {/* Subjects (J1/J2): the one shared control, first, on every page that takes subjects.
             Open on mount here because batch selection *is* what this page is for — everywhere
             else it opens on the summary row's disclosure. */}
@@ -413,7 +446,7 @@ const page: PageDef = {
   order: 10,
   icon: Workflow,
   shortcut: "2",
-  Component: PreprocessPage,
+  Component: withAppDefaults(PreprocessPage),
   enabled: true,
 };
 

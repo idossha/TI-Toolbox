@@ -1,0 +1,80 @@
+{
+  "_about": "Atlas regions -> FlexConfig ROI, shared by tests/test_region_rois.py (tit.catalog.region_roi, which the agent's find_regions uses) and desktop/tests/unit/roi-region-table.test.ts (roiToConfig, the run pages' ROI picker), so the two constructions cannot drift. groundTruth: authored -- written from the AtlasROI / SubcorticalROI fields in contracts/generated/config.schema.json (one atlas_path and label per region; a cortical region read from its own hemisphere's .annot) and the catalog's Atlas/Region shapes, not produced by either implementation. tissues/space apply to volume atlases only (the picker's subcortical tissues and space; the agent's find_regions uses GM, in subject space for the subject's own atlases and MNI space for the shipped MNI volumes). search: find_regions' name rule, read by tests/test_region_rois.py only (the picker's region list uses the as-you-type substring filter every SelectionList shares, a different purpose): with side words (left/right/lh/rh/l/r) dropped from the name, a query matches when every query word is a whole word of the name (case-insensitive, split on non-alphanumerics) or its words joined are one.",
+  "cases": [
+    {
+      "why": "volume atlas, both thalami: the atlas path once per label",
+      "atlas": {"path": "/mnt/p/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz", "kind": "volume"},
+      "regions": [{"id": 10, "name": "Left-Thalamus", "hemi": null}, {"id": 49, "name": "Right-Thalamus", "hemi": null}],
+      "tissues": "GM",
+      "space": "subject",
+      "roi": {
+        "_type": "SubcorticalROI",
+        "atlas_path": ["/mnt/p/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz", "/mnt/p/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz"],
+        "label": [10, 49],
+        "tissues": "GM",
+        "atlas_space": "subject"
+      }
+    },
+    {
+      "why": "packaged MNI volume, white and grey matter: tissues and space carried through",
+      "atlas": {"path": "/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz", "kind": "volume"},
+      "regions": [{"id": 7, "name": "NAC_L", "hemi": null}],
+      "tissues": "both",
+      "space": "mni",
+      "roi": {
+        "_type": "SubcorticalROI",
+        "atlas_path": ["/ti-toolbox/resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz"],
+        "label": [7],
+        "tissues": "both",
+        "atlas_space": "mni"
+      }
+    },
+    {
+      "why": "packaged MNI volume as find_regions offers it (GM, MNI space): both thalami of Harvard-Oxford subcortical, ids 4 and 15 from its shipped _LUT.txt",
+      "atlas": {"path": "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz", "kind": "volume"},
+      "regions": [{"id": 4, "name": "Left-Thalamus", "hemi": null}, {"id": 15, "name": "Right-Thalamus", "hemi": null}],
+      "tissues": "GM",
+      "space": "mni",
+      "roi": {
+        "_type": "SubcorticalROI",
+        "atlas_path": ["/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz", "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"],
+        "label": [4, 15],
+        "tissues": "GM",
+        "atlas_space": "mni"
+      }
+    },
+    {
+      "why": "surface atlas, one region per hemisphere: each read from its own hemisphere's .annot (the catalog advertises the lh file)",
+      "atlas": {"path": "/mnt/p/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.101_DK40.annot", "kind": "surface"},
+      "regions": [{"id": 24, "name": "precentral", "hemi": "lh"}, {"id": 24, "name": "precentral", "hemi": "rh"}],
+      "roi": {
+        "_type": "AtlasROI",
+        "atlas_path": ["/mnt/p/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.101_DK40.annot", "/mnt/p/derivatives/SimNIBS/sub-101/m2m_101/segmentation/rh.101_DK40.annot"],
+        "label": [24, 24],
+        "hemisphere": ["lh", "rh"]
+      }
+    },
+    {
+      "why": "surface region with no hemisphere: lh; only a leading 'lh.' of the file name is swapped (the 'lh.' inside 'sub-lh.' is a directory)",
+      "atlas": {"path": "sub-lh.x/lh.DK40.annot", "kind": "surface"},
+      "regions": [{"id": 3, "name": "insula"}, {"id": 3, "name": "insula", "hemi": "rh"}],
+      "roi": {
+        "_type": "AtlasROI",
+        "atlas_path": ["sub-lh.x/lh.DK40.annot", "sub-lh.x/rh.DK40.annot"],
+        "label": [3, 3],
+        "hemisphere": ["lh", "rh"]
+      }
+    }
+  ],
+  "search": [
+    {"why": "a side word before the structure", "query": "thalamus", "name": "Left-Thalamus", "matches": true},
+    {"why": "a side word after it", "query": "thalamus", "name": "Thalamus-left", "matches": true},
+    {"why": "FreeSurfer's -Proper suffix is another word", "query": "thalamus", "name": "Left-Thalamus-Proper", "matches": true},
+    {"why": "a cortical aseg name: ctx and lh are words of their own", "query": "precuneus", "name": "ctx-lh-precuneus", "matches": true},
+    {"why": "a one-letter side suffix (CIT168)", "query": "nac", "name": "NAC_L", "matches": true},
+    {"why": "a different structure that contains the word", "query": "thalamus", "name": "Hypothalamus", "matches": false},
+    {"why": "a two-word query against a DK name written as one word", "query": "superior frontal", "name": "superiorfrontal", "matches": true},
+    {"why": "part of a one-word DK name is not the region", "query": "frontal", "name": "superiorfrontal", "matches": false},
+    {"why": "every query word must be a word of the name", "query": "left hippocampus", "name": "Left-Amygdala", "matches": false}
+  ]
+}

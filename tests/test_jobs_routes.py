@@ -230,6 +230,131 @@ def test_submit_validation_errors(client: TestClient) -> None:
     )
 
 
+def _recorded_creator(project: Path, job_id: str) -> str:
+    from tit.jobs.registry import spec_path
+
+    return json.loads(Path(spec_path(str(project), job_id)).read_text())["created_by"]
+
+
+def allow_agent_submissions(client: TestClient, on: bool = True) -> None:
+    """Settings > Project > AI assistant: "Agent may submit without approval"."""
+    r = client.put(
+        "/api/settings",
+        headers=BEARER,
+        json={"panels": [], "theme": "system", "agent_auto_submit": on},
+    )
+    assert r.status_code == 200 and r.json()["agent_auto_submit"] is on, r.text
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_an_agent_cannot_submit_until_the_user_allows_it(
+    client: TestClient, route: str
+) -> None:
+    """ARCHITECTURE §6: the setting is off by default, an agent's direct submission is a 403
+    naming propose_pipeline, and the app's own submission (no created_by) is unaffected."""
+    assert client.get("/api/settings", headers=BEARER).json()["agent_auto_submit"] is False
+    body = {"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]}
+    refused = client.post(route, headers=BEARER, json={**body, "created_by": "agent"})
+    assert refused.status_code == 403
+    assert "propose_pipeline" in refused.json()["detail"]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+    assert client.post(route, headers=BEARER, json=body).status_code == 201
+
+    allow_agent_submissions(client)
+    allowed = client.post(
+        route,
+        headers=BEARER,
+        json={**body, "created_by": "agent", "overwrite": True},
+    )
+    assert allowed.status_code == 201, allowed.text
+    allow_agent_submissions(client, on=False)
+    again = client.post(route, headers=BEARER, json={**body, "created_by": "agent"})
+    assert again.status_code == 403
+
+
+def test_submit_records_who_submitted_defaulting_to_gui(
+    client: TestClient, project: Path
+) -> None:
+    """The agent plugin names itself; the app sends nothing and stays "gui" (contract JobSpec)."""
+    allow_agent_submissions(client)
+    job = {"kind": "tools", "config": {"__fake": {"duration_s": 0.01}}}
+    plain = client.post("/api/jobs", headers=BEARER, json={**job, "subject_ids": ["001"]})
+    agent = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={**job, "subject_ids": ["002"], "created_by": "agent"},
+    )
+    assert plain.status_code == agent.status_code == 201, (plain.text, agent.text)
+    assert _recorded_creator(project, plain.json()["id"]) == "gui"
+    assert _recorded_creator(project, agent.json()["id"]) == "agent"
+    # The job row carries it too, so the app can badge agent jobs.
+    assert agent.json()["created_by"] == "agent" and plain.json()["created_by"] == "gui"
+
+
+def test_group_records_the_agent_on_every_member(
+    client: TestClient, project: Path
+) -> None:
+    allow_agent_submissions(client)
+    r = client.post(
+        "/api/jobs/groups",
+        headers=BEARER,
+        json={
+            "kind": "pre",
+            # The page's default would add FastSurfer; the agent's own value wins.
+            "config": {"subject_ids": ["001"], "run_fastsurfer": False},
+            "subject_ids": ["001"],
+            "created_by": "agent",
+        },
+    )
+    assert r.status_code == 201, r.text
+    jobs = r.json()["jobs"]
+    assert len(jobs) == 2  # DICOM conversion + charm: the Pre-processing page's defaults
+    assert {_recorded_creator(project, j["id"]) for j in jobs} == {"agent"}
+
+
+def _recorded_config(project: Path, job_id: str) -> dict:
+    from tit.jobs.registry import spec_path
+
+    return json.loads(Path(spec_path(str(project), job_id)).read_text())["config"]
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_an_agents_config_gets_the_run_pages_defaults(
+    client: TestClient, project: Path, route: str
+) -> None:
+    """tit.server.app_defaults: an agent sends only what it chose and runs what the Simulator
+    page would (map_to_fsavg off, where SimulationConfig's own default is on); the app's own
+    submission, which sends whole configs, is left as sent."""
+    allow_agent_submissions(client)
+    body = {"kind": "sim", "subject_ids": ["001"], "overwrite": True}
+    config = {**_sim_config("001"), "conductivity": "vn"}
+    agent = client.post(
+        route, headers=BEARER, json={**body, "config": config, "created_by": "agent"}
+    )
+    plain = client.post(route, headers=BEARER, json={**body, "config": config})
+    assert agent.status_code == plain.status_code == 201, (agent.text, plain.text)
+    agent_id, plain_id = (r.json().get("jobs", [r.json()])[0]["id"] for r in (agent, plain))
+    filled = _recorded_config(project, agent_id)
+    assert filled["map_to_fsavg"] is False and filled["conductivity"] == "vn"
+    assert _recorded_config(project, plain_id).get("map_to_fsavg") is not False
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_submit_rejects_an_unknown_created_by(client: TestClient, route: str) -> None:
+    r = client.post(
+        route,
+        headers=BEARER,
+        json={
+            "kind": "sim",
+            "config": _sim_config("001"),
+            "subject_ids": ["001"],
+            "created_by": "root",
+        },
+    )
+    assert r.status_code == 422
+    assert "created_by" in r.text
+
+
 def test_submit_rejects_a_subject_id_that_is_not_one(
     client: TestClient, project: Path
 ) -> None:

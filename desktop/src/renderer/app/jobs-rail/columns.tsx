@@ -11,7 +11,7 @@
  * it (`cpuLabel` / `rssLabel` in `format.ts`).
  */
 import type { ReactNode } from "react";
-import { JobStateChip } from "../../ui/Status";
+import { Chip, JobStateChip } from "../../ui/Status";
 import type { JobStatus } from "./api";
 import { cpuLabel, elapsedLabel, resourceText, rssLabel, type ResourceLabel } from "./format";
 
@@ -43,7 +43,19 @@ export function stateCell(job: JobStatus): ReactNode {
 
 export const JOB_COLUMNS: readonly JobColumn[] = [
   { id: "state", header: "State", cell: stateCell },
-  { id: "kind", header: "Kind", cell: (j) => j.kind },
+  {
+    id: "kind",
+    header: "Kind",
+    // An agent's job is otherwise identical; the badge says only who queued it.
+    cell: (j) =>
+      j.created_by === "agent" ? (
+        <span className="jobs-cell-kind">
+          {j.kind} <Chip title="Queued by your AI agent">agent</Chip>
+        </span>
+      ) : (
+        j.kind
+      ),
+  },
   {
     id: "subjects",
     header: "Subjects",

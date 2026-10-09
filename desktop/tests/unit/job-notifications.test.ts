@@ -14,6 +14,7 @@ import {
   notificationDecision,
   notificationFailureHint,
   observeTransition,
+  proposalNotification,
   SAMPLE_FINISHED_JOB,
   soundPlan,
   TI_SOUNDS,
@@ -177,5 +178,20 @@ describe("shipped sound files", () => {
       // Over Vite's 4 KB inline limit, so it ships as a file the CSP allows, never a data: URI.
       expect(bytes.byteLength).toBeGreaterThan(4096);
     }
+  });
+});
+
+describe("proposalNotification", () => {
+  const on = { ...DEFAULT_NOTIFICATION_PREFS, enabled: true };
+  const plan = { status: "pending", title: "Thalamus pipeline", client: "Claude Code" };
+
+  it("names the agent and the plan, and points at Jobs", () => {
+    expect(proposalNotification(on, plan, false)).toEqual({ title: "A plan is waiting for your approval", body: "Claude Code: Thalamus pipeline — review it on the Jobs page." });
+  });
+
+  it("stays quiet when focused, turned off, or not pending", () => {
+    expect(proposalNotification(on, plan, true)).toBeUndefined();
+    expect(proposalNotification({ ...on, enabled: false }, plan, false)).toBeUndefined();
+    expect(proposalNotification(on, { ...plan, status: "running" }, false)).toBeUndefined();
   });
 });

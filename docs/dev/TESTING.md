@@ -366,6 +366,20 @@ retention and stability after succeeded/failed/cancelled states. `jobsStream.tes
 reconnect cursors and shared consumers; `tests/test_jobs_manager.py` and `tests/test_jobs_routes.py`
 cover oversized backfill and ordered batch draining.
 
+Agent proposals (ARCHITECTURE §6): `tests/test_proposals_routes.py` drives create/edit/approve/
+reject/run against the real job manager on the fake runner, including a `sim_from_flex` step the
+server queues after a fake flex job and a failed step skipping its dependant, a dry run's lock
+waits and finished-plan retention; `tests/test_flex_simulation_resolver.py` pins the flex-run →
+montage rule, including one electrode pairing (an out-of-order `channel_array_indices` fixture)
+and cached mappings read without re-mapping; `tests/test_output_jail.py` refuses outputs outside
+the project on plan, both submit routes and a proposal step; `tests/test_region_rois.py` pins the
+region search over subject and MNI atlases against the shared ROI table, and its whole-word name
+rule against the table's `search` cases; `tests/test_roi_target.py`
+pins how a step's (and a report's) target is named from authored colour tables;
+`tests/test_agent_plugin_jobs.py` runs the MCP verbs against a fake server and, in
+`test_against_the_real_server_jobs_are_recorded_as_agent`, against the real app over HTTP;
+`desktop/tests/unit/proposal-card.test.tsx` covers the card.
+
 
 ### Native viewer lifecycle release gate
 
@@ -424,3 +438,23 @@ assertions passed but its external metadata monitor ended inconclusive due to un
 process ancestry. This does not establish OS foreground behavior or Windows/Linux package support.
 TI typecheck, lint (existing warnings), production build and 1,850 desktop unit tests pass; all 23
 focused Viewer/Jobs/shell E2E tests pass. The 13 path/export tests also pass in Linux Python 3.11.
+
+### Assistant pane (host terminal)
+
+`desktop/src/main/assistant.test.ts` pins login-shell `PATH` discovery, CLI detection, the plugin
+servers' Python (`findPython` on mocked macOS/Linux/Windows PATHs, passed as `TIT_PYTHON` and as
+Codex's `command`), the exact Claude Code/Codex launch, the token's path (environment, never a log line) and one real node-pty run;
+when `codex` is installed it also asks that Codex to parse the generated `-c` overrides, and prints
+`skipping: …` otherwise. `tests/unit/assistant-page.test.tsx` covers the page states with xterm
+stubbed. `tests/e2e/assistant.spec.ts` runs a stand-in `claude` from the page offscreen against the
+mock (it never runs the developer's real CLI: automated runs search only their own `PATH`); its
+second test draws a Claude Code–shaped screen (block-glyph logo, long transcript, full-width box,
+status line on the last row) and asserts at 1280×900, 1024×680 and 1680×1050 in both themes, and
+with the jobs rail expanded, that the grid and the PTY size fit the card with less than one row
+spare, above the rail, with no page overflow, on the WebGL renderer. It reads the terminal through
+the `xterm` handle an e2e build (`VITE_SCENE_HOOKS=1`) hangs on the host element, and writes
+`assistant-<theme>-<w>x<h>.png` screenshots to `TIT_E2E_ARTIFACTS`; and
+`tests/e2e/packaged-launch.spec.ts` proves the packaged main loads node-pty. `verify-package.mjs`
+checks node-pty, its macOS `spawn-helper` mode and the staged `agent-plugin/`. Not covered by any of
+these: Windows ConPTY sessions, the system-terminal routes on Linux/Windows, a real signed-in CLI
+session, and notarisation of the unpacked native files.

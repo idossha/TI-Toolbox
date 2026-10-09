@@ -9,7 +9,9 @@ from tit.atlas.constants import (
     MASK_EXTENSIONS,
 )
 from tit.atlas.segstats import (
+    cache_names_from,
     compute_segstats,
+    manifest_lut,
     resolve_lut_for_atlas,
     write_segstats_sum,
 )
@@ -157,12 +159,13 @@ class VoxelAtlasManager:
             os.path.dirname(atlas_path), f"{atlas_bname}_labels.txt"
         )
 
-        if os.path.isfile(labels_file):
+        shipped_lut = manifest_lut(atlas_path)
+        if os.path.isfile(labels_file) and cache_names_from(labels_file, shipped_lut):
             return self._parse_labels_file(labels_file)
 
         lut = resolve_lut_for_atlas(atlas_path)
         stats = compute_segstats(atlas_path, lut)
-        write_segstats_sum(stats, labels_file)
+        write_segstats_sum(stats, labels_file, shipped_lut)
         return sorted({f"{s.name} (ID: {s.seg_id})" for s in stats})
 
     @staticmethod

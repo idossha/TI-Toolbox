@@ -1,0 +1,360 @@
+/**
+ * The Assistant pane's host side (ARCHITECTURE §6): CLI discovery on the login-shell PATH, the
+ * exact launch per CLI, the token's path (environment only, never a log line), and one real PTY.
+ *
+ * Expected flags come from the installed CLIs' own help and behaviour, checked 2026-10-07 against
+ * Claude Code 2.1.293 and codex-cli 0.155.1 (`claude --plugin-dir … mcp list`, `codex -c … mcp get
+ * --json`, `codex -c developer_instructions=… debug prompt-input`). The Codex override test below
+ * re-asks the installed `codex` to parse what `buildLaunch` emits and skips, saying so, without it.
+ * Windows `.cmd` and system-terminal launches are deliberately not exercised here (no Windows host).
+ */
+import { execFileSync } from "node:child_process";
+import { beforeAll, describe, expect, it } from "vitest";
+import { buildLaunch, createAssistantSessions, findExecutable, findPython, isLoggedIn, isLoopbackOrigin, linuxTerminalCommand, loginShellPath, NO_LINUX_TERMINAL, openInSystemTerminal, parseAssistantOptions, resolveProjectPath, shQuote, tomlString, type PtyProcess } from "./assistant";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { TitAssistantEvent } from "../shared/tit-bridge";
+
+const TOKEN = "tok-3f9a-secret";
+const base = {
+  executable: "/home/u/.local/bin/claude",
+  pluginDir: "/Applications/TI-Toolbox.app/Contents/Resources/agent-plugin",
+  projectDir: "/data/my project",
+  serverUrl: "http://127.0.0.1:8765",
+  token: TOKEN,
+  searchPath: "/home/u/.local/bin:/usr/bin",
+  baseEnv: { HOME: "/home/u", PATH: "/usr/bin", ELECTRON_RUN_AS_NODE: "1", LANG: "en_US.UTF-8" },
+  platform: "darwin" as const,
+};
+
+describe("login-shell PATH", () => {
+  it("takes the PATH between the markers even when rc files print around it", async () => {
+    const run = async () => ({ code: 0, stdout: "Welcome!\n__TIT_PATH__/Users/u/.local/bin:/opt/homebrew/bin:/usr/bin__TIT_PATH__\nbye" });
+    const path = await loginShellPath({ PATH: "/usr/bin:/bin", SHELL: "/bin/zsh" }, "darwin", run, "/Users/u");
+    expect(path.split(":").slice(0, 3)).toEqual(["/Users/u/.local/bin", "/opt/homebrew/bin", "/usr/bin"]);
+    expect(path.split(":")).toContain("/bin");
+    expect(new Set(path.split(":")).size).toBe(path.split(":").length);
+  });
+  it("asks the user's own shell for an interactive login PATH", async () => {
+    const calls: [string, string[]][] = [];
+    await loginShellPath({ PATH: "/usr/bin", SHELL: "/usr/local/bin/fish" }, "linux", async (file, args) => {
+      calls.push([file, args]);
+      return { code: 0, stdout: "" };
+    });
+    expect(calls[0]?.[0]).toBe("/usr/local/bin/fish");
+    expect(calls[0]?.[1][0]).toBe("-ilc");
+  });
+  it("still finds the usual install directories when the shell fails", async () => {
+    const path = await loginShellPath({ PATH: "/usr/bin:/bin" }, "darwin", async () => { throw new Error("timeout"); }, "/Users/u");
+    expect(path.split(":")).toEqual(expect.arrayContaining(["/usr/bin", "/Users/u/.local/bin", "/opt/homebrew/bin"]));
+  });
+  it("uses the inherited PATH on Windows without running a shell", async () => {
+    const path = await loginShellPath({ Path: "C:\\Windows;C:\\Users\\u\\AppData\\Roaming\\npm" }, "win32", async () => { throw new Error("must not run"); });
+    expect(path).toBe("C:\\Windows;C:\\Users\\u\\AppData\\Roaming\\npm");
+  });
+});
+
+describe("CLI detection", () => {
+  it("returns the first executable on the PATH", () => {
+    const present = new Set(["/opt/homebrew/bin/codex", "/usr/local/bin/codex"]);
+    expect(findExecutable("codex", "/usr/bin:/opt/homebrew/bin:/usr/local/bin", "darwin", (p) => present.has(p))).toBe("/opt/homebrew/bin/codex");
+    expect(findExecutable("claude", "/usr/bin", "darwin", (p) => present.has(p))).toBeUndefined();
+  });
+  it("finds npm's .cmd shim on Windows", () => {
+    const present = new Set(["C:\\Users\\u\\AppData\\Roaming\\npm\\codex.cmd"]);
+    expect(findExecutable("codex", "C:\\Windows;C:\\Users\\u\\AppData\\Roaming\\npm\\", "win32", (p) => present.has(p))).toBe("C:\\Users\\u\\AppData\\Roaming\\npm\\codex.cmd");
+  });
+  it("finds the plugin's Python: python3 on macOS and Linux; py, then python, then python3 on Windows", () => {
+    const on = (...files: string[]) => (path: string) => files.includes(path);
+    expect(findPython("/usr/local/bin:/usr/bin", "darwin", on("/usr/bin/python3", "/usr/local/bin/python"))).toBe("/usr/bin/python3");
+    expect(findPython("/usr/bin", "linux", on("/usr/bin/python"))).toBeUndefined();
+    const winPath = "C:\\Users\\u\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Windows;C:\\Python312";
+    const store = "C:\\Users\\u\\AppData\\Local\\Microsoft\\WindowsApps\\python.exe";
+    expect(findPython(winPath, "win32", on(store, "C:\\Windows\\py.exe", "C:\\Python312\\python.exe"))).toBe("C:\\Windows\\py.exe");
+    expect(findPython(winPath, "win32", on(store, "C:\\Python312\\python.exe"))).toBe(store);
+    expect(findPython(winPath, "win32", on("C:\\Python312\\python3.exe"))).toBe("C:\\Python312\\python3.exe");
+    expect(findPython(winPath, "win32", on())).toBeUndefined();
+  });
+  it("reads login state from the status command's exit code only", async () => {
+    const seen: string[][] = [];
+    const run = (code: number) => async (_file: string, args: string[]) => {
+      seen.push(args);
+      return { code, stdout: '{"loggedIn": true, "email": "someone@example.org"}' };
+    };
+    expect(await isLoggedIn("claude", "/x/claude", {}, "darwin", run(0))).toBe(true);
+    expect(await isLoggedIn("codex", "/x/codex", {}, "darwin", run(1))).toBe(false);
+    expect(seen).toEqual([["auth", "status"], ["login", "status"]]);
+  });
+});
+
+describe("session options", () => {
+  const codexSettings = (args: string[]) => args.filter((a) => a.startsWith("model_reasoning_effort=") || a === "-m");
+  it("defaults to Low effort for both CLIs, Sonnet for Claude Code and the CLI's own model for Codex", () => {
+    expect(parseAssistantOptions("claude", undefined)).toEqual({ effort: "low", model: "sonnet" });
+    expect(parseAssistantOptions("claude", {})).toEqual({ effort: "low", model: "sonnet" });
+    expect(parseAssistantOptions("codex", undefined)).toEqual({ effort: "low", model: "default" });
+    expect(parseAssistantOptions("codex", {})).toEqual({ effort: "low", model: "default" });
+    expect(buildLaunch("claude", base).args.slice(-4)).toEqual(["--effort", "low", "--model", "sonnet"]);
+    expect(buildLaunch("codex", base).args.slice(-2)).toEqual(["-c", 'model_reasoning_effort="low"']);
+  });
+  it("builds Claude's --effort and --model from the chosen values", () => {
+    for (const effort of ["low", "medium", "high"] as const) {
+      expect(buildLaunch("claude", { ...base, options: { effort, model: "default" } }).args).toEqual(["--plugin-dir", base.pluginDir, "--effort", effort]);
+    }
+    for (const model of ["opus", "sonnet", "haiku", "fable"] as const) {
+      expect(buildLaunch("claude", { ...base, options: { effort: "high", model } }).args).toEqual(["--plugin-dir", base.pluginDir, "--effort", "high", "--model", model]);
+    }
+  });
+  it("builds Codex's reasoning effort override and never a model", () => {
+    for (const effort of ["low", "medium", "high"] as const) {
+      const args = buildLaunch("codex", { ...base, options: { effort, model: "default" } }).args;
+      expect(args.slice(-2)).toEqual(["-c", `model_reasoning_effort="${effort}"`]);
+      expect(codexSettings(args)).toEqual([`model_reasoning_effort="${effort}"`]);
+    }
+  });
+  it("passes nothing for My CLI default", () => {
+    const claude = buildLaunch("claude", { ...base, options: { effort: "default", model: "default" } }).args;
+    expect(claude).toEqual(["--plugin-dir", base.pluginDir]);
+    expect(codexSettings(buildLaunch("codex", { ...base, options: { effort: "default", model: "default" } }).args)).toEqual([]);
+  });
+  it("rejects anything off the allowlist", () => {
+    expect(parseAssistantOptions("claude", { effort: "max" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { effort: "high; rm -rf /" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { model: "claude-opus-5-5" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { model: "--dangerously-skip-permissions" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { effort: 3 })).toBeUndefined();
+    expect(parseAssistantOptions("claude", { plugin: "/tmp/x" })).toBeUndefined();
+    expect(parseAssistantOptions("claude", "high")).toBeUndefined();
+    expect(parseAssistantOptions("claude", ["high"])).toBeUndefined();
+    expect(parseAssistantOptions("codex", { model: "opus" })).toBeUndefined();
+    expect(parseAssistantOptions("codex", { effort: "xhigh" })).toBeUndefined();
+  });
+});
+
+describe("launch", () => {
+  it("attaches the bundled plugin to Claude Code for this session only", () => {
+    const launch = buildLaunch("claude", base);
+    expect(launch.file).toBe(base.executable);
+    expect(launch.args).toEqual(["--plugin-dir", base.pluginDir, "--effort", "low", "--model", "sonnet"]);
+    expect(launch.cwd).toBe(base.projectDir);
+  });
+  it("registers both MCP servers and the pipeline guidance for Codex without touching ~/.codex", () => {
+    const launch = buildLaunch("codex", { ...base, executable: "/opt/homebrew/bin/codex" });
+    const overrides = launch.args.filter((_, i) => launch.args[i - 1] === "-c");
+    expect(launch.args.filter((a) => a === "-c")).toHaveLength(overrides.length);
+    expect(overrides).toContain(`mcp_servers.ti-toolbox-jobs.args=['${base.pluginDir}/mcp/jobs_server.py']`);
+    expect(overrides).toContain(`mcp_servers.ti-toolbox.args=['${base.pluginDir}/mcp/server.py']`);
+    expect(overrides).toContain("mcp_servers.ti-toolbox-jobs.env_vars=['TIT_SERVER_URL','TIT_SERVER_TOKEN']");
+    expect(overrides.find((o) => o.startsWith("developer_instructions="))).toContain(`${base.pluginDir}/skills/ti-run-pipelines/SKILL.md`);
+    expect(launch.args.join(" ")).not.toContain(TOKEN);
+  });
+  it("puts the session URL and token in the environment, and nothing of Electron's", () => {
+    const { env } = buildLaunch("claude", base);
+    expect(env.TIT_SERVER_URL).toBe(base.serverUrl);
+    expect(env.TIT_SERVER_TOKEN).toBe(TOKEN);
+    expect(env.PATH).toBe(base.searchPath);
+    expect(env.TERM).toBe("xterm-256color");
+    expect(env.LANG).toBe("en_US.UTF-8");
+    expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined();
+  });
+  it("lets Claude Code move a waiting MCP call to the background after 5 s, unless the user chose a delay", () => {
+    expect(buildLaunch("claude", base).env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS).toBe("5000");
+    expect(buildLaunch("claude", { ...base, baseEnv: { ...base.baseEnv, CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "0" } }).env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS).toBe("0");
+    expect(buildLaunch("codex", base).env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS).toBeUndefined();
+  });
+  it("leaves one PATH key on Windows and starts a .cmd shim through cmd.exe", () => {
+    const launch = buildLaunch("codex", { ...base, platform: "win32", executable: "C:\\npm\\codex.cmd", pluginDir: "C:\\TI\\resources\\agent-plugin", baseEnv: { Path: "C:\\Windows" }, searchPath: "C:\\Windows;C:\\npm" });
+    expect(Object.keys(launch.env).filter((k) => k.toUpperCase() === "PATH")).toEqual(["PATH"]);
+    expect(launch.file).toBe("cmd.exe");
+    expect(launch.args.slice(0, 4)).toEqual(["/d", "/s", "/c", "C:\\npm\\codex.cmd"]);
+    expect(launch.args).toContain("mcp_servers.ti-toolbox-jobs.args=['C:\\TI\\resources\\agent-plugin\\mcp\\jobs_server.py']");
+  });
+  it("hands the plugin's servers the resolved Python: TIT_PYTHON for Claude Code, the command for Codex", () => {
+    // The plugin's .mcp.json runs `${TIT_PYTHON:-python3}`.
+    const python = "C:\\Windows\\py.exe";
+    expect(buildLaunch("claude", { ...base, python }).env.TIT_PYTHON).toBe(python);
+    expect(buildLaunch("claude", { ...base, python, baseEnv: { ...base.baseEnv, TIT_PYTHON: "/opt/py/bin/python3" } }).env.TIT_PYTHON).toBe("/opt/py/bin/python3");
+    expect(buildLaunch("claude", base).env.TIT_PYTHON).toBeUndefined();
+    const codex = buildLaunch("codex", { ...base, platform: "win32", python, executable: "C:\\npm\\codex.exe", pluginDir: "C:\\TI\\agent-plugin" });
+    expect(codex.args).toContain("mcp_servers.ti-toolbox.command='C:\\Windows\\py.exe'");
+    expect(codex.args).toContain("mcp_servers.ti-toolbox-jobs.command='C:\\Windows\\py.exe'");
+    expect(buildLaunch("codex", base).args).toContain("mcp_servers.ti-toolbox-jobs.command='python3'");
+  });
+  it("quotes TOML and shell values safely", () => {
+    expect(tomlString("/a b/c")).toBe("'/a b/c'");
+    expect(tomlString("/Users/o'brien/x")).toBe('"/Users/o\'brien/x"');
+    expect(shQuote("it's here")).toBe(`'it'\\''s here'`);
+  });
+  it("only drives a terminal for a server on this computer", () => {
+    expect(isLoopbackOrigin("http://127.0.0.1:8765")).toBe(true);
+    expect(isLoopbackOrigin("http://localhost:8765")).toBe(true);
+    expect(isLoopbackOrigin("https://lab-server.example.org")).toBe(false);
+    expect(isLoopbackOrigin("not a url")).toBe(false);
+  });
+});
+
+// Each terminal's argv is what its own --help documents (gnome-terminal `--working-directory=` and
+// `--`, konsole `--workdir` and `-e`, xfce4-terminal `-x`, kitty `--directory`, alacritty
+// `--working-directory` and `-e`; xterm and Debian's x-terminal-emulator `-e`). Not run on Linux here.
+describe("Linux system terminal", () => {
+  const command = ["/home/u/.local/bin/claude", "--plugin-dir", "/opt/ti/agent-plugin"];
+  const only = (name: string) => (bin: string) => (bin === name ? `/usr/bin/${name}` : undefined);
+  const DIR = "/data/my project";
+  it.each([
+    ["x-terminal-emulator", ["-e", ...command]],
+    ["gnome-terminal", [`--working-directory=${DIR}`, "--", ...command]],
+    ["konsole", ["--workdir", DIR, "-e", ...command]],
+    ["xfce4-terminal", [`--working-directory=${DIR}`, "-x", ...command]],
+    ["kitty", ["--directory", DIR, ...command]],
+    ["alacritty", ["--working-directory", DIR, "-e", ...command]],
+    ["xterm", ["-e", ...command]],
+  ])("starts %s with its own directory and command flags", (name, args) => {
+    expect(linuxTerminalCommand(only(name), {}, DIR, command)).toEqual({ file: `/usr/bin/${name}`, args });
+  });
+  it("tries $TERMINAL first, then the list in order", () => {
+    const all = (bin: string) => `/usr/bin/${bin}`;
+    expect(linuxTerminalCommand(all, { TERMINAL: "kitty" }, DIR, command)?.file).toBe("/usr/bin/kitty");
+    expect(linuxTerminalCommand(all, {}, DIR, command)?.file).toBe("/usr/bin/x-terminal-emulator");
+    expect(linuxTerminalCommand((bin) => (bin === "konsole" || bin === "xterm" ? `/usr/bin/${bin}` : undefined), {}, DIR, command)?.file).toBe("/usr/bin/konsole");
+  });
+  it("gives an unknown $TERMINAL the common -e, and a known one by path its own flags", () => {
+    expect(linuxTerminalCommand((bin) => (bin === "foot" ? "/usr/bin/foot" : undefined), { TERMINAL: "foot" }, DIR, command)).toEqual({ file: "/usr/bin/foot", args: ["-e", ...command] });
+    expect(linuxTerminalCommand((bin) => (bin === "/opt/kitty/bin/kitty" ? bin : undefined), { TERMINAL: "/opt/kitty/bin/kitty" }, DIR, command)?.args.slice(0, 2)).toEqual(["--directory", DIR]);
+  });
+  it("says what to install when no terminal is found, and starts nothing", () => {
+    expect(linuxTerminalCommand(() => undefined, { TERMINAL: "missing" }, DIR, command)).toBeUndefined();
+    const spawned: string[] = [];
+    const launch = { file: command[0]!, args: command.slice(1), cwd: DIR, env: {} };
+    expect(() => openInSystemTerminal(launch, "linux", "/tmp", (file) => spawned.push(file), () => undefined)).toThrow(NO_LINUX_TERMINAL);
+    expect(spawned).toEqual([]);
+    openInSystemTerminal(launch, "linux", "/tmp", (file, args, _env, cwd) => spawned.push(file, args[0]!, cwd), only("xterm"));
+    expect(spawned).toEqual(["/usr/bin/xterm", "-e", DIR]);
+  });
+});
+
+// Expected outcomes follow from the rule itself (real path inside the real project folder, and
+// existing), on a temporary tree built here with a symlink pointing out of it.
+describe.skipIf(process.platform === "win32")("a printed path, checked against the project folder", () => {
+  let root = "";
+  let project = "";
+  // In beforeAll: a skipped describe's body is still collected, and Windows cannot make these links.
+  beforeAll(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), "tit-openpath-")));
+    project = join(root, "project");
+    mkdirSync(join(project, "derivatives", "SimNIBS"), { recursive: true });
+    writeFileSync(join(project, "derivatives", "SimNIBS", "a.json"), "{}");
+    writeFileSync(join(root, "secret.txt"), "x");
+    symlinkSync(join(root, "secret.txt"), join(project, "escape.txt"));
+    symlinkSync(project, join(root, "project-link"));
+  });
+
+  it("resolves absolute and project-relative paths to the real file or folder", () => {
+    expect(resolveProjectPath(join(project, "derivatives", "SimNIBS", "a.json"), project)).toEqual({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json"), directory: false });
+    expect(resolveProjectPath("derivatives/SimNIBS/a.json", project)).toEqual({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json"), directory: false });
+    expect(resolveProjectPath("./derivatives", project)).toEqual({ ok: true, path: join(project, "derivatives"), directory: true });
+    expect(resolveProjectPath(project, project)).toMatchObject({ ok: true, directory: true });
+    // A project opened through a symlinked folder still contains its own files.
+    expect(resolveProjectPath("derivatives/SimNIBS/a.json", join(root, "project-link"))).toMatchObject({ ok: true, path: join(project, "derivatives", "SimNIBS", "a.json") });
+  });
+  it("refuses anything outside the project, through .. or a symlink", () => {
+    expect(resolveProjectPath("../secret.txt", project)).toEqual({ ok: false, error: "../secret.txt is outside the project folder." });
+    expect(resolveProjectPath(join(root, "secret.txt"), project)).toMatchObject({ ok: false });
+    expect(resolveProjectPath("derivatives/../../secret.txt", project)).toMatchObject({ ok: false });
+    expect(resolveProjectPath("escape.txt", project)).toEqual({ ok: false, error: "escape.txt is outside the project folder." });
+    expect(resolveProjectPath(`${project}-sibling`, project)).toMatchObject({ ok: false });
+  });
+  it("refuses what does not exist and anything that is not a path string", () => {
+    expect(resolveProjectPath("derivatives/missing.nii.gz", project)).toEqual({ ok: false, error: "derivatives/missing.nii.gz does not exist." });
+    for (const bad of [undefined, 42, "", "a\0b", "x".repeat(5000)]) expect(resolveProjectPath(bad, project)).toEqual({ ok: false, error: "Not a file path." });
+    expect(resolveProjectPath("a.json", join(root, "gone"))).toEqual({ ok: false, error: "The project folder is not on this computer." });
+  });
+});
+
+let codexPath: string | undefined;
+try {
+  codexPath = execFileSync("sh", ["-lc", "command -v codex"], { encoding: "utf8" }).trim() || undefined;
+} catch {
+  codexPath = undefined;
+}
+describe.skipIf(!codexPath)("the installed Codex reads the overrides", () => {
+  it("parses the job server registration exactly as built", () => {
+    const launch = buildLaunch("codex", { ...base, executable: codexPath! });
+    const out = execFileSync(codexPath!, [...launch.args, "mcp", "get", "ti-toolbox-jobs", "--json"], { encoding: "utf8", timeout: 30000 });
+    const transport = (JSON.parse(out) as { transport: { command: string; args: string[]; env_vars: string[] } }).transport;
+    expect(transport.command).toBe("python3");
+    expect(transport.args).toEqual([`${base.pluginDir}/mcp/jobs_server.py`]);
+    expect(transport.env_vars).toEqual(["TIT_SERVER_URL", "TIT_SERVER_TOKEN"]);
+  });
+});
+if (!codexPath) console.log("skipping: codex override parse — codex is not on this machine's PATH");
+
+function fakePty() {
+  const listeners: { data?: (d: string) => void; exit?: (e: { exitCode: number }) => void } = {};
+  const writes: string[] = [];
+  const sizes: [number, number][] = [];
+  let killed = 0;
+  const pty: PtyProcess = {
+    pid: 4242,
+    onData: (l) => (listeners.data = l),
+    onExit: (l) => (listeners.exit = l),
+    write: (d) => writes.push(d),
+    resize: (c, r) => sizes.push([c, r]),
+    kill: () => { killed++; },
+  };
+  return { pty, listeners, writes, sizes, killed: () => killed };
+}
+
+describe("sessions", () => {
+  it("keeps one session per CLI, forwards I/O and never logs the token", () => {
+    const ptys = [fakePty(), fakePty()];
+    const spawnArgs: unknown[] = [];
+    const events: TitAssistantEvent[] = [];
+    const logs: string[] = [];
+    const sessions = createAssistantSessions((...args) => { spawnArgs.push(args); return ptys[spawnArgs.length - 1]!.pty; }, (e) => events.push(e), (m) => logs.push(m));
+    const launch = buildLaunch("claude", base);
+    sessions.start("claude", launch, 120, 40);
+    expect((spawnArgs[0] as [string, string[], { cols: number; rows: number }])[2]).toMatchObject({ cols: 120, rows: 40, cwd: base.projectDir });
+    ptys[0]!.listeners.data!("hello");
+    sessions.write("claude", "/login\r");
+    sessions.write("claude", 42);
+    sessions.resize("claude", 80, 9999);
+    expect(ptys[0]!.writes).toEqual(["/login\r"]);
+    expect(ptys[0]!.sizes).toEqual([[80, 30]]);
+    // Restart replaces the first session; its late output and exit are dropped.
+    sessions.start("claude", launch, 0, 0);
+    expect(ptys[0]!.killed()).toBe(1);
+    ptys[0]!.listeners.data!("stale");
+    ptys[0]!.listeners.exit!({ exitCode: 9 });
+    ptys[1]!.listeners.exit!({ exitCode: 0 });
+    expect(events).toEqual([{ cli: "claude", type: "data", data: "hello" }, { cli: "claude", type: "exit", code: 0 }]);
+    expect(sessions.running("claude")).toBe(false);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs.join("\n")).not.toContain(TOKEN);
+  });
+  it("killAll ends every CLI's session", () => {
+    const ptys = [fakePty(), fakePty()];
+    let n = 0;
+    const sessions = createAssistantSessions(() => ptys[n++]!.pty, () => {}, () => {});
+    sessions.start("claude", buildLaunch("claude", base), 80, 24);
+    sessions.start("codex", buildLaunch("codex", base), 80, 24);
+    sessions.killAll();
+    expect(ptys.map((p) => p.killed())).toEqual([1, 1]);
+    expect(sessions.running("claude") || sessions.running("codex")).toBe(false);
+  });
+});
+
+describe.skipIf(process.platform === "win32")("a real pseudo-terminal", () => {
+  it("runs a harmless command through node-pty and reports its output and exit code", async () => {
+    const { spawn } = await import("node-pty");
+    const events: TitAssistantEvent[] = [];
+    const done = new Promise<void>((resolve) => {
+      const sessions = createAssistantSessions(spawn as never, (e) => { events.push(e); if (e.type === "exit") resolve(); }, () => {});
+      sessions.start("claude", { file: "/bin/sh", args: ["-c", '[ -t 1 ] && t=yes; printf "tty=%s url=%s" "$t" "$TIT_SERVER_URL"; exit 3'], cwd: "/", env: { PATH: "/usr/bin:/bin", TIT_SERVER_URL: base.serverUrl } }, 80, 24);
+    });
+    await done;
+    const output = events.filter((e) => e.type === "data").map((e) => (e as { data: string }).data).join("");
+    expect(output).toContain(`tty=yes url=${base.serverUrl}`);
+    expect(events.at(-1)).toEqual({ cli: "claude", type: "exit", code: 3 });
+  });
+});

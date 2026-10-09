@@ -10,7 +10,7 @@
  * `package.json`, so this stays off it entirely.
  */
 import { app, Notification, net, type BrowserWindow } from "electron";
-import { formatJobNotification, normalizeNotificationPrefs, notificationDecision, notificationFailureHint, observeTransition, type FinishedState, type NotifyResult } from "../shared/jobNotifications";
+import { formatJobNotification, normalizeNotificationPrefs, notificationDecision, notificationFailureHint, observeTransition, proposalNotification, soundPlan, type FinishedState, type NotifyResult } from "../shared/jobNotifications";
 import { log } from "./log";
 import { readSettings } from "./settings";
 import { mayShowSystemUi } from "./window";
@@ -18,10 +18,13 @@ import { mayShowSystemUi } from "./window";
 interface JobsWsMessage {
   type?: string;
   job?: { id?: string; state?: string; kind?: string; subject_ids?: string[] };
+  proposal?: { id?: string; status?: string; title?: string; client?: string | null };
 }
 
 let socket: WebSocket | null = null;
 const notified = new Set<string>();
+/** Proposals already seen pending this session: one banner per plan, never for an edit. */
+const proposed = new Set<string>();
 /** Last state seen per job this session — the "transition only" rule's memory. */
 const seen = new Map<string, string>();
 /** Shown notifications, held until dismissed so the click handler is not garbage-collected. */
@@ -48,6 +51,7 @@ export function stopNotifyingJobCompletions(): void {
   socket = null;
   notified.clear();
   seen.clear();
+  proposed.clear();
 }
 
 async function jobConfig(origin: string, token: string, jobId: string): Promise<Record<string, unknown> | undefined> {
@@ -139,6 +143,15 @@ export function notifyJobCompletions(origin: string, token: string, win?: Browse
       try {
         data = JSON.parse(String(ev.data)) as JobsWsMessage;
       } catch {
+        return;
+      }
+      const p = data.proposal;
+      if (data.type === "proposal" && p?.id && p.status === "pending" && !proposed.has(p.id)) {
+        proposed.add(p.id);
+        const prefs = normalizeNotificationPrefs(readSettings().notifications);
+        // ponytail: banner only, no TI-Toolbox sound; add `tit:notificationSound` if users ask.
+        const text = proposalNotification(prefs, p, !!win && !win.isDestroyed() && win.isFocused());
+        if (text) void showNativeNotification({ ...text, silent: soundPlan(prefs.sound).silent }, win);
         return;
       }
       const job = data.job;

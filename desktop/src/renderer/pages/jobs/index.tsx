@@ -42,6 +42,10 @@ import { JobsSelectionTable } from "./JobsSelectionTable";
 import { useJobsModel } from "../../app/jobs-rail/model";
 import { ALL, applyJobsFilters, useJobsUi } from "../../app/jobs-rail/store";
 import { JOB_KINDS, JOB_STATES, TERMINAL_STATES, cancelJob, getSubjects, submitTestJob } from "../../app/jobs-rail/api";
+import { useJobsStream } from "../../app/jobs/useJobsStream";
+import { useProposals } from "../../app/proposals/api";
+import { visibleProposals } from "../../app/proposals/model";
+import { ProposalsStrip } from "../../app/proposals/ProposalCard";
 import "./jobs-page.css";
 
 /** One 28px filter: a 12px label that names the control, then the select. */
@@ -76,6 +80,10 @@ function JobsPage() {
   const { selectedId, select, filters, setFilter, grouped, setGrouped } = useJobsUi();
 
   const subjectsQuery = useQuery({ queryKey: ["jobs-subjects"], queryFn: getSubjects });
+  // Agent plans (ARCHITECTURE §6) sit above the table they will fill: pending ones to decide,
+  // approved ones following their jobs live.
+  const proposals = visibleProposals(useProposals() ?? []);
+  const { jobs: liveJobs } = useJobsStream();
 
   const filtered = useMemo(() => applyJobsFilters(model.all, filters), [model.all, filters]);
 
@@ -113,6 +121,11 @@ function JobsPage() {
       restorePane();
     }
   }, [location.key, location.pathname, location.state, restorePane]);
+  // Arriving from a plan link (the Overview notice, a saved "Open in form"): bring its card into view.
+  const focusProposal = (location.state as { proposalId?: string } | null)?.proposalId;
+  useEffect(() => {
+    if (focusProposal) document.getElementById(`proposal-${focusProposal}`)?.scrollIntoView({ block: "nearest" });
+  }, [focusProposal, location.key, proposals.length]);
 
 
   // Empty state (fix round, lane FIX-D, defect 4). It used to be DESIGN.md §4.4's *whole-page*
@@ -182,6 +195,15 @@ function JobsPage() {
               reporting the width of a table nobody can see (the same rule U1 puts on an empty pane). */}
           {!(selected && pane.expanded) && (
             <div className="jobs-page-work" data-testid="page-work">
+              <ProposalsStrip
+                proposals={proposals}
+                jobs={liveJobs}
+                onOpenJob={(id) => {
+                  setSelectedIds([id]);
+                  select(id);
+                  restorePane();
+                }}
+              />
               {grouped ? (
                 <div className="jobs-page-groups" data-testid="jobs-groups">
                   <GroupsView

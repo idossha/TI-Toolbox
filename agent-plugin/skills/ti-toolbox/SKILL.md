@@ -67,6 +67,12 @@ host — there is nothing for a user to paste.
 | What changed in vX.Y.Z? | `read_changelog(version)` |
 | Which versions are shipped? | `get_toolbox_version` |
 
+**To run jobs for the user** (preprocess, optimise, simulate) use the
+`ti-toolbox-jobs` server and follow the `ti-run-pipelines` skill: `connect` first,
+`find_regions` for ROIs, `propose_pipeline` (the user approves the plan in the app, which
+then queues it) and `watch_proposal` to follow without blocking the conversation. Jobs go through the app the
+user has open and show up in its job list.
+
 If the MCP server is unavailable, fetch the same Markdown from
 `https://raw.githubusercontent.com/idossha/TI-Toolbox/main/docs/wiki/<slug>.md`.
 
@@ -111,7 +117,7 @@ Simulator is not an optimiser; say so when a user treats it as one.
 
 ```
 <project>/
-  sourcedata/<id>/                       raw DICOM
+  sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/  raw DICOM/NIfTI for convert_dicom
   sub-<id>/anat/sub-<id>_T1w.nii.gz      raw NIfTI (+T2w, ct)
   code/ti-toolbox/
     config/*.json                        montage_list.json, EEG nets, settings

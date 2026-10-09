@@ -3193,5 +3193,115 @@
     "SourceConfig": "tit.source.config.SourceConfig",
     "SubcorticalConfig": "tit.blender.config.SubcorticalConfig",
     "VectorConfig": "tit.blender.config.VectorConfig"
+  },
+  "x-app-defaults": {
+    "pre": {
+      "convert_dicom": true,
+      "run_fastsurfer": true,
+      "freesurfer_subregions": [
+        "thalamus",
+        "hippo-amygdala"
+      ],
+      "create_m2m": true,
+      "skip_existing_outputs": true
+    },
+    "sim": {
+      "map_to_fsavg": false,
+      "electrode_dimensions": [
+        8,
+        8
+      ],
+      "output_fields": [
+        "TI_max"
+      ]
+    },
+    "flex": {
+      "goal": "mean",
+      "postproc": "max_TI",
+      "current_mA": 1.0,
+      "electrode": {
+        "shape": "ellipse",
+        "dimensions": [
+          8,
+          8
+        ],
+        "gel_thickness": 4
+      },
+      "max_iterations": 500,
+      "population_size": 13,
+      "tolerance": 0.1,
+      "mutation": "0.01,0.5",
+      "recombination": 0.7
+    },
+    "flex_adaptive": {
+      "goal": "focality",
+      "postproc": "max_TI",
+      "current_mA": 1.0,
+      "electrode": {
+        "shape": "ellipse",
+        "dimensions": [
+          8,
+          8
+        ],
+        "gel_thickness": 4
+      },
+      "max_iterations": 500,
+      "population_size": 13,
+      "tolerance": 0.1,
+      "mutation": "0.01,0.5",
+      "recombination": 0.7,
+      "adaptive": {
+        "nonroi_percentage": 20,
+        "roi_percentage": 80
+      }
+    },
+    "flex_pareto": {
+      "goal": "focality",
+      "postproc": "max_TI",
+      "current_mA": 1.0,
+      "electrode": {
+        "shape": "ellipse",
+        "dimensions": [
+          8,
+          8
+        ],
+        "gel_thickness": 4
+      },
+      "max_iterations": 500,
+      "population_size": 13,
+      "tolerance": 0.1,
+      "mutation": "0.01,0.5",
+      "recombination": 0.7,
+      "pareto": {
+        "roi_pcts": [
+          80
+        ],
+        "nonroi_pcts": [
+          20,
+          30,
+          40
+        ]
+      }
+    },
+    "ex": {
+      "current_step": 0.2,
+      "channel_limit": 1.6
+    }
+  },
+  "x-kind-classes": {
+    "pre": "PreprocessConfig",
+    "sim": "SimulationConfig",
+    "flex": "FlexConfig",
+    "flex_adaptive": "FlexConfig",
+    "flex_pareto": "FlexConfig",
+    "ex": "ExConfig",
+    "mex": "MExConfig",
+    "leadfield": "LeadfieldConfig",
+    "analyzer": "AnalyzerConfig",
+    "source": "SourceConfig",
+    "nifti_average": "NiftiAverageConfig",
+    "nilearn": "NilearnConfig",
+    "stats": "GroupComparisonConfig",
+    "blender": "MontageConfig"
   }
 }

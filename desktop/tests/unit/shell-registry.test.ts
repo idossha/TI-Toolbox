@@ -173,7 +173,7 @@ describe("the rail's two sections, over the real discovered pages", () => {
     // The order is the instruction: *"place it above the Settings over there in the bottom left
     // corner"*. Asserting the whole pinned list, not just "system is present", is what makes a
     // later append to PINNED_ORDER fail here instead of silently moving System below Settings.
-    expect(ids("pinned")).toEqual(["system", "settings", "help"]);
+    expect(ids("pinned")).toEqual(["assistant", "system", "settings", "help"]);
     expect(shortcutForSlot("system")).toBeUndefined();
     // Settings keeps its own chord; the rail's ten digits stay with the workflow rows.
     expect(SHORTCUT_ALIASES[","]).toBe("settings");

@@ -28,6 +28,8 @@ vi.mock("../../src/renderer/app/registry", () => ({
   pageById: () => undefined,
   pagePath: ({ id }: { id: string }) => `/${id}`,
 }));
+// The Jobs row's pending-plans badge reads React Query and /ws/jobs; this file tests grouping only.
+vi.mock("../../src/renderer/app/proposals/PendingProposalsBadge", () => ({ PendingProposalsBadge: () => null }));
 vi.mock("../../src/renderer/ui/Overlay", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => children,
 }));

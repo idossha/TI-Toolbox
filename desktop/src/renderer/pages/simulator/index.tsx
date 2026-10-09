@@ -4,6 +4,7 @@ import { Zap, Info, Workflow } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import type { Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
+import { withAppDefaults } from "../../forms/appDefaults";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { Callout, EmptyState } from "../../ui/Feedback";
@@ -18,7 +19,7 @@ import { JobSettingsDialog } from "./JobSettingsDialog";
 import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
 import {
-  DEFAULT_JOB_SETTINGS,
+  defaultJobSettings,
   emptyRow,
   isRunnableRow,
   type JobSettings,
@@ -32,6 +33,8 @@ import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
 import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
+import { PlanStepBanner, usePlanStepActions, usePlanStepEdit } from "../../app/proposals/stepForm";
+import { simStepEdit, simStepRows } from "./planStep";
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -162,10 +165,10 @@ function SimulatorPage() {
 
   /**
    * What a row that carries no settings of its own runs with, and what `Reset to defaults` returns
-   * to: the built-ins (`DEFAULT_JOB_SETTINGS`), not a page control. A row seeded from the last
+   * to: the built-ins (`defaultJobSettings()`), not a page control. A row seeded from the last
    * edited one carries a copy, so it shows as customised and is unaffected by anything else.
    */
-  const params: GlobalParams = DEFAULT_JOB_SETTINGS as GlobalParams;
+  const params = useMemo(() => defaultJobSettings() as GlobalParams, []);
 
   // The subject clause of the blocked sentence is still the shared grammar's, but it is now about
   // the subjects the ROWS name rather than a page-level tick list.
@@ -177,6 +180,17 @@ function SimulatorPage() {
   );
 
   const plan = useSimPlan(runnableRows, params, planSubjects, runnableRows.length === 0 ? null : subjectsBlocked);
+
+  // "Open in form" from a plan card: the step's rows in this table, Save to plan instead of Run.
+  const planStep = usePlanStepEdit({
+    snapshot: () => rows,
+    load: (step) => {
+      setRows(simStepRows(step));
+      setMontagePreview(null);
+    },
+    restore: setRows,
+  });
+  const planActions = usePlanStepActions(planStep, () => simStepEdit(planStep.step!, rows, params));
 
   const digest = plan.model ? (jobCountLabel(plan.model) ?? "Resolving the plan…") : (plan.blockedReason ?? "Resolving the plan…");
 
@@ -289,9 +303,17 @@ function SimulatorPage() {
             }
           />
         }
-          actionBar={<ActionBar digest={digest} blocked={!!plan.blockedReason} primary={runButton} />}
+          actionBar={
+            <ActionBar
+              digest={digest}
+              blocked={!!plan.blockedReason}
+              secondary={planStep.step ? planActions.secondary : undefined}
+              primary={planStep.step ? planActions.primary : runButton}
+            />
+          }
       >
         <RunWork>
+          {planStep.step && <PlanStepBanner step={planStep.step} />}
           {candidateError && <Callout kind="danger">{candidateError}</Callout>}
           {rows.some((row) => row.candidate) && <Callout kind="info">
             Choose optimized positions or snap to a cap. Review the montage before running.
@@ -389,7 +411,7 @@ const page: PageDef = {
   icon: Zap,
   // DESIGN.md §9 binding shortcut map: Simulator is Cmd/Ctrl+3.
   shortcut: "3",
-  Component: SimulatorPageWithFreehandDraft,
+  Component: withAppDefaults(SimulatorPageWithFreehandDraft),
   enabled: true,
 };
 

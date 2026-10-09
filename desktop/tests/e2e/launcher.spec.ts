@@ -195,6 +195,7 @@ test("connected pages cannot directly start stacks or change settings but can pi
   await app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, projectDir);
+  const before = await page.evaluate(() => window.tit!.getSettings());
   const results = await page.evaluate(async (dir) => {
     const [start, settings] = await Promise.all([
       window.tit!.stack.start(dir),
@@ -204,7 +205,10 @@ test("connected pages cannot directly start stacks or change settings but can pi
     return { start, settings, dir2 };
   }, projectDir);
   expect(results.start).toEqual({ ok: false, error: "unknown sender" });
-  expect(results.settings).toEqual({});
+  // A served page may write only `notifications` (8e4dda46, `tit:setSettings` in main/index.ts), so
+  // the call answers with what it wrote — the settings unchanged; the refused key was not stored.
+  expect(before.lastProjectDir).not.toBe("/should/not/persist");
+  expect(results.settings).toEqual(before);
   expect(results.dir2).toBe(projectDir);
 
   // The stack is still running and status is still readable (not launcher-gated) — the refusals
@@ -247,14 +251,16 @@ test("openPath and showItemInFolder reject dot-segments and out-of-mount paths (
   expect(dotSegment).toEqual({ ok: false, reason: "path contains a '.' or '..' segment" });
 
   const outsideMount = await page.evaluate(() => window.tit!.openPath("/mnt/some-other-project/file.txt"));
-  expect(outsideMount).toEqual({ ok: false, reason: "path is outside the mounted project" });
+  // One reason for every known mount since e44c15c6 merged the started-stack and /api/project
+  // branches of `resolveHostPathStrict` into one mapping path.
+  expect(outsideMount).toEqual({ ok: false, reason: "path is outside the project" });
 
   // showItemInFolder applies the identical checks and never reaches `shell.showItemInFolder` for a
   // rejected path — no Finder/Explorer window should appear as a side effect of this test.
   const revealDotSegment = await page.evaluate((name) => window.tit!.showItemInFolder(`/mnt/${name}/a/../../escape`), mountName);
   expect(revealDotSegment).toEqual({ ok: false, reason: "path contains a '.' or '..' segment" });
   const revealOutside = await page.evaluate(() => window.tit!.showItemInFolder("/mnt/some-other-project/file.txt"));
-  expect(revealOutside).toEqual({ ok: false, reason: "path is outside the mounted project" });
+  expect(revealOutside).toEqual({ ok: false, reason: "path is outside the project" });
 });
 
 test("Docker missing, Podman and a failed image pull each get their own message", async () => {

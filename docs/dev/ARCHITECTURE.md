@@ -173,9 +173,18 @@ UI tests run hidden and assess state, geometry and rendering assertions. An unav
 is unverified, not passed.
 
 Frozen paths are [`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
-The preload bridge has 23 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
+The preload bridge has 24 top-level entries, enforced by `desktop/tests/e2e/smoke.spec.ts`;
 `saveNativeTetravoxScene` adds native snapshot saving; `onNotificationSound` lets main have the
-window play a job banner's TI-Toolbox sound. Changes require this contract and a decision entry. Optional additions preserve prior behavior when
+window play a job banner's TI-Toolbox sound; `assistant` (optional: absent means no Assistant pane)
+is the host terminal of §6's user-run agent — `detect`, `start`, `write`, `resize`, `kill`,
+`onEvent`, `openInTerminal`, `openPath` — all but `openPath` taking only `"claude" | "codex"` (plus
+terminal size or typed input), validated in main; `start` and `openInTerminal` also take an optional options object of
+enums only (`effort`: low, medium, high, default; `model`: default, opus, sonnet, haiku, fable —
+Codex: default only), checked against an allowlist in main, which builds the flags itself; `start`
+also returns the session's host project folder (`cwd`), and `openPath` takes one path string a
+session printed, which main resolves against that folder, accepts only when its real path
+(symlinks resolved) exists inside the folder's real path, and then reveals (a file) or opens (a
+folder). Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
@@ -202,6 +211,154 @@ own (worker pools under the global CPU limit). Excluded alternative: a user-set 
 several FEM-class jobs of one product contend for the same machine. Cohort analyses remain single
 jobs. Sources: [`jobs routes`](../../tit/server/routes/jobs.py),
 [`scheduler.py`](../../tit/jobs/scheduler.py).
+
+**An agent submits through the same routes.** `POST /api/jobs` and `/api/jobs/groups` take an
+optional `created_by` (`gui`, `browser`, `api`, `notebook`, `agent`); absent means `gui`, any other
+value is a 422. It is recorded in `spec.json` and passed to the runner as `TIT_INTERFACE`, and
+nothing else depends on it, so an agent's job queues, runs, reports and renders exactly like the
+app's, except that an agent's config gets the run pages' defaults (next paragraph). The agent
+plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of these routes: it
+sends `agent` and only the fields the agent chose, and writes nothing on the host — raw scans are
+copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the agent's own file tools, under its CLI's
+permission prompts. An agent's target region comes from `GET /api/catalog/regions?subject=&q=`
+(`tit.catalog.find_regions`): the regions whose names have the query's words as whole words
+("thalamus" is not "Hypothalamus"; side words dropped) in the subject's own atlases
+and then in the shipped MNI volume atlases the Optimizer's picker lists for MNI space, each entry
+with its `space` and ready `rois.all|left|right` (an MNI one a `SubcorticalROI` with
+`atlas_space: "mni"`). A shipped MNI atlas's regions are named from the colour table
+`resources/atlas/manifest.json` gives it (`tit.atlas.segstats.manifest_lut`), for the picker too. Its ROI construction (`tit.catalog.region_roi`) and the ROI picker's
+`roiToConfig` are one rule kept in two languages — the picker rebuilds its ROI synchronously on
+every selection for the live plan — and `tests/fixtures/region_rois.json` drives both. Excluded
+alternative: a server-side "agent" API or an in-container agent, which would need the user's AI
+credentials; the user's own agent runs on the host instead.
+
+**App defaults: one table, served.** What the Pre-processing, Simulator and Optimizer pages start
+with, where it differs from or adds to the config class's own defaults, is
+[`tit/server/app_defaults.py`](../../tit/server/app_defaults.py) `APP_DEFAULTS` (per job kind:
+`pre`, `sim`, `flex`, `flex_adaptive`, `flex_pareto`, `ex`; `mex` starts at `MExConfig`'s own).
+`dev/build_schema.py` writes it into `config.schema.json` as `x-app-defaults`, which
+`GET /api/schema` serves; each run page renders once that document has loaded
+([`forms/appDefaults.tsx`](../../desktop/src/renderer/forms/appDefaults.tsx)) and builds its form
+from `x-app-defaults[kind]` over the class's schema `default`s. The server fills the same entry
+(one level deep; sent fields win) into a config sent with `created_by: "agent"` —
+`POST /api/validate/{kind}`, `/api/plan/{kind}`, `/api/jobs/preflight`, `/api/jobs`,
+`/api/jobs/groups` including each `subject_configs` entry — and into every proposal step (a
+`sim_from_flex` step takes `sim`'s). The app's own requests are unchanged: they send whole configs.
+The same document carries `x-kind-classes`, the job kind -> config class table the validate and
+plan routes use (`tit.server.routes.validate`), which the plugin's `get_config_schema` reads
+instead of keeping a copy.
+Excluded alternatives: a copy of the table in the plugin or the renderer (the two drifted from the
+pages by hand); filling defaults for every creator (a script that omits a field means the
+dataclass default); a page-side fallback while the schema loads (a second copy, and a first frame
+with values the server does not have).
+
+**An agent proposes; the user approves; the server runs.** The project setting
+`agent_auto_submit` ("Agent may submit without approval", `GET/PUT /api/settings`, default off)
+decides whether those routes accept `created_by: "agent"`; off, they answer 403 naming
+`propose_pipeline`, and every other creator is unaffected. The agent instead posts a proposal
+(`POST /api/proposals`: title, rationale, ordered steps `{id, kind, config, subject_ids, after,
+note, overwrite}`), stored as `code/ti-toolbox/proposals/<id>.json` by
+[`proposals.py`](../../tit/server/proposals.py), which plans every step with the validate, plan
+and preflight functions the run pages use (outputs, replacements, ETA and the plan route's lock
+waits, `plan.lock_conflicts`, on a dry run as on a stored proposal; a flex/ex/mex step's target by
+name, `plan.target`, from `tit.opt.roi_spec.config_target` — atlas labels through `region_name`,
+the same naming the flex/ex reports' `roi_summary` uses, spheres by centre and radius, ex ROI CSV
+names — which the card shows as the step's Target) and pushes `{"type": "proposal"}` on `/ws/jobs` (the
+renderer toasts a newly pending plan; main's job notifier shows a native banner for it while the
+window is unfocused and notifications are on). While
+pending the user may edit a step's config, subjects or `overwrite` (re-planned on each edit), on
+the card (subjects, run name, currents, the replace permission and the config JSON) or on the
+step's own run page: **Open in form** opens Pre-processing, the Simulator (a `sim_from_flex` step
+as a Flex-result row naming its flex step's run) or the Optimizer with the page's draft put aside
+and the step loaded through that page's config→form mapping
+([`stepForm.tsx`](../../desktop/src/renderer/app/proposals/stepForm.tsx)); the primary becomes
+**Save to plan**, which sends the form back through the page's own builder as the step's edit, and
+Cancel restores the draft. A step keeps its kind and runs one config on all its subjects, so a
+form that would change the kind or differ per subject is refused with the reason, not saved.
+`proposed_steps` keeps the agent's version and what is approved is what runs. Besides the Jobs
+badge, the Overview lists each pending plan on one line with **Review**, which opens its card. Approval re-plans
+every step and is refused (409) while a step has an error, a step waiting on nothing lacks an
+input, or a step would replace output without `overwrite`. **The server queues approved steps
+itself**: steps with no `after` at once, as jobs with the proposer's `created_by` and a
+`proposal:<id>` tag; a dependent step when every job of the steps it names has succeeded (a
+watcher follows the job manager's status stream), `skipped` when one did not. A `sim_from_flex`
+step names an earlier flex step or a finished run and is resolved at that moment by
+`tit.sim.montage_sources.resolve_flex_simulation`, which `GET /api/sim-from-flex` also serves to
+the agent plugin's `simulate_flex_result`. **A flex run's electrodes are paired one way
+everywhere:** by the optimiser's own `channel_array_indices` (`tit.catalog.pair_by_channel`;
+consecutive only when that record is missing), with every channel kept, for the Simulator's flex
+rows (`GET /api/catalog/flex-runs`), its Map-to-net (`…/mapping`), `/api/plan`'s flex montage
+sources and `resolve_flex_simulation`, which all build the montage through
+`resolve_flex_montage`. A net the run is already mapped to is read from its
+`electrode_mapping_<net>.json`; the Hungarian mapping runs and the cache is written only the first
+time. Excluded alternative: consecutive pairing of the first four electrodes (it disagreed with
+the catalog for an out-of-order record and dropped the extra channels of an mTI run). Step and proposal states are derived from the jobs at
+read time. A finished plan (done, rejected or failed) can be dismissed (`POST /api/proposals/{id}/dismiss`,
+stored as `dismissed_at`; the default list omits it); the Jobs page shows only pending and
+in-flight plans as cards and finished ones in a collapsed "Finished plans" list. Finished
+proposals are kept as long as finished jobs: `tit.jobs.registry.expired` (older than 30 days, or
+beyond the newest 200) prunes both, jobs when the job manager starts and proposals when the
+proposal watcher starts. Excluded
+alternatives: a second form inside the card for every setting (a parallel UI drifting from the run
+pages); queuing dependent steps up front with job-level `after` (the
+submit-time preflight refuses a flex job whose head model a queued `pre` will make, and a
+`sim_from_flex` montage does not exist yet); an agent that waits and submits each step (it
+would have to stay connected for hours). The setting and the proposal routes are rules for a
+cooperating agent, not a security boundary: anything holding the server token can call every
+route, including approve.
+
+**The user's own agent runs in a host terminal.** The Assistant page (`pages/assistant`, pinned
+above System) hosts xterm.js over a node-pty pseudo-terminal that Electron main spawns on the host
+— not in the container, where neither the CLI nor its login lives. The renderer can name only
+`claude` or `codex`; main resolves the executable on the user's login-shell `PATH` (an interactive
+login shell's `$PATH`, plus `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; Windows uses the
+inherited `PATH`), runs it with cwd = the session's host project folder and adds
+`TIT_SERVER_URL`/`TIT_SERVER_TOKEN` of the connected session to its environment, so the job server
+reaches this app's server in Docker and native runtimes alike. The bundled `agent-plugin/`
+(`Resources/agent-plugin`, or the checkout's) is attached for that session only: Claude Code with
+`--plugin-dir`, Codex with `-c mcp_servers.ti-toolbox{,-jobs}.*` overrides, `env_vars` forwarding
+the two variables and a `developer_instructions` pointer to `ti-run-pipelines`. The plugin's
+`.mcp.json` starts both servers with `${TIT_PYTHON:-python3}` (Claude Code has no per-platform
+command; it expands variables with a default); main resolves the interpreter on the same PATH
+(`findPython`: `python3`; on Windows `py`, then `python`, then `python3`) and passes it as
+`TIT_PYTHON` to Claude Code (unless the user set it) and as the Codex servers' `command`. A
+plugin installed from the marketplace uses `python3` unless the user sets `TIT_PYTHON`. Nothing is written
+to `~/.claude` or `~/.codex`; login state is the exit status of the CLI's own status command
+(`claude auth status`, `codex login status`), its output discarded. The token is never an argument
+and never logged. A session needs the main window's top frame, a loopback server origin and an
+existing local project folder; there is at most one per CLI, a new start replaces it, and every
+session ends on a main-frame navigation (connect, project switch or close, reload), window close
+and app quit. **Open in system terminal** starts the same launch in Terminal (macOS: a self-deleting
+`.command` script in user data, because LaunchServices passes no environment), the first of
+`$TERMINAL`, `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`,
+`alacritty`, `xterm` found on the login-shell `PATH`, each with its own directory and command flags
+(Linux; none found is an error that says what to install), or a new console (Windows). **Effort and Model** are per-CLI
+session options the page keeps in `localStorage` and sends with `start`/`openInTerminal`; main maps
+them to `--effort <level>` and `--model <alias>` (Claude Code) or `-c model_reasoning_effort="<level>"`
+(Codex; no model flag), and passes nothing for "My CLI default". The default is Medium for both CLIs,
+a change while a session runs applies on the next Start, and nothing is written to the CLIs' own
+configuration. Claude Code sessions also get
+`CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` unless the user set it: the job server's waits
+(`watch_proposal`, `wait_for_job`) block until the next change, Claude Code moves a call still
+running after that delay to a background task and wakes the agent with its result, and the job
+server answers each `tools/call` on its own thread so the agent's other calls are not held up.
+Excluded alternatives: running the CLI inside the container (no
+CLI, no login there); a renderer-supplied command line (a served page could run anything on the
+host); writing MCP entries into the user's CLI configuration (persistent side effects outside the
+app). The pane draws with xterm's WebGL renderer, falling back to its DOM renderer when no GPU
+context is available or one is lost; WebGL is what draws box-drawing and block characters as
+joined cells (`customGlyphs`), which the DOM renderer leaves to the font. The page is a fixed-height
+column at every window width, the terminal's host carries no padding (FitAddon counts its host's
+height), and the grid is refitted on every host resize and the new size sent to the PTY. Printed
+http(s) links open through `openExternal`. Printed file paths are links too
+([`pathLinks.ts`](../../desktop/src/renderer/pages/assistant/pathLinks.ts)): an absolute path inside
+the session's project folder, or a relative one starting `./`, `../` or a project top-level folder
+(`derivatives/`, `sourcedata/`, `code/`, `rawdata/`, `sub-<id>/`), matched on the logical line (rows
+xterm soft-wrapped, `isWrapped`, joined), so a wrapped path is one link from any of its rows; a click goes to
+`assistant.openPath`, never the app-wide `openPath`, which maps server paths, not the host paths a
+CLI prints. Main's containment check is the authority; the renderer's match only decides what is
+underlined, and a refusal is a toast. Sources: [`assistant.ts`](../../desktop/src/main/assistant.ts),
+[`Assistant page`](../../desktop/src/renderer/pages/assistant/index.tsx).
 
 **There is one interactive log renderer.** [`logLines.ts`](../../desktop/src/renderer/app/jobs/logLines.ts)
 normalizes and merges events; [`JobConsole`](../../desktop/src/renderer/ui/Jobs.tsx) renders them.
@@ -577,6 +734,14 @@ A run page treats that 409 as the existing-outputs question, not an error, so th
 when its cached plan lagged the disk; Skip submits only the jobs a freshly fetched plan calls new.
 Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
 retain native existence protection. Caller environment variables cannot supply permission.
+
+**Outputs stay inside the project.** The plan route resolves every job's output folder, and any
+that lies outside the project (an absolute `output_folder`/`output_dir` elsewhere, or a run,
+montage, analysis or output name that climbs out) is a 422 on `/api/plan`, on `/api/jobs`,
+`/api/jobs/groups` and reruns whatever `overwrite` says (`check_overwrite_permission` always plans),
+and a planning error on a proposal step, which blocks its approval. The run pages only send folders
+the server resolved under the project. Excluded alternative: a jail per config field (every new
+output field would need its own; the plan already names each job's destination).
 
 Sources: [`overwrite_policy.py`](../../tit/server/overwrite_policy.py),
 [`ExistingOutputsDialog.tsx`](../../desktop/src/renderer/pages/_shared/run/ExistingOutputsDialog.tsx),

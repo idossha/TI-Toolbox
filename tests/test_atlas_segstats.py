@@ -392,3 +392,50 @@ class TestFormatSegstatsSum:
         out_path = tmp_path / "out_labels.txt"
         write_segstats_sum(stats, str(out_path))
         assert out_path.read_text() == format_segstats_sum(stats)
+
+
+# ============================================================================
+# resolve_lut_for_atlas / list_regions -- a shipped MNI atlas's manifest-named table
+#
+# 2026-10-08: the Glasser, Schaefer and MASSP colour tables are not `{stem}_LUT.txt`, so their
+# labels used to be named from FreeSurferColorLUT.txt (Glasser label 1 read
+# "Left-Cerebral-Exterior" instead of "L-V1"). resources/atlas/manifest.json names each table
+# (`labels`); the expected names below are typed from that table's format, not produced by the
+# code under test.
+# ============================================================================
+
+GLASSER = "MNI_Glasser_HCP_v1.0.nii.gz"
+
+
+@pytest.mark.unit
+class TestManifestNamedLut:
+    def _copy(self, tmp_path):
+        atlas_path = tmp_path / GLASSER
+        atlas_path.touch()
+        (tmp_path / "MNI_Glasser_HCP_v1.0.txt").write_text(
+            "#No.\tLabel Name:\t\tR\tG\tB\tA\n1\tL-V1\t29\t130\t102\t255\n"
+        )
+        return atlas_path
+
+    def test_the_manifest_table_names_a_shipped_atlas(self, tmp_path):
+        lut = resolve_lut_for_atlas(str(self._copy(tmp_path)))
+        assert lut == {1: "L-V1"}
+
+    def test_a_cache_named_from_another_table_is_rebuilt_once(self, tmp_path):
+        from tit.atlas.voxel import VoxelAtlasManager
+
+        atlas_path = self._copy(tmp_path)
+        cache = tmp_path / "MNI_Glasser_HCP_v1.0_labels.txt"
+        cache.write_text(
+            "# ColHeaders Index SegId NVoxels Volume_mm3 StructName\n"
+            "  1     1      10   10.0000 Left-Cerebral-Exterior\n"
+        )
+        atlas_img = MagicMock()
+        atlas_img.dataobj = np.array([[[0, 1]]], dtype=np.int32)
+        atlas_img.affine = np.eye(4)
+        with patch("nibabel.load", return_value=atlas_img) as load:
+            first = VoxelAtlasManager().list_regions(str(atlas_path))
+            second = VoxelAtlasManager().list_regions(str(atlas_path))
+        assert first == second == ["L-V1 (ID: 1)"]
+        load.assert_called_once()  # rebuilt once, then the new cache is read
+        assert "# lut MNI_Glasser_HCP_v1.0.txt" in cache.read_text()

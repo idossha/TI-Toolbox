@@ -42,7 +42,7 @@ import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
 import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
-import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
+import { flexCurrents, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
 import { useFreehandDraft } from "./freehandDraft";
 import "./simulator-page.css";
@@ -317,6 +317,8 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
   if (count === 0 || !row.name) return null;
   const values = currentValues(row.currents, count);
   const labels = channelLabels(row, count);
+  // A plan's pending flex run with no currents set runs at the run's own: shown empty, not as 1 mA.
+  const own = !!row.planFlexStep && !row.currents.trim();
   return (
     <>
       {values.map((v, i) => (
@@ -326,7 +328,9 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
             {labels[i]}
           </span>
           <NumberInput
-            value={v}
+            value={own ? undefined : v}
+            placeholder={own ? "own" : undefined}
+            title={own ? "The flex run's own current" : undefined}
             onValueChange={(next) => onChange(values.map((old, idx) => (idx === i ? (next ?? old) : old)).join(","))}
             step={0.1}
             min={row.candidate ? undefined : 0}
@@ -604,6 +608,7 @@ export function JobsTable({
   /* ------------------------------------------------------------------ Row edits */
 
   function setRowSubject(row: SelectedRow, subjectId: string) {
+    if (row.planFlexStep) return patch(row.id, { subjectId }); // the plan's run has one name for every subject
     // A montage/net the new subject does not have is not a job — clear back to "pick one" rather
     // than carrying an unrunnable row forward.
     const keepsNet = row.source !== "montage" || !row.eegNet || (subjectNets[subjectId]?.includes(row.eegNet) ?? false);
@@ -644,18 +649,21 @@ export function JobsTable({
   }
 
   /** The placements a flex row can be simulated in, for the row's own subject and run. */
+  const runOfRow = (row: SelectedRow) => (flexBySubject[row.subjectId] ?? []).find((r) => r.name === row.name);
+
   function placementsForRow(row: SelectedRow): FlexPlacement[] {
-    const run = (flexBySubject[row.subjectId] ?? []).find((r) => r.name === row.name);
+    const run = runOfRow(row);
     return run ? placementsFor(run) : [];
   }
 
+  /** A flex row's currents are the run's own (optimised split, else its current_mA), editable after. */
   function applyFlexPlacement(row: SelectedRow, placement: FlexPlacement) {
     const numPairs = placement.pairs?.length ?? placement.xyzPairs?.length ?? 0;
     patch(row.id, {
       eegNet: placement.value === OPTIMIZED ? undefined : placement.value,
       pairs: placement.pairs,
       xyzPairs: placement.xyzPairs,
-      currents: defaultCurrents(numPairs),
+      currents: flexCurrents(runOfRow(row), numPairs),
     });
   }
 
@@ -709,7 +717,7 @@ export function JobsTable({
       onRowsChange(
         rowsRef.current.map((r) =>
           r.id === row.id && r.eegNet === net
-            ? { ...r, pairs, xyzPairs: undefined, currents: defaultCurrents(pairs.length) }
+            ? { ...r, pairs, xyzPairs: undefined, currents: flexCurrents(runOfRow(r), pairs.length) }
             : r,
         ),
       );
@@ -749,7 +757,7 @@ export function JobsTable({
       eegNet: first && first.value !== OPTIMIZED ? first.value : undefined,
       pairs: first?.pairs,
       xyzPairs: first?.xyzPairs,
-      currents: defaultCurrents(numPairs),
+      currents: flexCurrents(run, numPairs),
     });
   }
 
@@ -915,6 +923,10 @@ export function JobsTable({
         />
       );
     }
+    // A plan step's flex step: its run is written when that step runs, so there is nothing to pick.
+    if (row.planFlexStep && row.source === "flex") {
+      return <span className="job-candidate-source" title={`${row.name}: the run plan step ${row.planFlexStep} writes`}>{row.name} · step {row.planFlexStep}</span>;
+    }
     if (row.source === "flex") {
       const runs = flexBySubject[row.subjectId] ?? [];
       return (
@@ -976,6 +988,20 @@ export function JobsTable({
      * beside it. Splitting them across the two lines instead made a flex job a line taller than a
      * montage job. One select keeps every name whole and every job exactly two lines.
      */
+    if (row.planFlexStep) {
+      // No run yet to map: the choice is only which net the server maps it onto once it exists.
+      const nets = netsForSubject(row.subjectId);
+      const own = row.eegNet ? nets.find((n) => netStem(n) === netStem(row.eegNet!)) : undefined;
+      const extra = row.eegNet && !own ? [{ value: row.eegNet, label: netStem(row.eegNet) }] : [];
+      return (
+        <Select
+          value={own ?? row.eegNet ?? OPTIMIZED}
+          onValueChange={(v) => patch(row.id, { eegNet: v === OPTIMIZED ? undefined : v })}
+          options={[{ value: OPTIMIZED, label: "The run's own" }, ...nets.map((n) => ({ value: n, label: netStem(n) })), ...extra]}
+          aria-label="Placement"
+        />
+      );
+    }
     const options = placementsForRow(row);
     const hasOptimised = !!candidateOriginalPairs(row) || options.some((o) => o.value === OPTIMIZED);
     const nets = netsForSubject(row.subjectId);

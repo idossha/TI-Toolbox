@@ -7,10 +7,26 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
-function verify(asar: boolean, external?: 'main' | 'preload') {
+/** The Assistant's shipped pieces (check 9): node-pty beside the asar and the agent plugin. */
+const ASSISTANT_FILES = [
+  'app.asar.unpacked/node_modules/node-pty/lib/index.js',
+  'app.asar.unpacked/node_modules/node-pty/build/Release/pty.node',
+  'agent-plugin/.claude-plugin/plugin.json',
+  'agent-plugin/.mcp.json',
+  'agent-plugin/mcp/jobs_server.py',
+  'agent-plugin/mcp/server.py',
+  'agent-plugin/mcp/stdio_loop.py',
+  'agent-plugin/skills/ti-run-pipelines/SKILL.md',
+];
+
+function verify(asar: boolean, external?: 'main' | 'preload', omit?: string) {
   const root = mkdtempSync(join(tmpdir(), 'tit-package-runtime-'));
   try {
     const resources = join(root, 'resources');
+    for (const file of ASSISTANT_FILES.filter((f) => f !== omit)) {
+      mkdirSync(resolve(join(resources, file), '..'), { recursive: true });
+      writeFileSync(join(resources, file), 'fixture');
+    }
     mkdirSync(join(resources, 'renderer'), { recursive: true });
     writeFileSync(join(resources, 'renderer/index.html'), '<main>fixture</main>');
     writeFileSync(join(resources, 'docker-compose.yml'), 'services:\n  tit:\n    image: idossha/ti-toolbox:fixture\n');
@@ -60,5 +76,10 @@ for (const asar of [true, false]) describe(asar ? 'asar runtime' : 'unpacked run
     const result = verify(asar, entry);
     expect(result.status, result.stdout + result.stderr).toBe(1);
     expect(result.stdout + result.stderr).toContain('yaml');
+  });
+  for (const missing of ['app.asar.unpacked/node_modules/node-pty/build/Release/pty.node', 'agent-plugin/mcp/jobs_server.py', 'agent-plugin/mcp/stdio_loop.py']) it(`rejects a package without ${missing.split('/').at(-1)}`, () => {
+    const result = verify(asar, undefined, missing);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(result.stdout).toMatch(/FAIL (node-pty binary|agent plugin staged)/);
   });
 });

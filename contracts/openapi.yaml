@@ -37,7 +37,9 @@ info:
     state transition (queued/running/succeeded/... ) regardless of subscription, so the jobs rail
     can render every live job without subscribing to each one individually; `{"type": "event",
     "job_id": "...", "event": <Event>}` is pushed only for jobs the client has subscribed to, in
-    `seq` order, starting at `since_seq` itself (`since_seq: 0` replays the whole log). Auth via the `tit_session` cookie or `?token=`
+    `seq` order, starting at `since_seq` itself (`since_seq: 0` replays the whole log);
+    `{"type": "proposal", "proposal": <Proposal>}` is pushed whenever an agent proposal is created,
+    edited, decided or advances. Auth via the `tit_session` cookie or `?token=`
     (checked once at connect, same-origin rule as `/ws/system`).
 
     Path parameters are named `id` uniformly wherever this document has one resource-scoped path
@@ -649,6 +651,43 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: unknown subject or atlas
+  /api/catalog/regions:
+    get:
+      tags: [catalog]
+      summary: Search a subject's atlases for a structure, with ready FlexConfig ROIs
+      description: >-
+        Every region of the subject's own atlases (subject space), then of the MNI volume atlases
+        the toolbox ships (the Optimizer picker's MNI subcortical list), whose name has each word
+        of `q` as a whole word (names split on non-alphanumerics, ignoring case and the side words
+        left, right, lh, rh, l, r; or the query's words joined are one word of the name), so
+        "thalamus" finds "Left-Thalamus" but not "Hypothalamus"; the query's own side words left,
+        right, bilateral, both, lh, rh are ignored; one entry per atlas with a match, with its `space`. `rois.all` targets every match (both sides),
+        `rois.left`/`rois.right` one side when a match names it. The ROI construction is the
+        desktop ROI picker's (`tit.catalog.region_roi`, pinned for both by
+        `tests/fixtures/region_rois.json`); the agent plugin's find_regions serves it.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+        - in: query
+          name: q
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RegionMatch" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: unknown subject
+        "422":
+          description: "`q` names no structure (only side words)"
   /api/catalog/nifti/labels:
     get:
       tags: [catalog]
@@ -1186,6 +1225,15 @@ paths:
     get:
       tags: [schema]
       summary: The full generated schema.json (every config dataclass as a JSON Schema $def)
+      description: >-
+        `contracts/generated/config.schema.json`: `$defs` (one per config class),
+        `x-tit-classes` (class name -> Python import path), `x-app-defaults` (job kind ->
+        the values the desktop run pages start with where they differ from or add to the
+        class's own `default`s; `tit/server/app_defaults.py`) and `x-kind-classes` (job kind ->
+        the config class `/api/validate` and `/api/plan` use for it; for `stats`/`blender` the
+        one used when `config._type` is absent). The run pages initialise their
+        forms from `x-app-defaults[kind]` over the `$defs` defaults, and the server fills the
+        same values into an agent's config (`created_by: agent`) and every proposal step.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       responses:
         "200":
@@ -1239,6 +1287,11 @@ paths:
               properties:
                 config:
                   $ref: "#/components/schemas/PipelineConfig"
+                created_by:
+                  type: string
+                  description: >-
+                    agent fills the run pages' defaults (`x-app-defaults[kind]` of GET /api/schema)
+                    into the fields `config` omits, as POST /api/jobs does for an agent's job.
       responses:
         "200":
           content:
@@ -1274,6 +1327,11 @@ paths:
                   type: boolean
                 montage_sources:
                   $ref: "#/components/schemas/MontageSources"
+                created_by:
+                  type: string
+                  description: >-
+                    agent fills the run pages' defaults (`x-app-defaults[kind]` of GET /api/schema)
+                    into the fields `config` omits, as POST /api/jobs does for an agent's job.
       responses:
         "200":
           content:
@@ -1282,6 +1340,11 @@ paths:
                 $ref: "#/components/schemas/PlanResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: >-
+            a config that does not deserialize for the kind, or an output folder outside the
+            project (an absolute `output_folder`/`output_dir` elsewhere, or a name that climbs
+            out): "Outputs must stay inside the project folder …"
 
   # ------------------------------------------------------------------------------------- jobs (v1)
   /api/jobs:
@@ -1336,9 +1399,9 @@ paths:
         "422":
           description: >-
             unknown kind, malformed body, a config the kind's runner could not
-            deserialize (e.g. a sim config with no subject_id/montages), or -- as a
-            MissingInputs body -- a required input file that is not on disk; no job
-            record is created
+            deserialize (e.g. a sim config with no subject_id/montages), an output folder
+            outside the project (whatever `overwrite` says), or -- as a MissingInputs body
+            -- a required input file that is not on disk; no job record is created
           content:
             application/json:
               schema:
@@ -1395,8 +1458,9 @@ paths:
         "422":
           description: >-
             unsupported kind, malformed body, a config that does not deserialize
-            for the kind, or -- as a MissingInputs body -- a required input file of
-            any planned job that is not on disk; no job record is created
+            for the kind, an output folder outside the project (whatever `overwrite`
+            says), or -- as a MissingInputs body -- a required input file of any planned
+            job that is not on disk; no job record is created
           content:
             application/json:
               schema:
@@ -1588,6 +1652,251 @@ paths:
 
         "401":
           $ref: "#/components/responses/Unauthorized"
+  # ------------------------------------------------------------------------- agent proposals (v1)
+  # ARCHITECTURE §6, DECISIONS 2026-10-07 (agent proposals). Bodies are plain dicts on the server
+  # (tit.server.proposals owns the shape); the named schemas below are what the app reads.
+  /api/proposals:
+    get:
+      tags: [jobs]
+      summary: Agent proposals, newest first
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema: { type: string }
+        - in: query
+          name: include_dismissed
+          required: false
+          schema: { type: boolean, default: false }
+          description: also list plans the user dismissed (omitted by default)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Proposal" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [jobs]
+      summary: Propose a pipeline for the user to approve (each step validated and planned)
+      description: >-
+        Each step's config gets the run pages' defaults (`x-app-defaults[kind]` of GET
+        /api/schema; `sim`'s for a sim_from_flex step) in the fields it omits, so the stored
+        and approved config is complete.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: a bad body (the detail names the field or step)
+  /api/proposals/{id}:
+    get:
+      tags: [jobs]
+      summary: One proposal with live step states
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/proposals/{id}/steps/{step_id}:
+    patch:
+      tags: [jobs]
+      summary: Edit a pending step (config, subject_ids, overwrite); the step is re-planned
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: step_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalStepEdit"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: a bad body (the detail names the field or step)
+  /api/proposals/{id}/approve:
+    post:
+      tags: [jobs]
+      summary: Approve (optionally with edited steps); the server queues the steps
+      description: >-
+        Every step is re-planned first. A step error, a missing input of a step that waits on
+        nothing, or an output a step would replace without overwrite refuses the approval (409)
+        and nothing is queued. Otherwise steps with no `after` are queued at once and the rest
+        by the server as the steps they wait on succeed.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                steps:
+                  type: array
+                  items: { $ref: "#/components/schemas/ProposalStepEdit" }
+                note: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: already decided, or a step is not runnable as planned
+        "422":
+          description: a bad body (the detail names the field or step)
+  /api/proposals/{id}/reject:
+    post:
+      tags: [jobs]
+      summary: Reject with an optional note
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: already decided
+  /api/proposals/{id}/dismiss:
+    post:
+      tags: [jobs]
+      summary: Hide a finished plan (done, rejected or failed) from the default list
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: the plan is still waiting or running
+  /api/proposals/{id}/steps/{step_id}/run:
+    post:
+      tags: [jobs]
+      summary: Queue one approved step now (retry a failed, errored or skipped step)
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: step_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: not approved, already queued/running/succeeded, or waiting on a step
+  /api/sim-from-flex:
+    get:
+      tags: [jobs]
+      summary: A finished flex-search run's electrodes and currents as a simulation montage
+      description: >-
+        tit.sim.montage_sources.resolve_flex_simulation -- the Simulator's flex-row rule, shared
+        by the agent plugin's simulate_flex_result and a proposal's sim_from_flex step. The run
+        is flex_run, else the newest; placement is eeg_net (mapped on demand), else the first
+        mapped net, else the optimised XYZ (flex_free); currents are the run's split, else its
+        current_mA per channel, else 1 mA.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+        - in: query
+          name: flex_run
+          required: false
+          schema: { type: string }
+        - in: query
+          name: eeg_net
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlexSimulation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   # ---------------------------------------------------------------------------------- viewers (v1)
   /api/view/{kind}:
     get:
@@ -4498,6 +4807,32 @@ components:
         hemi:
           type: [string, "null"]
           enum: [lh, rh, null]
+    RegionMatch:
+      type: object
+      required: [atlas, kind, space, matches, rois]
+      properties:
+        atlas: { type: string, description: the Atlas id }
+        kind: { type: string, enum: [surface, volume] }
+        space:
+          type: string
+          enum: [subject, mni]
+          description: >-
+            subject for the subject's own atlases, mni for a shipped MNI volume atlas (its ROIs
+            carry `atlas_space: mni`; the optimiser warps it to the subject)
+        matches:
+          type: array
+          description: the matching Region rows, each with `side` (left, right or null)
+          items: { type: object, additionalProperties: true }
+        rois:
+          type: object
+          required: [all]
+          description: >-
+            FlexConfig ROI objects (`AtlasROI` for a surface atlas, `SubcorticalROI` with GM and
+            `atlas_space` = the entry's `space` for a volume), to use verbatim as FlexConfig.roi.
+          properties:
+            all: { type: object, additionalProperties: true }
+            left: { type: object, additionalProperties: true }
+            right: { type: object, additionalProperties: true }
     NiftiLabel:
       type: object
       required: [id, name, n_voxels]
@@ -5035,6 +5370,11 @@ components:
             time-weighted to within one interval); kept after the job finishes.
         rss_peak: { type: [integer, "null"], description: "Highest `rss` sample seen, bytes; kept after the job finishes." }
         rss_avg: { type: [integer, "null"], description: "Simple mean of `rss` over the counted samples, bytes; kept after the job finishes." }
+        created_by:
+          type: [string, "null"]
+          description: >-
+            JobSpec.created_by copied onto the row (the app badges agent jobs); null on a record
+            written before the field existed.
         log_path:
           type: [string, "null"]
           description: >-
@@ -5058,6 +5398,16 @@ components:
           type: array
           items: { type: string }
         overwrite: { type: boolean }
+        created_by:
+          type: string
+          enum: [gui, browser, api, notebook, agent]
+          description: >-
+            Who submitted the job, recorded in its spec.json and passed to the runner as
+            TIT_INTERFACE. Optional on submit; absent means gui. The agent plugin's job server
+            sends agent, and an agent's config gets the run pages' defaults
+            (`x-app-defaults[kind]` of GET /api/schema) in the fields it omits (also on
+            POST /api/jobs/preflight and every subject_configs entry). Otherwise the job runs
+            identically whoever submitted it.
     OutputFile:
       type: object
       required: [path, kind, label, bytes]
@@ -5129,6 +5479,10 @@ components:
             Replace existing output instead of skipping it, for every job in the group (the same
             flag POST /api/jobs takes per job). Ignored for kind=pre, which carries that policy in
             its own config's skip_existing_outputs / replace_existing_outputs flags.
+        created_by:
+          type: string
+          enum: [gui, browser, api, notebook, agent]
+          description: Copied onto every job in the group; absent means gui (see JobSpec.created_by).
     MissingInput:
       type: object
       description: >-
@@ -5217,6 +5571,174 @@ components:
             type: { type: string, enum: [event] }
             job_id: { type: string }
             event: { $ref: "#/components/schemas/Event" }
+        - type: object
+          required: [type, proposal]
+          properties:
+            type: { type: string, enum: [proposal] }
+            proposal: { $ref: "#/components/schemas/Proposal" }
+
+    # ------------------------------------------------------------------------- agent proposals (v1)
+    ProposalStepInput:
+      type: object
+      required: [id, kind, config, subject_ids]
+      properties:
+        id: { type: string, pattern: "^[A-Za-z0-9_-]{1,32}$" }
+        kind:
+          type: string
+          description: a JobKind, or sim_from_flex (a simulation of a flex step's or run's result)
+        config:
+          type: object
+          additionalProperties: true
+          description: >-
+            The kind's config. A flex step's output_folder is a run name (assigned when empty).
+            sim_from_flex takes flex_step (an earlier flex step id) or flex_run (a finished run's
+            name), optional eeg_net and intensities, and any SimulationConfig field.
+        subject_ids:
+          type: array
+          items: { type: string }
+        after:
+          type: array
+          items: { type: string }
+          description: earlier step ids that must succeed first (sim_from_flex adds its flex_step)
+        note: { type: string }
+        overwrite: { type: boolean }
+    ProposalRequest:
+      type: object
+      required: [title, steps]
+      properties:
+        title: { type: string }
+        rationale: { type: string }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/ProposalStepInput" }
+        created_by: { type: string, enum: [gui, browser, api, notebook, agent] }
+        client: { type: string, description: "the agent's name shown on the card (Claude Code, Codex)" }
+        dry_run: { type: boolean, description: "plan and return without saving (status draft)" }
+    ProposalStepEdit:
+      type: object
+      properties:
+        id: { type: string, description: required inside an approve body's steps }
+        config: { type: object, additionalProperties: true }
+        subject_ids:
+          type: array
+          items: { type: string }
+        overwrite: { type: boolean }
+    ProposalStepPlan:
+      type: object
+      required: [errors, missing_inputs, outputs, will_overwrite, warnings]
+      properties:
+        errors:
+          type: array
+          items: { type: string }
+        missing_inputs:
+          type: array
+          items: { $ref: "#/components/schemas/MissingInput" }
+        outputs:
+          type: array
+          items:
+            type: object
+            required: [subject, output_dir, exists]
+            properties:
+              subject: { type: string }
+              output_dir: { type: string }
+              exists: { type: boolean }
+        will_overwrite:
+          type: array
+          items: { type: string }
+        lock_conflicts:
+          type: array
+          description: >-
+            running jobs holding a lock this step needs (POST /api/plan's `lock_conflicts`):
+            the step waits for them once queued; absent on a record planned before this field
+          items: { $ref: "#/components/schemas/LockConflict" }
+        eta_minutes: { type: [number, "null"] }
+        warnings:
+          type: array
+          items: { type: string }
+        deferred:
+          type: [string, "null"]
+          description: why this step cannot be planned until a step it waits on has finished
+        target:
+          type: [string, "null"]
+          description: >-
+            what a flex/ex/mex step targets, by name (`tit.opt.roi_spec.config_target`): atlas
+            labels named from the atlas's colour table or `.annot` colortable ("Left-Thalamus,
+            Right-Thalamus", "lh.precuneus"), a sphere by centre and radius, ex-search ROI CSV
+            names; null when the step has no ROI; absent on a record planned before this field
+    ProposalStep:
+      type: object
+      required: [id, kind, config, subject_ids, after, overwrite, job_ids, state]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        config: { type: object, additionalProperties: true }
+        subject_ids:
+          type: array
+          items: { type: string }
+        after:
+          type: array
+          items: { type: string }
+        note: { type: string }
+        overwrite: { type: boolean }
+        job_ids:
+          type: array
+          items: { type: string }
+        state:
+          type: string
+          enum: [proposed, waiting, queued, running, succeeded, failed, skipped, error]
+        error: { type: [string, "null"] }
+        skipped: { type: [string, "null"] }
+        resolved:
+          type: [object, "null"]
+          additionalProperties: true
+          description: sim_from_flex only -- per subject, the run, placement and currents used
+        plan:
+          oneOf:
+            - $ref: "#/components/schemas/ProposalStepPlan"
+            - type: "null"
+    Proposal:
+      type: object
+      required: [id, title, created_by, created_at, status, decision, steps, proposed_steps, edited]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        rationale: { type: string }
+        created_by: { type: string }
+        client: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        dismissed_at: { type: [string, "null"], description: when the user dismissed this finished plan }
+        status:
+          type: string
+          enum: [draft, pending, rejected, running, succeeded, failed]
+          description: derived -- the decision, then the approved steps' states
+        decision:
+          type: object
+          required: [state]
+          properties:
+            state: { type: string, enum: [pending, approved, rejected] }
+            at: { type: [string, "null"] }
+            note: { type: [string, "null"] }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/ProposalStep" }
+        proposed_steps:
+          type: array
+          description: the agent's original steps (id, kind, config, subject_ids, after, overwrite)
+          items: { type: object, additionalProperties: true }
+        edited: { type: boolean, description: the user changed a step before approving }
+    FlexSimulation:
+      type: object
+      required: [flex_run, placement, intensities, intensities_from, montage]
+      properties:
+        flex_run: { type: string }
+        eeg_net: { type: [string, "null"] }
+        placement: { type: string }
+        intensities:
+          type: array
+          items: { type: number }
+        intensities_from: { type: string }
+        montage: { type: object, additionalProperties: true }
 
     # ---------------------------------------------------------------------------------- viewers (v1)
     ViewLayer:
@@ -5543,6 +6065,13 @@ components:
           description: enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes)
         image_tag: { type: [string, "null"] }
         theme: { type: string, enum: [system, light, dark] }
+        agent_auto_submit:
+          type: boolean
+          description: >-
+            "Agent may submit without approval" (Settings > Project > AI assistant). Off (the
+            default, and what an absent field means on PUT) makes POST /api/jobs and
+            /api/jobs/groups refuse created_by agent with 403; the agent proposes instead
+            (/api/proposals).
 
     # --------------------------------------------------------------- config placeholders (F1b fills)
     SimulationConfig:

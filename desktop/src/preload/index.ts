@@ -2,6 +2,9 @@
 // src/shared/tit-bridge.d.ts). The token passed to `connect` goes straight to the main process.
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  TitAssistantCli,
+  TitAssistantEvent,
+  TitAssistantOptions,
   TitBridge,
   TitConnectArgs,
   TitSelectFileOptions,
@@ -51,6 +54,20 @@ const tit: TitBridge = {
     status: () => ipcRenderer.invoke("tit:fastsurfer:status"),
     enable: () => ipcRenderer.invoke("tit:fastsurfer:enable"),
     disable: () => ipcRenderer.invoke("tit:fastsurfer:disable"),
+  },
+  assistant: {
+    detect: (cli: TitAssistantCli) => ipcRenderer.invoke("tit:assistant:detect", cli),
+    start: (cli: TitAssistantCli, cols: number, rows: number, options?: TitAssistantOptions) => ipcRenderer.invoke("tit:assistant:start", cli, cols, rows, options),
+    write: (cli: TitAssistantCli, data: string) => ipcRenderer.send("tit:assistant:write", cli, String(data)),
+    resize: (cli: TitAssistantCli, cols: number, rows: number) => ipcRenderer.send("tit:assistant:resize", cli, cols, rows),
+    kill: (cli: TitAssistantCli) => ipcRenderer.invoke("tit:assistant:kill", cli),
+    onEvent: (listener: (event: TitAssistantEvent) => void) => {
+      const handler = (_event: unknown, event: TitAssistantEvent) => listener(event);
+      ipcRenderer.on("tit:assistant:event", handler);
+      return () => ipcRenderer.removeListener("tit:assistant:event", handler);
+    },
+    openInTerminal: (cli: TitAssistantCli, options?: TitAssistantOptions) => ipcRenderer.invoke("tit:assistant:openInTerminal", cli, options),
+    openPath: (path: string) => ipcRenderer.invoke("tit:assistant:openPath", String(path)),
   },
   stack: {
     switchProject: (hostProjectDir?: string): Promise<TitStackStopResult> => ipcRenderer.invoke("tit:stack:switchProject", hostProjectDir),

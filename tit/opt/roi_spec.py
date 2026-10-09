@@ -52,6 +52,8 @@ __all__ = [
     "resolve_volume_atlas_path",
     "resolve_volume_label_names",
     "parse_region_names",
+    "region_name",
+    "config_target",
 ]
 
 
@@ -610,3 +612,76 @@ def resolve_volume_label_names(
             continue
         names[label_id] = info[0]
     return names
+
+
+# ---------------------------------------------------------------------------
+# Target names (proposal cards, run reports)
+# ---------------------------------------------------------------------------
+
+
+def region_name(atlas_path: str, label: Any, atlas_space: str = "subject") -> str:
+    """One atlas region's display name, never raising.
+
+    An ``.annot`` label is named from that file's colortable (``lh.insula``), a volume label from
+    the atlas's colour table (:func:`resolve_volume_label_names`; a shipped MNI atlas's from the
+    table its manifest entry names). An atlas recorded inside the container but read on the host
+    is looked up in this machine's resources. ``lh label 3`` / ``label 10`` when unreadable.
+    """
+    path = str(atlas_path)
+    if path.endswith(".annot"):
+        hemi = Path(path).name.partition(".")[0]
+        try:
+            from nibabel.freesurfer import read_annot
+
+            region = read_annot(path)[2][int(label)]
+            return f"{hemi}.{region.decode() if isinstance(region, bytes) else region}"
+        except (OSError, ValueError, IndexError, TypeError):
+            return f"{hemi} label {label}"
+    if label is None:
+        return f"all of {_strip_nifti_suffix(Path(path).name)}"
+    if not os.path.isfile(path):
+        from tit.paths import resolve_resource_path
+
+        path = resolve_resource_path("atlas", os.path.basename(path))
+    try:
+        key = int(label)
+    except (TypeError, ValueError):
+        return f"label {label}"
+    return resolve_volume_label_names(path, atlas_space).get(key, f"label {label}")
+
+
+def _mm(value: Any) -> str:
+    return f"{value:g}" if isinstance(value, (int, float)) else str(value)
+
+
+def config_target(config: dict) -> str | None:
+    """What a flex-, ex- or mex-search config targets, by name; ``None`` when it names none.
+
+    A ``FlexConfig.roi`` object (``_type`` ``SubcorticalROI`` / ``AtlasROI``: its regions via
+    :func:`region_name`; ``SphericalROI``: each centre and radius), or an ex/mex config's ROI CSV
+    names (``roi_names`` when given, else ``roi_name``) and ``roi_atlas`` regions. Names repeat
+    once, in order, joined by ", ".
+    """
+    names: list[str] = []
+    roi = config.get("roi")
+    if isinstance(roi, dict) and roi.get("_type") == "SphericalROI":
+        radii = _as_list(roi.get("radius", 10.0))
+        mni = " MNI" if roi.get("use_mni") else ""
+        centres = zip(*(_as_list(roi.get(axis)) for axis in "xyz"))
+        for i, (x, y, z) in enumerate(centres):
+            r = radii[i] if i < len(radii) else radii[0]
+            names.append(f"sphere at ({_mm(x)}, {_mm(y)}, {_mm(z)}) mm{mni}, radius {_mm(r)} mm")
+    elif isinstance(roi, dict) and roi.get("_type") in ("AtlasROI", "SubcorticalROI"):
+        labels = _as_list(roi.get("label"))
+        paths = _as_list(roi.get("atlas_path"))
+        paths = paths * len(labels) if len(paths) == 1 else paths
+        space = roi.get("atlas_space", "subject")
+        names += [region_name(p, lab, space) for p, lab in zip(paths, labels)]
+    csvs = config.get("roi_names")
+    if csvs is None:
+        csvs = [config["roi_name"]] if config.get("roi_name") else []
+    names += [str(name).removesuffix(".csv") for name in _as_list(csvs)]
+    for atlas in config.get("roi_atlas") or []:
+        if isinstance(atlas, dict):
+            names.append(region_name(atlas.get("atlas_path", ""), atlas.get("label"), atlas.get("atlas_space", "subject")))
+    return ", ".join(dict.fromkeys(names)) or None

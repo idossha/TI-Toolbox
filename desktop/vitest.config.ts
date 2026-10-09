@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     include: ["src/main/**/*.test.ts", "tests/unit/**/*.test.{ts,tsx}", "tests/mock-server/**/*.test.ts"],
     environment: "node",
+    setupFiles: ["tests/unit/setup-app-defaults.ts"],
   },
 });

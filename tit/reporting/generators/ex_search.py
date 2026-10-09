@@ -371,6 +371,8 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
                 ),
             )
         )
+    elif roi.get("vertices"):
+        target.append(("Size", f"{roi['vertices']:,} cortical surface vertices"))
     target += [
         (
             "Intensity",

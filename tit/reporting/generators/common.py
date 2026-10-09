@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -83,15 +82,6 @@ def cap_figure(
     )
 
 
-def _local_atlas(path: str) -> str:
-    """An atlas path recorded inside the container, resolved to this machine's resources."""
-    if os.path.isfile(path):
-        return path
-    from tit.paths import resolve_resource_path
-
-    return resolve_resource_path("atlas", os.path.basename(path))
-
-
 def roi_summary(run_dir: str | Path) -> dict | None:
     """The target as the run's ROI confirmation recorded it (``roi.tetravox.json``), with label
     names from the atlas's lookup table: ``{name, atlas, volume_mm3, centroid, gm_overlap}``.
@@ -103,21 +93,24 @@ def roi_summary(run_dir: str | Path) -> dict | None:
     name, atlas = meta.get("roi") or "", ""
     sources, labels = meta.get("source"), meta.get("label")
     if sources and labels is not None:
-        from tit.opt.roi_spec import resolve_volume_label_names
+        from tit.opt.roi_spec import region_name
 
         sources = sources if isinstance(sources, list) else [sources]
         labels = labels if isinstance(labels, list) else [labels]
         spaces = meta.get("space")
         spaces = spaces if isinstance(spaces, list) else [spaces] * len(sources)
         names = []
+        stems = {}
         for src, lab, space in zip(sources, labels, spaces):
-            table = resolve_volume_label_names(_local_atlas(src), space or "subject")
-            names.append(table.get(int(lab), f"label {lab}").replace("-", " "))
+            src = str(src)
+            if src.endswith(".annot"):  # a cortical surface target, not a volume
+                hemi, _, rest = Path(src).name.partition(".")
+                names.append(region_name(src, lab))
+                stems[f"{rest.removesuffix('.annot')} ({hemi})"] = None
+                continue
+            names.append(region_name(src, lab, space or "subject").replace("-", " "))
+            stems[Path(src).name.split(".nii")[0] + (" (MNI)" if space == "mni" else "")] = None
         name = " + ".join(dict.fromkeys(names))
-        stems = dict.fromkeys(
-            Path(s).name.split(".nii")[0] + (" (MNI)" if sp == "mni" else "")
-            for s, sp in zip(sources, spaces)
-        )
         atlas = ", ".join(stems)
     for s in meta.get("spheres") or []:
         x, y, z = s["centre_ras"]
@@ -129,6 +122,7 @@ def roi_summary(run_dir: str | Path) -> dict | None:
         "name": name or "target ROI",
         "atlas": atlas,
         "volume_mm3": meta.get("volume_mm3"),
+        "vertices": meta["voxels"] if meta.get("unit") == "vertices" else None,
         "centroid": meta.get("centroid_ras"),
         "gm_overlap": meta.get("gm_overlap"),
     }

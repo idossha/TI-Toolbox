@@ -108,7 +108,7 @@ TERMINAL_STATES: frozenset[str] = frozenset(
     {"succeeded", "failed", "cancelled", "skipped", "lost"}
 )
 
-CREATED_BY_VALUES: tuple[str, ...] = ("gui", "browser", "api", "notebook")
+CREATED_BY_VALUES: tuple[str, ...] = ("gui", "browser", "api", "notebook", "agent")
 
 EVENT_TYPES: tuple[str, ...] = (
     "log",
@@ -352,6 +352,9 @@ class JobStatus:
     cpu_percent_avg: float | None = None
     rss_peak: int | None = None
     rss_avg: int | None = None
+    #: Copied from :attr:`JobSpec.created_by` so a job row can say who queued it (the desktop
+    #: badges ``"agent"``); ``None`` on a record written before the field existed.
+    created_by: str | None = None
     # Internal-only (persisted to status.json, stripped by to_api()):
     pid: int | None = None
     create_time: float | None = None
@@ -397,6 +400,7 @@ class JobStatus:
             "cpu_percent_avg": self.cpu_percent_avg,
             "rss_peak": self.rss_peak,
             "rss_avg": self.rss_avg,
+            "created_by": self.created_by,
             "log_path": stdout_path(project_dir, self.id) if project_dir else None,
         }
 
@@ -423,6 +427,7 @@ class JobStatus:
             cpu_percent_avg=data.get("cpu_percent_avg"),
             rss_peak=data.get("rss_peak"),
             rss_avg=data.get("rss_avg"),
+            created_by=data.get("created_by"),
             pid=data.get("pid"),
             create_time=data.get("create_time"),
             budget_wait=data.get("budget_wait"),
@@ -437,4 +442,5 @@ class JobStatus:
             subject_ids=list(spec.subject_ids),
             group_id=spec.group_id,
             created_at=spec.created_at,
+            created_by=spec.created_by,
         )

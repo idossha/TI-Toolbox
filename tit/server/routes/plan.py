@@ -82,7 +82,8 @@ from pydantic import BaseModel
 
 from tit.jobs.spec import JobKind
 from tit.server.schemas import SubjectId
-from tit.paths import PathManager, get_path_manager
+from tit.paths import PathManager, get_path_manager, is_within
+from tit.server.app_defaults import with_app_defaults
 from tit.server.routes.validate import ALL_KINDS, KindNotConfigurable, cls_for
 
 router = APIRouter()
@@ -108,6 +109,8 @@ class PlanRequest(BaseModel):
     #: field names) for one release, preferring this field when both are present -- see
     #: _montage_sources_for_request.
     montage_sources: dict[str, Any] | None = None
+    #: ``"agent"`` fills the run pages' defaults into ``config`` (:mod:`tit.server.app_defaults`).
+    created_by: str | None = None
 
 
 class PlanJob(BaseModel):
@@ -846,6 +849,36 @@ def _plan_blender(
     ], None
 
 
+def _require_outputs_inside_project(pm: PathManager, jobs: list[PlanJob]) -> None:
+    """HTTP 422 when a job would write outside the project.
+
+    Every output a config can name -- ``FlexConfig.output_folder``, ``AnalyzerConfig.output_dir``,
+    a blender export's ``output_dir``, and the names joined under a project folder (ex/mEx
+    ``run_name``, montage names, ``analysis_name``, ``output_name``, ``subdir_name``) -- ends
+    up as a :class:`PlanJob` ``output_dir`` above, so this one check covers every kind. It runs
+    on ``/api/plan``, on every submission route through
+    :func:`tit.server.overwrite_policy.check_overwrite_permission`, and on every proposal step.
+    The run pages only ever send folders the server resolved under the project.
+    """
+    root = pm.project_dir
+    if not root:
+        return
+    outside = [
+        job.output_dir
+        for job in jobs
+        if job.output_dir and not is_within(root, job.output_dir)
+    ]
+    if outside:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Outputs must stay inside the project folder {root}; "
+                f"{', '.join(dict.fromkeys(outside))} is outside it. Use a run name, or a "
+                "folder under the project."
+            ),
+        )
+
+
 @router.post(
     "/api/plan/{kind}",
     response_model=PlanResult,
@@ -857,6 +890,8 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
 
     if kind not in ALL_KINDS:
         raise HTTPException(status_code=404, detail=f"unknown kind: {kind}")
+    if body.created_by == "agent":
+        body.config = with_app_defaults(kind, body.config)
 
     warnings: list[str] = []
 
@@ -933,6 +968,8 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
         jobs, resolved = _plan_nilearn(kind, pm, config)
     else:  # pragma: no cover - ALL_KINDS/NO_SCHEMA_KINDS covers everything else
         jobs, resolved = [], None
+
+    _require_outputs_inside_project(pm, jobs)
 
     # One job per product runs at a time, so the plan's jobs run one after another.
     cost = _plan_cost(kind, body.config, resolved=resolved, jobs=jobs)

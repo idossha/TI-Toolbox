@@ -30,7 +30,7 @@ rationale below consolidates later amendments without treating superseded design
 | 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
 | 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
 | 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
-| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19. `smoke.spec.ts` enforces the exact list | live, amended 2026-09-19 |
+| 14 | 2026-08-27 | Preload bridge budget: no growth without an ADR line. **13** top-level entries at the time; **21** after the native TetraVox surface and FastSurfer API, with the two TI-owned viewer update actions removed and live scene saving added on 2026-09-19; **24** after `onNotificationSound` (2026-09-23) and the `assistant` namespace (2026-10-07; `assistant.start`/`openInTerminal` gained an options argument 2026-10-08, and `assistant.openPath` a method of that namespace the same day, no new entry). `smoke.spec.ts` enforces the exact list | live, amended 2026-10-08 |
 | 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
 | 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
 | 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
@@ -2432,3 +2432,610 @@ nilearn: `cluster_id` = CSV ids and sizes, `sig_mask` = `cluster_id > 0`, means 
 means recomputed from the synthetic inputs, null rows = `n_permutations`, two PDFs rendered from the
 `.msh`); `tests/test_catalog_group_stats.py::test_detail_of_a_surface_run_lists_the_mesh_and_tables`;
 `tests/test_plotting.py::TestRenderFsaverageMap`.
+
+## 2026-10-07 — Users drive jobs from their own agent; jobs record `created_by: "agent"`
+
+**Decision.** The agent plugin gains a second, write-capable MCP server, `ti-toolbox-jobs`
+(`agent-plugin/mcp/jobs_server.py`), that submits jobs through the running `tit.server` exactly as
+the run pages do (`/api/jobs/groups` per subject, `/api/plan` and `/api/validate` first) and
+copies raw scans into `sourcedata/sub-<id>/<modality>/` on the host. Both submit routes accept an
+optional `created_by`, restricted to `tit.jobs.spec.CREATED_BY_VALUES`, which gains `agent`;
+absent stays `gui`. Contract: `JobSpec.created_by`, `JobGroupRequest.created_by` (additive).
+
+**Why.** Users already have Claude Code or Codex on a subscription login; letting that agent queue
+real jobs gives them a natural-language front end without TI-Toolbox handling any AI credential
+or shipping an AI service. Going through the job API (not `simnibs_python` in a shell) keeps the
+queue, locks, one-job-per-product rule, live job list, outputs and reports identical to app-started
+runs. A separate server keeps the read-only knowledge server read-only, so a client can grant one
+without the other. Staging is host-side because the raw folder is outside the bind mount.
+
+**Cost.** The job server mirrors the run pages' default configs (Pre-processing, Simulator,
+Optimizer flex) by hand; a changed page default must be copied there. Raw-scan modality guesses
+are heuristics (DICOM header strings, file names) that the agent must confirm with the user.
+
+**Alternatives rejected.** An embedded agent or server-side LLM route (needs the user's
+credentials or our own API keys). Adding write tools to the read-only server (one permission for
+two very different risks). A staging route on the server (it cannot see host paths outside the
+project).
+
+**Revisit if** page defaults drift from the mirror (move them server-side), or the desktop gains an
+"open my agent here" terminal action.
+
+**Evidence.** `tests/test_jobs_routes.py::test_submit_records_who_submitted_defaulting_to_gui`,
+`::test_group_records_the_agent_on_every_member`, `::test_submit_rejects_an_unknown_created_by`;
+`tests/test_agent_plugin_jobs.py` (fake server per verb, plus
+`test_against_the_real_server_jobs_are_recorded_as_agent` over HTTP to the real app);
+`agent-plugin/mcp/test_stdio.py::JobsServerStdioTests`.
+
+## 2026-10-07 — Agent jobs need the user's approval; the server runs the approved plan
+
+**Decision.** An agent's direct submission (`created_by: "agent"` on `POST /api/jobs` or
+`/api/jobs/groups`) is refused with 403 unless the project setting `agent_auto_submit`
+("Agent may submit without approval") is on; it is off by default. The agent proposes instead:
+`/api/proposals` stores a plan per project (`code/ti-toolbox/proposals/<id>.json`), plans each
+step server-side, and the user approves, edits or rejects it in the app. On approval the server
+queues the steps itself: roots at once, dependants when every job of the steps they name has
+succeeded, through the same `plan_submission` checks `/api/jobs/groups` makes. A `sim_from_flex`
+step is resolved when its flex step has finished, by `resolve_flex_simulation`, which moved from
+the agent plugin into `tit.sim.montage_sources` and is served as `GET /api/sim-from-flex`.
+Contract (additive): `Settings.agent_auto_submit`, `JobStatus.created_by`, the proposal paths
+and schemas, and a `proposal` variant of `JobsWsServerMessage`. Supersedes nothing; extends the
+entry above.
+
+**Why.** An agent that queues hours of FEM work, or replaces results, on its own reading of a
+request is the failure users fear most; a plan card the user reads (outputs, overwrites, ETA,
+the settings in their terms) and approves keeps the user directing the work while the agent does
+the typing. The server queues approved steps so the agent need not stay connected for a
+multi-hour pipeline. Dependants are deferred, not queued with job-level `after`, because
+submission preflight refuses a job whose inputs a predecessor will produce (flex after `pre`)
+and a flex result's montage does not exist until the run does. One resolver for flex -> sim
+keeps the plugin and the server from choosing different electrodes or currents.
+
+**Cost.** A dependent step's jobs appear in the job list only when they are queued, so the card,
+not the list, shows what is still to come. Proposals are never pruned (a few KB each;
+**superseded 2026-10-08**: they follow the job retention rule, entry below). The
+approval is not a security boundary: the agent's MCP server holds the server token, and anything
+with the token can call approve or flip the setting; it binds a cooperating agent that uses the
+plugin's tools.
+
+**Alternatives rejected.** Agent-side sequencing with `wait_for_job` then `submit_job` (the
+agent must stay connected; a closed laptop lid stops the pipeline). Queuing the whole DAG up
+front with `after` (refused by preflight; no montage yet). Cookie-only approval routes (an agent
+with the token can mint a cookie, so it adds friction, not protection).
+
+**Revisit if** the token ever stops being a single full-access secret (then approve can require
+a user session), or proposals need retention.
+
+**Evidence.** `tests/test_proposals_routes.py` (create/plan, reject, edit then approve, approve
+with edits, refusal while a step would overwrite, deferred `sim_from_flex` queued by the server
+after a fake flex job, error then `run` retry, failed prerequisite skips its dependant,
+malformed proposals); `tests/test_jobs_routes.py::test_an_agent_cannot_submit_until_the_user_allows_it`;
+`tests/test_flex_simulation_resolver.py`; `tests/test_agent_plugin_jobs.py` (proposal verbs, and
+`test_against_the_real_server_jobs_are_recorded_as_agent`: refused submit -> propose -> approve
+over HTTP -> queued as `agent`).
+
+## 2026-10-07 — The Assistant pane: the user's own Claude Code or Codex in a host terminal
+
+**Decision.** The desktop app gains an Assistant page (pinned above System) that runs the user's own
+`claude` or `codex` CLI in a host pseudo-terminal, in the session's project folder, with the bundled
+`agent-plugin/` attached for that session and `TIT_SERVER_URL`/`TIT_SERVER_TOKEN` of the connected
+session in its environment (ARCHITECTURE §6). The preload bridge gains one optional namespace,
+`assistant` (`detect`, `start`, `write`, `resize`, `kill`, `onEvent`, `openInTerminal`): 23 → 24
+top-level entries (ADR row 14). The renderer names only `"claude" | "codex"`; main decides the
+executable, arguments, cwd and environment. Two dependencies: **node-pty 1.1.0** (main, shipped
+unpacked) and **@xterm/xterm 6.0.0 + @xterm/addon-fit 0.11.0** (renderer, bundled). The packaged app
+carries `agent-plugin/` as an extraResource. This closes the "Users drive jobs from their own agent"
+entry's "Revisit if the desktop gains an 'open my agent here' terminal action": the env pair also
+replaces `docker inspect` discovery for sessions started here, so native runtimes work. A session
+started here is an ordinary agent to the server: it proposes plans and the user approves them on the
+Jobs page (entry above), unless the project allows direct submission.
+
+**Flags, as verified on 2026-10-07** (Claude Code 2.1.293, codex-cli 0.155.1, this Mac):
+- Claude Code: `--plugin-dir <Resources>/agent-plugin`. `claude --plugin-dir … plugin list --json`
+  lists it as `ti-toolbox@inline` (scope `session`) beside an installed `ti-toolbox@ti-toolbox`, and
+  `claude --plugin-dir … mcp list` registers `plugin:ti-toolbox:ti-toolbox` and
+  `…:ti-toolbox-jobs` once each, both connected: no double registration, and the session gets the
+  app's own plugin version (the installed marketplace copy here was 0.2.0, without the job server).
+  A plugin MCP server inherits the CLI's environment (an env-dumping server saw both variables).
+- Codex: `-c mcp_servers.ti-toolbox.command='python3'`, `….args=['…/mcp/server.py']`, the same two
+  for `ti-toolbox-jobs`, `-c mcp_servers.ti-toolbox-jobs.env_vars=['TIT_SERVER_URL','TIT_SERVER_TOKEN']`
+  and `-c developer_instructions='…read …/skills/ti-run-pipelines/SKILL.md…'`. `codex … mcp get
+  ti-toolbox-jobs --json` parses them (re-run by `assistant.test.ts` when codex is installed);
+  `codex … debug prompt-input` shows the instruction in the model input; an env-dumping server saw
+  the two variables only with `env_vars` (Codex starts MCP servers with a minimal environment).
+- Login state: `claude auth status` and `codex login status` exit 0 signed in, 1 signed out (signed
+  out reproduced with an empty `CLAUDE_CONFIG_DIR` / `CODEX_HOME`). Only the exit code is read.
+
+**Why.** The "Users drive jobs" entry let a user's agent drive jobs, but only after a manual plugin install,
+a Codex config edit and Docker on the agent's PATH; most users never open a terminal. Running the
+CLI on the host keeps the user's own login and our no-credentials rule; the container has neither
+the CLI nor the login. Session-only flags leave `~/.claude` and `~/.codex` untouched. node-pty is
+the PTY VS Code ships: N-API, so its Node-ABI binary loads in Electron 44 without `electron-rebuild`
+(`npmRebuild: false` stays), and its single package carries darwin-arm64 **and** darwin-x64 plus
+win32-x64 prebuilds, so the release job's one arm64 macOS runner packages both Mac arches. Linux
+compiles it during `npm ci` (verified in `node:22-bookworm`, amd64: `build/Release/pty.node`, a PTY
+echo). xterm.js is the standard terminal emulator for the web; the renderer had none (the existing
+"Terminal" is the job-log console, §6).
+
+**Cost.** A native module in the package: `files`/`asarUnpack` entries, ~1 MB unpacked on macOS,
+2.8 MB on Windows (debug symbols and win32-arm64 excluded). node-pty 1.1.0 publishes the macOS
+`spawn-helper` without its executable bit (every spawn failed with `posix_spawnp failed` under
+Electron 44); `scripts/fix-node-pty.mjs` restores it at `postinstall`, and `verify-package.mjs`
+checks it. The MCP servers still need the host's `python3`. The renderer bundle grows by xterm.
+
+**Security.** A served page can already reach the host through Docker's socket in its container,
+but the bridge still narrows the new capability: top-frame sender, loopback server origin, an
+existing local project folder, a two-value CLI enum, sizes clamped, input capped at 1 MiB per
+write. The token reaches only the CLI's environment (and, for **Open in system terminal** on macOS,
+a 0700 script in user data that deletes itself on its first line); it is never an argument or a log
+line.
+
+**Alternatives rejected.** `@lydell/node-pty` (per-platform optional packages: npm installs only the
+runner's arch, so the x64 Mac app would ship without a binary) and
+`@homebridge/node-pty-prebuilt-multiarch` (per-ABI prebuilds tied to Electron releases). Running the
+CLI in the container's terminal. Writing MCP entries into the user's CLI configuration. Inlining the
+6 KB `ti-run-pipelines` skill into Codex's argv (Windows command-line limit, quoting through
+`cmd.exe`); a one-line pointer to the bundled file is enough. Probing `claude plugin list --json`
+to skip `--plugin-dir` when a plugin is installed (the session copy already supersedes it without
+duplication, and its version matches the app).
+
+**Revisit if** node-pty ships `spawn-helper` executable (delete `fix-node-pty.mjs`), Codex gains a
+plugin-directory flag, or a Windows/Linux acceptance run disagrees with the unverified paths below.
+
+**Not verified here.** Windows ConPTY sessions and the `.cmd` shim route through `cmd.exe`, the
+Windows and Linux **Open in system terminal** routes, and signing/notarisation of the unpacked
+`pty.node`/`spawn-helper` (electron-builder signs Mach-O files in `app.asar.unpacked` with the app;
+only the release job has the identity). A Linux package was not built on this Mac.
+
+**Evidence.** `desktop/src/main/assistant.test.ts` (login-shell PATH, detection, exact launch per
+CLI, env holds the token and no log does, sessions, a real node-pty run, the installed Codex parsing
+the overrides); `desktop/tests/unit/assistant-page.test.tsx` (states);
+`desktop/tests/e2e/assistant.spec.ts` (offscreen: a stand-in `claude` started from the page in the
+project folder with `--plugin-dir`, the server URL and a token in its environment, typed input
+reaching it, exit shown, Codex not installed, no token in `main.log`);
+`desktop/tests/e2e/packaged-launch.spec.ts` (the packaged main loads node-pty and runs a PTY);
+`desktop/tests/unit/package-runtime.test.ts` and `node scripts/verify-package.mjs` against
+`--dir` builds for mac-arm64, mac (x64) and win-unpacked.
+
+## 2026-10-08 — The agent's waits run in the background; it asks before guessing
+
+**Decision.** The job server's `wait_for_approval` is replaced by `watch_proposal`, which returns
+only on a proposal's next change (decision, a step reaching a final state, all done), with the
+finished steps' output folders, files and log tails. Waits default to 1500 s for Claude Code and
+45 s for other clients (`initialize`'s `clientInfo.name`), send `notifications/progress` to the
+client's token, and stop on `notifications/cancelled`. Each `tools/call` runs on its own thread.
+The Assistant page starts Claude Code with `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=5000` unless the
+user set it. The `ti-run-pipelines` skill makes the watch the last call of a turn and adds an
+ask-first rule for a missing subject, target, run type or goal. Plugin 0.5.0.
+
+**Why.** The frozen chat was Claude Code's automatic backgrounding, not the agent: an MCP call in
+the main conversation moves to a background task only after 120 s (`te=120000`, gated by
+`tengu_mcp_auto_background`, default on, in the 2.1.294 binary; documented at
+code.claude.com/docs/en/mcp), or at once when the user types. `wait_for_approval` returned after
+its 50 s default, so the agent re-called it in the foreground indefinitely; the agent's own
+`wait_for_job(timeout_s=600)` crossed 120 s and became the "MCP task" that worked. MCP
+task-augmented calls (`execution.taskSupport`) exist in the binary but behind `tengu_mcp_tasks`
+(default off). A stub server under `claude -p` with `CLAUDE_AUTO_BACKGROUND_TASKS=1` and a 3 s
+threshold showed the move after 3 s, a progress token on every call, the turn ending, the result
+waking the agent, and the agent's next call arriving while the first still ran — which a
+single-threaded server would have held up for the whole wait. codex-cli 0.155.1 ran the same
+calls in sequence inside the turn (its per-tool timeout is 60 s), so Codex gets a short wait and
+a "say status" turn end.
+
+**Alternatives rejected.** MCP tasks (off behind a flag; a task store for one wait). A
+`run_in_background` Bash watcher script (permission prompts, plugin path and token plumbing).
+Polling with short waits (a foreground call per poll, the observed freeze). Setting
+`CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS` globally (outside the app's reach; documented instead).
+
+**Evidence.** `tests/test_agent_plugin_jobs.py` (`watch_proposal` once per change, rejection, the
+per-client budget, and over the real stdio entry point: a pending watch does not block
+`get_proposal`, progress carries the client's token, cancel ends it);
+`desktop/src/main/assistant.test.ts` (the launch environment).
+
+## 2026-10-08 — The Assistant terminal draws with WebGL and fits its card exactly
+
+**Decision.** The Assistant pane loads **@xterm/addon-webgl 0.19.0** (falling back to xterm's DOM
+renderer when WebGL is unavailable or its context is lost) and **@xterm/addon-web-links 0.12.0**
+(printed http(s) links open through the existing `openExternal`; no bridge entry, still 24). The
+terminal's host has no padding (the card has it), the page keeps a fixed height below 1140 px, and
+xterm opens only after the mono font has loaded. ANSI colours are GitHub's light and dark terminal
+palettes, `minimumContrastRatio` is 4.5, and the terminal follows `<html data-theme>` and the OS
+scheme rather than the theme store.
+
+**Why.** Measured on the previous page (e2e stand-in, 2026-10-08): FitAddon reads its host's
+computed height, which with `box-sizing: border-box` included the host's 16 px padding, so at
+1280×900 it fitted 49 rows (735 px) into 726 px of content and the last row's lower half sat under
+the card's clipped edge — the cut-off status line. Below 1140 px `.page-layout { height: auto }`
+let the page grow to its content: at 1024×680 the terminal was 128 rows, 2050 px tall, the shell
+scrolled 1414 px and the CLI drew its status line under the jobs rail. The DOM renderer draws
+block and box characters with the font; the app bundles only Plex Mono's Latin subset, so the
+logo's quadrants came from a fallback font with gaps between cells (the broken "▘▘" fragments).
+xterm's default white and bright white were invisible on the light theme.
+
+**Alternatives rejected.** The DOM renderer with a font that has block glyphs (cells still do not
+join at a line height above 1, and Claude Code's symbols still fall back); the canvas renderer
+addon (no release for xterm 6); a link provider for file paths (`openPath` maps server paths; a
+host-path open needs a new bridge entry, and the budget is frozen at 24); `screenReaderMode` to make
+the text testable (an always-on live region for a full-screen TUI) instead of an e2e-only handle.
+
+**Evidence.** `desktop/tests/e2e/assistant.spec.ts` "the terminal's rows fit the card exactly…".
+
+\n
+## 2026-10-08 — The Assistant starts at Low effort, and the user can pick effort and model
+
+**Decision.** `assistant.start` and `assistant.openInTerminal` take an optional second payload,
+`{ effort?, model? }`, enums only — a change to a frozen bridge entry, not a new one (the budget
+stays 24). Effort is `low` (default, "Low (default)"), `medium`, `high` or `default` ("My CLI
+default": no flag); model is `default`, `opus`, `sonnet`, `haiku`, `fable` for Claude Code and only
+`default` for Codex. Main validates against an allowlist (anything else is `Untrusted assistant
+request.`) and builds the argv: Claude Code `--effort <level>` and `--model <alias>`, Codex
+`-c model_reasoning_effort="<level>"`; the system-terminal script gets the same flags because it
+runs the same launch. The Claude Code default is `--model sonnet`, Codex keeps its own model. The page remembers the choice per CLI in `localStorage` (like the execution
+preferences), applies it on the next Start/Restart and says "Applies on restart" while a running
+session differs. The menus stop at High.
+
+**Why.** The maintainer asked for a visible control with Low effort (and Sonnet for Claude Code) as the
+default: proposing a job plan does not need the slowest, most plan-limit-hungry setting. Verified 2026-10-08 on
+Claude Code 2.1.294 and codex-cli 0.155.1: `claude --effort bogus` only warns ("Valid values: low,
+medium, high, xhigh, max") and carries on with the default, so the allowlist is ours; `--model opus|
+sonnet|haiku|fable` each started a session on the latest model of that family
+(`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`); `codex debug
+models` lists `low, medium, high, xhigh, max` as supported reasoning levels (`xhigh` on every
+model, `max` not on gpt-5.5) and does not reject an unknown value at parse time.
+
+**Alternatives rejected.** Free-text model or effort (a renderer-chosen argument is exactly what
+§6 forbids); a Codex model menu (its models are an account-dependent catalog with no stable
+aliases); `xhigh`/`max` in the menu (not on every Codex model; `/effort` reaches them in-session);
+writing the setting into `~/.claude/settings.json` or `~/.codex/config.toml` (persistent side
+effects outside the app); a new bridge entry (budget).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "session options" (argv per CLI and option,
+defaults, rejected values); `desktop/tests/unit/assistant-page.test.tsx` (persistence, hint);
+`desktop/tests/e2e/assistant.spec.ts` (the stand-in receives `--effort low --model sonnet` by default and then
+the chosen flags; the header fits at 1024 and 1440).
+
+## 2026-10-08 — The run pages' defaults are one server table; agents send only what they chose
+
+**Decision.** `tit/server/app_defaults.py` `APP_DEFAULTS` holds, per job kind, what the
+Pre-processing, Simulator and Optimizer pages start with where it differs from or adds to the
+config class's own defaults (`pre`: DICOM conversion, FastSurfer, charm, skip existing,
+FreeSurfer subregions; `sim`: `map_to_fsavg` off plus the two `default_factory` values the schema
+cannot carry; `flex*`: goal, field, 1 mA, the 8×8 mm ellipse and the solver settings, focality goal
+and threshold settings for `flex_adaptive`/`flex_pareto`; `ex`: 0.2 mA steps, 1.6 mA channel
+limit). `dev/build_schema.py` writes it into `config.schema.json` as `x-app-defaults`, served by
+`GET /api/schema`; the pages render once that document has loaded and build their forms from it.
+The server fills it into any config sent with `created_by: "agent"` (validate, plan, preflight,
+jobs, groups) and into every proposal step. The agent plugin's `FLEX_UI_DEFAULTS`,
+`PRE_UI_DEFAULTS`, `SIM_UI_DEFAULTS` and `_with_app_defaults` are deleted. A frozen-surface change
+(`contracts/`): additive, and absent `created_by` or another creator behaves as before.
+
+**Why.** The plugin carried a hand copy of the renderer's literals ("move server-side if they start
+drifting"), and the renderer its own; three copies of one fact.
+
+**Alternatives rejected.** A `GET /api/defaults/{kind}` route (the schema document is already
+served, cached and mocked, and is where a form's other defaults come from); bundling the generated
+JSON into the renderer (a 145 kB import for a few values, and not what the server serves);
+keeping a renderer fallback while the schema loads (a second copy); filling defaults for every
+creator (a script that omits a field means the dataclass default).
+
+**Evidence.** `desktop/tests/unit/app-defaults.test.ts` (each page's starting values equal the
+literals it had at 07ee0ac0); `tests/test_jobs_routes.py::test_an_agents_config_gets_the_run_pages_defaults`;
+`tests/test_agent_plugin_jobs.py` (the plugin sends only the agent's fields; against the real app
+the job's spec carries the page default).
+
+## 2026-10-08 — Region lookup and its ROIs are served; the picker keeps one shared rule
+
+**Decision.** `GET /api/catalog/regions?subject=&q=` (`tit.catalog.find_regions`) finds the
+subject's atlas regions whose names hold every word of the query (side words ignored) and returns,
+per atlas, the matches and ready `FlexConfig` ROIs `rois.all|left|right` built by
+`tit.catalog.region_roi`. The agent plugin's `find_regions` passes it through (it only remembers
+region names for a proposal's "Target: …" note; **superseded 2026-10-08**, the server names a
+step's target); its own atlas walk, side split and ROI builder are
+deleted. The desktop's `roiToConfig` keeps building the picker's ROI in TypeScript, and
+`tests/fixtures/region_rois.json` drives both implementations (`tests/test_region_rois.py`,
+`desktop/tests/unit/roi-region-table.test.ts`). Additive contract path and schema (`RegionMatch`).
+
+**Why.** The plugin rebuilt the renderer's ROI rule by hand. The picker cannot simply call the
+server instead: it builds the ROI from an arbitrary chip selection (not a name query) on every
+click for the live plan and cost, synchronously, alongside spherical and mask modes that have no
+server counterpart; a request per click would make plan building async for no new truth. The rule
+itself is four lines, so one table both must pass is the smaller single source.
+
+**Alternatives rejected.** A server route that builds an ROI from a selection, called by the picker
+(async plan building, a round trip per click); generating the TypeScript from Python (a code
+generator for four lines).
+
+**Evidence.** `tests/test_region_rois.py` (shared table, search, route 200/404/422);
+`desktop/tests/unit/roi-region-table.test.ts`; `tests/test_agent_plugin_jobs.py` (passthrough and
+the proposal note).
+
+## 2026-10-08 — One electrode-pairing rule for a flex-search result
+
+**Decision.** Every path that turns a finished flex-search run into a montage pairs its electrodes
+with `tit.catalog.pair_by_channel` — the optimiser's `[channel, array]` per electrode
+(`_save_optimized_positions` in `resources/map-electrodes/tes_flex_optimization.py`, carried into
+`electrode_mapping_<net>.json` by the Hungarian mapping), consecutive only when that record is
+absent or unusable — and keeps every channel. `resolve_flex_montage` (used by `/api/plan`'s flex
+montage sources and `/api/catalog/flex-runs/{run}/mapping`) reads its pairs through the catalog's
+readers (`flex_optimized_pairs`, `read_flex_mapping`); `resolve_flex_simulation` (the agent's
+`sim_from_flex` and `GET /api/sim-from-flex`) builds its montage through `resolve_flex_montage`,
+which reads a net the run is already mapped to instead of re-mapping it and rewriting the cache.
+Wire shapes are unchanged.
+
+**Why.** `resolve_flex_montage` paired the first four electrodes consecutively while the catalog
+(what the Simulator page shows) paired by channel, so a record listed out of channel order gave
+`/api/plan` and the agent different electrodes than the page, and an mTI run lost its third and
+fourth channel there. The optimiser writes channel-major order today, so results produced by
+TI-Toolbox's own flex-search do not move; only out-of-order records and mTI runs did.
+
+**Alternatives rejected.** Consecutive pairing everywhere (ignores what the optimiser recorded);
+re-mapping on every request (rewrote the cache the catalog reads and repeated the assignment).
+
+**Evidence.** `tests/test_flex_simulation_resolver.py` (an out-of-order fixture: catalog,
+`resolve_flex_montage` optimized and mapped, and `resolve_flex_simulation` agree; a cached net is
+read with the mapping refused; a new net is mapped once, then read);
+`tests/test_montage_sources.py`, `tests/test_montage_source_safety.py`.
+
+## 2026-10-08 — A job may not write outside the project
+
+**Decision.** `tit.server.routes.plan.plan` refuses (422) a plan whose job output folder resolves
+outside the project, and `check_overwrite_permission` now plans every submission, `overwrite` or
+not, so `/api/jobs`, `/api/jobs/groups`, reruns and approved proposal steps are refused the same
+way; a proposal step shows it as a planning error and cannot be approved. Contract: documented
+422s, no shape change.
+
+**Why.** An absolute `FlexConfig.output_folder` (or `AnalyzerConfig.output_dir`, a blender
+`output_dir`, or a name with `../`) let a job — an agent's in particular — write anywhere the
+container can, and `overwrite: true` skipped the only planning step submission made. The plan
+already resolves each job's destination for every kind, so one check there covers every field.
+The desktop's run pages send only folders the server resolved under the project (the Optimizer
+plans with `output_folder: null` and joins the run name to the folder it gets back).
+
+**Alternatives rejected.** Checking each path field per kind (a new field would slip through);
+rejecting every absolute folder (the Optimizer's own submissions are absolute paths inside the
+project).
+
+**Evidence.** `tests/test_output_jail.py` (plan, both submit routes with `overwrite: true`, a
+climbing name, a proposal dry run and approval).
+
+## 2026-10-08 — Region search covers the shipped MNI atlases; their names come from the manifest
+
+**Decision.** `tit.catalog.find_regions` (`GET /api/catalog/regions`, the agent's `find_regions`)
+searches the subject's own atlases and then the MNI volume atlases the Optimizer's ROI picker
+offers (`atlases(..., space="mni", kind="subcortical")`); each entry carries `space`, and an MNI
+entry's ROIs are the `SubcorticalROI` with `atlas_space: "mni"` the picker builds
+(`tests/fixtures/region_rois.json` gains that case). `tit.atlas.segstats.resolve_lut_for_atlas`
+names a shipped MNI atlas's labels from the table `resources/atlas/manifest.json` lists for it
+(`manifest_lut`, the lookup `tit.opt.roi_spec._find_volume_lut` already made), and a region cache
+(`<atlas>_labels.txt`) for such an atlas records that table (`# lut <name>`) so one named before is
+rebuilt once. Contract: `RegionMatch.space` (additive).
+
+**Why.** An agent could not target what the picker offers in MNI space (CIT168 nuclei, MASSP,
+Harvard-Oxford). Searching them exposed a picker bug: the Glasser, Schaefer and MASSP tables are
+not `{stem}_LUT.txt`, so their labels were named from FreeSurfer's table (Glasser label 1 read
+"Left-Cerebral-Exterior", Schaefer label 10 "Left-Thalamus"); a name search would have handed an
+agent a cortical parcel for "thalamus".
+
+**Alternatives rejected.** MNI search behind a flag (the agent cannot know to ask);
+deleting stale caches at startup (the image's resources may be read-only, and a cache that names
+its table is self-checking).
+
+**Evidence.** `tests/test_region_rois.py` (shared table incl. the MNI case; subject atlases first,
+then MNI with `space`); `tests/test_atlas_segstats.py::TestManifestNamedLut` (the manifest table
+names a shipped atlas; a cache named from another table is rebuilt once).
+
+## 2026-10-08 — The kind -> config class table is served; the plugin's copy is deleted
+
+**Decision.** `dev/build_schema.py` writes `x-kind-classes` (`SIMPLE_KIND_CLASS` plus
+`AMBIGUOUS_KIND_DEFAULT` from `tit.server.routes.validate`) into `config.schema.json`, which
+`GET /api/schema` serves; the agent plugin's `get_config_schema` resolves a kind through it and
+its `SCHEMA_CLASS` dict is gone. Additive contract key.
+
+**Why.** The plugin's table was a hand copy of the server's (nine of fourteen kinds), the same
+drift the run-page defaults had before `x-app-defaults`.
+
+**Alternatives rejected.** `get_config_schema` sending the kind to a new route (the schema
+document is already fetched for the `$defs` and the defaults); keeping the copy with a sync test
+(two tables and a test instead of one table).
+
+**Evidence.** `tests/test_config_schema.py::TestBuildSchemaScript::test_build_schema_serves_the_servers_kind_to_class_table`;
+`tests/test_agent_plugin_jobs.py::test_against_the_real_server_jobs_are_recorded_as_agent`
+(`get_config_schema(kind="flex_adaptive")` -> `FlexConfig` over HTTP).
+
+## 2026-10-08 — A proposal step's plan reports lock waits
+
+**Decision.** `tit.server.proposals._plan_step` copies the plan route's `lock_conflicts` into the
+step's plan (`ProposalStepPlan.lock_conflicts`, additive), so `propose_pipeline`'s dry run names
+the running jobs a step would queue behind, as `plan_job` does. **Why.** The step already called
+`plan()`, which computes them; dropping them made the dry run say less than `plan_job`.
+**Alternatives rejected.** A second lock query in the proposal engine (two code paths for one
+answer). **Evidence.** `tests/test_proposals_routes.py::test_a_dry_run_names_the_running_job_a_step_would_wait_for`;
+`tests/test_agent_plugin_jobs.py::test_propose_pipeline_reports_the_lock_waits_its_dry_run_found`.
+
+## 2026-10-08 — Finished proposals follow the job registry's retention rule
+
+**Decision.** Jobs are pruned (terminal ones older than 30 days or beyond the newest 200, when the
+job manager starts), so proposals are too, by the same rule: `tit.jobs.registry.expired` is the one
+selector, `JobRegistry.prune` and `tit.server.proposals.prune` both call it, and the proposal
+watcher prunes finished (succeeded, rejected, failed) plans when it starts; pending and running
+plans are kept whatever their age. Supersedes the "Proposals are never pruned" cost line of
+"Agent jobs need the user's approval; the server runs the approved plan" (2026-10-07). No
+contract change.
+
+**Why.** A deliberate parity decision: a plan's card links its jobs, so keeping the plan after
+its jobs are gone leaves a card of lost steps, and dropping it earlier loses the record of what
+was approved while its jobs still show.
+
+**Alternatives rejected.** Keeping proposals forever (they outlive the jobs they describe); a
+separate proposal retention setting (a second rule for one history).
+
+**Evidence.** `tests/test_proposals_routes.py::test_finished_plans_are_pruned_by_the_job_registrys_rule`;
+`tests/test_jobs_registry.py::test_registry_prune_keeps_running_and_recent_terminal`,
+`::test_registry_prune_keep_count` (unchanged, through the shared selector).
+
+## 2026-10-08 — The plugin's MCP servers run `${TIT_PYTHON:-python3}`
+
+**Decision.** `agent-plugin/.mcp.json` starts both servers with `"command": "${TIT_PYTHON:-python3}"`.
+The desktop's Assistant page resolves the interpreter in main (`findPython` in
+`desktop/src/main/assistant.ts`: `python3` on macOS/Linux; `py`, then `python`, then `python3` on
+Windows) on the session's PATH and passes it as `TIT_PYTHON` to Claude Code (a value the user set
+wins) and as `mcp_servers.*.command` to Codex; with none found the launch keeps `python3`. A
+marketplace install on Windows needs `setx TIT_PYTHON py` once (plugin README, AI Assistant wiki
+page).
+
+**Why.** Windows has no `python3` unless the Microsoft Store alias is installed (python.org gives
+`py` and `python`), so the plugin's servers failed to start there. Claude Code's `.mcp.json` has no
+per-platform command (plugins reference, checked 2026-10-08) but expands `${VAR:-default}` in
+`command`; verified with Claude Code 2.1.295: `claude --plugin-dir agent-plugin mcp list` runs
+`python3` unset, `/usr/bin/python3` with `TIT_PYTHON=/usr/bin/python3`, and reports ENOENT for a
+bad value.
+
+**Alternatives rejected.** A launcher script (a `.py` cannot be spawned directly on Windows and a
+`.cmd`/`.sh` pair is two shims for one variable); `"command": "python"` (absent on macOS and most
+Linux); a `userConfig` prompt (every user answers a question only Windows needs).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` ("finds the plugin's Python…", "hands the
+plugin's servers the resolved Python…"); `claude plugin validate agent-plugin`.
+
+## 2026-10-08 — Paths the Assistant's CLI prints are links, opened only inside the project folder
+
+**Decision.** `assistant.openPath(path)` is a new method of the existing `assistant` bridge
+namespace (frozen surface; the top-level budget stays 24), and `assistant.start` now also returns
+`cwd`, the session's host project folder. The Assistant terminal registers an xterm link provider
+(`pages/assistant/pathLinks.ts`) that underlines, on hover, absolute paths inside that folder and
+relative ones starting `./`, `../`, `derivatives/`, `sourcedata/`, `code/`, `rawdata/` or
+`sub-<id>/`. A click sends the printed text to main, which takes a string of at most 4096
+characters with no NUL, resolves it against the project folder (`path.resolve`), resolves symlinks
+on both sides (`realpath`), requires the result to exist and to lie inside the folder's real path
+(`relative` neither absolute nor starting with a `..` segment), and then reveals a file in
+Finder/Explorer (`shell.showItemInFolder`) or opens a folder (`shell.openPath`; a macOS `.app`
+bundle, a folder `openPath` would launch, is revealed instead). The same
+loopback-session rule as `start` applies; an automated run (`mayShowSystemUi` false) validates and
+opens nothing. A refusal comes back as `{ ok: false, error }` and the page shows it as a toast.
+
+**Why.** The CLI's answers name the outputs it made (`derivatives/SimNIBS/sub-CHN/flex-search/…`),
+and the user's next act is to look at them. The app-wide `openPath`/`showItemInFolder` cannot take
+these: they map *container* paths to host paths, and a CLI on the host prints host paths, often
+relative to its cwd. Revealing rather than opening a file keeps a click from launching whatever
+the OS associates with `.json` or `.nii.gz` (and keeps TetraVox scenes going through the Viewer,
+decision 2026-09-22).
+
+**Alternatives rejected.** Linking every absolute path and letting main refuse (underlines `/etc`
+and `~/.claude` paths that can only fail); a second `WebLinksAddon` with a path regex (it drops
+every match that is not a URL); the renderer resolving the path itself (a served page must not
+decide what a host shell call touches); a new top-level bridge entry (budget); opening files with
+their default application (an arbitrary associated program per click).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "a printed path, checked against the project
+folder" (absolute, relative, `./`, symlinked project folder; `..`, absolute outside, symlink
+escape, prefix sibling, missing, non-strings); `desktop/tests/unit/assistant-path-links.test.ts`
+(which printed paths match, Windows case and separators, link columns after wide characters on a
+real xterm buffer, a path soft-wrapped over three rows linked whole from each of them); `desktop/tests/e2e/assistant.spec.ts` "a project path the CLI prints is a link
+…" (hover pointer on project paths only, the missing-file toast, main's refusals).
+
+## 2026-10-08 — Linux "Open in system terminal" tries the common terminals, not one link
+
+**Decision.** On Linux the Assistant's system-terminal launch runs the first of `$TERMINAL`,
+`x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `xterm`
+found on the login-shell `PATH` (`linuxTerminalCommand` in `desktop/src/main/assistant.ts`), with
+that terminal's own flags: `--working-directory=<dir> --` (gnome-terminal), `--workdir <dir> -e`
+(konsole), `--working-directory=<dir> -x` (xfce4-terminal), `--directory <dir>` (kitty),
+`--working-directory <dir> -e` (alacritty), and `-e` for xterm, Debian's alternatives link and any
+`$TERMINAL` not in the list (a listed one named by path gets its own flags). The CLI and its
+arguments follow as argv, never a shell string; the spawn's cwd covers terminals with no directory
+flag. None found is an error naming what to install.
+
+**Why.** Only Debian-family systems have `x-terminal-emulator`; on Fedora, Arch or a KDE/Xfce
+desktop the button failed silently (the spawn's error went only to the log).
+
+**Alternatives rejected.** `xdg-terminal-exec` (not installed on most distributions yet); a
+`sh -c` command string (needs quoting of every argument for no gain — each terminal takes argv);
+asking the user for a terminal in Settings (a preference for what `$TERMINAL` already says).
+
+**Evidence.** `desktop/src/main/assistant.test.ts` "Linux system terminal" (argv per terminal with
+a mocked lookup, the order, `$TERMINAL` known/unknown/by path, none found). Not exercised on a
+Linux desktop.
+
+## 2026-10-08 — A plan step is edited in full on its own run page ("Open in form")
+
+**Decision.** The plan card's inline editor keeps the few fields people change most (subjects,
+run name, current or currents, replace existing output) and the config JSON, now on the run
+pages' own `Field`, `NumberInput`, `Checkbox` and `Button` components with its actions in one
+footer. Its **Open in form** navigates to the step's run page — Pre-processing (`pre`), Simulator
+(`sim`, `sim_from_flex`), Optimizer (`flex`, `flex_adaptive`, `flex_pareto`, `ex`, `mex`) — with the
+step (and anything typed in the editor) in the router state. The page sets its own draft aside,
+loads the step with its config→form mapping (`preStepValues`, `simulator/planStep.ts`,
+`optimizer/planStep.ts`: the inverses of `buildSimulationConfig`, `buildFlexConfig`,
+`buildExConfig`/`buildMExConfig` and `roiToConfig`, an atlas found in the subject's catalog by
+its path), shows an "Editing plan step" banner, and swaps Run for **Save to plan** (and ⌘⏎), which
+builds the step's edit through the page's own builder over the step's config (fields the form does
+not show are kept) and sends the existing `PATCH /api/proposals/{id}/steps/{step_id}`; Cancel
+restores the draft. A `sim_from_flex` step whose flex step has not run is a Flex-result row naming
+that run (`SelectedRow.planFlexStep`): its placement and currents can be set, "the run's own"
+when left alone. The form is refused, with the reason, when it would change the step's kind (the
+route edits config and subjects only) or say different settings per subject (a step is one config
+for all its subjects). Pending plans also show on the Overview, one line each with Review.
+
+**Why.** The card could change a run name and a current; everything else (a target, electrodes,
+solver settings, stages) meant editing raw JSON or rejecting the plan. The run pages already are
+the forms for those configs, with their validation, pickers and plan preview.
+
+**Alternatives rejected.** A full form inside the card (a second implementation of every run page
+that would drift from them); a new "draft step" server route (the step-edit route already
+re-plans); changing a step's kind from the form (a different step; the agent proposes a new plan);
+fanning a step out to per-subject configs (a proposal step has one config by contract).
+
+**Evidence.** `desktop/tests/unit/plan-step-form.test.ts` (each inverse undoes its builder; a
+saved step keeps unknown fields and its kind; refusals); `desktop/tests/unit/proposal-card.test.tsx`
+(footer actions, Open in form's route and state); `desktop/tests/e2e/proposals.spec.ts` (Optimizer,
+Simulator and Pre-processing save flows, the 1024 px editor fit, the Overview notice, and a
+two-step plan run to done against the mock, which now queues dependent steps like `_advance`).
+
+## 2026-10-08 — The server names a proposal step's target; the plugin's region memory is gone
+
+**Decision.** `tit.server.proposals._plan_step` sets `plan.target` for flex, ex and mex steps from
+`tit.opt.roi_spec.config_target(config)`: a `SubcorticalROI`/`AtlasROI`'s labels through
+`region_name` (a volume label from the atlas's colour table, a shipped MNI atlas's from its
+manifest table; an `.annot` label from its colortable, `lh.insula`), a `SphericalROI`'s centres
+and radii, an ex/mex config's ROI CSV names and `roi_atlas` regions; the bare label when an atlas
+cannot be read. The plan card's Target row shows it, falling back to the label ids. The flex/ex
+reports' `roi_summary` names its regions through the same `region_name` (its `_local_atlas` and
+`_annot_region` helpers are gone). The agent plugin's `_REGION_NAMES` memory and the
+"Target: …" step note it wrote are deleted; `propose_pipeline`'s step summaries carry `target`.
+Contract: `ProposalStepPlan.target` (additive). Supersedes the "it only remembers region names for
+a proposal's 'Target: …' note" clause of "Region lookup and its ROIs are served" (2026-10-08).
+
+**Why.** Only an ROI the plugin had seen from `find_regions` in the same session was named; an ROI
+the agent wrote itself, one edited on the card or in Open in form, or one from a restarted plugin
+showed label ids. The server already reads every atlas the step names when it plans it.
+
+**Alternatives rejected.** Keeping the plugin memory and adding a server fallback (two sources of
+one name); naming in the renderer (it would need every atlas's colour table client-side);
+storing names in the step's config (not a `FlexConfig` field; it would drift on edit).
+
+**Evidence.** `tests/test_roi_target.py` (authored LUT, manifest table and colortable; spheres;
+ex CSVs; unreadable atlases); `tests/test_proposals_routes.py::test_a_step_plan_names_its_target_from_the_atlas`;
+`tests/test_agent_plugin_jobs.py::test_propose_pipeline_reports_the_target_the_server_named`;
+`tests/test_reporting_runs.py` (report names unchanged); `desktop/tests/unit/proposal-card.test.tsx`
+"names the target the server resolved…".
+
+## 2026-10-08 — Region search matches whole words of a name
+
+**Decision.** `tit.catalog.find_regions` (`GET /api/catalog/regions`, the agent's `find_regions`)
+matches a region when every query word is a whole word of its name — split on non-alphanumerics,
+case-insensitive, the name's side words `left/right/lh/rh/l/r` dropped — or when the query's words
+joined are one word of it (`_name_matches`). The query's own side words are ignored as before.
+`tests/fixtures/region_rois.json` gains a `search` table (Hypothalamus the negative case). The
+Optimizer's region list keeps the substring filter every `SelectionList` shares.
+
+**Why.** The old rule tested each word as a substring of the name with punctuation removed, so
+"thalamus" found "Hypothalamus" and an agent asked for the thalamus targeted both.
+
+**Alternatives rejected.** Exact whole-name matching (misses "Left-Thalamus-Proper" and
+"ctx-lh-precuneus"); applying the rule to the picker's filter (it filters as the user types, where
+"thal" must already show the thalamus — a different purpose); a fuzzy matcher (a new dependency
+and a score threshold to tune). Known cost: "frontal" alone no longer finds DK's one-word
+"superiorfrontal" (the agent searches again with the full name).
+
+**Evidence.** `tests/test_region_rois.py::test_find_regions_matches_whole_words_of_a_name` (the
+table's `search` cases; red on the old rule for Hypothalamus and superiorfrontal).

@@ -52,6 +52,8 @@ __all__ = [
     "flex_montage_name",
     "list_flex_run_options",
     "resolve_flex_montage",
+    "flex_currents",
+    "resolve_flex_simulation",
     "list_freehand_configs",
     "resolve_freehand_montage",
 ]
@@ -190,8 +192,10 @@ def resolve_flex_montage(
     Returns
     -------
     Montage
-        ``mode=FLEX_MAPPED`` (4 named electrodes) for ``"mapped"``, or
-        ``mode=FLEX_FREE`` (4 XYZ coordinates) for ``"optimized"``.
+        ``mode=FLEX_MAPPED`` (net labels) for ``"mapped"``, or ``mode=FLEX_FREE`` (XYZ
+        coordinates) for ``"optimized"``; one pair per stimulation channel, paired by
+        :func:`tit.catalog.pair_by_channel` (the optimiser's ``channel_array_indices``), so
+        a 4-channel (mTI) run keeps all four pairs, as the Simulator's flex rows do.
 
     Raises
     ------
@@ -199,10 +203,13 @@ def resolve_flex_montage(
         If *electrode_type* is unknown, *eeg_net* is missing for
         ``"mapped"``, the run folder / ``electrode_positions.json`` /
         EEG-net CSV cannot be found, or fewer than 4 electrodes are
-        available (TI requires exactly one pair per channel; only the
-        first 4 are used for higher electrode counts, matching
-        ``SimulatorTab``'s behavior).
+        available.
+
+    A net the run is already mapped to (its ``electrode_mapping_<net>.json``) is read, not
+    re-mapped: the Hungarian mapping runs, and the cache is written, only the first time.
     """
+    from tit import catalog
+
     run_name = _source_name(run_name, "run_name")
     run_id = run_id or short_flex_run_id(subject_id, run_name)
     display_name = display_name or f"{run_name} | {run_id} | {electrode_type}"
@@ -214,26 +221,24 @@ def resolve_flex_montage(
     positions_file = _source_path(
         pm, os.path.join(flex_search_dir, "electrode_positions.json")
     )
-    if not os.path.isfile(positions_file):
-        raise ValueError(f"electrode_positions.json not found: {positions_file}")
+
+    def require_positions() -> None:
+        if not os.path.isfile(positions_file):
+            raise ValueError(f"electrode_positions.json not found: {positions_file}")
 
     if electrode_type == "optimized":
-        with open(positions_file, "r") as f:
-            pos_data = json.load(f)
-        optimized_positions = pos_data.get("optimized_positions", [])
-        if len(optimized_positions) < 4:
+        require_positions()
+        pairs = catalog.flex_optimized_pairs(
+            flex_search_dir, project_root=pm.project_dir
+        )
+        if not pairs:
             raise ValueError(
-                f"Not enough optimized electrodes in {run_name} "
-                f"(need >=4, found {len(optimized_positions)})"
+                f"Not enough optimized electrodes in {run_name} (need >=4 XYZ positions)"
             )
-        positions = optimized_positions[:4]
         return Montage(
             name=montage_name,
             mode=Montage.Mode.FLEX_FREE,
-            electrode_pairs=[
-                (positions[0], positions[1]),
-                (positions[2], positions[3]),
-            ],
+            electrode_pairs=[tuple(pair) for pair in pairs],
             display_name=display_name,
         )
 
@@ -246,48 +251,142 @@ def resolve_flex_montage(
         raise ValueError("eeg_net is required when electrode_type='mapped'")
 
     eeg_net = _source_name(eeg_net, "eeg_net")
-    eeg_positions_dir = _source_path(pm, pm.eeg_positions(subject_id))
-    eeg_net_path = _source_path(pm, os.path.join(eeg_positions_dir, eeg_net))
-    if not eeg_positions_dir or not os.path.isfile(eeg_net_path):
-        raise ValueError(f"EEG net file not found: {eeg_net_path}")
-
     mapping_file = _source_path(
         pm,
         os.path.join(
             flex_search_dir, f'electrode_mapping_{eeg_net.replace(".csv", "")}.json'
         ),
     )
+    mapping = catalog.read_flex_mapping(mapping_file)
+    if mapping is None:
+        require_positions()
+        eeg_positions_dir = _source_path(pm, pm.eeg_positions(subject_id))
+        eeg_net_path = _source_path(pm, os.path.join(eeg_positions_dir, eeg_net))
+        if not eeg_positions_dir or not os.path.isfile(eeg_net_path):
+            raise ValueError(f"EEG net file not found: {eeg_net_path}")
 
-    from tit.tools.map_electrodes import (
-        load_electrode_positions_json,
-        map_electrodes_to_net,
-        read_csv_positions,
-        save_mapping_result,
-    )
-
-    opt_pos, ch_arr_idx = load_electrode_positions_json(positions_file)
-    net_pos, net_labels = read_csv_positions(eeg_net_path)
-    result = map_electrodes_to_net(opt_pos, net_pos, net_labels, ch_arr_idx)
-
-    save_mapping_result(result, mapping_file, eeg_net_name=eeg_net)
-
-    mapped_labels = result.get("mapped_labels", [])
-    if len(mapped_labels) < 4:
-        raise ValueError(
-            f"Not enough electrodes for TI in {run_name} "
-            f"(need >=4, found {len(mapped_labels)})"
+        from tit.tools.map_electrodes import (
+            load_electrode_positions_json,
+            map_electrodes_to_net,
+            read_csv_positions,
+            save_mapping_result,
         )
-    electrodes = mapped_labels[:4]
+
+        opt_pos, ch_arr_idx = load_electrode_positions_json(positions_file)
+        net_pos, net_labels = read_csv_positions(eeg_net_path)
+        result = map_electrodes_to_net(opt_pos, net_pos, net_labels, ch_arr_idx)
+        save_mapping_result(result, mapping_file, eeg_net_name=eeg_net)
+        # Read back through the catalog's reader: the pairs come from one rule either way.
+        mapping = catalog.read_flex_mapping(mapping_file)
+    if mapping is None:
+        raise ValueError(
+            f"Not enough electrodes for TI in {run_name} (need >=4 mapped labels)"
+        )
     return Montage(
         name=montage_name,
         mode=Montage.Mode.FLEX_MAPPED,
-        electrode_pairs=[
-            (electrodes[0], electrodes[1]),
-            (electrodes[2], electrodes[3]),
-        ],
+        electrode_pairs=[tuple(pair) for pair in mapping["pairs"]],
         eeg_net=eeg_net,
         display_name=display_name,
     )
+
+
+def _net_stem(name: str) -> str:
+    return name[:-4] if name.lower().endswith(".csv") else name
+
+
+def flex_currents(manifest: dict[str, Any], num_pairs: int) -> tuple[list[float], str]:
+    """A flex run's own simulation currents (mA) and where they came from.
+
+    The run's optimised ``current_split``, else its ``current_mA`` per channel, else 1 mA per
+    channel. The Simulator page applies the same order to the catalog's manifest in
+    ``desktop/src/renderer/pages/simulator/FlexTab.tsx`` (``flexCurrents``); both are pinned by
+    ``tests/fixtures/flex_currents.json``.
+    """
+    if manifest.get("current_split"):
+        return [
+            float(c) for c in manifest["current_split"]
+        ], "the run's optimised split"
+    if manifest.get("current_mA"):
+        return (
+            [float(manifest["current_mA"])] * max(2, num_pairs),
+            "the run's current_mA per channel",
+        )
+    return [1.0] * max(2, num_pairs), "app default"
+
+
+def resolve_flex_simulation(
+    pm: PathManager,
+    subject_id: str,
+    flex_run: str | None = None,
+    *,
+    eeg_net: str | None = None,
+    intensities: list[float] | None = None,
+) -> dict[str, Any]:
+    """What the Simulator does for a flex row: the run's electrodes and currents as one montage.
+
+    The single source for turning a finished flex-search run into a ``SimulationConfig``
+    montage -- ``POST /api/sim-from-flex`` (the agent plugin's ``simulate_flex_result``) and a
+    proposal's deferred ``sim_from_flex`` step (:mod:`tit.server.proposals`) both call it.
+
+    The run is *flex_run* (a folder name or path; its basename is used), else the newest run.
+    Placement is *eeg_net*'s labels (mapped on demand, cached beside the run), else the first
+    net the run is already mapped to, else the optimised XYZ (``flex_free``). Currents are
+    *intensities*, else the run's optimised split, else its ``current_mA`` per channel, else
+    1 mA per channel.
+
+    Returns ``{flex_run, eeg_net, placement, intensities, intensities_from, montage}`` where
+    ``montage`` is a serialised ``Montage`` named after the run. Raises :class:`ValueError` for
+    an unknown subject, no run, an unknown run or a run without usable positions.
+    """
+    from tit import catalog
+
+    runs = catalog.flex_runs(pm, subject_id)
+    if runs is None:
+        raise ValueError(f"unknown subject: {subject_id}")
+    if not runs:
+        raise ValueError(f"sub-{subject_id} has no finished flex-search run")
+    if flex_run:
+        wanted = os.path.basename(str(flex_run).rstrip("/"))
+        run = next((r for r in runs if r["name"] == wanted), None)
+        if run is None:
+            names = ", ".join(r["name"] for r in runs)
+            raise ValueError(
+                f"no finished flex run {wanted!r} for sub-{subject_id}; runs: {names}"
+            )
+    else:
+        run = max(runs, key=lambda r: str(r.get("created") or ""))
+    # The Simulator's placement: the given net (mapped now if the run has no mapping for it,
+    # cached beside the run), else the first net the run is mapped to, else the optimised XYZ.
+    mappings = run.get("mappings") or []
+    if eeg_net:
+        net = f"{_net_stem(eeg_net)}.csv"
+    elif mappings:
+        net = mappings[0]["eeg_net"]
+    else:
+        net = None
+    montage = resolve_flex_montage(
+        pm, subject_id, run["name"], "mapped" if net else "optimized", eeg_net=net
+    )
+    pairs = [list(pair) for pair in montage.electrode_pairs]
+    if intensities:
+        currents, source = [float(i) for i in intensities], "given"
+    else:
+        currents, source = flex_currents(run.get("manifest") or {}, len(pairs))
+    return {
+        "flex_run": run["name"],
+        "eeg_net": net,
+        "placement": f"mapped to {net}" if net else "optimised XYZ (flex_free)",
+        "intensities": currents,
+        "intensities_from": source,
+        "montage": {
+            "_type": "Montage",
+            "name": run["name"],
+            "mode": "flex_mapped" if net else "flex_free",
+            "electrode_pairs": pairs,
+            "eeg_net": net,
+        },
+    }
 
 
 def list_freehand_configs(pm: PathManager, subject_id: str) -> list[str]:
