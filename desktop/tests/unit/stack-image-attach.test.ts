@@ -110,8 +110,8 @@ it("keeps container ownership when Docker cannot stop it", async () => {
 });
 
 it.each([
-  [true, true, "idossha/ti-toolbox:v3.0.2", true],
-  [true, false, "idossha/ti-toolbox:v3.0.2", false],
+  [true, true, "idossha/ti-toolbox:v3.1.0", true],
+  [true, false, "idossha/ti-toolbox:v3.1.0", false],
   [true, true, "custom:dev", false],
   [false, false, "custom:dev", true],
 ])("refreshes cached release images without replacing dev images (%s, %s, %s)", async (cached, refresh, image, pulls) => {
@@ -128,7 +128,7 @@ it.each([
 
 it("warns and uses the cached release image when refresh fails", async () => {
   writeFileSync(join(root, "docker-compose.yml"), readFileSync(join(__dirname, "../../../docker-compose.yml")));
-  const { plan } = await new StackManager(host)["prepareFresh"]("test", root, { image: "idossha/ti-toolbox:v3.0.2" });
+  const { plan } = await new StackManager(host)["prepareFresh"]("test", root, { image: "idossha/ti-toolbox:v3.1.0" });
   const connection = { kind: "unix" as const, socketPath: "/unused" };
   vi.spyOn(StackApi.prototype, "imageExists").mockResolvedValue(true);
   vi.spyOn(DockerEngineClient.prototype, "pullImage").mockRejectedValue(new Error("offline"));
