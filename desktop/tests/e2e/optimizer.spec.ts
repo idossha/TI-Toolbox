@@ -678,9 +678,12 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     expect(metrics.deadSpaceRatio, `${metrics.theme} @${metrics.width}`).toBeLessThanOrEqual(0.9);
     expect(metrics.pageHeaderHeight).toBe(0);
     expect(metrics.panes.nav).toBe(metrics.width >= 1440 ? 216 : 56);
-    // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))`.
-    expect(metrics.panes.right).toBe(metrics.width >= 1440 ? 610 : 576);
-    expect(metrics.panes.work).toBeGreaterThanOrEqual(560);
+    // ARCHITECTURE §11 / DECISIONS 2026-09-23 "The run split is sized in pixels" (4ede08f4): the
+    // pane's 45 vw default is clamped so the Jobs pane keeps 640 px of the split box. The clamp
+    // binds at both sizes: 1280 - 56 nav - 2 x 16 pad = 1192, 1192 - 6 handle - 640 = 546 (45 vw
+    // would be 576); 1440 - 216 nav - 2 x 24 pad = 1176, 1176 - 6 - 640 = 530 (45 vw: 648).
+    expect(metrics.panes.right).toBe(metrics.width >= 1440 ? 530 : 546);
+    expect(metrics.panes.work).toBe(640);
   }
 
   // Every Tier-1 control the page has is the jobs table, and all of it is on the first screen.
