@@ -22,7 +22,8 @@ FROM source-${TI_TOOLBOX_SOURCE} AS source
 FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS ui-builder
 COPY --from=source /ti-toolbox/desktop /build/desktop
 WORKDIR /build/desktop
-RUN npm ci && npm run build
+# --ignore-scripts: node-pty (Assistant host terminal) is Electron-main-only and compiles natively; the renderer build needs no install script.
+RUN npm ci --ignore-scripts && npm run build
 
 # --- fastsurfer: vendored here so it caches independently of the SimNIBS install below ---
 FROM ubuntu:22.04 AS fastsurfer

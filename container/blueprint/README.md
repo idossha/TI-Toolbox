@@ -68,7 +68,8 @@ date. Inspect it when verifying an image; a mutable tag alone does not identify 
 docker run --rm --entrypoint cat idossha/ti-toolbox:dev /etc/ti-toolbox-build.json
 ```
 
-The Dockerfile is multi-stage. Source and renderer build stages run on `$BUILDPLATFORM`; the final
+The Dockerfile is multi-stage. Source and renderer build stages run on `$BUILDPLATFORM` (the renderer
+installs with `npm ci --ignore-scripts`: the native `node-pty` is desktop-only); the final
 SimNIBS stage targets `linux/amd64`. A clean from-scratch build is intentionally substantial. CI
 and release automation call the same `build.sh`; their triggers and evidence requirements live in
 [AUTOMATION](../../docs/dev/AUTOMATION.md) and

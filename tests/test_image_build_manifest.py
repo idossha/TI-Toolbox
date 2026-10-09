@@ -20,3 +20,10 @@ def test_build_script_produces_a_plain_amd64_manifest():
     for flag in ("--provenance=false", "--sbom=false"):
         assert flag in flags
     assert flags[flags.index("--platform") + 1] == "linux/amd64"
+
+
+def test_ui_builder_installs_without_native_compiles():
+    # node-pty (desktop-only) needs python/g++ to build; the slim node stage has neither.
+    dockerfile = BUILD_SH.with_name("Dockerfile.ti-toolbox").read_text()
+    stage = dockerfile.split("AS ui-builder")[1].split("\nFROM ")[0]
+    assert "npm ci --ignore-scripts" in stage
