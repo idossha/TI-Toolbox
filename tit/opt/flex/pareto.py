@@ -227,7 +227,7 @@ def build_focality_config(base_config: FlexConfig, point: SweepPoint) -> FlexCon
         A new :class:`FlexConfig` instance configured for focality.
     """
     cfg = copy.copy(base_config)
-    cfg.goal = "focality"
+    cfg.goal = FlexConfig.OptGoal.FOCALITY
     cfg.thresholds = f"{point.nonroi_threshold:.4f},{point.roi_threshold:.4f}"
     cfg.output_folder = point.output_folder
     return cfg

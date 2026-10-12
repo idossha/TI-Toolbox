@@ -329,6 +329,12 @@ Not possible with two pairs. Use a large sphere covering both targets if focalit
 
 `np.nan_to_num(copy=None)` on numpy 1.x and `atlas2subject(split_labels=True)` label misalignment are patched into the image at build time (`resources/patches/`, `resources/atlas2subject/`). If you install SimNIBS 4.6 outside the container, you get them raw.
 
+### Flex-search fails with `Please define TESoptimize.threshold for focallity optimization!`
+
+**Applies to:** v3.0.0–v3.1.0, Optimizer goal **Threshold-based focality** with **Adaptive thresholds** or **Multi-threshold**.
+**Cause:** the job ran a single focality search instead of the adaptive or multi-threshold workflow, so SimNIBS received no `threshold` (the non-ROI and ROI field cutoffs, in V/m).
+**Fix:** update the image to the release after v3.1.0. Until then, choose **Fixed thresholds** and enter values such as `0.2,0.5`, or use **Threshold-free focality**.
+
 ### Ex-search needs a leadfield
 
 Exhaustive search requires a pre-computed leadfield for the *same EEG net* as the montage (`derivatives/SimNIBS/sub-<id>/leadfields/`). Run that step first.
