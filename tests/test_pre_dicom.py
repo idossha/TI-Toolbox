@@ -808,6 +808,59 @@ class TestReversePhaseEncodingFieldmap:
         plan = plan_distortion_correction(str(tmp_path), "001", logger=MagicMock())
         assert plan.mode == "reverse-pe-dwi"
 
+    # Real GE values (2026-10-12): dcm_qa_polar series 6, "FM_cv12_2_3mm", GE SIGNA
+    # UHP epi_pepolar mode 2 (rev-fwd in one series). dcm2niix v1.0.20211006 (the
+    # image's) splits it into sub-X_epi (series 6, PhaseEncodingPolarityGE "Flipped",
+    # PhaseEncodingDirection j) and the collision name sub-X_epia (series 1006,
+    # "Unflipped", j-); both carry this sform, read from the NIfTI header.
+    GE_PEPOLAR = (
+        (-1.688, 0.0, 0.0, 110.306),
+        (0.0, 1.688, 0.0, -95.281),
+        (0.0, 0.0, 3.0, -87.25),
+    )
+
+    def test_both_polarities_of_one_fieldmap_series_get_bids_names(self, tmp_path):
+        """GE epi_pepolar acquires both polarities in one series; dcm2niix splits it.
+
+        Before, only the first half was named and ``sub-001_epia`` stayed in fmap/,
+        which the BIDS validator rejects (NOT_INCLUDED) and QSIPrep never reads.
+        BIDS rule: j toward anterior is dir-PA, j- is dir-AP.
+        """
+        from tit.pre.qsi.utils import plan_distortion_correction
+
+        self._sourcedata(tmp_path, "dwi", "fmap")
+        logger = MagicMock()
+
+        def run(cmd, logger=None):
+            name = cmd[cmd.index("-f") + 1]
+            out_dir = Path(cmd[cmd.index("-o") + 1])
+            if "fmap" in Path(cmd[-1]).parts:
+                self._series(out_dir, name, [0, 0], "j", self.GE_PEPOLAR)
+                self._series(out_dir, f"{name}a", [0, 0], "j-", self.GE_PEPOLAR)
+            else:
+                self._series(out_dir, name, self.DWI_BVALS, "j-", self.GE_PEPOLAR)
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = run
+        run_dicom_to_nifti(str(tmp_path), "001", logger=logger, runner=runner)
+
+        fmap = tmp_path / "sub-001" / "fmap"
+        niftis = sorted(p.name for p in fmap.glob("*.nii.gz"))
+        assert niftis == ["sub-001_dir-AP_epi.nii.gz", "sub-001_dir-PA_epi.nii.gz"]
+        assert all(self.PEPOLAR.match(name) for name in niftis)
+        for direction, pe in (("AP", "j-"), ("PA", "j")):
+            sidecar = json.loads(
+                (fmap / f"sub-001_dir-{direction}_epi.json").read_text()
+            )
+            assert sidecar["PhaseEncodingDirection"] == pe
+            assert sidecar["IntendedFor"] == ["dwi/sub-001_dwi.nii.gz"]
+        assert "beyond" not in str(logger.warning.call_args_list)
+
+        plan = plan_distortion_correction(str(tmp_path), "001", logger=MagicMock())
+        assert plan.mode == "fieldmap"
+        assert [p.name for p in plan.fieldmaps] == ["sub-001_dir-PA_epi.nii.gz"]
+
     def test_fieldmap_without_phase_encoding_is_left_unnamed_and_reported(
         self, tmp_path
     ):

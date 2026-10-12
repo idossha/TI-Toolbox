@@ -348,6 +348,17 @@ def _nifti_stem(path: Path) -> str:
     return path.stem
 
 
+def _collision_stems(output_dir: Path, base: str) -> list[str]:
+    """*base* and dcm2niix's names for further series under it (``basea``, ...)."""
+    return sorted(
+        {
+            _nifti_stem(path)
+            for path in output_dir.glob(f"{base}*.nii*")
+            if _nifti_stem(path)[len(base) :].isalpha() or _nifti_stem(path) == base
+        }
+    )
+
+
 def _copy_sidecars(
     source: Path, output_dir: Path, bids_name: str, modality: str, logger
 ) -> None:
@@ -441,6 +452,10 @@ def _check_dcm2niix_outputs(
                 if name.endswith(suffix)
             )
         ]
+    if modality == "fmap":
+        # Further fieldmap series are named or reported by _name_fieldmap.
+        collisions = set(_collision_stems(output_dir, bids_name))
+        extra = [name for name in extra if name.split(".", 1)[0] not in collisions]
     if extra:
         logger.warning(
             f"dcm2niix wrote files beyond {expected}: {', '.join(extra)}. These "
@@ -563,41 +578,45 @@ def _ingest_modality(
 
 
 def _name_fieldmap(output_dir: Path, subject_id: str, logger) -> bool:
-    """Give the converted fieldmap its BIDS name and point it at the DWI.
+    """Give the converted fieldmap series their BIDS names and point them at the DWI.
 
     BIDS: ``fmap/sub-{id}_dir-{label}_epi`` with ``dir-`` REQUIRED and
     ``PhaseEncodingDirection`` and ``TotalReadoutTime`` in the sidecar (the
     latter is checked, and derived from the sidecar when it can be, before
     QSIPrep runs). ``IntendedFor`` lists the subject's DWI series as paths
     relative to the subject folder: QSIPrep 26.0.0 reads neither BIDS URIs nor
-    ``B0FieldIdentifier``. An existing ``IntendedFor`` is kept.
+    ``B0FieldIdentifier``. An existing ``IntendedFor`` is kept. A series holding
+    both polarities (GE ``epi_pepolar``) comes out of dcm2niix as ``sub-{id}_epi``
+    plus the collision name ``sub-{id}_epia``; each half is named by its direction.
     """
-    stem = _bids_name(subject_id, "fmap")
-    label = _series_label(output_dir, stem)
-    if label is None:
+    stems = _collision_stems(output_dir, _bids_name(subject_id, "fmap"))
+    labels = [_series_label(output_dir, stem) for stem in stems]
+    if None in labels or len(set(labels)) != len(labels):
         logger.warning(
-            f"Could not name {stem}.nii.gz: BIDS requires a dir-<label> entity "
-            "for a reverse phase-encoding fieldmap, and it is taken from the "
-            "sidecar's PhaseEncodingDirection and the image's sform, one of which "
-            f"is missing. Rename the files to sub-{subject_id}_dir-<label>_epi "
-            "(e.g. dir-PA) and add PhaseEncodingDirection to the JSON by hand."
+            f"Could not name {', '.join(f'{stem}.nii.gz' for stem in stems)}: BIDS "
+            "requires a distinct dir-<label> entity for each reverse phase-encoding "
+            "fieldmap, and it is taken from the sidecar's PhaseEncodingDirection and "
+            "the image's sform; one is missing, or two series share a direction. "
+            f"Rename the files to sub-{subject_id}_dir-<label>_epi (e.g. dir-PA) and "
+            "add PhaseEncodingDirection to the JSON by hand."
         )
         return False
-    new_stem = f"sub-{subject_id}_dir-{label}_epi"
-    _rename_series(output_dir, stem, new_stem)
-    logger.info(f"Named the reverse phase-encoding fieldmap {new_stem}")
 
     dwi_names = sorted(
         path.name
         for path in (output_dir.parent / "dwi").glob("*_dwi.nii*")
         if not path.name.startswith(".")
     )
-    sidecar = output_dir / f"{new_stem}.json"
-    meta = json.loads(sidecar.read_text(encoding="utf-8"))
-    if dwi_names and "IntendedFor" not in meta:
-        meta["IntendedFor"] = [f"dwi/{name}" for name in dwi_names]
-        sidecar.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-        logger.info(f"Added IntendedFor={meta['IntendedFor']} to {sidecar.name}")
+    for stem, label in zip(stems, labels):
+        new_stem = f"sub-{subject_id}_dir-{label}_epi"
+        _rename_series(output_dir, stem, new_stem)
+        logger.info(f"Named the reverse phase-encoding fieldmap {new_stem}")
+        sidecar = output_dir / f"{new_stem}.json"
+        meta = json.loads(sidecar.read_text(encoding="utf-8"))
+        if dwi_names and "IntendedFor" not in meta:
+            meta["IntendedFor"] = [f"dwi/{name}" for name in dwi_names]
+            sidecar.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+            logger.info(f"Added IntendedFor={meta['IntendedFor']} to {sidecar.name}")
     return True
 
 
@@ -611,14 +630,11 @@ def _name_dwi_series(output_dir: Path, subject_id: str, logger) -> None:
     for TOPUP. Anything else is left as converted, with a pointer to ``fmap/``.
     """
     base = _bids_name(subject_id, "dwi")
-    stems = sorted(
-        {
-            _nifti_stem(path)
-            for path in output_dir.glob(f"{base}*.nii*")
-            if _nifti_stem(path)[len(base) :].isalpha() or _nifti_stem(path) == base
-        }
-    )
-    stems = [stem for stem in stems if (output_dir / f"{stem}.bval").exists()]
+    stems = [
+        stem
+        for stem in _collision_stems(output_dir, base)
+        if (output_dir / f"{stem}.bval").exists()
+    ]
     if len(stems) < 2:
         return
     labels = [_series_label(output_dir, stem) for stem in stems]
