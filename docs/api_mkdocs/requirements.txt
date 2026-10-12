@@ -4,3 +4,5 @@ mkdocstrings[python]>=0.27,<0.29
 mkdocs-gen-files>=0.5
 mkdocs-literate-nav>=0.6
 mkdocs-section-index>=0.3
+# 12.2 changed Highlight() to require md; mkdocstrings 0.28 does not pass it
+pymdown-extensions<12.2
