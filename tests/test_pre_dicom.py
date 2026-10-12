@@ -1,7 +1,11 @@
 """Tests for tit.pre.dicom2nifti — source-image ingestion to BIDS NIfTI."""
 
 import gzip
+import json
+import math
 import os
+import re
+import struct
 import tarfile
 import zipfile
 from pathlib import Path
@@ -20,6 +24,7 @@ from tit.pre.dicom2nifti import (
     _iter_files,
     _modality_source_dir,
     _nifti_stem,
+    pe_direction_label,
     run_dicom_to_nifti,
 )
 from tit.pre.utils import PreprocessError
@@ -563,7 +568,7 @@ class TestRunDicomToNifti:
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._ingest_modality")
     def test_converts_every_present_modality(self, mock_ingest, mock_gpm, tmp_path):
-        """T1w, T2w, ct and dwi are all ingested when present."""
+        """T1w, T2w, ct, dwi and fmap are all ingested when present."""
         sourcedata = tmp_path / "sourcedata" / "sub-001"
         for modality, _ in MODALITIES:
             (sourcedata / modality).mkdir(parents=True)
@@ -577,6 +582,7 @@ class TestRunDicomToNifti:
             "T2w",
             "ct",
             "dwi",
+            "fmap",
         ]
 
     @patch(f"{MODULE}.get_path_manager")
@@ -620,3 +626,293 @@ class TestRunDicomToNifti:
         run_dicom_to_nifti("/proj", "001", logger=logger)
 
         logger.warning.assert_called_once()
+
+
+class TestReversePhaseEncodingFieldmap:
+    """DWI distortion-correction inputs come out as BIDS and QSIPrep 26.0.0 name them.
+
+    Pins (2026-10-12), each expectation taken from a document, not from the code:
+
+    - BIDS v1.11.2, MRI "Case 4: Multiple phase encoded directions (pepolar)":
+      template ``sub-<label>[_ses-<label>][_acq-<label>][_ce-<label>]_dir-<label>
+      [_run-<index>]_epi.nii[.gz]``; "The dir-<label> entity is REQUIRED for these
+      files"; ``PhaseEncodingDirection`` REQUIRED; "Some 4D scans intended for
+      correcting DWIs may have accompanying *_epi.bval and *_epi.bvec files".
+    - BIDS entity ``dir``: "dir-PA and dir-AP for an image in RAS+ orientation
+      SHOULD have PhaseEncodingDirection j and j-, respectively"; and
+      ``PhaseEncodingDirection``: i/j/k are the NIfTI data axes, travelling from
+      index 0 unless suffixed ``-``.
+    - QSIPrep 26.0.0 docs/usage.rst: the short reverse-PE scan goes in ``fmap/`` as
+      ``sub-<label>_dir-PA_epi`` with ``.bval``/``.bvec``/``.json`` ("Add
+      IntendedFor field here"); "QSIPrep does not currently support BIDS-URIs for
+      the IntendedFor field ... use relative paths".
+    - dcm2niix writes an axial series with an LAS sform (i -> left, j -> anterior)
+      and reports a Siemens A>>P acquisition as ``j-``.
+
+    dcm2niix itself is faked; the BIDS validator, sdcflows and QSIPrep's own
+    grouping are run on the same tree in tests/numerical/test_bids_fieldmap_tools.py.
+    """
+
+    # sform rows: dcm2niix's axial LAS output, and RAS+ (the BIDS example frame).
+    LAS = ((-2.0, 0.0, 0.0, 90.0), (0.0, 2.0, 0.0, -126.0), (0.0, 0.0, 2.0, -72.0))
+    RAS = ((2.0, 0.0, 0.0, 0.0), (0.0, 2.0, 0.0, 0.0), (0.0, 0.0, 2.0, 0.0))
+    # BIDS pepolar filename template (v1.11.2), as a regular expression.
+    PEPOLAR = re.compile(
+        r"^sub-[A-Za-z0-9]+(_ses-[A-Za-z0-9]+)?(_acq-[A-Za-z0-9]+)?(_ce-[A-Za-z0-9]+)?"
+        r"_dir-[A-Za-z0-9]+(_run-[0-9]+)?_epi\.nii(\.gz)?$"
+    )
+
+    @staticmethod
+    def _nifti(path: Path, volumes: int, sform, sform_code: int = 1) -> Path:
+        header = bytearray(352)
+        struct.pack_into("<i", header, 0, 348)
+        struct.pack_into("<8h", header, 40, 4, 64, 64, 40, volumes, 1, 1, 1)
+        struct.pack_into("<hh", header, 70, 4, 16)
+        struct.pack_into("<8f", header, 76, 1.0, 2.0, 2.0, 2.0, 1.0, 0, 0, 0)
+        struct.pack_into("<f", header, 108, 352.0)
+        struct.pack_into("<h", header, 254, sform_code)
+        for row, offset in zip(sform, (280, 296, 312)):
+            struct.pack_into("<4f", header, offset, *row)
+        header[344:348] = b"n+1\x00"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(path, "wb") as handle:
+            handle.write(bytes(header))
+        return path
+
+    @classmethod
+    def _series(cls, out_dir: Path, stem: str, bvals, pe: str, sform=None) -> None:
+        cls._nifti(out_dir / f"{stem}.nii.gz", len(bvals), sform or cls.LAS)
+        (out_dir / f"{stem}.bval").write_text(" ".join(map(str, bvals)) + "\n")
+        vectors = [
+            (0.0, 0.0, 0.0) if b == 0 else (math.cos(i), math.sin(i), 0.0)
+            for i, b in enumerate(bvals)
+        ]
+        (out_dir / f"{stem}.bvec").write_text(
+            "\n".join(" ".join(f"{v[a]:.6f}" for v in vectors) for a in range(3)) + "\n"
+        )
+        (out_dir / f"{stem}.json").write_text(
+            json.dumps({"PhaseEncodingDirection": pe, "TotalReadoutTime": 0.05})
+        )
+
+    DWI_BVALS = [0, 1000, 1000, 1000, 1000, 1000, 1000]
+
+    @classmethod
+    def _fake_dcm2niix(cls, both_in_dwi: bool = False):
+        """dcm2niix as it behaves on an AP DWI plus a PA reverse-PE series."""
+
+        def run(cmd, logger=None):
+            name = cmd[cmd.index("-f") + 1]
+            out_dir = Path(cmd[cmd.index("-o") + 1])
+            if "fmap" in Path(cmd[-1]).parts:
+                cls._series(out_dir, name, [0, 0], "j")
+            elif both_in_dwi:
+                cls._series(out_dir, name, cls.DWI_BVALS, "j-")
+                cls._series(out_dir, f"{name}a", cls.DWI_BVALS, "j")  # collision
+            else:
+                cls._series(out_dir, name, cls.DWI_BVALS, "j-")
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = run
+        return runner
+
+    @staticmethod
+    def _sourcedata(project: Path, *folders: str) -> None:
+        for folder in folders:
+            dicom = project / "sourcedata" / "sub-001" / folder / "dicom"
+            dicom.mkdir(parents=True)
+            (dicom / "IM0001.dcm").touch()
+
+    @pytest.mark.parametrize(
+        ("sform", "pe", "label"),
+        [
+            # BIDS dir entity: RAS+, j -> dir-PA, j- -> dir-AP.
+            (RAS, "j", "PA"),
+            (RAS, "j-", "AP"),
+            (RAS, "i", "LR"),
+            (RAS, "i-", "RL"),
+            (RAS, "k", "IS"),
+            (RAS, "k-", "SI"),
+            # dcm2niix LAS axial: a Siemens A>>P series is reported as j-.
+            (LAS, "j-", "AP"),
+            (LAS, "j", "PA"),
+            (LAS, "i", "RL"),
+            # Sagittal, slightly oblique: j runs mostly toward inferior.
+            (
+                ((0.0, 0.1, 2.0, 0.0), (2.0, 0.0, 0.0, 0.0), (0.0, -2.0, 0.2, 0.0)),
+                "j",
+                "SI",
+            ),
+        ],
+    )
+    def test_dir_label_follows_bids_orientation_rule(self, tmp_path, sform, pe, label):
+        image = self._nifti(tmp_path / "x.nii.gz", 1, sform)
+        assert pe_direction_label(image, pe) == label
+
+    @pytest.mark.parametrize(("pe", "sform_code"), [("j", 0), (None, 1), ("y", 1)])
+    def test_no_dir_label_is_made_up(self, tmp_path, pe, sform_code):
+        """No sform or no valid PhaseEncodingDirection: no label rather than a guess."""
+        image = self._nifti(tmp_path / "x.nii.gz", 1, self.LAS, sform_code)
+        assert pe_direction_label(image, pe) is None
+
+    def test_fmap_folder_becomes_the_pepolar_fieldmap_qsiprep_documents(self, tmp_path):
+        from tit.pre.qsi.utils import plan_distortion_correction
+
+        self._sourcedata(tmp_path, "dwi", "fmap")
+        run_dicom_to_nifti(
+            str(tmp_path), "001", logger=MagicMock(), runner=self._fake_dcm2niix()
+        )
+
+        fmap = tmp_path / "sub-001" / "fmap"
+        assert sorted(p.name for p in fmap.iterdir()) == [
+            "sub-001_dir-PA_epi.bval",
+            "sub-001_dir-PA_epi.bvec",
+            "sub-001_dir-PA_epi.json",
+            "sub-001_dir-PA_epi.nii.gz",
+        ]
+        assert self.PEPOLAR.match("sub-001_dir-PA_epi.nii.gz")
+        sidecar = json.loads((fmap / "sub-001_dir-PA_epi.json").read_text())
+        assert sidecar["PhaseEncodingDirection"] == "j"
+        assert sidecar["TotalReadoutTime"] == 0.05
+        # Relative to the subject folder (QSIPrep 26.0.0 reads no BIDS URIs), and
+        # naming a file that exists.
+        assert sidecar["IntendedFor"] == ["dwi/sub-001_dwi.nii.gz"]
+        assert (tmp_path / "sub-001" / sidecar["IntendedFor"][0]).is_file()
+
+        plan = plan_distortion_correction(str(tmp_path), "001", logger=MagicMock())
+        assert plan.mode == "fieldmap", plan.problems
+        assert [p.name for p in plan.fieldmaps] == ["sub-001_dir-PA_epi.nii.gz"]
+
+    def test_two_diffusion_series_in_dwi_are_named_by_direction(self, tmp_path):
+        """The user's first layout: AP and a full PA series both in sourcedata dwi/.
+
+        dcm2niix calls the second ``sub-001_dwia`` (not BIDS, read by nothing);
+        QSIPrep pairs ``dir-AP``/``dir-PA`` DWI series for TOPUP.
+        """
+        from tit.pre.qsi.utils import plan_distortion_correction
+
+        self._sourcedata(tmp_path, "dwi")
+        run_dicom_to_nifti(
+            str(tmp_path),
+            "001",
+            logger=MagicMock(),
+            runner=self._fake_dcm2niix(both_in_dwi=True),
+        )
+
+        names = sorted(p.name for p in (tmp_path / "sub-001" / "dwi").iterdir())
+        assert names == [
+            f"sub-001_dir-{d}_dwi{ext}"
+            for d in ("AP", "PA")
+            for ext in (".bval", ".bvec", ".json", ".nii.gz")
+        ]
+        plan = plan_distortion_correction(str(tmp_path), "001", logger=MagicMock())
+        assert plan.mode == "reverse-pe-dwi"
+
+    # Real GE values (2026-10-12): dcm_qa_polar series 6, "FM_cv12_2_3mm", GE SIGNA
+    # UHP epi_pepolar mode 2 (rev-fwd in one series). dcm2niix v1.0.20211006 (the
+    # image's) splits it into sub-X_epi (series 6, PhaseEncodingPolarityGE "Flipped",
+    # PhaseEncodingDirection j) and the collision name sub-X_epia (series 1006,
+    # "Unflipped", j-); both carry this sform, read from the NIfTI header.
+    GE_PEPOLAR = (
+        (-1.688, 0.0, 0.0, 110.306),
+        (0.0, 1.688, 0.0, -95.281),
+        (0.0, 0.0, 3.0, -87.25),
+    )
+
+    def test_both_polarities_of_one_fieldmap_series_get_bids_names(self, tmp_path):
+        """GE epi_pepolar acquires both polarities in one series; dcm2niix splits it.
+
+        Before, only the first half was named and ``sub-001_epia`` stayed in fmap/,
+        which the BIDS validator rejects (NOT_INCLUDED) and QSIPrep never reads.
+        BIDS rule: j toward anterior is dir-PA, j- is dir-AP.
+        """
+        from tit.pre.qsi.utils import plan_distortion_correction
+
+        self._sourcedata(tmp_path, "dwi", "fmap")
+        logger = MagicMock()
+
+        def run(cmd, logger=None):
+            name = cmd[cmd.index("-f") + 1]
+            out_dir = Path(cmd[cmd.index("-o") + 1])
+            if "fmap" in Path(cmd[-1]).parts:
+                self._series(out_dir, name, [0, 0], "j", self.GE_PEPOLAR)
+                self._series(out_dir, f"{name}a", [0, 0], "j-", self.GE_PEPOLAR)
+            else:
+                self._series(out_dir, name, self.DWI_BVALS, "j-", self.GE_PEPOLAR)
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = run
+        run_dicom_to_nifti(str(tmp_path), "001", logger=logger, runner=runner)
+
+        fmap = tmp_path / "sub-001" / "fmap"
+        niftis = sorted(p.name for p in fmap.glob("*.nii.gz"))
+        assert niftis == ["sub-001_dir-AP_epi.nii.gz", "sub-001_dir-PA_epi.nii.gz"]
+        assert all(self.PEPOLAR.match(name) for name in niftis)
+        for direction, pe in (("AP", "j-"), ("PA", "j")):
+            sidecar = json.loads(
+                (fmap / f"sub-001_dir-{direction}_epi.json").read_text()
+            )
+            assert sidecar["PhaseEncodingDirection"] == pe
+            assert sidecar["IntendedFor"] == ["dwi/sub-001_dwi.nii.gz"]
+        assert "beyond" not in str(logger.warning.call_args_list)
+
+        plan = plan_distortion_correction(str(tmp_path), "001", logger=MagicMock())
+        assert plan.mode == "fieldmap"
+        assert [p.name for p in plan.fieldmaps] == ["sub-001_dir-PA_epi.nii.gz"]
+
+    def test_fieldmap_without_phase_encoding_is_left_unnamed_and_reported(
+        self, tmp_path
+    ):
+        modality_dir = tmp_path / "fmap"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        out_dir = tmp_path / "sub-001" / "fmap"
+        logger = MagicMock()
+
+        def run(cmd, logger=None):
+            self._series(out_dir, cmd[cmd.index("-f") + 1], [0, 0], "j")
+            (out_dir / "sub-001_epi.json").write_text("{}")
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = run
+
+        assert not _ingest_modality(
+            modality_dir, out_dir, "001", "fmap", logger, runner
+        )
+        assert not list(out_dir.glob("*_dir-*"))
+        assert "dir-<label>" in str(logger.warning.call_args)
+
+    def test_rerun_refuses_over_a_named_fieldmap(self, tmp_path):
+        modality_dir = tmp_path / "fmap"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        out_dir = tmp_path / "sub-001" / "fmap"
+        self._nifti(out_dir / "sub-001_dir-PA_epi.nii.gz", 2, self.LAS)
+
+        with pytest.raises(PreprocessError, match="sub-001_dir-PA_epi.nii.gz"):
+            _ingest_modality(modality_dir, out_dir, "001", "fmap", MagicMock(), None)
+
+    def test_second_dwi_series_points_at_the_fmap_folder(self, tmp_path):
+        """Two DWI series that cannot be told apart: say where a reverse-PE scan goes."""
+        modality_dir = tmp_path / "dwi"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        out_dir = tmp_path / "out"
+        logger = MagicMock()
+
+        def fake_run(cmd, logger=None):
+            out_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("sub-001_dwi", "sub-001_dwia"):
+                for ext in (".nii.gz", ".json", ".bval", ".bvec"):
+                    (out_dir / f"{name}{ext}").touch()
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = fake_run
+
+        assert _ingest_modality(modality_dir, out_dir, "001", "dwi", logger, runner)
+        warning = str(logger.warning.call_args_list)
+        assert "sub-001_dwia.nii.gz" in warning
+        assert "sourcedata/sub-001/fmap/" in warning

@@ -30,9 +30,10 @@ Ask in plain words — *"organise the raw scans in ~/Downloads/scan as sub-101,
 preprocess them, run a flex-search on the bilateral thalamus for maximum intensity,
 then simulate the best montage"* — and the agent calls a short chain of
 `ti-toolbox-jobs` tools, asking you before it replaces anything. Raw scans are
-copied (never moved) into the project's `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the
-agent's own file tools, which ask your permission first; the agent asks you when a
-series' modality is unclear.
+copied (never moved) into the project's `sourcedata/sub-<id>/<T1w|T2w|ct|dwi|fmap>/` by
+the agent's own file tools, which ask your permission first (`fmap` holds the DWI's short
+reverse phase-encoding scan, e.g. PA); the agent asks you when a series' modality is
+unclear.
 
 **You approve, the app runs.** By default the agent cannot queue jobs itself: it
 proposes the whole pipeline (`propose_pipeline`) and the plan appears as a card on

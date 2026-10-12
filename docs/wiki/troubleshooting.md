@@ -117,6 +117,16 @@ manifest. The preview fell back to reference anatomy, whose packaged nets are li
 **Fix:** pull the rebuilt internal image and restart it, or refresh the updated development app.
 Subject nets are read from the existing head model; regenerating the model is unnecessary.
 
+### Optimizer refuses the skin-visualization EEG net (v3.1.0 and earlier)
+
+**Symptom:** with **Plot EEG net electrodes** ticked and a net such as `GSN-HydroCel-128.csv`
+chosen under **Visualization EEG net**, flex-search answers *"Could not queue the search. Missing
+inputs: Skin visualization EEG net … Pick an existing net CSV, or leave skin_visualization_net
+unset."* The net exists; the check looked for the bare file name in the server's working folder
+instead of the subject's `eeg_positions`. It happens on every operating system.
+**Fix:** update TI-Toolbox (app and image). Until then, untick **Plot EEG net electrodes**: the
+search and the valid-skin-region figure still run, only without the net's electrodes drawn on it.
+
 ### Viewer fails only for some mixed mesh/volume selections
 
 **Cause:** a solid mesh's saved `field: null` value reached controls expecting an absent field.
@@ -328,6 +338,12 @@ Not possible with two pairs. Use a large sphere covering both targets if focalit
 ### SimNIBS 4.6 quirks the image patches for you
 
 `np.nan_to_num(copy=None)` on numpy 1.x and `atlas2subject(split_labels=True)` label misalignment are patched into the image at build time (`resources/patches/`, `resources/atlas2subject/`). If you install SimNIBS 4.6 outside the container, you get them raw.
+
+### Flex-search fails with `Please define TESoptimize.threshold for focallity optimization!`
+
+**Applies to:** v3.0.0–v3.1.0, Optimizer goal **Threshold-based focality** with **Adaptive thresholds** or **Multi-threshold**.
+**Cause:** the job ran a single focality search instead of the adaptive or multi-threshold workflow, so SimNIBS received no `threshold` (the non-ROI and ROI field cutoffs, in V/m).
+**Fix:** update the image to the release after v3.1.0. Until then, choose **Fixed thresholds** and enter values such as `0.2,0.5`, or use **Threshold-free focality**.
 
 ### Ex-search needs a leadfield
 

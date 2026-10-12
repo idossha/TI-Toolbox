@@ -131,6 +131,36 @@ def test_dicom_output_detects_dwi_with_bval_bvec(tmp_path):
     assert set(outputs[0].paths_to_remove) == {nifti, bval, bvec}
 
 
+def test_dicom_output_detects_dwi_fieldmap(tmp_path):
+    """A converted sourcedata fmap/ series is a DICOM output, so a rerun can clear it."""
+    fmap_dir = tmp_path / "sub-001" / "fmap"
+    fmap_dir.mkdir(parents=True)
+    files = [
+        fmap_dir / f"sub-001_dir-PA_epi{ext}"
+        for ext in (".nii.gz", ".json", ".bval", ".bvec")
+    ]
+    for path in files:
+        path.touch()
+    (fmap_dir / "sub-001_magnitude1.nii.gz").touch()  # not ours: left alone
+
+    outputs = existing_outputs_for_step(str(tmp_path), "001", STEP_DICOM)
+
+    assert [set(o.paths_to_remove) for o in outputs] == [set(files)]
+    assert outputs[0].path == files[0]
+
+
+def test_dicom_output_detects_direction_named_dwi_series(tmp_path):
+    dwi_dir = tmp_path / "sub-001" / "dwi"
+    dwi_dir.mkdir(parents=True)
+    files = [dwi_dir / f"sub-001_dir-{d}_dwi.nii.gz" for d in ("AP", "PA")]
+    for path in files:
+        path.touch()
+
+    outputs = existing_outputs_for_step(str(tmp_path), "001", STEP_DICOM)
+
+    assert [set(o.paths_to_remove) for o in outputs] == [set(files)]
+
+
 def test_missing_outputs_are_ignored(tmp_path):
     outputs = find_existing_preprocessing_outputs(
         str(tmp_path),

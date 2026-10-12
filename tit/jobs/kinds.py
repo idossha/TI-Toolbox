@@ -51,13 +51,10 @@ MODULE_FOR_KIND: dict[str, str] = {
     "project_init": "tit.project_init",
 }
 
-# flex_adaptive/flex_pareto still invoke -m tit.opt.flex; the sub-mode is a config field
-# (e.g. {"mode": "adaptive"}) the runner itself dispatches on (tit.opt.flex.drivers, owned by B3).
-FLEX_MODE_FOR_KIND: dict[str, str] = {
-    "flex": "single",
-    "flex_adaptive": "adaptive",
-    "flex_pareto": "pareto",
-}
+# All three run -m tit.opt.flex; the job manager writes the kind into the runner config as
+# FlexConfig.mode (whose values are these kind names), which picks the driver. Without it an
+# adaptive or multi-threshold job ran one focality search with no thresholds.
+FLEX_KINDS = ("flex", "flex_adaptive", "flex_pareto")
 
 
 class KindError(ValueError):

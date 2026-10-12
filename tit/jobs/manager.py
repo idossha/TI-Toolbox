@@ -917,6 +917,8 @@ class JobManager:
         payload["project_dir"] = self.project_dir
         if spec.kind == "pre" and "subject_ids" not in payload:
             payload["subject_ids"] = list(spec.subject_ids)
+        if spec.kind in kinds.FLEX_KINDS:
+            payload["mode"] = spec.kind
         path = job_file_path(self.project_dir, spec.id, "config.json")
         _atomic_write_json(path, payload)
         return path

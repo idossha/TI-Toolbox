@@ -364,6 +364,31 @@ class TestValidateFlexInputs:
         )
 
     @patch("tit.opt.flex.flex.get_path_manager")
+    def test_skin_visualization_net_is_a_name_in_eeg_positions(
+        self, mock_gpm, tmp_path
+    ):
+        """The desktop sends the catalog's bare CSV name; it lives in eeg_positions,
+        not in the server's working directory (v3.1.0 user report)."""
+        eeg = tmp_path / "m2m" / "eeg_positions"
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        pm.eeg_positions.return_value = str(eeg)
+        eeg.mkdir(parents=True)
+        (tmp_path / "m2m" / "001.msh").touch()
+        (eeg / "GSN-HydroCel-128.csv").touch()
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        _validate_flex_inputs(
+            _make_config(skin_visualization_net="GSN-HydroCel-128.csv")
+        )
+        with pytest.raises(
+            ValueError, match="skin visualization EEG net file not found"
+        ):
+            _validate_flex_inputs(_make_config(skin_visualization_net="EGI256.csv"))
+
+    @patch("tit.opt.flex.flex.get_path_manager")
     def test_requires_mapping_eeg_net_name(self, mock_gpm, tmp_path):
         pm = MagicMock()
         pm.m2m.return_value = str(tmp_path / "m2m")

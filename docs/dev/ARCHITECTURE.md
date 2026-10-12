@@ -224,7 +224,7 @@ nothing else depends on it, so an agent's job queues, runs, reports and renders 
 app's, except that an agent's config gets the run pages' defaults (next paragraph). The agent
 plugin's job server (`agent-plugin/mcp/jobs_server.py`) is a host-side client of these routes: it
 sends `agent` and only the fields the agent chose, and writes nothing on the host — raw scans are
-copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/` by the agent's own file tools, under its CLI's
+copied into `sourcedata/sub-<id>/<T1w|T2w|ct|dwi|fmap>/` by the agent's own file tools, under its CLI's
 permission prompts. An agent's target region comes from `GET /api/catalog/regions?subject=&q=`
 (`tit.catalog.find_regions`): the regions whose names have the query's words as whole words
 ("thalamus" is not "Hypothalamus"; side words dropped) in the subject's own atlases

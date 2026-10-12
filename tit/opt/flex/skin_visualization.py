@@ -16,6 +16,7 @@ import pandas as pd
 from scipy.spatial import cKDTree
 
 from tit.opt.config import FlexConfig
+from tit.opt.flex.utils import eeg_net_csv_path
 
 
 def create_valid_skin_region_visualization(
@@ -93,8 +94,11 @@ def create_valid_skin_region_visualization(
             guard_boundary_mask[_boundary_nodes(con, guard_mask, side=True)] = True
             plot_points = _local_coords(points, *fiducial_frame)
 
+        net_csv = config.skin_visualization_net and eeg_net_csv_path(
+            pm.eeg_positions(config.subject_id), config.skin_visualization_net
+        )
         electrodes = _load_electrodes(
-            config.skin_visualization_net,
+            net_csv,
             points,
             plot_points,
             mask,

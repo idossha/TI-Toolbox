@@ -41,7 +41,7 @@ const SECTION_IDS = ["structural", "dwi"] as const;
  * `m2m_<id>/`. A leading `…` or `<tissue>` continues the entry above it.
  */
 const REAL_PATH =
-  /^(sourcedata\/sub-<id>\/|sub-<id>\/(anat|dwi)\/|derivatives\/(SimNIBS|fastsurfer|freesurfer|qsiprep|qsirecon|ti-toolbox|\.qsiprep_work)|m2m_<id>\/|…|<tissue>_)/;
+  /^(sourcedata\/sub-<id>\/|sub-<id>\/(anat|dwi|fmap)\/|derivatives\/(SimNIBS|fastsurfer|freesurfer|qsiprep|qsirecon|ti-toolbox|\.qsiprep_work)|m2m_<id>\/|…|<tissue>_)/;
 
 describe("STEP_INFO", () => {
   it("covers every stage row and both section headers, and nothing else", () => {
@@ -125,8 +125,8 @@ describe("stepGraph", () => {
   it("lays the flow out as inputs | process… | outputs", () => {
     const { columns } = stepGraph(STEP_INFO.convert_dicom!);
     expect(columns.map((c) => c[0]!.kind)).toEqual(["input", "process", "output"]);
-    expect(columns[0]).toHaveLength(3);
-    expect(columns[2]).toHaveLength(3);
+    expect(columns[0]).toHaveLength(4);
+    expect(columns[2]).toHaveLength(4);
   });
 
   it("a multi-stage step gets one column per process box", () => {

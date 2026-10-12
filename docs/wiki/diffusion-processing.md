@@ -52,6 +52,8 @@ TI-Toolbox runs QSIPrep 26.0.0 with defaults chosen from your data, so most user
 
 ### Distortion correction is mandatory
 
+Starting from DICOMs, put the main DWI series in `sourcedata/sub-<id>/dwi/dicom/` and its short reverse phase-encoding scan (e.g. PA) in `sourcedata/sub-<id>/fmap/dicom/`. DICOM conversion writes the second as `fmap/sub-<id>_dir-PA_epi.nii.gz` (the `dir-` label follows its phase encoding) with its JSON sidecar and an `IntendedFor` naming the DWI, which is what the check below picks up. Two full diffusion series with opposite phase encoding go in `dwi/dicom/` together and become `dwi/sub-<id>_dir-AP_dwi` and `dwi/sub-<id>_dir-PA_dwi`. See [the input layout]({{ site.baseurl }}/wiki/pre-processing/#bids-format-requirements).
+
 Before QSIPrep starts, TI-Toolbox looks at the subject's `fmap/` folder:
 
 - A **reverse phase-encoding fieldmap** (`fmap/*_epi` whose `acq` label says `dwi`/`dti`, or with no `acq` label and the DWI's matrix, or whose `IntendedFor` already names the DWI) with a `PhaseEncodingDirection` opposite to the DWI's is used with **TOPUP**. If its sidecar lacks `IntendedFor` or `TotalReadoutTime`, TI-Toolbox writes them into that fieldmap's own JSON (the readout time is derived from `EstimatedTotalReadoutTime` or `EffectiveEchoSpacing × (ReconMatrixPE − 1)`). Nothing else in your BIDS folder is touched, and a value that is already there is never overwritten.

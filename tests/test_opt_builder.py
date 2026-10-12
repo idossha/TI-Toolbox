@@ -468,9 +468,10 @@ class TestBuildOptimization:
         from tit.opt.flex.builder import build_optimization
 
         result = build_optimization(
-            _make_config(skin_visualization_net="/path/to/net.csv")
+            _make_config(skin_visualization_net="GSN-HydroCel-128.csv")
         )
-        assert result.skin_visualization_net_file == "/path/to/net.csv"
+        # The catalog name resolves in the subject's eeg_positions ("/eeg" here).
+        assert result.skin_visualization_net_file == "/eeg/GSN-HydroCel-128.csv"
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")

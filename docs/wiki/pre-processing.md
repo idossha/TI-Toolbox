@@ -49,10 +49,16 @@ project_root/
         │   └── *.zip|*.tar|*.tar.gz|*.tgz  # Optional T1w DICOM archives (extracted to extracted_archives/)
         ├── T2w/                # Optional, same layout
         ├── ct/                 # Optional CT (→ anat/sub-{id}_ct.nii.gz, a local non-BIDS extension)
-        └── dwi/                # Optional diffusion DICOMs (→ dwi/ with .bval/.bvec)
+        ├── dwi/                # Optional diffusion DICOMs (→ dwi/sub-{id}_dwi.nii.gz + .bval/.bvec/.json)
+        └── fmap/               # Optional short reverse phase-encoding scan for the DWI, e.g. PA
+                                #   (→ fmap/sub-{id}_dir-PA_epi.nii.gz + .json, + .bval/.bvec if written)
 ```
 
 Each modality folder is searched recursively, so DICOM files placed directly in `T1w/` also work; the `dicom/` subfolder is the recommended layout. Converted files are named `sub-{id}_T1w.nii.gz`, `sub-{id}_T2w.nii.gz`, etc.
+
+**Diffusion with a reverse phase-encoding scan.** Put the main DWI series (e.g. AP) in `dwi/dicom/` and the short reverse phase-encoding scan (b=0 volumes, or a few b=0 and b>0 volumes; e.g. PA) in `fmap/dicom/`. Conversion writes it as the BIDS "pepolar" fieldmap `fmap/sub-{id}_dir-PA_epi.nii.gz` that [QSIPrep documents](https://qsiprep.readthedocs.io/en/latest/usage.html#siemens-reverse-phase-encoded-field-maps) for this case, with its JSON sidecar and an `IntendedFor` naming the DWI (`"dwi/sub-{id}_dwi.nii.gz"`, relative to the subject folder, because QSIPrep does not read BIDS URIs there). The `dir-` label is the direction the phase encoding travels in the image (`AP`, `PA`, `LR`, `RL`, `SI` or `IS`), worked out from the sidecar's `PhaseEncodingDirection` and the image orientation; if either is missing, the file is left unnamed and the log says what to add. A fieldmap series that holds both polarities, such as GE's `epi_pepolar` sequence, is split by dcm2niix and each half is named by its own direction (`dir-AP` and `dir-PA`).
+
+If instead you acquired the full diffusion series twice with opposite phase encoding, put both in `dwi/dicom/`: they are written as `dwi/sub-{id}_dir-AP_dwi.nii.gz` and `dwi/sub-{id}_dir-PA_dwi.nii.gz`, which QSIPrep pairs for TOPUP. A short reverse phase-encoding scan does not belong in `dwi/`: QSIPrep would preprocess it as a diffusion run and combine it with the main one.
 
 ### Data Requirements
 

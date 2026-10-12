@@ -135,7 +135,12 @@ def build_optimization(config: FlexConfig):
     opt.visualize_valid_skin_region = True
     opt.skin_region_margin_mm = config.skin_region_margin_mm
     opt.avoid_landmark_regions = config.avoid_landmark_regions
-    opt.skin_visualization_net_file = config.skin_visualization_net
+    if config.skin_visualization_net:
+        opt.skin_visualization_net_file = str(
+            utils.eeg_net_csv_path(
+                pm.eeg_positions(config.subject_id), config.skin_visualization_net
+            )
+        )
 
     # Configure mapping
     if config.enable_mapping:
