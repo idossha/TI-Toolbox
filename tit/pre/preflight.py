@@ -11,7 +11,7 @@ from typing import Iterable, Sequence
 from tit import constants as const
 from tit.paths import get_path_manager
 
-from .dicom2nifti import MODALITIES
+from .dicom2nifti import MODALITIES, bids_name
 from .qsi.utils import (
     plan_distortion_correction,
     validate_bids_dwi,
@@ -358,8 +358,9 @@ def _dicom_outputs(project_dir: str, subject_id: str) -> list[PreprocessingOutpu
     outputs: list[PreprocessingOutput] = []
     for modality, datatype in MODALITIES:
         output_dir = Path(pm.bids_datatype(subject_id, datatype))
-        bids_name = f"sub-{subject_id}_{modality}"
-        cleanup_paths = _existing_bids_sidecars(output_dir, bids_name)
+        cleanup_paths = _existing_bids_sidecars(
+            output_dir, bids_name(subject_id, modality)
+        )
         if cleanup_paths:
             outputs.append(
                 PreprocessingOutput(

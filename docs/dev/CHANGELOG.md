@@ -9,7 +9,9 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
-Nothing yet.
+#### Fixed
+
+- **A reverse phase-encoding DWI scan is converted for QSIPrep's distortion correction** — DICOM conversion now also reads `sourcedata/sub-<id>/fmap/` (a `dicom/` subfolder works, as for the other modalities) and writes the series there as `fmap/sub-<id>_acq-dwi_epi.nii.gz` with its JSON sidecar, which QSIPrep then uses with TOPUP; before, that folder was ignored and no `fmap/` was created. Put the main DWI (e.g. AP) in `dwi/dicom/` and the short reverse-PE b=0 series (e.g. PA) in `fmap/dicom/` — not both in `dwi/`, where `dcm2niix` names the second one `sub-<id>_dwia` and nothing uses it; conversion now says so when it happens. New subjects get an empty `sourcedata/sub-<id>/fmap/dicom/` beside the other drop folders. Subjects you already converted, and fieldmaps you placed in `sub-<id>/fmap/` by hand, are used as before. **Pre-processing ▸ Convert DICOM to NIfTI**.
 
 ### v3.1.0 — October 9, 2026 (Latest Release)
 

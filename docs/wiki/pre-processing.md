@@ -49,10 +49,14 @@ project_root/
         │   └── *.zip|*.tar|*.tar.gz|*.tgz  # Optional T1w DICOM archives (extracted to extracted_archives/)
         ├── T2w/                # Optional, same layout
         ├── ct/                 # Optional CT (→ anat/sub-{id}_ct.nii.gz, a local non-BIDS extension)
-        └── dwi/                # Optional diffusion DICOMs (→ dwi/ with .bval/.bvec)
+        ├── dwi/                # Optional diffusion DICOMs, one series (→ dwi/ with .bval/.bvec)
+        └── fmap/               # Optional reverse phase-encoding b=0 series for the DWI, e.g. PA
+                                #   (→ fmap/sub-{id}_acq-dwi_epi.nii.gz, used by QSIPrep's TOPUP)
 ```
 
 Each modality folder is searched recursively, so DICOM files placed directly in `T1w/` also work; the `dicom/` subfolder is the recommended layout. Converted files are named `sub-{id}_T1w.nii.gz`, `sub-{id}_T2w.nii.gz`, etc.
+
+**Diffusion with a reverse phase-encoding scan.** Put the main DWI series (e.g. AP) in `dwi/dicom/` and the short reverse phase-encoding series (e.g. PA) in `fmap/dicom/`. Do not put both in `dwi/`: each folder becomes one file, and `dcm2niix` names a second series `sub-{id}_dwia`, which is not a BIDS name and is not used. You do not need to write `IntendedFor` yourself; QSIPrep's step adds it to the fieldmap's sidecar (see [Diffusion (DTI) processing]({{ site.baseurl }}/wiki/diffusion-processing/#distortion-correction-is-mandatory)).
 
 ### Data Requirements
 

@@ -1,6 +1,7 @@
 """Tests for tit.pre.dicom2nifti — source-image ingestion to BIDS NIfTI."""
 
 import gzip
+import json
 import os
 import tarfile
 import zipfile
@@ -563,7 +564,7 @@ class TestRunDicomToNifti:
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._ingest_modality")
     def test_converts_every_present_modality(self, mock_ingest, mock_gpm, tmp_path):
-        """T1w, T2w, ct and dwi are all ingested when present."""
+        """T1w, T2w, ct, dwi and fmap are all ingested when present."""
         sourcedata = tmp_path / "sourcedata" / "sub-001"
         for modality, _ in MODALITIES:
             (sourcedata / modality).mkdir(parents=True)
@@ -577,6 +578,7 @@ class TestRunDicomToNifti:
             "T2w",
             "ct",
             "dwi",
+            "fmap",
         ]
 
     @patch(f"{MODULE}.get_path_manager")
@@ -620,3 +622,84 @@ class TestRunDicomToNifti:
         run_dicom_to_nifti("/proj", "001", logger=logger)
 
         logger.warning.assert_called_once()
+
+
+class TestReversePhaseEncodingFieldmap:
+    """The reverse-PE b=0 series QSIPrep's TOPUP needs comes from sourcedata fmap/.
+
+    A user report (v3.1.0): AP DWI DICOMs in ``sourcedata/sub-X/dwi/dicom`` and the
+    PA series in ``sourcedata/sub-X/fmap/dicom`` -- the fmap folder was never
+    converted, and putting both in dwi/ left the PA as dcm2niix's collision name
+    ``sub-X_dwia``, which nothing downstream reads. dcm2niix is faked: it writes
+    what it would for each series (the expected values are what this fake wrote,
+    then read back by the QSIPrep planner, which is not the writer).
+    """
+
+    @staticmethod
+    def _fake_dcm2niix(write_dwi):
+        def run(cmd, logger=None):
+            name = cmd[cmd.index("-f") + 1]
+            out_dir = Path(cmd[cmd.index("-o") + 1])
+            if out_dir.name == "dwi":
+                write_dwi(out_dir, stem=name)  # AP: PhaseEncodingDirection j-
+            else:
+                write_dwi(
+                    out_dir,
+                    stem=name,
+                    n_directions=0,
+                    n_b0=2,
+                    sidecar={"PhaseEncodingDirection": "j", "TotalReadoutTime": 0.05},
+                )
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = run
+        return runner
+
+    def test_fmap_source_folder_becomes_the_fieldmap_qsiprep_uses(
+        self, tmp_path, write_dwi
+    ):
+        from tit.pre.qsi.utils import plan_distortion_correction
+
+        source = tmp_path / "sourcedata" / "sub-001"
+        for folder in ("dwi", "fmap"):
+            (source / folder / "dicom").mkdir(parents=True)
+            (source / folder / "dicom" / "IM0001.dcm").touch()
+
+        run_dicom_to_nifti(
+            str(tmp_path),
+            "001",
+            logger=MagicMock(),
+            runner=self._fake_dcm2niix(write_dwi),
+        )
+
+        fmap_dir = tmp_path / "sub-001" / "fmap"
+        assert (fmap_dir / "sub-001_acq-dwi_epi.nii.gz").is_file()
+        plan = plan_distortion_correction(str(tmp_path), "001", logger=MagicMock())
+        assert plan.mode == "fieldmap", plan.problems
+        assert [p.name for p in plan.fieldmaps] == ["sub-001_acq-dwi_epi.nii.gz"]
+        sidecar = json.loads((fmap_dir / "sub-001_acq-dwi_epi.json").read_text())
+        assert sidecar["IntendedFor"] == ["dwi/sub-001_dwi.nii.gz"]
+
+    def test_second_dwi_series_points_at_the_fmap_folder(self, tmp_path):
+        """dcm2niix names a second series in dwi/ sub-001_dwia; say where it goes."""
+        modality_dir = tmp_path / "dwi"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        out_dir = tmp_path / "out"
+        logger = MagicMock()
+
+        def fake_run(cmd, logger=None):
+            out_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("sub-001_dwi", "sub-001_dwia"):
+                for ext in (".nii.gz", ".json", ".bval", ".bvec"):
+                    (out_dir / f"{name}{ext}").touch()
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = fake_run
+
+        assert _ingest_modality(modality_dir, out_dir, "001", "dwi", logger, runner)
+        warning = str(logger.warning.call_args_list)
+        assert "sub-001_dwia.nii.gz" in warning
+        assert "sourcedata/sub-001/fmap/" in warning

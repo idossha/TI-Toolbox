@@ -12,6 +12,8 @@ run_dicom_to_nifti
     Ingest every supported modality for a subject.
 MODALITIES
     Supported modalities and their BIDS datatype directories.
+bids_name
+    The BIDS file stem a modality is written under.
 
 See Also
 --------
@@ -52,7 +54,19 @@ MODALITIES: tuple[tuple[str, str], ...] = (
     ("T2w", "anat"),
     ("ct", "anat"),
     ("dwi", "dwi"),
+    ("fmap", "fmap"),
 )
+
+# BIDS suffix where it is not the source folder's name. ``fmap`` holds the DWI's
+# reverse phase-encoding (e.g. PA) b=0 series that QSIPrep's TOPUP needs; the
+# ``acq-dwi`` label is what tit.pre.qsi.utils.plan_distortion_correction takes
+# as a DWI fieldmap, and it writes the ``IntendedFor`` the sidecar lacks.
+_BIDS_SUFFIX = {"fmap": "acq-dwi_epi"}
+
+
+def bids_name(subject_id: str, modality: str) -> str:
+    """Return the BIDS file stem *modality* is written under, e.g. ``sub-01_T1w``."""
+    return f"sub-{subject_id}_{_BIDS_SUFFIX.get(modality, modality)}"
 
 
 def _has_suffix(name: str, suffixes: tuple[str, ...]) -> bool:
@@ -332,6 +346,15 @@ def _check_dcm2niix_outputs(
     # above. Left alone this surfaces an hour into QSIPrep as a DSI Studio
     # "cannot find bval/bvec file".
     if modality == "dwi":
+        if extra:
+            subject = bids_name.split("_")[0]
+            logger.warning(
+                f"A second DWI series is not used as one. If it is the reverse "
+                f"phase-encoding (e.g. PA) b=0 series for distortion correction, "
+                f"put its DICOMs in sourcedata/{subject}/fmap/ instead of dwi/, "
+                f"remove the {bids_name}* files and convert again: it is then "
+                f"written as fmap/{subject}_acq-dwi_epi.nii.gz for QSIPrep."
+            )
         missing = [
             suffix
             for suffix in (".bval", ".bvec")
@@ -404,27 +427,25 @@ def _ingest_modality(
     DICOMs win when both are present: they carry the metadata dcm2niix needs
     to write a full sidecar, so a stray NIfTI never shadows the real series.
     """
-    bids_name = f"sub-{subject_id}_{modality}"
+    name = bids_name(subject_id, modality)
 
     _extract_archives(modality_dir, logger)
 
     dicom_files = _find_files(modality_dir, _DICOM_SUFFIXES)
     if dicom_files:
         logger.info(f"Found {len(dicom_files)} DICOM file(s) under {modality_dir}")
-        _reject_existing_output(output_dir, bids_name)
-        return _run_dcm2niix(
-            modality_dir, output_dir, bids_name, modality, logger, runner
-        )
+        _reject_existing_output(output_dir, name)
+        return _run_dcm2niix(modality_dir, output_dir, name, modality, logger, runner)
 
     nifti_files = _find_files(modality_dir, _NIFTI_SUFFIXES)
     if nifti_files:
-        _reject_existing_output(output_dir, bids_name)
+        _reject_existing_output(output_dir, name)
         if len(nifti_files) > 1:
             logger.warning(
                 f"Found {len(nifti_files)} NIfTI files under {modality_dir}; "
                 f"using {nifti_files[0].name} and ignoring the rest."
             )
-        return _copy_nifti(nifti_files[0], output_dir, bids_name, modality, logger)
+        return _copy_nifti(nifti_files[0], output_dir, name, modality, logger)
 
     logger.info(
         f"No DICOM (.dcm/.dicom) or NIfTI (.nii/.nii.gz) files found under "
@@ -442,11 +463,12 @@ def run_dicom_to_nifti(
 ) -> None:
     """Ingest a subject's source images into BIDS-named NIfTI files.
 
-    Looks for a ``T1w``, ``T2w``, ``ct``, and ``dwi`` folder under
+    Looks for a ``T1w``, ``T2w``, ``ct``, ``dwi`` and ``fmap`` folder under
     ``sourcedata/sub-{subject_id}/`` (folder names are matched
     case-insensitively) and ingests each one that exists. Anatomical images
     and CT go to the subject's ``anat/`` folder, diffusion images to ``dwi/``
-    (with their ``.bval``/``.bvec`` sidecars).
+    (with their ``.bval``/``.bvec`` sidecars), and the DWI's reverse
+    phase-encoding b=0 series to ``fmap/sub-{id}_acq-dwi_epi.nii.gz``.
 
     Each modality folder is searched recursively. Supported archives
     (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``) are safely extracted to

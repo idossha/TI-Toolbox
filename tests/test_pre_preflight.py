@@ -131,6 +131,20 @@ def test_dicom_output_detects_dwi_with_bval_bvec(tmp_path):
     assert set(outputs[0].paths_to_remove) == {nifti, bval, bvec}
 
 
+def test_dicom_output_detects_dwi_fieldmap(tmp_path):
+    """A converted sourcedata fmap/ series is a DICOM output, so a rerun can clear it."""
+    fmap_dir = tmp_path / "sub-001" / "fmap"
+    fmap_dir.mkdir(parents=True)
+    nifti = fmap_dir / "sub-001_acq-dwi_epi.nii.gz"
+    sidecar = fmap_dir / "sub-001_acq-dwi_epi.json"
+    for path in (nifti, sidecar):
+        path.touch()
+
+    outputs = existing_outputs_for_step(str(tmp_path), "001", STEP_DICOM)
+
+    assert [set(o.paths_to_remove) for o in outputs] == [{nifti, sidecar}]
+
+
 def test_missing_outputs_are_ignored(tmp_path):
     outputs = find_existing_preprocessing_outputs(
         str(tmp_path),
