@@ -224,6 +224,21 @@ def test_flex_mapping_net_and_atlas_paths(project: Path) -> None:
     assert missing_paths(found) == ["/a.mgz", "/b.mgz"]
 
 
+def test_flex_skin_visualization_net_is_a_name_in_eeg_positions(project: Path) -> None:
+    """The Optimizer's "Visualization EEG net" dropdown sends the catalog's bare CSV name.
+
+    Regression (v3.1.0 user report): ``Path(name).is_file()`` resolved that name against
+    the server's working directory, so every net picked from the list was refused with
+    "Pick an existing net CSV", on every host OS.
+    """
+    pm = get_path_manager()
+    cfg = {"subject_id": SID, "skin_visualization_net": NET}
+    assert preflight("flex", cfg, str(project)) == []
+    cfg["skin_visualization_net"] = "EGI256.csv"
+    found = preflight("flex", cfg, str(project))
+    assert missing_paths(found) == [str(Path(pm.eeg_positions(SID)) / "EGI256.csv")]
+
+
 def test_ex_and_mex_leadfield_and_roi_csvs(project: Path) -> None:
     pm = get_path_manager()
     touch(Path(pm.leadfields(SID)) / "lf.hdf5")

@@ -117,6 +117,16 @@ manifest. The preview fell back to reference anatomy, whose packaged nets are li
 **Fix:** pull the rebuilt internal image and restart it, or refresh the updated development app.
 Subject nets are read from the existing head model; regenerating the model is unnecessary.
 
+### Optimizer refuses the skin-visualization EEG net (v3.1.0 and earlier)
+
+**Symptom:** with **Plot EEG net electrodes** ticked and a net such as `GSN-HydroCel-128.csv`
+chosen under **Visualization EEG net**, flex-search answers *"Could not queue the search. Missing
+inputs: Skin visualization EEG net … Pick an existing net CSV, or leave skin_visualization_net
+unset."* The net exists; the check looked for the bare file name in the server's working folder
+instead of the subject's `eeg_positions`. It happens on every operating system.
+**Fix:** update TI-Toolbox (app and image). Until then, untick **Plot EEG net electrodes**: the
+search and the valid-skin-region figure still run, only without the net's electrodes drawn on it.
+
 ### Viewer fails only for some mixed mesh/volume selections
 
 **Cause:** a solid mesh's saved `field: null` value reached controls expecting an absent field.

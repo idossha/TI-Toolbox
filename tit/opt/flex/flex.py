@@ -129,7 +129,12 @@ def _validate_flex_inputs(config: FlexConfig) -> None:
             "mapped EEG net",
         )
     if config.skin_visualization_net:
-        _require_file(Path(config.skin_visualization_net), "skin visualization EEG net")
+        _require_file(
+            utils.eeg_net_csv_path(
+                pm.eeg_positions(config.subject_id), config.skin_visualization_net
+            ),
+            "skin visualization EEG net",
+        )
     if config.avoid_landmark_regions and config.skin_region_margin_mm > 0:
         _require_file(
             Path(pm.eeg_positions(config.subject_id)) / "Fiducials.csv",

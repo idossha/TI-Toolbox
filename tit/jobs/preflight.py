@@ -234,28 +234,21 @@ def _check_flex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
     missing = _head_model(pm, sid)
     if missing:
         return missing  # everything else lives under the head model
-    if config.get("enable_mapping") and isinstance(config.get("eeg_net"), str):
-        # tit.opt.flex.utils.eeg_net_csv_path's rule (not imported: tit.opt pulls SimNIBS in
-        # at import time): the base name, with ".csv" appended when absent.
-        filename = Path(config["eeg_net"]).name
-        if filename and Path(filename).suffix.lower() != ".csv":
+    # Both nets are names in the subject's eeg_positions, resolved by
+    # tit.opt.flex.utils.eeg_net_csv_path's rule (not imported: tit.opt pulls SimNIBS in
+    # at import time): the base name, with ".csv" appended when absent.
+    nets = [("skin visualization EEG net", config.get("skin_visualization_net"))]
+    if config.get("enable_mapping"):
+        nets.insert(0, ("mapped EEG net", config.get("eeg_net")))
+    for what, net in nets:
+        if not isinstance(net, str) or not Path(net).name:
+            continue
+        filename = Path(net).name
+        if Path(filename).suffix.lower() != ".csv":
             filename = f"{filename}.csv"
         csv_path = Path(pm.eeg_positions(sid)) / filename
         if not csv_path.is_file():
-            missing.append(
-                _eeg_net_missing(
-                    pm, sid, csv_path, f"mapped EEG net {config['eeg_net']!r}"
-                )
-            )
-    skin_net = config.get("skin_visualization_net")
-    if isinstance(skin_net, str) and skin_net and not Path(skin_net).is_file():
-        missing.append(
-            MissingInput(
-                "skin visualization EEG net",
-                skin_net,
-                "Pick an existing net CSV, or leave skin_visualization_net unset.",
-            )
-        )
+            missing.append(_eeg_net_missing(pm, sid, csv_path, f"{what} {net!r}"))
     if (
         config.get("avoid_landmark_regions", True)
         and (config.get("skin_region_margin_mm") or 0) > 0
