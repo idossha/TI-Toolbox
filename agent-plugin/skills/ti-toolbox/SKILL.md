@@ -117,8 +117,11 @@ Simulator is not an optimiser; say so when a user treats it as one.
 
 ```
 <project>/
-  sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/  raw DICOM/NIfTI for convert_dicom
+  sourcedata/sub-<id>/<T1w|T2w|ct|dwi|fmap>/  raw DICOM/NIfTI for convert_dicom
+                                       (fmap: the DWI's short reverse phase-encoding scan, e.g. PA;
+                                       two full opposite-PE DWI series both go in dwi)
   sub-<id>/anat/sub-<id>_T1w.nii.gz      raw NIfTI (+T2w, ct)
+  sub-<id>/fmap/sub-<id>_dir-PA_epi.nii.gz  reverse-PE DWI fieldmap (dir- from the data)
   code/ti-toolbox/
     config/*.json                        montage_list.json, EEG nets, settings
     jobs/<id>/{spec,status}.json, events.jsonl, stdout.log     the v3 job store

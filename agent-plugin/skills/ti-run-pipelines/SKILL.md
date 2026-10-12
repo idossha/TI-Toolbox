@@ -101,7 +101,8 @@ user's permission) into the project folder `connect` returned (`project.host_pat
 
 ```text
 connect                                               # approval_required: true; project.host_path
-copy the scans into <host_path>/sourcedata/sub-101/<T1w|T2w|ct|dwi>/   # your own file tools
+copy the scans into <host_path>/sourcedata/sub-101/<T1w|T2w|ct|dwi|fmap>/   # your own file tools;
+                                                      # fmap = the DWI's short reverse-PE scan (e.g. PA)
 propose_pipeline(title="Head model for sub-101", rationale="...",
   steps=[{"id": "pre", "kind": "pre", "subject_ids": ["101"], "config": {}}])
 watch_proposal(proposal_id=...)                       # last call of the turn; wakes you on changes

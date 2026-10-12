@@ -1138,8 +1138,9 @@ handle = stdio_loop.handler(
     "as the last call of the turn (it runs in the background and returns on the next change; "
     "never keep the user waiting on it). If the request leaves the subject, target, what to "
     "run or the goal open, ask before proposing. Raw scans: copy them yourself into "
-    "<connect's project.host_path>/sourcedata/sub-<id>/<T1w|T2w|ct|dwi>/ (never move or "
-    "overwrite), then propose a pre step. Targets: find_regions, never invented atlas paths or labels. Plan before "
+    "<connect's project.host_path>/sourcedata/sub-<id>/<T1w|T2w|ct|dwi|fmap>/ (fmap: the "
+    "DWI's short reverse phase-encoding scan, e.g. PA; never move or overwrite), then propose "
+    "a pre step. Targets: find_regions, never invented atlas paths or labels. Plan before "
     "proposing or submitting; never resubmit a rejected plan unchanged.",
     TOOLS,
     on_initialize=_on_initialize,

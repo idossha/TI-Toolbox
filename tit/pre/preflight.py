@@ -11,7 +11,7 @@ from typing import Iterable, Sequence
 from tit import constants as const
 from tit.paths import get_path_manager
 
-from .dicom2nifti import MODALITIES, bids_name
+from .dicom2nifti import MODALITIES, bids_outputs
 from .qsi.utils import (
     plan_distortion_correction,
     validate_bids_dwi,
@@ -342,25 +342,12 @@ def missing_freesurfer_license(
     ]
 
 
-def _existing_bids_sidecars(output_dir: Path, bids_name: str) -> tuple[Path, ...]:
-    paths = (
-        output_dir / f"{bids_name}.nii.gz",
-        output_dir / f"{bids_name}.nii",
-        output_dir / f"{bids_name}.json",
-        output_dir / f"{bids_name}.bval",
-        output_dir / f"{bids_name}.bvec",
-    )
-    return tuple(path for path in paths if path.exists())
-
-
 def _dicom_outputs(project_dir: str, subject_id: str) -> list[PreprocessingOutput]:
     pm = get_path_manager(project_dir)
     outputs: list[PreprocessingOutput] = []
     for modality, datatype in MODALITIES:
         output_dir = Path(pm.bids_datatype(subject_id, datatype))
-        cleanup_paths = _existing_bids_sidecars(
-            output_dir, bids_name(subject_id, modality)
-        )
+        cleanup_paths = tuple(bids_outputs(output_dir, subject_id, modality))
         if cleanup_paths:
             outputs.append(
                 PreprocessingOutput(

@@ -52,7 +52,7 @@ TI-Toolbox runs QSIPrep 26.0.0 with defaults chosen from your data, so most user
 
 ### Distortion correction is mandatory
 
-Starting from DICOMs, put the main DWI series in `sourcedata/sub-<id>/dwi/dicom/` and its reverse phase-encoding b=0 series (e.g. PA) in `sourcedata/sub-<id>/fmap/dicom/`. DICOM conversion writes the second as `fmap/sub-<id>_acq-dwi_epi.nii.gz` with its JSON sidecar, which is what the check below picks up.
+Starting from DICOMs, put the main DWI series in `sourcedata/sub-<id>/dwi/dicom/` and its short reverse phase-encoding scan (e.g. PA) in `sourcedata/sub-<id>/fmap/dicom/`. DICOM conversion writes the second as `fmap/sub-<id>_dir-PA_epi.nii.gz` (the `dir-` label follows its phase encoding) with its JSON sidecar and an `IntendedFor` naming the DWI, which is what the check below picks up. Two full diffusion series with opposite phase encoding go in `dwi/dicom/` together and become `dwi/sub-<id>_dir-AP_dwi` and `dwi/sub-<id>_dir-PA_dwi`. See [the input layout]({{ site.baseurl }}/wiki/pre-processing/#bids-format-requirements).
 
 Before QSIPrep starts, TI-Toolbox looks at the subject's `fmap/` folder:
 

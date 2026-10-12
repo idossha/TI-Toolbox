@@ -246,6 +246,14 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   synthetic phantom (DIPY fit leg skips without `dipy`). `tests/numerical/test_dti_real.py` runs the
   whole DTI step on CHN when `TIT_DTI_REAL` names a Dataset-000-shaped root (read only; outputs go
   to a scratch project) and compares V1 with the prototype tensor at `TIT_DTI_PROTO` if set.
+- `tests/numerical/test_bids_fieldmap_tools.py` hands the DWI/fieldmap tree DICOM conversion writes
+  to readers that are not ours: sdcflows `find_estimators` (PEPOLAR estimator), QSIPrep 26.0.0's
+  `collect_data` + `group_by_warpspace` (fmap `_epi` assigned; `dir-AP`/`dir-PA` DWI paired) and,
+  when `TIT_BIDS_VALIDATOR` holds its command (`deno run -A jsr:@bids/validator`; it downloads), the
+  BIDS validator (no errors). None of them is in the image, so each leg skips with its reason; the
+  module docstring has the scratch-venv recipe. The BIDS file names and sidecar keys themselves are
+  pinned from the spec text in `tests/test_pre_dicom.py::TestReversePhaseEncodingFieldmap`, because
+  the validator does not enforce the `_epi` `dir-` requirement.
 - `tests/numerical/test_fsaverage_msh.py` pins the fsaverage projection `.msh` against real SimNIBS
   (subprocess; skips without it, so run it with `simnibs_python`): the morph's output index is the
   template vertex index, lh-then-rh layout, the vendored `resources/fsaverage` equals the template, the

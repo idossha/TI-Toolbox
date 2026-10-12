@@ -12,8 +12,10 @@ run_dicom_to_nifti
     Ingest every supported modality for a subject.
 MODALITIES
     Supported modalities and their BIDS datatype directories.
-bids_name
-    The BIDS file stem a modality is written under.
+bids_outputs
+    The files a conversion of one modality wrote.
+pe_direction_label
+    The BIDS ``dir-`` label of a phase-encoding direction in a NIfTI.
 
 See Also
 --------
@@ -21,8 +23,10 @@ tit.pre.structural.run_pipeline : Full preprocessing pipeline.
 """
 
 import gzip
+import json
 import os
 import shutil
+import struct
 import subprocess
 import tarfile
 import zipfile
@@ -36,6 +40,7 @@ _ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
 _DICOM_SUFFIXES = (".dcm", ".dicom")
 _NIFTI_SUFFIXES = (".nii.gz", ".nii")
 _SIDECAR_SUFFIXES = (".json", ".bval", ".bvec")
+_SERIES_SUFFIXES = _NIFTI_SUFFIXES + _SIDECAR_SUFFIXES
 _EXTRACTED_ARCHIVES_DIR = "extracted_archives"
 
 # Source folder name (also the BIDS suffix) -> BIDS datatype directory.
@@ -58,15 +63,107 @@ MODALITIES: tuple[tuple[str, str], ...] = (
 )
 
 # BIDS suffix where it is not the source folder's name. ``fmap`` holds the DWI's
-# reverse phase-encoding (e.g. PA) b=0 series that QSIPrep's TOPUP needs; the
-# ``acq-dwi`` label is what tit.pre.qsi.utils.plan_distortion_correction takes
-# as a DWI fieldmap, and it writes the ``IntendedFor`` the sidecar lacks.
-_BIDS_SUFFIX = {"fmap": "acq-dwi_epi"}
+# reverse phase-encoding (e.g. PA) series: a BIDS "pepolar" fieldmap, written as
+# fmap/sub-{id}_dir-{label}_epi -- the layout QSIPrep documents for it. BIDS makes
+# ``dir-`` REQUIRED for ``_epi`` files, so the label is derived from the data
+# (pe_direction_label) and the series is converted under ``sub-{id}_epi`` first.
+_BIDS_SUFFIX = {"fmap": "epi"}
+
+# RAS+ world axis -> ``dir-`` label for phase encoding travelling toward its
+# negative / positive end (BIDS: "dir-PA ... in RAS+ orientation SHOULD have
+# PhaseEncodingDirection j").
+_DIR_LABELS = (("RL", "LR"), ("AP", "PA"), ("SI", "IS"))
 
 
-def bids_name(subject_id: str, modality: str) -> str:
-    """Return the BIDS file stem *modality* is written under, e.g. ``sub-01_T1w``."""
+def _bids_name(subject_id: str, modality: str) -> str:
+    """The stem *modality* is converted under, e.g. ``sub-01_T1w``."""
     return f"sub-{subject_id}_{_BIDS_SUFFIX.get(modality, modality)}"
+
+
+def bids_outputs(output_dir: Path, subject_id: str, modality: str) -> list[Path]:
+    """Files a conversion of *modality* wrote into *output_dir*.
+
+    ``sub-{id}_{suffix}`` and ``sub-{id}_dir-{label}_{suffix}`` with their
+    sidecars, NIfTIs first.
+    """
+    suffix = _BIDS_SUFFIX.get(modality, modality)
+    stems = (f"sub-{subject_id}_{suffix}", f"sub-{subject_id}_dir-*_{suffix}")
+    return [
+        path
+        for extension in _SERIES_SUFFIXES
+        for stem in stems
+        for path in sorted(Path(output_dir).glob(f"{stem}{extension}"))
+    ]
+
+
+def _sform_column(nifti: Path, axis: int) -> tuple[float, float, float] | None:
+    """World (RAS+) vector of voxel *axis* from a NIfTI-1 sform, or ``None``.
+
+    Read from the raw header: nibabel is not needed for three rows of floats.
+    """
+    # ponytail: sform only (dcm2niix always writes one); a qform-only or NIfTI-2
+    # file gets no label and the user is told to name it. Add the qform when one turns up.
+    try:
+        opener = gzip.open if nifti.name.lower().endswith(".gz") else open
+        with opener(nifti, "rb") as handle:  # type: ignore[operator]
+            header = handle.read(348)
+    except (OSError, EOFError, gzip.BadGzipFile):
+        return None
+    if len(header) < 348:
+        return None
+    for endian in "<>":
+        if struct.unpack(endian + "i", header[:4])[0] == 348:
+            break
+    else:
+        return None
+    if struct.unpack(endian + "h", header[254:256])[0] <= 0:  # sform_code
+        return None
+    rows = [
+        struct.unpack(endian + "4f", header[at : at + 16]) for at in (280, 296, 312)
+    ]
+    return rows[0][axis], rows[1][axis], rows[2][axis]
+
+
+def pe_direction_label(nifti: Path, phase_encoding_direction) -> str | None:
+    """BIDS ``dir-`` label (AP, PA, LR, RL, SI, IS) for a phase-encoding direction.
+
+    ``PhaseEncodingDirection`` names a voxel axis of *nifti* and travels from index
+    0 to the last index unless it ends in ``-``. The label is the world direction
+    of that travel, taken from the NIfTI's sform and rounded to the closest
+    cardinal axis, as BIDS asks of ``AP``/``PA``-style labels. ``None`` when the
+    direction or the sform is missing -- a label is never guessed.
+    """
+    if phase_encoding_direction not in ("i", "i-", "j", "j-", "k", "k-"):
+        return None
+    column = _sform_column(nifti, "ijk".index(phase_encoding_direction[0]))
+    if column is None or not any(column):
+        return None
+    sign = -1.0 if phase_encoding_direction.endswith("-") else 1.0
+    world = [sign * value for value in column]
+    dominant = max(range(3), key=lambda index: abs(world[index]))
+    return _DIR_LABELS[dominant][world[dominant] > 0]
+
+
+def _series_label(output_dir: Path, stem: str) -> str | None:
+    """``dir-`` label of the converted series *stem*, from its sidecar and sform."""
+    try:
+        meta = json.loads((output_dir / f"{stem}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(meta, dict):
+        return None
+    for suffix in _NIFTI_SUFFIXES:
+        nifti = output_dir / f"{stem}{suffix}"
+        if nifti.exists():
+            return pe_direction_label(nifti, meta.get("PhaseEncodingDirection"))
+    return None
+
+
+def _rename_series(output_dir: Path, old_stem: str, new_stem: str) -> None:
+    for suffix in _SERIES_SUFFIXES:
+        source = output_dir / f"{old_stem}{suffix}"
+        if source.exists():
+            source.rename(output_dir / f"{new_stem}{suffix}")
 
 
 def _has_suffix(name: str, suffixes: tuple[str, ...]) -> bool:
@@ -256,11 +353,12 @@ def _copy_sidecars(
 ) -> None:
     """Copy the sidecars sitting beside *source* under the BIDS name.
 
-    ``.bval``/``.bvec`` only travel with a diffusion series -- they are what
-    make a copied DWI usable, since QSIPrep rejects one without them, but they
+    ``.bval``/``.bvec`` only travel with a diffusion series or a DWI fieldmap --
+    they are what make a copied DWI usable, since QSIPrep rejects one without
+    them, and BIDS lets an ``_epi`` fieldmap for a DWI carry them -- but they
     are not valid BIDS beside an anatomical image.
     """
-    suffixes = _SIDECAR_SUFFIXES if modality == "dwi" else (".json",)
+    suffixes = _SIDECAR_SUFFIXES if modality in ("dwi", "fmap") else (".json",)
     stem = _nifti_stem(source)
     for suffix in suffixes:
         sidecar = source.with_name(f"{stem}{suffix}")
@@ -299,17 +397,17 @@ def _copy_nifti(
     return True
 
 
-def _reject_existing_output(output_dir: Path, bids_name: str) -> None:
-    """Raise if *bids_name* has already been ingested.
+def _reject_existing_output(output_dir: Path, subject_id: str, modality: str) -> None:
+    """Raise if *modality* has already been ingested.
 
     Both extensions are checked: we always write ``.nii.gz``, but a
     hand-placed ``.nii`` counts too, and leaving it would make the subject
-    carry the same BIDS entity twice.
+    carry the same BIDS entity twice. ``dir-`` variants count as well.
     """
-    for suffix in _NIFTI_SUFFIXES:
-        if (output_dir / f"{bids_name}{suffix}").exists():
+    for path in bids_outputs(output_dir, subject_id, modality):
+        if _has_suffix(path.name, _NIFTI_SUFFIXES):
             raise PreprocessError(
-                f"Output already exists for {bids_name}{suffix}. "
+                f"Output already exists for {path.name}. "
                 "Remove the files manually before rerunning."
             )
 
@@ -331,6 +429,18 @@ def _check_dcm2niix_outputs(
     # derived volume (_Tilt_1 for gantry tilt, _Eq_1 for resliced). None are
     # BIDS names, so every downstream step ignores them.
     extra = [name for name in produced if not name.startswith(f"{bids_name}.")]
+    if modality == "dwi":
+        # Further diffusion series (they have a gradient table) are named or
+        # reported by _name_dwi_series.
+        extra = [
+            name
+            for name in extra
+            if not any(
+                (output_dir / f"{name[: -len(suffix)]}.bval").exists()
+                for suffix in _SERIES_SUFFIXES
+                if name.endswith(suffix)
+            )
+        ]
     if extra:
         logger.warning(
             f"dcm2niix wrote files beyond {expected}: {', '.join(extra)}. These "
@@ -346,15 +456,6 @@ def _check_dcm2niix_outputs(
     # above. Left alone this surfaces an hour into QSIPrep as a DSI Studio
     # "cannot find bval/bvec file".
     if modality == "dwi":
-        if extra:
-            subject = bids_name.split("_")[0]
-            logger.warning(
-                f"A second DWI series is not used as one. If it is the reverse "
-                f"phase-encoding (e.g. PA) b=0 series for distortion correction, "
-                f"put its DICOMs in sourcedata/{subject}/fmap/ instead of dwi/, "
-                f"remove the {bids_name}* files and convert again: it is then "
-                f"written as fmap/{subject}_acq-dwi_epi.nii.gz for QSIPrep."
-            )
         missing = [
             suffix
             for suffix in (".bval", ".bvec")
@@ -427,31 +528,121 @@ def _ingest_modality(
     DICOMs win when both are present: they carry the metadata dcm2niix needs
     to write a full sidecar, so a stray NIfTI never shadows the real series.
     """
-    name = bids_name(subject_id, modality)
+    name = _bids_name(subject_id, modality)
 
     _extract_archives(modality_dir, logger)
 
     dicom_files = _find_files(modality_dir, _DICOM_SUFFIXES)
+    nifti_files = _find_files(modality_dir, _NIFTI_SUFFIXES)
     if dicom_files:
         logger.info(f"Found {len(dicom_files)} DICOM file(s) under {modality_dir}")
-        _reject_existing_output(output_dir, name)
-        return _run_dcm2niix(modality_dir, output_dir, name, modality, logger, runner)
-
-    nifti_files = _find_files(modality_dir, _NIFTI_SUFFIXES)
-    if nifti_files:
-        _reject_existing_output(output_dir, name)
+        _reject_existing_output(output_dir, subject_id, modality)
+        converted = _run_dcm2niix(
+            modality_dir, output_dir, name, modality, logger, runner
+        )
+    elif nifti_files:
+        _reject_existing_output(output_dir, subject_id, modality)
         if len(nifti_files) > 1:
             logger.warning(
                 f"Found {len(nifti_files)} NIfTI files under {modality_dir}; "
                 f"using {nifti_files[0].name} and ignoring the rest."
             )
-        return _copy_nifti(nifti_files[0], output_dir, name, modality, logger)
+        converted = _copy_nifti(nifti_files[0], output_dir, name, modality, logger)
+    else:
+        logger.info(
+            f"No DICOM (.dcm/.dicom) or NIfTI (.nii/.nii.gz) files found under "
+            f"{modality_dir}; skipping {modality}"
+        )
+        return False
 
-    logger.info(
-        f"No DICOM (.dcm/.dicom) or NIfTI (.nii/.nii.gz) files found under "
-        f"{modality_dir}; skipping {modality}"
+    if converted and modality == "fmap":
+        return _name_fieldmap(output_dir, subject_id, logger)
+    if converted and modality == "dwi":
+        _name_dwi_series(output_dir, subject_id, logger)
+    return converted
+
+
+def _name_fieldmap(output_dir: Path, subject_id: str, logger) -> bool:
+    """Give the converted fieldmap its BIDS name and point it at the DWI.
+
+    BIDS: ``fmap/sub-{id}_dir-{label}_epi`` with ``dir-`` REQUIRED and
+    ``PhaseEncodingDirection`` and ``TotalReadoutTime`` in the sidecar (the
+    latter is checked, and derived from the sidecar when it can be, before
+    QSIPrep runs). ``IntendedFor`` lists the subject's DWI series as paths
+    relative to the subject folder: QSIPrep 26.0.0 reads neither BIDS URIs nor
+    ``B0FieldIdentifier``. An existing ``IntendedFor`` is kept.
+    """
+    stem = _bids_name(subject_id, "fmap")
+    label = _series_label(output_dir, stem)
+    if label is None:
+        logger.warning(
+            f"Could not name {stem}.nii.gz: BIDS requires a dir-<label> entity "
+            "for a reverse phase-encoding fieldmap, and it is taken from the "
+            "sidecar's PhaseEncodingDirection and the image's sform, one of which "
+            f"is missing. Rename the files to sub-{subject_id}_dir-<label>_epi "
+            "(e.g. dir-PA) and add PhaseEncodingDirection to the JSON by hand."
+        )
+        return False
+    new_stem = f"sub-{subject_id}_dir-{label}_epi"
+    _rename_series(output_dir, stem, new_stem)
+    logger.info(f"Named the reverse phase-encoding fieldmap {new_stem}")
+
+    dwi_names = sorted(
+        path.name
+        for path in (output_dir.parent / "dwi").glob("*_dwi.nii*")
+        if not path.name.startswith(".")
     )
-    return False
+    sidecar = output_dir / f"{new_stem}.json"
+    meta = json.loads(sidecar.read_text(encoding="utf-8"))
+    if dwi_names and "IntendedFor" not in meta:
+        meta["IntendedFor"] = [f"dwi/{name}" for name in dwi_names]
+        sidecar.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        logger.info(f"Added IntendedFor={meta['IntendedFor']} to {sidecar.name}")
+    return True
+
+
+def _name_dwi_series(output_dir: Path, subject_id: str, logger) -> None:
+    """Name DWI series that dcm2niix wrote side by side ``dir-<label>``.
+
+    Two diffusion series in one source folder come out as ``sub-{id}_dwi`` and
+    dcm2niix's collision name ``sub-{id}_dwia``, which is not BIDS. When each
+    one has a gradient table and its own phase-encoding direction, they become
+    ``sub-{id}_dir-AP_dwi`` / ``sub-{id}_dir-PA_dwi``, the layout QSIPrep pairs
+    for TOPUP. Anything else is left as converted, with a pointer to ``fmap/``.
+    """
+    base = _bids_name(subject_id, "dwi")
+    stems = sorted(
+        {
+            _nifti_stem(path)
+            for path in output_dir.glob(f"{base}*.nii*")
+            if _nifti_stem(path)[len(base) :].isalpha() or _nifti_stem(path) == base
+        }
+    )
+    stems = [stem for stem in stems if (output_dir / f"{stem}.bval").exists()]
+    if len(stems) < 2:
+        return
+    labels = [_series_label(output_dir, stem) for stem in stems]
+    if None in labels or len(set(labels)) != len(labels):
+        logger.warning(
+            f"dcm2niix wrote {len(stems)} diffusion series "
+            f"({', '.join(f'{stem}.nii.gz' for stem in stems)}) "
+            "that could not be told apart by phase-encoding direction, so only "
+            f"{base} is used. If one is the reverse phase-encoding (e.g. PA) "
+            "scan for distortion correction, put its DICOMs in "
+            f"sourcedata/sub-{subject_id}/fmap/ instead of dwi/, remove the "
+            f"{base}* files and convert again."
+        )
+        return
+    for stem, label in zip(stems, labels):
+        _rename_series(output_dir, stem, f"sub-{subject_id}_dir-{label}_dwi")
+    named = ", ".join(f"sub-{subject_id}_dir-{label}_dwi" for label in labels)
+    logger.warning(
+        f"Named {len(stems)} diffusion series by phase-encoding direction: {named}. "
+        "QSIPrep uses opposite-direction DWI series for TOPUP and preprocesses each "
+        "as a DWI run. If one is a short reverse phase-encoding scan rather than a "
+        "full diffusion series, QSIPrep wants it in fmap/: put its DICOMs in "
+        f"sourcedata/sub-{subject_id}/fmap/, remove these files and convert again."
+    )
 
 
 def run_dicom_to_nifti(
@@ -468,7 +659,10 @@ def run_dicom_to_nifti(
     case-insensitively) and ingests each one that exists. Anatomical images
     and CT go to the subject's ``anat/`` folder, diffusion images to ``dwi/``
     (with their ``.bval``/``.bvec`` sidecars), and the DWI's reverse
-    phase-encoding b=0 series to ``fmap/sub-{id}_acq-dwi_epi.nii.gz``.
+    phase-encoding series to ``fmap/sub-{id}_dir-{label}_epi.nii.gz`` with an
+    ``IntendedFor`` naming the DWI. Two diffusion series in ``dwi`` with
+    different phase encoding become ``sub-{id}_dir-{label}_dwi``. The label
+    (``AP``, ``PA``, ...) comes from :func:`pe_direction_label`.
 
     Each modality folder is searched recursively. Supported archives
     (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``) are safely extracted to
