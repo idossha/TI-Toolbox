@@ -7,6 +7,13 @@ permalink: /releases/changelog/
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
 
 ---
+### Unreleased
+
+**Fixed**
+
+- **The simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one; simulation outputs are unchanged.
+
+---
 ### v3.1.0 — October 9, 2026 (Latest Release)
 
 A feature release for everyone on v3.0.x; update the desktop app and the image together (the image

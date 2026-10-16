@@ -24,6 +24,7 @@ import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from tests.test_reporting_dti_qc import FAKE, _images, _parse, _record
@@ -147,6 +148,27 @@ class TestSimulation:
             html = sim.build_html(_with_envelope(sim.collect(_sim_dir(tmp_path, mA=5.0))), None, "X")
         assert "5 mA per channel, 10 mA total" in html
         assert 'class="callout' not in html and "Electrode current" not in html
+
+    def test_envelope_reads_the_subject_space_nifti_not_the_mni_one(self, tmp_path):
+        # mesh2nii writes <base>_MNI_* beside <base>_subject_*; "MNI" sorts first and its
+        # 4-D volume crashed the peak lookup (matmul core-dimension mismatch).
+        from types import SimpleNamespace
+
+        d = _sim_dir(tmp_path)
+        nifti_dir = d / "TI" / "niftis"
+        nifti_dir.mkdir(parents=True)
+        gm = np.zeros((3, 3, 3), np.float32)
+        gm[1, 2, 0] = 0.5
+        imgs = {
+            "grey_M_TI_subject_TI_max.nii.gz": SimpleNamespace(dataobj=gm, affine=np.eye(4)),
+            "grey_M_TI_MNI_TI_max.nii.gz": SimpleNamespace(dataobj=np.ones((4, 4, 4, 1), np.float32), affine=np.eye(4)),
+        }
+        for n in imgs:
+            (nifti_dir / n).touch()
+        with patch("nibabel.load", side_effect=lambda p: imgs[Path(p).name]):
+            rec = sim.collect(d)
+        assert rec["niftis"]["grey"].endswith("grey_M_TI_subject_TI_max.nii.gz")
+        assert rec["envelope"]["peak_world"] == [1.0, 2.0, 0.0]
 
     def test_report_file_and_budget(self, tmp_path):
         d = _sim_dir(tmp_path)

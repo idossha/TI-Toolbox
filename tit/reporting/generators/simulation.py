@@ -87,11 +87,16 @@ def parse_log(text: str) -> dict:
 
 
 def _envelope_niftis(sim_dir: Path, name: str, mode: str) -> dict[str, Path]:
-    """``{"grey": …, "white": …}`` envelope NIfTIs (``<mode>/niftis/<tissue>_<name>_*TI_max.nii.gz``)."""
+    """``{"grey": …, "white": …}`` subject-space envelope NIfTIs (``<mode>/niftis/<tissue>_<name>_*_subject_*TI_max.nii.gz``).
+
+    mesh2nii also writes ``*_MNI_*`` volumes beside them; those are 4-D and in another frame.
+    """
     out = {}
     for tissue in ("grey", "white"):
         hits = sorted(
-            (sim_dir / mode / "niftis").glob(f"{tissue}_{name}_*TI_max.nii.gz")
+            (sim_dir / mode / "niftis").glob(
+                f"{tissue}_{name}_*_subject_*TI_max.nii.gz"
+            )
         )
         if hits:
             out[tissue] = hits[0]
