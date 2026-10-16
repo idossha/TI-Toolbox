@@ -623,6 +623,26 @@ and the group or cohort mean field) with a `.json` of its settings, and its tabl
 (`significant_clusters.csv`, `null_distribution.csv`, `cluster_subject_values.csv`). fsaverage data is
 `.msh` end to end; no fsaverage output is `.npz`.
 
+**EEG caps are warped onto an existing head model the way charm warps them, by a request, not a
+job.** The optional `caps` panel (Settings ▸ Extensions) calls `/api/caps/*`
+([`routes/caps.py`](../../tit/server/routes/caps.py)), which calls [`tit/caps.py`](../../tit/caps.py):
+`warp_caps` reads `m2m_<id>/<id>.msh` once, crops it to its skin triangles (tag 1005) and calls
+SimNIBS `warp_coordinates(cap, m2m, "mni2subject", out_name, out_geo, mesh_in=skin, skin_tag=1005)`
+per cap — charm's own final step — writing `m2m_<id>/eeg_positions/<cap>.csv` and `.geo` through a
+hidden temporary name, so a failed warp leaves the previous file. Sources are SimNIBS's
+`resources/ElectrodeCaps_MNI` (the image adds TI-Toolbox's caps there) and the project's
+`code/ti-toolbox/eeg_caps/`, filled by `POST /api/caps/upload` (validated `Type,x,y,z,name` rows in
+MNI millimetres, at most 256 KiB; a name the image ships is refused). Replacing a net already on the
+subject is a 409 until `overwrite`, answered in the panel by the existing-outputs dialog. Cap names
+are single path components that must be listed by `GET /api/caps/available`; writes are confined to
+the project. `GET /api/caps/inspect` reports per-electrode nearest-neighbour spacing, the distance to
+the nearest full-resolution skin node, pairs closer than 2 mm (collapsed), duplicate labels and, with
+`compare`, each electrode's nearest electrode in a second net. A cap is "outdated" when its source
+file is newer than the subject's copy (mtime, not content). The warp is pinned against charm's own
+output by `tests/numerical/test_caps_warp_realdata.py`. Excluded alternative: re-running charm
+(minutes, and it rebuilds the head model) or a `caps` job kind (a warp is 2.4 s plus a 0.8 s mesh
+read on ernie; a job would add queueing and a lock for no benefit).
+
 ## 9. DWI preprocessing runs as sibling containers
 
 QSIPrep and QSIRecon run as sibling containers through the Docker socket, not inside the core image.

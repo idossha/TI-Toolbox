@@ -2574,6 +2574,115 @@ route("GET", "/api/scene/volume-legend", (ctx) => {
   json(ctx.res, 200, { id, entries: rows.map((r, i) => ({ id: r.id, name: r.name, color: `#${((i + 1) * 0x2f6f3f & 0xffffff).toString(16).padStart(6, "0")}` })) });
 });
 
+// ----------------------------------------------------------------------------------- caps (v1)
+// `tit/server/routes/caps.py`. The subject's nets are its fixture `eeg_nets` plus whatever a warp
+// added here (kept apart so other specs never see a changed net list); `/api/__mock/reset` clears both.
+const CAP_SOURCES = ["EEG10-10_UI_Jurak_2007.csv", "GSN-HydroCel-185", "GSN-HydroCel-256.csv"];
+const capsWarped = new Map(); // subject -> Set(names)
+const capsProject = new Set();
+function capsOnSubject(subject) {
+  return new Set([...(subjectDetail(subject)?.eeg_nets ?? []), ...(capsWarped.get(subject) ?? [])]);
+}
+route("GET", "/api/caps/available", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  const problem = sceneSubjectProblem(subject);
+  if (problem) return json(ctx.res, 404, { detail: problem });
+  const on = capsOnSubject(subject);
+  const source = (name) => (CAP_SOURCES.includes(name) ? "simnibs" : capsProject.has(name) ? "project" : null);
+  const names = [...new Set([...CAP_SOURCES, ...capsProject, ...on])].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  json(ctx.res, 200, {
+    subject,
+    caps: names.map((name) => ({
+      name,
+      source: source(name),
+      on_subject: on.has(name),
+      source_mtime: source(name) ? 1_760_000_000 : null,
+      subject_mtime: on.has(name) ? 1_750_000_000 : null,
+      // The fixture's GSN-185 predates the image's copy: one "outdated" row to render.
+      outdated: on.has(name) && name === "GSN-HydroCel-185",
+    })),
+  });
+});
+route("POST", "/api/caps/warp", async (ctx) => {
+  const { subject, caps = [], overwrite = false } = (await ctx.body()) ?? {};
+  const problem = sceneSubjectProblem(subject);
+  if (problem) return json(ctx.res, 404, { detail: problem });
+  const unknown = caps.filter((name) => !CAP_SOURCES.includes(name) && !capsProject.has(name));
+  if (unknown.length) return json(ctx.res, 404, { detail: `No MNI cap named ${unknown.join(", ")}` });
+  const on = capsOnSubject(subject);
+  const existing = caps.filter((name) => on.has(name));
+  if (existing.length && !overwrite) {
+    return json(ctx.res, 409, { detail: `${existing.length} of these caps are already on ${subject} (${existing.join(", ")}); confirm overwrite to replace them.` });
+  }
+  const set = capsWarped.get(subject) ?? new Set();
+  for (const name of caps) set.add(name);
+  capsWarped.set(subject, set);
+  json(ctx.res, 200, { subject, written: caps.map((name) => ({ name })) });
+});
+route("POST", "/api/caps/upload", async (ctx) => {
+  const name = ctx.url.searchParams.get("name") ?? "";
+  const text = await new Promise((resolve) => {
+    let data = "";
+    ctx.req.on("data", (c) => (data += c));
+    ctx.req.on("end", () => resolve(data));
+  });
+  if (!name.endsWith(".csv") || /[\\/]/.test(name)) return json(ctx.res, 422, { detail: "The cap file name must end in .csv" });
+  if (CAP_SOURCES.includes(name) || (capsProject.has(name) && ctx.url.searchParams.get("overwrite") !== "true")) {
+    return json(ctx.res, 409, { detail: `The name ${name} is taken` });
+  }
+  const rows = String(text).split(/\r?\n/).filter((l) => l.trim());
+  if (!rows.length || !rows.every((l) => /^(Electrode|ReferenceElectrode|Fiducial),[^,]+,[^,]+,[^,]+,\S/i.test(l))) {
+    return json(ctx.res, 422, { detail: "Row 1: expected Electrode|ReferenceElectrode|Fiducial,x,y,z,name." });
+  }
+  capsProject.add(name);
+  json(ctx.res, 201, { name, electrodes: rows.filter((l) => !/^fiducial/i.test(l)).length });
+});
+function capsNetPoints(subject, net) {
+  const points = sceneElectrodePositions(electrodesFor(net));
+  // GSN-HydroCel-185 carries one planted collapsed pair (E1/E2 0.5 mm apart) so the warning renders.
+  if (net === "GSN-HydroCel-185" && points.length > 1) points[1] = { ...points[1], world: points[0].world.map((v, i) => v + (i === 0 ? 0.5 : 0)) };
+  return points;
+}
+route("GET", "/api/caps/inspect", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  const net = ctx.url.searchParams.get("net");
+  const compare = ctx.url.searchParams.get("compare");
+  const problem = sceneSubjectProblem(subject);
+  if (problem) return json(ctx.res, 404, { detail: problem });
+  const on = capsOnSubject(subject);
+  for (const name of [net, compare].filter(Boolean)) {
+    if (!on.has(name)) return json(ctx.res, 404, { detail: `${subject} has no EEG net file '${name}'` });
+  }
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const round = (v) => Math.round(v * 1000) / 1000;
+  const points = capsNetPoints(subject, net);
+  const other = compare ? capsNetPoints(subject, compare) : [];
+  const nearest = (p, list, skip) => list.reduce((best, q, j) => (j === skip ? best : !best || dist(p.world, q.world) < best.d ? { q, d: dist(p.world, q.world) } : best), null);
+  const collapsed = [];
+  const electrodes = points.map((p, i) => {
+    const nn = nearest(p, points, i);
+    for (let j = i + 1; j < points.length; j++) if (dist(p.world, points[j].world) < 2) collapsed.push({ a: p.name, b: points[j].name, distance_mm: round(dist(p.world, points[j].world)) });
+    const row = { name: p.name, world: p.world.map(round), nn_mm: round(nn.d), nn_name: nn.q.name, scalp_mm: round((i % 7) * 0.3) };
+    if (compare) {
+      const m = nearest(p, other, -1);
+      Object.assign(row, { compare_name: m.q.name, compare_mm: round(m.d) });
+    }
+    return row;
+  });
+  const nn = electrodes.map((e) => e.nn_mm).sort((a, b) => a - b);
+  const cmp = electrodes.map((e) => e.compare_mm).filter((v) => v !== undefined).sort((a, b) => a - b);
+  json(ctx.res, 200, {
+    subject,
+    net,
+    collapse_mm: 2,
+    electrodes,
+    collapsed,
+    duplicate_names: [],
+    summary: { count: electrodes.length, nn_min_mm: nn[0], nn_median_mm: nn[Math.floor(nn.length / 2)], nn_max_mm: nn[nn.length - 1], scalp_median_mm: 0.9, scalp_max_mm: 1.8 },
+    compare: compare ? { net: compare, electrodes: other.map((p) => ({ name: p.name, world: p.world.map(round) })), median_mm: cmp[Math.floor(cmp.length / 2)], max_mm: cmp[cmp.length - 1] } : null,
+  });
+});
+
 // ---------------------------------------------------------------------------------- guide (v1)
 // The five `GET /api/guide/*` routes (docs/dev/DECISIONS.md § 2026-09-05 (Overview, batch execution and explicit viewing) R4). The fixed guide scene is
 // the same shapes as `/api/scene/*` with every project-dependent part removed: no `subject`, no
@@ -3277,6 +3386,8 @@ route("POST", "/api/__mock/reset", (ctx) => {
     for (const ws of kernel.sockets) ws.close();
   }
   kernelStore.clear();
+  capsWarped.clear();
+  capsProject.clear();
   project.host_path = FIXTURE_HOST_PATH;
   json(ctx.res, 200, { jobs_cleared: cleared });
 });

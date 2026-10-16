@@ -5109,6 +5109,225 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/caps/available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** MNI caps that can be warped, and the nets already on a subject */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            subject: string;
+                            caps: components["schemas"]["CapStatus"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caps/warp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Warp MNI caps onto a subject's head model, as charm does
+         * @description Crops `m2m_<id>/<id>.msh` to its skin triangles (tag 1005) and calls SimNIBS `warp_coordinates(cap, m2m, "mni2subject", out_name, out_geo, mesh_in=skin, skin_tag=1005)` per cap, writing `m2m_<id>/eeg_positions/<cap>.csv` and `.geo`. Caps come from SimNIBS's `resources/ElectrodeCaps_MNI` and the project's `code/ti-toolbox/eeg_caps/`. 409 when a named cap is already on the subject and `overwrite` is not true.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["WarpRequest"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            subject: string;
+                            written: {
+                                name: string;
+                            }[];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                /** @description A named cap is already on the subject; resend with overwrite */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid name, or the warp failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caps/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an MNI-space cap CSV to the project's own caps
+         * @description `Electrode|ReferenceElectrode|Fiducial,x,y,z,name` rows in MNI millimetres, at most 256 KiB. Stored as `code/ti-toolbox/eeg_caps/<name>`; a name the image's caps already use is refused (409), as is an existing project cap unless `overwrite`.
+         */
+        post: {
+            parameters: {
+                query: {
+                    name: string;
+                    overwrite?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "text/csv": string;
+                };
+            };
+            responses: {
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                            electrodes: number;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description The name is taken */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Cap file exceeds the size limit */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid name or cap file */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caps/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spacing, scalp distance and collapsed electrodes of one net
+         * @description Per electrode (and reference electrode): nearest-neighbour spacing, distance to the nearest skin node of the head mesh, and with `compare` the nearest electrode of that second net. `collapsed` lists pairs closer than `collapse_mm`.
+         */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    net: string;
+                    compare?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CapInspection"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/guide/manifest": {
         parameters: {
             query?: never;
@@ -5978,6 +6197,63 @@ export interface components {
             /** @enum {string} */
             status: "ok";
             uptime_s: number;
+        };
+        WarpRequest: {
+            subject: string;
+            caps: string[];
+            overwrite?: boolean;
+        };
+        CapStatus: {
+            /** @description the cap's CSV file name */
+            name: string;
+            /**
+             * @description where the MNI cap comes from; null for a net only on the subject
+             * @enum {string|null}
+             */
+            source: "simnibs" | "project" | null;
+            on_subject: boolean;
+            source_mtime: number | null;
+            subject_mtime: number | null;
+            /** @description the source file is newer than the subject's copy */
+            outdated: boolean;
+        };
+        CapElectrode: {
+            name: string;
+            world: number[];
+            nn_mm: number | null;
+            nn_name: string | null;
+            scalp_mm: number | null;
+            compare_name?: string | null;
+            compare_mm?: number | null;
+        };
+        CapInspection: {
+            subject: string;
+            net: string;
+            collapse_mm: number;
+            electrodes: components["schemas"]["CapElectrode"][];
+            collapsed: {
+                a: string;
+                b: string;
+                distance_mm: number;
+            }[];
+            duplicate_names: string[];
+            summary: {
+                count: number;
+                nn_min_mm: number | null;
+                nn_median_mm: number | null;
+                nn_max_mm: number | null;
+                scalp_median_mm: number | null;
+                scalp_max_mm: number | null;
+            };
+            compare: null | {
+                net: string;
+                electrodes: {
+                    name: string;
+                    world: number[];
+                }[];
+                median_mm: number | null;
+                max_mm: number | null;
+            };
         };
         Version: {
             /** @description The installed `tit` package version at build time (e.g. "2.4.0"). This is expected to differ from this document's own `info.version` -- see the top-level description. */

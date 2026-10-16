@@ -259,6 +259,14 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/scene/electrodes", "GET", "/api/scene/electrodes?subject=ernie&net=GSN-HydroCel-185");
     await call("/api/scene/volume-legend", "GET", "/api/scene/volume-legend?subject=ernie&id=labeling");
 
+    // caps (v1) -- the EEG caps panel.
+    await call("/api/caps/available", "GET", "/api/caps/available?subject=ernie");
+    await call("/api/caps/warp", "POST", "/api/caps/warp", { body: { subject: "ernie", caps: ["GSN-HydroCel-185"] } }); // 409: already on ernie, declared
+    await call("/api/caps/upload", "POST", "/api/caps/upload?name=contract_cap.csv", {
+      rawBody: new TextEncoder().encode("Electrode,1,2,3,A\n"), headers: { "content-type": "text/csv" },
+    });
+    await call("/api/caps/inspect", "GET", "/api/caps/inspect?subject=ernie&net=GSN-HydroCel-185&compare=EGI_template");
+
     // The fixed guide (plan R4). None of these takes a subject — that is the point.
     await call("/api/guide/manifest", "GET", "/api/guide/manifest");
     await call("/api/guide/surface", "GET", "/api/guide/surface?part=gm");

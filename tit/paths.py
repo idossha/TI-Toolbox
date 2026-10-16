@@ -534,6 +534,10 @@ class PathManager:
         """Path to ``<project>/code/ti-toolbox/config/``."""
         return os.path.join(self._root(), "code", "ti-toolbox", "config")
 
+    def custom_eeg_caps(self) -> str:
+        """Path to ``<project>/code/ti-toolbox/eeg_caps/`` (the project's own MNI caps)."""
+        return os.path.join(self._root(), "code", "ti-toolbox", "eeg_caps")
+
     def jobs_dir(self) -> str:
         """Path to ``<project>/code/ti-toolbox/jobs/`` (job server state)."""
         return os.path.join(self._root(), "code", "ti-toolbox", "jobs")

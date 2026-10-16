@@ -1166,3 +1166,13 @@ and the name's side words left/right/lh/rh/l/r), or the words joined must be one
 frontal" still finds DK's "superiorfrontal"). "thalamus" finds "Left-Thalamus" and
 "Thalamus-left" but no longer "Hypothalamus"; "frontal" no longer finds "superiorfrontal". No
 shape change; a narrower match set.
+
+## 2026-10-16 — `/api/caps/*`: EEG caps on an existing head model
+
+New tag `caps` with four paths: `GET /api/caps/available` (MNI caps from SimNIBS's
+`ElectrodeCaps_MNI` and the project's `code/ti-toolbox/eeg_caps/`, and the nets on a subject, as
+`CapStatus` rows), `POST /api/caps/warp` (`WarpRequest`; 409 when a named cap is already on the
+subject without `overwrite`), `POST /api/caps/upload` (a `text/csv` MNI cap, 256 KiB at most) and
+`GET /api/caps/inspect` (`CapInspection`: spacing, scalp distance, collapsed pairs, optional
+`compare` net). New schemas `WarpRequest`, `CapStatus`, `CapElectrode`, `CapInspection`.
+Additive: no existing path or schema changes.

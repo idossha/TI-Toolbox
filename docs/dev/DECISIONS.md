@@ -3072,3 +3072,36 @@ asks); a `dismissed` flag via a second bridge entry (main's `prompt` already giv
 **Evidence.** `desktop/src/main/updates.test.ts`; `desktop/tests/unit/app-update.test.tsx`;
 `desktop/tests/e2e/app-update.spec.ts` (fixture feed, popup once, nav label, Settings ▸ Updates);
 `desktop/tests/e2e/smoke.spec.ts` (bridge keys); `desktop/tests/e2e/help.spec.ts` (About card).
+
+## 2026-10-16 — EEG caps panel: warp MNI caps onto an existing head model; inspect nets
+
+**Decision.** A new optional panel, `caps` (Settings ▸ Extensions ▸ EEG caps), lists the MNI caps
+the image ships plus the project's own (`code/ti-toolbox/eeg_caps/`), shows which are on the
+selected subject and which are older than their source, and applies chosen caps by doing what charm
+does at the end of a build: crop `m2m_<id>/<id>.msh` to skin (tag 1005) and call SimNIBS
+`warp_coordinates(..., "mni2subject", ..., skin_tag=1005)` into `m2m_<id>/eeg_positions/`
+(`tit/caps.py`, `tit/server/routes/caps.py`, ARCHITECTURE §8). Below it, the chosen net is drawn on
+the subject's scalp (the shared `ScenePane`, read-only markers) with a sortable table of
+nearest-neighbour spacing and scalp distance, a warning for pairs closer than 2 mm or duplicate
+labels, and an optional second net for comparison (nearest label and distance per electrode). Four
+additive routes under the new `caps` tag (ADR row 7: contract first, `contracts/CHANGES.md`).
+
+**Why.** A head model built before a cap was added or corrected (GSN-HydroCel-128 and the BioSemi
+caps were moved into MNI space on 2026-10-16, 6361c2b2) keeps the old net until charm is re-run,
+which rebuilds the whole head. Warping one cap measured 2.4 s plus a 0.8 s mesh read on ernie in the
+container, so a synchronous request is the honest unit. The inspection exists because the broken
+cap's failure was silent: re-warping the image's pre-fix GSN-HydroCel-128 onto ernie gives 171 pairs
+under 2 mm among 19 electrodes [measured, `tit.caps.net_stats`, v3.1.0 image, 2026-10-16], while the
+corrected file gives none (`tests/numerical/test_caps_warp_realdata.py`).
+
+**Alternatives rejected.** A `caps` job kind (queue, lock and job record for a seconds-long write);
+re-running charm (minutes, and it replaces the head model); a 10-10 equivalence table for the
+comparison (EGI's table covers only the GSN nets; nearest label on the same head answers the same
+question for every pair of nets); a content hash per warped cap for "outdated" (mtime is enough to
+prompt a re-apply; an image rebuild marking every charm-era cap outdated is the known cost).
+
+**Evidence.** `tests/test_caps.py` (synthetic spacing/collapse/duplicates, cap-file validation,
+routes: auth, 409 then `overwrite`, unknown and traversing names refused, upload limits);
+`tests/numerical/test_caps_warp_realdata.py` (re-warp equals charm's own `EEG10-10_UI_Jurak_2007`
+on ernie, max shift 0.0000 mm over 76 electrodes; scalp distance ≤ 1.443 mm);
+`desktop/tests/unit/caps-panel.test.ts`; `desktop/tests/e2e/caps.spec.ts`.

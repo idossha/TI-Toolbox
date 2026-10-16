@@ -118,6 +118,11 @@ tags:
       in this document's top-level description). It is a *form control's* data source, not a
       viewer: no slicing, colormaps, field overlays or screenshots live here
       (docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages), decision S1).
+  - name: caps
+    description: >-
+      EEG caps on an existing head model: warp MNI caps onto a subject without re-running charm,
+      add a project MNI cap, and inspect a net's spacing and scalp fit (401/403/404 implied
+      globally; docs/dev/DECISIONS.md § 2026-10-16 (EEG caps panel)).
   - name: guide
     description: >-
       the fixed guide scene: prebuilt, immutable surfaces, atlas label payloads, legends and EEG-net
@@ -3392,6 +3397,147 @@ paths:
             to run. Every `/api/scene/*` route answers a subject-level question the same way.
             Also: a volume id with no `labeling_LUT.txt` beside it.
 
+  # --------------------------------------------------------------------------------------- caps (v1)
+  # Synchronous, not a job: one warp is seconds (docs/dev/DECISIONS.md § 2026-10-16).
+  /api/caps/available:
+    get:
+      tags: [caps]
+      summary: MNI caps that can be warped, and the nets already on a subject
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subject, caps]
+                properties:
+                  subject: { type: string }
+                  caps:
+                    type: array
+                    items: { $ref: "#/components/schemas/CapStatus" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/caps/warp:
+    post:
+      tags: [caps]
+      summary: Warp MNI caps onto a subject's head model, as charm does
+      description: >-
+        Crops `m2m_<id>/<id>.msh` to its skin triangles (tag 1005) and calls SimNIBS
+        `warp_coordinates(cap, m2m, "mni2subject", out_name, out_geo, mesh_in=skin, skin_tag=1005)`
+        per cap, writing `m2m_<id>/eeg_positions/<cap>.csv` and `.geo`. Caps come from SimNIBS's
+        `resources/ElectrodeCaps_MNI` and the project's `code/ti-toolbox/eeg_caps/`. 409 when a
+        named cap is already on the subject and `overwrite` is not true.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarpRequest" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subject, written]
+                properties:
+                  subject: { type: string }
+                  written:
+                    type: array
+                    items:
+                      type: object
+                      required: [name]
+                      properties:
+                        name: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: A named cap is already on the subject; resend with overwrite
+        "422":
+          description: Invalid name, or the warp failed
+  /api/caps/upload:
+    post:
+      tags: [caps]
+      summary: Add an MNI-space cap CSV to the project's own caps
+      description: >-
+        `Electrode|ReferenceElectrode|Fiducial,x,y,z,name` rows in MNI millimetres, at most
+        256 KiB. Stored as `code/ti-toolbox/eeg_caps/<name>`; a name the image's caps already use
+        is refused (409), as is an existing project cap unless `overwrite`.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: name
+          required: true
+          schema: { type: string }
+        - in: query
+          name: overwrite
+          required: false
+          schema: { type: boolean }
+      requestBody:
+        required: true
+        content:
+          text/csv:
+            schema: { type: string }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, electrodes]
+                properties:
+                  name: { type: string }
+                  electrodes: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: The name is taken
+        "413":
+          description: Cap file exceeds the size limit
+        "422":
+          description: Invalid name or cap file
+  /api/caps/inspect:
+    get:
+      tags: [caps]
+      summary: Spacing, scalp distance and collapsed electrodes of one net
+      description: >-
+        Per electrode (and reference electrode): nearest-neighbour spacing, distance to the nearest
+        skin node of the head mesh, and with `compare` the nearest electrode of that second net.
+        `collapsed` lists pairs closer than `collapse_mm`.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+        - in: query
+          name: net
+          required: true
+          schema: { type: string }
+        - in: query
+          name: compare
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CapInspection" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # -------------------------------------------------------------------------------------- guide (v1)
   # docs/dev/DECISIONS.md § 2026-09-05 (Overview, batch execution and explicit viewing) R4. The fixed guide scene: the same shapes /api/scene/* answers
   # with, minus every project-dependent part of them. No `subject` parameter, no cache state worth
@@ -4076,6 +4222,94 @@ components:
       properties:
         status: { type: string, enum: [ok] }
         uptime_s: { type: number }
+    WarpRequest:
+      type: object
+      required: [subject, caps]
+      properties:
+        subject: { type: string }
+        caps:
+          type: array
+          items: { type: string }
+        overwrite: { type: boolean }
+    CapStatus:
+      type: object
+      required: [name, source, on_subject, source_mtime, subject_mtime, outdated]
+      properties:
+        name: { type: string, description: the cap's CSV file name }
+        source:
+          description: where the MNI cap comes from; null for a net only on the subject
+          type: [string, "null"]
+          enum: [simnibs, project, null]
+        on_subject: { type: boolean }
+        source_mtime: { type: [number, "null"] }
+        subject_mtime: { type: [number, "null"] }
+        outdated:
+          type: boolean
+          description: the source file is newer than the subject's copy
+    CapElectrode:
+      type: object
+      required: [name, world, nn_mm, nn_name, scalp_mm]
+      properties:
+        name: { type: string }
+        world:
+          type: array
+          items: { type: number }
+        nn_mm: { type: [number, "null"] }
+        nn_name: { type: [string, "null"] }
+        scalp_mm: { type: [number, "null"] }
+        compare_name: { type: [string, "null"] }
+        compare_mm: { type: [number, "null"] }
+    CapInspection:
+      type: object
+      required: [subject, net, collapse_mm, electrodes, collapsed, duplicate_names, summary, compare]
+      properties:
+        subject: { type: string }
+        net: { type: string }
+        collapse_mm: { type: number }
+        electrodes:
+          type: array
+          items: { $ref: "#/components/schemas/CapElectrode" }
+        collapsed:
+          type: array
+          items:
+            type: object
+            required: [a, b, distance_mm]
+            properties:
+              a: { type: string }
+              b: { type: string }
+              distance_mm: { type: number }
+        duplicate_names:
+          type: array
+          items: { type: string }
+        summary:
+          type: object
+          required: [count, nn_min_mm, nn_median_mm, nn_max_mm, scalp_median_mm, scalp_max_mm]
+          properties:
+            count: { type: integer }
+            nn_min_mm: { type: [number, "null"] }
+            nn_median_mm: { type: [number, "null"] }
+            nn_max_mm: { type: [number, "null"] }
+            scalp_median_mm: { type: [number, "null"] }
+            scalp_max_mm: { type: [number, "null"] }
+        compare:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [net, electrodes, median_mm, max_mm]
+              properties:
+                net: { type: string }
+                electrodes:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, world]
+                    properties:
+                      name: { type: string }
+                      world:
+                        type: array
+                        items: { type: number }
+                median_mm: { type: [number, "null"] }
+                max_mm: { type: [number, "null"] }
     Version:
       type: object
       required: [tit_version, server_api, schema_hash, python, simnibs]
