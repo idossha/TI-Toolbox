@@ -47,7 +47,7 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
   it("places extensions after the core workflow in the requested order", () => {
     expect(pages.filter((page) => page.id.startsWith("panel-")).map((page) => page.id)).toEqual([
       "panel-source", "panel-cluster-permutation", "panel-nifti-group-average",
-      "panel-nilearn-visuals", "panel-visual-exporter",
+      "panel-nilearn-visuals", "panel-visual-exporter", "panel-caps",
     ]);
   });
   it("a page in NAV_ORDER takes that slot; one in neither list is palette-only", () => {

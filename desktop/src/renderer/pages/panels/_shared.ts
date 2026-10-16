@@ -27,6 +27,7 @@ export type PanelId =
   | "nifti-group-average"
   | "nilearn-visuals"
   | "visual-exporter"
+  | "caps"
   | "quick-notes";
 
 export function readEnabledPanels(): string[] {

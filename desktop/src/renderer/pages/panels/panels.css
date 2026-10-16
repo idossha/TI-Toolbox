@@ -131,3 +131,24 @@
   gap: var(--space-3);
   padding-top: var(--space-2);
 }
+
+/* EEG caps panel: the scene fills the right pane; chips wrap under the net pickers. */
+.caps-scene {
+  height: 100%;
+  min-height: 320px;
+  position: relative;
+  overflow: hidden;
+}
+.caps-scene > * {
+  height: 100%;
+}
+.caps-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.caps-electrodes {
+  max-height: 420px;
+  overflow: auto;
+}

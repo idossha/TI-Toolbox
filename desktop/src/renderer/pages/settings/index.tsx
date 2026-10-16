@@ -59,6 +59,7 @@ const PANEL_INFO: { id: PanelId; label: string; description: string }[] = [
   { id: "nifti-group-average", label: "NIfTI group averaging", description: "Compute group averages and differences of NIfTI files." },
   { id: "nilearn-visuals", label: "Nilearn visuals", description: "Create Nilearn high-resolution publication visualizations." },
   { id: "visual-exporter", label: "3D visual exporter", description: "Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D rendering." },
+  { id: "caps", label: "EEG caps", description: "Map MNI electrode caps onto existing head models and inspect nets on the scalp." },
   { id: "quick-notes", label: "Quick notes", description: "Keep a running project notepad." },
 ];
 
