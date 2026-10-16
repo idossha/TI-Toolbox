@@ -9,10 +9,14 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
+**Added**
+
+- **Apply EEG caps to an existing head model, and check how a net sits on the scalp** — the new optional **EEG caps** panel (**Settings ▸ Extensions ▸ EEG caps**) warps the image's MNI caps, or an MNI cap CSV you add, onto a subject exactly as charm does, without rebuilding the head model, and shows each net on the scalp with electrode spacing, scalp distance, a warning for collapsed or duplicate electrodes and an optional second net to compare; existing head models and nets are untouched until you apply a cap. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
+
 **Fixed**
 
 - **The simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one; simulation outputs are unchanged.
-- **The GSN-HydroCel-128, BioSemi-64, BioSemi-128 and BioSemi-256 EEG nets sit on the head again** — their coordinates were not in MNI space (axes swapped, about 5 cm too high), so central electrodes landed on one point; they are now converted to MNI space with Brainstorm's own ICBM152 head-to-MNI transform, and LPA/RPA are named correctly. Head models built before the fix keep the wrong positions in `m2m_<id>/eeg_positions/` until the head model is rebuilt with the updated image; other nets are unchanged.
+- **The GSN-HydroCel-128, BioSemi-64, BioSemi-128 and BioSemi-256 EEG nets sit on the head again** — their coordinates were not in MNI space (axes swapped, about 5 cm too high), so central electrodes landed on one point; they are now converted to MNI space with Brainstorm's own ICBM152 head-to-MNI transform, and LPA/RPA are named correctly. Head models built before the fix keep the wrong positions in `m2m_<id>/eeg_positions/` until the cap is re-applied in the **EEG caps** panel (or the head model is rebuilt) with the updated image; other nets are unchanged.
 
 ---
 ### v3.1.0 — October 9, 2026 (Latest Release)

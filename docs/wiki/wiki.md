@@ -40,6 +40,7 @@ server fit together.
 - **[3D Visual Exporter](blender)** - PLY/GLB/Blender exports of regions, vectors and montages
 - **[Free Electrode Placement](electrode-placement)** - Clicking electrodes onto the scalp, now part of the Simulator
 - **[Nilearn Visuals](nilearn-visuals)** - Publication-ready brain visualizations
+- **[EEG Caps](eeg-caps)** - Apply MNI electrode caps to an existing head model and inspect nets on the scalp
 - **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis (the *Permutation Analysis* extension)
 - **[Quick Notes](quick-notes)** - An autosaving project notepad with optional timestamps
 - **[NIfTI Group Averaging](nifti-group-averaging)** - Group analysis and comparison tools

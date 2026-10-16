@@ -13,8 +13,8 @@ An enabled panel gets its own row under Extensions in the nav rail. Quick notes 
 The panels are [Source]({{ site.baseurl }}/wiki/extension/), [Cluster
 permutation]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group
 averaging]({{ site.baseurl }}/wiki/nifti-group-averaging/), [Nilearn
-visuals]({{ site.baseurl }}/wiki/nilearn-visuals/) and the [3D visual
-exporter]({{ site.baseurl }}/wiki/blender/).
+visuals]({{ site.baseurl }}/wiki/nilearn-visuals/), the [3D visual
+exporter]({{ site.baseurl }}/wiki/blender/) and [EEG caps]({{ site.baseurl }}/wiki/eeg-caps/).
 
 Computational tools use the same layout as the main run pages: **inputs on the left**, with
 the **plan and live terminal on the right**. Submitted jobs remain available in that terminal
