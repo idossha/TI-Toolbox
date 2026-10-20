@@ -30,6 +30,8 @@ from fastapi.testclient import TestClient
 
 from tit import caps
 from tit.paths import get_path_manager
+from tit.scene import build, tvsc
+from tit.scene import cache as scene_cache
 from tit.server.app import create_app
 from tit.server.settings import ServerSettings
 
@@ -140,13 +142,26 @@ def project(tmp_path, monkeypatch):
     monkeypatch.setitem(
         sys.modules, "simnibs.mesh_tools", SimpleNamespace(mesh_io=MagicMock())
     )
-    monkeypatch.setattr(caps, "skin_nodes", lambda path: np.array([[10.0, 0, 92]]))
+    # The scene's surface build, faked: it publishes whatever skin the test
+    # set as the cached ``skin`` entry, under the mesh's real fingerprint,
+    # and counts how often the head mesh would have been read.
+    skin = {"nodes": np.array([[10.0, 0, 92]]), "simplified": False, "builds": 0}
+
+    def build_surfaces(pm, sid):
+        skin["builds"] += 1
+        fp = build.surface_fingerprint(pm, sid)
+        blob = tvsc.encode(skin["nodes"].astype(np.float32))
+        meta = {"simplified": skin["simplified"]}
+        return {"skin": scene_cache.publish(pm.project_dir, sid, "skin", fp, blob, meta).meta}
+
+    monkeypatch.setattr(build, "build_surfaces", build_surfaces)
+    monkeypatch.setattr(caps, "skin_nodes", lambda path: np.array([[10.0, 0, 95]]))
     client = TestClient(
         create_app(ServerSettings(project_dir=str(tmp_path), token="test")),
         base_url="http://127.0.0.1:8765",
     )
     return SimpleNamespace(
-        pm=pm, client=client, calls=calls, positions=m2m / "eeg_positions"
+        pm=pm, client=client, calls=calls, positions=m2m / "eeg_positions", skin=skin
     )
 
 
@@ -297,3 +312,32 @@ def test_inspect_unknown_net_is_404(project) -> None:
         "/api/caps/inspect?subject=ernie&net=none.csv", headers=BEARER
     )
     assert r.status_code == 404
+
+
+def _fz_scalp(project) -> float:
+    r = project.client.get("/api/caps/inspect?subject=ernie&net=A.csv", headers=BEARER)
+    assert r.status_code == 200, r.text
+    return {row["name"]: row for row in r.json()["electrodes"]}["Fz"]["scalp_mm"]
+
+
+def test_inspect_reads_the_mesh_once_and_again_only_when_it_changes(project) -> None:
+    """Scalp distance comes from the scene's cached skin, keyed on the mesh file."""
+    import os
+
+    (project.positions / "A.csv").write_text(WARPED)
+    assert _fz_scalp(project) == 2.0  # Fz (10,0,90) to the skin node (10,0,92)
+    assert _fz_scalp(project) == 2.0
+    assert project.skin["builds"] == 1, "a second inspect must not re-read the mesh"
+
+    project.skin["nodes"] = np.array([[10.0, 0, 93]])
+    mesh = Path(project.pm.m2m("ernie")) / "ernie.msh"
+    mesh.write_bytes(b"a re-run charm")
+    os.utime(mesh, (2_000_000_000, 2_000_000_000))
+    assert _fz_scalp(project) == 3.0  # the new skin, not the cached one
+    assert project.skin["builds"] == 2
+
+
+def test_inspect_measures_a_simplified_skin_against_the_full_mesh(project) -> None:
+    (project.positions / "A.csv").write_text(WARPED)
+    project.skin["simplified"] = True
+    assert _fz_scalp(project) == 5.0  # caps.skin_nodes' full-resolution (10,0,95)

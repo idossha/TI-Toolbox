@@ -12,10 +12,12 @@ import { CircleDot, Upload } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
 import { getSubjects } from "../../../api/client";
+import { useSubjectContext } from "../../../app/subjectContext";
 import { Card, CardBody, CardHeader, PageLayout } from "../../../ui/Layout";
 import { SubjectsField, presenceColumns } from "../../_shared/subjects";
 import { usePageScrollMemory } from "../../_shared/session/usePageScrollMemory";
 import { ScenePane } from "../../_shared/scene";
+import type { SceneMarker } from "../../_shared/scene/model";
 import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
 import { DataTable, type DataTableColumn } from "../../../ui/DataTable";
 import { Field } from "../../../ui/Field";
@@ -31,12 +33,13 @@ import { notify, notifySubmitError } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
 import { getAvailableCaps, inspectNet, uploadCap, warpCaps, type CapStatus } from "./api";
-import { CAPS_HELP, INSPECT_HELP, appliedDate, capLabel, capStatus, electrodeColumns, existingAmong, inspectionMarkers, inspectionWarnings, mm, reapplicable, sourceLabel } from "./model";
+import { CAPS_HELP, INSPECT_HELP, NO_HEAD_MODEL, appliedDate, capLabel, capStatus, defaultCapsSubject, electrodeColumns, existingAmong, inspectionMarkers, inspectionWarnings, mm, reapplicable, sourceLabel } from "./model";
 
 const WIKI = `${DOCS_SITE}wiki/eeg-caps/`;
 
 const SUBJECT_COLUMNS = presenceColumns<{ id: string; has_raw: boolean; has_fastsurfer: boolean; has_freesurfer: boolean; has_m2m: boolean }>();
 const NONE = "__none__";
+const NO_MARKERS: SceneMarker[] = [];
 
 function CapsPanel() {
   usePageScrollMemory();
@@ -44,6 +47,16 @@ function CapsPanel() {
   const subjectsQuery = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
   const [subjects, setSubjects] = usePageSession<string[]>("subjects", []);
   const subject = subjects[0] ?? "";
+  // Open on a subject rather than empty: the app's current one when it has a head model, else the
+  // first that does — once per visit, adjusted during render (not an effect), like the Simulator's
+  // first row; a selection the page already holds is kept.
+  const shellSubject = useSubjectContext((s) => s.subjectId);
+  const [seeded, setSeeded] = useState(false);
+  const fallback = subjectsQuery.data ? defaultCapsSubject(subjectsQuery.data, shellSubject) : null;
+  if (!seeded && subjectsQuery.data) {
+    setSeeded(true);
+    if (subjects.length === 0 && fallback) setSubjects([fallback]);
+  }
   const [picked, setPicked] = useState<string[]>([]);
   const [net, setNet] = usePageSession("net", "");
   const [compare, setCompare] = usePageSession("compare", "");
@@ -63,6 +76,9 @@ function CapsPanel() {
     queryFn: () => inspectNet(subject, viewNet, compareNet),
     enabled: !!subject && !!viewNet,
     retry: false,
+    // Switching nets keeps the previous net's table on screen until the new one lands, instead of
+    // collapsing the page to nothing for the round trip.
+    placeholderData: (previous, query) => (query?.queryKey[1] === subject ? previous : undefined),
   });
   const inspection = inspectQuery.data;
   const markers = useMemo(() => (inspection ? inspectionMarkers(inspection) : undefined), [inspection]);
@@ -140,8 +156,9 @@ function CapsPanel() {
   const electrodeRows = useMemo(() => (inspection?.electrodes ?? []).map((e, index) => ({ ...e, index })), [inspection]);
   const summary = inspection?.summary;
 
+  const noHeadModel = !!subjectsQuery.data && fallback === null;
   const digest = !subject
-    ? "Select a subject with a head model."
+    ? noHeadModel ? NO_HEAD_MODEL : "Select a subject with a head model."
     : picked.length === 0
       ? `${onSubject.length} of ${caps.length} caps on ${subject}`
       : `${picked.length} cap${picked.length === 1 ? "" : "s"} selected`;
@@ -152,17 +169,23 @@ function CapsPanel() {
       variant="run"
       rightPane={
         <div className="caps-scene" data-testid="caps-scene">
-          {subject && viewNet ? (
+          {/* Mounted as soon as there is a subject, so the head loads while the caps list and the
+              inspection are still on their way; the electrodes arrive as a marker layer. */}
+          {subject ? (
             <ScenePane
               mode="montage"
               subject={subject}
-              placedMarkers={markers}
+              placedMarkers={markers ?? NO_MARKERS}
               selectedMarkers={selectedRow === null ? undefined : [selectedRow]}
               onPlacedPick={(index) => setSelectedRow(index)}
-              note={inspection?.compare ? `${viewNet} (blue) and ${inspection.compare.net} (orange) on ${subject}` : `${viewNet} on ${subject}`}
+              note={
+                !viewNet
+                  ? capsQuery.isPending ? `Loading caps on ${subject}…` : "No net on this subject yet — apply a cap."
+                  : inspection?.compare ? `${viewNet} (blue) and ${inspection.compare.net} (orange) on ${subject}` : `${viewNet} on ${subject}`
+              }
             />
           ) : (
-            <p className="field-help">{subject ? "No net on this subject yet — apply a cap." : "Pick a subject to see its nets on the scalp."}</p>
+            <p className="field-help">{noHeadModel ? NO_HEAD_MODEL : "Pick a subject to see its nets on the scalp."}</p>
           )}
         </div>
       }
@@ -255,6 +278,7 @@ function CapsPanel() {
                   />
                 </Field>
               </div>
+              {(inspectQuery.isPending || inspectQuery.isPlaceholderData) && viewNet && <p className="field-help" role="status" data-testid="caps-inspecting">Inspecting {capLabel(viewNet)}…</p>}
               {inspectQuery.error && <p className="field-help" role="status">Could not inspect {capLabel(viewNet)}: {inspectQuery.error.message}</p>}
               {summary && (
                 <div className="caps-chips" data-testid="caps-summary">
@@ -279,7 +303,7 @@ function CapsPanel() {
         </div>
         {inspection && (
           <Card>
-            <CardHeader title={`Electrodes · ${capLabel(viewNet)}`} />
+            <CardHeader title={`Electrodes · ${capLabel(inspection.net)}`} />
             <CardBody>
               <div className="caps-electrodes" data-testid="caps-electrodes">
                 <DataTable data={electrodeRows} columns={columns} getRowId={(r) => String(r.index)} selected={selectedRow === null ? {} : { [String(selectedRow)]: true }} onRowClick={(r) => setSelectedRow(r.index)} />

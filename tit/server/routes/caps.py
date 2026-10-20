@@ -21,7 +21,8 @@ from pydantic import BaseModel, Field
 
 from tit import caps as caps_core
 from tit.paths import get_path_manager, resolve_within
-from tit.scene import build
+from tit.scene import build, tvsc
+from tit.server.routes import scene as scene_routes
 from tit.server.routes.scene import _scene_subject
 from tit.server.schemas import EntityName, SubjectId
 
@@ -150,6 +151,31 @@ def _net_points(pm, subject: str, net: str) -> tuple[list[str], np.ndarray]:
     return [r["name"] for r in rows], world
 
 
+def _skin_nodes(pm, subject: str) -> np.ndarray:
+    """The skin's nodes, from the scene service's cached skin surface.
+
+    The 3-D pane beside the table needs that same surface, so the head mesh
+    (180 MB) is read once, by one build both share (``_ensure`` joins a build
+    already in flight), and later visits -- after a server restart too -- read
+    a 0.4 MB cache entry keyed on the mesh's size and mtime. Only a skin the
+    scene had to simplify falls back to reading the mesh, since its dropped
+    nodes would lengthen the scalp distances.
+    """
+    found = None
+    while found is None:  # _ensure returns None only while the build still runs
+        found = scene_routes._ensure(
+            pm,
+            subject,
+            "surfaces",
+            scene_routes._surface_work(pm, subject),
+            scene_routes._surface_ready(pm, subject, "skin"),
+            scene_routes.MAX_WAIT_S,
+        )
+    if found.meta.get("simplified"):
+        return caps_core.skin_nodes(str(build.head_mesh_path(pm, subject)))
+    return tvsc.decode(found.path.read_bytes()).positions.astype(np.float64)
+
+
 @router.get(
     "/api/caps/inspect",
     summary="Spacing, scalp distance and collapsed electrodes of one net",
@@ -162,10 +188,9 @@ def inspect(
     pm = get_path_manager()
     _scene_subject(pm, subject)
     names, world = _net_points(pm, subject, net)
-    mesh = build.head_mesh_path(pm, subject)
     try:
-        skin = caps_core.skin_nodes(str(mesh))
-    except (OSError, ValueError, RuntimeError):
+        skin = _skin_nodes(pm, subject)
+    except (HTTPException, OSError, ValueError, RuntimeError, build.SceneUnavailable):
         skin = None  # the table still answers spacing; scalp distance is blank
     result = {"subject": subject, "net": net, **caps_core.net_stats(names, world, skin)}
     result["compare"] = None

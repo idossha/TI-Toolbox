@@ -3,11 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, launchElectronApp } from "./_helpers";
-import { openSubjects, subjectRow } from "./_subjects";
+import { subjectsSummary } from "./_subjects";
 
 /**
  * EEG caps panel, against the mock server (2026-10-16): the Settings-gated rail row opens the
- * panel; picking ernie lists the caps with their status; the inspection shows the mock's planted
+ * panel already on ernie (the first subject with a head model, 2026-10-20) with its first net
+ * inspected, its table filled and its electrodes drawn — no click needed; the caps list shows status; the inspection shows the mock's planted
  * collapsed pair (GSN-HydroCel-185 E1/E2, 0.5 mm) as a warning; Apply on a cap already on the
  * subject opens the in-page existing-outputs dialog instead of a native confirm(), and Replace
  * resends with `overwrite: true` — asserted on the request body, not a toast.
@@ -50,8 +51,12 @@ test.afterAll(async () => {
 test("lists caps, warns on collapsed electrodes, and confirms before replacing", async () => {
   await page.getByRole("link", { name: "EEG caps", exact: true }).click();
   await expectPage(page, "panel-caps");
-  await openSubjects(page);
-  await subjectRow(page, "ernie").click();
+  // Opens populated: subject, first net, stats, electrodes table and the drawn markers.
+  await expect(subjectsSummary(page)).toContainText("ernie");
+  await expect(page.getByTestId("caps-summary")).toContainText("256 electrodes");
+  await expect(page.getByTestId("caps-electrodes").locator("tbody tr")).toHaveCount(256);
+  await expect(page.locator('[data-page-active="true"]').getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.markers ?? 0)).toBe(256);
 
   const caps = page.getByTestId("caps-table");
   // Names without ".csv", as every other net picker shows them; no "outdated" status.

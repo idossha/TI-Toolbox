@@ -14,6 +14,7 @@ import {
   appliedDate,
   capLabel,
   capStatus,
+  defaultCapsSubject,
   electrodeColumns,
   existingAmong,
   inspectionMarkers,
@@ -107,5 +108,29 @@ describe("caps panel model", () => {
     for (const term of ["Source", "on subject", "Applied", "Add MNI cap…", "Electrode,x,y,z,name", "electrodes", "spacing", "warning", "Electrodes table", "Compare with", "3-D view"]) {
       expect(html).toContain(term);
     }
+  });
+});
+
+describe("defaultCapsSubject", () => {
+  // The project as the maintainer saw it: "102 · no head model" listed before the modelled ones.
+  const subjects = [
+    { id: "100", has_m2m: false },
+    { id: "101", has_m2m: true },
+    { id: "102", has_m2m: false },
+    { id: "ernie", has_m2m: true },
+  ];
+
+  it("opens on the first subject that has a head model, skipping those without", () => {
+    expect(defaultCapsSubject(subjects, null)).toBe("101");
+  });
+
+  it("keeps the app's current subject when it has a head model, and not when it has none", () => {
+    expect(defaultCapsSubject(subjects, "ernie")).toBe("ernie");
+    expect(defaultCapsSubject(subjects, "102")).toBe("101");
+  });
+
+  it("has no default when no subject has a head model, so the page says so", () => {
+    expect(defaultCapsSubject([{ id: "102", has_m2m: false }], "102")).toBeNull();
+    expect(defaultCapsSubject([], null)).toBeNull();
   });
 });

@@ -19,6 +19,18 @@ export function sourceLabel(cap: CapStatus): string {
   return cap.source === null ? "subject only" : (SOURCE_LABELS[cap.source] ?? cap.source);
 }
 
+/** What the panel says when no subject in the project has a head model to put a cap on. */
+export const NO_HEAD_MODEL = "No subject has a head model yet — run Pre-processing (charm) first.";
+
+/**
+ * The subject the panel opens on: the app's current subject when it has a head model (as the
+ * Simulator seeds its first row), else the first subject that has one; null when none does.
+ */
+export function defaultCapsSubject(subjects: { id: string; has_m2m: boolean }[], current: string | null): string | null {
+  const modelled = subjects.filter((s) => s.has_m2m).map((s) => s.id);
+  return current && modelled.includes(current) ? current : (modelled[0] ?? null);
+}
+
 /** A cap as the rest of the app names a net: its file name without `.csv`. */
 export function capLabel(name: string): string {
   return name.replace(/\.csv$/i, "");

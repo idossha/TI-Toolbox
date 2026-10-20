@@ -23,6 +23,7 @@ that calls these must import nothing heavy (``dev/route_import_guard.py``).
 from __future__ import annotations
 
 import csv
+import importlib.util
 import io
 import math
 import os
@@ -59,10 +60,17 @@ class CapError(ValueError):
 
 
 def simnibs_caps_dir() -> Path:
-    """SimNIBS's ``resources/ElectrodeCaps_MNI`` -- the folder charm warps."""
-    from simnibs.utils.file_finder import ElectrodeCaps_MNI
+    """SimNIBS's ``resources/ElectrodeCaps_MNI`` -- the folder charm warps.
 
-    return Path(ElectrodeCaps_MNI)
+    Located with ``find_spec`` rather than by importing
+    ``simnibs.utils.file_finder`` (which defines it the same way, from the
+    package directory): that import costs ~4 s in the image and was most of
+    the caps list's first answer.
+    """
+    spec = importlib.util.find_spec("simnibs")
+    if spec is None or not spec.submodule_search_locations:
+        raise CapError("SimNIBS is not installed")
+    return Path(spec.submodule_search_locations[0]) / "resources" / "ElectrodeCaps_MNI"
 
 
 # The caps TI-Toolbox ships in ``resources/ElectrodeCaps_MNI``; the image build
@@ -205,17 +213,23 @@ def _distances(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def nearest_distance(points: np.ndarray, cloud: np.ndarray) -> np.ndarray:
-    """Distance from each point to its nearest cloud point, in chunks.
+    """Distance from each point to its nearest cloud point.
 
-    ponytail: brute force (n x m), ~0.1 s for 256 electrodes x 100 k skin
-    nodes; a KD-tree if a cloud gets much larger.
+    ponytail: brute force as one matrix product (|p|^2 + |c|^2 - 2 p.c), so
+    256 electrodes x 35 k skin nodes is one BLAS call instead of a Python
+    loop of broadcasts; the nearest node is then re-measured exactly, so the
+    product's round-off never reaches the answer. A KD-tree if a cloud gets
+    much larger (``scipy`` is mocked in the host suite).
     """
-    out = np.empty(len(points))
-    for start in range(0, len(points), 16):
-        out[start : start + 16] = _distances(points[start : start + 16], cloud).min(
-            axis=1
-        )
-    return out
+    points = np.asarray(points, dtype=np.float64).reshape(-1, 3)
+    cloud = np.asarray(cloud, dtype=np.float64).reshape(-1, 3)
+    squared = (
+        (points**2).sum(axis=1)[:, None]
+        + (cloud**2).sum(axis=1)[None, :]
+        - 2.0 * points @ cloud.T
+    )
+    nearest = cloud[squared.argmin(axis=1)]
+    return np.sqrt(((points - nearest) ** 2).sum(axis=1))
 
 
 @lru_cache(maxsize=2)

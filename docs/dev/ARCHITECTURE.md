@@ -637,7 +637,10 @@ subject is a 409 until `overwrite`, answered in the panel by the existing-output
 are single path components that must be listed by `GET /api/caps/available`; writes are confined to
 the project. `GET /api/caps/inspect` reports per-electrode nearest-neighbour spacing, the distance to
 the nearest full-resolution skin node, pairs closer than 2 mm (collapsed), duplicate labels and, with
-`compare`, each electrode's nearest electrode in a second net. A cap's status is only whether it
+`compare`, each electrode's nearest electrode in a second net. Its skin nodes come from the scene
+service's cached `skin` surface (one shared build, keyed on the mesh's size and mtime), falling back
+to reading the mesh only when that surface was simplified. The panel opens on the current subject
+if it has a head model, else the first that does, with its first net inspected. A cap's status is only whether it
 is on the subject, with the subject copy's mtime as its applied date. The warp is pinned against charm's own
 output by `tests/numerical/test_caps_warp_realdata.py`. Excluded alternative: re-running charm
 (minutes, and it rebuilds the head model) or a `caps` job kind (a warp is 2.4 s plus a 0.8 s mesh
