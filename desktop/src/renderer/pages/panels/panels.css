@@ -26,7 +26,7 @@
    a wide table inside its own scroll container instead of pushing the page sideways (§4.3). */
 .panel-page-columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
   gap: var(--space-3);
   align-items: start;
 }
@@ -132,6 +132,15 @@
   padding-top: var(--space-2);
 }
 
+/* EEG caps panel: the tables (Cap/Source/Status, electrodes) need more than the run shape's 800 px
+   work-pane ceiling, so its pane lifts that ceiling and the 3-D view takes 40 vw instead of the
+   default 45 (maintainer review, 2026-10-20). The 640 px floor and the 400 px pane floor still hold. */
+.page-layout-panel:has(.caps-scene) {
+  --run-work-max: 1400px;
+}
+.page-layout-run .page-layout-panel:has(.caps-scene):not([data-pane-width]) {
+  width: 40vw;
+}
 /* EEG caps panel: the scene fills the right pane; chips wrap under the net pickers. */
 .caps-scene {
   height: 100%;
