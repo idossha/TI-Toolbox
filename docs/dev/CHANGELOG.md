@@ -12,7 +12,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 **Fixed**
 
 - **The simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one; simulation outputs are unchanged.
-- **The GSN-HydroCel-128, BioSemi-64, BioSemi-128 and BioSemi-256 EEG nets sit on the head again** — their coordinates were not in MNI space (axes swapped, about 5 cm too high), so central electrodes landed on one point; they are now in MNI space and LPA/RPA are named correctly. Head models built before the fix keep the wrong positions in `m2m_<id>/eeg_positions/` until the head model is rebuilt with the updated image; other nets are unchanged.
+- **The GSN-HydroCel-128, BioSemi-64, BioSemi-128 and BioSemi-256 EEG nets sit on the head again** — their coordinates were not in MNI space (axes swapped, about 5 cm too high), so central electrodes landed on one point; they are now converted to MNI space with Brainstorm's own ICBM152 head-to-MNI transform, and LPA/RPA are named correctly. Head models built before the fix keep the wrong positions in `m2m_<id>/eeg_positions/` until the head model is rebuilt with the updated image; other nets are unchanged.
 
 ---
 ### v3.1.0 — October 9, 2026 (Latest Release)
