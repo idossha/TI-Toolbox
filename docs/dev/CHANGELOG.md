@@ -7,19 +7,27 @@ permalink: /releases/changelog/
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
 
 ---
-### Unreleased
+### v3.1.1 — October 20, 2026 (Latest Release)
 
-**Added**
+A patch release for everyone on v3.1.0; update the desktop app and the image together (the image
+carries the server the app talks to, including the new `/api/caps` endpoints). The headline: a new
+optional **EEG caps** panel applies an EEG cap to a head model you already have, without rebuilding
+it, and shows how each net sits on the scalp. It comes with corrected GSN-HydroCel-128, BioSemi-64,
+BioSemi-128 and BioSemi-256 caps, which were in the wrong coordinate frame and put central
+electrodes in a hole on the scalp: **re-apply** those four caps in the panel to subjects that use
+them (see [the v3.1.1 release notes]({{ site.baseurl }}/releases/v3.1.1/)). The simulation report is
+written again. Other projects, nets and results open unchanged.
 
-- **Apply EEG caps to an existing head model, and check how a net sits on the scalp** — the new optional **EEG caps** panel (**Settings ▸ Extensions ▸ EEG caps**) warps the image's MNI caps, or an MNI cap CSV you add, onto a subject exactly as charm does, without rebuilding the head model, and shows each net on the scalp with electrode spacing, scalp distance, a warning for collapsed or duplicate electrodes and an optional second net to compare; existing head models and nets are untouched until you apply a cap. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
+#### EEG caps
 
-**Fixed**
+- **New: apply EEG caps to an existing head model, and check how a net sits on the scalp** — the new optional **EEG caps** panel (**Settings ▸ Extensions ▸ EEG caps**) warps the image's MNI caps, or an MNI cap CSV you add to the project (kept in `code/ti-toolbox/eeg_caps/`), onto a subject exactly as charm does at the end of a head-model build, in a few seconds and without rebuilding the head model. The table lists each cap as **on subject** or **not on subject**, with the date it was applied; a cap already on the subject is replaced only after you confirm. Picking a net draws it on the subject's scalp with a sortable table of electrode spacing and scalp distance, a warning for electrodes closer than 2 mm or duplicate labels, and an optional second net to compare (nearest electrode and distance). Existing head models and nets are untouched until you apply a cap. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
+- **Fixed: the GSN-HydroCel-128, BioSemi-64, BioSemi-128 and BioSemi-256 EEG nets sit on the head again** — these four caps were in Brainstorm's head frame, not MNI space (axes swapped, about 5 cm too high), so charm put their central electrodes on one point of the scalp (43 GSN-HydroCel-128 electrodes collapsed into a hole). They are now converted to MNI space with Brainstorm's own ICBM152 head-to-MNI transform, and their LPA/RPA rows are named correctly. Head models built before the fix keep the wrong positions in `m2m_<id>/eeg_positions/` until the cap is re-applied in the **EEG caps** panel (or the head model is rebuilt) with the v3.1.1 image. Other nets are unchanged.
 
-- **The simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one; simulation outputs are unchanged.
-- **The GSN-HydroCel-128, BioSemi-64, BioSemi-128 and BioSemi-256 EEG nets sit on the head again** — their coordinates were not in MNI space (axes swapped, about 5 cm too high), so central electrodes landed on one point; they are now converted to MNI space with Brainstorm's own ICBM152 head-to-MNI transform, and LPA/RPA are named correctly. Head models built before the fix keep the wrong positions in `m2m_<id>/eeg_positions/` until the cap is re-applied in the **EEG caps** panel (or the head model is rebuilt) with the updated image; other nets are unchanged.
+#### Reports
 
----
-### v3.1.0 — October 9, 2026 (Latest Release)
+- **Fixed: the simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one. Simulation outputs are unchanged; rebuild a missing report by re-running the simulation.
+
+### v3.1.0 — October 9, 2026
 
 A feature release for everyone on v3.0.x; update the desktop app and the image together (the image
 carries the server the app talks to, including the new plan and job-server endpoints). The

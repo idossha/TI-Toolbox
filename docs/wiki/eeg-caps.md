@@ -24,7 +24,7 @@ this head and projected onto the scalp, and written to `m2m_<id>/eeg_positions/<
 first: **Skip** keeps the existing file, **Replace and rerun** overwrites it.
 
 Use this after updating TI-Toolbox when a release fixes a cap (for example the GSN-HydroCel-128
-and BioSemi caps in the release after v3.1.0): re-apply the cap instead of rebuilding the head model.
+and BioSemi caps in v3.1.1): re-apply the cap instead of rebuilding the head model.
 
 ### Add your own cap
 
