@@ -7,11 +7,6 @@ permalink: /releases/changelog/
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
 
 ---
-### Unreleased
-
-- **Fixed: the EEG caps panel says which caps come from TI-Toolbox** — the **Source** column read "simnibs" for every cap; the GSN-HydroCel and BioSemi caps TI-Toolbox ships now read **TI-Toolbox**, SimNIBS's own caps **SimNIBS**, and project caps **uploaded**. The electrodes table is laid out compactly (Label · Nearest electrode · Spacing to nearest (mm) · Distance to scalp (mm)), and an **(i)** on the **Caps** and **Inspect** cards explains the panel. Nets and caps on disk are unchanged. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
-
----
 ### v3.1.1 — October 20, 2026 (Latest Release)
 
 A patch release for everyone on v3.1.0; update the desktop app and the image together (the image
@@ -25,7 +20,7 @@ written again. Other projects, nets and results open unchanged.
 
 #### EEG caps
 
-- **New: apply EEG caps to an existing head model, and check how a net sits on the scalp** — the new optional **EEG caps** panel (**Settings ▸ Extensions ▸ EEG caps**) warps the image's MNI caps, or an MNI cap CSV you add to the project (kept in `code/ti-toolbox/eeg_caps/`), onto a subject exactly as charm does at the end of a head-model build, in a few seconds and without rebuilding the head model. The table lists each cap as **on subject** or **not on subject**, with the date it was applied; a cap already on the subject is replaced only after you confirm. Picking a net draws it on the subject's scalp with a sortable table of electrode spacing and scalp distance, a warning for electrodes closer than 2 mm or duplicate labels, and an optional second net to compare (nearest electrode and distance). Existing head models and nets are untouched until you apply a cap. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
+- **New: apply EEG caps to an existing head model, and check how a net sits on the scalp** — the new optional **EEG caps** panel (**Settings ▸ Extensions ▸ EEG caps**) warps the image's MNI caps, or an MNI cap CSV you add to the project (kept in `code/ti-toolbox/eeg_caps/`), onto a subject exactly as charm does at the end of a head-model build, in a few seconds and without rebuilding the head model. The table lists each cap as **on subject** or **not on subject**, with the date it was applied; a cap already on the subject is replaced only after you confirm. Picking a net draws it on the subject's scalp with a sortable table of electrode spacing and scalp distance, a warning for electrodes closer than 2 mm or duplicate labels, and an optional second net to compare (nearest electrode and distance). The table labels each cap's source (**TI-Toolbox**, **SimNIBS**, **uploaded**), and an **(i)** on each card explains the panel. Existing head models and nets are untouched until you apply a cap. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
 - **Fixed: the GSN-HydroCel-128, BioSemi-64, BioSemi-128 and BioSemi-256 EEG nets sit on the head again** — these four caps were in Brainstorm's head frame, not MNI space (axes swapped, about 5 cm too high), so charm put their central electrodes on one point of the scalp (43 GSN-HydroCel-128 electrodes collapsed into a hole). They are now converted to MNI space with Brainstorm's own ICBM152 head-to-MNI transform, and their LPA/RPA rows are named correctly. Head models built before the fix keep the wrong positions in `m2m_<id>/eeg_positions/` until the cap is re-applied in the **EEG caps** panel (or the head model is rebuilt) with the v3.1.1 image. Other nets are unchanged.
 
 #### Reports
