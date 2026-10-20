@@ -99,6 +99,13 @@ def test_validate_mni_cap_refuses_what_charm_would_skip(text: str) -> None:
         caps.validate_mni_cap(text)
 
 
+def test_every_cap_tit_ships_is_labelled_ti_toolbox() -> None:
+    shipped = Path(__file__).parents[1] / "resources" / "ElectrodeCaps_MNI"
+    names = {p.name for p in shipped.glob("*.csv")}
+    assert names, "has caps to check"
+    assert caps.TIT_CAPS == names
+
+
 # ── routes ────────────────────────────────────────────────────────────────────
 
 
@@ -111,6 +118,8 @@ def project(tmp_path, monkeypatch):
     simnibs_caps = tmp_path.parent / (tmp_path.name + "-simnibs-caps")
     simnibs_caps.mkdir()
     (simnibs_caps / "EEG10-10.csv").write_text(CAP)
+    # A TI-Toolbox cap as the image has it: copied into SimNIBS's folder.
+    (simnibs_caps / "GSN-HydroCel-185.csv").write_text(CAP)
     monkeypatch.setattr(caps, "simnibs_caps_dir", lambda: simnibs_caps)
     monkeypatch.setattr("tit.catalog.subject_ids", lambda pm: ["ernie"])
 
@@ -161,6 +170,7 @@ def test_available_lists_sources_and_subject_nets(project) -> None:
     ).json()["caps"]
     by_name = {r["name"]: r for r in rows}
     assert by_name["EEG10-10.csv"]["source"] == "simnibs"
+    assert by_name["GSN-HydroCel-185.csv"]["source"] == "ti-toolbox"
     assert by_name["EEG10-10.csv"]["on_subject"] is False
     assert by_name["Legacy.csv"] == {
         **by_name["Legacy.csv"],
@@ -244,6 +254,7 @@ def test_upload_stores_a_project_cap_that_can_then_be_warped(project) -> None:
         ("../x.csv", CAP, 422),
         ("x.txt", CAP, 422),
         ("EEG10-10.csv", CAP, 409),
+        ("GSN-HydroCel-185.csv", CAP, 409),
         ("x.csv", "Electrode,0,0,0\n", 422),
         ("x.csv", b"\xff\xfe", 422),
     ],

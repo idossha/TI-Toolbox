@@ -110,7 +110,7 @@ async def upload(
     if not name.endswith(".csv"):
         raise HTTPException(422, "The cap file name must end in .csv")
     pm = get_path_manager()
-    if caps_core.source_caps(pm).get(name, ("project",))[0] == "simnibs":
+    if caps_core.source_caps(pm).get(name, ("project",))[0] != "project":
         raise HTTPException(
             409, f"{name} is a cap the image already ships; rename the file"
         )

@@ -1176,3 +1176,12 @@ subject without `overwrite`), `POST /api/caps/upload` (a `text/csv` MNI cap, 256
 `GET /api/caps/inspect` (`CapInspection`: spacing, scalp distance, collapsed pairs, optional
 `compare` net). New schemas `WarpRequest`, `CapStatus`, `CapElectrode`, `CapInspection`.
 Additive: no existing path or schema changes.
+
+## 2026-10-20 — `CapStatus.source` names TI-Toolbox's own caps
+
+`CapStatus.source` gains the value `ti-toolbox`: a cap TI-Toolbox ships in
+`resources/ElectrodeCaps_MNI` (the image copies them into SimNIBS's folder, where only the file
+name tells them apart; `tit.caps.TIT_CAPS`, pinned to the folder by `tests/test_caps.py`). Those
+caps used to read `simnibs`. `POST /api/caps/upload` refuses their names with 409 as before.
+Clients that only switch on `simnibs`/`project`/`null` see the new value where they saw `simnibs`.
+

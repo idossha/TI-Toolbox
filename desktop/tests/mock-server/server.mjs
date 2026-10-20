@@ -2588,7 +2588,7 @@ route("GET", "/api/caps/available", (ctx) => {
   const problem = sceneSubjectProblem(subject);
   if (problem) return json(ctx.res, 404, { detail: problem });
   const on = capsOnSubject(subject);
-  const source = (name) => (CAP_SOURCES.includes(name) ? "simnibs" : capsProject.has(name) ? "project" : null);
+  const source = (name) => (CAP_SOURCES.includes(name) ? (name.startsWith("GSN-") ? "ti-toolbox" : "simnibs") : capsProject.has(name) ? "project" : null);
   const names = [...new Set([...CAP_SOURCES, ...capsProject, ...on])].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   json(ctx.res, 200, {
     subject,

@@ -4237,9 +4237,9 @@ components:
       properties:
         name: { type: string, description: the cap's CSV file name }
         source:
-          description: where the MNI cap comes from; null for a net only on the subject
+          description: where the MNI cap comes from (a cap TI-Toolbox ships, SimNIBS's own, or one added to the project); null for a net only on the subject
           type: [string, "null"]
-          enum: [simnibs, project, null]
+          enum: [ti-toolbox, simnibs, project, null]
         on_subject: { type: boolean }
         subject_mtime:
           type: [number, "null"]

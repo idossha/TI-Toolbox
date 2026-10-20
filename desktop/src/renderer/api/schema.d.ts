@@ -6207,10 +6207,10 @@ export interface components {
             /** @description the cap's CSV file name */
             name: string;
             /**
-             * @description where the MNI cap comes from; null for a net only on the subject
+             * @description where the MNI cap comes from (a cap TI-Toolbox ships, SimNIBS's own, or one added to the project); null for a net only on the subject
              * @enum {string|null}
              */
-            source: "simnibs" | "project" | null;
+            source: "ti-toolbox" | "simnibs" | "project" | null;
             on_subject: boolean;
             /** @description when the subject's copy was written (applied), seconds since the epoch; null when not on the subject */
             subject_mtime: number | null;

@@ -65,11 +65,27 @@ def simnibs_caps_dir() -> Path:
     return Path(ElectrodeCaps_MNI)
 
 
+# The caps TI-Toolbox ships in ``resources/ElectrodeCaps_MNI``; the image build
+# copies them into SimNIBS's folder (``Dockerfile.ti-toolbox``), so only the
+# name tells them apart there. ``tests/test_caps.py`` pins this to the folder.
+TIT_CAPS = frozenset(
+    {
+        "BioSemi-128-A1.csv",
+        "BioSemi-256-A1.csv",
+        "BioSemi-64-10-10.csv",
+        "GSN-HydroCel-128.csv",
+        "GSN-HydroCel-185.csv",
+        "GSN-HydroCel-256.csv",
+    }
+)
+
+
 def source_caps(pm: PathManager) -> dict[str, tuple[str, Path]]:
     """``{cap file name: (source, path)}`` for every MNI cap that can be warped.
 
-    ``source`` is ``"simnibs"`` or ``"project"``. A project cap never shadows a
-    SimNIBS one: :func:`validate_mni_cap` callers refuse the name on upload.
+    ``source`` is ``"ti-toolbox"`` (a cap TI-Toolbox ships, even where it
+    replaces a SimNIBS file of that name), ``"simnibs"`` or ``"project"``. A
+    project cap never shadows an image one: the upload route refuses the name.
     """
     found: dict[str, tuple[str, Path]] = {}
     for source, directory in (
@@ -80,7 +96,8 @@ def source_caps(pm: PathManager) -> dict[str, tuple[str, Path]]:
             continue
         for path in directory.glob("*.csv"):
             if not path.name.startswith("."):
-                found[path.name] = (source, path)
+                tit = source == "simnibs" and path.name in TIT_CAPS
+                found[path.name] = ("ti-toolbox" if tit else source, path)
     return found
 
 
