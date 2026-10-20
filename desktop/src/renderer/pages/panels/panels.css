@@ -151,13 +151,29 @@
 .caps-scene > * {
   height: 100%;
 }
+.caps-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 .caps-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
-.caps-electrodes {
+/* Electrodes table: columns hug their values instead of stretching to the card, so a number sits
+   under its header and next to its label (maintainer review, 2026-10-20). The height cap is on the
+   table's own scroll box so its sticky header sticks to the box that scrolls. */
+.caps-electrodes .data-table-container {
   max-height: 420px;
-  overflow: auto;
+  width: fit-content;
+  max-width: 100%;
+}
+.caps-electrodes .data-table {
+  width: auto;
+}
+.caps-electrodes .data-table th,
+.caps-electrodes .data-table td {
+  padding: 0 var(--space-4);
 }

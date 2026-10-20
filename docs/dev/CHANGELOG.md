@@ -7,6 +7,11 @@ permalink: /releases/changelog/
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
 
 ---
+### Unreleased
+
+- **Fixed: the EEG caps panel says which caps come from TI-Toolbox** — the **Source** column read "simnibs" for every cap; the GSN-HydroCel and BioSemi caps TI-Toolbox ships now read **TI-Toolbox**, SimNIBS's own caps **SimNIBS**, and project caps **uploaded**. The electrodes table is laid out compactly (Label · Nearest electrode · Spacing to nearest (mm) · Distance to scalp (mm)), and an **(i)** on the **Caps** and **Inspect** cards explains the panel. Nets and caps on disk are unchanged. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
+
+---
 ### v3.1.1 — October 20, 2026 (Latest Release)
 
 A patch release for everyone on v3.1.0; update the desktop app and the image together (the image

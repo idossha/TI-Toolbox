@@ -23,12 +23,17 @@ import { Select } from "../../../ui/Select";
 import { Checkbox } from "../../../ui/Toggle";
 import { Button } from "../../../ui/Button";
 import { Chip } from "../../../ui/Status";
+import { HelpIcon } from "../../../ui/HelpPopover";
+import { DOCS_SITE } from "../../help/api";
+import { ReadMore } from "../../preprocess/stepInfo";
 import { ActionBar } from "../../../ui/Chrome";
 import { notify, notifySubmitError } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
-import { getAvailableCaps, inspectNet, uploadCap, warpCaps, type CapElectrode, type CapStatus } from "./api";
-import { appliedDate, capLabel, capStatus, existingAmong, inspectionMarkers, inspectionWarnings, mm, reapplicable } from "./model";
+import { getAvailableCaps, inspectNet, uploadCap, warpCaps, type CapStatus } from "./api";
+import { CAPS_HELP, INSPECT_HELP, appliedDate, capLabel, capStatus, electrodeColumns, existingAmong, inspectionMarkers, inspectionWarnings, mm, reapplicable, sourceLabel } from "./model";
+
+const WIKI = `${DOCS_SITE}wiki/eeg-caps/`;
 
 const SUBJECT_COLUMNS = presenceColumns<{ id: string; has_raw: boolean; has_fastsurfer: boolean; has_freesurfer: boolean; has_m2m: boolean }>();
 const NONE = "__none__";
@@ -118,7 +123,7 @@ function CapsPanel() {
         ),
     },
     { id: "name", accessorFn: (c) => capLabel(c.name), header: "Cap" },
-    { id: "source", accessorFn: (c) => c.source ?? "subject only", header: "Source" },
+    { id: "source", accessorFn: sourceLabel, header: "Source" },
     {
       id: "status",
       accessorFn: (c) => capStatus(c).label,
@@ -131,19 +136,7 @@ function CapsPanel() {
     { id: "applied", accessorFn: (c) => c.subject_mtime ?? 0, header: "Applied", cell: ({ row }) => appliedDate(row.original) },
   ];
 
-  const compareActive = !!inspection?.compare;
-  const electrodeColumns: DataTableColumn<CapElectrode & { index: number }>[] = [
-    { accessorKey: "name", header: "Label" },
-    { accessorKey: "nn_mm", header: "NN spacing (mm)", numeric: true, cell: ({ getValue }) => mm(getValue() as number | null) },
-    { accessorKey: "nn_name", header: "Nearest" },
-    { accessorKey: "scalp_mm", header: "To scalp (mm)", numeric: true, cell: ({ getValue }) => mm(getValue() as number | null) },
-    ...(compareActive
-      ? ([
-          { accessorKey: "compare_name", header: `Nearest in ${inspection?.compare?.net}` },
-          { accessorKey: "compare_mm", header: "Δ (mm)", numeric: true, cell: ({ getValue }) => mm(getValue() as number | null) },
-        ] as DataTableColumn<CapElectrode & { index: number }>[])
-      : []),
-  ];
+  const columns = useMemo(() => electrodeColumns(inspection?.compare?.net ?? null), [inspection]);
   const electrodeRows = useMemo(() => (inspection?.electrodes ?? []).map((e, index) => ({ ...e, index })), [inspection]);
   const summary = inspection?.summary;
 
@@ -212,12 +205,15 @@ function CapsPanel() {
             <CardHeader
               title="Caps"
               actions={
-                <>
+                <div className="caps-header-actions">
                   <input ref={fileInput} type="file" accept=".csv,text/csv" hidden data-testid="caps-upload-input" onChange={(e) => void onUpload(e.target.files?.[0])} />
                   <Button variant="ghost" size="sm" icon={<Upload size={14} />} onClick={() => fileInput.current?.click()}>
                     Add MNI cap…
                   </Button>
-                </>
+                  <HelpIcon title="EEG caps" label="About caps" text={CAPS_HELP} testId="caps-help">
+                    <div className="help-footer"><ReadMore href={`${WIKI}#apply-a-cap`} /></div>
+                  </HelpIcon>
+                </div>
               }
             />
             <CardBody>
@@ -236,7 +232,14 @@ function CapsPanel() {
             </CardBody>
           </Card>
           <Card>
-            <CardHeader title="Inspect" />
+            <CardHeader
+              title="Inspect"
+              actions={
+                <HelpIcon title="Inspect a net" label="About inspecting" text={INSPECT_HELP} testId="caps-inspect-help">
+                  <div className="help-footer"><ReadMore href={`${WIKI}#inspect-a-net`} /></div>
+                </HelpIcon>
+              }
+            />
             <CardBody>
               <div className="form-grid">
                 <Field label="Net" htmlFor="caps-net">
@@ -279,7 +282,7 @@ function CapsPanel() {
             <CardHeader title={`Electrodes · ${capLabel(viewNet)}`} />
             <CardBody>
               <div className="caps-electrodes" data-testid="caps-electrodes">
-                <DataTable data={electrodeRows} columns={electrodeColumns} getRowId={(r) => String(r.index)} selected={selectedRow === null ? {} : { [String(selectedRow)]: true }} onRowClick={(r) => setSelectedRow(r.index)} />
+                <DataTable data={electrodeRows} columns={columns} getRowId={(r) => String(r.index)} selected={selectedRow === null ? {} : { [String(selectedRow)]: true }} onRowClick={(r) => setSelectedRow(r.index)} />
               </div>
             </CardBody>
           </Card>

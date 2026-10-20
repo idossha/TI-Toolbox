@@ -3123,3 +3123,24 @@ electrode warning of the inspection is what flags a cap that is actually wrong.
 status nobody needs once the inspection flags bad caps).
 
 **Evidence.** `desktop/tests/unit/caps-panel.test.ts`; `desktop/tests/e2e/caps.spec.ts`.
+
+## 2026-10-20 — EEG caps panel: a cap's source says TI-Toolbox or SimNIBS; compact table and (i) help
+
+**Decision.** `CapStatus.source` is `ti-toolbox` for the caps in the repo's
+`resources/ElectrodeCaps_MNI` (a name list, `tit.caps.TIT_CAPS`, a TI-Toolbox name winning over a
+SimNIBS file of the same name), `simnibs` for the rest of SimNIBS's folder, `project` for uploads;
+the panel shows **TI-Toolbox**, **SimNIBS**, **uploaded**, **subject only**. The electrodes table
+reads Label · Nearest electrode · Spacing to nearest (mm) · Distance to scalp (mm) with columns
+sized to their values, and the Caps and Inspect cards carry the app's one help affordance (`HelpIcon`)
+with a link to `wiki/eeg-caps`.
+
+**Why.** Every cap read "simnibs" because the image copies TI-Toolbox's caps into SimNIBS's folder
+(maintainer review, 2026-10-20); a full-width table put each number far from its header.
+
+**Alternatives rejected.** Reading the repo folder at runtime (the server would need the source
+tree's path in every install; a six-name list pinned by a test is the same truth); a separate
+TI-Toolbox caps directory in the image (moves files charm reads).
+
+**Evidence.** `tests/test_caps.py::test_every_cap_tit_ships_is_labelled_ti_toolbox`;
+`desktop/tests/unit/caps-panel.test.ts`; `desktop/tests/e2e/caps.spec.ts`.
+

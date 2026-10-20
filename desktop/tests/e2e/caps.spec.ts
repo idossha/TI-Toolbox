@@ -58,6 +58,9 @@ test("lists caps, warns on collapsed electrodes, and confirms before replacing",
   await expect(caps.getByRole("row", { name: /EEG10-10_UI_Jurak_2007 .*not on subject/ })).toBeVisible();
   await expect(caps.getByRole("row", { name: /GSN-HydroCel-185 .*on subject/ })).toBeVisible();
   await expect(caps.getByText(/\.csv|outdated/)).toHaveCount(0);
+  // The mock ships GSN as TI-Toolbox's own caps and Jurak as SimNIBS's.
+  await expect(caps.getByRole("row", { name: /GSN-HydroCel-185 TI-Toolbox/ })).toBeVisible();
+  await expect(caps.getByRole("row", { name: /EEG10-10_UI_Jurak_2007 SimNIBS/ })).toBeVisible();
 
   // The first net on the subject is inspected by default; clicking a cap's row inspects that one.
   await expect(page.getByTestId("caps-summary")).toContainText("256 electrodes");
@@ -83,4 +86,28 @@ test("lists caps, warns on collapsed electrodes, and confirms before replacing",
   await page.getByTestId("caps-apply").click();
   await expect(caps.getByRole("row", { name: /EEG10-10_UI_Jurak_2007 .*on subject/ })).toBeVisible();
   expect(bodies[1]).toEqual({ subject: "ernie", caps: ["EEG10-10_UI_Jurak_2007.csv"], overwrite: false });
+});
+
+test("explains the panel behind its (i) and lays the electrodes table out compactly", async () => {
+  await page.setViewportSize({ width: 2000, height: 1100 });
+  const electrodes = page.getByTestId("caps-electrodes");
+  await expect(electrodes.locator("thead th")).toHaveText(["Label", "Nearest electrode", "Spacing to nearest (mm)", "Distance to scalp (mm)"]);
+  // Columns hug their values: the table is narrower than its card.
+  const table = await electrodes.locator("table").boundingBox();
+  const card = await electrodes.boundingBox();
+  expect(table!.width).toBeLessThan(card!.width * 0.8);
+  await electrodes.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(ARTIFACTS, "caps-table.png") });
+
+  await page.getByTestId("caps-help").click();
+  const help = page.getByTestId("caps-help-content");
+  await expect(help).toContainText("eeg_positions");
+  await expect(help).toContainText("Electrode,x,y,z,name");
+  await expect(help.getByText("Read more")).toBeVisible();
+  await page.screenshot({ path: join(ARTIFACTS, "caps-help.png") });
+  await page.keyboard.press("Escape");
+  await page.getByTestId("caps-inspect-help").click();
+  await expect(page.getByTestId("caps-inspect-help-content")).toContainText("Compare with");
+  await page.screenshot({ path: join(ARTIFACTS, "caps-inspect-help.png") });
+  await page.keyboard.press("Escape");
 });

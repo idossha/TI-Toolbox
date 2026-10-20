@@ -630,7 +630,7 @@ job.** The optional `caps` panel (Settings ▸ Extensions) calls `/api/caps/*`
 SimNIBS `warp_coordinates(cap, m2m, "mni2subject", out_name, out_geo, mesh_in=skin, skin_tag=1005)`
 per cap — charm's own final step — writing `m2m_<id>/eeg_positions/<cap>.csv` and `.geo` through a
 hidden temporary name, so a failed warp leaves the previous file. Sources are SimNIBS's
-`resources/ElectrodeCaps_MNI` (the image adds TI-Toolbox's caps there) and the project's
+`resources/ElectrodeCaps_MNI` (the image adds TI-Toolbox's caps there; `tit.caps.TIT_CAPS` names them so their `source` is `ti-toolbox`) and the project's
 `code/ti-toolbox/eeg_caps/`, filled by `POST /api/caps/upload` (validated `Type,x,y,z,name` rows in
 MNI millimetres, at most 256 KiB; a name the image ships is refused). Replacing a net already on the
 subject is a 409 until `overwrite`, answered in the panel by the existing-outputs dialog. Cap names

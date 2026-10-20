@@ -11,8 +11,11 @@ charm, and lets you check how a net sits on the subject's scalp. Turn it on in
 ## Apply a cap
 
 1. Pick a subject that has a head model (`m2m_<id>`).
-2. The **Caps** table lists every MNI cap the image ships, plus any you added to this project,
-   with a status, **not on subject** or **on subject**, and the date a cap on the subject was
+2. The **Caps** table lists every MNI cap the image ships, plus any you added to this project.
+   **Source** says where a cap comes from: **TI-Toolbox** (the GSN-HydroCel and BioSemi caps
+   TI-Toolbox ships), **SimNIBS** (SimNIBS's own caps), **uploaded** (added to this project), or
+   **subject only** (a net on the subject with no MNI file to re-apply from). Each cap has a
+   status, **not on subject** or **on subject**, and the date a cap on the subject was
    applied. After an image update that corrects a cap, re-apply it; the inspection below flags a
    cap whose electrodes collapsed.
 3. Tick the caps you want and press **Apply selected**, or **Re-apply all** to refresh every cap
@@ -44,9 +47,12 @@ electrodes on the subject's scalp, and the panel shows:
 - a **warning** when two electrodes are closer than 2 mm (they collapsed onto one point — the sign
   of a cap in the wrong coordinate space) or when a label appears twice; collapsed electrodes are
   drawn in red;
-- a sortable table of every electrode: nearest neighbour and its distance, and distance to the
-  scalp. Click a row to ring its electrode in the 3-D view.
+- a sortable table of every electrode: **Label**, **Nearest electrode**, **Spacing to nearest
+  (mm)** and **Distance to scalp (mm)**. Click a row to ring its electrode in the 3-D view.
 
 **Compare with** draws a second net in orange and adds, for each electrode, the nearest electrode
 of the other net and the distance between them — a quick way to see how two caps' sites correspond
 on this head.
+
+The **(i)** at the top right of the **Caps** and **Inspect** cards opens a short version of this
+page in the app.

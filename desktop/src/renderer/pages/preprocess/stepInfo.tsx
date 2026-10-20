@@ -401,7 +401,7 @@ export function StepFlow({ info }: { info: StepInfo }) {
   );
 }
 
-function ReadMore({ href }: { href: string }) {
+export function ReadMore({ href }: { href: string }) {
   if (isElectron) {
     return (
       <button type="button" className="help-more" onClick={() => void window.tit?.openExternal(href)}>

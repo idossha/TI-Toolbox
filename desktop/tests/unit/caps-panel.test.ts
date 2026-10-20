@@ -4,8 +4,23 @@
  * inspection becomes scene markers — collapsed electrodes in red, the compare net after the net so
  * marker index i is table row i. Expected values are hand-written fixtures, 2026-10-16.
  */
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { appliedDate, capLabel, capStatus, existingAmong, inspectionMarkers, inspectionWarnings, reapplicable } from "../../src/renderer/pages/panels/caps/model";
+import { HelpBody } from "../../src/renderer/ui/HelpPopover";
+import {
+  CAPS_HELP,
+  INSPECT_HELP,
+  appliedDate,
+  capLabel,
+  capStatus,
+  electrodeColumns,
+  existingAmong,
+  inspectionMarkers,
+  inspectionWarnings,
+  reapplicable,
+  sourceLabel,
+} from "../../src/renderer/pages/panels/caps/model";
 import type { CapInspection, CapStatus } from "../../src/renderer/pages/panels/caps/api";
 import { SCENE_CATEGORICAL } from "../../src/renderer/scene/palette";
 
@@ -67,5 +82,30 @@ describe("caps panel model", () => {
     );
     expect(markers.map((m) => m.label)).toEqual(["Fz", "Cz", "Pz", "X (B)"]);
     expect(markers.map((m) => m.color)).toEqual([SCENE_CATEGORICAL[7], SCENE_CATEGORICAL[7], SCENE_CATEGORICAL[0], SCENE_CATEGORICAL[1]]);
+  });
+
+  it("names each source in plain words", () => {
+    expect(["ti-toolbox", "simnibs", "project", null].map((source) => sourceLabel(cap({ source: source as CapStatus["source"] })))).toEqual([
+      "TI-Toolbox",
+      "SimNIBS",
+      "uploaded",
+      "subject only",
+    ]);
+  });
+
+  it("orders the electrode columns label, neighbour, then the two distances, compare last", () => {
+    const headers = (net: string | null) => electrodeColumns(net).map((c) => c.header);
+    expect(headers(null)).toEqual(["Label", "Nearest electrode", "Spacing to nearest (mm)", "Distance to scalp (mm)"]);
+    expect(headers("B.csv").slice(4)).toEqual(["Nearest in B", "Distance to it (mm)"]);
+    expect(electrodeColumns(null).map((c) => !!c.numeric)).toEqual([false, false, true, true]);
+  });
+
+  it("renders the help as prose and a list covering every control of the panel", () => {
+    const html = renderToStaticMarkup(createElement(HelpBody, { text: `${CAPS_HELP}\n\n${INSPECT_HELP}` }));
+    expect(html).toContain("<code class=\"help-code\">m2m_&lt;subject&gt;/eeg_positions/</code>");
+    expect(html).not.toMatch(/\*\*|`/);
+    for (const term of ["Source", "on subject", "Applied", "Add MNI cap…", "Electrode,x,y,z,name", "electrodes", "spacing", "warning", "Electrodes table", "Compare with", "3-D view"]) {
+      expect(html).toContain(term);
+    }
   });
 });
