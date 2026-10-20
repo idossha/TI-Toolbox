@@ -167,6 +167,8 @@ def test_available_lists_sources_and_subject_nets(project) -> None:
         "source": None,
         "on_subject": True,
     }
+    assert by_name["Legacy.csv"]["subject_mtime"] > 0
+    assert by_name["EEG10-10.csv"]["subject_mtime"] is None
 
 
 def test_warp_writes_into_eeg_positions_the_way_charm_does(project) -> None:

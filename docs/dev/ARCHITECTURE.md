@@ -637,8 +637,8 @@ subject is a 409 until `overwrite`, answered in the panel by the existing-output
 are single path components that must be listed by `GET /api/caps/available`; writes are confined to
 the project. `GET /api/caps/inspect` reports per-electrode nearest-neighbour spacing, the distance to
 the nearest full-resolution skin node, pairs closer than 2 mm (collapsed), duplicate labels and, with
-`compare`, each electrode's nearest electrode in a second net. A cap is "outdated" when its source
-file is newer than the subject's copy (mtime, not content). The warp is pinned against charm's own
+`compare`, each electrode's nearest electrode in a second net. A cap's status is only whether it
+is on the subject, with the subject copy's mtime as its applied date. The warp is pinned against charm's own
 output by `tests/numerical/test_caps_warp_realdata.py`. Excluded alternative: re-running charm
 (minutes, and it rebuilds the head model) or a `caps` job kind (a warp is 2.4 s plus a 0.8 s mesh
 read on ernie; a job would add queueing and a lock for no benefit).

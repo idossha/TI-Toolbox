@@ -8,8 +8,17 @@ import type { CapInspection, CapStatus } from "./api";
 export function capStatus(cap: CapStatus): { label: string; kind: SemanticKind; title?: string } {
   if (!cap.on_subject) return { label: "not on subject", kind: "neutral" };
   if (cap.source === null) return { label: "on subject", kind: "success", title: "No MNI source: it cannot be re-applied here." };
-  if (cap.outdated) return { label: "outdated", kind: "warning", title: "The MNI cap is newer than this subject's copy — re-apply it." };
   return { label: "on subject", kind: "success" };
+}
+
+/** A cap as the rest of the app names a net: its file name without `.csv`. */
+export function capLabel(name: string): string {
+  return name.replace(/\.csv$/i, "");
+}
+
+/** When the subject's copy was written, as a local date; "—" when it is not on the subject. */
+export function appliedDate(cap: CapStatus): string {
+  return cap.subject_mtime == null ? "—" : new Date(cap.subject_mtime * 1000).toLocaleDateString();
 }
 
 /** Caps the Apply button would overwrite, so the page can ask before sending `overwrite`. */
@@ -50,7 +59,7 @@ export function inspectionMarkers(inspection: CapInspection): SceneMarker[] {
   }));
   const compare = (inspection.compare?.electrodes ?? []).map((e, i) => ({
     id: `compare:${i}`,
-    label: `${e.name} (${inspection.compare?.net})`,
+    label: `${e.name} (${capLabel(inspection.compare?.net ?? "")})`,
     world: e.world as [number, number, number],
     color: COMPARE_COLOR,
   }));

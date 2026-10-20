@@ -87,33 +87,20 @@ def source_caps(pm: PathManager) -> dict[str, tuple[str, Path]]:
 def available_caps(pm: PathManager, sid: str) -> list[dict[str, Any]]:
     """Every source cap plus every net already on *sid*, with their status.
 
-    ``outdated`` means the source file is newer than the subject's copy:
-    the image (or the project) carries a cap that changed after this head was
-    warped. ponytail: mtime, not content -- an image rebuild touches every
-    source, so after an image update every charm-era cap reads as outdated;
-    add a recorded source hash per warped cap if that noise matters.
+    ``subject_mtime`` is when the subject's copy was written (applied).
     """
     sources = source_caps(pm)
     on_subject = set(pm.list_eeg_caps(sid))
     positions = Path(pm.eeg_positions(sid))
     rows = []
     for name in sorted(set(sources) | on_subject, key=str.lower):
-        source, path = sources.get(name, (None, None))
-        source_mtime = path.stat().st_mtime if path else None
-        subject_mtime = (
-            (positions / name).stat().st_mtime if name in on_subject else None
-        )
         rows.append(
             {
                 "name": name,
-                "source": source,
+                "source": sources.get(name, (None,))[0],
                 "on_subject": name in on_subject,
-                "source_mtime": source_mtime,
-                "subject_mtime": subject_mtime,
-                "outdated": bool(
-                    source_mtime is not None
-                    and subject_mtime is not None
-                    and source_mtime > subject_mtime
+                "subject_mtime": (
+                    (positions / name).stat().st_mtime if name in on_subject else None
                 ),
             }
         )

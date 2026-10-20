@@ -28,7 +28,7 @@ import { notify, notifySubmitError } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
 import { getAvailableCaps, inspectNet, uploadCap, warpCaps, type CapElectrode, type CapStatus } from "./api";
-import { capStatus, existingAmong, inspectionMarkers, inspectionWarnings, mm, reapplicable } from "./model";
+import { appliedDate, capLabel, capStatus, existingAmong, inspectionMarkers, inspectionWarnings, mm, reapplicable } from "./model";
 
 const SUBJECT_COLUMNS = presenceColumns<{ id: string; has_raw: boolean; has_fastsurfer: boolean; has_freesurfer: boolean; has_m2m: boolean }>();
 const NONE = "__none__";
@@ -68,7 +68,7 @@ function CapsPanel() {
     setBusy(true);
     try {
       const written = await warpCaps(subject, names, overwrite);
-      notify.success(`Applied ${written.length === 1 ? written[0] : `${written.length} caps`} to ${subject}`);
+      notify.success(`Applied ${written.length === 1 ? capLabel(written[0]!) : `${written.length} caps`} to ${subject}`);
       setPicked([]);
       setConfirm(null);
       await queryClient.invalidateQueries({ queryKey: ["caps", subject] });
@@ -92,7 +92,7 @@ function CapsPanel() {
     if (!file) return;
     try {
       const added = await uploadCap(file);
-      notify.success(`Added ${added.name} (${added.electrodes} electrodes) to this project's caps`);
+      notify.success(`Added ${capLabel(added.name)} (${added.electrodes} electrodes) to this project's caps`);
       await queryClient.invalidateQueries({ queryKey: ["caps"] });
     } catch (error) {
       notifySubmitError("Could not add the cap.", error);
@@ -110,14 +110,14 @@ function CapsPanel() {
         row.original.source === null ? null : (
           <span onClick={(e) => e.stopPropagation()}>
             <Checkbox
-              aria-label={`Select ${row.original.name}`}
+              aria-label={`Select ${capLabel(row.original.name)}`}
               checked={picked.includes(row.original.name)}
               onCheckedChange={(on) => setPicked((prev) => (on ? [...prev, row.original.name] : prev.filter((n) => n !== row.original.name)))}
             />
           </span>
         ),
     },
-    { accessorKey: "name", header: "Cap" },
+    { id: "name", accessorFn: (c) => capLabel(c.name), header: "Cap" },
     { id: "source", accessorFn: (c) => c.source ?? "subject only", header: "Source" },
     {
       id: "status",
@@ -128,6 +128,7 @@ function CapsPanel() {
         return <Chip kind={s.kind} dot title={s.title}>{s.label}</Chip>;
       },
     },
+    { id: "applied", accessorFn: (c) => c.subject_mtime ?? 0, header: "Applied", cell: ({ row }) => appliedDate(row.original) },
   ];
 
   const compareActive = !!inspection?.compare;
@@ -239,25 +240,25 @@ function CapsPanel() {
             <CardBody>
               <div className="form-grid">
                 <Field label="Net" htmlFor="caps-net">
-                  <Select id="caps-net" value={viewNet || undefined} onValueChange={(v) => { setNet(v); setSelectedRow(null); }} options={onSubject.map((n) => ({ value: n, label: n }))} placeholder="Net" disabled={onSubject.length === 0} />
+                  <Select id="caps-net" value={viewNet || undefined} onValueChange={(v) => { setNet(v); setSelectedRow(null); }} options={onSubject.map((n) => ({ value: n, label: capLabel(n) }))} placeholder="Net" disabled={onSubject.length === 0} />
                 </Field>
                 <Field label="Compare with" htmlFor="caps-compare">
                   <Select
                     id="caps-compare"
                     value={compareNet || NONE}
                     onValueChange={(v) => setCompare(v === NONE ? "" : v)}
-                    options={[{ value: NONE, label: "None" }, ...onSubject.filter((n) => n !== viewNet).map((n) => ({ value: n, label: n }))]}
+                    options={[{ value: NONE, label: "None" }, ...onSubject.filter((n) => n !== viewNet).map((n) => ({ value: n, label: capLabel(n) }))]}
                     disabled={onSubject.length < 2}
                   />
                 </Field>
               </div>
-              {inspectQuery.error && <p className="field-help" role="status">Could not inspect {viewNet}: {inspectQuery.error.message}</p>}
+              {inspectQuery.error && <p className="field-help" role="status">Could not inspect {capLabel(viewNet)}: {inspectQuery.error.message}</p>}
               {summary && (
                 <div className="caps-chips" data-testid="caps-summary">
                   <Chip>{summary.count} electrodes</Chip>
                   <Chip>spacing {mm(summary.nn_median_mm)} mm median · {mm(summary.nn_min_mm)} min</Chip>
                   <Chip>scalp ≤ {mm(summary.scalp_max_mm)} mm</Chip>
-                  {inspection?.compare && <Chip kind="accent">Δ {inspection.compare.net}: {mm(inspection.compare.median_mm)} mm median</Chip>}
+                  {inspection?.compare && <Chip kind="accent">Δ {capLabel(inspection.compare.net)}: {mm(inspection.compare.median_mm)} mm median</Chip>}
                   {warnings.length > 0 ? (
                     <Chip kind="danger" dot title={warnings.join("\n")}>
                       {warnings.length} warning{warnings.length === 1 ? "" : "s"}
@@ -275,7 +276,7 @@ function CapsPanel() {
         </div>
         {inspection && (
           <Card>
-            <CardHeader title={`Electrodes · ${viewNet}`} />
+            <CardHeader title={`Electrodes · ${capLabel(viewNet)}`} />
             <CardBody>
               <div className="caps-electrodes" data-testid="caps-electrodes">
                 <DataTable data={electrodeRows} columns={electrodeColumns} getRowId={(r) => String(r.index)} selected={selectedRow === null ? {} : { [String(selectedRow)]: true }} onRowClick={(r) => setSelectedRow(r.index)} />

@@ -12,8 +12,9 @@ charm, and lets you check how a net sits on the subject's scalp. Turn it on in
 
 1. Pick a subject that has a head model (`m2m_<id>`).
 2. The **Caps** table lists every MNI cap the image ships, plus any you added to this project,
-   with a status: **not on subject**, **on subject**, or **outdated** (the image's copy of the cap
-   is newer than the one on this subject — re-apply it).
+   with a status, **not on subject** or **on subject**, and the date a cap on the subject was
+   applied. After an image update that corrects a cap, re-apply it; the inspection below flags a
+   cap whose electrodes collapsed.
 3. Tick the caps you want and press **Apply selected**, or **Re-apply all** to refresh every cap
    already on the subject.
 

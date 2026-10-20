@@ -2596,10 +2596,7 @@ route("GET", "/api/caps/available", (ctx) => {
       name,
       source: source(name),
       on_subject: on.has(name),
-      source_mtime: source(name) ? 1_760_000_000 : null,
       subject_mtime: on.has(name) ? 1_750_000_000 : null,
-      // The fixture's GSN-185 predates the image's copy: one "outdated" row to render.
-      outdated: on.has(name) && name === "GSN-HydroCel-185",
     })),
   });
 });

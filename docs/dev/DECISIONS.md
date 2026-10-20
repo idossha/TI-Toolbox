@@ -3075,6 +3075,8 @@ asks); a `dismissed` flag via a second bridge entry (main's `prompt` already giv
 
 ## 2026-10-16 — EEG caps panel: warp MNI caps onto an existing head model; inspect nets
 
+**Superseded 2026-10-20** for the "outdated" status only (see the 2026-10-20 entry).
+
 **Decision.** A new optional panel, `caps` (Settings ▸ Extensions ▸ EEG caps), lists the MNI caps
 the image ships plus the project's own (`code/ti-toolbox/eeg_caps/`), shows which are on the
 selected subject and which are older than their source, and applies chosen caps by doing what charm
@@ -3105,3 +3107,19 @@ routes: auth, 409 then `overwrite`, unknown and traversing names refused, upload
 `tests/numerical/test_caps_warp_realdata.py` (re-warp equals charm's own `EEG10-10_UI_Jurak_2007`
 on ernie, max shift 0.0000 mm over 76 electrodes; scalp distance ≤ 1.443 mm);
 `desktop/tests/unit/caps-panel.test.ts`; `desktop/tests/e2e/caps.spec.ts`.
+
+## 2026-10-20 — EEG caps panel: no "outdated" status
+
+**Decision.** A cap row's status is only **on subject** / **not on subject**, with the subject
+copy's mtime shown as its **Applied** date; `CapStatus` drops `source_mtime` and `outdated`. Cap names
+show without `.csv`, as every other net picker shows a net. Supersedes the mtime "outdated" status of
+the 2026-10-16 entry above.
+
+**Why.** The image build touches every source file, so after any image update every cap a subject
+already had read "outdated" — a warning on every row is no warning. The collapsed/duplicate
+electrode warning of the inspection is what flags a cap that is actually wrong.
+
+**Alternatives rejected.** A content hash recorded per warped cap (a sidecar per net for a
+status nobody needs once the inspection flags bad caps).
+
+**Evidence.** `desktop/tests/unit/caps-panel.test.ts`; `desktop/tests/e2e/caps.spec.ts`.

@@ -54,8 +54,10 @@ test("lists caps, warns on collapsed electrodes, and confirms before replacing",
   await subjectRow(page, "ernie").click();
 
   const caps = page.getByTestId("caps-table");
-  await expect(caps.getByRole("row", { name: /EEG10-10_UI_Jurak_2007\.csv.*not on subject/ })).toBeVisible();
-  await expect(caps.getByRole("row", { name: /GSN-HydroCel-185.*outdated/ })).toBeVisible();
+  // Names without ".csv", as every other net picker shows them; no "outdated" status.
+  await expect(caps.getByRole("row", { name: /EEG10-10_UI_Jurak_2007 .*not on subject/ })).toBeVisible();
+  await expect(caps.getByRole("row", { name: /GSN-HydroCel-185 .*on subject/ })).toBeVisible();
+  await expect(caps.getByText(/\.csv|outdated/)).toHaveCount(0);
 
   // The first net on the subject is inspected by default; clicking a cap's row inspects that one.
   await expect(page.getByTestId("caps-summary")).toContainText("256 electrodes");
@@ -77,8 +79,8 @@ test("lists caps, warns on collapsed electrodes, and confirms before replacing",
   await page.getByTestId("existing-outputs-replace").click();
   await expect.poll(() => bodies).toEqual([{ subject: "ernie", caps: ["GSN-HydroCel-185"], overwrite: true }]);
 
-  await caps.getByRole("checkbox", { name: "Select EEG10-10_UI_Jurak_2007.csv" }).click();
+  await caps.getByRole("checkbox", { name: "Select EEG10-10_UI_Jurak_2007" }).click();
   await page.getByTestId("caps-apply").click();
-  await expect(caps.getByRole("row", { name: /EEG10-10_UI_Jurak_2007\.csv.*on subject/ })).toBeVisible();
+  await expect(caps.getByRole("row", { name: /EEG10-10_UI_Jurak_2007 .*on subject/ })).toBeVisible();
   expect(bodies[1]).toEqual({ subject: "ernie", caps: ["EEG10-10_UI_Jurak_2007.csv"], overwrite: false });
 });

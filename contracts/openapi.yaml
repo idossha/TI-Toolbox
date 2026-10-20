@@ -4233,7 +4233,7 @@ components:
         overwrite: { type: boolean }
     CapStatus:
       type: object
-      required: [name, source, on_subject, source_mtime, subject_mtime, outdated]
+      required: [name, source, on_subject, subject_mtime]
       properties:
         name: { type: string, description: the cap's CSV file name }
         source:
@@ -4241,11 +4241,9 @@ components:
           type: [string, "null"]
           enum: [simnibs, project, null]
         on_subject: { type: boolean }
-        source_mtime: { type: [number, "null"] }
-        subject_mtime: { type: [number, "null"] }
-        outdated:
-          type: boolean
-          description: the source file is newer than the subject's copy
+        subject_mtime:
+          type: [number, "null"]
+          description: when the subject's copy was written (applied), seconds since the epoch; null when not on the subject
     CapElectrode:
       type: object
       required: [name, world, nn_mm, nn_name, scalp_mm]

@@ -5,7 +5,7 @@
  * marker index i is table row i. Expected values are hand-written fixtures, 2026-10-16.
  */
 import { describe, expect, it } from "vitest";
-import { capStatus, existingAmong, inspectionMarkers, inspectionWarnings, reapplicable } from "../../src/renderer/pages/panels/caps/model";
+import { appliedDate, capLabel, capStatus, existingAmong, inspectionMarkers, inspectionWarnings, reapplicable } from "../../src/renderer/pages/panels/caps/model";
 import type { CapInspection, CapStatus } from "../../src/renderer/pages/panels/caps/api";
 import { SCENE_CATEGORICAL } from "../../src/renderer/scene/palette";
 
@@ -13,9 +13,7 @@ const cap = (over: Partial<CapStatus>): CapStatus => ({
   name: "A.csv",
   source: "simnibs",
   on_subject: false,
-  source_mtime: 1,
   subject_mtime: null,
-  outdated: false,
   ...over,
 });
 
@@ -39,8 +37,16 @@ describe("caps panel model", () => {
   it("names each status", () => {
     expect(capStatus(cap({})).label).toBe("not on subject");
     expect(capStatus(cap({ on_subject: true })).label).toBe("on subject");
-    expect(capStatus(cap({ on_subject: true, outdated: true }))).toMatchObject({ label: "outdated", kind: "warning" });
+    // A source newer than the subject's copy is not a status: after an image update every cap is.
+    expect(capStatus(cap({ on_subject: true, subject_mtime: 1 }))).toMatchObject({ label: "on subject", kind: "success" });
     expect(capStatus(cap({ on_subject: true, source: null })).title).toMatch(/cannot be re-applied/);
+  });
+
+  it("names a cap as the rest of the app names a net, and dates only what is on the subject", () => {
+    expect(capLabel("GSN-HydroCel-185.csv")).toBe("GSN-HydroCel-185");
+    expect(capLabel("GSN-HydroCel-185")).toBe("GSN-HydroCel-185");
+    expect(appliedDate(cap({}))).toBe("—");
+    expect(appliedDate(cap({ on_subject: true, subject_mtime: 1_760_000_000 }))).toBe(new Date(1_760_000_000_000).toLocaleDateString());
   });
 
   it("asks before overwriting only the caps already on the subject", () => {
@@ -59,7 +65,7 @@ describe("caps panel model", () => {
     const markers = inspectionMarkers(
       inspection({ compare: { net: "B.csv", electrodes: [{ name: "X", world: [1, 2, 3] }], median_mm: 1, max_mm: 1 } }),
     );
-    expect(markers.map((m) => m.label)).toEqual(["Fz", "Cz", "Pz", "X (B.csv)"]);
+    expect(markers.map((m) => m.label)).toEqual(["Fz", "Cz", "Pz", "X (B)"]);
     expect(markers.map((m) => m.color)).toEqual([SCENE_CATEGORICAL[7], SCENE_CATEGORICAL[7], SCENE_CATEGORICAL[0], SCENE_CATEGORICAL[1]]);
   });
 });

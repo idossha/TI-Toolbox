@@ -6212,10 +6212,8 @@ export interface components {
              */
             source: "simnibs" | "project" | null;
             on_subject: boolean;
-            source_mtime: number | null;
+            /** @description when the subject's copy was written (applied), seconds since the epoch; null when not on the subject */
             subject_mtime: number | null;
-            /** @description the source file is newer than the subject's copy */
-            outdated: boolean;
         };
         CapElectrode: {
             name: string;

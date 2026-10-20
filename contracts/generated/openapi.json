@@ -8379,9 +8379,7 @@
           "name",
           "source",
           "on_subject",
-          "source_mtime",
-          "subject_mtime",
-          "outdated"
+          "subject_mtime"
         ],
         "properties": {
           "name": {
@@ -8403,21 +8401,12 @@
           "on_subject": {
             "type": "boolean"
           },
-          "source_mtime": {
-            "type": [
-              "number",
-              "null"
-            ]
-          },
           "subject_mtime": {
             "type": [
               "number",
               "null"
-            ]
-          },
-          "outdated": {
-            "type": "boolean",
-            "description": "the source file is newer than the subject's copy"
+            ],
+            "description": "when the subject's copy was written (applied), seconds since the epoch; null when not on the subject"
           }
         }
       },
