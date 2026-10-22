@@ -148,16 +148,20 @@ export function spaceChangeNote(value: RoiValue, space: RoiSpace): string | null
   return `${value.atlas ?? "The atlas"} and its ${value.regions.length} selected region(s) have no ${where}-space equivalent, so the selection was cleared.`;
 }
 
+/**
+ * A sphere the server will accept: three finite coordinates and a positive, finite radius
+ * (`AnalyzerConfig.__post_init__`). An input's `min` is only a hint, so this is the gate.
+ */
+function isSphereComplete(s: SphereRow): boolean {
+  const finite = (v: number | undefined): v is number => v !== undefined && Number.isFinite(v);
+  return finite(s.x) && finite(s.y) && finite(s.z) && finite(s.radius) && s.radius > 0;
+}
+
 /** True once the value has enough to build a valid ROI config (see `roiToConfig`). */
 export function isRoiComplete(value: RoiValue): boolean {
   if (value.mode === "mask") return /\.nii(\.gz)?$/i.test(value.path.trim());
   if (value.mode === "saved") return value.selected.length > 0;
-  if (value.mode === "spherical") {
-    return (
-      value.spheres.length > 0 &&
-      value.spheres.every((s) => s.x !== undefined && s.y !== undefined && s.z !== undefined && s.radius !== undefined)
-    );
-  }
+  if (value.mode === "spherical") return value.spheres.length > 0 && value.spheres.every(isSphereComplete);
   return value.atlas !== undefined && value.regions.length > 0;
 }
 

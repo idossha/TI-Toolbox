@@ -22,8 +22,18 @@ tit.analyzer.analyzer.Analyzer : Consumed by the ``"single"`` branch.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
+
+
+def _finite_number(value) -> bool:
+    """A real number (not a bool) that is neither NaN nor infinite."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
 
 
 class AnalysisMode(StrEnum):
@@ -142,9 +152,9 @@ class AnalyzerConfig:
     ------
     ValueError
         If *mode* is ``"single"`` without *subject_id*, ``"group"`` without
-        *subject_ids*, if *analysis_type* is ``"spherical"`` without both
-        *center* and *radius*, or ``"cortical"``/``"subcortical"`` without
-        *atlas*.
+        *subject_ids*, if *analysis_type* is ``"spherical"`` without a
+        *center* of three finite numbers and a positive finite *radius*, or
+        ``"cortical"``/``"subcortical"`` without *atlas*.
 
     Notes
     -----
@@ -191,6 +201,20 @@ class AnalyzerConfig:
             if self.center is None or self.radius is None:
                 raise ValueError(
                     "center and radius are required for analysis_type='spherical'"
+                )
+            # Messages name only the offending field: the validate route maps the
+            # first field name in the sentence to the form input it flags.
+            if not isinstance(self.center, (list, tuple)) or len(self.center) != 3:
+                raise ValueError(
+                    f"center must be three numbers [x, y, z] in mm; got {self.center!r}"
+                )
+            if not all(_finite_number(v) for v in self.center):
+                raise ValueError(
+                    f"center must be three finite numbers in mm; got {self.center!r}"
+                )
+            if not _finite_number(self.radius) or self.radius <= 0:
+                raise ValueError(
+                    f"radius must be a positive, finite number of mm; got {self.radius!r}"
                 )
         if self.analysis_type is AnalysisType.MASK:
             if not self.mask_path or not self.mask_path.lower().endswith(

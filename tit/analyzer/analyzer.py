@@ -335,6 +335,10 @@ class Analyzer:
         ------
         FileNotFoundError
             If the required field or surface mesh file does not exist.
+        ValueError
+            If *center* is not three finite numbers or *radius* is not a positive
+            finite number, or if the sphere holds no positive field value (an
+            empty ROI has no statistics).
 
         See Also
         --------
@@ -343,13 +347,10 @@ class Analyzer:
         from tit.telemetry import track_operation
         from tit import constants as const
 
+        spheres = self._checked_spheres([(*center, radius)])
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
-            return dispatch[self.space](
-                [(center[0], center[1], center[2], radius)],
-                coordinate_space,
-                visualize,
-            )
+            return dispatch[self.space](spheres, coordinate_space, visualize)
 
     def analyze_spheres(
         self,
@@ -381,7 +382,8 @@ class Analyzer:
         Raises
         ------
         ValueError
-            If *spheres* is empty.
+            If *spheres* is empty, a sphere lacks a finite centre or a positive
+            finite radius, or their union holds no positive field value.
 
         See Also
         --------
@@ -390,7 +392,7 @@ class Analyzer:
         from tit.telemetry import track_operation
         from tit import constants as const
 
-        spheres = [tuple(float(v) for v in s) for s in spheres]
+        spheres = self._checked_spheres(spheres)
         if not spheres:
             raise ValueError("analyze_spheres requires at least one sphere.")
 
@@ -1354,6 +1356,20 @@ class Analyzer:
     # ------------------------------------------------------------------
     # Output directory resolution
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _checked_spheres(spheres) -> list[tuple[float, float, float, float]]:
+        """``(x, y, z, r)`` floats: a finite centre and a positive, finite radius (mm)."""
+        checked = []
+        for sphere in spheres:
+            values = tuple(float(v) for v in sphere)
+            if len(values) != 4 or not np.all(np.isfinite(values)) or values[3] <= 0:
+                raise ValueError(
+                    "A sphere needs a finite centre (x, y, z) and a positive, finite "
+                    f"radius in mm; got {tuple(sphere)!r}"
+                )
+            checked.append(values)
+        return checked
 
     @staticmethod
     def _sphere_region_name(spheres) -> str:
