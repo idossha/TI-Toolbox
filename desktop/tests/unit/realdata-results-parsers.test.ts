@@ -1,10 +1,14 @@
 /**
  * The Results parsers on every real Dataset 000 output give logical, complete rows (2026-10-22, p12).
  *
- * Gated: `export TIT_DATASET_000=/Users/idohaber/datasets/000` (read-only; nothing is written).
- * Skips with the reason when unset. Bounds come from definitions, never from current output:
+ * Gated: `export TIT_DATASET_000=/Users/idohaber/datasets/000` (read-only; nothing is written: a
+ * listing of every file's mtime under derivatives/SimNIBS is taken before the suite and compared
+ * after it). Skips with the reason when unset. Bounds come from definitions, never from current
+ * output:
  * - simulation `documentation/config.json`: one intensity per electrode pair; TI for 2 pairs, mTI
- *   for 3 or more (`tit/sim/config.py`);
+ *   for 3 or more (`tit/sim/config.py`); the "Mapped to" row (the file's
+ *   `mapping_options.map_to_mni`) names MNI iff the run has `*_MNI_*` volumes under
+ *   TI|mTI|high_Frequency/niftis (`tit/sim/utils.py` writes them only when map_to_mni is set);
  * - flex `flex_meta.json` + `electrode_positions.json`: the ROI row names every atlas file and every
  *   label the manifest lists; 2 electrodes per pair, finite, |xyz| < 200 mm, no two closer than
  *   `min_electrode_distance`;
@@ -15,14 +19,20 @@
  *   gm_mean <= gm_max; focality_95 <= 90 <= 75 <= 50; `space` is the parent folder (Mesh/Voxel)
  *   and decides the unit (cm² / cm³); whole-GM metrics depend only on (simulation, field, space).
  *
- * Deliberately not here: "MNI volumes present iff map_to_mni" — config.json does not record
- * map_to_mni (it is not a key the simulator writes), so the stale MNI files of sub-101/L_Insula
- * (owned by p15) cannot be told apart from requested ones by this parser; and the analysis
- * figures-vs-catalog check, which needs the Python catalog (tests/test_catalog_analysis_figures.py).
+ * Known failure (p15): sub-101/L_Insula, sub-101/Thalamus_example and sub-LA/L_Insula hold
+ * `*_MNI_MNI_*` volumes from an earlier run while their config.json says map_to_mni false; a re-run
+ * did not clear the old outputs. They are listed in STALE_MNI and asserted to still mismatch, so a
+ * dataset re-run that clears them fails here until the entry is removed.
+ *
+ * Deliberately not here: the analysis figures-vs-catalog check, which needs the Python catalog
+ * (tests/test_catalog_analysis_figures.py).
+ *
+ * `rankExRows` and `shortMontage` are read here (the ranked-table check); no page calls them, so
+ * the package that deletes them must drop that check with them.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { analysisView, focalityUnit, metricMap, type TableLike } from "../../src/renderer/pages/results/preview/analysis";
 import { parseExRunConfig, rankExRows, shortMontage, type ExTable } from "../../src/renderer/pages/results/preview/ex";
 import { flexManifestSummary, parseFlexPositions } from "../../src/renderer/pages/results/preview/flex";
@@ -54,7 +64,33 @@ function csvTable(path: string): ExTable {
 const rowsOf = (summary: { rows: { label: string; value: string }[] }): Record<string, string> =>
   Object.fromEntries(summary.rows.map((r) => [r.label, r.value]));
 
+/** Every file under `root` with its mtime: the suite must leave this listing unchanged. */
+function mtimes(root: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) for (const [p, t] of mtimes(path)) out.set(p, t);
+    else out.set(path, statSync(path).mtimeMs);
+  }
+  return out;
+}
+
+/**
+ * Simulations whose `*_MNI_*` volumes are left over from an earlier run of the same name: their
+ * config.json says map_to_mni false. Known failure owned by p15: stale MNI files, rerun clears them.
+ */
+const STALE_MNI = new Set(["sub-101/L_Insula", "sub-101/Thalamus_example", "sub-LA/L_Insula"]);
+const MNI_VOLUME = /_MNI_.*\.nii(\.gz)?$/;
+
 describe.skipIf(!HAVE)("Dataset 000 through the Results parsers", () => {
+  let before = new Map<string, number>();
+  beforeAll(() => {
+    before = mtimes(SIMNIBS);
+  });
+  afterAll(() => {
+    expect(mtimes(SIMNIBS), "the suite changed no file under derivatives/SimNIBS").toEqual(before);
+  });
+
   it("simulations: one intensity per pair, TI for two pairs and mTI for more", () => {
     const sims = dirs(SIMNIBS).flatMap((sub) =>
       dirs(join(SIMNIBS, sub, "Simulations"))
@@ -69,6 +105,32 @@ describe.skipIf(!HAVE)("Dataset 000 through the Results parsers", () => {
       expect(raw.intensities.length, path).toBe(pairs);
       expect(rowsOf(summary).Mode, path).toBe(pairs === 2 ? "TI" : "MTI");
       expect(rowsOf(summary).Intensity, path).toBe(`${raw.intensities.map((v) => Number(v.toFixed(4))).join(" / ")} mA`);
+    }
+  });
+
+  it("simulations: the Mapped to row names MNI iff the run has MNI volumes (stale ones listed, p15)", () => {
+    const sims = dirs(SIMNIBS).flatMap((sub) =>
+      dirs(join(SIMNIBS, sub, "Simulations"))
+        .map((name) => ({ key: `${sub}/${name}`, dir: join(SIMNIBS, sub, "Simulations", name) }))
+        .filter(({ dir }) => existsSync(join(dir, "documentation", "config.json"))),
+    );
+    expect(sims.length, "has simulations to check").toBeGreaterThan(0);
+    for (const { key, dir } of sims) {
+      const summary = parseSimulationConfig(readFileSync(join(dir, "documentation", "config.json"), "utf8"))!;
+      const mappedTo = rowsOf(summary)["Mapped to"];
+      expect(mappedTo, `${key}: config.json has mapping_options`).toBeDefined();
+      const mapsMni = mappedTo!.split(", ").includes("MNI");
+      const volumes = ["TI", "mTI", "high_Frequency"].flatMap((kind) => {
+        const niftis = join(dir, kind, "niftis");
+        return existsSync(niftis) ? readdirSync(niftis).filter((n) => MNI_VOLUME.test(n)) : [];
+      });
+      if (STALE_MNI.has(key)) {
+        // Known failure (p15): stale MNI files, rerun clears them. Still a mismatch today; when a
+        // re-run clears them this fails, and the entry comes out of STALE_MNI.
+        expect({ key, mapsMni, hasVolumes: volumes.length > 0 }).toEqual({ key, mapsMni: false, hasVolumes: true });
+      } else {
+        expect(volumes.length > 0, `${key}: MNI volumes ${volumes.join(", ") || "none"}, Mapped to ${mappedTo}`).toBe(mapsMni);
+      }
     }
   });
 
