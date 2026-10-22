@@ -23,8 +23,12 @@ How to run it
     ``TIT_SCENE_SUBJECT`` picks the subject (default ``ernie``);
     ``TIT_SCENE_ATLAS`` the atlas (default ``DK40``). With
     ``TIT_SCENE_TESTDATA`` unset every test here skips with a printed reason,
-    which is the state CI must be in -- this suite writes a scene cache into
-    the project it is pointed at.
+    which is the state CI must be in. The project is never written: the suite
+    builds its scene cache in a mirror under ``tmp_path`` (symlinks, except the
+    subject's mesh, surfaces, segmentation and nets, which are copied because the
+    builders refuse sources that resolve outside the project), and fails if any
+    file of the project changed size or mtime during the run.
+    ``dev/run_realdata_tests.sh`` runs it against Dataset 000.
 
 Where the numbers come from
     Nothing is retyped. Each expectation is either a budget decision S3 states
@@ -43,6 +47,7 @@ Deliberately elsewhere
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -100,8 +105,45 @@ def _real_modules_or_skip() -> None:
             pytest.skip(f"{name} is mocked, not real")
 
 
+def _file_listing(root: Path) -> dict[str, tuple[int, int]]:
+    """``{relative path: (size, mtime_ns)}`` of every file under ``root`` (links not followed)."""
+    listing = {}
+    for base, _dirs, files in os.walk(root):
+        for name in files:
+            stat = os.lstat(os.path.join(base, name))
+            listing[os.path.relpath(os.path.join(base, name), root)] = (
+                stat.st_size,
+                stat.st_mtime_ns,
+            )
+    return listing
+
+
+#: What the scene builders read from ``m2m_<id>``. They resolve every source inside the
+#: project (``tit.scene.build.source_path``), so these are copied; a link out is refused.
+_SCENE_SOURCES = ("{sid}.msh", "surfaces", "segmentation", "eeg_positions")
+
+
+def _symlink_mirror(source: Path, target: Path, copied: tuple[str, ...] = ()) -> None:
+    """Real (writable) directories, files linked back to ``source``; no ``.ti-toolbox``.
+
+    Files under a ``copied`` relative path are copied (with their mtimes) instead of linked.
+    """
+    for base, dirs, files in os.walk(source):
+        relative = Path(base).relative_to(source)
+        if relative == Path("."):
+            dirs[:] = [d for d in dirs if d != ".ti-toolbox"]
+        (target / relative).mkdir(parents=True, exist_ok=True)
+        for name in files:
+            path = relative / name
+            if any(path == Path(c) or Path(c) in path.parents for c in copied):
+                shutil.copy2(Path(base) / name, target / path)
+            else:
+                (target / path).symlink_to(Path(base) / name)
+
+
 @pytest.fixture(scope="module")
-def project_root() -> str:
+def project_root(tmp_path_factory):
+    """A writable mirror of the real project; the project itself must come out unchanged."""
     root = os.environ.get(ENV_ROOT)
     if not root:
         print(f"skipping: {ENV_ROOT} is unset (no real BIDS project to read)")
@@ -110,7 +152,16 @@ def project_root() -> str:
         print(f"skipping: {ENV_ROOT}={root} is not a directory")
         pytest.skip(f"{ENV_ROOT}={root} does not exist")
     _real_modules_or_skip()
-    return root
+    source = Path(root)
+    before = _file_listing(source)
+    mirror = tmp_path_factory.mktemp("scene-realdata") / "project"
+    sid = os.environ.get("TIT_SCENE_SUBJECT", DEFAULT_SUBJECT)
+    m2m = f"derivatives/SimNIBS/sub-{sid}/m2m_{sid}"
+    _symlink_mirror(
+        source, mirror, tuple(f"{m2m}/{e.format(sid=sid)}" for e in _SCENE_SOURCES)
+    )
+    yield str(mirror)
+    assert _file_listing(source) == before, f"the scene suite changed {source}"
 
 
 @pytest.fixture(scope="module")
@@ -211,7 +262,9 @@ def surfaces(pm, subject: str, scene_format: str) -> dict:
         entry = cache.find_cached(
             pm.project_dir, subject, part, fingerprint, scene_format
         )
-        assert entry is not None, f"{part} was built but not published as {scene_format}"
+        assert (
+            entry is not None
+        ), f"{part} was built but not published as {scene_format}"
         out[part] = {"meta": meta, "payload": _decode(entry.path, scene_format)}
         print(
             f"[{subject}] {part} ({scene_format}): {meta['source_triangles']} -> "
@@ -324,7 +377,12 @@ def _reference_spread(positions, indices) -> float:
     reference points differently.
     """
     v = np.asarray(positions, dtype=np.float64)
-    refs = [(0.0, 0.0, 0.0), tuple(v.mean(axis=0)), tuple(v.min(axis=0)), tuple(v.max(axis=0))]
+    refs = [
+        (0.0, 0.0, 0.0),
+        tuple(v.mean(axis=0)),
+        tuple(v.min(axis=0)),
+        tuple(v.max(axis=0)),
+    ]
     values = [_enclosed_volume(positions, indices, r) for r in refs]
     return (max(values) - min(values)) / abs(np.mean(values))
 
@@ -395,7 +453,9 @@ def test_the_framing_box_drops_the_neck_and_keeps_the_head(surfaces: dict) -> No
     floor = gm["bbox"][2]
 
     assert gm["focus_bbox"] == gm["bbox"], "grey matter has nothing below its own floor"
-    assert skin["bbox"][2] < floor, "this subject's skin does not extend below the brain"
+    assert (
+        skin["bbox"][2] < floor
+    ), "this subject's skin does not extend below the brain"
     assert skin["focus_bbox"][2] >= floor
     # Only the floor moves: the head is not cropped at the sides or the vertex.
     assert skin["focus_bbox"][3:] == skin["bbox"][3:]
@@ -637,7 +697,9 @@ def test_every_electrode_sits_on_the_skin(pm, subject: str, surfaces: dict) -> N
     worst = 0.0
     for net in nets:
         parsed = build.read_net(pm, subject, net)
-        points = np.asarray([e["world"] for e in parsed["electrodes"]], dtype=np.float64)
+        points = np.asarray(
+            [e["world"] for e in parsed["electrodes"]], dtype=np.float64
+        )
         if len(points) == 0:
             continue
         distance, _index = tree.query(points)
@@ -681,7 +743,9 @@ def test_the_volume_legend_names_the_tissue_labels(pm, subject: str) -> None:
     by_id = {entry["id"]: entry for entry in legend}
     # Every SimNIBS charm labelling carries these two.
     assert 2 in by_id and "White-Matter" in by_id[2]["name"]
-    assert all(entry["color"] is None or entry["color"].startswith("#") for entry in legend)
+    assert all(
+        entry["color"] is None or entry["color"].startswith("#") for entry in legend
+    )
 
 
 def test_every_served_gm_vertex_is_an_untouched_mesh_vertex(

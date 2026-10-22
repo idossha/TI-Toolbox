@@ -56,11 +56,19 @@ LOCAL_LAYERS: dict[str, str] = {
 }
 
 
+#: Tracked files whose names match a test pattern but that are not tests.
+NOT_TESTS: dict[str, str] = {
+    "dev/test_inventory_guard.py": "this guard: a script named for what it checks",
+}
+
+
 class CannotCheck(Exception):
     """A runner definition or the inventory could not be read."""
 
 
 def is_test_file(path: str) -> bool:
+    if path in NOT_TESTS:
+        return False
     name = path.rsplit("/", 1)[-1]
     return any(fnmatch.fnmatchcase(name, pattern) for pattern in TEST_FILE_PATTERNS)
 

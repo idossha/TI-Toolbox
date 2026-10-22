@@ -49,6 +49,11 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "message": "TIT_DTI_PROTO",
             "why": "the prototype CHN tensor it compares with is not part of Dataset 000",
         },
+        {
+            "test": "tests.test_scene_realdata.test_the_gifti_label_table_*format=tvsc*",
+            "message": "the label table only exists in the GIfTI serialisation",
+            "why": "a .tvsc payload has no label table; the format=gii case checks it",
+        },
     ],
     "numerical-image": [
         {

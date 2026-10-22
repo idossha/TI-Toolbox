@@ -93,6 +93,11 @@ def main() -> int:
         type=Path,
         help="New evidence directory outside tracked source",
     )
+    parser.add_argument(
+        "--dataset-000",
+        default=os.environ.get("TIT_DATASET_000", ""),
+        help="Dataset 000 copy for the real-data stage (default: $TIT_DATASET_000)",
+    )
     args = parser.parse_args()
     if sys.platform != "darwin":
         parser.error("native quiet-monitor certification currently requires macOS")
@@ -154,6 +159,8 @@ def main() -> int:
         ("routes", [python, "dev/route_import_guard.py"], ROOT, env),
         ("contracts", [python, "dev/contracts_check.py"], ROOT, env),
         # A fresh interpreter prevents host mock state from contaminating science tests.
+        # PYTEST_ADDOPTS reaches the nested pytest runs too, which otherwise open
+        # tests/logs/pytest.log on the read-only mount.
         (
             "numerical",
             [
@@ -164,6 +171,10 @@ def main() -> int:
                 "simnibs_python",
                 "-v",
                 f"{ROOT}:/ti-toolbox:ro",
+                "-v",
+                f"{output}:/out",
+                "-e",
+                "PYTEST_ADDOPTS=-p no:cacheprovider -o log_file=/tmp/tit-numerical-pytest.log",
                 "-w",
                 "/ti-toolbox",
                 image,
@@ -171,10 +182,36 @@ def main() -> int:
                 "pytest",
                 "tests/numerical",
                 "-q",
-                "-p",
-                "no:cacheprovider",
-                "-o",
-                "log_file=/tmp/tit-numerical-pytest.log",
+                "--junitxml=/out/numerical.xml",
+            ],
+            ROOT,
+            env,
+        ),
+        # Zero collected or a skip off the allowlist is not a pass (dev/check_junit.py).
+        (
+            "numerical-skips",
+            [
+                python,
+                "dev/check_junit.py",
+                "--leg",
+                "numerical-image",
+                str(output / "numerical.xml"),
+            ],
+            ROOT,
+            env,
+        ),
+        # Every env-gated real-data test against Dataset 000; a skip is a failure.
+        (
+            "realdata",
+            [
+                "bash",
+                "dev/run_realdata_tests.sh",
+                "--image",
+                image,
+                "--dataset",
+                args.dataset_000,
+                "--out",
+                str(output / "realdata"),
             ],
             ROOT,
             env,

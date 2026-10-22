@@ -136,6 +136,12 @@ class InventoryGuardTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("vitest.config.ts", err)
 
+    def test_the_guard_script_itself_is_not_a_test_file(self):
+        code, out, _ = self.repo(COVERED + ["dev/test_inventory_guard.py"]).run()
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"{len(COVERED)} test files", out)
+        self.assertTrue(guard.is_test_file("dev/test_other.py"))
+
     def test_the_globs_follow_vitest_and_ci_semantics(self):
         self.assertTrue(
             guard._glob("tests/unit/a/b.test.tsx", "tests/unit/**/*.test.{ts,tsx}")
