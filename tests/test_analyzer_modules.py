@@ -660,6 +660,43 @@ class TestRunGroupAnalysis:
         assert isinstance(result, GroupResult)
         a1.analyze_cortex.assert_called_once()
 
+    @pytest.mark.unit
+    @patch("tit.analyzer.group._generate_comparison_plot")
+    @patch("tit.analyzer.group.Analyzer")
+    @patch("tit.analyzer.group.add_file_handler")
+    @patch("tit.analyzer.group._resolve_output_dir")
+    def test_subcortical_dispatches_with_the_atlas_space(
+        self, mock_output, mock_log, mock_analyzer_cls, mock_plot
+    ):
+        """A group Subcortical run was a KeyError: the dispatch table had no entry."""
+        from tit.analyzer.group import run_group_analysis
+
+        out_dir = Path("/tmp/group_out")
+        mock_output.return_value = out_dir
+        a1 = MagicMock()
+        a1.analyze_subcortical.return_value = _make_analysis_result()
+        mock_analyzer_cls.side_effect = [a1]
+        mock_plot.return_value = out_dir / "plot.pdf"
+
+        with patch("pandas.DataFrame.to_csv"):
+            run_group_analysis(
+                subject_ids=["001"],
+                simulation="sim1",
+                space="voxel",
+                analysis_type="subcortical",
+                atlas="HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+                region="Left Thalamus",
+                coordinate_space="mni",
+                output_dir=str(out_dir),
+            )
+
+        a1.analyze_subcortical.assert_called_once_with(
+            atlas="HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+            region="Left Thalamus",
+            coordinate_space="mni",
+            visualize=False,
+        )
+
 
 # ===========================================================================
 # visualizer.py

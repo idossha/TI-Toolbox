@@ -113,17 +113,7 @@ def main() -> None:
             events.emit_stage(config.mode.value)
             print(f"Starting {config.mode.value} analysis...", flush=True)
 
-            if config.analysis_type is AnalysisType.SUBCORTICAL:
-                # Known gap: AnalyzerConfig models this shape but the underlying
-                # single/group analysis functions only branch on spherical/cortical
-                # today (tit.analyzer.analyzer / tit.analyzer.group, not owned by
-                # this track) -- a clear error beats a silent no-op.
-                print(
-                    "analysis_type='subcortical' is not implemented by the "
-                    "analyzer runner yet.",
-                    file=sys.stderr,
-                )
-            elif config.mode is AnalysisMode.GROUP:
+            if config.mode is AnalysisMode.GROUP:
                 _emit_group_artifacts(_run_group(config))
                 exit_code = 0
             else:
@@ -299,6 +289,13 @@ def _run_single(config: AnalyzerConfig) -> None:
         analyzer.analyze_cortex(
             atlas=config.atlas,
             region=config.region or "",
+            visualize=config.visualize,
+        )
+    elif config.analysis_type is AnalysisType.SUBCORTICAL:
+        analyzer.analyze_subcortical(
+            atlas=config.atlas,
+            region=config.region or "",
+            coordinate_space=config.coordinate_space.value,
             visualize=config.visualize,
         )
 

@@ -570,17 +570,17 @@ def _plan_analyzer(
                         ),
                     )
                 else:
+                    # Joined as the Analyzer joins them (its region_name), so a multi-region
+                    # plan names the directory the run writes.
                     region = config.region
                     region_str = (
-                        ", ".join(region)
-                        if isinstance(region, list)
-                        else (region or "")
+                        "+".join(region) if isinstance(region, list) else (region or "")
                     )
                     output_dir = pm.analysis_output_dir(
                         sid=sid,
                         sim=config.simulation,
                         space=config.space.value,
-                        analysis_type="cortical",
+                        analysis_type=config.analysis_type.value,
                         whole_head=not region_str,
                         region=region_str or None,
                         atlas_name=config.atlas,
@@ -599,12 +599,6 @@ def _plan_analyzer(
             )
         )
 
-    if config.analysis_type == AnalysisType.SUBCORTICAL:
-        warnings.append(
-            "analysis_type='subcortical' is accepted by AnalyzerConfig but "
-            "tit.analyzer.__main__ does not dispatch it yet (silent no-op today) -- see "
-            "tit/analyzer/config.py's Notes"
-        )
     return jobs, None
 
 

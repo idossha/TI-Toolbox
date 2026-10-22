@@ -109,8 +109,8 @@ def run_group_analysis(
     tissue_type : str, optional
         ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
     analysis_type : str, optional
-        ``"spherical"``, ``"cortical"`` or ``"mask"``. Default
-        ``"spherical"``.
+        ``"spherical"``, ``"cortical"``, ``"subcortical"`` or ``"mask"``.
+        Default ``"spherical"``.
     center : tuple of float or None, optional
         ``(x, y, z)`` sphere centre; required when *analysis_type* is
         ``"spherical"``.
@@ -118,15 +118,16 @@ def run_group_analysis(
         Sphere radius in mm; required when *analysis_type* is
         ``"spherical"``.
     coordinate_space : str, optional
-        ``"subject"`` or ``"MNI"`` (spherical and mask). Default
+        ``"subject"`` or ``"MNI"`` (spherical, subcortical and mask): the
+        space of the sphere centre, the volume atlas or the mask. Default
         ``"subject"``; a group mask analysis requires ``"MNI"``.
     spheres : sequence of tuple of float or None, optional
         One ``(x, y, z, r)`` per sphere, unioned into a single ROI
         (spherical only). Takes precedence over *center*/*radius*.
     atlas : str or None, optional
-        Atlas name (cortical only).
+        Atlas name (cortical and subcortical).
     region : str, list of str, or None, optional
-        Region name or list of region names (cortical only).
+        Region name or list of region names (cortical and subcortical).
     visualize : bool, optional
         Generate per-subject visualization artifacts. Default ``False``.
     output_dir : str, pathlib.Path, or None, optional
@@ -147,8 +148,8 @@ def run_group_analysis(
     Raises
     ------
     KeyError
-        If *analysis_type* is not ``"spherical"``, ``"cortical"`` or
-        ``"mask"``.
+        If *analysis_type* is not ``"spherical"``, ``"cortical"``,
+        ``"subcortical"`` or ``"mask"``.
     ValueError
         If ``analysis_type="mask"`` with a non-MNI *coordinate_space* or an
         unreadable *mask_path*.
@@ -222,6 +223,12 @@ def run_group_analysis(
             "cortical": lambda a: a.analyze_cortex(
                 atlas=atlas,
                 region=region,
+                visualize=visualize,
+            ),
+            "subcortical": lambda a: a.analyze_subcortical(
+                atlas=atlas,
+                region=region,
+                coordinate_space=coordinate_space,
                 visualize=visualize,
             ),
         }

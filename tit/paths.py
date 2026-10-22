@@ -1267,7 +1267,9 @@ class PathManager:
         space : str
             Analysis space (``"mesh"`` or ``"voxel"``).
         analysis_type : str
-            ``"spherical"`` or ``"cortical"``.
+            ``"spherical"``, ``"cortical"`` or ``"subcortical"`` (named like
+            cortical, with a ``subcortical_`` prefix); anything else is named
+            like cortical.
         coordinates : sequence of float or None, optional
             ``(x, y, z)`` centre for spherical analysis.
         radius : float or None, optional
@@ -1328,6 +1330,8 @@ class PathManager:
                 atlas_name=atlas_name,
                 atlas_path=atlas_path,
             )
+            if at == "subcortical":
+                name = "sub" + name  # "subcortical_<region>_<atlas>"
         return os.path.join(base, name)
 
 

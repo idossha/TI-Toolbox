@@ -476,7 +476,40 @@ class TestAnalyzerMainExitCodes:
                 entry.main()
         assert exc_info.value.code == 1
 
-    def test_subcortical_is_a_clear_error_not_a_silent_no_op(
+    def test_subcortical_runs_analyze_subcortical(self, events_env, monkeypatch):
+        """The Analyzer's Subcortical mode used to exit 1 with "not implemented"."""
+        from tit.analyzer import __main__ as entry
+
+        config_path = _write_json(
+            events_env,
+            {
+                "project_dir": "/proj",
+                "mode": "single",
+                "subject_id": "001",
+                "simulation": "sim1",
+                "space": "voxel",
+                "analysis_type": "subcortical",
+                "atlas": "labeling.nii.gz",
+                "region": ["Left-Thalamus", "Right-Thalamus"],
+                "coordinate_space": "mni",
+            },
+        )
+        monkeypatch.setattr(sys, "argv", ["tit.analyzer", config_path])
+        with (
+            patch("tit.analyzer.__main__.get_path_manager"),
+            patch("tit.analyzer.Analyzer") as MockAnalyzer,
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                entry.main()
+        assert exc_info.value.code == 0
+        MockAnalyzer.return_value.analyze_subcortical.assert_called_once_with(
+            atlas="labeling.nii.gz",
+            region=["Left-Thalamus", "Right-Thalamus"],
+            coordinate_space="mni",
+            visualize=True,
+        )
+
+    def test_subcortical_without_an_atlas_is_an_invalid_config(
         self, events_env, monkeypatch
     ):
         from tit.analyzer import __main__ as entry
@@ -489,8 +522,6 @@ class TestAnalyzerMainExitCodes:
                 "subject_id": "001",
                 "simulation": "sim1",
                 "analysis_type": "subcortical",
-                # spherical/cortical fields absent -- AnalyzerConfig itself only
-                # validates spherical/cortical shapes, so this must reach __main__.
             },
         )
         monkeypatch.setattr(sys, "argv", ["tit.analyzer", config_path])

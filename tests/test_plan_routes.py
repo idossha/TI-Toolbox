@@ -1094,6 +1094,42 @@ def test_analyzer_mask_paths_are_preflighted_by_validate_and_plan(client, projec
     assert "not accessible in the container" in response.text
 
 
+def test_analyzer_subcortical_plan_matches_runtime_output_directory(client, project):
+    """The plan warned "silent no-op" for subcortical and named a multi-region directory
+    ("cortical_a, b_…") the runner never writes (it joins regions with "+")."""
+    from tit.analyzer.analyzer import Analyzer
+
+    regions = ["Left-Thalamus", "Right-Thalamus"]
+    config = {
+        "subject_id": "001",
+        "simulation": "TestSim",
+        "space": "voxel",
+        "analysis_type": "subcortical",
+        "atlas": "labeling.nii.gz",
+        "region": regions,
+        "coordinate_space": "subject",
+    }
+    response = client.post(
+        "/api/plan/analyzer", json={"config": config}, headers=BEARER
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["warnings"] == []
+    analyzer = object.__new__(Analyzer)
+    analyzer.output_dir = None
+    analyzer.subject_id = "001"
+    analyzer.simulation = "TestSim"
+    analyzer.space = "voxel"
+    analyzer._pm = get_path_manager(str(project))
+    runtime = analyzer._resolve_output_dir(
+        analysis_type="subcortical",
+        region_name="+".join(regions),
+        atlas="labeling.nii.gz",
+    )
+    assert body["jobs"][0]["output_dir"] == runtime
+    assert Path(runtime).name.startswith("subcortical_")
+
+
 def test_analyzer_mask_plan_matches_runtime_output_directory(client, project):
     from tit.analyzer.analyzer import Analyzer
 

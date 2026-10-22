@@ -3144,3 +3144,29 @@ TI-Toolbox caps directory in the image (moves files charm reads).
 **Evidence.** `tests/test_caps.py::test_every_cap_tit_ships_is_labelled_ti_toolbox`;
 `desktop/tests/unit/caps-panel.test.ts`; `desktop/tests/e2e/caps.spec.ts`.
 
+
+## 2026-10-21 — The Analyzer's Subcortical mode measures a volume-atlas mask
+
+**Decision.** `Analyzer.analyze_subcortical(atlas, region, coordinate_space)` builds one binary
+mask of the named labels (islands removed per label) in the atlas's own space and measures it
+through the mask path (`analysis_type="mask"`'s code, now `_analyze_mask_file`); the runner,
+`run_group_analysis` and the plan dispatch it, and `AnalyzerConfig` requires `atlas` for it. A
+shipped MNI atlas is named by its manifest id. `_find_voxel_region_id` tries an exact label name
+before the substring match. Supersedes the "silent no-op" note in `AnalyzerConfig`.
+
+**Why.** The desktop offered **Subcortical** with subject atlases and the shipped MNI atlases, and
+every such job exited 1 ("not implemented"). The mask path already warps MNI volumes with the
+subject's nonlinear registration and samples onto either the GM surface or the field grid, so one
+mask covers subject and MNI atlases in both spaces. The exact-name rule is needed for the atlases
+this mode reads: in FreeSurfer's table "parasubiculum" (203) precedes "subiculum" (205), so a
+substring match measured the wrong subfield.
+
+**Alternatives rejected.** Routing subject atlases through `_cortex_voxel` and refusing MNI
+atlases (two code paths for one mode, and no MNI or mesh support); warping the whole label volume
+(the warp is confined to the mask's bounding box, so a whole-brain atlas is the slow case);
+sending integer labels from the desktop (folder names would read `subcortical_17_…`).
+
+**Evidence.** `tests/numerical/test_analyzer_subcortical.py` (label 205 "subiculum" selects field
+voxels 42 and 58, not "parasubiculum"; the MNI branch goes through `prepare_mask`);
+`tests/test_runners_deserialize.py::TestAnalyzerMainExitCodes::test_subcortical_runs_analyze_subcortical`;
+`tests/test_plan_routes.py::test_analyzer_subcortical_plan_matches_runtime_output_directory`.

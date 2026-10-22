@@ -483,23 +483,122 @@ class Analyzer:
         analyze_sphere : Spherical ROI analysis.
         analyze_cortex : Atlas-based cortical ROI analysis.
         """
+        from tit.analyzer.masks import mask_region_name
+
+        coordinate_space = coordinate_space.lower()
+        return self._analyze_mask_file(
+            mask_path,
+            coordinate_space,
+            visualize,
+            region_name=mask_region_name(mask_path, coordinate_space),
+            analysis_type="mask",
+            what="Mask",
+        )
+
+    def analyze_subcortical(
+        self,
+        atlas: str,
+        region: str | list[str],
+        coordinate_space: str = "subject",
+        visualize: bool = False,
+    ) -> AnalysisResult:
+        """Analyze regions of a volumetric (label) atlas, in subject or MNI space.
+
+        The selected labels (islands removed, as for every volumetric ROI) become one
+        binary mask in the atlas's own space, which is then measured exactly as
+        :meth:`analyze_mask` measures a mask: an MNI atlas goes through the subject's
+        nonlinear m2m registration, a mesh analysis samples the mask onto the GM
+        surface, a voxel analysis onto the field grid within the selected tissue.
+
+        Parameters
+        ----------
+        atlas : str
+            Subject space: an atlas name the catalog lists for the subject
+            (``"labeling.nii.gz"``, a FreeSurfer volume such as
+            ``"aparc.DKTatlas+aseg.mgz"``, ``"masks/<file>"``) or a file path.
+            MNI space: a shipped MNI atlas id (its file name) or a file path.
+        region : str or list of str
+            Region name(s) or integer label(s); several are unioned into one ROI.
+        coordinate_space : str, optional
+            ``"subject"`` (default) or ``"mni"`` -- the space *atlas* is in.
+        visualize : bool, optional
+            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
+
+        Returns
+        -------
+        AnalysisResult
+            ROI statistics with ``analysis_type="subcortical"``.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the atlas cannot be found.
+        ValueError
+            If a region is not in the atlas, or the ROI does not overlap the GM
+            surface (mesh; a deep structure has none) or the selected tissue (voxel).
+        """
+        import tempfile
+        import nibabel as nib
+        from tit.atlas.islands import keep_main_components
+
+        space = coordinate_space.lower()
+        atlas_path = (
+            self._resolve_mni_atlas(atlas)
+            if space == "mni"
+            else self._resolve_voxel_atlas(atlas)
+        )
+        atlas_img = nib.load(str(atlas_path))
+        labels = self._squeeze_4d(np.asanyarray(atlas_img.dataobj))
+        regions = [str(r) for r in (region if isinstance(region, list) else [region])]
+        if not any(r.strip() for r in regions):
+            raise ValueError("A subcortical analysis needs at least one region")
+        roi = np.zeros(labels.shape, dtype=bool)
+        for name in regions:
+            rid = self._find_voxel_region_id(labels, atlas_path, name)
+            one, _, _ = keep_main_components(labels == rid, what=name)
+            roi |= one
+        region_name = "+".join(regions)
+        with tempfile.TemporaryDirectory() as scratch:
+            mask_path = str(Path(scratch) / "subcortical_roi.nii")
+            nib.save(nib.Nifti1Image(roi.astype(np.uint8), atlas_img.affine), mask_path)
+            return self._analyze_mask_file(
+                mask_path,
+                space,
+                visualize,
+                region_name=region_name,
+                analysis_type="subcortical",
+                what=f"{region_name} ({Path(str(atlas)).name})",
+                atlas=atlas,
+                region_labels=regions,
+                coordinate_space=space,
+            )
+
+    def _analyze_mask_file(
+        self,
+        mask_path: str,
+        mask_space: str,
+        visualize: bool,
+        *,
+        region_name: str,
+        analysis_type: str,
+        what: str,
+        **kwargs,
+    ) -> AnalysisResult:
+        """Measure the positive voxels of *mask_path* (shared by mask and subcortical)."""
         import tempfile
         import nibabel as nib
         from nibabel.processing import resample_from_to
         from scipy.ndimage import map_coordinates
         from tit.opt.masks import prepare_mask
-        from tit.analyzer.masks import mask_region_name
         from tit import constants as const
         from tit.telemetry import track_operation
 
-        coordinate_space = coordinate_space.lower()
-        region_name = mask_region_name(mask_path, coordinate_space)
         with (
             track_operation(const.TELEMETRY_OP_ANALYSIS),
             tempfile.TemporaryDirectory() as scratch,
         ):
             prepared = prepare_mask(
-                mask_path, coordinate_space, str(self.m2m_path), scratch, binary=True
+                mask_path, mask_space, str(self.m2m_path), scratch, binary=True
             )
             mask_img = nib.load(prepared)
             if self.space == "mesh":
@@ -514,15 +613,19 @@ class Analyzer:
                     > 0
                 )
                 if not mask.any():
-                    raise ValueError("Mask does not overlap the gray-matter surface")
+                    raise ValueError(
+                        f"{what} does not overlap the gray-matter surface; "
+                        "analyze it in voxel space instead"
+                    )
                 result = self._analyze_mesh_roi(
                     surface,
                     self._field_values(surface),
                     self._node_areas(surface),
                     mask,
                     region_name=region_name,
-                    analysis_type="mask",
+                    analysis_type=analysis_type,
                     visualize=visualize,
+                    **kwargs,
                 )
                 return result
             img = nib.load(str(self.field_path))
@@ -543,7 +646,7 @@ class Analyzer:
             roi_mask = sampled & analysis_mask
             if not roi_mask.any():
                 raise ValueError(
-                    "Mask does not overlap positive field values in the selected tissue"
+                    f"{what} does not overlap positive field values in the selected tissue"
                 )
             result = self._analyze_voxel_roi(
                 field_arr,
@@ -551,8 +654,9 @@ class Analyzer:
                 analysis_mask,
                 img.affine,
                 region_name=region_name,
-                analysis_type="mask",
+                analysis_type=analysis_type,
                 visualize=visualize,
+                **kwargs,
             )
             return result
 
@@ -1475,6 +1579,8 @@ class Analyzer:
             legacy_mri / f"{atlas}.nii",
             seg_dir / f"{atlas}.nii.gz",
             seg_dir / f"{atlas}.nii",
+            # The catalog lists a custom label volume as "masks/<file>" (VoxelAtlasManager).
+            Path(self._pm.masks(self.subject_id)).parent / atlas,
         ]
         for path in candidates:
             if path.exists():
@@ -1482,6 +1588,22 @@ class Analyzer:
 
         raise FileNotFoundError(
             f"Atlas {atlas!r} not found in {fs_mri}, {legacy_mri}, or {seg_dir}"
+        )
+
+    @staticmethod
+    def _resolve_mni_atlas(atlas: str) -> Path:
+        """A shipped MNI atlas by its id (file name), or an MNI atlas file path."""
+        from tit.atlas.manifest import check_shipped, mni_atlas_entry
+
+        check_shipped(atlas)
+        entry = mni_atlas_entry(Path(atlas).name)
+        if entry is not None:
+            return Path(entry["path"])
+        if Path(atlas).is_file():
+            return Path(atlas)
+        raise FileNotFoundError(
+            f"MNI atlas {atlas!r} is not one of the shipped MNI atlases "
+            "(resources/atlas/manifest.json) and is not a file"
         )
 
     @staticmethod
@@ -1666,6 +1788,11 @@ class Analyzer:
         stats = compute_segstats(str(atlas_path), lut)
 
         region_lower = region_stripped.lower()
+        # The exact name wins over a longer one containing it: hippocampal subfields list
+        # "parasubiculum" (203) before "subiculum" (205).
+        for stat in stats:
+            if stat.name.lower() == region_lower:
+                return stat.seg_id
         # A surface-style name ("lh.insula") is spelled "ctx-lh-insula" in the
         # DKT volume and "ctx_lh_G_insular_short" in the a2009s one; try the
         # exact volume spellings before falling back to substring matching.

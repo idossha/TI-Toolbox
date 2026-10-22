@@ -10,8 +10,8 @@ against that schema before submitting the job.
 This module does not change ``tit.analyzer.__main__`` in any way -- it is a
 read of what that entry point already accepts (see its docstring and the
 ``_run_single`` / ``_run_group`` dict lookups), not a new contract the
-runner must adopt. See ``AnalyzerConfig``'s "Notes" for the two runner
-behaviors this dataclass cannot yet express.
+runner must adopt. See ``AnalyzerConfig``'s "Notes" for the one runner
+behavior this dataclass does not express.
 
 See Also
 --------
@@ -62,12 +62,14 @@ class AnalysisType(StrEnum):
     Attributes
     ----------
     SPHERICAL : str
-        A sphere at *center* with radius *radius* (implemented today).
+        A sphere at *center* with radius *radius*.
     CORTICAL : str
-        An atlas *region* on *atlas* (implemented today).
+        An atlas *region* on *atlas*.
     SUBCORTICAL : str
-        A volumetric atlas region. **Not implemented by the runner yet** --
-        see :class:`AnalyzerConfig`'s Notes.
+        Label(s) *region* of the volume atlas *atlas*, in *coordinate_space*
+        (a subject atlas, or a shipped MNI atlas warped to the subject).
+    MASK : str
+        The positive voxels of the NIfTI *mask_path*.
     """
 
     SPHERICAL = "spherical"
@@ -122,12 +124,13 @@ class AnalyzerConfig:
     radius : float or None
         Sphere radius in mm. Required for ``analysis_type="spherical"``.
     coordinate_space : AnalyzerCoordinateSpace
-        Space of *center* (spherical only).
+        Space of *center* (spherical), of the volume *atlas* (subcortical) or
+        of *mask_path* (mask).
     atlas : str or None
-        Atlas name. Required for ``analysis_type="cortical"``.
+        Atlas name. Required for ``analysis_type="cortical"`` and
+        ``"subcortical"``.
     region : str or list of str or None
-        Region name(s) within *atlas*. Required for
-        ``analysis_type="cortical"``.
+        Region name(s) within *atlas* (cortical, subcortical).
     mask_path : str or None
         NIfTI mask; positive voxels select the ROI in *coordinate_space*.
     output_dir : str or None
@@ -140,23 +143,16 @@ class AnalyzerConfig:
     ValueError
         If *mode* is ``"single"`` without *subject_id*, ``"group"`` without
         *subject_ids*, if *analysis_type* is ``"spherical"`` without both
-        *center* and *radius*, or ``"cortical"`` without *atlas*.
+        *center* and *radius*, or ``"cortical"``/``"subcortical"`` without
+        *atlas*.
 
     Notes
     -----
-    Two things this dataclass models but the runner does not (yet) honor,
-    reported rather than silently patched into ``tit/analyzer/__main__.py``
-    (owned by agent B4):
-
-    - ``analysis_type="subcortical"`` is accepted here (and by
-      :class:`AnalysisType`) but ``tit.analyzer.__main__._run_single`` only
-      branches on ``"spherical"`` and ``"cortical"`` -- a subcortical
-      request is silently a no-op today.
-    - ``region`` is a single canonical field here; the runner reads
-      ``data.get("regions") or data.get("region")`` (two keys, ``"regions"``
-      preferred). Serializing this dataclass writes only ``"region"``, which
-      the runner already falls back to, so single-region submissions work
-      unchanged; only the plural alias is not reproduced.
+    ``region`` is a single canonical field here; the runner reads
+    ``data.get("regions") or data.get("region")`` (two keys, ``"regions"``
+    preferred). Serializing this dataclass writes only ``"region"``, which
+    the runner already falls back to, so single-region submissions work
+    unchanged; only the plural alias is not reproduced.
 
     See Also
     --------
@@ -208,5 +204,10 @@ class AnalyzerConfig:
                 and self.coordinate_space is not AnalyzerCoordinateSpace.MNI
             ):
                 raise ValueError("Group mask analysis requires an MNI-space mask")
-        if self.analysis_type is AnalysisType.CORTICAL and not self.atlas:
-            raise ValueError("atlas is required for analysis_type='cortical'")
+        if (
+            self.analysis_type in (AnalysisType.CORTICAL, AnalysisType.SUBCORTICAL)
+            and not self.atlas
+        ):
+            raise ValueError(
+                f"atlas is required for analysis_type='{self.analysis_type.value}'"
+            )

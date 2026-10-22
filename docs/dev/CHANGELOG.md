@@ -38,6 +38,10 @@ written again. Other projects, nets and results open unchanged.
 
 - **Fixed: the Explode button now reads Collapse while the atlas is exploded** — it kept saying **Explode** after the regions had spread apart, so nothing said how to bring them back; it now switches to **Collapse** and back. Optimizer and Analyzer target panes, MNI mode.
 
+#### Analyzer
+
+- **Fixed: Subcortical targets in the Analyzer run** — every Analyzer job with a **Subcortical** target stopped with "analysis_type='subcortical' is not implemented". It now measures the selected regions of the chosen volume atlas: in **Subject** space the subject's own atlases (charm's `labeling.nii.gz`, FreeSurfer/FastSurfer volumes including the hippocampal and thalamic subfields, label volumes in `m2m_<id>/masks/`), in **MNI** space the shipped MNI atlases, transformed with the subject's own registration as an MNI mask is. With **Combine regions into one ROI** the regions are one ROI, otherwise one analysis each, and group analyses take the target too. Results go to `Analyses/<Mesh|Voxel>/subcortical_<region>_<atlas>/` and appear in **Results**. A deep structure has no cortical surface: analyze it in **Voxel** space (in **Mesh** space the job stops with "does not overlap the gray-matter surface"). A region named exactly as an atlas label now gets that label before a longer name containing it ("subiculum" measured "parasubiculum" before). **Analyzer ▸ Job settings ▸ Subcortical**.
+
 ### v3.1.0 — October 9, 2026
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.0/">Release notes →</a>

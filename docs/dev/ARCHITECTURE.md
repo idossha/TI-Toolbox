@@ -536,6 +536,13 @@ select nodes on the subject GM surface (area statistics) or voxels in the subjec
 (volume statistics, intersected with the selected tissue). Group masks require MNI coordinates
 so each subject gets its own registered target. Nearest-neighbor sampling preserves membership;
 `tests/numerical/test_analyzer_masks.py` pins transformed landmarks, membership, and units.
+Analyzer `analysis_type="subcortical"` takes a volume atlas (`atlas`: a subject atlas the catalog
+lists, or a shipped MNI atlas id with `coordinate_space="mni"`) and region names or labels; an exact
+label name wins over a longer name containing it. The labels, islands removed, become one binary
+mask in the atlas's own space that goes through the mask path above, so an MNI atlas gets the same
+registration and a deep structure in mesh space fails with "does not overlap the gray-matter
+surface". Output folders are `subcortical_<region>_<atlas>`;
+`tests/numerical/test_analyzer_subcortical.py` pins label membership.
 
 ### 7.3 Pipeline canvas (removed)
 
