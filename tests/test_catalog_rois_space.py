@@ -210,3 +210,74 @@ def test_a_csv_holding_nan_is_left_out_of_the_listing_not_listed_as_null(
     listed = _listed(client)
     assert "Broken" not in listed
     assert {"L_Insula", "Old_MNI"} <= set(listed)
+
+
+# ── the sidecar stays inside the project ──────────────────────────────────────────────────────
+#
+# ``<name>.json`` is a write path of its own (p15, round 1 of review): like the CSV it must not
+# be written through, or read through, a link that leaves the project. A link that stays inside
+# the project is the control -- the rule is the project boundary, not "no symlinks".
+
+_SIDECAR = {"name": "Boundary", "x": 1.0, "y": 2.0, "z": 3.0, "space": "mni"}
+
+
+def _link_target(project: Path, tmp_path_factory, outside: bool) -> Path:
+    where = tmp_path_factory.mktemp("outside") if outside else project / "shared"
+    where.mkdir(exist_ok=True)
+    return where / "boundary.json"
+
+
+@pytest.mark.parametrize("outside", [True, False], ids=["outside", "inside"])
+def test_a_sidecar_link_leaving_the_project_is_not_written_through(
+    client: TestClient, project: Path, tmp_path_factory, outside: bool
+):
+    target = _link_target(project, tmp_path_factory, outside)
+    original = b'{"private": "value"}\n'
+    target.write_bytes(original)
+    roi_dir = Path(get_path_manager().rois("ernie"))
+    (roi_dir / "Boundary.json").symlink_to(target)
+    before = _roi_files()
+
+    r = client.post(
+        "/api/catalog/rois",
+        params=SUBJECT,
+        json={"name": "Boundary", "x": 1, "y": 2, "z": 3, "space": "mni"},
+        headers=BEARER,
+    )
+
+    if outside:
+        assert r.status_code == 422
+        assert target.read_bytes() == original
+        # Refused before anything is written: no CSV, no roi_list.txt entry.
+        assert _roi_files() == before
+        assert "Boundary" not in _listed(client)
+    else:
+        assert r.status_code == 201
+        assert json.loads(target.read_text()) == _SIDECAR
+        assert _listed(client)["Boundary"] == _SIDECAR
+
+
+@pytest.mark.parametrize("outside", [True, False], ids=["outside", "inside"])
+def test_a_sidecar_link_leaving_the_project_is_not_read(
+    client: TestClient, project: Path, tmp_path_factory, outside: bool
+):
+    """A CSV in the project with a sidecar link to a file elsewhere that matches its centre:
+    the outside file must not decide the space or the radius."""
+    target = _link_target(project, tmp_path_factory, outside)
+    target.write_text(json.dumps({**_SIDECAR, "radius": 9.0}))
+    roi_dir = Path(get_path_manager().rois("ernie"))
+    (roi_dir / "Boundary.csv").write_text("1.0,2.0,3.0\n")
+    (roi_dir / "Boundary.json").symlink_to(target)
+
+    listed = _listed(client)["Boundary"]
+    if outside:
+        # The name rule, as for an ROI saved without a sidecar.
+        assert listed == {
+            "name": "Boundary",
+            "x": 1.0,
+            "y": 2.0,
+            "z": 3.0,
+            "space": "subject",
+        }
+    else:
+        assert listed == {**_SIDECAR, "radius": 9.0}

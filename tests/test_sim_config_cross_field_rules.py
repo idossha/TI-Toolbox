@@ -321,9 +321,11 @@ def test_xyz_electrodes_closer_than_1_mm_are_refused_and_1_mm_apart_is_not():
     with pytest.raises(ValueError, match="'near'.*electrodes 1 and 4.*1 mm"):
         SimulationConfig(subject_id="101", montages=[_xyz_montage("near", near)])
 
+    # Exactly 1 mm (-60 -> -59 along x is exact in binary floating point): the rule is
+    # "less than 1 mm", as the desktop's `< MIN_ELECTRODE_SEPARATION_MM`, so this is allowed.
     apart = deepcopy(_FOUR_POINTS)
-    apart[3] = [apart[0][0] + 0.6, apart[0][1] + 0.8, apart[0][2]]  # 3-4-5: 1.0 mm
-    assert math.isclose(math.dist(apart[0], apart[3]), 1.0)
+    apart[3] = [apart[0][0] + 1.0, apart[0][1], apart[0][2]]
+    assert math.dist(apart[0], apart[3]) == 1.0
     SimulationConfig(subject_id="101", montages=[_xyz_montage("apart", apart)])
 
 
