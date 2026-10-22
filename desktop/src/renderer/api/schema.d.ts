@@ -9062,9 +9062,12 @@ export interface components {
          *     ------
          *     ValueError
          *         If *subjects* lacks at least one responder and one non-responder,
-         *         if a string value is not a member of its enum, or if
-         *         *fsaverage_field*\/*fsaverage_spacing* are invalid for
-         *         ``space="fsaverage"``.
+         *         if a response is not 0 or 1, if a paired test has unequal group
+         *         sizes, if *alpha* or *cluster_threshold* is not strictly between 0
+         *         and 1, if *n_permutations* is below ``ceil(1 / alpha) - 1`` (no
+         *         p-value could reach *alpha*), if a string value is not a member of
+         *         its enum, or if *fsaverage_field*\/*fsaverage_spacing* are invalid
+         *         for ``space="fsaverage"``.
          *
          *     Examples
          *     --------
@@ -9214,6 +9217,15 @@ export interface components {
          *     atlas_files : list of str
          *         Atlas filenames for overlap analysis (looked up in the bundled
          *         atlas directory).
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If fewer than 3 subjects are given, if an effect size is not a
+         *         finite number or every effect size is equal (the correlation is
+         *         undefined), if *use_weights* is on and a weight is not a positive
+         *         finite number, or for the *alpha*\/*cluster_threshold*\/
+         *         *n_permutations* rules of :class:`GroupComparisonConfig`.
          *
          *     See Also
          *     --------
@@ -9871,11 +9883,22 @@ export interface components {
          *     diff_pairs : list of str, optional
          *         ``"GroupA-GroupB"`` pairs to difference. Empty (the default) means
          *         every pairwise combination of the groups present in *subjects*.
+         *         Labels may contain hyphens (``"post-op-pre-op"``): an entry is split
+         *         at the one hyphen that leaves a group label on both sides.
          *
          *     Raises
          *     ------
          *     ValueError
-         *         If *output_name* is blank, or fewer than 2 *subjects* are given.
+         *         If *output_name* is blank or not a valid folder name
+         *         (:func:`tit.paths.validate_name`), fewer than 2 *subjects* are given,
+         *         a group label is not a valid file-name part (it names
+         *         ``average_<group>.nii.gz``), or a *diff_pairs* entry does not name
+         *         two of the groups exactly one way.
+         *
+         *     Notes
+         *     -----
+         *     Group labels are stripped of edge whitespace, so ``"Group1 "`` and
+         *     ``"Group1"`` are one group.
          *
          *     See Also
          *     --------
