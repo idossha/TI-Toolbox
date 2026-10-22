@@ -45,8 +45,9 @@ NOTEBOOK_SUFFIX = ".ipynb"
 #: A notebook name is one path segment of ordinary characters. Anything with a
 #: separator, a leading dot or a ``..`` in it is refused rather than sanitised
 #: — silently rewriting a name is how a save lands somewhere the author never
-#: looked.
-_SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$")
+#: looked. Matched with ``fullmatch``: ``re.match`` with ``$`` also matches before a trailing
+#: newline, which let ``"abc\n"`` through as a file name.
+_SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}")
 
 #: The one subdirectory a name may carry. There is exactly one because the UI
 #: shows a flat list and because a general subdirectory grammar buys nothing
@@ -103,7 +104,7 @@ def normalise_name(name: str) -> str:
         candidate = candidate[len(prefix) :]
     if candidate.endswith(NOTEBOOK_SUFFIX):
         candidate = candidate[: -len(NOTEBOOK_SUFFIX)]
-    if not _SAFE_NAME.match(candidate):
+    if not _SAFE_NAME.fullmatch(candidate):
         raise NotebookError(
             "bad-name",
             f"{name!r} is not a usable notebook name. Use letters, digits, spaces, "

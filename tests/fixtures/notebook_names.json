@@ -19,7 +19,7 @@
     {"why": "the examples folder escaping itself", "name": "examples/../x", "client": null, "server": null},
     {"why": "empty", "name": "", "client": null, "server": null},
     {"why": "the suffix alone", "name": "  .ipynb", "client": null, "server": null},
-    {"why": "a newline before the suffix is not an allowed character", "name": "abc\n.ipynb", "client": null, "server": null, "server_known_gap": "normalise_name matches _SAFE_NAME with re.match and '$', which also matches before a trailing newline, so it accepts 'abc\\n' and returns 'abc\\n.ipynb'; fixing needs re.fullmatch or \\Z in tit/server/notebooks.py, which package p40 does not own"},
+    {"why": "a newline before the suffix is not an allowed character", "name": "abc\n.ipynb", "client": null, "server": null},
     {"why": "the example notebook's own name: the server accepts the examples/ folder; an imported file's name never carries a folder, so the client refuses it", "name": "examples/example_workflow.ipynb", "client": null, "server": "examples/example_workflow.ipynb"},
     {"why": "an upper-case suffix: the client drops it case-insensitively before sending, the server takes '.IPYNB' as part of the name", "name": "Analysis.IPYNB", "client": "Analysis", "server": "Analysis.IPYNB.ipynb"}
   ]
