@@ -79,6 +79,38 @@ def _world_distance_grid(
     return np.sqrt(dist_sq)
 
 
+def weighted_percentiles(
+    values: np.ndarray, weights: np.ndarray, percentiles
+) -> list[float]:
+    """Area/volume-weighted percentiles, the rule ``results.csv`` reports them by.
+
+    Each percentile is the smallest value whose cumulative weight (values sorted
+    ascending) reaches that fraction of the total weight -- no interpolation, so it is
+    always one of *values*. The histogram draws its focality cutoffs from the same
+    function, so the figure and the table cannot disagree.
+
+    Args:
+        values: Finite field values.
+        weights: One non-negative weight per value (node area or voxel volume).
+        percentiles: Percentiles in ``[0, 100]``.
+
+    Returns:
+        One value per entry of *percentiles*, in their order.
+    """
+    order = np.argsort(values)
+    data_sorted = values[order]
+    cumulative = np.cumsum(weights[order])
+    normalised = cumulative / cumulative[-1]
+    return [
+        float(
+            data_sorted[
+                min(int(np.searchsorted(normalised, pct / 100.0)), len(data_sorted) - 1)
+            ]
+        )
+        for pct in percentiles
+    ]
+
+
 #: Nodes per element for the Gmsh element types a SimNIBS mesh holds (line, triangle,
 #: quadrangle, tetrahedron, hexahedron, prism, pyramid, point).
 _GMSH_NODES_PER_ELEMENT = {1: 2, 2: 3, 3: 4, 4: 4, 5: 8, 6: 6, 7: 5, 15: 1}
@@ -1278,22 +1310,7 @@ class Analyzer:
         data = values[valid]
         sizes = weights[valid]
 
-        sort_idx = np.argsort(data)
-        data_sorted = data[sort_idx]
-        sizes_sorted = sizes[sort_idx]
-
-        cumulative = np.cumsum(sizes_sorted)
-        total = cumulative[-1]
-        normalised = cumulative / total
-
-        percentile_thresholds = [95, 99, 99.9]
-        pct_values = []
-        for pct in percentile_thresholds:
-            idx = min(
-                int(np.searchsorted(normalised, pct / 100.0)),
-                len(data_sorted) - 1,
-            )
-            pct_values.append(float(data_sorted[idx]))
+        pct_values = weighted_percentiles(data, sizes, (95, 99, 99.9))
 
         # Area/volume above X% of the 99.9th percentile value
         ref = pct_values[2]  # 99.9th percentile
@@ -1368,6 +1385,7 @@ class Analyzer:
             roi_mean=result.roi_mean,
             region_name=result.region_name,
             unit_label="Area (mm\u00b2)",
+            field_name=self.field_name,
         )
 
     def _visualize_voxel(
@@ -1417,6 +1435,7 @@ class Analyzer:
             roi_mean=result.roi_mean,
             region_name=result.region_name,
             unit_label="Volume (mm\u00b3)",
+            field_name=self.field_name,
         )
 
     # ------------------------------------------------------------------

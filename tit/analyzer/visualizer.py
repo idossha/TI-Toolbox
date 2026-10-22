@@ -20,9 +20,23 @@ from typing import Any
 import nibabel as nib
 import numpy as np
 
+from tit import constants as const
 from tit.paths import get_path_manager
 
 logger = logging.getLogger(__name__)
+
+
+def field_unit(field_name: str | None) -> str:
+    """Display unit of *field_name*'s values, from ``constants.FIELD_REGISTRY``.
+
+    ``hf_sar`` is ``(V/m)²`` (carrier power); every other registered field, and a
+    field the registry does not list (``magnE``), is ``V/m``.
+    """
+    try:
+        units = const.get_field_spec(str(field_name)).units
+    except KeyError:
+        return "V/m"
+    return units.replace("^2", "\u00b2")
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +211,7 @@ def save_histogram(
     unit_label: str = "Area (mm\u00b2)",
     n_bins: int = 100,
     dpi: int = 150,
+    field_name: str | None = None,
 ) -> Path | None:
     """Write ``histogram.png``: the whole-head field distribution with the ROI's contribution.
 
@@ -227,6 +242,9 @@ def save_histogram(
         Bins over the whole-GM range (default 100).
     dpi : int, optional
         Output resolution (default 150).
+    field_name : str or None, optional
+        The analysed field; its :func:`field_unit` labels the x axis, the cutoffs and
+        the stats box (``None``: the V/m of the envelope).
 
     Returns
     -------
@@ -256,6 +274,9 @@ def save_histogram(
     ensure_headless_matplotlib_backend()
     import matplotlib.pyplot as plt
 
+    from tit.analyzer.analyzer import weighted_percentiles
+
+    unit = field_unit(field_name)
     weighted = gm_w is not None
     y_label = unit_label if weighted else "Elements"
     gm_hist, edges = np.histogram(gm, bins=n_bins, weights=gm_w)
@@ -270,7 +291,9 @@ def save_histogram(
         roi_hist, gm_hist, out=np.zeros_like(gm_hist, dtype=float), where=gm_hist > 0
     )
     non_zero = roi_fraction[roi_fraction > 0]
-    max_fraction = float(max(np.percentile(non_zero, 95), 0.01)) if non_zero.size else 0.01
+    max_fraction = (
+        float(max(np.percentile(non_zero, 95), 0.01)) if non_zero.size else 0.01
+    )
     normalized = np.clip(roi_fraction / max_fraction, 0, 1)
 
     rc = {
@@ -287,8 +310,12 @@ def save_histogram(
 
         # Focality cutoffs: one legend entry each, the threshold and the number of
         # elements at or above it. The "of GM 99.9th pct" is said once, in the
-        # legend title, not on every line.
-        p999 = float(np.percentile(gm, 99.9))
+        # legend title, not on every line. The 99.9th percentile is the weighted one
+        # results.csv reports (focality_*_area is measured against it); an unweighted
+        # np.percentile drew the lines elsewhere wherever node areas differ.
+        p999 = weighted_percentiles(
+            gm, gm_w if weighted else np.ones_like(gm), (99.9,)
+        )[0]
         for frac, color in zip(
             (0.5, 0.75, 0.9, 0.95), ("red", "darkred", "crimson", "maroon")
         ):
@@ -300,14 +327,14 @@ def save_histogram(
                     color=color,
                     linestyle="--",
                     linewidth=2,
-                    label=f"{int(frac * 100)}%: {t:.2f} V/m, {count:,} elements",
+                    label=f"{int(frac * 100)}%: {t:.2f} {unit}, {count:,} elements",
                 )
         if roi_mean is not None and edges[0] <= float(roi_mean) <= edges[-1]:
             ax.axvline(
                 float(roi_mean),
                 color="green",
                 linewidth=3,
-                label=f"ROI mean: {float(roi_mean):.2f} V/m",
+                label=f"ROI mean: {float(roi_mean):.2f} {unit}",
             )
         if ax.get_legend_handles_labels()[0]:
             ax.legend(
@@ -319,7 +346,7 @@ def save_histogram(
                 title_fontsize=11,
             )
 
-        ax.set_xlabel("Field Strength (V/m)", fontsize=14)
+        ax.set_xlabel(f"{field_name or 'Field strength'} ({unit})", fontsize=14)
         ax.set_ylabel(y_label, fontsize=14)
         ax.tick_params(axis="both", which="major", labelsize=12)
         title = "Whole-Head Field Distribution with ROI Contribution"
@@ -338,13 +365,13 @@ def save_histogram(
 
         stats = (
             "Whole Head:\n"
-            f"Max: {float(gm.max()):.2f} V/m\n"
-            f"Mean: {float(np.average(gm, weights=gm_w)):.2f} V/m\n"
-            f"99.9%ile: {p999:.2f} V/m\n"
+            f"Max: {float(gm.max()):.2f} {unit}\n"
+            f"Mean: {float(np.average(gm, weights=gm_w)):.2f} {unit}\n"
+            f"99.9%ile: {p999:.2f} {unit}\n"
             f"Elements: {gm.size:,}\n\n"
             "ROI:\n"
-            f"Mean: {float(np.average(roi, weights=roi_w)):.2f} V/m\n"
-            f"Max: {float(roi.max()):.2f} V/m\n"
+            f"Mean: {float(np.average(roi, weights=roi_w)):.2f} {unit}\n"
+            f"Max: {float(roi.max()):.2f} {unit}\n"
             f"Elements: {roi.size:,}"
         )
         ax.text(

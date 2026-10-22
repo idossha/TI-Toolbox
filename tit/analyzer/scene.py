@@ -47,9 +47,6 @@ FIELD_COLORMAP = "inferno"
 #: The scale's floor as a fraction of the field's p99.9 inside the ROI.
 FIELD_FLOOR_FRACTION = 0.20
 
-#: What a field's colour bar is labelled with.
-FIELD_UNIT = "V/m"
-
 #: ``threshold.lo`` that hides exactly the zeros an overlay has outside the ROI:
 #: a field the analyzer reports is never this small, and ``0`` is not "below 0".
 ZERO_EPSILON = 1e-6
@@ -292,6 +289,8 @@ def _meta(
 ) -> dict:
     import numpy as np
 
+    from tit.analyzer.visualizer import field_unit
+
     values = np.asarray(values, dtype=float)
     positive = values[values > 0]
     out = dict(meta)
@@ -304,7 +303,7 @@ def _meta(
             "framing": plan.as_dict(),
             "field": {
                 "name": field_name,
-                "unit": FIELD_UNIT,
+                "unit": field_unit(field_name),
                 "max_in_roi": round(float(positive.max()), 6) if positive.size else 0.0,
                 "scale": [lo, hi],
             },
