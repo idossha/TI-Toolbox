@@ -21,8 +21,6 @@ describe("Nilearn visuals panel config validates against contracts/generated/con
       pairs: [{ subjectId: "ernie", simulationName: "Thalamus" }],
       subdirName: "thalamus_montage_v1",
       usePercentiles: false,
-      minCutoff: 0.3,
-      maxCutoff: 5,
       atlasName: "harvard_oxford_sub",
       selectedRegion: "__all__",
     });
@@ -30,6 +28,21 @@ describe("Nilearn visuals panel config validates against contracts/generated/con
     // `NilearnConfig.subject_simulation_pairs` is the real field name (ra_13 finding #10).
     expect(config).toHaveProperty("subject_simulation_pairs", [{ subject_id: "ernie", simulation_name: "Thalamus" }]);
     expect(config).not.toHaveProperty("pairs");
+    expect(validate("NilearnConfig", config)).toMatchObject({ valid: true, errors: [] });
+  });
+
+  it("sends an empty cutoff as null — the job's data-driven default — never 0", () => {
+    // 0 is a real cutoff (it shows every voxel); null is "take it from the field" (p95 / p99.9).
+    const config = buildNilearnConfig({
+      pairs: [{ subjectId: "ernie", simulationName: "Thalamus" }],
+      subdirName: "v",
+      usePercentiles: false,
+      minCutoff: undefined,
+      maxCutoff: 0.15,
+      atlasName: "harvard_oxford_sub",
+      selectedRegion: "__all__",
+    });
+    expect(config).toMatchObject({ min_cutoff: null, max_cutoff: 0.15 });
     expect(validate("NilearnConfig", config)).toMatchObject({ valid: true, errors: [] });
   });
 

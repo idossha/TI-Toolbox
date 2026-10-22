@@ -45,8 +45,8 @@ def blank_figure_warning(values: np.ndarray, min_cutoff: float) -> str | None:
 
     :func:`resolve_cutoffs` only refuses an *empty* range (``min >= max``). A caller can
     still ask for a floor that is above the data while keeping a ceiling above that --
-    which is exactly what the desktop panel's former default does (``min_cutoff`` 0.3 V/m
-    with ``max_cutoff`` 5, measured in `tests/smoke/payloads/nilearn.json`): the job then
+    which is exactly what the desktop panel's former default did (``min_cutoff`` 0.3 V/m
+    with ``max_cutoff`` 5; it now sends null for both): the job then
     succeeds and writes PDFs with nothing on them. That is the same failure as the crash,
     only silent, so the runner says so in the job log rather than leaving the reader to
     wonder why the brain is empty.

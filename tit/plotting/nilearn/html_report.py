@@ -15,7 +15,7 @@ from .visualizer import NilearnVisualizer
 
 
 def create_html_entry_point(
-    subject_id: str, simulation_name: str, min_cutoff: float = 0.3
+    subject_id: str, simulation_name: str, min_cutoff: float | None = None
 ):
     """
     Entry point for HTML visualization creation.
@@ -60,8 +60,8 @@ Examples:
         "--cutoff",
         "-c",
         type=float,
-        default=0.3,
-        help="Minimum cutoff for visualization (V/m, default: 0.3)",
+        default=None,
+        help="Minimum cutoff for visualization (V/m, default: 95th percentile of the field)",
     )
 
     args = parser.parse_args()

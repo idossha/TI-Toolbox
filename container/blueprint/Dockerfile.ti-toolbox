@@ -127,6 +127,13 @@ RUN simnibs_python -m pip install --no-cache-dir \
         "mne>=1.5,<2" h5io nbformat jupyter_client ipykernel \
         fastapi "uvicorn[standard]" pyyaml "dipy>=1.12,<2"
 
+# Nilearn Visuals' atlas contours: fetched once, sha256-checked against the table in atlases.py
+# (the build fails if upstream changes them) and pruned to the four label images (~2.6 MB), so
+# a job reads them from disk and never needs the network. Copied alone so this layer caches.
+ENV NILEARN_DATA=/opt/nilearn_data
+COPY --from=source /ti-toolbox/tit/plotting/nilearn/atlases.py /tmp/nilearn_atlases.py
+RUN simnibs_python /tmp/nilearn_atlases.py --prune && rm /tmp/nilearn_atlases.py
+
 # CUDA libraries ship with PyTorch; NVIDIA host drivers are supplied by the container runtime.
 ENV FASTSURFER_HOME=/opt/fastsurfer
 COPY --from=fastsurfer /opt/fastsurfer /opt/fastsurfer

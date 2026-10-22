@@ -21,14 +21,33 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from nilearn import datasets, image, plotting
+from nilearn import image, plotting
 from nilearn.image import threshold_img
 from nilearn.plotting import view_img_on_surf
 
+from tit.analyzer.field_selector import is_mti_simulation
 from tit.constants import DIR_NILEARN_VISUALS
 from tit.paths import get_path_manager
+from tit.plotting.nilearn.atlases import ATLASES, atlas_path
+from tit.plotting.nilearn.cutoffs import resolve_cutoffs
 
 warnings.filterwarnings("ignore")
+
+
+def field_nifti(subject_id: str, simulation_name: str) -> str:
+    """The MNI grey-matter field NIfTI one simulation contributes to these figures.
+
+    ``TI/niftis/grey_<sim>_TI_MNI_MNI_TI_max.nii.gz`` for a two-pair run, and
+    ``mTI/niftis/grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`` for an mTI run
+    (:mod:`tit.sim.mTI`): the same quantity, the modulation depth, named per mode.
+    """
+    mode = "mTI" if is_mti_simulation(subject_id, simulation_name) else "TI"
+    return os.path.join(
+        get_path_manager().simulation(subject_id, simulation_name),
+        mode,
+        "niftis",
+        f"grey_{simulation_name}_{mode}_MNI_MNI_{mode}_max.nii.gz",
+    )
 
 
 class NilearnVisualizer:
@@ -84,24 +103,6 @@ class NilearnVisualizer:
         )
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def _get_simulation_files(self, subject_id: str) -> dict[str, str]:
-        """Return TI-max NIfTI paths keyed by simulation name for *subject_id*."""
-        simulations = self.pm.list_simulations(subject_id)
-        sim_files = {}
-
-        for sim_name in simulations:
-            sim_dir = self.pm.simulation(subject_id, sim_name)
-            if sim_dir:
-                # Look for TI max files in the niftis directory
-                nifti_dir = os.path.join(sim_dir, "TI", "niftis")
-                if os.path.exists(nifti_dir):
-                    for file in os.listdir(nifti_dir):
-                        if file.endswith(".nii.gz") and "TI_max" in file:
-                            sim_files[sim_name] = os.path.join(nifti_dir, file)
-                            break
-
-        return sim_files
-
     def _load_electric_field_data(self, filepath: str) -> nib.Nifti1Image | None:
         """Load a NIfTI file, returning *None* when *filepath* does not exist."""
         if os.path.exists(filepath):
@@ -114,8 +115,8 @@ class NilearnVisualizer:
         self,
         subject_id: str,
         simulation_name: str,
-        min_cutoff: float = 0.3,
-        max_cutoff: float = None,
+        min_cutoff: float | None = None,
+        max_cutoff: float | None = None,
         atlas_name: str = "harvard_oxford_sub",
         selected_regions: list[int] | None = None,
     ) -> str | None:
@@ -123,6 +124,7 @@ class NilearnVisualizer:
 
         Generates sagittal, coronal, and axial slice rows with the electric
         field overlaid as a hot colormap and optional atlas contour lines.
+        Reads the simulation's MNI grey-matter NIfTI (:func:`field_nifti`).
 
         Parameters
         ----------
@@ -130,8 +132,9 @@ class NilearnVisualizer:
             Subject identifier (e.g. ``'070'``).
         simulation_name : str
             Name of the simulation folder.
-        min_cutoff : float, optional
-            Lower display threshold in V/m.  Default is ``0.3``.
+        min_cutoff : float or None, optional
+            Lower display threshold in V/m.  When *None* the 95th
+            percentile of non-zero voxels is used.
         max_cutoff : float or None, optional
             Upper display threshold in V/m.  When *None* the 99.9th
             percentile of non-zero voxels is used.
@@ -148,107 +151,42 @@ class NilearnVisualizer:
             Path to the saved PDF, or *None* on failure.
         """
         print(f"=== Creating PDF Visualization for {subject_id}/{simulation_name} ===")
-
-        # Get simulation files
-        sim_files = self._get_simulation_files(subject_id)
-        if simulation_name not in sim_files:
-            print(
-                f"Error: Simulation '{simulation_name}' not found for subject {subject_id}"
-            )
-            return None
-
-        ef_filepath = sim_files[simulation_name]
-        ef_img = self._load_electric_field_data(ef_filepath)
+        ef_img = self._load_electric_field_data(
+            field_nifti(subject_id, simulation_name)
+        )
         if ef_img is None:
             return None
-
-        # Load and analyze data
-        data = ef_img.get_fdata()
-        data_nonzero = data[data > 0]
-        if len(data_nonzero) == 0:
-            print("Warning: No non-zero field values found")
-            return None
-
-        max_value = np.max(data)
-        percentile_999 = np.percentile(data_nonzero, 99.9)
-        min_value = np.min(data_nonzero)
-
-        # Use provided max_cutoff or default to 99.9th percentile
-        if max_cutoff is None:
-            max_cutoff = percentile_999
-
-        print(f"Electric field statistics:")
-        print(f"  Absolute maximum: {max_value:.2f} V/m")
-        print(f"  99.9th percentile: {percentile_999:.2f} V/m")
-        print(f"  Minimum (non-zero): {min_value:.2f} V/m")
-        print(f"  Visualization range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
-
-        # Create output filename
-        pdf_filename = f"{subject_id}_{simulation_name}_multiple_views.pdf"
-        pdf_filepath = os.path.join(self.output_dir, pdf_filename)
-
-        # Load atlas for contours
-        atlas_img, atlas_display_name = self._load_atlas(atlas_name, selected_regions)
-
-        # Create multi-slice plot with atlas contours
-        self._create_multi_slice_plot_with_atlas(
-            ef_img, atlas_img, atlas_display_name, pdf_filepath, min_cutoff, max_cutoff
+        return self.create_pdf_visualization_group(
+            ef_img,
+            f"{subject_id}_{simulation_name}",
+            self.output_dir,
+            min_cutoff,
+            max_cutoff,
+            atlas_name,
+            selected_regions,
         )
-
-        print(f"✓ Saved: {pdf_filepath}")
-        print(f"  Colorbar range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
-
-        return pdf_filepath
 
     def _load_atlas(
         self, atlas_name: str, selected_regions: list[int] | None = None
     ) -> tuple[nib.Nifti1Image | None, str]:
-        """Load a nilearn atlas, optionally filtered to *selected_regions*."""
-        atlas_configs = {
-            "harvard_oxford": {
-                "name": "Harvard Oxford Cortical Atlas",
-                "function": lambda: datasets.fetch_atlas_harvard_oxford(
-                    "cort-maxprob-thr25-2mm"
-                ),
-                "atlas_key": "filename",
-                "labels_key": "labels",
-            },
-            "harvard_oxford_sub": {
-                "name": "Harvard Oxford Subcortical Atlas",
-                "function": lambda: datasets.fetch_atlas_harvard_oxford(
-                    "sub-maxprob-thr25-2mm"
-                ),
-                "atlas_key": "filename",
-                "labels_key": "labels",
-            },
-            "aal": {
-                "name": "AAL Atlas",
-                "function": lambda: datasets.fetch_atlas_aal(),
-                "atlas_key": "maps",
-                "labels_key": "labels",
-            },
-            "schaefer_2018": {
-                "name": "Schaefer 2018 Atlas (100 regions)",
-                "function": lambda: datasets.fetch_atlas_schaefer_2018(n_rois=100),
-                "atlas_key": "maps",
-                "labels_key": "labels",
-            },
-        }
+        """Load a nilearn atlas, optionally filtered to *selected_regions*.
 
-        if atlas_name not in atlas_configs:
+        Never raises: outlines are context, so a failure is reported in plain words and
+        the caller draws the field without them.
+        """
+        if atlas_name not in ATLASES:
             print(
-                f"Error: Unknown atlas '{atlas_name}'. Available: {list(atlas_configs.keys())}"
+                f"Atlas contours skipped: unknown atlas {atlas_name!r} "
+                f"(choose one of {', '.join(ATLASES)}). The figure has no region outlines."
             )
             return None, ""
 
-        config = atlas_configs[atlas_name]
-
+        display_name = ATLASES[atlas_name][0]
         try:
-            print(f"Loading {config['name']}...")
-            atlas_data = config["function"]()
-            atlas_img = atlas_data[config["atlas_key"]]
+            print(f"Loading {display_name}...")
+            atlas_img = atlas_path(atlas_name)
 
-            if selected_regions and "labels" in atlas_data:
+            if selected_regions:
                 # Create a filtered atlas with only selected regions
                 atlas_nii = nib.load(atlas_img)
                 atlas_array = atlas_nii.get_fdata()
@@ -267,16 +205,21 @@ class NilearnVisualizer:
                     filtered_array, atlas_nii.affine, atlas_nii.header
                 )
 
-                atlas_name_display = (
-                    f"{config['name']} (Selected regions: {len(selected_regions)})"
+                display_name = (
+                    f"{display_name} (Selected regions: {len(selected_regions)})"
                 )
-            else:
-                atlas_name_display = config["name"]
 
-            return atlas_img, atlas_name_display
+            return atlas_img, display_name
 
-        except Exception as e:
-            print(f"Error loading atlas: {e}")
+        # No network, a read-only cache or a corrupt file costs only the outlines.
+        except Exception as e:  # noqa: BLE001
+            print(
+                f"Atlas contours skipped: the {display_name} could not be loaded "
+                f"({type(e).__name__}: {e}). The figure is drawn without region outlines. "
+                f"The TI-Toolbox image ships this atlas in NILEARN_DATA "
+                f"({os.environ.get('NILEARN_DATA', 'not set here')}); anywhere else nilearn "
+                "downloads it on first use, which needs network access."
+            )
             return None, ""
 
     def _create_multi_slice_plot_with_atlas(
@@ -327,10 +270,10 @@ class NilearnVisualizer:
 
                 # Add atlas contours on top if available
                 if atlas_img is not None:
+                    # Cool hues only: red/orange/yellow outlines read as field on "hot".
                     display.add_contours(
                         atlas_img,
-                        colors=["red", "blue", "green", "yellow", "purple", "orange"]
-                        * 20,
+                        colors=["blue", "green", "purple", "cyan", "navy", "teal"] * 20,
                         alpha=0.4,
                         linewidths=1,
                         levels=list(range(1, 200)),
@@ -362,7 +305,11 @@ class NilearnVisualizer:
         cbar.set_ticklabels([f"{min_cutoff:.2f}", f"{max_cutoff:.2f}"])
 
         # Main title
-        atlas_text = f" with {atlas_name} Contours" if atlas_img is not None else ""
+        atlas_text = (
+            f" with {atlas_name} contours"
+            if atlas_img is not None
+            else " (atlas contours unavailable, see the log)"
+        )
         fig.suptitle(
             f"Electric Field Multi-Slices{atlas_text}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m Range",
             fontsize=14,
@@ -378,7 +325,7 @@ class NilearnVisualizer:
         plt.close(fig)
 
     def create_html_visualization(
-        self, subject_id: str, simulation_name: str, min_cutoff: float = 0.3
+        self, subject_id: str, simulation_name: str, min_cutoff: float | None = None
     ) -> str | None:
         """Create an interactive HTML surface visualization.
 
@@ -392,8 +339,9 @@ class NilearnVisualizer:
             Subject identifier.
         simulation_name : str
             Name of the simulation folder.
-        min_cutoff : float, optional
-            Lower display threshold in V/m.  Default is ``0.3``.
+        min_cutoff : float or None, optional
+            Lower display threshold in V/m.  When *None* the 95th
+            percentile of non-zero voxels is used.
 
         Returns
         -------
@@ -401,17 +349,9 @@ class NilearnVisualizer:
             Path to the saved HTML file, or *None* on failure.
         """
         print(f"=== Creating HTML Visualization for {subject_id}/{simulation_name} ===")
-
-        # Get simulation files
-        sim_files = self._get_simulation_files(subject_id)
-        if simulation_name not in sim_files:
-            print(
-                f"Error: Simulation '{simulation_name}' not found for subject {subject_id}"
-            )
-            return None
-
-        ef_filepath = sim_files[simulation_name]
-        ef_img = self._load_electric_field_data(ef_filepath)
+        ef_img = self._load_electric_field_data(
+            field_nifti(subject_id, simulation_name)
+        )
         if ef_img is None:
             return None
 
@@ -422,7 +362,7 @@ class NilearnVisualizer:
             print("Warning: No non-zero field values found")
             return None
 
-        percentile_999 = np.percentile(data_nonzero, 99.9)
+        min_cutoff, percentile_999 = resolve_cutoffs(data_nonzero, min_cutoff, None)
 
         # Create output filename
         html_filename = f"{subject_id}_{simulation_name}_interactive.html"
@@ -450,8 +390,8 @@ class NilearnVisualizer:
         averaged_img,
         base_filename: str,
         output_dir: str,
-        min_cutoff: float = 0.3,
-        max_cutoff: float = None,
+        min_cutoff: float | None = None,
+        max_cutoff: float | None = None,
         atlas_name: str = "harvard_oxford_sub",
         selected_regions: list[int] | None = None,
     ) -> str | None:
@@ -469,8 +409,9 @@ class NilearnVisualizer:
             Base filename for output (without extension).
         output_dir : str
             Directory where the PDF will be saved.
-        min_cutoff : float, optional
-            Lower display threshold in V/m.  Default is ``0.3``.
+        min_cutoff : float or None, optional
+            Lower display threshold in V/m.  When *None* the 95th
+            percentile of non-zero voxels is used.
         max_cutoff : float or None, optional
             Upper display threshold in V/m.  When *None* the 99.9th
             percentile of non-zero voxels is used.
@@ -496,10 +437,7 @@ class NilearnVisualizer:
         max_value = np.max(data)
         percentile_999 = np.percentile(data_nonzero, 99.9)
         min_value = np.min(data_nonzero)
-
-        # Use provided max_cutoff or default to 99.9th percentile
-        if max_cutoff is None:
-            max_cutoff = percentile_999
+        min_cutoff, max_cutoff = resolve_cutoffs(data_nonzero, min_cutoff, max_cutoff)
 
         print(f"Electric field statistics (averaged data):")
         print(f"  Absolute maximum: {max_value:.2f} V/m")
@@ -533,8 +471,8 @@ class NilearnVisualizer:
         self,
         subject_id: str,
         simulation_name: str,
-        min_cutoff: float = 0.3,
-        max_cutoff: float = None,
+        min_cutoff: float | None = None,
+        max_cutoff: float | None = None,
         cmap: str = "hot",
     ) -> str | None:
         """Create a glass-brain PNG for a single subject simulation.
@@ -548,8 +486,9 @@ class NilearnVisualizer:
             Subject identifier.
         simulation_name : str
             Name of the simulation folder.
-        min_cutoff : float, optional
-            Lower display threshold in V/m.  Default is ``0.3``.
+        min_cutoff : float or None, optional
+            Lower display threshold in V/m.  When *None* the 95th
+            percentile of non-zero voxels is used.
         max_cutoff : float or None, optional
             Upper display threshold in V/m.  When *None* the 99.9th
             percentile of non-zero voxels is used.
@@ -564,17 +503,9 @@ class NilearnVisualizer:
         print(
             f"=== Creating Glass Brain Visualization for {subject_id}/{simulation_name} ==="
         )
-
-        # Get simulation files
-        sim_files = self._get_simulation_files(subject_id)
-        if simulation_name not in sim_files:
-            print(
-                f"Error: Simulation '{simulation_name}' not found for subject {subject_id}"
-            )
-            return None
-
-        ef_filepath = sim_files[simulation_name]
-        ef_img = self._load_electric_field_data(ef_filepath)
+        ef_img = self._load_electric_field_data(
+            field_nifti(subject_id, simulation_name)
+        )
         if ef_img is None:
             return None
 
@@ -588,10 +519,7 @@ class NilearnVisualizer:
         max_value = np.max(data)
         percentile_999 = np.percentile(data_nonzero, 99.9)
         min_value = np.min(data_nonzero)
-
-        # Use provided max_cutoff or default to 99.9th percentile
-        if max_cutoff is None:
-            max_cutoff = percentile_999
+        min_cutoff, max_cutoff = resolve_cutoffs(data_nonzero, min_cutoff, max_cutoff)
 
         print(f"Electric field statistics:")
         print(f"  Absolute maximum: {max_value:.2f} V/m")

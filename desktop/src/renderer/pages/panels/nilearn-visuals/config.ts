@@ -14,8 +14,9 @@ export function buildNilearnConfig(args: {
   pairs: NilearnPair[];
   subdirName: string;
   usePercentiles: boolean;
-  minCutoff: number;
-  maxCutoff: number;
+  /** Empty (`undefined`) is sent as `null`: the job then takes the cutoff from the field (p95 / p99.9). */
+  minCutoff?: number;
+  maxCutoff?: number;
   atlasName: string;
   selectedRegion: string;
 }): NilearnConfig {
@@ -23,8 +24,8 @@ export function buildNilearnConfig(args: {
     subject_simulation_pairs: args.pairs.map((p) => ({ subject_id: p.subjectId, simulation_name: p.simulationName })),
     subdir_name: args.subdirName,
     use_percentiles: args.usePercentiles,
-    min_cutoff: args.minCutoff,
-    max_cutoff: args.maxCutoff,
+    min_cutoff: args.minCutoff ?? null,
+    max_cutoff: args.maxCutoff ?? null,
     atlas_name: args.atlasName,
     selected_regions: args.selectedRegion === "__all__" ? null : [Number(args.selectedRegion)],
     create_glass_brain: true,

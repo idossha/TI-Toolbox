@@ -17,8 +17,8 @@ from .visualizer import NilearnVisualizer
 def create_pdf_entry_point(
     subject_id: str,
     simulation_name: str,
-    min_cutoff: float = 0.3,
-    max_cutoff: float = None,
+    min_cutoff: float | None = None,
+    max_cutoff: float | None = None,
     atlas_name: str = "harvard_oxford_sub",
     selected_regions: list = None,
     output_callback=None,
@@ -89,8 +89,8 @@ def create_pdf_entry_point_group(
     averaged_img,
     base_filename: str,
     output_dir: str,
-    min_cutoff: float = 0.3,
-    max_cutoff: float = None,
+    min_cutoff: float | None = None,
+    max_cutoff: float | None = None,
     atlas_name: str = "harvard_oxford_sub",
     selected_regions: list = None,
     output_callback=None,
@@ -186,8 +186,8 @@ Examples:
         "--min-cutoff",
         "-c",
         type=float,
-        default=0.3,
-        help="Minimum cutoff for visualization (V/m, default: 0.3)",
+        default=None,
+        help="Minimum cutoff for visualization (V/m, default: 95th percentile of the field)",
     )
     parser.add_argument(
         "--max-cutoff",

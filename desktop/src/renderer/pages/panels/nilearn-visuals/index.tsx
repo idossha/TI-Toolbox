@@ -24,11 +24,13 @@ import { buildNilearnConfig, type NilearnPair } from "./config";
 
 const ATLAS_OPTIONS = [
   { value: "harvard_oxford_sub", label: "Harvard-Oxford (subcortical)" },
-  { value: "harvard_oxford", label: "Harvard-Oxford" },
-  { value: "aal", label: "AAL" },
-  { value: "schaefer_2018", label: "Schaefer 2018" },
+  { value: "harvard_oxford", label: "Harvard-Oxford (cortical)" },
+  { value: "aal", label: "AAL3" },
+  { value: "schaefer_2018", label: "Schaefer 2018 (100 parcels)" },
 ];
 const REGION_OPTIONS = [{ value: "__all__", label: "All regions" }];
+const CUTOFF_HELP =
+  "Field values below the minimum are hidden; the colour scale tops out at the maximum. Leave a cutoff empty to take it from the averaged field: the 95th percentile (minimum) and 99.9th percentile (maximum) of its non-zero voxels.";
 
 /** One pair is a complete visualisation; more are averaged together (the page's own rule). */
 const MIN_PARTICIPANTS = 1;
@@ -66,8 +68,10 @@ function NilearnVisualsPanel() {
   const [pairs, setPairs] = usePageSession<Pair[]>("pairs", () => [newPair()]);
   const [subdir, setSubdir] = usePageSession("subdir", "");
   const [usePercentiles, setUsePercentiles] = usePageSession("usePercentiles", false);
-  const [minCutoff, setMinCutoff] = usePageSession<number | undefined>("minCutoff", 0.3);
-  const [maxCutoff, setMaxCutoff] = usePageSession<number | undefined>("maxCutoff", 5.0);
+  // Empty = the job derives the range from the field itself (95th–99.9th percentile). A fixed
+  // V/m default cannot work: TI fields peak near 0.1–0.3 V/m, so the former 0.3 drew blank PDFs.
+  const [minCutoff, setMinCutoff] = usePageSession<number | undefined>("minCutoff", undefined);
+  const [maxCutoff, setMaxCutoff] = usePageSession<number | undefined>("maxCutoff", undefined);
   const [atlas, setAtlas] = usePageSession("atlas", "harvard_oxford_sub");
   const [region, setRegion] = usePageSession("region", "__all__");
   const [submitting, setSubmitting] = useState(false);
@@ -106,8 +110,8 @@ function NilearnVisualsPanel() {
           pairs: validPairs,
           subdirName: subdir.trim(),
           usePercentiles,
-          minCutoff: minCutoff ?? 0,
-          maxCutoff: maxCutoff ?? 0,
+          minCutoff,
+          maxCutoff,
           atlasName: atlas,
           selectedRegion: region,
         })
@@ -201,7 +205,7 @@ function NilearnVisualsPanel() {
               loading={subjectsQuery.isPending}
               help={
                 <>
-                  <HelpIcon title="Nilearn visuals" label="About this page" text="Create Nilearn high-resolution publication visualizations." />
+                  <HelpIcon title="Nilearn visuals" label="About this page" text="Averages the chosen simulations' MNI grey-matter fields (TI or mTI) and saves a multi-slice PDF with atlas outlines and a glass-brain PDF to derivatives/ti-toolbox/nilearn_visuals/{name}/." />
                   <Button variant="ghost" size="sm" onClick={clearAll}>
                     Clear all
                   </Button>
@@ -244,20 +248,25 @@ function NilearnVisualsPanel() {
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
                 <Checkbox
                   checked={usePercentiles}
-                  onCheckedChange={setUsePercentiles}
-                  label="Use percentile cutoffs — cutoff values are treated as percentiles (0–100%) of the maximum field value"
+                  onCheckedChange={(on) => {
+                    // A number typed in one unit means nothing in the other.
+                    setUsePercentiles(on);
+                    setMinCutoff(undefined);
+                    setMaxCutoff(undefined);
+                  }}
+                  label="Give cutoffs as percentiles (0–100) of the field's non-zero voxels instead of V/m"
                 />
                 <div className="form-grid">
-                  <Field label={usePercentiles ? "Minimum cutoff (%)" : "Minimum cutoff"} htmlFor="nilearn-min-cutoff">
-                    <NumberInput id="nilearn-min-cutoff" value={minCutoff} onValueChange={setMinCutoff} min={0} max={usePercentiles ? 100 : 10} step={usePercentiles ? 1 : 0.1} unit={usePercentiles ? "%" : "V/m"} />
+                  <Field label={usePercentiles ? "Minimum cutoff (%)" : "Minimum cutoff"} htmlFor="nilearn-min-cutoff" help={CUTOFF_HELP}>
+                    <NumberInput id="nilearn-min-cutoff" value={minCutoff} onValueChange={setMinCutoff} placeholder="auto (p95)" min={0} max={usePercentiles ? 100 : 10} step={usePercentiles ? 1 : 0.01} unit={usePercentiles ? "%" : "V/m"} />
                   </Field>
-                  <Field label="Atlas selection" htmlFor="nilearn-atlas">
+                  <Field label="Atlas selection" htmlFor="nilearn-atlas" help="Region outlines drawn over the field on the slice PDF. The atlases ship with TI-Toolbox, so no download is needed.">
                     <Select id="nilearn-atlas" value={atlas} onValueChange={setAtlas} options={ATLAS_OPTIONS} />
                   </Field>
-                  <Field label={usePercentiles ? "Maximum cutoff (%)" : "Maximum cutoff"} htmlFor="nilearn-max-cutoff">
-                    <NumberInput id="nilearn-max-cutoff" value={maxCutoff} onValueChange={setMaxCutoff} min={0} max={usePercentiles ? 100 : 50} step={usePercentiles ? 1 : 0.5} unit={usePercentiles ? "%" : "V/m"} />
+                  <Field label={usePercentiles ? "Maximum cutoff (%)" : "Maximum cutoff"} htmlFor="nilearn-max-cutoff" help={CUTOFF_HELP}>
+                    <NumberInput id="nilearn-max-cutoff" value={maxCutoff} onValueChange={setMaxCutoff} placeholder="auto (p99.9)" min={0} max={usePercentiles ? 100 : 10} step={usePercentiles ? 1 : 0.01} unit={usePercentiles ? "%" : "V/m"} />
                   </Field>
-                  <Field label="Region selection" htmlFor="nilearn-region">
+                  <Field label="Region selection" htmlFor="nilearn-region" help="Every region of the chosen atlas is outlined. Outlining only some regions is not available here yet.">
                     <Select id="nilearn-region" value={region} onValueChange={setRegion} options={REGION_OPTIONS} />
                   </Field>
                 </div>

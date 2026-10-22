@@ -19,8 +19,10 @@ before this round.
       (`derivatives/ti-toolbox/nilearn_visuals/{name}`) → `TextInput` + help text.
 - [x] "Use percentile cutoffs" checkbox → `Checkbox`, same tooltip.
 - [x] "Minimum Cutoff" / "Maximum Cutoff" (`QDoubleSpinBox`, V/m units, 0.3/5.0 defaults, 0.1/0.5
-      steps) → `NumberInput` with `unit="V/m"`, same defaults/steps; label switches to "%" when
-      percentile mode is on (same behaviour Qt's `_on_percentile_mode_changed` describes).
+      steps) → `NumberInput` with `unit="V/m"`; label switches to "%" when percentile mode is on
+      (same behaviour Qt's `_on_percentile_mode_changed` describes). **Deliberately not at parity
+      since 2026-10-21:** both start empty (sent as `null` → p95 / p99.9 of the field), because
+      0.3 V/m is above every TI field and drew blank PDFs; switching units clears both.
 - [x] "Atlas Selection" combo (`harvard_oxford_sub` default, `harvard_oxford`, `aal`,
       `schaefer_2018`) → `Select`, same options/default.
 - [x] "Region Selection" combo ("All Regions" + atlas-specific regions,

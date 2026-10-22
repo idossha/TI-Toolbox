@@ -130,9 +130,10 @@ class TestBlankFigureWarning:
     """A floor above the data with a ceiling above *that* is the silent half of the bug.
 
     ``resolve_cutoffs`` only refuses ``min >= max``. The desktop panel's former default
-    sends ``min_cutoff`` 0.3 with ``max_cutoff`` 5 (`tests/smoke/payloads/nilearn.json`),
-    which passes that check and then renders PDFs with nothing on them -- the same failure
-    as the crash, only silent. The runner logs this line so the job log says why.
+    sent ``min_cutoff`` 0.3 with ``max_cutoff`` 5 (it now sends null for both,
+    `tests/smoke/payloads/nilearn.json`), which passes that check and then renders PDFs
+    with nothing on them -- the same failure as the crash, only silent. A user can still
+    type such a floor, so the runner logs this line and the job log says why.
     """
 
     def test_a_floor_above_the_peak_is_called_out(self, field):

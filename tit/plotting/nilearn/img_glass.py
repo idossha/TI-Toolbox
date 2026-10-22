@@ -11,14 +11,15 @@ Usage:
 import argparse
 import sys
 
+from .cutoffs import resolve_cutoffs
 from .visualizer import NilearnVisualizer
 
 
 def create_glass_brain_entry_point(
     subject_id: str,
     simulation_name: str,
-    min_cutoff: float = 0.3,
-    max_cutoff: float = None,
+    min_cutoff: float | None = None,
+    max_cutoff: float | None = None,
     cmap: str = "hot",
     output_callback=None,
 ):
@@ -77,8 +78,8 @@ def create_glass_brain_entry_point_group(
     averaged_img,
     base_filename: str,
     output_dir: str,
-    min_cutoff: float = 0.3,
-    max_cutoff: float = None,
+    min_cutoff: float | None = None,
+    max_cutoff: float | None = None,
     cmap: str = "hot",
     output_callback=None,
 ):
@@ -118,9 +119,9 @@ def create_glass_brain_entry_point_group(
             percentile_999 = np.percentile(data_nonzero, 99.9)
             min_value = np.min(data_nonzero)
 
-            # Use provided max_cutoff or default to 99.9th percentile
-            if max_cutoff is None:
-                max_cutoff = percentile_999
+            min_cutoff, max_cutoff = resolve_cutoffs(
+                data_nonzero, min_cutoff, max_cutoff
+            )
 
             print(f"Electric field statistics (averaged data):")
             print(f"  Absolute maximum: {max_value:.2f} V/m")
@@ -174,9 +175,7 @@ def create_glass_brain_entry_point_group(
         percentile_999 = np.percentile(data_nonzero, 99.9)
         min_value = np.min(data_nonzero)
 
-        # Use provided max_cutoff or default to 99.9th percentile
-        if max_cutoff is None:
-            max_cutoff = percentile_999
+        min_cutoff, max_cutoff = resolve_cutoffs(data_nonzero, min_cutoff, max_cutoff)
 
         print(f"Electric field statistics (averaged data):")
         print(f"  Absolute maximum: {max_value:.2f} V/m")
@@ -236,8 +235,8 @@ Examples:
         "--min-cutoff",
         "-c",
         type=float,
-        default=0.3,
-        help="Minimum cutoff for visualization (V/m, default: 0.3)",
+        default=None,
+        help="Minimum cutoff for visualization (V/m, default: 95th percentile of the field)",
     )
     parser.add_argument(
         "--max-cutoff",

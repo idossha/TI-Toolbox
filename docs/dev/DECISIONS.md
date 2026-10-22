@@ -3191,3 +3191,32 @@ config can say itself, and scripts calling the runner directly would still need 
 **Evidence.** `tests/test_stats_main.py::TestMain::test_a_correlation_config_that_names_itself_runs_a_correlation`;
 `tests/test_jobs_model.py::test_keys_for_stats_uses_analysis_name_and_the_main_entrypoints_mode_key`;
 `desktop/tests/unit/cluster-permutation-defaults.test.ts`.
+
+## 2026-10-21 — Nilearn visuals: data-driven cutoffs by default; outline atlases baked into the image
+
+**Decision.** The Nilearn visuals panel starts with both cutoffs empty and sends an empty cutoff as
+`null`, which the runner resolves to the 95th / 99.9th percentile of the averaged field's non-zero
+voxels (`tit/plotting/nilearn/cutoffs.py`); the scripting helpers' `min_cutoff` defaults to the
+same. The four outline atlases are fetched once at image build into `/opt/nilearn_data`
+(`NILEARN_DATA`) by `tit/plotting/nilearn/atlases.py`, which also holds the one atlas table the
+visualizer reads, checks each label image's sha256 and prunes the other NIfTIs the archives unpack
+(46 MB → 2.65 MB [measured, 2026-10-21]). An atlas that still cannot load is skipped with a
+plain-words log line and the figure is drawn without outlines. The runner reads each pair's own
+field file: `TI/niftis/…TI_max` or, for an mTI run (`mTI/mesh/` exists), `mTI/niftis/…mTI_max`.
+
+**Why.** The panel's 0.3–5 V/m default sat above every TI field (sub-LA L_Insula peaks at
+0.1644 V/m, sub-101 Thalamus_example at 0.3322 V/m [measured, runner log, 2026-10-21]), so default
+runs wrote blank PDFs; nilearn fetched the atlases at run time and the image had no cache, so an
+offline container lost the outlines; the runner read `TI/niftis` only, so mTI runs could not be
+shown.
+
+**Alternatives rejected.** Percentile mode on by default (same range, but a number typed in one
+unit then means nothing after switching; empty-means-auto works in both units); committing the
+atlas files to the repository (third-party data in the source tree); pinning only the nilearn
+version (does not pin the bytes upstream serves; the AAL host already fails over to OSF);
+fetching after `COPY /ti-toolbox` (re-downloads on every source change).
+
+**Evidence.** `tests/test_nilearn_visuals.py`, `tests/numerical/test_nilearn_group_average.py`,
+`desktop/tests/unit/nilearn-visuals-panel.test.tsx`, `desktop/tests/unit/nilearn-visuals-defaults.test.ts`;
+offline runs (`docker run --network none`) of the runner on Dataset 000 sub-LA and sub-101 with the
+pruned cache, and in an image built with the Dockerfile step.

@@ -7,8 +7,9 @@ Thin headless runner around this package's ``create_pdf_entry_point_group`` /
 :func:`tit.config_io.deserialize_config`, run, emit stage/artifact/result/exit events, exit
 ``0``/``1``.
 
-Implements the "Nilearn Visuals" panel of the desktop app: group-average the requested subject/simulation NIfTIs, then render the multi-slice
-PDF (and, optionally, a glass-brain PDF) from that average.
+Implements the "Nilearn Visuals" panel of the desktop app: group-average the requested
+subject/simulation MNI NIfTIs (``TI_max``, or ``mTI_max`` for an mTI run), then render the
+multi-slice PDF (and, optionally, a glass-brain PDF) from that average.
 """
 
 from __future__ import annotations
@@ -33,12 +34,41 @@ from tit.plotting.nilearn.cutoffs import (
 )
 from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
 from tit.plotting.nilearn.img_slices import create_pdf_entry_point_group
-from tit.stats.nifti import load_group_data_ti_toolbox
+from tit.plotting.nilearn.visualizer import field_nifti
+from tit.stats.nifti import _check_same_grid
 
-#: Same default the GUI extension uses (MNI-space TI_max); this runner has no
-#: equivalent of ``tit.stats.nifti_average_config.NiftiAverageSpace`` since it
-#: always visualises the MNI group average.
+#: A two-pair run's file. tit.jobs.preflight imports this name; the runner itself reads
+#: :func:`~tit.plotting.nilearn.visualizer.field_nifti`, which also covers mTI runs.
 _NIFTI_FILE_PATTERN = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
+
+
+def _average_fields(pairs) -> nib.Nifti1Image:
+    """Voxelwise mean of each pair's MNI field NIfTI, on one checked common grid."""
+    total = ref_img = ref_path = None
+    for pair in pairs:
+        path = field_nifti(pair.subject_id, pair.simulation_name)
+        if not os.path.isfile(path):
+            raise FileNotFoundError(
+                f"MNI field NIfTI not found for sub-{pair.subject_id} / "
+                f"{pair.simulation_name}: {path}. Re-run that simulation with MNI NIfTI "
+                "export enabled."
+            )
+        img = nib.load(path)
+        data = img.get_fdata(dtype=float)
+        if total is None:
+            total, ref_img, ref_path = data, img, path
+            continue
+        _check_same_grid(
+            pair.subject_id,
+            path,
+            data.shape,
+            img.affine,
+            total.shape,
+            ref_img.affine,
+            ref_path,
+        )
+        total += data
+    return nib.Nifti1Image(total / len(pairs), ref_img.affine, ref_img.header)
 
 
 def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
@@ -88,15 +118,8 @@ def main() -> None:
                 for p in config.subject_simulation_pairs
             ]
             logger.info(f"Loading {len(subject_configs)} subject/simulation NIfTIs")
-            data_4d, template_img, subject_ids = load_group_data_ti_toolbox(
-                subject_configs,
-                nifti_file_pattern=_NIFTI_FILE_PATTERN,
-                dtype=float,
-            )
-            averaged_data = np.mean(data_4d, axis=-1)
-            averaged_img = nib.Nifti1Image(
-                averaged_data, template_img.affine, template_img.header
-            )
+            averaged_img = _average_fields(config.subject_simulation_pairs)
+            averaged_data = averaged_img.get_fdata()
 
             # Preflight, before a single figure is drawn: both cutoffs become absolute
             # V/m here (the renderers' own `max_cutoff=None -> 99.9th percentile` rule
@@ -125,7 +148,7 @@ def main() -> None:
                 config.subdir_name,
             )
             os.makedirs(output_dir, exist_ok=True)
-            base_filename = f"group_averaged_{len(subject_ids)}_subjects"
+            base_filename = f"group_averaged_{len(subject_configs)}_subjects"
 
             nifti_path = os.path.join(output_dir, f"{base_filename}.nii.gz")
             nib.save(averaged_img, nifti_path)
@@ -180,7 +203,7 @@ def main() -> None:
                 {
                     "success": True,
                     "output_dir": output_dir,
-                    "n_subjects": len(subject_ids),
+                    "n_subjects": len(subject_configs),
                     "min_cutoff": min_cutoff,
                     "max_cutoff": max_cutoff,
                     "pdf": pdf_path,
