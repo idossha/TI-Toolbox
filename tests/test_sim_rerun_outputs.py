@@ -35,7 +35,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import string
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -131,10 +133,10 @@ class _SimnibsSession:
         Path(self.pathfem, "simnibs_simulation_20261022-010101.mat").write_bytes(b"new")
 
 
-def _run(overwrite: bool, sessions: list | None = None) -> _SimnibsSession:
-    """One ``TISimulation.run``; every session it builds is appended to *sessions*."""
-    sim = TISimulation(_config(), _config().montages[0], logger=MagicMock())
-    sessions = [] if sessions is None else sessions
+@contextmanager
+def _fake_simnibs(sessions: list):
+    """Every TI montage run in this block solves with a :class:`_SimnibsSession` appended to
+    *sessions*; the real ``run``/``_organize_files`` do the rest."""
 
     def build(self, output_dir):
         sessions.append(_SimnibsSession(output_dir))
@@ -155,6 +157,14 @@ def _run(overwrite: bool, sessions: list | None = None) -> _SimnibsSession:
         patch.object(ti_mod, "extract_fields"),
         patch.object(ti_mod, "transform_dirs_to_nifti"),
     ):
+        yield
+
+
+def _run(overwrite: bool, sessions: list | None = None) -> _SimnibsSession:
+    """One ``TISimulation.run``; every session it builds is appended to *sessions*."""
+    sim = TISimulation(_config(), _config().montages[0], logger=MagicMock())
+    sessions = [] if sessions is None else sessions
+    with _fake_simnibs(sessions):
         sim.run("/unused", overwrite=overwrite)
     return sessions[0] if sessions else None
 
@@ -190,6 +200,31 @@ def test_run_simulation_from_python_refuses_instead_of_silently_overwriting(
         with pytest.raises(OSError):
             run_simulation(_config(), logger=MagicMock())
     solve.assert_not_called()
+    assert _listing(montage_dir) == before
+
+
+def test_a_later_montage_with_a_result_refuses_the_whole_run_before_any_solve(
+    montage_dir: Path,
+):
+    """[First, L_Insula] where only L_Insula has a result: without overwrite the run is refused
+    up front, so First is not solved either (it used to be solved, then L_Insula refused).
+    """
+    from tit.sim.utils import run_simulation
+
+    first = Montage(
+        name="First",
+        mode=MontageMode.NET,
+        electrode_pairs=[("E020", "E021"), ("E022", "E023")],
+        eeg_net=NET,
+    )
+    config = _config(montages=[first, _config().montages[0]])
+    before = _listing(montage_dir)
+    sessions: list = []
+    with _fake_simnibs(sessions):
+        with pytest.raises(FileExistsError, match=f"'{NAME}'.*overwrite"):
+            run_simulation(config, logger=MagicMock())
+    assert sessions == []  # no montage was solved
+    assert not Path(montage_dir.parent, "First").exists()
     assert _listing(montage_dir) == before
 
 
@@ -248,6 +283,34 @@ def test_a_confirmed_rerun_keeps_files_the_simulator_does_not_write(montage_dir:
     (montage_dir / "notes.txt").write_text("mine")
     _run(overwrite=True)
     assert (montage_dir / "notes.txt").read_text() == "mine"
+
+
+@pytest.mark.parametrize("folder", ["TI", "mTI", "fsaverage", "high_Frequency"])
+def test_a_linked_output_folder_is_left_alone_and_its_target_untouched(
+    montage_dir: Path, tmp_path_factory, folder: str
+):
+    """A derived-output folder that is a link (to another disk, say) is not followed: what it
+    points at is not this montage's to delete. The link and its target stay as they were.
+    """
+    from tit.sim.utils import clear_previous_outputs
+
+    target = tmp_path_factory.mktemp("elsewhere")
+    (target / "simnibs_simulation_20260101-000000.mat").write_bytes(b"theirs")
+    (target / "mesh").mkdir()
+    (target / "mesh" / "L_Insula_TI.msh").write_bytes(b"theirs")
+    link = montage_dir / folder
+    if link.exists():
+        shutil.rmtree(link)
+    link.symlink_to(target, target_is_directory=True)
+    outside = _listing(target)
+
+    clear_previous_outputs(str(montage_dir))
+
+    assert link.is_symlink() and link.resolve() == target.resolve()
+    assert _listing(target) == outside
+    # The real folders around it are still cleared.
+    for other in {"TI", "mTI", "fsaverage"} - {folder}:
+        assert not (montage_dir / other).exists(), other
 
 
 # ── mTI names carriers A..Z: the tenth is J, not A0 ──────────────────────────────────────────

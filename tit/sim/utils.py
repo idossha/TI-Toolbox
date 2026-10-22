@@ -532,6 +532,34 @@ def existing_result_meshes(montage_dir: str) -> list[str]:
     )
 
 
+def refuse_existing_result(montage_dir: str, montage_name: str) -> None:
+    """Refuse to run a montage whose folder already holds an earlier result.
+
+    SimNIBS's own guard looks for its session record in ``high_Frequency/``,
+    which ``_organize_files`` moves into ``documentation/``, so after a
+    completed run it never fires: the result mesh is the toolbox's marker.
+
+    Parameters
+    ----------
+    montage_dir : str
+        Root output directory of one montage.
+    montage_name : str
+        The montage's name, for the message.
+
+    Raises
+    ------
+    FileExistsError
+        If :func:`existing_result_meshes` finds a mesh in *montage_dir*.
+    """
+    existing = existing_result_meshes(montage_dir)
+    if existing:
+        raise FileExistsError(
+            f"Simulation {montage_name!r} already has results in {montage_dir} "
+            f"({os.path.basename(existing[0])}); run with overwrite=True to replace "
+            "them."
+        )
+
+
 def clear_previous_outputs(montage_dir: str) -> None:
     """Remove the derived outputs of earlier runs before a confirmed re-run.
 
@@ -539,7 +567,9 @@ def clear_previous_outputs(montage_dir: str) -> None:
     ``high_Frequency/`` except SimNIBS session records, so the folder ends up
     holding exactly what the new ``config.json`` asks for.  The run history
     (``documentation/``, session records) and the user's ``Analyses/`` are
-    kept, and so is anything else the simulator does not write.
+    kept, and so is anything else the simulator does not write.  A folder that
+    is a symbolic link is left as it is, link and target: what it points at is
+    not this montage's to delete.
 
     Parameters
     ----------
@@ -551,7 +581,7 @@ def clear_previous_outputs(montage_dir: str) -> None:
         if os.path.isdir(path) and not os.path.islink(path):
             shutil.rmtree(path)
     hf_dir = os.path.join(montage_dir, "high_Frequency")
-    if not os.path.isdir(hf_dir):
+    if not os.path.isdir(hf_dir) or os.path.islink(hf_dir):
         return
     for entry in os.listdir(hf_dir):
         path = os.path.join(hf_dir, entry)
@@ -1112,9 +1142,10 @@ def run_simulation(
         folder, or an XYZ montage holds a malformed coordinate.
     OSError
         ``FileExistsError`` when a montage folder already holds a result mesh
-        (``TI/mesh`` or ``mTI/mesh``) and *overwrite* is ``False``; nothing in
-        that folder is written.  SimNIBS raises its own ``OSError`` when an
-        interrupted run left a session record in ``high_Frequency/``.
+        (``TI/mesh`` or ``mTI/mesh``) and *overwrite* is ``False``; every
+        montage is checked before the first is solved, so nothing is
+        written.  SimNIBS raises its own ``OSError`` when an interrupted run
+        left a session record in ``high_Frequency/``.
 
     Examples
     --------
@@ -1137,6 +1168,13 @@ def run_simulation(
     from tit.telemetry import track_operation
 
     _validate_simulation_inputs(config)
+    if not overwrite:
+        # Every montage before the first solve, not each one as its turn comes.
+        pm = get_path_manager()
+        for montage in config.montages:
+            refuse_existing_result(
+                pm.simulation(config.subject_id, montage.name), montage.name
+            )
     has_mti = any(m.simulation_mode == SimulationMode.MTI for m in config.montages)
     _tel_op = const.TELEMETRY_OP_SIM_MTI if has_mti else const.TELEMETRY_OP_SIM_TI
 

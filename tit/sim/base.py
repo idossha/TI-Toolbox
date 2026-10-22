@@ -37,7 +37,7 @@ from tit.sim.config import Montage, SimulationConfig
 from tit.sim.utils import (
     clear_previous_outputs,
     create_simulation_config_file,
-    existing_result_meshes,
+    refuse_existing_result,
     run_montage_visualization,
     setup_montage_directories,
 )
@@ -155,13 +155,7 @@ class BaseSimulation(ABC):
         if overwrite:
             clear_previous_outputs(montage_dir)
         else:
-            existing = existing_result_meshes(montage_dir)
-            if existing:
-                raise FileExistsError(
-                    f"Simulation {self.montage.name!r} already has results in "
-                    f"{montage_dir} ({os.path.basename(existing[0])}); run with "
-                    "overwrite=True to replace them."
-                )
+            refuse_existing_result(montage_dir, self.montage.name)
         dirs = setup_montage_directories(montage_dir, self._simulation_mode)
         create_simulation_config_file(
             self.config, self.montage, dirs["documentation"], self.logger
