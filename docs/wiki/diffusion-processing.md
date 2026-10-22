@@ -8,7 +8,7 @@ TI-Toolbox turns diffusion-weighted imaging (DWI) into the tensor file SimNIBS u
 
 ### Platform
 
-**QSIPrep needs an x86-64 (Intel/AMD) Docker host: Linux, or Windows with Docker Desktop.** It cannot run on Apple Silicon: its SynthSeg step uses TensorFlow built for AVX instructions, which emulation does not provide, and the run stops there. TI-Toolbox refuses to start QSIPrep on an arm64 Docker host and says so. On a Mac, run QSIPrep on an x86-64 machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs anywhere.
+**QSIPrep needs an x86-64 (Intel/AMD) Docker host: Linux, Windows with Docker Desktop, or an Intel Mac.** It cannot run on Apple Silicon: its SynthSeg step uses TensorFlow built for AVX instructions, which emulation does not provide, and the run stops there. TI-Toolbox refuses to start QSIPrep on an arm64 Docker host and says so. On an Apple Silicon Mac, run QSIPrep on an x86-64 machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs anywhere. Run it on a copy of this project's BIDS data, because the DTI step assumes QSIPrep used the project's own `sub-<id>/anat/sub-<id>_T1w` (the file charm ran on) and stops if the m2m T1 is not on that file's grid.
 
 ## Pipeline overview
 
@@ -111,7 +111,7 @@ derivatives/SimNIBS/sub-{id}/m2m_{id}/
 └── DTI_coregT1_qc.json         # QC gate record
 ```
 
-A QC report is written alongside: FA on the T1, principal direction coloured on **world** axes (red = left-right, green = anterior-posterior, blue = superior-inferior), tensor statistics and the QC gate table.
+A QC report is written alongside, to `derivatives/ti-toolbox/reports/sub-<id>/dti_qc_<timestamp>.html`, and shown under **Results ▸ sub-… ▸ DTI QC report**. It holds FA on the T1, principal direction coloured on **world** axes (red = left-right, green = anterior-posterior, blue = superior-inferior), tensor statistics and the QC gate table. It is written even when the gate fails, so you can see why.
 
 ## Stage 3 (optional): QSIRecon
 
@@ -134,7 +134,7 @@ run_pipeline(
 
 Then select an anisotropic conductivity model (`vn`, `dir` or `mc`) in the **Simulator**; it uses `DTI_coregT1_tensor.nii.gz`.
 
-Results from TI-Toolbox before this change came from a translation-only alignment without tensor rotation and should be regenerated; see the [changelog]({{ site.baseurl }}/releases/changelog/).
+Results from TI-Toolbox before v3.0.2 came from a translation-only alignment without tensor rotation and should be regenerated; see the [changelog]({{ site.baseurl }}/releases/changelog/).
 
 ## Docker and resources
 

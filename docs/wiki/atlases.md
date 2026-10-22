@@ -17,7 +17,7 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
 | ------------------------ | -------------------------- | -------------------------- |
 | Shipped with the toolbox | Yes, in `resources/atlas/` | No — generated per subject |
 | Same for every user      | Yes                        | No                         |
-| Produced by              | Bundled with TI-Toolbox    | `charm` and `recon-all`    |
+| Produced by              | Bundled with TI-Toolbox    | `charm`, FastSurfer, optional FreeSurfer |
 
 ---
 
@@ -128,9 +128,11 @@ Measured on the `ernie` example subject, against `charm`'s own subcortical segme
 | MASSP thalamus (right) vs charm Right-Thalamus | 1.19 mm |
 
 That is the same order as the disagreement between two segmentations of the same structure, and it
-is accepted rather than corrected. Every optimization and analysis writes a **ROI plate**
-(`roi_plate.png`) showing the mask that will actually be used on your subject's own T1 — look at it
-before you trust a deep target.
+is accepted rather than corrected. Every optimizer target writes an `roi.tetravox.json` scene showing the
+mask that will actually be used on your subject's own T1 (an MNI target's transformed mask is saved
+beside it as `roi_mask.nii.gz`), and an analysis writes a `scene.tetravox.json` with the field masked
+to the ROI. With TetraVox in the desktop app, a matching `roi.png` or `scene.png` is rendered next to
+the scene. Look at it before you trust a deep target.
 
 Pick an atlas from the dropdown to load it over the MNI152 template. The browser shows CIT168, Glasser and MASSP; the Harvard-Oxford, Cerebellum and Schaefer atlases are described below and offered in the ROI picker, but are not yet in this browser. Click any row in a label table below to jump the crosshair to that region's centroid — the viewer switches atlases automatically if needed. Only the template and the currently selected atlas are ever loaded.
 
@@ -160,7 +162,7 @@ The shipped volume is a **deterministic** label map, derived locally from the pa
 
 The published labeling is **bilateral** (16 labels, each covering a structure in both hemispheres). TI-Toolbox ships it **split at the midline** (x = 0 mm of its own template) since 2026-09-23: 32 labels, where the paper's label k is `2k-1` (`Left-…`, x < 0) and `2k` (`Right-…`, x ≥ 0), made by `dev/build_lateralized_atlases.py`. Nothing else about the map changes.
 
-The label table below comes from the docs atlas browser, which still carries the 16 bilateral labels until its assets are regenerated with `dev/build_atlas_assets.py`; its centroids therefore fall near the midline.
+The label table below is the docs atlas browser's and still lists the 16 bilateral labels, with centroids near the midline. The 32 shipped labels are in `resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym_LUT.txt`.
 
 <div class="atlas-table-tools">
   <input type="text" class="atlas-filter" data-target="table-mni-cit168" placeholder="Filter CIT168 regions by name or id…">
@@ -295,7 +297,7 @@ a cortical parcellation distributed as a label volume, so you target it through 
 These are **not shipped**. They are produced for each subject during preprocessing, and live under that subject's own derivatives:
 
 - **SimNIBS `charm`** writes the tissue segmentation `m2m_{subject}/segmentation/labeling.nii.gz`, plus the surface parcellations `lh/rh.{subject}_DK40.annot`, `_a2009s.annot` and `_HCP_MMP1.annot`.
-- **FastSurfer `--seg_only` (v3)** writes `aparc.DKTatlas+aseg.deep.mgz`. It does not produce thalamic nuclei or hippocampal/amygdala subregion atlases. See [pre-processing]({{ site.baseurl }}/wiki/pre-processing/#what-changed-from-freesurfer).
+- **FastSurfer `--seg_only` (v3)** writes `aparc.DKTatlas+aseg.deep.mgz`. It does not produce thalamic nuclei or hippocampal/amygdala subregion atlases. See [FastSurfer / FreeSurfer]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-reconstruction-and-subregions).
 - **Optional FreeSurfer `recon-all`** produces the volumetric parcellations `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `aparc+aseg.mgz` and `aseg.mgz`, with finer thalamic nuclei and hippocampal/amygdala subregions available as additional operations after reconstruction. Existing `ThalamicNuclei.v13.T1.mgz` and `lh/rh.hippoAmygLabels-T1.v22.mgz` outputs remain readable.
 
 The gallery includes legacy FreeSurfer atlases for reference; their presence here does not mean a new v3 FastSurfer run produces them.
@@ -311,7 +313,6 @@ The viewer below uses the **`ernie` example subject** that ships with SimNIBS, s
       <option value="charm">CHARM tissue labeling</option>
       <option value="dkt">Desikan-Killiany-Tourville (aparc.DKTatlas+aseg)</option>
       <option value="a2009s">Destrieux (aparc.a2009s+aseg)</option>
-      <option value="massp">MASSP subcortical (subject space)</option>
     </select>
     <span class="atlas-status" data-space="subject"></span>
   </div>
@@ -356,7 +357,7 @@ Produced by SimNIBS `charm` as `m2m_{subject}/segmentation/labeling.nii.gz`, wit
 
 ## Desikan-Killiany-Tourville (aparc.DKTatlas+aseg)
 
-FreeSurfer `recon-all` output combining the DKT cortical parcellation with the `aseg` subcortical segmentation in one volume. Klein A, Tourville J. 101 labeled brain images and a consistent human cortical labeling protocol. _Frontiers in Neuroscience_ 6:171 (2012). doi:[10.3389/fnins.2012.00171](https://doi.org/10.3389/fnins.2012.00171).
+The DKT cortical parcellation combined with the `aseg` subcortical segmentation in one volume. By default FastSurfer writes it as `aparc.DKTatlas+aseg.deep`; optional FreeSurfer `recon-all` writes the equivalent `aparc.DKTatlas+aseg.mgz`, which is the volume shown here for `ernie`. Klein A, Tourville J. 101 labeled brain images and a consistent human cortical labeling protocol. _Frontiers in Neuroscience_ 6:171 (2012). doi:[10.3389/fnins.2012.00171](https://doi.org/10.3389/fnins.2012.00171).
 
 Cortical labels use FreeSurfer's `1000+`/`2000+` convention (left/right hemisphere); subcortical structures keep their `aseg` ids below 100. This is one of the voxel atlases the analyzer offers.
 
@@ -387,7 +388,7 @@ Cortical labels use FreeSurfer's `1000+`/`2000+` convention (left/right hemisphe
 
 ## Destrieux (aparc.a2009s+aseg)
 
-FreeSurfer `recon-all` output combining the Destrieux cortical parcellation with `aseg`. Destrieux C, Fischl B, Dale A, Halgren E. Automatic parcellation of human cortical gyri and sulci using standard anatomical nomenclature. _NeuroImage_ 53(1):1-15 (2010). doi:[10.1016/j.neuroimage.2010.06.010](https://doi.org/10.1016/j.neuroimage.2010.06.010).
+Optional FreeSurfer `recon-all` output (FastSurfer's segmentation-only run does not write it) combining the Destrieux cortical parcellation with `aseg`. Destrieux C, Fischl B, Dale A, Halgren E. Automatic parcellation of human cortical gyri and sulci using standard anatomical nomenclature. _NeuroImage_ 53(1):1-15 (2010). doi:[10.1016/j.neuroimage.2010.06.010](https://doi.org/10.1016/j.neuroimage.2010.06.010).
 
 The finest of the cortical parcellations here, splitting cortex into gyral (`G_`) and sulcal (`S_`) units. Cortical ids run in the `11100+`/`12100+` range.
 
@@ -416,40 +417,9 @@ The finest of the cortical parcellations here, splitting cortex into gyral (`G_`
 
 <br>
 
-## MASSP Subcortical (Subject Space)
-
-The bundled MNI MASSP parcellation warped into the subject's own space, written by preprocessing as `m2m_{subject}/segmentation/massp2021_subject.nii.gz`. Same 31 labels as the [MNI-space MASSP](#massp-subcortical-parcellation) above, and the same provenance caveat applies — no citation, license or DOI is recorded in this repository.
-
-Comparing this table with the MNI one is a useful check on how far a subject's subcortical anatomy departs from the template.
-
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-subject-massp" placeholder="Filter MASSP regions by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.subject.atlases.massp.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-subject-massp" data-space="subject" data-atlas="massp">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (subject, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.subject.atlases.massp.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-
-<br>
-
 ## Atlas Resampling
 
-Voxel-space ROI analysis requires the atlas and the field NIfTI to sit on the **same voxel grid**. They often do not: the field is written on the simulation's grid, while a subject-space parcellation comes off `recon-all` at whatever resolution that ran at. Before masking, `Analyzer` brings the atlas onto the field's grid so the two are compared voxel-for-voxel.
+Voxel-space ROI analysis requires the atlas and the field NIfTI to sit on the **same voxel grid**. They often do not: the field is written on the simulation's grid, while a subject-space parcellation comes off FastSurfer or FreeSurfer at whatever resolution that ran at. Before masking, `Analyzer` brings the atlas onto the field's grid so the two are compared voxel-for-voxel.
 
 <a href="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_validation.png">
   <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_validation.png" alt="Voxel-level validation of atlas resampling" style="width: 100%; max-width: 1000px;">
@@ -463,7 +433,7 @@ _Validation on sub-ernie with the DKT parcellation. **Top:** an atlas cropped to
   <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_roi_analysis.png" alt="Left insula and left thalamus ROI analysis on the corrected grid" style="width: 100%; max-width: 1000px;">
 </a>
 
-\_Two ROI analyses on sub-ernie, each shown as the region on the subject T1, the TI field it sits in, and the statistics the analyzer reports once the atlas is on the field grid. **Left insula** (`L_Insula` simulation): 6,528 voxels, mean 0.076 V/m. **Left thalamus** (`Thalamus` simulation): 8,045 voxels, mean 0.127 V/m. The cyan outline is the atlas region; the coloured area is that region intersected with the tissue.
+_Two ROI analyses on sub-ernie, each shown as the region on the subject T1, the TI field it sits in, and the statistics the analyzer reports once the atlas is on the field grid. **Left insula** (`L_Insula` simulation): 6,528 voxels, mean 0.076 V/m. **Left thalamus** (`Thalamus` simulation): 8,045 voxels, mean 0.127 V/m. The cyan outline is the atlas region; the coloured area is that region intersected with the tissue._
 
 **A grid is a shape _and_ an affine.** A volume is left untouched only when it already matches the field on both. Shape alone does not identify a grid — two volumes can agree on dimensions while sampling entirely different anatomy, and that case is silent: the analysis returns an ROI mask, statistics and a CSV, all describing the wrong tissue.
 

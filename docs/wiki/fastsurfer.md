@@ -21,9 +21,10 @@ Results are written under `derivatives/fastsurfer/sub-<id>/mri/`:
 
 ## FreeSurfer reconstruction and subregions
 
-Enable **FreeSurfer** on the Pre-processing page. In **Settings → Pre-processing**, choose
-full reconstruction (`recon-all`), thalamic nuclei, and/or hippocampal/amygdala subregions.
-All three are selected by default. Subregions require a completed FreeSurfer reconstruction,
+Enable **FreeSurfer** on the Pre-processing page. In **Settings ▸ Pre-processing**, choose
+full reconstruction (`recon-all`), thalamic nuclei, and/or hippocampal/amygdala subregions, then
+press **Save pre-processing preferences**; unsaved choices are only a draft. All three are
+selected by default. Subregions require a completed FreeSurfer reconstruction,
 from this run or an existing result; FastSurfer's segmentation-only output is not sufficient.
 TI-Toolbox supplies the FreeSurfer license automatically for these stages (below). FastSurfer
 segmentation needs no license.
@@ -32,6 +33,10 @@ FreeSurfer runs in a temporary worker and stores results in `derivatives/freesur
 The worker is removed when computation ends; the outputs and downloaded image remain for reuse.
 The T1-only subregion pipeline uses the upstream
 [Python subregion tools](https://surfer.nmr.mgh.harvard.edu/fswiki/SubregionSegmentation).
+
+FreeSurfer is refused unless the container has at least 16 GiB of memory available. The worker is a
+`linux/amd64` image (`idossha/ti-toolbox:freesurfer-20260910`, about 30 GB on disk), so on Apple
+Silicon `recon-all` runs emulated and is slow.
 
 ## FreeSurfer license
 
@@ -55,7 +60,7 @@ The complete terms and attribution notice are included with the bundled license.
 
 ## Configure once, use across projects
 
-Open **Settings → Pre-processing** to configure FastSurfer and FreeSurfer. These are user preferences, not project settings. Pre-processing keeps the subject and pipeline choices; computation settings live here.
+Open **Settings ▸ Pre-processing** to configure FastSurfer and FreeSurfer, and press **Save pre-processing preferences** to keep your edits. These are user preferences, not project settings. Pre-processing keeps the subject and pipeline choices; computation settings live here.
 
 Thread defaults and shared resource controls are described in [Pre-processing settings]({{ site.baseurl }}/wiki/pre-processing/#pre-processing-settings). Container CPU limits are respected. You can enter a thread limit for each tool or clear it to return to automatic. Changes apply to new jobs, not jobs already running. The job scheduler still controls when work can start.
 

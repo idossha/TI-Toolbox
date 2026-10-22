@@ -15,7 +15,6 @@
  *    `qsirecon_subject`
  *  - `tit/pre/dicom2nifti.py` (`MODALITIES`), `tit/pre/charm.py`, `tit/pre/fastsurfer.py`,
  *    `tit/pre/tissue_analyzer.py`, `tit/pre/qsi/*`
- *  - `docs/wiki/pre-processing.md` §"Output Directory Structure"
  *
  * Durations come from `PRE_STAGE_MIN` in `tit/jobs/eta.py`, whose constants are stated there as
  * the emulated wall clocks divided by `EMULATION_FACTOR` (3.0). Both numbers are shown, because a
@@ -30,6 +29,8 @@ import "./preprocess.css";
 const DOCS_SITE = "https://idossha.github.io/TI-Toolbox/";
 const PRE_DOCS = `${DOCS_SITE}wiki/pre-processing/`;
 const DWI_DOCS = `${DOCS_SITE}wiki/diffusion-processing/`;
+const FASTSURFER_DOCS = `${DOCS_SITE}wiki/fastsurfer/`;
+const TISSUE_DOCS = `${DOCS_SITE}wiki/tissue-analyzer/`;
 
 /** How much slower the amd64 image is under Rosetta/QEMU — `EMULATION_FACTOR` in `tit/jobs/eta.py`. */
 export const EMULATION_FACTOR = 3;
@@ -91,8 +92,8 @@ export const STEP_INFO: Record<string, StepInfo> = {
     text:
       "Builds the head model every simulation and optimization runs on.\n\n" +
       "Steps run in this order, except **charm** and **FastSurfer** which run in parallel — FastSurfer " +
-      "reads the raw BIDS T1w, so it needs nothing from charm. An HTML report is written at the end of " +
-      "each subject's run.",
+      "reads the raw BIDS T1w, so it needs nothing from charm. When charm finishes, its own report is " +
+      "copied into the subject's reports (**Results ▸ sub-… ▸ Head model (charm) report**).",
     inputs: [{ label: "Source images", path: "sourcedata/sub-<id>/" }],
     process: [
       { label: "dcm2niix" },
@@ -102,7 +103,7 @@ export const STEP_INFO: Record<string, StepInfo> = {
       { label: "Head model", path: "derivatives/SimNIBS/sub-<id>/m2m_<id>/" },
       { label: "DKT parcellation", path: "derivatives/fastsurfer/sub-<id>/" },
     ],
-    docsHref: `${PRE_DOCS}#processing-stages`,
+    docsHref: `${PRE_DOCS}#workflow`,
   },
   dwi: {
     id: "dwi",
@@ -143,7 +144,7 @@ export const STEP_INFO: Record<string, StepInfo> = {
       { label: "DWI fieldmap NIfTI + JSON", path: "sub-<id>/fmap/sub-<id>_dir-PA_epi.nii.gz" },
     ],
     nativeMinutes: native("G1"),
-    docsHref: `${PRE_DOCS}#stage-1-dicom-to-nifti-conversion`,
+    docsHref: `${PRE_DOCS}#supported-input-formats`,
   },
   create_m2m: {
     id: "create_m2m",
@@ -166,7 +167,7 @@ export const STEP_INFO: Record<string, StepInfo> = {
       { label: "Subject atlases", path: "m2m_<id>/segmentation/" },
     ],
     nativeMinutes: native("G2a"),
-    docsHref: `${PRE_DOCS}#stage-2-simnibs-charm-head-model-creation`,
+    docsHref: `${PRE_DOCS}#head-models-and-atlas-alignment`,
   },
   run_fastsurfer: {
     id: "run_fastsurfer",
@@ -184,13 +185,13 @@ export const STEP_INFO: Record<string, StepInfo> = {
       { label: "Label sidecar", path: "derivatives/fastsurfer/sub-<id>/mri/aparc.DKTatlas+aseg.deep_labels.txt" },
     ],
     nativeMinutes: native("G2b"),
-    docsHref: `${PRE_DOCS}#stage-3-fastsurfer-segmentation-optional`,
+    docsHref: `${FASTSURFER_DOCS}#fastsurfer-segmentation`,
   },
   run_freesurfer: {
     id: "run_freesurfer",
     stage: "G2c",
     title: "FreeSurfer (optional)",
-    text: "By default runs **full reconstruction (recon-all)**, **thalamic nuclei**, and **hippocampal/amygdala subregions**. Choose which operations to run in **Settings → Pre-processing**. Subregions require a completed recon-all, either already in the project or selected in this run. FastSurfer remains the default segmentation tool.",
+    text: "By default runs **full reconstruction (recon-all)**, **thalamic nuclei**, and **hippocampal/amygdala subregions**. Choose which operations to run in **Settings ▸ Pre-processing** and press **Save pre-processing preferences**. Subregions require a completed recon-all, either already in the project or selected in this run. FastSurfer remains the default segmentation tool.",
     inputs: [{ label: "T1w image / existing reconstruction", path: "sub-<id>/anat/sub-<id>_T1w.nii.gz" }],
     process: [{ label: "FreeSurfer reconstruction / subregions" }],
     outputs: [{ label: "Reconstruction and subregion labels", path: "derivatives/freesurfer/sub-<id>/" }],
@@ -206,11 +207,11 @@ export const STEP_INFO: Record<string, StepInfo> = {
     inputs: [{ label: "Tissue labels", path: "m2m_<id>/segmentation/labeling.nii.gz" }],
     process: [{ label: "tissue analyzer" }],
     outputs: [
-      { label: "Volumes report", path: "derivatives/ti-toolbox/tissue_analysis/sub-<id>/<tissue>_analysis.txt" },
-      { label: "Thickness map", path: "derivatives/ti-toolbox/tissue_analysis/sub-<id>/<tissue>_thickness.png" },
+      { label: "Volumes report", path: "derivatives/ti-toolbox/tissue_analysis/sub-<id>/<tissue>_analysis/<tissue>_analysis.txt" },
+      { label: "Thickness map", path: "derivatives/ti-toolbox/tissue_analysis/sub-<id>/<tissue>_analysis/<tissue>_thickness.png" },
     ],
     nativeMinutes: native("G3"),
-    docsHref: `${PRE_DOCS}#processing-stages`,
+    docsHref: TISSUE_DOCS,
   },
   run_qsiprep: {
     id: "run_qsiprep",

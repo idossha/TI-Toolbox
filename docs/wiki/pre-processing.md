@@ -31,7 +31,7 @@ run when their dependencies and the job scheduler's resource budget allow.
 | DICOM → NIfTI | Convert source scans and preserve metadata | Input layout below |
 | SimNIBS CHARM | Create the head mesh and subject atlas | Head models below |
 | FastSurfer / FreeSurfer | Segmentation, reconstruction and subregions | [FastSurfer / FreeSurfer]({{ site.baseurl }}/wiki/fastsurfer/) |
-| Tissue analyzer | Inspect tissue segmentation quality | Select after head-model creation |
+| Tissue analyzer | Inspect tissue segmentation quality | [Tissue analyzer]({{ site.baseurl }}/wiki/tissue-analyzer/); runs after CHARM in the same run |
 | QSIPrep → DTI tensor | Preprocess diffusion data (x86-64 host only) and fit the conductivity tensor; QSIRecon is an optional extra | [Diffusion (DTI) processing]({{ site.baseurl }}/wiki/diffusion-processing/) |
 
 ## Required Input Data Structure
@@ -54,7 +54,7 @@ project_root/
                                 #   (→ fmap/sub-{id}_dir-PA_epi.nii.gz + .json, + .bval/.bvec if written)
 ```
 
-Each modality folder is searched recursively, so DICOM files placed directly in `T1w/` also work; the `dicom/` subfolder is the recommended layout. Converted files are named `sub-{id}_T1w.nii.gz`, `sub-{id}_T2w.nii.gz`, etc.
+Each modality folder is searched recursively, so DICOM files placed directly in `T1w/` also work; the `dicom/` subfolder is the recommended layout. Converted files are named `sub-{id}_T1w.nii.gz`, `sub-{id}_T2w.nii.gz`, etc., and land in the project's `sub-{id}/anat/`, `dwi/` and `fmap/` folders (outside `sourcedata/`).
 
 **Diffusion with a reverse phase-encoding scan.** Put the main DWI series (e.g. AP) in `dwi/dicom/` and the short reverse phase-encoding scan (b=0 volumes, or a few b=0 and b>0 volumes; e.g. PA) in `fmap/dicom/`. Conversion writes it as the BIDS "pepolar" fieldmap `fmap/sub-{id}_dir-PA_epi.nii.gz` that [QSIPrep documents](https://qsiprep.readthedocs.io/en/latest/usage.html#siemens-reverse-phase-encoded-field-maps) for this case, with its JSON sidecar and an `IntendedFor` naming the DWI (`"dwi/sub-{id}_dwi.nii.gz"`, relative to the subject folder, because QSIPrep does not read BIDS URIs there). The `dir-` label is the direction the phase encoding travels in the image (`AP`, `PA`, `LR`, `RL`, `SI` or `IS`), worked out from the sidecar's `PhaseEncodingDirection` and the image orientation; if either is missing, the file is left unnamed and the log says what to add. A fieldmap series that holds both polarities, such as GE's `epi_pepolar` sequence, is split by dcm2niix and each half is named by its own direction (`dir-AP` and `dir-PA`).
 
@@ -73,6 +73,18 @@ If instead you acquired the full diffusion series twice with opposite phase enco
 - **DICOM files** (`.dcm`, `.dicom`) under `sourcedata/sub-{subject_id}/{T1w,T2w}/dicom/`; nested folders are searched recursively
 - **Compressed DICOM archives** (`.zip`, `.tar`, `.tar.gz`, `.tgz`) placed directly in a modality folder or its `dicom/` folder
 - **NIfTI files** (`.nii`, `.nii.gz`) - if already converted
+
+DICOMs are recognised only by a `.dcm` or `.dicom` extension. An extensionless export, including
+one inside an archive, is skipped and the log says "No DICOM (.dcm/.dicom) or NIfTI … files found";
+add the extension first.
+
+**Starting from a NIfTI you already have.** Either put it in `sourcedata/sub-{id}/T1w/`, where
+conversion copies it (and gzips a `.nii`) to `sub-{id}/anat/sub-{id}_T1w.nii.gz`, or place
+`sub-{id}_T1w.nii[.gz]` directly in `sub-{id}/anat/` to skip conversion. If a modality folder holds
+both DICOMs and a NIfTI, the DICOMs are converted and the NIfTI is ignored.
+
+**How a subject appears.** There is no "Add subject" button. Create `sourcedata/sub-{id}/T1w/dicom/`
+(or put a NIfTI in `T1w/`) and the subject shows up in the table as *not converted*.
 
 ## Head models and atlas alignment
 
@@ -100,7 +112,7 @@ the surfer guide explains the separate reconstruction and finer subregion option
 <div class="image-row">
   <div class="image-container">
     <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_co-registration.png" alt="Co-registered EEG nets on a subject head model">
-    <em>Supported EEG nets are co-registered while the subject's <code>m2m</code> head model is prepared.</em>
+    <em>Supported EEG nets are co-registered while the subject's <code>m2m</code> head model is prepared. Head models built before v3.1.1 have wrong GSN-HydroCel-128 and BioSemi-64/128/256 positions until the cap is re-applied in the <a href="{{ site.baseurl }}/wiki/eeg-caps/"><strong>EEG caps</strong> panel</a>.</em>
   </div>
   <div class="image-container">
     <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_atlas.png" alt="DKT atlas aligned to subject anatomy">
@@ -119,10 +131,12 @@ Tool-specific inputs and output layouts live in the two subguides above.
 
 ## Pre-processing settings
 
-Open **Settings → Pre-processing** for user-wide defaults. Changes apply to new jobs across
-projects, not work already running. Automatic thread allocation uses the available CPUs minus
-one, with a minimum of one. Each control shows the available capacity; container limits and the
-job scheduler still constrain execution.
+Open **Settings ▸ Pre-processing** for user-wide defaults. Changes apply to new jobs across
+projects, not work already running. Edits to the thread, memory, FreeSurfer and CHARM controls are
+a draft until you press **Save pre-processing preferences**. Automatic thread allocation follows
+the CPU limit set under **Settings ▸ Project ▸ Execution** (70 % of the effective CPUs by default,
+and at least one). Each control shows the available capacity; container limits and the job
+scheduler still constrain execution.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/settings-preprocessing.png" alt="Settings, Pre-processing tab: FastSurfer, FreeSurfer, SimNIBS CHARM and QSIPrep sections with thread controls" style="width: 100%; max-width: 1000px;">
 <em>Settings &#9656; Pre-processing. Each tool has its own thread controls; leave them on Auto to follow the CPU limit.</em>
