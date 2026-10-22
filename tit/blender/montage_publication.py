@@ -70,8 +70,10 @@ def _find_tetrahedral_mesh(sim_dir: str) -> str:
 def _find_central_surface_mesh(
     sim_dir: str, subject_id: str, simulation_name: str
 ) -> str:
-    pm = get_path_manager()
-    path = pm.ti_central_surface(subject_id, simulation_name)
+    from tit.blender.config import central_surface_path
+
+    # An mTI run writes only mTI/mesh/surfaces/<sim>_mTI_central.msh.
+    path = central_surface_path(subject_id, simulation_name)
     if not os.path.exists(path):
         raise FileNotFoundError(
             f"Central surface not found at {path}. Run simulation first."

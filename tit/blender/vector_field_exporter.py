@@ -16,7 +16,11 @@ import simnibs
 import trimesh
 from scipy.spatial.transform import Rotation
 
-from tit.blender.config import VectorConfig
+from tit.blender.config import (
+    VectorConfig,
+    carrier_mesh_paths,
+    central_surface_path,
+)
 from tit.calc import get_TI_vectors
 
 logger = logging.getLogger(__name__)
@@ -317,31 +321,22 @@ def _map_magnitude_to_colors_magscale(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _load_meshes(config: VectorConfig):
-    """Load SimNIBS volumetric meshes and the central surface mesh.
+def _load_meshes(config: VectorConfig, carrier_paths: list[str]):
+    """Load every channel's SimNIBS volume mesh and the central surface mesh.
 
     Returns:
-        Tuple of (m1, m2, m3_or_None, m4_or_None, central_surface_mesh).
+        Tuple of (channel meshes in channel order, central_surface_mesh).
     """
-    for p in [config.mesh1, config.mesh2]:
+    for p in carrier_paths:
         if not os.path.exists(p):
             raise FileNotFoundError(f"Mesh file not found: {p}")
-
-    m1 = simnibs.read_msh(config.mesh1)
-    m2 = simnibs.read_msh(config.mesh2)
-    m3 = m4 = None
-
-    if config.is_mti:
-        for p in [config.mesh3, config.mesh4]:
-            if not os.path.exists(p):
-                raise FileNotFoundError(f"mTI mesh file not found: {p}")
-        m3 = simnibs.read_msh(config.mesh3)
-        m4 = simnibs.read_msh(config.mesh4)
 
     if not os.path.exists(config.central_surface):
         raise FileNotFoundError(
             f"Central surface mesh not found: {config.central_surface}"
         )
+
+    meshes = [simnibs.read_msh(p) for p in carrier_paths]
 
     try:
         central = simnibs.read_msh(config.central_surface)
@@ -353,55 +348,42 @@ def _load_meshes(config: VectorConfig):
     )
 
     # Validate E fields
-    for idx, m in enumerate([m1, m2] + ([m3, m4] if config.is_mti else []), start=1):
+    for idx, m in enumerate(meshes, start=1):
         if "E" not in m.field:
             raise ValueError(f"E field not found in mesh {idx}")
 
-    return m1, m2, m3, m4, central
+    return meshes, central
 
 
-def _compute_fields(config, m1, m2, m3, m4, positions):
-    """Interpolate E fields and compute TI / mTI vectors.
+def _compute_fields(config, meshes, positions):
+    """Interpolate every channel's E field and compute the TI / mTI vectors.
+
+    The envelope is :func:`tit.calc.get_TI_vectors` over ALL channels (paired
+    positionally, as ``tit/sim/mTI.py`` computes ``mTI_max``); ``E1``/``E2`` are
+    the first two channels and ``E_sum`` the sum of every channel.
 
     Returns:
-        Dict with keys: E1, E2, TI, E_sum (or None), TI_normal (or None).
+        Dict with keys: positions, E1, E2, TI, E_sum (or None).
     """
     logger.info(
         "Interpolating E fields to %d surface face barycenters...", len(positions)
     )
-    E1 = _interpolate_field_to_surface(m1, positions, "E")
-    E2 = _interpolate_field_to_surface(m2, positions, "E")
-    E3 = E4 = None
-    if config.is_mti:
-        E3 = _interpolate_field_to_surface(m3, positions, "E")
-        E4 = _interpolate_field_to_surface(m4, positions, "E")
+    channels = [_interpolate_field_to_surface(m, positions, "E") for m in meshes]
 
     # Align sizes
-    arrays = [positions, E1, E2]
-    if config.is_mti:
-        arrays += [E3, E4]
-    min_len = min(len(a) for a in arrays)
+    min_len = min(len(a) for a in [positions, *channels])
     positions = positions[:min_len]
-    E1 = E1[:min_len]
-    E2 = E2[:min_len]
-    if config.is_mti:
-        E3 = E3[:min_len]
-        E4 = E4[:min_len]
+    channels = [E[:min_len] for E in channels]
 
-    # Compute TI / mTI
-    if config.is_mti:
-        TI = get_TI_vectors([E1, E2, E3, E4])
-        E_sum = (E1 + E2 + E3 + E4) if config.export_sum else None
-    else:
-        TI = get_TI_vectors([E1, E2])
-        E_sum = (E1 + E2) if config.export_sum else None
+    TI = get_TI_vectors(channels)
+    E_sum = np.sum(channels, axis=0) if config.export_sum else None
 
     logger.info("Interpolated E fields to %d face barycenters", len(positions))
 
     return {
         "positions": positions,
-        "E1": E1,
-        "E2": E2,
+        "E1": channels[0],
+        "E2": channels[1],
         "TI": TI,
         "E_sum": E_sum,
     }
@@ -751,31 +733,34 @@ def _write_outputs(config, sampled, colors):
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _resolve_paths(config: VectorConfig) -> None:
-    """Resolve all paths from subject_id + simulation_name via PathManager."""
+def _resolve_paths(config: VectorConfig) -> list[str]:
+    """Resolve all paths from subject_id + simulation_name via PathManager.
+
+    The surface and the carrier meshes follow the simulation's mode: an mTI run's
+    own central surface and every one of its channels. An ``output_dir`` already on
+    the config is kept -- the Plan card reports it as the destination.
+
+    Returns:
+        Every channel's carrier mesh path, in channel order.
+    """
     from tit.paths import get_path_manager
 
     pm = get_path_manager()
     sid = config.subject_id
     sim = config.simulation_name
-    sim_base = pm.simulation(sid, sim)
-    hf_dir = os.path.join(sim_base, "high_Frequency", "mesh")
     cond = _read_conductivity(sid, sim)
 
-    config.mesh1 = os.path.join(hf_dir, f"{sid}_TDCS_1_{cond}.msh")
-    config.mesh2 = os.path.join(hf_dir, f"{sid}_TDCS_2_{cond}.msh")
+    carriers = carrier_mesh_paths(sid, sim, cond)
+    config.mesh1, config.mesh2 = carriers[0], carriers[1]
+    if len(carriers) >= 4:
+        config.mesh3, config.mesh4 = carriers[2], carriers[3]
 
-    # Auto-detect mTI when TDCS meshes 3 and 4 exist
-    m3 = os.path.join(hf_dir, f"{sid}_TDCS_3_{cond}.msh")
-    m4 = os.path.join(hf_dir, f"{sid}_TDCS_4_{cond}.msh")
-    if os.path.exists(m3) and os.path.exists(m4):
-        config.mesh3 = m3
-        config.mesh4 = m4
-
-    config.central_surface = pm.ti_central_surface(sid, sim)
-    config.output_dir = os.path.join(
-        pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, "vectors"
-    )
+    config.central_surface = central_surface_path(sid, sim)
+    if not config.output_dir:
+        config.output_dir = os.path.join(
+            pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, "vectors"
+        )
+    return carriers
 
 
 def run_vectors(config: VectorConfig) -> None:
@@ -799,7 +784,7 @@ def run_vectors(config: VectorConfig) -> None:
         FileNotFoundError: If any required mesh file is missing.
         ValueError: If E fields are missing or no vectors remain after filtering.
     """
-    _resolve_paths(config)
+    carriers = _resolve_paths(config)
     from tit.telemetry import track_operation
     from tit import constants as _const
 
@@ -807,7 +792,7 @@ def run_vectors(config: VectorConfig) -> None:
         logger.info("Starting vector field export")
 
         # 1 -- Load meshes
-        m1, m2, m3, m4, central = _load_meshes(config)
+        meshes, central = _load_meshes(config, carriers)
 
         if config.anchor != VectorConfig.Anchor.HEAD:
             logger.info(
@@ -821,10 +806,10 @@ def run_vectors(config: VectorConfig) -> None:
             "Using central surface face barycenters for vector positions (%d faces)",
             len(positions),
         )
-        fields = _compute_fields(config, m1, m2, m3, m4, positions)
+        fields = _compute_fields(config, meshes, positions)
 
         # 3 -- TI_normal (optional)
-        TI_normal = _compute_ti_normal(config, central, m1, fields["TI"])
+        TI_normal = _compute_ti_normal(config, central, meshes[0], fields["TI"])
         fields["TI_normal"] = TI_normal
 
         # Pre-filter full magnitudes for color normalization (magscale mode)

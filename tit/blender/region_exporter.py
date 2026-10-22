@@ -23,7 +23,11 @@ import numpy as np
 from simnibs import read_msh
 from simnibs.utils.transformations import atlas2subject
 
-from tit.blender.config import RegionConfig
+from tit.blender.config import (
+    RegionConfig,
+    central_surface_path,
+    surface_field_name,
+)
 from tit.blender.io import (
     field_to_colormap,
     write_binary_stl,
@@ -494,7 +498,12 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
 
 
 def _resolve_paths(config: RegionConfig) -> None:
-    """Resolve all paths from subject_id + simulation_name via PathManager."""
+    """Resolve all paths from subject_id + simulation_name via PathManager.
+
+    The surface and field follow the simulation's mode (an mTI run's own central
+    surface and its ``mTI_max``), and an ``output_dir`` already on the config is
+    kept -- the Plan card reports it as the destination.
+    """
     from tit.paths import get_path_manager
 
     pm = get_path_manager()
@@ -502,11 +511,13 @@ def _resolve_paths(config: RegionConfig) -> None:
     sim = config.simulation_name
 
     config.m2m_dir = pm.m2m(sid)
-    config.mesh = pm.ti_central_surface(sid, sim)
-    fmt = str(config.format).lower()
-    config.output_dir = os.path.join(
-        pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, fmt
-    )
+    config.mesh = central_surface_path(sid, sim)
+    config.field_name = surface_field_name(sid, sim, config.field_name)
+    if not config.output_dir:
+        fmt = str(config.format).lower()
+        config.output_dir = os.path.join(
+            pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, fmt
+        )
 
 
 def run_regions(config: RegionConfig) -> int:
@@ -534,6 +545,8 @@ def run_regions(config: RegionConfig) -> int:
         logger.info("Starting region export (format=%s)", config.format)
 
         mesh_path = config.mesh
+        if not os.path.isfile(mesh_path):
+            raise FileNotFoundError(f"Central surface mesh not found: {mesh_path}")
 
         os.makedirs(config.output_dir, exist_ok=True)
 

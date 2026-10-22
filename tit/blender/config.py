@@ -16,6 +16,13 @@ VectorConfig
 RegionConfig
     Atlas-labelled cortical region mesh export.
 
+Functions
+---------
+central_surface_path, surface_field_name, carrier_mesh_paths
+    Which files of a TI or mTI simulation an export reads. The runners and
+    :mod:`tit.jobs.preflight` both call these, so the check before a job and
+    the job itself cannot disagree about where an input lives.
+
 See Also
 --------
 tit.config_io : Serialise configs to/from JSON for CLI dispatch.
@@ -23,8 +30,92 @@ tit.config_io : Serialise configs to/from JSON for CLI dispatch.
 
 from __future__ import annotations
 
+import os
+import string
 from dataclasses import dataclass, field
 from enum import StrEnum
+
+# ── Simulation inputs (shared by the runners and tit.jobs.preflight) ─────────
+
+
+def _is_mti(subject_id: str, simulation_name: str) -> bool:
+    from tit.analyzer.field_selector import is_mti_simulation
+
+    return is_mti_simulation(subject_id, simulation_name)
+
+
+def central_surface_path(subject_id: str, simulation_name: str) -> str:
+    """The central cortical surface *simulation_name* wrote.
+
+    An mTI run writes only ``mTI/mesh/surfaces/<sim>_mTI_central.msh``; a 2-pair TI
+    run writes ``TI/mesh/surfaces/<sim>_TI_central.msh``.
+
+    Args:
+        subject_id: Subject identifier (without ``sub-``).
+        simulation_name: Simulation folder name.
+
+    Returns:
+        The path (existence is not checked).
+    """
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    if _is_mti(subject_id, simulation_name):
+        return pm.mti_central_surface(subject_id, simulation_name)
+    return pm.ti_central_surface(subject_id, simulation_name)
+
+
+def surface_field_name(subject_id: str, simulation_name: str, field_name: str) -> str:
+    """*field_name* as this simulation spells it.
+
+    ``TI_max`` and ``mTI_max`` are one quantity: a 2-pair mesh calls it ``TI_max``,
+    an mTI mesh ``mTI_max`` (the alias rule of
+    :func:`tit.analyzer.field_selector.select_field_file`). Every other field keeps
+    its name.
+    """
+    from tit import constants as const
+
+    if field_name in (const.FIELD_TI_MAX, const.FIELD_MTI_MAX):
+        if _is_mti(subject_id, simulation_name):
+            return const.FIELD_MTI_MAX
+        return const.FIELD_TI_MAX
+    return field_name
+
+
+def carrier_mesh_paths(
+    subject_id: str, simulation_name: str, conductivity: str
+) -> list[str]:
+    """Every channel's high-frequency volume mesh, in channel order.
+
+    A TI run keeps SimNIBS's ``<sid>_TDCS_1_<cond>.msh`` and ``..._TDCS_2_...``; an
+    mTI run renames channel ``i`` to the ``i``-th letter when it files them
+    (``MTISimulation._organize_files``), so its N channels are ``TDCS_A`` .. and at
+    least four (A-D) are always listed, so a missing one is named.
+
+    Returns:
+        Paths under ``high_Frequency/mesh/`` (existence is not checked beyond
+        counting the mTI channels).
+    """
+    from tit.paths import get_path_manager
+
+    hf = os.path.join(
+        get_path_manager().simulation(subject_id, simulation_name),
+        "high_Frequency",
+        "mesh",
+    )
+
+    def path(channel: str) -> str:
+        return os.path.join(hf, f"{subject_id}_TDCS_{channel}_{conductivity}.msh")
+
+    if not _is_mti(subject_id, simulation_name):
+        return [path("1"), path("2")]
+    letters = list(string.ascii_uppercase[:4])
+    for letter in string.ascii_uppercase[4:]:
+        if not os.path.exists(path(letter)):
+            break
+        letters.append(letter)
+    return [path(letter) for letter in letters]
+
 
 # ── Montage config ──────────────────────────────────────────────────────────
 
@@ -88,8 +179,10 @@ class VectorConfig:
     and exported as coloured PLY arrow geometry.
 
     All paths are resolved automatically from ``subject_id`` +
-    ``simulation_name`` via PathManager.  mTI mode is auto-detected
-    when TDCS meshes 3 and 4 exist.
+    ``simulation_name`` via PathManager.  An mTI simulation (one with an
+    ``mTI/mesh/`` folder) is exported from its own central surface, and its
+    envelope is computed over every channel's carrier mesh
+    (:func:`carrier_mesh_paths`); ``mesh1``..``mesh4`` hold the first four.
 
     Attributes
     ----------
