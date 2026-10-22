@@ -2,7 +2,7 @@
 """ROI configuration and output naming for flex-search.
 
 Provides helper functions for directory naming, human-readable labelling,
-SimNIBS log parsing, and ROI setup on ``TesFlexOptimization`` objects.
+and ROI setup on ``TesFlexOptimization`` objects.
 
 Public API
 ----------
@@ -10,8 +10,6 @@ generate_run_dirname
     Create a datetime-stamped directory name for a run.
 generate_label
     Build a human-readable label string for a flex-search run.
-parse_optimization_output
-    Extract the goal-function value from a SimNIBS log line.
 configure_roi
     Set up ROI(s) on a SimNIBS optimization object.
 
@@ -117,7 +115,7 @@ def generate_run_dirname(base_path: str) -> str:
     return f"{name}_{suffix}"
 
 
-def generate_label(config, pareto: bool = False) -> str:
+def generate_label(config) -> str:
     """Build a human-readable label for a flex-search run.
 
     The label is stored in ``flex_meta.json`` for GUI display and is
@@ -127,8 +125,6 @@ def generate_label(config, pareto: bool = False) -> str:
     ----------
     config : FlexConfig
         Flex-search configuration instance.
-    pareto : bool, optional
-        When *True* the goal component is replaced by ``"pareto"``.
 
     Returns
     -------
@@ -149,11 +145,7 @@ def generate_label(config, pareto: bool = False) -> str:
         str(config.postproc),
     )
 
-    goal_str = (
-        "pareto"
-        if pareto
-        else (config.goal.value if hasattr(config.goal, "value") else str(config.goal))
-    )
+    goal_str = config.goal.value if hasattr(config.goal, "value") else str(config.goal)
 
     roi = config.roi
     if isinstance(roi, FlexConfig.SphericalROI):
@@ -191,53 +183,6 @@ def generate_label(config, pareto: bool = False) -> str:
         roi_str = "unknown"
 
     return f"{goal_str}_{pp}_{roi_str}"
-
-
-def parse_optimization_output(line: str) -> float | None:
-    """Extract the goal-function value from a SimNIBS log line.
-
-    Recognises three patterns:
-
-    * ``"Final goal function value:   -42.123"``
-    * ``"Goal function value<anything>:  -42.123"``
-    * Table row with a ``max_TI`` column (optionally in scientific
-      notation)
-
-    Parameters
-    ----------
-    line : str
-        A single line of SimNIBS stdout / stderr.
-
-    Returns
-    -------
-    float or None
-        The extracted function value, or *None* when the line does not
-        match any known pattern.
-    """
-    import re
-
-    # Primary: "Final goal function value: <number>"
-    m = re.search(
-        r"Final goal function value:\s*([+-]?[\d.eE+-]+)", line, re.IGNORECASE
-    )
-    if m:
-        return float(m.group(1))
-
-    # Secondary: "Goal function value<anything>: <number>"
-    m = re.search(r"Goal function value[^:]*:\s*([+-]?[\d.eE+-]+)", line, re.IGNORECASE)
-    if m:
-        return float(m.group(1))
-
-    # Table row: "|max_TI | 0.025" or "max_TI | 0.025e-03"
-    m = re.search(r"\|?\s*max_TI\s+\|\s*([\d.+-]+)(?:e([+-]?\d+))?", line)
-    if m:
-        base = float(m.group(1))
-        exp = int(m.group(2)) if m.group(2) else 0
-        val = base * (10**exp)
-        if val > 0:
-            return val
-
-    return None
 
 
 # ---------------------------------------------------------------------------

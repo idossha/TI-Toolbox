@@ -23,7 +23,6 @@ from tit.opt.flex.manifest import (
 from tit.opt.flex.utils import (
     generate_run_dirname,
     generate_label,
-    parse_optimization_output,
 )
 
 # ---------------------------------------------------------------------------
@@ -228,36 +227,15 @@ class TestManifestIO:
 
         assert read_manifest(str(tmp_path))["current_split"] is None
 
-    def test_manifest_with_pareto_data(self, tmp_path):
+    def test_single_run_manifest_has_an_empty_pareto_section(self, tmp_path):
+        """Only a sweep's promoted copy carries ``pareto`` (pareto.save_results fills it)."""
         roi = SphericalROI(x=-42.0, y=-20.0, z=55.0, radius=10.0)
         config = _make_config(roi, goal="focality")
-        result = _make_result(values=[-0.0042])
-        pareto_data = {
-            "roi_pcts": [80.0, 70.0],
-            "nonroi_pcts": [20.0, 30.0, 40.0],
-            "achievable_roi_mean_vm": 0.025,
-            "best_point": {
-                "roi_pct": 80.0,
-                "nonroi_pct": 20.0,
-                "focality_score": -0.0042,
-            },
-            "points": [
-                {"roi_pct": 80.0, "nonroi_pct": 20.0, "score": -0.0042},
-                {"roi_pct": 80.0, "nonroi_pct": 30.0, "score": -0.0038},
-            ],
-        }
-
-        write_manifest(
-            str(tmp_path), config, result, "pareto_label", pareto_data=pareto_data
-        )
+        write_manifest(str(tmp_path), config, _make_result(values=[-0.0042]), "label")
         data = read_manifest(str(tmp_path))
 
-        assert data["pareto"] is not None
-        assert data["pareto"]["roi_pcts"] == [80.0, 70.0]
-        assert data["pareto"]["nonroi_pcts"] == [20.0, 30.0, 40.0]
-        assert data["pareto"]["achievable_roi_mean_vm"] == 0.025
-        assert data["pareto"]["best_point"]["roi_pct"] == 80.0
-        assert len(data["pareto"]["points"]) == 2
+        assert "pareto" in data
+        assert data["pareto"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -314,46 +292,3 @@ class TestGenerateLabel:
         config = _make_config(roi, goal="focality", postproc="dir_TI_normal")
         label = generate_label(config)
         assert label == "focality_normalTI_subcortical-aseg-11"
-
-    def test_generate_label_pareto(self):
-        roi = SphericalROI(x=-42.0, y=-20.0, z=55.0, radius=10.0)
-        config = _make_config(roi, goal="focality", postproc="max_TI")
-        label = generate_label(config, pareto=True)
-        assert label == "pareto_maxTI_sphere(-42,-20,55)r10"
-
-
-# ---------------------------------------------------------------------------
-# parse_optimization_output
-# ---------------------------------------------------------------------------
-
-
-class TestParseOptimizationOutput:
-    def test_parse_optimization_output_final_value(self):
-        line = "Final goal function value:   -42.123"
-        result = parse_optimization_output(line)
-        assert result == -42.123
-
-    def test_parse_optimization_output_goal_value(self):
-        line = "Goal function value: 0.025"
-        result = parse_optimization_output(line)
-        assert result == 0.025
-
-    def test_parse_optimization_output_table_row(self):
-        line = "|max_TI | 0.025e-03"
-        result = parse_optimization_output(line)
-        assert abs(result - 0.000025) < 1e-10
-
-    def test_parse_optimization_output_no_match(self):
-        line = "INFO: Starting optimization run 3 of 5..."
-        result = parse_optimization_output(line)
-        assert result is None
-
-    def test_parse_optimization_output_scientific_notation(self):
-        line = "Final goal function value:  -4.23e-02"
-        result = parse_optimization_output(line)
-        assert abs(result - (-0.0423)) < 1e-10
-
-    def test_parse_optimization_output_table_row_no_exponent(self):
-        line = "|max_TI | 0.025"
-        result = parse_optimization_output(line)
-        assert result == 0.025

@@ -1,8 +1,8 @@
 """Tests for tit/opt/flex/utils.py -- ROI configuration and output naming.
 
-Supplements test_flex_manifest.py which already covers generate_run_dirname,
-generate_label, and parse_optimization_output. This file covers configure_roi
-and the private _configure_* functions.
+Supplements test_flex_manifest.py which already covers generate_run_dirname
+and generate_label. This file covers configure_roi and the private
+_configure_* functions.
 """
 
 import os

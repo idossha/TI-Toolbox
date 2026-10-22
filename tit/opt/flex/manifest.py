@@ -36,7 +36,6 @@ def write_manifest(
     config: FlexConfig,
     result: FlexResult,
     label: str,
-    pareto_data: dict | None = None,
     current_split: tuple[float, float] | None = None,
 ) -> str:
     """Write ``flex_meta.json`` to *output_folder*.
@@ -51,8 +50,6 @@ def write_manifest(
         The result from the completed run.
     label : str
         Human-readable summary label for GUI display.
-    pareto_data : dict or None
-        Optional dict with Pareto sweep summary (for sweep runs).
     current_split : tuple of float or None
         Optional ``(I1_mA, I2_mA)`` channel split selected by the
         current-ratio search; ``None`` when no ratio search ran.
@@ -115,7 +112,9 @@ def write_manifest(
             "best_run_index": result.best_run_index,
             "all_values": result.function_values,
         },
-        "pareto": pareto_data,
+        # A Pareto sweep fills this in on the promoted copy
+        # (tit.opt.flex.pareto.save_results); a single run has none.
+        "pareto": None,
         "label": label,
     }
 

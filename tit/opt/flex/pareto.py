@@ -3,7 +3,8 @@
 Provides data structures and functions for running a Cartesian-product
 sweep over (ROI%, non-ROI%) threshold combinations for TI stimulation
 focality optimization.  After all combinations are run, the results are
-saved as JSON, a PNG scatter plot, and an ASCII summary table.
+saved as JSON and a PNG scatter plot, and the best point's outputs are
+promoted into the sweep folder.
 
 All thresholds are expressed as percentages of ``achievable_ROI_mean``
 -- the mean field in the target ROI at the mean-optimal electrode
@@ -19,23 +20,19 @@ ParetoSweepResult
     Result container for a completed sweep.
 compute_sweep_grid
     Build the Cartesian product of threshold percentages.
-validate_grid
-    Check that all combinations are valid.
 build_focality_config
     Produce a :class:`~tit.opt.config.FlexConfig` for one sweep point.
 build_pareto_manifest_data
     Build the ``pareto`` section for ``flex_meta.json``.
 generate_pareto_plot
     Save a Pareto trade-off scatter plot as PNG.
-generate_summary_text
-    Return a formatted ASCII summary table.
 save_results
     Persist sweep results to disk (JSON + PNG + best-run promotion).
 
 See Also
 --------
 tit.opt.flex.flex.run_flex_search : Called once per sweep point.
-tit.opt.flex.manifest.write_manifest : Consumes the pareto manifest data.
+tit.opt.flex.drivers.run_pareto_sweep : The driver that runs the sweep.
 """
 
 import copy
@@ -145,8 +142,9 @@ def compute_sweep_grid(
 
     Ordering: ``roi_pcts`` outer loop, ``nonroi_pcts`` inner loop.
 
-    Invalid combinations (``nonroi_pct >= roi_pct``) are *included* here;
-    call :func:`validate_grid` before starting any runs to reject them early.
+    Invalid combinations (``nonroi_pct >= roi_pct``) are not filtered here:
+    :class:`~tit.opt.config.FlexConfig.ParetoSweepConfig` rejects them when
+    the configuration is built, before any run starts.
 
     Args:
         roi_pcts: Sequence of ROI threshold percentages.
@@ -174,32 +172,6 @@ def compute_sweep_grid(
             )
         )
     return points
-
-
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
-
-
-def validate_grid(roi_pcts: list, nonroi_pcts: list) -> None:
-    """Raise ``ValueError`` if any combination has ``nonroi_pct >= roi_pct``.
-
-    Rejects the *entire* grid rather than silently skipping bad rows, so the
-    user is aware of all problematic combinations before any subprocess starts.
-
-    Args:
-        roi_pcts: Sequence of ROI threshold percentages.
-        nonroi_pcts: Sequence of non-ROI threshold percentages.
-
-    Raises:
-        ValueError: Lists all invalid (roi_pct, nonroi_pct) pairs.
-    """
-    bad = [(r, n) for r, n in product(roi_pcts, nonroi_pcts) if n >= r]
-    if bad:
-        raise ValueError(
-            "Non-ROI % must be strictly less than ROI % for all combinations. "
-            f"Invalid pairs: {bad}"
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +217,8 @@ def build_pareto_manifest_data(result: ParetoSweepResult) -> dict:
         result: Completed pareto sweep result.
 
     Returns:
-        Dict suitable for the 'pareto_data' parameter of write_manifest().
+        The ``pareto`` section :func:`save_results` writes into the promoted
+        ``flex_meta.json``.
     """
     done = [
         p for p in result.points if p.status == "done" and p.focality_score is not None
@@ -332,36 +305,6 @@ def generate_pareto_plot(result: ParetoSweepResult, output_path: str) -> None:
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
-
-
-def generate_summary_text(result: ParetoSweepResult) -> str:
-    """Return a formatted ASCII table summarising all sweep points.
-
-    Columns: ROI% | NonROI% | ROI thr (V/m) | NR thr (V/m) | Score | Status
-
-    Args:
-        result: The sweep result to summarise.
-
-    Returns:
-        Multi-line string ready to write to a text file or print.
-    """
-    header = (
-        f"{'ROI%':>6} {'NonROI%':>8} {'ROI thr(V/m)':>14} "
-        f"{'NR thr(V/m)':>12} {'Score':>10} {'Status'}"
-    )
-    sep = "=" * len(header)
-    lines = [sep, header, sep]
-    for p in result.points:
-        score_str = (
-            f"{p.focality_score:.3f}" if p.focality_score is not None else "\u2014"
-        )
-        lines.append(
-            f"{p.roi_pct:>6.0f} {p.nonroi_pct:>8.0f} "
-            f"{p.roi_threshold:>14.4f} {p.nonroi_threshold:>12.4f} "
-            f"{score_str:>10} {p.status}"
-        )
-    lines.append(sep)
-    return "\n".join(lines)
 
 
 def _promote_best_run(result: ParetoSweepResult, base_folder: str) -> str | None:

@@ -294,7 +294,10 @@ class FlexConfig:
         function.  The combination is rejected at config time rather than
         after the (potentially hours-long) optimization has finished.
     visualize_valid_skin_region : bool
-        If True, save a mesh showing the valid electrode placement region.
+        Accepted for compatibility and ignored: every flex-search writes
+        ``valid_skin_region.png`` (the report shows it), so
+        :func:`tit.opt.flex.builder.build_optimization` always turns the
+        picture on.
     skin_visualization_net : str or None
         EEG net to overlay on the skin visualization.
     skin_region_margin_mm : float
@@ -1031,7 +1034,9 @@ class FlexResult:
     function_values : list of float
         Objective function value for each multistart run.
     best_value : float
-        Best (highest) objective value across all restarts.
+        Best objective value across all restarts: the lowest, because
+        SimNIBS minimises. A maximised goal is minimised as its negation,
+        so for ``"mean"`` this is ``-mean field in the ROI`` (V/m).
     best_run_index : int
         Zero-based index of the restart that produced the best result.
 
@@ -1039,7 +1044,7 @@ class FlexResult:
     --------
     >>> res = run_flex_search(cfg)  # doctest: +SKIP
     >>> res.success, res.best_value, res.output_folder  # doctest: +SKIP
-    (True, 0.31, '.../flex-search/ernie_...')
+    (True, -0.31, '.../flex-search/ernie_...')
 
     See Also
     --------
@@ -1605,29 +1610,3 @@ class MExResult:
     n_combinations: int
     results_csv: str | None = None
     config_json: str | None = None
-
-
-#: Exhaustive-search modes. ``TI`` searches two bipolar pairs, ``mTI`` four.
-SEARCH_MODE_TI = "TI"
-SEARCH_MODE_MTI = "mTI"
-
-
-def search_backend_for_mode(mode):
-    """Return ``(module path, config class)`` for an exhaustive-search mode.
-
-    Args:
-        mode: :data:`SEARCH_MODE_TI` or :data:`SEARCH_MODE_MTI`.
-
-    Returns:
-        ``(module_path, config_class)``; *module_path* is passed to
-        ``simnibs_python -m <module_path>`` and *config_class* is the
-        dataclass to build for that mode.
-
-    Raises:
-        ValueError: If *mode* is not a known search mode.
-    """
-    if mode == SEARCH_MODE_TI:
-        return "tit.opt.ex", ExConfig
-    if mode == SEARCH_MODE_MTI:
-        return "tit.opt.mex", MExConfig
-    raise ValueError(f"Unknown search mode: {mode!r}")

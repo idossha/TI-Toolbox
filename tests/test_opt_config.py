@@ -942,28 +942,3 @@ class TestExResult:
         )
         assert result.results_csv is None
         assert result.config_json is None
-
-
-@pytest.mark.unit
-class TestSearchModeBackend:
-    """The TI/mTI mode -> backend mapping.
-
-    Lives in ``tit.opt.config`` rather than in the desktop app so the wiring is
-    testable without a UI.
-    """
-
-    def test_ti_mode_selects_ex_backend(self):
-        from tit.opt.config import SEARCH_MODE_TI, ExConfig, search_backend_for_mode
-
-        assert search_backend_for_mode(SEARCH_MODE_TI) == ("tit.opt.ex", ExConfig)
-
-    def test_mti_mode_selects_mex_backend(self):
-        from tit.opt.config import SEARCH_MODE_MTI, MExConfig, search_backend_for_mode
-
-        assert search_backend_for_mode(SEARCH_MODE_MTI) == ("tit.opt.mex", MExConfig)
-
-    def test_unknown_mode_raises(self):
-        from tit.opt.config import search_backend_for_mode
-
-        with pytest.raises(ValueError, match="Unknown search mode"):
-            search_backend_for_mode("nope")

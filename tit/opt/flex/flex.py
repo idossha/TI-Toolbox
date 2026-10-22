@@ -258,10 +258,6 @@ def confirm_roi(config, pm, out_dir: str) -> list:
     return confirm_rois(entries, m2m=pm.m2m(config.subject_id), out_dir=out_dir)
 
 
-#: The name this had while the check was for MNI ROIs only.
-confirm_mni_roi = confirm_roi
-
-
 def _confirm_roi_message(config) -> str:
     """The console line for :func:`confirm_roi`, naming the slow part when there is one."""
     roi = getattr(config, "roi", None)

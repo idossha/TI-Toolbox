@@ -7977,7 +7977,10 @@ export interface components {
          *         function.  The combination is rejected at config time rather than
          *         after the (potentially hours-long) optimization has finished.
          *     visualize_valid_skin_region : bool
-         *         If True, save a mesh showing the valid electrode placement region.
+         *         Accepted for compatibility and ignored: every flex-search writes
+         *         ``valid_skin_region.png`` (the report shows it), so
+         *         :func:`tit.opt.flex.builder.build_optimization` always turns the
+         *         picture on.
          *     skin_visualization_net : str or None
          *         EEG net to overlay on the skin visualization.
          *     skin_region_margin_mm : float

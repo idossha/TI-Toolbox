@@ -1,4 +1,4 @@
-"""Tests for tit/opt/flex/pareto.py -- Pareto sweep grid, validation, and output."""
+"""Tests for tit/opt/flex/pareto.py -- Pareto sweep grid, its validation, and output."""
 
 import json
 import os
@@ -21,9 +21,7 @@ from tit.opt.flex.pareto import (
     build_pareto_manifest_data,
     compute_sweep_grid,
     generate_pareto_plot,
-    generate_summary_text,
     save_results,
-    validate_grid,
     _promote_best_run,
 )
 from tit.opt.config import FlexConfig
@@ -145,29 +143,27 @@ class TestComputeSweepGrid:
 
 
 # ---------------------------------------------------------------------------
-# validate_grid
+# Grid validation (FlexConfig.ParetoSweepConfig, before any run starts)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-class TestValidateGrid:
+class TestSweepGridRejectedAtConfigTime:
     def test_valid_grid_passes(self):
-        validate_grid([80, 70], [20, 30])  # no exception
+        cfg = FlexConfig.ParetoSweepConfig(
+            roi_pcts=[90, 80, 70], nonroi_pcts=[10, 20, 30]
+        )
+        assert len(compute_sweep_grid(cfg.roi_pcts, cfg.nonroi_pcts, 0.1, "/tmp")) == 9
 
-    def test_invalid_nonroi_gte_roi(self):
-        with pytest.raises(ValueError, match="Invalid pairs"):
-            validate_grid([50], [50])
+    def test_equal_percentages_rejected(self):
+        with pytest.raises(ValueError, match=r"\(50\.0, 50\.0\)"):
+            FlexConfig.ParetoSweepConfig(roi_pcts=[50], nonroi_pcts=[50])
 
-    def test_invalid_nonroi_gt_roi(self):
-        with pytest.raises(ValueError, match="Invalid pairs"):
-            validate_grid([30], [50])
-
-    def test_mixed_valid_and_invalid(self):
-        with pytest.raises(ValueError, match="Invalid pairs"):
-            validate_grid([80, 30], [20, 40])
-
-    def test_all_valid_no_error(self):
-        validate_grid([90, 80, 70], [10, 20, 30])
+    def test_mixed_grid_names_only_the_bad_pair(self):
+        # (80,20) (80,40) (30,20) are fine; only non-ROI 40 >= ROI 30 is not.
+        with pytest.raises(ValueError) as exc:
+            FlexConfig.ParetoSweepConfig(roi_pcts=[80, 30], nonroi_pcts=[20, 40])
+        assert "[(30.0, 40.0)]" in str(exc.value)
 
 
 # ---------------------------------------------------------------------------
@@ -284,39 +280,6 @@ class TestGenerateParetoPlot:
             fig_mock.savefig.assert_called_once()
             # No plot lines since no done points
             ax_mock.plot.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# generate_summary_text
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestGenerateSummaryText:
-    def test_output_has_header(self):
-        result = _make_sweep_result()
-        text = generate_summary_text(result)
-        assert "ROI%" in text
-        assert "NonROI%" in text
-
-    def test_output_includes_all_points(self):
-        result = _make_sweep_result()
-        text = generate_summary_text(result)
-        lines = text.strip().split("\n")
-        # 3 header lines (sep, header, sep) + 4 data + 1 trailing sep = 8
-        assert len(lines) == 8
-
-    def test_done_point_shows_score(self):
-        result = _make_sweep_result()
-        result.points[0].status = "done"
-        result.points[0].focality_score = -0.042
-        text = generate_summary_text(result)
-        assert "-0.042" in text
-
-    def test_pending_point_shows_dash(self):
-        result = _make_sweep_result()
-        text = generate_summary_text(result)
-        assert "\u2014" in text  # em dash for None score
 
 
 # ---------------------------------------------------------------------------
