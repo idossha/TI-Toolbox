@@ -67,17 +67,18 @@ def _build_config(data: dict) -> AnalyzerConfig:
     """Build an :class:`AnalyzerConfig`, preferring ``deserialize_config``.
 
     Falls back to :func:`_build_config_legacy` when *data* does not
-    round-trip through the typed path -- see the module-level "old dict
-    layout for one release" note.
+    round-trip through the typed path, and says so in the job log: the
+    fallback reads keys the typed path refuses (the plural ``"regions"``),
+    so a config that lands here is one the current schema does not accept.
     """
     from tit.config_io import deserialize_config
 
     try:
         return deserialize_config(AnalyzerConfig, data)
     except (TypeError, ValueError, KeyError) as exc:
-        logging.getLogger("tit.analyzer").debug(
-            f"deserialize_config(AnalyzerConfig, ...) failed ({exc}); "
-            "falling back to the legacy dict layout"
+        logging.getLogger("tit.analyzer").warning(
+            f"Analyzer config does not match AnalyzerConfig ({exc}); "
+            "reading it with the legacy dict layout"
         )
         return _build_config_legacy(data)
 
