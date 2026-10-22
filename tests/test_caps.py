@@ -519,3 +519,114 @@ def test_fiducials_are_neither_a_source_cap_nor_a_net_on_the_subject(project) ->
     )
     assert r.status_code == 404
     assert project.calls == []
+
+
+# ── p14 fix 1: the validator and the caps list agree; one name, one point ─────
+#
+# ``_get_eeg_positions`` (SimNIBS 4.6 ``simnibs/utils/csv_reader.py``, read in
+# the image) keys Electrode, ReferenceElectrode and Fiducial rows into one
+# dict by name, the last row winning. SimNIBS's own EEG10-10_UI_Jurak_2007 and
+# EEG10-20_extended_SPM12 repeat ``Iz`` as a later fiducial on the electrode's
+# exact point (container probe, 2026-10-22), which moves nothing.
+
+#: An electrode, then a fiducial of its name 134.9 mm away:
+#: sqrt(10^2 + 90^2 + 100^2) = sqrt(18200).
+FIDUCIAL_TAKES_NZ = (
+    "Electrode,10,0,80,Nz\nElectrode,-10,0,80,Cz\nFiducial,0,90,-20,Nz\n"
+)
+
+
+def test_validate_mni_cap_refuses_a_fiducial_that_moves_an_electrode() -> None:
+    with pytest.raises(caps.CapError) as raised:
+        caps.validate_mni_cap(FIDUCIAL_TAKES_NZ)
+    message = str(raised.value)
+    assert message.startswith("Row 3: ")
+    assert "row 1" in message
+    assert "134.9 mm" in message
+
+
+@pytest.mark.parametrize(
+    ("text", "count"),
+    [
+        # SimNIBS's Jurak / SPM12 pattern: the fiducial sits on the electrode.
+        pytest.param(
+            "Electrode,10,0,80,Iz\nElectrode,-10,0,80,Cz\nFiducial,10.0,0,80.0,Iz\n",
+            2,
+            id="fiducial-on-the-electrode",
+        ),
+        # The electrode is the later row, so the name resolves to it.
+        pytest.param(
+            "Fiducial,0,90,-20,Nz\nElectrode,10,0,80,Nz\nElectrode,-10,0,80,Cz\n",
+            2,
+            id="fiducial-before-the-electrode",
+        ),
+    ],
+)
+def test_validate_mni_cap_accepts_a_fiducial_that_moves_nothing(text, count) -> None:
+    assert caps.validate_mni_cap(text) == count
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("ReferenceElectrode,10,0,80,Ref\n", id="reference-only"),
+        pytest.param(
+            "ReferenceElectrode,10,0,80,Ref\nFiducial,0,90,-20,Nz\n",
+            id="reference-and-fiducial",
+        ),
+    ],
+)
+def test_upload_refuses_a_file_the_caps_list_would_hide(project, text) -> None:
+    r = project.client.post(
+        "/api/caps/upload?name=Ref.csv", content=text, headers=BEARER
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"].startswith("The file has no Electrode rows")
+    assert not (Path(project.pm.custom_eeg_caps()) / "Ref.csv").exists()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(CANON, id="electrodes"),
+        pytest.param(CAP, id="electrodes-and-fiducial"),
+        pytest.param(
+            "ReferenceElectrode,0,-10,95,Ref\nElectrode,10,0,80,Fz\n",
+            id="reference-then-electrode",
+        ),
+        pytest.param(
+            "Fiducial,0,90,-20,Nz\nElectrode,10,0,80,Nz\n", id="fiducial-first"
+        ),
+    ],
+)
+def test_every_cap_the_upload_accepts_is_listed_as_a_project_cap(project, text) -> None:
+    """``validate_mni_cap`` and ``has_electrodes`` are one rule: no 201 the list hides."""
+    r = project.client.post(
+        "/api/caps/upload?name=Mine.csv", content=text, headers=BEARER
+    )
+    assert r.status_code == 201, r.text
+    rows = project.client.get(
+        "/api/caps/available?subject=ernie", headers=BEARER
+    ).json()["caps"]
+    assert {"name": "Mine.csv", "source": "project"} in [
+        {"name": row["name"], "source": row["source"]} for row in rows
+    ]
+
+
+@pytest.mark.parametrize("overwrite", ["false", "true"])
+def test_upload_never_takes_the_name_of_simnibs_landmark_file(
+    project, overwrite
+) -> None:
+    """``Fiducials.csv`` is not a cap, but its name is the image's: a project cap
+    of that name would be warped over the landmarks charm wrote to the subject."""
+    (caps.simnibs_caps_dir() / "Fiducials.csv").write_text(FIDUCIALS)
+    r = project.client.post(
+        f"/api/caps/upload?name=Fiducials.csv&overwrite={overwrite}",
+        content=CANON,
+        headers=BEARER,
+    )
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"] == (
+        "Fiducials.csv is a cap the image already ships; rename the file"
+    )
+    assert not (Path(project.pm.custom_eeg_caps()) / "Fiducials.csv").exists()

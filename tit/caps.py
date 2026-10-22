@@ -113,6 +113,15 @@ def has_electrodes(path: str | os.PathLike) -> bool:
     the caps panel and every net picker agree: SimNIBS's ``Fiducials.csv``
     (Nz/Iz/LPA/RPA, which charm also writes to every ``eeg_positions``) is a
     landmark file, not a cap. A file that is not text has no electrodes.
+    :func:`validate_mni_cap` refuses an upload this rule would hide.
+
+    Args:
+        path: A cap CSV, MNI or warped.
+
+    Returns:
+        ``True`` if the file has an ``Electrode`` row; ``False`` for a
+        landmark-only or ReferenceElectrode-only file, a missing file or one
+        that is not UTF-8 text.
     """
     from tit.catalog import _read_cap_electrode_labels
 
@@ -227,6 +236,15 @@ def normalise_mni_cap(text: str) -> str:
     raises ``OSError``; and a byte-order mark (Excel's "CSV UTF-8") becomes
     part of the first type cell, so that row is dropped. Removing them changes
     no electrode.
+
+    Args:
+        text: The cap file's text as uploaded.
+
+    Returns:
+        The same rows, cell for cell, re-serialised by :func:`csv.writer`.
+
+    Raises:
+        CapError: The text is not a readable CSV file.
     """
     out = io.StringIO()
     csv.writer(out, lineterminator="\n").writerows(
@@ -264,7 +282,11 @@ def validate_mni_cap(text: str) -> int:
     *text* is checked row by row, and nothing is accepted that the warp would
     skip, crash on or file under another name -- a type in another case or
     with a space (skipped), a name with spaces around it (kept with them, so
-    ``Cz`` is not found), a repeated electrode name (the net keeps one).
+    ``Cz`` is not found), a repeated electrode name (the net keeps one), a
+    later Fiducial row that takes an electrode's name at another point
+    (``_get_eeg_positions`` keys every row by name, the last one wins, so the
+    electrode would be placed on the fiducial). A file with no ``Electrode``
+    row is refused too: :func:`has_electrodes` would not list it as a cap.
 
     Args:
         text: The cap file's text.
@@ -281,6 +303,8 @@ def validate_mni_cap(text: str) -> int:
     if len(rows) > MAX_CAP_ROWS:
         raise CapError(f"More than {MAX_CAP_ROWS} rows; that is not an EEG cap.")
     names: list[str] = []
+    # Each electrode name's row number and position, as SimNIBS keys them.
+    placed: dict[str, tuple[int, tuple[float, ...]]] = {}
     for number, row in enumerate(rows, start=1):
         kind = row[0]
         if kind not in _ROW_TYPES:
@@ -307,8 +331,20 @@ def validate_mni_cap(text: str) -> int:
                 f"Row {number}: the name {name!r} has spaces around it; SimNIBS keeps "
                 f"them, so the electrode would not be found as {name.strip()!r}."
             )
+        xyz = tuple(float(v) for v in row[1:4])
         if kind != "Fiducial":
             names.append(name)
+            placed[name] = (number, xyz)
+        elif name in placed and placed[name][1] != xyz:
+            # SimNIBS's own caps repeat Iz as a fiducial on the electrode's
+            # point, which moves nothing; anywhere else it moves the electrode.
+            first, at = placed[name]
+            raise CapError(
+                f"Row {number}: the fiducial {name!r} takes the name of the electrode "
+                f"in row {first} at another point; SimNIBS would place electrode "
+                f"{name} on the fiducial, {math.dist(at, xyz):.1f} mm away. Rename or "
+                f"remove one of them."
+            )
     repeated = sorted(k for k, v in Counter(names).items() if v > 1)
     if repeated:
         raise CapError(
@@ -316,8 +352,12 @@ def validate_mni_cap(text: str) -> int:
             f"{', ...' if len(repeated) > 5 else ''}; SimNIBS keeps only the last row "
             f"of each name."
         )
-    if not names:
-        raise CapError("The file has no Electrode rows.")
+    if not any(row[0] == "Electrode" for row in rows):
+        raise CapError(
+            "The file has no Electrode rows; a ReferenceElectrode alone is not a cap."
+            if names
+            else "The file has no Electrode rows."
+        )
     return len(names)
 
 

@@ -7,14 +7,16 @@ What this pins, in the image with the real SimNIBS 4.6:
   runs on the stored file -- reads the stored text (``tit.caps.normalise_mni_cap``,
   what ``/api/caps/upload`` writes) with exactly the electrodes the file's author
   wrote: the same names in the same order at the same coordinates, as many as the
-  validator counted, each one a key of ``_get_eeg_positions`` (the dict a simulation
-  resolves labels from).
+  validator counted, each one resolved by ``_get_eeg_positions`` (the dict a
+  simulation resolves labels from, keyed by name, last row winning) to its own row's
+  coordinates.
 * Every case the validator refuses or rewrites because of SimNIBS is one SimNIBS
-  misreads as uploaded: it raises, drops or renames an electrode, or keys two rows
-  under one name.
+  misreads as uploaded: it raises, drops or renames an electrode, keys two rows
+  under one name, or resolves an electrode's name to another row's point.
 * Every cap SimNIBS ships (``resources/ElectrodeCaps_MNI``, TI-Toolbox's six caps
-  included in the image) passes the validator with SimNIBS's electrode count, except
-  ``Fiducials.csv``, which has no electrode and is not a cap.
+  included in the image) passes the validator with SimNIBS's electrode count exactly
+  when SimNIBS resolves each of its electrodes to its own row; ``Fiducials.csv`` has
+  no electrode and is not a cap.
 
 Where the numbers come from: each corpus case's ``intended`` rows are authored -- what
 the person writing the file meant -- and the verdicts are the validator's documented
@@ -104,6 +106,28 @@ CASES = {
         True,
         False,
     ),
+    # A later fiducial of an electrode's name: the dict places Nz on the fiducial.
+    "fiducial-moves-electrode": Case(
+        "Electrode,10,0,80,Nz\nElectrode,-10,0,80,Cz\nFiducial,0,90,-20,Nz\n",
+        (("Nz", FZ[1]), CZ),
+        False,
+        True,
+    ),
+    # SimNIBS's own Jurak / SPM12 caps repeat Iz as a fiducial on the same point.
+    "fiducial-on-electrode": Case(
+        CANON + "Fiducial,10.0,0,80.0,Fz\n", (FZ, CZ, FP), True, False
+    ),
+    # The electrode is the later row, so its name resolves to it.
+    "fiducial-before-electrode": Case(
+        "Fiducial,0,90,-20,Nz\nElectrode,10,0,80,Nz\nElectrode,-10,0,80,Cz\n",
+        (("Nz", FZ[1]), CZ),
+        True,
+        False,
+    ),
+    # SimNIBS reads it; the caps list (the catalog's rule) would not show it.
+    "reference-only": Case(
+        "ReferenceElectrode,10,0,80,Ref\n", (("Ref", FZ[1]),), False, None
+    ),
     # SimNIBS skips a header row itself; the validator refuses it anyway (conservative).
     "header-row": Case("Type,X,Y,Z,Name\n" + CANON, (FZ, CZ, FP), False, None),
     "label-xyz": Case("Label,X,Y,Z\nFz,10,0,80\nCz,-10,0,80\n", (FZ, CZ), False, None),
@@ -124,10 +148,15 @@ except Exception as exc:
 def read(path):
     try:
         types, coords, _, names, _, _ = csv_reader.read_csv_positions(path)
-        keys = csv_reader._get_eeg_positions(path)
+        positions = csv_reader._get_eeg_positions(path)
     except Exception as exc:
         return {"error": type(exc).__name__}
-    return {"types": types, "names": names, "coords": coords.tolist(), "keys": sorted(map(str, keys))}
+    return {
+        "types": types,
+        "names": names,
+        "coords": coords.tolist(),
+        "positions": {str(k): [float(v) for v in xyz] for k, xyz in positions.items()},
+    }
 
 shipped = os.path.join(os.path.dirname(simnibs.__file__), "resources", "ElectrodeCaps_MNI")
 caps = {n: read(os.path.join(shipped, n)) for n in sorted(os.listdir(shipped)) if n.endswith(".csv")}
@@ -170,6 +199,15 @@ def _electrodes(read: dict) -> list[tuple[str, tuple[float, ...]]]:
     ]
 
 
+def _moved(read: dict) -> list[str]:
+    """Electrodes ``_get_eeg_positions`` resolves to a point other than their own row's."""
+    return [
+        name
+        for name, xyz in _electrodes(read)
+        if tuple(read["positions"].get(name, ())) != xyz
+    ]
+
+
 def _verdict(text: str) -> int | None:
     try:
         return caps.validate_mni_cap(text)
@@ -198,7 +236,8 @@ def test_simnibs_reads_every_cap_the_validator_accepts_as_its_author_wrote_it(
     intended = [(n, tuple(map(float, xyz))) for n, xyz in case.intended]
     assert _electrodes(stored) == intended
     assert count == len(intended)
-    assert {n for n, _ in intended} <= set(stored["keys"])
+    # Each name resolves, in the dict a simulation places electrodes from, to its row.
+    assert {n: tuple(stored["positions"][n]) for n, _ in intended} == dict(intended)
 
 
 @pytest.mark.parametrize("name", sorted(n for n, c in CASES.items() if c.raw_misread))
@@ -213,7 +252,7 @@ def test_simnibs_misreads_what_the_validator_refuses_or_rewrites(
     got = _electrodes(read)
     intended = [(n, tuple(map(float, xyz))) for n, xyz in case.intended]
     names = [n for n, _ in got]
-    assert got != intended or len(set(names)) < len(names), read
+    assert got != intended or len(set(names)) < len(names) or _moved(read), read
 
 
 @pytest.mark.parametrize(
@@ -226,9 +265,18 @@ def test_simnibs_reads_a_clean_case_as_uploaded(simnibs_reads, name: str) -> Non
     read = out["files"][str(root / f"{name}.raw.csv")]
     assert "error" not in read, read
     assert _electrodes(read) == [(n, tuple(map(float, x))) for n, x in case.intended]
+    assert _moved(read) == []
 
 
-def test_every_cap_simnibs_ships_passes_the_validator(simnibs_reads) -> None:
+def test_the_validator_accepts_a_shipped_cap_exactly_when_simnibs_reads_it_as_written(
+    simnibs_reads,
+) -> None:
+    """SimNIBS's reading of each cap it ships decides the validator's verdict on it.
+
+    Found with this test (2026-10-22): TI-Toolbox's ``BioSemi-64-10-10.csv`` lists
+    electrode Iz (row 28) and, later, fiducial Iz 5.5 mm away (row 66), so SimNIBS
+    places electrode Iz on the fiducial; the validator refuses a copy of it.
+    """
     _, out = simnibs_reads
     shipped = Path(out["shipped"])
     assert out["caps"], "has shipped caps to check"
@@ -238,10 +286,13 @@ def test_every_cap_simnibs_ships_passes_the_validator(simnibs_reads) -> None:
         assert "error" not in read, (name, read)
         count = len(_electrodes(read))
         text = (shipped / name).read_text(encoding="utf-8")
+        moved = _moved(read)
+        if moved:
+            print(f"SimNIBS places {name}'s {', '.join(moved)} on another row's point")
         if count == 0:
             assert name == "Fiducials.csv"
             assert _verdict(text) is None
             assert not caps.has_electrodes(shipped / name)
         else:
-            assert _verdict(text) == count, name
+            assert _verdict(text) == (None if moved else count), (name, moved)
             assert caps.has_electrodes(shipped / name)

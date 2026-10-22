@@ -54,6 +54,19 @@ def _source_caps(pm) -> dict:
         raise HTTPException(503, f"EEG caps need SimNIBS: {exc}") from exc
 
 
+def _image_ships(name: str) -> bool:
+    """Whether the image's caps folder has a file *name*, cap or not; no SimNIBS is a 503.
+
+    Every such name is reserved, not only the caps :func:`tit.caps.source_caps`
+    lists: a project ``Fiducials.csv`` (SimNIBS's landmark file, not a cap)
+    would be warped over the landmarks charm wrote to the subject.
+    """
+    try:
+        return (caps_core.simnibs_caps_dir() / name).exists()
+    except caps_core.CapError as exc:
+        raise HTTPException(503, f"EEG caps need SimNIBS: {exc}") from exc
+
+
 @router.get(
     "/api/caps/available",
     summary="MNI caps that can be warped, and the nets on a subject",
@@ -125,7 +138,7 @@ async def upload(
     if not name.endswith(".csv"):
         raise HTTPException(422, "The cap file name must end in .csv")
     pm = get_path_manager()
-    if _source_caps(pm).get(name, ("project",))[0] != "project":
+    if _image_ships(name):
         raise HTTPException(
             409, f"{name} is a cap the image already ships; rename the file"
         )
