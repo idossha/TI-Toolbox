@@ -11,9 +11,12 @@ Tissue analysis is a step of the pre-processing pipeline (`tit.pre.tissue_analyz
 - **Multi-Tissue Support**: Analyze CSF, bone, and skin tissues. 
 - **Volume Calculations**: Automatic volume measurements based on labeled voxel data in subject space
 - **3D Thickness Analysis**: Distance transform-based thickness calculations with statistical summaries (experimental)
-- **Figures**: a thickness figure (axial, coronal and sagittal views plus a histogram) and a methodology figure, as PNG and PDF
+- **Figures**: a thickness figure (axial, coronal and sagittal cuts through the tissue's centre of mass, coloured by thickness, plus a histogram) and a methodology figure, as PNG and PDF
 
-
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/tissue-analyzer/ernie-bone-thickness.png" alt="The bone thickness figure for subject ernie: axial, coronal and sagittal cuts through the skull coloured by its thickness, and a histogram of the thickness values with the statistics beside it" style="width: 100%; max-width: 1000px;">
+  <em>The bone thickness figure the analyzer writes for subject ernie (<code>bone_thickness.png</code>). The three views cut through the centre of mass of the analysed bone (positions and axes in mm along the image grid). Every bone voxel of a cut takes the thickness measured at the nearest point of the bone's medial surface, from dark blue (2 mm) to yellow (12.8 mm): in the axial cut the skull is about 4 mm thick at the sides, 6 mm at the front and 8 mm at the back. The histogram (D) has one bar for each thickness the 1 mm grid can measure (2√k mm) and pools every medial voxel: mean 5.0 ± 2.2 mm over 389 cm³ of bone. The statistics and the legend sit beside it.</em>
+</div>
 
 ## Analysis Pipeline
 
@@ -60,9 +63,10 @@ The voxel dimensions are extracted from the NIfTI header using `header.get_zooms
 Thickness is calculated using a 3D Euclidean distance transform:
 
 1. **Distance transform**: calculate the distance $$d$$ from each tissue voxel to the nearest boundary (background).
-2. **Thickness**: $$t = 2d$$.
+2. **Medial surface**: keep the voxels whose $$d$$ no neighbour exceeds, the middle of the tissue.
+3. **Thickness**: $$t = 2d$$ on those medial voxels.
 
-The algorithm uses scipy's `distance_transform_edt()` with voxel spacing sampling to account for anisotropic voxel dimensions. For each voxel within the tissue mask, the distance to the nearest boundary is computed. The thickness at each point is then defined as twice this distance, representing the full thickness of the tissue structure at that location.
+The algorithm uses scipy's `distance_transform_edt()` with voxel spacing sampling to account for anisotropic voxel dimensions. On the medial surface, $$d$$ is the radius of the largest ball that fits inside the tissue there, so twice it is the full thickness of the tissue at that location; the statistics and the histogram pool these medial voxels. On a 1 mm grid the distances can only be $$\sqrt{k}$$ mm for whole numbers $$k$$, so the thickness takes the values $$2\sqrt{k}$$ mm (2, 2.83, 3.46, 4, ...), and the histogram gives each of them its own bar.
 
 
 ## Output Files
