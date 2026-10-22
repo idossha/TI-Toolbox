@@ -43,7 +43,8 @@ from tit.scene import build, cache, guide
 
 #: Serialisations packaged per artifact kind, and the reason for each choice.
 #:
-#: Surfaces ship both: ``gii`` is what the embedded Tetravox renderer reads,
+#: Surfaces ship both: ``gii`` is the standard GIfTI any viewer (the native
+#: TetraVox included) opens,
 #: and ``tvsc`` keeps the frozen §2.3 wire format — and its ≤3 MB / ≤150 k
 #: budget — a checkable property of the guide rather than of subject data only.
 #: Labels ship both for the same reason: the desktop pane's own WebGL2 renderer
@@ -280,7 +281,11 @@ def _tag_urls(body: Any, guide_id: str) -> Any:
         return body
     if isinstance(body, dict):
         for key, value in body.items():
-            if key == "url" and isinstance(value, str) and value.startswith("/api/guide/"):
+            if (
+                key == "url"
+                and isinstance(value, str)
+                and value.startswith("/api/guide/")
+            ):
                 body[key] = f"{value}{'&' if '?' in value else '?'}guide={guide_id}"
             else:
                 _tag_urls(value, guide_id)
@@ -348,7 +353,9 @@ def generate(
 
     atlases: list[dict[str, Any]] = []
     for entry in (
-        [] if atlas_source == "mni" else (catalog.atlases(pm, subject, kind="cortical") or [])
+        []
+        if atlas_source == "mni"
+        else (catalog.atlases(pm, subject, kind="cortical") or [])
     ):
         atlas_id = str(entry["id"])
         hemispheres = sorted(build.annot_paths(pm, subject, atlas_id))

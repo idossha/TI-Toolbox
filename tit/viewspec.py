@@ -1,67 +1,40 @@
-"""Declarative view specifications for the Freeview/Gmsh launchers.
+"""Declarative view specifications for the Viewer and the native TetraVox.
 
-``build_view(kind, ...)`` reproduces the layer-building logic of the former
-PyQt NIfTI viewer tab (single-subject, group and overlay layer stacks) as a
-pure function returning a JSON-able
-``ViewSpec`` (``contracts/openapi.yaml`` ``#/components/schemas/ViewSpec``)
-instead of driving Qt widgets and a subprocess directly. ``to_freeview_args``
-reproduces the argv grammar of ``launch_freeview_with_files``
-(``nifti_viewer_tab.py:1124-1140``).
+``build_view(kind, ...)`` builds the single-subject, simulation, analysis,
+group and custom layer stacks as a JSON-able ``ViewSpec``
+(``contracts/openapi.yaml`` ``#/components/schemas/ViewSpec``), and
+:func:`finish_spec` attaches its ``scene``: :func:`to_tetravox_viewspec` turns
+the layers into the Tetravox ViewSpec v2 document
+(``contracts/tetravox-viewspec-v2.schema.json``) that the native TetraVox
+opens (``POST /api/view/open``). ``to_freeview_args`` only fills the
+deprecated ``freeview_args`` response field; no route launches Freeview.
 
-Six audit bugs from TODO.md §2.6 are fixed here (each pinned by a test in
-``tests/test_viewspec.py``):
+Regression notes, each pinned by a test in ``tests/test_viewspec.py``:
 
-1. **HF glob never matching.** The Qt tab globs
-   ``high_Frequency/niftis/*_scalar_magnE.nii.gz`` for the high-frequency
-   envelope overlay, but every real file is named
-   ``..._scalar_subject_magnE.nii.gz`` or ``..._scalar_MNI_MNI_magnE.nii.gz``
-   (verified against ``sub-ernie`` in Dataset 000) — the un-suffixed pattern
-   matches nothing, ever. Fixed by globbing ``*_scalar_*magnE.nii.gz`` and
-   filtering by the same ``_MNI`` substring rule used for TI_max niftis.
-2. **``labeling_LUT.txt`` ignored.** The Qt tab sends the subject's
-   ``labeling.nii.gz`` atlas overlay with ``colormap=lut`` and no LUT file at
-   all, so regions render with Freeview's arbitrary default palette instead
-   of the SimNIBS tissue colours. Fixed via
-   ``VoxelAtlasManager.find_labeling_lut()``.
-3. **``*_LUT.txt`` not found in group/MNI mode.** The bundled MNI atlases'
-   sidecars are named ``<stem>_LUT.txt`` (e.g.
-   ``CIT168_labeling_MNI152NLin2009cAsym_LUT.txt``,
-   ``resources/atlas/``), but the Qt tab's candidate list only tries
-   ``<stem>.txt`` / ``<stem>_labels.txt`` / a hyphen-split guess — never
-   ``_LUT.txt``, and never the ``massp2021_labels.txt`` special case for the
-   MASSP atlas (whose sidecar does not share its stem at all). Fixed by
-   trying ``_LUT.txt`` first, matching ``roi_picker._find_volume_lut``.
-4. **MNI paths hard-coded to the container.** ``MNI_ATLAS_DIR`` is the
-   absolute container path ``/ti-toolbox/resources/atlas``; outside the
-   container (host-run tests, ``--dump-openapi``) it silently finds nothing.
-   Fixed with the same repo-relative fallback ``roi_picker._mni_atlas_dir()``
-   uses.
-5. **Absolute thresholds dropped when percentile mode is off.**
-   ``launch_freeview_with_files`` only emits ``heatscale=...`` inside the
-   ``if spec.get("percentile")`` branch, so a user-set *absolute* min/max
-   threshold is silently ignored whenever percentile mode is unchecked.
-   ``to_freeview_args`` here emits ``heatscale`` whenever a layer carries
-   ``cal_min``/``cal_max``, independent of any percentile concept (which the
-   ``ViewLayer`` schema does not even model).
-6. **Single-subject MNI space has no usable atlas.** In single-subject mode
-   the atlas dropdown only ever lists FreeSurfer *subject*-space atlases
-   (``detect_freesurfer_atlases``), even after the space combo is switched to
-   MNI — so the one dropdown atlas silently doesn't overlay the MNI template
-   correctly. Fixed: ``kind="subject"`` with ``space="mni"`` lists the MNI
-   atlases (with their own LUT) and the subject's ``T1_<id>_MNI.nii.gz``,
-   exactly mirroring the subject-space branch.
+1. High-frequency magnE overlays are found with
+   :func:`tit.catalog.classify_sim_nifti` (any conductivity, subject or MNI
+   space), not with a fixed ``*_scalar_magnE.nii.gz`` glob that no real file
+   matches.
+2. A subject's ``labeling.nii.gz`` atlas layer carries its
+   ``labeling_LUT.txt`` (``VoxelAtlasManager.find_labeling_lut()``).
+3. A bundled MNI atlas's LUT is looked up as ``<stem>_LUT.txt`` first, with
+   the MASSP atlas's ``massp2021_labels.txt`` as a special case.
+4. The MNI atlas directory falls back to the checkout's ``resources/atlas``
+   outside the container (:func:`tit.atlas.constants.mni_resources_dir`).
+5. Absolute ``cal_min``/``cal_max`` thresholds are kept whether or not a
+   percentile window is set.
+6. ``kind="subject"`` with ``space="mni"`` lists the MNI atlases (with their
+   LUTs) and the subject's ``T1_<id>_MNI.nii.gz``.
 
-Percentile thresholding (v1, ``pages/viewer/PARITY.md`` gap #3): a heat-colormap
-layer built here (TI_max, magnE) carries a ``percentile`` window (``{"lo": 95,
-"hi": 99.9}``, the Qt tab's own default) instead of a bare ``cal_min``/
-``cal_max`` of ``None``. ``resolve_percentiles`` fills in the concrete
-absolute values by reading the NIfTI and computing ``numpy.percentile`` over
-its non-zero voxels — run once by ``build_view`` (``GET /api/view/{kind}``)
-and again by ``POST /api/viewers/freeview`` on whatever ``ViewSpec`` the
-client submits (a user-edited spec may still carry an unresolved percentile
-window). A layer whose file cannot be read, or whose voxels are all zero,
-simply keeps ``cal_min``/``cal_max`` as ``None`` — the resulting Freeview
-layer just renders without a ``heatscale`` arg, exactly like today.
+Percentile thresholding: a heat-colormap layer built here (TI_max, magnE)
+carries a ``percentile`` window (``{"lo": 95, "hi": 99.9}``) instead of a bare
+``cal_min``/``cal_max`` of ``None``. ``resolve_percentiles`` fills in the
+concrete absolute values by reading the NIfTI and computing
+``numpy.percentile`` over its non-zero voxels -- run once by ``build_view``
+(``GET /api/view/{kind}``) and again by ``POST /api/view/args`` on whatever
+``ViewSpec`` the client submits (a user-edited spec may still carry an
+unresolved percentile window). A layer whose file cannot be read, or whose
+voxels are all zero, keeps ``cal_min``/``cal_max`` as ``None``.
 
 See Also
 --------
@@ -1710,10 +1683,10 @@ def resolve_percentiles(spec: dict[str, Any]) -> dict[str, Any]:
 
 # ── Tetravox ViewSpec v2 (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop) §1) ─────────
 #
-# The scene the in-app viewer loads: a real Tetravox `ViewSpec` (v2, the
+# The scene the native TetraVox opens: a real Tetravox `ViewSpec` (v2, the
 # frozen `@tetravox/engine` `scene/types.ts`/`scene/serialize.ts` shape), not
 # an approximation of it. `Engine.load(spec, resolve)` hands `spec.datasets`
-# to the *caller's* `resolve` function (the embed's own host code, which the
+# to the *caller's* `resolve` function (TetraVox's own host code, which the
 # TI server does not control) and, for every other §4.6 field, restores it
 # **verbatim** onto the live scene (`serialize.ts::applyViewSpec`) -- so a
 # document this module emits must already carry concrete, engine-shaped
@@ -2463,8 +2436,7 @@ def _volume_window(path: str, *, role: str) -> tuple[dict[str, Any], dict[str, A
                 "hi": None,
                 "symmetric": False,
                 # `hide`, not `clamp`: clamping paints every sub-threshold voxel at the bottom
-                # colour, which is the wash. `hide` makes them transparent. EMBED.md §(a) uses
-                # exactly this pair for a heat field layer.
+                # colour, which is the wash. `hide` makes them transparent.
                 "mode": "hide",
                 "softEdge": 0.0,
             },

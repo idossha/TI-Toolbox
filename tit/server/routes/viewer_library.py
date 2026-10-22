@@ -228,7 +228,8 @@ def delete_composition(name: str) -> dict[str, Any]:
 def _thumbnail_bytes(data_url: Any) -> bytes | None:
     """The PNG bytes of a ``data:image/png;base64,…`` URL, or ``None``.
 
-    The embed's ``screenshot`` reply is a data URL (``EMBED.md`` §6), so that is what the client
+    A TetraVox client's ``screenshot`` reply is a data URL (the ``thumbnail`` field of
+    ``PUT /api/viewer/scenes/{name}`` in ``contracts/openapi.yaml``), so that is what the client
     has to hand and what this accepts. Anything else — another image type, a bare URL, something
     over the size cap — is dropped rather than refused: a scene worth keeping is still worth
     keeping without its picture.
