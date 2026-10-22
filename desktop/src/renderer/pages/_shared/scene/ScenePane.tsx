@@ -56,6 +56,7 @@ import { regionOffsets } from "../../../scene/explode";
 import { usePageActive } from "../../../app/pageActivity";
 import { Skeleton } from "../../../ui/Feedback";
 import { Button } from "../../../ui/Button";
+import { ExplodeButton } from "./ExplodeButton";
 import { Select } from "../../../ui/Select";
 import { SegmentedControl } from "../../../ui/SegmentedControl";
 import { ChannelLegend } from "../../../ui/ChannelLegend";
@@ -859,17 +860,7 @@ export function ScenePane({
               Clear selection
             </Button>
           ) : null}
-          {canExplode ? (
-            <Button
-              aria-pressed={exploded}
-              variant={exploded ? "primary" : "secondary"}
-              data-testid="scene-pane-explode"
-              title="Pull the atlas regions apart to reach deep structures — the selection is unchanged"
-              onClick={() => setExploded((value) => !value)}
-            >
-              Explode
-            </Button>
-          ) : null}
+          {canExplode ? <ExplodeButton exploded={exploded} onToggle={() => setExploded((value) => !value)} /> : null}
           <span className="scene-pane-hovered" data-testid="scene-pane-hovered">
             {hovered ?? ""}
           </span>

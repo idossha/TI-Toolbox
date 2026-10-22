@@ -144,7 +144,7 @@ test("Optimizer: Explode pulls the MNI atlas apart, and only in MNI", async () =
   await expect(explode).toHaveCount(0); // Subject space: a subject's own head has no Explode.
   await paneSwitch().getByRole("radio", { name: "MNI", exact: true }).click();
   await expect.poll(async () => (await paneDebug()).guideId, { timeout: 30_000 }).toBe("mni");
-  await expect(explode).toHaveAttribute("aria-pressed", "false", { timeout: 30_000 });
+  await expect(explode).toHaveText("Explode", { timeout: 30_000 });
   await host.getByRole("radio", { name: "F", exact: true }).click();
   await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
 
@@ -182,7 +182,7 @@ test("Optimizer: Explode pulls the MNI atlas apart, and only in MNI", async () =
 
   const selectedBefore = await page.evaluate(() => window.__scenePane!.selectedRegions);
   await explode.click();
-  await expect(explode).toHaveAttribute("aria-pressed", "true");
+  await expect(explode).toHaveText("Collapse");
   await page.waitForFunction(() => window.__scene?.explode === 1 && window.__scene.camera.settled, null, { timeout: 10_000 });
   const exploded = await measure();
   expect(exploded.skinOnly).toBeLessThan(collapsed.skinOnly / 10);
@@ -191,6 +191,7 @@ test("Optimizer: Explode pulls the MNI atlas apart, and only in MNI", async () =
   expect(await page.evaluate(() => window.__scenePane!.selectedRegions)).toEqual(selectedBefore);
 
   await explode.click();
+  await expect(explode).toHaveText("Explode");
   await page.waitForFunction(() => window.__scene?.explode === 0 && window.__scene.camera.settled, null, { timeout: 10_000 });
   await paneSwitch().getByRole("radio", { name: "Subject", exact: true }).click();
   await expect(explode).toHaveCount(0);
