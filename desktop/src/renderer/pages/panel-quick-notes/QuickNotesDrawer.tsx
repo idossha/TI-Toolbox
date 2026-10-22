@@ -5,12 +5,13 @@
  *
  * The panel's behaviour is unchanged: the same `GET/PUT /api/catalog/notes`, the same 800 ms
  * debounced autosave, the same Insert timestamp / Copy / Clear actions, the same monospace field.
+ * Closing the drawer (or the window) sends text still inside that 800 ms at once.
  * `ui/Overlay.tsx`'s `Drawer` is the Radix Dialog the shell hosts; it is 420px on the right.
  *
  * The shell (`app/Shell.tsx`, another lane) owns the open state and the ⌘⇧N binding — this file
  * takes `{ open, onOpenChange }` and knows nothing about how it was opened.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, Copy, Trash2 } from "lucide-react";
 import { Button } from "../../ui/Button";
@@ -46,6 +47,10 @@ export function QuickNotesDrawer({ open, onOpenChange }: QuickNotesDrawerProps) 
   const [confirmClear, setConfirmClear] = useState(false);
   const loaded = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Text typed but not sent yet (the autosave delay is running), or null. */
+  const pending = useRef<string | null>(null);
+  /** The newest text typed; only a PUT of exactly this text may read as "Saved". */
+  const newest = useRef<string | null>(null);
 
   useEffect(() => {
     if (loaded.current || !notesQuery.data) return;
@@ -56,30 +61,47 @@ export function QuickNotesDrawer({ open, onOpenChange }: QuickNotesDrawerProps) 
 
   const saveMutation = useMutation({
     mutationFn: (value: string) => putNotes(value),
-    onSuccess: (saved) => {
+    onSuccess: (saved, value) => {
+      // An older PUT answering while newer text is unsaved or in flight says nothing about what is
+      // on screen: it must not read as "Saved", nor put its older text back into the cache.
+      if (value !== newest.current) return;
       // Write the fresh value straight into the query cache — without this, a remount within the
       // global `staleTime` window (main.tsx, 60s) reads the pre-edit cached GET and the just-saved
-      // text visibly reverts.
+      // text visibly reverts. Runs after the drawer closed too, so a reopen shows it.
       queryClient.setQueryData(["notes"], saved);
       setSavedAt(saved.updated_at);
       setDirty(false);
     },
     onError: () => notify.error("Could not save notes. Your edits are still here — try again."),
   });
+  const { mutate } = saveMutation;
+
+  /** Send the pending text now. Closing the drawer unmounts it, so waiting out the delay loses the text. */
+  const flush = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const value = pending.current;
+    if (value === null) return;
+    pending.current = null;
+    mutate(value);
+  }, [mutate]);
 
   function scheduleSave(next: string) {
     setText(next);
     setDirty(true);
+    pending.current = next;
+    newest.current = next;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => saveMutation.mutate(next), AUTOSAVE_DELAY_MS);
+    timer.current = setTimeout(flush, AUTOSAVE_DELAY_MS);
   }
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+  useEffect(() => {
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, [flush]);
 
   /** `ui/Field`'s `Textarea` is not ref-forwarding, so this appends rather than inserting at the
    * cursor — simpler, and matches the Qt version's behaviour of always adding new content at one

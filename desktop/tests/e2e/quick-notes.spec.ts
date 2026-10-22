@@ -79,6 +79,34 @@ test("the notes drawer opens with the keyboard, autosaves, and survives a reload
   await expect(page.getByTestId("quick-notes-textarea")).toHaveValue(/Added during the E2E run\./, { timeout: 20_000 });
 });
 
+test("text typed just before Esc is saved, not lost with the closing drawer", async () => {
+  await connect();
+  await openNotes();
+  const textarea = page.getByTestId("quick-notes-textarea");
+  await expect(textarea).toHaveValue(/Mock project notes/, { timeout: 20_000 });
+
+  // Unique per run: the mock server is long-lived and keeps the notes of earlier runs.
+  const marker = `closed-at-once-${Date.now()}`;
+  const put = page.waitForResponse(
+    (r) => r.url().endsWith("/api/catalog/notes") && r.request().method() === "PUT" && (r.request().postData() ?? "").includes(marker),
+    { timeout: 10_000 },
+  );
+  await textarea.click();
+  await textarea.press("End");
+  // One input event, then Esc straight away: well inside the 800 ms autosave delay. Closing
+  // unmounts the drawer; before the fix that cleared the timer and no PUT was ever sent.
+  await page.keyboard.insertText(`\n${marker}`);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("quick-notes")).toHaveCount(0);
+  expect((await put).status()).toBe(200);
+
+  // The server has it: a fresh page reads it back.
+  await page.reload();
+  await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 45_000 });
+  await openNotes();
+  await expect(page.getByTestId("quick-notes-textarea")).toHaveValue(new RegExp(marker), { timeout: 20_000 });
+});
+
 test("the drawer is reachable from the command palette as well as the shortcut", async () => {
   await connect();
 
