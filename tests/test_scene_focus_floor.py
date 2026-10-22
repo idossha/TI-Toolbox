@@ -20,6 +20,11 @@ What this pins
     each part's ``build_ms`` still counts its own simplification, which now runs in a loop of
     its own before the floor is read.
 
+    The packaged guide heads (``tit/scene/guide*/manifest.json``) are frozen data built by
+    builder "4": the same rule is checked on their manifests, and guide-mni, whose grey
+    matter's ``focus_bbox`` z0 is -65.54 against a ``bbox`` z0 of -65.592, is a strict-xfail
+    known gap until it is rebuilt.
+
 Where the numbers come from
     Hand-made octahedra, not a real mesh (``simnibs`` is a ``MagicMock`` here, so
     ``read_msh`` is replaced by a fake that crops these arrays). The floor value is sub-101's
@@ -294,3 +299,52 @@ def test_each_parts_build_time_is_the_read_plus_its_own_simplification(
         "skin": 4000.0,
     }
     assert {meta["mesh_read_ms"] for meta in metas.values()} == {1000.0}
+
+
+# ── the packaged guide heads, frozen by builder "4" ──────────────────────────
+#
+# They are data, not rebuilt by a builder change (no SimNIBS build tonight), so the rule is
+# checked on their manifests: guide-mni is a known gap until it is rebuilt, and a strict
+# xfail so that the rebuild has to drop the marker.
+
+#: tit/scene/guide*/manifest.json: built once by tit/scene/guide_build.py and packaged.
+GUIDES = sorted(Path(build.__file__).parent.glob("guide*/manifest.json"))
+
+
+def test_both_packaged_guides_are_checked() -> None:
+    assert [manifest.parent.name for manifest in GUIDES] == ["guide", "guide-mni"]
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        pytest.param(
+            manifest,
+            id=manifest.parent.name,
+            marks=(
+                [
+                    pytest.mark.xfail(
+                        strict=True,
+                        reason="known gap: guide-mni was frozen by builder 4 "
+                        "(PROVENANCE.md), whose float64 floor sat above the grey matter's "
+                        "published lowest vertex (focus_bbox z0 -65.54 against bbox z0 "
+                        "-65.592), the defect builder 5 fixes; rebuild it with "
+                        "tit/scene/guide_build.py and drop this marker",
+                    )
+                ]
+                if manifest.parent.name == "guide-mni"
+                else []
+            ),
+        )
+        for manifest in GUIDES
+    ],
+)
+def test_a_packaged_guides_grey_matter_frames_its_whole_box(manifest: Path) -> None:
+    """The fixed rule on the frozen guide heads, which no builder change rebuilds."""
+    import json
+
+    parts = {part["id"]: part for part in json.loads(manifest.read_text())["parts"]}
+    gm, skin = parts[build.FOCUS_FLOOR_PART], parts["skin"]
+    # The skin keeps nothing below the grey matter's floor, and does keep its own neck.
+    assert gm["bbox"][2] <= skin["focus_bbox"][2] and skin["bbox"][2] < gm["bbox"][2]
+    assert gm["focus_bbox"] == gm["bbox"]
