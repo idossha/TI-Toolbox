@@ -1,0 +1,26 @@
+{
+  "_about": "Notebook names, shared by tests/test_notebook_names_table.py (tit/server/notebooks.py normalise_name) and desktop/tests/unit/notebook-names-table.test.ts (pages/notebooks/index.tsx proposeName, which names an imported .ipynb file before the server sees it). groundTruth: authored -- verdicts are written by hand from the rule both sides state: one path segment that starts with an ASCII letter or digit, then up to 127 of letters, digits, space, '.', '_' or '-'; surrounding whitespace is trimmed and one '.ipynb' suffix is dropped first; only the server accepts the single 'examples/' folder (an imported file's name never carries a folder). client = what proposeName returns (null = refused); server = what normalise_name returns (null = NotebookError). Where the two legitimately differ the row says why. length, when present, is the name's character count, checked so a mistyped literal cannot pass for the boundary it claims to test. 2026-10-22.",
+  "rows": [
+    {"why": "a bare name", "name": "analysis", "client": "analysis", "server": "analysis.ipynb"},
+    {"why": "the suffix is dropped once", "name": "analysis.ipynb", "client": "analysis", "server": "analysis.ipynb"},
+    {"why": "spaces and digits inside", "name": "Analysis 2.ipynb", "client": "Analysis 2", "server": "Analysis 2.ipynb"},
+    {"why": "a single digit", "name": "1", "client": "1", "server": "1.ipynb"},
+    {"why": "dots, dashes and underscores inside", "name": "run_1.v2-final", "client": "run_1.v2-final", "server": "run_1.v2-final.ipynb"},
+    {"why": "surrounding whitespace is trimmed", "name": "  abc  ", "client": "abc", "server": "abc.ipynb"},
+    {"why": "a space before the suffix stays part of the name", "name": "abc .ipynb", "client": "abc ", "server": "abc .ipynb"},
+    {"why": "128 characters is the longest name", "name": "n012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789abcdefg", "length": 128, "client": "n012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789abcdefg", "server": "n012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789abcdefg.ipynb"},
+    {"why": "129 characters is one too many", "name": "n012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789abcdefgh", "length": 129, "client": null, "server": null},
+    {"why": "non-ASCII letters are refused", "name": "café", "client": null, "server": null},
+    {"why": "a leading dot (hidden file)", "name": ".hidden", "client": null, "server": null},
+    {"why": "a leading dash", "name": "-x", "client": null, "server": null},
+    {"why": "a directory separator", "name": "a/b", "client": null, "server": null},
+    {"why": "a backslash", "name": "a\\b", "client": null, "server": null},
+    {"why": "a parent reference", "name": "../escape", "client": null, "server": null},
+    {"why": "the examples folder escaping itself", "name": "examples/../x", "client": null, "server": null},
+    {"why": "empty", "name": "", "client": null, "server": null},
+    {"why": "the suffix alone", "name": "  .ipynb", "client": null, "server": null},
+    {"why": "a newline before the suffix is not an allowed character", "name": "abc\n.ipynb", "client": null, "server": null, "server_known_gap": "normalise_name matches _SAFE_NAME with re.match and '$', which also matches before a trailing newline, so it accepts 'abc\\n' and returns 'abc\\n.ipynb'; fixing needs re.fullmatch or \\Z in tit/server/notebooks.py, which package p40 does not own"},
+    {"why": "the example notebook's own name: the server accepts the examples/ folder; an imported file's name never carries a folder, so the client refuses it", "name": "examples/example_workflow.ipynb", "client": null, "server": "examples/example_workflow.ipynb"},
+    {"why": "an upper-case suffix: the client drops it case-insensitively before sending, the server takes '.IPYNB' as part of the name", "name": "Analysis.IPYNB", "client": "Analysis", "server": "Analysis.IPYNB.ipynb"}
+  ]
+}

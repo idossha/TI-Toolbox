@@ -18,16 +18,12 @@ import type { JobEvent, JobState, JobStatus } from "../jobs/types";
 
 export type { JobEvent, JobState, JobStatus } from "../jobs/types";
 export type JobKind = components["schemas"]["JobKind"];
-export type Settings = components["schemas"]["Settings"];
-export type Project = components["schemas"]["Project"];
 export type Subject = components["schemas"]["Subject"];
 
 /**
- * Every `JobKind` in the v1 contract, for the kind filter's option list. `tools`/`report` were
- * added by the fix:contract reconciliation (CHANGES.md item 1 — `tit/jobs/spec.py::JOB_KINDS`
- * already had them; only the frozen contract's enum was missing them) — kept in sync with
- * `components["schemas"]["JobKind"]`'s enum by hand since this is a plain string-literal array,
- * not a place a generated type can be spread into.
+ * Every `JobKind` in the v1 contract, for the kind filter's option list. A plain array because a
+ * generated type cannot be spread into a value; `tests/unit/job-vocabulary-contract.test.ts` holds
+ * it equal to the `JobKind` enum in `contracts/openapi.yaml` and to `tit/jobs/spec.py::JOB_KINDS`.
  */
 export const JOB_KINDS: JobKind[] = [
   "pre",
@@ -70,7 +66,6 @@ export async function getJobEvents(id: string, since = 0): Promise<JobEvent[]> {
 }
 
 export type JobOutputs = components["schemas"]["JobOutputs"];
-export type OutputFile = components["schemas"]["OutputFile"];
 
 /** The job's output folder as it is on disk — the Artifacts tab's one source (`GET /api/jobs/{id}/artifacts`). */
 export async function getJobOutputs(id: string): Promise<JobOutputs> {
@@ -126,14 +121,6 @@ export async function deleteJob(id: string): Promise<void> {
   if (!response.ok) throw new Error(`DELETE /api/jobs/${id} failed with HTTP ${response.status}`);
 }
 
-export async function getSettings(): Promise<Settings> {
-  return unwrap(await api.GET("/api/settings"), "/api/settings");
-}
-
-export async function getProject(): Promise<Project> {
-  return unwrap(await api.GET("/api/project"), "/api/project");
-}
-
 export async function getSubjects(): Promise<Subject[]> {
   return unwrap(await api.GET("/api/catalog/subjects"), "/api/catalog/subjects").subjects;
 }
@@ -158,16 +145,4 @@ export async function submitTestJob(subjectId = "ernie", fail = false): Promise<
     tags: ["dev-test"],
   };
   return unwrap(await api.POST("/api/jobs", { body }), "/api/jobs");
-}
-
-export type Report = components["schemas"]["Report"];
-
-/** Reports the server knows about for one subject — the Report tab resolves a job to one of these. */
-export async function getReports(subject: string): Promise<Report[]> {
-  return unwrap(await api.GET("/api/catalog/reports", { params: { query: { subject } } }), "/api/catalog/reports");
-}
-
-/** Same route `pages/results` embeds. Served as a full HTML document, so it needs an iframe. */
-export function reportUrl(id: string): string {
-  return `/api/files/report/${encodeURIComponent(id)}`;
 }

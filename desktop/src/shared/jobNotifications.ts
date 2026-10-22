@@ -59,7 +59,10 @@ export function normalizeNotificationPrefs(raw: unknown): NotificationPrefs {
   };
 }
 
-/** One human label per job kind. A kind missing here reads as "Job". */
+/**
+ * One human label per job kind (`JobKind` in contracts/openapi.yaml; `tests/unit/job-vocabulary-
+ * contract.test.ts` holds the keys equal to it). A kind missing here reads as "Job".
+ */
 export const JOB_KIND_LABELS: Record<string, string> = {
   pre: "Pre-processing",
   sim: "Simulation",
@@ -68,7 +71,6 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   flex_pareto: "Pareto sweep",
   ex: "Exhaustive search",
   mex: "Multipolar exhaustive search",
-  recip: "Reciprocity search",
   leadfield: "Leadfield",
   analyzer: "Analysis",
   stats: "Group statistics",
@@ -78,7 +80,6 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   nilearn: "Nilearn visuals",
   project_init: "Project setup",
   tools: "Tool",
-  report: "Report",
 };
 
 export type FinishedState = "succeeded" | "failed";

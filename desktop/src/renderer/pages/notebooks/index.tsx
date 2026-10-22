@@ -69,8 +69,11 @@ function modified(entry: NotebookEntry): string {
   return new Date(entry.modified * 1000).toLocaleString();
 }
 
-/** A name the server will accept, or null. The same rule, said in one place. */
-function proposeName(raw: string): string | null {
+/**
+ * A name the server will accept, or null: `tit/server/notebooks.py::normalise_name`'s rule, said
+ * once here. Both are checked against `tests/fixtures/notebook_names.json`.
+ */
+export function proposeName(raw: string): string | null {
   const trimmed = raw.trim().replace(/\.ipynb$/i, "");
   return /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$/.test(trimmed) ? trimmed : null;
 }

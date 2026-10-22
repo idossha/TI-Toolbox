@@ -61,21 +61,21 @@ export function resourceText(label: ResourceLabel | null): string {
   return label.avg ? `${label.peak} · avg ${label.avg}` : label.peak;
 }
 
+/**
+ * One label per `error.type` the job manager writes (`JobError(type=...)` in `tit/jobs/*.py`);
+ * `tests/test_job_error_taxonomy_contract.py` holds the keys equal to that set.
+ */
 const ERROR_LABEL: Record<string, string> = {
-  preflight: "Preflight check failed",
-  lock_wait: "Waiting on a lock",
-  budget_wait: "Waiting on the resource budget",
   runner_failed: "Runner failed",
-  oom_suspected: "Likely out of memory",
-  cancelled: "Cancelled",
   skipped: "Skipped",
   lost: "Lost (server restarted mid-run)",
-  docker_unavailable: "Docker is unavailable",
+  forced: "Force-stopped",
   kind_error: "Invalid job configuration",
+  spawn_error: "Could not start the job",
 };
 
-/** Human label for an `error.type` — the nine-value taxonomy (plan §2.5) when it matches, else a
- * title-cased fallback so an unrecognised type (e.g. the mock's synthetic ones) still reads. */
+/** Human label for an `error.type`, else a title-cased fallback so an unrecognised type (e.g. the
+ * mock's synthetic ones) still reads. */
 export function errorLabel(type: string): string {
   const known = ERROR_LABEL[type];
   if (known) return known;
