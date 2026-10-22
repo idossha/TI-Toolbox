@@ -24,7 +24,7 @@
  * not one submission full stop. `POST /api/jobs/groups` takes a single `kind`
  * (`tit/jobs/plans.py::GROUP_KINDS`), so a table mixing Flex and Ex rows cannot be one group
  * without a server change. The page states this in its own success message rather than pretending
- * otherwise; `PARITY.md` carries it as the open contract item.
+ * otherwise.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Info, Target, Workflow } from "lucide-react";

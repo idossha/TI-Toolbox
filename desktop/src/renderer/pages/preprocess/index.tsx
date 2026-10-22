@@ -141,34 +141,6 @@ export function plannedSteps(v: PreprocessConfig): string[] {
   return steps;
 }
 
-/**
- * Best-effort label for one preprocessing stage's `PlanJob.output_dir`, for kind=pre plans that
- * carry one `PlanJob` per stage (`tit.jobs.plans.plan_preprocessing`'s G1-G6 DAG, wired up
- * server-side in `tit/server/routes/plan.py`) rather than one per subject. Matches the directory
- * conventions `_pre_stage_output_dir` maps each stage flag to; falls back to a generic label for
- * a shared/coarser directory (several stages can touch the same `m2m_<subject>/`) or for a plan
- * response that only carries one row per subject (e.g. an older backend).
- */
-export function describePreStageDir(dir: string): string {
-  if (/qsirecon/i.test(dir)) return "QSIRecon";
-  if (/qsiprep/i.test(dir)) return "QSIPrep";
-  if (/fastsurfer/i.test(dir)) return "FastSurfer segmentation";
-  if (/freesurfer/i.test(dir)) return "FreeSurfer reconstruction / subregions";
-  if (/m2m_/i.test(dir)) return "SimNIBS m2m (charm / atlas / DTI)";
-  if (/nifti|dicom|sourcedata/i.test(dir)) return "DICOM to NIfTI";
-  return "Output";
-}
-
-/**
- * Human-readable stage label for one `PlanJob`. Prefers the server's own `job.stage`/`job.label`
- * (ra_13 finding 12 — not in the contract yet, see `PlanJob` in `api.ts`) over the client-side
- * directory-name guess, so this page picks up the real label the moment a backend starts sending
- * one without any change here.
- */
-export function stageLabelFor(job: { stage?: string; label?: string; output_dir: string }): string {
-  return job.stage ?? job.label ?? describePreStageDir(job.output_dir);
-}
-
 /** The primary's label, from the plan: "Run preprocessing" for one subject, "Queue N jobs" past that. */
 export function runLabelFor(subjectCount: number, jobCount: number): string {
   if (subjectCount <= 1) return "Run preprocessing";

@@ -15,7 +15,7 @@ import {
   polarityLabel,
   type SelectedRow,
 } from "../../src/renderer/pages/simulator/types";
-import { defaultJobSettings, isCustomised, settingsFor, settingsSummary, type JobSettings } from "../../src/renderer/pages/simulator/types";
+import { defaultJobSettings, isCustomised, settingsFor, type JobSettings } from "../../src/renderer/pages/simulator/types";
 import { removeGroup } from "../../src/renderer/ui/ElectrodePairsEditor";
 import {
   currentValues,
@@ -23,7 +23,6 @@ import {
   montageOptionValue,
   parseMontageOptionValue,
   resolveColumnWidths,
-  rowPairsText,
   ACTIONS_W,
 } from "../../src/renderer/pages/simulator/MontageManager";
 import { jobSubjectsFrom, jobsSummary, runLabelFor } from "../../src/renderer/pages/simulator/index";
@@ -410,11 +409,6 @@ describe("montage pairs come in groups of two", () => {
     expect(defaults.net).toBeGreaterThanOrEqual(148);
     expect(defaults.montage).toBeGreaterThanOrEqual(168);
   });
-
-  it("a row with nothing configured shows no pairs text at all", () => {
-    // Rule 4 of the 2026-09-06 row redesign: no "–" placeholders; the cell's own select says it.
-    expect(rowPairsText(emptyRow("ernie"))).toBe("");
-  });
 });
 
 /**
@@ -550,12 +544,5 @@ describe("per-job settings", () => {
     const reset: SelectedRow = { ...custom, settings: undefined };
     expect(isCustomised(reset)).toBe(false);
     expect(buildSimulationConfig(reset, params({ ...defaults, gelThickness: 7 })).gel_thickness).toBe(7);
-  });
-
-  it("the chip names only what differs from the defaults", () => {
-    expect(settingsSummary({ ...defaults, electrodeShape: "rect", dimensions: [10, 10], outputFields: ["TI_avg"] }, defaults)).toBe(
-      "rect 10×10 · TI_avg",
-    );
-    expect(settingsSummary(defaults, defaults)).toBe("");
   });
 });

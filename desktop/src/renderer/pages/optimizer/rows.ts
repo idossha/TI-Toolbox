@@ -175,13 +175,6 @@ export function rowVariantLabel(row: OptimizerRow): string {
   return `${row.exPairs * 2} electrodes (${row.exPairs === 4 ? "mTI" : "TI"})`;
 }
 
-export const GOAL_LABEL: Record<OptGoal, string> = {
-  mean: "mean",
-  max: "max",
-  focality: "focality",
-  focality_tf: "focality_tf",
-};
-
 /**
  * A row is a **job** once it names a subject, a target its method can resolve, and — for Ex/mEx —
  * a leadfield. Deliberately pure: `hasLeadfield` is the caller's per-subject fact, because a

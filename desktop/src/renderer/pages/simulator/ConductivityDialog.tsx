@@ -6,7 +6,7 @@ import { NumberInput } from "../../ui/NumberInput";
 import { Callout } from "../../ui/Feedback";
 import { TISSUE_TABLE } from "./types";
 
-/** Tissue number -> conductivity override (S/m). Mirrors `tit.gui.components.conductivity_dialog`. */
+/** Tissue number -> conductivity override (S/m). */
 export type CustomConductivities = Record<number, number>;
 
 function seedRows(overrides: CustomConductivities): Record<number, number> {
@@ -64,7 +64,7 @@ export function ConductivityDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Tissue conductivity editor"
-      description="Override the default tissue conductivities used by the solver. Values apply to every montage in this run."
+      description="Override the default tissue conductivities used by the solver. Values apply wherever these settings do: one job's own settings, or the defaults for jobs without their own."
       footer={
         <>
           <Button variant="ghost" icon={<RotateCcw size={14} />} onClick={reset}>

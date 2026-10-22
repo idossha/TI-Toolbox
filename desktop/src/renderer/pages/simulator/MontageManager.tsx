@@ -70,8 +70,6 @@ import {
   type SelectedRow,
 } from "./types";
 
-export type Kind = MontageKind;
-
 /** A montage as the table addresses it: which net's bucket it lives in, and its pairs. */
 export interface CatalogMontage {
   net: string;
@@ -100,14 +98,6 @@ export function parseMontageOptionValue(value: string): { kind: MontageKind; nam
 /** `E1–E2 · E3–E4` — the read-only pairs cell for a label-based montage. */
 export function formatPairs(pairs: [string, string][]): string {
   return pairs.map(([a, b]) => `${a}–${b}`).join(" · ");
-}
-
-/** The Pairs text for any row, whichever form its electrodes came in. Empty — not a dash — for a
- *  row that has none yet: an unconfigured cell shows its own placeholder and nothing else. */
-export function rowPairsText(row: SelectedRow): string {
-  if (row.pairs && row.pairs.length > 0) return formatPairs(row.pairs);
-  const n = row.xyzPairs?.length ?? 0;
-  return n > 0 ? `${n * 2} XYZ coordinates` : "";
 }
 
 /* The currents a row shows are the currents its job sends: both are `rowCurrents` (types.ts), which

@@ -1,6 +1,7 @@
 /**
- * QSIPrep/QSIRecon dialog data and defaults, ported from
- * `tit/gui/components/qsi_config_dialogs.py` (categorised spec/atlas lists, tooltips, defaults).
+ * QSIPrep/QSIRecon dialog data and defaults, ported from the v2.5.0
+ * `tit/gui/components/qsi_config_dialogs.py` (categorised spec/atlas lists, tooltips, defaults;
+ * removed in v3.0.0).
  *
  * `PreprocessConfig.qsiprep_config`/`qsi_recon_config` hold the settings-only `QSIPrepSettings`/
  * `QSIReconSettings` shapes (B4, landed mid-build): no `subject_id`, resource fields flat
@@ -273,9 +274,9 @@ export const ATLAS_CATEGORIES: Category[] = [
 ];
 
 /**
- * Qt pre-fills CPUs/Memory from `get_inherited_dood_resources()` (current container limits); no
- * v1 endpoint exposes that to the renderer (PARITY.md gap #2), so both default to "auto" (`null`)
- * — the settings' own schema default, which the backend resolves at run time.
+ * The v2.5.0 Qt dialog pre-filled CPUs/Memory from `get_inherited_dood_resources()` (current
+ * container limits); no v1 endpoint exposes that to the renderer, so both default to "auto"
+ * (`null`) — the settings' own schema default, which the backend resolves at run time.
  */
 export function defaultQsiPrepConfig(): QsiPrepSettings {
   return {

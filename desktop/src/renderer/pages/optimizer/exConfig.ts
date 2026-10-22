@@ -1,7 +1,6 @@
 /**
  * Ex / mEx form state → `ExConfig` / `MExConfig` wire shapes, plus the bucket vocabulary and the
- * ROI→target expansion. Merged from `optimizer-ex/{ExForm,MExForm,lib}.tsx` — see
- * `pages/optimizer/PARITY.md` for the control-by-control map of where each field went.
+ * ROI→target expansion.
  *
  * The one behavioural change from the predecessors: the target's ROI now comes from the ONE
  * shared `RoiValue` (`pages/_shared/roi`), so an atlas target carries the atlas's real
@@ -233,22 +232,4 @@ export function formatBytes(n: number): string {
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.min(units.length - 1, Math.floor(Math.log2(n) / 10));
   return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-/** `exTargets` for a saved-ROI selection, without constructing a `RoiValue` — the shape unit
- *  tests and callers that already have names want. */
-export function savedTargets(names: string[], combine: boolean, radius = 3.0, space: "subject" | "mni" = "subject"): ExTarget[] {
-  return exTargets({ mode: "saved", selected: names, combine, radius, space }, () => undefined, true);
-}
-
-/** `exTargets` for one subcortical atlas selection, given the atlas's resolved path. */
-export function atlasTarget(atlasId: string, atlasPath: string, labels: number[], space: "subject" | "mni" = "subject"): ExTarget {
-  const value: RoiValue = {
-    mode: "subcortical",
-    space,
-    atlas: atlasId,
-    regions: labels.map((id) => ({ id, name: String(id) })),
-    tissues: "GM",
-  };
-  return exTargets(value, () => ({ path: atlasPath }), true)[0] as ExTarget;
 }

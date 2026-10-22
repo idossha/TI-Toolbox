@@ -82,16 +82,6 @@ export function buildConfig(opts: {
   };
 }
 
-export function sphereComplete(s: Sphere): boolean {
-  return (
-    s.x !== undefined &&
-    s.y !== undefined &&
-    s.z !== undefined &&
-    s.radius !== undefined &&
-    s.radius > 0
-  );
-}
-
 export function rowTargets(row: {roi: RoiValue; combine: boolean}): RoiValue[] {
   const roi = row.roi;
   if (roi.mode === "spherical") return roi.spheres.map((s) => ({ ...roi, spheres: [s] }));

@@ -1,7 +1,6 @@
 /**
  * Ex / mEx sections: the leadfield precondition strip, the electrode buckets (or pool), the
- * current sweep, and the mTI carrier options. Merged from `optimizer-ex/{ExForm,MExForm,
- * ElectrodeBuckets,LeadfieldPanel,HelpButton}.tsx`; see `pages/optimizer/PARITY.md`.
+ * current sweep, and the mTI carrier options.
  *
  * The leadfield is a **gate, not a form field** (wireframes §4): a 28 px strip under the Method
  * segment that states the fact and offers the one action that fixes it, rather than a card with a

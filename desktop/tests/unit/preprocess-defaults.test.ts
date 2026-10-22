@@ -12,11 +12,9 @@ import {
 } from "../../src/renderer/forms/schema";
 import {
   defaultConfig,
-  describePreStageDir,
   plannedSteps,
   plannedStageIds,
   runLabelFor,
-  stageLabelFor,
   toSubmitConfig,
 } from "../../src/renderer/pages/preprocess/index";
 import {
@@ -125,20 +123,6 @@ describe("preprocess page defaults validate against contracts/generated/config.s
       submitted as unknown as Record<string, unknown>,
     );
     expect(result.errors).toEqual({});
-  });
-
-  it("stageLabelFor() prefers the server's stage/label over the directory-name guess, falling back gracefully (ra_13 finding 12)", () => {
-    // Contract has no PlanJob.stage/label yet — a today's-shape job falls back to the guess.
-    expect(stageLabelFor({ output_dir: "/mnt/proj/derivatives/fastsurfer/sub-ernie" })).toBe(
-      describePreStageDir("/mnt/proj/derivatives/fastsurfer/sub-ernie"),
-    );
-    // Once a backend sends `stage`, it wins outright, even over an output_dir the guess would
-    // otherwise classify differently.
-    expect(stageLabelFor({ stage: "FreeSurfer recon-all", output_dir: "/mnt/proj/m2m_ernie" })).toBe(
-      "FreeSurfer recon-all",
-    );
-    // `label` (e.g. the server's internal "sub-ernie:G2a") is the second choice, above the guess.
-    expect(stageLabelFor({ label: "sub-ernie:G2a", output_dir: "/mnt/proj/m2m_ernie" })).toBe("sub-ernie:G2a");
   });
 
   it("runLabelFor() names the primary from the plan, not from the page", () => {

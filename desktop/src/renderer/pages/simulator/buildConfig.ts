@@ -1,6 +1,5 @@
 import { CARRIER_FIELDS, carrierOnlyAllowed, rowCurrents, sendsXyz, settingsFor, type JobSettings, type SelectedRow } from "./types";
 import type { CustomConductivities } from "./ConductivityDialog";
-import type { MontageSources } from "./api";
 
 /**
  * The page's **defaults**. A row that never disagreed with them is built from them; a row the user
@@ -11,11 +10,10 @@ export type GlobalParams = JobSettings & { customConductivities: CustomConductiv
 /**
  * Builds the JSON body for one (subject, montage) job — one `SimulationConfig` with exactly one
  * `Montage`, mirroring `tit.sim.utils.build_simulation_config_for_job`. Every key here is a real
- * `SimulationConfig` field: `contracts/generated/config.schema.json`'s `SimulationConfig` now sets
- * `additionalProperties: false` (ra_11 finding 3's contract tightening), so an extra convenience
- * key here would fail schema validation even though the real server's default lenient
- * `deserialize_config(strict=False)` would have silently dropped it — see PARITY.md's updated
- * note on the plan-only `name` field this function used to add.
+ * `SimulationConfig` field: `contracts/generated/config.schema.json`'s `SimulationConfig` sets
+ * `additionalProperties: false`, so an extra convenience key here (such as the plan-only `name`
+ * this function once added) would fail schema validation even though the real server's default
+ * lenient `deserialize_config(strict=False)` would have silently dropped it.
  */
 export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams): Record<string, unknown> {
   const params = settingsFor(row, defaults) as GlobalParams;
@@ -72,20 +70,4 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     config.tissue_conductivities = params.customConductivities;
   }
   return config;
-}
-
-/**
- * `PlanRequest.montage_sources` for one row — **never sent for a row this page has already
- * resolved**, which since the flex fix is every row.
- *
- * The reason is not tidiness: `tit/server/routes/plan.py` resolves `montage_sources` into montages
- * *in addition to* `config.montages`, so a flex or free-hand row that sent both was planned twice —
- * two `PlanJob`s for one job, under two different output directories. Job submission has to embed a
- * fully-resolved `Montage` anyway (`POST /api/jobs`'s `JobSpec` has no `montage_sources` field), so
- * the resolved config is the single source of truth and this returns nothing. Kept as the one
- * documented place the decision lives, rather than deleted, because the field is still part of the
- * frozen `PlanRequest` contract.
- */
-export function buildMontageSources(): MontageSources | undefined {
-  return undefined;
 }

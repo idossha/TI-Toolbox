@@ -1,9 +1,9 @@
 /**
  * Mirrors `tit.constants.FIELD_REGISTRY` (labels/descriptions ported verbatim). No `/api/schema`
- * field-metadata endpoint exists yet, so this is a local constant rather than a fetch — see
- * PARITY.md. `mTI_max` is skipped, matching `tit/gui/analyzer_tab.py`'s field combo: it and
- * `TI_max` are the same quantity (modulation depth) under the 2-pair/4-pair mesh spelling, and
- * `select_field_file` resolves whichever a given simulation actually wrote.
+ * field-metadata endpoint exists, so this is a local constant rather than a fetch. `mTI_max` is
+ * not a separate entry (as in the v2.5.0 Analyzer's field combo): it and `TI_max` are the same
+ * quantity (modulation depth) under the 2-pair/4-pair mesh spelling, and `select_field_file`
+ * resolves whichever a given simulation actually wrote.
  */
 export interface FieldSpec {
   name: string;
@@ -61,6 +61,3 @@ export function fieldSpecForName(name: string): FieldSpec | undefined {
   if (name === "mTI_max") return fieldSpec("TI_max");
   return fieldSpec(name);
 }
-
-export const TI_NORMAL_VOXEL_HELP =
-  "TI_normal is a surface (mesh) field and is not exported to NIfTI; select mesh space to analyze it.";

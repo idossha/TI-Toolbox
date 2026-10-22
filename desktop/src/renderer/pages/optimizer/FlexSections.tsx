@@ -1,8 +1,7 @@
 /**
  * Flex-search's method-specific sections: objective, electrode parameters, solver, post-run.
- * Merged from `optimizer-flex/{ElectrodeParams,HyperParams,FocalityOptions}.tsx` — the parity
- * sources are `tit/gui/flex_search_tab.py` and `tit/gui/components/{electrode_config,
- * solver_params}.py`; `pages/optimizer/PARITY.md` maps every control to where it now lives.
+ * Ported from the v2.5.0 `tit/gui/flex_search_tab.py` and `tit/gui/components/{electrode_config,
+ * solver_params}.py` (removed in v3.0.0; see git tag v2.5.0).
  */
 import { FormSection } from "../../ui/Layout";
 import { Field, TextInput } from "../../ui/Field";
@@ -46,8 +45,8 @@ export const POSTPROC_OPTIONS = [
 
 const POSTPROC_HELP = "max_TI: the maximum TI field. dir_TI_normal / dir_TI_tangential: its component normal or tangential to the surface.";
 
-// `FlexConfig.anisotropy_type` per contracts/generated/config.schema.json documents "scalar"/"vn" only; the Qt tab
-// also offered "dir"/"mc" (PARITY.md), left out pending confirmation `run_flex_search` takes them.
+// `FlexConfig.anisotropy_type` per contracts/generated/config.schema.json documents "scalar"/"vn" only; the v2.5.0
+// Qt tab also offered "dir"/"mc", left out pending confirmation `run_flex_search` takes them.
 const ANISOTROPY_OPTIONS = [
   { value: "scalar", label: "Isotropic (scalar)" },
   { value: "vn", label: "Volume-normalized (vn)" },

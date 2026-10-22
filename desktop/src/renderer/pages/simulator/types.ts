@@ -100,31 +100,6 @@ export function isCustomised(row: SelectedRow): boolean {
   return !!row.settings;
 }
 
-/**
- * The muted chip line 2 shows for a customised row: only what *differs* from the defaults, in the
- * order the sections are in. Empty when the row's own settings happen to equal the defaults.
- */
-export function settingsSummary(settings: JobSettings, defaults: JobSettings): string {
-  const parts: string[] = [];
-  if (settings.electrodeShape !== defaults.electrodeShape || settings.dimensions[0] !== defaults.dimensions[0] || settings.dimensions[1] !== defaults.dimensions[1]) {
-    parts.push(`${settings.electrodeShape === "rect" ? "rect" : "ellipse"} ${settings.dimensions[0]}×${settings.dimensions[1]}`);
-  }
-  if (settings.gelThickness !== defaults.gelThickness) parts.push(`gel ${settings.gelThickness}`);
-  if (settings.conductivity !== defaults.conductivity) parts.push(settings.conductivity);
-  if (settings.conductivity !== "scalar") {
-    if ((settings.anisoMaxratio ?? 10) !== (defaults.anisoMaxratio ?? 10)) parts.push(`max ratio ${settings.anisoMaxratio}`);
-    if ((settings.anisoMaxcond ?? 2) !== (defaults.anisoMaxcond ?? 2)) parts.push(`max conductivity ${settings.anisoMaxcond} S/m`);
-  }
-  const overrides = Object.keys(settings.customConductivities).length;
-  if (overrides !== Object.keys(defaults.customConductivities).length) {
-    parts.push(`${overrides} tissue override${overrides === 1 ? "" : "s"}`);
-  }
-  if (settings.outputFields.join(",") !== defaults.outputFields.join(",")) parts.push(settings.outputFields.join(", ") || "no fields");
-  if (!!settings.mapToMni !== !!defaults.mapToMni) parts.push(settings.mapToMni ? "MNI" : "no MNI");
-  if (!!settings.mapToFsavg !== !!defaults.mapToFsavg) parts.push(settings.mapToFsavg ? "fsaverage" : "no fsaverage");
-  if (!!settings.carrierOnly !== !!defaults.carrierOnly) parts.push(settings.carrierOnly ? "carrier-only" : "TI");
-  return parts.join(" · ");
-}
 
 /** The Source cell's options, in table order. */
 export const SOURCE_OPTIONS: { value: MontageSource; label: string }[] = [
@@ -334,10 +309,6 @@ export const CARRIER_ONLY_HELP =
   "so there is no beat and no envelope. The carriers add as one fixed field, so hf_peak = |E1+E2| and hf_sar = |E1+E2|² " +
   "(coherent superposition, Cassarà et al. 2025) instead of the TI worst case max(|E1+E2|, |E1−E2|). " +
   "Only hf_peak and hf_sar are computed; TI_max, TI_avg and TI_normal are undefined. 2-pair TI montages only.";
-
-export const OUTPUT_FIELDS_HELP =
-  "Which volume fields to compute and write for each simulation. TI_normal (surface normal component) is always computed for 2-pair TI (except carrier-only controls) and is not a choice here. " +
-  "Cost: TI_avg adds a direction sweep; hf_peak and hf_sar are effectively free alongside a field that is already being computed.";
 
 /** Which montage bucket a montage lives in: `uni_polar_montages` / `multi_polar_montages`. */
 export type MontageKind = "uni_polar" | "multi_polar";

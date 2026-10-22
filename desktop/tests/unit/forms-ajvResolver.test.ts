@@ -6,7 +6,7 @@ import { createAjvResolver } from "../../src/renderer/forms/ajvResolver";
 import { resetSchemaCache, type JSONSchema } from "../../src/renderer/forms/schema";
 import { buildSimulationConfig } from "../../src/renderer/pages/simulator/buildConfig";
 import type { SelectedRow } from "../../src/renderer/pages/simulator/types";
-import { buildExConfig, defaultExFormState, savedTargets } from "../../src/renderer/pages/optimizer/exConfig";
+import { buildExConfig, defaultExFormState, exTargets } from "../../src/renderer/pages/optimizer/exConfig";
 import { defaultConfig as defaultPreprocessConfig } from "../../src/renderer/pages/preprocess/index";
 
 /**
@@ -72,7 +72,8 @@ describe("createAjvResolver(name): cross-referencing config schemas compile and 
   });
 
   it("an ExConfig (bucketed electrodes' `oneOf` `$defs`) validates", async () => {
-    const target = savedTargets(["Thalamus_target"], false)[0]!;
+    const roi = { mode: "saved" as const, selected: ["Thalamus_target"], combine: false, radius: 3.0, space: "subject" as const };
+    const target = exTargets(roi, () => undefined, true)[0]!;
     const form = { ...defaultExFormState(), buckets: { e1_plus: ["F7"], e1_minus: ["P7"], e2_plus: ["F3"], e2_minus: ["P3"] } };
     const config = buildExConfig("ernie", "/mnt/example/leadfields/GSN-HydroCel-185/leadfield.hdf5", form, target, "");
     const result = await validate("ExConfig", config as unknown as Record<string, unknown>);

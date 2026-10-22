@@ -1,10 +1,10 @@
 /**
- * Analyzer page — parity source `tit/gui/analyzer_tab.py` (see PARITY.md). A Jobs table where one
- * row is one analysis job, a Plan panel, and the 3-D pane showing the active row's target.
+ * Analyzer page. A Jobs table where one row is one analysis job, a Plan panel, and the 3-D pane
+ * showing the active row's target.
  *
  * Uses plain component state rather than the react-hook-form + ajv infra: the config here is
  * really a *batch* of `AnalyzerConfig` objects (one per row, and one per sphere/region a row's
- * target expands into — see PARITY.md), which does not map onto a single schema-validated form
+ * target expands into, `rowTargets`), which does not map onto a single schema-validated form
  * the way a one-shot Run screen does. Matches the existing `pages/overview/index.tsx` precedent of
  * plain `useState` for non-trivial screens.
  *

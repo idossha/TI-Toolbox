@@ -24,7 +24,7 @@ import {
   type PlanStage,
 } from "../_shared/run";
 import { planSim, type PlanResult } from "./api";
-import { buildMontageSources, buildSimulationConfig, type GlobalParams } from "./buildConfig";
+import { buildSimulationConfig, type GlobalParams } from "./buildConfig";
 import type { MontageSource, SelectedRow } from "./types";
 
 /**
@@ -79,10 +79,9 @@ export function useSimPlan(
   const queries = useQueries({
     queries: debouncedRows.map((row) => {
       const config = buildSimulationConfig(row, debouncedParams);
-      const montageSources = buildMontageSources();
       return {
-        queryKey: ["plan-sim", config, montageSources],
-        queryFn: () => planSim(config, [row.subjectId], false, montageSources),
+        queryKey: ["plan-sim", config],
+        queryFn: () => planSim(config, [row.subjectId], false),
       };
     }),
   });
@@ -191,9 +190,8 @@ export function RunButton({
 
   /** Per row, whether the server would refuse it without `overwrite` — planned now, not from cache. */
   async function rowsWithOutput(): Promise<boolean[]> {
-    const montageSources = buildMontageSources();
     const plans = await Promise.all(
-      rows.map((row) => planSim(buildSimulationConfig(row, params), [row.subjectId], false, montageSources)),
+      rows.map((row) => planSim(buildSimulationConfig(row, params), [row.subjectId], false)),
     );
     return plans.map((p) => p.jobs.some((job) => job.will_overwrite));
   }

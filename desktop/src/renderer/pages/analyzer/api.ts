@@ -1,34 +1,18 @@
 /**
- * Typed wrappers for the endpoints the Analyzer page needs beyond what `api/client.ts` already
- * exports (getSubjects/getSimulations/version/capabilities). Deliberately local to this page
- * rather than added to the shared client — many pages need many different catalog endpoints in
- * parallel and `api/client.ts` has no declared owner in the build plan's ownership map, so adding
- * to it risks colliding with other lanes' concurrent edits. These call the same shared `api`
- * (openapi-fetch) instance and reuse its `unwrap`/`ApiError`, just typed from the generated
- * `schema.d.ts` directly.
+ * Typed wrappers for the endpoints the Analyzer page calls: the simulation catalog, plan and job
+ * submission. They use the shared `api` (openapi-fetch) instance and its `unwrap`, typed from the
+ * generated `schema.d.ts`.
  */
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 import { mergePlanResults, type PlanResult as SharedPlanResult } from "../_shared/run/planModel";
 
-export type Atlas = components["schemas"]["Atlas"];
-export type Region = components["schemas"]["Region"];
-export type Analysis = components["schemas"]["Analysis"];
-export type TableData = components["schemas"]["TableData"];
 export type PlanResult = components["schemas"]["PlanResult"];
-export type ValidateResult = components["schemas"]["ValidateResult"];
 export type JobStatus = components["schemas"]["JobStatus"];
-export type ViewSpec = components["schemas"]["ViewSpec"];
 export type AnalyzerConfig = components["schemas"]["AnalyzerConfig"];
 export type SimulationDetail = components["schemas"]["SimulationDetail"];
 
-/**
- * `api/client.ts`'s own `getSimulations()` is typed `Promise<Simulation[]>` (the v0 base shape) —
- * stale against the v1 `SimulationList` response it actually unwraps (`SimulationDetail[]`,
- * carrying `fields`/`montages`/`space`/etc.). Rather than edit that shared, unowned file (risking
- * a collision with whichever lane gets to it first — reported as a gap), this calls the same
- * endpoint typed correctly from `schema.d.ts` directly.
- */
+/** One subject's simulations as the v1 catalog describes them (`fields`, `montages`, `space`, ...). */
 export async function getSimulationDetails(
   subject: string,
   client = api,
@@ -40,73 +24,6 @@ export async function getSimulationDetails(
     "/api/catalog/simulations",
   );
   return result.simulations;
-}
-
-export async function getAtlases(
-  subject: string,
-  opts: { space?: "subject" | "mni"; kind?: "cortical" | "subcortical" } = {},
-  client = api,
-): Promise<Atlas[]> {
-  return unwrap(
-    await client.GET("/api/catalog/atlases", {
-      params: { query: { subject, ...opts } },
-    }),
-    "/api/catalog/atlases",
-  );
-}
-
-export async function getAtlasRegions(
-  subject: string,
-  atlas: string,
-  hemi?: "lh" | "rh" | "both",
-  client = api,
-): Promise<Region[]> {
-  return unwrap(
-    await client.GET("/api/catalog/atlases/regions", {
-      params: { query: { subject, atlas, hemi } },
-    }),
-    "/api/catalog/atlases/regions",
-  );
-}
-
-export async function getAnalyses(
-  subject: string,
-  simulation: string,
-  client = api,
-): Promise<Analysis[]> {
-  return unwrap(
-    await client.GET("/api/catalog/analyses", {
-      params: { query: { subject, simulation } },
-    }),
-    "/api/catalog/analyses",
-  );
-}
-
-export async function getAnalysisSummary(
-  name: string,
-  subject: string,
-  simulation: string,
-  client = api,
-): Promise<TableData> {
-  return unwrap(
-    await client.GET("/api/catalog/analyses/{name}/summary", {
-      params: { path: { name }, query: { subject, simulation } },
-    }),
-    "/api/catalog/analyses/{name}/summary",
-  );
-}
-
-export async function validateAnalyzerConfig(
-  config: AnalyzerConfig,
-  client = api,
-): Promise<ValidateResult> {
-  return unwrap(
-    await client.POST("/api/validate/{kind}", {
-      params: { path: { kind: "analyzer" } },
-      body: { config },
-    }),
-    "/api/validate/{kind}",
-  );
 }
 
 export async function planAnalyzer(
@@ -205,28 +122,4 @@ export async function submitAnalyzerJob(
     }),
     "/api/jobs",
   );
-}
-
-export async function getViewSpec(
-  kind: "subject" | "simulation" | "analysis" | "group" | "custom",
-  query: {
-    subject?: string;
-    simulation?: string;
-    space?: "subject" | "mni";
-    field?: string;
-    analysis?: string;
-    roi?: string;
-    path?: string;
-  },
-  client = api,
-): Promise<ViewSpec> {
-  return unwrap(
-    await client.GET("/api/view/{kind}", { params: { path: { kind }, query } }),
-    "/api/view/{kind}",
-  );
-}
-
-/** Origin-relative URL for a jailed artifact file (pdf/png/csv/json/txt); safe to `window.open`. */
-export function artifactUrl(path: string): string {
-  return `/api/files/artifact?path=${encodeURIComponent(path)}`;
 }

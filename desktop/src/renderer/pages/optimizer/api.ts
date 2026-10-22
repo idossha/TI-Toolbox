@@ -1,12 +1,8 @@
 /**
- * Every network call the merged Optimizer page makes — the union of `optimizer-flex/api.ts` and
- * `optimizer-ex/queries.ts`, which is the whole reason they can be one page: the three methods
- * differ in their config body and their `kind`, not in the endpoints they talk to.
- *
- * Kept here rather than in `src/renderer/api/client.ts` for the same reason the two predecessors
- * did: that file has no declared owner and several page lanes need endpoints concurrently.
+ * Every network call the Optimizer page makes. Flex, Ex and mEx differ in their config body and
+ * their `kind`, not in the endpoints they talk to, which is why they are one page.
  */
-import { api, unwrap, ApiError } from "../../api/client";
+import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 
 export type EegNet = components["schemas"]["EegNet"];
@@ -51,28 +47,6 @@ export async function validateFor(kind: string, config: unknown): Promise<Valida
   );
 }
 
-export async function submitJob(
-  kind: string,
-  config: unknown,
-  subjectId: string,
-  tags: string[],
-  overwrite: boolean,
-): Promise<JobStatus> {
-  const path = "/api/jobs";
-  return unwrap(
-    await api.POST(path, {
-      body: {
-        kind: kind as components["schemas"]["JobKind"],
-        config: config as never,
-        subject_ids: [subjectId],
-        tags,
-        overwrite,
-      },
-    }),
-    path,
-  );
-}
-
 /** Queues leadfield generation for a net that has none — the Ex/mEx precondition strip's action. */
 export async function submitLeadfieldJob(subjectId: string, net: string): Promise<JobStatus> {
   const config: LeadfieldConfigBody = { subject_id: subjectId, eeg_net: net, tissues: [1, 2], interpolation: null, overwrite: false };
@@ -99,5 +73,3 @@ export async function planLeadfieldEta(
   const result = await planFor("leadfield", config, [subjectId]);
   return { minutes: result.cost?.eta_minutes ?? null, system: result.cost?.system ?? null };
 }
-
-export { ApiError };

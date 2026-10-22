@@ -3,7 +3,8 @@
  * and no WebGL in it (the same split `renderer/scene/`'s pure modules follow, and the reason this
  * behaviour can be tested without a GPU).
  *
- * This is v2.5.0's `tit/gui/extensions/electrode_placement.py` in one file's worth of rules:
+ * This is v2.5.0's `tit/gui/extensions/electrode_placement.py` (removed in v3.0.0) in one file's
+ * worth of rules:
  *
  *  - `onMarkerPlaced` named a marker `E<n><polarity>` from its **row index**, `+` on even rows and
  *    `−` on odd ones, so rows 0..3 are `E1+ E1− E2+ E2−` — the pairs the simulation runs;

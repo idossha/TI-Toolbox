@@ -1,8 +1,8 @@
 /**
- * Form state -> `FlexConfig` wire shape. Parity source: `tit/gui/flex_search_tab.py`
+ * Form state -> `FlexConfig` wire shape. Ported from the v2.5.0 `tit/gui/flex_search_tab.py`
  * `_build_flex_config` (field-for-field defaults and mapping), `tit/gui/components/
- * electrode_config.py` (`ElectrodeConfigWidget`), `tit/gui/components/solver_params.py`
- * (`SolverParamsWidget`). See PARITY.md for the full checklist this was built against.
+ * electrode_config.py` and `tit/gui/components/solver_params.py` (removed in v3.0.0; see git tag
+ * v2.5.0).
  */
 import { appDefaults } from "../../forms/appDefaults";
 import type { RoiConfig } from "../_shared/roi/types";

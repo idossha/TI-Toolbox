@@ -5,33 +5,36 @@ import Ajv2020 from "ajv/dist/2020";
 import type { ErrorObject } from "ajv";
 import type { JSONSchema } from "../../src/renderer/forms/schema";
 import {
-  atlasTarget,
   buildExConfig,
   buildMExConfig,
   defaultExFormState,
   defaultMExFormState,
-  savedTargets,
+  exTargets,
+  type ExTarget,
 } from "../../src/renderer/pages/optimizer/exConfig";
 import type { ExConfigBody, LeadfieldConfigBody, MExConfigBody } from "../../src/renderer/pages/optimizer/api";
+
+/** `exTargets` for a saved-ROI selection, the page's own expansion with the names given directly. */
+function savedTargets(names: string[], combine: boolean, radius = 3.0, space: "subject" | "mni" = "subject"): ExTarget[] {
+  return exTargets({ mode: "saved", selected: names, combine, radius, space }, () => undefined, true);
+}
+
+/** `exTargets` for one subcortical atlas selection, given the atlas's resolved path. */
+function atlasTarget(atlasId: string, atlasPath: string, labels: number[], space: "subject" | "mni" = "subject"): ExTarget {
+  const regions = labels.map((id) => ({ id, name: String(id) }));
+  const value = { mode: "subcortical" as const, space, atlas: atlasId, regions, tissues: "GM" as const };
+  return exTargets(value, () => ({ path: atlasPath }), true)[0] as ExTarget;
+}
 
 // contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as JSONSchema;
 
 /**
- * `desktop/src/renderer/forms/ajvResolver.ts` (`createAjvResolver`) and `forms/schema.ts`
- * (`resolveDef` + `loadConfigSchema`) compile ONE isolated `$defs/<Name>` object with Ajv,
- * stripped of the sibling `$defs` its own `$ref`s point to. Every config with a `oneOf`/`$ref`
- * to another `$defs` entry — `ExConfig.electrodes` -> `$defs/ExConfigBucketElectrodes`,
- * `PreprocessConfig` -> `$defs/QSIPrepConfig`, etc. — then fails to compile at all
- * ("can't resolve reference #/$defs/X from id #"), not just fails validation. Reproduced here
- * AND independently in `tests/unit/preprocess-defaults.test.ts` (a different lane's page, same
- * `createAjvResolver` call shape), so this is a `forms/` infra bug, not a page-level misuse —
- * reported to the orchestrator/F2 rather than fixed here (`forms/**` is not this lane's file).
- *
- * This test instead adds the FULL schema document to Ajv once (giving it an id) and resolves one
- * named `$def` from it via `getSchema`, which keeps sibling `$ref`s resolvable — the correct
- * story `createAjvResolver` should tell once that bug is fixed.
+ * Validates against the same whole-document Ajv scheme `createAjvResolver` uses
+ * (`desktop/src/renderer/forms/ajvResolver.ts`): the FULL schema document is added to Ajv once and
+ * one named `$def` is resolved from it via `getSchema`, so the sibling `$ref`s a config carries
+ * (`ExConfig.electrodes` -> `$defs/ExConfigBucketElectrodes`, ...) stay resolvable.
  */
 const ajv = new Ajv2020({ allErrors: true, strict: false, useDefaults: true });
 ajv.addSchema(schemaDoc, "schema.json");
