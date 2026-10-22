@@ -502,10 +502,23 @@ def _scene_files(
     return rows
 
 
-#: `.../derivatives/SimNIBS/sub-<id>/...` -- the only place in a project where a path names whose
-#: head it came out of. Files outside it (the bundled MNI template and atlases) belong to nobody
-#: and are exempt below, which is deliberate: an MNI scene is *supposed* to mix them in.
-_SUBJECT_IN_PATH = re.compile(r"/derivatives/SimNIBS/sub-([^/]+)/")
+#: The first *directory* named ``sub-<id>``: BIDS gives every subject one, under the project root
+#: (raw data, ``sourcedata/``) and under each ``derivatives/<pipeline>/`` at any depth (SimNIBS,
+#: FastSurfer, FreeSurfer, QSIPrep, QSIRecon's nested tree, ``ti-toolbox/reports``). A ``sub-``
+#: inside a file name, or a folder below the owner that someone named ``sub-foo``, is no subject.
+_SUBJECT_DIR = re.compile(r"(?:^|/)sub-([^/]+)/")
+
+
+def subject_of_path(path: str) -> str | None:
+    """The subject *path* belongs to, or ``None`` for a file that belongs to nobody.
+
+    ``None`` is the bundled MNI template and atlases, FreeSurfer's ``fsaverage`` and group
+    outputs, which a scene may always mix in. The same rule, case for case, as the Viewer's
+    ``subjectOfPath`` (``desktop/src/renderer/pages/viewer/lib.ts``); the shared table is
+    ``tests/fixtures/subject_paths.json``.
+    """
+    match = _SUBJECT_DIR.search(path)
+    return match.group(1) if match else None
 
 
 def _refuse_a_scene_that_spans_two_subjects(files: list[Any]) -> None:
@@ -527,9 +540,9 @@ def _refuse_a_scene_that_spans_two_subjects(files: list[Any]) -> None:
     for raw in files:
         if not isinstance(raw, str):
             continue
-        match = _SUBJECT_IN_PATH.search(raw)
-        if match:
-            subjects.setdefault(match.group(1), raw)
+        owner = subject_of_path(raw)
+        if owner is not None:
+            subjects.setdefault(owner, raw)
     if len(subjects) > 1:
         named = ", ".join(
             f"{sid} ({os.path.basename(path)})"

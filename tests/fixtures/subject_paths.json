@@ -1,0 +1,35 @@
+{
+  "_about": "Which subject owns a path, shared by tests/test_viewer_subject_ownership.py (tit/server/routes/viewers.py subject_of_path, behind the two-subject refusal of POST /api/view/open) and desktop/tests/unit/viewer-subject-ownership.test.ts (desktop/src/renderer/pages/viewer/lib.ts subjectOfPath / rescopeToSubject). groundTruth: authored -- owners are written by hand from the BIDS layout rule, not produced by either implementation: the first DIRECTORY named sub-<id> owns everything beneath it, whether it sits under the project root (raw BIDS, sourcedata) or under derivatives/<pipeline>/ at any depth (SimNIBS, fastsurfer, freesurfer, qsiprep, the nested qsirecon tree, ti-toolbox/reports|tissue_analysis). The id is the whole directory name after 'sub-', dots included, so sub-1.2 and sub-1 never merge. A 'sub-' inside a file name (HarvardOxford-sub-maxprob) or a folder below the owner (a simulation a person named sub-foo) is not a subject. owner null = belongs to nobody (the bundled MNI template and atlases, FreeSurfer's fsaverage, group outputs), which a scene may always mix in. Paths are container paths, the form the Viewer's file list and the server both carry. Layout checked against Dataset 000 (derivatives/{SimNIBS,fastsurfer,freesurfer,qsiprep,qsirecon/derivatives/qsirecon-DSIStudio,ti-toolbox/reports}) on 2026-10-22.",
+  "rows": [
+    {"why": "SimNIBS simulation output", "path": "/mnt/p/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz", "owner": "101"},
+    {"why": "SimNIBS head model T1", "path": "/mnt/p/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz", "owner": "ernie"},
+    {"why": "SimNIBS segmentation atlas", "path": "/mnt/p/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/labeling.nii.gz", "owner": "ernie"},
+    {"why": "FastSurfer atlas the Viewer tree offers (viewspec anatomy branch)", "path": "/mnt/p/derivatives/fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.nii.gz", "owner": "ernie"},
+    {"why": "legacy FreeSurfer atlas the Viewer tree offers", "path": "/mnt/p/derivatives/freesurfer/sub-101/mri/aparc+aseg.mgz", "owner": "101"},
+    {"why": "FreeSurfer's shared template subject is nobody's", "path": "/mnt/p/derivatives/freesurfer/fsaverage/mri/T1.mgz", "owner": null},
+    {"why": "QSIPrep output", "path": "/mnt/p/derivatives/qsiprep/sub-101/dwi/sub-101_space-T1w_desc-preproc_dwi.nii.gz", "owner": "101"},
+    {"why": "QSIRecon nests a second derivatives tree before the subject", "path": "/mnt/p/derivatives/qsirecon/derivatives/qsirecon-DSIStudio/sub-CHN/dwi/sub-CHN_space-T1w_model-tensor_param-fa_dwimap.nii.gz", "owner": "CHN"},
+    {"why": "raw BIDS anatomy under the project root", "path": "/mnt/p/sub-101/anat/sub-101_T1w.nii.gz", "owner": "101"},
+    {"why": "sourcedata subject folder", "path": "/mnt/p/sourcedata/sub-LA/T1w/scan.nii.gz", "owner": "LA"},
+    {"why": "per-subject report under ti-toolbox/reports", "path": "/mnt/p/derivatives/ti-toolbox/reports/sub-101/pre_processing_report_20260101_120000.html", "owner": "101"},
+    {"why": "per-subject tissue analysis under ti-toolbox", "path": "/mnt/p/derivatives/ti-toolbox/tissue_analysis/sub-ernie/report.json", "owner": "ernie"},
+    {"why": "the MNI152 template subject is a subject folder like any other", "path": "/mnt/p/derivatives/SimNIBS/sub-MNI152/m2m_MNI152/T1.nii.gz", "owner": "MNI152"},
+    {"why": "sub-1010 is not sub-101 (prefix)", "path": "/mnt/p/derivatives/SimNIBS/sub-1010/m2m_1010/T1.nii.gz", "owner": "1010"},
+    {"why": "an id with dots keeps them", "path": "/mnt/p/derivatives/SimNIBS/sub-1.2/m2m_1.2/T1.nii.gz", "owner": "1.2"},
+    {"why": "a simulation a person named sub-foo is not a second subject", "path": "/mnt/p/derivatives/SimNIBS/sub-101/Simulations/sub-foo/TI/mesh/sub-foo_TI.msh", "owner": "101"},
+    {"why": "bundled MNI template", "path": "/ti-toolbox/resources/atlas/MNI152_T1_1mm.nii.gz", "owner": null},
+    {"why": "a bundled atlas whose file name contains 'sub-'", "path": "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz", "owner": null},
+    {"why": "group statistics output", "path": "/mnt/p/derivatives/ti-toolbox/stats/group_comparison/run1/pvalues.nii.gz", "owner": null},
+    {"why": "a saved Viewer scene", "path": "/mnt/p/code/ti-toolbox/viewer/simulation.tetravox.json", "owner": null}
+  ],
+  "two_subject_scene": {
+    "why": "ernie's FastSurfer atlas over 101's field: before 2026-10-22 the Viewer kept both after a change to 101 and the server composed the scene",
+    "files": [
+      "/mnt/p/derivatives/fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.nii.gz",
+      "/mnt/p/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz"
+    ],
+    "subject": "101",
+    "kept": ["/mnt/p/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz"],
+    "dropped": ["/mnt/p/derivatives/fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.nii.gz"]
+  }
+}

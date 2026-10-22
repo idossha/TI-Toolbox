@@ -207,10 +207,6 @@ export function selectionKey(selection: ViewerSelection): string {
   return [selection.kind, ...parts].join("&");
 }
 
-export function sameSelection(a: ViewerSelection, b: ViewerSelection): boolean {
-  return selectionKey(a) === selectionKey(b);
-}
-
 /**
  * The draft a deep link produces — **prefill only**, never a load (R5's fixed decision).
  *
@@ -312,51 +308,6 @@ export function formatBytes(bytes: number | null | undefined): string {
     unit += 1;
   }
   return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
-}
-
-// ── Recents ─────────────────────────────────────────────────────────────────────────────────────
-//
-// The last eight things actually opened. Local to this machine and this person, unlike a preset:
-// a preset is a selection someone chose to keep and put in the project; a recent is a footprint.
-// Browser storage is therefore the right home for it, and losing it costs nothing.
-
-const RECENTS_KEY = "tit.viewer.recents";
-export const RECENTS_LIMIT = 8;
-
-export interface ViewerRecent {
-  key: string;
-  label: string;
-  selection: ViewerSelection;
-  /** The edited list, or null when the view type's own set was opened. */
-  files: string[] | null;
-}
-
-export function readRecents(): ViewerRecent[] {
-  try {
-    const raw = window.localStorage.getItem(RECENTS_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed.slice(0, RECENTS_LIMIT) as ViewerRecent[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-/** *entry* first, its older twin dropped, eight kept. Returns the new list (storage may refuse). */
-export function pushRecent(entry: ViewerRecent): ViewerRecent[] {
-  const next = [entry, ...readRecents().filter((r) => r.key !== entry.key)].slice(0, RECENTS_LIMIT);
-  try {
-    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
-  } catch {
-    /* private mode, quota — a footprint is not worth an error */
-  }
-  return next;
-}
-
-/** `Simulation · ernie · Thalamus` — what a recent row reads. */
-export function selectionLabel(selection: ViewerSelection): string {
-  const type = { subject: "Subject", simulation: "Simulation", analysis: "Analysis", group: "Group", custom: "Custom" }[selection.kind];
-  const parts = [selection.subject, selection.simulation, selection.analysis, selection.field, selection.path?.split("/").pop()].filter(Boolean);
-  return [type, ...parts].join(" · ");
 }
 
 /**
@@ -539,11 +490,18 @@ export function groupAnatomy(nodes: TreeNode[]): { key: string; title: string; n
 /**
  * The subject a container path belongs to, or `null` for a file that belongs to nobody.
  *
+ * The owner is the first *directory* named `sub-<id>`: BIDS gives every subject one under the
+ * project root and under each `derivatives/<pipeline>/` (SimNIBS, FastSurfer, FreeSurfer, QSIPrep,
+ * QSIRecon's nested tree, `ti-toolbox/reports`) — the anatomy tree offers FastSurfer and FreeSurfer
+ * atlases, so SimNIBS alone is not enough. A `sub-` inside a file name is no subject.
+ *
  * `null` is the bundled MNI template and the shared atlases, which an MNI scene is *supposed* to
- * mix in with a subject's own volumes — so they are never dropped by the rescoping below.
+ * mix in with a subject's own volumes — so they are never dropped by the rescoping below. The
+ * server applies the same rule (`tit/server/routes/viewers.py::subject_of_path`); both read the
+ * table `tests/fixtures/subject_paths.json`.
  */
 export function subjectOfPath(path: string): string | null {
-  const match = /\/derivatives\/SimNIBS\/sub-([^/]+)\//.exec(path);
+  const match = /(?:^|\/)sub-([^/]+)\//.exec(path);
   // The capture group is not optional, but `noUncheckedIndexedAccess` types every match index as
   // possibly undefined; `?? null` says so once rather than asserting it away.
   return match?.[1] ?? null;

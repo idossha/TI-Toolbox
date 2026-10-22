@@ -11,9 +11,8 @@
  * WebGL renderer string). None of the three has a referent any more: the picture is in another
  * application's window, which reports its own cursor and its own renderer in its own status bar.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  RECENTS_LIMIT,
   controlsFor,
   containerPaths,
   formatBytes,
@@ -25,10 +24,7 @@ import {
   branchState,
   fieldOfNode,
   formatFieldValue,
-  pushRecent,
-  readRecents,
   reorder,
-  selectionLabel,
   hasViewerDeepLink,
   readDeepLink,
   requiredControls,
@@ -228,53 +224,6 @@ describe("formatBytes", () => {
     expect(formatBytes(1536)).toBe("1.5 KB");
     expect(formatBytes(4 * 1024 * 1024)).toBe("4.0 MB");
     expect(formatBytes(420 * 1024 * 1024)).toBe("420 MB");
-  });
-});
-
-describe("selectionLabel", () => {
-  it("reads as the type and what it names", () => {
-    expect(selectionLabel({ kind: "simulation", subject: "ernie", simulation: "Thalamus", space: "subject" })).toBe("Simulation · ernie · Thalamus");
-    expect(selectionLabel({ kind: "custom", path: "/data/x.nii.gz", space: "subject" })).toBe("Custom · x.nii.gz");
-  });
-});
-
-describe("recents", () => {
-  const entry = (key: string) => ({
-    key,
-    label: key,
-    selection: { kind: "subject" as const, space: "subject" as const },
-    files: null,
-  });
-
-  // A tiny in-memory localStorage: this suite's jsdom environment provides the object but not a
-  // working `clear()`, and a recents test that shares storage with its neighbours is a flake.
-  beforeEach(() => {
-    const store = new Map<string, string>();
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: {
-        getItem: (k: string) => store.get(k) ?? null,
-        setItem: (k: string, v: string) => void store.set(k, v),
-        removeItem: (k: string) => void store.delete(k),
-        clear: () => store.clear(),
-      },
-    });
-  });
-
-  it("keeps the newest eight, most recent first, with no duplicate key", () => {
-    for (let i = 0; i < 10; i += 1) pushRecent(entry(`k${i}`));
-    const kept = readRecents();
-    expect(kept).toHaveLength(RECENTS_LIMIT);
-    expect(kept[0]!.key).toBe("k9");
-    pushRecent(entry("k5"));
-    const after = readRecents();
-    expect(after[0]!.key).toBe("k5");
-    expect(after.filter((r) => r.key === "k5")).toHaveLength(1);
-  });
-
-  it("survives unreadable storage rather than throwing", () => {
-    window.localStorage.setItem("tit.viewer.recents", "{not json");
-    expect(readRecents()).toEqual([]);
   });
 });
 
