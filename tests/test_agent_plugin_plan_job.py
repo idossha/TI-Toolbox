@@ -6,8 +6,9 @@ against the real FastAPI app (``tit.server.app.create_app``) with the fake runne
 
 * an invalid flex / flex_adaptive / flex_pareto config answers ``ok: false`` with the
   validate route's own field errors -- not a raw ``HTTP 422`` tool error from the run-folder
-  probe that used to run first, and the errors are the refused kind's own (a config can be
-  valid as ``flex`` and invalid as ``flex_adaptive``);
+  probe that used to run first, and the errors are the refused kind's own (focality without
+  thresholds is refused as ``flex`` and valid as ``flex_adaptive``/``flex_pareto``, so a
+  probe that fails for another reason is never blamed on missing thresholds);
 * a config that plans zero jobs is not ``ok`` and carries no ETA, as the tool description
   and the README's tools table say;
 * for each flex kind a run name ``run_<kind>`` lands in ``PathManager.flex_search_run`` and
@@ -26,6 +27,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import sys
 import threading
@@ -146,27 +148,56 @@ def test_an_invalid_flex_config_returns_the_validators_errors(live, kind):
     assert err and "roi" in text and "HTTP 422" not in text
 
 
+#: Valid as an Adaptive or Multi-threshold run, refused as a single flex run: a single focality
+#: run needs explicit thresholds (SimNIBS has no default), the two drivers derive theirs per step.
+FOCALITY_WITHOUT_THRESHOLDS = {"roi": ROI, "goal": "focality"}
+
+
+def _validate(as_user, kind, config, subject="101"):
+    body = {"config": {**config, "subject_id": subject}, "created_by": "agent"}
+    return as_user("POST", f"/api/validate/{kind}", body)
+
+
 @pytest.mark.parametrize("kind", ("flex_adaptive", "flex_pareto"))
-def test_a_refusal_is_explained_by_its_own_kinds_validator(live, kind):
-    """The same fields can be valid as one flex kind and invalid as another: the app's
-    defaults (``tit.server.app_defaults``) make Adaptive and Multi-threshold runs ``goal:
-    "focality"``, which a current-ratio search refuses without explicit thresholds, while plain
-    flex defaults to ``"mean"``. The errors must be the refused kind's own."""
+def test_one_config_is_refused_as_flex_and_planned_as_a_driver_kind(live, kind):
+    """The same fields can be valid as one flex kind and invalid as another; plan_job must
+    answer each kind with that kind's own verdict."""
     js, _, _, as_user = live
-    config = {"roi": ROI, "optimize_current_ratio": True}
+    config = FOCALITY_WITHOUT_THRESHOLDS
+    refused = _validate(as_user, "flex", config)
+    assert refused["ok"] is False and refused["errors"][0]["path"] == "thresholds"
+    assert _validate(as_user, kind, config) == {"ok": True, "errors": []}  # the premise
 
-    def validate(as_kind):
-        body = {"config": {**config, "subject_id": "101"}, "created_by": "agent"}
-        return as_user("POST", f"/api/validate/{as_kind}", body)
-
-    assert validate("flex") == {"ok": True, "errors": []}  # the premise
-    expected = validate(kind)
-    assert expected["ok"] is False and "thresholds" in expected["errors"][0]["message"]
+    err, plan = call(js, "plan_job", kind="flex", config=config, subject_ids=["101"])
+    assert not err, plan
+    assert plan["ok"] is False and plan["errors"] == refused["errors"]
+    assert plan["jobs"] == [] and plan["eta_minutes"] is None
 
     err, plan = call(js, "plan_job", kind=kind, config=config, subject_ids=["101"])
     assert not err, plan
-    assert plan["ok"] is False and plan["errors"] == expected["errors"]
-    assert plan["jobs"] == [] and plan["eta_minutes"] is None
+    assert plan["errors"] == [] and [j["kind"] for j in plan["jobs"]] == [kind]
+
+
+@pytest.mark.parametrize("kind", ("flex_adaptive", "flex_pareto"))
+def test_a_probe_failure_is_explained_by_the_refused_kinds_own_validator(
+    live, tmp_path, kind
+):
+    """When the run-folder probe fails for a reason that is not the config (here: the
+    subject's SimNIBS folder is a symlink out of the project, so the planned output lies
+    outside it), plan_job asks *this kind's* validator whether the config is at fault. The
+    config is valid as ``kind`` and refused as plain flex, so explaining the failure with the
+    flex validator would blame missing thresholds."""
+    js, pm, _, as_user = live
+    outside = tmp_path / "elsewhere" / "sub-103"
+    (outside / "m2m_103").mkdir(parents=True)
+    os.symlink(outside, os.path.dirname(pm.m2m("103")))
+    config = FOCALITY_WITHOUT_THRESHOLDS
+    assert _validate(as_user, kind, config, "103") == {"ok": True, "errors": []}
+    assert _validate(as_user, "flex", config, "103")["ok"] is False  # the premise
+
+    err, text = call(js, "plan_job", kind=kind, config=config, subject_ids=["103"])
+    assert err, text  # the probe's own failure, not a field error
+    assert "inside the project folder" in text and "thresholds" not in text
 
 
 def test_an_invalid_goal_is_a_field_error_too(live):
