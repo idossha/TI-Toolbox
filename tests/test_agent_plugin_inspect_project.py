@@ -9,7 +9,9 @@ inspector agents call before diagnosing "my result is missing" -- reports
   ``tit.catalog.list_subjects`` reports them, with every subject the catalog lists (including
   subjects staged only under ``sourcedata/``), in the catalog's natural order, and every flex
   run the catalog lists;
-* nothing reached through a symlink that leads out of the project (the catalog's jail).
+* nothing reached through a symlink that leads out of the project (the catalog's jail), and
+  nothing of the removed pipeline canvas: no ``code_ti_toolbox.pipelines`` summary and no
+  ``read_project_config(where="pipelines")``.
 
 Where the expected values come from: the synthetic project is laid out with ``PathManager``
 (``ti_mesh_dir``/``mti_mesh_dir``) and the mTI file name of ``tit/sim/mTI.py``
@@ -244,6 +246,51 @@ def test_the_jail_is_the_project_folder_and_nothing_beside_it(srv, tmp_path):
     assert [s["id"] for s in out["subjects"]] == ["1"]
     assert out["subjects"][0]["has_fastsurfer"] is False
     _agrees_with_catalog(out, pm)
+
+
+def test_the_removed_pipeline_canvas_is_not_reported(srv, project):
+    """Nothing writes ``code/ti-toolbox/pipelines/`` since the canvas was removed: a folder
+    left from an old version is neither summarised nor readable through the plugin."""
+    stale = Path(project.project_dir, "code", "ti-toolbox", "pipelines", "p.json")
+    stale.parent.mkdir(parents=True)
+    stale.write_text("{}")
+    out = inspect(srv, project.project_dir)
+    assert "pipelines" not in out["code_ti_toolbox"]
+    assert "p.json" not in json.dumps(out)
+
+
+def test_read_project_config_reads_only_the_three_toolbox_locations(srv, project):
+    root = Path(project.project_dir)
+    (root / "code" / "ti-toolbox" / "pipelines").mkdir(parents=True)
+    (root / "code" / "ti-toolbox" / "pipelines" / "p.json").write_text("{}")
+    listed = srv.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    [tool] = [
+        t for t in listed["result"]["tools"] if t["name"] == "read_project_config"
+    ]
+    where = tool["inputSchema"]["properties"]["where"]
+    # code/ti-toolbox/{config,viewer} and the head model's stim_configs/ (PathManager).
+    assert where["enum"] == ["config", "viewer", "stim_configs"]
+    assert "pipelines" not in json.dumps(tool)
+
+    resp = srv.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "read_project_config",
+                "arguments": {
+                    "project_root": str(root),
+                    "name": "p.json",
+                    "where": "pipelines",
+                },
+            },
+        }
+    )
+    assert resp["result"]["isError"] is True
+    assert resp["result"]["content"][0]["text"] == (
+        "where must be one of: " + ", ".join(where["enum"])
+    )
 
 
 def test_the_copied_subject_rule_is_the_catalogs(srv):
