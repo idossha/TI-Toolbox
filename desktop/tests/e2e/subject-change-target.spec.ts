@@ -1,9 +1,22 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { analysisRows, analysisTargetText, closeAnalysisTarget, openAnalysisTarget, setAnalysisCell, setAnalysisSubject } from "./_jobs";
+import {
+  addOptRow,
+  analysisRows,
+  analysisTargetText,
+  clearOptRows,
+  closeAnalysisTarget,
+  closeOptEditor,
+  openAnalysisTarget,
+  openOptEditor,
+  setAnalysisCell,
+  setAnalysisSubject,
+  setOptCell,
+  setOptSubject,
+} from "./_jobs";
 
 /**
  * Duplicating an Analyzer row onto another subject does not carry the first subject's
@@ -14,6 +27,11 @@ import { analysisRows, analysisTargetText, closeAnalysisTarget, openAnalysisTarg
  * anatomy without any error. Now the copy's target is cleared — the row reads "Choose a target…" —
  * and Run is blocked until a target for sub-101 is chosen; the original row keeps its mask. The
  * mask import is answered by page.route (the mock server stores no files).
+ *
+ * The Optimizer follows the same rule for a flex focality search's "avoid" region (the non-ROI):
+ * a subject-space non-ROI sphere on ernie is millimetres in ernie's head, so moving the row to
+ * sub-101 clears it (the toast says "Non-ROI: …") and the row builds no job until sub-101's own
+ * coordinates are entered, while the MNI-sphere ROI — one frame for every head — is kept.
  *
  * Run: `cd desktop && npm run pree2e && TIT_E2E_OFFSCREEN=1 npx playwright test --project=default
  * tests/e2e/subject-change-target.spec.ts` (mock server, offscreen).
@@ -88,4 +106,67 @@ test("a duplicated row moved to another subject drops the subject-space mask and
   await expect(page.getByText(/subject-space mask was cleared.*sub-ernie.*sub-101/)).toBeVisible();
   // The original row keeps ernie's mask.
   await expect(analysisTargetText(first)).toHaveText(ernieTarget);
+});
+
+/** Types one sphere into a RoiPicker that is already in Spherical mode. */
+async function typeSphere(picker: Locator, s: { x: number; y: number; z: number }): Promise<void> {
+  await picker.getByRole("spinbutton", { name: "Sphere 1 X", exact: true }).fill(String(s.x));
+  await picker.getByRole("spinbutton", { name: "Sphere 1 Y", exact: true }).fill(String(s.y));
+  await picker.getByRole("spinbutton", { name: "Sphere 1 Z", exact: true }).fill(String(s.z));
+}
+
+test("Optimizer: a flex row moved to another subject drops its subject-space non-ROI sphere and builds no job", async () => {
+  await gotoPage(page, "optimizer", "Optimizer");
+  await expectPage(page, "optimizer");
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "ernie");
+  // A focality goal is what reads the non-ROI at all.
+  await setOptCell(page, row, "goal", "Threshold-free focality");
+
+  const dialog = await openOptEditor(page, row);
+  // The ROI: an MNI sphere, one frame for every subject — kept across the move.
+  await expect(dialog.locator(".roi-picker")).toHaveCount(1);
+  const roiPicker = dialog.locator(".roi-picker").first();
+  await roiPicker.getByRole("radio", { name: "Spherical", exact: true }).click();
+  await roiPicker.getByRole("radiogroup", { name: "Coordinate space" }).getByRole("radio", { name: "MNI", exact: true }).click();
+  await typeSphere(roiPicker, { x: -10, y: -18, z: 9 });
+  // The non-ROI: a specific region, a sphere in ERNIE's own millimetres (the picker's default space).
+  await dialog
+    .locator(".field")
+    .filter({ has: page.locator(".field-label-text", { hasText: /^Non-ROI$/ }) })
+    .getByRole("combobox")
+    .click();
+  await page.getByRole("option", { name: "Specific region", exact: true }).click();
+  const nonRoiPicker = dialog.locator(".field", { hasText: "Non-ROI region" }).locator(".roi-picker");
+  await nonRoiPicker.getByRole("radio", { name: "Spherical", exact: true }).click();
+  await expect(nonRoiPicker.getByRole("radiogroup", { name: "Coordinate space" }).getByRole("radio", { name: "Subject", exact: true })).toHaveAttribute("aria-checked", "true");
+  await typeSphere(nonRoiPicker, { x: -42, y: -20, z: 55 });
+  await closeOptEditor(page);
+
+  const run = page.locator('[data-testid="run-button"]:visible');
+  await expect(run).toBeEnabled({ timeout: 20_000 });
+  await expect(run).toHaveText("Run search");
+
+  // Move the row to 101: the ernie-frame non-ROI is cleared and the toast says it was the non-ROI.
+  await setOptSubject(page, row, "101");
+  await expect(page.locator("[data-sonner-toast]").filter({ hasText: /^Non-ROI: The subject-space sphere was cleared/ })).toBeVisible();
+  // The row still has its target (the MNI ROI), but a focality search with an empty "avoid"
+  // region is no job: Run is blocked rather than optimising against ernie's coordinates in 101.
+  await expect(row).toHaveAttribute("data-target-ready", "true");
+  await expect(run).toBeDisabled({ timeout: 15_000 });
+  await expect(run).toHaveAttribute("title", "No job resolves to a target yet.");
+
+  const reopened = await openOptEditor(page, row);
+  const roiAgain = reopened.locator(".roi-picker").first();
+  await expect(roiAgain.getByRole("spinbutton", { name: "Sphere 1 X", exact: true })).toHaveValue("-10");
+  await expect(roiAgain.getByRole("radiogroup", { name: "Coordinate space" }).getByRole("radio", { name: "MNI", exact: true })).toHaveAttribute("aria-checked", "true");
+  const nonRoiAgain = reopened.locator(".field", { hasText: "Non-ROI region" }).locator(".roi-picker");
+  for (const axis of ["X", "Y", "Z"]) {
+    await expect(nonRoiAgain.getByRole("spinbutton", { name: `Sphere 1 ${axis}`, exact: true })).toHaveValue("");
+  }
+  // 101's own coordinates are 101's job: Run comes back.
+  await typeSphere(nonRoiAgain, { x: -40, y: -22, z: 52 });
+  await closeOptEditor(page);
+  await expect(run).toBeEnabled({ timeout: 20_000 });
 });

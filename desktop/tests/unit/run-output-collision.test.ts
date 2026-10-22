@@ -11,7 +11,10 @@
  *    (`code/ti-toolbox/config/montage_list.json`), and the server plans both to
  *    `sub-101/Simulations/L_Insula` (`plan.py::_plan_sim`, `pm.simulation(sid, montage.name)`).
  *  - the Optimizer (`jobsForRow`, `optimizerOutputClaims`): an uncombined two-ROI Ex row named
- *    "insula" gave both targets `run_name: "insula"`, so both wrote `ex-search/insula`.
+ *    "insula" gave both targets `run_name: "insula"`, so both wrote `ex-search/insula`. A flex
+ *    folder is always final (the page submits exactly the `output_folder` it planned), so two flex
+ *    rows under one typed run name are compared and blocked; two unnamed flex rows plan two
+ *    automatic folders and run.
  *
  * Where the folders come from: the server's derivatives layout (`tit/paths.py`:
  * `sub-<id>/Simulations/<montage>`, `sub-<id>/ex-search/<run>`, `sub-<id>/m-ex-search/<run>`),
@@ -22,7 +25,7 @@
 import { describe, expect, it } from "vitest";
 import { collidingOutputs, collisionReason, type OutputClaim } from "../../src/renderer/pages/_shared/run/planModel";
 import { simPlanBlockedReason } from "../../src/renderer/pages/simulator/RunControls";
-import { exRunName, jobsForRow, optimizerOutputClaims, type OptimizerJobSpec } from "../../src/renderer/pages/optimizer/plan";
+import { automaticRunName, exRunName, flexOutputFolder, jobsForRow, optimizerOutputClaims, type OptimizerJobSpec } from "../../src/renderer/pages/optimizer/plan";
 import { emptyOptimizerRow, type OptimizerRow } from "../../src/renderer/pages/optimizer/rows";
 import type { RoiValue } from "../../src/renderer/pages/_shared/roi";
 
@@ -197,5 +200,51 @@ describe("Optimizer: an Ex/mEx row with several targets is several run folders",
     }
     // Has something to check: the generator does produce colliding tables.
     expect(blockedTables).toBeGreaterThan(10);
+  });
+});
+
+/** A flex row on `subject` with an MNI sphere target (kept across subjects, nothing to resolve). */
+function flexRow(subject: string, runName: string): OptimizerRow {
+  const roi: RoiValue = { mode: "spherical", spheres: [{ x: -42, y: -20, z: 55, radius: 10 }], space: "mni", volumetric: false, tissues: "GM" };
+  return emptyOptimizerRow({ subjectId: subject, method: "flex", roi, runName });
+}
+
+/** `pm.flex_search_run(sid, name)` (`tit/paths.py`): `sub-<id>/flex-search/<name>`. */
+const flexFolder = (subject: string, name: string) => `${ROOT}/sub-${subject}/flex-search/${name}`;
+
+describe("Optimizer: flex rows are compared by the folder they will be submitted with", () => {
+  it("blocks two flex rows under one typed run name for one subject, naming both rows", () => {
+    const rows = [flexRow("ernie", "thal"), flexRow("ernie", "thal")];
+    const jobs = rows.flatMap((r) => jobsForRow(r, resolve));
+    expect(jobs.map((j) => j.stage)).toEqual(["flex", "flex"]);
+    // Flex carries no `run_name`: its name travels as `output_folder`, which a blank-run-name
+    // rule keyed on `run_name` would wrongly read as a timestamp preview.
+    expect(jobs.map((j) => (j.config as { run_name?: unknown }).run_name)).toEqual([undefined, undefined]);
+    const plans = jobs.map(() => plan(flexFolder("ernie", "thal")));
+    const reason = collisionReason(optimizerOutputClaims(jobs, plans, (id) => rows.findIndex((r) => r.id === id) + 1));
+    expect(reason).toMatch(/^Job 1 and Job 2 both write sub-ernie\/flex-search\/thal;/);
+  });
+
+  it("lets one typed flex run name run for two subjects — two folders", () => {
+    const rows = [flexRow("ernie", "thal"), flexRow("101", "thal")];
+    const jobs = rows.flatMap((r) => jobsForRow(r, resolve));
+    const plans = jobs.map((j) => plan(flexFolder(j.subject, "thal")));
+    expect(collisionReason(optimizerOutputClaims(jobs, plans, (id) => rows.findIndex((r) => r.id === id) + 1))).toBeNull();
+  });
+
+  it("gives two unnamed flex rows planned in the same millisecond two automatic folders, so they run", () => {
+    const rows = [flexRow("ernie", ""), flexRow("ernie", "")];
+    const jobs = rows.flatMap((r) => jobsForRow(r, resolve));
+    // What the page plans for a blank name (index.tsx): the server's own folder for
+    // `output_folder: null` gives the parent, the row's automatic name the leaf.
+    const serverDefault = flexFolder("ernie", PREVIEW);
+    const now = new Date(2026, 9, 22, 12, 0, 0, 0);
+    const folders = rows.map((r) => flexOutputFolder(serverDefault, "", automaticRunName(r.id, now)));
+    expect(folders[0]).not.toBe(folders[1]);
+    for (const folder of folders) expect(folder.startsWith(`${ROOT}/sub-ernie/flex-search/20261022_120000_000_`)).toBe(true);
+    const claims = optimizerOutputClaims(jobs, folders.map(plan), (id) => rows.findIndex((r) => r.id === id) + 1);
+    // Compared (final folders, not previews) — and distinct.
+    expect(claims.map((c) => c.outputDir)).toEqual(folders);
+    expect(collisionReason(claims)).toBeNull();
   });
 });

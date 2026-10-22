@@ -144,8 +144,12 @@ test("Analyzer: a duplicated analysis blocks Run and the Run shortcut, naming th
 
   await first.getByRole("button", { name: "Duplicate row 1", exact: true }).click();
   await expect(analysisRows(page)).toHaveCount(2);
-  const folder = "sub-ernie/Simulations/Thalamus/Analyses/Thalamus_sphere_x-10_y-18_z9_r5_TI_max";
-  await expect(run).toHaveAttribute("title", `Job 1 and Job 2 both write ${folder}${TAIL}`, { timeout: 20_000 });
+  // The `_TI_max` suffix is the MOCK's analysis-folder name (`server.mjs::analyzerAnalysisName`);
+  // the real server's `pm.analysis_output_dir` has no field in it. TODO(p21): when p21 aligns the
+  // mock with the server, the suffix goes — the pattern accepts the folder with or without it.
+  const folder = "sub-ernie/Simulations/Thalamus/Analyses/Thalamus_sphere_x-10_y-18_z9_r5";
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await expect(run).toHaveAttribute("title", new RegExp(`^Job 1 and Job 2 both write ${escape(folder)}(_TI_max)?${escape(TAIL)}$`), { timeout: 20_000 });
   await expect(run).toBeDisabled();
   await expect(page.locator(".action-bar-digest:visible")).toHaveCount(0);
 
@@ -219,4 +223,40 @@ test("Optimizer: two Ex searches under one run name block Run, naming the run fo
   await closeOptEditor(page);
   await expect(run).toBeEnabled({ timeout: 20_000 });
   await expect(run).toHaveText("Run 2 searches");
+});
+
+test("Optimizer: Run validates every search before it queues any — a refusal of the second names Job 2 and nothing is queued", async () => {
+  // The two searches the test above left: one Ex config per row, in `ex-search/shared` and
+  // `ex-search/shared_2`, and Run enabled for both.
+  const run = visibleRun();
+  await expect(run).toBeEnabled({ timeout: 20_000 });
+  await expect(run).toHaveText("Run 2 searches");
+
+  // The server refuses only the SECOND search's config. Before p19 the page validated one config
+  // per kind (`group[0]`), so this one went to the queue unchecked.
+  const validated: (string | null)[] = [];
+  const pattern = "**/api/validate/ex";
+  await page.route(pattern, async (route) => {
+    const config = (route.request().postDataJSON() as { config: { run_name?: string | null } }).config;
+    validated.push(config.run_name ?? null);
+    await route.fulfill({
+      json: config.run_name === "shared_2"
+        ? { ok: false, errors: [{ path: "roi_radius", message: "must be greater than 0 (e2e refusal)" }] }
+        : { ok: true, errors: [] },
+    });
+  });
+  const posts = collectPosts();
+  try {
+    await run.click();
+    const rejected = page.locator(".callout-danger:visible", { hasText: "The server rejected this configuration" });
+    await expect(rejected).toContainText("Job 2 · ex: roi_radius: must be greater than 0 (e2e refusal)", { timeout: 15_000 });
+    // Job 1 was valid, so it is not listed — and it was not queued on its own either.
+    await expect(rejected).not.toContainText("Job 1");
+    expect([...validated].sort()).toEqual(["shared", "shared_2"]);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(posts.urls).toEqual([]);
+  } finally {
+    posts.stop();
+    await page.unroute(pattern);
+  }
 });

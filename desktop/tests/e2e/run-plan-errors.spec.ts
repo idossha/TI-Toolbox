@@ -5,9 +5,11 @@ import { expect, test, type ElectronApplication, type Locator, type Page } from 
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import {
   analysisRows,
+  closeAnalysisTarget,
   closeOptEditor,
   configureMontageJob,
   jobRows,
+  openAnalysisTarget,
   openOptEditor,
   optRows,
   setAnalysisCell,
@@ -25,6 +27,11 @@ import {
  * asserts the Run button is disabled with DETAIL as its title and the bar is in its blocked state
  * (no digest). The expected title is DETAIL as sent, prefixed with the job's row label where the
  * page plans per job.
+ *
+ * A refusal belongs to the table it refused. The last two tests edit a refused table with page
+ * time paused (`page.clock`), so the page's 400 ms plan debounce cannot fire and the refusal is
+ * still the plan on hand: the edited table must not be blocked by it. They run last because the
+ * fake clock, once installed, stays for the rest of the session.
  *
  * Run: `cd desktop && npm run pree2e && TIT_E2E_OFFSCREEN=1 npx playwright test --project=default
  * tests/e2e/run-plan-errors.spec.ts` (mock server, offscreen).
@@ -148,4 +155,81 @@ test("Optimizer: a refused search no longer says 'Resolving the run folders…' 
   } finally {
     await refusal.stop();
   }
+});
+
+let clockInstalled = false;
+
+/** Stops page time: no timer fires — the plan debounce included — until `page.clock.resume()`.
+ *  The pause point is read from the page's own clock, which a previous pause leaves offset. */
+async function pauseTime(): Promise<void> {
+  if (!clockInstalled) {
+    await page.clock.install();
+    clockInstalled = true;
+  }
+  const pageNow = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(pageNow + 1_000);
+}
+
+test("Analyzer: an edit drops the refusal of the table it replaced, before the new plan is asked for", async () => {
+  await gotoPage(page, "analyzer", "Analyzer");
+  await expectPage(page, "analyzer");
+  const row = analysisRows(page).first();
+  const run = page.locator('[data-testid="run-button"]:visible');
+  const digest = page.locator(".action-bar-digest:visible");
+  // An accepted table first, so no refusal is left over from the tests above.
+  await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 6 });
+  await expect(digest).toHaveText(/^1 job$/, { timeout: 20_000 });
+  // Then a table the server refuses: Run shows the refusal once that plan has answered.
+  const refusal = await refusePlans("analyzer");
+  try {
+    await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 7 });
+    await expectBlocked(`Job 1: ${DETAIL}`);
+  } finally {
+    await refusal.stop();
+  }
+  const dialog = await openAnalysisTarget(page, row);
+  await pauseTime();
+  // Radius 8 is another table. Its plan has not been asked for (the debounce is frozen), so the
+  // only plan on hand is radius 7's refusal — which is not this table's.
+  await dialog.getByLabel("Sphere 1 radius").fill("8");
+  await expect(run).not.toHaveAttribute("title", `Job 1: ${DETAIL}`);
+  await expect(run).toBeEnabled();
+  await page.clock.resume();
+  await closeAnalysisTarget(page);
+  // The new table's own plan (the mock's, accepted) arrives and the bar counts it.
+  await expect(digest).toHaveText(/^1 job$/, { timeout: 20_000 });
+  await expect(run).toBeEnabled();
+});
+
+/** Flips a pre-processing step's checkbox: each flip is a configuration with its own plan. */
+async function toggleStep(label: string): Promise<void> {
+  const box = page.getByRole("checkbox", { name: label, exact: true });
+  await box.setChecked(!(await box.isChecked()));
+}
+
+test("Pre-processing: an edit drops the refusal of the configuration it replaced, before the new plan is asked for", async () => {
+  await gotoPage(page, "preprocess", "Pre-processing");
+  await expectPage(page, "preprocess");
+  const run = page.locator('[data-testid="run-button"]:visible');
+  const digest = page.locator(".action-bar-digest:visible");
+  // charm stays on throughout, so every configuration below has a step to run.
+  await expect(page.getByRole("checkbox", { name: "SimNIBS charm (m2m + subject atlas)", exact: true })).toBeChecked();
+  // An accepted configuration first, so the first test's refusal is not the plan on hand.
+  await toggleStep("FastSurfer segmentation");
+  await expect(digest).toHaveText(/^\d+ jobs?$/, { timeout: 20_000 });
+  const refusal = await refusePlans("pre");
+  try {
+    await toggleStep("Convert DICOM to NIfTI");
+    await expectBlocked(DETAIL);
+  } finally {
+    await refusal.stop();
+  }
+  await pauseTime();
+  // FastSurfer back on with DICOM still flipped: a configuration never planned in this session.
+  await toggleStep("FastSurfer segmentation");
+  await expect(run).not.toHaveAttribute("title", DETAIL);
+  await expect(run).toBeEnabled();
+  await page.clock.resume();
+  await expect(digest).toHaveText(/^\d+ jobs?$/, { timeout: 20_000 });
+  await expect(run).toBeEnabled();
 });
