@@ -10,7 +10,9 @@ Pins (2026-10-22):
   ``<kind>_<YYYYMMDD>_<HHMMSS>.html`` grammar the Reports list parses
   (``tit.catalog._report_kind_from_stem``) and the desktop mock's id grammar stays valid;
 * a free name is used as is, a file already there is never modified, and the next second is
-  real clock arithmetic (23:59:59 rolls over into the next day).
+  real clock arithmetic (23:59:59 rolls over into the next day);
+* a write that fails (a string UTF-8 cannot encode, a disk that fills halfway) leaves no empty or
+  partial file under a report name, records no artifact, and frees the name for the next report.
 
 Expected names are hand-computed from the frozen instant :data:`NOW`; kinds and titles are the
 Reports list's (``tests/test_report_artifact_events.py``'s ``REPORT_TITLES``, from
@@ -23,7 +25,8 @@ Deliberately elsewhere: serving the listed files (``tests/test_report_catalog_ro
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+import errno
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -155,3 +158,62 @@ def test_reports_of_different_kinds_share_a_second_without_moving(tmp_path):
         "simulation_report_20261022_031500.html",
         "dti_qc_20261022_031500.html",
     )
+
+
+def _disk_fills_halfway(path_open):
+    """``Path.open`` whose file takes half of a write and then reports a full disk."""
+
+    def open_(self, *args, **kwargs):
+        f = path_open(self, *args, **kwargs)
+        write = f.write
+
+        def half_then_full(text):
+            write(text[: len(text) // 2])
+            f.flush()
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+        f.write = half_then_full
+        return f
+
+    return open_
+
+
+@pytest.mark.parametrize("failure", ["unencodable", "disk-full"])
+def test_a_report_that_fails_to_write_leaves_no_file_behind(
+    tmp_path, events_file, failure
+):
+    """A failed write must not leave an empty or partial file under a report name: the Reports
+    list would show it, and the next report of that second would be pushed one second on.
+    """
+    from tit.reporting.generators import common
+
+    pm = make_project(tmp_path / "project")
+    reports = Path(pm.reports()) / f"sub-{SUBJECT}"
+    if failure == "unencodable":  # a lone surrogate: UTF-8 cannot encode it
+        html, error, disk = (
+            "<html>half a report \ud800</html>",
+            UnicodeEncodeError,
+            None,
+        )
+    else:
+        html, error = "<html>" + "x" * 10_000 + "</html>", OSError
+        disk = patch.object(Path, "open", _disk_fills_halfway(Path.open))
+    with frozen(NOW), pytest.raises(error), disk or nullcontext():
+        common.write_report(
+            html,
+            pm.project_dir,
+            SUBJECT,
+            "ex_search_report",
+            1_000_000,
+            label=REPORT_TITLES["ex_search_report"],
+        )
+
+    assert list(reports.iterdir()) == []
+    assert catalog.reports(pm, SUBJECT) == []
+    assert artifacts(events_file) == []
+
+    with frozen(NOW):
+        path = write_ex_report(pm, tmp_path / "run-f")
+
+    assert path.name == "ex_search_report_20261022_031500.html"
+    assert [e["path"] for e in artifacts(events_file)] == [str(path)]

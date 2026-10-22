@@ -161,7 +161,8 @@ def write_report(
     One file per run: when the second's name is taken (two ex-search jobs for one subject
     finishing together), the next free second is used, so the name keeps the
     ``<prefix>_<YYYYMMDD>_<HHMMSS>`` grammar :func:`tit.catalog.reports` parses. The file is
-    created exclusively, so a writer in another process can never overwrite it.
+    created exclusively, so an existing report is never overwritten, and a write that fails
+    removes its partial file before the error propagates.
     """
     from tit.jobs import events
     from tit.paths import get_path_manager
@@ -176,11 +177,18 @@ def write_report(
     while True:
         path = out / f"{prefix}_{stamp.strftime('%Y%m%d_%H%M%S')}.html"
         try:
-            with path.open("x", encoding="utf-8") as f:
-                f.write(html)
-            break
+            f = path.open("x", encoding="utf-8")
         except FileExistsError:
             stamp += timedelta(seconds=1)
+            continue
+        try:
+            with f:
+                f.write(html)
+        except BaseException:
+            # No empty or partial report under a name the Reports list would show.
+            path.unlink(missing_ok=True)
+            raise
+        break
     size = path.stat().st_size
     took = f", {time.time() - t0:.1f} s" if t0 else ""
     logger.info(f"{label}: {path} ({size / 1e6:.2f} MB{took})")
