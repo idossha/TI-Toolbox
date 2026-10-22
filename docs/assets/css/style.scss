@@ -175,7 +175,9 @@ pre {
 // Tables ---------------------------------------------------------------------
 
 table {
-  width: 100%;
+  width: fit-content;      // box hugs the content; wide tables scroll within max-width
+  max-width: 100%;
+  margin-inline: auto;
   border-collapse: collapse;
   font-size: 0.925rem;
   display: block;          // lets wide tables scroll instead of breaking layout
