@@ -26,9 +26,18 @@ derivatives/SimNIBS/sub-<ID>/
 │   ├── high_Frequency/            # the per-pair carrier fields
 │   ├── documentation/             # the config the run was launched with
 │   └── Analyses/{Mesh,Voxel}/     # per-analysis outputs
-├── flex-search/<run>/             # flex_meta.json, optimised positions, mappings
+├── flex-search/<run>/             # flex_meta.json, optimised positions, mappings,
+│                                  #   candidate_history/ (evaluated candidates)
 └── ex-search/<roi>/               # final_output.csv and per-montage outputs
 ```
+
+A flex run's `candidate_history/<NN>/` (one folder per optimization run) holds `candidates.csv` (scalar metrics per valid
+trial), `candidate_geometry.jsonl` (full-precision poses) and `candidate_manifest.json` (the
+objective and stopping reason); invalid placements are only counted. Flex metrics use unweighted
+samples from the declared ROI and non-ROI, whereas ex-search's recorded whole-gray-matter mean
+includes the target, so the two are not the same region definition. Ex replay uses the CSV's
+recorded precision and the Simulator's editable electrode defaults, since ex CSVs carry no
+electrode dimensions. Final simulated fields can differ from the optimizer's estimates.
 
 See [Reports]({{ site.baseurl }}/wiki/reports/) for what a report contains and
 [Analyzer]({{ site.baseurl }}/wiki/analyzer/) for the analysis outputs themselves.

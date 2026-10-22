@@ -111,6 +111,14 @@ The tool generates a JSON file with the following structure:
 
 This module is called when a flex-search result is simulated with electrodes mapped onto an EEG net (see `tit/sim/montage_sources.py`). It can also be used standalone for post-hoc analysis or custom workflows.
 
+## Mapping Distance and Target Depth
+
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/mapping_distance.png" alt="Electrode Mapping Distance Analysis" style="width: 70%; max-width: 600px;">
+</div>
+
+**Mapping distance grows with target depth**: mapping flex-search positions onto the inner 185 electrodes of the GSN-HydroCel-256 net moved electrodes 11.74 ± 5.33 mm for the hippocampus, against 7.30 ± 1.38 mm for the insula and 8.01 ± 1.43 mm for spherical ROIs. Deep targets favour widely separated electrodes low on the head, where net coverage is sparse. _Data from the supplementary information of the [TI-Toolbox reference](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)._
+
 ## EEG Net Density Impact on Optimization Performance
 
 <div class="image-container">

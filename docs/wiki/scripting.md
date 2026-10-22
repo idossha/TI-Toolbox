@@ -132,11 +132,40 @@ print(result.best_value, result.output_folder)
 ROI types: `FlexConfig.SphericalROI(x, y, z, radius, use_mni=, volumetric=, tissues=)`,
 `FlexConfig.AtlasROI(atlas_path, label, hemisphere)` for a cortical `.annot` region, and
 `FlexConfig.SubcorticalROI(atlas_path, label, tissues, atlas_space)` for a volumetric one. Each
-scalar field also accepts a list, which unions several regions into one target.
+scalar field also accepts a list, which unions several regions into one target (e.g.
+`label=[17, 53]` for both hippocampi). `tissues` is `"GM"`, `"WM"` or `"both"`; `atlas_space`
+is `"subject"` or `"mni"`; a NIfTI mask is a `SubcorticalROI` with `label=None` (all positive
+voxels). `SphericalROI` defaults to `volumetric=False`, which evaluates the sphere on the
+cortical surface: set `volumetric=True` for any deep target.
 
-The `focality_tf` goal maximises a threshold-free contrast:
+More `FlexConfig` fields:
 
-$$\frac{\overline{E}_{\mathrm{ROI}}^{\,1+w}}{p_{95}\!\left(E_{\mathrm{non\text{-}ROI}}\right)}$$
+| Field | Meaning | Default |
+|---|---|---|
+| `non_roi_method` / `non_roi` | `"everything_else"` or `"specific"` plus an ROI of any type (focality goals) | `None` → `"everything_else"` |
+| `thresholds` | `"0.2"` or `"0.2,0.5"` V/m (`focality` only) | `None` |
+| `mode` / `adaptive` / `pareto` | `"flex_adaptive"` (`AdaptiveFocalityConfig(roi_percentage=80, nonroi_percentage=20)`) or `"flex_pareto"` (`ParetoSweepConfig(roi_pcts, nonroi_pcts)`); `goal="focality"` only | `"flex"` |
+| `optimize_current_ratio` | Search the two-channel current split jointly with placement | `False` |
+| `ratio_total_mA` / `ratio_levels` | Total current shared by the channels / splits over 1:3–3:1 (rounded up to odd) | `2 × current_mA` / `21` |
+| `aniso_maxratio`, `aniso_maxcond` | Bounds for `anisotropy_type="vn"` | `10.0`, `2.0` |
+| `skin_region_margin_mm`, `avoid_landmark_regions` | Signed valid-skin margin; keep ear/eye zones invalid | `0.0`, `True` |
+
+```python
+cfg = FlexConfig(
+    subject_id="ernie", goal="focality_tf", postproc="max_TI", current_mA=2.0,
+    intensity_weight=0.0,
+    electrode=FlexConfig.ElectrodeConfig(),
+    roi=FlexConfig.SphericalROI(x=-25.0, y=-10.0, z=-20.0, radius=8.0, use_mni=True,
+                                volumetric=True, tissues="GM"),
+    non_roi_method="everything_else",
+    optimize_current_ratio=True, ratio_total_mA=4.0,
+)
+```
+
+The `focality_tf` goal maximises a threshold-free contrast (see
+[Flex search]({{ site.baseurl }}/wiki/flex-search/#goals)):
+
+$$\frac{\overline{E}_{\mathrm{ROI}}^{\,1+w}}{\overline{E}_{\mathrm{non\text{-}ROI}}}$$
 
 ## Optimizer — exhaustive search
 
