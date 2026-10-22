@@ -1,0 +1,14 @@
+{
+  "case_ids": [
+    "optimizer-flex/sphere-radius-0"
+  ],
+  "owner": "p06",
+  "checks": [
+    "verdict"
+  ],
+  "failure": [
+    "page accepts (None)",
+    "SphericalROI radius (mm) must be greater than 0 (was 0)"
+  ],
+  "reason": "FlexConfig.SphericalROI refuses a radius that is not a finite number > 0 (p08), but the ROI picker's isRoiComplete (desktop/src/renderer/pages/_shared/roi/types.ts, owned by p06 sphere-validation) checks only radius !== undefined, so a flex row with a 0 mm sphere is runnable and the server refuses it at submit. When p06's page gate lands, regenerate optimizer-flex/sphere-radius-0.json (UPDATE_DESKTOP_CONFIGS=1) and delete this file."
+}

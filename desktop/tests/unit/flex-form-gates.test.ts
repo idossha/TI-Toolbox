@@ -27,7 +27,7 @@ import { defaultFlexFormState, flexFormReason, thresholdsReason, FLEX_BOUNDS, ty
 import { rowFormReason } from "../../src/renderer/pages/optimizer/plan";
 import { emptyOptimizerRow } from "../../src/renderer/pages/optimizer/rows";
 import { ElectrodesSection, ObjectiveSection, SolverSection } from "../../src/renderer/pages/optimizer/FlexSections";
-import { emptyRoi } from "../../src/renderer/pages/_shared/roi";
+import { emptyRoi, type RoiValue } from "../../src/renderer/pages/_shared/roi";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -100,6 +100,44 @@ describe("flexFormReason: the bounds table", () => {
   });
 });
 
+describe("rowFormReason: a specific non-ROI that is the ROI itself", () => {
+  // FlexConfig refuses it under every focality goal ("the non_roi region is identical to the
+  // roi"): ROI and background are the same samples, so every candidate scores a ratio of 1.
+  const SPHERE: RoiValue = { mode: "spherical", spheres: [{ x: -30, y: 10, z: 5, radius: 10 }], space: "subject", volumetric: false, tissues: "GM" };
+  const OTHER: RoiValue = { mode: "spherical", spheres: [{ x: 30, y: 10, z: 5, radius: 10 }], space: "subject", volumetric: false, tissues: "GM" };
+  const INSULA: RoiValue = { mode: "cortical", space: "subject", atlas: "DKTatlas", regions: [{ id: 35, name: "insula", hemi: "lh" }] };
+  const flexRow = (roi: RoiValue, nonRoi: RoiValue, patch: Partial<FlexFormState>) =>
+    emptyOptimizerRow({ subjectId: "001", method: "flex", roi, nonRoi, flex: form({ nonRoiMethod: "specific", ...patch }) });
+  const SAME = "The non-ROI region is the ROI itself; pick a different non-ROI region or Everything else.";
+
+  it.each<[string, Partial<FlexFormState>]>([
+    ["threshold-free focality", { goal: "focality_tf" }],
+    ["fixed thresholds", { goal: "focality", focalityMode: "manual", manualThresholds: "0.1,0.2" }],
+    ["adaptive thresholds", { goal: "focality", focalityMode: "adaptive" }],
+    ["multi-threshold", { goal: "focality", focalityMode: "pareto" }],
+  ])("refuses the same sphere under %s", (_name, patch) => {
+    expect(rowFormReason(flexRow(SPHERE, { ...SPHERE, spheres: [{ ...SPHERE.spheres[0]! }] } as RoiValue, patch))).toBe(SAME);
+    expect(rowFormReason(flexRow(SPHERE, OTHER, patch))).toBeNull();
+  });
+
+  it("refuses the same atlas region, and accepts the other hemisphere's", () => {
+    expect(rowFormReason(flexRow(INSULA, { ...INSULA }, { goal: "focality_tf" }))).toBe(SAME);
+    const rh: RoiValue = { ...INSULA, regions: [{ id: 35, name: "insula", hemi: "rh" }] };
+    expect(rowFormReason(flexRow(INSULA, rh, { goal: "focality_tf" }))).toBeNull();
+  });
+
+  it("a sphere 1 mm larger is a different region", () => {
+    const larger: RoiValue = { ...SPHERE, spheres: [{ x: -30, y: 10, z: 5, radius: 11 }] };
+    expect(rowFormReason(flexRow(SPHERE, larger, { goal: "focality_tf" }))).toBeNull();
+  });
+
+  it("does not apply where no non-ROI is sent", () => {
+    // Everything-else focality and the non-focality goals send non_roi: null.
+    expect(rowFormReason(flexRow(SPHERE, SPHERE, { goal: "focality_tf", nonRoiMethod: "everything_else" }))).toBeNull();
+    expect(rowFormReason(flexRow(SPHERE, SPHERE, { goal: "mean" }))).toBeNull();
+  });
+});
+
 describe("thresholdsReason: a fixed-threshold focality run", () => {
   it.each(["", "   ", "dynamic", "AUTO"])("refuses the unset spelling %j: a single run has no default", (text) => {
     expect(thresholdsReason(text)).toBe("Enter the E-field thresholds: one value (non-ROI max = ROI min) or two (non-ROI max, ROI min) in V/m.");
@@ -113,11 +151,17 @@ describe("thresholdsReason: a fixed-threshold focality run", () => {
     ["0", "Each threshold must be a number greater than 0 V/m."],
     ["0.1,0.2,0.3", "Give one or two thresholds, not 3."],
     ["0.5,0.1", "The non-ROI maximum (first value) may not exceed the ROI minimum (second value)."],
+    // JavaScript's Number() reads these literals (16, 1, 7); Python's float() -- FlexConfig's
+    // parser -- refuses them, so the page must too.
+    ["0x10", "Each threshold must be a number greater than 0 V/m."],
+    ["0b1", "Each threshold must be a number greater than 0 V/m."],
+    ["0.1,0o7", "Each threshold must be a number greater than 0 V/m."],
   ])("refuses %j", (text, reason) => {
     expect(thresholdsReason(text)).toBe(reason);
   });
 
-  it.each(["0.2", "0.1,0.3", "0.2,0.2", " 0.1 , 0.3 "])("accepts %j", (text) => {
+  // Decimal spellings Python's float() reads: a leading dot, a trailing dot, an exponent, a sign.
+  it.each(["0.2", "0.1,0.3", "0.2,0.2", " 0.1 , 0.3 ", ".1,.2", "1.", "1e-1,2E-1", "+0.2"])("accepts %j", (text) => {
     expect(thresholdsReason(text)).toBeNull();
   });
 

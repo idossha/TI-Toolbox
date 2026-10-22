@@ -1,0 +1,98 @@
+{
+  "id": "optimizer-flex/nonroi-equals-roi",
+  "page": "optimizer-flex",
+  "title": "focality_tf with the ROI sphere also picked as the specific non-ROI",
+  "jobs": [
+    {
+      "config": {
+        "aniso_maxcond": 2,
+        "aniso_maxratio": 10,
+        "anisotropy_type": "scalar",
+        "avoid_landmark_regions": true,
+        "current_mA": 1,
+        "detailed_results": false,
+        "disable_mapping_simulation": false,
+        "eeg_net": null,
+        "electrode": {
+          "dimensions": [
+            8,
+            8
+          ],
+          "gel_thickness": 4,
+          "shape": "ellipse"
+        },
+        "enable_mapping": false,
+        "goal": "focality_tf",
+        "intensity_weight": 0,
+        "max_iterations": 500,
+        "min_electrode_distance": 5,
+        "mutation": "0.01,0.5",
+        "n_multistart": 1,
+        "non_roi": {
+          "_type": "SphericalROI",
+          "radius": [
+            10
+          ],
+          "tissues": "GM",
+          "use_mni": false,
+          "volumetric": false,
+          "x": [
+            -30
+          ],
+          "y": [
+            10
+          ],
+          "z": [
+            5
+          ]
+        },
+        "non_roi_method": "specific",
+        "optimize_current_ratio": false,
+        "output_folder": "/corpus/project/derivatives/SimNIBS/sub-001/flex-search/20261022_120000_000_nonroi-equals-roi",
+        "population_size": 13,
+        "postproc": "max_TI",
+        "ratio_levels": 21,
+        "ratio_total_mA": null,
+        "recombination": 0.7,
+        "roi": {
+          "_type": "SphericalROI",
+          "radius": [
+            10
+          ],
+          "tissues": "GM",
+          "use_mni": false,
+          "volumetric": false,
+          "x": [
+            -30
+          ],
+          "y": [
+            10
+          ],
+          "z": [
+            5
+          ]
+        },
+        "run_final_electrode_simulation": false,
+        "skin_region_margin_mm": 0,
+        "skin_visualization_net": null,
+        "subject_id": "001",
+        "thresholds": null,
+        "tolerance": 0.1,
+        "visualize_valid_skin_region": true
+      },
+      "kind": "flex",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "The non-ROI region is the ROI itself; pick a different non-ROI region or Everything else."
+  },
+  "expect": {
+    "flex_mode": "flex",
+    "goal": "focality_tf",
+    "roi_type": "spherical"
+  }
+}

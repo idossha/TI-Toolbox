@@ -260,6 +260,9 @@ export function flexFieldError(form: FlexFormState, key: FlexBoundKey): string |
 }
 
 const THRESHOLD_PLACEHOLDERS = new Set(["", "dynamic", "auto"]);
+/** A decimal number as Python's `float()` reads it. `Number()` alone also reads `0x10`, `0b1` and
+ *  `0o7`, which FlexConfig refuses. */
+const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
 /**
  * `FlexConfig`'s rule for a fixed-threshold focality run (tit/opt/config.py `_parse_thresholds`;
@@ -274,7 +277,7 @@ export function thresholdsReason(text: string): string | null {
   }
   const parts = raw.split(",").map((s) => s.trim());
   if (parts.length > 2) return `Give one or two thresholds, not ${parts.length}.`;
-  const values = parts.map((p) => (p === "" ? Number.NaN : Number(p)));
+  const values = parts.map((p) => (DECIMAL.test(p) ? Number(p) : Number.NaN));
   if (values.some((v) => !Number.isFinite(v) || v <= 0)) return "Each threshold must be a number greater than 0 V/m.";
   if (values.length === 2 && values[0]! > values[1]!) return "The non-ROI maximum (first value) may not exceed the ROI minimum (second value).";
   return null;

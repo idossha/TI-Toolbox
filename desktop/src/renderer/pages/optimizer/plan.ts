@@ -84,6 +84,9 @@ export function rowFormReason(row: OptimizerRow): string | null {
     const form = row.flex;
     const reason = flexFormReason(form);
     if (reason) return reason;
+    if ((form.goal === "focality" || form.goal === "focality_tf") && form.nonRoiMethod === "specific" && nonRoiIsRoi(row)) {
+      return "The non-ROI region is the ROI itself; pick a different non-ROI region or Everything else.";
+    }
     if (form.enableMapping && !form.eegNet) return "Select an EEG net for the mapped-electrode simulation.";
     if (form.visualizeSkinElectrodes && !form.skinVisualizationNet) return "Select a visualization EEG net.";
     return null;
@@ -97,6 +100,19 @@ export function rowFormReason(row: OptimizerRow): string | null {
   }
   if (MEX_BUCKET_KEYS.some((k) => (row.mex.buckets[k] ?? []).length === 0)) return "Fill in all eight electrode buckets.";
   return mexFormReason(row.mex);
+}
+
+/**
+ * True when the row's non-ROI is its ROI. FlexConfig refuses that under a focality goal: ROI and
+ * background are the same samples, so every candidate scores a ratio of 1. Compared on the wire
+ * shape `roiToConfig` builds, each atlas id standing in for its path: both regions resolve against
+ * the same subject's atlases, so the same id is the same file.
+ */
+function nonRoiIsRoi(row: OptimizerRow): boolean {
+  const byId = (atlas: string): AtlasLookup => ({ path: atlas });
+  const roi = roiToConfig(row.roi, byId);
+  const nonRoi = roiToConfig(row.nonRoi, byId);
+  return roi !== undefined && nonRoi !== undefined && JSON.stringify(roi) === JSON.stringify(nonRoi);
 }
 
 /** Resolve a run-name control under the subject's server-provided flex directory. */

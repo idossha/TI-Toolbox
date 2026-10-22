@@ -359,6 +359,8 @@ function optimizerFlexCases(): CorpusCase[] {
     flexCase("ellipse-8x10", "Ellipse with unequal dimensions 8x10", { goal: "mean", electrodeShape: "ellipse", dimensionWidth: 8, dimensionHeight: 10 }, sphere, { kind: "flex" }),
     flexCase("min-distance-0", "Minimum electrode distance 0 mm", { goal: "mean", minElectrodeDistance: 0 }, sphere, { kind: "flex" }),
     flexCase("mapped-net", "Mapped-electrode simulation on an EEG net", { goal: "mean", enableMapping: true, eegNet: NET }, sphere, { kind: "flex" }),
+    flexCase("nonroi-equals-roi", "focality_tf with the ROI sphere also picked as the specific non-ROI", { goal: "focality_tf", nonRoiMethod: "specific" }, sphere, { kind: "flex", nonRoi: sphere }),
+    flexCase("sphere-radius-0", "Goal mean, a sphere of radius 0 mm", { goal: "mean" }, { ...sphere, spheres: [{ x: -30, y: 10, z: 5, radius: 0 }] } as RoiValue, { kind: "flex" }),
   ];
 }
 
