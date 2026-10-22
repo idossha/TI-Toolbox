@@ -1,0 +1,353 @@
+"""Submission refuses a config key ``/api/validate`` calls unknown, and rerun is admitted like submit.
+
+What this pins
+--------------
+1. ``POST /api/jobs``, ``POST /api/jobs/groups`` (a template and a ``subject_configs`` entry)
+   and ``POST /api/jobs/{id}/rerun`` answer 422 naming a misspelled config key, for every kind
+   with a config class. Before, ``/api/validate`` was strict and submission was not: a
+   ``conductivty: "vn"`` typo was accepted with 201 and the runner silently ran the default
+   (the "Space switch had no effect" class of bug). The oracle is ``POST /api/validate/<kind>``
+   on the same config: submission must refuse what it reports as an unknown key.
+2. What the server and the runner own is still accepted: ``project_dir`` and ``_type`` in the
+   config, ``montage_sources`` beside it in the body, the stats runner's ``mode``.
+3. Rerun applies the admission checks of submit: a finished analyzer job whose simulation
+   folder was deleted is refused with exactly the 422 ``POST /api/jobs`` gives the same config
+   now (computed in the test -- parity is the oracle), and no job record is created.
+
+Configs: one accepted desktop-corpus case per kind (``tests/fixtures/desktop_configs``, written
+by the real desktop builders and accepted by every server validator), plus a hand-written
+leadfield config (no page builds one).
+
+Reproduce: ``.venv/bin/python -m pytest tests/test_submit_strict.py -q``.
+Deliberately elsewhere: strict deserialisation itself (``tests/test_config_io.py``), the
+envelope keys of ``/api/validate`` (``tests/test_validate_envelope_keys.py``).
+Written 2026-10-22 (package p41).
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import sys
+import time
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
+
+# stats/nifti_average/nilearn import scipy.ndimage/scipy.stats (test_plan_routes.py's fallback).
+for _mod in ("scipy.ndimage", "scipy.stats"):
+    sys.modules.setdefault(_mod, MagicMock())
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from tit.jobs import bootstrap  # noqa: E402
+from tit.jobs.config_check import check_job_config  # noqa: E402
+from tit.jobs.manager import JobManager  # noqa: E402
+from tit.jobs.spec import Cost  # noqa: E402
+from tit.paths import get_path_manager  # noqa: E402
+from tit.server.app import create_app  # noqa: E402
+from tit.server.routes.validate import ALL_KINDS, refuse_unknown_keys  # noqa: E402
+from tit.server.settings import ServerSettings  # noqa: E402
+
+TOKEN = "test-token-strict"
+BEARER = {"Authorization": f"Bearer {TOKEN}"}
+CORPUS = Path(__file__).parent / "fixtures" / "desktop_configs"
+PLACEHOLDER = "/corpus/project"
+TYPO = "conductivty"  # the repro's misspelling; a field of no config class
+
+
+def _corpus_configs(project: Path) -> dict[str, tuple[dict, list[str]]]:
+    """kind -> (config, subject_ids) of the first case the desktop and server both accept."""
+    found: dict[str, tuple[dict, list[str]]] = {}
+    gap_ids = {
+        case_id
+        for gap in (CORPUS / "known_gaps").glob("*.json")
+        for case_id in json.loads(gap.read_text())["case_ids"]
+    }
+    for path in sorted(CORPUS.glob("*/*.json")):
+        if path.parent.name == "known_gaps":
+            continue
+        case = json.loads(path.read_text().replace(PLACEHOLDER, str(project)))
+        if not case["desktop"]["accepts"] or case["id"] in gap_ids:
+            continue
+        for job in case["jobs"]:
+            found.setdefault(job["kind"], (job["config"], job["subject_ids"]))
+    found.setdefault(
+        "leadfield",
+        ({"subject_id": "001", "eeg_net": "GSN-HydroCel-185.csv"}, ["001"]),
+    )
+    return found
+
+
+@pytest.fixture()
+def project(tmp_path: Path) -> Path:
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "dataset_description.json").write_text("{}")
+    return root
+
+
+@pytest.fixture()
+def manager(project: Path, monkeypatch):
+    monkeypatch.setattr("tit.surfer_settings.available_threads", lambda: 8)
+    monkeypatch.setattr(
+        "tit.surfer_settings.settings_path", lambda: project / "preferences.json"
+    )
+    get_path_manager(str(project))
+    fake = str(Path(__file__).parent / "fake_runner.py")
+    jobs = JobManager(
+        str(project),
+        runner_cwd=str(project),
+        poll_interval=0.05,
+        budget=Cost(cpus=8, mem_gb=64),
+        command_for=lambda kind, config, spec: [sys.executable, fake, spec],
+    )
+    jobs.start()
+    bootstrap.set_manager_for_testing(jobs)
+    yield jobs
+    jobs.shutdown()
+    bootstrap.reset_manager()
+
+
+@pytest.fixture()
+def client(project: Path, manager) -> TestClient:
+    settings = ServerSettings(project_dir=str(project), token=TOKEN)
+    return TestClient(create_app(settings), base_url="http://127.0.0.1:8765")
+
+
+def test_every_kind_with_a_config_class_has_a_case(project: Path) -> None:
+    assert set(_corpus_configs(project)) == set(ALL_KINDS)
+
+
+@pytest.mark.parametrize("kind", sorted(ALL_KINDS))
+def test_a_misspelled_key_is_refused_at_submit_as_validate_reports_it(
+    kind: str, client: TestClient, project: Path
+) -> None:
+    config, subject_ids = _corpus_configs(project)[kind]
+    # The clean config passes both submit-time config checks...
+    check_job_config(kind, config)
+    refuse_unknown_keys(kind, config)
+    typo = {**config, TYPO: "vn"}
+    # ...and the oracle: /api/validate reports the misspelling.
+    validate = client.post(
+        f"/api/validate/{kind}", json={"config": typo}, headers=BEARER
+    ).json()
+    assert validate["ok"] is False and TYPO in validate["errors"][0]["message"]
+
+    r = client.post(
+        "/api/jobs",
+        json={"kind": kind, "config": typo, "subject_ids": subject_ids},
+        headers=BEARER,
+    )
+    assert r.status_code == 422, r.text
+    assert TYPO in r.json()["detail"]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
+def test_a_misspelled_key_nested_in_a_montage_is_refused(
+    client: TestClient, project: Path
+) -> None:
+    config, subject_ids = _corpus_configs(project)["sim"]
+    montage = {**config["montages"][0], "electrode_pair": [["E1", "E2"]]}
+    r = client.post(
+        "/api/jobs",
+        json={
+            "kind": "sim",
+            "config": {**config, "montages": [montage]},
+            "subject_ids": subject_ids,
+        },
+        headers=BEARER,
+    )
+    assert r.status_code == 422, r.text
+    assert "electrode_pair" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("kind", ["sim", "flex", "ex", "pre"])
+def test_a_group_template_with_a_misspelled_key_is_refused(
+    kind: str, client: TestClient, project: Path
+) -> None:
+    config, subject_ids = _corpus_configs(project)[kind]
+    r = client.post(
+        "/api/jobs/groups",
+        json={"kind": kind, "config": {**config, TYPO: 1}, "subject_ids": subject_ids},
+        headers=BEARER,
+    )
+    assert r.status_code == 422, r.text
+    assert TYPO in r.json()["detail"]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
+def test_a_group_subject_config_with_a_misspelled_key_is_refused(
+    client: TestClient, project: Path
+) -> None:
+    config, _ = _corpus_configs(project)["sim"]
+    r = client.post(
+        "/api/jobs/groups",
+        json={
+            "kind": "sim",
+            "config": config,
+            "subject_ids": ["001", "002"],
+            "subject_configs": [
+                {"subject_id": "002", "config": {**config, TYPO: "vn"}}
+            ],
+        },
+        headers=BEARER,
+    )
+    assert r.status_code == 422, r.text
+    assert TYPO in r.json()["detail"]
+
+
+def test_envelope_and_dispatch_keys_are_not_unknown(project: Path) -> None:
+    configs = _corpus_configs(project)
+    sim, _ = configs["sim"]
+    refuse_unknown_keys("sim", {**sim, "project_dir": str(project)})
+    check_job_config("sim", {**sim, "project_dir": str(project)})
+    stats, _ = configs["stats"]
+    assert stats["_type"] in ("GroupComparisonConfig", "CorrelationConfig")
+    mode = (
+        "correlation" if stats["_type"] == "CorrelationConfig" else "group_comparison"
+    )
+    refuse_unknown_keys("stats", {**stats, "mode": mode})
+
+
+def _seed_sim_inputs(project: Path, sid: str) -> None:
+    pm = get_path_manager(str(project))
+    m2m = Path(pm.m2m(sid))
+    m2m.mkdir(parents=True, exist_ok=True)
+    (m2m / f"{sid}.msh").write_bytes(b"")
+    eeg = Path(pm.eeg_positions(sid))
+    eeg.mkdir(parents=True, exist_ok=True)
+    rows = "".join(
+        f"Electrode,{10 * i},0,0,{name}\n"
+        for i, name in enumerate(["E1", "E2", "E3", "E4"])
+    )
+    (eeg / "GSN-HydroCel-185.csv").write_text(rows)
+
+
+SIM_CONFIG = {
+    "subject_id": "001",
+    "montages": [
+        {
+            "_type": "Montage",
+            "name": "m1",
+            "mode": "net",
+            "electrode_pairs": [["E1", "E2"], ["E3", "E4"]],
+            "eeg_net": "GSN-HydroCel-185.csv",
+        }
+    ],
+}
+
+
+def test_montage_sources_beside_the_config_is_still_accepted(
+    client: TestClient, project: Path
+) -> None:
+    _seed_sim_inputs(project, "001")
+    r = client.post(
+        "/api/jobs",
+        json={
+            "kind": "sim",
+            "config": {**SIM_CONFIG, "project_dir": str(project)},
+            "subject_ids": ["001"],
+            "montage_sources": {"flex": []},
+        },
+        headers=BEARER,
+    )
+    assert r.status_code == 201, r.text
+
+
+# ---------------------------------------------------------------------------------------------
+# rerun is admitted like submit
+# ---------------------------------------------------------------------------------------------
+
+SID, SIM = "001", "L_Insula"
+
+
+def _seed_analysis_inputs(project: Path) -> None:
+    """What tests/test_jobs_preflight.py's project gives a mesh cortical analysis."""
+    pm = get_path_manager(str(project))
+    for path in (
+        Path(pm.m2m(SID)) / f"{SID}.msh",
+        Path(pm.ti_mesh(SID, SIM)),
+        Path(pm.ti_central_surface(SID, SIM)),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("")
+
+
+ANALYSIS = {
+    "mode": "single",
+    "subject_id": SID,
+    "simulation": SIM,
+    "space": "mesh",
+    "analysis_type": "cortical",
+    "atlas": "DK40",
+    "region": "lh.insula",
+}
+
+
+def _finished(client: TestClient, job_id: str) -> dict:
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        job = client.get(f"/api/jobs/{job_id}", headers=BEARER).json()["status"]
+        if job["state"] in ("succeeded", "failed", "cancelled"):
+            return job
+        time.sleep(0.02)
+    raise AssertionError(f"job {job_id} did not finish")
+
+
+def test_rerun_refuses_missing_inputs_exactly_as_submit_does(
+    client: TestClient, project: Path
+) -> None:
+    _seed_analysis_inputs(project)
+    body = {"kind": "analyzer", "config": ANALYSIS, "subject_ids": [SID]}
+    first = client.post("/api/jobs", json=body, headers=BEARER)
+    assert first.status_code == 201, first.text
+    assert _finished(client, first.json()["id"])["state"] == "succeeded"
+
+    shutil.rmtree(get_path_manager().simulation(SID, SIM))
+    expected = client.post("/api/jobs", json=body, headers=BEARER)
+    assert expected.status_code == 422
+    assert expected.json()["detail"] == "Missing inputs"
+    assert get_path_manager().simulation(SID, SIM) in [
+        m["expected_path"] for m in expected.json()["missing"]
+    ]
+
+    rerun = client.post(f"/api/jobs/{first.json()['id']}/rerun", headers=BEARER)
+    assert rerun.status_code == 422, rerun.text
+    assert rerun.json() == expected.json()
+    assert [j["id"] for j in client.get("/api/jobs", headers=BEARER).json()] == [
+        first.json()["id"]
+    ]
+
+
+def test_rerun_refuses_a_recorded_config_with_a_misspelled_key(
+    client: TestClient, manager: JobManager, project: Path
+) -> None:
+    _seed_sim_inputs(project, "001")
+    # Recorded before submission was strict: straight into the manager, as an old record.
+    old = manager.submit("sim", {**SIM_CONFIG, TYPO: "vn"}, ["001"])
+    _finished(client, old["id"])
+    r = client.post(f"/api/jobs/{old['id']}/rerun", headers=BEARER)
+    assert r.status_code == 422, r.text
+    assert TYPO in r.json()["detail"]
+    assert len(client.get("/api/jobs", headers=BEARER).json()) == 1
+
+
+def test_rerun_of_a_clean_finished_job_still_runs(
+    client: TestClient, project: Path
+) -> None:
+    _seed_sim_inputs(project, "001")
+    first = client.post(
+        "/api/jobs",
+        json={"kind": "sim", "config": SIM_CONFIG, "subject_ids": ["001"]},
+        headers=BEARER,
+    )
+    assert first.status_code == 201, first.text
+    _finished(client, first.json()["id"])
+    rerun = client.post(f"/api/jobs/{first.json()['id']}/rerun", headers=BEARER)
+    assert rerun.status_code == 201, rerun.text
+    assert rerun.json()["id"] != first.json()["id"]

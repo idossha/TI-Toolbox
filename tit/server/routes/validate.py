@@ -213,6 +213,45 @@ def _stats_mode_class(mode: Any, type_tag: Any) -> str:
     return cls_name
 
 
+def refuse_unknown_keys(kind: str, config: dict[str, Any]) -> None:
+    """Raise :class:`ValueError` when *config* has a key ``/api/validate/{kind}`` calls unknown.
+
+    The submission routes (``POST /api/jobs``, ``/api/jobs/groups``, rerun, an approved
+    proposal) read configs leniently, as the runners do, so a misspelled or renamed key used
+    to be accepted and silently ignored. This applies the validate route's strictness, with the
+    same envelope (``project_dir``) and dispatch (stats ``mode``) keys set aside, to that one
+    rule: a config that is invalid for another reason is left to ``check_job_config``, the
+    preflight and the runner (the analyzer and source runners still read their older layouts).
+    Kinds with no config class (``tools``, ``project_init``) have nothing to check.
+
+    Raises
+    ------
+    ValueError
+        Naming the unknown key(s) and the class's fields.
+    """
+    from tit.config_io import deserialize_config
+
+    if kind not in ALL_KINDS:
+        return
+    try:
+        cls = cls_for(kind, config)
+    except KindNotConfigurable:
+        return  # refused by the overwrite check's own cls_for, with its own message
+    if cls is None:
+        return
+    ignored = ENVELOPE_KEYS | DISPATCH_KEYS.get(kind, frozenset())
+    data = {k: v for k, v in config.items() if k not in ignored}
+    try:
+        deserialize_config(cls, data, strict=True)
+    except (ValueError, TypeError, KeyError) as strict_error:
+        try:
+            deserialize_config(cls, data)
+        except (ValueError, TypeError, KeyError):
+            return  # invalid regardless of its keys: not this check's to judge
+        # Strict adds only the unknown-key rule, so that is what failed.
+        raise ValueError(str(strict_error)) from None
+
+
 #: dataclass field names are always identifiers; a message quoting or bareword-mentioning one
 #: is very likely talking about that field (see _guess_field_path's docstring for the caveat).
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")

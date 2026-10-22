@@ -30,6 +30,7 @@ from tit.server.overwrite_policy import (
     planned_outputs,
     refuse_unconfirmed_overwrite,
 )
+from tit.server.routes.validate import refuse_unknown_keys
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,20 @@ def list_jobs(
     return _manager(request).list_jobs(
         state=state, subject=subject, kind=kind, limit=limit
     )
+
+
+def _check_config(kind: str, config: dict[str, Any]) -> None:
+    """HTTP 422 unless the runner can read *config* and it has no key the runner would ignore.
+
+    ``check_job_config`` is the runner's own deserialisation, strict; ``refuse_unknown_keys``
+    is ``POST /api/validate``'s unknown-key rule for the kinds ``check_job_config`` does not
+    cover. A misspelled key used to be accepted here and silently ignored by the runner.
+    """
+    try:
+        check_job_config(kind, config)
+        refuse_unknown_keys(kind, config)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 def _check_freesurfer_inputs(
@@ -206,14 +221,10 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
     # An agent sends only what it chose; the rest is the run pages' (tit.server.app_defaults).
     if created_by == "agent":
         config = with_app_defaults(kind, config)
-    # `/api/jobs/groups` gets this for free: `plan_per_subject` round-trips every generated
-    # config through the kind's dataclass. This single-job route did not, so a config the
-    # runner cannot deserialise (a `sim` config with no `subject_id`/`montages`) was accepted,
-    # written to config.json, and only died minutes later inside `tit/sim/__main__.py`.
-    try:
-        check_job_config(kind, config)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # A config the runner cannot deserialise (a `sim` config with no `subject_id`/`montages`)
+    # used to be accepted, written to config.json, and only died minutes later inside
+    # `tit/sim/__main__.py`; one with a misspelled key ran with that key ignored.
+    _check_config(kind, config)
     _check_freesurfer_inputs(kind, config, subject_ids)
     refused = _missing_inputs(_manager(request), [(kind, config, subject_ids)])
     if refused is not None:
@@ -338,6 +349,7 @@ def plan_submission(
 
     tags = list(tags or [])
     if kind == "pre":
+        _check_config(kind, config)
         planned = _plan_pre_group(config, subject_ids)
         _check_freesurfer_inputs(kind, config, subject_ids)
         # The whole group's flags at once: an early stage (DICOM conversion) supplies what a
@@ -357,10 +369,7 @@ def plan_submission(
             planned = []
             for sid in subject_ids:
                 entry = {**config, "subject_id": sid}
-                try:
-                    check_job_config(kind, entry)
-                except ValueError as exc:
-                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+                _check_config(kind, entry)
                 planned.append(
                     PlannedJob(
                         label=f"{sid}:{kind}",
@@ -500,6 +509,9 @@ def _plan_generic_group(
                 status_code=422, detail="subject_ids must be an array of strings"
             )
         for entry_config in by_subject.get(subject_id) or [config]:
+            # `plan_per_subject` round-trips each config through its dataclass, which drops
+            # a key the class does not have: refuse it first, as /api/validate would.
+            _check_config(kind, {**entry_config, "subject_id": subject_id})
             entries.append((subject_id, entry_config))
 
     try:
@@ -601,17 +613,24 @@ async def cancel_job(request: Request, job_id: str) -> dict[str, Any]:
     summary="Submit a new job with the same spec as a finished one",
 )
 def rerun_job(request: Request, job_id: str) -> dict[str, Any]:
-    detail = _manager(request).get_detail(job_id)
-    if detail is not None:
-        spec = detail["spec"]
-        _check_freesurfer_inputs(spec["kind"], spec["config"], spec["subject_ids"])
-        check_overwrite_permission(
-            spec["kind"],
-            spec["config"],
-            spec["subject_ids"],
-            overwrite=bool(spec.get("overwrite", False)),
-        )
-    status = _manager(request).rerun(job_id)
+    """Admitted exactly like ``POST /api/jobs`` with the recorded spec: the project may have
+    changed since (inputs deleted), and a record from before a check existed must meet it.
+    """
+    manager = _manager(request)
+    detail = manager.get_detail(job_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
+    spec = detail["spec"]
+    kind, config, subject_ids = spec["kind"], spec["config"], spec["subject_ids"]
+    _check_config(kind, config)
+    _check_freesurfer_inputs(kind, config, subject_ids)
+    refused = _missing_inputs(manager, [(kind, config, subject_ids)])
+    if refused is not None:
+        return refused
+    check_overwrite_permission(
+        kind, config, subject_ids, overwrite=bool(spec.get("overwrite", False))
+    )
+    status = manager.rerun(job_id)
     if status is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
     return status

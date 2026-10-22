@@ -862,7 +862,9 @@ def test_a_group_runs_one_member_at_a_time(client: TestClient, stale_field: dict
         headers=BEARER,
         json={
             "kind": "sim",
-            "config": {**_sim_config("001"), "__fake": {"duration_s": 0.3}},
+            # No "__fake" pacing: a group config is a SimulationConfig, and an unknown key is
+            # refused (plan_per_subject dropped it before the fake runner ever saw it anyway).
+            "config": _sim_config("001"),
             "subject_ids": ["001", "002", "003"],
             **stale_field,
         },

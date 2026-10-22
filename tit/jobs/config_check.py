@@ -15,6 +15,12 @@ Only kinds whose ``__main__`` deserialises one class with no fallback are listed
 and ``source`` deliberately tolerate a config ``deserialize_config`` rejects (they fall back to a
 filtered constructor), so pre-validating them here would reject configs those runners can
 genuinely run. ``pre`` lost its fallback (it accepted ``subject_ids: "001"`` as three subjects).
+
+The check is strict, as ``POST /api/validate`` is: a key that is not a field of the class (or of
+a nested one) is refused instead of silently ignored by the runner. ``pre`` keys from before the
+FastSurfer stage are translated first, as its runner does (``migrate_legacy_keys``). The
+unknown-key rule for the kinds not listed here is
+:func:`tit.server.routes.validate.refuse_unknown_keys`.
 """
 
 from __future__ import annotations
@@ -51,13 +57,17 @@ def check_job_config(kind: str, config: dict[str, Any]) -> None:
         cls = resolve_config_class(class_name)
     except Exception:  # pragma: no cover - environment without the runner's deps
         return
-    # Mirrors the runner: `project_dir` is popped before deserialising, and unknown keys are
-    # ignored (strict=False). What is left is the required/typed-field check.
+    # Mirrors the runner: `project_dir` is popped before deserialising. Unlike the runner,
+    # unknown keys are refused (strict=True): the runner would silently ignore them.
     data = {k: v for k, v in config.items() if k != "project_dir"}
-    if kind == "pre" and "subject_ids" not in data:
-        # The job's own subjects, which the manager writes into config.json
-        # (`JobManager._runner_config_path`); only the other fields are checked here.
-        data["subject_ids"] = ["subject"]
+    if kind == "pre":
+        from tit.pre.config import migrate_legacy_keys
+
+        data = migrate_legacy_keys(data)
+        if "subject_ids" not in data:
+            # The job's own subjects, which the manager writes into config.json
+            # (`JobManager._runner_config_path`); only the other fields are checked here.
+            data["subject_ids"] = ["subject"]
     if kind in FLEX_KINDS:
         # The manager writes the kind as `mode` into the runner's config.json
         # (JobManager._runner_config_path), so validate the config the runner will read:
@@ -68,7 +78,7 @@ def check_job_config(kind: str, config: dict[str, Any]) -> None:
             # they cannot stand in for the thresholds it needs.
             data["adaptive"] = data["pareto"] = None
     try:
-        deserialize_config(cls, data)
+        deserialize_config(cls, data, strict=True)
     except Exception as exc:
         raise ValueError(
             f"config is not a valid {class_name} for kind {kind!r}: {exc}"
