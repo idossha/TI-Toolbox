@@ -22,6 +22,7 @@ with the list and create no job record.
 from __future__ import annotations
 
 import csv
+import json
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -861,29 +862,113 @@ def _check_nilearn(pm: PathManager, config: dict[str, Any]) -> list[MissingInput
 
 
 def _check_blender(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
+    """The files the ``_type``'s exporter opens, resolved by the exporters' own helpers.
+
+    :mod:`tit.blender.config`'s ``central_surface_path`` / ``carrier_mesh_paths`` are what
+    the region, vector and montage runners read (an mTI run's own surface and lettered
+    carriers), so this check and the runner name the same file.
+    """
     sid = config.get("subject_id")
     if not isinstance(sid, str) or not sid:
         return []
     missing = _head_model(pm, sid)
     if missing:
         return missing  # everything else lives under the head model
+    mode = config.get(
+        "_type"
+    )  # tit.blender.__main__ dispatches on it; None runs nothing
     sim = config.get("simulation_name")
-    if isinstance(sim, str) and sim and not Path(pm.simulation(sid, sim)).is_dir():
-        missing.append(
+    sim = sim.strip() if isinstance(sim, str) else ""
+    if sim and not Path(pm.simulation(sid, sim)).is_dir():
+        return [
             MissingInput(
                 f"simulation {sim!r} for sub-{sid}",
                 pm.simulation(sid, sim),
                 _simulation_fix(sid, sim),
             )
-        )
+        ]
     nifti = config.get("nifti_path")
-    if isinstance(nifti, str) and nifti and not Path(nifti).is_file():
+    nifti = nifti.strip() if isinstance(nifti, str) else ""
+    if mode == "SubcorticalConfig" and not nifti:
+        # run_subcortical's default volume.
+        nifti = os.path.join(pm.m2m(sid), "segmentation", "labeling.nii.gz")
+        if not Path(nifti).is_file():
+            missing.append(
+                MissingInput("subcortical NIfTI", nifti, _preprocess_fix(sid))
+            )
+    elif nifti and not Path(nifti).is_file():
         missing.append(
             MissingInput(
                 "subcortical NIfTI", nifti, "Point nifti_path at an existing file."
             )
         )
+    if sim and mode in ("RegionConfig", "VectorConfig", "MontageConfig"):
+        missing.extend(_blender_simulation_inputs(pm, sid, sim, mode))
     return missing
+
+
+def _blender_simulation_inputs(
+    pm: PathManager, sid: str, sim: str, mode: str
+) -> list[MissingInput]:
+    """What a region / vector / montage export reads from the simulation itself."""
+    from tit.blender.config import carrier_mesh_paths, central_surface_path
+
+    found: list[MissingInput] = []
+    rerun = _simulation_fix(sid, sim)
+    record_path = Path(pm.simulation(sid, sim)) / "documentation" / "config.json"
+    record: dict[str, Any] | None = None
+    if mode in ("VectorConfig", "MontageConfig"):
+        try:
+            record = json.loads(record_path.read_text())
+        except (OSError, ValueError):
+            found.append(
+                MissingInput(
+                    f"simulation record (config.json) of {sim!r}",
+                    str(record_path),
+                    rerun,
+                )
+            )
+    if mode == "MontageConfig" and isinstance(record, dict):
+        net = record.get("eeg_net")
+        if not isinstance(net, str) or not net.strip():
+            found.append(
+                MissingInput(
+                    "This simulation has no recorded EEG net. Its electrodes were "
+                    "placed by coordinates, and the montage scene places a net's "
+                    "electrodes",
+                    str(record_path),
+                    "Export this simulation as cortical regions or field vectors, or "
+                    "visualise a simulation run on an EEG net.",
+                )
+            )
+        else:
+            csv_path = Path(pm.eeg_positions(sid)) / net
+            if not csv_path.is_file():
+                found.append(_eeg_net_missing(pm, sid, csv_path, f"EEG net {net!r}"))
+            else:
+                found.extend(_collapsed_net(sid, csv_path))
+    if mode == "VectorConfig" and isinstance(record, dict):
+        cond = record.get("conductivity")
+        if not isinstance(cond, str) or not cond:
+            found.append(
+                MissingInput(
+                    f"conductivity recorded in {sim!r}'s config.json",
+                    str(record_path),
+                    rerun,
+                )
+            )
+        else:
+            for path in carrier_mesh_paths(sid, sim, cond):
+                if not Path(path).is_file():
+                    found.append(
+                        MissingInput(f"carrier field mesh of {sim!r}", path, rerun)
+                    )
+    surface = central_surface_path(sid, sim)
+    if not Path(surface).is_file():
+        found.append(
+            MissingInput(f"central cortical surface of {sim!r}", surface, rerun)
+        )
+    return found
 
 
 _CHECKERS: dict[str, Checker] = {

@@ -2,13 +2,13 @@
   "case_ids": [
     "visual-exporter/montage-xyz"
   ],
-  "owner": "p22",
+  "owner": "triage",
   "checks": [
     "dispatch"
   ],
   "failure": [
     "blender runner exited 1",
-    "missing required field: 'eeg_net'"
+    "This simulation has no recorded EEG net."
   ],
-  "reason": "Montage publication on a simulation with XYZ electrodes (eeg_net null: free-hand or flex_free) passes the panel, validate, plan and preflight, then montage_publication raises KeyError \"config.json missing required field: 'eeg_net'\" in the runner."
+  "reason": "Montage publication of an XYZ (free-hand / flex_free, eeg_net null) simulation is refused by the product at three layers since p22: the panel blocks Run with 'This simulation has no recorded EEG net.' once it reads the simulation's documentation/config.json, POST /api/jobs answers 422 from preflight naming that config.json, and the runner refuses with the same sentence before writing anything. This corpus cannot see any of the first two: its panel render mocks getSimulationsFor to [] (so the record is never read and the page accepts), its server verdict does not run preflight, and the dispatch replay submits straight to JobManager, so the replay reaches the runner's refusal. Closing it needs the corpus harness (p01's files) to give the panel the simulation list and to include preflight in the verdict."
 }

@@ -265,11 +265,34 @@ def build_montage_publication_blend(
             f"Simulation directory not found for {subject_id}/{simulation_name}"
         )
 
+    record = os.path.join(sim_dir, "documentation", "config.json")
     cfg = be_utils.load_simulation_config(subject_id, simulation_name)
     if not cfg:
         raise FileNotFoundError(
-            f"Simulation config.json not found for {subject_id}/{simulation_name} (expected under documentation/config.json)."
+            f"Simulation config.json not found for {subject_id}/{simulation_name}: "
+            f"{record}"
         )
+    # Every input below is checked before anything is written. A montage placed by
+    # coordinates (free-hand, flex_free) records eeg_net null, and this scene places a
+    # net's electrodes.
+    eeg_net = cfg.get("eeg_net")
+    if not eeg_net:
+        raise ValueError(
+            f"This simulation has no recorded EEG net. {simulation_name!r} for "
+            f"sub-{subject_id} placed its electrodes by coordinates (eeg_net is null in "
+            f"{record}), and the montage scene places the electrodes of a net; export "
+            "it as cortical regions or field vectors instead."
+        )
+    eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
+    subject_m2m = pm.m2m(subject_id)
+    if not subject_m2m or not os.path.isdir(subject_m2m):
+        raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
+    canonical_mesh = pm.ti_mesh(subject_id, simulation_name)
+    scalp_mesh = (
+        canonical_mesh
+        if os.path.isfile(canonical_mesh)
+        else _find_tetrahedral_mesh(sim_dir)
+    )
 
     if output_dir is None:
         if not pm.project_dir:
@@ -289,33 +312,23 @@ def build_montage_publication_blend(
     scalp_stl = os.path.join(output_dir, "scalp.stl")
     gm_stl = os.path.join(output_dir, "gm.stl")
 
-    canonical_mesh = pm.ti_mesh(subject_id, simulation_name)
-    export_scalp_stl_from_sim(
-        sim_dir,
-        output_stl=scalp_stl,
-        mesh_path=canonical_mesh if os.path.isfile(canonical_mesh) else None,
-    )
+    # The GM surface first: its lookup is the last input check, so a missing (mTI or TI)
+    # central surface refuses before any file is written.
     export_gm_stl_from_sim(
         sim_dir,
         subject_id=subject_id,
         simulation_name=simulation_name,
         output_stl=gm_stl,
     )
+    export_scalp_stl_from_sim(sim_dir, output_stl=scalp_stl, mesh_path=scalp_mesh)
 
-    eeg_net = cfg.get("eeg_net")
-    if not eeg_net:
-        raise KeyError("config.json missing required field: 'eeg_net'")
     electrode_pairs = cfg.get("electrode_pairs") or []
 
-    eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
     # Packaged with tit.blender so source and installed API calls share the same template.
     electrode_template = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "Electrode.blend"
     )
 
-    subject_m2m = pm.m2m(subject_id)
-    if not subject_m2m or not os.path.isdir(subject_m2m):
-        raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
     subject_msh = os.path.join(subject_m2m, f"{subject_id}.msh")
 
     from tit.blender.electrode_placement import (

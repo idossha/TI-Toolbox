@@ -149,7 +149,11 @@ def test_checker_reads_only_runner_config_fields(kind: str) -> None:
     func = _checkers()[kind]
     keys = _keys_read(func, "config", set())
     assert keys, f"{func} reads no config key: the AST walk found nothing to check"
-    unknown = sorted(keys - _fields(RUNNER_CONFIGS[kind]))
+    # An ambiguous kind's runner picks its class by the "_type" discriminator itself
+    # (tit/blender/__main__.py dispatch, tit.config_io.deserialize_config), so reading it is
+    # reading a runner key.
+    envelope = {"_type"} if len(RUNNER_CONFIGS[kind]) > 1 else set()
+    unknown = sorted(keys - _fields(RUNNER_CONFIGS[kind]) - envelope)
     assert (
         unknown == []
     ), f"{func} ({kind}) reads {unknown}, which {RUNNER_CONFIGS[kind]} does not define"
