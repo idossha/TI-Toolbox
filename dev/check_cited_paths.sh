@@ -44,13 +44,6 @@ tit/gui/*
 tit/gui
 # Cited as forbidden: dev/documentation_policy.py rejects it.
 docs/requirements
-# Stale, in agent-plugin/ (owned by the agent-plugin package; delete each entry with its fix).
-# The loader has no dev/loader/ directory; --dev is a flag of loader.sh and loader.py.
-dev/loader/ agent-plugin/skills/ti-toolbox/SKILL.md
-# docs/dev/RELEASE.md was renamed docs/dev/RELEASING.md on 2026-09-09.
-RELEASE.md agent-plugin/skills/ti-codebase/SKILL.md
-# docs/dev/DESIGN.md never existed in this repository; the design contract is ARCHITECTURE.md section 11.
-DESIGN.md agent-plugin/skills/ti-codebase/SKILL.md
 '
 
 ROOT="$(pwd)"
