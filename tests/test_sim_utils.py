@@ -21,11 +21,8 @@ from tit.sim.utils import (
     ensure_montage_file,
     load_montage_data,
     save_montage_data,
-    ensure_eeg_net_entry,
     upsert_montage,
     list_montage_names,
-    load_flex_montages,
-    parse_flex_montage,
     load_montages,
     setup_montage_directories,
     run_montage_visualization,
@@ -80,34 +77,6 @@ class TestLoadSaveMontageData:
         save_montage_data(payload)
         loaded = load_montage_data()
         assert loaded == payload
-
-
-@pytest.mark.unit
-class TestEnsureEegNetEntry:
-    """ensure_eeg_net_entry adds net entry with correct sub-keys."""
-
-    def test_adds_new_net(self, tmp_project, init_pm):
-        ensure_eeg_net_entry("GSN-256")
-        data = load_montage_data()
-        assert "GSN-256" in data["nets"]
-        assert data["nets"]["GSN-256"] == {
-            "uni_polar_montages": {},
-            "multi_polar_montages": {},
-        }
-
-    def test_idempotent(self, tmp_project, init_pm):
-        ensure_eeg_net_entry("GSN-256")
-        # Add a montage under the net
-        upsert_montage(
-            eeg_net="GSN-256",
-            montage_name="m1",
-            electrode_pairs=[["E1", "E2"], ["E3", "E4"]],
-            mode="U",
-        )
-        # Calling ensure again should NOT wipe existing montages
-        ensure_eeg_net_entry("GSN-256")
-        data = load_montage_data()
-        assert "m1" in data["nets"]["GSN-256"]["uni_polar_montages"]
 
 
 @pytest.mark.unit
@@ -182,93 +151,8 @@ class TestListMontageNames:
 
 
 # ============================================================================
-# Montage loading (flex / named)
+# Montage loading
 # ============================================================================
-
-
-@pytest.mark.unit
-class TestParseFlexMontage:
-    """parse_flex_montage dispatches on montage type."""
-
-    def test_flex_mapped_returns_montage_with_flex_mapped_mode(self):
-        flex = {
-            "name": "mapped1",
-            "type": "flex_mapped",
-            "pairs": [["E1", "E2"], ["E3", "E4"]],
-            "eeg_net": "GSN-256.csv",
-        }
-        m = parse_flex_montage(flex)
-        assert not m.is_xyz
-        assert m.mode == Montage.Mode.FLEX_MAPPED
-        assert m.name == "mapped1"
-        assert m.electrode_pairs == [("E1", "E2"), ("E3", "E4")]
-        assert m.eeg_net == "GSN-256.csv"
-
-    def test_flex_optimized_returns_xyz_montage(self):
-        pos = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0], [10.0, 11.0, 12.0]]
-        flex = {
-            "name": "opt1",
-            "type": "flex_optimized",
-            "electrode_positions": pos,
-        }
-        m = parse_flex_montage(flex)
-        assert m.is_xyz
-        assert m.mode == Montage.Mode.FLEX_FREE
-        assert m.name == "opt1"
-        assert len(m.electrode_pairs) == 2
-
-    def test_freehand_xyz_returns_freehand_montage(self):
-        pos = [[0, 0, 100], [0, 0, -100], [50, 0, 0], [-50, 0, 0]]
-        flex = {
-            "name": "fh1",
-            "type": "freehand_xyz",
-            "electrode_positions": pos,
-        }
-        m = parse_flex_montage(flex)
-        assert m.is_xyz
-        assert m.mode == Montage.Mode.FREEHAND
-        assert m.name == "fh1"
-
-    def test_unknown_type_raises_value_error(self):
-        flex = {"name": "bad", "type": "unknown_type"}
-        with pytest.raises(ValueError, match="Unknown flex montage type"):
-            parse_flex_montage(flex)
-
-
-@pytest.mark.unit
-class TestLoadFlexMontages:
-    """load_flex_montages reads from JSON file or returns []."""
-
-    def test_valid_list_file(self, tmp_path):
-        flex_file = str(tmp_path / "flex.json")
-        data = [
-            {"name": "a", "type": "flex_mapped", "pairs": [["E1", "E2"], ["E3", "E4"]]},
-            {"name": "b", "type": "flex_mapped", "pairs": [["E5", "E6"], ["E7", "E8"]]},
-        ]
-        with open(flex_file, "w") as f:
-            json.dump(data, f)
-        result = load_flex_montages(flex_file)
-        assert len(result) == 2
-        assert result[0]["name"] == "a"
-
-    def test_valid_dict_file(self, tmp_path):
-        flex_file = str(tmp_path / "flex.json")
-        data = {"montage": {"name": "single", "type": "flex_mapped"}}
-        with open(flex_file, "w") as f:
-            json.dump(data, f)
-        result = load_flex_montages(flex_file)
-        assert len(result) == 1
-        assert result[0]["name"] == "single"
-
-    def test_missing_file_returns_empty(self):
-        result = load_flex_montages("/nonexistent/path/flex.json")
-        assert result == []
-
-    def test_none_returns_empty(self):
-        # Clear env var to ensure no fallback
-        with patch.dict(os.environ, {}, clear=True):
-            result = load_flex_montages(None)
-            assert result == []
 
 
 @pytest.mark.unit
@@ -283,8 +167,7 @@ class TestLoadMontages:
             electrode_pairs=pairs,
             mode="U",
         )
-        # Disable flex loading to isolate named montages
-        montages = load_montages(["m1"], "GSN-256.csv", include_flex=False)
+        montages = load_montages(["m1"], "GSN-256.csv")
         assert len(montages) == 1
         assert not montages[0].is_xyz
         assert montages[0].mode == Montage.Mode.NET
@@ -298,9 +181,7 @@ class TestLoadMontages:
             electrode_pairs=[["E1", "E2"]],
             mode="U",
         )
-        montages = load_montages(
-            ["exists", "does_not_exist"], "GSN-256.csv", include_flex=False
-        )
+        montages = load_montages(["exists", "does_not_exist"], "GSN-256.csv")
         assert len(montages) == 1
         assert montages[0].name == "exists"
 
@@ -312,7 +193,7 @@ class TestLoadMontages:
             electrode_pairs=coords,
             mode="U",
         )
-        montages = load_montages(["fh"], "freehand", include_flex=False)
+        montages = load_montages(["fh"], "freehand")
         assert len(montages) == 1
         assert montages[0].is_xyz
         assert montages[0].mode == Montage.Mode.FREEHAND

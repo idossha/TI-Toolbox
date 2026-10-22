@@ -7560,9 +7560,10 @@ export interface components {
          *         (default) because the ``TI_normal`` calculation requires surface
          *         overlays.
          *     map_to_vol : bool
-         *         Reserved for NIfTI output (handled externally by
-         *         ``tit.tools.mesh2nii``, not by SimNIBS SESSION).  Default
-         *         ``False``.
+         *         Not used.  Subject-space NIfTIs are always written after the run
+         *         by ``tit.tools.mesh2nii``; SimNIBS is never asked for them.  The
+         *         value is only recorded in the run's ``config.json``, and the field
+         *         is still accepted so older configs load.  Default ``False``.
          *     map_to_mni : bool
          *         Generate MNI-space field and T1 NIfTI outputs after simulation.
          *         Default ``False``; subject-space NIfTI outputs are always generated.
@@ -7574,8 +7575,11 @@ export interface components {
          *     open_in_gmsh : bool
          *         Open results in Gmsh after simulation.  Default ``False``.
          *     tissues_in_niftis : str
-         *         Tissue selection for NIfTI export (``"all"`` or a
-         *         comma-separated list of tissue numbers).  Default ``"all"``.
+         *         Not used.  The NIfTIs a run writes are fixed by the meshes the
+         *         simulator converts (whole head, grey matter, white matter),
+         *         whatever this says.  The value is only recorded in the run's
+         *         ``config.json``, and the field is still accepted so older configs
+         *         load.  Default ``"all"``.
          *     aniso_maxratio : float
          *         Maximum eigenvalue ratio clamp for anisotropic conductivity
          *         tensors.  Default ``10.0``.
