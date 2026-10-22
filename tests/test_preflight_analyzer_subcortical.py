@@ -17,6 +17,12 @@ Where the expectations come from
     (``resources/atlas/FreeSurferColorLUT.txt`` row 9 "Left-Thalamus",
     ``HarvardOxford-sub-maxprob-thr25-1mm_LUT.txt`` row 4 "Left-Thalamus") and from
     ``resources/atlas/manifest.json`` (``not_shipped``: "MorelMNI152_labeling_1mm.nii.gz").
+    The helpers preflight shares with the runner are pinned on their own, because a round trip
+    through one shared list cannot see that list's order: ``Analyzer.match_region_label``
+    against the shipped ``FreeSurferColorLUT.txt`` (row 203 "parasubiculum" sorts before row
+    205 "subiculum", so only the exact-name rule picks 205); ``voxel_atlas_candidates``
+    against ``VoxelAtlasManager``'s documented order (FastSurfer, then legacy FreeSurfer,
+    then ``segmentation/``) and its ``masks/<file>`` catalog name for ``m2m/masks/<file>``.
 
 Run: .venv/bin/python -m pytest tests/test_preflight_analyzer_subcortical.py -q -p no:cacheprovider
 """
@@ -170,3 +176,83 @@ def test_group_mni_atlas_is_reported_once_not_per_subject(project: Path) -> None
         atlas="NotAnAtlas_MNI.nii.gz",
     )
     assert len(preflight("analyzer", cfg, str(project))) == 1
+
+
+# -- the shared helpers: region-name precedence and the atlas search order ---------------------
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def _shipped_lut_labels() -> list[tuple[int, str]]:
+    """(id, name) of resources/atlas/FreeSurferColorLUT.txt, ascending (the runner's order)."""
+    from tit.atlas.segstats import load_lut
+
+    lut = load_lut(str(REPO / "resources" / "atlas" / "FreeSurferColorLUT.txt"))
+    assert len(lut) > 1000  # has rows to match against
+    return sorted(lut.items())
+
+
+@pytest.mark.parametrize(
+    "region, lut_name",
+    [
+        (
+            "subiculum",
+            "subiculum",
+        ),  # not "parasubiculum", which contains it and comes first
+        ("Subiculum", "subiculum"),  # any case
+        ("parasubiculum", "parasubiculum"),
+        ("lh.insula", "ctx-lh-insula"),  # the surface spelling of a DKT volume label
+        ("rh.insula", "ctx-rh-insula"),
+        ("Left-Hippocampus", "Left-Hippocampus"),
+        ("NoSuchStructure", None),
+    ],
+)
+def test_match_region_label_prefers_the_exact_name(region: str, lut_name) -> None:
+    from tit.analyzer.analyzer import Analyzer
+
+    labels = _shipped_lut_labels()
+    ids = {name: rid for rid, name in labels}
+    # The premise that makes precedence matter: the longer name sorts first in the table.
+    assert ids["parasubiculum"] < ids["subiculum"]
+    expected = None if lut_name is None else ids[lut_name]
+    assert Analyzer.match_region_label(region, labels) == expected
+
+
+def test_volume_atlas_search_order_is_fastsurfer_then_freesurfer_then_segmentation(
+    project: Path,
+) -> None:
+    """VoxelAtlasManager's documented order: the current pipeline's output wins."""
+    from tit.analyzer.analyzer import Analyzer
+
+    pm = get_path_manager(str(project))
+    atlas = "labels.mgz"
+    dirs = [pm.fastsurfer_mri(SID), pm.freesurfer_mri(SID), pm.segmentation(SID)]
+    candidates = Analyzer.voxel_atlas_candidates(pm, SID, atlas)
+    assert candidates[0] == Path(dirs[0]) / atlas  # what preflight reports when absent
+    copies = [_touch(Path(d) / atlas) for d in dirs]
+    for i, path in enumerate(copies):  # remove the winner; the next directory wins
+        assert _runner_resolves(project, atlas) == path, dirs[i]
+        path.unlink()
+    found = preflight(
+        "analyzer", _config(atlas=atlas, region=["10"]), str(project)
+    )  # all gone
+    assert [m.expected_path for m in found] == [str(Path(dirs[0]) / atlas)]
+
+
+@pytest.mark.parametrize("analysis_type", ["cortical", "subcortical"])
+def test_custom_label_volume_in_masks_satisfies_the_voxel_atlas_check(
+    project: Path, analysis_type: str
+) -> None:
+    """The catalog lists m2m/masks/<file> as "masks/<file>"; preflight and runner find it."""
+    from tit.atlas.voxel import VoxelAtlasManager
+
+    pm = get_path_manager(str(project))
+    cfg = _config(
+        analysis_type=analysis_type, atlas="masks/custom.nii.gz", region=["1"]
+    )
+    assert len(preflight("analyzer", cfg, str(project))) == 1  # not there yet
+    volume = _touch(Path(pm.masks(SID)) / "custom.nii.gz")
+    listed = VoxelAtlasManager(masks_dir=pm.masks(SID)).list_custom_masks()
+    assert listed == [("masks/custom.nii.gz", str(volume))]  # the catalog's own name
+    assert preflight("analyzer", cfg, str(project)) == []
+    assert _runner_resolves(project, "masks/custom.nii.gz") == volume
