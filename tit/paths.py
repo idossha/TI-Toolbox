@@ -686,9 +686,17 @@ class PathManager:
             validate_name(analysis_name, "analysis name"),
         )
 
-    def logs_group(self) -> str:
-        """Path to group-analysis log directory."""
-        return os.path.join(self.ti_toolbox(), "logs", "group_analysis")
+    def group_analysis(self, name: str) -> str:
+        """Path to ``<project>/derivatives/ti-toolbox/group_analysis/<name>/``.
+
+        One directory per group analyzer run (summary CSV, comparison plot, log); the
+        Results page lists this folder's subdirectories as group analyses.
+        """
+        return self._under(
+            self.ti_toolbox(),
+            "group_analysis",
+            validate_name(name, "group analysis name"),
+        )
 
     def qsiprep(self) -> str:
         """Path to ``<project>/derivatives/qsiprep/``."""

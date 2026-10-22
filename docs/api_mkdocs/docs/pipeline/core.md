@@ -109,7 +109,7 @@ Additional paths for optimization runs and statistics:
 | `pm.ex_search_run("001", "run_01")` | `.../ex-search/run_01` |
 | `pm.sourcedata_dicom("001", "anat")` | `<sourcedata>/sub-001/anat/dicom` |
 | `pm.stats_output("group_comparison", "motor_study")` | `<ti-toolbox>/stats/group_comparison/motor_study` |
-| `pm.logs_group()` | `<ti-toolbox>/logs/group_analysis` |
+| `pm.group_analysis("L_Insula_voxel_lh.insula_20261021_142301")` | `<ti-toolbox>/group_analysis/L_Insula_voxel_lh.insula_20261021_142301` |
 
 ### Listing Methods
 

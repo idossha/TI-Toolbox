@@ -95,7 +95,7 @@ class TestGroupResult:
 
 @pytest.mark.unit
 class TestResolveOutputDir:
-    """Lines 126-128: _resolve_output_dir resolves via PathManager."""
+    """_resolve_output_dir: an explicit directory, else one folder per run."""
 
     @patch("tit.analyzer.group.get_path_manager")
     def test_uses_explicit_output_dir(self, mock_gpm, tmp_path):
@@ -104,33 +104,42 @@ class TestResolveOutputDir:
         out_dir = tmp_path / "custom_out"
         pm.ensure.return_value = str(out_dir)
 
-        result = _resolve_output_dir(str(out_dir))
+        result = _resolve_output_dir(str(out_dir), "ignored")
 
         assert result == Path(str(out_dir))
         pm.ensure.assert_called_once_with(str(out_dir))
 
-    @patch("tit.analyzer.group.get_path_manager")
-    def test_uses_pm_logs_group_when_none(self, mock_gpm, tmp_path):
-        pm = MagicMock()
-        mock_gpm.return_value = pm
-        log_group_path = str(tmp_path / "logs" / "group")
-        pm.logs_group.return_value = log_group_path
-        pm.ensure.return_value = log_group_path
+    def test_each_run_gets_its_own_folder_under_group_analysis(self, tmp_path):
+        """Every group run wrote group_summary.csv into one fixed logs/group_analysis/,
+        so the N group jobs of one Run press (one per sphere) kept only the last."""
+        from tit import catalog
+        from tit.paths import get_path_manager
 
-        result = _resolve_output_dir(None)
+        pm = get_path_manager(str(tmp_path))
+        first = _resolve_output_dir(
+            None, "L_Insula_voxel_sphere_x-35.00_y5.00_z5.00_r10.0"
+        )
+        second = _resolve_output_dir(
+            None, "L_Insula_voxel_sphere_x35.00_y5.00_z5.00_r10.0"
+        )
 
-        pm.logs_group.assert_called_once()
-        pm.ensure.assert_called_once_with(log_group_path)
-        assert result == Path(log_group_path)
+        assert first != second
+        root = Path(pm.ti_toolbox()) / "group_analysis"
+        assert first.parent == root and second.parent == root
+        assert first.name.startswith("L_Insula_voxel_sphere_x-35.00_y5.00_z5.00_r10.0_")
+        # The Results page's Group pseudo-subject lists exactly these folders.
+        listed = {g["path"] for g in catalog.group_catalog(pm)["group_analyses"]}
+        assert listed == {str(first), str(second)}
 
-    @patch("tit.analyzer.group.get_path_manager")
-    def test_returns_path_object(self, mock_gpm):
-        pm = MagicMock()
-        mock_gpm.return_value = pm
-        pm.ensure.return_value = "/some/dir"
+    def test_folder_name_is_a_valid_name(self, tmp_path):
+        from tit.paths import get_path_manager, is_valid_name
 
-        result = _resolve_output_dir("/some/dir")
-        assert isinstance(result, Path)
+        get_path_manager(str(tmp_path))
+        out = _resolve_output_dir(
+            None, "sim_mesh_lh.insula+rh.insula Left Thalamus" * 9
+        )
+        assert is_valid_name(out.name)
+        assert len(out.name) <= 128
 
 
 @pytest.mark.unit

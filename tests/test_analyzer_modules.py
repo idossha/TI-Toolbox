@@ -626,6 +626,10 @@ class TestRunGroupAnalysis:
         assert len(result.subject_results) == 2
         a1.analyze_sphere.assert_called_once()
         a2.analyze_sphere.assert_called_once()
+        # The run's own folder is named from its simulation, space and target.
+        mock_output.assert_called_once_with(
+            str(out_dir), "sim1_mesh_sphere_x0.00_y0.00_z0.00_r10.0_subject"
+        )
 
     @pytest.mark.unit
     @patch("tit.analyzer.group._generate_comparison_plot")

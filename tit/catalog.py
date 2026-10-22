@@ -2120,11 +2120,12 @@ def delete_freehand_config(pm: PathManager, sid: str, name: str) -> bool:
 def group_catalog(pm: PathManager) -> dict:
     """Project-level group catalog: stats runs, nilearn visuals, group analyses.
 
-    Directory conventions for the ``nilearn`` and ``group_analyses`` sections
-    are a best-effort guess (``derivatives/ti-toolbox/{nilearn_visuals,
-    group_analysis}/``) -- unverified against a real project, since Dataset
-    000 has neither populated. ``stats`` (``derivatives/ti-toolbox/stats/
-    <type>/<name>/``) is confirmed by :meth:`PathManager.stats_output`.
+    The ``nilearn`` directory convention (``derivatives/ti-toolbox/nilearn_visuals/``)
+    is a best-effort guess, unverified against a real project. ``stats``
+    (``derivatives/ti-toolbox/stats/<type>/<name>/``) is confirmed by
+    :meth:`PathManager.stats_output`, ``group_analyses`` (one folder per group analyzer
+    run under ``derivatives/ti-toolbox/group_analysis/``) by
+    :meth:`PathManager.group_analysis`.
     """
 
     def _subdirs(root: str) -> list[str]:

@@ -181,11 +181,13 @@ class TestProjectLevelPaths:
             root, "derivatives", "ti-toolbox", "stats", "permutation", "run1"
         )
 
-    def test_logs_group(self, pm):
+    def test_group_analysis(self, pm):
         p, root = pm
-        assert p.logs_group() == os.path.join(
-            root, "derivatives", "ti-toolbox", "logs", "group_analysis"
+        assert p.group_analysis("run1") == os.path.join(
+            root, "derivatives", "ti-toolbox", "group_analysis", "run1"
         )
+        with pytest.raises(ValueError):
+            p.group_analysis("../escape")
 
     def test_qsiprep(self, pm):
         p, root = pm

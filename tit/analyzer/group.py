@@ -17,6 +17,7 @@ tit.analyzer.analyzer : Single-subject analyzer used per-subject.
 """
 
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,7 +33,7 @@ from matplotlib.lines import Line2D
 
 from tit.analyzer.analyzer import Analyzer, AnalysisResult
 from tit.logger import add_file_handler
-from tit.paths import get_path_manager
+from tit.paths import PathManager, get_path_manager
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,8 @@ def run_group_analysis(
     visualize : bool, optional
         Generate per-subject visualization artifacts. Default ``False``.
     output_dir : str, pathlib.Path, or None, optional
-        Override output directory. If ``None``, derived from PathManager.
+        Override output directory. If ``None``, each run writes to its own
+        ``derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<timestamp>/``.
     field : str or None, optional
         Field to analyze (``constants.FIELD_REGISTRY`` name, e.g.
         ``"TI_max"``, ``"TI_normal"``, ``"hf_peak"``). Default ``None``
@@ -186,7 +188,10 @@ def run_group_analysis(
         validate_mask(mask_path)
 
     with track_operation(_const.TELEMETRY_OP_GROUP_ANALYSIS):
-        out = _resolve_output_dir(output_dir)
+        target = _target_label(
+            analysis_type, center, radius, coordinate_space, spheres, region, mask_path
+        )
+        out = _resolve_output_dir(output_dir, f"{simulation}_{space}_{target}")
 
         # File handler so group analysis logs are persisted
         timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -261,11 +266,36 @@ def run_group_analysis(
 # ---------------------------------------------------------------------------
 
 
-def _resolve_output_dir(output_dir: str | Path | None) -> Path:
-    """Return (and create) the output directory."""
+def _target_label(
+    analysis_type, center, radius, coordinate_space, spheres, region, mask_path
+) -> str:
+    """The run's target in a few words, for its folder name."""
+    if analysis_type == "spherical":
+        if spheres and len(spheres) > 1:
+            return PathManager.spherical_union_analysis_name(spheres, coordinate_space)
+        x, y, z, r = spheres[0] if spheres else (*center, radius)
+        return PathManager.spherical_analysis_name(x, y, z, r, coordinate_space)
+    if analysis_type == "mask":
+        return Path(mask_path).name.split(".")[0]
+    regions = region if isinstance(region, list) else [region]
+    return "+".join(str(r) for r in regions if r)
+
+
+def _resolve_output_dir(output_dir: str | Path | None, run_name: str) -> Path:
+    """Return (and create) the output directory.
+
+    Without *output_dir* every run gets its own
+    ``derivatives/ti-toolbox/group_analysis/<run_name>_<YYYYmmdd_HHMMSS>/``: one fixed
+    folder let each run overwrite the last one's summary and plot, and one Run press in
+    the Analyzer submits one group job per sphere or region.
+    """
     pm = get_path_manager()
-    path = Path(output_dir) if output_dir else Path(pm.logs_group())
-    return Path(pm.ensure(str(path)))
+    if output_dir:
+        return Path(pm.ensure(str(output_dir)))
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    # A folder name is letters, digits, ".", "_", "-" and at most 128 characters.
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", run_name)[: 127 - len(stamp)]
+    return Path(pm.ensure(pm.group_analysis(f"{name.strip('._-')}_{stamp}")))
 
 
 def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:
