@@ -8,6 +8,9 @@ Pins (2026-10-22):
   unchanged, its generator's ``<title>``, one ``Content-Security-Policy`` header equal to the
   route's report policy (the app-wide policy must not be appended to it: browsers enforce two
   policies as their intersection, which would block the report's inline script), and ``nosniff``;
+* that policy is tight on its own terms, checked against the intent typed here, not the route's
+  constant: ``default-src 'none'``, ``sandbox allow-scripts``, and no other directive naming
+  anything beyond ``'unsafe-inline'`` and ``data:`` (no scheme, host, ``*`` or ``'self'``);
 * each served page is self-contained under the policy it is served with: every resource it would
   fetch (``src``, non-anchor ``href``, CSS ``url()``) is a ``data:`` URI that the matching fetch
   directive allows, there is no ``@import``, inline script and style are allowed by the policy,
@@ -210,6 +213,38 @@ def test_each_listed_report_is_served_intact_under_the_report_policy(chain, kind
     assert r.headers["content-type"].startswith("text/html")
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers.get_list("content-security-policy") == [files.REPORT_CSP]
+
+
+#: Every source a report's policy may name, typed from the policy's intent rather than imported
+#: from the route (ra_14 finding 6, and ``tit/reporting/html/components.py``: "A page makes no
+#: network request"): inline script and style, and data: images and fonts. A scheme (http:,
+#: https:), a host, ``*``, ``'self'`` or ``'unsafe-eval'`` would let a report reach past itself.
+NO_NETWORK_SOURCES = {"'unsafe-inline'", "data:"}
+
+
+def test_every_served_report_policy_blocks_everything_but_inline_and_data(chain):
+    """The route's policy is not only what the pages need, it is no wider: nothing by default,
+    no directive that names the network or an origin, and an opaque-origin sandbox."""
+    pm, written, client = chain
+    listed = client.get(
+        "/api/catalog/reports", params={"subject": SUBJECT}, headers=BEARER
+    ).json()
+    assert len(listed) == len(WRITERS)
+
+    for entry in listed:
+        header = client.get(f"/api/files/report/{entry['id']}", headers=BEARER).headers[
+            "content-security-policy"
+        ]
+        names = [part.split()[0].lower() for part in header.split(";")]
+        assert len(names) == len(set(names)), f"a directive is repeated: {header}"
+        policy = _policy(header)
+        assert policy.pop("default-src") == ["'none'"], header
+        assert policy.pop("sandbox") == ["allow-scripts"], header
+        assert {
+            name: sources
+            for name, sources in policy.items()
+            if not set(sources) <= NO_NETWORK_SOURCES
+        } == {}, header
 
 
 def policy_problems(html: str, header: str) -> tuple[int, list[str]]:
