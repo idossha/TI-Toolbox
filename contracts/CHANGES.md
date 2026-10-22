@@ -1195,3 +1195,14 @@ runner, `/api/plan/stats` and the job locks read the tag. Before, the desktop se
 nor `mode`, so a correlation ran as a group comparison and failed. A config without `_type` still
 runs as before: a `mode` key (`"correlation"`/`"group_comparison"`) wins when present, else group
 comparison; `/api/validate/stats` still defaults to `GroupComparisonConfig`.
+
+## 2026-10-22 — `Analysis`: a unique name, its analysis space, its figures and its scene
+
+`Analysis.name` is unique within its simulation: when two analyses share a folder name (the same
+ROI under `Analyses/Mesh/` and `Analyses/Voxel/`), each is named by its path relative to the
+simulation joined by `__` (`Analyses__Mesh__<X>`, `Analyses__Voxel__<X>`), the rule custom
+`output_dir` runs already followed; `GET /api/catalog/analyses/<X>/summary` answers 404 for such
+a shared bare name instead of returning the Mesh table for both. A name used once is unchanged.
+`Analysis` gains optional `analysis_space` (`mesh` | `voxel` | null), `figures` (`Artifact[]`:
+every PNG as `image` and PDF as `pdf` in the folder) and `scene` (the folder's
+`scene.tetravox.json`, or null). Additive: `pdf` stays.

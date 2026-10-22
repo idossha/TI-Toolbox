@@ -1957,8 +1957,36 @@ def ex_run_results(pm: PathManager, sid: str, kind: str, run: str) -> dict | Non
 # ── analyses ─────────────────────────────────────────────────────────────────
 
 
+#: The one scene an analysis leaves behind (``tit.analyzer.scene.SCENE_NAME``; not imported:
+#: ``tit.analyzer``'s package import pulls in the analyzer itself, which a server route must
+#: not load at import time). ``tests/test_catalog_analysis_figures.py`` pins the two equal.
+_ANALYSIS_SCENE_NAME = "scene.tetravox.json"
+
+#: Picture files an analysis folder can hold, by extension, as ``Artifact.kind``: the analyzer's
+#: ``histogram.png`` (``tit.analyzer.visualizer.save_histogram``), the desktop's
+#: ``scene.png`` rendered beside ``scene.tetravox.json`` (``desktop/src/main/roiPlates.ts``),
+#: and the PDFs older releases wrote. The catalog lists whatever is there, so a picture a
+#: future writer adds needs no change here.
+_ANALYSIS_FIGURE_KINDS = {".png": "image", ".pdf": "pdf"}
+
+
+def _analysis_figures(path: str, project_root: str | None) -> list[dict]:
+    """Every PNG/PDF directly in the analysis folder, as ``Artifact`` dicts, by file name."""
+    out = []
+    for figure in _metadata_glob(path, "*", project_root):
+        kind = _ANALYSIS_FIGURE_KINDS.get(os.path.splitext(figure)[1].lower())
+        if kind and os.path.isfile(figure):
+            label = os.path.splitext(os.path.basename(figure))[0].replace("_", " ")
+            out.append({"path": figure, "kind": kind, "label": label})
+    return out
+
+
 def _analysis_entry(
-    path: str, name: str, *, project_root: str | None = None
+    path: str,
+    name: str,
+    *,
+    analysis_space: str | None = None,
+    project_root: str | None = None,
 ) -> dict | None:
     json_path = os.path.join(path, "analysis.json")
     csv_path = os.path.join(path, "results.csv")
@@ -1971,6 +1999,11 @@ def _analysis_entry(
     space = (
         "mni" if str(meta.get("coordinate_space") or "").lower() == "mni" else "subject"
     )
+    if analysis_space is None and str(meta.get("space") or "").lower() in (
+        "mesh",
+        "voxel",
+    ):
+        analysis_space = str(meta["space"]).lower()
     msh = next(iter(_metadata_glob(path, "*.msh", project_root)), None)
     nifti = os.path.join(path, "roi_overlay.nii.gz")
     if (project_root and not is_within(project_root, nifti)) or not os.path.isfile(
@@ -1979,9 +2012,15 @@ def _analysis_entry(
         matches = _metadata_glob(path, "*.nii*", project_root)
         nifti = matches[0] if matches else None
     pdf = next(iter(_metadata_glob(path, "*.pdf", project_root)), None)
+    scene = os.path.join(path, _ANALYSIS_SCENE_NAME)
+    if (project_root and not is_within(project_root, scene)) or not os.path.isfile(
+        scene
+    ):
+        scene = None
     return {
         "name": name,
         "space": space,
+        "analysis_space": analysis_space,
         "field": field,
         "roi": roi,
         "csv": csv_path,
@@ -1989,6 +2028,8 @@ def _analysis_entry(
         "msh": msh,
         "nifti": nifti,
         "pdf": pdf,
+        "figures": _analysis_figures(path, project_root),
+        "scene": scene,
     }
 
 
@@ -2026,7 +2067,10 @@ def _find_analysis_dirs(
     Names: bare directory name under ``Analyses/{Mesh,Voxel}`` (unchanged -- every client
     and every existing ``/summary`` URL keeps working), and elsewhere the path relative to
     the simulation with each separator replaced by :data:`_ANALYSIS_NAME_SEP`, because a
-    name has to survive being a URL path segment (see that constant).
+    name has to survive being a URL path segment (see that constant). A name is an
+    analysis's identity within its simulation, so it is unique: when two analyses would
+    share one -- the same ROI run in both ``Analyses/Mesh`` and ``Analyses/Voxel`` -- each
+    is named by its relative path instead, and the shared bare name names neither.
     """
     if project_root and not is_within(project_root, sim_dir):
         return []
@@ -2054,6 +2098,21 @@ def _find_analysis_dirs(
                 )
             )
             found.append((dirpath, name, is_standard))
+    counts: dict[str, int] = {}
+    for _path, name, _standard in found:
+        counts[name] = counts.get(name, 0) + 1
+    found = [
+        (
+            path,
+            (
+                name
+                if counts[name] == 1
+                else os.path.relpath(path, sim_dir).replace(os.sep, _ANALYSIS_NAME_SEP)
+            ),
+            standard,
+        )
+        for path, name, standard in found
+    ]
     # Standard locations first, in their existing Mesh-then-Voxel-then-name order;
     # anything else after, by name -- so an added custom run never reorders the list a
     # client already knows.
@@ -2066,10 +2125,14 @@ def analyses(pm: PathManager, sid: str, sim: str) -> list[dict] | None:
     if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
     out = []
-    for path, name, _standard in _find_analysis_dirs(
+    for path, name, standard in _find_analysis_dirs(
         pm.simulation(sid, sim), project_root=pm.project_dir
     ):
-        item = _analysis_entry(path, name, project_root=pm.project_dir)
+        # A standard run's space is the folder PathManager.analysis_output_dir wrote it into.
+        space = os.path.basename(os.path.dirname(path)).lower() if standard else None
+        item = _analysis_entry(
+            path, name, analysis_space=space, project_root=pm.project_dir
+        )
         if item:
             out.append(item)
     return out

@@ -6837,9 +6837,18 @@ export interface components {
             artifacts: components["schemas"]["Artifact"][];
         };
         Analysis: {
+            /** @description The analysis's identity within its simulation, unique there: its folder name under `Analyses/Mesh` or `Analyses/Voxel`, or its path relative to the simulation joined by `__` when it sits elsewhere or when two analyses share the folder name (the same ROI analysed in both spaces). The `/summary` path takes this name. */
             name: string;
-            /** @enum {string} */
+            /**
+             * @description the coordinate space of the target (sphere centre, mask, atlas)
+             * @enum {string}
+             */
             space: "subject" | "mni";
+            /**
+             * @description the space the statistics were computed in: the `Analyses/Mesh|Voxel` folder of a standard run, else `analysis.json`'s `space`; null when neither says
+             * @enum {string|null}
+             */
+            analysis_space?: "mesh" | "voxel" | null;
             field: string;
             roi: string;
             csv: string;
@@ -6847,6 +6856,10 @@ export interface components {
             msh?: string | null;
             nifti?: string | null;
             pdf?: string | null;
+            /** @description every PNG (`kind: image`) and PDF (`kind: pdf`) in the analysis folder, by file name: the analyzer's `histogram.png`, the desktop's `scene.png`, older releases' PDFs */
+            figures?: components["schemas"]["Artifact"][];
+            /** @description the analysis's own `scene.tetravox.json` (the viewer opens it as is); null when absent */
+            scene?: string | null;
         };
         Report: {
             id: string;

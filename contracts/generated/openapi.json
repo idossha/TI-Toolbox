@@ -10698,13 +10698,27 @@
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The analysis's identity within its simulation, unique there: its folder name under `Analyses/Mesh` or `Analyses/Voxel`, or its path relative to the simulation joined by `__` when it sits elsewhere or when two analyses share the folder name (the same ROI analysed in both spaces). The `/summary` path takes this name."
           },
           "space": {
             "type": "string",
             "enum": [
               "subject",
               "mni"
+            ],
+            "description": "the coordinate space of the target (sphere centre, mask, atlas)"
+          },
+          "analysis_space": {
+            "description": "the space the statistics were computed in: the `Analyses/Mesh|Voxel` folder of a standard run, else `analysis.json`'s `space`; null when neither says",
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "mesh",
+              "voxel",
+              null
             ]
           },
           "field": {
@@ -10736,6 +10750,20 @@
               "string",
               "null"
             ]
+          },
+          "figures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "description": "every PNG (`kind: image`) and PDF (`kind: pdf`) in the analysis folder, by file name: the analyzer's `histogram.png`, the desktop's `scene.png`, older releases' PDFs"
+          },
+          "scene": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "the analysis's own `scene.tetravox.json` (the viewer opens it as is); null when absent"
           }
         }
       },
