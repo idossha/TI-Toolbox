@@ -12,12 +12,8 @@
 #                        Default: no ref -- the repository root is the build context and the
 #                        image is built from the working tree as it is, committed or not.
 #                        `--ti-toolbox-ref` is the same option under its old name.
-#                        build stage on Docker Desktop, http://host.docker.internal:<port>/...
-#                        reaches a server on this machine). Default: the newest compatible
-#                        release, resolved from the GitHub Releases API at build time (see
-#                        "Which Tetravox gets baked" below).
-#                        release's own .tgz.sha256 asset, but a hand-given URL has no sidecar
-#                        to read, so the digest has to be given by hand too.
+#   --blender-archive    optional http(s) mirror of the official Blender archive (a local server
+#                        works); the recipe still verifies it against its fixed checksum.
 #   --no-cache           pass --no-cache to docker build
 #   --fastsurfer-checkpoints-tgz / --fastsurfer-checkpoints-sha256
 #                        optional verified VINN cache (http(s), including a local server).
@@ -68,7 +64,7 @@ while [ $# -gt 0 ]; do
         # Retired flags, accepted so an old command line still builds.
         --layered|--from-scratch|--skip-ui-build) OBSOLETE="$OBSOLETE $1"; shift ;;
         -h|--help)
-            sed -n '2,32p' "$0"
+            sed -n '2,29p' "$0"
             exit 0
             ;;
         *)

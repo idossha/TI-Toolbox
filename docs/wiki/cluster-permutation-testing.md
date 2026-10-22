@@ -202,6 +202,7 @@ correlation/hippocampus_effect_size_correlation/
 ├── permutation_null_distribution.pdf       # Null distribution visualization
 ├── cluster_size_mass_correlation.pdf       # Cluster statistics (only when clusters formed)
 ├── analysis_summary.txt                    # Complete statistical report
+├── permutation_details.txt                 # Each permutation's effect-size shuffle and max cluster statistic
 └── correlation_analysis_TIMESTAMP.log      # Processing log
 ```
 

@@ -53,9 +53,11 @@ position you already know — from a paper, from a previous study, or from a neu
 | 4 (2 pairs) | Standard TI |
 | 8, 12, 16 … (4, 6, 8 … pairs) | [Multipolar TI (mTI)]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) |
 
-Any other count cannot be saved: mTI needs an even number of pairs, because each carrier takes two.
-Rows pair up in order (`E1+` with `E1-`, `E2+` with `E2-`, …), and each pair is one channel. The
-mode is **derived from the number of pairs** — there is no separate switch to forget.
+Any other count (6 or 10 positions, for example) cannot be saved: mTI needs an even number of
+pairs, because each carrier takes two. Rows pair up in their saved order, whatever their labels —
+rows 1 and 2 are the first pair (`E1+` with `E1-` by default), rows 3 and 4 the second, … — and each
+pair is one channel. The mode is **derived from the number of pairs** — there is no separate switch
+to forget.
 
 ## What is saved, and where
 
@@ -65,8 +67,9 @@ came from EEG nets and the results that came from an [optimizer]({{ site.baseurl
 
 - **Name**: letters, digits, `_` and `-` only, up to 64 characters (`^[A-Za-z0-9_-]{1,64}$`). Saving
   under an existing name replaces that placement.
-- **Labels**: every electrode label in a placement must be unique; a placement with a repeated
-  label is rejected.
+- **Labels**: every electrode label in a placement must be unique; **Save placement** stays
+  disabled and names any repeated label. A row left without a label is saved as `E<row>` (`E5` for
+  row 5), and that name counts too.
 - **Deleting**: open **Manage montages**, choose the subject under **Freehand placements**, and
   delete the placement (or tick several and **Delete selected**). Simulation results that used it
   are kept.

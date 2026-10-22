@@ -452,7 +452,7 @@ function ClusterPermutationPanel() {
                 </>
               )}
               <Field label="Atlas files" htmlFor="cbp-atlas-files" help="Comma-separated atlas filenames for overlap analysis (optional).">
-                <TextInput id="cbp-atlas-files" value={atlasFiles} onChange={(e) => setAtlasFiles(e.target.value)} placeholder="e.g. HarvardOxford-cort-maxprob-thr25.nii.gz" />
+                <TextInput id="cbp-atlas-files" value={atlasFiles} onChange={(e) => setAtlasFiles(e.target.value)} placeholder="e.g. HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz" />
               </Field>
             </div>
           </CardBody>

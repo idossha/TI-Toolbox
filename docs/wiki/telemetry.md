@@ -26,7 +26,11 @@ supported controls update both values together.
   regardless of the saved preference. It takes effect when it is set in the environment that
   starts TI-Toolbox — for example the shell you run the command-line launcher from — which passes
   it into the container. A desktop app opened from the Dock, Start menu or a file manager does not
-  see shell variables, so desktop users should use the Settings toggle instead.
+  see shell variables, so desktop users should use the Settings toggle instead. On macOS you can
+  also run `launchctl setenv TIT_NO_TELEMETRY 1` in Terminal (it lasts until the Mac restarts),
+  then quit and reopen TI-Toolbox. A container that is already running keeps the environment it
+  was created with: quitting the app stops and removes it, so the next launch creates one with the
+  variable; when a launch offers to attach to a running container, choose **Recreate**.
 
 The preference and a random per-install client UUID live in `telemetry.json`:
 

@@ -122,7 +122,7 @@ Follow the [installation guide]({{ site.baseurl }}/installation/) for the matchi
 **Error:** `charm: line 2: … Killed` during meshing.
 **Cause:** Docker Desktop's VM memory limit (not the machine's RAM) is too low; CHARM needs well over 8 GB.
 **Fix:** **Docker Desktop ▸ Settings ▸ Resources ▸ Memory**: at least 20 GB, 32 GB recommended; close other heavy apps; then quit and reopen TI-Toolbox so it plans jobs with the new limit. Validate with `ernie`, downloaded from **Help ▸ Example data**. Then re-run the head-model (m2m) step.
-**How jobs use the memory:** a job that reserves more memory than the container has (a montage export reserves 16 GiB) does not wait forever: it runs alone, once nothing else is running, and can still run out of memory. FreeSurfer refuses to start below 16 GiB of container memory (`FreeSurfer requires at least 16 GiB of available container memory.`).
+**How jobs use the memory:** a job that reserves more memory than the container has (a montage export reserves 16 GB) does not wait forever: it runs alone, once no other job is running, and may still run out of memory. Its log says so before it starts: `needs about 16 GB of memory, more than the 7.8 GB this container has: it will run alone, once no other job is running, and may still run out of memory (give Docker more memory to avoid that)`. FreeSurfer refuses to start below 16 GiB of container memory (`FreeSurfer requires at least 16 GiB of available container memory.`).
 **Source:** [#119](https://github.com/idossha/TI-Toolbox/discussions/119), [#121](https://github.com/idossha/TI-Toolbox/discussions/121), [Dependencies]({{ site.baseurl }}/installation/dependencies/).
 
 ### Preprocessing appears frozen for many hours

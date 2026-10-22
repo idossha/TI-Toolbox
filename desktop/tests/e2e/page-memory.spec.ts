@@ -36,7 +36,7 @@ import { waitForScene } from "./_runPane";
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const SUBJECT = "ernie";
-const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals", "quick-notes"];
+const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals"];
 
 /** The four pages built on the run skeleton (plan of record §4 L1). */
 const RUN_PAGES = ["preprocess", "simulator", "optimizer", "analyzer"] as const;
@@ -255,11 +255,11 @@ test("optional panel pages keep their drafts and selections while navigating", a
   await gotoPage(page, "panel-nilearn-visuals");
   await expectPage(page, "panel-nilearn-visuals");
   await page.getByLabel("Sub-directory name").fill("memory_visuals");
-  const percentiles = page.getByRole("checkbox", { name: /Use percentile cutoffs/ });
+  const percentiles = page.getByRole("checkbox", { name: /Give cutoffs as percentiles/ });
   if (!(await percentiles.isChecked())) await percentiles.click();
   await awayAndBack("panel-nilearn-visuals");
   await expect(page.getByLabel("Sub-directory name")).toHaveValue("memory_visuals");
-  await expect(page.getByRole("checkbox", { name: /Use percentile cutoffs/ })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /Give cutoffs as percentiles/ })).toBeChecked();
 
   // (The `panel-subject-info` row-selection case that closed this test lived on a page R1
   // deleted; the Overview page's own selection memory is covered in `overview.spec.ts`.)

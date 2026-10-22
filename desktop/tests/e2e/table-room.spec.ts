@@ -30,7 +30,7 @@ import { deadSpaceRatio, firstScreenControls } from "./_metrics";
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
-const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals", "quick-notes"];
+const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals"];
 /** L5a. The same limit every other page in this programme is held to. */
 const DEAD_SPACE_MAX = 0.45;
 /** The shared compact subject-list cap; fill layouts are checked separately below. */

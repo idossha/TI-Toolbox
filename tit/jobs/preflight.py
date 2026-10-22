@@ -640,9 +640,10 @@ def _check_stats(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
                     MissingInput(
                         f"fsaverage projection for sub-{sid} / {sim}",
                         str(msh),
-                        f"Re-run the fsaverage projection for sub-{sid} / {sim}: the "
-                        "Simulator's 'Map fields to fsaverage', or the Source panel's "
-                        "fsaverage mapping.",
+                        f"Re-run the fsaverage projection for sub-{sid} / {sim}: "
+                        "simulate it again with the Simulator's 'Map fields to "
+                        "fsaverage' on, or map its existing outputs with "
+                        "tit.source.fsaverage.project_fields_to_fsaverage.",
                     )
                 )
         return missing

@@ -13,7 +13,7 @@ Electrode mapping moves optimized free electrode positions onto distinct sites o
 Three routes map positions onto a net:
 
 1. **Simulator**: in a job row choose Source **Flex result**, the run, then a net in **Placement**. The run's positions are mapped onto that net when you choose it, and the result is saved in the run folder as `electrode_mapping_<net>.json`, so choosing the same net again reads the file. **Optimised (XYZ)** keeps the free positions. See [Simulator]({{ site.baseurl }}/wiki/simulator/#montage-sources).
-2. **Flex-search**: **After the search ▸ Run simulation with mapped electrodes** maps the winning placement onto the chosen net at the end of the run and simulates that montage. This mapping is SimNIBS's own step, with the same assignment, and is saved in the run folder as `electrode_mapping.json`.
+2. **Flex-search**: **After the search ▸ Run simulation with mapped electrodes** maps the winning placement onto the chosen net at the end of the run and simulates that montage. This mapping is SimNIBS's own step, with the same assignment, and is saved in the run folder as `electrode_mapping_<net>.json`, the file the Simulator reads, so choosing that run and net there uses it. Older runs saved it as `electrode_mapping.json`; that file is still read, for the net named inside it.
 3. **Results**: **Evaluated candidates ▸ Use in Simulator** on a Flex candidate, then a net in the row's **Placement**, snaps that candidate to distinct cap sites. The pane shows the original positions hollow, with dashed links to the cap sites; nothing is written to disk. See [Flex search]({{ site.baseurl }}/wiki/flex-search/#results).
 
 ## From Python
@@ -33,12 +33,12 @@ from tit.tools.map_electrodes import (
 opt_pos, ch_arr_idx = load_electrode_positions_json("flex-search/<run>/electrode_positions.json")
 net_pos, net_labels = read_csv_positions("m2m_ernie/eeg_positions/GSN-HydroCel-185.csv")
 result = map_electrodes_to_net(opt_pos, net_pos, net_labels, ch_arr_idx)
-save_mapping_result(result, "electrode_mapping.json",
+save_mapping_result(result, "flex-search/<run>/electrode_mapping_GSN-HydroCel-185.json",
                     eeg_net_name="GSN-HydroCel-185.csv")
 log_mapping_summary(result)    # per-electrode distances, via the tit.tools logger
 ```
 
-`save_mapping_result` needs an explicit output path; the `eeg_net` key only appears in the JSON when `eeg_net_name` is given.
+`save_mapping_result` needs an explicit output path; the `eeg_net` key only appears in the JSON when `eeg_net_name` is given. Saved in the run folder as `electrode_mapping_<net>.json`, as here, the mapping is offered for that net in the Simulator.
 
 ## Input Format
 

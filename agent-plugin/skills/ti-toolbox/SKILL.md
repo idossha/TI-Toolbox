@@ -209,8 +209,8 @@ will not resume. A job stuck at `running` with no process behind it is freed wit
 ## Common user pitfalls to check first
 
 **For any error message, first call `read_wiki_page("troubleshooting")`** (or
-`search_wiki` with the error text). That page is the maintainer-verified archive of
-known problems, causes and fixes; prefer its answer over your own diagnosis.
+`search_wiki` with the error text). That page, Troubleshooting, is the single source of
+truth for known problems, causes and maintainer-verified fixes; prefer its answer over your own diagnosis.
 
 - Running host `python` instead of `simnibs_python` inside the container.
 - Montage names must match `montage_list.json` exactly; EEG net names are real

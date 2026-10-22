@@ -149,9 +149,9 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
     { id: "G4", label: "QSIPrep", detail: "Dockerised diffusion preprocessing: denoise, distortion and motion correction.", minutes: 120 },
     { id: "G5", label: "QSIRecon", detail: "Optional Dockerised reconstruction: tractography, scalar maps, connectivity.", minutes: 60 },
     { id: "G6", label: "Extract DTI tensor", detail: "Fits the tensor (DIPY) from QSIPrep output and writes the anisotropic conductivity tensor SimNIBS reads.", minutes: 6 },
-    // No report step: each preprocessing job writes its own HTML report as its final stage and
-    // the server folds the subject report's minute into the plan's estimate, so a report is
-    // never a step, a plan row or a job of its own (maintainer, 2026-09-07).
+    // No report step: the combined preprocessing report was removed in v3.0.2. charm (G2a) copies
+    // SimNIBS's charm_report.html into the subject's reports and G6 writes the DTI QC report, each
+    // inside its own step, so a report is never a step, a plan row or a job of its own.
   ],
   sim: [
     { id: "mesh", label: "Load the head model", detail: "Reads m2m_<subject>/<subject>.msh and applies the conductivity model.", minutes: 1 },

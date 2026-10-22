@@ -49,9 +49,9 @@ Legend: [x] built · [~] built, adapted for the v3 job-per-subject model (see no
       (from `POST /api/plan/pre`) opens an `AlertDialog` ("Replace existing outputs?") before
       submitting — same two-step confirm as Qt's warning + `ConfirmationDialog.confirm`, adapted to
       the plan-first flow instead of a post-click dialog.
-- [ ] "Report" step — **not a config field.** `run_pipeline` always writes an HTML report at the
-      end summarizing whichever steps ran; there is no boolean to gate it. Shown as an info
-      `Callout`, not a toggle bound to `PreprocessConfig`.
+- [ ] "Report" step — **not built, by design.** The combined preprocessing HTML report was removed
+      in v3.0.2, so there is no report step, toggle or job. The charm stage (G2a) copies SimNIBS's
+      own `charm_report.html` into the subject's reports, and the DTI step (G6) writes its QC report.
 - [x] Debug/info console lines listing every option before running → superseded by the Plan panel
       (DESIGN.md §2: "tells the truth before you click Run") plus the job's own log in the rail.
 - [x] Confirmation dialog summarising all options before running → `AlertDialog` (only shown when

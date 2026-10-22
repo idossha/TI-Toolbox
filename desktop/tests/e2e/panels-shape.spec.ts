@@ -27,7 +27,7 @@ import { deadSpaceByChild, deadSpaceProfile, deadSpaceRatio, horizontalOverflow 
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
-const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals", "quick-notes"];
+const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals"];
 
 /** The idle terminal intentionally reserves room for live output. For run panels assert
  * bounded plan / dominant terminal geometry, not the old whole-page ink-density target.

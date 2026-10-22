@@ -12,7 +12,7 @@ import { connectLauncher, expectPage, launchElectronApp, setTheme } from "./_hel
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const ARTIFACTS = process.env.TIT_E2E_ARTIFACTS ?? join(__dirname, "artifacts");
-const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals", "quick-notes"];
+const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals"];
 
 let app: ElectronApplication;
 let page: Page;
@@ -25,10 +25,9 @@ async function launchApp(): Promise<void> {
   // The nav rail's live `useEnabledPages()` (app/registry.ts) gates a "panels" page on the
   // *server's* `settings.panels`, not this localStorage mirror (which only seeds each panel's own
   // static `PageDef.enabled` fallback — see pages/panels/_shared.ts's doc comment). The mock's
-  // default fixture enables source/quick-notes (plus the now-page-less `subject-info` id)
-  // (tests/fixtures/settings_seed.json), so without this route the other three panels this spec
-  // covers never appear in the nav at all — not a timing issue, `getByRole("link", ...)` simply
-  // never resolves. Route around it to enable everything this spec exercises.
+  // default fixture enables only `source` (tests/fixtures/settings_seed.json), so without this
+  // route the other three panels this spec covers never appear in the nav at all — not a timing
+  // issue, `getByRole("link", ...)` simply never resolves. Route around it to enable everything this spec exercises.
   await page.route("**/api/settings", (route) => {
     if (route.request().method() !== "GET") return route.continue();
     return route.fulfill({

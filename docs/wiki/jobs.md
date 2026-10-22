@@ -32,7 +32,9 @@ All running jobs share one pool of CPUs: the **CPU limit** in **Settings ▸ Pro
 a percent of the cores available to the container (default **70 %**, shown as e.g. "70 % · 7 of 10
 cores"). It leaves headroom for your computer; raise it for faster searches. A job that would
 exceed what is left waits ("waiting for budget") until others finish. A job that needs more memory
-than the container has does not wait forever: it runs alone, once nothing else is running. A change
+than the container has does not wait forever: it runs alone, once no other job is running, and may
+still run out of memory. Its log says so before it starts ("needs about 16 GB of memory, more than
+the 7.8 GB this container has: it will run alone, …"); give Docker more memory to avoid it. A change
 applies to jobs started afterwards — running jobs keep what they were given. Scripts and notebooks
 honour the same setting.
 

@@ -6,8 +6,8 @@ argument-hint: [project-root] [subject-id]
 
 # Troubleshoot a TI-Toolbox project
 
-Before anything else, `read_wiki_page("troubleshooting")` — the verified archive of
-known problems. Match the user's error text against it first; only investigate
+Before anything else, `read_wiki_page("troubleshooting")` — Troubleshooting, the single
+source of truth for known problems and their verified fixes. Match the user's error text against it first; only investigate
 further when nothing matches. If you find a new, confirmed cause, tell the user to
 report it in GitHub Discussions (Q&A) so it can be added.
 

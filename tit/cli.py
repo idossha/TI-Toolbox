@@ -1,8 +1,9 @@
 """The ``tit`` console command.
 
-Installed by ``pyproject.toml``'s ``[project.scripts]``, so ``pip install tit``
-(or ``pipx run tit``) on any host with CPython >= 3.11 and the ``docker`` CLI
-gets a working launcher — no SimNIBS, no Electron, no Node.
+Installed by ``pyproject.toml``'s ``[project.scripts]`` from a checkout
+(``pip install -e .``; ``tit`` is not published on PyPI) or by ``loader.py``,
+so any host with CPython >= 3.11 and the ``docker`` CLI gets a working
+launcher — no SimNIBS, no Electron, no Node.
 
 Today there is one subcommand, ``launch``.  It is a subcommand rather than a
 second console script because the natural next ones (``tit doctor``,

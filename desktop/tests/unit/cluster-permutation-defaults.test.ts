@@ -45,7 +45,7 @@ describe("Cluster Permutation panel configs validate against contracts/generated
 
   it("a fsaverage-space classification config with atlas overlap files is valid", () => {
     const config = buildGroupComparisonConfig(
-      { ...defaultShared, space: "fsaverage", atlasFiles: ["HarvardOxford-cort-maxprob-thr25.nii.gz"] },
+      { ...defaultShared, space: "fsaverage", atlasFiles: ["HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz"] },
       [
         { subjectId: "ernie", simulationName: "Thalamus", response: 1 },
         { subjectId: "101", simulationName: "Thalamus", response: 0 },

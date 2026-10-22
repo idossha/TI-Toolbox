@@ -150,9 +150,10 @@ export function outputHint(mode: Mode, subjectId: string, simulationName: string
   const sub = `sub-${subjectId}`;
   switch (mode) {
     case "regions":
-      return `visual_exports/${sub}/${simulationName}/cortical_stls`;
+      // One Run queues an STL and a PLY job (buildRegionConfigs); each writes under its format.
+      return `visual_exports/${sub}/${simulationName}/{stl|ply}/cortical_{stls|plys}/regions`;
     case "vectors":
-      return `visual_exports/${sub}/${simulationName}`;
+      return `visual_exports/${sub}/${simulationName}/vectors`;
     case "montage":
       return `visual_exports/${sub}/montage_publication`;
     case "subcortical":

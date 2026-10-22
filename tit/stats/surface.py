@@ -89,8 +89,9 @@ def load_group_surface_data(
         if not msh_path.exists():
             raise FileNotFoundError(
                 f"No fsaverage projection for {sid}/{sim}: {msh_path}. "
-                "Re-run its fsaverage projection (the Simulator's 'Map fields to "
-                "fsaverage' or the Source panel's fsaverage mapping) first."
+                "Re-run its fsaverage projection first: simulate it again with the "
+                "Simulator's 'Map fields to fsaverage' on, or map its existing outputs "
+                "with tit.source.fsaverage.project_fields_to_fsaverage."
             )
         arr = read_fsaverage_field(msh_path, field)
         if arr.shape[0] != expected:

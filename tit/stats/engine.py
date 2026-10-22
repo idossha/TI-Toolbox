@@ -866,7 +866,7 @@ class PermutationEngine:
         Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,
         correlation_data)``.
         """
-        from .io_utils import save_permutation_details
+        from .io_utils import save_correlation_permutation_details
 
         effect_sizes = np.asarray(effect_sizes, dtype=np.float64)
         n_subjects = len(effect_sizes)
@@ -966,10 +966,12 @@ class PermutationEngine:
 
         if track:
             null_stats = np.array([r[0] for r in results])
+            perm_indices = [r[1] for r in results]
             null_sizes = [r[2] for r in results]
             null_masses = [r[3] for r in results]
         else:
             null_stats = np.array([r[0] for r in results])
+            perm_indices = None
             null_sizes = [r[1] for r in results]
             null_masses = [r[2] for r in results]
 
@@ -987,6 +989,18 @@ class PermutationEngine:
             np.mean(null_stats),
             np.max(null_stats),
         )
+
+        if perm_indices is not None:
+            info = [
+                {
+                    "perm_num": i,
+                    "perm_idx": perm_indices[i],
+                    "max_cluster_size": null_stats[i],
+                }
+                for i in range(self.n_permutations)
+            ]
+            save_correlation_permutation_details(info, perm_log_file, subject_ids)
+            self._log.info("Permutation log saved: %s", perm_log_file)
 
         # Identify significant clusters
         sig_mask, sig_clusters, all_observed = _identify_significant_clusters(

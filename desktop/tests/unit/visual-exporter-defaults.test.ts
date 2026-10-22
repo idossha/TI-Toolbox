@@ -114,7 +114,12 @@ describe("sub-cortical mode", () => {
 
 describe("outputHint", () => {
   it("names the directory each mode actually writes into", () => {
-    expect(outputHint("regions", "ernie", "Thalamus")).toBe("visual_exports/sub-ernie/Thalamus/cortical_stls");
+    // tit/blender/region_exporter.py: <sim>/<format>/cortical_<format>s/regions/
+    expect(outputHint("regions", "ernie", "Thalamus")).toBe(
+      "visual_exports/sub-ernie/Thalamus/{stl|ply}/cortical_{stls|plys}/regions",
+    );
+    // tit/blender/vector_field_exporter.py: <sim>/vectors
+    expect(outputHint("vectors", "ernie", "Thalamus")).toBe("visual_exports/sub-ernie/Thalamus/vectors");
     expect(outputHint("montage", "ernie", "Thalamus")).toBe("visual_exports/sub-ernie/montage_publication");
     expect(outputHint("subcortical", "ernie", "")).toBe("visual_exports/sub-ernie/sub-cortical");
   });

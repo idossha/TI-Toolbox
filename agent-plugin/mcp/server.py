@@ -863,7 +863,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "docs": SITE_BASE,
         "wiki": f"{SITE_BASE}/wiki/",
         "api_reference": f"{SITE_BASE}/api/",
-        "troubleshooting": f"{SITE_BASE}/wiki/troubleshooting/  (read_wiki_page('troubleshooting') -- verified archive of known errors and fixes; check it first for any error)",
+        "troubleshooting": f"{SITE_BASE}/wiki/troubleshooting/  (read_wiki_page('troubleshooting') -- Troubleshooting, the single source of truth for known errors and their verified fixes; check it first for any error)",
         "repo": f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}",
         "architecture_v3": {
             "summary": "Three pieces. (1) An Electron desktop app on the host, `desktop/` "

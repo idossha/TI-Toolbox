@@ -9,6 +9,7 @@ Targets:
   load_grouped_subjects_ti_toolbox)
 """
 
+import ast
 import importlib
 import logging
 import os
@@ -825,6 +826,45 @@ class TestPermutationEngineCorrectCorrelation:
         )
 
         assert len(result) == 6
+
+    def test_correct_correlation_writes_permutation_details(self, tmp_path):
+        """A correlation run logs every permutation, as group comparison does."""
+        subject_data, effect_sizes = self._make_corr_data()
+        r_values, t_statistics, p_values, valid_mask = correlation_voxelwise(
+            subject_data, effect_sizes
+        )
+        engine = PermutationEngine(
+            cluster_threshold=0.05,
+            n_permutations=5,
+            alpha=0.05,
+            cluster_stat="size",
+            alternative="two-sided",
+            n_jobs=1,
+        )
+        ids = [f"s{i}" for i in range(len(effect_sizes))]
+        log_file = tmp_path / "permutation_details.txt"
+
+        engine.correct_correlation(
+            subject_data,
+            effect_sizes,
+            r_values=r_values,
+            t_statistics=t_statistics,
+            p_values=p_values,
+            valid_mask=valid_mask,
+            perm_log_file=str(log_file),
+            subject_ids=ids,
+        )
+
+        lines = [
+            line
+            for line in log_file.read_text().splitlines()
+            if line.startswith("Permutation ")
+        ]
+        assert len(lines) == 5
+        for line in lines:
+            donors = line.split("Effect sizes from: ")[1].split("]")[0] + "]"
+            # Every permutation hands out each subject's effect size exactly once.
+            assert sorted(ast.literal_eval(donors)) == sorted(ids)
 
     def test_correct_correlation_less_alternative(self):
         """One-sided (less) alternative forms only negative clusters."""
@@ -1800,6 +1840,20 @@ class TestSavePermutationDetails:
         text = open(out).read()
         assert "PERMUTATION TEST DETAILS" in text
         assert "Total permutations: 2" in text
+
+    def test_correlation_details_name_effect_size_donors(self, tmp_path):
+        """perm_idx [2, 0, 1] gives a, b, c the effect sizes of c, a, b."""
+        from tit.stats.io_utils import save_correlation_permutation_details
+
+        info = [{"perm_num": 0, "perm_idx": [2, 0, 1], "max_cluster_size": 4}]
+        out = tmp_path / "permutation_details.txt"
+
+        save_correlation_permutation_details(info, str(out), ["a", "b", "c"])
+
+        text = out.read_text()
+        assert "Subjects (n=3): ['a', 'b', 'c']" in text
+        assert "Effect sizes from: ['c', 'a', 'b']" in text
+        assert "Responders" not in text
 
     def test_save_with_float_stats(self, tmp_path):
         """Permutation details are saved with float stats (mass)."""
