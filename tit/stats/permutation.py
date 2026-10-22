@@ -187,6 +187,12 @@ def run_group_comparison(
     Permutation p-values are ``(b + 1) / (m + 1)``, so with 1000
     permutations the floor is ``1/1001``; a result is never exactly 0.
 
+    Re-using an ``analysis_name`` replaces the earlier run: its folder is
+    deleted before the inputs load, together with any file put there by
+    hand, so a re-run that then fails leaves nothing under that name. The
+    app asks before it submits such a run; a script does not, so choose a
+    new name to keep an earlier result.
+
     Examples
     --------
     >>> from tit.stats import GroupComparisonConfig, run_group_comparison
@@ -496,6 +502,12 @@ def run_correlation(
         If *stop_callback* returns ``True`` during execution.
     FileNotFoundError
         If a subject's NIfTI is missing.
+
+    Notes
+    -----
+    Re-using an ``analysis_name`` replaces the earlier run, as in
+    :func:`run_group_comparison`: its folder is deleted before the inputs
+    load, so a re-run that then fails leaves nothing under that name.
 
     Examples
     --------
