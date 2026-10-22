@@ -25,11 +25,52 @@ a local success does not establish hosted CI, security review or artifact accept
 
 CircleCI keeps the existing required check names. `build-and-run-tests` runs the **entire host
 Python suite**, coverage, documentation/build self-tests, route guard and contract guard in a
-Python 3.11 VM environment. It excludes `tests/numerical` explicitly. `desktop-checks` runs all
-TypeScript checks, lint, Vitest units and a normal production build. Browser installation,
-Electron E2E and scientific-image pulls are absent from the ordinary workflow. Coverage is host
-coverage, not proof of real scientific execution. Image verification remains an explicit
+Python 3.11 VM environment, plus the agent-plugin MCP stdio tests (`unittest discover -s
+agent-plugin/mcp`), the test-inventory guard and the host numerical leg (below). The host suite
+excludes `tests/numerical`. `desktop-checks` runs all TypeScript checks, lint, Vitest units, the
+docs search page test (`node --test docs/tests/search-results.test.mjs`) and a normal production
+build. Browser installation and Electron E2E are absent from the ordinary workflow. Coverage is
+host coverage, not proof of real scientific execution. Image verification remains an explicit
 `build_image` pipeline choice.
+
+`tests/numerical` makes claims only real libraries can check, and runs in three places:
+
+- **Host numerical leg** (`build-and-run-tests`): `pytest tests/numerical -m host_numerical`.
+  Modules that need only real numpy, scipy and nibabel are marked `host_numerical` (listed in
+  `tests/numerical/conftest.py`, or `pytestmark` in a new module); every other module skips on a
+  host without matplotlib. The leg must skip nothing.
+- **Image leg**: the nightly `numerical_nightly` workflow (`numerical-image` job) runs the whole
+  directory in `idossha/ti-toolbox:v<tit.__version__>` with the checkout mounted read-only, and
+  `build-and-smoke-image` runs it in the image it just built. On `v3.1.1` it is red on
+  `test_simnibs_vector_warp.py` (the shipped NumPy `nan_to_num` patch) until the image is
+  rebuilt; that red is the leg working.
+- **Release gate**: the `numerical` stage of `dev/verify_release.py`.
+
+Every leg's JUnit XML goes through `dev/check_junit.py`: zero collected, any failure or error, or
+a skip not on that leg's allowlist (each entry states why it may skip) fails the leg, so
+"skipped" never passes for "checked". A read-only checkout needs
+`PYTEST_ADDOPTS="-p no:cacheprovider -o log_file=/tmp/pytest.log"`, which nested pytest runs
+inherit. `dev/test_inventory_guard.py` requires every tracked `test_*.py`, `*.test.*` and
+`*.spec.ts` to match a runner read from pytest.ini, the CI file, Vitest's include globs or
+Playwright's `testDir`, or a local layer it names (`tests/numerical`, real and mock Playwright,
+`tests/smoke`); `tests/test_test_inventory_guard.py` drives it red.
+
+### Real-data tests (Dataset 000)
+
+Tests that need the maintainer's Dataset 000 gate on `TIT_DATASET_000` (the dataset root) and
+skip with a reason when it is unset; new tests use that variable only, open the dataset
+read-only and copy anything they write into `tmp_path`. Older suites keep their own variables:
+`TIT_SCENE_TESTDATA` (`tests/test_scene_realdata.py`, `tests/numerical/test_caps_warp_realdata.py`),
+`TIT_DOTCACHE_PROJECT`, `TIT_DTI_REAL` and `TIT_ERNIE_LABELING`. `tests/test_scene_realdata.py`
+builds its scene cache in a symlinked copy under `tmp_path` and fails if a project file changes.
+
+`dev/run_realdata_tests.sh --dataset /path/to/000` runs every module that reads one of those
+variables inside the image, with the dataset mounted read-only, and fails on any skip except the
+variables Dataset 000 cannot satisfy (`TIT_ERNIE_LABELING`: no `m2m_ernie/segmentation/
+labeling.nii.gz`; `TIT_DTI_PROTO`: the prototype tensor is not in the dataset). Scene tests use
+sub-101 there, because Dataset 000's `m2m_ernie` has no `segmentation/` atlases. It compares a
+size/mtime/SHA-256 listing of the dataset before and after the run. `dev/verify_release.py` runs
+it as the `realdata` stage (`--dataset-000`, default `$TIT_DATASET_000`).
 
 Before an official release, run the existing full layers through the serial local entry point:
 
@@ -48,7 +89,8 @@ Repeat `--real-spec` and `--smoke-row` for every workflow affected by the releas
 requires the applicable matrix, not a token smoke row. Smoke rows use `--full` (completion, not
 start/cancel); the notebook adds a real flex search, FEM solve and analysis. The wrapper holds
 `/tmp/tit-e2e.lock`, runs each stage serially, runs numerical tests in a fresh real-image Python
-process, verifies the supplied package, and restores a normal build last even after a failed
+process (then checks its JUnit skips), runs the real-data stage against Dataset 000, verifies
+the supplied package, and restores a normal build last even after a failed
 stage. Coordinate all other heavy jobs before invocation; this E2E lock cannot stop a separately
 launched FEM job. The quiet monitor currently requires macOS, and an inconclusive exit 2 fails.
 
@@ -300,7 +342,9 @@ without source/UI mounts. A later source fix invalidates claims based only on an
 - A script that works on the host can fail in the container, or the reverse: the image runs SimNIBS
   Python with NumPy 2.3.5 on a case-sensitive filesystem. Verify in the container.
 - `pytest` INTERNALERROR `Read-only file system: tests/logs/pytest.log`: `pytest.ini` writes that
-  log, so mount the repository writable, not `:ro`.
+  log. On a `:ro` mount pass `-e PYTEST_ADDOPTS="-p no:cacheprovider -o log_file=/tmp/pytest.log"`
+  to `docker run`; nested pytest runs (`test_target_preview.py`, `test_dot_cache_layout.py`)
+  inherit it, a command-line `-o` does not reach them.
 - `python: not found` in the container: use `simnibs_python`. `python3` there is the system
   interpreter, without SimNIBS.
 - The image is amd64, so on Apple Silicon it runs under emulation: expect about a minute for the
@@ -312,31 +356,12 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   run `simnibs_python` in the current image, not another interpreter or a legacy image.
 - `dcm2niix` produced zero NIfTIs: `-r` means **rename**, not recurse; recursion depth is `-d 9`.
 
-## Current verification and remaining gaps — 2026-09-09
+## Platform acceptance procedures
 
-Receipts live under ignored `dist/internal/` and `/tmp`; they may expire. The committed suites
-above are the reproduction surface. A source test does not certify a later image rebuild.
-
-| Scoped check | Result |
-|---|---|
-| Host Python suite | 4,825 passed, 48 skipped, 21 deselected; `/tmp/tit-rebuild-host-full.log` |
-| Desktop units | 1,601 passed; `/tmp/tit-rebuild-desktop-tests.log` |
-| Scene interactions | Seven mock e2e passed, including first Analyzer atlas pick and toggle |
-| Subject net rendering | Subject 101/BioSemi-128: real GPU electrode selection/color check passed; native quiet monitor passed with nine samples |
-| Backend route and contract guards | 24 route modules; 114 operations / 136 schemas; 244 existing contract warnings |
-| Prior internal image | Source `3f2af30c`: 355 baked numerical/backend/Blender tests, 83 loader/packaging tests and clean Python/Bash launcher acceptance passed |
-
-The first internal upload resolved to
-`sha256:4f62a4a9c71ef440d3b3428707eaa71bada486d78a8eed57f5c74449181aa409`.
-The maintainer requested rebuilding the same `internal-20260909.1` tag after the scene fixes;
-use each rebuild's registry digest and embedded source SHA, not the tag alone, as its identity.
-The image receipt is `dist/internal/image-internal-20260909.1-receipt.json`.
-
-The seven-test mock run's native monitor exited 2 (unresolved process attribution), so its
-windowlessness measurement is inconclusive despite passing behavior tests. The real net check's
-monitor passed. Host numerical mocks and skips do not replace container checks; the overwrite
-regression stubs FEM and does not prove a complete simulation. Final installer/platform,
-hosted security and manual acceptance remain in [ROADMAP](ROADMAP.md).
+Run results are not recorded here: the committed suites and the commands above are the
+reproduction surface, and a release's evidence is its `dev/verify_release.py` receipt. A source
+test does not certify a later image rebuild; host numerical mocks and skips do not replace the
+image leg; the overwrite regression stubs FEM and does not prove a complete simulation.
 
 ### Native FastSurfer acceptance
 
