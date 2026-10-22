@@ -12,7 +12,8 @@ the files that define what runs:
 * ``unittest discover -s DIR -p PATTERN`` and ``node --test FILE`` steps in
   .circleci/config.yml;
 * Playwright's ``testDir`` in desktop/playwright.config.ts (mock server: CircleCI
-  ``desktop-e2e-mock`` on main and nightly, not per PR; named in the table below);
+  ``desktop-e2e-mock``, opt-in with the ``run_e2e_mock`` pipeline parameter; named in the
+  table below);
 * ``LOCAL_LAYERS``: layers that are local on purpose, each with the job or script that runs
   it.
 
@@ -53,7 +54,7 @@ LOCAL_LAYERS: dict[str, str] = {
     ),
     "tests/smoke/**": "dev/smoke.sh (needs a live tit.server and a real project)",
     "PLAYWRIGHT": (
-        "mock-server Playwright: CircleCI desktop-e2e-mock (main + nightly) and "
+        "mock-server Playwright: CircleCI desktop-e2e-mock (opt-in: run_e2e_mock) and "
         "dev/verify_release.py `mock-e2e` (npm run e2e:quiet)"
     ),
 }

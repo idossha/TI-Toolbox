@@ -8,7 +8,7 @@ owns unresolved work. Workflow and script source is authoritative for inputs and
 
 | Source | Trigger and responsibility |
 |---|---|
-| [CircleCI](../../.circleci/config.yml) | Fast host Python regression/coverage and desktop static/unit/build checks; full image build selected explicitly with `build_image` |
+| [CircleCI](../../.circleci/config.yml) | Fast host Python regression/coverage and desktop static/unit/build checks; full image build selected explicitly with `build_image`, the mock Electron e2e suite with `run_e2e_mock` |
 | [Release build](../../.github/workflows/release-build.yml) | Stable tags, manual dispatch or reusable invocation; unsigned executable builds or signed release publication; Docker image build/push is manual |
 | [Docs deploy](../../.github/workflows/deploy-docs.yml) | Relevant `main` pushes or manual dispatch; builds MkDocs API then Jekyll, checks assets and deploys Pages |
 | [CodeQL](../../.github/workflows/code-ql-analysis.yml) | Configured pushes, PRs and weekly schedule; static analysis |

@@ -35,17 +35,32 @@ carries its reason (`tests/test_coveragerc.py` fails on a pattern that hides a b
 a dead omit or flag path, or any `ignore` list in `codecov.yml`). Image verification remains an
 explicit `build_image` pipeline choice.
 
-The mock-server Electron e2e suite (Playwright `--project=default`) runs in `desktop-e2e-mock`
-on `main` and nightly (`e2e_mock_nightly`), not on every pull request: offscreen under Xvfb,
-after asserting that `TIT_E2E_SERVER_URL`, `TIT_E2E_TOKEN`, `TIT_E2E_PROJECT_HOST` and
-`TIT_DATASET_000` are unset, so only the mock server is reachable. Its JUnit report goes through
-`dev/check_junit.py --leg e2e-mock`, whose allowlist names the three skips of the measured run
-(2026-10-22: 364 tests, 361 passed, 7.8 and 9.0 min on macOS; the step's ceiling is 18 min). Every
-store step in every job runs with `when: always`, so a red run keeps its JUnit report, traces and
-screenshots. `tests/test_circleci_e2e_mock_job.py` pins the job: the guard (run in bash) fails when
-a real server is configured, `check_junit` is the Playwright step's last and unswallowed command,
-and the job runs only on `main` and the nightly schedule. Real-server specs (`tests/e2e/real`) stay
-in the local release gate.
+The mock-server Electron e2e suite (Playwright `--project=default`) has a CircleCI job,
+`desktop-e2e-mock`, that runs only when a pipeline is triggered with the boolean parameter
+`run_e2e_mock=true` (workflow `e2e_mock`; CircleCI's Trigger Pipeline, or the v2 API's
+`POST /project/gh/idossha/TI-Toolbox/pipeline` with `{"branch": "main", "parameters":
+{"run_e2e_mock": true}}`). It runs offscreen under Xvfb, after asserting that
+`TIT_E2E_SERVER_URL`, `TIT_E2E_TOKEN`, `TIT_E2E_PROJECT_HOST` and `TIT_DATASET_000` are unset, so
+only the mock server is reachable. Its JUnit report goes through `dev/check_junit.py --leg
+e2e-mock`, whose allowlist names the three skips of the measured macOS run (2026-10-22: 364 tests,
+361 passed, 7.8 and 9.0 min; the step's ceiling is 18 min). Every store step in every job runs with
+`when: always`, so a red run keeps its JUnit report, traces and screenshots.
+`tests/test_circleci_e2e_mock_job.py` pins the job: the guard (run in bash) fails when a real
+server is configured, `check_junit` is the Playwright step's last and unswallowed command, and only
+the parameter-gated workflow runs it. Real-server specs (`tests/e2e/real`) and the mock suite on
+macOS (`dev/verify_release.py mock-e2e`) stay in the local release gate.
+
+It is opt-in because it was red on every `main` push of 2026-10-22 (CircleCI #1249-#1262) for
+reasons of the Linux executor, not of the app: on the 2-vCPU `ubuntu-2204` machine the suite runs
+about 7x slower than on macOS, so `timeout 18m` stopped Playwright near test 110 of 404 and no JUnit
+file was written; about 290 specs have never run on Linux; and five fail there deterministically
+on timing or layout: `caps.spec.ts:51`, `guide.spec.ts:179`, `jobs.spec.ts:379`,
+`jobs.spec.ts:652` and `layout.spec.ts` (the run-page sizes). Putting it back on every `main` push
+needs, in order: sharding (`parallelism` with `npx playwright test --shard`, one JUnit file per
+shard, all of them handed to `check_junit`) or a larger `resource_class`, then the fonts the
+layout and pixel specs measure with installed on the executor, then the five Linux-only failures
+fixed and the rest of the suite run green on Linux at least twice. Then restore it to
+`test_workflow` with the `main` branch filter, and update the pin above.
 
 `tests/numerical` makes claims only real libraries can check, and runs in three places:
 

@@ -4,6 +4,11 @@ parameters:
   build_image:
     type: boolean
     default: false
+  # Opt-in mock e2e (docs/dev/TESTING.md): on the 2-vCPU Linux executor the suite runs about
+  # 7x slower than on macOS and five specs fail on Linux only, so it is off until sharded.
+  run_e2e_mock:
+    type: boolean
+    default: false
 
 executors:
   vm-docker:
@@ -407,7 +412,9 @@ jobs:
 
   # The mock-server Electron e2e suite (Playwright project `default`: every spec under
   # desktop/tests/e2e except real/), offscreen under Xvfb. #162 took it out of the per-PR
-  # checks for its cost, so it runs on main and nightly. playwright.config.ts starts the mock
+  # checks for its cost; it now runs only when a pipeline is triggered with run_e2e_mock=true,
+  # because on this executor it outruns its 18-minute ceiling and five specs fail on Linux only
+  # (docs/dev/TESTING.md has the path back to main). playwright.config.ts starts the mock
   # server only when TIT_E2E_SERVER_URL is unset; the first step makes sure it is.
   desktop-e2e-mock:
     executor: vm-docker
@@ -485,10 +492,11 @@ workflows:
     jobs:
       - build-and-run-tests
       - desktop-checks
-      - desktop-e2e-mock:
-          filters:
-            branches:
-              only: main
+
+  e2e_mock:
+    when: << pipeline.parameters.run_e2e_mock >>
+    jobs:
+      - desktop-e2e-mock
 
   image_verification:
     when: << pipeline.parameters.build_image >>
@@ -504,13 +512,3 @@ workflows:
               only: main
     jobs:
       - numerical-image
-
-  e2e_mock_nightly:
-    triggers:
-      - schedule:
-          cron: "30 7 * * *"
-          filters:
-            branches:
-              only: main
-    jobs:
-      - desktop-e2e-mock

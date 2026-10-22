@@ -14,8 +14,9 @@ read from the file it must agree with, not typed here):
 * Every ``store_test_results`` / ``store_artifacts`` step in every job has
   ``when: always``: the red runs are the ones whose JUnit, traces and screenshots
   are needed. The e2e job stores Playwright's ``outputDir`` (from the config).
-* The job runs only on ``main``: in ``test_workflow`` behind a branch filter and in
-  a scheduled workflow filtered to ``main``; no workflow runs it per PR.
+* The job is opt-in: one workflow runs it, gated on the boolean pipeline parameter
+  ``run_e2e_mock`` (default false), so no push or PR runs it until the Linux path in
+  docs/dev/TESTING.md is done.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_circleci_e2e_mock_job.py -q``.
 Running the job itself needs CircleCI (Linux, Xvfb); that is not done here.
@@ -185,20 +186,15 @@ def test_the_e2e_job_stores_its_junit_and_playwrights_output_dir() -> None:
     assert report and report.group(1).startswith("/tmp/test-results/")
 
 
-def test_the_job_runs_on_main_and_nightly_never_per_pr() -> None:
+def test_the_job_runs_only_when_a_pipeline_asks_for_it() -> None:
     runs_in = {}
     for name, workflow in CONFIG["workflows"].items():
         for entry in workflow.get("jobs", []):
-            job, body = (
-                (entry, {}) if isinstance(entry, str) else next(iter(entry.items()))
-            )
+            job = entry if isinstance(entry, str) else next(iter(entry))
             if job == JOB:
-                runs_in[name] = (workflow, body or {})
-    assert set(runs_in) == {"test_workflow", "e2e_mock_nightly"}, runs_in
-    _workflow, body = runs_in["test_workflow"]
-    assert body["filters"]["branches"]["only"] in ("main", ["main"]), body
-    nightly, _body = runs_in["e2e_mock_nightly"]
-    (trigger,) = nightly["triggers"]
-    schedule = trigger["schedule"]
-    assert re.fullmatch(r"[\d*/,-]+( [\d*/,-]+){4}", schedule["cron"]), schedule
-    assert schedule["filters"]["branches"]["only"] in ("main", ["main"]), schedule
+                runs_in[name] = workflow
+    assert list(runs_in) == ["e2e_mock"], runs_in
+    workflow = runs_in["e2e_mock"]
+    assert workflow["when"] == "<< pipeline.parameters.run_e2e_mock >>", workflow
+    assert "triggers" not in workflow, workflow
+    assert CONFIG["parameters"]["run_e2e_mock"] == {"type": "boolean", "default": False}
