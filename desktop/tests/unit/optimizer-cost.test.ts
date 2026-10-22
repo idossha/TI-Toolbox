@@ -58,10 +58,11 @@ describe("exCost", () => {
     expect(exCost(form).electrodes).toBe(3);
   });
 
-  it("counts every ordered assignment of four distinct pool electrodes", () => {
-    const form = { ...defaultExFormState(), electrodeMode: "all" as const, pool: ["A", "B", "C", "D", "E"] };
-    // Choose the first pole in 5 ways, then 4, 3, and 2; the engine does not prune symmetry.
-    expect(exCost(form).montages).toBe(120);
+  it("counts each physical montage of a pool once", () => {
+    const form = { ...defaultExFormState(), electrodeMode: "all" as const, pool: ["A", "B", "C", "D", "E"], totalCurrent: 2, currentStep: 0.2, channelLimit: 1.6 };
+    // C(5,4) = 5 sets × 3 ways to pair them. TI ignores a channel's polarity, and the 1.6 … 0.4
+    // sweep is its own mirror, so the other 4! / 3 = 8 orderings of each montage repeat it.
+    expect(exCost(form).montages).toBe(15);
   });
 
   it("is zero montages for a pool that cannot make one montage", () => {
@@ -69,19 +70,27 @@ describe("exCost", () => {
     expect(exCost(form).montages).toBe(0);
   });
   it("has one iteration per montage when only balanced currents are allowed", () => {
-    const fixed = exCost({ ...defaultExFormState(), electrodeMode: "all", pool: ["A", "B", "C", "D"], channelLimit: 1 });
+    const fixed = exCost({ ...defaultExFormState(), electrodeMode: "all", pool: ["A", "B", "C", "D"], totalCurrent: 2, currentStep: 0.2, channelLimit: 1 });
     expect(fixed.splits).toBe(1);
-    expect(fixed.montages).toBe(24);
+    expect(fixed.montages).toBe(3); // AB|CD, AC|BD, AD|BC at 1 mA each
     expect(fixed.combinations).toBe(fixed.montages);
   });
 
-  it("matches explicit enumeration for small pools, including imported duplicate labels", () => {
+  it("matches an explicit enumeration of distinct stimulations, including imported duplicate labels", () => {
+    // 2 mA in 0.2 mA steps, limit 1.6: channel 1 carries 1.6, 1.4, … 0.4 mA (seven splits).
+    const splits = [1.6, 1.4, 1.2, 1.0, 0.8, 0.6, 0.4].map((a) => [a, Math.round((2 - a) * 10) / 10]);
     for (const pool of [["A", "B", "C", "D", "E"], ["A", "A", "B", "C", "D"]]) {
       const tuples = pool.flatMap(a => pool.flatMap(b => pool.flatMap(c => pool.map(d => [a, b, c, d]))));
       const valid = tuples.filter(tuple => new Set(tuple).size === 4);
-      const cost = exCost({ ...defaultExFormState(), electrodeMode: "all", pool });
-      expect(cost.montages).toBe(valid.length);
-      expect(cost.combinations).toBe(valid.length * 7);
+      // One stimulation = the set of its channels, each an unordered pair at its current.
+      const physical = new Set(
+        valid.flatMap(([a, b, c, d]) =>
+          splits.map(([i1, i2]) => [[a, b].sort().join("-") + "@" + i1, [c, d].sort().join("-") + "@" + i2].sort().join("|")),
+        ),
+      );
+      const cost = exCost({ ...defaultExFormState(), electrodeMode: "all", pool, totalCurrent: 2, currentStep: 0.2, channelLimit: 1.6 });
+      expect(cost.combinations).toBe(physical.size);
+      expect(cost.montages * 7).toBe(physical.size);
     }
   });
 

@@ -14,6 +14,7 @@ import type { GroupKind } from "../_shared/run";
 import type { FlexConfigWire } from "./api";
 import { buildFlexConfig } from "./flexConfig";
 import { buildExConfig, buildMExConfig, exTargets, EX_BUCKET_KEYS, MEX_BUCKET_KEYS, type ExTarget } from "./exConfig";
+import { exFormReason, mexFormReason } from "./cost";
 import { OPT_METHOD_LABEL, rowJobKind, rowStage, type OptimizerRow } from "./rows";
 
 /** One planned/submitted job: which row it came from, its kind, its subject and its wire config. */
@@ -91,10 +92,10 @@ export function rowFormReason(row: OptimizerRow): string | null {
       return "Fill in every electrode bucket.";
     }
     if (row.ex.electrodeMode === "all" && row.ex.pool.length < 4) return "Add at least four electrodes to the pool.";
-    return null;
+    return exFormReason(row.ex);
   }
   if (MEX_BUCKET_KEYS.some((k) => (row.mex.buckets[k] ?? []).length === 0)) return "Fill in all eight electrode buckets.";
-  return null;
+  return mexFormReason(row.mex);
 }
 
 /** Resolve a run-name control under the subject's server-provided flex directory. */

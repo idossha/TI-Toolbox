@@ -36,7 +36,7 @@ import {
 } from "./exConfig";
 import { leadfieldFor, netOptions } from "./nets";
 import { POOL_KEY } from "./buckets";
-import { exCost, mexCost } from "./cost";
+import { EX_BOUNDS, MEX_BOUNDS, exCost, mexCost, outOfBounds } from "./cost";
 
 /** A `?` popover for the two mTI options whose consequences a label cannot carry. */
 function HelpButton({ label, text }: { label: string; text: string }) {
@@ -277,13 +277,13 @@ export function ExCurrentSection({ form, onChange }: { form: ExFormState; onChan
           fields sized to their content, 24px apart. */}
       <div className="field-row-inline optimizer-current-row">
         <Field label="Total current" help="Distributed between the two channels.">
-          <NumberInput value={form.totalCurrent} onValueChange={(v) => onChange({ totalCurrent: v ?? 2.0 })} unit="mA" min={0.1} max={10} step={0.1} />
+          <NumberInput value={form.totalCurrent} onValueChange={(v) => onChange({ totalCurrent: v ?? 2.0 })} unit="mA" min={EX_BOUNDS.totalCurrent.min} max={EX_BOUNDS.totalCurrent.max} invalid={outOfBounds(form.totalCurrent, EX_BOUNDS.totalCurrent)} step={0.1} />
         </Field>
         <Field label="Step" help="Step size for current-ratio iterations.">
-          <NumberInput value={form.currentStep} onValueChange={(v) => onChange({ currentStep: v ?? 0.2 })} unit="mA" min={0.01} max={2} step={0.01} />
+          <NumberInput value={form.currentStep} onValueChange={(v) => onChange({ currentStep: v ?? 0.2 })} unit="mA" min={EX_BOUNDS.currentStep.min} max={EX_BOUNDS.currentStep.max} invalid={outOfBounds(form.currentStep, EX_BOUNDS.currentStep)} step={0.01} />
         </Field>
         <Field label="Channel limit" help="Maximum current per channel. Set to half the total current for one balanced split without a ratio sweep.">
-          <NumberInput value={form.channelLimit ?? undefined} onValueChange={(v) => onChange({ channelLimit: v ?? null })} unit="mA" min={0.1} max={10} step={0.1} />
+          <NumberInput value={form.channelLimit ?? undefined} onValueChange={(v) => onChange({ channelLimit: v ?? null })} unit="mA" min={EX_BOUNDS.channelLimit.min} max={EX_BOUNDS.channelLimit.max} invalid={outOfBounds(form.channelLimit, EX_BOUNDS.channelLimit)} step={0.1} />
         </Field>
       </div>
     </FormSection>
@@ -330,7 +330,7 @@ export function MExCarrierSection({ form, onChange }: { form: MExFormState; onCh
     >
       <>
         <Field label="Pair current" help="Current delivered by each of the four bipolar pairs.">
-          <NumberInput value={form.currentMa} onValueChange={(v) => onChange({ currentMa: v ?? 2.0 })} unit="mA" min={0.1} max={10} step={0.1} />
+          <NumberInput value={form.currentMa} onValueChange={(v) => onChange({ currentMa: v ?? 2.0 })} unit="mA" min={MEX_BOUNDS.currentMa.min} max={MEX_BOUNDS.currentMa.max} invalid={outOfBounds(form.currentMa, MEX_BOUNDS.currentMa)} step={0.1} />
         </Field>
         <Field label="Symmetry" helpSlot={<HelpButton label="symmetric bucket search" text={MTI_SYMMETRY_HELP} />}>
           <Checkbox checked={form.symmetricBucket} onCheckedChange={(on) => onChange({ symmetricBucket: on })} label="Force left/right symmetry" />
