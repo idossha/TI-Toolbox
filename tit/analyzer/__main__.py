@@ -38,10 +38,12 @@ def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
 def _build_config_legacy(data: dict) -> AnalyzerConfig:
     """Old, pre-``AnalyzerConfig`` dict layout -- read verbatim.
 
-    Kept for one release: a caller sending the flat dict this entry point
-    accepted before :class:`~tit.analyzer.config.AnalyzerConfig` existed
-    (including the plural ``"regions"`` alias, which the dataclass itself
-    never round-trips -- see its Notes) still works.
+    Reached only when :func:`tit.config_io.deserialize_config` refuses *data*
+    (a value of the wrong JSON type, e.g. a radius written as text, which
+    ``AnalyzerConfig`` itself may still coerce). The plural ``"regions"`` key
+    is read only here: the typed path ignores keys that are not fields, so a
+    config that deserialises cleanly and carries ``"regions"`` instead of
+    ``"region"`` has no region.
     """
     return AnalyzerConfig(
         mode=data.get("mode", "single"),
@@ -67,9 +69,8 @@ def _build_config(data: dict) -> AnalyzerConfig:
     """Build an :class:`AnalyzerConfig`, preferring ``deserialize_config``.
 
     Falls back to :func:`_build_config_legacy` when *data* does not
-    round-trip through the typed path, and says so in the job log: the
-    fallback reads keys the typed path refuses (the plural ``"regions"``),
-    so a config that lands here is one the current schema does not accept.
+    round-trip through the typed path, and says so in the job log: a config
+    that lands there is one the current schema does not accept.
     """
     from tit.config_io import deserialize_config
 
