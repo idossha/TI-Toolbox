@@ -1,7 +1,12 @@
 """Core combinatorial algorithms for TI exhaustive search.
 
-This module generates the full Cartesian product of electrode placements
-and current-ratio splits that the exhaustive-search optimizer evaluates.
+This module enumerates the montages and current-ratio splits the
+exhaustive-search optimizer evaluates: every montage of four different
+electrodes, crossed with every split. Bucket mode takes the product of the
+four buckets, minus tuples that repeat an electrode; pool mode takes each
+physical montage once (three pairings per four-electrode set, both channel
+orders only when the split list is not its own mirror), since the TI
+envelope ignores channel polarity.
 
 Public API
 ----------
