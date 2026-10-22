@@ -329,6 +329,14 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
         else:
             shutil.copy2(src, dst)
 
+    # -- Name the net mapping as every reader expects --
+    # SimNIBS's mapping step (enable_mapping) writes `electrode_mapping.json`; the catalog, the
+    # Simulator and `resolve_flex_montage` read `electrode_mapping_<net>.json`.
+    mapping = os.path.join(base_folder, "electrode_mapping.json")
+    if config.eeg_net and os.path.isfile(mapping):
+        net = config.eeg_net.removesuffix(".csv")
+        os.replace(mapping, os.path.join(base_folder, f"electrode_mapping_{net}.json"))
+
     # -- Clean up the "Goal:" line in summary.txt --
     # For callable goals (e.g. focality_tf), SimNIBS logs repr(opt.goal),
     # which prints the raw closure object instead of a readable label.

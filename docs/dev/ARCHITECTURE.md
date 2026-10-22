@@ -296,7 +296,9 @@ rows (`GET /api/catalog/flex-runs`), its Map-to-net (`…/mapping`), `/api/plan`
 sources and `resolve_flex_simulation`, which all build the montage through
 `resolve_flex_montage`. A net the run is already mapped to is read from its
 `electrode_mapping_<net>.json`; the Hungarian mapping runs and the cache is written only the first
-time. Excluded alternative: consecutive pairing of the first four electrodes (it disagreed with
+time. A flex search run with **Run simulation with mapped electrodes** (`enable_mapping`) leaves its own mapping under that same name
+(`run_flex_search` renames SimNIBS's `electrode_mapping.json`); readers still take a run's
+`electrode_mapping.json` by its `eeg_net` field when that net has no file of its own. Excluded alternative: consecutive pairing of the first four electrodes (it disagreed with
 the catalog for an out-of-order record and dropped the extra channels of an mTI run). Step and proposal states are derived from the jobs at
 read time. A finished plan (done, rejected or failed) can be dismissed (`POST /api/proposals/{id}/dismiss`,
 stored as `dismissed_at`; the default list omits it); the Jobs page shows only pending and

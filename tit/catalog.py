@@ -1624,6 +1624,11 @@ def _read_json(path: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+#: What a flex search run with mapping wrote before 2026-10-21 (SimNIBS's own name); since then
+#: ``run_flex_search`` renames it ``electrode_mapping_<net>.json``.
+LEGACY_FLEX_MAPPING = "electrode_mapping.json"
+
+
 def read_flex_mapping(path: str) -> dict | None:
     """One ``electrode_mapping_<net>.json`` as ``{eeg_net, pairs}``, or ``None`` when unusable
     (unreadable, or fewer than four labels)."""
@@ -1637,7 +1642,10 @@ def read_flex_mapping(path: str) -> dict | None:
         return None
     net = data.get("eeg_net")
     if not isinstance(net, str) or not net:
-        net = os.path.basename(path)[len("electrode_mapping_") : -len(".json")] + ".csv"
+        stem = os.path.basename(path).removeprefix("electrode_mapping_")
+        if stem == os.path.basename(path):  # no net in the name or the file: unusable
+            return None
+        net = stem.removesuffix(".json") + ".csv"
     return {
         "eeg_net": net,
         "pairs": pair_by_channel(labels, data.get("channel_array_indices")),
@@ -1647,25 +1655,32 @@ def read_flex_mapping(path: str) -> dict | None:
 def _flex_mappings(run_dir: str, *, project_root: str | None = None) -> list[dict]:
     """EEG-label pairs already mapped for this run, one entry per net.
 
-    Reads the ``electrode_mapping_<net>.json`` files
-    :func:`tit.sim.montage_sources.resolve_flex_montage` writes; purely
-    read-only, so a run that has never been mapped simply reports none.
+    Reads the ``electrode_mapping_<net>.json`` files that
+    :func:`tit.sim.montage_sources.resolve_flex_montage` and a flex search run with mapping
+    write, plus ``electrode_mapping.json`` (named by its ``eeg_net``) that runs before
+    2026-10-21 left unrenamed, unless the same net has its own file; purely read-only, so a run
+    that has never been mapped simply reports none.
     """
     out: list[dict] = []
     if project_root and not is_within(project_root, run_dir):
         return out
     try:
-        names = sorted(os.listdir(run_dir))
+        # The legacy name last, so a net's own file wins over it.
+        names = sorted(os.listdir(run_dir), key=lambda n: (n == LEGACY_FLEX_MAPPING, n))
     except OSError:
         return out
     for name in names:
-        if not (name.startswith("electrode_mapping_") and name.endswith(".json")):
+        if name != LEGACY_FLEX_MAPPING and not (
+            name.startswith("electrode_mapping_") and name.endswith(".json")
+        ):
             continue
         path = os.path.join(run_dir, name)
         if project_root and not is_within(project_root, path):
             continue
         mapping = read_flex_mapping(path)
-        if mapping is not None:
+        if mapping is not None and not any(
+            m["eeg_net"] == mapping["eeg_net"] for m in out
+        ):
             out.append(mapping)
     return out
 

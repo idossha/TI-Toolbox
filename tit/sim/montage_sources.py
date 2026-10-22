@@ -257,6 +257,13 @@ def resolve_flex_montage(
     )
     mapping = catalog.read_flex_mapping(mapping_file)
     if mapping is None:
+        # A run from before 2026-10-21 kept its search-time mapping under SimNIBS's name.
+        legacy = catalog.read_flex_mapping(
+            _source_path(pm, os.path.join(flex_search_dir, catalog.LEGACY_FLEX_MAPPING))
+        )
+        if legacy is not None and _net_stem(legacy["eeg_net"]) == _net_stem(eeg_net):
+            mapping = legacy
+    if mapping is None:
         require_positions()
         eeg_positions_dir = _source_path(pm, pm.eeg_positions(subject_id))
         eeg_net_path = _source_path(pm, os.path.join(eeg_positions_dir, eeg_net))
