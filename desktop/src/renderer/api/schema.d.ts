@@ -9064,8 +9064,9 @@ export interface components {
          *         If *subjects* lacks at least one responder and one non-responder,
          *         if a response is not 0 or 1, if a paired test has unequal group
          *         sizes, if *alpha* or *cluster_threshold* is not strictly between 0
-         *         and 1, if *n_permutations* is below ``ceil(1 / alpha) - 1`` (no
-         *         p-value could reach *alpha*), if a string value is not a member of
+         *         and 1, if *n_permutations* is not a whole number or is below
+         *         ``floor(1 / alpha)`` (20 at alpha 0.05: with fewer, no p-value could
+         *         fall below *alpha*), if a string value is not a member of
          *         its enum, or if *fsaverage_field*\/*fsaverage_spacing* are invalid
          *         for ``space="fsaverage"``.
          *
@@ -9893,7 +9894,7 @@ export interface components {
          *         (:func:`tit.paths.validate_name`), fewer than 2 *subjects* are given,
          *         a group label is not a valid file-name part (it names
          *         ``average_<group>.nii.gz``), or a *diff_pairs* entry does not name
-         *         two of the groups exactly one way.
+         *         two different groups exactly one way or repeats an earlier pair.
          *
          *     Notes
          *     -----

@@ -119,11 +119,11 @@ it("a paired test needs as many responders as non-responders", async () => {
 it("the server's refusal blocks Run with the server's own sentence", async () => {
   api.validateStats.mockResolvedValue({
     ok: false,
-    errors: [{ path: "n_permutations", message: "n_permutations must be at least 19 at alpha 0.05, got 5" }],
+    errors: [{ path: "n_permutations", message: "n_permutations must be at least 20 at alpha 0.05, got 5" }],
   });
   expect(await gate("classification", [{ subjectId: "001", response: 1 }, { subjectId: "002", response: 0 }], { "advanced.nPermutations": 5 })).toEqual({
     disabled: true,
-    title: "n_permutations: n_permutations must be at least 19 at alpha 0.05, got 5",
+    title: "n_permutations: n_permutations must be at least 20 at alpha 0.05, got 5",
   });
   // The config the server judged is the one the user typed.
   expect(api.validateStats.mock.calls.at(-1)![0]).toMatchObject({ n_permutations: 5 });

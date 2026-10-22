@@ -1465,7 +1465,7 @@ class TestRunGroupComparison:
         return GroupComparisonConfig(
             analysis_name="test_gc",
             subjects=subjects,
-            n_permutations=19,
+            n_permutations=20,
             n_jobs=1,
             cluster_stat=GroupComparisonConfig.ClusterStat.SIZE,
             cluster_threshold=0.05,
@@ -1564,7 +1564,7 @@ class TestRunCorrelation:
         return CorrelationConfig(
             analysis_name="test_corr",
             subjects=subjects,
-            n_permutations=19,
+            n_permutations=20,
             n_jobs=1,
             cluster_stat=CorrelationConfig.ClusterStat.SIZE,
             cluster_threshold=0.05,
@@ -1651,7 +1651,7 @@ class TestRunCorrelation:
         cfg = CorrelationConfig(
             analysis_name="test_corr_weighted",
             subjects=subjects,
-            n_permutations=19,
+            n_permutations=20,
             n_jobs=1,
             cluster_stat=CorrelationConfig.ClusterStat.SIZE,
             cluster_threshold=0.05,

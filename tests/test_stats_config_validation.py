@@ -11,10 +11,15 @@ or "succeeded" with zero clusters (constant effect sizes: ``r = 0/0``).
 Where the expected values come from, never from the code under test:
 
 - The permutation floor. A permutation p-value is ``(b + 1) / (m + 1)`` (Phipson & Smyth 2010,
-  "Permutation p-values should never be zero"), so the smallest attainable p is ``1/(m + 1)``
-  and a cluster can only be significant at level alpha when ``1/(m + 1) <= alpha``. By hand:
-  alpha 0.05 -> m >= 19 (1/20 = 0.05; 18 gives 1/19 = 0.0526); alpha 0.01 -> m >= 99;
-  alpha 0.2 -> m >= 4 (1/5 = 0.2; 3 gives 1/4).
+  "Permutation p-values should never be zero"), so the smallest attainable p is ``1/(m + 1)``,
+  and the engine calls a cluster significant only when ``p < alpha`` (strict; ``engine.py``
+  ``_identify_significant_clusters`` and ``surface.py`` alike). So a result needs
+  ``1/(m + 1) < alpha``. By hand: alpha 0.05 -> m >= 20 (1/21 = 0.0476; 19 gives exactly
+  1/20 = 0.05, which is not below 0.05); alpha 0.01 -> m >= 100; alpha 0.2 -> m >= 5 (1/6;
+  4 gives 1/5 = 0.2); alpha 0.03 -> m >= 33 (1/34 = 0.0294; 32 gives 1/33 = 0.0303).
+- Numbers from numpy (a pandas column, a notebook) are numbers: ``np.int64``/``np.float32``
+  effect sizes and an ``np.int64`` permutation count are accepted like ``int``/``float``, and a
+  whole-valued float count (``1000.0``, what a JSON writer can emit) is the integer 1000.
 - Probabilities (alpha, the cluster-forming p threshold) lie strictly between 0 and 1.
 - Response is the 0/1 group label the dataclass documents; a paired t-test pairs one
   responder with one non-responder, so both groups need the same size.
@@ -35,6 +40,7 @@ import math
 import sys
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 pytest.importorskip("fastapi")
@@ -111,37 +117,49 @@ REFUSED = [
         "zero-permutations",
         _comparison(n_permutations=0),
         "n_permutations",
-        "at least 19",
+        "at least 20",
     ),
     (
         "negative-permutations",
         _comparison(n_permutations=-5),
         "n_permutations",
-        "at least 19",
+        "at least 20",
     ),
     (
         "5-perms-at-alpha-0.05",
         _comparison(n_permutations=5),
         "n_permutations",
-        "at least 19",
+        "at least 20",
     ),
     (
-        "18-perms-at-alpha-0.05",
-        _comparison(n_permutations=18),
+        "19-perms-at-alpha-0.05",
+        _comparison(n_permutations=19),
         "n_permutations",
-        "at least 19",
+        "at least 20",
     ),
     (
-        "98-perms-at-alpha-0.01",
-        _comparison(n_permutations=98, alpha=0.01),
+        "99-perms-at-alpha-0.01",
+        _comparison(n_permutations=99, alpha=0.01),
         "n_permutations",
-        "at least 99",
+        "at least 100",
     ),
     (
-        "3-perms-at-alpha-0.2",
-        _correlation(n_permutations=3, alpha=0.2),
+        "9-perms-at-alpha-0.1",
+        _correlation(n_permutations=9, alpha=0.1),
         "n_permutations",
-        "at least 4",
+        "at least 10",
+    ),
+    (
+        "4-perms-at-alpha-0.2",
+        _correlation(n_permutations=4, alpha=0.2),
+        "n_permutations",
+        "at least 5",
+    ),
+    (
+        "32-perms-at-alpha-0.03",
+        _comparison(n_permutations=32, alpha=0.03),
+        "n_permutations",
+        "at least 33",
     ),
     (
         "fractional-permutations",
@@ -187,7 +205,7 @@ REFUSED = [
         "paired-2v1",
         {**_comparison(test_type="paired"), "subjects": _comparison()["subjects"][:3]},
         "test_type",
-        "2 responders vs 1 non-responders",
+        "got 2 responders and 1 non-responder",
     ),
     (
         "effect-null",
@@ -233,12 +251,13 @@ REFUSED = [
     ),
 ]
 
-#: Neighbours of the refused cases that are valid: the floor is inclusive, a paired test with
-#: equal groups is fine, and weights that are switched off are never read.
+#: Neighbours of the refused cases that are valid: the smallest count whose minimum p is below
+#: alpha, a paired test with equal groups, and weights that are switched off are never read.
 ACCEPTED = [
-    ("19-perms-at-alpha-0.05", _comparison(n_permutations=19)),
-    ("99-perms-at-alpha-0.01", _correlation(n_permutations=99, alpha=0.01)),
-    ("4-perms-at-alpha-0.2", _comparison(n_permutations=4, alpha=0.2)),
+    ("20-perms-at-alpha-0.05", _comparison(n_permutations=20)),
+    ("100-perms-at-alpha-0.01", _correlation(n_permutations=100, alpha=0.01)),
+    ("5-perms-at-alpha-0.2", _comparison(n_permutations=5, alpha=0.2)),
+    ("33-perms-at-alpha-0.03", _correlation(n_permutations=33, alpha=0.03)),
     ("paired-2v2", _comparison(test_type="paired")),
     (
         "weight-0-unused",
@@ -293,19 +312,91 @@ def test_valid_neighbours_are_accepted(client: TestClient, data: dict) -> None:
     assert resp.json() == {"ok": True, "errors": []}
 
 
-def test_the_floor_is_the_smallest_count_whose_minimum_p_reaches_alpha() -> None:
-    """For alphas a user types, the accepted minimum m satisfies 1/(m+1) <= alpha < 1/m."""
-    for alpha, m_hand in (
-        (0.05, 19),
-        (0.01, 99),
-        (0.1, 9),
-        (0.2, 4),
-        (0.5, 1),
-        (0.001, 999),
-    ):
-        assert (
-            1 / (m_hand + 1) <= alpha < 1 / m_hand
-        )  # the hand value is the true minimum
-        _build(_comparison(alpha=alpha, n_permutations=m_hand))
-        with pytest.raises(ValueError, match=f"at least {m_hand} "):
-            _build(_comparison(alpha=alpha, n_permutations=m_hand - 1))
+#: (alpha, the fewest permutations whose smallest p-value 1/(m + 1) is below alpha), by hand.
+FLOOR_BY_HAND = [
+    (0.05, 20),
+    (0.01, 100),
+    (0.1, 10),
+    (0.2, 5),
+    (0.5, 2),
+    (0.001, 1000),
+    (0.03, 33),
+    (0.3, 3),
+]
+
+
+@pytest.mark.parametrize("alpha,m_hand", FLOOR_BY_HAND)
+def test_the_floor_is_the_smallest_count_whose_minimum_p_is_below_alpha(
+    alpha: float, m_hand: int
+) -> None:
+    """The hand value is the true minimum, the config agrees, and so does the engine's p."""
+    from tit.stats.engine import pval_from_histogram
+
+    assert 1 / (m_hand + 1) < alpha <= 1 / m_hand
+    _build(_comparison(alpha=alpha, n_permutations=m_hand))
+    with pytest.raises(ValueError, match=f"at least {m_hand} "):
+        _build(_comparison(alpha=alpha, n_permutations=m_hand - 1))
+
+    # The engine's own p-value for a cluster beyond every permutation (b = 0), held to the
+    # engine's strict ``p < alpha``: reachable at the floor, unreachable one below it.
+    def smallest_p(m: int) -> float:
+        return float(pval_from_histogram([10.0], np.zeros(m), tail=1)[0])
+
+    assert smallest_p(m_hand) < alpha
+    assert not smallest_p(m_hand - 1) < alpha
+
+
+def test_numpy_numbers_are_numbers() -> None:
+    """A notebook's ``df.score[i]`` (np.int64 / np.float32) is an effect size like a float."""
+    subjects = [
+        CorrelationConfig.Subject("001", "M1", effect_size=np.int64(1)),
+        CorrelationConfig.Subject("002", "M1", effect_size=np.float32(2.5)),
+        CorrelationConfig.Subject("003", "M1", effect_size=np.float64(-0.5)),
+        CorrelationConfig.Subject("004", "M1", effect_size=4, weight=np.float32(0.5)),
+    ]
+    config = CorrelationConfig(
+        analysis_name="numpy",
+        subjects=subjects,
+        n_permutations=np.int64(200),
+        alpha=np.float64(0.05),
+        cluster_threshold=np.float32(0.01),
+    )
+    assert config.n_permutations == 200 and type(config.n_permutations) is int
+
+    comparison = GroupComparisonConfig(
+        analysis_name="numpy",
+        subjects=[
+            GroupComparisonConfig.Subject("001", "M1", response=np.int64(1)),
+            GroupComparisonConfig.Subject("002", "M1", response=np.int64(0)),
+        ],
+        n_permutations=1000.0,  # a whole-valued float, as a JSON writer may send it
+    )
+    assert comparison.n_permutations == 1000 and type(comparison.n_permutations) is int
+
+
+@pytest.mark.parametrize(
+    "value",
+    [np.float64(np.nan), np.float32(np.inf), np.bool_(True), True],
+    ids=["np-nan", "np-inf", "np-bool", "bool"],
+)
+def test_a_numpy_non_number_is_still_refused(value) -> None:
+    subjects = [
+        {"subject_id": sid, "simulation_name": "M1", "effect_size": e}
+        for sid, e in (("001", 0.4), ("002", 1.2), ("003", -0.3))
+    ]
+    subjects[1]["effect_size"] = value
+    with pytest.raises(ValueError, match=r"subjects\[1\] effect size"):
+        CorrelationConfig(
+            analysis_name="numpy",
+            subjects=[CorrelationConfig.Subject(**s) for s in subjects],
+        )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [np.float64(1000.5), np.bool_(True), "1000"],
+    ids=["np-frac", "np-bool", "text"],
+)
+def test_a_count_that_is_not_a_whole_number_is_refused(value) -> None:
+    with pytest.raises(ValueError, match="n_permutations must be a whole number"):
+        _build(_comparison(n_permutations=value))

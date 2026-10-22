@@ -22,6 +22,7 @@ tit.stats.permutation : Orchestration functions that consume these configs.
 
 import csv
 import math
+import numbers
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -108,38 +109,71 @@ _VALID_FSAVG_SPACINGS = (5, 6, 7)
 
 
 def _is_real(value: object) -> bool:
-    """``True`` for a finite int or float (a bool is not a number here)."""
+    """``True`` for a finite real number, numpy scalars included (a bool is not one here)."""
     return (
-        isinstance(value, (int, float))
+        isinstance(value, numbers.Real)
         and not isinstance(value, bool)
         and math.isfinite(value)
     )
 
 
-def _validate_test_parameters(n_permutations, alpha, cluster_threshold) -> None:
-    """Shared numeric checks for both config classes.
+def _count(n: int, noun: str) -> str:
+    """``1 responder``, ``2 responders``."""
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+def _min_permutations(alpha: float) -> int:
+    """Fewest permutations with which a cluster can be significant at *alpha*.
+
+    A permutation p-value is ``(b + 1) / (m + 1)`` (Phipson & Smyth 2010), so with *m*
+    permutations no p-value is below ``1 / (m + 1)``, and the engine calls a cluster
+    significant only when ``p < alpha``. The answer is the smallest *m* with
+    ``1 / (m + 1) < alpha``: ``floor(1 / alpha)`` (20 at alpha 0.05, 100 at 0.01), found with
+    the engine's own float division so a rounding edge cannot disagree with it.
+
+    Args:
+        alpha: Family-wise error rate, strictly between 0 and 1.
+
+    Returns:
+        The minimum permutation count (at least 1).
+    """
+    m = max(1, math.floor(1 / alpha))
+    while 1 / (m + 1) >= alpha:
+        m += 1
+    while m > 1 and 1 / m < alpha:
+        m -= 1
+    return m
+
+
+def _validate_test_parameters(n_permutations, alpha, cluster_threshold) -> int:
+    """Shared numeric checks for both config classes; returns *n_permutations* as an ``int``.
 
     *alpha* and *cluster_threshold* are probabilities, so they lie strictly between 0 and
-    1. A permutation p-value is ``(b + 1) / (m + 1)`` (Phipson & Smyth 2010), so with *m*
-    permutations no p-value is below ``1 / (m + 1)``; when that floor is above *alpha*
-    nothing can ever be significant, which needs ``m >= ceil(1 / alpha) - 1``.
+    1. *n_permutations* is a whole number (a numpy integer or a whole-valued float such as
+    ``1000.0`` counts) of at least :func:`_min_permutations` -- with fewer, no p-value can
+    fall below *alpha*.
     """
     for name, value in (("alpha", alpha), ("cluster_threshold", cluster_threshold)):
         if not (_is_real(value) and 0 < value < 1):
             raise ValueError(
                 f"{name} must be a number strictly between 0 and 1, got {value!r}"
             )
-    if isinstance(n_permutations, bool) or not isinstance(n_permutations, int):
+    whole = isinstance(n_permutations, numbers.Integral) or (
+        _is_real(n_permutations) and float(n_permutations).is_integer()
+    )
+    if isinstance(n_permutations, bool) or not whole:
         raise ValueError(
             f"n_permutations must be a whole number, got {n_permutations!r}"
         )
-    minimum = math.ceil(1 / alpha) - 1
+    n_permutations = int(n_permutations)
+    minimum = _min_permutations(alpha)
     if n_permutations < minimum:
         raise ValueError(
             f"n_permutations must be at least {minimum} at alpha {alpha}, got "
-            f"{n_permutations}: the smallest p-value n permutations can give is "
-            "1/(n + 1), so with fewer no cluster could ever be significant"
+            f"{n_permutations}: n permutations give no p-value below 1/(n + 1), and a "
+            "cluster is significant only when its p-value is below alpha"
         )
+    return n_permutations
 
 
 def _validate_surface_options(space, field, spacing) -> None:
@@ -242,8 +276,9 @@ class GroupComparisonConfig:
         If *subjects* lacks at least one responder and one non-responder,
         if a response is not 0 or 1, if a paired test has unequal group
         sizes, if *alpha* or *cluster_threshold* is not strictly between 0
-        and 1, if *n_permutations* is below ``ceil(1 / alpha) - 1`` (no
-        p-value could reach *alpha*), if a string value is not a member of
+        and 1, if *n_permutations* is not a whole number or is below
+        ``floor(1 / alpha)`` (20 at alpha 0.05: with fewer, no p-value could
+        fall below *alpha*), if a string value is not a member of
         its enum, or if *fsaverage_field*/*fsaverage_spacing* are invalid
         for ``space="fsaverage"``.
 
@@ -377,7 +412,7 @@ class GroupComparisonConfig:
             self.space, self.fsaverage_field, self.fsaverage_spacing
         )
 
-        _validate_test_parameters(
+        self.n_permutations = _validate_test_parameters(
             self.n_permutations, self.alpha, self.cluster_threshold
         )
 
@@ -396,9 +431,10 @@ class GroupComparisonConfig:
             non_responders
         ):
             raise ValueError(
-                f"Paired test requires equal sample sizes: {len(responders)} "
-                f"responders vs {len(non_responders)} non-responders (test_type "
-                "'paired' pairs them row by row)"
+                "test_type 'paired' pairs responders with non-responders row by row, so "
+                f"both groups need the same size; got "
+                f"{_count(len(responders), 'responder')} and "
+                f"{_count(len(non_responders), 'non-responder')}"
             )
 
     # ── CSV loader ────────────────────────────────────────────────────
@@ -594,7 +630,7 @@ class CorrelationConfig:
             raise ValueError(
                 f"Need at least 3 subjects for correlation, got {len(self.subjects)}"
             )
-        _validate_test_parameters(
+        self.n_permutations = _validate_test_parameters(
             self.n_permutations, self.alpha, self.cluster_threshold
         )
 

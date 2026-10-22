@@ -150,7 +150,7 @@ def _group_run(
     cfg = GroupComparisonConfig(
         analysis_name="nullplot",
         subjects=subjects,
-        n_permutations=99,
+        n_permutations=100,
         n_jobs=1,
         cluster_threshold=threshold,
         alpha=alpha,
@@ -191,7 +191,7 @@ def test_runner_passes_alpha_and_alternative_to_the_figure(
 
     ((args, kwargs),) = plots
     null, _, observed, path = args
-    assert len(null) == 99
+    assert len(null) == 100
     assert path.endswith("permutation_null_distribution.pdf")
     assert kwargs["alpha"] == 0.01
     assert kwargs["alternative"] == "less"
@@ -314,7 +314,7 @@ def test_correlation_runner_hands_the_figure_its_alpha_statistic_and_two_sided_t
         analysis_name=f"corr_fig_{cluster_stat}",
         alpha=alpha,
         cluster_stat=cluster_stat,
-        n_permutations=99,
+        n_permutations=100,
     )
 
     ((args, kwargs),) = plots
@@ -325,7 +325,7 @@ def test_correlation_runner_hands_the_figure_its_alpha_statistic_and_two_sided_t
         "cluster_stat": cluster_stat,
         "alternative": "two-sided",
     }
-    assert len(null) == 99
+    assert len(null) == 100
     assert path.endswith("permutation_null_distribution.pdf")
     assert threshold == result.cluster_threshold
     assert math.isfinite(result.cluster_threshold)

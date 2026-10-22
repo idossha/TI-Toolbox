@@ -40,7 +40,7 @@ def _config(**kw):
     return CorrelationConfig(
         analysis_name=kw.pop("analysis_name", "dup"),
         subjects=subjects,
-        n_permutations=19,
+        n_permutations=20,
         n_jobs=1,
         **kw,
     )
