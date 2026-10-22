@@ -233,13 +233,15 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
                     f"99.9th pct {float(best['roi_p99_9']):.3f} V/m",
                 )
             )
-            key.append(
-                (
-                    "Background mean",
-                    f"{float(best['non_roi_mean']):.3f}<small>V/m</small>",
-                    "everywhere else",
+            # Empty cell: a mean/max goal that observed no background (candidates.py writes None).
+            if best.get("non_roi_mean"):
+                key.append(
+                    (
+                        "Background mean",
+                        f"{float(best['non_roi_mean']):.3f}<small>V/m</small>",
+                        "everywhere else",
+                    )
                 )
-            )
             if best.get("target_background_ratio"):
                 key.append(
                     (
@@ -464,9 +466,14 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         + f") to maximise {goal_words(meta)[0] if success else 'the goal'} in the {roi_name}.",
     ]
     if success and best.get("roi_mean"):
+        background = (
+            f" and {float(best['non_roi_mean']):.3f} V/m elsewhere"
+            if best.get("non_roi_mean")
+            else ""
+        )
         paras.append(
-            f"The best montage gave a mean envelope of {float(best['roi_mean']):.3f} V/m in the target and "
-            f"{float(best['non_roi_mean']):.3f} V/m elsewhere at {common.per_channel(mA)} mA."
+            f"The best montage gave a mean envelope of {float(best['roi_mean']):.3f} V/m in the target"
+            f"{background} at {common.per_channel(mA)} mA."
         )
     tech += c.details(
         "Methods and references",

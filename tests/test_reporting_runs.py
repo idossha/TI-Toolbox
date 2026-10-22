@@ -6,6 +6,8 @@ Pins (2026-09-28, ARCHITECTURE.md §14):
 * no run report shows checks or advisories; the simulator leads with the grey-matter envelope
   (99.9th percentile, median, where its maximum is) and says nothing about an ROI; flex-search embeds the run's
   own target and valid-scalp figures and draws no cap; ex-search draws no cap;
+* a Mean/Max flex run, whose candidates.csv leaves the background columns empty, reports the
+  target alone (2026-10-22);
 * the page stays under its size budget;
 * on every report (DTI QC included) the reference list is exactly what the rendered page cites;
 * the pipelines call the report writers, and a report that cannot be written never fails a run.
@@ -206,9 +208,17 @@ CANDIDATES = (
     "r:1,1,-1.15,0.12,0.21,0.10,0.17,1.15,1.1,0.9,g.jsonl\n"
     "r:9,9,-1.8,0.04,0.08,0.022,0.034,1.8,0.7,1.3,g.jsonl\n"
 )
+# A mean or max goal with no background observed (FlexConfig.observe_background is False by
+# default): the recorder writes the background columns as None, which csv writes as empty cells.
+# Shape copied from sub-ernie's left_precuneus_mean_TImax/candidate_history/00/candidates.csv.
+CANDIDATES_NO_BACKGROUND = (
+    "candidate_id,evaluation,objective,roi_mean,roi_p99_9,non_roi_mean,non_roi_p95,target_background_ratio,current_ch1_mA,current_ch2_mA,geometry_file\n"
+    "r:1,1,-0.12,0.12,0.25,,,,1.0,1.0,g.jsonl\n"
+    "r:9,9,-0.2,0.2,0.4,,,,1.0,1.0,g.jsonl\n"
+)
 
 
-def _flex_dir(tmp_path: Path, values=(-1.8,), goal="focality_tf", success=True) -> Path:
+def _flex_dir(tmp_path: Path, values=(-1.8,), goal="focality_tf", success=True, candidates=CANDIDATES) -> Path:
     d = tmp_path / "run"
     meta = {
         "created": "2026-09-19T14:51:52", "subject_id": "X", "goal": goal, "postproc": "max_TI", "current_mA": 1,
@@ -220,7 +230,7 @@ def _flex_dir(tmp_path: Path, values=(-1.8,), goal="focality_tf", success=True) 
     for i, _ in enumerate(values):
         h = d / "candidate_history" / f"{i:02d}"
         h.mkdir(parents=True)
-        (h / "candidates.csv").write_text(CANDIDATES)
+        (h / "candidates.csv").write_text(candidates)
         (h / "candidate_manifest.json").write_text(json.dumps({
             "accepted_candidate_id": "r:9", "evaluations": 3536, "valid_candidates": 1447,
             "metric_definitions": {"roi_mean": "unweighted mean of target samples, V/m"},
@@ -281,6 +291,20 @@ class TestFlexSearch:
         with patch(CAP, return_value=None):
             html = flex.build_html(_flex_rec(tmp_path, values=(1e300,), success=False), "X")
         assert '<h2 id="verdict-h">No valid montage found</h2>' in html
+
+    @pytest.mark.parametrize("goal", ["mean", "max"])
+    def test_a_run_with_no_background_reports_the_target_alone(self, tmp_path, goal):
+        # v3.1.1 failed here with "could not convert string to float: ''" on the empty
+        # non_roi_mean cell.
+        from tit.reporting.generators import flex_search as flex
+
+        rec = _flex_rec(tmp_path, values=(-0.2,), goal=goal, candidates=CANDIDATES_NO_BACKGROUND)
+        with patch(CAP, return_value=None):
+            html = flex.build_html(rec, "X")
+        assert "0.200<small>V/m</small>" in html and "99.9th pct 0.400 V/m" in html
+        assert "Background mean" not in html.split('id="target"')[0]  # no background stat
+        assert "a mean envelope of 0.200 V/m in the target at 1 mA." in html
+        assert "elsewhere" not in html
 
     def test_flex_run_writes_a_report_and_survives_its_failure(self):
         from tit.opt.flex import flex as flex_run

@@ -37,6 +37,7 @@ written again. Other projects, nets and results open unchanged.
 #### Flex-search
 
 - **Fixed: focality searches with a non-ROI of a different type from the ROI run again** — a **Specific region** non-ROI can now be a different kind of region from the ROI (for example a sphere ROI against a cortical atlas region, the form's default non-ROI); each is built as what it is, and a volumetric sphere non-ROI is now really volumetric. Before, these searches failed when they started. Searches where both regions are the same type, and **Everything else** non-ROIs, behave as before. **Optimizer ▸ Flex ▸ Objective ▸ Non-ROI**.
+- **Fixed: Mean and Max flex-searches write their report** — a flex-search with the **Mean** or **Max** goal records no background field, and since v3.0.2 its report stopped on that empty column with `could not convert string to float: ''`, although the search itself finished. The report now shows the target's mean and 99.9th percentile without a background figure. Search results, and the reports of focality searches, are unchanged; rebuild a missing report with `simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run folder>`.
 
 #### Target picker
 
