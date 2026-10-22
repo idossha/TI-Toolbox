@@ -10,6 +10,8 @@ others by locating each literal with a pattern that must match exactly once.
 The second test runs ``update_version`` on copies of the live files (never the checkout) and
 checks every site moved to the new release and nothing else in those files changed, so a site
 reformatted out of the bump script's patterns fails here instead of shipping stale (2026-10-22).
+It runs on the files as checked out and on a development-stamped copy (``X.Y.Z-dev.N`` runtime
+beside the last release, docs/dev/RELEASING.md), each file compared with its own pre-bump value.
 Run: python -m pytest tests/test_version_sites.py -q. Release mechanics: docs/dev/RELEASING.md.
 """
 
@@ -64,11 +66,13 @@ TAG_SITES = [
         r'"Tag": "idossha/ti-toolbox:(v[^"]+)"',
         "SimNIBS derivative container tag",
     ),
+    ("README.md", r"The current release is \*\*([^*]+)\*\*", "README current release"),
 ]
 
-#: Every file update_version stamps on a stable bump (the docs/_config.yml entry has no live site).
+#: Every file update_version stamps on a stable bump.
 STAMPED_FILES = [
     "version.py",
+    "README.md",
     "docker-compose.yml",
     "tit/launch.py",
     "loader.sh",
@@ -193,17 +197,50 @@ def _undated(text: str) -> str:
     return re.sub(r'(?m)^.*("release_date": |date-released: ).*\n', "", text)
 
 
-def test_update_version_moves_every_live_site_and_nothing_else(tmp_path, monkeypatch):
+#: Files holding the runtime version: a development bump moves them and leaves the release sites.
+RUNTIME_FILES = {"desktop/package.json", "tit/__init__.py"}
+
+
+def _next_dev(release: str) -> str:
+    """The development stamp RELEASING.md describes for the release after *release*."""
+    major, minor, patch = release.split(".")
+    return f"{major}.{minor}.{int(patch) + 1}-dev.1"
+
+
+@pytest.mark.parametrize(
+    "dev_stamped", [False, True], ids=["as-checked-out", "dev-stamped"]
+)
+def test_update_version_moves_every_live_site_and_nothing_else(
+    tmp_path, monkeypatch, dev_stamped
+):
+    """A stable bump of copies of the live files moves every site and nothing else.
+
+    Each file is compared with its own pre-bump value: the runtime files (package.json, lock,
+    ``tit/__init__.py``) with the runtime version, every other site with version.py's release, so
+    a development-stamped checkout (``X.Y.Z-dev.N`` beside release ``X.Y.Z-1``) passes too. The
+    dev-stamped case makes that state on the copies with the development bump first, whatever the
+    checkout holds.
+    """
     new = "9.8.7"
-    old_release = read_versions(ROOT)["release"]
-    for rel in [*STAMPED_FILES, "desktop/package-lock.json"]:
+    files = [*STAMPED_FILES, "desktop/package-lock.json"]
+    for rel in files:
         target = tmp_path / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / rel, target)
         assert new not in target.read_text(encoding="utf-8"), rel
     monkeypatch.chdir(tmp_path)
+    update = _load_update_version()
+    if dev_stamped:
+        release = read_versions(tmp_path)["release"]
+        update.update_development_version(_next_dev(release))
+        runtime = {k: v for k, v in read_versions(tmp_path).items() if k != "release"}
+        assert set(runtime.values()) == {_next_dev(release)}, runtime
+        assert read_sites(tmp_path) == read_sites(ROOT)
+    before = {rel: (tmp_path / rel).read_text(encoding="utf-8") for rel in files}
+    pre = read_versions(tmp_path)
+    old_release, old_runtime = pre["release"], pre["desktop/package.json"]
 
-    _load_update_version().update_version(new)
+    update.update_version(new)
 
     assert os.getcwd() == str(tmp_path)
     versions = read_versions(tmp_path)
@@ -211,12 +248,12 @@ def test_update_version_moves_every_live_site_and_nothing_else(tmp_path, monkeyp
     sites = read_sites(tmp_path)
     assert sites == {what: f"v{new}" for what in sites}, sites
     for rel in STAMPED_FILES:
-        before = (ROOT / rel).read_text(encoding="utf-8")
+        old = old_runtime if rel in RUNTIME_FILES else old_release
         after = (tmp_path / rel).read_text(encoding="utf-8")
-        assert _undated(after.replace(new, old_release)) == _undated(before), rel
-    lock_before = json.loads((ROOT / "desktop/package-lock.json").read_text())
+        assert _undated(after.replace(new, old)) == _undated(before[rel]), rel
+    lock_before = json.loads(before["desktop/package-lock.json"])
     lock_after = json.loads((tmp_path / "desktop/package-lock.json").read_text())
-    lock_after["version"] = lock_after["packages"][""]["version"] = old_release
+    lock_after["version"] = lock_after["packages"][""]["version"] = old_runtime
     assert lock_after == lock_before
 
 

@@ -72,8 +72,12 @@ def update_version(new_version):
                 f'"tag": "idossha/ti-toolbox:v{new_version}"',
             ),
         ],
-        "docs/_config.yml": [
-            (r'version: "[^"]*"', f'version: "{new_version}"'),
+        # The README names the current release.
+        "README.md": [
+            (
+                r"(The current release is \*\*)v[^*]+(\*\*)",
+                rf"\g<1>v{new_version}\g<2>",
+            ),
         ],
         # Keep source and installed-wheel launchers on the reusable version image.
         "docker-compose.yml": [
