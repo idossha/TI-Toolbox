@@ -8,7 +8,9 @@
  * subject/simulation pair listed twice (it would count double in the mean). The panel used to
  * show those refusals in the plan pane but leave Run enabled, so a click queued a job the
  * server then refused. Now the server's verdict is a blocker like the page's own checks: Run is
- * disabled, its title is the server's sentence, and a click submits nothing.
+ * disabled, its title is the server's sentence (prefixed with the field only when the sentence
+ * does not already name it), and the click handler itself refuses with that sentence and submits
+ * nothing (React drops clicks on a disabled button, so the test calls the button's onClick prop).
  *
  * Where the expectations come from: `REFUSALS` below is what `POST /api/validate/nilearn`
  * answers for each case; `tests/test_nilearn_config_cross_field.py` reads this table and asserts
@@ -40,6 +42,7 @@ vi.mock("../../src/renderer/pages/_shared/session/usePageScrollMemory", () => ({
 
 import { clearPageSession, sessionSlot, writeSession } from "../../src/renderer/app/pageSession";
 import page from "../../src/renderer/pages/panels/nilearn-visuals/index";
+import { notify } from "../../src/renderer/ui/Toast";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= class {
@@ -55,6 +58,9 @@ const REFUSALS = {
   duplicate: { path: "subject_simulation_pairs", message: "subject_simulation_pairs lists sub-101 / L_Insula twice: the group average would count that simulation double" },
 };
 
+/** A refusal whose sentence does not name its field: the title keeps the "path: " prefix. */
+const UNNAMED = { path: "atlas_name", message: "unknown atlas 'juelich'" };
+
 const INSULA_101 = { id: "p1", subjectId: "101", simulationName: "L_Insula" };
 const INSULA_LA = { id: "p2", subjectId: "LA", simulationName: "L_Insula" };
 
@@ -65,14 +71,16 @@ beforeEach(() => {
   api.validateNilearn.mockResolvedValue({ ok: true, errors: [] });
   api.planNilearn.mockResolvedValue({ jobs: [], lock_conflicts: [], cost: { cpus: 1, mem_gb: 1 }, warnings: [] });
   api.createNilearnJob.mockResolvedValue({ id: "job-1" });
+  vi.spyOn(notify, "error").mockImplementation(() => {});
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
 type Form = { pairs?: unknown[]; subdir?: string; minCutoff?: number; maxCutoff?: number };
 
-/** Render the panel with this form, let the debounced validation settle, click Run once. */
+/** Render the panel with this form, let the debounced validation settle, run Run's handler once. */
 async function gate(form: Form) {
   clearPageSession();
   writeSession(sessionSlot("", "pairs"), form.pairs ?? [INSULA_101, INSULA_LA]);
@@ -92,29 +100,36 @@ async function gate(form: Form) {
   }
   const run = container.querySelector<HTMLButtonElement>('[data-testid="run-button"]')!;
   const state = { disabled: run.disabled, title: run.getAttribute("title") };
+  // React ignores a click on a disabled button, so a click cannot reach handleRunClick's guard.
+  // Call the button's current onClick prop instead (React keeps the props on the DOM node).
+  const props = Object.entries(run).find(([key]) => key.startsWith("__reactProps$"))?.[1] as
+    | { onClick?: () => void }
+    | undefined;
+  expect(props?.onClick).toBeTypeOf("function");
   await act(async () => {
-    // A disabled button ignores clicks; dispatching straight to the handler checks the guard too.
-    run.disabled = false;
-    run.click();
+    props!.onClick!();
     await vi.advanceTimersByTimeAsync(100);
   });
+  const toasts = vi.mocked(notify.error).mock.calls.map((call) => call[0]);
   const judged = api.validateNilearn.mock.calls.at(-1)?.[0] as Record<string, unknown> | undefined;
   const submitted = api.createNilearnJob.mock.calls.map((call) => call[0] as Record<string, unknown>);
   act(() => root.unmount());
   client.clear();
   container.remove();
-  return { ...state, judged, submitted };
+  return { ...state, judged, submitted, toasts };
 }
 
+/** Mock the server's refusal; the reason Run shows is its sentence, which names its own field. */
 const refusedWith = (key: keyof typeof REFUSALS) => {
   api.validateNilearn.mockResolvedValue({ ok: false, errors: [REFUSALS[key]] });
-  return `${REFUSALS[key].path}: ${REFUSALS[key].message}`;
+  return REFUSALS[key].message;
 };
 
 describe("Nilearn visuals Run gate", () => {
   it("a valid config runs: Run is enabled and the click submits what was validated", async () => {
-    const { disabled, title, judged, submitted } = await gate({});
+    const { disabled, title, judged, submitted, toasts } = await gate({});
     expect({ disabled, title }).toEqual({ disabled: false, title: null });
+    expect(toasts).toEqual([]);
     expect(submitted).toHaveLength(1);
     expect(submitted[0]).toEqual(judged);
     expect(submitted[0]).toMatchObject({ subdir_name: "insula_group" });
@@ -122,36 +137,49 @@ describe("Nilearn visuals Run gate", () => {
 
   it("a sub-directory that is not one folder is blocked with the server's sentence", async () => {
     const reason = refusedWith("subdir");
-    const { disabled, title, judged, submitted } = await gate({ subdir: "../stats" });
+    const { disabled, title, judged, submitted, toasts } = await gate({ subdir: "../stats" });
     expect(judged).toMatchObject({ subdir_name: "../stats" });
     expect({ disabled, title }).toEqual({ disabled: true, title: reason });
+    expect(toasts).toEqual([reason]);
     expect(submitted).toEqual([]);
   });
 
   it("a minimum cutoff above the maximum is blocked with the server's sentence", async () => {
     const reason = refusedWith("cutoffs");
-    const { disabled, title, judged, submitted } = await gate({ minCutoff: 0.2, maxCutoff: 0.1 });
+    const { disabled, title, judged, submitted, toasts } = await gate({ minCutoff: 0.2, maxCutoff: 0.1 });
     expect(judged).toMatchObject({ min_cutoff: 0.2, max_cutoff: 0.1, use_percentiles: false });
     expect({ disabled, title }).toEqual({ disabled: true, title: reason });
+    expect(toasts).toEqual([reason]);
     expect(submitted).toEqual([]);
   });
 
   it("the same subject and simulation twice is blocked with the server's sentence", async () => {
     const reason = refusedWith("duplicate");
-    const { disabled, title, judged, submitted } = await gate({ pairs: [INSULA_101, { ...INSULA_101, id: "p3" }] });
+    const { disabled, title, judged, submitted, toasts } = await gate({ pairs: [INSULA_101, { ...INSULA_101, id: "p3" }] });
     // Both rows reach the server: the panel neither drops nor merges the repeat on its own.
     expect(judged?.subject_simulation_pairs).toEqual([
       { subject_id: "101", simulation_name: "L_Insula" },
       { subject_id: "101", simulation_name: "L_Insula" },
     ]);
     expect({ disabled, title }).toEqual({ disabled: true, title: reason });
+    expect(toasts).toEqual([reason]);
     expect(submitted).toEqual([]);
   });
 
   it("the page's own check still comes first: an empty sub-directory never reaches the server", async () => {
-    const { disabled, title, submitted } = await gate({ subdir: "  " });
-    expect({ disabled, title }).toEqual({ disabled: true, title: "Enter a sub-directory name for the output files." });
+    const { disabled, title, submitted, toasts } = await gate({ subdir: "  " });
+    const reason = "Enter a sub-directory name for the output files.";
+    expect({ disabled, title }).toEqual({ disabled: true, title: reason });
+    expect(toasts).toEqual([reason]);
     expect(api.validateNilearn).not.toHaveBeenCalled();
+    expect(submitted).toEqual([]);
+  });
+
+  it("a refusal that does not name its field is prefixed with it", async () => {
+    api.validateNilearn.mockResolvedValue({ ok: false, errors: [UNNAMED] });
+    const { disabled, title, toasts, submitted } = await gate({});
+    expect({ disabled, title }).toEqual({ disabled: true, title: "atlas_name: unknown atlas 'juelich'" });
+    expect(toasts).toEqual(["atlas_name: unknown atlas 'juelich'"]);
     expect(submitted).toEqual([]);
   });
 });

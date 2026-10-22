@@ -133,7 +133,10 @@ function NilearnVisualsPanel() {
     enabled: debouncedKey !== "" && validateQuery.data?.ok === true,
   });
 
-  const serverErrors = validateQuery.data?.errors.map((e) => `${e.path ? `${e.path}: ` : ""}${e.message}`) ?? [];
+  // "path: message", unless the message already names its field ("min_cutoff 0.2 V/m must be
+  // below ..."): it is the Run button's title, where "min_cutoff: min_cutoff ..." stutters.
+  const serverErrors =
+    validateQuery.data?.errors.map((e) => (e.path && !e.message.split(/\W+/).includes(e.path) ? `${e.path}: ${e.message}` : e.message)) ?? [];
   // The server's verdict blocks Run as well: NilearnConfig refuses a sub-directory that is not
   // one folder, min ≥ max cutoffs and a repeated pair, and the job would only be refused at
   // submit. Kept out of `clientErrors`, which decides whether there is a config to validate.
