@@ -164,10 +164,11 @@ def test_ex_buckets_off_the_net_are_one_finding_naming_each_label_once(
 
 
 def test_ex_pool_off_the_net_is_refused(project: Path) -> None:
-    pool = ["Fp1", "E200", "F3", "O2", "T7"]
+    pool = ["Fp1", "T7", "F3", "O2", "E200"]
     found = preflight("ex", _config("ex", _pool(pool)), str(project))
     assert [m.expected_path for m in found] == [str(_net_csv(project))]
-    assert "E200, T7" in found[0].what
+    # The pool's own order, not sorted.
+    assert found[0].what.startswith("electrode(s) T7, E200 in EEG net")
     assert "PoolElectrodes" not in found[0].what
 
 
@@ -390,14 +391,15 @@ def test_ex_runner_refuses_labels_off_the_leadfield_before_loading_it(
     lf = _leadfield_file(tmp_path)
     if mode == "bucket":
         electrodes = ExConfig.BucketElectrodes(
-            e1_plus=["F3", "E200"], e1_minus=["F4"], e2_plus=["C3"], e2_minus=["T7"]
+            e1_plus=["F3", "T7"], e1_minus=["F4"], e2_plus=["C3"], e2_minus=["E200"]
         )
     else:
-        electrodes = ExConfig.PoolElectrodes(electrodes=["F3", "E200", "F4", "T7"])
+        electrodes = ExConfig.PoolElectrodes(electrodes=["F3", "T7", "F4", "E200"])
     outcome, engine_cls, reader = _run("ex", _ex_config(electrodes), tmp_path)
     assert isinstance(outcome, ValueError), outcome
+    # Every missing label, in the order the config lists them (not sorted), and no other.
     assert str(outcome).startswith(
-        f"ex-search electrodes not in the leadfield of {NET}: E200, T7"
+        f"ex-search electrodes not in the leadfield of {NET}: T7, E200. "
     )
     reader.assert_called_once_with(str(lf))
     engine_cls.assert_not_called()  # initialize() is what loads the field
