@@ -130,20 +130,22 @@ Simulator is not an optimiser; say so when a user treats it as one.
     notebooks/                           examples/ is the only subdirectory
     viewer/<kind>.tetravox.json          scenes written by POST /api/view/open
   derivatives/
-    freesurfer/sub-<id>/                 recon-all
+    fastsurfer/sub-<id>/                 FastSurfer segmentation (the v3 recon)
+    freesurfer/sub-<id>/                 legacy recon-all output (read-only)
     qsiprep/, qsirecon/                  diffusion (optional, sibling containers)
     SimNIBS/sub-<id>/
       m2m_<id>/                          head model (<id>.msh, eeg_positions/,
                                          segmentation/, surfaces/, stim_configs/)
       leadfields/                        for ex-search
       Simulations/<montage>/TI/{mesh,niftis} + Analyses/{Mesh,Voxel}/ + fsaverage/
+      Simulations/<montage>/mTI/{mesh,niftis}  4+ pairs: the mTI result
       flex-search/<run>/ , ex-search/<run>/ , m-ex-search/<run>/
     ti-toolbox/{reports,stats,logs,tissue_analysis}/
 ```
 
 The job store lives **inside the project** so a notebook and a restarted server see
 the same jobs; `.bidsignore` carries `code/ti-toolbox/jobs/`. Path logic lives in
-`tit/paths.py` (`get_path_manager(project_root, subject)`) — never hand-build a path.
+`tit/paths.py` (`get_path_manager(project_root)`) — never hand-build a path.
 **The run name is the directory**: a second flex/ex run under the same name
 overwrites the first in place.
 

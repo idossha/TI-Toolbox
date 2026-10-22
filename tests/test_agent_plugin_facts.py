@@ -1,8 +1,10 @@
-"""Every fact the agent plugin tells an agent is pinned to the file it describes, 2026-10-22.
+"""The checkable facts the agent plugin tells an agent are pinned to their sources, 2026-10-22.
 
 What this pins: the text an agent reads from the plugin -- ``get_quick_facts``,
 ``list_launch_paths``, the tool descriptions of ``agent-plugin/mcp/server.py``, the six
-``skills/*/SKILL.md`` and ``agent-plugin/README.md`` -- against the source each fact restates:
+``skills/*/SKILL.md`` and ``agent-plugin/README.md`` -- against the source each fact restates.
+Only the facts in this table are pinned; free prose (what a page is for, how to diagnose a
+failure) is not:
 
 | Fact in the plugin | Must match |
 |---|---|
@@ -13,6 +15,11 @@ What this pins: the text an agent reads from the plugin -- ``get_quick_facts``,
 | the rail rows and their digits | ``NAV_ORDER`` / ``PINNED_ORDER`` in ``desktop/src/renderer/app/registry.ts`` and each page's ``title`` |
 | what ``loader.sh`` needs | ``loader.sh`` line 2, "Python-free" |
 | wiki slugs and WebSocket routes | ``docs/wiki/*.md`` and the ``@...websocket(...)`` routes under ``tit/server`` |
+| "N ``error.type`` values" | the ``JobError.type`` enum in ``contracts/openapi.yaml`` |
+| a server restart and re-adoption | ``JobManager._reconcile_all`` (never re-adopts; records ``lost``) |
+| the pytest marker list | the ``markers`` of ``pytest.ini`` |
+| the project layouts (ti-toolbox and ti-domain trees, quick facts ``project_layout``) | the directories ``PathManager``, ``NOTEBOOK_SUBDIR`` and ``tit.storage.kind_prefixes`` name, checked at the levels in ``_CHECKED_PARENTS`` |
+| which ``npm run dev*`` opens Electron and which has HMR | ``USAGE`` in ``desktop/scripts/dev.ts`` and the scripts in ``desktop/package.json`` |
 
 Where the expected values come from: each row's right-hand file, read off disk at test time;
 nothing is retyped from the plugin. The two allowlists below name the only paths the plugin
@@ -20,7 +27,7 @@ may cite that do not exist, and each entry is itself checked (a deleted path mus
 deleted, an example name must sit in a real directory).
 
 Reproduce: .venv/bin/python -m pytest tests/test_agent_plugin_facts.py -q
-Deliberately elsewhere: job kinds/states/error types (tests/test_agent_plugin_constants.py),
+Deliberately elsewhere: job kinds, states and error-type labels (tests/test_agent_plugin_constants.py),
 inspect_project's view of a project (tests/test_agent_plugin_inspect_project.py).
 """
 
@@ -28,6 +35,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 from pathlib import Path
 
@@ -103,8 +111,10 @@ def served(srv) -> dict[str, str]:
             "params": {"protocolVersion": "2025-06-18", "capabilities": {}},
         }
     )
+    facts = _tool(srv, "get_quick_facts")
     return {
-        "get_quick_facts": "\n".join(_strings(_tool(srv, "get_quick_facts"))),
+        "get_quick_facts": "\n".join(_strings(facts)),
+        "project_layout": "\n".join(_strings(facts["project_layout"])),
         "list_launch_paths": "\n".join(_strings(_tool(srv, "list_launch_paths"))),
         "tool descriptions": "\n".join(
             t["description"] for t in listed["result"]["tools"]
@@ -381,3 +391,239 @@ def test_cited_websockets_are_served():
     for doc in [SERVER, *DOCS]:
         for cited in re.findall(r"/ws/[\w/{}]*\w}?", doc.read_text()):
             assert re.sub(r"\{[^}]*\}", "{}", cited) in norm, f"{doc.name}: {cited}"
+
+
+# ---------------------------------------------------------------------------------------------
+# the job engine: error types, restarts
+# ---------------------------------------------------------------------------------------------
+
+
+def test_the_error_type_count_is_the_contracts(texts):
+    import yaml
+
+    contract = yaml.safe_load((REPO / "contracts/openapi.yaml").read_text())
+    enum = contract["components"]["schemas"]["JobError"]["properties"]["type"]["enum"]
+    words = (
+        "zero one two three four five six seven eight nine ten eleven twelve".split()
+    )
+    checked = set()
+    for name, text in texts.items():
+        for m in re.finditer(r"\b(\w+)\s+`?error\.type`?\s+values\b", text):
+            count = m.group(1).lower()
+            if not (count.isdigit() or count in words):
+                continue  # "Failure `error.type` values ..." states no count
+            checked.add(name)
+            n = int(count) if count.isdigit() else words.index(count)
+            assert n == len(
+                enum
+            ), f"{name}: {m.group(0)!r}, the contract has {len(enum)}"
+    assert "agent-plugin/skills/ti-codebase/SKILL.md" in checked
+
+
+def test_no_text_says_a_restart_re_adopts_a_job(texts):
+    manager = (REPO / "tit/jobs/manager.py").read_text()
+    # The source: reconciliation replaced re-attaching, and records the job as `lost`.
+    assert "This replaces the older re-attach behaviour" in manager
+    assert 'type="lost", message=note' in manager
+    checked = 0
+    for name, text in texts.items():
+        for sentence in re.split(r"(?<=[.;:])\s|\n\n", text):
+            m = re.search(r"re-?(?:adopt|attach)", sentence, re.I)
+            if not m:
+                continue
+            checked += 1
+            assert re.search(
+                r"\b(?:never|not|no)\b", sentence[: m.start()], re.I
+            ), f"{name}: {sentence!r}"
+    assert checked >= 2  # ti-codebase and troubleshoot-project
+
+
+# ---------------------------------------------------------------------------------------------
+# pytest markers
+# ---------------------------------------------------------------------------------------------
+
+
+def test_the_marker_list_is_pytest_ini(texts):
+    import configparser
+
+    ini = configparser.ConfigParser(interpolation=None)
+    ini.read(REPO / "pytest.ini")
+    registered = set(re.findall(r"^(\w+):", ini["pytest"]["markers"], re.M))
+    assert {"unit", "smoke"} <= registered  # the parse found pytest.ini's list
+    skill = texts["agent-plugin/skills/ti-codebase/SKILL.md"]
+    listed = re.search(r"pytest markers:\s*`([^`]+)`", skill).group(1).split()
+    assert len(listed) == len(set(listed))
+    assert set(listed) == registered
+
+
+# ---------------------------------------------------------------------------------------------
+# the project layout
+# ---------------------------------------------------------------------------------------------
+
+#: The levels whose children are checked: below them the plugin may name files and
+#: directories other modules write (``high_Frequency/``, ``eeg_positions/``, ...).
+_CHECKED_PARENTS = (
+    "",
+    "code",
+    "code/ti-toolbox",
+    "derivatives",
+    "derivatives/ti-toolbox",
+    "derivatives/SimNIBS/sub-*",
+)
+
+
+def _toolbox_paths(tmp_path) -> set[str]:
+    """Every project path the toolbox names, project-relative, ids and names as ``*``."""
+    import inspect
+
+    from tit.paths import PathManager
+    from tit.server.notebooks import NOTEBOOK_SUBDIR
+    from tit.storage import kind_prefixes
+
+    pm = PathManager(str(tmp_path))
+    sid, name = "qzq7", "qzqname"
+    found = {NOTEBOOK_SUBDIR.as_posix()}
+    found |= {os.path.relpath(p, tmp_path) for p, _ in kind_prefixes(pm)}
+    for attr, fn in inspect.getmembers(pm, inspect.ismethod):
+        if attr.startswith(("_", "ensure", "list_")) or attr in (
+            "user_config_dir",
+            "extensions_config",
+        ):
+            continue  # creators, listers and the per-user config outside the project
+        params = inspect.signature(fn).parameters.values()
+        required = [
+            p
+            for p in params
+            if p.default is p.empty and p.kind == p.POSITIONAL_OR_KEYWORD
+        ]
+        try:
+            path = fn(*[sid, name, name][: len(required)])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(path, str) and path.startswith(str(tmp_path) + os.sep):
+            found.add(os.path.relpath(path, tmp_path))
+    assert not any(tmp_path.iterdir()), "the sweep created something"
+    return {p.replace(sid, "*").replace(name, "*") for p in found}
+
+
+def _expand(path: str) -> list[str]:
+    """``a/{b,c}/d`` -> both alternatives; a single ``<id>``/``{run}`` placeholder -> ``*``."""
+    m = re.search(r"\{([^{}]*,[^{}]*)\}", path)
+    if m:
+        return [
+            q
+            for alt in m.group(1).split(",")
+            for q in _expand(path[: m.start()] + alt + path[m.end() :])
+        ]
+    return [re.sub(r"<[^>]*>|\{[^}]*\}", "*", path)]
+
+
+def _tree_paths(block: str) -> list[str]:
+    """Project-relative paths named by an indented or box-drawn tree (first line = root)."""
+    out, stack = [], []  # stack: (column, path) of the open directories
+    for line in block.splitlines()[1:]:
+        body = line.split(" #")[0].rstrip()
+        col = re.match(r"[\s│├└─]*", body).end()
+        spec = re.split(r"\s{2,}", body[col:])[0].split(" + ")[0]
+        items = [i.strip().rstrip(",)") for i in re.split(r"\s*,\s+", spec)]
+        items = [i for i in items if "/" in i and not i.startswith("(")]  # not prose
+        if not items:
+            continue
+        while stack and stack[-1][0] >= col:
+            stack.pop()
+        parent = stack[-1][1] + "/" if stack else ""
+        out += [parent + i.rstrip("/") for i in items]
+        if items[0].endswith("/"):
+            stack.append((col, parent + items[0].rstrip("/")))
+    return out
+
+
+def _layouts(texts) -> dict[str, list[str]]:
+    def block(name: str, heading: str) -> str:
+        text = texts[name]
+        start = text.index("```", text.index(heading))
+        return text[text.index("\n", start) + 1 : text.index("```", start + 3)]
+
+    cited = re.findall(
+        r"(?<![\w/.-])((?:derivatives|code|sourcedata)/(?:\{[^}]*\}|[^\s,;()'\"{])*)",
+        texts["project_layout"],
+    )
+    return {
+        "ti-toolbox": _tree_paths(
+            block("agent-plugin/skills/ti-toolbox/SKILL.md", "## On-disk layout")
+        ),
+        "ti-domain": _tree_paths(
+            block("agent-plugin/skills/ti-domain/SKILL.md", "## 10. BIDS Data")
+        ),
+        "quick facts project_layout": cited,
+    }
+
+
+def test_layouts_name_only_directories_the_toolbox_creates(texts, tmp_path):
+    known = _toolbox_paths(tmp_path)
+    allowed = {
+        parent: {
+            k.split("/")[parent.count("/") + bool(parent)]
+            for k in known
+            if not parent or k.startswith(parent + "/")
+        }
+        for parent in _CHECKED_PARENTS
+    }
+    assert "pipelines" not in allowed["code/ti-toolbox"]
+    assert {"jobs", "notebooks", "viewer"} <= allowed["code/ti-toolbox"]
+    for source, paths in _layouts(texts).items():
+        seen = set()
+        for path in (q for p in paths for q in _expand(p)):
+            parts = path.rstrip("/").split("/")
+            assert "pipelines" not in parts, f"{source}: {path}"
+            for i, child in enumerate(parts):
+                parent = "/".join(parts[:i])
+                if parent in allowed:
+                    seen.add(parent)
+                    assert child in allowed[parent], f"{source}: {path} ({child!r})"
+        # The parse reached every level it checks (no vacuous pass on a reformatted tree).
+        assert {"", "derivatives", "derivatives/SimNIBS/sub-*"} <= seen, source
+        assert "code/ti-toolbox" in seen, source
+
+
+# ---------------------------------------------------------------------------------------------
+# the developer loop
+# ---------------------------------------------------------------------------------------------
+
+
+def test_dev_loop_text_matches_dev_ts(texts):
+    usage = re.search(
+        r"const USAGE = `(.*?)`;",
+        (REPO / "desktop/scripts/dev.ts").read_text(),
+        re.S,
+    ).group(1)
+    reload_flag = re.search(r"use (--\w+) for renderer live reload", usage).group(1)
+    assert re.search(rf"^\s+{reload_flag}\s.*no Electron window", usage, re.M)
+    scripts = json.loads((REPO / "desktop/package.json").read_text())["scripts"]
+    checked = set()
+    for name, text in texts.items():
+        for m in re.finditer(r"npm run (dev(?::[\w-]+)?)\b", text):
+            rest = text[m.end() :]
+            clause = re.split(r"npm run |\n|; |\. ", rest)[0]
+            live = re.search(r"\bHMR\b|\bVite\b|live reload", clause, re.I)
+            no_window = re.search(r"\b(?:no|without)\s+Electron", clause, re.I)
+            window = re.search(r"Electron", clause) and not no_window
+            if not (live or no_window or window):
+                continue
+            script = scripts[m.group(1)]
+            web = reload_flag in script.split()
+            if live or no_window:
+                assert (
+                    web
+                ), f"{name}: `npm run {m.group(1)}` is not {reload_flag}: {clause!r}"
+            if window:
+                assert (
+                    not web
+                ), f"{name}: `npm run {m.group(1)}` opens no Electron window"
+            checked.add((name, m.group(1)))
+    for where in (
+        "get_quick_facts",
+        "list_launch_paths",
+        "agent-plugin/skills/ti-toolbox/SKILL.md",
+    ):
+        assert {(where, "dev"), (where, "dev:web")} <= checked, where
