@@ -287,9 +287,11 @@ def write_derived_outputs(mri_dir: Path, *, logger) -> None:
     if not nifti_path.is_file():
         _write_nifti_copy(seg_path, nifti_path, logger=logger)
 
+    # Counted from the integer copy: a float segmentation (written by hand) holding
+    # 16.9999 is label 17 there, where the .mgz's truncating reader would say 16.
     labels_path = mri_dir / SEG_LABELS_FILENAME
     if not labels_path.is_file():
-        _write_labels_sidecar(seg_path, labels_path, logger=logger)
+        _write_labels_sidecar(nifti_path, labels_path, logger=logger)
 
 
 def run_fastsurfer(
