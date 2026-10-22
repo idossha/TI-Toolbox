@@ -160,7 +160,11 @@ class Dataset:
 
 
 def _load_catalog() -> dict[str, Any]:
-    with resources.files(__package__).joinpath("catalog.json").open("r", encoding="utf-8") as fh:
+    with (
+        resources.files(__package__)
+        .joinpath("catalog.json")
+        .open("r", encoding="utf-8") as fh
+    ):
         return json.load(fh)
 
 
@@ -187,7 +191,9 @@ def catalogue() -> list[Dataset]:
                 )
             )
         out.append(
-            Dataset(**{k: v for k, v in raw.items() if k != "parts"}, parts=tuple(parts))
+            Dataset(
+                **{k: v for k, v in raw.items() if k != "parts"}, parts=tuple(parts)
+            )
         )
     return out
 
@@ -207,7 +213,9 @@ def dataset_by_id(dataset_id: str) -> Dataset:
     for d in catalogue():
         if d.id == dataset_id:
             return d
-    raise KeyError(f"unknown example dataset {dataset_id!r}; see `python -m tit.examples --list`")
+    raise KeyError(
+        f"unknown example dataset {dataset_id!r}; see `python -m tit.examples --list`"
+    )
 
 
 def part_by_id(dataset_id: str, part_id: str | None = None) -> Part:
@@ -237,15 +245,22 @@ def parts() -> list[Part]:
 
 
 def _resolve(parent: Path, name: str) -> Path:
-    """*parent*/*name*, or an existing sibling that differs only in case."""
-    exact = parent / name
-    if exact.exists() or not parent.is_dir():
-        return exact
+    """*parent*/*name* spelled as on disk: the exact entry, else one differing only in case.
+
+    The directory listing decides, not ``exists()``: on a case-insensitive filesystem (the macOS
+    host, or a macOS project bind-mounted into the container) ``m2m_ernie`` "exists" when the
+    entry is ``m2m_Ernie``, and returning the requested spelling then lost the on-disk case.
+    """
+    if not parent.is_dir():
+        return parent / name
+    names = [entry.name for entry in parent.iterdir()]
+    if name in names:
+        return parent / name
     lowered = name.lower()
-    for entry in parent.iterdir():
-        if entry.name.lower() == lowered:
-            return entry
-    return exact
+    for entry in names:
+        if entry.lower() == lowered:
+            return parent / entry
+    return parent / name
 
 
 def _resolve_template(root: Path, template: str, subject: str) -> Path:
@@ -329,10 +344,20 @@ def _download(f: PartFile, dest: Path, on_bytes: Callable[[int], None]) -> None:
 
 
 def _safe_members(tar: tarfile.TarFile, prefix: str) -> list[tarfile.TarInfo]:
+    """Every member, if all are regular files or directories inside ``prefix/``.
+
+    A whitelist: links, FIFOs and device nodes are refused like ``..`` and absolute names, so
+    nothing but plain files and directories is ever unpacked into a project.
+    """
     members = []
     for m in tar.getmembers():
         parts_ = Path(m.name).parts
-        if not parts_ or parts_[0] != prefix or ".." in parts_ or m.issym() or m.islnk():
+        if (
+            not parts_
+            or parts_[0] != prefix
+            or ".." in parts_
+            or not (m.isreg() or m.isdir())
+        ):
             raise ValueError(f"unsafe archive member: {m.name}")
         members.append(m)
     if not members:
@@ -341,21 +366,27 @@ def _safe_members(tar: tarfile.TarFile, prefix: str) -> list[tarfile.TarInfo]:
 
 
 def _place(project_dir: Path, part: Part, f: PartFile, tmp_file: Path) -> None:
-    """Move one staged file into the part's ``dest``: unpack an archive, otherwise drop it in."""
+    """Move one staged file into the part's ``dest``: unpack an archive, otherwise drop it in.
+
+    An archive is vetted before anything in the project changes, so a refused one leaves the
+    project (and a head model a forced re-fetch meant to replace) exactly as it was.
+    """
     dest_dir = _dest_dir(project_dir, part)
-    dest_dir.mkdir(parents=True, exist_ok=True)
     if not _is_archive(f):
+        dest_dir.mkdir(parents=True, exist_ok=True)
         shutil.move(str(tmp_file), _resolve(dest_dir, f.name))
         return
     prefix = f.name[: -len(".tar.gz")]
     with tarfile.open(tmp_file, "r:gz") as tar:
         members = _safe_members(tar, prefix)
+        dest_dir.mkdir(parents=True, exist_ok=True)
         existing = _resolve(dest_dir, prefix)
         if existing.exists():
             shutil.rmtree(existing)
         tar.extractall(dest_dir, members=members)  # noqa: S202 - members vetted above
         extracted = dest_dir / prefix
-        if extracted != existing:  # the project uses another case; keep the case already on disk
+        # The project uses another case; keep the case already on disk.
+        if extracted != existing:
             extracted.rename(existing)
 
 
@@ -439,7 +470,9 @@ def fetch(
         for f in part.files:
             tmp_file = Path(tmp) / f.name
             log(f"downloading {f.name} ({f.bytes / 1e6:.0f} MB)", flush=True)
-            _download(f, tmp_file, lambda n, name=f.name, base=done: report(name, base, n))
+            _download(
+                f, tmp_file, lambda n, name=f.name, base=done: report(name, base, n)
+            )
             staged.append((f, tmp_file))
             done += f.bytes
         log("checksums ok; installing", flush=True)
@@ -460,5 +493,5 @@ def fetch_ernie(project_dir: str | Path, *, force: bool = False, log=print) -> P
     target = None
     for part in dataset_by_id(ERNIE).parts:
         target = fetch(ERNIE, part.id, project_dir, force=force, log=log)
-    assert target is not None  # noqa: S101 - the catalogue always ships ernie with parts
+    assert target is not None  # noqa: S101 - the catalogue ships ernie with parts
     return target
