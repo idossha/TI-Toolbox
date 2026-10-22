@@ -43,6 +43,12 @@ describe("flexManifestSummary on manifests the writer produced", () => {
     expect(r["Non-ROI"]).toBeUndefined();
   });
 
+  it("a net named without mapping is not recorded, so no EEG net row claims a mapping", () => {
+    const r = rows("sphere_net_unmapped");
+    expect(r["EEG net"]).toBeUndefined();
+    expect(r.ROI).toBe("spherical · (-30, 10, 5) r 10 mm");
+  });
+
   it("a two-sphere union names both centres with their own radii, and the tissue", () => {
     expect(rows("sphere_union").ROI).toBe("spherical · (-30, 10, 5) r 10 mm + (30, 12, 6) r 8 mm · GM");
     expect(rows("sphere_union").Runs).toBe("2");

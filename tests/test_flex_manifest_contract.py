@@ -52,6 +52,11 @@ def test_the_generator_has_cases_and_writes_every_fixture():
         f"{case}.json" for case in GEN.CASES
     }
     assert GEN.PREVIEW in BUILT and GEN.FLEX_RUNS in BUILT
+    # One case names a net with mapping off, so the enable_mapping guard on eeg_net is exercised.
+    assert any(
+        kw.get("eeg_net") and not kw.get("enable_mapping")
+        for kw, _, _ in GEN.CASES.values()
+    )
 
 
 @pytest.mark.parametrize("path", sorted(BUILT, key=str), ids=lambda p: p.name)

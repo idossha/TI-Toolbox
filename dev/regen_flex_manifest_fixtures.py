@@ -67,6 +67,18 @@ CASES: dict[str, tuple[dict, FlexResult, tuple[float, float] | None]] = {
         _result([-0.21], 0),
         None,
     ),
+    # A script that names a net but leaves enable_mapping off: no electrode_mapping_<net>.json
+    # is written, so the manifest must not name the net either.
+    "sphere_net_unmapped": (
+        dict(
+            goal="mean",
+            roi=FlexConfig.SphericalROI(x=[-30.0], y=[10.0], z=[5.0], radius=[10.0]),
+            enable_mapping=False,
+            eeg_net="GSN-HydroCel-185.csv",
+        ),
+        _result([-0.21], 0),
+        None,
+    ),
     "sphere_union": (
         dict(
             goal="max",
