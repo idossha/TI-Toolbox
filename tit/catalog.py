@@ -2473,8 +2473,10 @@ _STATS_RESULT_LINES = [
         ["Candidate clusters"],
     ),
     (
-        re.compile(r"Threshold \(p<[\d.]+\): ([\d.eE+-]+) (\w+) units"),
-        ["Cluster threshold", None],
+        # ``... 812.40 mass units  (null ...`` for mass, ``... 12.00 voxels  (null ...`` for size
+        # (``tit/stats/engine.py``): the number is read, whatever unit follows it.
+        re.compile(r"Threshold \(p<[\d.]+\): ([\d.eE+-]+) "),
+        ["Cluster threshold"],
     ),
     (
         re.compile(r"Significant: (\d+) clusters?, (\d+) voxels?"),
@@ -2485,12 +2487,72 @@ _STATS_RESULT_LINES = [
 _STATS_CONFIG_LABELS = {
     "test": "Test",
     "alt": "Alternative",
+    "corr": "Correlation",
     "stat": "Cluster statistic",
     "threshold": "Cluster-forming p",
     "perms": "Permutations",
     "alpha": "Cluster alpha",
     "jobs": "Parallel jobs",
 }
+
+#: The machine-readable record a surface (fsaverage) run writes beside ``surface_stats.msh``
+#: (``tit.stats.surface._run_metadata`` through ``tit.source.fsaverage.write_fsaverage_msh``).
+#: A surface run logs none of the lines :func:`_parse_stats_log` reads, so this sidecar and
+#: ``significant_clusters.csv`` are where its pane's settings, groups and outcome come from.
+_SURFACE_STATS_JSON = "surface_stats.json"
+
+
+def _surface_stats_summary(run_dir: str, pm: PathManager) -> dict | None:
+    """Config, groups and outcome of a surface run, read from the files it wrote.
+
+    ``None`` when *run_dir* holds no surface record (every volume run). Values are formatted
+    as the volume log formats them (``threshold=%.3f``), so both kinds of run read alike.
+    """
+    meta_path = _jailed(pm, os.path.join(run_dir, _SURFACE_STATS_JSON))
+    meta = _read_json(meta_path) if meta_path else None
+    if not isinstance(meta, dict):
+        return None
+    config: list[dict] = []
+
+    def add(label: str, value: Any, fmt: str = "{}") -> None:
+        if value is not None:
+            try:
+                config.append({"label": label, "value": fmt.format(value)})
+            except (TypeError, ValueError):
+                config.append({"label": label, "value": str(value)})
+
+    add("Test", meta.get("test_type"))
+    add("Alternative", meta.get("alternative"))
+    add("Correlation", meta.get("correlation_type"))
+    add("Cluster statistic", meta.get("cluster_stat"))
+    add("Cluster-forming p", meta.get("cluster_threshold"), "{:.3f}")
+    add("Permutations", meta.get("n_permutations"))
+    add("Cluster alpha", meta.get("alpha"), "{:.3f}")
+    add("Field", meta.get("field"))
+    add("Surface", meta.get("fsaverage_spacing"), "fsaverage{}")
+
+    groups: list[dict] = []
+    if isinstance(meta.get("groups"), dict):
+        for name, ids in meta["groups"].items():
+            ids = [str(i) for i in ids or []]
+            groups.append({"name": str(name), "n": len(ids), "subjects": ids})
+    elif isinstance(meta.get("subjects"), list):
+        ids = [str(i) for i in meta["subjects"]]
+        groups.append({"name": "Subjects", "n": len(ids), "subjects": ids})
+
+    results: list[dict] = []
+    csv_path = _jailed(pm, os.path.join(run_dir, "significant_clusters.csv"))
+    if csv_path and os.path.isfile(csv_path):
+        try:
+            with open(csv_path, newline="") as f:
+                rows = list(csv.DictReader(f))
+            vertices = sum(int(float(row.get("size") or 0)) for row in rows)
+        except (OSError, ValueError):
+            pass  # an unreadable table reports no outcome rather than a wrong one
+        else:
+            results.append({"label": "Significant clusters", "value": str(len(rows))})
+            results.append({"label": "Significant vertices", "value": str(vertices)})
+    return {"config": config, "groups": groups, "results": results}
 
 
 def _stats_log_path(run_dir: str) -> str | None:
@@ -2645,6 +2707,10 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
                 parsed = _parse_stats_log(f.read())
         except OSError:
             pass
+    surface = _surface_stats_summary(run_dir, pm)
+    if surface:
+        # The run's own machine-readable record wins over whatever its log happened to say.
+        parsed.update({key: value for key, value in surface.items() if value})
 
     clusters = parsed["clusters"]
     csv_path = _jailed(pm, os.path.join(run_dir, "significant_clusters.csv"))
