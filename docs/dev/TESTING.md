@@ -261,6 +261,10 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   `$MNE_DATA` (default `~/mne_data`) `MNE-fsaverage-data` and skips without it. Its surface-stats legs run
   a correlation and a group comparison over planted subject projections and check `surface_stats.msh`,
   the three CSVs and the rendered PDFs against the inputs.
+- `tests/numerical/test_simnibs_vector_warp.py` pins the image's SimNIBS + NumPy on a vector volume
+  warped with an inverse deformation (an authored mirror field: (1, 2, 3) must come out (-1, 2, 3)),
+  the path a `nan_to_num(copy=False)` build patch broke under NumPy 2. It is red on the v3.1.1 image
+  as first published and green once SimNIBS's own `copy=None` is left in place.
 - `tests/numerical/test_dti_advisories.py` pins the DTI advisories on synthetic phantoms (flip test finds a
   planted x flip, tract orientation on pure L–R fibres, a planted 3 mm residual shift), slice orientation
   for RAS/LAS/PSR grids, the report size budget, and `vn` conductivity against SimNIBS 4.6

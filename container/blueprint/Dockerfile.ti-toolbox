@@ -175,7 +175,6 @@ RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
     && cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py \
           $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py \
     && simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py \
-    && simnibs_python /ti-toolbox/resources/patches/patch_nan_to_num.py \
     && simnibs_python -m pip install --no-cache-dir /ti-toolbox
 
 # The kernel the in-app notebooks run on (tit/server/kernels.py starts it by name).

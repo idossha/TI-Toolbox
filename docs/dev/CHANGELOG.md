@@ -30,6 +30,10 @@ written again. Other projects, nets and results open unchanged.
 
 - **Fixed: the simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one. Simulation outputs are unchanged; rebuild a missing report by re-running the simulation.
 
+#### SimNIBS in the image
+
+- **Fixed: vector fields warp to and from MNI space again** — in the v3 images, warping a vector volume with SimNIBS (`subject2mni` or `mni2subject` on a mesh carrying `E` or `J`, or on a 3-component NIfTI; `run_simnibs` with `map_to_MNI` in a notebook) stopped with `ValueError: Unable to avoid copy while creating an array as requested`. A build-time patch written for the old NumPy 1 environment overrode SimNIBS 4.6's own code; the image now runs SimNIBS's code as shipped. TI-Toolbox's simulations, analyses, searches, EEG caps and head models only warp scalar fields and give bit-identical results.
+
 #### Flex-search
 
 - **Fixed: focality searches with a non-ROI of a different type from the ROI run again** — a **Specific region** non-ROI can now be a different kind of region from the ROI (for example a sphere ROI against a cortical atlas region, the form's default non-ROI); each is built as what it is, and a volumetric sphere non-ROI is now really volumetric. Before, these searches failed when they started. Searches where both regions are the same type, and **Everything else** non-ROIs, behave as before. **Optimizer ▸ Flex ▸ Objective ▸ Non-ROI**.

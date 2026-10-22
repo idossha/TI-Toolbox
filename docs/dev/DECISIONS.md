@@ -3243,3 +3243,55 @@ renaming repeated labels on save (it changes what the user typed).
 `tests/test_catalog_v1.py::test_put_freehand_rejects_repeated_labels`;
 `desktop/tests/unit/freehand-placement.test.ts`; `desktop/tests/unit/freehand-session.test.tsx`.
 
+## 2026-10-21 — The image runs SimNIBS 4.6's own `nan_to_num(copy=None)`; the build patch is gone
+
+**Decision.** `resources/patches/patch_nan_to_num.py` and its `Dockerfile.ti-toolbox` step are
+deleted. The three `np.nan_to_num(..., copy=None)` calls in `simnibs/utils/transformations.py`
+(`volumetric_nonlinear` vector rotation; `nifti_transform` for a file and for an `(array, affine)`
+pair) run as SimNIBS ships them. `tests/numerical/test_simnibs_vector_warp.py` pins the path.
+
+**Why.** The patch (6e0ec00d, 2026-03-23) rewrote `copy=None` to `copy=False` when `bpy` in the
+scientific environment had pulled NumPy down to 1.26.4, where `copy=None` raises
+`NoneType copy mode not allowed` [measured with Blender's bundled NumPy 1.26.4 in the v3.1.1
+image]; there it was right, because NumPy 1's `copy=False` means "copy only if needed". Since
+2026-09-08 (d10bd1ba, Blender isolated, `runtime-constraints.txt` pins `numpy==2.3.5`,
+`verify_runtime.py` asserts it) the patch ran against NumPy 2, where `copy=False` means "never copy"
+and NumPy 2's `copy=None` is exactly NumPy 1's `copy=False`. For every ndarray input the two are
+identical; for anything that needs a copy the patched form raises. `np.gradient` returns a tuple, so
+every vector volume warped with an inverse field (`subject2mni`/`mni2subject` of E or J or a
+3-component NIfTI, `run_simnibs` with `map_to_MNI`, `mesh2nii.msh_to_mni` without a field filter)
+failed with `Unable to avoid copy`, and the shipped image failed 3 of SimNIBS's own
+`test_transformations.py` tests (`test_nonl_reflex`, `test_nonl_rotate`, `test_nonl_shear`).
+TI-Toolbox's own jobs only warp scalar fields, so they never hit it.
+
+**Alternatives rejected.** Correcting the patch to `copy=None` (a no-op against upstream);
+`np.asarray` in its place (an edit of SimNIBS code for no behavioural gain); keeping it for a
+NumPy 1 environment (the build refuses anything but NumPy 2.3.5).
+
+**Evidence** [measured, v3.1.1 image with the shipped file vs SimNIBS's own file bind-mounted over
+it, ernie from Dataset 000 in a scratch copy, 2026-10-21]. NumPy-level, 30 input kinds
+(float16/32/64, complex, int, uint8/16, bool, 4-D vectors, non-contiguous, transposed, Fortran,
+read-only, memmap r/r+/c, nibabel `.nii`/`.nii.gz`/scaled, empty, 0-d, scalars, lists, the
+`np.gradient` tuple): every ndarray result, in-place mutation and object identity is bitwise
+identical; read-only raises identically; scalars, lists and tuples raise only with `copy=False`.
+Function level, 31 calls through all three sites on ernie's real warps (T1 and MNI template via
+`warp_volume`, NaN/inf/scaled/uint8 NIfTIs, 12 `(array, affine)` layouts, charm's own
+`final_labels_MNI` call, scalar and vector `to_deformed_grid`, `warp_volume` on a `.msh` with `E`
+and `magnE`): the 20 that run with the patch are bitwise identical without it, the 9 it breaks
+run without it, and the 2 read-only inputs raise identically either way. SimNIBS's `test_transformations.py` + `test_mesh_io.py`: 3 failed / 315 passed
+patched, 318 passed unpatched. Pipelines, each run with both files: TI simulation with MNI NIfTIs
+(72 data files bitwise identical incl. 14 MNI NIfTIs and `T1_ernie_MNI`), 4-pair mTI with MNI
+NIfTIs (110 identical incl. 16 MNI NIfTIs), the rest of both differing only in timestamps;
+analyzer voxel MNI sphere, voxel MNI-atlas mask and mesh MNI sphere (16/16); flex-search on an MNI
+sphere with NumPy's global RNG seeded (62 FEM candidates, objectives and final electrodes
+identical, goal −0.2841884712677735 both); ex-search with an MNI centre and an MNI atlas ROI
+(12/12); EEG-cap warp of all 13 caps plus `mni2subject_coords`/`subject2mni_coords` (28/28). A
+`nan_to_num` trace showed both simulations reaching only `nifti_transform` with float64 `(…, 1)`
+ndarrays (plus the `subject2mni` T1 call), and the analyzer, ex-search, flex-search and cap warp
+reaching none of the three sites. `tests/numerical` in the container: 202 passed with SimNIBS's
+own file; with the patched file the new test fails on `Unable to avoid copy`.
+
+**Revisit if.** The scientific environment ever goes back below NumPy 2 (upstream SimNIBS 4.6 would
+then fail at every MNI NIfTI write, charm's `final_tissues_MNI` included), or SimNIBS changes these
+calls.
+
