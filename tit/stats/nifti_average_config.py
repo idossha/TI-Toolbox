@@ -34,13 +34,13 @@ class NiftiAverageSpace(StrEnum):
     MNI = "mni"
 
 
-#: Default filename pattern per :class:`NiftiAverageSpace`, matching what
-#: ``tit.sim``/``tit.analyzer`` actually write under a simulation's
-#: ``TI/niftis/`` directory (see
-#: ``tit.stats.nifti.load_subject_nifti_ti_toolbox``'s own MNI default).
+#: Default filename pattern per :class:`NiftiAverageSpace`: the grey-matter
+#: envelope ``tit.tools.mesh2nii`` writes under a simulation's ``TI/niftis/``
+#: (``<mesh>_subject_<field>`` / ``<mesh>_MNI_MNI_<field>``). The subject entry
+#: read ``grey_{simulation_name}_TI_max.nii.gz``, a file no simulation writes.
 _DEFAULT_PATTERNS: dict[NiftiAverageSpace, str] = {
     NiftiAverageSpace.MNI: "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
-    NiftiAverageSpace.SUBJECT: "grey_{simulation_name}_TI_max.nii.gz",
+    NiftiAverageSpace.SUBJECT: "grey_{simulation_name}_TI_subject_TI_max.nii.gz",
 }
 
 

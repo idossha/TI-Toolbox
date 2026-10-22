@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
-import { buildNiftiAverageConfig } from "../../src/renderer/pages/panels/nifti-group-average/config";
+import { buildNiftiAverageConfig, DEFAULT_PATTERNS } from "../../src/renderer/pages/panels/nifti-group-average/config";
 
 // contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
@@ -32,6 +32,32 @@ describe("NIfTI group averaging panel config validates against contracts/generat
     expect(config).toHaveProperty("output_name", "hippocampus_group_comparison");
     expect(config).not.toHaveProperty("analysis_name");
     expect(validate("NiftiAverageConfig", config)).toMatchObject({ valid: true, errors: [] });
+  });
+
+  // Space did nothing: the pattern field was pre-filled with the MNI file and always sent, so
+  // choosing Subject still averaged MNI volumes. An empty field now defers to the space.
+  it("an empty pattern is sent as null, so the chosen space picks the file", () => {
+    const config = buildNiftiAverageConfig({
+      outputName: "montages",
+      rows: [
+        { subjectId: "ernie", simulationName: "A", group: "Group1" },
+        { subjectId: "ernie", simulationName: "B", group: "Group2" },
+      ],
+      space: "subject",
+      niftiFilePattern: "  ",
+      diffPairs: [],
+    });
+    expect(config.space).toBe("subject");
+    expect(config.nifti_file_pattern).toBeNull();
+  });
+
+  it("the placeholder patterns are the server's defaults for each space", () => {
+    // Read independently of the panel: the Python table the runner and preflight use.
+    const source = readFileSync(join(__dirname, "..", "..", "..", "tit", "stats", "nifti_average_config.py"), "utf8");
+    const server = Object.fromEntries(
+      [...source.matchAll(/NiftiAverageSpace\.(MNI|SUBJECT): "([^"]+)"/g)].map((m) => [m[1]!.toLowerCase(), m[2]]),
+    );
+    expect(server).toEqual(DEFAULT_PATTERNS);
   });
 
   it("a subject-space config with explicit diff pairs is a valid NiftiAverageConfig", () => {

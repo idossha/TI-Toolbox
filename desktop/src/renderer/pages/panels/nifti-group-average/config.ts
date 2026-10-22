@@ -5,6 +5,14 @@
  */
 import type { NiftiAverageConfig } from "./api";
 
+/** Each space's default file, mirrored from `tit/stats/nifti_average_config.py`'s
+ *  `_DEFAULT_PATTERNS` (pinned by `nifti-group-average-defaults.test.ts`). Only the placeholder
+ *  reads it: an empty pattern is sent as `null`, so the server picks the space's own file. */
+export const DEFAULT_PATTERNS = {
+  mni: "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
+  subject: "grey_{simulation_name}_TI_subject_TI_max.nii.gz",
+} as const;
+
 export interface NiftiAverageRow {
   subjectId: string;
   simulationName: string;

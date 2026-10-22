@@ -39,8 +39,9 @@ def project(tmp_path: Path) -> Path:
     )
     touch(pm.ti_mesh(SID, SIM))
     touch(pm.ti_central_surface(SID, SIM))
+    # The names v3.1.1 writes (Dataset 000, sub-LA/Simulations/L_Insula/TI/niftis/).
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
-    touch(niftis / f"grey_{SIM}_TI_TI_max.nii.gz")
+    touch(niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz")
     touch(niftis / f"grey_{SIM}_TI_MNI_MNI_TI_max.nii.gz")
     return tmp_path
 
@@ -119,7 +120,7 @@ def test_analyzer_mesh_needs_the_field_mesh_and_the_central_surface(
 def test_analyzer_voxel_needs_the_tissue_nifti(project: Path) -> None:
     pm = get_path_manager()
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
-    (niftis / f"grey_{SIM}_TI_TI_max.nii.gz").unlink()
+    (niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz").unlink()
     found = preflight(
         "analyzer",
         analyzer_config("voxel", analysis_type="spherical", atlas=None),
@@ -327,6 +328,16 @@ def test_group_tools_need_the_mni_nifti(project: Path) -> None:
     assert missing_paths(found) == [
         str(mni.with_name(f"white_{SIM}_TI_MNI_MNI_TI_max.nii.gz"))
     ]
+
+
+def test_nifti_average_subject_space_reads_the_subject_file(project: Path) -> None:
+    """The subject-space default named grey_<sim>_TI_max.nii.gz, a file no simulation
+    writes, so a Subject-space average never found its input."""
+    subjects = [{"subject_id": SID, "simulation_name": SIM}]
+    assert (
+        preflight("nifti_average", {"subjects": subjects, "space": "subject"}, str(project))
+        == []
+    )
 
 
 def test_stats_fsaverage_space_needs_the_projection(project: Path) -> None:

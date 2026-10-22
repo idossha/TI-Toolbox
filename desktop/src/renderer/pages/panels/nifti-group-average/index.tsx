@@ -22,7 +22,7 @@ import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { createNiftiAverageJob, getSimulationsFor, planNiftiAverage, validateNiftiAverage } from "./api";
-import { buildNiftiAverageConfig, type NiftiAverageRow } from "./config";
+import { buildNiftiAverageConfig, DEFAULT_PATTERNS, type NiftiAverageRow } from "./config";
 
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -68,7 +68,9 @@ function NiftiGroupAveragePanel() {
   const [rows, setRows] = usePageSession<Row[]>("rows", () => [newRow(), newRow()]);
   const [outputName, setOutputName] = usePageSession("outputName", "");
   const [space, setSpace] = usePageSession<"subject" | "mni">("space", "mni");
-  const [pattern, setPattern] = usePageSession("pattern", "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz");
+  // Empty = the chosen space's own file (the server's default, shown as the placeholder). It was
+  // pre-filled with the MNI file, so choosing Subject still averaged MNI volumes.
+  const [pattern, setPattern] = usePageSession("pattern", "");
   const [diffPairs, setDiffPairs] = usePageSession("diffPairs", "");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [existingCount, setExistingCount] = useState(0);
@@ -272,11 +274,19 @@ function NiftiGroupAveragePanel() {
                 <Field label="Analysis name" htmlFor="nga-output-name" required>
                   <TextInput id="nga-output-name" value={outputName} placeholder="e.g. hippocampus_group_comparison" onChange={(e) => setOutputName(e.target.value)} />
                 </Field>
-                <Field label="Space" htmlFor="nga-space">
-                  <Select id="nga-space" value={space} onValueChange={(v) => setSpace(v as "subject" | "mni")} options={SPACE_OPTIONS} />
+                <Field label="Space" htmlFor="nga-space" help="MNI averages across subjects. Each subject's own volumes are on its own voxel grid, so Subject works only when every row is the same subject (for example, comparing that subject's montages).">
+                  <Select
+                    id="nga-space"
+                    value={space}
+                    onValueChange={(v) => {
+                      setSpace(v as "subject" | "mni");
+                      setPattern("");
+                    }}
+                    options={SPACE_OPTIONS}
+                  />
                 </Field>
-                <Field label="NIfTI pattern" htmlFor="nga-pattern" help="Use {simulation_name} as a variable — the subject is already in the directory path.">
-                  <TextInput id="nga-pattern" value={pattern} onChange={(e) => setPattern(e.target.value)} />
+                <Field label="NIfTI pattern" htmlFor="nga-pattern" help="Leave empty for the chosen space's field file. Use {simulation_name} as a variable — the subject is already in the directory path.">
+                  <TextInput id="nga-pattern" value={pattern} placeholder={DEFAULT_PATTERNS[space]} onChange={(e) => setPattern(e.target.value)} />
                 </Field>
                 <Field label="Group differences" htmlFor="nga-diff-pairs" help="Comma-separated GroupA-GroupB pairs. Leave empty to compute all possible differences.">
                   <TextInput id="nga-diff-pairs" value={diffPairs} placeholder="e.g. Group1-Group2, Group1-Group3" onChange={(e) => setDiffPairs(e.target.value)} />
