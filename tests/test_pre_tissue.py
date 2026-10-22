@@ -283,10 +283,17 @@ class TestCreateThicknessFigure:
         )
         assert result is None
 
-    def test_with_data(self, mock_nii_image, tmp_path):
+    def test_with_data(self, mock_nii_image, tmp_path, monkeypatch):
+        from scipy import ndimage
+
         from tit.pre.tissue_analyzer import TissueAnalyzer
         import matplotlib.pyplot as plt
 
+        # Every pixel of this map is measured, so each is its own nearest measured pixel
+        # (real behaviour: tests/numerical/test_tissue_geometry.py).
+        monkeypatch.setattr(
+            ndimage, "distance_transform_edt", lambda a, **kw: np.indices(a.shape)
+        )
         analyzer = TissueAnalyzer(
             tmp_path / "label.nii.gz", tmp_path / "out", "csf", MagicMock()
         )

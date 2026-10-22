@@ -18,7 +18,12 @@ Host (real numpy/scipy/nibabel, matplotlib mocked)::
 
     .venv/bin/python -m pytest tests/numerical/test_tissue_geometry.py -q -p no:cacheprovider
 
-The figure test needs real matplotlib, so it runs in the image only.
+The figure helpers are checked here too, on the same authored geometry: the views cut through
+the tissue's centre of mass (an off-centre shell, so the volume's middle is the wrong answer),
+colour every tissue pixel of the cut instead of a dotted medial line, and the histogram gives
+each distance a voxel grid allows (``2*sqrt(k)`` mm on a 1 mm grid, from scipy's own distance
+transform) a bin of its own. The figure test needs real matplotlib, so it runs in the image only;
+``test_tissue_figure.py`` holds the other drawing checks and the before/after regression.
 """
 
 from __future__ import annotations
@@ -296,7 +301,8 @@ def test_figures_show_anatomical_views_whatever_the_storage_order(
     monkeypatch.setattr(plt, "close", lambda *a: keep.setdefault("fig", plt.gcf()))
     analyzer._create_thickness_figure(filtered, stats, plt)
     fig = keep["fig"]
-    views = {ax.get_title(): ax for ax in fig.axes if ax.get_title()}
+    # Titles carry the cut's position, "A. Axial View (z = 62 mm)".
+    views = {ax.get_title().split(" (")[0]: ax for ax in fig.axes if ax.get_title()}
     n_r, n_a, n_s = SHAPE  # the authored RAS extents
     expect = {
         "A. Axial View": ((n_a, n_r), "Left-Right", "Posterior-Anterior"),
@@ -306,6 +312,108 @@ def test_figures_show_anatomical_views_whatever_the_storage_order(
     for title, (shape, xdir, ydir) in expect.items():
         ax = views[title]
         assert ax.images[0].get_array().shape == shape, title
-        assert xdir in ax.get_xlabel(), (title, ax.get_xlabel())
-        assert ydir in ax.get_ylabel(), (title, ax.get_ylabel())
+        assert f"{xdir} (mm)" in ax.get_xlabel(), (title, ax.get_xlabel())
+        assert f"{ydir} (mm)" in ax.get_ylabel(), (title, ax.get_ylabel())
     real_close(fig)
+
+
+def _bone_shell(shape, centre):
+    """Bone shell (CSF_R <= r < BONE_R mm) on a 1 mm grid around voxel *centre*: no vertebra."""
+    world = np.moveaxis(np.indices(shape).astype(float), 0, -1) - np.asarray(centre)
+    r = np.linalg.norm(world, axis=-1)
+    return ((r >= CSF_R) & (r < BONE_R)).astype(np.uint8)
+
+
+def test_views_cut_through_the_tissue_centre_of_mass(ta):
+    """The only case that catches cutting at the volume's middle: the shell sits off it.
+
+    The shell is symmetric about its centre voxel, so its centre of mass is that voxel. The
+    volume's middle, ``shape // 2`` = (50, 55, 60), misses it on every axis.
+    """
+    centre = (42, 63, 71)
+    mask = _bone_shell(SHAPE, centre)
+    assert [s // 2 for s in SHAPE] != list(centre)
+
+    cut = ta._centre_slices(mask)
+
+    assert cut == list(centre)
+    for axis, index in enumerate(cut):
+        extent = np.nonzero(mask.any(axis=tuple(a for a in range(3) if a != axis)))[0]
+        assert extent.min() <= index <= extent.max(), axis
+        assert np.take(mask, index, axis=axis).any(), axis
+
+
+def _distances(sampling, radius=7):
+    """Twice the Euclidean distance transform (scipy) inside a ball with a slab beside it.
+
+    A radius of 7 voxels keeps a 1 mm grid's distances under 14 mm, a skull's range.
+    """
+    from scipy import ndimage
+
+    n = 2 * radius + 16
+    grid = np.indices((n, n, n)).astype(float)
+    blob = np.linalg.norm(grid - n / 2, axis=0) < radius
+    blob[3 : n - 3, 3:8, 3 : n - 3] = True
+    d = 2 * ndimage.distance_transform_edt(blob, sampling=sampling)
+    return d[blob]
+
+
+def test_histogram_gives_each_grid_distance_its_own_bin(ta):
+    """A 1 mm grid: the distances are ``2*sqrt(k)`` mm, a bin each, none empty."""
+    values = _distances(1.0)
+    levels = np.unique(values)
+    k = (levels / 2) ** 2
+    assert np.allclose(k, np.round(k)), "not the quantised lattice this test is about"
+    assert levels.size > 20, "too few distinct distances to check"
+    # What drew spikes: equal-width bins over these values leave some bins empty.
+    assert (np.histogram(values, bins=50)[0] == 0).any()
+
+    edges = ta._histogram_edges(values)
+
+    assert np.all(np.diff(edges) > 0)
+    assert edges[0] < levels[0] and levels[-1] < edges[-1]
+    # Every bin holds exactly one distinct distance: an edge between every pair of
+    # neighbours, and no empty bin.
+    assert np.histogram(levels, bins=edges)[0].tolist() == [1] * levels.size
+
+
+def test_histogram_on_an_anisotropic_grid_has_no_empty_bin(ta):
+    """Many distinct distances: neighbours share bins, at most MAX_HISTOGRAM_BINS of them."""
+    values = _distances((0.8, 1.0, 1.25), radius=13)
+    assert np.unique(values).size > ta.MAX_HISTOGRAM_BINS
+
+    edges = ta._histogram_edges(values)
+
+    counts = np.histogram(values, bins=edges)[0]
+    assert counts.sum() == values.size
+    assert np.all(counts > 0)
+    assert len(counts) <= ta.MAX_HISTOGRAM_BINS + 1
+
+
+def test_every_tissue_pixel_of_a_cut_shows_the_shell_thickness(
+    ta, head, tmp_path, monkeypatch
+):
+    """The only case that catches the dotted mid-line: the medial voxels cover little of a cut.
+
+    The 6 mm bone shell's every pixel in each centre-of-mass cut is coloured, with a thickness
+    within one voxel of 6 mm; pixels off the tissue stay empty.
+    """
+    labels, affine, _ = head
+    _save(tmp_path / "head.nii.gz", labels, affine)
+    analyzer, _ = _analyze(ta, tmp_path / "head.nii.gz", tmp_path, "bone", monkeypatch)
+    tissue = analyzer._create_tissue_mask()
+    filtered = analyzer._filter_to_brain_region(tissue, analyzer._create_brain_mask())
+    thickness_map = analyzer._calculate_thickness(tissue, filtered)["thickness_map"]
+    cut = ta._centre_slices(filtered)
+
+    for axis in range(3):
+        band, colour = ta._thickness_view(
+            filtered, thickness_map, axis, cut[axis], analyzer.voxel_dims
+        )
+        medial = np.isfinite(np.take(thickness_map, cut[axis], axis=axis)) & band
+        assert band.sum() > 100, axis
+        assert medial.sum() < band.sum() / 2, axis  # what the old views drew
+        assert np.isfinite(colour[band]).all(), axis
+        assert np.isnan(colour[~band]).all(), axis
+        t = THICKNESS_MM["bone"]
+        assert np.all((colour[band] >= t - 1) & (colour[band] <= t + 1)), axis

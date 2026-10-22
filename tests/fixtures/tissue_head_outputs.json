@@ -1,0 +1,175 @@
+{
+ "source": "tests/numerical/test_tissue_figure.py capture of tit/pre/tissue_analyzer.py at b82a774a (before the figure change), in idossha/ti-toolbox:v3.1.1, 2026-10-22",
+ "head": {
+  "shape": [
+   100,
+   110,
+   120
+  ],
+  "zooms": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "centre": [
+   50,
+   55,
+   62
+  ]
+ },
+ "tissues": {
+  "bone": {
+   "result": {
+    "volume_cm3": 94.178,
+    "volume_mm3": 94178.0,
+    "thickness": {
+     "mean": 6.192590071897184,
+     "std": 0.22821289595298117,
+     "min": 5.656854249492381,
+     "max": 6.928203230275509
+    },
+    "voxels": {
+     "total": 106018,
+     "filtered": 94178
+    }
+   },
+   "report": [
+    "BONE ANALYSIS SUMMARY",
+    "========================================",
+    "",
+    "Voxel dimensions: 1 x 1 x 1 mm",
+    "",
+    "VOLUME:",
+    "  Total voxels: 106,018",
+    "  Filtered voxels: 94,178",
+    "  Volume: 94.178 cm³",
+    "",
+    "THICKNESS:",
+    "  Mean: 6.193 mm",
+    "  Std: 0.228 mm",
+    "  Min: 5.657 mm",
+    "  Max: 6.928 mm",
+    "",
+    "LABELS ANALYZED:",
+    "  515: 515 (106,018 voxels)",
+    "  516: 516 (0 voxels)"
+   ],
+   "figure": {
+    "stats": [
+     "Statistics Summary:\nRange: 5.66 - 6.93 mm\nMean ± SD: 6.19 ± 0.23 mm\nMedian: 6.00 mm\nIQR: 6.00 - 6.32 mm\nVoxels: 94,178\nVolume: 94.2 cm³\nVoxel dims: 1.00×1.00×1.00 mm"
+    ],
+    "legend": [
+     "Mean: 6.19 mm",
+     "+1 SD: 6.42 mm",
+     "-1 SD: 5.96 mm",
+     "25th %ile: 6.00 mm",
+     "75th %ile: 6.32 mm"
+    ]
+   }
+  },
+  "csf": {
+   "result": {
+    "volume_cm3": 51.484,
+    "volume_mm3": 51484.0,
+    "thickness": {
+     "mean": 4.39602155179701,
+     "std": 0.20910781802228187,
+     "min": 4.0,
+     "max": 4.898979485566356
+    },
+    "voxels": {
+     "total": 51484,
+     "filtered": 51484
+    }
+   },
+   "report": [
+    "CSF ANALYSIS SUMMARY",
+    "========================================",
+    "",
+    "Voxel dimensions: 1 x 1 x 1 mm",
+    "",
+    "VOLUME:",
+    "  Total voxels: 51,484",
+    "  Filtered voxels: 51,484",
+    "  Volume: 51.484 cm³",
+    "",
+    "THICKNESS:",
+    "  Mean: 4.396 mm",
+    "  Std: 0.209 mm",
+    "  Min: 4.000 mm",
+    "  Max: 4.899 mm",
+    "",
+    "LABELS ANALYZED:",
+    "  4: 4 (0 voxels)",
+    "  5: 5 (0 voxels)",
+    "  14: 14 (0 voxels)",
+    "  15: 15 (0 voxels)",
+    "  43: 43 (0 voxels)",
+    "  44: 44 (0 voxels)",
+    "  72: 72 (0 voxels)",
+    "  24: 24 (51,484 voxels)",
+    "  520: 520 (0 voxels)"
+   ],
+   "figure": {
+    "stats": [
+     "Statistics Summary:\nRange: 4.00 - 4.90 mm\nMean ± SD: 4.40 ± 0.21 mm\nMedian: 4.47 mm\nIQR: 4.47 - 4.47 mm\nVoxels: 51,484\nVolume: 51.5 cm³\nVoxel dims: 1.00×1.00×1.00 mm"
+    ],
+    "legend": [
+     "Mean: 4.40 mm",
+     "+1 SD: 4.61 mm",
+     "-1 SD: 4.19 mm",
+     "25th %ile: 4.47 mm",
+     "75th %ile: 4.47 mm"
+    ]
+   }
+  },
+  "skin": {
+   "result": {
+    "volume_cm3": 60.091,
+    "volume_mm3": 60091.0,
+    "thickness": {
+     "mean": 3.5323128600807236,
+     "std": 0.36748651914943053,
+     "min": 2.8284271247461903,
+     "max": 4.0
+    },
+    "voxels": {
+     "total": 64778,
+     "filtered": 60091
+    }
+   },
+   "report": [
+    "SKIN ANALYSIS SUMMARY",
+    "========================================",
+    "",
+    "Voxel dimensions: 1 x 1 x 1 mm",
+    "",
+    "VOLUME:",
+    "  Total voxels: 64,778",
+    "  Filtered voxels: 60,091",
+    "  Volume: 60.091 cm³",
+    "",
+    "THICKNESS:",
+    "  Mean: 3.532 mm",
+    "  Std: 0.367 mm",
+    "  Min: 2.828 mm",
+    "  Max: 4.000 mm",
+    "",
+    "LABELS ANALYZED:",
+    "  511: 511 (64,778 voxels)"
+   ],
+   "figure": {
+    "stats": [
+     "Statistics Summary:\nRange: 2.83 - 4.00 mm\nMean ± SD: 3.53 ± 0.37 mm\nMedian: 3.46 mm\nIQR: 3.46 - 4.00 mm\nVoxels: 60,091\nVolume: 60.1 cm³\nVoxel dims: 1.00×1.00×1.00 mm"
+    ],
+    "legend": [
+     "Mean: 3.53 mm",
+     "+1 SD: 3.90 mm",
+     "-1 SD: 3.16 mm",
+     "25th %ile: 3.46 mm",
+     "75th %ile: 4.00 mm"
+    ]
+   }
+  }
+ }
+}

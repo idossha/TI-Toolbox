@@ -38,7 +38,7 @@ TISSUE_CONFIGS = {
         "name": "CSF",
         "labels": [4, 5, 14, 15, 43, 44, 72, 24, 520],
         "padding": 40,
-        "color_scheme": "Blues",
+        "color_scheme": "cividis",
         "tissue_color": [0, 0, 1],
         "brain_labels": [3, 42, 16],
     },
@@ -46,7 +46,7 @@ TISSUE_CONFIGS = {
         "name": "Bone",
         "labels": [515, 516],
         "padding": 30,
-        "color_scheme": "hot",
+        "color_scheme": "plasma",
         "tissue_color": [1, 1, 1],
         "brain_labels": [3, 42, 16],
     },
@@ -61,6 +61,70 @@ TISSUE_CONFIGS = {
 }
 
 DEFAULT_TISSUES = ("bone", "csf", "skin")
+
+#: Slices on either side of a view's cut whose medial voxels colour it (display only).
+VIEW_SLAB = 2
+#: Margin drawn around the tissue in the thickness views, mm.
+VIEW_MARGIN_MM = 10.0
+#: The thickness histogram never splits the range finer than this many bins.
+MAX_HISTOGRAM_BINS = 100
+
+
+def _centre_slices(mask: np.ndarray) -> list[int]:
+    """Voxel index of *mask*'s centre of mass along each axis, where the views cut."""
+    return [int(round(float(np.mean(c)))) for c in np.nonzero(mask)]
+
+
+def _histogram_edges(values: np.ndarray) -> np.ndarray:
+    """Histogram bin edges halfway between neighbouring distinct values.
+
+    Distances on a voxel grid take few distinct values (``2*sqrt(k)`` mm on a 1 mm
+    grid), so equal-width bins leave some bins empty and give others two values, which
+    draws spikes. Here each value gets a bin of its own; only where neighbours lie
+    closer than 1/``MAX_HISTOGRAM_BINS`` of the range (a fine or anisotropic grid) do
+    several share one.
+    """
+    levels = np.unique(values)
+    if levels.size == 1:
+        return levels[0] + np.array([-0.5, 0.5])
+    step = (levels[-1] - levels[0]) / MAX_HISTOGRAM_BINS
+    inner = []
+    for mid in (levels[1:] + levels[:-1]) / 2:
+        if not inner or mid - inner[-1] >= step:
+            inner.append(mid)
+    return np.array([2 * levels[0] - inner[0], *inner, 2 * levels[-1] - inner[-1]])
+
+
+def _thickness_view(
+    mask: np.ndarray,
+    thickness_map: np.ndarray,
+    axis: int,
+    index: int,
+    voxel_dims: tuple[float, float, float],
+) -> tuple[np.ndarray, np.ndarray]:
+    """One cut through *mask* at *index* along *axis*, coloured by thickness for display.
+
+    Thickness exists only on the medial surface, which a plane crosses in a broken
+    one-voxel line. Each tissue pixel of the cut shows instead the thickness of the
+    nearest medial voxel within ``VIEW_SLAB`` slices; a cut with none stays NaN.
+
+    Returns:
+        ``(band, colour)``: the tissue in the cut, and the thickness drawn on it.
+    """
+    band = np.take(mask, index, axis=axis) > 0
+    slab = range(
+        max(0, index - VIEW_SLAB), min(mask.shape[axis], index + VIEW_SLAB + 1)
+    )
+    seeds = np.fmax.reduce(np.take(thickness_map, slab, axis=axis), axis=axis)
+    colour = np.full(band.shape, np.nan)
+    known = np.isfinite(seeds)
+    if known.any():
+        spacing = [d for i, d in enumerate(voxel_dims) if i != axis]
+        nearest = ndimage.distance_transform_edt(
+            ~known, sampling=spacing, return_distances=False, return_indices=True
+        )
+        colour[band] = seeds[tuple(nearest)][band]
+    return band, colour
 
 
 class TissueAnalyzer:
@@ -285,91 +349,92 @@ class TissueAnalyzer:
         thickness_stats: dict,
         plt,
     ) -> Path | None:
-        """Create thickness visualization with 3 views and a histogram."""
+        """Create thickness visualization with 3 views and a histogram.
+
+        The views cut through the tissue's centre of mass (the volume's middle can miss
+        it), in mm, with the tissue drawn faintly under its thickness.
+        """
         thickness_map = thickness_stats.get("thickness_map")
         if thickness_map is None or np.sum(filtered_mask) == 0:
             return None
 
-        # Layout: top row has 3 views, bottom row has histogram spanning all columns
-        fig = plt.figure(figsize=(16, 10))
-        gs = fig.add_gridspec(2, 3, height_ratios=[2, 1], width_ratios=[1, 1, 1])
-
-        vx, vy, vz = self.voxel_dims
-        mid = [s // 2 for s in thickness_map.shape]
+        vx, vy, vz = dims = self.voxel_dims
         # Thickness is measured on the medial surface only; the map is NaN elsewhere.
         thickness_values = thickness_map[
             (filtered_mask > 0) & np.isfinite(thickness_map)
         ]
         vmin, vmax = np.nanmin(thickness_values), np.nanmax(thickness_values)
+        centre = _centre_slices(filtered_mask)
+        # Window per RAS axis, mm (voxel centres at index * size): tissue plus a margin.
+        limits = [
+            (c.min() * d - VIEW_MARGIN_MM, c.max() * d + VIEW_MARGIN_MM)
+            for c, d in zip(np.nonzero(filtered_mask), dims)
+        ]
+        spans = [hi - lo for lo, hi in limits]
+        directions = ("Left-Right", "Posterior-Anterior", "Inferior-Superior")
 
-        # A. Axial view (top-left)
-        ax1 = fig.add_subplot(gs[0, 0])
-        masked = np.where(
-            filtered_mask[:, :, mid[2]] > 0, thickness_map[:, :, mid[2]], np.nan
-        )
-        im = ax1.imshow(
-            masked.T,
-            cmap=self.color_scheme,
-            origin="lower",
-            aspect=vy / vx,
-            interpolation="nearest",
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax1.set_title("A. Axial View", fontsize=12, fontweight="bold")
-        ax1.set_xlabel("X (Left-Right)")
-        ax1.set_ylabel("Y (Posterior-Anterior)")
+        # Layout: 3 views at one mm scale on top; histogram and statistics below
+        fig = plt.figure(figsize=(14, 9), layout="constrained")
+        rows = fig.add_gridspec(2, 1, height_ratios=[1.8, 1])
+        top = rows[0].subgridspec(1, 3, width_ratios=[spans[0], spans[0], spans[1]])
+        bottom = rows[1].subgridspec(1, 2, width_ratios=[3, 1])
 
-        # B. Coronal view (top-center)
-        ax2 = fig.add_subplot(gs[0, 1])
-        masked = np.where(
-            filtered_mask[:, mid[1], :] > 0, thickness_map[:, mid[1], :], np.nan
-        )
-        ax2.imshow(
-            masked.T,
-            cmap=self.color_scheme,
-            origin="lower",
-            aspect=vz / vx,
-            interpolation="nearest",
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax2.set_title("B. Coronal View", fontsize=12, fontweight="bold")
-        ax2.set_xlabel("X (Left-Right)")
-        ax2.set_ylabel("Z (Inferior-Superior)")
-
-        # C. Sagittal view (top-right)
-        ax3 = fig.add_subplot(gs[0, 2])
-        masked = np.where(
-            filtered_mask[mid[0], :, :] > 0, thickness_map[mid[0], :, :], np.nan
-        )
-        ax3.imshow(
-            masked.T,
-            cmap=self.color_scheme,
-            origin="lower",
-            aspect=vz / vy,
-            interpolation="nearest",
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax3.set_title("C. Sagittal View", fontsize=12, fontweight="bold")
-        ax3.set_xlabel("Y (Posterior-Anterior)")
-        ax3.set_ylabel("Z (Inferior-Superior)")
+        view_axes = []
+        views = (("A. Axial", 2, "z"), ("B. Coronal", 1, "y"), ("C. Sagittal", 0, "x"))
+        for col, (name, axis, letter) in enumerate(views):
+            u, v = (a for a in range(3) if a != axis)
+            band, colour = _thickness_view(
+                filtered_mask, thickness_map, axis, centre[axis], dims
+            )
+            extent = (
+                -dims[u] / 2,
+                (band.shape[0] - 0.5) * dims[u],
+                -dims[v] / 2,
+                (band.shape[1] - 0.5) * dims[v],
+            )
+            ax = fig.add_subplot(top[0, col])
+            ax.imshow(
+                np.where(band, 1.0, np.nan).T,
+                cmap="Greys",
+                vmin=0,
+                vmax=5,
+                origin="lower",
+                extent=extent,
+                interpolation="nearest",
+            )
+            im = ax.imshow(
+                colour.T,
+                cmap=self.color_scheme,
+                origin="lower",
+                extent=extent,
+                interpolation="nearest",
+                vmin=vmin,
+                vmax=vmax,
+            )
+            ax.set_xlim(limits[u])
+            ax.set_ylim(limits[v])
+            ax.set_title(
+                f"{name} View ({letter} = {centre[axis] * dims[axis]:.0f} mm)",
+                fontsize=12,
+                fontweight="bold",
+            )
+            ax.set_xlabel(f"{directions[u]} (mm)")
+            ax.set_ylabel(f"{directions[v]} (mm)")
+            view_axes.append(ax)
 
         # Colorbar for the 3 views
-        cbar_ax = fig.add_axes([0.92, 0.55, 0.015, 0.35])
-        cbar = fig.colorbar(im, cax=cbar_ax)
+        cbar = fig.colorbar(im, ax=view_axes, shrink=0.85)
         cbar.set_label("Thickness (mm)", fontweight="bold")
 
-        # D. Histogram (bottom, spanning all columns)
-        ax4 = fig.add_subplot(gs[1, :])
+        # D. Histogram (bottom left): one bar per distinct thickness the grid allows
+        ax4 = fig.add_subplot(bottom[0, 0])
         ax4.hist(
             thickness_values,
-            bins=50,
+            bins=_histogram_edges(thickness_values),
+            weights=np.full(thickness_values.shape, 100 / thickness_values.size),
             alpha=0.7,
             color="steelblue",
             edgecolor="navy",
-            density=True,
         )
 
         # Statistical lines
@@ -417,12 +482,16 @@ class TissueAnalyzer:
         ax4.set_xlabel(
             f"{self.tissue_name} Thickness (mm)", fontsize=11, fontweight="bold"
         )
-        ax4.set_ylabel("Probability Density", fontsize=11, fontweight="bold")
+        ax4.set_ylabel("Medial voxels (%)", fontsize=11, fontweight="bold")
         ax4.set_title("D. Thickness Distribution", fontsize=12, fontweight="bold")
-        ax4.legend(loc="upper right", fontsize=9, framealpha=0.9)
         ax4.grid(True, alpha=0.3, axis="y")
 
-        # Statistics text box
+        # Statistics and legend (bottom right), in their own panel: never over a bar
+        side = fig.add_subplot(bottom[0, 1])
+        side.axis("off")
+        side.legend(
+            handles=ax4.get_lines(), loc="lower left", fontsize=9, framealpha=0.9
+        )
         volume_cm3 = np.sum(filtered_mask) * self.voxel_volume / 1000
         stats_text = (
             f"Statistics Summary:\n"
@@ -434,11 +503,11 @@ class TissueAnalyzer:
             f"Volume: {volume_cm3:.1f} cm³\n"
             f"Voxel dims: {vx:.2f}×{vy:.2f}×{vz:.2f} mm"
         )
-        ax4.text(
-            0.02,
-            0.98,
+        side.text(
+            0.0,
+            1.0,
             stats_text,
-            transform=ax4.transAxes,
+            transform=side.transAxes,
             fontsize=9,
             verticalalignment="top",
             bbox=dict(
@@ -450,10 +519,7 @@ class TissueAnalyzer:
             f"{self.tissue_name} Thickness Analysis",
             fontsize=16,
             fontweight="bold",
-            y=0.98,
         )
-        plt.tight_layout()
-        plt.subplots_adjust(right=0.90, top=0.93, bottom=0.08, hspace=0.25)
 
         # Save
         output_png = self.output_dir / f"{self.tissue_name.lower()}_thickness.png"
