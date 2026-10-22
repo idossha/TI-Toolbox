@@ -217,6 +217,27 @@ def test_supported_nets_ignore_the_csv_suffix():
     assert is_supported_net("GSN-HydroCel-256")
 
 
+@pytest.mark.parametrize("net", ["EEG10-10_Cutini_2011.csv", "EEG10-10_Cutini_2011"])
+def test_montage_image_rings_afz_on_its_template_pixel(tmp_path, net):
+    """The audit's repro (Dataset 000 montage "mTI-Test"): AFz on a Cutini net raised
+    "not in the coordinate map", so the simulation got no montage image."""
+    from unittest.mock import patch
+
+    from tit.tools.montage_visualizer import visualize_montage
+
+    calls: list[list[str]] = []
+    with patch(
+        "tit.tools.montage_visualizer.subprocess.run",
+        side_effect=lambda argv, check: calls.append(list(argv)),
+    ):
+        visualize_montage("m", [["AFz", "C1"], ["C2", "C3"]], net, str(tmp_path), "M")
+    pixels = _template("10-10.csv")
+    rings = [a[a.index("-geometry") + 1] for a in calls if "-geometry" in a]
+    # A ring is a 100 px PNG composited with its top-left corner 50 px up-left of the site.
+    expected = [pixels[label] for label in ("AFz", "C1", "C2", "C3")]
+    assert rings == [f"+{x - 50}+{y - 50}" for x, y in expected]
+
+
 def test_gsn_128_never_borrows_the_256_template():
     """EGI numbers the 128 net's sensors differently (E036 is C3 on the 128, F3 is E036 on
     the 256 per tests/data/egi_hydrocel_10-10.csv)."""
