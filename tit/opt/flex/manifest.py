@@ -24,6 +24,7 @@ import json
 import os
 from datetime import datetime
 
+from tit.logger import json_finite
 from tit.opt.config import FlexConfig, FlexResult
 
 MANIFEST_FILENAME = "flex_meta.json"
@@ -115,8 +116,10 @@ def write_manifest(
     }
 
     path = os.path.join(output_folder, MANIFEST_FILENAME)
+    # A failed restart's objective is inf; strict JSON (RFC 8259, the browser's JSON.parse)
+    # has no Infinity, so non-finite values are written as null.
     with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(json_finite(data), f, indent=2, allow_nan=False)
     return path
 
 

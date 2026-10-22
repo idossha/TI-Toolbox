@@ -49,6 +49,7 @@ TIT_EVENTS_FILE_ENV : str
 import contextlib
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -133,6 +134,33 @@ class JsonEventSink:
             pass
 
 
+def json_finite(value: Any) -> Any:
+    """*value* with every non-finite float (``inf``, ``-inf``, ``nan``) replaced by ``None``.
+
+    RFC 8259 JSON has no ``Infinity`` or ``NaN``; Python's :mod:`json` writes them by default,
+    and a strict reader -- the browser's ``JSON.parse`` -- then rejects the whole document. A
+    failed flex restart's objective (``inf``) is the value that reaches a writer in practice.
+    Dicts, lists and tuples are walked; tuples become lists, as :mod:`json` writes them.
+
+    Parameters
+    ----------
+    value : Any
+        A JSON-able structure.
+
+    Returns
+    -------
+    Any
+        The same structure with ``null`` in place of each non-finite float.
+    """
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: json_finite(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_finite(item) for item in value]
+    return value
+
+
 def _render_capped(record: dict[str, Any], limit: int = _EVENT_LINE_LIMIT) -> str:
     """Serialise *record* to one JSON line, truncating ``msg`` if oversized.
 
@@ -140,9 +168,11 @@ def _render_capped(record: dict[str, Any], limit: int = _EVENT_LINE_LIMIT) -> st
     is the only field realistically large enough to blow the 4 KB budget;
     every other field is a short scalar. Truncating ``msg`` first keeps the
     record's structure (``type``, ``level``, ``logger``, ...) intact instead
-    of dropping the line.
+    of dropping the line. Non-finite numbers are written as ``null`` (:func:`json_finite`), so
+    every line is strict JSON.
     """
-    line = json.dumps(record, default=str)
+    record = json_finite(record)
+    line = json.dumps(record, default=str, allow_nan=False)
     if len(line.encode("utf-8")) <= limit or "msg" not in record:
         return line
     # Reserve headroom for the rest of the record plus the truncation marker.
@@ -150,7 +180,7 @@ def _render_capped(record: dict[str, Any], limit: int = _EVENT_LINE_LIMIT) -> st
     budget = max(limit - overhead - len(b"...[truncated]"), 0)
     truncated = record["msg"].encode("utf-8")[:budget].decode("utf-8", "ignore")
     record = {**record, "msg": truncated + "...[truncated]"}
-    return json.dumps(record, default=str)
+    return json.dumps(record, default=str, allow_nan=False)
 
 
 _event_sinks_lock = threading.Lock()

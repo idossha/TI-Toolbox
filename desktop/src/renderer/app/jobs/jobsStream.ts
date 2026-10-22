@@ -15,6 +15,9 @@ export interface JobsStreamState {
   lastError?: string;
   /** Bumped on every `{type: "proposal"}` message; `app/proposals` refetches on change. */
   proposalRev?: number;
+  /** Frames that were not JSON and so could not be applied (each is also logged). A frame
+   * carrying `Infinity` was one: a failed flex result vanished from the job's events. */
+  malformedFrames?: number;
 }
 
 export interface WebSocketLike {
@@ -203,7 +206,10 @@ export class JobsStream {
       let msg: JobsWsServerMessage;
       try {
         msg = JSON.parse(ev.data) as JobsWsServerMessage;
-      } catch {
+      } catch (err) {
+        // Never silently: count it where the app can see it and say what was lost.
+        console.warn(`/ws/jobs: dropped a frame that is not JSON (${err instanceof Error ? err.message : String(err)}): ${ev.data.slice(0, 200)}`);
+        this.set({ malformedFrames: (this.state.malformedFrames ?? 0) + 1 });
         return;
       }
       if (msg.type === "job") {

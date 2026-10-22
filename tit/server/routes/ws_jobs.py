@@ -25,6 +25,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from tit.jobs.bootstrap import get_manager
+from tit.logger import json_finite
 from tit.server.auth import origin_allowed, websocket_authorized
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,10 @@ async def ws_jobs(ws: WebSocket) -> None:
     async def _sender() -> None:
         while True:
             message = await out_queue.get()
-            await ws.send_text(json.dumps(message))
+            # Strict JSON: an event log written before non-finite values became null (a
+            # failed flex restart's best_value: inf) must not reach the browser as Infinity,
+            # which JSON.parse rejects.
+            await ws.send_text(json.dumps(json_finite(message), allow_nan=False))
 
     sender_task = asyncio.create_task(_sender())
 
