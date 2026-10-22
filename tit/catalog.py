@@ -1721,24 +1721,16 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
     """Precomputed leadfields for *sid*; ``None`` if the subject is unknown."""
     if sid not in subject_ids(pm):
         return None
+    from tit.opt.leadfield import leadfield_net
+
     root = pm.leadfields(sid)
     out = []
     for name in _metadata_names(root, pm.project_dir):
         if not name.endswith(".hdf5"):
             continue
         path = os.path.join(root, name)
-        # Match LeadfieldGenerator's established net naming without its unjailed stat.
-        stem = name[:-5]
-        net = (
-            stem.split("_leadfield_", 1)[-1]
-            if "_leadfield_" in stem
-            else stem.removesuffix("_leadfield")
-        )
-        for prefix in (f"{sid}_", sid):
-            if net.startswith(prefix):
-                net = net[len(prefix) :]
-                break
-        net = net.strip("_") or "unknown"
+        # LeadfieldGenerator's net naming, without its unjailed stat.
+        net = leadfield_net(name, sid)
         try:
             size = os.path.getsize(path)
         except OSError:

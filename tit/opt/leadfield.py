@@ -30,6 +30,36 @@ from tit.paths import get_path_manager
 log = logging.getLogger(__name__)
 
 
+def leadfield_filename(subject_id: str, net: str) -> str:
+    """The file SimNIBS writes for *subject_id*'s leadfield on cap *net*.
+
+    SimNIBS 4.6 ``TDCSLEADFIELD._lf_name``: ``basename(fnamehead)`` without its
+    extension, ``_leadfield_``, ``basename(eeg_cap)`` without its extension,
+    ``.hdf5``. :meth:`LeadfieldGenerator.generate` sets ``fnamehead`` to
+    ``m2m_<sid>/<sid>.msh`` and ``eeg_cap`` to ``<net>.csv``.
+    """
+    return f"{subject_id}_leadfield_{net.removesuffix('.csv')}.hdf5"
+
+
+def leadfield_net(filename: str, subject_id: str) -> str:
+    """The cap a leadfield file was computed on, read from its name.
+
+    ``<sid>_leadfield_<net>.hdf5`` (SimNIBS, see :func:`leadfield_filename`) is
+    *net*, whatever *sid* is: the subject id is never stripped from the net
+    half, where an id like ``E`` or ``GSN`` would eat the cap's own first
+    letters. The older toolbox names ``<net>_leadfield.hdf5`` and
+    ``<sid>_<net>_leadfield.hdf5`` read as *net*; any other name is its stem.
+    """
+    stem = os.path.basename(filename).removesuffix(".hdf5")
+    if "_leadfield_" in stem:
+        net = stem.split("_leadfield_", 1)[1]
+    elif stem.endswith("_leadfield"):
+        net = stem.removesuffix("_leadfield").removeprefix(f"{subject_id}_")
+    else:
+        net = stem
+    return net.strip("_") or "unknown"
+
+
 class LeadfieldGenerator:
     """Generate and list leadfield matrices for TI optimization.
 
@@ -148,7 +178,11 @@ class LeadfieldGenerator:
         if self._termination_flag and self._termination_flag():
             raise InterruptedError("Leadfield generation cancelled after SimNIBS")
 
-        hdf5_path = next(output_dir.glob("*.hdf5"))
+        # The file SimNIBS names after this subject and cap -- not whichever
+        # ``*.hdf5`` the folder lists first, which can be another net's.
+        hdf5_path = output_dir / leadfield_filename(self.subject_id, self.electrode_cap)
+        if not hdf5_path.is_file():
+            raise FileNotFoundError(f"SimNIBS wrote no leadfield {hdf5_path}")
         self._log(f"Leadfield ready: {hdf5_path}")
         return hdf5_path
 
@@ -182,20 +216,7 @@ class LeadfieldGenerator:
             if item.suffix != ".hdf5":
                 continue
 
-            stem = item.stem
-            if "_leadfield_" in stem:
-                net_name = stem.split("_leadfield_", 1)[-1]
-            elif stem.endswith("_leadfield"):
-                net_name = stem[: -len("_leadfield")]
-            else:
-                net_name = stem
-
-            for prefix in (f"{sid}_", sid):
-                if net_name.startswith(prefix):
-                    net_name = net_name[len(prefix) :]
-                    break
-
-            net_name = net_name.strip("_") or "unknown"
+            net_name = leadfield_net(item.name, sid)
             out.append((net_name, str(item), item.stat().st_size / (1024**3)))
 
         return sorted(out)

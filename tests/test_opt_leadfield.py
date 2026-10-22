@@ -170,8 +170,8 @@ class TestLeadfieldGeneratorGenerate:
         gen = LeadfieldGenerator(subject_id="001")
 
         output_dir = tmp_path / "leadfields"
-        # Create a fake HDF5 file to be found
-        (output_dir / "leadfield.hdf5").write_text("fake")
+        # The file SimNIBS writes: <sid>_leadfield_<cap>.hdf5 (TDCSLEADFIELD._lf_name).
+        (output_dir / "001_leadfield_EEG10-10.hdf5").write_text("fake")
 
         import simnibs
 
@@ -179,7 +179,7 @@ class TestLeadfieldGeneratorGenerate:
         simnibs.sim_struct.TDCSLEADFIELD.return_value = MagicMock()
 
         result = gen.generate(output_dir=str(output_dir))
-        assert str(result).endswith(".hdf5")
+        assert result == output_dir / "001_leadfield_EEG10-10.hdf5"
         simnibs.run_simnibs.assert_called_once()
 
     @patch("tit.opt.leadfield.get_path_manager")

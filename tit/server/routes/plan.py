@@ -509,7 +509,7 @@ def _plan_mex(
 def _plan_leadfield(
     kind: str, pm: PathManager, config: Any, subject_ids: list[str], warnings: list[str]
 ) -> tuple[list[PlanJob], None]:
-    from tit.opt.leadfield import LeadfieldGenerator
+    from tit.opt.leadfield import LeadfieldGenerator, leadfield_filename
 
     subjects = subject_ids or [config.subject_id]
     jobs: list[PlanJob] = []
@@ -517,8 +517,10 @@ def _plan_leadfield(
         generator = LeadfieldGenerator(sid, electrode_cap=config.eeg_net)
         existing = {net: path for net, path, _ in generator.list_leadfields(sid)}
         exists = config.eeg_net in existing
+        # Not generated yet: the file SimNIBS will write, not a made-up `<net>.hdf5`.
         output_dir = existing.get(
-            config.eeg_net, os.path.join(pm.leadfields(sid), f"{config.eeg_net}.hdf5")
+            config.eeg_net,
+            os.path.join(pm.leadfields(sid), leadfield_filename(sid, config.eeg_net)),
         )
         jobs.append(
             PlanJob(
