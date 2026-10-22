@@ -547,7 +547,7 @@ function RowEditor({
         <span className="optimizer-dialog-meta field-row-inline">
           <span className="optimizer-dialog-subject">{row.subjectId || "no subject"}</span>
           <span aria-hidden>·</span>
-          <Field label="Run name" htmlFor={`opt-run-name-${row.id}`} help="Defaults to a timestamp.">
+          <Field label="Run name" htmlFor={`opt-run-name-${row.id}`} help="Defaults to a timestamp. An Ex or mEx row with several separate targets runs once per target, each into <run name>_<ROI>.">
             <TextInput
               id={`opt-run-name-${row.id}`}
               value={row.runName}
