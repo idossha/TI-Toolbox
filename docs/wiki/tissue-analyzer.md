@@ -4,14 +4,14 @@ title: Tissue Analyzer
 permalink: /wiki/tissue-analyzer/
 ---
 
-Tissue analysis is part of the pre-processing pipeline (`tit.pre.tissue_analyzer`, enabled with the *Tissue Analysis* option of the Pre-Processing tab). It provides volumetric assessment of different tissue types from the CHARM segmentation. This tool supports analysis of cerebrospinal fluid (CSF), bone, and skin tissues with automated volume and thickness calculations.
+Tissue analysis is a step of the pre-processing pipeline (`tit.pre.tissue_analyzer`), not an extension: tick **Pre-processing ▸ Structural ▸ Tissue analyzer** (off by default) and it runs in the same pre-processing run, after charm. It provides volumetric assessment of different tissue types from the CHARM segmentation. This tool supports analysis of cerebrospinal fluid (CSF), bone, and skin tissues with automated volume and thickness calculations.
 
 ## Key Features
 
 - **Multi-Tissue Support**: Analyze CSF, bone, and skin tissues. 
 - **Volume Calculations**: Automatic volume measurements based on labeled voxel data in subject space
 - **3D Thickness Analysis**: Distance transform-based thickness calculations with statistical summaries (experimental)
-- **Publication-Quality Visualizations**: High-resolution figures for axial, coronal, and sagittal views
+- **Figures**: a thickness figure (axial, coronal and sagittal views plus a histogram) and a methodology figure, as PNG and PDF
 
 
 
@@ -24,7 +24,7 @@ Tissue analysis is part of the pre-processing pipeline (`tit.pre.tissue_analyzer
 
 ### 2. Spatial Filtering
 - Identify brain reference regions (cortex and brainstem)
-- Apply 3D bounding box with configurable padding
+- Apply a 3D bounding box with a fixed per-tissue padding
 - Filter out lower anatomy using Z-coordinate thresholds
 - Focus analysis on relevant anatomical regions
 
@@ -32,6 +32,11 @@ Tissue analysis is part of the pre-processing pipeline (`tit.pre.tissue_analyzer
 - Calculate total tissue volume / thickness (experimental)
 - Account for voxel dimensions from NIfTI header
 - Provide voxel count statistics
+
+### 4. Visualization and Reporting
+- Draw the thickness figure and the methodology figure (brain reference regions and the Z cutoff)
+- Write a text report
+- Save the figures as PNG and PDF
 
 ## Calculation Methodology
 
@@ -60,28 +65,24 @@ Thickness is calculated using a 3D Euclidean distance transform:
 The algorithm uses scipy's `distance_transform_edt()` with voxel spacing sampling to account for anisotropic voxel dimensions. For each voxel within the tissue mask, the distance to the nearest boundary is computed. The thickness at each point is then defined as twice this distance, representing the full thickness of the tissue structure at that location.
 
 
-### 4. Visualization and Reporting
-- Generate publication-quality figures
-- Create comprehensive analysis reports
-- Export results in multiple formats (PNG, PDF, text)
-
 ## Output Files
 
 ### Analysis Results
-```
-output_directory/
-├── csf_analysis_summary.txt          # Comprehensive analysis report
-├── csf_thickness_analysis.png        # Thickness visualization (PNG)
-├── csf_thickness_analysis.pdf        # Thickness visualization (PDF)
-├── csf_extraction_methodology.png    # Methodology illustration (PNG)
-├── csf_extraction_methodology.pdf    # Methodology illustration (PDF)
-├── csf_combined_publication_figure.png  # Combined analysis figure (PNG)
-└── csf_combined_publication_figure.pdf  # Combined analysis figure (PDF)
-```
 
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/tissue-analyzer/bone_combined_publication_figure.png" alt="Bone Analysis Figure" style="width: 80%; max-width: 700px;">
-</div>
+Results are written to `derivatives/ti-toolbox/tissue_analysis/sub-<id>/`, one folder per tissue.
+They do not appear on the **Results** page or among the job's artifacts; open the folder on disk.
+
+```
+derivatives/ti-toolbox/tissue_analysis/sub-<id>/
+├── bone_analysis/
+│   ├── bone_analysis.txt           # Volume (cm³), thickness statistics, labels analyzed
+│   ├── bone_thickness.png          # Thickness in three views plus a histogram (PNG)
+│   ├── bone_thickness.pdf          # Same figure (PDF)
+│   ├── bone_methodology.png        # Brain reference regions and Z cutoff (PNG)
+│   └── bone_methodology.pdf        # Same figure (PDF)
+├── csf_analysis/                   # The same five files, csf_*
+└── skin_analysis/                  # The same five files, skin_*
+```
 
 
 ## Data Requirements
@@ -109,7 +110,7 @@ derivatives/
 
 ### Python Usage
 
-There is no standalone command; run it through the pre-processing pipeline (`run_tissue_analysis=True` in the JSON config for `simnibs_python -m tit.pre`, or the checkbox in the GUI) or call it directly:
+There is no standalone command; run it through the pre-processing pipeline (`run_tissue_analysis=True` in the JSON config for `simnibs_python -m tit.pre`, or **Pre-processing ▸ Structural ▸ Tissue analyzer** in the app) or call it directly:
 
 ```python
 import logging
@@ -125,25 +126,13 @@ results = run_tissue_analysis(
 
 ## Configuration Options
 
-### Tissue-Specific Parameters
-```python
-TISSUE_CONFIGS = {
-    'csf': {
-        'name': 'CSF',
-        'labels': [4, 5, 14, 15, 43, 44, 72, 24, 520],
-        'padding': 40,           # voxels
-        'color_scheme': 'Blues',
-        'tissue_color': [0, 0, 1],
-        'brain_labels': [3, 42, 16]
-    },
-    'bone': {'name': 'Bone', 'labels': [515, 516], 'padding': 30, ...},
-    'skin': {'name': 'Skin', 'labels': [511],      'padding': 35, ...},
-}
-```
+The label numbers and padding of each tissue are fixed in `TISSUE_CONFIGS` in
+`tit/pre/tissue_analyzer.py`; the app offers no settings, and `run_tissue_analysis(tissues=...)`
+only chooses which of `bone`, `csf` and `skin` to analyze.
 
 
 ## Integration Notes
 
 ### TI-Toolbox Structure
-- **Output Organization**: Results organized under `derivatives/ti-toolbox/{tissue}_analysis/`
+- **Output Organization**: Results organized under `derivatives/ti-toolbox/tissue_analysis/sub-<id>/<tissue>_analysis/`
 - **Logging Integration**: Compatible with shared TI-toolbox logging utilities

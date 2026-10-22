@@ -4,7 +4,8 @@ title: TI-Toolbox Reports
 permalink: /wiki/reports/
 ---
 
-Every head model, DTI extraction, simulation and optimization writes one self-contained HTML report.
+Every head model, DTI extraction, simulation, flex-search and ex-search run writes one self-contained
+HTML report; an mEx-search writes none.
 Open them in **Results ▸ sub-… ▸ Reports**, or from the job in **Jobs**. They follow the app's light or
 dark theme, work offline and can be shared as single files.
 
@@ -60,7 +61,9 @@ Reports are self-contained HTML: no sidecar files, no links between reports, no 
 
 ## Rebuilding a report
 
-A report can be rebuilt from a run's outputs without re-running it. In the container:
+A report can be rebuilt from a run's outputs without re-running it. Simulations run with v3.1.0 have
+no report ([fixed in v3.1.1]({{ site.baseurl }}/releases/v3.1.1/)); the first command below builds
+one. In the container:
 
 ```bash
 simnibs_python -m tit.reporting.generators.simulation  /mnt/project ernie AF3_PO10_and_AF4_Oz
@@ -69,7 +72,10 @@ simnibs_python -m tit.reporting.generators.ex_search   /mnt/project ernie <ex-se
 simnibs_python -m tit.reporting.generators.dti_qc      /mnt/project ernie
 ```
 
-Add `--out DIR` to write the report somewhere else.
+Add `--out DIR` to write the report somewhere else. From the app, run a command in a
+[Notebooks]({{ site.baseurl }}/wiki/notebooks/) cell by starting it with `!` and giving your
+project's container path, `/mnt/<project_name>`, e.g.
+`!simnibs_python -m tit.reporting.generators.simulation /mnt/<project_name> ernie AF3_PO10_and_AF4_Oz`.
 
 ---
 

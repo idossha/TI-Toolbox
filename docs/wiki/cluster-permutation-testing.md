@@ -6,6 +6,22 @@ permalink: /wiki/cluster-permutation-testing/
 
 The Cluster-Based Permutation Testing extension performs non-parametric statistical analysis to identify brain regions with significant relationships between temporal interference (TI) stimulation fields and behavioral/clinical outcomes. This method provides robust control of family-wise error rates for both **group comparison** (binary outcomes) and **correlation analysis** (continuous outcomes).
 
+## Before you start
+
+- **Turn the panel on.** Enable **Cluster permutation** in **Settings ▸ Extensions** and reload
+  the app; a panel toggle takes effect only after a reload. It then appears under **Extensions**
+  in the navigation rail.
+- **Simulate with MNI outputs.** In the default **Space**, **MNI volume**, every subject's
+  simulation must have its MNI-space field NIfTI, and a simulation writes one only when
+  **Simulator ▸ Job settings ▸ Standard-space outputs ▸ Generate MNI NIfTI outputs** is ticked.
+  That option is **off by default**. When a file is missing the job is refused before it starts,
+  naming the simulation to re-run with the option ticked.
+- **mTI simulations work too.** They are read from the simulation's `mTI/niftis/` folder
+  (`grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`); a **NIfTI file pattern** typed in the 2-pair spelling
+  (`_TI_`) is read as `_mTI_`.
+- The **fsaverage surface** space needs each simulation's fsaverage projection instead; see
+  [Analysis Space](#analysis-space).
+
 ## Import and export participant rows
 
 Use **Import CSV/TSV**, **Export CSV**, or **Export TSV** below the Subjects header.
@@ -74,21 +90,13 @@ Cluster-based permutation testing addresses this by:
 
 ### Method Implementation
 
-Both methods follow the Maris & Oostenveld (2007) framework with method-specific adaptations:
+Both methods follow the Maris & Oostenveld (2007) framework and differ only in the voxelwise test
+and in what a permutation shuffles:
 
-#### Group Comparison Workflow:
-1. **Voxelwise Testing**: Compute t-statistics comparing group means
+1. **Voxelwise Testing**: t-statistics comparing the group means (group comparison), or the correlation between E-field and outcome (correlation)
 2. **Cluster Formation**: Threshold at p < cluster_threshold to form clusters
 3. **Cluster Statistics**: Calculate mass (signed sum of t-values within a sign-homogeneous cluster) or size (voxel count)
-4. **Permutation Testing**: Randomly reassign subjects to groups 1,000+ times
-5. **Null Distribution**: Build distribution of maximum cluster statistics under null
-6. **Significance Testing**: Compare observed clusters to null distribution
-
-#### Correlation Analysis Workflow:
-1. **Voxelwise Testing**: Compute correlation coefficients between E-field and outcome
-2. **Cluster Formation**: Threshold at p < cluster_threshold to form clusters
-3. **Cluster Statistics**: Calculate mass (signed sum of t-values within a sign-homogeneous cluster) or size (voxel count)
-4. **Permutation Testing**: Randomly shuffle outcome measures across subjects 1,000+ times
+4. **Permutation Testing**: Randomly reassign subjects to groups (group comparison), or shuffle the outcome measures across subjects (correlation), 1,000+ times
 5. **Null Distribution**: Build distribution of maximum cluster statistics under null
 6. **Significance Testing**: Compare observed clusters to null distribution
 
@@ -96,53 +104,48 @@ Both methods follow the Maris & Oostenveld (2007) framework with method-specific
 
 ### Analysis Mode Selection
 
-Choose between two analysis approaches:
+**Analysis type** at the top of the panel picks the analysis:
 
-- **Classification Mode**: Binary group comparison (responders vs non-responders)
-- **Correlation Mode**: Continuous outcome analysis (dose-response relationships)
+- **Classification**: Binary group comparison (responders vs non-responders)
+- **Correlation**: Continuous outcome analysis (dose-response relationships)
 
 ### Subject Configuration
 
-Configure subjects based on the selected analysis mode:
-
-#### Classification Mode
-- **Subject-Simulation Pairs**: Link each subject to their TI simulation
-- **Group Classification**: Assign subjects as "Responder" or "Non-Responder"
-- **CSV Import/Export**: Batch configuration with response labels
-
-#### Correlation Mode
-- **Subject-Simulation Pairs**: Link each subject to their TI simulation
-- **Effect Size Input**: Enter continuous outcome measures for each subject
-- **Optional Weights**: Subject-specific weights (e.g., sample sizes)
-- **CSV Import/Export**: Batch configuration with effect sizes and weights
+Each participant row is a subject and one of its simulations (import and export: [above](#import-and-export-participant-rows)).
+**Classification** adds a **Response** column (Responder / Non-responder); **Correlation** adds
+**Effect size** and an optional **Weight** (e.g. a sample size).
 
 ### Statistical Parameters
 
 #### Classification Mode
-- **Test Type**: Unpaired (independent groups) or paired (repeated measures)
-- **Alternative Hypothesis**: Two-sided, greater than, or less than
-- **Cluster Threshold**: p-value for initial cluster formation (default: 0.05)
-- **Cluster Statistic**: "Mass" (t-value sum) or "Size" (voxel count)
-- **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
-- **Permutations**: `n_permutations` (default: 1000); `n_jobs` (default: -1, the global CPU limit from Settings; larger values are capped at it)
-- **Group labels**: `group1_name` / `group2_name` (defaults `Responders` / `Non-Responders`)
+- **Analysis ▸ Test type**: Unpaired (independent groups) or Paired (repeated measures)
+- **Analysis ▸ Alternative**: Two-sided, Greater or Less
+- **Analysis ▸ Group 1 name** / **Group 2 name**: labels for the two groups (defaults `Responders` / `Non-Responders`)
 
 #### Correlation Mode
-- **Correlation Type**: Pearson (parametric) or Spearman (non-parametric)
-- **Use Weights**: Enable/disable weighted correlation analysis
-- **Cluster Threshold**: p-value for initial cluster formation (default: 0.05)
-- **Cluster Statistic**: "Mass" (t-value sum) or "Size" (voxel count)
-- **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
+- **Analysis ▸ Correlation type**: Pearson (parametric) or Spearman (non-parametric)
+- **Analysis ▸ Apply per-subject weights**: weighted correlation using the **Weight** column
+
+#### Both modes
+- **Advanced ▸ Cluster threshold**: p-value for initial cluster formation (default: 0.05)
+- **Advanced ▸ Cluster statistic**: Mass (sum of t-values) or Size (voxel count)
+- **Advanced ▸ Permutations**: `n_permutations` (default: 1000)
+- **Advanced ▸ Alpha**: cutoff for the permutation null distribution (default: 0.05)
+- **Advanced ▸ Parallel workers**: `n_jobs` (default: -1, the global CPU limit from Settings; larger values are capped at it)
+- **Advanced ▸ Tissue**: Grey matter, White matter or All tissue — which of each simulation's MNI NIfTIs is read (`grey_…`, `white_…`, or the unprefixed all-tissue file)
+- **Advanced ▸ NIfTI file pattern**: leave blank to derive it from **Tissue**
+- **Advanced ▸ Space**: MNI volume or fsaverage surface (below)
+- **Advanced ▸ Atlas files** (optional, MNI volume): comma-separated file names of atlases shipped with TI-Toolbox (e.g. `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz`); `analysis_summary.txt` then lists how many significant voxels fall in each of their regions
 
 #### Analysis Space
-Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"` (surface-based, using the per-simulation fsaverage projections; `fsaverage_field` default `TI_max`, `fsaverage_spacing` default 5). Each subject needs its `fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`; if one is missing the run stops before it starts and names the file — re-run that simulation's fsaverage projection (the Simulator's **Map fields to fsaverage**, or the Source panel's fsaverage mapping). Projections written by versions before the `.msh` format are not read; re-run the projection for those simulations.
+Both modes accept `space = "mni"` (**MNI volume**, the default) or `"fsaverage"` (**fsaverage surface**, using the per-simulation fsaverage projections; `fsaverage_field` default `TI_max`, `fsaverage_spacing` default 5). Each subject needs its `fsaverage/sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh`; if one is missing the run stops before it starts and names the file — re-run that simulation with **Simulator ▸ Job settings ▸ Standard-space outputs ▸ Map fields to fsaverage** ticked. Projections written by versions before the `.msh` format are not read; re-run the projection for those simulations.
 
 ## Workflow Examples
 
 ### Classification Analysis: Responder vs Non-Responder
 
-1. **Open tool**: enable **Cluster permutation** in **Settings → Extensions**, then select it under **Extensions** in the sidebar
-2. **Select Mode**: Choose "Classification" mode
+1. **Open tool**: **Extensions ▸ Cluster permutation** in the navigation rail (see [Before you start](#before-you-start))
+2. **Select Mode**: **Analysis type ▸ Classification**
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Responder
    - Subject 002: Simulation "HIPP_L", Non-Responder
@@ -155,8 +158,8 @@ Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"
 
 ### Correlation Analysis: Dose-Response Relationship
 
-1. **Open tool**: enable **Cluster permutation** in **Settings → Extensions**, then select it under **Extensions** in the sidebar
-2. **Select Mode**: Choose "Correlation" mode
+1. **Open tool**: **Extensions ▸ Cluster permutation** in the navigation rail (see [Before you start](#before-you-start))
+2. **Select Mode**: **Analysis type ▸ Correlation**
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Effect Size: 0.85
    - Subject 002: Simulation "HIPP_L", Effect Size: 0.72
@@ -176,32 +179,30 @@ Results are saved to `derivatives/ti-toolbox/stats/{analysis_type}/{analysis_nam
 ```
 group_comparison/hippocampus_responders_vs_nonresponders/
 ├── significant_voxels_mask.nii.gz          # Binary mask of significant voxels
-├── pvalues_map.nii.gz                      # P-value map (-log10 scale)
+├── pvalues_map.nii.gz                      # Uncorrected p-value map (-log10 scale)
 ├── average_responders.nii.gz               # Group average for responders
 ├── average_non_responders.nii.gz           # Group average for non-responders
 ├── difference_map.nii.gz                   # Responders - Non-responders
-├── tvalues_map.nii.gz                      # T-statistic map
 ├── permutation_null_distribution.pdf       # Null distribution visualization
 ├── cluster_size_mass_correlation.pdf       # Cluster statistics
 ├── analysis_summary.txt                    # Complete statistical report
-├── permutation_details.txt                 # Detailed permutation log
-├── analysis_TIMESTAMP.log                  # Processing log
-└── config.json                             # Analysis configuration
+├── permutation_details.txt                 # Each permutation's group assignment and max cluster statistic
+└── group_comparison_analysis_TIMESTAMP.log # Processing log
 ```
 
 #### Correlation Output
 ```
 correlation/hippocampus_effect_size_correlation/
 ├── significant_voxels_mask.nii.gz          # Binary mask of significant voxels
-├── pvalues_map.nii.gz                      # P-value map (-log10 scale)
-├── rvalues_map.nii.gz                      # Correlation coefficient map
-├── tvalues_map.nii.gz                      # T-statistic map
+├── pvalues_map.nii.gz                      # Uncorrected p-value map (-log10 scale)
+├── correlation_map.nii.gz                  # Correlation coefficient (r) map
+├── t_statistics_map.nii.gz                 # T-statistic map
+├── correlation_map_thresholded.nii.gz      # r inside significant clusters, 0 elsewhere
+├── average_efield.nii.gz                   # Mean field over all subjects
 ├── permutation_null_distribution.pdf       # Null distribution visualization
-├── cluster_size_mass_correlation.pdf       # Cluster statistics
+├── cluster_size_mass_correlation.pdf       # Cluster statistics (only when clusters formed)
 ├── analysis_summary.txt                    # Complete statistical report
-├── permutation_details.txt                 # Detailed permutation log
-├── analysis_TIMESTAMP.log                  # Processing log
-└── config.json                             # Analysis configuration
+└── correlation_analysis_TIMESTAMP.log      # Processing log
 ```
 
 #### fsaverage surface output
@@ -255,8 +256,8 @@ converted; re-run the analysis to get them.
 
 ### Data Requirements
 
-- **File Format**: NIfTI files in MNI space
-- **File Pattern**: Default `grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz`
+- **File Format**: NIfTI files in MNI space, written only when the simulation ran with **Generate MNI NIfTI outputs** ([Before you start](#before-you-start))
+- **File Pattern**: Default `grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz` (from **Tissue**), read from `TI/niftis/`, or as `grey_{simulation_name}_mTI_MNI_MNI_mTI_max.nii.gz` from `mTI/niftis/` for an mTI simulation
 - **Data Type**: Electric field magnitude values
 - **Analysis Types**: Both classification and correlation approaches supported
 
@@ -271,14 +272,19 @@ toolbox actually uses is one notch more conservative still. No cluster can clear
 `p < 0.05`, whatever the effect size.
 
 So **zero significant clusters from three subjects is the correct answer, not a failure.**
-The run is still worth doing — the `t_statistics` and `p_values` maps are real and show you
-where and how large the effect is — but cluster-level inference needs more subjects. As a
+The run is still worth doing — the uncorrected `pvalues_map.nii.gz` and the effect map
+(`difference_map.nii.gz` for a group comparison, `correlation_map.nii.gz` and
+`t_statistics_map.nii.gz` for a correlation) are real and show you where and how large the effect is — but cluster-level inference needs more subjects. As a
 rule of thumb, a two-sided test at `α = 0.05` needs at least `1/0.05 = 20` distinct
 relabellings, which a balanced group comparison first reaches at **three per group**
 (`C(6,3) = 20`); six or more per group is where the null becomes finely enough resolved to
 be informative.
 
-### CSV-Based Configuration
+### CSV files for Python scripts
+
+The panel's **Import CSV/TSV** needs all five columns ([above](#import-and-export-participant-rows)).
+The Python loaders `GroupComparisonConfig.load_subjects` and `CorrelationConfig.load_subjects`
+(see [Scripting]({{ site.baseurl }}/wiki/scripting/#group-statistics)) read these shorter files.
 
 #### Classification Mode CSV
 Create `subjects_classification.csv`:
@@ -332,6 +338,5 @@ subject_id,simulation_name,effect_size,weight
 - **Bullmore, E. T., et al.** (1999). Global, voxel, and cluster tests, by theory and permutation, for a difference between two groups of structural MR images of the brain. *IEEE Transactions on Medical Imaging*, 18(1), 32-42.
 
 ### Correlation Analysis (ACES)
-- **Sack, A. T., et al.** (2021). ACES: Automated Correlation of Electric field Strength and Stimulation effects. *bioRxiv*. [Preprint]
-- **Bikson, M., et al.** (2021). Rational and irrational approaches to transcranial electrical stimulation. *Clinical Neurophysiology*, 132(10), 2189-2196.
-- **Huang, Y., et al.** (2019). Measurements and models of electric fields in the in vivo human brain during transcranial electric stimulation. *eLife*, 8, e38834.
+- **Baetens, K., Van Hoornweder, S., Berger, T. A., & Wischnewski, M.** (2024). ACES: Automated Correlation of Electric field strength and Stimulation effects for non-invasive brain stimulation. *Brain Stimulation*, 17(2), 473-475. doi:10.1016/j.brs.2024.04.003
+- **Huang, Y., Liu, A. A., Lafon, B., Friedman, D., Dayan, M., Wang, X., Bikson, M., Doyle, W. K., Devinsky, O., & Parra, L. C.** (2017). Measurements and models of electric fields in the in vivo human brain during transcranial electric stimulation. *eLife*, 6, e18834. doi:10.7554/eLife.18834

@@ -4,7 +4,7 @@ title: Analyzer Module
 permalink: /wiki/analyzer/
 ---
 
-The Analyzer is the last step of the pipeline: after a montage has been optimized ([flex-search]({{ site.baseurl }}/wiki/flex-search/), [ex-search]({{ site.baseurl }}/wiki/ex-search/)) and [simulated]({{ site.baseurl }}/wiki/simulator/), it turns the finished simulation into numbers — descriptive statistics of the field inside a region of interest and across the whole brain, in mesh or voxel space. One `Analyzer` class handles both spaces, and `run_group_analysis()` extends the same analysis across subjects and montages.
+The Analyzer is the last step of the pipeline: after a montage has been optimized ([flex-search]({{ site.baseurl }}/wiki/flex-search/), [ex-search]({{ site.baseurl }}/wiki/ex-search/)) and [simulated]({{ site.baseurl }}/wiki/simulator/), it turns the finished simulation into numbers — descriptive statistics of the field inside a region of interest and across the whole brain, in mesh or voxel space. One `Analyzer` class handles both spaces, and `run_group_analysis()` runs the same analysis across subjects.
 
 This page is also where the toolbox's field quantities are defined once for everyone: the optimizer and simulator pages link here for what `TI_max`, `TI_normal`, `TI_avg`, `hf_peak` and `hf_sar` mean and how the envelope math works.
 
@@ -81,7 +81,7 @@ $$
 \mathrm{MD} = \sqrt{2} \left( \sqrt{P + Q} - \sqrt{P - Q} \right)
 $$
 
-$$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). $$P - Q$$ and $$P + Q$$ are clamped to $$\ge 0$$ before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly three functions:
+$$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). This is implemented in `tit/calc.py`, whose public API is exactly three functions:
 
 | Function                                    | Purpose                                                                                 |
 | ------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -106,7 +106,7 @@ $$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (
 
   In the first case the envelope lies along the smaller field's own (sign-corrected) direction; in the second it is evaluated at the component of the smaller field perpendicular to whichever of $$\mathbf{E}_1 - \mathbf{E}_2$$ / $$\mathbf{E}_1 + \mathbf{E}_2$$ has the smaller norm. No direction search is needed at $$K = 1$$.
 
-- **$$K \ge 2$$** (multiple carriers: mTI) has no closed form and is solved by a direction search: a coarse 192-point Fibonacci-sphere sweep (`num_directions=192`), followed by 3 rounds of local patch refinement around up to 6 angularly-diverse coarse-sweep seeds (`_REFINE_N_ROUNDS=3`, `_REFINE_N_SEEDS=6`, minimum seed separation `_REFINE_MIN_SEED_ANGLE_DEG=25.0`, 16 points per patch, initial half-angle $$2.0/\sqrt{192}$$ radians shrinking by `0.4` each round). Elements are processed in chunks of `16384` to bound memory. `get_TI_avg` reuses the same coarse sweep but averages the envelope over all 192 sampled directions instead of taking the per-element argmax, and skips refinement (refinement only sharpens a single best direction, which an average does not need) -- it is element-wise $$\le \mathrm{TI}_{\max}$$.
+- **$$K \ge 2$$** (multiple carriers: mTI) has no closed form and is solved by a direction search: a 192-direction Fibonacci-sphere sweep, then local refinement around the best few directions. `get_TI_avg` averages the envelope over the same 192 directions instead of taking the maximum (no refinement), so it is element-wise $$\le \mathrm{TI}_{\max}$$.
 
 The same modulation depth $$\mathrm{MD}(\mathbf{n}) = \sqrt{2}\left(\sqrt{P + Q} - \sqrt{P - Q}\right)$$ answers three different questions, and the three functions differ only in what they do with the direction $$\mathbf{n}$$:
 
@@ -127,7 +127,7 @@ $$
 \qquad s_i \in \{ +1, -1 \}
 $$
 
-At $$N = 2$$ this is exactly $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \; \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$. Up to `EXACT_SIGN_ENUM_MAX_FIELDS = 8` fields, this is solved by exact sign enumeration ($$2^{N-1}$$ combinations -- 128 at $$N = 8$$). Above 8 fields the combinatorics blow up (measured ~44.6s for $$N = 12$$'s 2048 combinations at 200k elements vs. ~2.0s at $$N = 8$$), so a `4000`-direction Fibonacci-sphere sweep picks the best-sampled support direction and evaluates the exact, realizable vector sum for the sign pattern it implies. This sweep fallback is still a lower bound on the true max over all $$2^{N-1}$$ sign combinations -- since only the sampled directions' implied patterns are tried -- and is therefore **slightly non-conservative**.
+At $$N = 2$$ this is exactly $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \; \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$. Up to 8 fields every one of the $$2^{N-1}$$ sign combinations is evaluated exactly. Above 8 fields a sweep over sampled directions picks the sign patterns to evaluate; that is a lower bound on the true maximum and therefore **slightly non-conservative**.
 
 **`hf_sar`** is the incoherent sum of the channel-field powers, in $$(\mathrm{V/m})^2$$ -- power adds rather than amplitude:
 
@@ -151,7 +151,7 @@ $$
 
 instead of $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$ and $$\lVert \mathbf{E}_1 \rVert^2 + \lVert \mathbf{E}_2 \rVert^2$$. For `hf_peak` the two agree where the carrier fields are within 90° of each other and differ where they are not; `hf_sar` gains the cross term $$2\,\mathbf{E}_1 \cdot \mathbf{E}_2$$ (up to twice the TI value for aligned carriers, down to zero for opposed equal ones). With $$\lVert \mathbf{E}_1 \rVert = 1$$ and $$\lVert \mathbf{E}_2 \rVert = 0.8$$ V/m at 120°, the TI worst case is 1.56 V/m while the carrier-only peak is 0.92 V/m. "In phase" means what the simulation's sign convention defines: each pair's first electrode is driven positive at the same instant.
 
-`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak` and/or `hf_sar`. Use it for carrier-only or sham-style controls that deliver kHz carriers without interference. Set it with `SimulationConfig(carrier_only=True, output_fields=["hf_peak", "hf_sar"])` or the **Carrier-only control** checkbox in a Simulator job's settings (see [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)). The run records `carrier_only` in its `documentation/config.json`, and the fsaverage projection reads it from there.
+`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak` and/or `hf_sar`. How to set one up, in the app or from Python, is under [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control).
 
 ### Spatial domain: how the analyzer summarises a field
 
@@ -160,40 +160,47 @@ Once `TI_max` exists at every node or voxel, an analysis reduces it to a handful
 | Quantity                      | `AnalysisResult` field                              | What it tells you                                                                                                                                                                                                                                     |
 | ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Intensity in the ROI**      | `roi_mean` (also `roi_max`, `roi_min`)              | Area/volume-weighted mean `TI_max` inside the target. The number to compare against dose thresholds and between montages.                                                                                                                             |
-| **Intensity outside the ROI** | `gm_mean` (also `gm_max`)                           | Mean over the **entire grey matter**. This is the analyzer's fixed non-ROI; the optimizers additionally accept a user-defined avoidance region.                                                                                                       |
+| **Intensity outside the ROI** | `gm_mean` (also `gm_max`)                           | Mean over the **entire grey matter** in mesh space, and over the selected **Tissue** in voxel space. This is the analyzer's fixed non-ROI; the optimizers additionally accept a user-defined avoidance region.                                       |
 | **Focality**                  | `roi_focality`                                      | `roi_mean / gm_mean`. 1 means the target is no hotter than the average cortex; higher is more selective. Same definition as ex-search's `Focality`.                                                                                                   |
 | **Normal component**          | `normal_mean`, `normal_max`, `normal_focality`      | The three statistics above recomputed on `TI_normal` (mesh only).                                                                                                                                                                                     |
-| **Hot-spot level**            | `percentile_95`, `percentile_99`, `percentile_99_9` | Field value below which 95 / 99 / 99.9 % of the grey-matter area lies. `percentile_99_9` is a robust "peak" that ignores single outlier elements.                                                                                                     |
-| **Hot-spot size**             | `focality_50_area` ... `focality_95_area`           | Grey-matter area ($$\mathrm{cm}^2$$; volume for voxel analysis) at or above 50 / 75 / 90 / 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot; a large one means the field is spread out, regardless of where the ROI is. |
+| **Hot-spot level**            | `percentile_95`, `percentile_99`, `percentile_99_9` | Field value below which 95 / 99 / 99.9 % of the grey-matter area (mesh) or of the selected tissue's volume (voxel) lies. `percentile_99_9` is a robust "peak" that ignores single outlier elements.                                                  |
+| **Hot-spot size**             | `focality_50_area` ... `focality_95_area`           | Grey-matter area in $$\mathrm{cm}^2$$ (mesh), or selected-tissue volume in $$\mathrm{cm}^3$$ (voxel), at or above 50 / 75 / 90 / 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot; a large one means the field is spread out, regardless of where the ROI is. |
 
-Two things trip people up: the percentile and area metrics are whole-cortex descriptors and do not depend on the ROI at all, and every statistic is computed on whichever field you selected, in that field's units -- selecting `hf_sar` gives you means of a power-like quantity in $$(\mathrm{V/m})^2$$, not a field strength.
+Two things trip people up: the percentile and area metrics describe the whole grey matter (or, in voxel space, the whole selected tissue) and do not depend on the ROI at all, and every statistic is computed on whichever field you selected, in that field's units -- selecting `hf_sar` gives you means of a power-like quantity in $$(\mathrm{V/m})^2$$, not a field strength.
 
 ---
 
 ## Defining the ROI
 
-An analysis needs a target region. The same ROI picker used by the optimizers offers spherical, cortical (atlas), and subcortical definitions:
+An analysis needs a target. Open a row's **Job settings** and choose one of four target types: **Cortical**, **Subcortical**, **Spherical** or **NIfTI mask** (below, under [Custom NIfTI mask targets](#custom-nifti-mask-targets)). Each row owns its own target.
 
 **Spherical ROI Analysis**
 
-- Analyze field data within spherical regions of interest
-- Customizable center coordinates and radius
-- Multiple spheres: type `x,y,z,r` and press Enter / **Add Sphere** — each sphere becomes a removable chip. By default every sphere runs as its own separate analysis — N spheres produce N independent result sets
-- **Combine spheres into one ROI**: tick this and the spheres are unioned into a single ROI, giving one analysis and one result set for all of them (overlapping spheres are not double-counted). The output folder is named `spheres<N>_...`, and long unions are shortened to the first sphere plus a hash
-- Group analysis runs one ROI across all subjects: several spheres are accepted only when they are combined, otherwise extra spheres are rejected with a warning
-- Support for subject-space and MNI coordinates (automatic transformation)
+- Each row of the **X / Y / Z / Radius** table is one sphere; **Add sphere** adds another, the bin icon removes one
+- Coordinates are in **Subject** or **MNI** space; MNI centres are transformed into each subject's anatomy automatically
+- Several spheres in one row run as **separate analyses**, one per sphere, never as a union; the row's target line ends in "(separate jobs)". In a group run, each sphere is its own group job
+- A union of spheres is Python-only: `analyzer.analyze_spheres([(x, y, z, r), ...])` measures them as one ROI (overlapping spheres are not double-counted). Its output folder is named `spheres<N>_...`, and long unions are shortened to the first sphere plus a hash
 
 **Cortical Analysis (Region Union)**
 
 - Analyze one or more atlas regions as a single combined ROI — passing more than one region name unions their masks into one target, and the result's region name is the selected names joined with `+`
-- **Combine regions into one ROI** (GUI, on by default): untick it to run one separate analysis per selected region instead of a union. Group analysis requires the combined form when more than one region is selected
+- **Combine regions into one ROI** (under the target, on by default): untick it to run one analysis per selected region instead of a union. In a group run, each region is then its own group job
 - In mesh space, a bare region name (e.g. `cuneus`) expands to both hemispheres (`lh.cuneus` + `rh.cuneus`)
-- Mesh atlases: `DK40`, `a2009s`, `HCP_MMP1`. Voxel atlases: `aparc.DKTatlas+aseg.deep.mgz` (the cortical DKT parcellation FastSurfer's `--seg_only` produces when optional FastSurfer segmentation is run), plus the subject's own `segmentation/labeling.nii.gz` (charm; also gives whole-thalamus/-hippocampus/-amygdala). Five more voxel atlases only ever exist for a subject with **`derivatives/freesurfer/` output from a FreeSurfer `recon-all` run** — `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `lh.hippoAmygLabels-T1.v22.mgz`, `rh.hippoAmygLabels-T1.v22.mgz`, `ThalamicNuclei.v13.T1.mgz` — and are absent for a FastSurfer-only subject, with optional FreeSurfer subregion processing available separately; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/#what-changed-from-freesurfer) for what changed and why
-- The four bundled MNI atlases (used elsewhere for subcortical ROI targeting) are not offered by the analyzer
+- **Cortical** lists the subject's surface atlases: `DK40`, `a2009s`, `HCP_MMP1`. In **Voxel** space the same names read volume parcellations: `DK40` reads the DKT volume (FastSurfer's `aparc.DKTatlas+aseg.deep.mgz`, or FreeSurfer's `aparc.DKTatlas+aseg.mgz`), `a2009s` reads `aparc.a2009s+aseg.mgz`, which only a FreeSurfer `recon-all` run writes, and `HCP_MMP1` has no volume version, so a voxel analysis of it stops with an error — analyze it in **Mesh** space. See [FreeSurfer reconstruction and subregions]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-reconstruction-and-subregions) for which run writes which file
+- No surface atlas exists in MNI space; the shipped MNI atlases, the cortical ones included, are label volumes and are used through **Subcortical**
+
+**Subcortical Analysis**
+
+- Choose a volume atlas and one or more of its regions. **Combine regions into one ROI** works as for cortical regions, in single and group runs
+- **Subject** space offers the subject's own label volumes: charm's `segmentation/labeling.nii.gz` (whole thalamus, hippocampus, amygdala, …), the FastSurfer and FreeSurfer volumes, including FreeSurfer's hippocampal-amygdala and thalamic-nuclei subfields, and any label volume placed in `m2m_<id>/masks/` (listed as `masks/<file>`)
+- **MNI** space offers the atlases shipped with TI-Toolbox (CIT168, MASSP 2021, Harvard-Oxford cortical and subcortical, Cerebellum, Glasser HCP-MMP1.0, Schaefer 2018). The selected regions are transformed into each subject's anatomy with the subject's own registration, exactly as an MNI mask is
+- Measure deep structures in **Voxel** space. A deep structure has no cortical surface, so in **Mesh** space the job stops with "… does not overlap the gray-matter surface; analyze it in voxel space instead"
+- A region named exactly as an atlas label gets that label, before any longer label containing the name ("subiculum" is not "parasubiculum")
+- Results go to `Analyses/<Mesh|Voxel>/subcortical_<region>_<atlas>/`. Python: `analyzer.analyze_subcortical(atlas, region, coordinate_space="subject")`
 
 **Tissue Selection**
 
-- A Tissue selector (Gray Matter / White Matter / GM + WM) applies to **voxel space only** — it is disabled and forced to GM whenever Space is set to Mesh
+- **Job settings ▸ Space options ▸ Tissue** (Gray matter / White matter / GM + WM) applies to **voxel space only** — it is disabled and fixed to gray matter whenever the row's Space is Mesh. The target itself has no tissue or volumetric-evaluation control in the Analyzer
 - In voxel mode, the tissue choice selects which field file is loaded by filename prefix (`grey_` for GM, `white_` for WM, no prefix for GM + WM) and builds the corresponding tissue mask
 
 ---
@@ -266,23 +273,23 @@ field-distribution histogram and **exactly one scene**:
 | `analysis.json` | the target and settings the run used |
 | `roi_overlay.msh` + `.msh.opt` (mesh) | the central surface with `<field>_ROI` node data: the field at the ROI's nodes, exactly `0` everywhere else (and `TI_normal_ROI` when the run had a normal field) |
 | `roi_overlay.nii.gz` (voxel) | the field, zero outside the ROI, on the field's own grid |
-| `histogram.png` | the whole-grey-matter field distribution — area-weighted (mesh) or volume-weighted (voxel) — with every bar coloured by the fraction of it inside the ROI (blue → red, colour bar), the ROI mean and the focality cutoffs (50/75/90/95 % of the GM 99.9th percentile) marked, and a whole-head / ROI stats box |
+| `histogram.png` | the field distribution over the whole grey matter (mesh) or the whole selected tissue (voxel) — area-weighted (mesh) or volume-weighted (voxel) — with every bar coloured by the fraction of it inside the ROI (blue → red, colour bar), the ROI mean and the focality cutoffs (50/75/90/95 % of the GM 99.9th percentile) marked, and a whole-head / ROI stats box |
 | `scene.tetravox.json` | a Tetravox scene of the overlay: in voxel space the field over your `T1.nii.gz`; in mesh space the whole cortex translucent with the ROI's field coloured on top, cursor on the ROI, colour bar on |
 | `scene.png` | a picture of that scene, when Tetravox is installed on the machine running the app |
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_lh.insula_whole_head_roi_histogram.png" alt="Analyzer field-distribution histogram" style="width: 100%; max-width: 850px;">
-  <em>Example field-distribution histogram, including target statistics and whole-grey-matter focality thresholds.</em>
+  <em>Example field-distribution histogram, including target statistics and whole-grey-matter focality thresholds (v2 example, which counted nodes; v3 weights each bar by area or volume).</em>
 </div>
 
 The scene is a few kilobytes and points at the overlay and the T1 — nothing is copied. Open it
-from the job's **Results** row (*Open in Tetravox*) or by double-clicking the file.
+from the job's **Artifacts** tab (**Open in Tetravox**) or by double-clicking the file.
 
 ### AnalysisResult Fields
 
 Every analysis call returns an `AnalysisResult` dataclass. Its statistics are exactly the quantities in the [Quantities of Interest](#quantities-of-interest) table, under the same names (`roi_mean`, `gm_mean`, `roi_focality`, `normal_*`, `percentile_*`, `focality_*_area`). The remaining fields identify and size the analysis:
 
-- `field_name`, `region_name`, `space` ("mesh"/"voxel"), `analysis_type` ("spherical"/"cortical")
+- `field_name`, `region_name`, `space` ("mesh"/"voxel"), `analysis_type` ("spherical"/"cortical"/"subcortical"/"mask")
 - `n_elements`: mesh nodes or voxels in the ROI
 - `total_area_or_volume`: ROI area (mesh, $$\mathrm{mm}^2$$) or volume (voxel, $$\mathrm{mm}^3$$)
 - The `normal_*` fields are `None` in voxel space, and for runs that predate `TI_normal` support for their mode -- see [mTI Analyses](#mti-analyses)
@@ -321,32 +328,37 @@ An mTI run also writes the intermediate per-carrier envelopes (`TI_AB`, `TI_CD`,
 
 ## Group Analysis
 
-The `run_group_analysis()` function enables batch processing and comparative analysis across multiple subjects and montages, returning a `GroupResult` object.
+`run_group_analysis()` runs one analysis — one simulation, space, field and target — over several subjects and returns a `GroupResult`. In the app it is the Analyzer's **Combine into one group analysis** switch: each row contributes its subject, and the run is refused, with the difference named, unless every row has the same simulation, space, field and target.
 
-### Flexible Group Combinations
+- **One simulation for every subject.** It is a simulation folder name each subject has (the same montage simulated in each). Rows with different simulations are refused; to compare montages within one subject, run ordinary single analyses, one row per montage.
+- MNI coordinates, MNI masks and MNI atlases are transformed into each subject's own anatomy automatically; a group mask must be in MNI space.
+- Several spheres, or several regions with **Combine regions into one ROI** unticked, give one group job per sphere or region.
 
-Group analysis supports **arbitrary combinations** of subjects and montages:
+Each run writes its own folder; each subject's own results also go to its `Analyses/` folder, as for a single analysis:
 
-- **Same subject x Multiple different montages**: Compare different stimulation configurations within the same individual
-- **Multiple subjects x Same montage**: Assess inter-subject variability for a specific stimulation protocol
-- **Multiple subjects x Different montages**: Full factorial design comparing both subject variability and montage effects
+```
+derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<YYYYMMDD>_<HHMMSS>/
+├── group_summary.csv               # one row per subject plus an AVERAGE row
+├── group_comparison.pdf            # 2×2 bars per subject: ROI mean, max, focality, normal mean
+└── group_analysis_<timestamp>.log
+```
 
-MNI coordinates are transformed to each subject's native space automatically, and every run produces cross-subject comparisons, rankings, and visualizations with consolidated logging.
+Group runs are listed under **Results ▸ Group ▸ Group analyses**. Group analyses from earlier
+versions shared one folder, `derivatives/ti-toolbox/logs/group_analysis/`, where each run replaced
+the last; those files stay where they are.
 
 ---
 
 ## Looking at a mesh analysis
 
 When an analysis finishes, open it from [Results]({{ site.baseurl }}/wiki/results/) — the mesh and
-the NIfTI outputs both open in the [Viewer]({{ site.baseurl }}/wiki/visualizers/), in the
-application window. Both mesh-based analysis types are supported:
-
-- Spherical ROI analyses with generated mesh overlays
-- Cortical region analyses with atlas-based parcellations
+the NIfTI outputs both open in TetraVox, the separate desktop viewer the app installs and launches
+(see [Viewer]({{ site.baseurl }}/wiki/visualizers/)). Every target type — sphere, atlas region or
+mask — writes the same overlay and scene.
 
 > **What's new in v3.** 2.x launched **Gmsh** as a separate X11 program to inspect a mesh result,
 > and **Freeview** for a NIfTI one. Both are gone — the container ships neither, and there is no
-> X11 anywhere. Viewing is Tetravox, in the app.
+> X11 anywhere. Viewing is TetraVox, a separate desktop viewer the app installs and launches.
 >
 > Two more changes to the Analyzer itself: **each row of the jobs table owns its own target**, so
 > one submission can analyse different ROIs across subjects; and a **group** run is refused unless
@@ -355,7 +367,7 @@ application window. Both mesh-based analysis types are supported:
 >
 > Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
-There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`; the whole-GM statistics (`gm_mean`, `gm_max`, the percentiles and focality areas) and the ROI-vs-grey-matter `histogram.png` come with every analysis (mesh or voxel).
+There is no separate "whole head" analysis type — the Analyzer's `analysis_type` is `spherical`, `cortical`, `subcortical` or `mask`; the whole-GM statistics (`gm_mean`, `gm_max`, the percentiles and focality areas) and the ROI-vs-grey-matter `histogram.png` come with every analysis (mesh or voxel).
 
 
 ## Custom NIfTI mask targets

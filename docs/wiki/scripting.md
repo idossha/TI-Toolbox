@@ -267,11 +267,20 @@ print(roi.roi_mean, roi.roi_max, roi.roi_focality)
 | `space` | **Space** (`mesh` or `voxel`) | `"mesh"` |
 | `tissue_type` | **Tissue** (voxel space only) | `"GM"` |
 | `field` | **Field** (blank = auto) | `None` |
-| `analyze_cortex(atlas, region, visualize)` | Region: **Cortical** | — |
-| `analyze_sphere(center, radius, coordinate_space, visualize)` | Region: **Spherical** | — |
+| `analyze_cortex(atlas, region, visualize)` | **Job settings ▸ Cortical** | — |
+| `analyze_subcortical(atlas, region, coordinate_space, visualize)` | **Job settings ▸ Subcortical** (a subject volume atlas, or a shipped MNI atlas with `coordinate_space="mni"`) | — |
+| `analyze_sphere(center, radius, coordinate_space, visualize)` | **Job settings ▸ Spherical** (one sphere) | — |
+| `analyze_mask(mask_path, coordinate_space, visualize)` | **Job settings ▸ NIfTI mask** | — |
+| `analyze_spheres(spheres, coordinate_space, visualize)` | — (Python only: several spheres as one ROI; the app runs one analysis per sphere) | — |
 
 `run_group_analysis(subject_ids, simulation, space, analysis_type, ...)` runs the same analysis
-across subjects, as the Analyzer's **Combine into one group analysis** does.
+across subjects, as the Analyzer's **Combine into one group analysis** does. `simulation` is one
+simulation name shared by every subject, and `analysis_type` is `"spherical"`, `"cortical"`,
+`"subcortical"` or `"mask"`. Each run writes `group_summary.csv` (with an AVERAGE row),
+`group_comparison.pdf` and its log to its own folder,
+`derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<YYYYMMDD>_<HHMMSS>/`
+(`PathManager.group_analysis(name)`; `PathManager.logs_group()` is gone), unless you pass
+`output_dir`.
 
 ## Group statistics
 
@@ -307,7 +316,9 @@ res = run_group_comparison(cfg)
 **Correlation** is `CorrelationConfig` plus `run_correlation`: the same statistical and data
 fields, with per-subject `effect_size` (and optional `weight`) in place of a group label, plus
 `correlation_type` (**Correlation type**, `PEARSON` or `SPEARMAN`) and `use_weights`
-(**Apply per-subject weights**, default `True`).
+(**Apply per-subject weights**, default `True`). Serialised, each config carries `_type`
+(`"GroupComparisonConfig"` or `"CorrelationConfig"`), which is how `simnibs_python -m tit.stats`
+tells a correlation from a group comparison; the panel sends it too.
 
 ```python
 from tit.stats import CorrelationConfig, run_correlation
@@ -343,7 +354,7 @@ path = write_config_json(cfg)   # then: simnibs_python -m tit.sim <path>
 | `simnibs_python -m tit.opt.mex config.json` | `MExConfig` |
 | `simnibs_python -m tit.opt.leadfield_runner config.json` | `tit.opt.leadfield_config.LeadfieldConfig` |
 | `simnibs_python -m tit.analyzer config.json` | `tit.analyzer.config.AnalyzerConfig` (not the `Analyzer` class) |
-| `simnibs_python -m tit.stats config.json` | `GroupComparisonConfig`; for a `CorrelationConfig`, add `"mode": "correlation"` to the JSON — `write_config_json` does not write it |
+| `simnibs_python -m tit.stats config.json` | `GroupComparisonConfig` or `CorrelationConfig`, chosen by the `_type` that `write_config_json` writes (an older `"mode": "correlation"` still works) |
 | `simnibs_python -m tit.stats.nifti_average config.json` | `tit.stats.nifti_average_config.NiftiAverageConfig` |
 | `simnibs_python -m tit.plotting.nilearn config.json` | `tit.plotting.nilearn.config.NilearnConfig` |
 | `simnibs_python -m tit.source config.json` | `tit.source.config.SourceConfig` |
