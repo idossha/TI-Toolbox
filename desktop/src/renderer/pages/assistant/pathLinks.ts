@@ -18,11 +18,34 @@ export interface PathMatch {
 
 const norm = (path: string, windows: boolean) => (windows ? path.replace(/\\/g, "/").toLowerCase() : path).replace(/\/+$/, "");
 
+/** A sentence's full stop is not part of a path; a dot inside a name is. */
+const trimStop = (text: string) => text.replace(/(?<=[^.])\.+$/, "");
+
+/**
+ * Absolute paths under a *root* that contains whitespace (`/Users/John Doe/My Proj`, a Windows
+ * `OneDrive - UW` folder), which `PATH_RE` cannot see because its body stops at a space: the root
+ * is matched literally, then the same space-free tail. The bare root links only at the end of the
+ * line or before punctuation, never before a space, so the sibling folder `My Proj 2` stays plain.
+ */
+function rootPaths(line: string, root: string, windows: boolean): PathMatch[] {
+  const base = root.replace(/[\\/]+$/, "");
+  const literal = base
+    .split(/[\\/]/)
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join(windows ? "[\\\\/]" : "/");
+  const sep = windows ? "[\\\\/]" : "/";
+  const re = new RegExp(`(?<=^|[\\s'"\`([<=])${literal}(?:${sep}[^\\s'"\`()<>[\\]{}|,;:*?]*|(?=$|['"\`)>\\]},;:]|\\.(?:\\s|$)))`, windows ? "gi" : "g");
+  return [...line.matchAll(re)].map((m) => ({ index: m.index, text: trimStop(m[0]) }));
+}
+
 /** The linkable paths in *line*; *root* is the session's host project folder (absent: no absolute paths). */
 export function findPaths(line: string, root: string | undefined, windows = false): PathMatch[] {
-  const out: PathMatch[] = [];
+  const out = root && /\s/.test(root) ? rootPaths(line, root, windows) : [];
+  const taken = out.map((m) => [m.index, m.index + m.text.length] as const);
   for (const m of line.matchAll(PATH_RE)) {
-    const text = m[0].replace(/(?<=[^.])\.+$/, ""); // a sentence's full stop is not part of it
+    // A fragment of a space path already linked whole (e.g. "derivatives/…" after "my ") is not a second link.
+    if (taken.some(([start, end]) => m.index < end && m.index + m[0].length > start)) continue;
+    const text = trimStop(m[0]);
     if (!/[^\\/.]/.test(text)) continue; // "/", "./" alone
     const absolute = /^([A-Za-z]:)?[\\/]/.test(text);
     if (absolute) {
@@ -33,7 +56,7 @@ export function findPaths(line: string, root: string | undefined, windows = fals
     }
     out.push({ index: m.index, text });
   }
-  return out;
+  return out.sort((a, b) => a.index - b.index);
 }
 
 /** The row as a string plus each character's 0-based column (wide characters take two columns). */

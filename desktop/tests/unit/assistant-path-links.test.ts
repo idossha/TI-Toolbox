@@ -85,3 +85,73 @@ describe("pathLinkProvider", () => {
     term.dispose();
   });
 });
+
+/**
+ * Project folders whose path contains spaces (`/Users/John Doe/My Proj`, a Windows OneDrive folder
+ * `OneDrive - UW`). The path body stops at whitespace, so before 2026-10-22 none of these were
+ * linked at all. Every expected string is the literal path the line contains.
+ */
+describe("findPaths in a project folder whose path contains spaces", () => {
+  const MAC_ROOT = "/Users/John Doe/My Proj";
+  const WIN_ROOT = "C:\\Users\\John Doe\\OneDrive - UW\\proj";
+  const macFile = "/Users/John Doe/My Proj/derivatives/SimNIBS/sub-101/x.nii.gz";
+  const winFile = "C:\\Users\\John Doe\\OneDrive - UW\\proj\\derivatives\\SimNIBS\\sub-101\\x.nii.gz";
+
+  it("links the whole absolute path, spaces included, on macOS", () => {
+    expect(findPaths(`wrote ${macFile}`, MAC_ROOT)).toEqual([{ index: 6, text: macFile }]);
+    expect(texts("cwd=/Users/John Doe/My Proj", MAC_ROOT)).toEqual(["/Users/John Doe/My Proj"]);
+  });
+
+  it("links the whole absolute path in a Windows OneDrive folder, either separator and case", () => {
+    expect(texts(`wrote ${winFile}`, WIN_ROOT, true)).toEqual([winFile]);
+    expect(texts("saved c:/users/john doe/onedrive - uw/PROJ/derivatives/y.json ok", WIN_ROOT, true)).toEqual([
+      "c:/users/john doe/onedrive - uw/PROJ/derivatives/y.json",
+    ]);
+  });
+
+  it("drops a sentence's full stop but keeps a dot inside the name", () => {
+    expect(texts(`Saved to ${macFile}.`, MAC_ROOT)).toEqual([macFile]);
+    expect(texts("See /Users/John Doe/My Proj/notes.v2.md.", MAC_ROOT)).toEqual(["/Users/John Doe/My Proj/notes.v2.md"]);
+    expect(texts("Project folder: /Users/John Doe/My Proj.", MAC_ROOT)).toEqual(["/Users/John Doe/My Proj"]);
+  });
+
+  it("never links a sibling folder the root is a prefix of, nor a path outside it", () => {
+    expect(texts("wrote /Users/John Doe/My Proj 2/derivatives/x.nii.gz", MAC_ROOT)).toEqual([]);
+    expect(texts("wrote /Users/John Doe/My Project/x", MAC_ROOT)).toEqual([]);
+    expect(texts("wrote /Users/John Doe/My Proj.backup/x", MAC_ROOT)).toEqual([]);
+    expect(texts("wrote /Users/John Doe/Other/x and /etc/hosts", MAC_ROOT)).toEqual([]);
+    expect(texts("wrote C:\\Users\\John Doe\\OneDrive - UW\\proj2\\x", WIN_ROOT, true)).toEqual([]);
+  });
+
+  it("links several paths on one line, relative ones too, each once, in order", () => {
+    const line = "copied /Users/John Doe/My Proj/sourcedata/sub-101/a.dcm to derivatives/SimNIBS/sub-101 and /Users/John Doe/My Proj/code/b.py";
+    expect(texts(line, MAC_ROOT)).toEqual([
+      "/Users/John Doe/My Proj/sourcedata/sub-101/a.dcm",
+      "derivatives/SimNIBS/sub-101",
+      "/Users/John Doe/My Proj/code/b.py",
+    ]);
+  });
+
+  it("does not link a relative-looking fragment inside the root's own text", () => {
+    // After the space, "derivatives/proj/x.json" alone would read as a project-relative path.
+    expect(texts("wrote /Users/John Doe/my derivatives/proj/x.json", "/Users/John Doe/my derivatives/proj")).toEqual([
+      "/Users/John Doe/my derivatives/proj/x.json",
+    ]);
+  });
+
+  it("links a space path soft-wrapped across rows as one link", async () => {
+    // 24 columns: "saved " (6 cells) + the 60-character path fill cells 6..65, i.e. rows 1-3;
+    // cell 65 is row 3 (65 // 24 = 2, 0-based), column 65 - 48 + 1 = 18.
+    const term = new Terminal({ cols: 24, rows: 6, allowProposedApi: true });
+    await new Promise<void>((done) => term.write(`saved ${macFile}`, done));
+    expect(macFile).toHaveLength(60);
+    expect(term.buffer.active.getLine(1)!.isWrapped).toBe(true);
+    const provider = pathLinkProvider(term, () => MAC_ROOT, false, () => {});
+    const at = (y: number) => new Promise<ILink[] | undefined>((done) => provider.provideLinks(y, done));
+    const whole = { text: macFile, range: { start: { x: 7, y: 1 }, end: { x: 18, y: 3 } } };
+    for (const y of [1, 2, 3]) {
+      expect((await at(y))?.map((l) => ({ text: l.text, range: l.range }))).toEqual([whole]);
+    }
+    term.dispose();
+  });
+});
