@@ -39,7 +39,7 @@ def _make_engine(logger=None):
 
 
 def _setup_engine_fields(engine):
-    """Setup engine with mock leadfield/mesh data for compute_ti_field."""
+    """Setup engine with mock leadfield/mesh data for compute_ti_fields."""
     engine.leadfield = MagicMock()
     engine.idx_lf = MagicMock()
     engine.mesh = MagicMock()
@@ -367,10 +367,17 @@ class TestMixedRoiList:
 
         assert set(engine.roi_indices.tolist()) == {0, 1}
 
-    def test_pure_spherical_path_unaffected_by_mask_support(self):
-        """Regression guard: a plain CSV-only roi_file behaves exactly as before."""
-        engine = _make_engine()
-        engine.roi_coords = [0.0, 0.0, 0.0]
+    def test_csv_only_roi_never_reads_a_mask(self, tmp_path, monkeypatch):
+        """Regression guard for the mask support: a CSV-only ``roi_file`` (one path, or a list
+        of CSV centres) goes through the sphere path alone and never opens a volume."""
+        import nibabel as nib
+
+        first, second = tmp_path / "a.csv", tmp_path / "b.csv"
+        first.write_text("0,0,0\n")
+        second.write_text("10,0,0\n")
+        monkeypatch.setattr(
+            nib, "load", MagicMock(side_effect=AssertionError("a CSV ROI read a mask"))
+        )
 
         centers = np.array(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [5.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
@@ -379,14 +386,20 @@ class TestMixedRoiList:
         mesh = MagicMock()
         mesh.elements_baricenters.return_value = MagicMock(value=centers)
         mesh.elements_volumes_and_areas.return_value = MagicMock(value=volumes)
-        engine.mesh = mesh
 
-        engine._find_roi_elements(roi_radius=3.0)
+        for roi_file, expected in (
+            (str(first), [0, 1]),  # 3 mm around the origin
+            ([str(first), str(second)], [0, 1, 3]),  # ... OR 3 mm around x = 10
+        ):
+            engine = _make_engine()
+            engine.roi_file = roi_file
+            engine.mesh = mesh
+            engine._load_roi_coordinates()
+            engine._find_roi_elements(roi_radius=3.0)
 
-        assert len(engine.roi_indices) == 2
-        assert 0 in engine.roi_indices
-        assert 1 in engine.roi_indices
-        np.testing.assert_array_equal(engine.roi_volumes, [1.0, 2.0])
+            assert engine.roi_indices.tolist() == expected
+            np.testing.assert_array_equal(engine.roi_volumes, volumes[expected])
+        nib.load.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -414,8 +427,15 @@ class TestFindGmElements:
 
 
 # ---------------------------------------------------------------------------
-# ExSearchEngine.compute_ti_field
+# ExSearchEngine.compute_ti_fields
 # ---------------------------------------------------------------------------
+
+
+def _one_split(engine):
+    """The metrics of montage E1-E2 / E3-E4 at the single 1 mA : 1 mA split."""
+    results = engine.compute_ti_fields("E1", "E2", "E3", "E4", [(1.0, 1.0)])
+    assert len(results) == 1
+    return results[0]
 
 
 @pytest.mark.unit
@@ -431,7 +451,7 @@ class TestComputeTiField:
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
         engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
-        result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+        result = _one_split(engine)
 
         # roi_indices=[0,1,2] -> field_roi=[0.1,0.2,0.3]
         assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
@@ -495,12 +515,14 @@ class TestComputeTiField:
         engine_mod.TI.get_field = MagicMock(return_value=full)
         engine_mod.TI.get_maxTI = MagicMock(side_effect=lambda a, b: a[:, 0])
 
-        result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+        result = _one_split(engine)
 
         # subset = [2, 5, 7, 9]; field = 0.001 * x-column = [6, 15, 21, 27]/1000
         assert result["TestROI_TImax_ROI"] == pytest.approx(0.021)
         assert result["TestROI_TImean_ROI"] == pytest.approx((21 + 3 * 6) / 4 / 1000)
-        assert result["TestROI_TImean_GM"] == pytest.approx((6 + 15 + 21 + 27) / 4 / 1000)
+        assert result["TestROI_TImean_GM"] == pytest.approx(
+            (6 + 15 + 21 + 27) / 4 / 1000
+        )
         assert result["TestROI_n_elements"] == 2
         (e1, e2), _ = engine_mod.TI.get_maxTI.call_args
         assert e1.shape == (4, 3)
@@ -520,7 +542,7 @@ class TestComputeTiField:
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
         engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
-        result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+        result = _one_split(engine)
 
         assert result["TestROI_TImax_ROI"] == 0.0
         assert result["TestROI_TImean_ROI"] == 0.0
@@ -541,7 +563,7 @@ class TestComputeTiField:
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
         engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
-        result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+        result = _one_split(engine)
 
         # roi_indices=[0,1,2] unaffected -> field_roi=[0.1,0.2,0.3]
         assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
@@ -562,7 +584,7 @@ class TestComputeTiField:
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((3, 3)))
         engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
-        result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+        result = _one_split(engine)
 
         # roi_indices=[0,1,2] -> field_roi=[0.1,0.2,0.3]
         assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
@@ -703,161 +725,3 @@ class TestLogConfigSummary:
             1,
         )
         assert logger.info.call_count >= 3
-
-
-# ---------------------------------------------------------------------------
-# Static ROI CRUD methods
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestROICrud:
-    @patch("tit.paths.get_path_manager")
-    def test_get_available_rois(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir()
-        (roi_dir / "motor.csv").write_text("1,2,3")
-        (roi_dir / "visual.csv").write_text("4,5,6")
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        rois = ExSearchEngine.get_available_rois("001")
-        assert rois == ["motor.csv", "visual.csv"]
-
-    @patch("tit.paths.get_path_manager")
-    def test_create_roi(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        ok, msg = ExSearchEngine.create_roi("001", "motor", 10.0, -20.0, 55.0)
-        assert ok is True
-        assert (roi_dir / "motor.csv").exists()
-        assert (roi_dir / "roi_list.txt").exists()
-
-        # Read the CSV
-        with open(roi_dir / "motor.csv") as f:
-            row = list(csv.reader(f))[0]
-        assert float(row[0]) == 10.0
-
-    @patch("tit.paths.get_path_manager")
-    def test_create_roi_with_csv_suffix(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        ok, msg = ExSearchEngine.create_roi("001", "motor.csv", 10.0, -20.0, 55.0)
-        assert ok is True
-        assert (roi_dir / "motor.csv").exists()
-
-    @patch("tit.paths.get_path_manager")
-    def test_create_roi_no_duplicate_in_list(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir(parents=True)
-        (roi_dir / "roi_list.txt").write_text("motor.csv\n")
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        ExSearchEngine.create_roi("001", "motor.csv", 10.0, -20.0, 55.0)
-        content = (roi_dir / "roi_list.txt").read_text()
-        assert content.count("motor.csv") == 1
-
-    @patch("tit.paths.get_path_manager")
-    def test_delete_roi(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir()
-        (roi_dir / "motor.csv").write_text("1,2,3")
-        (roi_dir / "roi_list.txt").write_text("motor.csv\nvisual.csv\n")
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        ok, msg = ExSearchEngine.delete_roi("001", "motor")
-        assert ok is True
-        assert not (roi_dir / "motor.csv").exists()
-        content = (roi_dir / "roi_list.txt").read_text()
-        assert "motor.csv" not in content
-        assert "visual.csv" in content
-
-    @patch("tit.paths.get_path_manager")
-    def test_delete_nonexistent_roi(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir()
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        ok, msg = ExSearchEngine.delete_roi("001", "nonexistent")
-        assert ok is True
-
-    @patch("tit.paths.get_path_manager")
-    def test_delete_last_roi_clears_list(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir()
-        (roi_dir / "motor.csv").write_text("1,2,3")
-        (roi_dir / "roi_list.txt").write_text("motor.csv\n")
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        ExSearchEngine.delete_roi("001", "motor")
-        content = (roi_dir / "roi_list.txt").read_text()
-        assert content == ""
-
-    @patch("tit.paths.get_path_manager")
-    def test_get_roi_coordinates(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir()
-        with open(roi_dir / "motor.csv", "w", newline="") as f:
-            csv.writer(f).writerow([10.5, -20.3, 55.0])
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        coords = ExSearchEngine.get_roi_coordinates("001", "motor")
-        assert coords == (10.5, -20.3, 55.0)
-
-    @patch("tit.paths.get_path_manager")
-    def test_get_roi_coordinates_not_found(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir()
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        coords = ExSearchEngine.get_roi_coordinates("001", "nonexistent")
-        assert coords is None
-
-    @patch("tit.paths.get_path_manager")
-    def test_get_roi_coordinates_empty_file(self, mock_gpm, tmp_path):
-        roi_dir = tmp_path / "rois"
-        roi_dir.mkdir()
-        (roi_dir / "empty.csv").write_text("")
-
-        mock_gpm.return_value = MagicMock()
-        mock_gpm.return_value.rois.return_value = str(roi_dir)
-
-        from tit.opt.ex.engine import ExSearchEngine
-
-        coords = ExSearchEngine.get_roi_coordinates("001", "empty")
-        assert coords is None

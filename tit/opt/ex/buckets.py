@@ -1,52 +1,17 @@
-"""Helpers for reusable exhaustive-search electrode buckets.
+"""EEG-cap helpers for exhaustive search: electrode positions, the bundled 2-D
+template coordinates of a known net, and each electrode's left/right mirror.
 
-Ported from collaborator Larissa Albantakis's branch
-``alba/ex-search-multipolar`` and generalized: the loader/saver/normalizer
-accept an arbitrary ordered bucket-key list instead of a hard-coded 4-key
-scheme, so both 2-pair (:data:`BUCKET_KEYS`) and 4-pair
-(:data:`tit.opt.mex.logic.MEX_BUCKET_KEYS`) bucket files share the same
-JSON/CSV/TSV round-trip.
+:func:`build_electrode_mirror_map` drives the symmetric bucket search
+(:mod:`tit.opt.ex.symmetry`); :func:`_read_eeg_positions` also feeds the
+ex-search cap figures (:mod:`tit.plotting.ti_metrics`).
 """
 
 from __future__ import annotations
 
 import csv
-import json
-import re
-from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
-
-BUCKET_KEYS = ("e1_plus", "e1_minus", "e2_plus", "e2_minus")
-
-BUCKET_ALIASES = {
-    "e1_plus": "e1_plus",
-    "e1+": "e1_plus",
-    "e1plus": "e1_plus",
-    "e1 plus": "e1_plus",
-    "e1_minus": "e1_minus",
-    "e1-": "e1_minus",
-    "e1_": "e1_minus",
-    "e1minus": "e1_minus",
-    "e1 minus": "e1_minus",
-    "e2_plus": "e2_plus",
-    "e2+": "e2_plus",
-    "e2plus": "e2_plus",
-    "e2 plus": "e2_plus",
-    "e2_minus": "e2_minus",
-    "e2-": "e2_minus",
-    "e2_": "e2_minus",
-    "e2minus": "e2_minus",
-    "e2 minus": "e2_minus",
-}
-
-QUADRANT_BUCKET_LABELS = {
-    "e1_plus": "left anterior",
-    "e1_minus": "right anterior",
-    "e2_plus": "left posterior",
-    "e2_minus": "right posterior",
-}
 
 _RESOURCE_DIR = Path(__file__).resolve().parents[3] / "resources" / "amv"
 _CANONICAL_TEMPLATE_COORD_FILES = {
@@ -57,137 +22,6 @@ _CANONICAL_TEMPLATE_COORD_FILES = {
     "GSN-256.csv": "GSN-256.csv",
     "GSN-256": "GSN-256.csv",
 }
-
-
-def _generate_aliases(keys: Sequence[str]) -> dict[str, str]:
-    """Derive alias variants (``e3+``, ``e3 plus``, ...) for arbitrary bucket keys.
-
-    Used for any *keys* sequence other than the default :data:`BUCKET_KEYS`,
-    whose hand-curated aliases are :data:`BUCKET_ALIASES` instead. Only keys
-    shaped like ``e<n>_plus``/``e<n>_minus`` get alias variants; other key
-    shapes map only to themselves.
-    """
-    aliases: dict[str, str] = {}
-    for key in keys:
-        aliases[key] = key
-        match = re.match(r"^e(\d+)_(plus|minus)$", key)
-        if not match:
-            continue
-        n, sign = match.groups()
-        symbol = "+" if sign == "plus" else "-"
-        raw_symbol = f"e{n}{symbol}"
-        # _normalize_bucket_key replaces "-" with "_" before the alias lookup
-        # runs, so "e3-" arrives as "e3_" by the time it is looked up; include
-        # both the raw and the dash-normalized form so the lookup can't miss.
-        variants = {
-            raw_symbol,
-            raw_symbol.replace("-", "_"),
-            f"e{n}{sign}",
-            f"e{n} {sign}",
-        }
-        for variant in variants:
-            aliases[variant] = key
-    return aliases
-
-
-def _aliases_for(keys: Sequence[str]) -> dict[str, str]:
-    """Return the alias table for *keys* (curated for the default, derived otherwise)."""
-    return BUCKET_ALIASES if tuple(keys) == BUCKET_KEYS else _generate_aliases(keys)
-
-
-def _normalize_bucket_key(key: str, aliases: dict[str, str]) -> str:
-    normalized = key.strip().lower().replace("-", "_")
-    normalized = " ".join(normalized.split())
-    return aliases.get(normalized, normalized)
-
-
-def _split_electrodes(value) -> list[str]:
-    if isinstance(value, str):
-        parts = value.replace(";", ",").split(",")
-    else:
-        parts = list(value)
-    return [str(e).strip() for e in parts if str(e).strip()]
-
-
-def normalize_buckets(
-    raw: dict, keys: Sequence[str] = BUCKET_KEYS
-) -> dict[str, list[str]]:
-    """Normalize a bucket mapping to canonical bucket keys.
-
-    ``keys`` defaults to the four 2-pair ex-search bucket keys
-    (:data:`BUCKET_KEYS`); pass the eight m-ex-search keys
-    (:data:`tit.opt.mex.logic.MEX_BUCKET_KEYS`) to normalize a 4-pair
-    (8-electrode) bucket mapping through the same function.
-    """
-    aliases = _aliases_for(keys)
-    buckets = {key: [] for key in keys}
-    for key, value in raw.items():
-        bucket_key = _normalize_bucket_key(str(key), aliases)
-        if bucket_key in buckets:
-            buckets[bucket_key] = _split_electrodes(value)
-    return buckets
-
-
-def _bucket_json_payload(data: dict) -> dict:
-    """Return the bucket-shaped payload from a bucket file or full config."""
-    electrodes = data.get("electrodes")
-    if isinstance(electrodes, dict):
-        nested = dict(electrodes)
-        nested.pop("_type", None)
-        return nested
-    return data
-
-
-def load_bucket_file(
-    path: str | Path, keys: Sequence[str] = BUCKET_KEYS
-) -> dict[str, list[str]]:
-    """Load bucket definitions from JSON, CSV, or TSV.
-
-    JSON may use canonical keys (``e1_plus``) or GUI-style keys
-    (``E1+``). Full ex-search/m-ex-search config JSON files with nested
-    ``electrodes`` are also accepted. CSV/TSV files should have one row
-    per bucket, with the bucket name in the first column and electrodes
-    in the remaining columns or as a comma/semicolon separated second
-    column. ``keys`` selects the bucket scheme -- the four 2-pair keys by
-    default, or an arbitrary key list (e.g. the eight m-ex-search keys)
-    for other electrode-position counts.
-    """
-    path = Path(path)
-    suffix = path.suffix.lower()
-    if suffix == ".json":
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        if not isinstance(data, dict):
-            raise ValueError("Bucket JSON must contain an object")
-        return normalize_buckets(_bucket_json_payload(data), keys)
-
-    delimiter = "\t" if suffix == ".tsv" else ","
-    aliases = _aliases_for(keys)
-    rows = {}
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        reader = csv.reader(f, delimiter=delimiter)
-        for row in reader:
-            if not row or not row[0].strip() or row[0].strip().startswith("#"):
-                continue
-            bucket_key = _normalize_bucket_key(row[0], aliases)
-            if bucket_key not in keys:
-                continue
-            if len(row) == 2:
-                rows[bucket_key] = _split_electrodes(row[1])
-            else:
-                rows[bucket_key] = _split_electrodes(row[1:])
-    return normalize_buckets(rows, keys)
-
-
-def save_bucket_file(
-    path: str | Path,
-    buckets: dict[str, list[str]],
-    keys: Sequence[str] = BUCKET_KEYS,
-) -> None:
-    """Save bucket definitions as JSON."""
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(normalize_buckets(buckets, keys), f, indent=2)
-        f.write("\n")
 
 
 def _read_eeg_positions(eeg_csv_path: str | Path) -> dict[str, tuple[float, ...]]:
@@ -325,24 +159,3 @@ def build_electrode_mirror_map(eeg_csv_path: str | Path) -> dict[str, str]:
             partner[i] = j
             partner[j] = i
     return {labels[i]: labels[partner[i]] for i in range(len(labels)) if i in partner}
-
-
-def build_quadrant_buckets(eeg_csv_path: str | Path) -> dict[str, list[str]]:
-    """Split an EEG-position CSV into four RAS quadrants.
-
-    Mapping: ``E1+`` = left anterior, ``E1-`` = right anterior,
-    ``E2+`` = left posterior, ``E2-`` = right posterior.
-    """
-    buckets = {key: [] for key in BUCKET_KEYS}
-    for label, coords in _read_eeg_positions(eeg_csv_path).items():
-        x, y = coords[:2]
-        if x < 0 and y >= 0:
-            buckets["e1_plus"].append(label)
-        elif x >= 0 and y >= 0:
-            buckets["e1_minus"].append(label)
-        elif x < 0 and y < 0:
-            buckets["e2_plus"].append(label)
-        else:
-            buckets["e2_minus"].append(label)
-
-    return {key: sorted(values) for key, values in buckets.items()}

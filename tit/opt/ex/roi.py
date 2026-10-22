@@ -176,7 +176,3 @@ def confirm_atlas_targets(config, m2m_path: str, out_dir: str) -> list:
     if not entries:
         return []
     return confirm_rois(entries, m2m=m2m_path, out_dir=out_dir)
-
-
-#: The name this had while the check was for MNI targets only.
-confirm_mni_atlas_targets = confirm_atlas_targets

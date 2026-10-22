@@ -4,11 +4,8 @@ Replaces: runner.py (5 classes), roi_utils.py (4 functions).
 Direct SimNIBS usage — ROI metrics are computed inline.
 """
 
-import csv
 import logging
-import os
 import time
-from pathlib import Path
 
 import numpy as np
 from simnibs.utils import TI_utils as TI
@@ -28,8 +25,8 @@ from .parallel import evaluate_ordered, resolve_n_jobs
 class ExSearchEngine:
     """Exhaustive TI electrode search engine.
 
-    Owns the full pipeline: leadfield loading, ROI resolution,
-    simulation loop, and ROI CRUD.
+    Owns the full pipeline: leadfield loading, ROI resolution and the
+    simulation loop.
     """
 
     def __init__(
@@ -290,20 +287,6 @@ class ExSearchEngine:
             results.append(data)
         return results
 
-    def compute_ti_field(
-        self,
-        e1_plus: str,
-        e1_minus: str,
-        current_ch1_mA: float,
-        e2_plus: str,
-        e2_minus: str,
-        current_ch2_mA: float,
-    ) -> dict[str, float]:
-        """Compute TI field for one montage and return ROI metrics."""
-        return self.compute_ti_fields(
-            e1_plus, e1_minus, e2_plus, e2_minus, [(current_ch1_mA, current_ch2_mA)]
-        )[0]
-
     # ── Simulation Loop ───────────────────────────────────────────────────
 
     def run(
@@ -441,97 +424,3 @@ class ExSearchEngine:
         self.logger.info(f"Current ratios: {len(current_ratios)}")
         self.logger.info(f"Workers: {n_jobs}")
         self.logger.info(f"{'=' * 60}\n")
-
-    # ── ROI CRUD (static, for GUI) ────────────────────────────────────────
-
-    @staticmethod
-    def get_available_rois(subject_id: str) -> list[str]:
-        """List ROI CSV files for a subject."""
-        from tit.paths import get_path_manager
-
-        roi_dir = Path(get_path_manager().rois(subject_id))
-        return sorted(p.name for p in roi_dir.glob("*.csv"))
-
-    @staticmethod
-    def create_roi(
-        subject_id: str,
-        roi_name: str,
-        x: float,
-        y: float,
-        z: float,
-    ) -> tuple[bool, str]:
-        """Create an ROI CSV from coordinates."""
-        from tit.paths import get_path_manager
-
-        roi_dir = Path(get_path_manager().rois(subject_id))
-        roi_dir.mkdir(parents=True, exist_ok=True)
-
-        if not roi_name.endswith(".csv"):
-            roi_name += ".csv"
-
-        roi_file = roi_dir / roi_name
-        with open(roi_file, "w", newline="") as f:
-            csv.writer(f).writerow([x, y, z])
-
-        roi_list = roi_dir / "roi_list.txt"
-        existing = []
-        if roi_list.exists():
-            existing = [
-                ln.strip() for ln in roi_list.read_text().splitlines() if ln.strip()
-            ]
-        if roi_name not in existing:
-            with open(roi_list, "a") as f:
-                f.write(f"{roi_name}\n")
-
-        return True, f"ROI '{roi_name}' created at ({x:.2f}, {y:.2f}, {z:.2f})"
-
-    @staticmethod
-    def delete_roi(subject_id: str, roi_name: str) -> tuple[bool, str]:
-        """Delete an ROI file and remove from roi_list.txt."""
-        from tit.paths import get_path_manager
-
-        roi_dir = Path(get_path_manager().rois(subject_id))
-
-        if not roi_name.endswith(".csv"):
-            roi_name += ".csv"
-
-        roi_file = roi_dir / roi_name
-        if roi_file.exists():
-            roi_file.unlink()
-
-        roi_list = roi_dir / "roi_list.txt"
-        if roi_list.exists():
-            lines = [
-                ln.strip() for ln in roi_list.read_text().splitlines() if ln.strip()
-            ]
-            if roi_name in lines:
-                lines.remove(roi_name)
-                roi_list.write_text(("\n".join(lines) + "\n") if lines else "")
-
-        return True, f"ROI '{roi_name}' deleted"
-
-    @staticmethod
-    def get_roi_coordinates(
-        subject_id: str,
-        roi_name: str,
-    ) -> tuple[float, float, float] | None:
-        """Read ROI center coordinates from CSV."""
-        from tit.paths import get_path_manager
-
-        roi_dir = Path(get_path_manager().rois(subject_id))
-
-        if not roi_name.endswith(".csv"):
-            roi_name += ".csv"
-
-        roi_file = roi_dir / roi_name
-        if not roi_file.exists():
-            return None
-
-        with open(roi_file) as f:
-            for row in csv.reader(f):
-                if not row:
-                    continue
-                coords = [float(v.strip()) for v in row if v.strip()]
-                if len(coords) >= 3:
-                    return (coords[0], coords[1], coords[2])
-        return None

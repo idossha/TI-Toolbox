@@ -1628,10 +1628,9 @@ def list_rois(pm: PathManager, sid: str) -> list[dict] | None:
 def create_roi(pm: PathManager, sid: str, roi: dict) -> dict:
     """Save a new spherical ROI centre for *sid*.
 
-    Mirrors :meth:`tit.opt.ex.engine.ExSearchEngine.create_roi` (a plain
-    ``x,y,z`` row plus a ``roi_list.txt`` entry) rather than importing it, so
-    this module stays the single writer of the CRUD shape the v1 contract
-    expects. The CSV format has never carried the space or the radius, so they
+    Writes a plain ``x,y,z`` row (what :func:`tit.opt.ex.roi.read_roi_center`
+    reads) plus a ``roi_list.txt`` entry; this module is the single writer of
+    the CRUD shape the v1 contract expects. The CSV format has never carried the space or the radius, so they
     go in a ``<name>.json`` sidecar beside it, which :func:`list_rois` reads
     back: the listing returns what this function answered. Without a
     ``space`` the ``_MNI`` name suffix decides, as it always has.

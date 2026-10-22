@@ -149,8 +149,22 @@ class TestRunExSearch:
         )
         run_ex_search(config)
 
-        # When channel_limit is None, should default to total_current / 2.0
-        # The generate_current_ratios call should use 2.0 as limit
+        # channel_limit=None means total_current - current_step (ExConfig's
+        # docstring): 3.5 mA here, so channel 1 runs 3.5 -> 0.5 mA in 0.5 mA
+        # steps, each split summing to 4 mA. A total/2 default would give only
+        # (2.0, 2.0).
+        ratios = engine.run.call_args.args[4]
+        assert ratios == pytest.approx(
+            [
+                (3.5, 0.5),
+                (3.0, 1.0),
+                (2.5, 1.5),
+                (2.0, 2.0),
+                (1.5, 2.5),
+                (1.0, 3.0),
+                (0.5, 3.5),
+            ]
+        )
 
     @patch("tit.opt.ex.ex.process_and_save")
     @patch("tit.opt.ex.ex.ExSearchEngine")

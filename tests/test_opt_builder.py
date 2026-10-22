@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import types
 import warnings
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
@@ -396,16 +397,28 @@ class TestBuildOptimization:
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
     def test_rectangle_electrode_shape(
-        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env, monkeypatch
     ):
-        _, pm, _ = builder_env
+        _, pm, pair_cls = builder_env
         mock_gpm.return_value = pm
+        # A fresh plain object per pair: an attribute the builder never sets cannot be read.
+        monkeypatch.setattr(pair_cls, "side_effect", lambda: types.SimpleNamespace())
         from tit.opt.flex.builder import build_optimization
 
         config = _make_config(
             electrode=FlexElectrodeConfig(shape="rect", dimensions=[12.0, 8.0])
         )
-        build_optimization(config)
+        opt = build_optimization(config)
+
+        # One pair per TI channel, each a 12 x 8 mm rectangle (x first) carrying
+        # +/- 2 mA, i.e. 0.002 A, and no disc radius.
+        assert len(opt.electrode) == 2
+        assert opt.electrode[0] is not opt.electrode[1]
+        for pair in opt.electrode:
+            assert pair.length_x == [12.0]
+            assert pair.length_y == [8.0]
+            assert pair.radius == [0]
+            assert pair.current == pytest.approx([0.002, -0.002])
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
