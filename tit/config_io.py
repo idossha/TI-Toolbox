@@ -70,6 +70,10 @@ _TYPE_DISCRIMINATED_BY_NAME: dict[str, str] = {
     "VectorConfig": "VectorConfig",
     "RegionConfig": "RegionConfig",
     "SubcorticalConfig": "SubcorticalConfig",
+    # The two configs of the "stats" job kind: the tag is how the runner, the
+    # server and the lock table tell a correlation from a group comparison.
+    "GroupComparisonConfig": "GroupComparisonConfig",
+    "CorrelationConfig": "CorrelationConfig",
 }
 
 

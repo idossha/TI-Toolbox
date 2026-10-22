@@ -21,6 +21,12 @@ from tit.stats.config import (
     GroupComparisonConfig,
 )
 
+#: ``_type`` -> the analysis mode (and ``stats/<mode>/`` output folder) it runs.
+MODE_FOR_TYPE = {
+    "GroupComparisonConfig": "group_comparison",
+    "CorrelationConfig": "correlation",
+}
+
 
 def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
     """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
@@ -71,7 +77,12 @@ def main() -> None:
 
     get_path_manager(data.pop("project_dir"))
 
-    mode = data.pop("mode", "group_comparison")
+    # The config names its own class (`_type`, written by serialize_config and the app);
+    # `mode` is the older spelling. Without either a correlation config was run as a
+    # group comparison and failed on its first subject ("missing ... 'response'").
+    mode = data.pop("mode", None) or MODE_FOR_TYPE.get(
+        data.get("_type"), "group_comparison"
+    )
     config_cls = CorrelationConfig if mode == "correlation" else GroupComparisonConfig
     config = deserialize_config(config_cls, data)
     # `mode` goes back in for the lock request only: `tit.jobs.locks.keys_for("stats", ...)`

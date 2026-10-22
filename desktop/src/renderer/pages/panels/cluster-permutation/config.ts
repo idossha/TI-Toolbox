@@ -50,6 +50,9 @@ export function buildGroupComparisonConfig(
   extra: { testType: "unpaired" | "paired"; alternative: "two-sided" | "greater" | "less"; group1Name: string; group2Name: string; valueMetric: string },
 ): GroupComparisonConfig {
   return {
+    // `_type` is how the server and the stats runner tell the two configs of the one `stats`
+    // job kind apart; without it a correlation ran as a group comparison and failed.
+    _type: "GroupComparisonConfig",
     ...sharedConfig(shared),
     subjects: rows.map((r) => ({ subject_id: r.subjectId, simulation_name: r.simulationName, response: r.response })),
     test_type: extra.testType,
@@ -73,6 +76,7 @@ export function buildCorrelationConfig(
   extra: { correlationType: "pearson" | "spearman"; useWeights: boolean; effectMetric: string; fieldMetric: string },
 ): CorrelationConfig {
   return {
+    _type: "CorrelationConfig",
     ...sharedConfig(shared),
     subjects: rows.map((r) => ({ subject_id: r.subjectId, simulation_name: r.simulationName, effect_size: r.effectSize, weight: r.weight })),
     correlation_type: extra.correlationType,

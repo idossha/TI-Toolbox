@@ -68,6 +68,30 @@ describe("Cluster Permutation panel configs validate against contracts/generated
     expect(validate("CorrelationConfig", config)).toMatchObject({ valid: true, errors: [] });
   });
 
+  // The one `stats` job kind runs either class; the server and the runner tell them apart by
+  // `_type`. Without it a Correlation job ran as a group comparison and failed on "response".
+  it("each config names its own class, and the schema requires it", () => {
+    const correlation = buildCorrelationConfig(
+      defaultShared,
+      [
+        { subjectId: "ernie", simulationName: "Thalamus", effectSize: 2.3, weight: 1 },
+        { subjectId: "101", simulationName: "Thalamus", effectSize: -1.1, weight: 1 },
+      ],
+      { correlationType: "pearson", useWeights: true, effectMetric: "Effect Size", fieldMetric: "Electric Field Magnitude" },
+    );
+    expect(correlation._type).toBe("CorrelationConfig");
+    const comparison = buildGroupComparisonConfig(
+      defaultShared,
+      [
+        { subjectId: "ernie", simulationName: "Thalamus", response: 1 },
+        { subjectId: "101", simulationName: "Thalamus", response: 0 },
+      ],
+      { testType: "unpaired", alternative: "two-sided", group1Name: "Responders", group2Name: "Non-Responders", valueMetric: "Current Intensity" },
+    );
+    expect(comparison._type).toBe("GroupComparisonConfig");
+    expect(validate("CorrelationConfig", { ...correlation, _type: undefined }).valid).toBe(false);
+  });
+
   it("a spearman correlation config with a custom NIfTI pattern is valid", () => {
     const config = buildCorrelationConfig(
       { ...defaultShared, niftiPattern: "custom_{simulation_name}.nii.gz", tissueType: "all" },

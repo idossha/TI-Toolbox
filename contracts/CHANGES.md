@@ -1185,3 +1185,13 @@ name tells them apart; `tit.caps.TIT_CAPS`, pinned to the folder by `tests/test_
 caps used to read `simnibs`. `POST /api/caps/upload` refuses their names with 409 as before.
 Clients that only switch on `simnibs`/`project`/`null` see the new value where they saw `simnibs`.
 
+
+## 2026-10-21 — `GroupComparisonConfig` and `CorrelationConfig` carry `_type`
+
+`tit.config_io.serialize_config` writes `_type` on both `stats` configs, and their generated
+schemas require it (`{"const": "GroupComparisonConfig"}` / `{"const": "CorrelationConfig"}`), as
+the `blender` configs already do: the one `stats` job kind runs either class, and the stats
+runner, `/api/plan/stats` and the job locks read the tag. Before, the desktop sent neither `_type`
+nor `mode`, so a correlation ran as a group comparison and failed. A config without `_type` still
+runs as before: a `mode` key (`"correlation"`/`"group_comparison"`) wins when present, else group
+comparison; `/api/validate/stats` still defaults to `GroupComparisonConfig`.

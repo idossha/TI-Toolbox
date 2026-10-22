@@ -9121,6 +9121,8 @@ export interface components {
             value_metric: string;
             /** Atlas Files */
             atlas_files?: string[];
+            /** @constant */
+            _type: "GroupComparisonConfig";
         };
         /**
          * CorrelationConfig
@@ -9244,6 +9246,8 @@ export interface components {
             field_metric: string;
             /** Atlas Files */
             atlas_files?: string[];
+            /** @constant */
+            _type: "CorrelationConfig";
         };
         /**
          * SourceConfig

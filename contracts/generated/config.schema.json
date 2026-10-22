@@ -283,11 +283,15 @@
           },
           "title": "Atlas Files",
           "type": "array"
+        },
+        "_type": {
+          "const": "CorrelationConfig"
         }
       },
       "required": [
         "analysis_name",
-        "subjects"
+        "subjects",
+        "_type"
       ],
       "title": "CorrelationConfig",
       "type": "object",
@@ -1340,11 +1344,15 @@
           },
           "title": "Atlas Files",
           "type": "array"
+        },
+        "_type": {
+          "const": "GroupComparisonConfig"
         }
       },
       "required": [
         "analysis_name",
-        "subjects"
+        "subjects",
+        "_type"
       ],
       "title": "GroupComparisonConfig",
       "type": "object",

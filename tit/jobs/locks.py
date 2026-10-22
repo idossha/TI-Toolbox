@@ -417,12 +417,15 @@ def keys_for(
 
     if kind == "stats":
         # GroupComparisonConfig / CorrelationConfig (tit/stats/config.py) -- neither carries an
-        # "analysis_type"/"output_dir"/"name" field. tit/stats/__main__.py distinguishes them by
-        # a top-level "mode" key on the request dict itself (default "group_comparison", else
-        # "correlation" -- config_io's own "_type" discriminator is not used here, that
-        # mechanism is for union-typed *fields*, not this top-level kind switch), and the
-        # human-chosen run name is "analysis_name" on both dataclasses.
-        analysis_type = config.get("mode", "group_comparison")
+        # "analysis_type"/"output_dir"/"name" field. The config's own "_type" says which it is
+        # (what the app and serialize_config write); a top-level "mode" key is the older
+        # spelling and wins when present, as in tit/stats/__main__.py. The human-chosen run
+        # name is "analysis_name" on both dataclasses.
+        analysis_type = config.get("mode") or (
+            "correlation"
+            if config.get("_type") == "CorrelationConfig"
+            else "group_comparison"
+        )
         name = config.get("analysis_name") or "default"
         requests.append(LockRequest(f"project:stats:{analysis_type}/{name}"))
 

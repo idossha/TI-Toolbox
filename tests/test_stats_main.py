@@ -485,6 +485,39 @@ class TestMain:
         assert config_dict["mode"] == "correlation"
         assert config_dict["analysis_name"] == "test_corr"
 
+    @patch("tit.stats.__main__._hold_locks")
+    @patch("tit.stats.__main__._run_group_comparison")
+    @patch("tit.stats.__main__._run_correlation")
+    @patch("tit.logger.add_stream_handler")
+    @patch("tit.logger.setup_logging")
+    @patch("tit.paths.get_path_manager")
+    def test_a_correlation_config_that_names_itself_runs_a_correlation(
+        self, mock_pm, mock_setup, mock_stream, mock_corr, mock_gc, mock_locks, tmp_path
+    ):
+        """The app sends no "mode", only the config: a Correlation job from the Cluster
+        permutation panel ran as a group comparison and failed on "response"."""
+        mock_corr.return_value = 0
+        mock_locks.return_value = nullcontext()
+        data = {
+            "_type": "CorrelationConfig",
+            "project_dir": "/data/project",
+            "analysis_name": "test_corr",
+            "subjects": [
+                {"subject_id": "s1", "simulation_name": "sim1", "effect_size": 0.5},
+                {"subject_id": "s2", "simulation_name": "sim2", "effect_size": 1.0},
+                {"subject_id": "s3", "simulation_name": "sim3", "effect_size": 1.5},
+            ],
+        }
+        config_path = self._write_config(tmp_path, data)
+
+        with patch.object(sys, "argv", ["__main__", config_path]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+        assert exc_info.value.code == 0
+        mock_gc.assert_not_called()
+        assert isinstance(mock_corr.call_args[0][0], CorrelationConfig)
+        assert mock_locks.call_args[0][2]["mode"] == "correlation"
+
     @patch("tit.stats.__main__._run_group_comparison")
     @patch("tit.stats.__main__._run_correlation")
     @patch("tit.logger.add_stream_handler")

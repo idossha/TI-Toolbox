@@ -671,30 +671,29 @@ def test_keys_for_stats_uses_analysis_name_and_the_main_entrypoints_mode_key():
         ],
     )
     comparison_data = serialize_config(comparison)
-    assert "_type" not in comparison_data
+    assert comparison_data["_type"] == "GroupComparisonConfig"
     reqs = locks.keys_for("stats", [], comparison_data)
     resources = _resources(reqs)
     assert ("project:stats:group_comparison/run1", "write") in resources
 
-    correlation_data = {
-        **serialize_config(
-            CorrelationConfig(
-                analysis_name="run2",
-                subjects=[
-                    CorrelationConfig.Subject(
-                        subject_id="001", simulation_name="TI_test", effect_size=1.0
-                    ),
-                    CorrelationConfig.Subject(
-                        subject_id="002", simulation_name="TI_test", effect_size=2.0
-                    ),
-                    CorrelationConfig.Subject(
-                        subject_id="003", simulation_name="TI_test", effect_size=3.0
-                    ),
-                ],
-            )
-        ),
-        "mode": "correlation",
-    }
+    # No "mode": the config's own _type says it is a correlation (the app sends no mode).
+    correlation_data = serialize_config(
+        CorrelationConfig(
+            analysis_name="run2",
+            subjects=[
+                CorrelationConfig.Subject(
+                    subject_id="001", simulation_name="TI_test", effect_size=1.0
+                ),
+                CorrelationConfig.Subject(
+                    subject_id="002", simulation_name="TI_test", effect_size=2.0
+                ),
+                CorrelationConfig.Subject(
+                    subject_id="003", simulation_name="TI_test", effect_size=3.0
+                ),
+            ],
+        )
+    )
+    assert correlation_data["_type"] == "CorrelationConfig"
     reqs = locks.keys_for("stats", [], correlation_data)
     resources = _resources(reqs)
     assert ("project:stats:correlation/run2", "write") in resources

@@ -3170,3 +3170,24 @@ sending integer labels from the desktop (folder names would read `subcortical_17
 voxels 42 and 58, not "parasubiculum"; the MNI branch goes through `prepare_mask`);
 `tests/test_runners_deserialize.py::TestAnalyzerMainExitCodes::test_subcortical_runs_analyze_subcortical`;
 `tests/test_plan_routes.py::test_analyzer_subcortical_plan_matches_runtime_output_directory`.
+
+## 2026-10-21 — A stats config names its own class with `_type`
+
+**Decision.** `GroupComparisonConfig` and `CorrelationConfig` join `_TYPE_DISCRIMINATED_BY_NAME`:
+`serialize_config` writes `_type`, the schemas require it, the desktop's Cluster permutation
+builders send it, and `tit.stats.__main__` (`MODE_FOR_TYPE`) and `tit.jobs.locks.keys_for("stats")`
+derive the mode from it when no `mode` key is given (`contracts/CHANGES.md`, same date).
+
+**Why.** The panel sent neither `_type` nor `mode`, the job manager injects `mode` only for flex
+kinds, and the runner defaulted to `group_comparison`, so every Correlation job from the app ran as
+a group comparison and failed on `response`. The server's validate and plan routes already chose
+the class by `_type` (the `blender` precedent), so the tag is the one discriminator all three
+readers can share.
+
+**Alternatives rejected.** The manager injecting `mode` for stats (a second spelling of what the
+config can say itself, and scripts calling the runner directly would still need it); a desktop-only
+`mode` key (the schema is closed, so `mode` would fail validation).
+
+**Evidence.** `tests/test_stats_main.py::TestMain::test_a_correlation_config_that_names_itself_runs_a_correlation`;
+`tests/test_jobs_model.py::test_keys_for_stats_uses_analysis_name_and_the_main_entrypoints_mode_key`;
+`desktop/tests/unit/cluster-permutation-defaults.test.ts`.
