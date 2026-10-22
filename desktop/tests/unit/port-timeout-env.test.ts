@@ -8,7 +8,7 @@
  * 127.0.0.1:0 and the start ended in a 120 s health timeout), `TIT_STACK_HEALTH_TIMEOUT_MS=""` gave
  * 0 and `TIT_LAUNCH_TIMEOUT=abc` gave NaN ("did not answer /api/health within NaNs").
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -122,5 +122,16 @@ describe("parsePort (compose ports)", () => {
 
   it("keeps a valid mapping", () => {
     expect(parsePort("127.0.0.1:8799:8799", "k")).toEqual({ hostIp: "127.0.0.1", hostPort: 8799, containerPort: 8799, protocol: "tcp" });
+  });
+});
+
+describe("index.ts reads the launchers' ports through portFromEnv", () => {
+  // A source scan: index.ts starts Electron itself, so no unit test can import it. Before
+  // 2026-10-22 it passed Number(process.env.TIT_LAUNCH_PORT) to the stack unchecked.
+  const source = readFileSync(new URL("../../src/main/index.ts", import.meta.url), "utf-8");
+
+  it.each(["TIT_LAUNCH_PORT", "TIT_DEV_PORT"])("%s", (name) => {
+    expect(source).toContain(`portFromEnv("${name}"`);
+    expect(source).not.toMatch(new RegExp(`(Number|parseInt|parseFloat)\\(\\s*process\\.env(\\.|\\[["'])${name}`));
   });
 });

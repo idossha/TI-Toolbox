@@ -261,11 +261,12 @@ compose_image() {
     # shellcheck disable=SC2016
     sed -n 's/^[[:space:]]*image: idossha\/ti-toolbox:${TIT_IMAGE_TAG:-\([^}]*\)}.*/idossha\/ti-toolbox:\1/p' "$spec" 2>/dev/null | head -1
 }
-# --image, else TIT_IMAGE_TAG, else the compose default, as one full reference: a bare tag names a
-# release of idossha/ti-toolbox (tit/launch.py::normalize_image). Empty only without a compose file.
+# --image, else TIT_IMAGE_TAG, else the compose default: a bare tag (no '/' and no ':') names a
+# release of idossha/ti-toolbox; anything else, a local tit:dev included, is kept
+# (tit/launch.py::normalize_image). Empty only without a compose file.
 resolved_image() {
     local ref="${image:-$(compose_image)}"
-    case "$ref" in ''|*/*) printf '%s' "$ref" ;; *) printf 'idossha/ti-toolbox:%s' "$ref" ;; esac
+    case "$ref" in ''|*/*|*:*) printf '%s' "$ref" ;; *) printf 'idossha/ti-toolbox:%s' "$ref" ;; esac
 }
 # Match the Python/Electron project hash so all entry points can attach and stop. It runs over
 # UTF-16 code units (JavaScript's charCodeAt), decoded here from the path's UTF-8 bytes: a bash
@@ -456,7 +457,7 @@ if [ -z "$image" ]; then
     image="$(sed -n 's/^[[:space:]]*image: idossha\/ti-toolbox:${TIT_IMAGE_TAG:-\([^}]*\)}.*/idossha\/ti-toolbox:\1/p' "$spec")"
 fi
 case "$image" in *[!a-zA-Z0-9_./:@-]*|'') die 'invalid image reference' ;; esac
-[[ "$image" == */* ]] || image="idossha/ti-toolbox:$image"
+case "$image" in */*|*:*) ;; *) image="idossha/ti-toolbox:$image" ;; esac
 read_env() { docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$ids" | sed -n "s/^$1=//p"; }
 running_ids="$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Labels}}' | session_ids)"
 if [ -n "$running_ids" ]; then

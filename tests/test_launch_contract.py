@@ -15,14 +15,17 @@ What it pins (2026-10-22), each against a shared table under ``tests/fixtures/``
   ``loader.sh`` applies to ``docker ps``.
 - ``user_config_dirs.json``: the host directory mounted at ``/root/.config/ti-toolbox``
   (telemetry consent, prefs). Authored by hand. Checked for ``tit.launch.user_config_path`` and
-  ``loader.sh``'s ``user_config_dir``.
+  ``loader.sh``'s ``user_config_dir``, and end to end (macOS and Linux rules, from
+  ``docs/wiki/telemetry.md``) through the volume ``loader.sh``'s compose run and
+  ``tit.launch.start`` actually mount.
 - ``launch_contract.json``: the container one start creates (environment, volumes, publish,
   labels, name), authored by reading ``docker-compose.yml``. Checked for
   ``tit.launch.build_run_argv`` and, through a fake ``docker``, for what ``loader.sh`` hands
   ``docker compose run`` (its exported environment and its rewritten YAML).
 - The launcher -> Electron hand-off: every ``TIT_LAUNCH_*`` a loader exports is one Electron
   reads (source scan), and both loaders hand a recording fake desktop app the same, hand-written
-  environment over a matrix of flags.
+  environment over a matrix of flags. Only a bare tag (no ``/`` and no ``:``) becomes an
+  ``idossha/ti-toolbox`` reference; ``tit:dev`` is a local image, kept on every path.
 
 Input validation lives in ``tests/test_launcher_input_validation.py``.
 
@@ -81,14 +84,21 @@ def _bashes() -> list[str]:
 
 
 def _utf8_locale() -> str | None:
-    listing = subprocess.run(["locale", "-a"], capture_output=True, text=True).stdout
+    """A UTF-8 locale this host has, or None (no ``locale`` binary in a minimal image)."""
+    try:
+        listing = subprocess.run(
+            ["locale", "-a"], capture_output=True, text=True
+        ).stdout.split()
+    except OSError:
+        return None
     for name in ("en_US.UTF-8", "en_US.utf8", "C.UTF-8", "C.utf8"):
-        if name in listing.split():
+        if name in listing:
             return name
     return None
 
 
-LOCALES = ["C"] + ([_utf8_locale()] if _utf8_locale() else [])
+UTF8_LOCALE = _utf8_locale()
+LOCALES = ["C"] + ([UTF8_LOCALE] if UTF8_LOCALE else [])
 SHELLS = [(bash, loc) for bash in _bashes() for loc in LOCALES]
 
 
@@ -327,16 +337,19 @@ esac
 """
 
 
-@pytest.mark.parametrize(
-    "case", POSIX_CONTRACT, ids=[case["label"] for case in POSIX_CONTRACT]
-)
-def test_loader_sh_compose_run_realises_the_contract(tmp_path, case):
-    """Fake docker captures the environment ``docker compose run`` gets and the rewritten YAML.
+def _loader_sh_compose_run(
+    tmp_path: Path,
+    given: dict,
+    *,
+    arguments: tuple[str, ...] = (),
+    environment: dict[str, str] | None = None,
+) -> tuple[Path, dict[str, str], launch.StackSpec, list[str]]:
+    """Run loader.sh's browser start under the fake docker of ``FAKE_COMPOSE_DOCKER``.
 
-    Interpolating that YAML with that environment is what Compose would do; it shows the
-    user's ``TIT_NO_TELEMETRY`` and ``TZ`` reach the container from bash too.
+    Returns the project directory, the environment ``docker compose run`` got, the YAML
+    loader.sh rewrote, and the compose arguments. ``HOME`` is ``<tmp_path>/home`` and every
+    inherited ``TIT_``/``XDG_``/``WSL_`` variable is dropped unless ``environment`` sets it.
     """
-    given = case["input"]
     if not _port_is_free(given["port"]):
         pytest.skip(f"port {given['port']} is taken on this host; loader.sh moves on")
     project = tmp_path / "My Data"
@@ -367,11 +380,12 @@ def test_loader_sh_compose_run_realises_the_contract(tmp_path, case):
         TZ=given["timezone"],
         TIT_NO_TELEMETRY=given["no_telemetry"],
         TIT_DEV_NO_BUILD="1",
+        **(environment or {}),
     )
     dev = ["--dev", str(ROOT)] if given["repo_dir"] else []
     result = subprocess.run(
         ["bash", str(LOADER_SH), *dev, "--project", str(project), "--no-open"]
-        + ["--port", str(given["port"])],
+        + ["--port", str(given["port"]), *arguments],
         env=env,
         capture_output=True,
         text=True,
@@ -385,6 +399,21 @@ def test_loader_sh_compose_run_realises_the_contract(tmp_path, case):
         if "=" in line
     )
     spec = launch.parse_compose((capture / "compose.yml").read_text())
+    args = (capture / "args").read_text().splitlines()
+    return project, captured, spec, args
+
+
+@pytest.mark.parametrize(
+    "case", POSIX_CONTRACT, ids=[case["label"] for case in POSIX_CONTRACT]
+)
+def test_loader_sh_compose_run_realises_the_contract(tmp_path, case):
+    """Fake docker captures the environment ``docker compose run`` gets and the rewritten YAML.
+
+    Interpolating that YAML with that environment is what Compose would do; it shows the
+    user's ``TIT_NO_TELEMETRY`` and ``TZ`` reach the container from bash too.
+    """
+    given = case["input"]
+    project, captured, spec, args = _loader_sh_compose_run(tmp_path, given)
     real = {
         "/Users/x/My Data": str(project),
         "/Users/x/.config/ti-toolbox": str(
@@ -413,7 +442,6 @@ def test_loader_sh_compose_run_realises_the_contract(tmp_path, case):
     assert [launch.interpolate(p, captured) for p in spec.ports] == [
         case["expected"]["publish"]
     ]
-    args = (capture / "args").read_text().splitlines()
     assert _argv_values(args, "--name") == [launch.container_name(str(project))]
     assert dict(pair.split("=", 1) for pair in _argv_values(args, "--label")) == {
         "tit.project": launch.project_name(str(project)),
@@ -421,6 +449,97 @@ def test_loader_sh_compose_run_realises_the_contract(tmp_path, case):
         "tit.service": "tit",
         "tit.host_project_dir": str(project),
     }
+
+
+USER_RUN = next(
+    case["input"] for case in POSIX_CONTRACT if not case["input"]["repo_dir"]
+)
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        ("tit:dev", "tit:dev"),
+        ("v3.0.0", "idossha/ti-toolbox:v3.0.0"),
+        ("example/custom:tag", "example/custom:tag"),
+    ],
+    ids=["local name:tag", "bare tag", "repository:tag"],
+)
+def test_loader_sh_runs_the_image_it_was_given(tmp_path, given, expected):
+    """Only a bare tag (no ``/`` and no ``:``) names a release of idossha/ti-toolbox.
+
+    ``--image tit:dev`` is a local image (the flag's metavar is ``IMAGE:TAG``); prefixing it
+    gave the invalid reference ``idossha/ti-toolbox:tit:dev``.
+    """
+    _, _, spec, _ = _loader_sh_compose_run(
+        tmp_path, USER_RUN, arguments=("--image", given)
+    )
+    assert spec.image == expected
+
+
+# The host directory mounted at /root/.config/ti-toolbox, through the code path that mounts
+# it (not only the helper). Expected: the table in docs/wiki/telemetry.md (macOS
+# ~/.config/ti-toolbox always; Linux ${XDG_CONFIG_HOME:-~/.config}/ti-toolbox). HOME and
+# XDG_CONFIG_HOME are set to different directories, so honouring XDG on macOS (the old
+# launcher rule) or mounting any other directory gives a different answer on every host.
+CONFIG_MOUNT = ":/root/.config/ti-toolbox"
+PLATFORM_CONFIG = (
+    {  # host -> (bash's own OSTYPE there, the expected dir under tmp_path)
+        "darwin": ("darwin24", ("home", ".config", "ti-toolbox")),
+        "linux": ("linux-gnu", ("xdg", "ti-toolbox")),
+    }
+)
+
+
+def _mounted_config(volumes) -> list[str]:
+    return [v[: -len(CONFIG_MOUNT)] for v in volumes if v.endswith(CONFIG_MOUNT)]
+
+
+@pytest.mark.parametrize("host", sorted(PLATFORM_CONFIG))
+def test_loader_sh_mounts_the_documented_config_dir(tmp_path, host):
+    """bash keeps an inherited ``OSTYPE``, so the macOS and Linux rules both run on any host."""
+    ostype, parts = PLATFORM_CONFIG[host]
+    expected = tmp_path.joinpath(*parts)
+    project, captured, spec, _ = _loader_sh_compose_run(
+        tmp_path,
+        USER_RUN,
+        environment={"OSTYPE": ostype, "XDG_CONFIG_HOME": str(tmp_path / "xdg")},
+    )
+    volumes = [launch.interpolate(v, captured) for v in spec.volumes]
+    assert _mounted_config(volumes) == [str(expected)]
+    # The same directory remembers the project for the next interactive start.
+    assert (expected / "last-project.txt").read_text() == f"{project}\n"
+
+
+@pytest.mark.parametrize("host", sorted(PLATFORM_CONFIG))
+def test_python_start_mounts_the_documented_config_dir(tmp_path, monkeypatch, host):
+    if os.name == "nt":  # pragma: no cover - the table covers %APPDATA%
+        pytest.skip("a Windows host mounts %APPDATA%\\ti-toolbox, covered by the table")
+    expected = tmp_path.joinpath(*PLATFORM_CONFIG[host][1])
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setattr(launch.sys, "platform", host)
+    calls = []
+
+    def fake_docker(*args, check=True):
+        calls.append(args)
+        stdout = "new-id" if args[0] == "run" else ""
+        return subprocess.CompletedProcess(args, 0, stdout, "")
+
+    monkeypatch.setattr(launch, "_docker", fake_docker)
+    monkeypatch.setattr(launch, "probe_container_gpu", lambda *a, **k: False)
+    monkeypatch.setattr(launch, "wait_for_health", lambda *a, **k: None)
+    monkeypatch.setattr(launch, "find_free_port", lambda preferred: preferred)
+    project = tmp_path / "project"
+    project.mkdir()
+    launch.start(
+        launch.LaunchOptions(
+            project=str(project), image="example/custom:tag", echo=lambda *_: None
+        )
+    )
+    (run,) = [call for call in calls if call[0] == "run"]
+    assert _mounted_config(_argv_values(list(run), "--volume")) == [str(expected)]
+    assert expected.is_dir()
 
 
 # ---------------------------------------------------------------------------------------
@@ -504,6 +623,11 @@ HANDOFF_CASES = {
         {},
         {"TIT_LAUNCH_IMAGE": "idossha/ti-toolbox:v3.0.0"},
     ),
+    "image named locally": (
+        ["--image", "tit:dev"],
+        {},
+        {"TIT_LAUNCH_IMAGE": "tit:dev"},
+    ),
     "TIT_IMAGE_TAG bare": (
         [],
         {"TIT_IMAGE_TAG": "v3.0.0"},
@@ -520,6 +644,17 @@ HANDOFF_CASES = {
         ["--timeout", "30.5"],
         {},
         {"TIT_LAUNCH_TIMEOUT": "31"},
+    ),
+    # str(float) spells these 1e-05 and 1e+16; the text must be read once, as loader.sh does.
+    "timeout under a second rounds up to one": (
+        ["--timeout", "0.00001"],
+        {},
+        {"TIT_LAUNCH_TIMEOUT": "1"},
+    ),
+    "timeout of seventeen digits": (
+        ["--timeout", "10000000000000000"],
+        {},
+        {"TIT_LAUNCH_TIMEOUT": "10000000000000000"},
     ),
     "existing session": (
         ["--existing", "attach", "--container", "c"],

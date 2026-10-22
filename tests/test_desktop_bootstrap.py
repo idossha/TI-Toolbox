@@ -283,6 +283,7 @@ PARITY_CASES = {
     "image-tag-bare": ["--project", "{project}"],
     "image-tag-full": ["--project", "{project}"],
     "image-bare": ["--image", "v3.0.0", "--project", "{project}"],
+    "image-local": ["--image", "tit:dev", "--project", "{project}"],
     "port-leading-zero": ["--port", "08765", "--project", "{project}"],
 }
 # The environment a case adds; the image-tag cases are the TIT_IMAGE_TAG override (2026-10-22).
@@ -336,6 +337,8 @@ PARITY_IMAGE = {
     "image-tag-bare": "idossha/ti-toolbox:v3.0.0",
     "image-tag-full": "example/custom:v9",
     "image-bare": "idossha/ti-toolbox:v3.0.0",
+    # A name:tag is a local image, kept as given; only a bare tag is a release (2026-10-22).
+    "image-local": "tit:dev",
 }
 
 

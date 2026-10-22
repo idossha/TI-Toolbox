@@ -7,6 +7,7 @@ Installed wheels use BUILTIN_SPEC; tests verify it matches docker-compose.yml.
 from __future__ import annotations
 
 import json
+import math
 import os
 import platform
 import re
@@ -367,11 +368,14 @@ def default_image() -> str:
 
 
 def normalize_image(reference: str) -> str:
-    """A bare tag (``v3.0.0``) names a release of the toolbox image; a reference with a
-    repository is kept. ``loader.sh``'s ``resolved_image`` applies the same rule, so every
-    launcher hands Docker and the desktop app a full reference, never ``library/v3.0.0``.
+    """A bare tag (``v3.0.0``: no ``/`` and no ``:``) names a release of the toolbox image;
+    anything else is kept, a local ``tit:dev`` included. ``loader.sh``'s ``resolved_image``
+    applies the same rule, so every launcher hands Docker and the desktop app the same
+    reference, never ``library/v3.0.0``.
     """
-    return reference if "/" in reference else f"{IMAGE_REPO}:{reference}"
+    if "/" in reference or ":" in reference:
+        return reference
+    return f"{IMAGE_REPO}:{reference}"
 
 
 _PORT = re.compile(r"[0-9]+")
@@ -387,11 +391,19 @@ def parse_port(value: object) -> int:
 
 
 def parse_timeout(value: object) -> float:
-    """Positive seconds written as ``N`` or ``N.N`` (``loader.sh``'s rule)."""
-    text = str(value)
-    if not _SECONDS.fullmatch(text):
+    """Positive seconds: text written as ``N`` or ``N.N`` (``loader.sh``'s rule), or a number.
+
+    A number is one already read (argparse, :class:`LaunchOptions`); it is not turned back
+    into text, where ``str(1e-05)`` would fail the ``N.N`` rule loader.sh's text passed.
+    """
+    if isinstance(value, (int, float)):
+        seconds = float(value)
+        if not math.isfinite(seconds):
+            raise LaunchError("timeout must be positive seconds")
+    elif _SECONDS.fullmatch(str(value)):
+        seconds = float(str(value))
+    else:
         raise LaunchError("timeout must be positive seconds")
-    seconds = float(text)
     if seconds <= 0:
         raise LaunchError("timeout must be positive")
     return seconds
