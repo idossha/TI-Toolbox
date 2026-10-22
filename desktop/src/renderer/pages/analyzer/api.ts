@@ -9,6 +9,7 @@
  */
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
+import { mergePlanResults, type PlanResult as SharedPlanResult } from "../_shared/run/planModel";
 
 export type Atlas = components["schemas"]["Atlas"];
 export type Region = components["schemas"]["Region"];
@@ -127,7 +128,24 @@ export async function planAnalyzer(
 export interface AnalyzerJobSpec {
   config: AnalyzerConfig;
   subjectIds: string[];
+  /** How the page names this job's row in a blocked sentence ("Job 2"); never sent. */
+  label?: string;
 }
+
+/** `planAnalyzerBatch`'s refusal: which item's plan request failed, and what it failed with. */
+export class AnalyzerPlanError extends Error {
+  constructor(
+    public readonly index: number,
+    public readonly reason: unknown,
+  ) {
+    super(reason instanceof Error ? reason.message : String(reason));
+    this.name = "AnalyzerPlanError";
+  }
+}
+
+/** The merged plan of a batch, plus each item's own plan in item order (what the page reads to
+ *  tell which job writes which folder). */
+export type AnalyzerBatchPlan = PlanResult & { items?: PlanResult[] };
 
 /**
  * Plans every job in one call and merges the results — used for the Jobs table's batch (one
@@ -135,29 +153,25 @@ export interface AnalyzerJobSpec {
  *
  * Each item carries **its own** subject ids: since the 2026-09-06 jobs rework a row names its own
  * subject, so a single page-level `subject_ids` would plan every config against every subject.
+ *
+ * Every item is planned whatever the others do (`allSettled`), and a refused item rejects the
+ * batch with an `AnalyzerPlanError` naming WHICH item, so the page can quote the server against
+ * the right row. The merge is the shared `mergePlanResults`: CPUs/memory are one job's (max), the
+ * ETA is the batch's (sum) — the numbers every other run page's tiles read.
  */
 export async function planAnalyzerBatch(
   items: AnalyzerJobSpec[],
   overwrite: boolean,
   client = api,
-): Promise<PlanResult> {
-  const results = await Promise.all(
+): Promise<AnalyzerBatchPlan> {
+  const settled = await Promise.allSettled(
     items.map((i) => planAnalyzer(i.config, i.subjectIds, overwrite, client)),
   );
-  const merged: PlanResult = {
-    jobs: results.flatMap((r) => r.jobs),
-    lock_conflicts: results.flatMap((r) => r.lock_conflicts),
-    cost: results.reduce(
-      (acc, r) => ({
-        cpus: acc.cpus + r.cost.cpus,
-        mem_gb: acc.mem_gb + r.cost.mem_gb,
-      }),
-      { cpus: 0, mem_gb: 0 },
-    ),
-    warnings: Array.from(new Set(results.flatMap((r) => r.warnings))),
-    resolved: results[0]?.resolved ?? null,
-  };
-  return merged;
+  const failed = settled.findIndex((s) => s.status === "rejected");
+  if (failed >= 0) throw new AnalyzerPlanError(failed, (settled[failed] as PromiseRejectedResult).reason);
+  const results = settled.map((s) => (s as PromiseFulfilledResult<PlanResult>).value);
+  const merged = mergePlanResults(results as unknown as SharedPlanResult[]) as unknown as PlanResult;
+  return { ...merged, items: results };
 }
 
 /**

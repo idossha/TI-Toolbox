@@ -824,8 +824,9 @@ const OPTIMIZER_MIRROR = [
   "const base = await planFor(job.kind, { ...config, output_folder: null }, [job.subject], false); const folder = base.jobs[0]?.output_dir;",
   "const resolved = { ...config, output_folder: flexOutputFolder(folder, String(config.output_folder ?? \"\"), automaticRunName(job.rowId)) };",
   // The whole refusal chain, in order: the corpus models every clause but the subject (m2m) one,
-  // since every corpus subject has a head model, and the transient "Resolving…" one.
-  "if (rows.length === 0) return \"Add a search job.\"; if (runnableRows.length === 0) return \"Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.\"; if (subjectsBlocked) return subjectsBlocked; for (const [i, row] of runnableRows.entries()) { const reason = rowFormReason(row); if (reason) return `Job ${rows.indexOf(row) + 1}: ${reason}`; void i; } if (jobs.length === 0) return \"No job resolves to a target yet.\"; if (jobsSig !== debouncedSig || !allPlanned) return \"Resolving the run folders…\"; return null;",
+  // since every corpus subject has a head model, the transient "Resolving…" one, and the two that
+  // need the server's plan (a refused plan, two jobs writing one folder: run-output-collision.test.ts).
+  "if (rows.length === 0) return \"Add a search job.\"; if (runnableRows.length === 0) return \"Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.\"; if (subjectsBlocked) return subjectsBlocked; for (const [i, row] of runnableRows.entries()) { const reason = rowFormReason(row); if (reason) return `Job ${rows.indexOf(row) + 1}: ${reason}`; void i; } if (jobs.length === 0) return \"No job resolves to a target yet.\"; if (jobsSig === debouncedSig && planFailure) return planFailure; if (jobsSig !== debouncedSig || !allPlanned) return \"Resolving the run folders…\"; if (outputCollision) return outputCollision; return null;",
 ];
 
 // ---------------------------------------------------------------------------------------------

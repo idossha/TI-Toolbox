@@ -51,8 +51,10 @@ import {
   planCounts,
   jobCountLabel,
   ExistingOutputsDialog,
+  collisionReason,
   isExistingOutputsConflict,
   mergePlanResults,
+  planFailureReason,
   planModelFrom,
   stepsFor,
   submitJobGroup,
@@ -78,7 +80,7 @@ import { useOpenInViewer } from "../../app/openInViewer";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
 import { leadfieldPathFor, defaultNet } from "./nets";
 import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
-import { automaticRunName, flexOutputFolder, jobsForRow, rowFormReason, type OptimizerJobSpec } from "./plan";
+import { automaticRunName, flexOutputFolder, jobsForRow, optimizerOutputClaims, rowFormReason, validateJobs, type OptimizerJobSpec } from "./plan";
 import {
   emptyOptimizerRow,
   isRunnableOptimizerRow,
@@ -350,6 +352,14 @@ function OptimizerPage() {
       .filter((b): b is { id: string; reason: string } => !!b.reason),
   );
 
+  /** The row a job came from, as the table numbers it — what every blocked sentence names. */
+  const rowNumber = (rowId: string): number => rows.findIndex((r) => r.id === rowId) + 1;
+  // What the server said about the planned jobs: the first refusal, in its own words, and the
+  // first folder two jobs would both write (one group runs its jobs one after another, so the
+  // second would silently replace the first's results).
+  const planFailure = planFailureReason(debouncedJobs.map((job, i) => ({ label: `Job ${rowNumber(job.rowId)}`, error: planQueries[i]?.error })));
+  const outputCollision = allPlanned ? collisionReason(optimizerOutputClaims(debouncedJobs, planResults, rowNumber)) : null;
+
   const blockedReason = useMemo<string | null>(() => {
     // §4.7 rule 3: the disabled sentence states the TABLE being empty before it states anything
     // about subjects — an empty table is not a subject problem.
@@ -362,9 +372,11 @@ function OptimizerPage() {
       void i;
     }
     if (jobs.length === 0) return "No job resolves to a target yet.";
+    if (jobsSig === debouncedSig && planFailure) return planFailure;
     if (jobsSig !== debouncedSig || !allPlanned) return "Resolving the run folders…";
+    if (outputCollision) return outputCollision;
     return null;
-  }, [rows, runnableRows, subjectsBlocked, jobs, jobsSig, debouncedSig, allPlanned]);
+  }, [rows, runnableRows, subjectsBlocked, jobs, jobsSig, debouncedSig, allPlanned, planFailure, outputCollision]);
 
   /** The panel's own kind — the family of the first job, which is what its step list describes. */
   const planKind: PlanKind = runnableRows[0] ? rowPlanKind(runnableRows[0]) : "flex";
@@ -427,14 +439,16 @@ function OptimizerPage() {
       }
       if (byKind.size === 0) return { jobs: 0, kinds: [], startedIds: [] };
 
-      // Validate one representative config per kind before anything is queued (the flex path's
-      // long-standing behaviour, now covering every kind the table holds).
-      for (const [kind, group] of byKind) {
-        const validation = await validateFor(kind, group[0]!.config).catch(() => null);
-        if (validation && !validation.ok) {
-          setValidationErrors(validation.errors.map((e) => `${kind}: ${e.path}: ${e.message}`));
-          throw new Error("invalid");
-        }
+      // Validate EVERY config before anything is queued — not one representative per kind, which
+      // let a later row of the same kind through unchecked — and a validate request that fails
+      // blocks too, rather than being read as "valid".
+      const problems = await validateJobs(
+        [...byKind.values()].flat().map((job) => ({ kind: job.kind, config: job.config, label: `Job ${rowNumber(job.rowId)}` })),
+        validateFor,
+      );
+      if (problems.length > 0) {
+        setValidationErrors(problems);
+        throw new Error("invalid");
       }
       setValidationErrors([]);
 

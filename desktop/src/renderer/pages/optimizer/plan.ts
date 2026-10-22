@@ -10,8 +10,9 @@
  * which is why both facts arrive through `resolve` rather than being closed over.
  */
 import { roiToConfig, type AtlasLookup, type RoiValue } from "../_shared/roi";
-import type { GroupKind } from "../_shared/run";
-import type { FlexConfigWire } from "./api";
+import { entityNameProblem } from "../_shared/entityNames";
+import type { GroupKind, OutputClaim } from "../_shared/run";
+import type { FlexConfigWire, ValidateResult } from "./api";
 import { buildFlexConfig, flexFormReason } from "./flexConfig";
 import { buildExConfig, buildMExConfig, exTargets, EX_BUCKET_KEYS, MEX_BUCKET_KEYS, type ExTarget } from "./exConfig";
 import { exFormReason, mexFormReason } from "./cost";
@@ -62,17 +63,34 @@ export function jobsForRow(
   // Simulator makes from a montage's pairs, and the only thing that decides `ex` from `mex`.
   const kind = rowJobKind(row);
   const targets: ExTarget[] = exTargets(row.roi, resolve.atlas(row.subjectId, row.roi), kind === "ex");
-  return targets.map((t) => ({
-    rowId: row.id,
-    kind: kind as GroupKind,
-    stage: rowStage(row),
-    subject: row.subjectId,
-    label: t.roiName,
-    config:
-      kind === "ex"
-        ? buildExConfig(row.subjectId, hdf, row.ex, t, row.runName)
-        : buildMExConfig(row.subjectId, hdf, row.mex, t, row.runName),
-  }));
+  return targets.map((t) => {
+    const runName = exRunName(row.runName, t, targets.length);
+    return {
+      rowId: row.id,
+      kind: kind as GroupKind,
+      stage: rowStage(row),
+      subject: row.subjectId,
+      label: t.roiName,
+      config:
+        kind === "ex"
+          ? buildExConfig(row.subjectId, hdf, row.ex, t, runName)
+          : buildMExConfig(row.subjectId, hdf, row.mex, t, runName),
+    };
+  });
+}
+
+/**
+ * The run name one target of an Ex/mEx row runs under. One target keeps the row's name exactly.
+ * Several targets (an uncombined ROI selection, and every multi-ROI mEx row) are several runs,
+ * and `ex-search/<run_name>` is one folder: sharing the name, the second run would rewrite the
+ * first's `final_output.csv` and `run_config.json` (`tit/opt/ex/ex.py`, `pm.ex_search_run`). So
+ * each takes the row's name plus its own target. A blank name stays blank — every run then picks
+ * its own timestamp when it starts, one after another.
+ */
+export function exRunName(rowRunName: string, target: ExTarget, targetCount: number): string {
+  const name = rowRunName.trim();
+  if (!name || targetCount <= 1) return name;
+  return `${name}_${target.roiName}`;
 }
 
 /**
@@ -80,6 +98,8 @@ export function jobsForRow(
  * globally, now made per row so the sentence can name which row.
  */
 export function rowFormReason(row: OptimizerRow): string | null {
+  const runNameProblem = runNameReason(row.runName);
+  if (runNameProblem) return runNameProblem;
   if (row.method === "flex") {
     const form = row.flex;
     const reason = flexFormReason(form);
@@ -113,6 +133,56 @@ function nonRoiIsRoi(row: OptimizerRow): boolean {
   const roi = roiToConfig(row.roi, byId);
   const nonRoi = roiToConfig(row.nonRoi, byId);
   return roi !== undefined && nonRoi !== undefined && JSON.stringify(roi) === JSON.stringify(nonRoi);
+}
+
+/**
+ * Why a typed Run name cannot name a run folder, or `null`. The folder is one path component that
+ * the server holds to `tit.paths.NAME_RE` (`FlexConfig.output_folder`, `pm.ex_search_run`): a name
+ * outside it is refused at plan time, and a flex folder named outside it used to hide every flex
+ * run of that subject. An absolute path (flex only) is judged by its last component.
+ */
+export function runNameReason(runName: string): string | null {
+  const name = runName.trim();
+  if (!name) return null;
+  const component = name.startsWith("/") ? (name.replace(/\/+$/, "").split("/").pop() ?? "") : name;
+  return entityNameProblem(component, "run");
+}
+
+/**
+ * What each job of a Run press writes, for `collisionReason`: the folder its plan resolved, named
+ * by its row ("Job 2"). An Ex/mEx job with no run name plans a timestamp PREVIEW that the run
+ * re-picks when it starts, so it claims nothing; every other folder is final — a flex job is
+ * submitted with exactly the `output_folder` it was planned with. `plans[i]` is `jobs[i]`'s plan.
+ */
+export function optimizerOutputClaims(
+  jobs: Pick<OptimizerJobSpec, "rowId" | "stage" | "config">[],
+  plans: ({ jobs: { output_dir: string }[] } | undefined)[],
+  rowNumber: (rowId: string) => number,
+): OutputClaim[] {
+  return jobs.flatMap((job, i) => {
+    const preview = job.stage !== "flex" && !(job.config as { run_name?: string | null }).run_name;
+    return (plans[i]?.jobs ?? []).map((planned) => ({ label: `Job ${rowNumber(job.rowId)}`, outputDir: preview ? null : planned.output_dir }));
+  });
+}
+
+/**
+ * Validate EVERY job a Run press would queue, before any is queued, and return one line per
+ * problem ("Job 2 · ex: roi_radius: must be > 0"). A validate request that fails (network, 5xx)
+ * is a problem too: it blocks rather than letting an unchecked config through.
+ */
+export async function validateJobs(
+  jobs: { kind: string; config: unknown; label: string }[],
+  validate: (kind: string, config: unknown) => Promise<ValidateResult>,
+): Promise<string[]> {
+  const results = await Promise.allSettled(jobs.map((job) => validate(job.kind, job.config)));
+  return results.flatMap((result, i) => {
+    const job = jobs[i]!;
+    if (result.status === "rejected") {
+      const why = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      return [`${job.label} · ${job.kind}: could not be validated (${why})`];
+    }
+    return result.value.ok ? [] : result.value.errors.map((e) => `${job.label} · ${job.kind}: ${e.path}: ${e.message}`);
+  });
 }
 
 /** Resolve a run-name control under the subject's server-provided flex directory. */

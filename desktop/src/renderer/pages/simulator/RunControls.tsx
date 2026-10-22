@@ -12,8 +12,10 @@ import { Button } from "../../ui/Button";
 import { notify, notifySubmitError } from "../../ui/Toast";
 import {
   ExistingOutputsDialog,
+  collisionReason,
   isExistingOutputsConflict,
   mergePlanResults,
+  planFailureReason,
   planModelFrom,
   submitJobGroup,
   useRunShortcut,
@@ -96,15 +98,21 @@ export function useSimPlan(
   const failed = queries.some((q) => q.error);
 
   // A page with no complete job says so first: "select a subject" is not the truth when the table
-  // is what is empty (2026-09-06 jobs rework).
-  const blockedReason = rows.length === 0 ? "Add a job with a subject and a montage." : (subjectsBlocked ?? null);
+  // is what is empty (2026-09-06 jobs rework). Then the subjects, then what the plans said: a row
+  // the server refused, or two rows writing one folder, blocks Run with the reason (§4.2 rule 8).
+  const blockedReason =
+    rows.length === 0
+      ? "Add a job with a subject and a montage."
+      : (subjectsBlocked ?? simPlanBlockedReason(debouncedRows, queries));
 
   // Derived on every render rather than memoized: `useQueries` hands back a fresh array each
   // render, so a manual `useMemo` over it can only be keyed on a serialisation — which React
   // Compiler (correctly) refuses to treat as a preserved memoization. `planModelFrom` is a fold
-  // over at most a few dozen plan jobs and the grid it feeds is cheap.
+  // over at most a few dozen plan jobs and the grid it feeds is cheap. No model until EVERY row
+  // has its plan: a grid of the rows that happen to have answered would make the digest count
+  // fewer jobs than Run submits (planModel.ts `jobCountLabel`).
   const model: PlanModel | null =
-    blockedReason || results.length === 0
+    blockedReason || results.length === 0 || results.length !== debouncedRows.length
       ? null
       : planModelFrom("sim", mergePlanResults(results as unknown as SharedPlanResult[]), subjects, {
           stages: SIM_PLAN_STAGES,
@@ -124,6 +132,29 @@ export function useSimPlan(
     blockedReason,
     existingCount: results.reduce((n, r) => n + r.jobs.filter((j) => j.exists).length, 0),
   };
+}
+
+/** How a Simulator job is named in a blocked sentence: its subject and its montage, which is
+ *  also exactly what decides its folder (`Simulations/<montage>` under the subject). */
+export function simJobLabel(row: Pick<SelectedRow, "subjectId" | "name">): string {
+  return `${row.subjectId} · ${row.name}`;
+}
+
+/**
+ * Why the per-row plans block Run, or `null`: the first row whose plan request failed (the
+ * server's sentence, prefixed with the row), else the first folder two rows would both write —
+ * one `POST /api/jobs/groups` runs them one after another, so the second would silently replace
+ * the first's results. `outcomes[i]` is row `i`'s plan query.
+ */
+export function simPlanBlockedReason(
+  rows: Pick<SelectedRow, "subjectId" | "name">[],
+  outcomes: { data?: { jobs: { output_dir: string }[] }; error?: unknown }[],
+): string | null {
+  const failure = planFailureReason(rows.map((row, i) => ({ label: simJobLabel(row), error: outcomes[i]?.error })));
+  if (failure) return failure;
+  return collisionReason(
+    rows.flatMap((row, i) => (outcomes[i]?.data?.jobs ?? []).map((job) => ({ label: simJobLabel(row), outputDir: job.output_dir }))),
+  );
 }
 
 /**

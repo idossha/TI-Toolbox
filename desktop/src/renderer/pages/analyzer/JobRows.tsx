@@ -34,7 +34,7 @@ import { Switch } from "../../ui/Toggle";
 import { Select } from "../../ui/Select";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { emptyRoi, isRoiComplete, type RoiRegion, type RoiValue, type TissueKind } from "../_shared/roi";
-import { AUTO_FIELD, type Space } from "./buildConfig";
+import { AUTO_FIELD, rowTargets, type Space } from "./buildConfig";
 import "./analyzer-page.css";
 
 /**
@@ -172,12 +172,19 @@ export function analyzerJobsSummary(rows: AnalyzerRow[], group: boolean): string
   if (rows.length === 0) return "no rows yet";
   const subjects = new Set(runnable.map((r) => r.subjectId)).size;
   const incomplete = rows.length - runnable.length;
+  // Jobs, not rows: a row fans out into one job per sphere and, uncombined, one per region
+  // (`rowTargets`) — the count Run's "Queue N jobs" states and submits. A group run is the lead
+  // row's targets, each over the whole cohort.
+  const jobs = group
+    ? (runnable[0] ? rowTargets(runnable[0]).length : 0)
+    : runnable.reduce((n, row) => n + rowTargets(row).length, 0);
+  const of = `${subjects} subject${subjects === 1 ? "" : "s"}`;
   const head =
     runnable.length === 0
       ? "no complete row"
       : group
-        ? `one group analysis over ${subjects} subject${subjects === 1 ? "" : "s"}`
-        : `${runnable.length} analysis job${runnable.length === 1 ? "" : "s"} · ${subjects} subject${subjects === 1 ? "" : "s"}`;
+        ? `${jobs === 1 ? "one group analysis" : `${jobs} group analyses`} over ${of}`
+        : `${jobs} analysis job${jobs === 1 ? "" : "s"} · ${of}`;
   return incomplete > 0 ? `${head} · ${incomplete} incomplete` : head;
 }
 

@@ -19,6 +19,7 @@ import {
   RunPanel,
   RunWork,
   jobCountLabel,
+  planFailureReason,
   planModelFrom,
   stepsFor,
   planCounts,
@@ -292,7 +293,10 @@ function PreprocessPage() {
     ?? (steps.length === 0 ? "Select at least one processing step." : null)
     ?? (preferences.isPending ? "Loading pre-processing preferences…" : preferences.error ? "Could not load pre-processing preferences." : null)
     ?? (values.run_freesurfer && !submitConfig.freesurfer_recon_all && !submitConfig.freesurfer_subregions?.length
-      ? "Select at least one FreeSurfer operation." : null);
+      ? "Select at least one FreeSurfer operation." : null)
+    // The server refused the plan: its sentence, verbatim, is why Run is blocked (§4.2 rule 8) —
+    // while the refused plan is the current one, not one a newer edit is replacing.
+    ?? (debouncedPlanKey === JSON.stringify({ submitConfig, selected }) ? planFailureReason([{ error: planQuery.error }]) : null);
 
   const plan: PlanModel | null = useMemo(() => {
     if (blockedReason) return null;

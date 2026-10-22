@@ -32,7 +32,7 @@ import { notify, notifySubmitError } from "../../ui/Toast";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { subjectsBlockedReason } from "../_shared/subjects";
-import { ExistingOutputsDialog, planCounts, jobCountLabel, RunPanel, RunWork, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
+import { ExistingOutputsDialog, collisionReason, planCounts, planFailureReason, jobCountLabel, RunPanel, RunWork, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import { isRoiComplete, type RoiValue } from "../_shared/roi";
 import { TargetPreview } from "../_shared/scene/TargetPreview";
 import {
@@ -52,6 +52,7 @@ import {
   type AnalysisType,
 } from "./buildConfig";
 import {
+  AnalyzerPlanError,
   getSimulationDetails,
   newAnalysisTag,
   planAnalyzer,
@@ -264,9 +265,14 @@ export function AnalyzerPage() {
    * Every config with the subjects IT runs over: one row's own subject per job, or the whole
    * cohort on each of a group run's configs.
    */
-  const jobSpecs: AnalyzerJobSpec[] = configs.map((config) => ({
+  /** Each config's row, as the table numbers it — in the order `configs` was built. */
+  const configLabels: string[] = group
+    ? configs.map(() => "Group analysis")
+    : plannableRows.flatMap((row) => rowTargets(row).map(() => `Job ${rows.indexOf(row) + 1}`));
+  const jobSpecs: AnalyzerJobSpec[] = configs.map((config, i) => ({
     config,
     subjectIds: group ? cohort : [config.subject_id as string],
+    label: configLabels[i],
   }));
 
   /*
@@ -337,7 +343,7 @@ export function AnalyzerPage() {
   }
 
   function handleRunClick() {
-    if (!configsValid) {
+    if (blockedReason || !configsValid) {
       notify.error(blockedReason ?? "Complete the rows and the target before running.");
       return;
     }
@@ -357,6 +363,26 @@ export function AnalyzerPage() {
 
   const runLabel = configs.length > 1 ? `Queue ${configs.length} jobs` : "Run analysis";
 
+  // What the server said about the debounced specs, read only while they are still the current
+  // ones: a refusal of a superseded table is not this table's.
+  const planCurrent = specsKey === JSON.stringify(jobSpecs);
+  const planError = plan.error instanceof AnalyzerPlanError ? plan.error : null;
+  const planFailure = !planCurrent
+    ? null
+    : planFailureReason([
+        planError
+          ? { label: debouncedSpecs[planError.index]?.label, error: planError.reason }
+          : { error: plan.error },
+      ]);
+  const outputCollision =
+    planCurrent && plan.data?.items
+      ? collisionReason(
+          plan.data.items.flatMap((item, i) =>
+            item.jobs.map((job) => ({ label: debouncedSpecs[i]?.label ?? `Job ${i + 1}`, outputDir: job.output_dir })),
+          ),
+        )
+      : null;
+
   const blockedReason = blockedReasonFor({
     // The subject clause is still the shared grammar's, but it is now about the subjects the ROWS
     // name rather than a page-level tick list (J3 wording, unchanged).
@@ -366,6 +392,8 @@ export function AnalyzerPage() {
         .map((id) => ({ id, reason: jobSubjects.find((s) => s.id === id)?.blockedReason }))
         .filter((b): b is { id: string; reason: string } => !!b.reason),
     ),
+    planFailure,
+    outputCollision,
     rowCount: runnableRows.length,
     groupMismatch,
     targetReady,
@@ -512,6 +540,10 @@ export function blockedReasonFor(state: {
   groupMismatch?: string | null;
   /** Every runnable row carries a complete target of its own. */
   targetReady: boolean;
+  /** The server's refusal of a job's plan (`planFailureReason`), quoted with its row. */
+  planFailure?: string | null;
+  /** Two jobs writing one analysis folder (`collisionReason`). */
+  outputCollision?: string | null;
 }): string | null {
   // The table is what is empty, so that is what the button says — before the subject grammar's
   // "select at least one subject", which is not the truth about a page with no rows.
@@ -521,5 +553,8 @@ export function blockedReasonFor(state: {
   if (state.subjectsBlocked) return state.subjectsBlocked;
   if (state.groupMismatch) return state.groupMismatch;
   if (!state.targetReady) return "Complete the target before running.";
+  // Only a complete table is planned, so what the plan says comes last.
+  if (state.planFailure) return state.planFailure;
+  if (state.outputCollision) return state.outputCollision;
   return null;
 }

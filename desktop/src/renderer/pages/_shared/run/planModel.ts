@@ -322,6 +322,89 @@ export function mergePlanResults(results: PlanResult[]): PlanResult {
   };
 }
 
+/**
+ * One job of a Run press and the folder it writes, as the server's plan resolved it.
+ *
+ * `outputDir` is `null` when that folder is only a *preview* the run re-picks — an Ex/mEx job
+ * with no run name plans `time.strftime(...)` now and takes a fresh timestamp when it runs, so
+ * two such previews agreeing proves nothing. Those jobs are never compared.
+ */
+export interface OutputClaim {
+  /** How the page names the job to the user ("Job 2", "ernie · L_Insula"). */
+  label: string;
+  outputDir: string | null;
+  /** `pre` claims are never compared: every pre-processing stage of a subject writes into
+   *  `m2m_<id>` (or beside it) by design, one after another in the stage DAG. */
+  kind?: PlanKind;
+}
+
+/** A folder two or more jobs of one Run press would write, with the jobs that claim it. */
+export interface OutputCollision {
+  outputDir: string;
+  labels: string[];
+}
+
+/**
+ * The folders more than one job of a press would write, in first-claim order. One folder belongs
+ * to one job (the analyzer precedent, 329b658b): the scheduler runs a group's jobs one after
+ * another, so the second would silently replace the first's results.
+ */
+export function collidingOutputs(claims: OutputClaim[]): OutputCollision[] {
+  const byDir = new Map<string, string[]>();
+  for (const claim of claims) {
+    if (!claim.outputDir || claim.kind === "pre") continue;
+    byDir.set(claim.outputDir, [...(byDir.get(claim.outputDir) ?? []), claim.label]);
+  }
+  return [...byDir.entries()].filter(([, labels]) => labels.length > 1).map(([outputDir, labels]) => ({ outputDir, labels }));
+}
+
+/** The folder as a user reads it: from `sub-<id>/` on when the path has one, else whole. */
+function projectRelative(dir: string): string {
+  const at = dir.search(/(^|\/)sub-[^/]+\//);
+  if (at < 0) return dir;
+  return dir.slice(dir[at] === "/" ? at + 1 : at);
+}
+
+/** "A and B", "A, B and C". */
+function joinAnd(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/**
+ * The blocked sentence for the first collision, or `null` when every job writes its own folder:
+ * it names the jobs and the folder, so the user knows which row to rename or remove.
+ */
+export function collisionReason(claims: OutputClaim[]): string | null {
+  const first = collidingOutputs(claims)[0];
+  if (!first) return null;
+  const names = [...new Set(first.labels)];
+  const who = names.length === 1 ? `${first.labels.length} jobs of ${names[0]}` : joinAnd(names);
+  const verb = first.labels.length === 2 ? "both write" : "all write";
+  return `${who} ${verb} ${projectRelative(first.outputDir)}; the last to run would replace the others' results. Rename or remove one.`;
+}
+
+/** One plan request a page made, labelled the way the page names the job it planned. */
+export interface PlanOutcome {
+  /** "Job 2"; omitted when the page plans everything in one request (Pre-processing). */
+  label?: string;
+  /** What the request failed with; `null`/`undefined` while it has not failed. */
+  error?: unknown;
+}
+
+/**
+ * The blocked sentence for the first plan request that failed, quoting the server: an
+ * `ApiError`'s message is the server's `detail` verbatim (`api/client.ts::unwrap`), and its first
+ * line is the sentence. DESIGN.md §4.2 rule 8: Run is never silently disabled, and never enabled
+ * over a plan the server refused.
+ */
+export function planFailureReason(outcomes: PlanOutcome[]): string | null {
+  const failed = outcomes.find((o) => o.error !== undefined && o.error !== null);
+  if (!failed) return null;
+  const raw = failed.error instanceof Error ? failed.error.message : String(failed.error);
+  const line = raw.split("\n").find((l) => l.trim() !== "")?.trim() ?? "The plan request failed.";
+  return failed.label ? `${failed.label}: ${line}` : line;
+}
+
 /** The counts every run page needs to decide whether the existing-outputs dialog has anything to
  *  ask about. Derived from the same `PlanModel` the grid and the digest draw, so the three cannot
  *  disagree. (This is what is left of the run receipt, removed 2026-09-06: the plan grid in the
