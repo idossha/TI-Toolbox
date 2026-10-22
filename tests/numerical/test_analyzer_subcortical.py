@@ -27,6 +27,7 @@ def _fixture(tmp_path, monkeypatch):
     analyzer = object.__new__(Analyzer)
     analyzer.space = "voxel"
     analyzer.field_name = "TI_max"
+    analyzer.tissue_type = "GM"  # Analyzer.__init__'s default; voxel runs record it
     analyzer.m2m_path = tmp_path / "unused"
     analyzer.field_path = tmp_path / "field.nii"
     analyzer._log_handler = None
