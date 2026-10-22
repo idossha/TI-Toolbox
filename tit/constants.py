@@ -90,8 +90,6 @@ FILE_ANALYZER_CONFIG = "analyzer.json"
 FILE_SIMULATOR_CONFIG = "simulator.json"
 FILE_PREPROCESS_CONFIG = "preprocess.json"
 
-# Template files
-
 # NIfTI files
 FILE_T1 = "T1.nii.gz"
 FILE_DTI_TENSOR = "DTI_coregT1_tensor.nii.gz"

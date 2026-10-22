@@ -163,7 +163,7 @@ def _text_list(data: dict[str, Any], key: str) -> list[str]:
 
 @dataclass
 class Cost:
-    """Estimated resource cost of one job, for scheduler admission (§2.4)."""
+    """Estimated resource cost of one job, for scheduler admission."""
 
     cpus: float
     mem_gb: float

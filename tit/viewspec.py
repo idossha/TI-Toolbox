@@ -5,8 +5,9 @@ group and custom layer stacks as a JSON-able ``ViewSpec``
 (``contracts/openapi.yaml`` ``#/components/schemas/ViewSpec``), and
 :func:`finish_spec` attaches its ``scene``: :func:`to_tetravox_viewspec` turns
 the layers into the Tetravox ViewSpec v2 document
-(``contracts/tetravox-viewspec-v2.schema.json``) that the native TetraVox
-opens (``POST /api/view/open``). ``to_freeview_args`` only fills the
+(``contracts/tetravox-viewspec-v2.schema.json``), which ``POST /api/view/open``
+re-roots onto host paths and writes as a ``.tetravox.json`` scene file for the
+native TetraVox. ``to_freeview_args`` only fills the
 deprecated ``freeview_args`` response field; no route launches Freeview.
 
 Regression notes, each pinned by a test in ``tests/test_viewspec.py``:

@@ -182,7 +182,7 @@ def match_conflicts(
     *,
     self_job_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Pure function: which of *current_holders* block *requests* (reader/writer rule, §2.4).
+    """Pure function: which of *current_holders* block *requests* (reader/writer rule).
 
     Takes an already-fetched holder list (rather than reading the lock directory itself) so the
     scheduler can reuse one on-disk scan across every queued job in a tick, and so this rule is
@@ -210,7 +210,7 @@ def conflicts(
     *,
     self_job_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Holders that block *requests* (reader/writer rule, §2.4), excluding *self_job_id*."""
+    """Holders that block *requests* (reader/writer rule), excluding *self_job_id*."""
     return match_conflicts(requests, holders(project_dir), self_job_id=self_job_id)
 
 
@@ -340,7 +340,7 @@ _PRE_STAGE_FLAGS: tuple[tuple[str, str], ...] = (
 )
 
 # FastSurfer writes derivatives/fastsurfer/, not m2m -- "fastsurfer" is deliberately absent here
-# (§2.4: write access to m2m is charm/subject_atlas/DTI-extraction/leadfield-gen), so G2a and G2b
+# (write access to m2m is charm/subject_atlas/DTI-extraction/leadfield-gen), so G2a and G2b
 # hold different lock domains and run in parallel.
 _WRITES_M2M = {"charm", "dti", "leadfield"}
 
