@@ -167,6 +167,28 @@ def test_a_good_net_maps_onto_distinct_labels_paired_by_channel_with_its_snap(
     ]
 
 
+def test_a_net_with_exactly_as_many_electrodes_as_the_run_placed_maps(
+    tmp_path, monkeypatch
+):
+    """Four sites for four electrodes is enough: the size check refuses fewer, not equal."""
+    from tit.tools import map_electrodes
+
+    monkeypatch.setattr(map_electrodes, "linear_sum_assignment", _exhaustive_assignment)
+    pm = _project(tmp_path, _electrodes(NEAR), net="Exact4.csv")
+    montage = resolve_flex_montage(pm, SID, RUN, "mapped", eeg_net="Exact4.csv")
+
+    assert [list(p) for p in montage.electrode_pairs] == [["C3", "Pz"], ["Oz", "Fz"]]
+    assert _mapping_files(pm) == ["electrode_mapping_Exact4.json"]
+    data = json.loads(
+        Path(pm.flex_search_run(SID, RUN), "electrode_mapping_Exact4.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    # Every site of the net is used once, each by the electrode it is nearest to.
+    assert data["mapped_labels"] == ["Fz", "C3", "Pz", "Oz"]
+    assert data["distances"] == pytest.approx([5.0, 12.0, 10.0, 25.0])
+
+
 def _mapping_json(path: Path, **fields) -> str:
     data = {
         "mapped_labels": ["Fz", "C3", "Pz", "Oz"],
