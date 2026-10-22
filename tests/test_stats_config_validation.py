@@ -423,5 +423,17 @@ def test_a_numpy_non_number_is_still_refused(value) -> None:
     ids=["np-frac", "np-bool", "text"],
 )
 def test_a_count_that_is_not_a_whole_number_is_refused(value) -> None:
+    # A Python caller reaches the stats config's own whole-number check.
     with pytest.raises(ValueError, match="n_permutations must be a whole number"):
+        GroupComparisonConfig(
+            analysis_name="numpy",
+            subjects=[
+                GroupComparisonConfig.Subject("001", "M1", response=1),
+                GroupComparisonConfig.Subject("002", "M1", response=0),
+            ],
+            n_permutations=value,
+        )
+    # A JSON config is refused too; deserialize_config refuses a bool or a string sent
+    # for a number before the stats check runs, so only the field name is common.
+    with pytest.raises(ValueError, match="n_permutations"):
         _build(_comparison(n_permutations=value))
