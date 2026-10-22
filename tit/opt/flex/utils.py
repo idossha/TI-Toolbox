@@ -380,24 +380,58 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
     _apply_spheres(roi, centers, radii, center_space, complement=False)
 
     # Add non-ROI if focality optimisation is requested
-    if config.is_focality:
-        non_roi = opt.add_roi()
-        if roi_spec.volumetric:
-            non_roi.method = "volume"
-            non_roi.tissues = roi.tissues
-        else:
-            non_roi.method = "surface"
-            non_roi.surface_type = "central"
+    if not config.is_focality:
+        return
+    if config.non_roi_method != "everything_else":
+        _add_specific_non_roi(opt, config, roi)
+        return
+    non_roi = opt.add_roi()
+    if roi_spec.volumetric:
+        non_roi.method = "volume"
+        non_roi.tissues = roi.tissues
+    else:
+        non_roi.method = "surface"
+        non_roi.surface_type = "central"
+    _apply_spheres(non_roi, centers, radii, center_space, complement=True)
+    non_roi.weight = -1
 
-        if config.non_roi_method == "everything_else":
-            _apply_spheres(non_roi, centers, radii, center_space, complement=True)
-            non_roi.weight = -1
-        else:
-            # Specific non-ROI from config.non_roi (unified ROISpec type)
-            non_roi_spec: FlexConfig.SphericalROI = config.non_roi  # type: ignore[assignment]
-            nr_centers, nr_radii, nr_space = _spheres_from_spec(non_roi_spec)
-            _apply_spheres(non_roi, nr_centers, nr_radii, nr_space, complement=False)
-            non_roi.weight = -1
+
+def _add_specific_non_roi(opt, config: FlexConfig, roi) -> None:
+    """Add ``config.non_roi`` built from its own region type, whatever the ROI's type.
+
+    SimNIBS evaluates each ROI on its own points (focality's ROC counts the
+    fraction of each region above threshold), so a cortical non-ROI against a
+    spherical ROI is valid.  A volume non-ROI shares the ROI's tissues when the
+    ROI is a volume too, and uses its own otherwise.
+    """
+    spec = config.non_roi
+    non_roi = opt.add_roi()
+    if isinstance(spec, FlexConfig.SphericalROI):
+        non_roi.method = "volume" if spec.volumetric else "surface"
+        centers, radii, space = _spheres_from_spec(spec)
+        _apply_spheres(non_roi, centers, radii, space, complement=False)
+    elif isinstance(spec, FlexConfig.AtlasROI):
+        non_roi.method = "surface"
+        non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = _atlas_mask_lists(
+            spec
+        )
+        _apply_union_operator(non_roi)
+    elif isinstance(spec, FlexConfig.SubcorticalROI):
+        non_roi.method = "volume"
+        non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
+            _subcortical_mask_lists(spec, config)
+        )
+        _apply_union_operator(non_roi)
+    else:
+        raise ValueError(f"Unknown non-ROI type: {type(spec)}")
+
+    if non_roi.method == "surface":
+        non_roi.surface_type = "central"
+    elif roi.method == "volume":
+        non_roi.tissues = roi.tissues
+    else:
+        non_roi.tissues = _resolve_tissues(spec.tissues)
+    non_roi.weight = -1
 
 
 def _atlas_mask_lists(roi_spec: FlexConfig.AtlasROI):
@@ -424,25 +458,20 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
     roi.mask_space, roi.mask_path, roi.mask_value = _atlas_mask_lists(roi_spec)
     _apply_union_operator(roi)
 
-    if config.is_focality:
-        non_roi = opt.add_roi()
-        non_roi.method = "surface"
-        non_roi.surface_type = "central"
-
-        if config.non_roi_method == "everything_else":
-            non_roi.mask_space = roi.mask_space
-            non_roi.mask_path = roi.mask_path
-            non_roi.mask_value = roi.mask_value
-            # Length must match the ROI's mask lists or SimNIBS rejects it.
-            non_roi.mask_operator = ["difference"] * len(roi.mask_value)
-            non_roi.weight = -1
-        else:
-            non_roi_spec: FlexConfig.AtlasROI = config.non_roi  # type: ignore[assignment]
-            non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
-                _atlas_mask_lists(non_roi_spec)
-            )
-            _apply_union_operator(non_roi)
-            non_roi.weight = -1
+    if not config.is_focality:
+        return
+    if config.non_roi_method != "everything_else":
+        _add_specific_non_roi(opt, config, roi)
+        return
+    non_roi = opt.add_roi()
+    non_roi.method = "surface"
+    non_roi.surface_type = "central"
+    non_roi.mask_space = roi.mask_space
+    non_roi.mask_path = roi.mask_path
+    non_roi.mask_value = roi.mask_value
+    # Length must match the ROI's mask lists or SimNIBS rejects it.
+    non_roi.mask_operator = ["difference"] * len(roi.mask_value)
+    non_roi.weight = -1
 
 
 def _resolve_roi_tissues(config: FlexConfig) -> list:
@@ -590,23 +619,17 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
     _apply_union_operator(roi)
     roi.tissues = tissues
 
-    if config.is_focality:
-        non_roi = opt.add_roi()
-        non_roi.method = "volume"
-
-        if config.non_roi_method == "everything_else":
-            non_roi.mask_space = roi.mask_space
-            non_roi.mask_path = roi.mask_path
-            non_roi.mask_value = roi.mask_value
-            # Length must match the ROI's mask lists or SimNIBS rejects it.
-            non_roi.mask_operator = ["difference"] * len(roi.mask_value)
-            non_roi.weight = -1
-            non_roi.tissues = tissues
-        else:
-            non_roi_spec: FlexConfig.SubcorticalROI = config.non_roi  # type: ignore[assignment]
-            non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
-                _subcortical_mask_lists(non_roi_spec, config)
-            )
-            _apply_union_operator(non_roi)
-            non_roi.weight = -1
-            non_roi.tissues = tissues
+    if not config.is_focality:
+        return
+    if config.non_roi_method != "everything_else":
+        _add_specific_non_roi(opt, config, roi)
+        return
+    non_roi = opt.add_roi()
+    non_roi.method = "volume"
+    non_roi.mask_space = roi.mask_space
+    non_roi.mask_path = roi.mask_path
+    non_roi.mask_value = roi.mask_value
+    # Length must match the ROI's mask lists or SimNIBS rejects it.
+    non_roi.mask_operator = ["difference"] * len(roi.mask_value)
+    non_roi.weight = -1
+    non_roi.tissues = tissues

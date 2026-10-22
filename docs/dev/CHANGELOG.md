@@ -30,6 +30,10 @@ written again. Other projects, nets and results open unchanged.
 
 - **Fixed: the simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one. Simulation outputs are unchanged; rebuild a missing report by re-running the simulation.
 
+#### Flex-search
+
+- **Fixed: focality searches with a non-ROI of a different type from the ROI run again** — a **Specific region** non-ROI can now be a different kind of region from the ROI (for example a sphere ROI against a cortical atlas region, the form's default non-ROI); each is built as what it is, and a volumetric sphere non-ROI is now really volumetric. Before, these searches failed when they started. Searches where both regions are the same type, and **Everything else** non-ROIs, behave as before. **Optimizer ▸ Flex ▸ Objective ▸ Non-ROI**.
+
 ### v3.1.0 — October 9, 2026
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.0/">Release notes →</a>
