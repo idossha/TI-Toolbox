@@ -46,6 +46,14 @@ def _confined(pm, path: str) -> str:
         raise HTTPException(403, "EEG cap folder resolves outside the project") from exc
 
 
+def _source_caps(pm) -> dict:
+    """:func:`tit.caps.source_caps`; no SimNIBS on this server is a 503, not a 500."""
+    try:
+        return caps_core.source_caps(pm)
+    except caps_core.CapError as exc:
+        raise HTTPException(503, f"EEG caps need SimNIBS: {exc}") from exc
+
+
 @router.get(
     "/api/caps/available",
     summary="MNI caps that can be warped, and the nets on a subject",
@@ -53,7 +61,11 @@ def _confined(pm, path: str) -> str:
 def available(subject: Annotated[SubjectId, Query()]) -> dict:
     pm = get_path_manager()
     _scene_subject(pm, subject)
-    return {"subject": subject, "caps": caps_core.available_caps(pm, subject)}
+    try:
+        rows = caps_core.available_caps(pm, subject)
+    except caps_core.CapError as exc:
+        raise HTTPException(503, f"EEG caps need SimNIBS: {exc}") from exc
+    return {"subject": subject, "caps": rows}
 
 
 @router.post(
@@ -65,7 +77,7 @@ def warp(body: WarpRequest) -> dict:
     pm = get_path_manager()
     subject = body.subject
     _scene_subject(pm, subject)
-    sources = caps_core.source_caps(pm)
+    sources = _source_caps(pm)
     unknown = [name for name in body.caps if name not in sources]
     if unknown:
         raise HTTPException(404, f"No MNI cap named {', '.join(unknown)}")
@@ -113,7 +125,7 @@ async def upload(
     if not name.endswith(".csv"):
         raise HTTPException(422, "The cap file name must end in .csv")
     pm = get_path_manager()
-    if caps_core.source_caps(pm).get(name, ("project",))[0] != "project":
+    if _source_caps(pm).get(name, ("project",))[0] != "project":
         raise HTTPException(
             409, f"{name} is a cap the image already ships; rename the file"
         )
@@ -156,7 +168,7 @@ def _net_points(pm, subject: str, net: str) -> tuple[list[str], np.ndarray]:
     return [r["name"] for r in rows], world
 
 
-def _skin_nodes(pm, subject: str) -> np.ndarray:
+def _skin_nodes(pm, subject: str) -> np.ndarray | None:
     """The skin's nodes, from the scene service's cached skin surface.
 
     The 3-D pane beside the table needs that same surface, so the head mesh
@@ -165,17 +177,22 @@ def _skin_nodes(pm, subject: str) -> np.ndarray:
     a 0.4 MB cache entry keyed on the mesh's size and mtime. Only a skin the
     scene had to simplify falls back to reading the mesh, since its dropped
     nodes would lengthen the scalp distances.
+
+    ``None`` when the surface is not ready within ``MAX_WAIT_S`` (a cold build
+    takes ~12 s): one bounded wait, because a mesh replaced mid-request
+    publishes under a fingerprint this request's ``ready()`` never checks, and
+    re-asking would wait for ever. The next inspect finds the built surface.
     """
-    found = None
-    while found is None:  # _ensure returns None only while the build still runs
-        found = scene_routes._ensure(
-            pm,
-            subject,
-            "surfaces",
-            scene_routes._surface_work(pm, subject),
-            scene_routes._surface_ready(pm, subject, "skin"),
-            scene_routes.MAX_WAIT_S,
-        )
+    found = scene_routes._ensure(
+        pm,
+        subject,
+        "surfaces",
+        scene_routes._surface_work(pm, subject),
+        scene_routes._surface_ready(pm, subject, "skin"),
+        scene_routes.MAX_WAIT_S,
+    )
+    if found is None:
+        return None
     if found.meta.get("simplified"):
         return caps_core.skin_nodes(str(build.head_mesh_path(pm, subject)))
     return tvsc.decode(found.path.read_bytes()).positions.astype(np.float64)
