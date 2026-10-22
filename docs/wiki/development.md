@@ -16,11 +16,10 @@ needs Node.js 22.12+. Keep the source revision and Docker image paired.
 
 ### Select a source revision
 
-Choose the branch or tag paired with your image. The commands work with a release branch,
-a release tag, or `main` after the corresponding change is merged:
+Choose the release tag paired with your image, or `main` once the change you need is merged:
 
 ```bash
-TIT_SOURCE_REF=release/3.0.0
+TIT_SOURCE_REF=v3.1.1
 git clone --branch "$TIT_SOURCE_REF" git@github.com:idossha/TI-toolbox.git TI-Toolbox
 cd TI-Toolbox
 git rev-parse HEAD
@@ -34,7 +33,7 @@ its root `loader.py` uses the selected source without installing a different pac
 Set the image reference supplied with your selected source revision. For the current pairing:
 
 ```bash
-TIT_IMAGE=idossha/ti-toolbox:v3.0.0
+TIT_IMAGE=idossha/ti-toolbox:v3.1.1
 docker pull "$TIT_IMAGE"
 docker image inspect "$TIT_IMAGE" --format {% raw %}'{{json .RepoTags}}'{% endraw %}
 ```
@@ -99,7 +98,9 @@ python3 loader.py --dev /absolute/path/to/TI-Toolbox --project /absolute/path/to
 
 **The launcher files do not have to live inside the checkout.** Keep `loader.sh`/`loader.py` and
 `docker-compose.yml` together in any convenient folder and name the checkout explicitly, either
-with `--dev DIR` or with `TIT_DEV_REPO_DIR` (`TIT_DEV=1` means "this launcher's own checkout").
+with `--dev DIR` or with `TIT_DEV_REPO_DIR`. `TIT_DEV=1` (a bare `--dev`) means the launcher's own
+checkout for `loader.py`; for `loader.sh`, `TIT_DEV=1` means the current directory and a bare
+`--dev` the script's own directory.
 There is no second, developer-only script: `--dev` is the whole difference.
 
 `--dev` selects **source code**; `--project` selects **project data**. They are separate mounts.
@@ -126,11 +127,9 @@ The build recipe produces a local Docker image from the selected checkout:
 container/blueprint/build.sh --tag idossha/ti-toolbox:dev
 ```
 
-Run this command from the repository root. The recipe requires a compatible Tetravox embed;
-when building with a supplied asset, pass `--tetravox-tgz` and `--tetravox-sha256` as described
-in `container/blueprint/build.sh --help`. Its default resolver uses compatible GitHub release
-assets. The [release guide](https://github.com/idossha/TI-toolbox/blob/release/3.0.0/docs/dev/RELEASING.md)
-explains the embed and image-build requirements.
+Run this command from the repository root; `container/blueprint/build.sh --help` lists its
+options. The [release guide](https://github.com/idossha/TI-toolbox/blob/v3.1.1/docs/dev/RELEASING.md)
+explains the image-build requirements.
 
 Image builds are substantial and take longer under amd64 emulation on Apple Silicon. The
 recipe installs SimNIBS 4.6, builds the UI in its own Node stage, and vendors FastSurfer with
@@ -200,9 +199,9 @@ and project data. Do not give mutually untrusted accounts access to the same Doc
 ## Apptainer and clusters
 
 `container/blueprint/apptainer.def` and `apptainer_run.sh` target an earlier combined
-SimNIBS/FreeSurfer environment. They do not reproduce the current Docker image's FastSurfer,
-HTTP server and embedded viewer stack. Migration and workload validation are required before
-offering this route for v3; Electron's Docker controls cannot launch a SIF image. Use a
+SimNIBS/FreeSurfer environment. They do not reproduce the current Docker image's FastSurfer and
+HTTP job server; viewing is the separate TetraVox app on the host. Migration and workload
+validation are required before offering this route for v3; Electron's Docker controls cannot launch a SIF image. Use a
 consistent source revision and confirm the cluster's container policy before adapting it.
 
 ## Choose checks that prove the change
@@ -219,9 +218,13 @@ From the repository root, after installing the contributor Python environment:
 
 ```bash
 .venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
+python3 dev/documentation_policy.py
 python3 dev/route_import_guard.py
 python3 dev/contracts_check.py
 ```
+
+`dev/documentation_policy.py` fails if a `docs/requirements` store appears (current behaviour
+belongs in `docs/dev/`); `tests/test_documentation_policy.py` is its self-test.
 
 From `desktop/`:
 

@@ -9,7 +9,7 @@ analysis, a group statistic, a Blender export. A page never runs work in its own
 and its process is owned by the server. The Jobs page centralizes status and cancellation; run pages also show their submitted jobs in a live Terminal pane.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/jobs-page.png" alt="The Jobs page: 201 jobs of a real project, filterable by state, kind and subject, with elapsed time, CPU and memory per job" style="width: 100%; max-width: 1000px;">
-<em>The Jobs page (⌘9). One row per job: state, kind, subjects, stage, elapsed time, CPU and memory.</em>
+<em>The Jobs page (⌘8). One row per job: state, kind, subjects, stage, elapsed time, CPU and memory.</em>
 
 ## Where jobs appear
 
@@ -19,7 +19,7 @@ and its process is owned by the server. The Jobs page centralizes status and can
   full-height version is the **System** page, pinned at the bottom of the rail above Settings. The Jobs tab is the table beside the
   selected job's detail pane, split by a divider you can **drag**, **double-click to reset**, and
   which is remembered between sessions.
-- **The Jobs page** (⌘9) — the full table with filters and a detail pane.
+- **The Jobs page** (⌘8) — the full table with filters and a detail pane.
 - **A run page's right pane** — the **Terminal** tab shows the console of the job that page just
   submitted, beside the **Scene** tab.
 
@@ -28,12 +28,13 @@ and its process is owned by the server. The Jobs page centralizes status and can
 
 ## How many CPUs jobs may use
 
-All running jobs share one pool of CPUs: the **CPU limit** in **Settings → Project → Execution**,
+All running jobs share one pool of CPUs: the **CPU limit** in **Settings ▸ Project ▸ Execution**,
 a percent of the cores available to the container (default **70 %**, shown as e.g. "70 % · 7 of 10
 cores"). It leaves headroom for your computer; raise it for faster searches. A job that would
-exceed what is left waits ("waiting for budget") until others finish. A change applies to jobs
-started afterwards — running jobs keep what they were given. Scripts and notebooks honour the same
-setting.
+exceed what is left waits ("waiting for budget") until others finish. A job that needs more memory
+than the container has does not wait forever: it runs alone, once nothing else is running. A change
+applies to jobs started afterwards — running jobs keep what they were given. Scripts and notebooks
+honour the same setting.
 
 ## The table
 
@@ -45,7 +46,7 @@ be watched and cancelled as one thing.
 | Column                  | Notes                                                                                                                                |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **State**               | `queued · running · succeeded · failed · cancelled · skipped · lost`                                                                 |
-| **Kind**                | `pre · sim · flex · flex_adaptive · flex_pareto · ex · mex · analyzer · source · stats · nilearn · nifti_average · blender` |
+| **Kind**                | `pre · sim · flex · flex_adaptive · flex_pareto · ex · mex · leadfield · analyzer · source · stats · nilearn · nifti_average · blender` |
 | **Subjects**            | Every subject the job covers                                                                                                         |
 | **Stage**               | The runner's own current stage and its percentage, e.g. `DICOM conversion · 40 %`                                                    |
 | **Elapsed / CPU / RSS** | Live from the server, not estimated                                                                                                  |
@@ -56,25 +57,31 @@ Select a row — in the panel or on the page — and the pane on the right opens
 
 - **Summary** — kind, subjects, group, created, elapsed, CPU, RSS and exit code, plus (on the
   full page) the last 40 lines of the console.
-- **Raw log** — the whole log: streamed over `/ws/jobs`, backfilled over REST, falling back to the
-  log file on disk for a job whose events the server no longer holds. Level colouring, a filter,
-  follow-tail and **Clear** are in the console's own toolbar.
-- **Artifacts** — what the job wrote, with Open (into the Viewer) and Reveal. A generated **report**
-  is one of these; browse reports in **Results**.
+- **Raw log** — the whole log, live while the job runs, and still readable from the job's log
+  file after it finishes. Level colouring, a filter, follow-tail and **Clear** are in the console's
+  own toolbar.
+- **Artifacts** — the files the job wrote. Click a file name to preview it inline; meshes, volumes,
+  surfaces and `.tetravox.json` scenes also get **Open in Tetravox**, which opens them in the
+  external [TetraVox]({{ site.baseurl }}/wiki/visualizers/) app. One **Open folder** under the list
+  opens the job's output folder. A generated **report** is one of these; browse reports in
+  **Results**.
 - **Actions** — Stop, Rerun, Force and Delete, in the pane's header row.
 
 When a job fails, the pane names _which kind_ of failure it was rather than only printing a
-traceback: `preflight`, `lock_wait`, `budget_wait`, `runner_failed`, `oom_suspected`, `cancelled`,
-`skipped`, `lost`, `docker_unavailable` — plus the last 20 lines of the log.
+traceback — for example **Preflight check failed**, **Runner failed**, **Likely out of memory**,
+**Lost (server restarted mid-run)** or **Docker is unavailable** — plus the last 20 lines of the log.
+
+Finished job records (each job's settings, `events.jsonl` and `stdout.log` under
+`code/ti-toolbox/jobs/`) older than 30 days, or beyond the newest 200, are deleted when the server
+starts. Science outputs are never touched.
 
 **Clear** on any console is a per-view watermark. It hides what you have already read in _that_
 view; it never deletes a server event and never truncates a log file on disk.
 
 ## Batches, groups and parallelism
 
-A run page submits its whole table as **one request** (`POST /api/jobs/groups`) carrying one
-template config plus per-subject overrides, and gets one `group_id` back. Two consequences worth
-knowing:
+A run page submits its whole table as **one request**, which becomes one group of jobs. Two
+consequences worth knowing:
 
 - A table that mixes two job kinds becomes **one group per kind**, and the page says so — _"Queued
   3 searches in 2 groups (ex, flex)"_ — rather than implying an atomic batch.
@@ -92,9 +99,9 @@ jobs, and jobs that had already finished before the app opened, do not notify. C
 notification brings TI-Toolbox to the front.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/settings-project.png" alt="Settings, Project tab: project paths, theme, the CPU limit, existing-outputs policy, job notifications and telemetry" style="width: 100%; max-width: 1000px;">
-<em>Settings → Project holds the CPU limit (Execution) and the notification choices.</em>
+<em>Settings ▸ Project holds the CPU limit (Execution) and the notification choices.</em>
 
-**Settings → Project → Notifications** turns them on or off (default on) and chooses:
+**Settings ▸ Project ▸ Notifications** turns them on or off (default on) and chooses:
 
 - **Notify on** — all finished jobs (default) or failures only;
 - **Detail** — _Detailed_ (default) adds the subject and the montage or target, _Minimal_ shows
@@ -108,27 +115,18 @@ notification brings TI-Toolbox to the front.
 right under the button whether it was shown or why not.
 
 On macOS the first notification asks for permission; if none appear, allow TI-Toolbox in
-**System Settings → Notifications**. A browser session has no notifications.
+**System Settings ▸ Notifications**. A browser session has no notifications.
 
-Developers running a checkout (`bash loader.sh --dev --desktop` or `npm run dev`) use the
-Electron.app from `desktop/node_modules`, which npm installs without a valid code signature. macOS
-silently refuses notifications from it and never lists it in System Settings. `npm install`
-re-signs it ad hoc now; for an existing checkout, quit the app and run
-`npm --prefix desktop run sign:dev-electron` once, then allow **Electron** in
-**System Settings → Notifications** when asked.
+Developers running a checkout: see [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/#development)
+for notifications from an unsigned development Electron.
 
 ## Server restart
 
-A server restart deliberately interrupts work; it does not resume or automatically resubmit
-jobs. Startup reconciliation marks queued jobs **failed**, with an interrupted-before-start
-reason. For a running job, it stops any verified surviving runner process tree and associated
-job containers, then marks the job **failed** as interrupted. If the runner has already exited
-and its saved events record a real exit, the job instead retains that actual **succeeded** or
-**failed** outcome. These transitions are persisted before the server accepts new requests.
-
-Review the job's outcome and outputs, then explicitly submit a new run if needed. Reopening a
-browser or reconnecting a client to a server that stayed running is different from restarting
-the server; client disconnection alone does not trigger this reconciliation.
+A server restart interrupts work and never resumes or resubmits it: queued and running jobs are
+marked **failed** (a runner that had already exited keeps its real outcome) and surviving runner
+processes and job containers are stopped, for up to 30 s before the server accepts requests.
+Review the outputs and submit a new run if needed; reconnecting a client to a server that stayed
+up changes nothing.
 
 ## Replacing existing outputs
 

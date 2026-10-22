@@ -15,7 +15,7 @@ Your job in TI-Toolbox is simple: pick what to look at. TetraVox does the rest.
 ## Setup
 
 Nothing to do: the desktop app installs its own TetraVox on first launch (one download, needs
-internet). **Settings → Viewer** shows the version, offers **Retry setup** if that download failed,
+internet). **Settings ▸ Viewer** shows the version, offers **Retry setup** if that download failed,
 and **Update to X** when a newer release exists. TI-Toolbox only ever launches this copy, not one
 you installed yourself.
 
@@ -43,11 +43,13 @@ A few things to know:
 A scene is a small file that lists which datasets to show, in what order. It points at your data
 instead of copying it, so keep the data next to it if you move or archive it.
 
-- **Save selection…** keeps your subject, space and ticked files. Reload it later and it
-  re-finds the same files in the current project, and tells you if any are gone.
-- **Save scene** keeps a ready-to-open scene in **Saved scenes** on the right. Click one to reopen it.
-- Camera, colours, opacity and screenshots live in TetraVox. To keep those, use
-  **Save Scene** inside TetraVox and put the file in your project.
+- **Save scene** snapshots the live TetraVox scene, including camera and appearance changes, into
+  `code/ti-toolbox/viewer/scenes/` in your project. It is listed under **Saved scenes** on the
+  right; click one to reopen it.
+- Opening a scene while TetraVox is already running asks before replacing its current view, so
+  save any changes in TetraVox first.
+- A browser session cannot start TetraVox; it offers a **Download prepared scene for TetraVox**
+  link instead.
 
 Scene files live under `code/ti-toolbox/viewer/` in your project.
 
@@ -55,7 +57,7 @@ Scene files live under `code/ti-toolbox/viewer/` in your project.
 
 Two ways, same result — TI-Toolbox always does the install:
 
-- **Settings → Viewer** shows the newest release beside yours; click **Update to X** (close
+- **Settings ▸ Viewer** shows the newest release beside yours; click **Update to X** (close
   TetraVox first), or **Check for updates** to ask again.
 - Inside TetraVox, a **Software Update** window appears when a newer release exists (or use its
   **Check for Updates…** menu item). **Update to X** closes TetraVox; TI-Toolbox downloads and
@@ -68,4 +70,4 @@ Two ways, same result — TI-Toolbox always does the install:
   TI-Toolbox keeps working.
 - **A layer is missing**: the file is not on disk. Check that the simulation or analysis finished
   and produced that output.
-- **TetraVox does not open**: check **Settings → Viewer** shows an installed version.
+- **TetraVox does not open**: check **Settings ▸ Viewer** shows an installed version.

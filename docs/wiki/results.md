@@ -11,8 +11,11 @@ here.
 <em>Subject list, outputs tree with type badges, and the preview pane for the selected L_Insula simulation.</em>
 
 Selecting an output opens its details on the right, including when that pane was collapsed.
-The job artifact action **Open in Tetravox** opens the selected supported file directly in
-the embedded viewer.
+**Open in viewer**, at the foot of the preview pane, opens the selection in the
+[TetraVox]({{ site.baseurl }}/wiki/visualizers/) app.
+
+The **Group** entry, pinned at the bottom of the subject list, holds the project-level outputs:
+group statistics, Nilearn visuals and group analyses.
 
 ## On disk
 
@@ -28,16 +31,22 @@ derivatives/SimNIBS/sub-<ID>/
 │   └── Analyses/{Mesh,Voxel}/     # per-analysis outputs
 ├── flex-search/<run>/             # flex_meta.json, optimised positions, mappings,
 │                                  #   candidate_history/ (evaluated candidates)
-└── ex-search/<roi>/               # final_output.csv and per-montage outputs
+├── ex-search/<run>/               # final_output.csv and per-montage outputs
+└── m-ex-search/<run>/             # the same for the multipolar (mTI) search
+
+derivatives/ti-toolbox/
+├── reports/                       # generated reports
+└── stats/<type>/<name>/           # group statistics (the Group entry)
 ```
 
-A flex run's `candidate_history/<NN>/` (one folder per optimization run) holds `candidates.csv` (scalar metrics per valid
-trial), `candidate_geometry.jsonl` (full-precision poses) and `candidate_manifest.json` (the
-objective and stopping reason); invalid placements are only counted. Flex metrics use unweighted
-samples from the declared ROI and non-ROI, whereas ex-search's recorded whole-gray-matter mean
-includes the target, so the two are not the same region definition. Ex replay uses the CSV's
-recorded precision and the Simulator's editable electrode defaults, since ex CSVs carry no
-electrode dimensions. Final simulated fields can differ from the optimizer's estimates.
+An ex or mex `<run>` folder is named after the run name you gave, or a timestamp when you gave none.
+
+A flex, ex or mex run's **Evaluated candidates** section lists the candidates the optimizer
+scored; **Use in Simulator** turns one into an editable Simulator draft (see
+[Flex search: Results]({{ site.baseurl }}/wiki/flex-search/#results)). Flex metrics use the
+declared ROI and non-ROI, whereas ex-search's recorded whole-gray-matter mean includes the target,
+so the two are not the same region definition. Final simulated fields can differ from the
+optimizer's estimates.
 
 See [Reports]({{ site.baseurl }}/wiki/reports/) for what a report contains and
 [Analyzer]({{ site.baseurl }}/wiki/analyzer/) for the analysis outputs themselves.

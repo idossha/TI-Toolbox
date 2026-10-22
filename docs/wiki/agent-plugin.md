@@ -16,6 +16,8 @@ agent-plugin/
   .mcp.json                          # registers both servers via ${CLAUDE_PLUGIN_ROOT}
   mcp/server.py                      # read-only knowledge server, stdlib only, Python 3.9+
   mcp/jobs_server.py                 # job driver (ti-toolbox-jobs), stdlib only, Python 3.9+
+  mcp/stdio_loop.py                  # JSON-RPC stdio loop shared by both servers
+  mcp/test_stdio.py                  # offline MCP wire smoke tests (unittest)
   skills/
     ti-toolbox/SKILL.md              # orientation (auto-loaded)
     ti-scripting/SKILL.md            # Python API cheat-sheet (auto-loaded)
@@ -56,18 +58,23 @@ Every payload is capped at 60 kB. Tool failures are returned as `isError: true` 
 
 `agent-plugin/mcp/jobs_server.py` (`ti-toolbox-jobs`) runs on the same `stdio_loop.py` and drives the **running** `tit.server`; it never runs science itself. It finds the server through `TIT_SERVER_URL` + `TIT_SERVER_TOKEN` when both are set, otherwise by `docker ps --filter label=tit.stack=ti-toolbox-v3` and `docker inspect` (token and port from the container's environment, the host project from its `tit.host_project_dir` label — the same rule as `tit launch`). The token is never returned to the agent.
 
-Jobs go through `POST /api/jobs/groups` (per-subject kinds, as the run pages submit them) or `POST /api/jobs` (with `after`), carrying `created_by: "agent"` and only the fields the agent chose: the server fills the rest from the run pages' own defaults (`tit/server/app_defaults.py`, served as `x-app-defaults` in `GET /api/schema`, which `get_config_schema` shows), on validate, plan and preflight too. `find_regions` is `GET /api/catalog/regions` passed through. A flex run's `output_folder` is resolved to an absolute folder before submission, as the Optimizer does, so its run name is known up front. It writes no files on the host: raw scans are copied into `sourcedata/` by the agent's own file tools, under its CLI's permission prompts. Tool annotations mark which tools are read-only and which may replace results.
+**Tools.** `connect`, `find_regions`, `get_config_schema`, `plan_job`, `propose_pipeline`, `watch_proposal`, `get_proposal`, `submit_job`, `wait_for_job`, `cancel_job` and `simulate_flex_result`.
+
+**Default flow: propose, approve, run.** `connect` reports `approval_required`, which is true unless the user turned on **Settings ▸ Project ▸ AI assistant ▸ Agent may submit without approval**. While it is true, the agent sends the whole pipeline to `POST /api/proposals` with `propose_pipeline`; the user approves, edits or rejects the plan card in the app, and the server queues the approved steps itself. `watch_proposal` (long-poll, returns on the next change) and `get_proposal` read `/api/proposals/<id>`. `submit_job` and `simulate_flex_result` are refused (HTTP 403) until direct submission is allowed.
+
+Direct submissions go through `POST /api/jobs/groups` (per-subject kinds, as the run pages submit them) or `POST /api/jobs` (with `after`), carrying `created_by: "agent"` and only the fields the agent chose: the server fills the rest from the run pages' own defaults (`tit/server/app_defaults.py`, served as `x-app-defaults` in `GET /api/schema`, which `get_config_schema` shows), on validate, plan and preflight too. `find_regions` is `GET /api/catalog/regions` passed through. A flex run's `output_folder` is resolved to an absolute folder before submission, as the Optimizer does, so its run name is known up front. It writes no files on the host: raw scans are copied into `sourcedata/` by the agent's own file tools, under its CLI's permission prompts. Tool annotations mark which tools are read-only and which may replace results.
 
 ## Skills
 
 Skills are Markdown with YAML front matter. `user-invocable: false` marks background knowledge the model loads by itself when the description matches; `argument-hint` is for slash-command skills. Inside a plugin they are namespaced as `/ti-toolbox:<skill>`.
 
-`ti-domain` and `ti-codebase` are copies of `.claude/skills/ti-domain` and `.claude/skills/codebase-guide` (plugins must be self-contained). When you edit one, copy it to the other.
+`agent-plugin/skills/` is the single source for these skills; `.claude/` is git-ignored, so a local `.claude/skills/` copy is only a convenience for your own Claude Code and never the version that ships.
 
 ## Testing
 
 ```bash
 python3 agent-plugin/mcp/server.py --selftest            # smoke test, local or remote mode
+python3 -m unittest discover -s agent-plugin/mcp -p 'test_*.py' -v   # MCP wire framing (test_stdio.py)
 pytest tests/test_agent_plugin_mcp.py -q                  # tools, path guards, fake BIDS project, stdio round-trip
 pytest tests/test_agent_plugin_jobs.py -q                 # job server: fake server + one run against the real app
 claude plugin validate agent-plugin                       # manifest check
@@ -80,3 +87,5 @@ To test remote mode, copy `server.py` and `stdio_loop.py` outside the repo and r
 ## Releasing
 
 Bump `version` in `agent-plugin/.claude-plugin/plugin.json` when tools or skills change in a user-visible way. Users on the marketplace pick up changes with `/plugin update ti-toolbox@ti-toolbox`; the wiki/source themselves are read live, so documentation updates need no plugin release.
+
+The desktop app ships its own copy of the plugin (`electron-builder.yml` copies `agent-plugin/` into the app's resources, without `mcp/test_*.py`), and its **Assistant** pane attaches that copy, so app users get the plugin of their installed release. It sets `TI_TOOLBOX_REF` to `v<app version>`, so the knowledge server reads the docs and source of that release rather than `main`. `.mcp.json` starts both servers with `${TIT_PYTHON:-python3}`; for Claude Code the Assistant pane sets `TIT_PYTHON` to the Python it found (unless already set), and for Codex it passes that Python as the command.

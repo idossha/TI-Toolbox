@@ -4,6 +4,19 @@ title: Logging Processes in the Toolbox
 permalink: /wiki/logging/
 ---
 
+## Where are the logs
+
+- **Per-run logs** — pre-processing and the optimizers write their own log files to
+  `derivatives/ti-toolbox/logs/sub-<id>/` in your project.
+- **Job consoles** — each job's full console is `code/ti-toolbox/jobs/<id>/stdout.log`; open it
+  from the job's **Raw log** tab with **Reveal log file**. Finished job records older than 30 days,
+  or beyond the newest 200, are deleted when the server starts (see [Jobs]({{ site.baseurl }}/wiki/jobs/)).
+- **The desktop app's own log** — `main.log`: on macOS `~/Library/Logs/TI-Toolbox/main.log`, on
+  Windows `%APPDATA%\ti-toolbox-desktop\logs\main.log`, on Linux
+  `${XDG_CONFIG_HOME:-~/.config}/ti-toolbox-desktop/logs/main.log`.
+
+## The logging API
+
 The TI-Toolbox logging system (`tit/logger.py`) is intentionally minimal. On import, `tit/__init__.py` auto-configures the `tit` logger hierarchy with a stdout handler at INFO level — no explicit setup is needed. File logging is opt-in via `add_file_handler()`.
 
 ## Architecture
@@ -82,7 +95,7 @@ The desktop app streams job logs over the HTTP API (`tit.server`) rather than th
 
 ### `__main__.py` Subprocess Entry Points
 
-Modules invoked as subprocesses (`simnibs_python -m tit.analyzer config.json`) write logs and progress from inside the container. The job runner captures stdout and stderr to the job log; structured events and logging records are streamed to the UI through the server. The removed v2 `BaseProcessThread` and Qt console are no longer involved.
+Modules invoked as subprocesses (`simnibs_python -m tit.analyzer config.json`) write logs and progress from inside the container. The job runner captures stdout and stderr to the job log; structured events and logging records are streamed to the UI through the server.
 
 ### Library Usage
 
@@ -99,18 +112,6 @@ fh = add_file_handler("my_analysis.log")
 import logging
 logging.getLogger("tit").removeHandler(fh)
 ```
-
-## What Was Removed
-
-Previous versions (~v2.2.3 and earlier) had ~750 lines of custom logging infrastructure including:
-
-- `get_logger()` factory function (deleted)
-- `configure_external_loggers()` for SimNIBS integration
-- File output by default (files are now opt-in via `add_file_handler`)
-- `TI_LOG_FILE`, `PROJECT_DIR`, `SUBJECT_ID` environment variables
-- Debug toggles in the GUI
-
-The old GUI logging infrastructure is removed. Current server jobs use `TIT_EVENTS_FILE` for their structured event sink; ordinary scripts use the helper functions above.
 
 ## Best Practices
 

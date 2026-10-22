@@ -2,6 +2,7 @@
 layout: default
 title: Search Results
 permalink: /search/
+search: false
 ---
 
 <div class="search-page">

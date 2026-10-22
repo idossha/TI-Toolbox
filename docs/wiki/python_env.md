@@ -8,14 +8,10 @@ TI-Toolbox runs inside a container that wraps around SimNIBS. `simnibs_python` i
 bundled interpreter, and it is where the `tit` package is installed — every simulation,
 optimization and analysis runs under it.
 
-### Where you actually type Python
-
-|                             | How to get there                               | What it is                                                                                                                                                           |
-| --------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Notebooks, in the app**   | The **Notebooks** page                         | JupyterLab-style notebooks running against a kernel _inside the container_, so `import tit` works with no setup. This is the normal way to script the toolbox in v3. |
-| **Terminal, on a run page** | Select a submitted job                         | A read-only live job log, not an interactive shell. Use Notebooks or `docker exec` to run your own code.                                                             |
-| **`docker exec`**           | `docker exec -it ti-toolbox-<hash>-tit-1 bash` | The same shell from your own terminal. `tit launch --status` prints the container's name.                                                                            |
-| **Your host**               | `pip install tit`                              | **Only the launcher.** `tit launch` starts the container; the science needs SimNIBS, which is in the image, not on your host.                                        |
+Where you type Python — the **Notebooks** page, or `docker exec` into the container from your own
+terminal — is covered under [Where scripts run]({{ site.baseurl }}/wiki/scripting/#where-scripts-run) on the Scripting page.
+A run page's **Terminal** tab is a read-only job log, not a shell. Nothing is installed on your
+host: the science needs SimNIBS, which is in the image.
 
 If you want to add a package for a new feature, follow the steps below.
 
@@ -41,48 +37,7 @@ If you want to add a package for a new feature, follow the steps below.
 
 - **Script executions**: Inside the container, run scripts with `simnibs_python script.py`, not `python`.
 
-- **Changes do not survive a rebuild**: `simnibs_python -m pip install <package>` installs into the running container only. To keep it, add it to the Dockerfile and rebuild (`container/blueprint/build.sh`), or install it at the top of the notebook that needs it.
+- **Installs do not survive the container**: `simnibs_python -m pip install <package>` installs into the running container only, and closing the app stops and removes that container — so the package is gone the next time you open the project, not only after an image rebuild. To keep it, add it to the Dockerfile and rebuild (`container/blueprint/build.sh`), or install it at the top of the notebook that needs it.
 
-**One-liner imports for common operations:**
-
-```python
-# Core (logging auto-initializes on import — no setup needed)
-from tit import get_path_manager, paths, constants
-
-# Simulation
-from tit.sim import SimulationConfig, Montage, run_simulation, load_montages
-
-# Optimization
-from tit.opt import FlexConfig, run_flex_search
-from tit.opt import ExConfig, run_ex_search
-
-# Analysis
-from tit.analyzer import Analyzer, run_group_analysis
-
-# Statistics
-from tit.stats import run_group_comparison, GroupComparisonConfig
-from tit.stats import run_correlation, CorrelationConfig
-
-# Preprocessing
-from tit.pre import run_pipeline
-```
-
-Scientific modules import their scientific dependencies when used. The Docker image supplies SimNIBS and nibabel; importing the top-level `tit` package on the host does not load every scientific module.
-
-### JSON Config Modules
-
-Each major module can be invoked as a subprocess accepting a JSON config file:
-
-```bash
-simnibs_python -m tit.sim        config.json
-simnibs_python -m tit.analyzer   config.json
-simnibs_python -m tit.opt.flex   config.json
-simnibs_python -m tit.opt.ex     config.json
-simnibs_python -m tit.opt.mex    config.json
-simnibs_python -m tit.stats      config.json
-simnibs_python -m tit.pre        config.json
-simnibs_python -m tit.source     config.json
-simnibs_python -m tit.blender    config.json
-```
-
-Config files are generated programmatically via `tit.config_io.write_config_json()`. See the [Scripting page]({{ site.baseurl }}/wiki/scripting/) for details.
+The `tit` imports and the `simnibs_python -m tit.<module> config.json` runners are listed on the
+[Scripting page]({{ site.baseurl }}/wiki/scripting/), which owns them.

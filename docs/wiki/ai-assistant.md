@@ -15,7 +15,7 @@ TI-Toolbox ships a small, free plugin that teaches AI coding assistants — **Cl
 | "How do I run a flex-search with an atlas ROI?" | Searches and reads the wiki, quotes the right section, gives a working `FlexConfig` |
 | "Write a script that simulates 3 montages for subjects 101–105" | Reads the real `SimulationConfig` fields from the source so the script matches your installed version |
 | "Why is my simulation not showing up in the Analyzer?" | Inspects `derivatives/SimNIBS/sub-101/Simulations/` and reports which outputs exist and what step failed |
-| "What changed in v2.4.0?" | Reads the changelog |
+| "What changed in v3.1.1?" | Reads the changelog |
 | "Which subjects still need a head model?" | Lists every subject with/without `m2m_<id>` |
 
 Under the hood it installs three things:
@@ -113,7 +113,7 @@ No setup at all: open **Assistant** in the desktop app's rail (just above System
 3. Ask for what you want, or click an example such as **Bilateral thalamus pipeline**: it types the request into the assistant's input so you can edit it before pressing Enter.
 4. The assistant proposes the work as a plan; approve it on the **Jobs** page (see [Approving a plan](#approving-a-plan)). Nothing runs before you do.
 
-The app starts the assistant with the TI-Toolbox plugin of the same version attached for that session only (Claude Code: `--plugin-dir`; Codex: `-c mcp_servers.…` overrides plus a pointer to the `ti-run-pipelines` guide). Nothing is written to your `~/.claude` or `~/.codex`, and a plugin you installed yourself is not registered twice. It also tells the job tools exactly which TI-Toolbox to use, so the page works without Docker on the assistant's `PATH`, with a native (non-Docker) session too.
+The app starts the assistant with the TI-Toolbox plugin of the same version attached for that session only (Claude Code: `--plugin-dir`; Codex: `-c mcp_servers.…` overrides plus a pointer to the `ti-run-pipelines` guide), reading the documentation and source of that version (`TI_TOOLBOX_REF=v<app version>`) rather than GitHub `main`. Nothing is written to your `~/.claude` or `~/.codex`, and a plugin you installed yourself is not registered twice. It also tells the job tools exactly which TI-Toolbox to use, so the page works without Docker on the assistant's `PATH`, with a native (non-Docker) session too.
 
 - **Effort and Model.** Two small menus at the right of the example-prompt row set how hard your assistant thinks and, for Claude Code, which model it uses. **Low** effort is the default (with **Sonnet** for Claude Code): it is fast and light on your plan's limits, and you can raise it if plans need more careful reasoning. **My CLI default** passes nothing, so your assistant keeps its own setting. The choice is remembered per assistant and applies the next time you Start or Restart (the page says so while a session is running); `/effort` and `/model` inside the session still work.
 - **Not installed?** The page says so and shows the install command (Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`; Codex: `npm install -g @openai/codex`). Install it in a terminal, then click **check again**. TI-Toolbox finds it on the same `PATH` your terminal uses.
@@ -148,8 +148,8 @@ To let the assistant queue jobs directly, without a plan card, turn on **Setting
 
 - **Give it your project path.** `inspect_project` needs the absolute path of your BIDS project (the folder you point the desktop app at). On the host that is e.g. `/Users/you/Studies/my_project`; inside the container it is `/mnt/my_project`.
 - **Ask it to check, not assume.** Prompts like *"read the wiki page before answering"* or *"verify the config fields in the source"* make it use the tools.
-- **Scripts still run in the container.** The assistant writes code; you run it with `simnibs_python` inside the SimNIBS container (see [Scripting]({{ site.baseurl }}/wiki/scripting/)). The assistant knows this and will remind you.
-- **Versions.** With a local checkout the plugin reads that checkout. Without one it reads `main` by default. Ask it to call `get_toolbox_version` and state your installed version; use a matching checkout, or set `TI_TOOLBOX_REF=v2.5.0` for remote legacy documentation.
+- **Scripts still run in the container.** The assistant writes code; you run it with `simnibs_python` inside the SimNIBS container, or paste it into the app's **Notebooks** page, whose kernel already runs there (see [Scripting]({{ site.baseurl }}/wiki/scripting/)). The assistant knows this and will remind you.
+- **Versions.** With a local checkout the plugin reads that checkout. Without one it reads `main` by default; set `TI_TOOLBOX_REF` to your installed release (for example `TI_TOOLBOX_REF=v3.1.1`) so it reads matching docs and source. The app's own **Assistant** page does this for you: it pins `TI_TOOLBOX_REF` to the installed app version.
 
 ## Privacy and safety
 
@@ -166,7 +166,7 @@ To let the assistant queue jobs directly, without a plan card, turn on **Setting
 | Tools return "HTTP 403/429" | GitHub rate limit for unauthenticated requests; wait a few minutes or clone the repo and set `TI_TOOLBOX_ROOT`. |
 | `find_symbol` / `search_source` say they need a local checkout | Those two tools grep the source tree; clone the repo and set `TI_TOOLBOX_ROOT=/path/to/TI-Toolbox`. |
 | Stale answers | Delete the cache: `rm -rf ~/.cache/ti-toolbox-mcp`. |
-| "No running TI-Toolbox found" | Open the desktop app on your project (or run `tit launch`), then ask again. |
+| "No running TI-Toolbox found" | Open the desktop app on your project (or start it with `python3 loader.py`), then ask again. |
 | "docker was not found on PATH" | Add Docker's folder (`which docker`) to the job server's environment in your assistant's MCP settings, or use the desktop app's **Assistant** page, which needs no Docker on the `PATH`. |
 | The assistant says its job was refused (HTTP 403) | Approval is on: it should propose a plan instead; look for the card on the **Jobs** page. |
 | A plan card shows "Cannot run as proposed" | A step has an error or a missing input (often: pre-process first). Reject it with a note, or edit the step. |

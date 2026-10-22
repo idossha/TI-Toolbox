@@ -4,7 +4,7 @@ title: Notebooks
 permalink: /wiki/notebooks/
 ---
 
-**Notebooks** (⌘8) is a Jupyter environment inside the app, running on the container's own
+**Notebooks** (⌘7) is a Jupyter environment inside the app, running on the container's own
 Python interpreter (SimNIBS + TI-Toolbox), so nothing needs installing.
 
 Notebooks are ordinary `.ipynb` files in your project, under

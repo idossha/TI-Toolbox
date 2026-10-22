@@ -73,8 +73,8 @@ npm test                    # vitest
 npm run build               # out/main, out/preload, out/renderer (relative asset URLs)
 npm run mock-server         # http://127.0.0.1:8790, token "mock-token"
 npm run e2e                 # Playwright: runs `build` first (pree2e), then drives out/; starts the mock server itself
-npm run dev                 # the whole system: container + Vite + Electron (see "Dev loop")
-npm run dev:web             # the same without Electron: http://127.0.0.1:5173/
+npm run dev                 # the whole system: builds and opens Electron, which starts the container (see "Dev loop")
+npm run dev:web             # container + Vite HMR, no Electron: http://127.0.0.1:5173/
 npm run dev:down            # stop and remove this project's dev container
 ```
 
@@ -87,44 +87,46 @@ If `node_modules/electron/dist` is missing after `npm install` (postinstall skip
 below. Run it from this `desktop/` directory; no separate frontend or renderer command is needed.
 The run-page 3-D panes are this app's own WebGL2 renderer (`src/renderer/scene/`) and need nothing
 installed. Full 3-D *viewing* is the separate **Tetravox** desktop app on your host: the Viewer page
-writes a `*.tetravox.json` scene and hands it to that app (Settings ▸ Viewer shows where it was
-found, or links to the download).
+writes a `*.tetravox.json` scene and hands it to that app, which TI-Toolbox installs and updates
+itself (Settings ▸ Viewer shows the installed copy).
 
-One command brings up the whole system — the container for your project, Vite with HMR, and
-Electron already connected to that container. There is no token to read, paste or export.
+One command brings up the whole system. `npm run dev` builds the app (`electron-vite build`) and
+opens Electron on the project home; choose a project in Overview and the app starts that project's
+container — through the *same* `StackManager` the packaged app uses (`src/main/stack.ts`, driven by
+the Engine API from the root `docker-compose.yml`), with this checkout mounted and server reload on.
+There is no token to read, paste or export. The renderer is the built bundle, not Vite: rerun
+`npm run dev` after renderer changes, or use `npm run dev:web` for hot reload.
 
 ```bash
-cp .env.dev.example .env.dev     # then set TIT_DEV_PROJECT_DIR to your BIDS project
-npm run dev                      # container + Vite + Electron
-npm run dev:web                  # the same without Electron; open http://127.0.0.1:5173/
+npm run dev                      # build, open Electron; choose a project in the app
+npm run dev:web                  # container + Vite, no Electron; open http://127.0.0.1:5173/
 npm run dev:down                 # stop and remove this project's container
 ```
 
-`.env.dev` is git-ignored and holds four settings, documented in `.env.dev.example`:
-`TIT_DEV_PROJECT_DIR` (required), `TIT_DEV_IMAGE_TAG` (default `dev`), `TIT_DEV_PORT` (default
-`8765`) and `TIT_DEV_MOUNT_REPO` (default `1`). Any of them can be overridden for one run from the
-shell — the shell wins over the file — e.g. `TIT_DEV_PORT=8766 npm run dev`.
+`.env.dev` (copy `.env.dev.example`) is optional and git-ignored. It holds four settings:
+`TIT_DEV_PROJECT_DIR` (prefills the desktop project field; `dev:web` needs it unless you pass
+`--project`), `TIT_DEV_IMAGE_TAG` (default: the root `docker-compose.yml` image), `TIT_DEV_PORT`
+(default `8765`) and `TIT_DEV_MOUNT_REPO` (default `1`; `dev:web` only — desktop development always
+mounts the checkout). Any of them can be overridden for one run from the shell — the shell wins over
+the file — e.g. `TIT_DEV_PORT=8766 npm run dev:web`.
 
-**What `npm run dev` does** (`scripts/dev.ts`):
+**Stopping.** Closing the Electron window, or `Ctrl-C` in the terminal running `npm run dev`
+(which quits the app the same way), stops and removes the container; the app asks first when jobs
+are running. With `npm run dev:web`, `Ctrl-C` stops Vite only and leaves the container running for
+the next attach; `npm run dev:down` is what stops it.
 
-1. **Container: attach, recreate or start.** Through the *same* `StackManager` the packaged app
-   uses (`src/main/stack.ts`, driven by the Engine API from the root `docker-compose.yml`), so the
-   container you develop against is the container the product creates — labels, mounts, health wait
-   and all. It attaches to a running one when its recorded state already matches; recreates it, with
-   a printed one-line reason, when it does not ("it mounts (none) at /ti-toolbox, this run wants
-   …"); starts one when there is none.
+**What `npm run dev:web` does** (`scripts/dev.ts`):
+
+1. **Container: attach or start.** When a TI-Toolbox container is already running you choose
+   **Attach** (its project, image and mounts are kept as they are) or **Recreate**; otherwise it
+   starts one for the project, through the same `StackManager`.
 2. **Recovers the token from the container** (`TIT_SERVER_TOKEN` in its own environment) or
    generates one into a container it starts. The token is never written to disk and never printed.
-3. **Starts Vite** with `TIT_DEV_SERVER_URL` / `TIT_DEV_SERVER_TOKEN` in the environment, and
-   **Electron**, which sees those two variables in an unpackaged run and connects immediately —
-   the launcher form is never shown.
+3. **Starts Vite** with `TIT_DEV_SERVER_URL` / `TIT_DEV_SERVER_TOKEN` in its environment; the proxy
+   below authenticates every request.
 
-`Ctrl-C` stops Vite and Electron and leaves the container running, so the next `npm run dev`
-attaches in well under a second. `npm run dev:down` is what stops the container.
-
-A recreate stops the container and mints a **new** bearer token, so `npm run dev` refuses to
-recreate one that has jobs in flight and names them: wait, `npm run dev:down` deliberately, or
-`npm run dev -- --force`. Attaching never touches a running job.
+A recreate stops the container, interrupting its jobs, and mints a **new** bearer token. Attaching
+never touches a running job.
 
 **Live Python.** With `TIT_DEV_MOUNT_REPO=1` (the default) the worktree is bind-mounted at
 `/ti-toolbox` with `PYTHONPATH=/ti-toolbox`, so every job runner (`simnibs_python -m tit.<module>`)

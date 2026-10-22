@@ -8,40 +8,23 @@ The TI-Toolbox Desktop Application manages the scientific workflow in
 `idossha/ti-toolbox:<version>` and renders the toolbox UI on your host. Optional FreeSurfer and
 diffusion workflows start their own workers when needed. There is no X11 setup.
 
-Full viewing opens **[TetraVox](https://github.com/idossha/tetravox)** in a separate native window.
-TI-Toolbox installs its own copy of TetraVox and launches only that copy. A TetraVox you installed
-yourself, one on your `PATH`, or one you might point at is never used, so the viewer that opens a
-scene is always the one TI-Toolbox verified.
+Full viewing opens **[TetraVox](https://github.com/idossha/tetravox)** in a separate native window;
+the user-facing setup, scenes and updates are on the [Viewer]({{ site.baseurl }}/wiki/visualizers/)
+page. What matters for development:
 
-**Setup is automatic.** On the first desktop launch TI-Toolbox downloads the newest official
-TetraVox package for your platform (macOS arm64/x64, Linux x64, Windows x64), checks it against the
-SHA-256 digest GitHub publishes for that file, unpacks it and keeps it under TI-Toolbox's per-user
-application-data folder in `runtimes/tetravox-<platform>-<architecture>`. Nothing is installed if
-the checksum does not match. **Settings → Viewer** shows the installed version and location, offers
-**Retry setup** if the download failed, and **Launch TetraVox** once it is there.
-
-The same card shows the newest TetraVox release next to the installed one; **Update to X** replaces
-that copy with it the same verified way. Close TI-Toolbox's TetraVox first; the update is refused
-while it is open (a TetraVox you installed yourself does not count). TetraVox can also tell you
-itself: when a newer release exists, its own **Software Update** window appears. Choosing **Update
-to X** there closes TetraVox, and TI-Toolbox downloads and verifies the release and reopens TetraVox
-with the last scene it opened. **Skip This Version** remembers your answer for that version. Either
-way TI-Toolbox does the install, so its copy is never changed behind its back. TetraVox releases
-before this handshake keep their own updater switched off; use the Settings card for them.
-
-Opening a scene while TetraVox is running asks before replacing its current view. Cancel leaves
-the window untouched. TI-Toolbox cannot inspect unsaved viewer state, so it asks even if the open
-window might be empty; save any edits in TetraVox first. **Launch TetraVox** without a scene only
-opens or focuses the app.
-
-TetraVox is a regular native application launched with the user's host permissions. TI-Toolbox
-does not wrap it in an additional operating-system sandbox; on Linux it runs with Chromium's
-setuid sandbox disabled, since a user-level install cannot provide one. Its renderer still uses
-Chromium's WebGL2 backend; native opening does not introduce a different rendering engine.
-
-**Browser-only sessions** cannot install or start a host application. They can prepare/download a
-scene for manual opening in TetraVox. Its dataset paths must exist on the machine running TetraVox;
-a scene made by a remote server does not transfer those datasets.
+- **Only TI-Toolbox's own copy runs.** On first launch the app downloads the latest TetraVox release
+  for the platform (macOS arm64/x64, Linux x64, Windows x64), checks it against the SHA-256 digest
+  GitHub publishes for that asset, and unpacks it under the app-data folder in
+  `runtimes/tetravox-<platform>-<architecture>`. A TetraVox on the `PATH` or installed by the user
+  is never launched. TetraVox's own **Software Update** window hands the install back to
+  TI-Toolbox, so its copy is never changed behind its back.
+- **Replacing a view asks first.** Opening a scene while TetraVox is running asks before
+  replacing its current view; TI-Toolbox cannot see unsaved viewer state.
+- **No extra sandbox.** TetraVox runs with the user's permissions. On Linux it is launched with
+  `--no-sandbox`, which turns off Chromium's whole sandbox (a user-level install cannot provide
+  the setuid helper), not only the setuid part.
+- **Browser-only sessions** cannot install or start a host application; they offer the prepared
+  scene for download instead. Its dataset paths must exist on the machine running TetraVox.
 
 ## Launch Workflow
 
@@ -81,7 +64,7 @@ Replacement affects only the selected container. See the
 [launcher reference]({{ site.baseurl }}/installation/bash-cli/) for flags and prerequisites.
 
 In a browser there is no Electron bridge (`window.tit`), so reveal-in-file-manager, native
-notifications, the Settings → Docker card and the project picker are absent — each with a
+notifications, the **Settings ▸ Server ▸ Docker** card and the project picker are absent — each with a
 message or a fallback rather than a failure. See
 [the command-line launcher]({{ site.baseurl }}/installation/bash-cli/#what-is-different-in-a-browser).
 
@@ -90,15 +73,17 @@ message or a fallback rather than a failure. See
 Every long-running operation — pre-processing, a simulation, flex/ex/mex-search, the
 analyzer, group statistics — is a **job**: the UI POSTs a JSON config to `tit.server`, which
 runs it as a tracked background process inside the container (a job ID
-distinguishes concurrent runs; separately launched job containers carry a `tit.job_id` label) and streams status/logs back to the UI over the same HTTP
-connection the rest of the app already uses. This is unchanged in shape from v2's
+distinguishes concurrent runs; separately launched job containers carry a `tit.job_id` label) and streams status and logs back to the UI over the `/ws/jobs`
+WebSocket on the same server. This is unchanged in shape from v2's
 subprocess-per-tab pattern (`simnibs_python -m tit.<pipeline> config.json`) — what changed is
 *where* it runs: inside the one always-running container, driven over HTTP, rather than a
 process the desktop app spawned and monitored itself.
 
 ## Building the Application
 
-The desktop app is built with `electron-vite`/`electron-builder`.
+The desktop app is built with `electron-vite`/`electron-builder`. `npm run build` only runs
+`electron-vite build` (into `desktop/out/`); the installers come from `npm run package`, which
+builds and then runs `electron-builder` with `electron-builder.yml`:
 
 **macOS:** `.dmg` installer
 **Windows:** `.exe` installer (NSIS)
@@ -107,8 +92,14 @@ The desktop app is built with `electron-vite`/`electron-builder`.
 ```bash
 cd desktop
 npm install
-npm run build
+npm run package
 ```
+
+The packaged app checks GitHub once per start for a newer TI-Toolbox release and shows it under
+**Settings ▸ Updates** (`TIT_UPDATE_CHECK=0` turns the check off). How the system is built and
+verified: [ARCHITECTURE](https://github.com/idossha/TI-toolbox/blob/main/docs/dev/ARCHITECTURE.md),
+[TESTING](https://github.com/idossha/TI-toolbox/blob/main/docs/dev/TESTING.md) and
+[RELEASING](https://github.com/idossha/TI-toolbox/blob/main/docs/dev/RELEASING.md).
 
 ## Development
 
@@ -117,6 +108,12 @@ cd desktop
 npm install
 npm run dev
 ```
+
+A checkout (`npm run dev`, or `bash loader.sh --dev --desktop`) runs the Electron.app from
+`desktop/node_modules`, which npm installs without a valid code signature, and macOS silently
+refuses its notifications. `npm install` re-signs it ad hoc; for an older checkout, quit the app,
+run `npm --prefix desktop run sign:dev-electron` once, then allow **Electron** in
+**System Settings ▸ Notifications** when asked.
 
 ## Dependencies
 
@@ -129,25 +126,29 @@ npm run dev
 ## Security
 
 - **Docker Access:** the main process holds a direct, unmediated handle to the host's Docker
-  socket. Initial `stack.start` is restricted to the local welcome page. The connected main
-  window may stop its own session; switching to another host directory requires native
-  confirmation of the exact destination before the new mount is created.
+  socket, and the container mounts the host's `/var/run/docker.sock` (for the QSIPrep/QSIRecon
+  sibling containers), so whoever holds the server token effectively has root on the host through
+  Docker. The server port is bound to `127.0.0.1` only. Initial `stack.start` is restricted to
+  the local welcome page. The connected main window may stop its own session; switching to another
+  host directory requires native confirmation of the exact destination before the new mount is
+  created.
 - **No X11 permissions:** there is nothing to grant or revert on launch/exit — removed
   entirely along with X11 itself.
 - **Native viewing:** the desktop launches its managed TetraVox executable with the prepared
   scene path. TetraVox runs with the host user's permissions and no additional TI-Toolbox sandbox.
   It uses its own profile and TetraVox home under TI-Toolbox's app data, so it shares no settings,
   rc file or extensions with a TetraVox you installed yourself.
-- **Verified downloads:** the pinned viewer package is checked against its expected SHA256 before
-  installation. Scene opening is limited to `.tetravox.json` files within the active project.
+- **Verified downloads:** nothing is pinned — the app installs the latest compatible TetraVox
+  release and checks it against the SHA-256 digest GitHub publishes for that asset. That catches a
+  corrupted download, not a compromised release. Scene opening is limited to `.tetravox.json`
+  files within the active project.
 
 ## Performance
 
 - **Startup Time:** depends on image availability and host performance. Loading an image
   for the first time takes longer than starting a cached one.
-- **Memory Usage:** small for the app itself; the container needs whatever RAM the workload
-  needs (16GB+ Docker allocation recommended, 32GB+ for large leadfields/FastSurfer — see
-  [Dependencies]({{ site.baseurl }}/installation/dependencies/))
+- **Memory Usage:** small for the app itself; the container needs whatever the workload needs —
+  see [Dependencies]({{ site.baseurl }}/installation/dependencies/) for host RAM and Docker memory.
 - **Disk Space:** allow space for the image, working data and project outputs; see the
   [installation guide]({{ site.baseurl }}/installation/) for the selected image.
 
