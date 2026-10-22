@@ -126,6 +126,11 @@ The extension generates two high-resolution PDFs:
   <em>Multi-slice view for an example subject with the default cutoffs and atlas. Only the field above the 95th percentile is shown, so the display range is data-driven (here 0.07–0.12 V/m), and the outlines are the Harvard-Oxford subcortical regions</em>
 </div>
 
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/nilearn-visuals/nilearn_visuals_glass_brain.png" alt="Glass-brain view of a simulated field in four projections: left, coronal, right and axial" style="max-width: 100%; height: auto;">
+  <em>Glass-brain view, the page of the glass-brain PDF, for the same example simulation (L_Insula) as the multi-slice view: its grey-matter TI_max field in MNI space with the default cutoffs. Each view projects the field through the whole brain; only values above the 95th percentile (0.0718 V/m) are drawn, and the colour bar tops out at the 99.9th percentile (0.12 V/m). The grey part of the colour bar is the hidden range below the minimum cutoff. The glass brain has no atlas outlines; its lines are Nilearn's brain schematic</em>
+</div>
+
 ### File Format Requirements
 
 - **MNI NIfTI outputs are required**: every simulation needs them. In the Simulator, tick **Simulator ▸ Job settings ▸ Standard-space outputs ▸ Generate MNI NIfTI outputs** before running the simulation. It is off by default, and without it the job is refused with that instruction. See the [Simulator]({{ site.baseurl }}/wiki/simulator/)
