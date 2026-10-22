@@ -11,11 +11,12 @@
  * `tar-fs`, `protobufjs` — the last one exists only for BuildKit support this client never uses)
  * without losing anything this program needs.
  *
- * Covers exactly the endpoints r5 §3(a) scoped in: `/version`, `/info`, `/_ping`,
- * `POST /images/create` (NDJSON pull progress), the container lifecycle
- * (create/start/wait/stop/kill/remove/inspect), `GET .../logs` (8-byte-multiplexed demux, via
- * `frames.ts`), and `GET /events` (NDJSON, async iterator). No `exec`/attach-hijack — v3 dropped
- * the in-container GUI exec entirely (r5 §1.2), so nothing in this program needs it.
+ * Covers exactly what the stack lifecycle (`../stack.ts`, `scripts/devStack.ts`) and the GPU probe
+ * call on it: `/version`, `POST /images/create` (NDJSON pull progress), container
+ * start/stop/remove, and `GET .../logs` (8-byte-multiplexed demux, via `frames.ts`). Creating,
+ * inspecting and listing containers, images, networks and volumes go through `./stackApi.ts` on the
+ * same connection. No `exec`/attach-hijack — v3 dropped the in-container GUI exec entirely
+ * (r5 §1.2), so nothing in this program needs it.
  *
  * API version negotiation: `version()` hits the always-unversioned `GET /version`, reads
  * `ApiVersion` from the response, and every subsequent call is prefixed `/v<ApiVersion>/...`
@@ -34,7 +35,7 @@ export type { DockerConnection } from "./discover";
 export type { LogFrame, LogStreamName } from "./frames";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
-/** `0` means "no timeout" — used for long-lived streaming/blocking calls (logs follow, events, wait). */
+/** `0` means "no timeout" — used for long-lived streaming/blocking calls (pull, logs follow, stop). */
 const NO_TIMEOUT = 0;
 
 export type DockerErrorKind =
@@ -190,16 +191,6 @@ export interface DockerVersionInfo {
   [key: string]: unknown;
 }
 
-export interface DockerSystemInfo {
-  ServerVersion: string;
-  OperatingSystem: string;
-  OSType: string;
-  Architecture: string;
-  NCPU: number;
-  MemTotal: number;
-  [key: string]: unknown;
-}
-
 export interface PullProgressEvent {
   id?: string;
   status: string;
@@ -207,41 +198,6 @@ export interface PullProgressEvent {
   progress?: string;
   error?: string;
   errorDetail?: { message?: string };
-}
-
-export interface ContainerCreateSpec {
-  Image: string;
-  Cmd?: string[];
-  Env?: string[];
-  Labels?: Record<string, string>;
-  Tty?: boolean;
-  WorkingDir?: string;
-  Platform?: string;
-  HostConfig?: {
-    Binds?: string[];
-    AutoRemove?: boolean;
-    Memory?: number;
-    NanoCpus?: number;
-    NetworkMode?: string;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-}
-
-export interface ContainerInspect {
-  Id: string;
-  Name: string;
-  State: { Status: string; Running: boolean; ExitCode: number; StartedAt?: string; FinishedAt?: string };
-  Config: { Image: string; Labels?: Record<string, string> };
-  [key: string]: unknown;
-}
-
-export interface DockerEvent {
-  Type: string;
-  Action: string;
-  Actor?: { ID: string; Attributes?: Record<string, string> };
-  time?: number;
-  [key: string]: unknown;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -272,23 +228,6 @@ export class DockerEngineClient {
     return info;
   }
 
-  /** `GET /info` — daemon/system info (CPU count, mem, OS type — useful for the DooD resource-inheritance story). */
-  async info(): Promise<DockerSystemInfo> {
-    await this.ensureNegotiated();
-    return jsonRequest<DockerSystemInfo>(this.conn, { method: "GET", path: this.vpath("/info"), timeoutMs: this.timeoutMs });
-  }
-
-  /** `GET /_ping` — true if the daemon answers at all (lighter than `version()`/`info()`). */
-  async ping(): Promise<boolean> {
-    try {
-      const res = await rawRequest(this.conn, { method: "GET", path: "/_ping", timeoutMs: this.timeoutMs });
-      await readAll(res.stream);
-      return res.statusCode === 200;
-    } catch {
-      return false;
-    }
-  }
-
   /**
    * `POST /images/create?fromImage=...&tag=...&platform=...` — streams NDJSON pull-progress objects to
    * `onProgress` as they arrive; resolves once the stream ends. Throws `DockerEngineError` on a
@@ -315,31 +254,9 @@ export class DockerEngineClient {
     }
   }
 
-  async createContainer(spec: ContainerCreateSpec, name?: string): Promise<{ Id: string }> {
-    await this.ensureNegotiated();
-    return jsonRequest<{ Id: string }>(this.conn, {
-      method: "POST",
-      path: this.vpath("/containers/create"),
-      query: name ? { name } : undefined,
-      body: JSON.stringify(spec),
-      timeoutMs: this.timeoutMs,
-    });
-  }
-
   async startContainer(id: string): Promise<void> {
     await this.ensureNegotiated();
     await jsonRequest<void>(this.conn, { method: "POST", path: this.vpath(`/containers/${encodeURIComponent(id)}/start`), timeoutMs: this.timeoutMs });
-  }
-
-  /** `POST /containers/{id}/wait` — blocks until exit; no timeout by default (a job can run for hours). */
-  async waitContainer(id: string, condition: "not-running" | "next-exit" | "removed" = "not-running"): Promise<{ StatusCode: number }> {
-    await this.ensureNegotiated();
-    return jsonRequest<{ StatusCode: number }>(this.conn, {
-      method: "POST",
-      path: this.vpath(`/containers/${encodeURIComponent(id)}/wait`),
-      query: { condition },
-      timeoutMs: NO_TIMEOUT,
-    });
   }
 
   async stopContainer(id: string, graceSeconds?: number): Promise<void> {
@@ -352,11 +269,6 @@ export class DockerEngineClient {
     });
   }
 
-  async killContainer(id: string, signal = "SIGKILL"): Promise<void> {
-    await this.ensureNegotiated();
-    await jsonRequest<void>(this.conn, { method: "POST", path: this.vpath(`/containers/${encodeURIComponent(id)}/kill`), query: { signal }, timeoutMs: this.timeoutMs });
-  }
-
   async removeContainer(id: string, opts: { force?: boolean; volumes?: boolean } = {}): Promise<void> {
     await this.ensureNegotiated();
     await jsonRequest<void>(this.conn, {
@@ -365,11 +277,6 @@ export class DockerEngineClient {
       query: { force: opts.force, v: opts.volumes },
       timeoutMs: this.timeoutMs,
     });
-  }
-
-  async inspectContainer(id: string): Promise<ContainerInspect> {
-    await this.ensureNegotiated();
-    return jsonRequest<ContainerInspect>(this.conn, { method: "GET", path: this.vpath(`/containers/${encodeURIComponent(id)}/json`), timeoutMs: this.timeoutMs });
   }
 
   /**
@@ -397,69 +304,4 @@ export class DockerEngineClient {
       for (const frame of decoder.push(chunk as Buffer)) yield frame;
     }
   }
-
-  /** `GET /events?filters=...` — NDJSON, long-lived. `filters` values are Docker's `{key: [values]}` shape. */
-  async *events(filters?: Record<string, string[]>): AsyncGenerator<DockerEvent, void, void> {
-    await this.ensureNegotiated();
-    const res = await rawRequest(this.conn, {
-      method: "GET",
-      path: this.vpath("/events"),
-      query: filters ? { filters: JSON.stringify(filters) } : undefined,
-      timeoutMs: NO_TIMEOUT,
-    });
-    if (res.statusCode >= 400) throw apiErrorFromBody(res.statusCode, (await readAll(res.stream)).toString("utf8"));
-
-    const decoder = new NdjsonDecoder<DockerEvent>();
-    for await (const chunk of res.stream) {
-      for (const event of decoder.push(chunk as Buffer)) yield event;
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------------------------
-// Job-container convenience wrapper (r5-docker-integration.md §4's `runJobContainer` sketch).
-// ---------------------------------------------------------------------------------------------
-
-export interface RunJobContainerOpts {
-  image: string;
-  name?: string;
-  cmd: string[];
-  env?: Record<string, string>;
-  mounts?: { hostPath: string; containerPath: string; readOnly?: boolean }[];
-  labels?: Record<string, string>;
-  /**
-   * Sets `Labels["tit.job_id"]`, matching the exact label `tit/jobs/runner.py`'s
-   * `stop_docker_siblings(job_id)` filters on (`docker ps -q --filter label=tit.job_id=<id>`) —
-   * today that filter always finds zero matches because no builder ever sets this label
-   * (r5-docker-integration.md §1.4, confirmed independently by skeptic-3 claim #3). A caller
-   * using this client for a job container should always pass this.
-   */
-  jobId?: string;
-  platform?: string;
-  cpus?: number;
-  memoryBytes?: number;
-  autoRemove?: boolean;
-}
-
-/** `createContainer` + `startContainer`, returning a handle immediately — no foreground CLI pid. */
-export async function runJobContainer(client: DockerEngineClient, opts: RunJobContainerOpts): Promise<{ id: string }> {
-  const labels = { ...(opts.labels ?? {}) };
-  if (opts.jobId) labels["tit.job_id"] = opts.jobId;
-  const spec: ContainerCreateSpec = {
-    Image: opts.image,
-    Cmd: opts.cmd,
-    Env: Object.entries(opts.env ?? {}).map(([k, v]) => `${k}=${v}`),
-    Labels: labels,
-    Tty: false,
-    Platform: opts.platform,
-    HostConfig: {
-      Binds: (opts.mounts ?? []).map((m) => `${m.hostPath}:${m.containerPath}${m.readOnly ? ":ro" : ""}`),
-      AutoRemove: opts.autoRemove ?? false,
-      ...(opts.cpus !== undefined ? { NanoCpus: Math.round(opts.cpus * 1e9) } : {}),
-      ...(opts.memoryBytes !== undefined ? { Memory: opts.memoryBytes } : {}),
-    },
-  };
-  const created = await client.createContainer(spec, opts.name);
-  await client.startContainer(created.Id);
-  return { id: created.Id };
 }

@@ -2,9 +2,9 @@
  * Pure, stateful decoders for the two streaming wire formats the Docker Engine API uses:
  * newline-delimited JSON (image-pull progress, `/events`) and the 8-byte multiplexed
  * stdout/stderr framing used by `GET /containers/{id}/logs` and `/attach` whenever the
- * container was created with `Tty: false` — every container this client creates (`engine.ts`'s
- * `runJobContainer`) always sets `Tty: false`, so a TTY-mode raw byte stream (no framing at all)
- * is out of scope here; nothing in this program ever creates a container with `Tty: true`.
+ * container was created with `Tty: false` — Docker's default, which no container this program
+ * creates overrides (`shared/composeFile.ts` refuses a compose `tty:` key, and the GPU probe's body
+ * names none), so a TTY-mode raw byte stream (no framing at all) is out of scope here.
  *
  * Both decoders are pure buffering state machines with no I/O of their own, specifically so
  * `tests/unit/docker-engine-frames.test.ts` can feed them arbitrary chunk splits (a frame's
