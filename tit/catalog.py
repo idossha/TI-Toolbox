@@ -1827,15 +1827,21 @@ LEGACY_FLEX_MAPPING = "electrode_mapping.json"
 
 
 def read_flex_mapping(path: str) -> dict | None:
-    """One ``electrode_mapping_<net>.json`` as ``{eeg_net, pairs}``, or ``None`` when unusable
-    (unreadable, or fewer than four labels)."""
+    """One ``electrode_mapping_<net>.json`` as ``{eeg_net, pairs[, max_snap_mm]}``, or
+    ``None`` when unusable (unreadable, fewer than four labels, or a label used twice --
+    two optimised electrodes on one site is not a montage).
+
+    ``max_snap_mm`` is the largest distance (mm, Euclidean) an optimised electrode moved
+    to its net site, from the file's ``distances``; it is left out when those are missing,
+    not one finite number per label, so an unknown snap is never shown as a small one.
+    """
     data = _read_json(path)
     if data is None:
         return None
     labels = [
         label for label in data.get("mapped_labels") or [] if isinstance(label, str)
     ]
-    if len(labels) < 4:
+    if len(labels) < 4 or len(set(labels)) != len(labels):
         return None
     net = data.get("eeg_net")
     if not isinstance(net, str) or not net:
@@ -1843,10 +1849,21 @@ def read_flex_mapping(path: str) -> dict | None:
         if stem == os.path.basename(path):  # no net in the name or the file: unusable
             return None
         net = stem.removesuffix(".json") + ".csv"
-    return {
+    mapping = {
         "eeg_net": net,
         "pairs": pair_by_channel(labels, data.get("channel_array_indices")),
     }
+    distances = data.get("distances")
+    if (
+        isinstance(distances, list)
+        and len(distances) == len(labels)
+        and all(
+            isinstance(d, (int, float)) and not isinstance(d, bool) and math.isfinite(d)
+            for d in distances
+        )
+    ):
+        mapping["max_snap_mm"] = float(max(distances))
+    return mapping
 
 
 def _flex_mappings(run_dir: str, *, project_root: str | None = None) -> list[dict]:

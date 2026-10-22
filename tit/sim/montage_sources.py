@@ -271,6 +271,7 @@ def resolve_flex_montage(
             raise ValueError(f"EEG net file not found: {eeg_net_path}")
 
         from tit.tools.map_electrodes import (
+            check_net_for_mapping,
             load_electrode_positions_json,
             map_electrodes_to_net,
             read_csv_positions,
@@ -279,6 +280,8 @@ def resolve_flex_montage(
 
         opt_pos, ch_arr_idx = load_electrode_positions_json(positions_file)
         net_pos, net_labels = read_csv_positions(eeg_net_path)
+        # Before anything is written: a refused net leaves no mapping file behind.
+        check_net_for_mapping(net_pos, net_labels, len(opt_pos), eeg_net)
         result = map_electrodes_to_net(opt_pos, net_pos, net_labels, ch_arr_idx)
         save_mapping_result(result, mapping_file, eeg_net_name=eeg_net)
         # Read back through the catalog's reader: the pairs come from one rule either way.

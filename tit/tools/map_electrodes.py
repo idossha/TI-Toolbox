@@ -14,6 +14,7 @@ tit.tools.montage_visualizer : Render montage placement as PNG.
 import csv
 import json
 import logging
+from collections import Counter
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -87,6 +88,55 @@ def load_electrode_positions_json(json_path):
     channel_array_indices = data["channel_array_indices"]
 
     return positions, channel_array_indices
+
+
+def check_net_for_mapping(net_positions, net_labels, n_electrodes, net_name):
+    """Refuse a net the optimised electrodes cannot be mapped onto, naming the defect.
+
+    The assignment puts each optimised electrode on its own net site, so the net
+    needs at least *n_electrodes* stimulation electrodes (``Electrode`` rows: a
+    Fiducials file or a header-less ``Label,X,Y,Z`` list has none), finite
+    coordinates (a NaN distance makes the assignment meaningless) and distinct
+    labels (a repeated label would put two electrodes on one named site).
+
+    Parameters
+    ----------
+    net_positions : np.ndarray
+        Net electrode positions (Mx3), as :func:`read_csv_positions` returns them.
+    net_labels : list of str
+        Net electrode labels, in the same order.
+    n_electrodes : int
+        Number of optimised electrodes to place.
+    net_name : str
+        The net's file name, for the message.
+
+    Raises
+    ------
+    ValueError
+        Naming *net_name* and the first defect found.
+    """
+    positions = np.asarray(net_positions, dtype=float).reshape(-1, 3)
+    if not net_labels:
+        raise ValueError(
+            f"EEG net {net_name} has no stimulation electrodes (no 'Electrode' rows), "
+            "so nothing can be mapped onto it"
+        )
+    if len(net_labels) < n_electrodes:
+        raise ValueError(
+            f"EEG net {net_name} has {len(net_labels)} stimulation electrodes; "
+            f"the run placed {n_electrodes}, each needing its own site"
+        )
+    bad = [lab for lab, p in zip(net_labels, positions) if not np.isfinite(p).all()]
+    if bad:
+        raise ValueError(
+            f"EEG net {net_name} has non-finite coordinates for {', '.join(bad)}"
+        )
+    repeated = sorted(lab for lab, n in Counter(net_labels).items() if n > 1)
+    if repeated:
+        raise ValueError(
+            f"EEG net {net_name} repeats the label {', '.join(repeated)}: "
+            "each electrode needs a name of its own"
+        )
 
 
 def map_electrodes_to_net(
