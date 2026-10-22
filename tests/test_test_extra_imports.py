@@ -474,8 +474,8 @@ if hide:
     sys.modules["skimage.measure"] = None
 import tit.tools.nifti_to_mesh as n2m
 
-mask = np.zeros((7, 7, 7))
-mask[2:5, 2:5, 2:5] = 1.0
+mask = np.zeros((8, 9, 10))
+mask[2:5, 1:3, 3:8] = 1.0
 nib.save(nib.Nifti1Image(mask, affine), path)
 try:
     verts, faces, removed = n2m.mask_to_surface(path)
@@ -516,16 +516,19 @@ def test_nifti_to_mesh_imports_without_scikit_image(tmp_path: Path) -> None:
     assert "skimage" in facts["mesh_error"]
 
 
-def test_nifti_to_mesh_meshes_a_cube_where_its_voxels_are(tmp_path: Path) -> None:
-    """Real marching cubes through the deferred import, on a 3-voxel cube.
+def test_nifti_to_mesh_meshes_a_box_where_its_voxels_are(tmp_path: Path) -> None:
+    """Real marching cubes through the deferred import, on a 3 x 2 x 5-voxel box.
 
-    At level 0.5 the surface of voxels 2..4 crosses each axis half a voxel outside them,
-    at 1.5 and 4.5; the affine's unequal scales make an axis mix-up visible.
+    The box (voxels 2..4, 1..2, 3..7 of an 8 x 9 x 10 grid) has a different extent and
+    offset on each axis, and the affine a different scale, so meshing a transposed or
+    axis-swapped mask moves the bounds. At level 0.5 the surface crosses each axis half a
+    voxel outside the box: at 1.5..4.5, 0.5..2.5 and 2.5..7.5.
     """
     affine = np.diag([2.0, 3.0, 4.0, 1.0])
     affine[:3, 3] = [10.0, -20.0, 30.0]
     facts = _n2m(tmp_path, "keep", affine)
-    # 10 + 2 * [1.5, 4.5] = [13, 19]; -20 + 3 * [1.5, 4.5]; 30 + 4 * [1.5, 4.5].
-    np.testing.assert_allclose(facts["min"], [13.0, -15.5, 36.0], atol=1e-6)
-    np.testing.assert_allclose(facts["max"], [19.0, -6.5, 48.0], atol=1e-6)
+    # 10 + 2 * [1.5, 4.5] = [13, 19]; -20 + 3 * [0.5, 2.5] = [-18.5, -12.5];
+    # 30 + 4 * [2.5, 7.5] = [40, 60].
+    np.testing.assert_allclose(facts["min"], [13.0, -18.5, 40.0], atol=1e-6)
+    np.testing.assert_allclose(facts["max"], [19.0, -12.5, 60.0], atol=1e-6)
     assert facts["faces"] > 0 and facts["removed"] == 0
