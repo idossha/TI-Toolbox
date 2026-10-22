@@ -46,7 +46,7 @@ import stdio_loop  # noqa: E402  (this directory, whatever the working directory
 from stdio_loop import ToolError  # noqa: E402
 
 SERVER_NAME = "ti-toolbox"
-SERVER_VERSION = "0.6.0"
+SERVER_VERSION = "0.6.1"
 
 GITHUB_OWNER = "idossha"
 GITHUB_REPO = "TI-Toolbox"

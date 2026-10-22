@@ -44,7 +44,7 @@ import stdio_loop  # noqa: E402  (this directory, whatever the working directory
 from stdio_loop import ToolError  # noqa: E402
 
 SERVER_NAME = "ti-toolbox-jobs"
-SERVER_VERSION = "0.6.0"
+SERVER_VERSION = "0.6.1"
 
 STACK_ID = "ti-toolbox-v3"  # tit/launch.py STACK_ID, desktop/src/shared/compose.ts
 LABEL_STACK = "tit.stack"

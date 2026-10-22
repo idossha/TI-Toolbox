@@ -12,7 +12,7 @@ It has three parts, usable together or separately:
 | **MCP server `ti-toolbox`** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, FastSurfer/FreeSurfer, TI and mTI simulations, flex/ex runs, the job store, notebooks, reports) |
 | **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
 
-Plugin version **0.6.0** (`.claude-plugin/plugin.json`). Both servers are
+Plugin version **0.6.1** (`.claude-plugin/plugin.json`). Both servers are
 Python 3.9+ with **no dependencies** (they share `mcp/stdio_loop.py`, the JSON-RPC stdio
 loop). The plugin starts them with `${TIT_PYTHON:-python3}`, so on Windows, where Python is
 usually `py` or `python`, set `TIT_PYTHON` once (`setx TIT_PYTHON py`); the desktop app's
