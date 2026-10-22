@@ -1,6 +1,7 @@
 """Configuration and result dataclasses for cluster-based permutation testing.
 
-Pure Python -- no numpy, nibabel, or heavy dependencies.
+Pure Python -- no numpy, nibabel, pandas or other heavy dependencies; the participant
+CSV loaders read with the standard :mod:`csv` module.
 Mirrors the ``tit.opt.config`` / ``tit.sim.config`` pattern.
 
 Public API
@@ -19,10 +20,58 @@ See Also
 tit.stats.permutation : Orchestration functions that consume these configs.
 """
 
+import csv
 from dataclasses import dataclass, field
 from enum import StrEnum
 
 from tit.constants import FSAVG_FIELD_NAMES
+
+#: Cell texts a participants CSV uses for "no value" (pandas' common ``na_values``).
+_MISSING_CELLS = frozenset({"", "nan", "na", "n/a", "null", "none"})
+
+
+def _read_participant_rows(
+    csv_path: str, required: set[str]
+) -> list[tuple[int, dict[str, str | None]]]:
+    """Read a participants CSV as ``(line number, {column: text or None})`` pairs.
+
+    Every cell stays text, so a zero-padded id such as ``001`` keeps its zeros. Header names
+    and cells are stripped, a UTF-8 byte-order mark (Excel's "CSV UTF-8") is dropped, and a
+    blank or NaN cell becomes ``None``.
+
+    Args:
+        csv_path: Path to the CSV file.
+        required: Column names the file must have.
+
+    Returns:
+        One ``(line, row)`` pair per data row; ``line`` counts the header as line 1.
+
+    Raises:
+        ValueError: If a required column is missing.
+    """
+    with open(csv_path, newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        columns = {name.strip() for name in reader.fieldnames or []}
+        missing = required - columns
+        if missing:
+            raise ValueError(f"CSV missing required columns: {missing}")
+        rows = []
+        for row in reader:
+            cells: dict[str, str | None] = {}
+            for name, value in row.items():
+                if name is None:  # cells beyond the header
+                    continue
+                text = (value or "").strip()
+                cells[name.strip()] = None if text.lower() in _MISSING_CELLS else text
+            rows.append((reader.line_num, cells))
+    return rows
+
+
+def _participant_id(text: str) -> str:
+    """``sub-001`` -> ``001``; a spreadsheet's ``3.0`` -> ``3``."""
+    sid = text.replace("sub-", "")
+    return sid[:-2] if sid.endswith(".0") else sid
+
 
 # ── Shared enums (private; aliased into both config classes) ──────────────
 
@@ -317,26 +366,22 @@ class GroupComparisonConfig:
         Raises
         ------
         ValueError
-            If required columns are missing from the CSV.
+            If required columns are missing, or a row lacks one of their values.
         """
-        import pandas as pd
-
-        df = pd.read_csv(csv_path)
-        required = {"subject_id", "simulation_name", "response"}
-        missing = required - set(df.columns)
-        if missing:
-            raise ValueError(f"CSV missing required columns: {missing}")
-
         subjects = []
-        for _, row in df.iterrows():
-            sid = str(row["subject_id"]).replace("sub-", "")
-            if sid.endswith(".0"):
-                sid = sid[:-2]
+        for line, row in _read_participant_rows(
+            csv_path, {"subject_id", "simulation_name", "response"}
+        ):
+            if None in (row["subject_id"], row["simulation_name"], row["response"]):
+                raise ValueError(
+                    f"CSV row {line}: subject_id, simulation_name and response are "
+                    "all required"
+                )
             subjects.append(
                 cls.Subject(
-                    subject_id=sid,
-                    simulation_name=str(row["simulation_name"]),
-                    response=int(row["response"]),
+                    subject_id=_participant_id(row["subject_id"]),
+                    simulation_name=row["simulation_name"],
+                    response=int(float(row["response"])),
                 )
             )
         return subjects
@@ -507,41 +552,24 @@ class CorrelationConfig:
         Raises
         ------
         ValueError
-            If required columns are missing or no valid subjects are found.
+            If required columns are missing, a kept row has no simulation_name, or
+            no valid subjects are found.
         """
-        import pandas as pd
-
-        df = pd.read_csv(csv_path)
-        required = {"subject_id", "simulation_name", "effect_size"}
-        missing = required - set(df.columns)
-        if missing:
-            raise ValueError(f"CSV missing required columns: {missing}")
-
-        has_weights = "weight" in df.columns
         subjects = []
-        for _, row in df.iterrows():
-            if pd.isna(row["subject_id"]) or pd.isna(row["effect_size"]):
+        for line, row in _read_participant_rows(
+            csv_path, {"subject_id", "simulation_name", "effect_size"}
+        ):
+            if row["subject_id"] is None or row["effect_size"] is None:
                 continue
-
-            sid = row["subject_id"]
-            if isinstance(sid, float):
-                sid = str(int(sid))
-            else:
-                sid = str(sid).replace("sub-", "")
-                if sid.endswith(".0"):
-                    sid = sid[:-2]
-
-            weight = (
-                float(row["weight"])
-                if has_weights and pd.notna(row.get("weight"))
-                else 1.0
-            )
+            if row["simulation_name"] is None:
+                raise ValueError(f"CSV row {line}: simulation_name is required")
+            weight = row.get("weight")
             subjects.append(
                 cls.Subject(
-                    subject_id=sid,
-                    simulation_name=str(row["simulation_name"]),
+                    subject_id=_participant_id(row["subject_id"]),
+                    simulation_name=row["simulation_name"],
                     effect_size=float(row["effect_size"]),
-                    weight=weight,
+                    weight=1.0 if weight is None else float(weight),
                 )
             )
 

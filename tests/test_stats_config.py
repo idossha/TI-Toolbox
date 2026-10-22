@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 import csv
-import importlib
-import os
-import sys
-from unittest.mock import patch
 
 import pytest
 
@@ -158,45 +154,21 @@ class TestMainConfigs:
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Unmocking numpy/pandas corrupts sys.modules for all subsequent tests. "
-    "CSV loader logic is fully tested in test_stats_full.py with proper mocking."
-)
 @pytest.mark.unit
 class TestCSVLoaders:
-    """CSV loader tests — SKIPPED.
+    """The participants-CSV loaders, read from real files with the standard ``csv`` module.
 
-    These tests permanently destroy numpy/pandas mocks from sys.modules,
-    which breaks all subsequent test files. The CSV loader functions are
-    now tested in test_stats_full.py using mock pandas instead.
+    Every expected value below is read off the CSV text the test writes (the spec in the
+    loaders' docstrings: ``sub-`` stripped, a trailing ``.0`` stripped, blank/NaN rows skipped
+    for correlation, weight 1.0 when absent). The loaders used to call ``pandas.read_csv``,
+    which the host suite mocks, so this class was permanently skipped; the real-pandas
+    comparison lives in ``tests/numerical/test_stats_csv_loaders.py``.
     """
 
-    _real_config = None
-
-    @classmethod
-    def _get_config_with_real_pandas(cls):
-        """Return a reloaded tit.stats.config module that uses real pandas.
-
-        Removes numpy/pandas mocks once, imports the real packages, and
-        caches the module.  The mocks are NOT restored because numpy's C
-        extension cannot be loaded a second time in the same process.
-        """
-        if cls._real_config is not None:
-            return cls._real_config
-
-        prefixes = ("numpy", "pandas")
-        keys_to_pop = [
-            k
-            for k in sys.modules
-            if any(k == p or k.startswith(p + ".") for p in prefixes)
-        ]
-        for k in keys_to_pop:
-            del sys.modules[k]
-
-        mod = importlib.import_module("tit.stats.config")
-        importlib.reload(mod)
-        cls._real_config = mod
-        return mod
+    @staticmethod
+    def _write(path, text, encoding="utf-8"):
+        path.write_text(text, encoding=encoding)
+        return str(path)
 
     def test_load_group_subjects(self, tmp_path):
         csv_file = tmp_path / "group.csv"
@@ -207,18 +179,72 @@ class TestCSVLoaders:
             writer.writerow(["sub-002", "montage2", 0])
             writer.writerow(["003", "montage3", 1])
 
-        mod = self._get_config_with_real_pandas()
-        subjects = mod.GroupComparisonConfig.load_subjects(str(csv_file))
+        subjects = GroupComparisonConfig.load_subjects(str(csv_file))
 
-        assert len(subjects) == 3
-        # sub- prefix is stripped
-        assert subjects[0].subject_id == "001"
-        assert subjects[0].simulation_name == "montage1"
-        assert subjects[0].response == 1
-        assert subjects[1].subject_id == "002"
-        assert subjects[1].response == 0
-        # No sub- prefix -- kept as-is
-        assert subjects[2].subject_id == "003"
+        assert [(s.subject_id, s.simulation_name, s.response) for s in subjects] == [
+            ("001", "montage1", 1),
+            ("002", "montage2", 0),
+            ("003", "montage3", 1),
+        ]
+        assert all(isinstance(s, GroupComparisonConfig.Subject) for s in subjects)
+
+    def test_zero_padded_numeric_ids_keep_their_zeros(self, tmp_path):
+        """An all-numeric id column is still text: ``001`` names ``sub-001``, not ``sub-1``."""
+        path = self._write(
+            tmp_path / "ids.csv",
+            "subject_id,simulation_name,response\n001,m,1\n010,m,0\n",
+        )
+        assert [s.subject_id for s in GroupComparisonConfig.load_subjects(path)] == [
+            "001",
+            "010",
+        ]
+        path = self._write(
+            tmp_path / "ids_corr.csv",
+            "subject_id,simulation_name,effect_size\n001,m,0.5\n002,m,1\n003,m,2\n",
+        )
+        assert [s.subject_id for s in CorrelationConfig.load_subjects(path)] == [
+            "001",
+            "002",
+            "003",
+        ]
+
+    def test_spreadsheet_float_cells_are_cleaned(self, tmp_path):
+        """A spreadsheet export writes ``3.0``/``sub-10.0`` ids and ``1.0`` responses."""
+        path = self._write(
+            tmp_path / "floats.csv",
+            "subject_id,simulation_name,response\n3.0,a,1.0\nsub-10.0,b,0.0\n",
+        )
+        subjects = GroupComparisonConfig.load_subjects(path)
+        assert [(s.subject_id, s.response) for s in subjects] == [("3", 1), ("10", 0)]
+        assert all(type(s.response) is int for s in subjects)
+
+    def test_excel_bom_and_padded_cells_are_read(self, tmp_path):
+        """Excel's "CSV UTF-8" starts with a byte-order mark; hand-typed files pad cells."""
+        path = self._write(
+            tmp_path / "bom.csv",
+            "subject_id, simulation_name, response\n sub-001 , L_Insula ,1\n002,L_Insula, 0\n",
+            encoding="utf-8-sig",
+        )
+        assert (tmp_path / "bom.csv").read_bytes()[:3] == b"\xef\xbb\xbf"
+        subjects = GroupComparisonConfig.load_subjects(path)
+        assert [(s.subject_id, s.simulation_name, s.response) for s in subjects] == [
+            ("001", "L_Insula", 1),
+            ("002", "L_Insula", 0),
+        ]
+
+    def test_group_missing_column_is_named(self, tmp_path):
+        path = self._write(tmp_path / "bad.csv", "subject_id,simulation_name\n001,m\n")
+        with pytest.raises(ValueError, match="missing required columns.*response"):
+            GroupComparisonConfig.load_subjects(path)
+
+    def test_group_row_without_a_response_is_refused(self, tmp_path):
+        """A blank response cell is not silently a group label; the row number is named."""
+        path = self._write(
+            tmp_path / "blank.csv",
+            "subject_id,simulation_name,response\n001,m,1\n002,m,\n",
+        )
+        with pytest.raises(ValueError, match="row 3"):
+            GroupComparisonConfig.load_subjects(path)
 
     def test_load_correlation_subjects(self, tmp_path):
         csv_file = tmp_path / "corr.csv"
@@ -229,16 +255,60 @@ class TestCSVLoaders:
             writer.writerow(["sub-002", "montage2", 1.2, 2.0])
             writer.writerow(["sub-003", "montage3", 0.8, 1.0])
 
-        mod = self._get_config_with_real_pandas()
-        subjects = mod.CorrelationConfig.load_subjects(str(csv_file))
+        subjects = CorrelationConfig.load_subjects(str(csv_file))
 
-        assert len(subjects) == 3
-        assert subjects[0].subject_id == "001"
-        assert subjects[0].effect_size == 0.5
-        assert subjects[0].weight == 1.5
-        assert subjects[1].subject_id == "002"
-        assert subjects[1].effect_size == 1.2
-        assert subjects[1].weight == 2.0
-        assert subjects[2].subject_id == "003"
-        assert subjects[2].effect_size == 0.8
-        assert subjects[2].weight == 1.0
+        assert [
+            (s.subject_id, s.simulation_name, s.effect_size, s.weight) for s in subjects
+        ] == [
+            ("001", "montage1", 0.5, 1.5),
+            ("002", "montage2", 1.2, 2.0),
+            ("003", "montage3", 0.8, 1.0),
+        ]
+        assert all(isinstance(s, CorrelationConfig.Subject) for s in subjects)
+
+    def test_correlation_skips_rows_without_id_or_effect(self, tmp_path):
+        """Blank and NaN cells skip the row; a blank weight falls back to 1.0."""
+        path = self._write(
+            tmp_path / "gaps.csv",
+            "subject_id,simulation_name,effect_size,weight\n"
+            "sub-001,m,0.25,2\n"
+            ",m,0.5,1\n"
+            "sub-003,m,,1\n"
+            "sub-004,m,NaN,1\n"
+            "sub-005,m,-1.5e-1,\n"
+            "sub-006,m,3,nan\n",
+        )
+        subjects = CorrelationConfig.load_subjects(path)
+        assert [(s.subject_id, s.effect_size, s.weight) for s in subjects] == [
+            ("001", 0.25, 2.0),
+            ("005", -0.15, 1.0),
+            ("006", 3.0, 1.0),
+        ]
+
+    def test_correlation_without_weight_column_weighs_one(self, tmp_path):
+        path = self._write(
+            tmp_path / "noweight.csv",
+            "subject_id,simulation_name,effect_size\n7,m,1\n8,m,2\n",
+        )
+        assert [s.weight for s in CorrelationConfig.load_subjects(path)] == [1.0, 1.0]
+
+    def test_correlation_with_no_usable_row_raises(self, tmp_path):
+        path = self._write(
+            tmp_path / "empty.csv",
+            "subject_id,simulation_name,effect_size\n,m,1\n002,m,\n",
+        )
+        with pytest.raises(ValueError, match="No valid subjects"):
+            CorrelationConfig.load_subjects(path)
+
+    def test_correlation_missing_column_is_named(self, tmp_path):
+        path = self._write(tmp_path / "bad.csv", "subject_id,simulation_name\n001,m\n")
+        with pytest.raises(ValueError, match="missing required columns.*effect_size"):
+            CorrelationConfig.load_subjects(path)
+
+    def test_non_numeric_effect_size_is_refused(self, tmp_path):
+        path = self._write(
+            tmp_path / "words.csv",
+            "subject_id,simulation_name,effect_size\n001,m,high\n",
+        )
+        with pytest.raises(ValueError, match="high"):
+            CorrelationConfig.load_subjects(path)
