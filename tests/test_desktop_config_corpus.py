@@ -12,6 +12,9 @@ conjunction of every check a submission meets before a runner starts:
 4. ``POST /api/plan/{kind}`` returns 200 with at least one job, every ``output_dir`` inside the
    project (a plan that resolves to nothing would run nothing).
 
+A case whose page builds no job at all (``"jobs": []``, e.g. a 0 mm sphere the ROI picker keeps
+incomplete) gives the server nothing to judge; it only has to be one the page refuses.
+
 Where the expected values come from: the page side is the committed fixture (the TypeScript wrote
 it); the server side is computed here by the real validators, never retyped. Disagreements found
 on 2026-10-22 are listed one file each in ``tests/fixtures/desktop_configs/known_gaps/`` with the
@@ -229,9 +232,15 @@ def test_server_accepts_exactly_what_the_page_accepts(
 ) -> None:
     case = load_case(path, tmp_path)
     make_project(tmp_path, case)
+    desktop = case["desktop"]
+    if not case["jobs"]:
+        # The page built nothing to submit (an optimizer row whose target is incomplete never
+        # leaves jobsForRow), so there is no config for the server to judge; a page that
+        # accepted such a row would submit nothing, so it must refuse it.
+        assert not desktop["accepts"], f"{case['id']}: page accepts a row with no job"
+        return
     with expect_known_gap(case["id"], "verdict"):
         refusal = server_verdict(_client(tmp_path), tmp_path, case["jobs"])
-        desktop = case["desktop"]
         assert (refusal is None) == desktop["accepts"], (
             f"{case['id']}: page {'accepts' if desktop['accepts'] else 'refuses'} "
             f"({desktop['reason']}); server {'accepts' if refusal is None else 'refuses'}"
