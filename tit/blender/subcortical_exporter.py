@@ -15,13 +15,12 @@ tit.blender.config.SubcorticalConfig : The configuration it consumes.
 
 from __future__ import annotations
 
-import glob
 import logging
 import os
 import shutil
 
 from tit import constants as const
-from tit.blender.config import SubcorticalConfig
+from tit.blender.config import SubcorticalConfig, surface_field_name
 
 logger = logging.getLogger(__name__)
 
@@ -40,17 +39,24 @@ def _visual_exports_dir(project_dir: str, subject_id: str) -> str:
     return out_base
 
 
-def find_field_nifti(sim_dir: str | None, field_name: str) -> str | None:
-    """First ``*_subject_<field>.nii.gz`` under *sim_dir*, or ``None``.
+def field_nifti_path(subject_id: str, simulation_name: str, field_name: str) -> str:
+    """The subject-space volume of *field_name* that colours the PLY.
 
-    Same glob the Qt widget's ``_find_field_nifti`` used, including the sort
-    that makes "first match" deterministic.
+    ``mesh2nii`` writes the whole mesh as ``<sim>_TI_subject_<field>.nii.gz`` beside
+    the grey- and white-matter masked copies (``grey_`` / ``white_`` prefixes); the
+    unmasked one is the colour source, whatever the simulation is called. An mTI run
+    writes ``mTI/niftis/<sim>_mTI_subject_mTI_max.nii.gz``: ``TI_max``/``mTI_max`` are
+    one quantity, and :func:`tit.analyzer.field_selector.simulation_nifti_path` maps
+    the 2-pair spelling onto the mTI one.
+
+    Returns:
+        The expected path (existence is not checked).
     """
-    if not sim_dir or not os.path.isdir(sim_dir):
-        return None
-    pattern = os.path.join(sim_dir, "**", f"*_subject_{field_name}.nii.gz")
-    matches = sorted(glob.glob(pattern, recursive=True))
-    return matches[0] if matches else None
+    from tit.analyzer.field_selector import simulation_nifti_path
+
+    field = surface_field_name(subject_id, simulation_name, field_name)
+    pattern = "{simulation_name}_TI_subject_" + field + ".nii.gz"
+    return str(simulation_nifti_path(subject_id, simulation_name, pattern))
 
 
 def output_suffix(labels: list[int], clean_components: bool) -> str:
@@ -86,6 +92,15 @@ def run_subcortical(
         raise ValueError(f"NIfTI file not found: {nifti_path}")
     log.info(f"NIfTI file: {nifti_path}")
 
+    if config.simulation_name and not os.path.isdir(
+        pm.simulation(config.subject_id, config.simulation_name)
+    ):
+        # Named, so a field-coloured PLY was asked for; checked before anything is written.
+        raise FileNotFoundError(
+            f"Simulation not found: "
+            f"{pm.simulation(config.subject_id, config.simulation_name)}"
+        )
+
     output_dir = config.output_dir or _visual_exports_dir(
         pm.project_dir, config.subject_id
     )
@@ -113,7 +128,10 @@ def run_subcortical(
         stl_output = os.path.join(output_dir, f"subcortical_{suffix}.stl")
         log.info("Generating STL mesh...")
         stl_result = nifti_to_mesh(
-            input_file, stl_output, clean_components=clean_components, clean_threshold=0.1
+            input_file,
+            stl_output,
+            clean_components=clean_components,
+            clean_threshold=0.1,
         )
         log.info(
             f"STL created: {stl_result['output_file']} "
@@ -125,7 +143,10 @@ def run_subcortical(
         msh_output = os.path.join(output_dir, f"subcortical_{suffix}.msh")
         log.info("Generating MSH mesh...")
         msh_result = nifti_to_mesh(
-            input_file, msh_output, clean_components=clean_components, clean_threshold=0.1
+            input_file,
+            msh_output,
+            clean_components=clean_components,
+            clean_threshold=0.1,
         )
         log.info(
             f"MSH created: {msh_result['output_file']} "
@@ -137,10 +158,13 @@ def run_subcortical(
         field_name = config.field_name or "TI_max"
         field_nifti = None
         if config.simulation_name:
-            field_nifti = find_field_nifti(
-                pm.simulation(config.subject_id, config.simulation_name), field_name
+            field_name = surface_field_name(
+                config.subject_id, config.simulation_name, field_name
             )
-        if field_nifti:
+            field_nifti = field_nifti_path(
+                config.subject_id, config.simulation_name, field_name
+            )
+        if field_nifti and os.path.isfile(field_nifti):
             ply_output = os.path.join(output_dir, f"subcortical_{suffix}.ply")
             log.info(f"Generating field-coloured PLY from {field_name}...")
             ply_result = nifti_to_field_ply(
@@ -160,7 +184,7 @@ def run_subcortical(
             )
         elif config.simulation_name:
             log.warning(
-                f"No '{field_name}' subject-space field volume found "
+                f"No '{field_name}' subject-space field volume at {field_nifti} "
                 f"for simulation '{config.simulation_name}'; skipping PLY export."
             )
         else:
