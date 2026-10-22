@@ -2,12 +2,15 @@
 layout: releases
 title: Changelog
 permalink: /releases/changelog/
+toc_group: major
 ---
 
-Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
+Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
 ---
-### v3.1.1 — October 20, 2026 (Latest Release)
+### v3.1.1 — October 20, 2026 <span class="release-pill">Latest</span> {#v311--october-20-2026}
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.1/">Release notes →</a>
 
 A patch release for everyone on v3.1.0; update the desktop app and the image together (the image
 carries the server the app talks to, including the new `/api/caps` endpoints). The headline: a new
@@ -28,6 +31,8 @@ written again. Other projects, nets and results open unchanged.
 - **Fixed: the simulation report is written again** — it failed for every subject with `matmul: Input operand 1 has a mismatch in its core dimension 0`, because it read the MNI-space envelope NIfTI instead of the subject-space one. Simulation outputs are unchanged; rebuild a missing report by re-running the simulation.
 
 ### v3.1.0 — October 9, 2026
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.0/">Release notes →</a>
 
 A feature release for everyone on v3.0.x; update the desktop app and the image together (the image
 carries the server the app talks to, including the new plan and job-server endpoints). The
@@ -88,6 +93,8 @@ These fixes were delivered in an updated `v3.1.0` image on October 12, 2026; the
 
 ### v3.0.2 — September 28, 2026
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.0.2/">Release notes →</a>
+
 A patch release for everyone on v3.0.x; update the desktop app and the image together (the
 image adds DIPY for the new DTI fit). The highlights: DTI conductivity tensors are now placed and
 oriented correctly, so anisotropic (`vn`, `dir`, `mc`) simulations from v2.3.0 through v3.0.1 need
@@ -123,6 +130,8 @@ preprocessing report are removed. Other projects, saved scenes and results open 
 - **Fixed: head-model creation (charm) could freeze indefinitely on many-core machines** — on a machine with a large number of CPU cores, running `charm` to build a head model could hang forever partway through, with the log showing an OpenBLAS thread-metadata warning. Charm's own threading is unaffected; the underlying numerical library now stays single-threaded internally as intended.
 
 ### v3.0.1 — September 23, 2026
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.0.1/">Release notes →</a>
 
 A patch release for everyone on v3.0.0; update the desktop app and the image together. The
 highlights: job-completion notifications, Apple Silicon Macs downloading the image again, an
@@ -163,6 +172,8 @@ table readable at any window size. Projects, saved scenes and results from v3.0.
 - **Loaders inside WSL2** — `loader.sh` and `loader.py` treat WSL as a Windows host: the default UI is the browser, the session URL is printed and opened on the Windows side (`wslview`, then PowerShell, then `cmd.exe`), the Linux AppImage is never downloaded, and `--desktop` is refused with a message naming the Windows installer. WSL is detected from `WSL_DISTRO_NAME`/`WSL_INTEROP`, not the kernel string, so a Docker Desktop container is never mistaken for it. `--build` and `--web` no longer demand a project first.
 
 ### v3.0.0 — September 20, 2026
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.0.0/">Release notes →</a>
 
 v3 replaces the PyQt5 interface with an Electron desktop app backed by the same `tit` scientific
 Python package used by scripts and notebooks. See [Installation]({{ site.baseurl }}/installation/)
@@ -213,6 +224,8 @@ for downloads and [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/) fo
 
 ---
 ### v2.5.0 — August 31, 2026
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.5.0/">Release notes →</a>
 
 **Release Date**: August 31, 2026
 
@@ -276,6 +289,8 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 
 ### v2.4.0 — July 20, 2026
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.4.0/">Release notes →</a>
+
 **Release Date**: July 20, 2026
 
 #### Additions
@@ -313,6 +328,8 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 
 ### v2.3.2 — June 11, 2026
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.3.2/">Release notes →</a>
+
 **Release Date**: June 11, 2026
 
 #### Additions
@@ -341,6 +358,8 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 ---
 
 ### v2.3.1 — May 8, 2026
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.3.1/">Release notes →</a>
 
 **Release Date**: May 8, 2026
 
@@ -400,6 +419,8 @@ Focused maintenance release for preprocessing robustness, GUI reliability, QSI c
 
 ### v2.3.0 — March 17, 2026
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.3.0/">Release notes →</a>
+
 **Release Date**: March 17, 2026
 
 A major release with new analysis capabilities, broader simulation support, diffusion pipeline integration, and a modernized codebase built on SimNIBS 4.6.0.
@@ -452,6 +473,8 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 ### v2.2.4 — January 16, 2026
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.2.4/">Release notes →</a>
+
 **Release Date**: January 16, 2026
 
 #### Additions
@@ -478,6 +501,8 @@ A major release with new analysis capabilities, broader simulation support, diff
 ---
 
 ### v2.2.3 — January 7, 2026
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.2.3/">Release notes →</a>
 
 **Original Release Date**: January 07, 2026
 **Effective Release Date**: January 14, 2026 (re-uploaded tag with preprocessing refactored to deal with recon-all problem without releasing and official new image. Should be updated automatically to all users without breaking behavior).
@@ -515,6 +540,8 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 ### v2.2.2 — December 25, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.2.2/">Release notes →</a>
+
 **Release Date**: December 25, 2025
 
 #### Additions
@@ -546,6 +573,8 @@ A major release with new analysis capabilities, broader simulation support, diff
 ---
 
 ### v2.2.1 — December 4, 2025
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.2.1/">Release notes →</a>
 
 **Release Date**: December 04, 2025
 
@@ -589,6 +618,8 @@ $$
 
 ### v2.2.0 — November 7, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.2.0/">Release notes →</a>
+
 **Release Date**: November 07, 2025
 
 #### Additions
@@ -621,6 +652,8 @@ $$
 
 ### v2.1.3 — October 8, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.1.3/">Release notes →</a>
+
 **Release Date**: October 08, 2025
 
 #### Additions
@@ -646,6 +679,8 @@ $$
 
 ### v2.1.2 — September 8, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.1.2/">Release notes →</a>
+
 **Release Date**: September 08, 2025
 
 #### Additions
@@ -667,6 +702,8 @@ $$
 
 ### v2.1.1 — August 28, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.1.1/">Release notes →</a>
+
 **Release Date**: August 28, 2025
 
 #### Additions
@@ -687,6 +724,8 @@ $$
 ---
 
 ### v2.1.0 — August 25, 2025
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.1.0/">Release notes →</a>
 
 **Release Date**: August 25, 2025
 
@@ -714,6 +753,8 @@ $$
 
 ### v2.0.5 — July 10, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.0.5/">Release notes →</a>
+
 **Release Date**: July 10, 2025
 
 #### Additions
@@ -738,6 +779,8 @@ $$
 ---
 
 ### v2.0.4 — June 26, 2025
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.0.4/">Release notes →</a>
 
 **Release Date**: June 26, 2025
 
@@ -764,6 +807,8 @@ $$
 
 ### v2.0.3 — June 20, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.0.3/">Release notes →</a>
+
 **Release Date**: June 20, 2025
 
 #### Additions
@@ -785,6 +830,8 @@ $$
 ---
 
 ### v2.0.2 — June 19, 2025
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.0.2/">Release notes →</a>
 
 **Release Date**: June 19, 2025
 
@@ -816,6 +863,8 @@ $$
 
 ### v2.0.1 — June 11, 2025
 
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.0.1/">Release notes →</a>
+
 **Release Date**: June 11, 2025
 
 #### Additions
@@ -839,6 +888,8 @@ $$
 ---
 
 ### v2.0.0 — May 28, 2025
+
+<a class="release-notes-link" href="{{ site.baseurl }}/releases/v2.0.0/">Release notes →</a>
 
 **Release Date**: May 28, 2025
 

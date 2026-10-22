@@ -82,6 +82,40 @@ class InternalPackagingTests(unittest.TestCase):
         self.assertEqual(path.read_text(), first)
         self.assertFalse((self.root / "docs/releases/changelog.md").exists())
 
+    def test_changelog_pill_moves_to_newest_and_nav_keeps_two_items(self):
+        changelog = self.root / "docs/dev/CHANGELOG.md"
+        changelog.parent.mkdir(parents=True)
+        changelog.write_text(
+            "---\nlayout: releases\ntitle: Changelog\npermalink: /releases/changelog/\n"
+            "---\n\nRelease history.\n\n---\n### v2.5.0\nAuthored old notes.\n"
+        )
+        nav = self.root / "docs/_data/nav.yml"
+        nav.parent.mkdir(parents=True)
+        nav_text = (
+            "releases:\n  title: Releases\n  items:\n"
+            "    - { title: Latest release (v2.5.0), url: /releases/ }\n"
+            "    - { title: Changelog, url: /releases/changelog/ }\n"
+        )
+        nav.write_text(nav_text)
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_changelog_file("3.0.0", "First.", "September 20, 2026")
+            update.update_changelog_file("3.0.1", "Second.", "September 23, 2026")
+            update.update_navigation("3.0.1")
+        finally:
+            os.chdir(old)
+        text = changelog.read_text()
+        pill = '<span class="release-pill">Latest</span>'
+        self.assertEqual(text.count(pill), 1)
+        self.assertIn(
+            f"### v3.0.1 — September 23, 2026 {pill} {{#v301--september-23-2026}}\n",
+            text,
+        )
+        self.assertIn("### v3.0.0 — September 20, 2026\n", text)
+        self.assertIn('href="{{ site.baseurl }}/releases/v3.0.0/">Release notes', text)
+        self.assertEqual(nav.read_text(), nav_text.replace("v2.5.0", "v3.0.1"))
+
     def test_release_requires_stable_tag(self):
         for ref in (
             "refs/heads/main",

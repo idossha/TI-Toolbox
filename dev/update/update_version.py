@@ -191,6 +191,9 @@ def update_dataset_descriptions(new_version):
     print(f"Updated {updated_count} dataset description JSON files")
 
 
+LATEST_PILL = '<span class="release-pill">Latest</span>'
+
+
 def add_release_to_changelog(version, release_notes=""):
     """Add a new release entry to both releases page and changelog"""
     release_date = datetime.now().strftime("%B %d, %Y")
@@ -250,7 +253,13 @@ def update_changelog_file(version, release_notes, release_date):
     """Update the changelog file"""
     changelog_file = "docs/dev/CHANGELOG.md"
 
-    new_changelog_section = f"""### v{version} (Latest Release)
+    # The pill marks the newest entry; the explicit id is the one kramdown
+    # generates once the pill is removed, so the anchor survives demotion.
+    heading = f"v{version} — {release_date}"
+    anchor = re.sub(r"[^a-z0-9 -]", "", heading.lower()).replace(" ", "-")
+    new_changelog_section = f"""### {heading} {LATEST_PILL} {{#{anchor}}}
+
+<a class="release-notes-link" href="{{{{ site.baseurl }}}}/releases/v{version}/">Release notes →</a>
 
 **Release Date**: {release_date}
 
@@ -279,8 +288,13 @@ def update_changelog_file(version, release_notes, release_date):
         print(f"Preserved existing changelog entry: v{version}")
         return
 
-    # Remove "(Latest Release)" from the current latest version to demote it
-    content = re.sub(r"### v(\d+\.\d+\.\d+) \(Latest Release\)", r"### v\1", content)
+    # Demote the current latest entry: drop its pill and the id that pinned it.
+    content = re.sub(
+        rf"^(### v\d+\.\d+\.\d+.*?) {re.escape(LATEST_PILL)}(?: \{{#[^}}]*\}})?$",
+        r"\1",
+        content,
+        flags=re.M,
+    )
 
     # Insert new release section after the front matter (after the first ---)
     lines = content.split("\n")
@@ -358,28 +372,19 @@ If you encounter issues with this release:
 
 
 def update_navigation(version):
-    """Update the Releases sidebar nav data (docs/_data/nav.yml)"""
+    """Point the Releases sidebar's "Latest release" entry at the new version.
+
+    The sidebar holds only "Latest release (vX)" and "Changelog"; per-version
+    pages are reached from the changelog, never listed in the nav.
+    """
     nav_file = "docs/_data/nav.yml"
 
     with open(nav_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    current_latest_pattern = r"Latest \(v[\d\.]+\)"
-    new_latest = f"Latest (v{version})"
-    content = re.sub(current_latest_pattern, new_latest, content)
-
-    if f"/releases/v{version}/" in content:
-        print(f"Version v{version} already in releases nav")
-    else:
-        # Insert the new version right after the "Version History" group marker
-        version_line = f"    - {{ title: v{version}, url: /releases/v{version}/ }}"
-        lines = content.split("\n")
-        for i, line in enumerate(lines):
-            if "group: Version History" in line:
-                lines.insert(i + 1, version_line)
-                break
-        content = "\n".join(lines)
-
+    content = re.sub(
+        r"Latest release \(v[\d\.]+\)", f"Latest release (v{version})", content
+    )
     _write(nav_file, content)
 
 

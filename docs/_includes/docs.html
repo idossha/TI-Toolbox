@@ -20,7 +20,7 @@
     </div>
   </article>
 
-  <aside class="docs__toc" id="docs-toc" aria-label="On this page">
+  <aside class="docs__toc" id="docs-toc" aria-label="On this page"{% if page.toc_group %} data-group="{{ page.toc_group }}"{% endif %}>
     <p class="docs__toc-title">On this page</p>
     <ul class="docs__toc-list"></ul>
   </aside>
