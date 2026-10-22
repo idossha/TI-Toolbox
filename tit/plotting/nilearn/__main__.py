@@ -144,7 +144,7 @@ def main() -> None:
                 pm.project_dir,
                 const.DIR_DERIVATIVES,
                 const.DIR_TI_TOOLBOX,
-                "nilearn_visuals",
+                const.DIR_NILEARN_VISUALS,
                 config.subdir_name,
             )
             os.makedirs(output_dir, exist_ok=True)
