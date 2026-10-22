@@ -302,20 +302,29 @@ def _mtimes(paths) -> dict[str, float]:
     return {str(p): p.stat().st_mtime for p in paths}
 
 
+def _tree_state(root: Path) -> dict[str, tuple[int, int]]:
+    """(mtime_ns, size) of *root* and everything under it: a new, changed or removed file shows."""
+    entries = [root, *root.rglob("*")]
+    return {str(p): (p.lstat().st_mtime_ns, p.lstat().st_size) for p in entries}
+
+
 @needs_dataset
 def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
     from tit.analyzer.analyzer import msh_field_names
 
     central = _THALAMUS / "TI" / "mesh" / "surfaces" / "Thalamus_example_TI_central.msh"
     normal = _THALAMUS / "TI" / "mesh" / "Thalamus_example_normal.msh"
+    head_model = Path(_DATASET) / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101"
     before = _mtimes([central, normal])
+    # The head model is linked, not copied, into the tmp project below: guard all of it.
+    head_before = _tree_state(head_model)
+    assert len(head_before) > 1  # has files to guard
     assert msh_field_names(central) == {"TI_max"}
     assert msh_field_names(normal) == {"TI_normal"}
 
     _require("simnibs.utils.transformations, pandas, matplotlib")
     import shutil
 
-    sub = Path(_DATASET) / "derivatives" / "SimNIBS" / "sub-101"
     project = tmp_path / "project"
     sim = (
         project
@@ -332,9 +341,7 @@ def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
         b""
     )  # never read in mesh space
     # The head model is only read (atlas2subject); link it rather than copy gigabytes.
-    (project / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").symlink_to(
-        sub / "m2m_101"
-    )
+    (project / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").symlink_to(head_model)
 
     run = _python(_REALDATA_SCRIPT, str(project), timeout=600)
     assert run.returncode == 0, run.stdout[-3000:] + run.stderr[-3000:]
@@ -345,3 +352,4 @@ def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
     assert out["TI_max"]["normal_max"] == pytest.approx(out["TI_normal"]["roi_max"])
     assert out["TI_max"]["normal_mean"] == pytest.approx(out["TI_normal"]["roi_mean"])
     assert _mtimes([central, normal]) == before  # the dataset was only read
+    assert _tree_state(head_model) == head_before  # nothing written through the symlink
