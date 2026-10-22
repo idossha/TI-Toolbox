@@ -71,7 +71,9 @@ fixed and the rest of the suite run green on Linux at least twice. Then restore 
   only allowed skips are the Dataset 000 tests (CI has no `TIT_DATASET_000`, and must not) and
   the one figure test that needs matplotlib; any other skip, such as a missing Pillow, fails it.
   The venv is `pip install -e '.[test]'`, so a library a host test imports for real belongs in
-  the `test` extra of `pyproject.toml`.
+  the `test` extra of `pyproject.toml`; `tests/test_test_extra_imports.py` fails, naming the
+  file and line, when `tit` imports a module that extra does not install and
+  `tests/conftest.py` does not mock (image-only modules may be imported inside a function).
 - **Image leg**: the nightly `numerical_nightly` workflow (`numerical-image` job) runs the whole
   directory in `idossha/ti-toolbox:v<tit.__version__>` with the checkout mounted read-only, and
   `build-and-smoke-image` runs it in the image it just built. It is red only on a regression:
