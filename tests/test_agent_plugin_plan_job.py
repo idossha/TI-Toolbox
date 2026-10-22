@@ -196,3 +196,15 @@ def test_each_flex_kind_plans_into_its_run_folder_and_runs_in_its_mode(live, kin
     )
     assert runner["mode"] == kind
     assert runner["output_folder"] == pm.flex_search_run("101", run)
+
+
+def test_a_refusal_without_a_message_never_reads_none():
+    """``ValidateError`` requires ``path`` and ``message`` (contracts/openapi.yaml), but the
+    plugin must not print Python's ``None`` when a server leaves one out."""
+    spec = importlib.util.spec_from_file_location("ti_jobs_invalid", JOBS_SERVER)
+    js = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(js)
+
+    text = str(js.InvalidConfig([{"path": "roi"}, {"message": "goal is unknown"}]))
+    assert text == "the config is invalid: roi: invalid; config: goal is unknown"
+    assert str(js.InvalidConfig([])) == "the config is invalid"

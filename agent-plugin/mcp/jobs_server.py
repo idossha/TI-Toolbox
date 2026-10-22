@@ -332,12 +332,11 @@ class InvalidConfig(ToolError):
 
     def __init__(self, errors: List[Dict[str, Any]]):
         self.errors = errors
-        super().__init__(
-            "the config is invalid: "
-            + "; ".join(
-                f"{e.get('path') or 'config'}: {e.get('message')}" for e in errors
-            )
+        detail = "; ".join(
+            f"{e.get('path') or 'config'}: {e.get('message') or 'invalid'}"
+            for e in errors
         )
+        super().__init__("the config is invalid" + (f": {detail}" if detail else ""))
 
 
 def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
