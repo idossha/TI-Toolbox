@@ -106,13 +106,16 @@ States: `queued running succeeded failed cancelled skipped lost`.
   / parallel`. `mesh_scale` uses the `.msh` *file size* as a cheap proxy for
   element count (a `stat()`, not a parse). `EMULATION_FACTOR = 3.0` (amd64 under
   Rosetta). Every number is an estimate and the UI must label it as one.
-- **Failure taxonomy** — nine `error.type` values, labelled in
+- **Failure taxonomy** — ten `error.type` values, labelled in
   `desktop/src/renderer/app/jobs-rail/format.ts`: `preflight`, `lock_wait`,
   `budget_wait`, `runner_failed`, `oom_suspected`, `cancelled`, `skipped`,
   **`lost` → "Lost (server restarted mid-run)"**, `docker_unavailable`,
   `kind_error`. `lost` is also what `POST /api/jobs/{id}/force` produces.
-- Known open gap (`RELEASE.md` §B): job re-adoption does not survive a server
-  restart — the manager holds the child pid in memory only.
+- **A server restart never re-adopts running jobs** (by design, Sep 2026):
+  startup reconciliation (`JobManager._reconcile_all`) terminates a still-live
+  runner tree and records the job `failed` with `error.type` `lost`; a queued job
+  fails "interrupted before start"; a job whose `events.jsonl` shows a real exit
+  keeps its true outcome. Nothing is re-submitted automatically.
 
 ## Other v3 subsystems worth knowing before you touch them
 
@@ -186,7 +189,7 @@ Tests: `reset_path_manager()`; the `_reset_path_manager` fixture is `autouse`.
 - **Guards** — `python3 dev/route_import_guard.py && python3 dev/contracts_check.py`.
 - **Real-container smoke** — `dev/smoke.sh --list | dev/smoke.sh | dev/smoke.sh <row>`.
 - pytest markers: `unit integration slow requires_simnibs requires_freesurfer
-  requires_data`.
+  requires_data gui smoke` (`smoke` is deselected by default; `dev/smoke.sh` runs it).
 
 ## The gate
 
@@ -251,8 +254,10 @@ run's outputs), `build_html` (compose `tit.reporting.html.components`) and a `ma
 
 **A new UI page or panel**: the interface lives in `desktop/`, not `tit/`. Add the
 Python side as a config dataclass plus a `__main__.py` runner plus a job kind in
-`tit/jobs/kinds.py`, then the page under `desktop/src/renderer/pages/`. An
-eleventh rail row would have no ⌘-number — check `DESIGN.md` §9 first.
+`tit/jobs/kinds.py`, then the page under `desktop/src/renderer/pages/`. The rail
+order is `NAV_ORDER` in `desktop/src/renderer/app/registry.ts` (its index is the
+⌘-number, ⌘0–⌘9): nine rows are taken, so an eleventh workflow row would have no
+digit.
 
 **A new server route**: drop a module in `tit/server/routes/`; it is
 auto-discovered (`iter_route_modules()`), so no `app.py` edit. Expose `router`

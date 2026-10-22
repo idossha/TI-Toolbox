@@ -9,7 +9,7 @@ It has three parts, usable together or separately:
 | Part | What it gives the agent |
 |------|-------------------------|
 | **Skills** (`skills/*/SKILL.md`) | Orientation, scripting API cheat-sheet, TI domain knowledge, codebase conventions, a `/troubleshoot-project` command, and `ti-run-pipelines` (the playbook for running jobs) |
-| **MCP server `ti-toolbox`** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
+| **MCP server `ti-toolbox`** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, FastSurfer/FreeSurfer, TI and mTI simulations, flex/ex runs, the job store, notebooks, reports) |
 | **MCP server `ti-toolbox-jobs`** (`mcp/jobs_server.py`) | Runs pipelines through the TI-Toolbox you have open: preprocess, optimise, simulate, follow and cancel jobs. Every job appears live in the desktop app |
 
 Plugin version **0.6.0** (`.claude-plugin/plugin.json`). Both servers are
@@ -112,16 +112,18 @@ these are the facts that changed:
   taxonomy including *"Lost (server restarted mid-run)"*),
   `tit/server/kernels.py` and notebooks, `tit/scene`,
   `tit/viewspec.py`, `tit/catalog.py`, `tit/launch.py`.
-- **The UI is a ten-row rail counting from ⌘0** (Overview … Jobs at ⌘9); Settings
-  is not a rail row and answers only to `⌘,`.
+- **The UI is a nine-row rail counting from ⌘0** (Overview … Jobs at ⌘8);
+  Assistant, System, Settings and Help are pinned below it, and Settings answers
+  only to `⌘,`.
 - **One run spec.** The root `docker-compose.yml` is it, with four readers: the
-  Electron app, `tit launch`, `loader.py`/`loader.sh`, and the dev overrides in
-  `dev/loader/`. The new MCP tool `list_launch_paths` reports all of it.
+  Electron app, `tit/launch.py#load_spec`, `loader.py`/`loader.sh` (with
+  `--dev [DIR]` for a checkout), and `tit launch`. The new MCP tool
+  `list_launch_paths` reports all of it.
 - **`docs/dev/` is the developer source of truth**; AGENTS.md defines document ownership.
   The new MCP tool `read_dev_doc(name)` reads them. The user-facing site remains
   `docs/wiki/`, whose pages were restructured — the `mti` page is gone (mTI is now
-  a section of `simulator`) and `overview`, `jobs`, `notebooks`, `pipelines` and
-  `results` are new.
+  a section of `simulator`) and `overview`, `jobs`, `notebooks` and `results` are
+  new.
 - **The science API consolidated.** `tit.calc` exposes exactly three functions —
   `get_TI_vectors(fields, psi=None)`, `get_TI_avg(fields, psi=None)`,
   `get_TI_dir(fields, directions, psi=None)` — each taking a *list* of fields
@@ -271,7 +273,7 @@ Codex, Claude Code or every other client has been tested end to end.
 
 All `ti-toolbox` tools are read-only (the `ti-toolbox-jobs` tools are listed
 above). `inspect_project` and `read_project_config` only look at
-the path you pass them; source tools are restricted to `tit/`, `scripts/`, `docs/`,
+the path you pass them; source tools are restricted to `tit/`, `examples/`, `docs/`,
 `tests/`, `container/`, `dev/`, `contracts/`, `desktop/src/`, `desktop/tests/`,
 `agent-plugin/` and a short list of top-level manifests.
 `node_modules` and build output are never listed, read or searched.

@@ -775,13 +775,19 @@ project_root/
 │   │   │   ├── {id}.msh                 # Tetrahedral mesh file
 │   │   │   ├── T1fs_conform.nii.gz      # Conformed T1 image
 │   │   │   └── ...                      # Tissue maps, transforms
-│   │   └── Simulations/                 # TI simulation outputs
-│   │       └── {montage_name}/          # Per-montage results
-│   │           ├── TI_vectors.msh       # Raw field vectors
-│   │           ├── TI_max.msh           # Max envelope field
-│   │           └── ...                  # NIfTI transforms, surfaces
+│   │   ├── Simulations/                 # TI simulation outputs
+│   │   │   └── {montage_name}/          # Per-montage results
+│   │   │       ├── TI/{mesh,niftis}/    # TI_max (+TI_avg/TI_normal) meshes and NIfTIs
+│   │   │       ├── mTI/{mesh,niftis}/   # mTI only: {montage}_mTI.msh + its NIfTIs
+│   │   │       ├── high_Frequency/      # per-carrier fields (hf_peak/hf_sar inputs)
+│   │   │       └── Analyses/{Mesh,Voxel}/   # ROI analyses of this simulation
+│   │   ├── flex-search/{run}/           # optimisation runs (the run name is the dir)
+│   │   ├── ex-search/{run}/
+│   │   ├── m-ex-search/{run}/
+│   │   └── leadfields/                  # for ex-search
 │   │
-│   ├── freesurfer/sub-{id}/             # FreeSurfer recon-all output
+│   ├── fastsurfer/sub-{id}/             # FastSurfer reconstruction (the v3 recon)
+│   ├── freesurfer/sub-{id}/             # legacy recon-all output (read-only)
 │   │   ├── surf/                        # Cortical surfaces (lh.pial, rh.pial, etc.)
 │   │   ├── label/                       # Atlas parcellations
 │   │   ├── mri/                         # Processed MRI volumes
@@ -789,15 +795,13 @@ project_root/
 │   │
 │   └── ti-toolbox/                      # TI-Toolbox-specific outputs
 │       ├── reports/                     # Generated HTML reports
-│       ├── analysis/                    # Analysis CSV files, figures
-│       └── optimization/               # Optimization results
+│       └── stats/{type}/{name}/         # group statistics
 │
 └── code/ti-toolbox/                     # Everything the toolbox itself owns
     ├── config/                          # montage_list.json, EEG nets, settings
     ├── jobs/{id}/                       # v3 job store: spec.json, status.json,
     │                                    #   events.jsonl, stdout.log
     ├── notebooks/                       # .ipynb documents (examples/ only subdir)
-    ├── pipelines/{name}.json            # pipeline DAGs (+ runs/ for resolved ports)
     └── viewer/{kind}.tetravox.json      # viewer scenes
 ```
 

@@ -31,14 +31,15 @@ question assumes it, say it is gone and point at the desktop app or the Python A
 
 The wire contract between (1) and (2) is `contracts/openapi.yaml` — a frozen
 interface. Origin is `http://127.0.0.1:8765`; WebSockets are `/ws/system`,
-`/ws/jobs`, `/ws/tetravox` and `/ws/kernels/{id}`. The bearer token lives only in
+`/ws/jobs` and `/ws/kernels/{id}`. The bearer token lives only in
 the container's own environment (`TIT_SERVER_TOKEN`) and is never written to the
 host — there is nothing for a user to paste.
 
 ## Ground rules (read before answering anything)
 
 1. **Everything scientific runs inside Docker.** `idossha/ti-toolbox` has SimNIBS
-   4.x, Python 3.11 (`simnibs_python`), numpy 1.26, nibabel, scipy and `tit`. It has
+   4.6, Python 3.11 (`simnibs_python`), NumPy 2.3.5 (Blender keeps its own NumPy
+   1.26.4), nibabel, scipy and `tit`. It has
    **no FSL, no ANTs, no X11, no FreeSurfer**. The host Python cannot import `tit`
    with SimNIBS. The user's project is mounted at `/mnt/<project>/`.
 2. **Do not guess API signatures.** Dataclass fields change between releases. Call
@@ -63,7 +64,7 @@ host — there is nothing for a user to paste.
 | Exact class/function definition | `find_symbol` (local checkout) or `read_source_file` |
 | Grep the source | `search_source` (local checkout) |
 | What data does the user have? | `inspect_project(project_root, subject?)` |
-| Montages, pipelines, viewer scenes, free-hand electrodes | `read_project_config(project_root, name, where?, subject?)` |
+| Montages, viewer scenes, free-hand electrodes | `read_project_config(project_root, name, where?, subject?)` |
 | What changed in vX.Y.Z? | `read_changelog(version)` |
 | Which versions are shipped? | `get_toolbox_version` |
 
@@ -76,24 +77,25 @@ user has open and show up in its job list.
 If the MCP server is unavailable, fetch the same Markdown from
 `https://raw.githubusercontent.com/idossha/TI-Toolbox/main/docs/wiki/<slug>.md`.
 
-## The rail — ten rows, ten digits, counting from ⌘0
+## The rail — nine rows, counting from ⌘0
 
-`Overview` ⌘0 · `Pre-processing` ⌘1 · `Simulator` ⌘2 · `Optimizer` ⌘3 ·
-`Analyzer` ⌘4 · `Pipeline` ⌘5 · `Notebooks` ⌘6 · `Results` ⌘7 · `Viewer` ⌘8 ·
-`Jobs` ⌘9. **Settings is not a rail row** and takes no digit; `⌘,` is its only
-chord. Also `⌘K` command palette, `⌘J` jobs panel, `⌘⏎` the action bar's primary
-action. Optimizer is *one* page — flex and ex are a Method cell in its jobs table,
-not separate pages. Viewer has sub-items (Menu, Tetravox); ⌘8 lands on Menu.
+`Overview` ⌘0 · `Pre-processing` ⌘1 · `Optimizer` ⌘2 · `Simulator` ⌘3 ·
+`Analyzer` ⌘4 · `Viewer` ⌘5 · `Results` ⌘6 · `Notebooks` ⌘7 · `Jobs` ⌘8; ⌘9 is
+unassigned. `Assistant`, `System`, `Settings` and `Help` are pinned below a spacer
+and take no digit; **Settings answers only to `⌘,`**. Also `⌘K` command palette,
+`⌘J` jobs panel, `⌘⏎` the action bar's primary action. Optimizer is *one* page —
+flex, ex and mEx are a Method cell in its jobs table, not separate pages. The Viewer
+builds a scene from the subject's files and opens it in the native TetraVox app.
 
 ## Wiki map (slugs)
 
-- Orientation: `overview`, `desktop-app`, `jobs`, `notebooks`, `pipelines`, `results`
+- Orientation: `overview`, `desktop-app`, `jobs`, `notebooks`, `results`
 - Workflow: `pre-processing`, `diffusion-processing`, `simulator`, `flex-search`,
   `ex-search`, `analyzer`, `reports`, `visualizers`, `scripting`
 - Tools: `atlases`, `montage_visualizer`, `electrode-mapping`, `electrode-placement`,
   `nilearn-visuals`, `cluster-permutation-testing`, `nifti-group-averaging`,
   `tissue-analyzer`, `quick-notes`, `blender`, `logging`
-- Dev / agents: `extension`, `testing-pipeline`, `python_env`, `agent-plugin`,
+- Dev / agents: `extension`, `python_env`, `agent-plugin`,
   `ai-assistant`, `troubleshooting`
 
 **There is no `mti` page.** mTI is a section of `simulator`. Call `list_wiki_pages`
@@ -126,7 +128,6 @@ Simulator is not an optimiser; say so when a user treats it as one.
     config/*.json                        montage_list.json, EEG nets, settings
     jobs/<id>/{spec,status}.json, events.jsonl, stdout.log     the v3 job store
     notebooks/                           examples/ is the only subdirectory
-    pipelines/<name>.json                + runs/<pipeline>/<node>.<port>.json
     viewer/<kind>.tetravox.json          scenes written by POST /api/view/open
   derivatives/
     freesurfer/sub-<id>/                 recon-all
@@ -148,24 +149,27 @@ overwrites the first in place.
 
 ## How it is run
 
-Four ways, one run spec. The spec is the root **`docker-compose.yml`** (one service,
-`tit`; no FreeSurfer service, no X11) and it has four readers: the Electron app, the
-`tit launch` loader, `loader.py`/`loader.sh`, and the dev overrides in `dev/loader/`.
+One run spec. The spec is the root **`docker-compose.yml`** (one service, `tit`; no
+FreeSurfer service, no X11) and it has four readers: the Electron app,
+`tit/launch.py#load_spec`, `loader.py`/`loader.sh` (with `--dev [DIR]` for a
+checkout), and `tit launch`.
 
 ```bash
-# users, no Electron — all three are the same thing
-./loader.sh   --project ~/datasets/000            # bootstrap that also finds a Python
-python loader.py --project ~/datasets/000         # bootstrap from a checkout
+# users, from a terminal — each opens the desktop app (or the browser with --browser)
+./loader.sh   --project ~/datasets/000            # Python-free: bash, curl and docker
+python loader.py --project ~/datasets/000         # Python >= 3.11, runs tit/launch.py
 tit launch    --project ~/datasets/000            # the installed form (tit/cli.py)
-#   ... --status | --logs [--follow] | --stop | --port | --image | --no-open
+#   ... --status | --logs [--follow] | --stop | --port | --image | --browser | --no-open
 
 # developers
-cd desktop && npm run dev        # container + Vite (HMR) + Electron, connected
-cd desktop && npm run dev:web    # the same without Electron, http://127.0.0.1:5173/
+cd desktop && npm run dev        # build the renderer + open Electron (rerun after changes)
+cd desktop && npm run dev:web    # container + Vite HMR, no Electron, http://127.0.0.1:5173/
+./loader.sh --dev [DIR]          # run a checkout's code in the user launcher
 ```
 
-The host needs CPython ≥ 3.11 and the `docker` CLI — **not** SimNIBS, Node or
-Electron. The first start pulls ~2.3 GB. Call `list_launch_paths` for the details.
+`loader.sh` needs only bash, curl and the `docker` CLI; `loader.py` and `tit launch`
+need CPython ≥ 3.11 — **not** SimNIBS or Node. The first start pulls ~2.3 GB. Call
+`list_launch_paths` for the details.
 
 ## Entry points for scripts
 

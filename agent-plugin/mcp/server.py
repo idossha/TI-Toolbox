@@ -434,14 +434,15 @@ def tool_read_dev_doc(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def tool_list_launch_paths(_: Dict[str, Any]) -> Dict[str, Any]:
-    """The three supported ways to start v3, and the one file they all read."""
+    """The supported ways to start v3, and the one file they all read."""
     return {
         "run_spec": {
             "path": "docker-compose.yml",
             "note": "The one run spec, at the repository root. One service, `tit`, on "
             "idossha/ti-toolbox:<ver>. Four readers: the Electron app "
             "(desktop/src/main/stack.ts -> desktop/src/shared/composeFile.ts), "
-            "tit/launch.py#load_spec, loader.py/loader.sh, and dev/loader/. "
+            "tit/launch.py#load_spec, loader.py/loader.sh (`--dev [DIR]` runs a "
+            "checkout's code), and `tit launch`. "
             "No FreeSurfer service and no X11 — both were dropped in v3.",
         },
         "ways_to_run": [
@@ -451,26 +452,32 @@ def tool_list_launch_paths(_: Dict[str, Any]) -> Dict[str, Any]:
                 "container and loads the UI over HTTP from tit.server.",
             },
             {
-                "who": "users, no Electron",
+                "who": "users, from a terminal",
                 "how": "./loader.sh --project ~/datasets/000   (or: python loader.py "
-                "--project ~/datasets/000). Both are bootstraps that pass every "
-                "flag through to `tit launch`; loader.sh additionally finds a "
-                "Python that can import tit. Flags: --project, --port, --image, "
-                "--no-open, --timeout, --stop, --status, --logs [--follow].",
+                "--project ~/datasets/000). Both open the desktop app (downloaded and "
+                "checksum-verified on first run) and fall back to the browser UI; "
+                "--browser asks for the browser. loader.sh is Python-free (bash, curl "
+                "and docker); loader.py needs Python >= 3.11 and passes its flags to "
+                "tit/launch.py. Flags: --project, --port, --image, --desktop, "
+                "--browser, --no-open, --existing attach|recreate, --container, "
+                "--timeout, --dev [DIR], --print-config, --interactive, --stop, "
+                "--status, --logs [--follow].",
             },
             {
                 "who": "installed package",
                 "how": "tit launch --project ~/datasets/000  (tit/cli.py -> tit/launch.py; "
-                "the only `tit` subcommand). Host needs CPython >= 3.11 and the "
-                "docker CLI — not SimNIBS, Node or Electron.",
+                "the only `tit` subcommand, same flags as loader.py). Host needs "
+                "CPython >= 3.11 and the docker CLI — not SimNIBS or Node.",
             },
             {
                 "who": "developers",
-                "how": "cd desktop && npm run dev  — container + Vite (HMR) + Electron, "
-                "already connected. `npm run dev:web` is the same without Electron "
-                "at http://127.0.0.1:5173/; `npm run dev:down` stops this project's "
-                "container. Developer overrides come from `--dev [DIR]` on the same "
-                "loader.sh/loader.py that users run; there is no separate dev loader.",
+                "how": "cd desktop && npm run dev  — builds the renderer bundle and opens "
+                "Electron, which starts this checkout's container (rerun after "
+                "renderer changes). `npm run dev:web` is the container plus Vite HMR "
+                "without Electron at http://127.0.0.1:5173/; `npm run dev:down` stops "
+                "this project's container. Developer overrides come from `--dev [DIR]` "
+                "on the same loader.sh/loader.py that users run; there is no separate "
+                "dev loader.",
             },
         ],
         "server": {
@@ -667,19 +674,18 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
     deriv = root / "derivatives"
     simnibs = deriv / "SimNIBS"
 
-    raw_subjects = sorted(
-        d.name[4:] for d in root.iterdir() if d.is_dir() and d.name.startswith("sub-")
+    # Every place a subject can first appear, as tit.catalog.list_subjects unions them:
+    # raw BIDS, FastSurfer, legacy FreeSurfer, SimNIBS, and DICOMs staged in sourcedata/.
+    homes = (
+        root,
+        deriv / "fastsurfer",
+        deriv / "freesurfer",
+        simnibs,
+        root / "sourcedata",
     )
-    simnibs_subjects = (
-        sorted(
-            d.name[4:]
-            for d in simnibs.iterdir()
-            if d.is_dir() and d.name.startswith("sub-")
-        )
-        if simnibs.is_dir()
-        else []
+    all_ids = sorted(
+        {n[4:] for home in homes for n in _ls(home, dirs_only=True) if n[:4] == "sub-"}
     )
-    all_ids = sorted(set(raw_subjects) | set(simnibs_subjects))
     if subject_filter:
         all_ids = [s for s in all_ids if s == str(subject_filter)]
 
@@ -694,6 +700,9 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             "anat_files": _ls(anat),
             "has_m2m": m2m.is_dir(),
             "has_head_mesh": (m2m / f"{sid}.msh").is_file(),
+            "has_sourcedata": (root / "sourcedata" / f"sub-{sid}").is_dir(),
+            "has_fastsurfer": (deriv / "fastsurfer" / f"sub-{sid}").is_dir(),
+            "has_freesurfer": (deriv / "freesurfer" / f"sub-{sid}").is_dir(),
             "freesurfer_recon": (
                 deriv / "freesurfer" / f"sub-{sid}" / "mri" / "aparc+aseg.mgz"
             ).is_file(),
@@ -720,6 +729,16 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
                 "nifti_files": [
                     f
                     for f in _ls(sd / "TI" / "niftis")
+                    if f.endswith((".nii", ".nii.gz"))
+                ],
+                # A 4+ pair (mTI) run writes its result under mTI/ (tit/sim/mTI.py).
+                "has_mti_dir": (sd / "mTI").is_dir(),
+                "mti_mesh_files": [
+                    f for f in _ls(sd / "mTI" / "mesh") if f.endswith(".msh")
+                ],
+                "mti_nifti_files": [
+                    f
+                    for f in _ls(sd / "mTI" / "niftis")
                     if f.endswith((".nii", ".nii.gz"))
                 ],
                 "analyses": {
@@ -782,7 +801,6 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             "recent_failures": recent_failures[:10],
             "notebooks": _ls(code / "notebooks"),
             "notebook_examples": _ls(code / "notebooks" / "examples"),
-            "pipelines": [f for f in _ls(code / "pipelines") if f.endswith(".json")],
             "viewer_scenes": [
                 f for f in _ls(code / "viewer") if f.endswith(".tetravox.json")
             ],
@@ -805,7 +823,6 @@ def tool_read_project_config(args: Dict[str, Any]) -> Dict[str, Any]:
     ``where`` selects the directory:
 
     * ``config``       ``code/ti-toolbox/config/``  (default; montage_list.json, ...)
-    * ``pipelines``    ``code/ti-toolbox/pipelines/``
     * ``viewer``       ``code/ti-toolbox/viewer/``  (``<kind>.tetravox.json``)
     * ``stim_configs`` ``derivatives/SimNIBS/sub-<id>/m2m_<id>/stim_configs/``
       (free-hand electrode placements; requires ``subject``).  On-disk shape:
@@ -821,8 +838,6 @@ def tool_read_project_config(args: Dict[str, Any]) -> Dict[str, Any]:
     code = root / "code" / "ti-toolbox"
     if where == "config":
         directory = code / "config"
-    elif where == "pipelines":
-        directory = code / "pipelines"
     elif where == "viewer":
         directory = code / "viewer"
     elif where == "stim_configs":
@@ -840,7 +855,7 @@ def tool_read_project_config(args: Dict[str, Any]) -> Dict[str, Any]:
             / "stim_configs"
         )
     else:
-        raise ToolError("where must be one of: config, pipelines, viewer, stim_configs")
+        raise ToolError("where must be one of: config, viewer, stim_configs")
 
     p = directory / name
     if not p.is_file():
@@ -882,12 +897,14 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "/ws/kernels/{id}). Bearer token lives only in the container's env.",
         },
         "runtime": "Everything scientific runs inside the Docker image idossha/ti-toolbox "
-        "(SimNIBS 4.x, Python 3.11, numpy 1.26; no FSL, no ANTs, no X11, no FreeSurfer). "
+        "(SimNIBS 4.6, Python 3.11, NumPy 2.3.5 — Blender keeps its own NumPy 1.26.4; "
+        "no FSL, no ANTs, no X11, no FreeSurfer). "
         "Use `simnibs_python`, not the host python. Project mounted at /mnt/<project>/.",
-        "rail_pages": "Ten rows, ten digits — the rail counts from Cmd+0: Overview (0), "
-        "Pre-processing (1), Simulator (2), Optimizer (3), Analyzer (4), Pipeline (5), "
-        "Notebooks (6), Results (7), Viewer (8), Jobs (9). System, Settings and Help are "
-        "pinned below a spacer and take no digit; System is the full-height monitor "
+        "rail_pages": "Nine rows, counting from Cmd+0: Overview (0), "
+        "Pre-processing (1), Optimizer (2), Simulator (3), Analyzer (4), Viewer (5), "
+        "Results (6), Notebooks (7), Jobs (8); Cmd+9 is unassigned. Assistant, System, "
+        "Settings and Help are pinned below a spacer and take no digit; System is the "
+        "full-height monitor "
         "(one rolling five-minute CPU+memory timeline, Docker health, process table) "
         "reading the same /ws/system snapshot as the jobs panel's 260px Host tab, so the "
         "two cannot disagree. Cmd+, is Settings' only chord. Cmd+K palette, Cmd+J jobs "
@@ -904,8 +921,6 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "tit/jobs": "The job engine: kinds.py (kind -> module), scheduler.py (a pure "
             "evaluate() per queued job), manager.py, registry.py (the on-disk store), "
             "eta.py (estimates, always labelled as such), locks, costs, events.",
-            "tit/pipeline": "DAG documents (document/plan/validate/notebook). A pipeline "
-            "introduces no job kind and a pipeline run is ONE job group.",
             "tit/server/kernels.py": "Jupyter kernels driven in-process inside the "
             "container; WS /ws/kernels/{id}. Max 2 kernels, 30 min idle. There is no "
             "sandbox — a kernel runs arbitrary user code as the container's user.",
@@ -920,7 +935,8 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "Overview page's single read.",
             "tit/jobs/eta.py": "minutes = (fixed + per_unit * units) * mesh_scale * "
             "system.factor / parallel. EMULATION_FACTOR = 3.0 (amd64 under Rosetta).",
-            "tit/launch.py + tit/cli.py": "`tit launch` — the installed, no-Electron way to run.",
+            "tit/launch.py + tit/cli.py": "`tit launch` — the installed way to run; it "
+            "opens the desktop app like the loaders, or the browser with --browser.",
         },
         "job_kinds": [
             "pre",
@@ -963,12 +979,15 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         },
         "entry_points": {
             "desktop_app": "the packaged Electron app (desktop/)",
-            "browser_no_electron": "./loader.sh --project <dir>  |  python loader.py "
-            "--project <dir>  |  tit launch --project <dir>   (all three are the same "
-            "thing: bootstraps over tit/launch.py, which owns the run spec)",
+            "terminal": "./loader.sh --project <dir>  |  python loader.py "
+            "--project <dir>  |  tit launch --project <dir>   (each opens the desktop "
+            "app, or the browser with --browser; loader.sh is Python-free, loader.py and "
+            "tit launch run tit/launch.py, which owns the run spec)",
             "run_spec": "docker-compose.yml at the repository root — one service, `tit`. "
-            "Dev overrides in dev/loader/. Call list_launch_paths for the full picture.",
-            "dev_loop": "cd desktop && npm run dev   (container + Vite + Electron)",
+            "Developer overrides are `--dev [DIR]` on loader.sh/loader.py. Call "
+            "list_launch_paths for the full picture.",
+            "dev_loop": "cd desktop && npm run dev   (build the renderer + Electron); "
+            "npm run dev:web   (container + Vite HMR, no Electron)",
             "python_api": "from tit.sim/opt/analyzer/stats/pre import ...",
             "json_config_runners": [
                 "simnibs_python -m tit.sim config.json",
@@ -998,9 +1017,8 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "stdout.log} — inside the project so notebooks and a restarted server see the "
             "same jobs; .bidsignore carries the line code/ti-toolbox/jobs/",
             "notebooks": "code/ti-toolbox/notebooks/ (examples/ is the only subdirectory; "
-            "examples/getting-started.ipynb is seeded on first listing)",
-            "pipelines": "code/ti-toolbox/pipelines/<name>.json, run outputs under "
-            "pipelines/runs/<pipeline>/<node>.<port>.json",
+            "code/ti-toolbox/notebooks/examples/example_workflow.ipynb is seeded on first "
+            "listing)",
             "viewer": "code/ti-toolbox/viewer/<kind>.tetravox.json (suffix .tetravox.json, "
             "not .json)",
         },
@@ -1094,7 +1112,7 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "read_wiki_page",
         "description": "Read a TI-Toolbox wiki page as Markdown, optionally only one section by heading text. "
         "The wiki is the USER-facing site. Slugs: overview, desktop-app, jobs, notebooks, "
-        "pipelines, results, simulator, flex-search, ex-search, analyzer, scripting, "
+        "results, simulator, flex-search, ex-search, analyzer, scripting, "
         "pre-processing, diffusion-processing, atlases, reports, troubleshooting, "
         "visualizers, logging, extension, agent-plugin, ai-assistant, ... "
         "There is no 'mti' page any more — mTI is a section of 'simulator'. "
@@ -1271,11 +1289,12 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "inspect_project",
-        "description": "Inspect a user's TI-Toolbox/BIDS project directory: subjects, head "
-        "models (m2m), FreeSurfer, leadfields, free-hand stim_configs, simulations "
-        "(mesh/NIfTI outputs, analyses), flex/ex/mex search runs, reports, stats, and the v3 "
+        "description": "Inspect a user's TI-Toolbox/BIDS project directory: subjects "
+        "(including ones staged only in sourcedata/), head models (m2m), FastSurfer/"
+        "FreeSurfer, leadfields, free-hand stim_configs, simulations (TI and mTI mesh/NIfTI "
+        "outputs, analyses), flex/ex/mex search runs, reports, stats, and the v3 "
         "code/ti-toolbox tree — the job store (counts by state plus recent failures with "
-        "their error.type), notebooks, pipelines and viewer scenes. Read-only; use it to "
+        "their error.type), notebooks and viewer scenes. Read-only; use it to "
         "answer 'what do I have / why is X missing / why did my job fail'.",
         "inputSchema": {
             "type": "object",
@@ -1298,7 +1317,7 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "read_project_config",
         "description": "Read one JSON document from a project's v3 config locations: "
         "code/ti-toolbox/config/ (default — montage_list.json etc.), "
-        "code/ti-toolbox/pipelines/, code/ti-toolbox/viewer/ (<kind>.tetravox.json), or a "
+        "code/ti-toolbox/viewer/ (<kind>.tetravox.json), or a "
         "subject's m2m_<id>/stim_configs/ free-hand electrode placements "
         "({name, type: 'U'|'M', electrode_positions: {label: [x,y,z]}} in subject-RAS mm).",
         "inputSchema": {
@@ -1311,7 +1330,7 @@ TOOLS: List[Dict[str, Any]] = [
                 },
                 "where": {
                     "type": "string",
-                    "enum": ["config", "pipelines", "viewer", "stim_configs"],
+                    "enum": ["config", "viewer", "stim_configs"],
                     "default": "config",
                 },
                 "subject": {

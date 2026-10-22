@@ -19,15 +19,18 @@ the folder the desktop app or `--project` was pointed at).
 
 Call MCP `inspect_project(project_root, subject?)`. It reports both halves of a v3
 project: the BIDS derivatives, and the `code/ti-toolbox/` tree — the job store
-(counts by state plus recent failures with their `error.type`), notebooks,
-pipelines and viewer scenes.
+(counts by state plus recent failures with their `error.type`), notebooks and
+viewer scenes. Each subject also lists its mTI meshes/NIfTIs and whether it has a
+FastSurfer or FreeSurfer reconstruction; subjects staged only under `sourcedata/`
+are listed too (`has_sourcedata`).
 
 ## 2. Walk the pipeline and report the first missing stage
 
 - `anat_files` empty → needs DICOM/NIfTI import (`pre-processing` wiki).
 - `has_m2m` / `has_head_mesh` false → CHARM not run or failed; check
   `derivatives/SimNIBS/sub-<id>/m2m_<id>/charm_log.html`.
-- `freesurfer_recon` false → atlas / cortical ROI features unavailable.
+- `has_fastsurfer` and `has_freesurfer` both false → atlas / cortical ROI features
+  unavailable (FastSurfer is the v3 recon; `derivatives/freesurfer` is legacy).
 - `leadfields` empty → ex-search cannot run; build a leadfield first (`ex-search`).
 - A simulation with no `mesh_files` / `nifti_files` → the run failed; go to step 3.
 - `dti_tensor` false but the user wants `vn`/`dir`/`mc` conductivity → needs
@@ -55,9 +58,10 @@ cancelled skipped lost`. Map the `error.type` to what to tell the user:
 | `docker_unavailable` | Docker is unavailable | The daemon is not running, or the socket is not mounted. |
 | `kind_error` | Invalid job configuration | The config does not match the job kind. |
 
-A job stuck at `running` with nothing behind it is the known re-adoption gap: the
-manager holds the child pid in memory only, so a server restart strands it.
-`POST /api/jobs/{id}/force` frees it and lands it in `lost`.
+A server restart never re-adopts a running job: startup reconciliation stops it
+and records it `failed` with `error.type` `lost`. A job still shown at `running`
+with nothing behind it is freed with `POST /api/jobs/{id}/force`, which lands it in
+`lost`.
 
 ## 4. Won't start at all
 
@@ -74,15 +78,15 @@ manager holds the child pid in memory only, so a server restart strands it.
 - **Nothing to paste** — the bearer token lives only in the container's
   environment. If a user is hunting for a token to enter, that is the wrong
   question.
-- The host needs only CPython ≥ 3.11 and the `docker` CLI. `list_launch_paths`
-  gives the three supported ways to start.
+- The host needs the `docker` CLI; `loader.sh` needs nothing else, `loader.py`
+  and `tit launch` also need CPython ≥ 3.11. `list_launch_paths` gives the
+  supported ways to start.
 
 ## 5. Configs
 
 - Montages: `read_project_config(project_root, "montage_list.json")` — confirm the
   name and EEG net exist, exactly (net names are real filenames, e.g.
   `GSN-HydroCel-185.csv`).
-- Pipelines: `read_project_config(project_root, "<name>.json", where="pipelines")`.
 - Viewer scenes: `where="viewer"` (`<kind>.tetravox.json`).
 - Free-hand electrodes: `where="stim_configs", subject="<id>"` — reads
   `m2m_<id>/stim_configs/*.json`, shaped

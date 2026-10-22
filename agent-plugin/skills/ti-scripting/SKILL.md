@@ -13,14 +13,15 @@ field names against `read_source_file` before emitting code** — `tit/sim/confi
 
 ## Where code runs
 
-Everything runs **inside the container** (`idossha/ti-toolbox`: SimNIBS 4.x,
-Python 3.11, numpy 1.26; no FSL, no ANTs, no X11, no FreeSurfer). Three ways in:
+Everything runs **inside the container** (`idossha/ti-toolbox`: SimNIBS 4.6,
+Python 3.11, NumPy 2.3.5 — Blender keeps its own NumPy 1.26.4; no FSL, no ANTs, no
+X11, no FreeSurfer). Three ways in:
 
-- **Notebooks in the app** — the Notebooks page (⌘6). A notebook is an `.ipynb`
+- **Notebooks in the app** — the Notebooks page (⌘7). A notebook is an `.ipynb`
   under `<project>/code/ti-toolbox/notebooks/`, executed by a Jupyter kernel the
   server owns *in* the container. The kernelspec is the same environment every job
   runs in, so `from tit import get_path_manager` works with nothing installed. A
-  seeded tour lives at `code/ti-toolbox/notebooks/examples/getting-started.ipynb`.
+  seeded tour lives at `code/ti-toolbox/notebooks/examples/example_workflow.ipynb`.
   At most 2 kernels, 30-minute idle timeout. **There is no sandbox** — a kernel
   runs arbitrary code as the container's user.
 - **A shell in the container** — `docker exec -it <container> bash`, then
@@ -33,15 +34,17 @@ mount (`/mnt/<project>`) or `PROJECT_DIR`.
 ## Starting the toolbox itself
 
 ```bash
-./loader.sh   --project ~/datasets/000     # bootstrap; also finds a usable Python
-python loader.py --project ~/datasets/000  # bootstrap from a checkout
+./loader.sh   --project ~/datasets/000     # Python-free: bash, curl and docker
+python loader.py --project ~/datasets/000  # Python >= 3.11, runs tit/launch.py
 tit launch    --project ~/datasets/000     # the installed form (tit/cli.py)
 tit launch --status | --logs [--follow] | --stop
 ```
-All three are the same thing: thin wrappers over `tit/launch.py`, which owns the
-one run spec (root `docker-compose.yml`). Flags: `--project --port --image
---no-open --timeout --stop --status --logs --follow`. The host needs CPython ≥ 3.11
-and the `docker` CLI — not SimNIBS, Node or Electron. The server comes up at
+Each opens the desktop app (downloaded and checksum-verified on first run), or the
+browser UI with `--browser`; all read the one run spec (root `docker-compose.yml`).
+Flags: `--project --port --image --desktop --browser --no-open --existing
+--container --timeout --dev --print-config --interactive --stop --status --logs
+--follow`. `loader.sh` needs no host Python; `loader.py` and `tit launch` need
+CPython ≥ 3.11 and the `docker` CLI — not SimNIBS or Node. The server comes up at
 `http://127.0.0.1:8765`; `GET /api/health` returns `{"status": "ok"}`.
 
 ## Imports
