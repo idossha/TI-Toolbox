@@ -1,2 +1,2 @@
-// Discovery shim — see pages/panel-source/index.tsx for why this file exists.
+// Discovery shim: registry.ts globs pages/*/index.tsx, so the panel in ../panels/caps/ is re-exported here as panel-caps.
 export { default } from "../panels/caps/index";

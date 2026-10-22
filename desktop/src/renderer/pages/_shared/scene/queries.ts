@@ -81,7 +81,7 @@ export function useSceneRegions(subject: string | null, atlas: string | null): U
  *
  * Why the Simulator wants this and R4's guide-only rule still stands elsewhere: a free-hand
  * placement is a coordinate *in the subject's own head mesh* (`m2m_<id>/stim_configs/*.json`, the
- * format `tit/gui/extensions/electrode_placement.py` wrote and `tit/catalog.py::_read_freehand_file`
+ * format the v2.5.0 electrode-placement extension wrote and `tit/catalog.py::_read_freehand_file`
  * reads). A millimetre picked off the packaged guide is a millimetre in a different head, and
  * nothing downstream can detect the substitution — which is exactly why `<ScenePane>` refuses to
  * emit a coordinate while it is drawing the guide. Drawing the subject is what makes the gesture

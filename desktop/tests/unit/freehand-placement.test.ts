@@ -19,7 +19,8 @@ import type { ElectrodePosition } from "../../src/renderer/pages/simulator/api";
 
 /**
  * The click-to-place state machine, checked against v2.5.0's own behaviour
- * (`tit/gui/extensions/electrode_placement.py::onMarkerPlaced` and `deleteChecked`) and against the
+ * (`tit/gui/extensions/electrode_placement.py::onMarkerPlaced` and `deleteChecked`, removed in
+ * v3.0.0; see git tag v2.5.0) and against the
  * maintainer's 2026-09-06 requirement that it must never be ambiguous which electrode is being
  * manipulated.
  */

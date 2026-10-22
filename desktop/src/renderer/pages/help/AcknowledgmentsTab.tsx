@@ -1,6 +1,6 @@
 import { Card, CardBody, CardHeader } from "../../ui/Layout";
 
-/** Ported verbatim from tit/gui/acknowledgments_tab.py — same titles, same reference text. */
+/** Ported verbatim from the v2.5.0 tit/gui/acknowledgments_tab.py — same titles, same reference text. */
 const ACKNOWLEDGMENTS: { title: string; content: string }[] = [
   {
     title: "TI-Toolbox",

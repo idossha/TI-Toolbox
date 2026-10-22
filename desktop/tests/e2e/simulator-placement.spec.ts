@@ -1,6 +1,6 @@
 /**
  * Free-hand placement by clicking the subject's scalp — v2.5.0's Electrode Placement extension
- * (`tit/gui/extensions/electrode_placement.py`, 1091 lines), folded into the Simulator rather than
+ * (`tit/gui/extensions/electrode_placement.py`, removed in v3.0.0), folded into the Simulator rather than
  * shipped as a panel of its own.
  *
  * Maintainer, 2026-09-06: *"instead of having our default subject in the simulator, we should just

@@ -1,9 +1,7 @@
 /**
- * Group jobs rendered as subject → stage trees (TODO.md §2.3: `POST /api/jobs/groups` creates one
- * job per subject, chained by `after` for the DAG's stage order — a subject can therefore have
- * several `JobStatus` rows sharing one `group_id`). The mock's `/api/jobs/groups` currently
- * creates exactly one "pre" job per subject rather than a full per-stage DAG (see PARITY.md), so
- * against it every subject renders one stage node; this view supports any number.
+ * Group jobs rendered as subject → stage trees. `POST /api/jobs/groups` creates jobs that share one
+ * `group_id`, so a subject can have several `JobStatus` rows in a group; this view renders any
+ * number of stage nodes per subject.
  */
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { useState } from "react";

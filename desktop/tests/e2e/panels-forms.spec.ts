@@ -98,7 +98,7 @@ test("Source panel: selecting a subject shows the forward workflow", async () =>
   // CardHeader renders its title as a <span> (see ui/Layout.tsx), not a heading element.
   await expect(page.getByText("Build forward solution")).toBeVisible();
   await expect(page.getByText("Map fields to fsaverage", { exact: true })).toHaveCount(0);
-  // Known mock-server gap (see pages/panels/source/PARITY.md "Honest gap found in Round 2"):
+  // Known mock-server gap:
   // validateConfig() wrongly requires a `subject_id` field for kind="source" (SourceConfig has no
   // such field — it's `subject_ids`/`pairs`), so /api/validate/source against the mock always
   // returns ok:false and the real Plan (Jobs/CPUs/Memory) never renders here. Assert the actual

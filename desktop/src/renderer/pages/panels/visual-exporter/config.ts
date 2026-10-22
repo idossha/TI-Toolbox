@@ -4,7 +4,7 @@
  * split as `pages/panels/nilearn-visuals/config.ts`.
  *
  * Byte-identity rule (the reason this file is so literal): every field below is set to exactly
- * what `tit/gui/extensions/visual_exporter.py`'s `_run` passed to the same dataclass in 2.5.0,
+ * what the v2.5.0 `tit/gui/extensions/visual_exporter.py`'s `_run` passed to the same dataclass,
  * including the ones the Qt widget hardcoded and never showed (`keep_meshes: true`,
  * `vector_scale`/`vector_length` of 1.0). Change one and this panel stops producing the files the
  * Qt extension produced.

@@ -1,7 +1,6 @@
 /**
- * Shared ROI picker for the optimizer pages (flex-search owns this file; ex-search/mex-search and
- * the analyzer import it — see `desktop/README` lane notes). Parity source:
- * `tit/gui/components/roi_picker.py` (`ROIPickerWidget`).
+ * Shared ROI picker for the Optimizer (flex, ex and mEx rows) and the Analyzer. Ported from the
+ * v2.5.0 `tit/gui/components/roi_picker.py` (`ROIPickerWidget`; removed in v3.0.0).
  *
  * Three modes, one at a time via `modes`: spherical (a table of x/y/z/radius rows — multiple rows
  * union into one combined target, except in the Analyzer: see `analyzer`), cortical (a FreeSurfer `.annot` atlas + region chips, searched
@@ -12,11 +11,8 @@
  * `GET /api/catalog/atlases/regions` returns `Region { id: integer, name, hemi: "lh"|"rh"|null }`
  * (reconciled fix:contract 2026-08-27 — was `id: string | number` with no `hemi`); `id` is exactly
  * the FreeSurfer `.annot` label index / volumetric atlas voxel label `AtlasROI.label` /
- * `SubcorticalROI.label` need, and cortical `hemi` is that region's own hemisphere. The mock's
- * `atlas_regions.json` fixture already returns this shape (verified in this lane). REMAINING GAP
- * (reported to the orchestrator, out of P3's lane): the real `tit/catalog.py::atlas_regions`'s
- * cortical branch still returns a display-string id with no `hemi` — cortical ROIs won't resolve
- * correctly end-to-end against the real server until B2 lands the integer label + hemi there too.
+ * `SubcorticalROI.label` need, and cortical `hemi` is that region's own hemisphere
+ * (`tit/catalog.py::atlas_regions` returns `{id: <annot label index>, name, hemi}` per hemisphere).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Compass, Info, Plus, Target, Trash2 } from "lucide-react";
@@ -500,9 +496,8 @@ function CorticalPanel({
   });
 
   const options = useMemo(() => {
-    // `r.hemi` is the region's own authoritative hemisphere (Region schema); fall back to the
-    // per-hemisphere query context in case a not-yet-updated backend still returns `null` for
-    // cortical regions (see the header comment's REMAINING GAP).
+    // `r.hemi` is the region's own authoritative hemisphere (Region schema; `null` is allowed
+    // there), so the per-hemisphere query context is the fallback.
     const lh = (lhRegions.data ?? []).map((r) => ({ value: `lh:${r.id}`, label: `L · ${r.name}`, region: { id: r.id, name: r.name, hemi: (r.hemi ?? "lh") as "lh" | "rh" } }));
     const rh = (rhRegions.data ?? []).map((r) => ({ value: `rh:${r.id}`, label: `R · ${r.name}`, region: { id: r.id, name: r.name, hemi: (r.hemi ?? "rh") as "lh" | "rh" } }));
     return [...lh, ...rh];

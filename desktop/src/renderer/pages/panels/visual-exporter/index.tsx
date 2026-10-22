@@ -1,5 +1,6 @@
 /**
- * 3D Visual Exporter — the v3 migration of `tit/gui/extensions/visual_exporter.py` (1431 lines).
+ * 3D Visual Exporter — the v3 migration of the v2.5.0 `tit/gui/extensions/visual_exporter.py`
+ * (removed in v3.0.0; see git tag v2.5.0).
  *
  * Two things changed and nothing else did. First, the export is a **job**: 2.5.0 ran cortical
  * regions / vectors / montage as an ad-hoc `QThread` subprocess and ran the sub-cortical mode
@@ -13,7 +14,7 @@
  *
  * What deliberately did *not* change: the config each mode builds. `config.ts` sets exactly the
  * fields `_run` set, including the ones the Qt widget hardcoded, so the files written are
- * byte-identical to 2.5.0's. See `PARITY.md`.
+ * byte-identical to 2.5.0's.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
