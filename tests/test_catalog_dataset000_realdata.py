@@ -18,9 +18,16 @@ What this pins (package p24, audit_server-contracts.md "Dataset 000 catalog inva
   roi_focality = roi_mean / gm_mean, p95 <= p99 <= p99.9 <= gm_max, focality areas
   50 >= 75 >= 90 >= 95, n_elements > 0, all finite, field values in [0, 10] V/m;
 - ex best montages are distinct labels of the run's own net; ``eeg_nets`` counts are right
-  and labels distinct; every leadfield names a net the subject has.
+  and labels distinct; every leadfield names a net the subject has;
+- the viewer's simulation layers (``tit.viewspec._ti_max_layers`` / ``_hf_layers``) are exactly
+  the ``TI_max``/``mTI_max`` envelopes and ``magnE`` carriers on disk in that space.
 
 Read-only: the mtime of every file and folder in the dataset is compared before and after.
+
+Vacuous legs on today's Dataset 000: its ``derivatives/ti-toolbox/nilearn_visuals`` and
+``nifti_average`` folders are empty, so the real-data coverage check for those two compares
+empty sets (only the ``stats`` leg has runs). The synthetic
+``test_group_output_folders_are_listed_one_for_one`` runs on every host and covers them.
 
 Run: ``TIT_DATASET_000=/Users/idohaber/datasets/000 .venv/bin/python -m pytest
 tests/test_catalog_dataset000_realdata.py -q``. Skips with a reason when the variable is unset.
@@ -61,7 +68,7 @@ def view():
     """Every catalog response for the dataset, with a before/after mtime listing."""
     if not HAVE_DATASET:
         pytest.skip("skipping: TIT_DATASET_000 is unset or not a Dataset 000 copy")
-    from tit import catalog
+    from tit import catalog, viewspec
     from tit.paths import get_path_manager
 
     root = os.path.realpath(DATASET)
@@ -84,11 +91,18 @@ def view():
         "nets": {sid: catalog.eeg_nets(pm, sid) for sid in sids},
         "leadfields": {sid: catalog.list_leadfields(pm, sid) for sid in sids},
         "group": catalog.group_catalog(pm),
+        "layers": {},
     }
     for sid in sids:
         for item in catalog.list_simulations(pm, sid):
             sim = item["name"]
             data["sims"][(sid, sim)] = catalog.simulation_detail(pm, sid, sim)
+            sim_dir = pm.simulation(sid, sim)
+            for space in ("subject", "mni"):
+                data["layers"][(sid, sim, space)] = (
+                    viewspec._ti_max_layers(sim_dir, space),
+                    viewspec._hf_layers(sim_dir, space),
+                )
             listed = catalog.analyses(pm, sid, sim)
             data["analyses"][(sid, sim)] = listed
             for analysis in listed:
@@ -169,6 +183,47 @@ def test_nifti_field_and_space_are_the_ones_the_filename_says(view):
             if f"{os.sep}high_Frequency{os.sep}" not in n["path"]
         }
         assert envelope <= set(detail["fields"]), (sid, sim, detail["fields"])
+    assert checked > 20
+
+
+def test_viewer_layers_are_the_envelope_and_carrier_niftis_of_their_space(view):
+    """The Viewer's per-simulation layers, against the folder listing and filename tokens."""
+    checked = 0
+    for (sid, sim, space), (ti_layers, hf_layers) in view["layers"].items():
+        sim_dir = _sim_root(view) / f"sub-{sid}" / "Simulations" / sim
+
+        def in_space(p: Path) -> bool:
+            return ("_MNI_MNI_" in p.name) == (space == "mni")
+
+        envelopes = {
+            str(p)
+            for mode in ("TI", "mTI")
+            for p in (sim_dir / mode / "niftis").glob("*.nii*")
+            if re.search(r"_m?TI_max\.nii(\.gz)?$", p.name) and in_space(p)
+        }
+        carriers = {
+            str(p)
+            for p in (sim_dir / "high_Frequency" / "niftis").glob("*.nii*")
+            if re.search(r"_magnE\.nii(\.gz)?$", p.name) and in_space(p)
+        }
+        assert sorted(layer["path"] for layer in ti_layers) == sorted(envelopes), (
+            sid,
+            sim,
+            space,
+        )
+        assert sorted(layer["path"] for layer in hf_layers) == sorted(carriers), (
+            sid,
+            sim,
+            space,
+        )
+        # Grey matter's envelope is shown; the whole-head and white-matter ones and every
+        # carrier start hidden.
+        for layer in ti_layers:
+            assert layer["visible"] == os.path.basename(layer["path"]).startswith(
+                "grey_"
+            ), layer["path"]
+        assert not any(layer["visible"] for layer in hf_layers)
+        checked += len(ti_layers) + len(hf_layers)
     assert checked > 20
 
 
@@ -362,6 +417,32 @@ def test_every_group_output_folder_is_listed(view):
     assert {n["path"] for n in group["nifti_average"]} == subdirs(tt / "nifti_average")
     for entry in group["stats"] + group["nilearn"] + group["nifti_average"]:
         assert os.path.isdir(entry["path"]), entry
+
+
+def test_group_output_folders_are_listed_one_for_one(tmp_path):
+    """Synthetic twin of the group-output check, on every host: Dataset 000's nilearn_visuals
+    and nifti_average are empty, so there the check compares empty sets."""
+    from tit import catalog
+    from tit.paths import get_path_manager
+
+    (tmp_path / "dataset_description.json").write_text("{}")
+    pm = get_path_manager(str(tmp_path))
+    tt = tmp_path / "derivatives" / "ti-toolbox"
+    made = {
+        "nilearn": ["alpha_glass", "beta_slices"],
+        "nifti_average": ["group_mean", "responders"],
+    }
+    roots = {"nilearn": tt / "nilearn_visuals", "nifti_average": tt / "nifti_average"}
+    for key, names in made.items():
+        for name in names:
+            (roots[key] / name).mkdir(parents=True)
+        (roots[key] / "notes.txt").write_text("a file, not a run")
+
+    group = catalog.group_catalog(pm)
+    for key, names in made.items():
+        assert [(e["name"], e["path"]) for e in group[key]] == [
+            (name, str(roots[key] / name)) for name in names
+        ], key
 
 
 # ── nets and leadfields ─────────────────────────────────────────────────────
