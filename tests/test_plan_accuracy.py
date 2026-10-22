@@ -88,11 +88,12 @@ def test_flex_cpus_in_the_config_is_what_the_plan_shows() -> None:
 
 
 def test_sim_cost_is_one_cpu_per_montage_run_serially() -> None:
-    """The runner runs a sim's montages one after another, so CPUs stay flat and memory scales."""
+    """The runner runs a sim's montages one after another, so CPUs and memory both stay flat:
+    the peak is one montage's (measured: tests/test_job_memory_realdata.py)."""
     one = default_cost("sim", {"montages": [{}]})
     three = default_cost("sim", {"montages": [{}, {}, {}]})
     assert one.cpus == three.cpus == 1
-    assert three.mem_gb == 3 * one.mem_gb
+    assert three.mem_gb == one.mem_gb
 
 
 # --------------------------------------------------------------------------- calibration
