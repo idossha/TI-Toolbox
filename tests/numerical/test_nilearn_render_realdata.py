@@ -25,8 +25,10 @@ blocked. Then:
    the field's peak;
 6. a ``min_cutoff`` above the peak logs the blank-figure warning naming the peak;
 7. with the image's bundled atlases (``/opt/nilearn_data``) the outlines load offline; when
-   the image predates them (idossha/ti-toolbox:v3.1.1) that check skips with a reason, and
-   the job is shown to succeed without outlines instead.
+   the image predates them (idossha/ti-toolbox:v3.1.1: no directory and no
+   ``NILEARN_DATA=/opt/nilearn_data``) that check skips with a reason, and the job is shown to
+   succeed without outlines instead. An image that declares the variable and lacks the
+   directory fails that check.
 
 The dataset is never written: the mtimes of the files read are compared before and after.
 
@@ -86,6 +88,12 @@ pytestmark = pytest.mark.skipif(
 
 #: The image bakes the outline atlases here (container/blueprint/Dockerfile.ti-toolbox).
 _BUNDLED = Path("/opt/nilearn_data")
+#: The Dockerfile step that bakes them also declares ``NILEARN_DATA=/opt/nilearn_data``
+#: (17576be2): only an image without both predates them; one that declares it and lacks the
+#: directory lost its atlases, and the bundled-cache test fails there instead of skipping.
+_PREDATES_THE_BUNDLED_ATLASES = not (
+    _BUNDLED.is_dir() or os.environ.get("NILEARN_DATA") == str(_BUNDLED)
+)
 #: matplotlib's ``hot``: red reaches 1 at 0.365079, blue starts rising at 0.746032.
 _HOT_BAND = (0.35, 0.75)
 
@@ -451,7 +459,7 @@ def test_a_min_cutoff_above_the_peak_logs_the_blank_figure_warning(run, mean, tm
 
 
 @pytest.mark.skipif(
-    not _BUNDLED.is_dir(),
+    _PREDATES_THE_BUNDLED_ATLASES,
     reason="skipping: this image predates the bundled nilearn atlases (/opt/nilearn_data)",
 )
 def test_the_atlas_outlines_load_offline_from_the_bundled_cache(run):

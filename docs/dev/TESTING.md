@@ -81,11 +81,13 @@ fixed and the rest of the suite run green on Linux at least twice. Then restore 
   `test_simnibs_vector_warp.py` is a strict `xfail` where the image's SimNIBS
   `transformations.py` still has the removed NumPy `nan_to_num` patch (`v3.1.1`), so an XPASS
   there fails, and an ordinary test in every image built from this source. Its allowlist
-  (`--leg numerical-image`) carries the Dataset 000 skips, that xfail by its exact reason, two
-  Nilearn entries for an image built before `/opt/nilearn_data`, which go once the leg's image
-  is rebuilt, and the no-atlas fallback test a rebuilt image skips;
+  (`--leg numerical-image`) carries any skip that names `TIT_DATASET_000`, whatever its module
+  (`dev/run_realdata_tests.sh` selects every module that reads the variable and refuses the
+  skip), that xfail by its exact reason, the two Nilearn skips of an image built before
+  `/opt/nilearn_data` (one that declares `NILEARN_DATA=/opt/nilearn_data` without the directory
+  fails them instead), and the no-atlas fallback test a rebuilt image skips.
   `tests/test_ci_legs_image_expectations.py` runs pytest-written reports of both kinds of image
-  through it.
+  through it, and fails on an entry whose text no skip of its module carries.
 - **Release gate**: the `numerical` stage of `dev/verify_release.py`.
 
 Every leg's JUnit XML goes through `dev/check_junit.py`: zero collected, any failure or error, or

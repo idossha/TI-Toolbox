@@ -215,36 +215,38 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "message": "TIT_ERNIE_LABELING",
             "why": "Dataset 000 is not in CI; dev/run_realdata_tests.sh runs it",
         },
-        # Measured on idossha/ti-toolbox:v3.1.1, 2026-10-22, TIT_DATASET_000 unset: 466
-        # collected, 400 passed, 66 skipped (63 skips and 3 strict xfails, the vector warp's
-        # among them), all of them on this list.
-        *_HOST_NUMERICAL_DATASET_000,
-        _dataset_000(
-            "test_analyzer_p06_real.*",
-            "reads sub-101's Thalamus_example surface fields",
-        ),
-        _dataset_000(
-            "test_caps_warp_realdata.*", "warps the caps onto the dataset's MNI152"
-        ),
-        _dataset_000(
-            "test_net_on_scalp_realdata.*",
-            "checks every subject's nets against its skin",
-        ),
-        _dataset_000(
-            "test_nilearn_render_realdata.*",
-            "renders sub-101 and sub-LA's MNI TI_max fields",
-        ),
+        # Measured on idossha/ti-toolbox:v3.1.1, 2026-10-22, TIT_DATASET_000 unset, on main
+        # 40044b19 with these entries: 478 collected, 68 skipped (67 skips and the vector
+        # warp's strict xfail), all of them on this list.
+        #
+        # CI has no Dataset 000, so a test here may skip for its unset TIT_DATASET_000 in
+        # whichever module it is: a new real-data module needs no entry (82eb1dde's leadfield
+        # module turned the nightly red while this was a list of modules). That is safe because
+        # dev/run_realdata_tests.sh selects every module that reads the variable, runs it with
+        # the variable set, and its realdata leg refuses this skip.
         {
-            "test": "tests.numerical.test_nilearn_render_realdata.*",
-            "message": "predates the bundled nilearn atlases",
-            "why": "v3.1.1 was built before the Dockerfile bundled /opt/nilearn_data; remove "
-            "this entry once the leg's image is rebuilt",
+            "test": "tests.numerical.*",
+            "message": "TIT_DATASET_000",
+            "why": "CI has no Dataset 000; dev/run_realdata_tests.sh runs every module that "
+            "reads TIT_DATASET_000 with it set, and its realdata leg refuses this skip",
+        },
+        # An image built before the Dockerfile bundled /opt/nilearn_data and declared
+        # NILEARN_DATA=/opt/nilearn_data (v3.1.1). The modules skip only on such an image, so one
+        # that declares the variable and lacks the atlases fails instead of matching these.
+        {
+            "test": "tests.numerical.test_nilearn_render_realdata."
+            "test_the_atlas_outlines_load_offline_from_the_bundled_cache",
+            "message": "skipping: this image predates the bundled nilearn atlases "
+            "(/opt/nilearn_data)",
+            "why": "the image was built before the Dockerfile bundled /opt/nilearn_data; the "
+            "no-atlas fallback test beside it runs there instead",
         },
         {
             "test": "tests.numerical.test_nilearn_offline_atlases.*",
-            "message": "predates the bundled nilearn atlases",
-            "why": "v3.1.1 was built before the Dockerfile bundled /opt/nilearn_data; remove "
-            "this entry once the leg's image is rebuilt",
+            "message": "skipping: image predates the bundled nilearn atlases "
+            "(/opt/nilearn_data absent)",
+            "why": "the image was built before the Dockerfile bundled /opt/nilearn_data, so "
+            "there is no cache to check",
         },
         {
             "test": "tests.numerical.test_nilearn_offline_atlases."
@@ -252,13 +254,6 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "message": "running as root",
             "why": "the image runs the leg as root, which a directory mode cannot restrict; "
             "the module's no-writes test covers the read-only cache",
-        },
-        {
-            "test": "tests.numerical.test_nifti_average_runner."
-            "test_two_groups_on_different_grids_fail_naming_the_subject*",
-            "message": "checks the grid within a group only",
-            "why": "a strict xfail, which JUnit records as a skip: the cross-group grid gap in "
-            "tit/stats/nifti.py stays pinned, and an XPASS is a failure",
         },
     ],
 }

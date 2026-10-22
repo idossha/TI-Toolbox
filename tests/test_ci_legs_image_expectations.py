@@ -18,6 +18,17 @@ What this pins
     The CI ``host-numerical`` leg (a venv without matplotlib) allows the tissue figure test's
     own "needs real matplotlib" skip, and only on that test.
 
+    The numerical leg allows a skip that names ``TIT_DATASET_000`` in any module, so a new
+    real-data module does not turn the nightly red (82eb1dde's leadfield module did, on
+    2026-10-22, while the leg listed modules); a skip naming another variable still fails,
+    the Dataset 000 leg refuses every such skip, and ``dev/run_realdata_tests.sh`` is shown
+    to select every module whose skip names the variable. The old-image Nilearn skips happen
+    only on an image that neither has ``/opt/nilearn_data`` nor declares
+    ``NILEARN_DATA=/opt/nilearn_data`` (the Dockerfile step that bundles the atlases sets it),
+    so a rebuilt image that lost the atlases fails; their entries are each test's whole reason
+    and no part of another skip in the module. Every entry of the three legs must name a
+    skip text its module carries, so a stale entry (a fixed xfail, a renamed reason) fails.
+
 Where the expectations come from
     The patch's own rule (``resources/patches/patch_nan_to_num.py`` before 7403910d replaced
     every ``copy=None`` with ``copy=False``; SimNIBS 4.6 passes ``copy=None`` at its three
@@ -29,6 +40,9 @@ Where the expectations come from
     not a copy typed here. The other reason texts are read from the real test modules
     (``ast``), and every JUnit report is written by pytest itself, from modules that carry the
     real test ids, so ``check_junit`` is checked against the format the legs really produce.
+    The runner's module list is its own output, run with a stub ``docker`` on an empty
+    dataset; the NILEARN_DATA cases import the two Nilearn modules afresh under each
+    environment and read their skip marks.
 
 How to run it
     ``python -m pytest tests/test_ci_legs_image_expectations.py -q -p no:cacheprovider``
@@ -42,7 +56,10 @@ Deliberately elsewhere
 from __future__ import annotations
 
 import ast
+import fnmatch
+import functools
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -68,6 +85,8 @@ WARP_ID = (
     "test_vector_volume_is_mirrored_through_the_inverse_warp"
 )
 RENDER = ROOT / "tests" / "numerical" / "test_nilearn_render_realdata.py"
+OFFLINE = ROOT / "tests" / "numerical" / "test_nilearn_offline_atlases.py"
+RUNNER = ROOT / "dev" / "run_realdata_tests.sh"
 BUNDLED_TEST = "test_the_atlas_outlines_load_offline_from_the_bundled_cache"
 FALLBACK_TEST = "test_without_the_bundled_atlases_the_job_still_draws_and_says_why"
 TISSUE = ROOT / "tests" / "numerical" / "test_tissue_geometry.py"
@@ -107,6 +126,94 @@ def _skip_call_text(path: Path, function: str) -> str:
                 ):
                     return ast.literal_eval(call.args[0])
     raise AssertionError(f"{function} in {path} calls no pytest.skip")
+
+
+def _pytestmark_reason(path: Path) -> str:
+    """The ``reason=`` of *path*'s module-level ``pytestmark = pytest.mark.skipif(...)``."""
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if (
+            isinstance(node, ast.Assign)
+            and [ast.unparse(t) for t in node.targets] == ["pytestmark"]
+            and isinstance(node.value, ast.Call)
+        ):
+            for keyword in node.value.keywords:
+                if keyword.arg == "reason":
+                    return ast.literal_eval(keyword.value)
+    raise AssertionError(f"{path} has no pytestmark skipif reason")
+
+
+#: The calls whose text pytest records as a skip (an xfail is recorded as one too).
+_SKIP_CALLS = {"skip", "skipif", "xfail", "importorskip"}
+
+
+def _text(node: ast.AST, names: dict[str, str]) -> str | None:
+    """A string expression's text: literals, ``+``, module-level names; f-string fields ``{}``."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        return "".join(
+            v.value if isinstance(v, ast.Constant) else "{}" for v in node.values
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _text(node.left, names), _text(node.right, names)
+        return None if left is None or right is None else left + right
+    if isinstance(node, ast.Name):
+        return names.get(node.id)
+    return None
+
+
+@functools.lru_cache(maxsize=None)
+def _skip_texts(path: Path) -> tuple[str, ...]:
+    """Every skip or xfail text *path* can report, read from its source.
+
+    The ``reason=`` / ``msg=`` of a skip, skipif, xfail or importorskip call, the first
+    argument of ``pytest.skip`` / ``pytest.xfail``, and a ``print("skipping: ...")`` -- how a
+    check run in a subprocess hands its skip back (``tests/numerical/test_fsaverage_msh.py``).
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    names: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            text = _text(node.value, names)
+            for target in node.targets:
+                if isinstance(target, ast.Name) and text is not None:
+                    names[target.id] = text
+    texts = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        call = ast.unparse(node.func).rsplit(".", 1)[-1]
+        if call == "print" and node.args:
+            printed = _text(node.args[0], names)
+            if printed is not None and printed.startswith("skipping:"):
+                texts.append(printed)
+            continue
+        if call not in _SKIP_CALLS:
+            continue
+        values = [k.value for k in node.keywords if k.arg in {"reason", "msg"}]
+        if call in {"skip", "xfail"} and node.args:
+            values.append(node.args[0])
+        texts += [t for t in (_text(v, names) for v in values) if t is not None]
+    return tuple(texts)
+
+
+def _module_id(path: Path) -> str:
+    return ".".join(path.relative_to(ROOT).with_suffix("").parts)
+
+
+def _modules_named_by(glob: str) -> list[Path]:
+    """The test modules an allowlist id glob names: its module part, or all a wildcard covers."""
+    parts = glob.split(".")
+    for end in range(len(parts) - 1, 1, -1):
+        if not any("*" in part for part in parts[:end]):
+            path = ROOT.joinpath(*parts[:end]).with_suffix(".py")
+            if path.is_file():
+                return [path]
+    return [
+        path
+        for path in sorted((ROOT / "tests").rglob("test_*.py"))
+        if fnmatch.fnmatchcase(f"{_module_id(path)}.test_any", glob)
+    ]
 
 
 # ── which image carries the patch ────────────────────────────────────────────
@@ -270,6 +377,88 @@ def test_the_reasons_are_the_ones_the_test_modules_carry():
         ]
     bundled = [e for e in realdata if e["test"].endswith(f".{BUNDLED_TEST}")]
     assert [e["message"] for e in bundled] == [_skipif_reason(RENDER, BUNDLED_TEST)]
+
+
+def test_the_predates_entries_are_their_tests_whole_reasons_and_nothing_else():
+    """The old-image Nilearn entries name one test (or one module-wide mark) and its whole
+    reason, and that reason is no part of any other skip the module can report -- so they
+    cannot pass the module's Dataset 000 skip, its "real nilearn is not importable" skip or
+    the root skip beside them."""
+    render_bundled = f"{_module_id(RENDER)}.{BUNDLED_TEST}"
+    offline_all = f"{_module_id(OFFLINE)}.*"
+    expected = {
+        "numerical-image": {
+            (render_bundled, _skipif_reason(RENDER, BUNDLED_TEST)),
+            (offline_all, _pytestmark_reason(OFFLINE)),
+        },
+        "realdata": {(render_bundled, _skipif_reason(RENDER, BUNDLED_TEST))},
+    }
+    for leg, pairs in expected.items():
+        named = {
+            (e["test"], e["message"])
+            for e in check_junit.ALLOWLISTS[leg]
+            if "nilearn_render" in e["test"] or "nilearn_offline" in e["test"]
+            if "predates" in e["message"] or "nilearn" in e["message"]
+        }
+        assert named == pairs, leg
+    for module, reason in (
+        (RENDER, _skipif_reason(RENDER, BUNDLED_TEST)),
+        (OFFLINE, _pytestmark_reason(OFFLINE)),
+    ):
+        texts = _skip_texts(module)
+        assert len(texts) >= 2, f"{module.name} has other skips to compare with"
+        assert [t for t in texts if reason in t] == [reason], module.name
+
+
+def _fresh(path: Path, monkeypatch, *, declared: str | None, bundled: bool):
+    """*path* imported anew in an environment that does or does not declare NILEARN_DATA, on
+    a machine where /opt/nilearn_data does or does not exist."""
+    is_dir = Path.is_dir
+
+    def fake_is_dir(self: Path) -> bool:
+        return bundled if str(self) == "/opt/nilearn_data" else is_dir(self)
+
+    with monkeypatch.context() as patch:
+        if declared is None:
+            patch.delenv("NILEARN_DATA", raising=False)
+        else:
+            patch.setenv("NILEARN_DATA", declared)
+        patch.setattr(Path, "is_dir", fake_is_dir)
+        spec = importlib.util.spec_from_file_location(f"_fresh_{path.stem}", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    return module
+
+
+def _skipif_condition(marks) -> bool:
+    marks = marks if isinstance(marks, list) else [marks]
+    (mark,) = [getattr(m, "mark", m) for m in marks if m.name == "skipif"]
+    return bool(mark.args[0])
+
+
+@pytest.mark.parametrize(
+    "declared, bundled, predates",
+    [
+        # v3.1.1: built before the Dockerfile bundled the atlases and declared the variable.
+        (None, False, True),
+        # Built from this source but the atlas step lost the cache: a failure, not a skip.
+        ("/opt/nilearn_data", False, False),
+        # A host with its own nilearn cache is not an image that bundles one.
+        ("/home/someone/nilearn_data", False, True),
+        # Built from this source as intended.
+        ("/opt/nilearn_data", True, False),
+    ],
+    ids=["v3.1.1", "rebuilt-without-cache", "host-cache", "rebuilt"],
+)
+def test_only_an_image_that_never_declared_the_bundled_atlases_predates_them(
+    monkeypatch, declared, bundled, predates
+):
+    offline = _fresh(OFFLINE, monkeypatch, declared=declared, bundled=bundled)
+    render = _fresh(RENDER, monkeypatch, declared=declared, bundled=bundled)
+    assert _skipif_condition(offline.pytestmark) is predates
+    assert _skipif_condition(getattr(render, BUNDLED_TEST).pytestmark) is predates
+    # The fallback test runs exactly where the cache is missing, declared or not.
+    assert _skipif_condition(getattr(render, FALLBACK_TEST).pytestmark) is bundled
 
 
 @pytest.mark.parametrize(
@@ -447,3 +636,134 @@ def test_the_host_leg_allows_the_matplotlib_skip_on_the_figure_test_only(
     out = capsys.readouterr().out
     assert out.count("skip not on the allowlist") == (0 if passes else 1), out
     assert check_junit.main(["--leg", "no-skips", report]) == 1
+
+
+# ── Dataset 000 gates on the CI numerical leg ────────────────────────────────
+
+
+def _dataset_000_gate_texts() -> list[str]:
+    """The skip texts tests/numerical's real-data modules carry that name TIT_DATASET_000."""
+    texts = sorted(
+        {
+            text
+            for path in sorted((ROOT / "tests" / "numerical").glob("test_*.py"))
+            for text in _skip_texts(path)
+            if "TIT_DATASET_000" in text
+        }
+    )
+    assert len(texts) >= 3, f"has Dataset 000 gates to check: {texts}"
+    return texts
+
+
+def _gated(texts: list[str]) -> str:
+    """A module no allowlist names: one test skipping per text, and one that runs."""
+    return (
+        "import pytest\n\n"
+        + "".join(
+            f"@pytest.mark.skipif(True, reason={text!r})\n"
+            f"def test_gate_{index}():\n    pass\n\n"
+            for index, text in enumerate(texts)
+        )
+        + "def test_runs():\n    pass\n"
+    )
+
+
+def test_a_module_no_list_names_passes_the_numerical_leg_on_its_dataset_000_skip(
+    tmp_path, capsys
+):
+    """CI has no Dataset 000, so a real-data module added later skips there in any wording.
+
+    The nightly stays green without an allowlist edit (82eb1dde's leadfield module turned it
+    red), and the Dataset 000 leg, which sets the variable, still refuses each skip.
+    """
+    texts = _dataset_000_gate_texts()
+    report = _report(tmp_path, {"test_a_module_no_allowlist_names": _gated(texts)})
+    cases = check_junit.read_cases(Path(report).read_text(encoding="utf-8"))
+    assert sorted(c.message for c in cases if c.outcome == "skipped") == texts
+    assert (
+        check_junit.main(["--leg", "numerical-image", report]) == 0
+    ), capsys.readouterr().out
+    assert check_junit.main(["--leg", "realdata", report]) == 1
+    assert capsys.readouterr().out.count("skip not on the allowlist") == len(texts)
+
+
+def test_a_skip_that_does_not_name_tit_dataset_000_fails_the_numerical_leg(
+    tmp_path, capsys
+):
+    texts = [
+        # The retired spelling (TIT_DATASET000): the runner never sets it.
+        "skipping: TIT_DATASET000 is unset (export TIT_DATASET000=/path/to/Dataset000)",
+        # Another variable, which names Dataset 000 but is not the one CI lacks.
+        "skipping: TIT_DTI_PROTO is unset; the prototype tensor is not part of Dataset 000",
+    ]
+    report = _report(tmp_path, {"test_a_module_no_allowlist_names": _gated(texts)})
+    assert check_junit.main(["--leg", "numerical-image", report]) == 1
+    out = capsys.readouterr().out
+    assert out.count("skip not on the allowlist") == len(texts), out
+
+
+def _runner_modules(tmp_path: Path) -> set[str]:
+    """The modules dev/run_realdata_tests.sh selects, from its own output (docker stubbed)."""
+    dataset = tmp_path / "000"
+    (dataset / "derivatives" / "SimNIBS").mkdir(parents=True)
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "docker").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    (stub / "docker").chmod(0o755)
+    done = subprocess.run(
+        [
+            "bash",
+            str(RUNNER),
+            "--dataset",
+            str(dataset),
+            "--out",
+            str(tmp_path / "out"),
+        ],
+        env={**os.environ, "PATH": f"{stub}{os.pathsep}{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    prefix = "real-data modules ("
+    (line,) = [l for l in done.stdout.splitlines() if l.startswith(prefix)] or [
+        done.stdout + done.stderr
+    ]
+    count, _, names = line.removeprefix(prefix).partition("): ")
+    modules = set(names.split())
+    assert len(modules) == int(count), line
+    return modules
+
+
+def test_every_module_whose_skip_names_tit_dataset_000_is_run_by_the_dataset_000_leg(
+    tmp_path,
+):
+    """The numerical leg may pass such a skip only because the Dataset 000 leg runs it."""
+    named = {
+        str(path.relative_to(ROOT))
+        for path in sorted((ROOT / "tests").rglob("test_*.py"))
+        if any("TIT_DATASET_000" in text for text in _skip_texts(path))
+    }
+    assert str(RENDER.relative_to(ROOT)) in named, "has gated modules to check"
+    assert named - _runner_modules(tmp_path) == set()
+
+
+# ── every allowlist entry is a skip the tree can report ──────────────────────
+
+
+@pytest.mark.parametrize("leg", ["numerical-image", "realdata", "host-numerical"])
+def test_every_allowlist_entry_names_a_skip_its_module_can_report(leg):
+    """An entry whose text no module it names carries is stale (or mistyped): it allows nothing
+    real and would allow the next skip that happens to share it."""
+    entries = check_junit.ALLOWLISTS[leg]
+    assert entries, f"{leg} has entries to check"
+    stale = [
+        f"{entry['test']}: {entry['message']!r}"
+        for entry in entries
+        if not any(
+            entry["message"] in text
+            for module in _modules_named_by(entry["test"])
+            for text in _skip_texts(module)
+        )
+    ]
+    assert stale == []

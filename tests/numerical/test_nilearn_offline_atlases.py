@@ -28,8 +28,9 @@ interpreter, and real nilearn imports real pandas. Swapping pandas in and out of
 ``simnibs_python -c`` (``_SCRIPT``), which reports each key's path and what loading it
 printed; the checksums, labels and the cache listing are read here (hashlib, nibabel, os).
 
-Skips with a reason when ``/opt/nilearn_data`` is absent: images up to
-idossha/ti-toolbox:v3.1.1 predate the bundled atlases.
+Skips with a reason only on an image that predates the bundled atlases -- no
+``/opt/nilearn_data`` and no ``NILEARN_DATA=/opt/nilearn_data`` in its environment, as up to
+idossha/ti-toolbox:v3.1.1. An image that declares the variable but lacks the directory fails.
 Run in the image: ``docker run --rm -v <tree>:/ti-toolbox -w /ti-toolbox
 idossha/ti-toolbox:<tag> -lc 'simnibs_python -m pytest tests/numerical/test_nilearn_offline_atlases.py -q -p no:cacheprovider'``.
 Verified 2026-10-22 on v3.1.1 with the Dockerfile step reproduced in a throwaway container
@@ -51,8 +52,14 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 _BUNDLED = Path("/opt/nilearn_data")
+#: Only an image that predates the cache skips: the Dockerfile step that bundles it also
+#: declares ``NILEARN_DATA=/opt/nilearn_data`` (17576be2), so an image that declares it and
+#: lacks the directory lost its atlases and fails here.
+_PREDATES_THE_BUNDLED_ATLASES = not (
+    _BUNDLED.is_dir() or os.environ.get("NILEARN_DATA") == str(_BUNDLED)
+)
 pytestmark = pytest.mark.skipif(
-    not _BUNDLED.is_dir(),
+    _PREDATES_THE_BUNDLED_ATLASES,
     reason="skipping: image predates the bundled nilearn atlases (/opt/nilearn_data absent)",
 )
 
