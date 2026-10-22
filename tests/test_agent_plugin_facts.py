@@ -8,17 +8,19 @@ failure) is not:
 
 | Fact in the plugin | Must match |
 |---|---|
-| a repo-relative path (``dev/``, ``tit/``, ``desktop/``, ...) | exists in this checkout |
+| a repo-relative path (``dev/``, ``tit/``, ``desktop/``, ...), served dict keys included | exists in this checkout |
+| a developer document cited by its bare name (``DECISIONS.md``) | exists at the root or in ``docs/dev/`` |
 | the image's NumPy (and SimNIBS) version | ``container/blueprint/runtime-constraints.txt`` and ``verify_runtime.py`` |
 | the seeded example notebook | ``tit.server.notebooks.EXAMPLE_NAME`` |
 | the launcher flags | the option strings of ``tit.cli.launch_arguments()`` |
 | the rail rows and their digits | ``NAV_ORDER`` / ``PINNED_ORDER`` in ``desktop/src/renderer/app/registry.ts`` and each page's ``title`` |
 | what ``loader.sh`` needs | ``loader.sh`` line 2, "Python-free" |
+| that ``loader.sh``, ``loader.py`` and ``tit launch`` open the desktop app | ``loader.sh`` ("The desktop app is the default UI") and ``tit.cli.LAUNCH_EPILOG`` |
 | wiki slugs and WebSocket routes | ``docs/wiki/*.md`` and the ``@...websocket(...)`` routes under ``tit/server`` |
 | "N ``error.type`` values" | the ``JobError.type`` enum in ``contracts/openapi.yaml`` |
 | a server restart and re-adoption | ``JobManager._reconcile_all`` (never re-adopts; records ``lost``) |
 | the pytest marker list | the ``markers`` of ``pytest.ini`` |
-| the project layouts (ti-toolbox and ti-domain trees, quick facts ``project_layout``) | the directories ``PathManager``, ``NOTEBOOK_SUBDIR`` and ``tit.storage.kind_prefixes`` name, checked at the levels in ``_CHECKED_PARENTS`` |
+| the project layouts (ti-toolbox and ti-domain trees, quick facts ``project_layout``) | the directories ``PathManager``, ``NOTEBOOK_SUBDIR`` and ``tit.storage.kind_prefixes`` name, checked at the levels in ``_CHECKED_PARENTS``; each names ``TI/mesh`` and ``mTI/mesh`` |
 | which ``npm run dev*`` opens Electron and which has HMR | ``USAGE`` in ``desktop/scripts/dev.ts`` and the scripts in ``desktop/package.json`` |
 
 Where the expected values come from: each row's right-hand file, read off disk at test time;
@@ -77,10 +79,11 @@ def srv():
 
 
 def _strings(node) -> list[str]:
+    """Every string in a served JSON value, dict keys included (``subsystems`` keys are paths)."""
     if isinstance(node, str):
         return [node]
     if isinstance(node, dict):
-        return [s for v in node.values() for s in _strings(v)]
+        return [s for kv in node.items() for v in kv for s in _strings(v)]
     if isinstance(node, list):
         return [s for v in node for s in _strings(v)]
     return []
@@ -157,20 +160,53 @@ def _cited_paths(name: str, text: str) -> list[str]:
     return out
 
 
-def test_every_cited_repo_path_exists(texts):
-    checked, missing = 0, []
+#: A developer document cited by its bare name (``DECISIONS.md``, ``RELEASE.md §B``) lives at
+#: the repository root or in docs/dev/.
+_BARE_DOC = re.compile(r"(?<![\w./-])([A-Z][A-Z0-9_]*\.md)\b")
+
+
+def _check_paths(name: str, text: str) -> tuple[list[str], list[str]]:
+    """(the cited paths that were checked, the ones that resolve nowhere)."""
+    checked, missing = [], []
+    for path in _cited_paths(name, text):
+        if path.rstrip("/") in DELETED_ON_PURPOSE or path in EXAMPLE_NAMES:
+            continue
+        checked.append(path)
+        target = REPO / path
+        if not (target.exists() or target.with_suffix(".py").is_file()):
+            missing.append(path)
+    for doc in _BARE_DOC.findall(text):
+        checked.append(doc)
+        if not ((REPO / doc).is_file() or (REPO / "docs/dev" / doc).is_file()):
+            missing.append(doc)
+    return checked, missing
+
+
+def test_the_path_check_sees_what_it_must():
+    """The guard itself, on planted text: a dict key, a prose doc name, a backticked path."""
+    served = "\n".join(_strings({"subsystems": {"tit/pipeline": "the canvas runner"}}))
+    assert _check_paths("get_quick_facts", served)[1] == ["tit/pipeline"]
+    gap = "Known open gap (RELEASE.md §B): see `dev/loader/` and DECISIONS.md."
+    checked, missing = _check_paths("x/SKILL.md", gap)
+    assert missing == ["dev/loader/", "RELEASE.md"]
+    assert "DECISIONS.md" in checked
+
+
+def test_every_cited_repo_path_exists(srv, texts):
+    cited, missing = {}, []
     for name, text in texts.items():
-        for path in _cited_paths(name, text):
-            if path.rstrip("/") in DELETED_ON_PURPOSE or path in EXAMPLE_NAMES:
-                continue
-            checked += 1
-            target = REPO / path
-            if not (target.exists() or target.with_suffix(".py").is_file()):
-                missing.append(f"{name}: {path}")
+        checked, gone = _check_paths(name, text)
+        cited[name] = set(checked)
+        missing += [f"{name}: {path}" for path in gone]
     assert not missing, "the plugin cites paths that do not exist:\n" + "\n".join(
         missing
     )
-    assert checked > 60, f"only {checked} cited paths found: the scan is broken"
+    assert sum(map(len, cited.values())) > 60, "too few cited paths: the scan is broken"
+    # The quick-facts subsystem names are dict keys; each one was checked.
+    keys = _tool(srv, "get_quick_facts")["subsystems"]
+    named = {p for key in keys for p in re.findall(r"[\w./-]+/[\w./-]+", key)}
+    assert len(named) >= len(keys) and named <= cited["get_quick_facts"], named
+    assert "DECISIONS.md" in cited["get_quick_facts"]
 
 
 def test_the_allowlisted_paths_are_what_they_claim():
@@ -302,7 +338,6 @@ def test_loader_sh_is_never_said_to_need_python(texts):
         r"\bfinds?\s+(?:a\s+)?(?:usable\s+)?python",
         r"\b(?:needs?|requires?)\s+(?:a\s+)?python",
         r"bootstrap\w*\s+over\s+`?tit/launch\.py",
-        r"no electron",
     )
     for name, text in texts.items():
         for sentence in re.split(r"(?<=[.;])\s|\n", text):
@@ -310,6 +345,54 @@ def test_loader_sh_is_never_said_to_need_python(texts):
                 continue
             for claim in claims:
                 assert not re.search(claim, sentence, re.I), f"{name}: {sentence!r}"
+
+
+_LAUNCHER = r"loader\.(?:sh|py)|tit launch"
+_NO_ELECTRON = r"\b(?:no|without)[- ]Electron\b"
+
+
+def _launcher_contexts(srv, texts) -> dict[str, list[str]]:
+    """Every unit of text that describes loader.sh, loader.py or ``tit launch``: a sentence
+    naming one, a ``ways_to_run`` entry (who + how) whose command is one, and in a fenced
+    code block a launcher line with the comment lines heading its group."""
+    found: dict[str, list[str]] = {"sentence": [], "entry": [], "code line": []}
+    for text in texts.values():
+        found["sentence"] += [
+            s for s in re.split(r"(?<=[.;])\s|\n", text) if re.search(_LAUNCHER, s)
+        ]
+    for way in _tool(srv, "list_launch_paths")["ways_to_run"]:
+        if re.match(rf"\s*(?:\./|python3? )?(?:{_LAUNCHER})", way["how"]):
+            found["entry"].append(f"{way['who']}: {way['how']}")
+    for name in (n for n in texts if n.endswith(".md")):
+        for block in re.findall(r"```[^\n]*\n(.*?)```", texts[name], re.S):
+            header, prev_comment = [], False
+            for line in block.splitlines():
+                comment = line.lstrip().startswith("#")
+                if comment:
+                    header = (header if prev_comment else []) + [line]
+                elif re.match(rf"\s*(?:\./|python3? )?(?:{_LAUNCHER})", line):
+                    found["code line"].append("\n".join(header + [line]))
+                elif not line.strip():
+                    header = []
+                prev_comment = comment
+    return found
+
+
+def test_no_launcher_is_said_to_run_without_electron(srv, texts):
+    """loader.sh, loader.py and ``tit launch`` open the desktop app by default (loader.sh: "The
+    desktop app is the default UI"; ``tit launch``'s epilog); only ``--browser`` opts out.
+    """
+    assert "The desktop app is the default UI" in (REPO / "loader.sh").read_text()
+    from tit.cli import LAUNCH_EPILOG
+
+    assert "The desktop app is downloaded" in LAUNCH_EPILOG
+    found = _launcher_contexts(srv, texts)
+    for kind, units in found.items():
+        for unit in units:
+            assert not re.search(_NO_ELECTRON, unit, re.I), f"{kind}: {unit!r}"
+    # Each kind of context was reached: the terminal and installed entries, the skill's block.
+    assert len(found["entry"]) >= 2, found["entry"]
+    assert len(found["code line"]) >= 3 and len(found["sentence"]) > 10, found
 
 
 # ---------------------------------------------------------------------------------------------
@@ -584,6 +667,21 @@ def test_layouts_name_only_directories_the_toolbox_creates(texts, tmp_path):
         # The parse reached every level it checks (no vacuous pass on a reformatted tree).
         assert {"", "derivatives", "derivatives/SimNIBS/sub-*"} <= seen, source
         assert "code/ti-toolbox" in seen, source
+
+
+def test_layouts_name_where_ti_and_mti_results_land(texts, tmp_path):
+    """A 2-pair run writes ``TI/mesh``, a 4+ pair run ``mTI/mesh`` (PathManager.ti_mesh_dir /
+    mti_mesh_dir); every layout an agent reads must name both, or it will look for an mTI
+    result in the wrong place."""
+    results = {
+        p
+        for p in _toolbox_paths(tmp_path)
+        if re.search(r"/Simulations/\*/m?TI/mesh$", p)
+    }
+    assert len(results) == 2, results  # TI/mesh and mTI/mesh
+    for source, paths in _layouts(texts).items():
+        named = {q.rstrip("/") for p in paths for q in _expand(p)}
+        assert results <= named, f"{source} omits {sorted(results - named)}"
 
 
 # ---------------------------------------------------------------------------------------------

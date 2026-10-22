@@ -1054,8 +1054,9 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "freehand_electrodes": "derivatives/SimNIBS/sub-<id>/m2m_<id>/stim_configs/*.json "
             '— {"name", "type": "U"|"M", "electrode_positions": {label: [x, y, z]}} '
             "in subject-RAS millimetres",
-            "simulations": "derivatives/SimNIBS/sub-<id>/Simulations/<montage>/TI/{mesh,niftis} "
-            "(4+ pairs: the mTI result in mTI/{mesh,niftis})",
+            "simulations": "derivatives/SimNIBS/sub-<id>/Simulations/<montage>/{TI,mTI}/"
+            "{mesh,niftis} (mTI/ holds a 4+ pair run's result; its pairwise TI fields stay "
+            "in TI/)",
             "optimization": "derivatives/SimNIBS/sub-<id>/{flex-search,ex-search,m-ex-search}/ "
             "— the run name IS the directory; a second run under the same name overwrites it",
             "leadfields": "derivatives/SimNIBS/sub-<id>/leadfields/",
