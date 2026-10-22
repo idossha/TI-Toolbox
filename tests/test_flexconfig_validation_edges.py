@@ -34,6 +34,9 @@ flex-form-gates.test.ts``), the per-mode threshold rules with the drivers
 
 from __future__ import annotations
 
+import sys
+from unittest.mock import MagicMock
+
 import pytest
 
 from tit.jobs.config_check import check_job_config
@@ -53,6 +56,33 @@ def _cfg(**overrides) -> FlexConfig:
     )
     fields.update(overrides)
     return FlexConfig(**fields)
+
+
+@pytest.fixture
+def build_optimization(monkeypatch, tmp_path):
+    """The real ``build_optimization`` against mocked SimNIBS objects (the host suite
+    mocks simnibs). Returns ``build(cfg) -> opt``, the object SimNIBS would run;
+    ``build.configure_roi`` is the stubbed ROI step, to see whether it was reached."""
+    from tit.opt.flex import builder
+
+    for name in (
+        "simnibs.optimization",
+        "simnibs.optimization.tes_flex_optimization",
+        "simnibs.optimization.tes_flex_optimization.electrode_layout",
+    ):
+        if name not in sys.modules:
+            monkeypatch.setitem(sys.modules, name, MagicMock())
+    monkeypatch.setattr("tit.opt.flex.runtime.optimization_class", lambda: MagicMock)
+    monkeypatch.setattr("tit.paths.get_path_manager", lambda *a: MagicMock())
+    configure_roi = MagicMock()
+    monkeypatch.setattr(builder.utils, "configure_roi", configure_roi)
+
+    def build(cfg: FlexConfig):
+        cfg.output_folder = str(tmp_path / "run")
+        return builder.build_optimization(cfg)
+
+    build.configure_roi = configure_roi
+    return build
 
 
 def _wire(**overrides) -> dict:
@@ -112,6 +142,41 @@ def test_one_or_two_ordered_positive_thresholds_are_accepted(text):
     assert _cfg(goal="focality", thresholds=text).thresholds == text
 
 
+# A JSON number (an agent's tool call, an MCP client) or a Python number/list (a notebook)
+# names the same thresholds as its text; expected values are the numbers the caller gave.
+@pytest.mark.parametrize(
+    ("given", "text", "simnibs"),
+    [(0.2, "0.2", 0.2), (1, "1", 1.0), ([0.1, 0.2], "0.1,0.2", [0.1, 0.2])],
+)
+def test_numeric_thresholds_are_stored_as_text_and_reach_simnibs_as_given(
+    given, text, simnibs, build_optimization
+):
+    cfg = _cfg(goal="focality", thresholds=given)
+    assert cfg.thresholds == text
+    check_job_config("flex", _wire(goal="focality", thresholds=given))
+    assert build_optimization(cfg).threshold == simnibs
+
+
+@pytest.mark.parametrize(
+    "given", [float("nan"), -0.2, 0, [0.5, 0.1], [0.1, 0.2, 0.3], True, {"roi": 0.2}]
+)
+def test_numeric_thresholds_follow_the_same_rules_as_text(given):
+    with pytest.raises(ValueError, match="thresholds"):
+        _cfg(goal="focality", thresholds=given)
+    with pytest.raises(ValueError, match="thresholds"):
+        check_job_config("flex", _wire(goal="focality", thresholds=given))
+
+
+@pytest.mark.parametrize(("edited", "simnibs"), [(0.3, 0.3), ([0.1, 0.3], [0.1, 0.3])])
+def test_the_builder_reads_numbers_set_after_construction(
+    edited, simnibs, build_optimization
+):
+    """A config edited after it was built (no ``__post_init__``) still reaches SimNIBS."""
+    cfg = _cfg(goal="focality", thresholds="0.1,0.2")
+    cfg.thresholds = edited
+    assert build_optimization(cfg).threshold == simnibs
+
+
 # -- physical quantities ---------------------------------------------------------------------
 
 
@@ -153,6 +218,21 @@ def test_min_electrode_distance_zero_is_refused_at_submit_not_in_the_runner():
 def test_restart_and_cpu_counts_are_whole_numbers_of_at_least_one(field, value):
     with pytest.raises(ValueError, match=field):
         _cfg(**{field: value})
+
+
+def test_the_builder_still_refuses_an_ellipse_made_unequal_after_construction(
+    build_optimization,
+):
+    """Defence in depth: dimensions edited after the config was built skip
+    ``__post_init__``; the builder refuses them before it confirms the ROI."""
+    cfg = _cfg()
+    cfg.electrode.dimensions = [8.0, 10.0]
+    with pytest.raises(ValueError, match="dimensions must be equal"):
+        build_optimization(cfg)
+    build_optimization.configure_roi.assert_not_called()
+    cfg.electrode.dimensions = [8.0, 8.0]
+    assert build_optimization(cfg).electrode[0].radius == [4.0]
+    build_optimization.configure_roi.assert_called_once()
 
 
 def test_unequal_ellipse_is_refused_but_a_rectangle_may_differ():

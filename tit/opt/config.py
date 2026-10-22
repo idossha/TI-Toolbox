@@ -26,6 +26,7 @@ tit.opt.mex.mex.run_m_ex_search : Consumes :class:`MExConfig`.
 """
 
 import math
+import numbers
 import os
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -78,19 +79,47 @@ def _count(value, name: str) -> int:
     return int(value)
 
 
+def _thresholds_text(thresholds) -> str | None:
+    """*thresholds* in its text spelling: ``None`` and text pass through.
+
+    A number (a JSON number from an agent) or a list of numbers (a notebook)
+    becomes the comma-separated text the builder, the manifest and the report
+    read, e.g. ``0.2`` -> ``"0.2"`` and ``[0.1, 0.2]`` -> ``"0.1,0.2"``.
+
+    Raises
+    ------
+    ValueError
+        Naming ``thresholds``, for any other type.
+    """
+    if thresholds is None or isinstance(thresholds, str):
+        return thresholds
+    if isinstance(thresholds, numbers.Real):
+        return str(thresholds)
+    if isinstance(thresholds, (list, tuple)) and all(
+        isinstance(value, numbers.Real) for value in thresholds
+    ):
+        return ",".join(str(value) for value in thresholds)
+    raise ValueError(
+        f"thresholds {thresholds!r}: give text such as '0.1,0.2' (V/m), a number "
+        "or a list of numbers"
+    )
+
+
 def _parse_thresholds(thresholds) -> list[float] | None:
     """Validate a focality threshold specification; ``None`` when it is unset.
 
     ``None`` and the placeholders in :data:`_THRESHOLD_PLACEHOLDERS` mean "no
     explicit thresholds". Otherwise SimNIBS's ``measures.ROC`` takes one value
     (non-ROI max = ROI min) or two (non-ROI max, ROI min: a safety gap, so the
-    first may not exceed the second), each an E-field magnitude in V/m.
+    first may not exceed the second), each an E-field magnitude in V/m. A
+    number or a list of numbers is read as its text (:func:`_thresholds_text`).
 
     Raises
     ------
     ValueError
         Naming ``thresholds``, for anything else.
     """
+    thresholds = _thresholds_text(thresholds)
     if not _has_usable_thresholds(thresholds):
         return None
     parts = [part.strip() for part in str(thresholds).split(",")]
@@ -129,9 +158,10 @@ def _has_usable_thresholds(thresholds) -> bool:
     that case, but a Python-side ROC objective (as used by the current-ratio
     search) has nothing to fall back on.
     """
+    thresholds = _thresholds_text(thresholds)
     if thresholds is None:
         return False
-    return str(thresholds).strip().lower() not in _THRESHOLD_PLACEHOLDERS
+    return thresholds.strip().lower() not in _THRESHOLD_PLACEHOLDERS
 
 
 # ── Flex-search config ───────────────────────────────────────────────────────
@@ -179,10 +209,11 @@ class FlexConfig:
         Focality thresholds in V/m for the ROC-based ``"focality"`` goal: one
         value (non-ROI max = ROI min) or two, ``"<non-ROI max>,<ROI min>"``
         (e.g. ``"0.1,0.2"``), each finite and greater than 0, the first not
-        above the second (SimNIBS ``measures.ROC``'s safety gap).  ``None``
-        and the placeholders ``""``, ``"dynamic"``, ``"auto"`` mean unset and
-        are stored as ``None``.  A single ``"focality"`` run requires them --
-        SimNIBS has no default -- while ``mode="flex_adaptive"`` /
+        above the second (SimNIBS ``measures.ROC``'s safety gap).  A number or
+        a list of numbers is stored as that text (``0.2`` -> ``"0.2"``).
+        ``None`` and the placeholders ``""``, ``"dynamic"``, ``"auto"`` mean
+        unset and are stored as ``None``.  A single ``"focality"`` run
+        requires them -- SimNIBS has no default -- while ``mode="flex_adaptive"`` /
         ``"flex_pareto"`` (or a config carrying *adaptive* / *pareto*
         settings, whose mode the job kind supplies) derive them per step.
     intensity_weight : float
@@ -854,6 +885,8 @@ class FlexConfig:
                 "roi, so ROI and background are the same samples; pick a different "
                 "non-ROI region or non_roi_method='everything_else'"
             )
+        # One spelling for every reader (builder, manifest, report): text.
+        self.thresholds = _thresholds_text(self.thresholds)
         # The adaptive and multi-threshold drivers set thresholds on every
         # focality step themselves (tit.opt.flex.drivers). A config carrying
         # their settings is such a driver config even where its mode is not

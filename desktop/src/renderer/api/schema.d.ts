@@ -7892,10 +7892,11 @@ export interface components {
          *         Focality thresholds in V/m for the ROC-based ``"focality"`` goal: one
          *         value (non-ROI max = ROI min) or two, ``"<non-ROI max>,<ROI min>"``
          *         (e.g. ``"0.1,0.2"``), each finite and greater than 0, the first not
-         *         above the second (SimNIBS ``measures.ROC``'s safety gap).  ``None``
-         *         and the placeholders ``""``, ``"dynamic"``, ``"auto"`` mean unset and
-         *         are stored as ``None``.  A single ``"focality"`` run requires them --
-         *         SimNIBS has no default -- while ``mode="flex_adaptive"`` /
+         *         above the second (SimNIBS ``measures.ROC``'s safety gap).  A number or
+         *         a list of numbers is stored as that text (``0.2`` -> ``"0.2"``).
+         *         ``None`` and the placeholders ``""``, ``"dynamic"``, ``"auto"`` mean
+         *         unset and are stored as ``None``.  A single ``"focality"`` run
+         *         requires them -- SimNIBS has no default -- while ``mode="flex_adaptive"`` /
          *         ``"flex_pareto"`` (or a config carrying *adaptive* / *pareto*
          *         settings, whose mode the job kind supplies) derive them per step.
          *     intensity_weight : float

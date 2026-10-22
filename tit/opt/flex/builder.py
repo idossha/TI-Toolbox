@@ -23,7 +23,7 @@ import logging
 
 import numpy as np
 
-from tit.opt.config import FlexConfig
+from tit.opt.config import FlexConfig, _parse_thresholds
 
 from . import utils
 
@@ -94,9 +94,10 @@ def build_optimization(config: FlexConfig):
     else:
         opt.goal = config.goal.value
         if config.goal == "focality":
-            thr_raw = (config.thresholds or "").strip()
-            if thr_raw and thr_raw.lower() not in {"dynamic", "auto"}:
-                vals = [float(v) for v in thr_raw.split(",")]
+            # FlexConfig's own parser: a config edited after construction (a
+            # number, a placeholder) reaches SimNIBS the way a fresh one would.
+            vals = _parse_thresholds(config.thresholds)
+            if vals:
                 opt.threshold = vals if len(vals) > 1 else vals[0]
 
     if config.postproc == FlexConfig.FieldPostproc.DIR_TI_TANGENTIAL:
