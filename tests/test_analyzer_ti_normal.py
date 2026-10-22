@@ -206,6 +206,45 @@ def test_msh_field_names_seeks_over_payloads_and_element_blocks(tmp_path: Path) 
     assert msh_field_names(path) is None  # an element type it cannot size
 
 
+def _tail_poisoned_msh(rows: int = 6) -> bytes:
+    """Binary Gmsh 2.2 whose last node, last element row and last data row are POISON.
+
+    Each payload row is 4 bytes longer than a stride that forgets the leading int (node
+    number, element number, data-row node number), so such a stride stops 4 x 6 = 24 bytes
+    early -- exactly at the planted bytes, inside a fake "$NodeData" header. Too-long strides
+    are pinned by the other fixtures.
+    """
+    assert rows * 4 >= len(POISON)
+    out = b"$MeshFormat\n2.2 1 8\n" + struct.pack("<i", 1) + b"\n$EndMeshFormat\n"
+    out += f"$Nodes\n{rows}\n".encode()
+    for i in range(1, rows + 1):  # int number + three doubles (24 bytes)
+        out += struct.pack("<i", i)
+        out += POISON if i == rows else struct.pack("<3d", i, 0.0, 0.0)
+    out += f"\n$EndNodes\n$Elements\n{rows}\n".encode()
+    out += struct.pack("<3i", 2, rows, 2)  # one block: `rows` triangles, two tags each
+    for i in range(1, rows + 1):  # number, 2 tags, 3 nodes: six ints (24 bytes)
+        out += POISON if i == rows else struct.pack("<6i", i, 1002, 1, 1, 2, 3)
+    out += b"\n$EndElements\n"
+    # A 3-component node field (int number + three doubles per row), then a scalar one.
+    out += f'$NodeData\n1\n"E"\n1\n0.0\n3\n0\n3\n{rows}\n'.encode()
+    for i in range(1, rows + 1):
+        out += struct.pack("<i", i)
+        out += POISON if i == rows else struct.pack("<3d", 0.1, 0.2, 0.3)
+    out += b'\n$EndNodeData\n$ElementData\n1\n"TI_max"\n1\n0.0\n3\n0\n1\n1\n'
+    out += struct.pack("<id", 1, 0.5) + b"\n$EndElementData\n"
+    return out
+
+
+def test_msh_field_names_seeks_the_full_row_of_every_payload(tmp_path: Path) -> None:
+    from tit.analyzer.analyzer import msh_field_names
+
+    path = tmp_path / "tails.msh"
+    data = _tail_poisoned_msh()
+    assert data.count(POISON) == 3  # last node, last element row, last data row
+    path.write_bytes(data)
+    assert msh_field_names(path) == {"E", "TI_max"}  # never "FAKE", never None
+
+
 @pytest.mark.parametrize("writer", [_ascii_msh, _binary_msh])
 def test_msh_field_names_reads_every_data_block(tmp_path: Path, writer) -> None:
     from tit.analyzer.analyzer import msh_field_names
