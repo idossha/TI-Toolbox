@@ -44,10 +44,23 @@ def _swap_in_real():
         for name in _REAL_PACKAGES:
             importlib.import_module(name)
     except Exception:  # pragma: no cover - environment without the real stack
-        for key, mod in saved.items():
-            sys.modules[key] = mod
+        _put_back(saved)
         return None
     return saved
+
+
+def _put_back(saved):
+    """Drop every real module the swap imported and restore the mocks.
+
+    Restoring only the saved keys is not enough: on the host, real scipy and nibabel import before
+    matplotlib fails, and their submodules (``nibabel.affines`` ...) stayed in ``sys.modules``
+    beside the restored mock ``nibabel``. ``patch("nibabel.affines.apply_affine")`` in a later
+    module then patched the real function while the code under test called the mock's.
+    """
+    for key in list(sys.modules):
+        if key.split(".")[0] in _SWAPPED:
+            del sys.modules[key]
+    sys.modules.update(saved)
 
 
 @pytest.fixture(scope="package", autouse=True)
@@ -60,10 +73,7 @@ def real_numeric_stack():
             importlib.reload(sys.modules[name])
     yield
     # Restore the mocked stack for the remainder of the session.
-    for key in list(sys.modules):
-        if key.split(".")[0] in _SWAPPED:
-            del sys.modules[key]
-    sys.modules.update(saved)
+    _put_back(saved)
     for name in _RELOAD_MODULES:
         if name in sys.modules:
             try:
