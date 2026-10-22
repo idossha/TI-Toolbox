@@ -598,11 +598,15 @@ class TestRunSimulation:
         monkeypatch.setattr(entry, "deserialize_config", lambda *args: config)
         monkeypatch.setattr(entry, "_hold_locks", lambda *args: nullcontext())
         monkeypatch.setattr(entry, "run_simulation", _utils_mod.run_simulation)
-        with self._patch_run_sim() as (_, mock_ti_cls, _):
+        with self._patch_run_sim() as (mock_pm, mock_ti_cls, _):
+            # main() passes no logger, so run_simulation opens its own log file under
+            # pm.logs(); a bare mock path would be written relative to the checkout.
+            mock_pm.return_value.logs.return_value = str(tmp_path / "logs")
             mock_ti_cls.return_value.run.return_value = {"status": "completed"}
             with pytest.raises(SystemExit) as result:
                 entry.main()
             assert result.value.code == 0
+            assert len(list((tmp_path / "logs").glob("Simulator_*.log"))) == 1
             assert mock_ti_cls.return_value.run.call_args.kwargs == (
                 {"overwrite": True} if overwrite else {}
             )

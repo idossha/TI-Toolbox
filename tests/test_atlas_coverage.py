@@ -81,14 +81,14 @@ class TestCheckAndResampleAtlas:
         np.testing.assert_array_equal(result, np.array([[[5, 3]]]))
 
     @patch("tit.atlas.overlap.check_and_resample_atlas.__module__", "tit.atlas.overlap")
-    def test_mismatched_dimensions_triggers_resampling(self):
+    def test_mismatched_dimensions_triggers_resampling(self, monkeypatch):
         """When shapes differ, resample_from_to should be called."""
         import sys
 
         # We need to mock nibabel and nibabel.processing inside the function
         nib_mock = sys.modules["nibabel"]
         nib_processing_mock = MagicMock()
-        sys.modules["nibabel.processing"] = nib_processing_mock
+        monkeypatch.setitem(sys.modules, "nibabel.processing", nib_processing_mock)
 
         from tit.atlas.overlap import check_and_resample_atlas
 
@@ -116,12 +116,12 @@ class TestCheckAndResampleAtlas:
         assert result.dtype == int
         np.testing.assert_array_equal(result, resampled_data)
 
-    def test_mismatched_dimensions_4d_reference(self):
+    def test_mismatched_dimensions_4d_reference(self, monkeypatch):
         """When reference is 4D, the first volume should be extracted."""
         import sys
 
         nib_processing_mock = MagicMock()
-        sys.modules["nibabel.processing"] = nib_processing_mock
+        monkeypatch.setitem(sys.modules, "nibabel.processing", nib_processing_mock)
 
         from tit.atlas.overlap import check_and_resample_atlas
 
@@ -146,12 +146,12 @@ class TestCheckAndResampleAtlas:
         assert result.shape == (3, 3, 3)
         assert result.dtype == int
 
-    def test_mismatched_dimensions_4d_atlas(self):
+    def test_mismatched_dimensions_4d_atlas(self, monkeypatch):
         """When atlas is 4D and shapes differ, squeeze atlas before resampling."""
         import sys
 
         nib_processing_mock = MagicMock()
-        sys.modules["nibabel.processing"] = nib_processing_mock
+        monkeypatch.setitem(sys.modules, "nibabel.processing", nib_processing_mock)
 
         from tit.atlas.overlap import check_and_resample_atlas
 

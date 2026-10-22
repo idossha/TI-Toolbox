@@ -189,3 +189,23 @@ def test_the_once_breaking_order_runs_green_in_a_fresh_interpreter(tmp_path):
     summary = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
     assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-2000:]
     assert " passed" in summary and "failed" not in summary and "error" not in summary
+
+
+def test_the_nibabel_processing_mocks_are_undone_after_each_test():
+    """These two modules mocked ``nibabel.processing`` with a bare assignment that outlived
+    them; they use ``monkeypatch.setitem`` now (stale-tests#22, 2026-10-22)."""
+    for name in ("test_atlas_coverage.py", "test_analyzer_voxel_resample.py"):
+        source = (ROOT / "tests" / name).read_text(encoding="utf-8")
+        assigned = [
+            node.lineno
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(t, ast.Subscript)
+                and isinstance(t.value, ast.Attribute)
+                and t.value.attr == "modules"
+                for t in node.targets
+            )
+        ]
+        assert assigned == [], (name, assigned)
+        assert source.count("monkeypatch.setitem(") >= 3, name

@@ -36,13 +36,13 @@ from tit.analyzer.analyzer import Analyzer
 @pytest.mark.unit
 class TestResampleIfNeeded:
     @pytest.fixture(autouse=True)
-    def _nib_processing(self):
+    def _nib_processing(self, monkeypatch):
         """`nibabel` is mocked module-wide in conftest, so the submodule the
         implementation imports has to exist before any of these run."""
         import sys as _sys
 
         mock = MagicMock()
-        _sys.modules["nibabel.processing"] = mock
+        monkeypatch.setitem(_sys.modules, "nibabel.processing", mock)
         yield mock
 
     def test_matching_grid_returns_input_unchanged(self):
@@ -56,13 +56,15 @@ class TestResampleIfNeeded:
         )
         assert result is atlas_arr
 
-    def test_matching_shape_but_different_affine_still_resamples(self, tmp_path):
+    def test_matching_shape_but_different_affine_still_resamples(
+        self, monkeypatch, tmp_path
+    ):
         """Shape alone does not identify a grid -- two volumes can share
         dimensions while sampling entirely different anatomy."""
         import sys as _sys
 
         nib_processing_mock = MagicMock()
-        _sys.modules["nibabel.processing"] = nib_processing_mock
+        monkeypatch.setitem(_sys.modules, "nibabel.processing", nib_processing_mock)
         nib_processing_mock.resample_from_to.return_value.dataobj = np.zeros((2, 2, 2))
 
         atlas_img = MagicMock()
@@ -78,11 +80,11 @@ class TestResampleIfNeeded:
             )
         nib_processing_mock.resample_from_to.assert_called_once()
 
-    def test_mismatched_shape_calls_resample_from_to(self, tmp_path):
+    def test_mismatched_shape_calls_resample_from_to(self, monkeypatch, tmp_path):
         import sys as _sys
 
         nib_processing_mock = MagicMock()
-        _sys.modules["nibabel.processing"] = nib_processing_mock
+        monkeypatch.setitem(_sys.modules, "nibabel.processing", nib_processing_mock)
 
         atlas_arr = np.ones((2, 2, 2))
         atlas_img = MagicMock()
@@ -95,9 +97,11 @@ class TestResampleIfNeeded:
         nib_processing_mock.resample_from_to.return_value.dataobj = resampled
 
         rebuilt = MagicMock()
-        with patch("nibabel.Nifti1Image", return_value=rebuilt) as mock_image, patch(
-            "nibabel.save"
-        ), patch("nibabel.load"):
+        with (
+            patch("nibabel.Nifti1Image", return_value=rebuilt) as mock_image,
+            patch("nibabel.save"),
+            patch("nibabel.load"),
+        ):
             result = Analyzer._resample_if_needed(
                 atlas_img, atlas_arr, (3, 2, 2), target_affine, atlas_path
             )
@@ -132,12 +136,12 @@ class TestResampleIfNeeded:
         assert n1 != Analyzer._resampled_name(other, (256, 256, 208), a1)
         assert n1 == Analyzer._resampled_name(src, (256, 256, 208), a1.copy())
 
-    def test_existing_cache_is_reused_without_resampling(self, tmp_path):
+    def test_existing_cache_is_reused_without_resampling(self, monkeypatch, tmp_path):
         """A cached resampled file short-circuits resample_from_to entirely."""
         import sys as _sys
 
         nib_processing_mock = MagicMock()
-        _sys.modules["nibabel.processing"] = nib_processing_mock
+        monkeypatch.setitem(_sys.modules, "nibabel.processing", nib_processing_mock)
 
         atlas_arr = np.ones((2, 2, 2))
         atlas_img = MagicMock()

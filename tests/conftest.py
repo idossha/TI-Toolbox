@@ -168,6 +168,35 @@ def real_scipy():
 
 
 # ============================================================================
+# Nothing a test writes lands in the directory pytest runs from
+# ============================================================================
+
+#: Entries tools (not tests) create in the working directory during a run.
+_CWD_TOOL_ENTRIES = {".pytest_cache", "__pycache__", ".hypothesis"}
+
+
+@pytest.fixture(autouse=True)
+def _no_stray_files_in_cwd():
+    """Fail a test that leaves a new file or directory in the working directory.
+
+    The working directory is the checkout. A test that hands a ``MagicMock`` path manager to
+    real file-writing code writes relative paths there: ``tests/test_sim_pipeline.py`` left
+    ``MagicMock/get_path_manager().logs()/<id>/Simulator_<ts>.log`` behind on every run, and
+    ``*.log`` being git-ignored hid it. Tests write under ``tmp_path``.
+    """
+    cwd = os.getcwd()
+    before = set(os.listdir(cwd))
+    yield
+    stray = sorted(
+        name
+        for name in set(os.listdir(cwd)) - before
+        if name not in _CWD_TOOL_ENTRIES and not name.startswith(".coverage")
+    )
+    if stray:
+        pytest.fail(f"the test left {stray} in {cwd}; write under tmp_path instead")
+
+
+# ============================================================================
 # WSL host neutrality — runs before every test automatically
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
