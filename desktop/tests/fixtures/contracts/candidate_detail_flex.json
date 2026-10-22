@@ -1,0 +1,244 @@
+{
+  "request": {
+    "subject": "ernie",
+    "kind": "flex",
+    "run": "flex_Thalamus_20260810_101500",
+    "candidate_id": "trial-2"
+  },
+  "response": {
+    "candidate": {
+      "id": "trial-2",
+      "objective": -1.8,
+      "objective_label": "focality_tf",
+      "objective_direction": "minimize",
+      "metrics": {
+        "roi_mean": 0.04,
+        "roi_p99_9": 0.08,
+        "background_mean": 0.022,
+        "background_p95": 0.034,
+        "contrast": 1.8
+      },
+      "metric_labels": {
+        "roi_mean": "unweighted mean of target samples, V/m",
+        "roi_p99_9": "roi_p99_9",
+        "background_mean": "background_mean",
+        "background_p95": "background_p95",
+        "contrast": "contrast"
+      },
+      "comparison_key": "ernie-surface-gm",
+      "currents_mA": [
+        0.7,
+        1.3
+      ],
+      "optimizer_termination": {
+        "accepted_stage": "global",
+        "global": {
+          "success": true,
+          "message": "Maximum number of iterations reached",
+          "iterations": 33,
+          "evaluations": 3536
+        }
+      },
+      "positions": [
+        [
+          11.0,
+          13.0,
+          14.0
+        ],
+        [
+          21.0,
+          23.0,
+          24.0
+        ],
+        [
+          31.0,
+          33.0,
+          34.0
+        ],
+        [
+          41.0,
+          43.0,
+          44.0
+        ]
+      ]
+    },
+    "simulation_config": {
+      "subject_id": "ernie",
+      "montages": [
+        {
+          "_type": "Montage",
+          "name": "candidate_774eb5db0dd9ca36",
+          "mode": "flex_free",
+          "electrode_pairs": [
+            [
+              [
+                11.0,
+                13.0,
+                14.0
+              ],
+              [
+                21.0,
+                23.0,
+                24.0
+              ]
+            ],
+            [
+              [
+                31.0,
+                33.0,
+                34.0
+              ],
+              [
+                41.0,
+                43.0,
+                44.0
+              ]
+            ]
+          ],
+          "eeg_net": null,
+          "display_name": null,
+          "electrode_poses": [
+            [
+              [
+                0,
+                -1,
+                0,
+                11.0
+              ],
+              [
+                1,
+                0,
+                0,
+                13.0
+              ],
+              [
+                0,
+                0,
+                1,
+                14.0
+              ],
+              [
+                0,
+                0,
+                0,
+                1
+              ]
+            ],
+            [
+              [
+                0,
+                -1,
+                0,
+                21.0
+              ],
+              [
+                1,
+                0,
+                0,
+                23.0
+              ],
+              [
+                0,
+                0,
+                1,
+                24.0
+              ],
+              [
+                0,
+                0,
+                0,
+                1
+              ]
+            ],
+            [
+              [
+                0,
+                -1,
+                0,
+                31.0
+              ],
+              [
+                1,
+                0,
+                0,
+                33.0
+              ],
+              [
+                0,
+                0,
+                1,
+                34.0
+              ],
+              [
+                0,
+                0,
+                0,
+                1
+              ]
+            ],
+            [
+              [
+                0,
+                -1,
+                0,
+                41.0
+              ],
+              [
+                1,
+                0,
+                0,
+                43.0
+              ],
+              [
+                0,
+                0,
+                1,
+                44.0
+              ],
+              [
+                0,
+                0,
+                0,
+                1
+              ]
+            ]
+          ],
+          "provenance": {
+            "kind": "flex",
+            "run": "flex_Thalamus_20260810_101500",
+            "candidate_id": "trial-2",
+            "metrics": "optimization estimates",
+            "head_mesh_sha256": "7ef6dadd98edbfe4d4a68990592125ae6d0577a6fb2c0571b688b7227c5e226e",
+            "head_mesh_source_path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/ernie.msh"
+          }
+        }
+      ],
+      "conductivity": "scalar",
+      "intensities": [
+        0.7,
+        1.3
+      ],
+      "electrode_shape": "rect",
+      "electrode_dimensions": [
+        9,
+        17
+      ],
+      "gel_thickness": 3,
+      "rubber_thickness": 1,
+      "map_to_surf": true,
+      "map_to_vol": false,
+      "map_to_mni": false,
+      "map_to_fsavg": true,
+      "open_in_gmsh": false,
+      "tissues_in_niftis": "all",
+      "aniso_maxratio": 10,
+      "aniso_maxcond": 2,
+      "output_fields": [
+        "TI_max"
+      ],
+      "tissue_conductivities": null,
+      "carrier_only": false,
+      "project_dir": "/mnt/example"
+    }
+  }
+}

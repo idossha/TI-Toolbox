@@ -1,0 +1,121 @@
+{
+  "request": {
+    "subject": "ernie",
+    "kind": "mex",
+    "run": "mex_Thalamus_20260814_140000",
+    "candidate_id": "ex-0"
+  },
+  "response": {
+    "candidate": {
+      "id": "ex-0",
+      "objective": 0.605,
+      "objective_label": "Composite index",
+      "objective_direction": "maximize",
+      "metrics": {
+        "roi_mean": 0.55,
+        "roi_p99_9": null,
+        "background_mean": 0.5,
+        "background_p95": null,
+        "contrast": 1.1
+      },
+      "metric_labels": {
+        "roi_mean": "ROI mean (V/m, volume weighted)",
+        "background_mean": "Whole GM mean (V/m, includes ROI)",
+        "contrast": "ROI / whole-GM mean"
+      },
+      "comparison_key": "/mnt/example/derivatives/SimNIBS/sub-ernie/m-ex-search/mex_Thalamus_20260814_140000",
+      "pairs": [
+        [
+          "E024",
+          "E124"
+        ],
+        [
+          "E067",
+          "E077"
+        ],
+        [
+          "E031",
+          "E080"
+        ],
+        [
+          "E055",
+          "E110"
+        ]
+      ],
+      "eeg_net": "GSN-HydroCel-185.csv",
+      "currents_mA": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "replay_note": "Simulator defaults for electrode geometry; Ex history records leadfield estimates, not a full-electrode model."
+    },
+    "simulation_config": {
+      "subject_id": "ernie",
+      "montages": [
+        {
+          "_type": "Montage",
+          "name": "candidate_288ad95796ef1c33",
+          "mode": "net",
+          "electrode_pairs": [
+            [
+              "E024",
+              "E124"
+            ],
+            [
+              "E067",
+              "E077"
+            ],
+            [
+              "E031",
+              "E080"
+            ],
+            [
+              "E055",
+              "E110"
+            ]
+          ],
+          "eeg_net": "GSN-HydroCel-185.csv",
+          "display_name": null,
+          "electrode_poses": null,
+          "provenance": {
+            "kind": "mex",
+            "run": "mex_Thalamus_20260814_140000",
+            "candidate_id": "ex-0",
+            "metrics": "optimization estimates",
+            "geometry": "Simulator defaults; not recorded in Ex history"
+          }
+        }
+      ],
+      "conductivity": "scalar",
+      "intensities": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "electrode_shape": "ellipse",
+      "electrode_dimensions": [
+        8.0,
+        8.0
+      ],
+      "gel_thickness": 4.0,
+      "rubber_thickness": 2.0,
+      "map_to_surf": true,
+      "map_to_vol": false,
+      "map_to_mni": false,
+      "map_to_fsavg": true,
+      "open_in_gmsh": false,
+      "tissues_in_niftis": "all",
+      "aniso_maxratio": 10.0,
+      "aniso_maxcond": 2.0,
+      "output_fields": [
+        "TI_max"
+      ],
+      "tissue_conductivities": null,
+      "carrier_only": false,
+      "project_dir": "/mnt/example"
+    }
+  }
+}

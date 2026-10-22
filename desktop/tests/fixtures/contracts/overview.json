@@ -1,0 +1,327 @@
+{
+  "subjects": {
+    "full": "raw MRI, head model with one EEG net and its leadfield, one simulation",
+    "m2monly": "head model only (no raw MRI, no EEG net, no leadfield)",
+    "rawonly": "raw MRI only",
+    "staged": "DICOMs staged in sourcedata/, nothing converted",
+    "queued": "raw MRI, and a pre-processing job queued for it",
+    "lffailed": "head model with one EEG net, and its newest leadfield job failed"
+  },
+  "jobs": [
+    {
+      "id": "job-3",
+      "kind": "pre",
+      "state": "queued",
+      "subject_ids": [
+        "queued"
+      ]
+    },
+    {
+      "id": "job-2",
+      "kind": "leadfield",
+      "state": "failed",
+      "subject_ids": [
+        "lffailed"
+      ]
+    },
+    {
+      "id": "job-1",
+      "kind": "leadfield",
+      "state": "succeeded",
+      "subject_ids": [
+        "lffailed"
+      ]
+    }
+  ],
+  "catalog_subjects": [
+    "full",
+    "lffailed",
+    "m2monly",
+    "queued",
+    "rawonly",
+    "staged"
+  ],
+  "response": {
+    "subjects": [
+      {
+        "id": "full",
+        "raw": "present",
+        "fastsurfer": "absent",
+        "freesurfer": "absent",
+        "m2m": "present",
+        "dwi": "absent",
+        "ct": "absent",
+        "leadfield": "present",
+        "eeg_net": "present",
+        "leadfields": [
+          "GSN-HydroCel-185.csv"
+        ],
+        "eeg_nets": [
+          "GSN-HydroCel-185.csv"
+        ],
+        "counts": {
+          "simulations": 1,
+          "optimizations": 0,
+          "analyses": 0
+        },
+        "readiness": [
+          {
+            "stage": "preprocess",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "simulator",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "optimizer",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "analyzer",
+            "ready": true,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "lffailed",
+        "raw": "absent",
+        "fastsurfer": "absent",
+        "freesurfer": "absent",
+        "m2m": "present",
+        "dwi": "absent",
+        "ct": "absent",
+        "leadfield": "failed",
+        "eeg_net": "present",
+        "leadfields": [],
+        "eeg_nets": [
+          "GSN-HydroCel-185.csv"
+        ],
+        "counts": {
+          "simulations": 0,
+          "optimizations": 0,
+          "analyses": 0
+        },
+        "readiness": [
+          {
+            "stage": "preprocess",
+            "ready": false,
+            "reason": "no raw MRI"
+          },
+          {
+            "stage": "simulator",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "optimizer",
+            "ready": false,
+            "reason": "no leadfield"
+          },
+          {
+            "stage": "analyzer",
+            "ready": false,
+            "reason": "no simulations"
+          }
+        ]
+      },
+      {
+        "id": "m2monly",
+        "raw": "absent",
+        "fastsurfer": "absent",
+        "freesurfer": "absent",
+        "m2m": "present",
+        "dwi": "absent",
+        "ct": "absent",
+        "leadfield": "absent",
+        "eeg_net": "absent",
+        "leadfields": [],
+        "eeg_nets": [],
+        "counts": {
+          "simulations": 0,
+          "optimizations": 0,
+          "analyses": 0
+        },
+        "readiness": [
+          {
+            "stage": "preprocess",
+            "ready": false,
+            "reason": "no raw MRI"
+          },
+          {
+            "stage": "simulator",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "optimizer",
+            "ready": false,
+            "reason": "no leadfield"
+          },
+          {
+            "stage": "analyzer",
+            "ready": false,
+            "reason": "no simulations"
+          }
+        ]
+      },
+      {
+        "id": "queued",
+        "raw": "present",
+        "fastsurfer": "pending",
+        "freesurfer": "pending",
+        "m2m": "pending",
+        "dwi": "pending",
+        "ct": "pending",
+        "leadfield": "absent",
+        "eeg_net": "absent",
+        "leadfields": [],
+        "eeg_nets": [],
+        "counts": {
+          "simulations": 0,
+          "optimizations": 0,
+          "analyses": 0
+        },
+        "readiness": [
+          {
+            "stage": "preprocess",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "simulator",
+            "ready": false,
+            "reason": "no head model"
+          },
+          {
+            "stage": "optimizer",
+            "ready": false,
+            "reason": "no head model"
+          },
+          {
+            "stage": "analyzer",
+            "ready": false,
+            "reason": "no simulations"
+          }
+        ]
+      },
+      {
+        "id": "rawonly",
+        "raw": "present",
+        "fastsurfer": "absent",
+        "freesurfer": "absent",
+        "m2m": "absent",
+        "dwi": "absent",
+        "ct": "absent",
+        "leadfield": "absent",
+        "eeg_net": "absent",
+        "leadfields": [],
+        "eeg_nets": [],
+        "counts": {
+          "simulations": 0,
+          "optimizations": 0,
+          "analyses": 0
+        },
+        "readiness": [
+          {
+            "stage": "preprocess",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "simulator",
+            "ready": false,
+            "reason": "no head model"
+          },
+          {
+            "stage": "optimizer",
+            "ready": false,
+            "reason": "no head model"
+          },
+          {
+            "stage": "analyzer",
+            "ready": false,
+            "reason": "no simulations"
+          }
+        ]
+      },
+      {
+        "id": "staged",
+        "raw": "partial",
+        "fastsurfer": "absent",
+        "freesurfer": "absent",
+        "m2m": "absent",
+        "dwi": "absent",
+        "ct": "absent",
+        "leadfield": "absent",
+        "eeg_net": "absent",
+        "leadfields": [],
+        "eeg_nets": [],
+        "counts": {
+          "simulations": 0,
+          "optimizations": 0,
+          "analyses": 0
+        },
+        "readiness": [
+          {
+            "stage": "preprocess",
+            "ready": true,
+            "reason": null
+          },
+          {
+            "stage": "simulator",
+            "ready": false,
+            "reason": "no head model"
+          },
+          {
+            "stage": "optimizer",
+            "ready": false,
+            "reason": "no head model"
+          },
+          {
+            "stage": "analyzer",
+            "ready": false,
+            "reason": "no simulations"
+          }
+        ]
+      }
+    ],
+    "totals": {
+      "subjects": 6,
+      "simulations": 1,
+      "optimizations": 0,
+      "analyses": 0,
+      "coverage": [
+        {
+          "id": "raw",
+          "have": 3,
+          "total": 6
+        },
+        {
+          "id": "recon",
+          "have": 0,
+          "total": 6
+        },
+        {
+          "id": "m2m",
+          "have": 3,
+          "total": 6
+        },
+        {
+          "id": "dwi",
+          "have": 0,
+          "total": 6
+        },
+        {
+          "id": "leadfield",
+          "have": 1,
+          "total": 6
+        }
+      ]
+    }
+  }
+}

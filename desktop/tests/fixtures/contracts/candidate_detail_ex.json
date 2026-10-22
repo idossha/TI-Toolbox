@@ -1,0 +1,101 @@
+{
+  "request": {
+    "subject": "ernie",
+    "kind": "ex",
+    "run": "ex_L_Insula_20260812_090000",
+    "candidate_id": "ex-0"
+  },
+  "response": {
+    "candidate": {
+      "id": "ex-0",
+      "objective": 0.4,
+      "objective_label": "Composite index",
+      "objective_direction": "maximize",
+      "metrics": {
+        "roi_mean": 0.25,
+        "roi_p99_9": null,
+        "background_mean": 0.12,
+        "background_p95": null,
+        "contrast": 1.6
+      },
+      "metric_labels": {
+        "roi_mean": "ROI mean (V/m, volume weighted)",
+        "background_mean": "Whole GM mean (V/m, includes ROI)",
+        "contrast": "ROI / whole-GM mean"
+      },
+      "comparison_key": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000",
+      "pairs": [
+        [
+          "E020",
+          "E074"
+        ],
+        [
+          "E101",
+          "E133"
+        ]
+      ],
+      "eeg_net": "GSN-HydroCel-185.csv",
+      "currents_mA": [
+        1.5,
+        0.5
+      ],
+      "replay_note": "Simulator defaults for electrode geometry; Ex history records leadfield estimates, not a full-electrode model."
+    },
+    "simulation_config": {
+      "subject_id": "ernie",
+      "montages": [
+        {
+          "_type": "Montage",
+          "name": "candidate_61c4368b5ab18daa",
+          "mode": "net",
+          "electrode_pairs": [
+            [
+              "E020",
+              "E074"
+            ],
+            [
+              "E101",
+              "E133"
+            ]
+          ],
+          "eeg_net": "GSN-HydroCel-185.csv",
+          "display_name": null,
+          "electrode_poses": null,
+          "provenance": {
+            "kind": "ex",
+            "run": "ex_L_Insula_20260812_090000",
+            "candidate_id": "ex-0",
+            "metrics": "optimization estimates",
+            "geometry": "Simulator defaults; not recorded in Ex history"
+          }
+        }
+      ],
+      "conductivity": "scalar",
+      "intensities": [
+        1.5,
+        0.5
+      ],
+      "electrode_shape": "ellipse",
+      "electrode_dimensions": [
+        8.0,
+        8.0
+      ],
+      "gel_thickness": 4.0,
+      "rubber_thickness": 2.0,
+      "map_to_surf": true,
+      "map_to_vol": false,
+      "map_to_mni": false,
+      "map_to_fsavg": true,
+      "open_in_gmsh": false,
+      "tissues_in_niftis": "all",
+      "aniso_maxratio": 10.0,
+      "aniso_maxcond": 2.0,
+      "output_fields": [
+        "TI_max"
+      ],
+      "tissue_conductivities": null,
+      "carrier_only": false,
+      "project_dir": "/mnt/example"
+    }
+  }
+}
