@@ -76,6 +76,10 @@ written again. Other projects, nets and results open unchanged.
 
 - **Fixed: a job that needs more memory than Docker gives the container no longer waits forever** — a FreeSurfer run or a Blender montage export (about 16 GB) on a container with less memory, or a simulation of many montages, sat at *Waiting on the resource budget* indefinitely. It now runs alone: it starts once no other job is running, and nothing else starts beside it until it finishes. Its log opens with *"needs about 16 GB of memory, more than the 7.8 GB this container has: it will run alone, once no other job is running, and may still run out of memory (give Docker more memory to avoid that)"*. FreeSurfer still refuses to start below its own 16 GiB minimum, with its own message. Jobs that fit run as before. Give Docker more memory in **Docker Desktop ▸ Settings ▸ Resources** to run such jobs beside others.
 
+#### AI assistant
+
+- **Fixed: the Assistant page answers from your version's documentation** — Claude Code or Codex started from **Assistant** read the TI-Toolbox wiki, developer docs and `tit` source from GitHub's `main` branch, which can describe features and settings your installed version does not have. It now reads them at your app's release tag (`v3.1.1` for this release). If you set `TI_TOOLBOX_REF` yourself, your choice is kept. The plugin installed from the marketplace in your own terminal is unchanged (set `TI_TOOLBOX_REF` there to pin it).
+
 ### v3.1.0 — October 9, 2026
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.0/">Release notes →</a>

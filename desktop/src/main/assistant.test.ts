@@ -170,6 +170,18 @@ describe("launch", () => {
     expect(launch.args.slice(0, 4)).toEqual(["/d", "/s", "/c", "C:\\npm\\codex.cmd"]);
     expect(launch.args).toContain("mcp_servers.ti-toolbox-jobs.args=['C:\\TI\\resources\\agent-plugin\\mcp\\jobs_server.py']");
   });
+  it("points the plugin's docs and source at this app's release tag, unless the user chose a ref", () => {
+    // agent-plugin/mcp/server.py reads GitHub at TI_TOOLBOX_REF, default `main`: without this the
+    // assistant answered from unreleased docs, not the version installed.
+    const docsRef = "v3.1.1";
+    for (const cli of ["claude", "codex"] as const) {
+      expect(buildLaunch(cli, { ...base, docsRef }).env.TI_TOOLBOX_REF).toBe(docsRef);
+      expect(buildLaunch(cli, { ...base, docsRef, baseEnv: { ...base.baseEnv, TI_TOOLBOX_REF: "main" } }).env.TI_TOOLBOX_REF).toBe("main");
+      expect(buildLaunch(cli, base).env.TI_TOOLBOX_REF).toBeUndefined();
+    }
+    // Codex hands its MCP servers a minimal environment, so the read-only server must ask for it.
+    expect(buildLaunch("codex", { ...base, docsRef }).args).toContain("mcp_servers.ti-toolbox.env_vars=['TI_TOOLBOX_REF']");
+  });
   it("hands the plugin's servers the resolved Python: TIT_PYTHON for Claude Code, the command for Codex", () => {
     // The plugin's .mcp.json runs `${TIT_PYTHON:-python3}`.
     const python = "C:\\Windows\\py.exe";
@@ -285,6 +297,11 @@ describe.skipIf(!codexPath)("the installed Codex reads the overrides", () => {
     expect(transport.command).toBe("python3");
     expect(transport.args).toEqual([`${base.pluginDir}/mcp/jobs_server.py`]);
     expect(transport.env_vars).toEqual(["TIT_SERVER_URL", "TIT_SERVER_TOKEN"]);
+  });
+  it("forwards the docs ref to the read-only server", () => {
+    const launch = buildLaunch("codex", { ...base, executable: codexPath!, docsRef: "v3.1.1" });
+    const out = execFileSync(codexPath!, [...launch.args, "mcp", "get", "ti-toolbox", "--json"], { encoding: "utf8", timeout: 30000 });
+    expect((JSON.parse(out) as { transport: { env_vars: string[] } }).transport.env_vars).toEqual(["TI_TOOLBOX_REF"]);
   });
 });
 if (!codexPath) console.log("skipping: codex override parse — codex is not on this machine's PATH");

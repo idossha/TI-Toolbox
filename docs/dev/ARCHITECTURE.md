@@ -327,7 +327,10 @@ the two variables and a `developer_instructions` pointer to `ti-run-pipelines`. 
 command; it expands variables with a default); main resolves the interpreter on the same PATH
 (`findPython`: `python3`; on Windows `py`, then `python`, then `python3`) and passes it as
 `TIT_PYTHON` to Claude Code (unless the user set it) and as the Codex servers' `command`. A
-plugin installed from the marketplace uses `python3` unless the user sets `TIT_PYTHON`. Nothing is written
+plugin installed from the marketplace uses `python3` unless the user sets `TIT_PYTHON`. Both CLIs
+also get `TI_TOOLBOX_REF=v<app version>` unless the user set it (Codex forwards it to the read-only
+server with `env_vars`), so the packaged plugin, which has no checkout beside it, reads the wiki and
+`tit` source of the installed release from GitHub instead of `main`. Nothing is written
 to `~/.claude` or `~/.codex`; login state is the exit status of the CLI's own status command
 (`claude auth status`, `codex login status`), its output discarded. The token is never an argument
 and never logged. A session needs the main window's top frame, a loopback server origin and an

@@ -161,6 +161,9 @@ export interface LaunchOptions {
   options?: AssistantOptions;
   /** From `findPython`; absent = `python3`, the plugin's own default. */
   python?: string;
+  /** This app's release tag (`v${app.getVersion()}`): the git ref the plugin reads docs and source
+   *  from (`TI_TOOLBOX_REF`), so answers match the installed version, not `main`. */
+  docsRef?: string;
 }
 
 export interface Launch {
@@ -181,9 +184,13 @@ export interface Launch {
  * answer unless the user set it, and Codex is given the same interpreter as its `command`.
  *
  * Codex has no plugin directory flag: `-c mcp_servers.<name>.*` overrides register both servers for
- * this run only, `env_vars` forwards the server URL/token (Codex starts MCP servers with a minimal
- * environment otherwise — verified with an env-dumping server), and `developer_instructions` points
- * it at the `ti-run-pipelines` skill. Nothing is written to `~/.codex` or `~/.claude`.
+ * this run only, `env_vars` forwards the server URL/token and the docs ref (Codex starts MCP servers
+ * with a minimal environment otherwise — verified with an env-dumping server), and
+ * `developer_instructions` points it at the `ti-run-pipelines` skill. Nothing is written to
+ * `~/.codex` or `~/.claude`.
+ *
+ * Both get `TI_TOOLBOX_REF` = `docsRef` unless the user set it: the packaged plugin has no checkout
+ * beside it and otherwise reads the wiki and `tit` source from GitHub `main`.
  */
 export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
   const sep = o.platform === "win32" ? "\\" : "/";
@@ -203,6 +210,7 @@ export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
     args = [
       "-c", `mcp_servers.ti-toolbox.command=${tomlString(python)}`,
       "-c", `mcp_servers.ti-toolbox.args=[${tomlString(plugin("mcp", "server.py"))}]`,
+      "-c", `mcp_servers.ti-toolbox.env_vars=['TI_TOOLBOX_REF']`,
       "-c", `mcp_servers.ti-toolbox-jobs.command=${tomlString(python)}`,
       "-c", `mcp_servers.ti-toolbox-jobs.args=[${tomlString(plugin("mcp", "jobs_server.py"))}]`,
       "-c", `mcp_servers.ti-toolbox-jobs.env_vars=['TIT_SERVER_URL','TIT_SERVER_TOKEN']`,
@@ -222,6 +230,7 @@ export function buildLaunch(cli: TitAssistantCli, o: LaunchOptions): Launch {
   // once instead of after two minutes. A value the user set themselves wins.
   if (cli === "claude" && env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS === undefined) env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS = String(CLAUDE_MCP_BACKGROUND_MS);
   if (cli === "claude" && o.python && env.TIT_PYTHON === undefined) env.TIT_PYTHON = o.python;
+  if (o.docsRef && env.TI_TOOLBOX_REF === undefined) env.TI_TOOLBOX_REF = o.docsRef;
   if (needsShell(o.executable, o.platform)) {
     // ponytail: unverified on Windows; ConPTY cannot start a .cmd shim itself, cmd.exe can.
     return { file: "cmd.exe", args: ["/d", "/s", "/c", o.executable, ...args], cwd: o.projectDir, env };
