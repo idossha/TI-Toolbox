@@ -222,8 +222,9 @@ class TestSphereVoxel:
 class TestAnalyzeMeshROI:
     """Lines 353-413: _analyze_mesh_roi computes correct statistics."""
 
+    @patch("tit.analyzer.analyzer.save_analysis_metadata")
     @patch("tit.analyzer.analyzer.save_results_csv")
-    def test_basic_stats(self, mock_csv):
+    def test_basic_stats(self, mock_csv, mock_meta):
         a = _make_analyzer(space="mesh")
         # 4 nodes, all positive
         values = np.array([2.0, 4.0, 6.0, 8.0])
@@ -256,8 +257,9 @@ class TestAnalyzeMeshROI:
         assert result.space == "mesh"
         assert result.n_elements == 2
 
+    @patch("tit.analyzer.analyzer.save_analysis_metadata")
     @patch("tit.analyzer.analyzer.save_results_csv")
-    def test_with_normal_stats(self, mock_csv):
+    def test_with_normal_stats(self, mock_csv, mock_meta):
         a = _make_analyzer(space="mesh")
         values = np.array([2.0, 4.0, 6.0])
         node_areas = np.ones(3)
@@ -281,8 +283,9 @@ class TestAnalyzeMeshROI:
         assert result.normal_max == pytest.approx(3.0)
         assert result.normal_focality == pytest.approx(0.8)
 
+    @patch("tit.analyzer.analyzer.save_analysis_metadata")
     @patch("tit.analyzer.analyzer.save_results_csv")
-    def test_calls_visualize_when_flag_set(self, mock_csv):
+    def test_calls_visualize_when_flag_set(self, mock_csv, mock_meta):
         a = _make_analyzer(space="mesh")
         values = np.array([1.0, 2.0, 3.0])
         node_areas = np.ones(3)
@@ -309,8 +312,9 @@ class TestAnalyzeMeshROI:
 class TestAnalyzeVoxelROI:
     """Lines 432-481: _analyze_voxel_roi computes correct statistics."""
 
+    @patch("tit.analyzer.analyzer.save_analysis_metadata")
     @patch("tit.analyzer.analyzer.save_results_csv")
-    def test_basic_stats(self, mock_csv):
+    def test_basic_stats(self, mock_csv, mock_meta):
         a = _make_analyzer(space="voxel")
         field_arr = np.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
         roi_mask = np.zeros_like(field_arr, dtype=bool)
@@ -342,8 +346,9 @@ class TestAnalyzeVoxelROI:
         # total volume = n_elements * voxel_vol = 2 * 1.0
         assert result.total_area_or_volume == pytest.approx(2.0)
 
+    @patch("tit.analyzer.analyzer.save_analysis_metadata")
     @patch("tit.analyzer.analyzer.save_results_csv")
-    def test_calls_visualize_when_flag_set(self, mock_csv):
+    def test_calls_visualize_when_flag_set(self, mock_csv, mock_meta):
         a = _make_analyzer(space="voxel")
         field_arr = np.ones((2, 2, 2))
         roi_mask = np.ones_like(field_arr, dtype=bool)
@@ -938,7 +943,9 @@ class TestVisualizeMesh:
         assert kwargs["normal_max"] == 0.5
         np.testing.assert_array_equal(kwargs["roi_values"], np.array([1.0]))
         np.testing.assert_array_equal(kwargs["roi_coords"], np.array([[0.0, 0.0, 0.0]]))
-        mock_meta.assert_called_once()
+        # analysis.json is written by every run beside results.csv (_analyze_mesh_roi), not
+        # only when pictures are drawn: tests/test_analysis_json_always.py.
+        mock_meta.assert_not_called()
         hist = mock_hist.call_args.kwargs
         assert hist["output_dir"] == Path("/tmp/out")
         assert hist["roi_mean"] == 1.0
@@ -977,7 +984,8 @@ class TestVisualizeVoxel:
         assert kwargs["overlay"] == "/tmp/out/roi_overlay.nii.gz"
         assert kwargs["anatomy"].endswith("T1.nii.gz")
         assert kwargs["roi_values"].shape == (7,)
-        mock_meta.assert_called_once()
+        # analysis.json is written by every run beside results.csv (_analyze_voxel_roi).
+        mock_meta.assert_not_called()
         # Every voxel weighs its own volume (mm^3 from the affine): 8 GM, 7 ROI.
         hist = mock_hist.call_args.kwargs
         assert hist["whole_head_values"].shape == (8,)

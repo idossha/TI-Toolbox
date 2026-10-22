@@ -395,7 +395,8 @@ class Analyzer:
             coordinates are transformed to subject space via SimNIBS
             ``mni2subject_coords``.
         visualize : bool, optional
-            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
+            Also write the ROI overlay, its scene and ``histogram.png``
+            (``results.csv`` and ``analysis.json`` are written either way).
 
         Returns
         -------
@@ -443,7 +444,8 @@ class Analyzer:
         coordinate_space : str, optional
             ``"subject"`` (default) or ``"MNI"``, applied to every sphere.
         visualize : bool, optional
-            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
+            Also write the ROI overlay, its scene and ``histogram.png``
+            (``results.csv`` and ``analysis.json`` are written either way).
 
         Returns
         -------
@@ -491,7 +493,8 @@ class Analyzer:
             combined ROI. Bare names like ``"cuneus"`` expand to both
             hemispheres in mesh mode.
         visualize : bool, optional
-            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
+            Also write the ROI overlay, its scene and ``histogram.png``
+            (``results.csv`` and ``analysis.json`` are written either way).
 
         Returns
         -------
@@ -536,7 +539,8 @@ class Analyzer:
         coordinate_space : str, optional
             ``"subject"`` (default) or ``"mni"`` (case-insensitive).
         visualize : bool, optional
-            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
+            Also write the ROI overlay, its scene and ``histogram.png``
+            (``results.csv`` and ``analysis.json`` are written either way).
 
         Returns
         -------
@@ -595,7 +599,8 @@ class Analyzer:
         coordinate_space : str, optional
             ``"subject"`` (default) or ``"mni"`` -- the space *atlas* is in.
         visualize : bool, optional
-            Write the ROI overlay, its scene, ``histogram.png`` and ``analysis.json``.
+            Also write the ROI overlay, its scene and ``histogram.png``
+            (``results.csv`` and ``analysis.json`` are written either way).
 
         Returns
         -------
@@ -1042,13 +1047,10 @@ class Analyzer:
                 roi_pos,
                 roi_areas,
                 analysis_type=analysis_type,
-                region_labels=kwargs.get("region_labels"),
-                atlas=kwargs.get("atlas"),
-                spheres=kwargs.get("spheres"),
-                coordinate_space=kwargs.get("coordinate_space"),
             )
 
         save_results_csv(asdict(result), Path(out_dir))
+        self._save_metadata(out_dir, "mesh", analysis_type, kwargs)
         logger.info("Analysis complete for %s (%s)", region_name, analysis_type)
         return result
 
@@ -1126,15 +1128,41 @@ class Analyzer:
                 out_dir,
                 result,
                 analysis_type=analysis_type,
-                region_labels=kwargs.get("region_labels"),
-                atlas=kwargs.get("atlas"),
-                spheres=kwargs.get("spheres"),
-                coordinate_space=kwargs.get("coordinate_space"),
             )
 
         save_results_csv(asdict(result), Path(out_dir))
+        self._save_metadata(out_dir, "voxel", analysis_type, kwargs)
         logger.info("Analysis complete for %s (%s)", region_name, analysis_type)
         return result
+
+    def _save_metadata(
+        self, out_dir, space: str, analysis_type: str, kwargs: dict
+    ) -> None:
+        """Write ``analysis.json`` for this run, beside its ``results.csv``.
+
+        Every run writes it, visualized or not: the catalog lists a folder only when it holds
+        both files, and a folder re-used by a later run must not keep an earlier run's field
+        next to the new numbers.
+        """
+        spheres = kwargs.get("spheres")
+        metadata = {
+            "analysis_type": analysis_type,
+            "space": space,
+            "field_name": self.field_name,
+        }
+        if space == "voxel":
+            metadata["tissue_types"] = self._tissue_type_list()
+        metadata.update(
+            {
+                "atlas": kwargs.get("atlas"),
+                "regions": kwargs.get("region_labels"),
+                "center": list(spheres[0][:3]) if spheres else None,
+                "radius": spheres[0][3] if spheres else None,
+                "spheres": [list(sp) for sp in spheres] if spheres else None,
+                "coordinate_space": kwargs.get("coordinate_space"),
+            }
+        )
+        save_analysis_metadata(Path(out_dir), metadata)
 
     # ------------------------------------------------------------------
     # Surface mesh loading (lazy, cached)
@@ -1302,10 +1330,6 @@ class Analyzer:
         roi_areas,
         *,
         analysis_type: str = "cortical",
-        region_labels: list[str] | None = None,
-        atlas: str | None = None,
-        spheres: list | None = None,
-        coordinate_space: str | None = None,
     ) -> None:
         from tit.analyzer.scene import write_mesh_scene
 
@@ -1343,20 +1367,6 @@ class Analyzer:
             region_name=result.region_name,
             unit_label="Area (mm\u00b2)",
         )
-        save_analysis_metadata(
-            out,
-            {
-                "analysis_type": analysis_type,
-                "space": "mesh",
-                "field_name": self.field_name,
-                "atlas": atlas,
-                "regions": region_labels,
-                "center": list(spheres[0][:3]) if spheres else None,
-                "radius": spheres[0][3] if spheres else None,
-                "spheres": [list(sp) for sp in spheres] if spheres else None,
-                "coordinate_space": coordinate_space,
-            },
-        )
 
     def _visualize_voxel(
         self,
@@ -1368,10 +1378,6 @@ class Analyzer:
         result,
         *,
         analysis_type: str = "cortical",
-        region_labels: list[str] | None = None,
-        atlas: str | None = None,
-        spheres: list | None = None,
-        coordinate_space: str | None = None,
     ) -> None:
         from tit.analyzer.scene import write_voxel_scene
 
@@ -1409,21 +1415,6 @@ class Analyzer:
             roi_mean=result.roi_mean,
             region_name=result.region_name,
             unit_label="Volume (mm\u00b3)",
-        )
-        save_analysis_metadata(
-            out,
-            {
-                "analysis_type": analysis_type,
-                "space": "voxel",
-                "field_name": self.field_name,
-                "tissue_types": self._tissue_type_list(),
-                "atlas": atlas,
-                "regions": region_labels,
-                "center": list(spheres[0][:3]) if spheres else None,
-                "radius": spheres[0][3] if spheres else None,
-                "spheres": [list(sp) for sp in spheres] if spheres else None,
-                "coordinate_space": coordinate_space,
-            },
         )
 
     # ------------------------------------------------------------------
