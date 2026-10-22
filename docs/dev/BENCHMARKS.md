@@ -31,14 +31,17 @@ project with an empty target-preview cache for cold measurements. The first MNI 
 the display grid; calculations retain the original mask and registration. A target below preview
 resolution reports that limitation instead of silently displaying an empty selection.
 
-A separate headless Chromium probe with the actual embed already initialized measured 1.27 s
-for a sphere request through `loaded`, then 0.28 s after changing radius from 10 to 11 mm.
-Anatomy was cached on disk, and the second load retained its dataset ID. This confirms reuse,
-not cold-start browser performance. The renderer remains alive between target edits.
+A separate headless Chromium probe with the in-app Tetravox embed already initialized measured
+1.27 s for a sphere request through `loaded`, then 0.28 s after changing radius from 10 to 11 mm.
+Anatomy was cached on disk, and the second load retained its dataset ID. This confirmed reuse,
+not cold-start browser performance. It cannot be repeated: the embed has since been retired, and
+the run-page panes draw with the app's own renderer.
 
-## Progressive viewer loading — 2026-09-09
+## Progressive viewer loading (retired embed) — 2026-09-09
 
-One before/after observation on the same six-volume selection, 149.07 MB compressed:
+One before/after observation on the same six-volume selection, 149.07 MB compressed, in the
+in-app Tetravox embed. The embed has since been retired and the Viewer hands scenes to the native
+TetraVox, so this measurement cannot be repeated; it is kept as a historical record.
 
 | Measurement | Before | After |
 |---|---|---|
@@ -46,10 +49,9 @@ One before/after observation on the same six-volume selection, 149.07 MB compres
 | All six layers visible | 9.211 s | 4.800 s |
 | Add four volumes after two loaded | — | Four new raw-file requests; original dataset IDs retained |
 
-To repeat, open the same six-volume composition, record elapsed time and adopted layer count
-from Open through final load, then begin with two volumes and add the remaining four while
-recording raw-file requests. Preserve file list, byte sizes, cache state and embed identity.
-Receipts: `dist/internal/tetravox-six-volume-{baseline,progressive}.json` and
+It was taken by opening the six-volume composition, recording elapsed time and adopted layer
+count from Open through final load, then beginning with two volumes and adding the remaining four
+while recording raw-file requests. Receipts: `dist/internal/tetravox-six-volume-{baseline,progressive}.json` and
 `tetravox-incremental-receipt.json`. Local embed source:
 `3b16a47ec1235640f5f392f71a609cc80dce75ed`, archive SHA-256
 `298e9247e0ed55ec3e36780ceea7c0f5b2ed65760e6f46cc3e2390e5f8e37048`.
@@ -101,8 +103,10 @@ and cannot be quoted as current download requirements. Registry transfer size re
 
 The same earlier baked candidate completed the simulation/analyzer pipeline in 16.7 minutes and
 an EEG forward job in 727.9 s. Receipt: `dist/internal/real-final-baked-receipt.json`.
-Repeat the corresponding `pipeline.spec.ts` and `source.spec.ts` real specs with a copied project,
-the same recorded configuration and an idle queue. Run one FEM workload at a time under emulation.
+The simulation/analyzer duration came from the `pipeline.spec.ts` real spec, which left with the
+pipeline canvas on 2026-09-13, so it cannot be repeated as measured. Repeat the forward-job timing
+with the `desktop/tests/e2e/real/source.spec.ts` real spec, a copied project, the same recorded
+configuration and an idle queue. Run one FEM workload at a time under emulation.
 These are workflow durations, not latency guarantees or certification of later security changes.
 
 ## Native Apple Silicon FastSurfer acceptance — 2026-09-10
