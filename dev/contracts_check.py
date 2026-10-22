@@ -3,7 +3,14 @@
 
 Usage::
 
-    python3 dev/contracts_check.py
+    python3 dev/contracts_check.py                   # the gate
+    python3 dev/contracts_check.py --no-schema-d-ts  # a CI job where another step diffs schema.d.ts
+    python3 dev/contracts_check.py --write-baseline  # after fixing (or knowingly adding) warnings
+
+Exit 0 when everything was checked and holds, 1 on drift / a contract mismatch / a warning
+count that moved off ``dev/contracts_check_baseline.json``, 2 when something could not be
+checked (bad arguments, an unreadable baseline, or ``CI`` set without ``desktop/node_modules``
+so ``schema.d.ts`` cannot be regenerated).
 
 Two checks, in order.
 
@@ -11,7 +18,10 @@ Two checks, in order.
 ``contracts/generated/openapi.json`` in memory and compare byte for byte
 against what is committed (``dev/build_schema.py --check`` /
 ``dev/build_contract.py --check``).  ``desktop/src/renderer/api/schema.d.ts``
-is checked the same way when ``openapi-typescript`` is available.  Any
+is checked the same way with ``openapi-typescript`` from ``desktop/node_modules``.
+Locally, a tree without ``node_modules`` says it skipped that file; under ``CI``
+the same situation exits 2 (could not check), never a silent pass -- a job that
+leaves the diff to another step says so with ``--no-schema-d-ts``.  Any
 difference fails with "run ``npm run gen``" -- nothing under
 ``contracts/generated/`` is ever hand-edited.
 
@@ -45,8 +55,15 @@ handled specially (ra_13 finding 3, worked out with F1a):
 - A dump response schema with no declared ``properties`` at all (FastAPI's
   shape for a route typed ``-> dict[str, Any]`` / ``-> list[dict]``) cannot
   be checked structurally; its required-property gaps are counted as
-  *warnings*, not failures, and printed separately so they stay visible
-  without failing the gate.
+  *warnings*, not failures, and printed separately so they stay visible.
+  The warnings are ratcheted: ``dev/contracts_check_baseline.json`` lists
+  every one, a warning not on it fails (the unchecked surface grew), and a
+  listed one that no longer occurs fails too until the baseline is rewritten
+  with ``--write-baseline`` (so the number only goes down).
+- Request bodies: where the server declares the JSON body's properties, every
+  property the server requires must be a contract property and every
+  property the contract requires must exist on the server (with matching
+  type/enum).  An untyped (``dict``) server body is one warning.
 - ``PipelineConfig`` is a contract-only documentation union (the real
   discriminant is the ``kind``/path parameter, not a field on a response
   object) with no corresponding named model on the server; it is exempt
@@ -55,12 +72,16 @@ handled specially (ra_13 finding 3, worked out with F1a):
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +91,8 @@ REPO = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = REPO / "contracts" / "openapi.yaml"
 SCHEMA_D_TS = REPO / "desktop" / "src" / "renderer" / "api" / "schema.d.ts"
 GENERATED_OPENAPI = REPO / "contracts" / "generated" / "openapi.json"
+NODE_MODULES = REPO / "desktop" / "node_modules"
+BASELINE_PATH = REPO / "dev" / "contracts_check_baseline.json"
 
 METHODS = ("get", "post", "put", "patch", "delete")
 
@@ -243,6 +266,79 @@ def compare_schema(
         )
 
 
+def compare_request_body(
+    contract: dict[str, Any],
+    c_op: dict[str, Any],
+    dump: dict[str, Any],
+    d_op: dict[str, Any],
+    where: str,
+    missing: list[str],
+    warnings: list[str],
+) -> None:
+    """Compare one operation's request body in both directions.
+
+    Every property the server requires must be a contract property (or the desktop,
+    written against the contract, never sends it); every property the contract
+    declares must exist on the server (or the server silently drops it); and what the
+    contract lets a client send must be accepted: its types and enum values are a
+    subset of the server's (a server that also takes ``null`` is fine). A JSON body
+    the server declares no properties for is untyped: one warning.
+    """
+    c_content = (c_op.get("requestBody") or {}).get("content", {})
+    d_content = (d_op.get("requestBody") or {}).get("content", {})
+    if not c_content and not d_content:
+        return
+    if not d_content:
+        missing.append(f"{where}: the contract sends a body the server does not read")
+        return
+    if not c_content:
+        missing.append(
+            f"{where}: the server reads a body the contract does not describe"
+        )
+        return
+    for media, c_media in c_content.items():
+        if media not in d_content:
+            missing.append(f"{where}: media type {media} not accepted by the server")
+            continue
+        if media != "application/json":
+            continue
+        c_schema = deref(contract, c_media.get("schema", {}))
+        d_schema = deref(dump, d_content[media].get("schema", {}))
+        if not _properties(dump, d_schema):
+            warnings.append(
+                f"{where}: server body is untyped (dict) -- its properties are not checked"
+            )
+            continue
+        c_props = _properties(contract, c_schema)
+        d_props = _properties(dump, d_schema)
+        for name in d_schema.get("required", []):
+            if name not in c_props:
+                missing.append(
+                    f"{where}: server-required property '{name}' missing from the contract"
+                )
+        for name, c_prop in c_props.items():
+            if name not in d_props:
+                missing.append(
+                    f"{where}: contract property '{name}' unknown to the server"
+                )
+                continue
+            c_types = _types(contract, c_prop)
+            d_types = _types(dump, d_props[name])
+            if c_types and d_types and not c_types <= d_types:
+                missing.append(
+                    f"{where}.{name}: the contract sends {sorted(c_types)}, "
+                    f"the server accepts {sorted(d_types)}"
+                )
+            c_enum = _enum(contract, c_prop)
+            d_enum = _enum(dump, d_props[name])
+            if c_enum is not None and d_enum is not None:
+                refused = [v for v in c_enum if v not in d_enum]
+                if refused:
+                    missing.append(
+                        f"{where}.{name}: the server refuses contract values {refused}"
+                    )
+
+
 def _response_schema(op: dict[str, Any], status: str) -> dict[str, Any] | None:
     response = op.get("responses", {}).get(status)
     if not response:
@@ -311,6 +407,15 @@ def check(
                     missing.append(
                         f"{method.upper()} {path}: parameter {c_param.get('name')} ({c_loc}) missing"
                     )
+            compare_request_body(
+                contract,
+                c_op,
+                dump,
+                d_op,
+                f"{method.upper()} {path} requestBody",
+                missing,
+                warnings,
+            )
     # Named schemas: each contract component must exist by name in the dump
     # with all required properties (recursively).
     d_components = dump.get("components", {}).get("schemas", {})
@@ -335,8 +440,37 @@ def check(
     return missing, warnings
 
 
-def check_drift() -> list[str]:
-    """Regenerate every ``contracts/generated/`` output in memory; report what would change."""
+def schema_d_ts_mode(
+    *,
+    env: Mapping[str, str],
+    npx_found: bool,
+    node_modules: bool,
+    skip_requested: bool,
+) -> str:
+    """How the ``schema.d.ts`` drift check runs here.
+
+    Returns:
+        ``"run"`` when ``openapi-typescript`` is installed; ``"skipped"`` when the
+        caller passed ``--no-schema-d-ts`` (another CI step diffs it); ``"local-skip"``
+        on a developer tree without ``desktop/node_modules``; ``"cannot"`` when ``CI``
+        is set and the tool is missing, which the gate reports as exit 2.
+    """
+    if skip_requested:
+        return "skipped"
+    if npx_found and node_modules:
+        return "run"
+    if env.get("CI", "").strip().lower() in {"1", "true", "yes"}:
+        return "cannot"
+    return "local-skip"
+
+
+def check_drift(schema_d_ts: str = "run") -> list[str]:
+    """Regenerate every ``contracts/generated/`` output in memory; report what would change.
+
+    Args:
+        schema_d_ts: A :func:`schema_d_ts_mode` result; only ``"run"`` regenerates
+            ``schema.d.ts``.
+    """
     sys.path.insert(0, str(REPO / "dev"))
     import build_contract
     import build_contracts
@@ -351,15 +485,18 @@ def check_drift() -> list[str]:
     if build_contract.main(["--check"]) != 0:
         problems.append(f"{GENERATED_OPENAPI.relative_to(REPO)} is stale")
 
-    # schema.d.ts is generated by openapi-typescript, which needs desktop/node_modules.
-    # Where it is not installed, say so rather than pretending the file was checked.
-    npx = shutil.which("npx")
-    if npx is None or not (REPO / "desktop" / "node_modules").is_dir():
+    if schema_d_ts == "skipped":
+        print(
+            "contracts_check: schema.d.ts not checked here (--no-schema-d-ts); "
+            "the step that passed it must diff it"
+        )
+    elif schema_d_ts != "run":
         print(
             "contracts_check: skipping schema.d.ts (desktop/node_modules not installed); "
             "`npm run gen` in desktop/ checks it"
         )
     else:
+        npx = shutil.which("npx") or "npx"
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "schema.d.ts"
             result = subprocess.run(
@@ -379,6 +516,51 @@ def check_drift() -> list[str]:
     return problems
 
 
+def load_baseline(path: Path) -> list[str]:
+    """The recorded warnings.
+
+    Raises:
+        ValueError: If the file is missing or is not ``{"warnings": [str, ...]}``.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read {path}: {exc}") from exc
+    warnings = data.get("warnings") if isinstance(data, dict) else None
+    if not isinstance(warnings, list) or not all(isinstance(w, str) for w in warnings):
+        raise ValueError(f'{path} is not {{"warnings": [str, ...]}}')
+    return warnings
+
+
+def write_baseline(path: Path, warnings: list[str]) -> None:
+    """Record ``warnings`` (sorted) as the new ceiling."""
+    document = {
+        "_comment": (
+            "Every contracts_check warning (an untyped dict/list response or body, or a "
+            "contract schema with no server model). dev/contracts_check.py fails when a "
+            "warning appears that is not listed, and when a listed one stops occurring; "
+            "rewrite with `python3 dev/contracts_check.py --write-baseline` after "
+            "removing one."
+        ),
+        "warnings": sorted(warnings),
+    }
+    path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+
+
+def ratchet(warnings: list[str], baseline: list[str]) -> list[str]:
+    """Every way ``warnings`` differs from ``baseline`` (a multiset comparison).
+
+    A warning not in the baseline means the unchecked surface grew; a baseline entry
+    that no longer occurs means it shrank and the baseline must be lowered to match.
+    """
+    current, recorded = Counter(warnings), Counter(baseline)
+    grew = sorted((current - recorded).elements())
+    gone = sorted((recorded - current).elements())
+    return [f"new warning (not in the baseline): {w}" for w in grew] + [
+        f"no longer occurs (lower the baseline): {w}" for w in gone
+    ]
+
+
 def live_openapi() -> dict[str, Any]:
     """This server's own OpenAPI document, built in-process.
 
@@ -395,16 +577,53 @@ def live_openapi() -> dict[str, Any]:
         ).openapi()
 
 
+def _parse(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="contracts_check",
+        description="Check contracts/openapi.yaml against the live app and contracts/generated/.",
+    )
+    parser.add_argument(
+        "--no-schema-d-ts",
+        action="store_true",
+        help="do not regenerate schema.d.ts here (another CI step diffs it)",
+    )
+    parser.add_argument(
+        "--write-baseline",
+        action="store_true",
+        help=f"record the current warnings in {BASELINE_PATH.name} instead of comparing",
+    )
+    return parser.parse_args(argv)
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) > 1:
+    try:
+        args = _parse(argv[1:])
+    except SystemExit as exc:  # argparse: --help is 0, a usage error is 2
+        return 0 if exc.code == 0 else 2
+
+    mode = schema_d_ts_mode(
+        env=os.environ,
+        npx_found=shutil.which("npx") is not None,
+        node_modules=NODE_MODULES.is_dir(),
+        skip_requested=args.no_schema_d_ts,
+    )
+    if mode == "cannot":
         print(
-            "contracts_check: takes no arguments -- it checks contracts/openapi.yaml "
-            "against the live app and against contracts/generated/.",
+            f"contracts_check: cannot check {SCHEMA_D_TS.relative_to(REPO)}: CI is set and "
+            "desktop/node_modules is not installed. Run `npm ci` in desktop/ first, or pass "
+            "--no-schema-d-ts in a job where another step diffs it.",
             file=sys.stderr,
         )
         return 2
+    baseline: list[str] | None = None
+    if not args.write_baseline:
+        try:
+            baseline = load_baseline(BASELINE_PATH)
+        except ValueError as exc:
+            print(f"contracts_check: {exc}", file=sys.stderr)
+            return 2
 
-    drift = check_drift()
+    drift = check_drift(mode)
     if drift:
         print(f"contracts_check: {len(drift)} generated file(s) out of date:")
         for line in drift:
@@ -416,6 +635,7 @@ def main(argv: list[str]) -> int:
     contract = yaml.safe_load(CONTRACT_PATH.read_text(encoding="utf-8"))
     dump = live_openapi()
     missing, warnings = check(contract, dump)
+
     def _key(line: str) -> str:
         """The ``_KNOWN_FINDINGS`` entry a finding matches: full line, else its subject."""
         return line if line in _KNOWN_FINDINGS else line.split(":")[0]
@@ -428,7 +648,7 @@ def main(argv: list[str]) -> int:
     )
     n_schemas = len(contract.get("components", {}).get("schemas", {}))
     if warnings:
-        print(f"contracts_check: {len(warnings)} warning(s) (not gate failures):")
+        print(f"contracts_check: {len(warnings)} warning(s) (ratcheted, see below):")
         for line in warnings:
             print(f"  - {line}")
     if known:
@@ -448,10 +668,35 @@ def main(argv: list[str]) -> int:
         for line in missing:
             print(f"  - {line}")
         return 1
+    if args.write_baseline:
+        write_baseline(BASELINE_PATH, warnings)
+        print(
+            f"contracts_check: wrote {len(warnings)} warning(s) to "
+            f"{BASELINE_PATH.name}"
+        )
+        return 0
+    moved = ratchet(warnings, baseline or [])
+    if moved:
+        print(
+            f"contracts_check: {len(warnings)} warning(s), baseline "
+            f"{len(baseline or [])} ({BASELINE_PATH.name}):"
+        )
+        for line in moved:
+            print(f"  - {line}")
+        print(
+            "\nA new warning means a route or schema the gate cannot check: give it a "
+            "response/body model. A gone one: run `python3 dev/contracts_check.py "
+            "--write-baseline` and commit the lower baseline."
+        )
+        return 1
     print(
         f"contracts_check: OK -- {n_paths} operation(s) and {n_schemas} schema(s) "
         f"from {CONTRACT_PATH.name} are served by the live app"
-        + (f" ({len(warnings)} warning(s) above)" if warnings else "")
+        + (
+            f" ({len(warnings)} warning(s) above, equal to the baseline)"
+            if warnings
+            else ""
+        )
     )
     return 0
 
