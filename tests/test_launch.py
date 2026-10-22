@@ -242,8 +242,9 @@ def test_default_image_uses_the_compose_default(monkeypatch):
 
 def test_default_image_from_wheel_uses_internal_cohort(monkeypatch):
     monkeypatch.delenv("TIT_IMAGE_TAG", raising=False)
+    compose_default = launch.default_image()  # the checkout's docker-compose.yml
     monkeypatch.setattr(launch, "compose_path", lambda: None)
-    assert launch.default_image() == "idossha/ti-toolbox:v3.1.1"
+    assert launch.default_image() == compose_default
 
 
 # ---------------------------------------------------------------------------------------

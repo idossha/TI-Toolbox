@@ -155,9 +155,12 @@ it("keeps container ownership when Docker cannot stop it", async () => {
   expect(manager.getCurrent()?.containerId).toBe("existing");
 });
 
+/** The release image: the repository compose file's default, so a version bump cannot leave the refresh literal untested. */
+const RELEASE_IMAGE = `idossha/ti-toolbox:${/image: idossha\/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]+)\}/.exec(readFileSync(join(__dirname, "../../../docker-compose.yml"), "utf8"))![1]}`;
+
 it.each([
-  [true, true, "idossha/ti-toolbox:v3.1.1", true],
-  [true, false, "idossha/ti-toolbox:v3.1.1", false],
+  [true, true, RELEASE_IMAGE, true],
+  [true, false, RELEASE_IMAGE, false],
   [true, true, "custom:dev", false],
   [false, false, "custom:dev", true],
 ])("refreshes cached release images without replacing dev images (%s, %s, %s)", async (cached, refresh, image, pulls) => {
@@ -174,7 +177,7 @@ it.each([
 
 it("warns and uses the cached release image when refresh fails", async () => {
   writeFileSync(join(root, "docker-compose.yml"), readFileSync(join(__dirname, "../../../docker-compose.yml")));
-  const { plan } = await new StackManager(host)["prepareFresh"]("test", root, { image: "idossha/ti-toolbox:v3.1.1" });
+  const { plan } = await new StackManager(host)["prepareFresh"]("test", root, { image: RELEASE_IMAGE });
   const connection = { kind: "unix" as const, socketPath: "/unused" };
   vi.spyOn(StackApi.prototype, "imageExists").mockResolvedValue(true);
   vi.spyOn(DockerEngineClient.prototype, "pullImage").mockRejectedValue(new Error("offline"));

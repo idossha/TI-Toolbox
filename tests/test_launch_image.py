@@ -231,9 +231,7 @@ def test_managed_install_is_launched_before_docker(docker, monkeypatch, tmp_path
     monkeypatch.delenv("TIT_ELECTRON_EXECUTABLE", raising=False)
     monkeypatch.setenv("TIT_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(cli, "__file__", str(project / "tit" / "cli.py"))
-    installed = cli.managed_executable(
-        tmp_path / "data" / "app" / cli.tit.__version__
-    )
+    installed = cli.managed_executable(tmp_path / "data" / "app" / cli.tit.__version__)
     if installed is None:
         pytest.skip("no managed desktop build for this platform")
     installed.parent.mkdir(parents=True)
@@ -297,16 +295,28 @@ def test_discovery_ignores_unrelated_similarly_named_containers(docker):
     assert [item["Id"] for item in launch.find_running_containers()] == ["other-id"]
 
 
+#: Stands for the release image, resolved in the test from ``launch.default_image()`` so a
+#: version bump cannot leave the refresh literal in ``ensure_image`` behind untested.
+RELEASE = object()
+
+
+def _release_image(monkeypatch) -> str:
+    monkeypatch.delenv("TIT_IMAGE_TAG", raising=False)
+    return launch.default_image()
+
+
 @pytest.mark.parametrize(
     "cached,refresh,image,pulls",
     [
-        (True, True, "idossha/ti-toolbox:v3.1.1", True),
-        (True, False, "idossha/ti-toolbox:v3.1.1", False),
+        (True, True, RELEASE, True),
+        (True, False, RELEASE, False),
         (True, True, "custom:dev", False),
         (False, False, "custom:dev", True),
     ],
 )
 def test_image_refresh_policy(monkeypatch, cached, refresh, image, pulls):
+    if image is RELEASE:
+        image = _release_image(monkeypatch)
     monkeypatch.setattr(
         launch,
         "_docker",
@@ -329,9 +339,10 @@ def test_failed_refresh_only_falls_back_when_cached(monkeypatch, cached):
         launch.subprocess, "run", Mock(return_value=subprocess.CompletedProcess([], 1))
     )
     messages = []
+    image = _release_image(monkeypatch)
     if cached:
-        launch.ensure_image("idossha/ti-toolbox:v3.1.1", echo=messages.append)
+        launch.ensure_image(image, echo=messages.append)
         assert "Warning:" in messages[-1] and "cached image" in messages[-1]
     else:
         with pytest.raises(launch.LaunchError, match="could not download"):
-            launch.ensure_image("idossha/ti-toolbox:v3.1.1", echo=messages.append)
+            launch.ensure_image(image, echo=messages.append)

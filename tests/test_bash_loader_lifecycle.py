@@ -10,8 +10,17 @@ import os
 import pty
 from pathlib import Path
 import subprocess
+from unittest.mock import patch
+
+from tit import launch
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# The image a release start refreshes: the checkout's compose default, as tit.launch reads it
+# (never a hard-coded tag, which the next version bump would leave behind).
+with patch.dict(os.environ):
+    os.environ.pop("TIT_IMAGE_TAG", None)
+    RELEASE_IMAGE = launch.default_image()
 
 
 def run_loader(
@@ -46,7 +55,7 @@ case "$1" in
      echo 'abc|ti-toolbox-other|idossha/ti-toolbox:test|tit.stack=ti-toolbox-v3'
      echo 'unrelated|not-ti-toolbox-backup|example/not-ti-toolbox-backup:test|'
      echo 'sibling|ti-toolbox-worker|idossha/ti-toolbox:test|tit.stack=ti-toolbox-v3,tit.service=worker'
-     echo 'scratch|ti-toolbox-scratch|idossha/ti-toolbox:v3.1.1|'
+     echo "scratch|ti-toolbox-scratch|$RELEASE_IMAGE|"
      echo 'fs|tit-freesurfer-0a1b|idossha/ti-toolbox:freesurfer-20260910|tit.kind=freesurfer'
      if [ "$MULTIPLE" = 1 ]; then echo 'def|legacy|idossha/ti-toolbox:v2.5.0|tit.stack=ti-toolbox-v3'; fi
    elif [ -n "$PROJECT_CONTAINER" ]; then echo "$PROJECT_CONTAINER"; fi ;;
@@ -94,8 +103,10 @@ esac
         # macOS ignores XDG_CONFIG_HOME: keep the real ~/.config/ti-toolbox out of the test.
         HOME=str(tmp_path / "home"),
         SESSION_PROJECT=session_project or "",
+        RELEASE_IMAGE=RELEASE_IMAGE,
     )
     env.pop("TIT_COMPOSE_FILE", None)
+    env.pop("TIT_IMAGE_TAG", None)
     if compose_file is not None:
         env["TIT_COMPOSE_FILE"] = str(compose_file)
     master = slave = None
@@ -394,7 +405,7 @@ def test_explicit_yaml_is_used_for_recreate(tmp_path):
 
 def test_release_start_refreshes_cached_image(tmp_path):
     _, calls = run_loader(tmp_path, [], running=False)
-    assert "pull --platform linux/amd64 idossha/ti-toolbox:v3.1.1" in calls
+    assert f"pull --platform linux/amd64 {RELEASE_IMAGE}" in calls
     # The container compose runs must name the platform too; an unpinned arm64 pull fails on an index.
     assert "platform: linux/amd64" in calls
 

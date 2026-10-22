@@ -223,6 +223,48 @@ class InternalPackagingTests(unittest.TestCase):
             '[ "$image" = idossha/ti-toolbox:v3.1.0 ]\n',
         )
 
+    def test_stable_version_moves_both_image_refresh_literals(self):
+        """The desktop and Python launchers refresh only the release image they name."""
+        stack = self.root / "desktop/src/main/stack.ts"
+        stack.parent.mkdir(parents=True)
+        stack.write_text(
+            'if (cached && !(refresh && plan.image === "idossha/ti-toolbox:v3.0.0")) {\n'
+        )
+        self.write(
+            "tit/launch.py",
+            'BUILTIN_SPEC = StackSpec(\n    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}",\n)\n'
+            'if cached and not (refresh and image == "idossha/ti-toolbox:v3.0.0"):\n',
+        )
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_version("3.1.0")
+        finally:
+            os.chdir(old)
+        self.assertEqual(
+            stack.read_text(),
+            'if (cached && !(refresh && plan.image === "idossha/ti-toolbox:v3.1.0")) {\n',
+        )
+        self.assertEqual(
+            (self.root / "tit/launch.py").read_text(),
+            'BUILTIN_SPEC = StackSpec(\n    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.1.0}",\n)\n'
+            'if cached and not (refresh and image == "idossha/ti-toolbox:v3.1.0"):\n',
+        )
+
+    def test_development_version_leaves_the_image_refresh_literals(self):
+        """A dev stamp has no image of its own; the launchers keep refreshing the release."""
+        stack = self.root / "desktop/src/main/stack.ts"
+        stack.parent.mkdir(parents=True)
+        literal = 'plan.image === "idossha/ti-toolbox:v3.0.0"\n'
+        stack.write_text(literal)
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_development_version("3.0.1-dev.1")
+        finally:
+            os.chdir(old)
+        self.assertEqual(stack.read_text(), literal)
+
     def test_version_update_preserves_dated_freesurfer_image(self):
         self.write(
             "version.py",
