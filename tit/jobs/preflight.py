@@ -419,7 +419,7 @@ def _analyzer_field(
         ]
     is_mti = is_mti_simulation(sid, sim)
     try:
-        select_field_file(
+        _, field_name = select_field_file(
             sid,
             sim,
             space,
@@ -463,7 +463,35 @@ def _analyzer_field(
                     "mesh analyses are measured on this surface.",
                 )
             ]
+        return _surface_field(sid, sim, surface, field_name)
     return []
+
+
+def _surface_field(
+    sid: str, sim: str, surface: Path, field_name: str
+) -> list[MissingInput]:
+    """The field on the central surface, read from its section headers (not loaded).
+
+    ``TI_normal`` is the exception: the analyzer reads it from the normal mesh
+    :func:`select_field_file` already found.
+    """
+    from tit import constants as const
+    from tit.analyzer.analyzer import msh_field_names
+
+    if field_name == const.FIELD_TI_NORMAL:
+        return []
+    carried = msh_field_names(surface)
+    if carried is None or field_name in carried:
+        return []  # None: not a mesh we can read headers of; the runner will say
+    return [
+        MissingInput(
+            f"field {field_name!r} on the central surface for sub-{sid} / {sim}",
+            str(surface),
+            f"This simulation's surface carries {', '.join(sorted(carried)) or 'no fields'}; "
+            f"re-run the {sim} simulation for sub-{sid} with {field_name} among its output "
+            "fields, or analyze it in voxel space.",
+        )
+    ]
 
 
 def _analyzer_atlas(

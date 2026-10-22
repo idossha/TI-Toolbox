@@ -19,6 +19,7 @@ tit.analyzer.field_selector : Automatic field file resolution.
 
 import hashlib
 import logging
+import mmap
 import re
 import tempfile
 import time
@@ -27,6 +28,7 @@ from pathlib import Path
 
 import numpy as np
 
+from tit import constants as const
 from tit.analyzer.field_selector import select_field_file
 from tit.atlas.segstats import compute_segstats, resolve_lut_for_atlas
 from tit.analyzer.visualizer import (
@@ -74,6 +76,33 @@ def _world_distance_grid(
         component = row[0] * deltas[0] + row[1] * deltas[1] + row[2] * deltas[2]
         dist_sq = dist_sq + component**2
     return np.sqrt(dist_sq)
+
+
+def msh_field_names(path) -> set[str] | None:
+    """Names of the node/element data fields in a Gmsh 2.2 ``.msh`` file, or ``None``.
+
+    Reads only the ``$NodeData`` / ``$ElementData`` section headers (the first string tag of
+    each is the field name), so a 40 MB central surface costs a byte scan, not a mesh load,
+    and nothing here needs SimNIBS. ``None`` means "could not tell" (not a Gmsh file, empty,
+    unreadable) -- callers then skip the check rather than report a field as missing.
+    """
+    try:
+        with open(path, "rb") as fh:
+            if fh.read(11) != b"$MeshFormat":
+                return None
+            with mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                names: set[str] = set()
+                for tag in (b"\n$NodeData\n", b"\n$ElementData\n"):
+                    pos = mm.find(tag)
+                    while pos >= 0:
+                        start = pos + len(tag)
+                        lines = mm[start : start + 1024].split(b"\n")
+                        if int(lines[0]) > 0:
+                            names.add(lines[1].strip().strip(b'"').decode())
+                        pos = mm.find(tag, start)
+                return names
+    except (OSError, ValueError, IndexError, UnicodeDecodeError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -1458,12 +1487,51 @@ class Analyzer:
     def _field_values(self, surface) -> np.ndarray:
         """Extract the named field from the surface mesh.
 
-        If the field is a vector (N x 3), the magnitude is returned.
+        If the field is a vector (N x 3), the magnitude is returned. ``TI_normal`` is not on
+        the central surface (``msh2cortex`` maps the TI mesh's fields only); it is read from
+        the normal mesh :func:`select_field_file` resolved, which is node data on the same
+        central-surface nodes.
+
+        Raises
+        ------
+        ValueError
+            If the field is on neither, naming the fields the surface does carry.
         """
-        v = surface.field[self.field_name].value
+        try:
+            v = surface.field[self.field_name].value
+        except KeyError:
+            if self.field_name != const.FIELD_TI_NORMAL:
+                carried = ", ".join(sorted(surface.field)) or "no fields"
+                raise ValueError(
+                    f"Field {self.field_name!r} is not on the central surface "
+                    f"{self._surface_mesh_path} (it carries: {carried}). Re-run the "
+                    f"simulation with {self.field_name} among its output fields, or "
+                    "analyze it in voxel space."
+                ) from None
+            v = self._normal_mesh_values(surface)
         if v.ndim == 2:
             return np.linalg.norm(v, axis=1)
         return v
+
+    def _normal_mesh_values(self, surface) -> np.ndarray:
+        """``TI_normal`` node data from the normal mesh, checked against *surface*'s nodes."""
+        import simnibs
+
+        normal_mesh = simnibs.read_msh(str(self.field_path))
+        try:
+            values = np.asarray(normal_mesh.field[const.FIELD_TI_NORMAL].value)
+        except KeyError:
+            raise ValueError(
+                f"{self.field_path} carries no {const.FIELD_TI_NORMAL} field"
+            ) from None
+        n_nodes = len(surface.nodes.node_coord)
+        if len(values) != n_nodes:
+            raise ValueError(
+                f"{self.field_path} has {len(values)} {const.FIELD_TI_NORMAL} values but "
+                f"the central surface {self._surface_mesh_path} has {n_nodes} nodes; "
+                "re-run the simulation so both come from the same surface."
+            )
+        return values
 
     @staticmethod
     def _node_areas(surface) -> np.ndarray:
