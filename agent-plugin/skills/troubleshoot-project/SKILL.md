@@ -58,7 +58,8 @@ cancelled skipped lost`. Map the `error.type` to what to tell the user:
 | `kind_error` | Invalid job configuration | The config does not match the job kind. |
 | `spawn_error` | Could not start the job | The runner process could not be started. |
 
-A cancelled job carries no `error.type`. Missing inputs are refused before a job is
+A job you cancel carries no `error.type`; a queued job you force-stop lands in
+`cancelled` with `forced`. Missing inputs are refused before a job is
 queued (the preflight check), so they never appear here — go back to step 2.
 
 A server restart never re-adopts a running job: startup reconciliation stops it
