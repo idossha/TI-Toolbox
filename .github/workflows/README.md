@@ -5,7 +5,7 @@ The build and release procedure is [docs/dev/RELEASING.md](../../docs/dev/RELEAS
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `release-build.yml` | Stable tag, manual dispatch, or reusable call | `build` exports unsigned installers; `release` verifies a manually published image manifest, stages verified executables and promotes the draft only after inventory/checksum verification. Docker build/push is manual. |
-| `deploy-docs.yml` | push to `main` or PR touching `docs/**`, `tit/**` or another file that links to the docs | Builds the MkDocs API reference and the Jekyll documentation site, and checks its assets, published files and links; deploys from `main` only. |
+| `deploy-docs.yml` | push to `main` or PR touching `docs/**`, `tit/**` or another file that links to the docs | Builds the MkDocs API reference and the Jekyll documentation site, writes and checks its search index, and checks its assets, published files and links; deploys from `main` only. |
 | `code-ql-analysis.yml` | push / PR / schedule | CodeQL static analysis. |
 | `python-security.yml` | push / PR touching `tit/**`, `tests/**`, `pyproject.toml` or the workflow; weekly schedule; manual dispatch | Bandit scan of `tit/` (high confidence, medium+ severity). The JSON results go to the job summary, not the Security tab (CodeQL covers that), and it runs with `--exit-zero`, so findings never fail the job. |
 | `host-paths.yml` | push / PR touching the host-path rules | Runs `tests/test_host_path_table.py` and `desktop/tests/unit/paths.test.ts` on Linux, macOS and Windows runners. |

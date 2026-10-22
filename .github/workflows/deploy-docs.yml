@@ -71,6 +71,14 @@ jobs:
           source: ./docs
           destination: ./_site
 
+      # The Jekyll action writes _site as root inside its container; the search page fetches
+      # search/search.json, which only this step writes (Pages builds run no plugins).
+      - name: Write and check the search index
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" ./_site
+          python docs/tests/build_search_index.py ./_site --source docs
+          python docs/tests/check_search_index.py ./_site --source docs
+
       - name: Check for broken asset references
         run: python docs/tests/check_assets.py ./_site
 
