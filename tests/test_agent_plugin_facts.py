@@ -498,10 +498,16 @@ def test_the_error_type_count_is_the_job_managers(texts):
     words = (
         "zero one two three four five six seven eight nine ten eleven twelve".split()
     )
+    # Both ways a text states the count: "six `error.type` values" and "the six-value
+    # (failure) taxonomy" (the README's wording, which may wrap across a line).
+    counted = re.compile(
+        r"\b(\w+)\s+`?error\.type`?\s+values\b|\b(\w+)-value\s+(?:failure\s+)?taxonomy\b",
+        re.I,
+    )
     checked = set()
     for name, text in texts.items():
-        for m in re.finditer(r"\b(\w+)\s+`?error\.type`?\s+values\b", text):
-            count = m.group(1).lower()
+        for m in counted.finditer(text):
+            count = (m.group(1) or m.group(2)).lower()
             if not (count.isdigit() or count in words):
                 continue  # "Failure `error.type` values ..." states no count
             checked.add(name)
@@ -509,7 +515,10 @@ def test_the_error_type_count_is_the_job_managers(texts):
             assert n == len(
                 emitted
             ), f"{name}: {m.group(0)!r}, the job manager writes {len(emitted)}"
-    assert "agent-plugin/skills/ti-codebase/SKILL.md" in checked
+    assert {
+        "agent-plugin/skills/ti-codebase/SKILL.md",
+        "agent-plugin/README.md",
+    } <= checked
 
 
 def test_no_text_says_a_restart_re_adopts_a_job(texts):

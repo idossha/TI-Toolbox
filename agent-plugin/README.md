@@ -108,7 +108,7 @@ these are the facts that changed:
 - **`tit/gui/` was deleted.** `tit` imports no Qt, and the core image ships no X11
   and no FreeSurfer. Any answer that cites `tit/gui/**` is wrong.
 - **New subsystems the skills now cover**: `tit/jobs` (kinds, the pure scheduler,
-  the on-disk job store, the ETA model in `tit/jobs/eta.py`, the ten-value failure
+  the on-disk job store, the ETA model in `tit/jobs/eta.py`, the six-value failure
   taxonomy including *"Lost (server restarted mid-run)"*),
   `tit/server/kernels.py` and notebooks, `tit/scene`,
   `tit/viewspec.py`, `tit/catalog.py`, `tit/launch.py`.
