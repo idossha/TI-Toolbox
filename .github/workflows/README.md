@@ -5,17 +5,17 @@ The build and release procedure is [docs/dev/RELEASING.md](../../docs/dev/RELEAS
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `release-build.yml` | Stable tag, manual dispatch, or reusable call | `build` exports unsigned installers; `release` verifies a manually published image manifest, stages verified executables and promotes the draft only after inventory/checksum verification. Docker build/push is manual. |
-| `deploy-docs.yml` | push to `main` or PR touching `docs/**`, `tit/**` or another file that links to the docs | Builds the Jekyll documentation site and checks its assets, published files and links; deploys from `main` only. |
+| `deploy-docs.yml` | push to `main` or PR touching `docs/**`, `tit/**` or another file that links to the docs | Builds the MkDocs API reference and the Jekyll documentation site, and checks its assets, published files and links; deploys from `main` only. |
 | `code-ql-analysis.yml` | push / PR / schedule | CodeQL static analysis. |
-| `python-security.yml` | push / PR / schedule | Python dependency and code security scanning. |
+| `python-security.yml` | push / PR touching `tit/**`, `tests/**` or `pyproject.toml`; schedule | Bandit scan of `tit/`, uploaded to the Security tab; it runs with `--exit-zero`, so findings never fail the job. |
 | `host-paths.yml` | push / PR touching the host-path rules | Runs `tests/test_host_path_table.py` and `desktop/tests/unit/paths.test.ts` on Linux, macOS and Windows runners. |
 
-The generic build pipeline packages `desktop/` with Node 22.12.0. All modes build
-`idossha/ti-toolbox:vX.Y.Z` from the runtime version. Rebuilding and pushing replaces
+The generic build pipeline packages `desktop/` with Node 22.12.0. Both modes pin the packaged app to
+`idossha/ti-toolbox:vX.Y.Z` from the runtime version (`verify-package.mjs --expect-image-tag`). Rebuilding and pushing replaces
 that tag so patch images do not require a new version. Source launchers and the installed-wheel
 fallback must agree with it. The source SHA is retained in image labels.
 
-`internal` is an unsigned delivery mode: it does not create GitHub Releases, publish updater
-assets, or change public version metadata. No mode promotes a Docker `latest` tag.
+There is no `internal` mode: `build` exports unsigned installers and `release` publishes. No mode
+promotes a Docker `latest` tag.
 Only `release` on a stable Git tag publishes a GitHub release after artifact verification.
 TetraVox is installed separately on the user host; the image build contains no viewer bundle.

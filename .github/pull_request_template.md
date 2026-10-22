@@ -72,8 +72,12 @@
 
 ### Local Testing
 
-- [ ] Unit tests pass locally (`./tests/test.sh --unit-only`)
-- [ ] Full test suite passes locally (`./tests/test.sh`)
+<!-- The exact commands and their caveats are in docs/dev/TESTING.md -->
+
+- [ ] Host Python suite passes (`.venv/bin/python -m pytest tests/ -q --ignore=tests/numerical`)
+- [ ] Desktop checks pass, if `desktop/` changed (`cd desktop && npm run typecheck && npm run lint && npx vitest run`)
+- [ ] Numerical tests pass in the container, if scientific code changed (`simnibs_python -m pytest tests/numerical -q`)
+- [ ] Repository guards pass (`python3 dev/documentation_policy.py && python3 dev/route_import_guard.py && python3 dev/contracts_check.py`)
 
 ### Test Output
 <!-- Paste relevant test output or summarize results -->
