@@ -26,6 +26,8 @@ import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from tit.constants import get_field_names
+
 
 def _finite_number(value) -> bool:
     """A real number (not a bool) that is neither NaN nor infinite."""
@@ -197,6 +199,16 @@ class AnalyzerConfig:
             raise ValueError("subject_id is required when mode='single'")
         if self.mode is AnalysisMode.GROUP and not self.subject_ids:
             raise ValueError("subject_ids must be non-empty when mode='group'")
+        # The runner's field selector reads only registered names
+        # (tit.analyzer.field_selector.select_field_file); refuse any other here,
+        # before a job is queued. The message avoids other field names, so the
+        # validate route flags `field`.
+        if self.field is not None and self.field not in get_field_names():
+            raise ValueError(
+                f"field {self.field!r} is not one the analyzer can read; use one of "
+                f"{', '.join(get_field_names())}, or leave it unset (null) for the "
+                "TI_max/mTI_max envelope"
+            )
         if self.analysis_type is AnalysisType.SPHERICAL:
             if self.center is None or self.radius is None:
                 raise ValueError(

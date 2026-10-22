@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -306,3 +307,79 @@ def test_the_pre_legacy_key_is_the_one_named_exception(
     assert (
         found["validate"] is not None and PRE_LEGACY_KEY_EXCEPTION in found["validate"]
     )
+
+
+# ---------------------------------------------------------------------------------------------
+# analyzer field names: refused at the doors exactly when the runner's field selector refuses
+# ---------------------------------------------------------------------------------------------
+
+DESKTOP_FIELDS = (
+    Path(__file__).resolve().parents[1]
+    / "desktop"
+    / "src"
+    / "renderer"
+    / "pages"
+    / "analyzer"
+    / "fields.ts"
+)
+
+
+def _desktop_field_names() -> list[str]:
+    """What the Analyzer page's field selector can send, read from its own source.
+
+    Its ``FIELD_REGISTRY`` entries, plus the alias ``fieldSpecForName`` maps (``mTI_max``,
+    which the catalog lists for an mTI simulation and the selector then offers).
+    """
+    text = DESKTOP_FIELDS.read_text()
+    names = re.findall(r'^\s*name: "([^"]+)",$', text, re.M)
+    aliases = re.findall(r'if \(name === "([^"]+)"\) return fieldSpec\(', text)
+    assert names and aliases, "the desktop field list has names to check"
+    return names + aliases
+
+
+def _analyzer_job(project: Path, field: str) -> dict[str, Any]:
+    job = _corpus_job("analyzer/mesh-field-hf-peak", project)
+    assert job["config"]["space"] == "mesh"  # TI_normal is a mesh-only field
+    job["config"]["field"] = field
+    return job
+
+
+@pytest.mark.parametrize("field", _desktop_field_names())
+def test_every_field_the_analyzer_page_offers_is_accepted_at_every_door(
+    field: str, client: TestClient, tmp_path: Path
+) -> None:
+    from tit.analyzer.field_selector import select_field_file
+
+    job = _analyzer_job(tmp_path, field)
+    assert verdicts(client, "analyzer", job["config"], job["subject_ids"]) == {
+        "validate": None,
+        "plan": None,
+        "submit": None,
+    }
+    # The runner's selector takes the name too: with no simulation on disk it gets as far
+    # as looking for the file.
+    with pytest.raises(FileNotFoundError):
+        select_field_file("001", "M1", "mesh", field=field)
+
+
+@pytest.mark.parametrize("field", ["peak", "TI_banana", "magnE", "ti_max"])
+def test_a_field_the_runner_cannot_read_is_refused_at_every_door(
+    field: str, client: TestClient, tmp_path: Path
+) -> None:
+    from tit.analyzer.config import AnalyzerConfig
+    from tit.analyzer.field_selector import select_field_file
+
+    # The runner refuses it (the oracle) ...
+    with pytest.raises(ValueError, match="Unknown field"):
+        select_field_file("001", "M1", "mesh", field=field)
+    job = _analyzer_job(tmp_path, field)
+    # ... and so do the dataclass and every door, naming it.
+    with pytest.raises(ValueError, match=re.escape(repr(field))):
+        AnalyzerConfig(**job["config"])
+    _refused_everywhere(
+        verdicts(client, "analyzer", job["config"], job["subject_ids"]), repr(field)
+    )
+    v = client.post(
+        "/api/validate/analyzer", json={"config": job["config"]}, headers=BEARER
+    ).json()
+    assert v["errors"][0]["path"] == "field", v
