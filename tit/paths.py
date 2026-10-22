@@ -33,10 +33,13 @@ tit.constants : Project-wide constants used for directory/file names.
 """
 
 import hashlib
+import logging
 import os
 import re
 
 from . import constants as const
+
+_log = logging.getLogger(__name__)
 
 
 def natural_key(text: str) -> list[int | str]:
@@ -1097,7 +1100,11 @@ class PathManager:
         """List flex-search run directories containing result metadata.
 
         Only directories that contain ``flex_meta.json`` or
-        ``electrode_positions.json`` are included.
+        ``electrode_positions.json`` are included, and only those whose name
+        passes :func:`is_valid_name`: every reader of a run validates its name,
+        so one folder outside the rule (``Thalamus (L)``, which v3.1 let the
+        Optimizer create) would otherwise fail the whole listing. Skipped
+        names are logged.
 
         Parameters
         ----------
@@ -1119,12 +1126,22 @@ class PathManager:
                 for entry in it:
                     if not entry.is_dir() or entry.name.startswith("."):
                         continue
-                    if os.path.isfile(
-                        os.path.join(entry.path, "flex_meta.json")
-                    ) or os.path.isfile(
-                        os.path.join(entry.path, "electrode_positions.json")
+                    if not (
+                        os.path.isfile(os.path.join(entry.path, "flex_meta.json"))
+                        or os.path.isfile(
+                            os.path.join(entry.path, "electrode_positions.json")
+                        )
                     ):
-                        out.append(entry.name)
+                        continue
+                    if not is_valid_name(entry.name):
+                        _log.warning(
+                            "Skipping flex-search run %r of subject %s: the name "
+                            "breaks the run-name rule; rename the folder to list it",
+                            entry.name,
+                            sid,
+                        )
+                        continue
+                    out.append(entry.name)
             out.sort()
             return out
         except OSError:

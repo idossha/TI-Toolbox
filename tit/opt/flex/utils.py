@@ -513,6 +513,19 @@ def _subcortical_mask_lists(roi_spec: FlexConfig.SubcorticalROI, config=None):
     return [space] * n, paths, labels
 
 
+def _mni_selection_name(atlas_path: str, label: int) -> str:
+    """The cache file one (MNI atlas, label) selection is written to.
+
+    Named for the atlas as well as the label: two atlases of a union can share
+    a label value, and one shared ``mni-label-<N>.nii`` let the second
+    selection overwrite the first one's file for anything reading it later.
+    """
+    import hashlib
+
+    digest = hashlib.sha256(os.path.abspath(str(atlas_path)).encode()).hexdigest()
+    return f"mni-label-{int(label)}-{digest[:12]}.nii"
+
+
 def _mni_labels_to_subject(paths: list, labels: list, config) -> tuple[list, list, str]:
     """Turn each (MNI atlas, label) into one binary NIfTI mask in subject space.
 
@@ -558,7 +571,7 @@ def _mni_labels_to_subject(paths: list, labels: list, config) -> tuple[list, lis
             binary = (np.rint(data).astype(np.int64) == int(label)).astype(np.uint8)
             if not binary.any():
                 raise ValueError(f"{path} has no voxels with label {label}")
-            selected = os.path.join(out, f"mni-label-{int(label)}.nii")
+            selected = os.path.join(out, _mni_selection_name(path, label))
             nib.save(nib.Nifti1Image(binary, image.affine), selected)
             with stage_heartbeat(
                 log,
