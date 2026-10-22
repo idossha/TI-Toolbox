@@ -1,7 +1,6 @@
 """Multipolar exhaustive-search engine."""
 
 import logging
-import signal
 import time
 from collections import deque
 
@@ -78,16 +77,9 @@ class MExSearchEngine(ExSearchEngine):
         Candidates are evaluated in enumeration order on ``n_jobs`` forked
         workers (``n_jobs < 1``: the job's CPU budget, see
         :func:`tit.opt.ex.parallel.resolve_n_jobs`; ``1``: in-process).
+        Signals are left to the caller, as in
+        :meth:`tit.opt.ex.engine.ExSearchEngine.run`.
         """
-        stop = False
-
-        def _on_signal(sig, frame):
-            nonlocal stop
-            stop = True
-
-        signal.signal(signal.SIGINT, _on_signal)
-        signal.signal(signal.SIGTERM, _on_signal)
-
         total = count_multipolar_combinations(
             buckets_or_pool,
             all_combinations=all_combinations,
@@ -161,10 +153,6 @@ class MExSearchEngine(ExSearchEngine):
                 data[f"{self.roi_name}_Focality"],
             )
             self._log_progress_estimate(i, total, start_time)
-            if stop:
-                self.logger.warning("Interrupted")
-                evaluations.close()
-                break
 
         if results:
             elapsed = time.time() - start_time

@@ -7,7 +7,6 @@ Direct SimNIBS usage — ROI metrics are computed inline.
 import csv
 import logging
 import os
-import signal
 import time
 from pathlib import Path
 
@@ -313,16 +312,12 @@ class ExSearchEngine:
         :func:`tit.opt.ex.parallel.resolve_n_jobs`; ``1``: in-process).
         A *symmetry_mirror_map* (bucket mode) restricts the enumeration to
         left/right mirrored montages (see :mod:`tit.opt.ex.symmetry`).
+
+        Signals are left to the caller: Ctrl-C raises ``KeyboardInterrupt``
+        and a job cancel's SIGTERM ends the process (``tit/jobs/runner.py``),
+        so an interrupted search returns nothing and its run folder never
+        gets the files of a finished run.
         """
-        stop = False
-
-        def _on_signal(sig, frame):
-            nonlocal stop
-            stop = True
-
-        signal.signal(signal.SIGINT, _on_signal)
-        signal.signal(signal.SIGTERM, _on_signal)
-
         total = count_combinations(
             e1_plus,
             e1_minus,
@@ -398,10 +393,6 @@ class ExSearchEngine:
                     f"TImean={data[f'{self.roi_name}_TImean_ROI']:.4f} "
                     f"Foc={data[f'{self.roi_name}_Focality']:.4f}"
                 )
-            if stop:
-                self.logger.warning("Interrupted")
-                evaluations.close()
-                break
 
         if results:
             t = time.time() - start_time

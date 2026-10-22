@@ -24,10 +24,10 @@ _ENGINE: Any = None
 def _worker_init(numba_threads: int) -> None:
     """Give each worker a share of the numba threads and default signals.
 
-    The parent installs its own flag-setting SIGINT/SIGTERM handlers
-    before forking, and a worker that inherited them would ignore
+    The caller may have installed its own SIGINT/SIGTERM handlers before
+    forking, and a worker that inherited a flag-setting one would ignore
     ``Pool.terminate()`` (SIGTERM). SIGINT is ignored so a terminal
-    Ctrl-C reaches the parent, which stops cleanly and terminates the
+    Ctrl-C reaches the parent, whose ``KeyboardInterrupt`` terminates the
     workers itself.
 
     BLAS/OpenMP thread limits are deliberately NOT applied here: the
