@@ -22,6 +22,7 @@ import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
+import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
 import { createStatsJob, getSimulationsFor, planStats, validateStats, type CorrelationConfig, type GroupComparisonConfig } from "./api";
 import { buildCorrelationConfig, buildGroupComparisonConfig, type SharedStatsFields } from "./config";
 
@@ -78,8 +79,9 @@ const CORRELATION_TYPE_OPTIONS = [
   { value: "spearman", label: "Spearman" },
 ];
 
-/** A permutation test over one subject is not a test (the page's own rule, unchanged). */
-const MIN_PARTICIPANTS = 2;
+/** A permutation test over one subject is not a test, and a correlation needs a third point:
+ *  `CorrelationConfig` refuses fewer than 3 subjects, so the page does too. */
+const MIN_PARTICIPANTS: Record<Mode, number> = { classification: 2, correlation: 3 };
 
 /** Why one row cannot take part — the noun phrases `SubjectsField` uses, in row order. */
 function rowEligibility(mode: Mode) {
@@ -126,6 +128,7 @@ function ClusterPermutationPanel() {
   const [fieldMetric, setFieldMetric] = usePageSession("correlation.fieldMetric", "Electric field magnitude");
 
   const [submitting, setSubmitting] = useState(false);
+  const [existingOpen, setExistingOpen] = useState(false);
 
   const simQueries = useQueries({ queries: rows.map((r) => ({ queryKey: ["simulations", r.subjectId], queryFn: () => getSimulationsFor(r.subjectId), enabled: !!r.subjectId })) });
   const subjectOptions = (subjectsQuery.data ?? []).map((s) => ({ value: s.id, label: s.id }));
@@ -151,7 +154,7 @@ function ClusterPermutationPanel() {
   const participantsBlocked = participantsBlockedReason(
     validRows.length,
     blockedParticipants(rows, rowEligibility(mode)),
-    MIN_PARTICIPANTS,
+    MIN_PARTICIPANTS[mode],
   );
   const clientErrors: string[] = [];
   if (participantsBlocked) clientErrors.push(participantsBlocked);
@@ -159,6 +162,12 @@ function ClusterPermutationPanel() {
   if (mode === "classification" && validRows.length >= 2) {
     const responses = new Set(validRows.map((r) => r.response));
     if (!(responses.has(0) && responses.has(1))) clientErrors.push("Classification needs at least one subject in each response group.");
+    const responders = validRows.filter((r) => r.response === 1).length;
+    const nonResponders = validRows.length - responders;
+    // A paired t-test pairs each responder with one non-responder (GroupComparisonConfig's rule).
+    if (testType === "paired" && responders !== nonResponders) {
+      clientErrors.push(`A paired test needs as many responders as non-responders (${responders} vs ${nonResponders}).`);
+    }
   }
 
   const shared: SharedStatsFields = {
@@ -207,30 +216,38 @@ function ClusterPermutationPanel() {
   });
 
   const serverErrors = validateQuery.data?.errors.map((e) => `${e.path ? `${e.path}: ` : ""}${e.message}`) ?? [];
+  // The server's verdict blocks Run as well: a rule only the config class states (the
+  // permutation floor for this alpha, a constant effect size, a weight of 0) would otherwise
+  // be found out by a refused submission. Kept out of `clientErrors`, which decides `config`.
+  const blockers = [...clientErrors, ...serverErrors];
+  const blockedReason = blockers[0] ?? null;
 
   function handleRunClick() {
-    if (!config) {
-      notify.error(clientErrors[0] ?? "Complete the analysis configuration before running.");
+    if (!config || blockedReason) {
+      notify.error(blockedReason ?? "Complete the analysis configuration before running.");
       return;
     }
     void run();
   }
 
-  async function run() {
+  async function run(overwrite = false) {
     if (!config) return;
     setSubmitting(true);
     try {
-      const job = await createStatsJob(config, subjectIds);
+      const job = await createStatsJob(config, subjectIds, overwrite);
       jobs.trackJob(job);
       notify.success(`Queued: ${mode === "classification" ? "group comparison" : "correlation"} "${analysisName.trim()}"`);
     } catch (error) {
-      notifySubmitError("Could not queue the analysis.", error);
+      // An analysis of this name already exists: ask, as the NIfTI averaging panel does,
+      // instead of a dead-end "Could not queue" (the server answers 409 until told to replace).
+      if (!overwrite && isExistingOutputsConflict(error)) setExistingOpen(true);
+      else notifySubmitError("Could not queue the analysis.", error);
     } finally {
       setSubmitting(false);
     }
   }
 
-  const digest = panelDigest(clientErrors, planQuery.data, config !== null && (validateQuery.isPending || planQuery.isFetching));
+  const digest = panelDigest(blockers, planQuery.data, config !== null && (validateQuery.isPending || planQuery.isFetching));
 
   return (
     <PageLayout
@@ -246,16 +263,16 @@ function ClusterPermutationPanel() {
       actionBar={
         <ActionBar
           digest={digest}
-          blocked={clientErrors.length > 0}
+          blocked={blockedReason !== null}
           primary={
             <Button
               variant="primary"
               icon={<Play size={14} />}
               loading={submitting}
-              disabled={clientErrors.length > 0}
+              disabled={blockedReason !== null}
               onClick={handleRunClick}
               data-testid="run-button"
-              title={clientErrors[0] ?? undefined}
+              title={blockedReason ?? undefined}
             >
               Run analysis
             </Button>
@@ -462,6 +479,19 @@ function ClusterPermutationPanel() {
           </div>
         </div>
       </div>
+
+      <ExistingOutputsDialog
+        open={existingOpen}
+        onOpenChange={setExistingOpen}
+        existing={1}
+        total={1}
+        noun="analysis output"
+        busy={submitting}
+        onDecide={(decision) => {
+          setExistingOpen(false);
+          if (decision === "replace") void run(true);
+        }}
+      />
     </PageLayout>
   );
 }

@@ -30,6 +30,9 @@ const defaultShared: SharedStatsFields = {
   atlasFiles: [],
 };
 
+// The schema has no cross-field rules, so the examples also keep the config classes' own:
+// a correlation needs 3 subjects and a paired test equal groups (tit/stats/config.py; the page
+// gate is `cluster-permutation-gates.test.tsx`). Two-subject correlations used to be called valid.
 describe("Cluster Permutation panel configs validate against contracts/generated/config.schema.json", () => {
   it("a default classification config is a valid GroupComparisonConfig", () => {
     const config = buildGroupComparisonConfig(
@@ -50,6 +53,7 @@ describe("Cluster Permutation panel configs validate against contracts/generated
         { subjectId: "ernie", simulationName: "Thalamus", response: 1 },
         { subjectId: "101", simulationName: "Thalamus", response: 0 },
         { subjectId: "MNI152", simulationName: "docs_example", response: 1 },
+        { subjectId: "LA", simulationName: "docs_example", response: 0 },
       ],
       { testType: "paired", alternative: "greater", group1Name: "High responders", group2Name: "Low responders", valueMetric: "TI max" },
     );
@@ -62,6 +66,7 @@ describe("Cluster Permutation panel configs validate against contracts/generated
       [
         { subjectId: "ernie", simulationName: "Thalamus", effectSize: 2.3, weight: 1 },
         { subjectId: "101", simulationName: "Thalamus", effectSize: -1.1, weight: 1 },
+        { subjectId: "MNI152", simulationName: "Thalamus", effectSize: 0.6, weight: 1 },
       ],
       { correlationType: "pearson", useWeights: true, effectMetric: "Effect Size", fieldMetric: "Electric Field Magnitude" },
     );
@@ -76,6 +81,7 @@ describe("Cluster Permutation panel configs validate against contracts/generated
       [
         { subjectId: "ernie", simulationName: "Thalamus", effectSize: 2.3, weight: 1 },
         { subjectId: "101", simulationName: "Thalamus", effectSize: -1.1, weight: 1 },
+        { subjectId: "MNI152", simulationName: "Thalamus", effectSize: 0.6, weight: 1 },
       ],
       { correlationType: "pearson", useWeights: true, effectMetric: "Effect Size", fieldMetric: "Electric Field Magnitude" },
     );
@@ -98,6 +104,7 @@ describe("Cluster Permutation panel configs validate against contracts/generated
       [
         { subjectId: "ernie", simulationName: "Thalamus", effectSize: 0.5, weight: 0.8 },
         { subjectId: "101", simulationName: "Thalamus", effectSize: 1.2, weight: 1.2 },
+        { subjectId: "MNI152", simulationName: "Thalamus", effectSize: 0.9, weight: 1 },
       ],
       { correlationType: "spearman", useWeights: false, effectMetric: "Mood score", fieldMetric: "TI max" },
     );

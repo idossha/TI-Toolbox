@@ -112,11 +112,13 @@ def test_paired_with_unequal_groups_raises_like_the_volume_path(surface):
     rng = np.random.default_rng(2)
     data = rng.random((N_VERTICES, 3)) + 0.1
     mod, _ = surface(data)
+    # GroupComparisonConfig refuses this design itself now (tests/test_stats_config_validation.py);
+    # a config edited after construction is how the engine's own guard is still reached.
+    config = _config([1, 1, 0], name="paired_2v1")
+    config.test_type = config.TestType.PAIRED
 
     with pytest.raises(ValueError) as err:
-        mod.run_surface_group_comparison(
-            _config([1, 1, 0], test_type="paired", name="paired_2v1")
-        )
+        mod.run_surface_group_comparison(config)
     assert str(err.value) == "Paired test requires equal sample sizes: 2 vs 1"
     assert str(err.value) == _volume_error(data[:, :2], data[:, 2:], "paired")
 

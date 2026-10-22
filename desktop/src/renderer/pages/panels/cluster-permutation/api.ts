@@ -28,6 +28,8 @@ export async function planStats(config: GroupComparisonConfig | CorrelationConfi
   );
 }
 
-export async function createStatsJob(config: GroupComparisonConfig | CorrelationConfig, subjectIds: string[]): Promise<JobStatus> {
-  return unwrap(await api.POST("/api/jobs", { body: { kind: "stats", config: config as PipelineConfig, subject_ids: subjectIds } }), "/api/jobs");
+/** `overwrite` is the user's "Replace and rerun": without it the server refuses (409) a name
+ *  whose analysis folder already exists. */
+export async function createStatsJob(config: GroupComparisonConfig | CorrelationConfig, subjectIds: string[], overwrite = false): Promise<JobStatus> {
+  return unwrap(await api.POST("/api/jobs", { body: { kind: "stats", config: config as PipelineConfig, subject_ids: subjectIds, overwrite } }), "/api/jobs");
 }

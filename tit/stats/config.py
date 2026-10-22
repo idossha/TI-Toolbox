@@ -21,6 +21,7 @@ tit.stats.permutation : Orchestration functions that consume these configs.
 """
 
 import csv
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -104,6 +105,41 @@ class _AnalysisSpace(StrEnum):
 #: importing ``tit.source.config`` would pull in ``mne``.
 _VALID_FSAVG_FIELDS = FSAVG_FIELD_NAMES
 _VALID_FSAVG_SPACINGS = (5, 6, 7)
+
+
+def _is_real(value: object) -> bool:
+    """``True`` for a finite int or float (a bool is not a number here)."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
+def _validate_test_parameters(n_permutations, alpha, cluster_threshold) -> None:
+    """Shared numeric checks for both config classes.
+
+    *alpha* and *cluster_threshold* are probabilities, so they lie strictly between 0 and
+    1. A permutation p-value is ``(b + 1) / (m + 1)`` (Phipson & Smyth 2010), so with *m*
+    permutations no p-value is below ``1 / (m + 1)``; when that floor is above *alpha*
+    nothing can ever be significant, which needs ``m >= ceil(1 / alpha) - 1``.
+    """
+    for name, value in (("alpha", alpha), ("cluster_threshold", cluster_threshold)):
+        if not (_is_real(value) and 0 < value < 1):
+            raise ValueError(
+                f"{name} must be a number strictly between 0 and 1, got {value!r}"
+            )
+    if isinstance(n_permutations, bool) or not isinstance(n_permutations, int):
+        raise ValueError(
+            f"n_permutations must be a whole number, got {n_permutations!r}"
+        )
+    minimum = math.ceil(1 / alpha) - 1
+    if n_permutations < minimum:
+        raise ValueError(
+            f"n_permutations must be at least {minimum} at alpha {alpha}, got "
+            f"{n_permutations}: the smallest p-value n permutations can give is "
+            "1/(n + 1), so with fewer no cluster could ever be significant"
+        )
 
 
 def _validate_surface_options(space, field, spacing) -> None:
@@ -204,9 +240,12 @@ class GroupComparisonConfig:
     ------
     ValueError
         If *subjects* lacks at least one responder and one non-responder,
-        if a string value is not a member of its enum, or if
-        *fsaverage_field*/*fsaverage_spacing* are invalid for
-        ``space="fsaverage"``.
+        if a response is not 0 or 1, if a paired test has unequal group
+        sizes, if *alpha* or *cluster_threshold* is not strictly between 0
+        and 1, if *n_permutations* is below ``ceil(1 / alpha) - 1`` (no
+        p-value could reach *alpha*), if a string value is not a member of
+        its enum, or if *fsaverage_field*/*fsaverage_spacing* are invalid
+        for ``space="fsaverage"``.
 
     Examples
     --------
@@ -338,10 +377,29 @@ class GroupComparisonConfig:
             self.space, self.fsaverage_field, self.fsaverage_spacing
         )
 
+        _validate_test_parameters(
+            self.n_permutations, self.alpha, self.cluster_threshold
+        )
+
+        for index, subject in enumerate(self.subjects):
+            # A response other than 0/1 put the subject in neither group, silently.
+            if isinstance(subject.response, bool) or subject.response not in (0, 1):
+                raise ValueError(
+                    f"subjects[{index}] response must be 0 (non-responder) or 1 "
+                    f"(responder), got {subject.response!r}"
+                )
         responders = [s for s in self.subjects if s.response == 1]
         non_responders = [s for s in self.subjects if s.response == 0]
         if len(responders) == 0 or len(non_responders) == 0:
             raise ValueError("Need at least one responder and one non-responder")
+        if self.test_type == self.TestType.PAIRED and len(responders) != len(
+            non_responders
+        ):
+            raise ValueError(
+                f"Paired test requires equal sample sizes: {len(responders)} "
+                f"responders vs {len(non_responders)} non-responders (test_type "
+                "'paired' pairs them row by row)"
+            )
 
     # ── CSV loader ────────────────────────────────────────────────────
 
@@ -439,6 +497,15 @@ class CorrelationConfig:
         Atlas filenames for overlap analysis (looked up in the bundled
         atlas directory).
 
+    Raises
+    ------
+    ValueError
+        If fewer than 3 subjects are given, if an effect size is not a
+        finite number or every effect size is equal (the correlation is
+        undefined), if *use_weights* is on and a weight is not a positive
+        finite number, or for the *alpha*/*cluster_threshold*/
+        *n_permutations* rules of :class:`GroupComparisonConfig`.
+
     See Also
     --------
     CorrelationResult : Result container returned by the analysis.
@@ -526,6 +593,31 @@ class CorrelationConfig:
         if len(self.subjects) < 3:
             raise ValueError(
                 f"Need at least 3 subjects for correlation, got {len(self.subjects)}"
+            )
+        _validate_test_parameters(
+            self.n_permutations, self.alpha, self.cluster_threshold
+        )
+
+        for index, subject in enumerate(self.subjects):
+            if not _is_real(subject.effect_size):
+                raise ValueError(
+                    f"subjects[{index}] effect size must be a finite number, got "
+                    f"{subject.effect_size!r}"
+                )
+            if self.use_weights and not (
+                _is_real(subject.weight) and subject.weight > 0
+            ):
+                raise ValueError(
+                    f"subjects[{index}] weight must be a positive finite number when "
+                    f"weights are applied, got {subject.weight!r}"
+                )
+        # r = cov / (std_x * std_y) is 0/0 when every effect size is equal; the engine then
+        # reported r = 0 everywhere and a "successful" run with no clusters.
+        if len({float(s.effect_size) for s in self.subjects}) == 1:
+            raise ValueError(
+                "subjects all have the same effect size "
+                f"({self.subjects[0].effect_size!r}): a correlation with a constant "
+                "variable is undefined"
             )
 
     # ── CSV loader ────────────────────────────────────────────────────

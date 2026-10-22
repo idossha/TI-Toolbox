@@ -45,8 +45,8 @@
     }
   ],
   "desktop": {
-    "accepts": true,
-    "reason": null
+    "accepts": false,
+    "reason": "Add at least 3 subjects with a simulation."
   },
   "expect": {
     "runner_call": "run_correlation"

@@ -50,8 +50,8 @@
     }
   ],
   "desktop": {
-    "accepts": true,
-    "reason": null
+    "accepts": false,
+    "reason": "A paired test needs as many responders as non-responders (2 vs 1)."
   },
   "expect": {
     "runner_call": "run_group_comparison"
