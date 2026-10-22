@@ -7483,7 +7483,7 @@ export interface components {
         };
         Settings: {
             telemetry: components["schemas"]["Telemetry"];
-            /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes) */
+            /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, 3D Visual Exporter, EEG Caps) */
             panels: string[];
             image_tag?: string | null;
             /** @enum {string} */

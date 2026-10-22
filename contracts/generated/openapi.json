@@ -13182,7 +13182,7 @@
             "items": {
               "type": "string"
             },
-            "description": "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes)"
+            "description": "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, 3D Visual Exporter, EEG Caps)"
           },
           "image_tag": {
             "type": [

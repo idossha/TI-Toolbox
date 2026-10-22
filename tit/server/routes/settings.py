@@ -47,7 +47,6 @@ _VALID_PANELS: frozenset[str] = frozenset(
         "cluster-permutation",
         "nifti-group-average",
         "nilearn-visuals",
-        "quick-notes",
         "visual-exporter",
         "caps",
     }
@@ -97,7 +96,7 @@ class Settings(BaseModel):
     panels: list[str] = Field(
         description=(
             "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, "
-            "Nilearn Visuals, Quick Notes)"
+            "Nilearn Visuals, 3D Visual Exporter, EEG Caps)"
         )
     )
     image_tag: str | None = None
@@ -125,7 +124,8 @@ def _read_settings() -> dict[str, Any]:
         # panel until it was deleted on 2026-09-05, and any project whose settings.json still
         # names it got a document back that `PUT` then refused with 422 -- so the Settings page,
         # which is a read-modify-write of exactly this document, could not save at all. `GET`
-        # must never return something `PUT` would reject.
+        # must never return something `PUT` would reject. `quick-notes` was retired the same way
+        # on 2026-10-21: its toggle gated nothing, and the drawer is always available.
         "panels": [p for p in project.get("panels", []) if p in _VALID_PANELS],
         "image_tag": project.get("image_tag"),
         "theme": project.get("theme", "system"),

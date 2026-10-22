@@ -1517,7 +1517,7 @@ def test_settings_roundtrip(client: TestClient) -> None:
         "/api/settings",
         json={
             "telemetry": {"consented": True, "enabled": True},
-            "panels": ["source", "quick-notes"],
+            "panels": ["source", "caps"],
             "image_tag": "v3.0.0",
             "theme": "dark",
         },
@@ -1525,7 +1525,7 @@ def test_settings_roundtrip(client: TestClient) -> None:
     )
     assert r.status_code == 200
     body = r.json()
-    assert body["panels"] == ["source", "quick-notes"]
+    assert body["panels"] == ["source", "caps"]
     assert body["image_tag"] == "v3.0.0"
     assert body["theme"] == "dark"
     assert body["telemetry"] == {"consented": True, "enabled": True}
@@ -1543,7 +1543,11 @@ def test_settings_rejects_invalid_theme(client: TestClient) -> None:
     assert r.status_code == 422
 
 
-@pytest.mark.parametrize("bad_panels", [["not-a-real-panel"], "source", [1, 2]])
+@pytest.mark.parametrize(
+    "bad_panels",
+    # `quick-notes` is retired (2026-10-21): the drawer is always available.
+    [["not-a-real-panel"], ["quick-notes"], "source", [1, 2]],
+)
 def test_settings_rejects_invalid_panels(client: TestClient, bad_panels) -> None:
     r = client.put(
         "/api/settings",
@@ -1559,7 +1563,6 @@ def test_settings_accepts_every_known_panel(client: TestClient) -> None:
         "cluster-permutation",
         "nifti-group-average",
         "nilearn-visuals",
-        "quick-notes",
         "visual-exporter",
         "caps",
     ]
@@ -1578,25 +1581,26 @@ def test_settings_get_drops_a_retired_panel_id_so_put_accepts_its_own_output(
     `subject-info` was a panel until it was deleted on 2026-09-05. A project whose
     `settings.json` still names it got it back from `GET`, and the Settings page -- which is a
     read-modify-write of exactly that document -- then failed its `PUT` with 422 and could not
-    save anything at all. Reproduced on the real dev container before the fix.
+    save anything at all. Reproduced on the real dev container before the fix. `quick-notes`
+    was retired the same way on 2026-10-21 (its toggle gated nothing).
     """
     from tit.server.routes import settings as settings_route
 
     settings_route._save_project_settings(
         {
-            "panels": ["source", "subject-info", "quick-notes"],
+            "panels": ["source", "subject-info", "quick-notes", "caps"],
             "image_tag": None,
             "theme": "system",
         }
     )
 
     body = client.get("/api/settings", headers=BEARER).json()
-    assert body["panels"] == ["source", "quick-notes"], body["panels"]
+    assert body["panels"] == ["source", "caps"], body["panels"]
 
     # The round trip the Settings page performs: read, change one thing, write it back.
     r = client.put("/api/settings", json={**body, "theme": "light"}, headers=BEARER)
     assert r.status_code == 200, r.json()
-    assert r.json()["panels"] == ["source", "quick-notes"]
+    assert r.json()["panels"] == ["source", "caps"]
 
 
 def test_settings_get_ignores_a_stale_allow_unsafe_overrides_key(

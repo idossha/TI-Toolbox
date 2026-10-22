@@ -33,11 +33,11 @@ telemetry toggle, so this checklist tracks the v3 spec instead of a Qt diff.
       (already deterministic — DESIGN.md §7) and is included in the next `PUT /api/settings` so
       the preference round-trips to the server's `Settings.theme`.
 - [x] Feature panels card: one checkbox per optional panel (`source`, `cluster-permutation`,
-      `nifti-group-average`, `nilearn-visuals`, `quick-notes` — the `Settings.panels` names, minus
-      `subject-info`, whose page R1 deleted: everything it showed is the Overview page's matrix,
-      and the app must not offer a second, worse answer to the same question. The server still
-      *accepts* the id (`tit/server/routes/settings.py`'s `_VALID_PANELS`), so an existing
-      `settings.json` that lists it keeps loading; no page claims it, so it is simply ignored),
+      `nifti-group-average`, `nilearn-visuals`, `visual-exporter`, `caps` — the `Settings.panels`
+      names. `subject-info` (page deleted by R1: everything it showed is the Overview page's
+      matrix) and `quick-notes` (removed 2026-10-21: the ⌘⇧N drawer is always available, so the
+      toggle gated nothing) are retired; `GET /api/settings` drops them from an existing
+      `settings.json`, which keeps loading),
       each with its one-line description from the Qt extension's `EXTENSION_DESCRIPTION`.
 - [x] No "Allow unsafe overrides" toggle (removed 2026-09-15): it duplicated the Execution card's
       "Replace and rerun" control, which is now always available, and its "queue despite

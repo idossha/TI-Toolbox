@@ -128,6 +128,8 @@ describe("SettingsPage with a pre-warmed [\"settings\"] query cache", () => {
     select("Extensions");
     expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent).toContain("Feature panels");
     expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent).not.toContain("Send anonymous usage data");
+    // Quick notes is the always-available ⌘⇧N drawer; its old toggle here gated nothing.
+    expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent).not.toContain("Quick notes");
     select("Project");
     expect(container.querySelector('[aria-label="Send anonymous usage data"]')?.getAttribute("aria-checked")).toBe("true");
     act(() => root.unmount());
