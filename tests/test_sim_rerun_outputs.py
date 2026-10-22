@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import os
+import string
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -247,6 +248,54 @@ def test_a_confirmed_rerun_keeps_files_the_simulator_does_not_write(montage_dir:
     (montage_dir / "notes.txt").write_text("mine")
     _run(overwrite=True)
     assert (montage_dir / "notes.txt").read_text() == "mine"
+
+
+# ── mTI names carriers A..Z: the tenth is J, not A0 ──────────────────────────────────────────
+
+
+def test_mti_with_more_than_nine_channels_names_each_carrier_by_its_own_letter(init_pm):
+    """SimNIBS numbers carriers 1..N; ``mTISimulation._organize_files`` renames them A..Z
+    (``tests/test_sim_output_naming_contract.py``). The glob ``*TDCS_1*`` also matched
+    TDCS_10..12, which became ``TDCS_A0``..``TDCS_A2`` and left J..L missing.
+
+    Expected names: channel i is letter ``string.ascii_uppercase[i - 1]``; each file holds its
+    own channel number, so a swapped mapping is caught as well as a wrong name. The three
+    suffixes are what SimNIBS writes per carrier (Dataset 000
+    ``sub-101/Simulations/L_Insula/high_Frequency/mesh``: ``101_TDCS_1_el_currents.geo``,
+    ``101_TDCS_1_scalar.msh``, ``101_TDCS_1_scalar.msh.opt``).
+    """
+    from tit.sim.config import SimulationMode
+    from tit.sim.mTI import mTISimulation
+    from tit.sim.utils import setup_montage_directories
+
+    n = 12
+    labels = [f"E{i:03d}" for i in range(2 * n)]
+    montage = Montage(
+        name="Twelve",
+        mode=MontageMode.NET,
+        electrode_pairs=[(labels[2 * i], labels[2 * i + 1]) for i in range(n)],
+        eeg_net=NET,
+    )
+    config = _config(montages=[montage], intensities=[1.0] * n)
+    dirs = setup_montage_directories(
+        init_pm.simulation(SID, "Twelve"), SimulationMode.MTI
+    )
+    hf = Path(dirs["hf_dir"])
+    suffixes = ("scalar.msh", "scalar.msh.opt", "el_currents.geo")
+    for i in range(1, n + 1):
+        for suffix in suffixes:
+            (hf / f"{SID}_TDCS_{i}_{suffix}").write_text(f"channel {i}")
+    (hf / "fields_summary.txt").write_text("summary")
+
+    mTISimulation(config, montage, logger=MagicMock())._organize_files(dirs)
+
+    moved = {p.name: p.read_text() for p in Path(dirs["hf_mesh"]).iterdir()}
+    assert moved == {
+        f"{SID}_TDCS_{string.ascii_uppercase[i - 1]}_{suffix}": f"channel {i}"
+        for i in range(1, n + 1)
+        for suffix in suffixes
+    }
+    assert not [p.name for p in hf.iterdir() if "TDCS" in p.name]
 
 
 # ── real data: the stale folder the bug was found in ─────────────────────────────────────────

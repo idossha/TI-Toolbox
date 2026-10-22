@@ -328,7 +328,8 @@ class mTISimulation(BaseSimulation):
         for i in range(1, n_pairs + 1):
             ltr = letters[i - 1]
             for ext in (".geo", f"{cond}.msh", f"{cond}.msh.opt"):
-                for f in glob.glob(os.path.join(hf, f"*TDCS_{i}*{ext}")):
+                # "TDCS_1_", not "TDCS_1": channel 1 must not take channels 10..19.
+                for f in glob.glob(os.path.join(hf, f"*TDCS_{i}_*{ext}")):
                     new_name = os.path.basename(f).replace(f"TDCS_{i}", f"TDCS_{ltr}")
                     safe_move(f, os.path.join(dirs["hf_mesh"], new_name))
 
