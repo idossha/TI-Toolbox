@@ -27,6 +27,16 @@ DEFAULT_MIN_PERCENTILE = 95.0
 DEFAULT_MAX_PERCENTILE = 99.9
 
 
+def format_vm(value: float) -> str:
+    """A field value for a figure label: three significant figures, whatever the scale.
+
+    Fixed decimals do not fit a field whose strength depends on the montage's current: a
+    weak group average (p95 0.006, p99.9 0.011 V/m) printed with two decimals labelled both
+    ends of its colourbar "0.01".
+    """
+    return f"{float(value):.3g}"
+
+
 def field_summary(values: np.ndarray) -> str:
     """One human sentence describing the field the cutoffs are being judged against."""
     if values.size == 0:

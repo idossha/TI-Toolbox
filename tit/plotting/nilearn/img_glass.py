@@ -11,7 +11,7 @@ Usage:
 import argparse
 import sys
 
-from .cutoffs import resolve_cutoffs
+from .cutoffs import format_vm, resolve_cutoffs
 from .visualizer import NilearnVisualizer
 
 
@@ -124,10 +124,12 @@ def create_glass_brain_entry_point_group(
             )
 
             print(f"Electric field statistics (averaged data):")
-            print(f"  Absolute maximum: {max_value:.2f} V/m")
-            print(f"  99.9th percentile: {percentile_999:.2f} V/m")
-            print(f"  Minimum (non-zero): {min_value:.2f} V/m")
-            print(f"  Visualization range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
+            print(f"  Absolute maximum: {format_vm(max_value)} V/m")
+            print(f"  99.9th percentile: {format_vm(percentile_999)} V/m")
+            print(f"  Minimum (non-zero): {format_vm(min_value)} V/m")
+            print(
+                f"  Visualization range: {format_vm(min_cutoff)} - {format_vm(max_cutoff)} V/m"
+            )
 
             # Create output filename
             pdf_filename = f"{base_filename}_glass_brain.pdf"
@@ -143,7 +145,7 @@ def create_glass_brain_entry_point_group(
                 plot_abs=False,
                 symmetric_cbar=False,
                 display_mode="lyrz",
-                title=f"Electric Field - Group Average\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m",
+                title=f"Electric Field - Group Average\n{format_vm(min_cutoff)}-{format_vm(max_cutoff)} V/m",
                 output_file=pdf_filepath,
             )
 
@@ -178,10 +180,12 @@ def create_glass_brain_entry_point_group(
         min_cutoff, max_cutoff = resolve_cutoffs(data_nonzero, min_cutoff, max_cutoff)
 
         print(f"Electric field statistics (averaged data):")
-        print(f"  Absolute maximum: {max_value:.2f} V/m")
-        print(f"  99.9th percentile: {percentile_999:.2f} V/m")
-        print(f"  Minimum (non-zero): {min_value:.2f} V/m")
-        print(f"  Visualization range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
+        print(f"  Absolute maximum: {format_vm(max_value)} V/m")
+        print(f"  99.9th percentile: {format_vm(percentile_999)} V/m")
+        print(f"  Minimum (non-zero): {format_vm(min_value)} V/m")
+        print(
+            f"  Visualization range: {format_vm(min_cutoff)} - {format_vm(max_cutoff)} V/m"
+        )
 
         # Create output filename
         pdf_filename = f"{base_filename}_glass_brain.pdf"
@@ -197,7 +201,7 @@ def create_glass_brain_entry_point_group(
             plot_abs=False,
             symmetric_cbar=False,
             display_mode="lyrz",
-            title=f"Electric Field - Group Average\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m",
+            title=f"Electric Field - Group Average\n{format_vm(min_cutoff)}-{format_vm(max_cutoff)} V/m",
             output_file=pdf_filepath,
         )
 

@@ -29,7 +29,7 @@ from tit.analyzer.field_selector import is_mti_simulation
 from tit.constants import DIR_NILEARN_VISUALS
 from tit.paths import get_path_manager
 from tit.plotting.nilearn.atlases import ATLASES, atlas_path
-from tit.plotting.nilearn.cutoffs import resolve_cutoffs
+from tit.plotting.nilearn.cutoffs import format_vm, resolve_cutoffs
 
 warnings.filterwarnings("ignore")
 
@@ -302,7 +302,7 @@ class NilearnVisualizer:
             sm, cax=cbar_ax, orientation="horizontal", label="Electric Field (V/m)"
         )
         cbar.set_ticks([min_cutoff, max_cutoff])
-        cbar.set_ticklabels([f"{min_cutoff:.2f}", f"{max_cutoff:.2f}"])
+        cbar.set_ticklabels([format_vm(min_cutoff), format_vm(max_cutoff)])
 
         # Main title
         atlas_text = (
@@ -311,7 +311,8 @@ class NilearnVisualizer:
             else " (atlas contours unavailable, see the log)"
         )
         fig.suptitle(
-            f"Electric Field Multi-Slices{atlas_text}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m Range",
+            f"Electric Field Multi-Slices{atlas_text}\n"
+            f"{format_vm(min_cutoff)}-{format_vm(max_cutoff)} V/m Range",
             fontsize=14,
             fontweight="bold",
         )
@@ -440,10 +441,12 @@ class NilearnVisualizer:
         min_cutoff, max_cutoff = resolve_cutoffs(data_nonzero, min_cutoff, max_cutoff)
 
         print(f"Electric field statistics (averaged data):")
-        print(f"  Absolute maximum: {max_value:.2f} V/m")
-        print(f"  99.9th percentile: {percentile_999:.2f} V/m")
-        print(f"  Minimum (non-zero): {min_value:.2f} V/m")
-        print(f"  Visualization range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
+        print(f"  Absolute maximum: {format_vm(max_value)} V/m")
+        print(f"  99.9th percentile: {format_vm(percentile_999)} V/m")
+        print(f"  Minimum (non-zero): {format_vm(min_value)} V/m")
+        print(
+            f"  Visualization range: {format_vm(min_cutoff)} - {format_vm(max_cutoff)} V/m"
+        )
 
         # Create output filename
         pdf_filename = f"{base_filename}_multiple_views.pdf"
@@ -463,7 +466,9 @@ class NilearnVisualizer:
         )
 
         print(f"✓ Saved: {pdf_filepath}")
-        print(f"  Colorbar range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
+        print(
+            f"  Colorbar range: {format_vm(min_cutoff)} - {format_vm(max_cutoff)} V/m"
+        )
 
         return pdf_filepath
 
