@@ -32,6 +32,16 @@
       "session": true
     },
     {
+      "label": "empty tit.service falls back to compose service tit",
+      "labels": {"tit.service": "", "com.docker.compose.service": "tit", "tit.project": "ti-toolbox-87db4d88"},
+      "session": true
+    },
+    {
+      "label": "empty tit.service falls back to compose service simnibs",
+      "labels": {"tit.service": "", "com.docker.compose.service": "simnibs", "tit.project": "ti-toolbox-87db4d88"},
+      "session": false
+    },
+    {
       "label": "compose service tit without tit.service",
       "labels": {"com.docker.compose.service": "tit", "tit.project": "ti-toolbox-87db4d88"},
       "session": true

@@ -45,6 +45,8 @@ BAD = {
     "port -5": (["--port", "-5"], PORT),
     "port 65536": (["--port", "65536"], PORT),
     "port 99999": (["--port", "99999"], PORT),
+    # Past bash's 64-bit integers: `[ -le ]` would print its own error line before the refusal.
+    "port of twenty digits": (["--port", "99999999999999999999"], PORT),
     "port 1.5": (["--port", "1.5"], PORT),
     "port abc": (["--port", "abc"], PORT),
     "timeout -3": (["--timeout", "-3"], SECONDS),

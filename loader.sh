@@ -139,7 +139,8 @@ fi
 port="${port#"${port%%[!0]*}"}"
 [ -n "$port" ] && [ "${#port}" -le 5 ] && [ "$port" -le 65535 ] || die 'port must be 1–65535'
 [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || die 'timeout must be positive seconds'
-timeout="$(awk -v t="$timeout" 'BEGIN {print int(t)+(t>int(t))}')"
+# printf, not print: mawk (Ubuntu's awk) prints whole numbers from 2^31 up as %.6g (1e+16).
+timeout="$(awk -v t="$timeout" 'BEGIN {printf "%.0f\n", int(t)+(t>int(t))}')"
 [ "$timeout" -gt 0 ] || die 'timeout must be positive'
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
 # --- desktop bootstrap -------------------------------------------------------------------

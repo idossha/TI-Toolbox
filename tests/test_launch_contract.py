@@ -651,10 +651,17 @@ HANDOFF_CASES = {
         {},
         {"TIT_LAUNCH_TIMEOUT": "1"},
     ),
+    # Linux CI runs loader.sh under mawk, whose print spells whole numbers from 2^31 up as
+    # %.6g (1e+16, 4.29497e+09), which bash's [ -gt ] refuses; macOS awk prints every digit.
     "timeout of seventeen digits": (
         ["--timeout", "10000000000000000"],
         {},
         {"TIT_LAUNCH_TIMEOUT": "10000000000000000"},
+    ),
+    "timeout past 2^32 rounds up": (
+        ["--timeout", "4294967296.5"],
+        {},
+        {"TIT_LAUNCH_TIMEOUT": "4294967297"},
     ),
     "existing session": (
         ["--existing", "attach", "--container", "c"],

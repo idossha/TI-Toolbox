@@ -37,6 +37,11 @@
       "name": "ti-toolbox-f7b4b441"
     },
     {
+      "label": "Cyrillic (UTF-8 leads D0-D1)",
+      "path": "/Users/ido/\u0414\u0430\u043d\u043d\u044b\u0435",
+      "name": "ti-toolbox-0cf87818"
+    },
+    {
       "label": "CJK",
       "path": "/data/\u6570\u636e",
       "name": "ti-toolbox-762bac9a"
@@ -47,6 +52,16 @@
       "name": "ti-toolbox-a8e1707e"
     },
     {
+      "label": "CJK at U+8000 and above (UTF-8 leads E8-E9)",
+      "path": "/tmp/\u8a9e/\u901a",
+      "name": "ti-toolbox-35db1b6e"
+    },
+    {
+      "label": "Hangul (UTF-8 leads EA-ED)",
+      "path": "/Users/ido/\ud55c\uad6d\uc5b4 \ub370\uc774\ud130",
+      "name": "ti-toolbox-a33380bb"
+    },
+    {
       "label": "emoji folder (astral: two UTF-16 units)",
       "path": "/Users/ido/\ud83d\udcc1 data",
       "name": "ti-toolbox-b3e9bd2b"
@@ -55,6 +70,16 @@
       "label": "emoji inside a name",
       "path": "/tmp/x\ud83d\ude00y",
       "name": "ti-toolbox-2295c464"
+    },
+    {
+      "label": "astral, not an emoji (CJK Extension B)",
+      "path": "/tmp/\ud840\udc00",
+      "name": "ti-toolbox-71baeeff"
+    },
+    {
+      "label": "first and last code point of each UTF-8 length",
+      "path": "/tmp/\u0080\u07ff\u0800\uffff\ud800\udc00\udbff\udfff",
+      "name": "ti-toolbox-a74ba9da"
     },
     {
       "label": "Windows drive path",
