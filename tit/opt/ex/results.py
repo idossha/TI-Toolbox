@@ -447,10 +447,11 @@ def regenerate_plots(
     """Rebuild the electrode maps of an existing ex-/m-ex-search run.
 
     Reads ``final_output.csv`` in *run_dir* and writes the three map PNGs
-    next to it.  *eeg_csv* defaults to the CSV inferred from the
-    ``leadfield_hdf`` recorded in ``run_config.json`` (the subject's
-    ``m2m_*/eeg_positions/{net}.csv`` next to the leadfields directory,
-    or the bundled template for known nets).
+    next to it.  *eeg_csv* defaults to the CSV of the net named by the
+    ``leadfield_hdf`` recorded in ``run_config.json``: the bundled template
+    for known nets, else ``{net}.csv`` in the subject's
+    ``m2m_*/eeg_positions`` two levels above *run_dir* (or above the
+    recorded leadfield, for a run folder moved out of its project).
     """
     import logging
 
@@ -474,12 +475,21 @@ def regenerate_plots(
             eeg_csv = run_config["symmetry_eeg_csv"]
         else:
             leadfield = Path(run_config["leadfield_hdf"])
-            eeg_dir = (
-                leadfield.parent.parent
-                / f"m2m_{run_config['subject_id']}"
-                / "eeg_positions"
-            )
-            eeg_csv = infer_symmetry_eeg_csv(leadfield, eeg_dir)
+            m2m = f"m2m_{run_config['subject_id']}"
+            # A run folder is sub-<id>/{ex,m-ex}-search/<run> and the caps are
+            # sub-<id>/m2m_<id>/eeg_positions (tit.paths), so the folder finds them
+            # whatever the recorded leadfield is: a bare file name or a container
+            # path says nothing about this machine. The leadfield's own folder
+            # covers a run folder copied out of its project.
+            for subject_dir in (
+                run_dir.resolve().parent.parent,
+                leadfield.parent.parent,
+            ):
+                eeg_csv = infer_symmetry_eeg_csv(
+                    leadfield, subject_dir / m2m / "eeg_positions"
+                )
+                if eeg_csv is not None:
+                    break
         if eeg_csv is None:
             raise ValueError(
                 f"Could not infer an EEG-position CSV from {run_config['leadfield_hdf']}; "
