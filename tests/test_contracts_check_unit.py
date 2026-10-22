@@ -290,6 +290,29 @@ def test_a_swapped_warning_with_the_same_count_still_fails(gate) -> None:
     assert gate.main(["contracts_check"]) == 1
 
 
+def test_a_second_copy_of_a_listed_warning_is_new(gate, monkeypatch, capsys) -> None:
+    """The baseline is a multiset: the same line twice is two unchecked surfaces.
+
+    Two operations can yield the identical line (one schema reached twice, say);
+    a set comparison would let the second one in unnoticed.
+    """
+    twice = TWO_WARNINGS + [TWO_WARNINGS[1]]
+    monkeypatch.setattr(gate, "check", lambda contract, dump: ([], twice))
+    _baseline(gate, TWO_WARNINGS)
+    assert gate.main(["contracts_check"]) == 1
+    out = capsys.readouterr().out
+    assert out.count("new warning (not in the baseline): ") == 1
+    assert f"new warning (not in the baseline): {TWO_WARNINGS[1]}" in out
+
+
+def test_a_warning_listed_twice_that_now_occurs_once_must_be_lowered(gate) -> None:
+    _baseline(gate, TWO_WARNINGS + [TWO_WARNINGS[0]])
+    assert gate.ratchet(TWO_WARNINGS, TWO_WARNINGS + [TWO_WARNINGS[0]]) == [
+        f"no longer occurs (lower the baseline): {TWO_WARNINGS[0]}"
+    ]
+    assert gate.main(["contracts_check"]) == 1
+
+
 @pytest.mark.parametrize("content", [None, "not json", json.dumps({"warnings": "x"})])
 def test_an_unreadable_baseline_is_could_not_check(gate, content) -> None:
     if content is not None:
