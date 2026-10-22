@@ -1,7 +1,7 @@
 # Container blueprint
 
-This page owns the local contract for `Dockerfile.ti-toolbox`, `build.sh`, and the scoped
-Apptainer prototype. Release publication belongs in
+This page owns the local contract for `Dockerfile.ti-toolbox`, `build.sh`, and the Apptainer
+recipe built from the image. Release publication belongs in
 [RELEASING](../../docs/dev/RELEASING.md); image design decisions belong in
 [DECISIONS](../../docs/dev/DECISIONS.md).
 
@@ -97,15 +97,19 @@ Do not remove `bpy`, the Docker CLI, or FastSurfer's pinned `torchvision` as app
 they have live runtime callers. Detailed rationale and reversals belong in
 [DECISIONS](../../docs/dev/DECISIONS.md), not copied here.
 
-## Apptainer prototype
+## Apptainer recipe
 
-`apptainer.def` and `apptainer_run.sh` describe an older SimNIBS 4.5 + FreeSurfer 7.4.1 cluster
-integration. They are **not validated as the v3 application image**, and the desktop app does not
-manage a SIF. The supported remote path remains the Docker-backed
+`apptainer.def` builds a SIF from the published `idossha/ti-toolbox:v<version>` image, the tag
+`dev/update/update_version.py` stamps on each release, so the SIF carries exactly the software the
+Docker app runs: SimNIBS 4.6 with NumPy 2.3.5 and Blender outside its environment. It installs
+nothing. Its `%post` only makes `/root`, where SimNIBS is installed, readable by the non-root user
+Apptainer runs as, and its `%test` runs `verify_runtime.py`, the Docker build's last check. Do not
+add packages to it: why the SIF must be the image is in [DECISIONS](../../docs/dev/DECISIONS.md).
+
+The SIF is **not validated as a v3 distribution**: the desktop app does not manage a SIF, and the
+runscript opens a shell (or runs its arguments) instead of starting `tit.server`. The supported
+remote path remains the Docker-backed
 [SSH browser launcher](../../docs/wiki/installation-cli.md#over-ssh).
-
-Cluster administrators evaluating the prototype can inspect its current interface without treating
-it as a supported distribution:
 
 ```bash
 apptainer build ti-toolbox.sif apptainer.def

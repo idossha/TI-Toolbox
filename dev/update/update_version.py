@@ -100,6 +100,13 @@ def update_version(new_version):
                 rf"\g<1>v{new_version}\g<2>",
             ),
         ],
+        # The SIF is built from the release image, never a separate environment.
+        "container/blueprint/apptainer.def": [
+            (
+                r"(?m)^From: idossha/ti-toolbox:v\S+$",
+                f"From: idossha/ti-toolbox:v{new_version}",
+            ),
+        ],
         "desktop/src/main/stack.ts": [
             (
                 r'(plan\.image === "idossha/ti-toolbox:)v[^"]+"',

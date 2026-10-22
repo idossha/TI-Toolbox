@@ -11,6 +11,7 @@ not launch a SIF image. For a remote or cluster machine that allows Docker, use 
 
 ## Availability
 
-The existing Apptainer recipe is for an older environment. Cluster administrators evaluating
+The Apptainer recipe builds a SIF from the release Docker image, so it has the same software,
+but running TI-Toolbox from it has not been validated. Cluster administrators evaluating
 Apptainer should see the
 [developer deployment notes]({{ site.baseurl }}/wiki/development/#apptainer-and-clusters).

@@ -1,11 +1,13 @@
-"""Apptainer launcher argv and generated Slurm licensing, 2026-09-20.
+"""Apptainer launcher argv, generated Slurm licensing and the recipe's base image, 2026-10-22.
 
-A recording runtime runs generated scripts without Apptainer or a license key.
+A recording runtime runs generated scripts without Apptainer or a license key. The recipe's
+image tag is checked against docker-compose.yml, the default every Docker launcher pulls.
 Run: pytest tests/test_apptainer_license.py -q. Full image build is separate.
 """
 
 import os
 from pathlib import Path
+import re
 import subprocess
 import shutil
 
@@ -75,26 +77,11 @@ def test_launcher_and_slurm_use_image_license_unless_overridden(
     assert "Register" not in output
 
 
-def test_image_provisions_direct_freesurfer_license_from_package(runtime):
-    import hashlib
-
-    directory, _, env = runtime
-    resources = ROOT / "tit/resources/freesurfer"
-    python = directory / "simnibs_python"
-    python.write_text(f'#!/bin/bash\nprintf "%s\\n" "{resources}"\n')
-    python.chmod(0o755)
-    installed = directory / "freesurfer"
-    installed.mkdir()
-    env["FREESURFER_HOME"] = str(installed)
-    definition = (ROOT / "container/blueprint/apptainer.def").read_text()
-    start = definition.index("    toolbox_fs_resources=")
-    end = definition.index("\n    # =====", start)
-    subprocess.run(
-        [BASH, "-e"], input=definition[start:end], env=env, text=True, check=True
-    )
-    assert (
-        hashlib.sha256((installed / "license.txt").read_bytes()).digest()
-        == hashlib.sha256((resources / "license.txt").read_bytes()).digest()
-    )
-    assert (installed / "TI-Toolbox-FreeSurfer-TERMS.txt").stat().st_size > 0
-    assert (installed / "TI-Toolbox-FreeSurfer-NOTICE.md").stat().st_size > 0
+def test_recipe_is_the_release_docker_image():
+    """The SIF must not rebuild the environment: a bpy install there pulled NumPy below 2."""
+    recipe = (ROOT / "container/blueprint/apptainer.def").read_text()
+    compose = (ROOT / "docker-compose.yml").read_text()
+    default = r"image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]+)\}"
+    tag = re.search(default, compose)[1]
+    assert recipe.startswith(f"Bootstrap: docker\nFrom: idossha/ti-toolbox:{tag}\n")
+    assert "pip" not in recipe and "bpy" not in recipe

@@ -88,6 +88,10 @@ written again. Other projects, nets and results open unchanged.
 
 - **Fixed: the Assistant page answers from your version's documentation** — Claude Code or Codex started from **Assistant** read the TI-Toolbox wiki, developer docs and `tit` source from GitHub's `main` branch, which can describe features and settings your installed version does not have. It now reads them at your app's release tag (`v3.1.1` for this release). If you set `TI_TOOLBOX_REF` yourself, your choice is kept. The plugin installed from the marketplace in your own terminal is unchanged (set `TI_TOOLBOX_REF` there to pin it).
 
+#### Launching and installation
+
+- **Fixed: a SIF built from the Apptainer recipe has the same software as the Docker image** — `container/blueprint/apptainer.def` was a v2-era recipe that built its own environment and installed Blender's `bpy` into SimNIBS's Python, which pulled NumPy below 2 and made every MNI warp fail, charm's `final_tissues_MNI` included. It now builds the SIF from the release image (`idossha/ti-toolbox:v3.1.1`), adds nothing to it, and its build test runs the image's own runtime check; `apptainer_run.sh`'s Slurm template runs `simnibs_python -m tit.sim <config.json>`. Apptainer is still not a validated way to run v3 (see [HPC deployment]({{ site.baseurl }}/installation/hpc-apptainer/)); the desktop app and the Docker image are unchanged.
+
 ### v3.1.0 — October 9, 2026
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.0/">Release notes →</a>

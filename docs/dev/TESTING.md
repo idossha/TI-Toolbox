@@ -89,8 +89,9 @@ executables against a real Docker engine; packaged host acceptance remains in th
 precedence and license-independent FastSurfer segmentation. Worker-command tests in
 `tests/test_pre_freesurfer.py` and `tests/test_pre_qsi_docker.py` check license staging and host
 mount paths. Run these with `tests/test_surfer_settings.py` after changing provisioning.
-`tests/test_apptainer_license.py` checks default image-license provisioning and executed
-Apptainer/Slurm arguments, including optional overrides. It does not build an Apptainer image.
+`tests/test_apptainer_license.py` checks executed Apptainer/Slurm arguments, including optional
+license overrides, and that `apptainer.def` builds from the compose default image and installs
+nothing. It does not build an Apptainer image.
 These host checks do not prove that a built image or wheel contains the resource: inspect the
 package and resolve the bundled file in the real container before claiming packaged acceptance.
 Never print the license contents in test failures or verification logs.

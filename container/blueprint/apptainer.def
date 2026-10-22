@@ -1,304 +1,32 @@
 Bootstrap: docker
-From: ubuntu:22.04
+From: idossha/ti-toolbox:v3.1.1
 
-%labels
-    Author Ido Haber
-    Version 2.2.4
-    Description TI-Toolbox combined image (SimNIBS 4.6 + FreeSurfer 7.4.1) for HPC deployment
-    URL https://github.com/idossha/TI-toolbox
-
-%environment
-    export DEBIAN_FRONTEND=noninteractive
-    export FREESURFER_HOME=/usr/local/freesurfer
-    export FS_LICENSE=/usr/local/freesurfer/license.txt
-    export SUBJECTS_DIR=/usr/local/freesurfer/subjects
-    export SIMNIBSDIR=/opt/SimNIBS-4.6
-    export PATH="/opt/SimNIBS-4.6/bin:/ti-toolbox/tit/cli:$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:$PATH"
-    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:$LD_LIBRARY_PATH"
-    export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
-    export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
-    export KMP_AFFINITY=disabled
-    export SHELL=/bin/bash
+# The published release image, unchanged: the SIF runs the software the Docker app runs.
+# dev/update/update_version.py stamps the tag above on every release. Build (root or --fakeroot):
+#   apptainer build ti-toolbox.sif apptainer.def
 
 %post
-    export DEBIAN_FRONTEND=noninteractive
-
-    # ================================================================
-    # System packages (combined FreeSurfer + SimNIBS deps)
-    # NOTE: kept on a single logical line to avoid shell parsing issues
-    #       in Apptainer's /bin/sh during %post.
-    # ================================================================
-    apt-get update && apt-get install -y \
-        wget \
-        git \
-        unzip \
-        tar \
-        bzip2 \
-        curl \
-        gettext \
-        locales \
-        fontconfig \
-        tzdata \
-        build-essential \
-        gcc \
-        g++ \
-        gcc-10 \
-        g++-10 \
-        cmake \
-        ninja-build \
-        libtool \
-        libtool-bin \
-        autoconf \
-        automake \
-        pkg-config \
-        libglib2.0-0 \
-        libopenblas-dev \
-        libgl1-mesa-glx \
-        libglu1-mesa \
-        mesa-utils \
-        libgl1-mesa-dri \
-        libglapi-mesa \
-        libosmesa6 \
-        libegl1-mesa \
-        libgbm1 \
-        libxt6 \
-        libxext6 \
-        libxrender1 \
-        libxrandr2 \
-        libxfixes3 \
-        libxcursor1 \
-        libxcomposite1 \
-        libxdamage1 \
-        libxi6 \
-        libxmu6 \
-        libxft2 \
-        libice6 \
-        libsm6 \
-        libgtk2.0-0 \
-        bc \
-        jq \
-        vim \
-        dos2unix \
-        dcm2niix \
-        tcsh \
-        libgomp1 \
-        libx11-6 \
-        libjpeg62 \
-        libtiff5 \
-        perl-modules \
-        ca-certificates \
-        \
-        && locale-gen en_US.UTF-8 \
-        && apt-get clean && rm -rf /var/lib/apt/lists/* || true
-
-    # ================================================================
-    # FreeSurfer 7.4.1
-    # ================================================================
-    export FREESURFER_HOME=/usr/local/freesurfer
-    mkdir -p $FREESURFER_HOME
-
-    wget --progress=bar:force:noscroll \
-        https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.4.1/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz \
-        -P /tmp
-    
-    # Extract with --no-same-owner to avoid uid/gid mapping issues in container
-    # This prevents "Cannot change ownership" errors seen in some environments
-    tar -xzf /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz -C /tmp --no-same-owner --no-same-permissions 2>&1 || true
-    
-    # Move FreeSurfer to final location
-    mv /tmp/freesurfer/* $FREESURFER_HOME/
-    rm -rf /tmp/freesurfer /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz
-
-    # Fix permissions - ensure all files are readable/executable
-    chmod -R a+r $FREESURFER_HOME/
-    find $FREESURFER_HOME -type d -exec chmod a+rx {} \; 2>/dev/null || true
-    find $FREESURFER_HOME/bin -type f -exec chmod a+x {} \; 2>/dev/null || true
-    find $FREESURFER_HOME/fsfast/bin -type f -exec chmod a+x {} \; 2>/dev/null || true
-    find $FREESURFER_HOME/tktools -type f -exec chmod a+x {} \; 2>/dev/null || true
-    find $FREESURFER_HOME/mni/bin -type f -exec chmod a+x {} \; 2>/dev/null || true
-    
-    # Fix permissions for SetUpFreeSurfer.sh specifically
-    chmod a+x $FREESURFER_HOME/SetUpFreeSurfer.sh 2>/dev/null || true
-    
-    # Create subjects directory if not exists
-    mkdir -p $FREESURFER_HOME/subjects
-    chmod a+rwx $FREESURFER_HOME/subjects
-    
-
-    # ================================================================
-    # SimNIBS 4.6
-    # ================================================================
-    export OMP_NUM_THREADS=1
-    export KMP_AFFINITY=disabled
-
-    mkdir -p /simnibs && chmod -R 755 /simnibs
-    wget https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs_installer_linux.tar.gz -P /simnibs \
-        && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
-        && /simnibs/simnibs_installer/install -s
-
-    # Move SimNIBS to /opt for multi-user access and symlink back
-    mv /root/SimNIBS-4.6 /opt/SimNIBS-4.6
-    ln -s /opt/SimNIBS-4.6 /root/SimNIBS-4.6
-
-    export PATH="/opt/SimNIBS-4.6/bin:$PATH"
-    export SIMNIBSDIR=/opt/SimNIBS-4.6
-
-    # Clean up installer
-    rm -rf /simnibs
-
-    # Additional Python packages
-    simnibs_python -m pip install --no-cache-dir \
-        meshio nilearn PyOpenGL-accelerate trimesh seaborn \
-        scikit-image numpy-stl click bpy
-
-    # ================================================================
-    # TI-Toolbox
-    # ================================================================
-    git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
-
-    # Convert shell scripts to Unix line endings
-    find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
-
-    # Extra EEG electrode caps
-    mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-    cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-
-    # Flex extension
-    rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
-    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py \
-        $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
-
-    # Fix SimNIBS 4.6 atlas2subject split_labels bug (name-label misalignment for DK40)
-    simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py
-
-    # Install TIT package
-    cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
-
-    # Direct FreeSurfer binaries use the same toolbox-provisioned license as Python jobs.
-    # Copy after package installation so a missing wheel resource fails the image build.
-    toolbox_fs_resources=$(cd /tmp && simnibs_python -c 'from importlib.resources import files; print(files("tit") / "resources" / "freesurfer")')
-    test -s "$toolbox_fs_resources/license.txt" || exit 1
-    cp "$toolbox_fs_resources/license.txt" "$FREESURFER_HOME/license.txt"
-    cp "$toolbox_fs_resources/TERMS.txt" "$FREESURFER_HOME/TI-Toolbox-FreeSurfer-TERMS.txt"
-    cp "$toolbox_fs_resources/NOTICE.md" "$FREESURFER_HOME/TI-Toolbox-FreeSurfer-NOTICE.md"
-    chmod a+r "$FREESURFER_HOME/license.txt"
-
-    # ================================================================
-    # Single bash rc: FreeSurfer + TI-Toolbox aliases (aligned with Docker entrypoint.sh)
-    # ================================================================
-    cat > /etc/ti-toolbox.bashrc <<'TI_RC_EOF'
-#!/bin/bash
-# TI-Toolbox + FreeSurfer — single source for interactive shells (cf. entrypoint.sh)
-
-export FREESURFER_HOME=/usr/local/freesurfer
-export SUBJECTS_DIR=${SUBJECTS_DIR:-$FREESURFER_HOME/subjects}
-export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
-
-[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
-
-export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:/opt/SimNIBS-4.6/bin:/ti-toolbox/tit/cli:$PATH"
-export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:${LD_LIBRARY_PATH:-}"
-
-alias analyzer='simnibs_python -m tit.cli.analyzer'
-alias ex_search='simnibs_python -m tit.cli.ex_search'
-alias flex_search='simnibs_python -m tit.cli.flex_search'
-alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
-alias pre_process='simnibs_python -m tit.cli.pre_process'
-alias simulator='simnibs_python -m tit.cli.simulator'
-alias blender='simnibs_python -m tit.cli.vis_blender'
-alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
-alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
-
-[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc
-[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
-TI_RC_EOF
-    chmod 644 /etc/ti-toolbox.bashrc
+    # Apptainer runs as the calling user, but SimNIBS is installed under /root (700, its env 750).
+    chmod -R a+rX /root
 
 %runscript
-    #!/bin/bash
-    export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
-    mkdir -p "$XDG_RUNTIME_DIR"
-    chmod 700 "$XDG_RUNTIME_DIR"
-    [ -z "$PROJECT_DIR" ] && [ -d /mnt ] && for d in /mnt/*/; do [ -d "$d" ] && export PROJECT_DIR="$d" && break; done
-
+    # No arguments opens a shell. The image's own entrypoint starts tit.server, which the desktop
+    # app manages over Docker; it is not a supported way to run this SIF.
     if [ $# -eq 0 ]; then
-        echo ""
-        echo "================================================================"
-        echo "  TI-Toolbox (Apptainer) - Interactive Session"
-        echo "================================================================"
-        echo "  SimNIBS: $SIMNIBSDIR   FreeSurfer: $FREESURFER_HOME   TI-Toolbox: /ti-toolbox"
-        echo ""
-        export PS1='[ti-toolbox] \w \$ '
-        exec /bin/bash --rcfile /etc/ti-toolbox.bashrc
-    else
-        exec "$@"
+        exec /bin/bash
     fi
+    exec "$@"
 
 %test
-    # Verify SimNIBS
-    export PATH="/opt/SimNIBS-4.6/bin:$PATH"
-    simnibs_python -c "import simnibs; print('SimNIBS', simnibs.__version__)" || exit 1
-
-    # Verify TI-Toolbox
-    simnibs_python -c "import tit; print('TI-Toolbox', tit.__version__)" || exit 1
-
-    # The image must support direct FreeSurfer commands without a host license.
-    test -s /usr/local/freesurfer/license.txt || exit 1
-
-    # Verify FreeSurfer installation
-    export FREESURFER_HOME=/usr/local/freesurfer
-    if [ -d "$FREESURFER_HOME/bin" ]; then
-        echo "FreeSurfer directory OK"
-        # Check if critical binaries exist
-        if [ -x "$FREESURFER_HOME/bin/recon-all" ]; then
-            echo "  - recon-all: OK"
-        else
-            echo "  - recon-all: NOT FOUND"
-        fi
-        if [ -x "$FREESURFER_HOME/bin/freeview" ]; then
-            echo "  - freeview: OK"
-        else
-            echo "  - freeview: NOT FOUND"
-        fi
-        # Source FreeSurfer setup and verify mri_info works
-        if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-            . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
-            if command -v mri_info >/dev/null 2>&1; then
-                echo "  - FreeSurfer environment: OK"
-            else
-                echo "  - FreeSurfer environment: WARNING (PATH may not be set correctly)"
-            fi
-        fi
-    else
-        echo "WARNING: /usr/local/freesurfer/bin not found during %test. Image build will continue." >&2
-    fi
-
-    echo "All smoke tests passed."
+    # The Docker build's last check: SimNIBS 4.6.0, NumPy 2.3.5, Blender outside the SimNIBS env.
+    simnibs_python /ti-toolbox/container/blueprint/verify_runtime.py
 
 %help
-    TI-Toolbox: Temporal Interference Stimulation Toolbox for HPC
+    TI-Toolbox as a SIF, built from the release Docker image.
 
-    This image contains SimNIBS 4.6, FreeSurfer 7.4.1, and TI-Toolbox
-    pre-installed for high-performance computing environments.
+      apptainer exec --bind /data/study:/mnt/study ti-toolbox.sif \
+          simnibs_python -m tit.sim /mnt/study/config.json
+      apptainer run --bind /data/study:/mnt/study ti-toolbox.sif   # interactive shell
 
-    Usage:
-      # Interactive session
-      apptainer run --bind /path/to/project:/mnt/project ti-toolbox.sif
-
-      # Run a specific command
-      apptainer exec --bind /path/to/project:/mnt/project ti-toolbox.sif \
-          simnibs_python -m tit.cli.simulator --help
-
-    FreeSurfer License:
-      TI-Toolbox supplies the license inside the image automatically.
-      No personal license, registration or bind mount is required.
-      Administrators may optionally override the supplied license with:
-        --bind /path/to/override.txt:/usr/local/freesurfer/license.txt:ro
-
-    Environment Variables:
-      FREESURFER_HOME=/usr/local/freesurfer
-      SIMNIBSDIR=/opt/SimNIBS-4.6
-      OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
-
-    For full documentation, see:
-      https://github.com/idossha/TI-toolbox
+    container/blueprint/apptainer_run.sh wraps these and prints a Slurm template.
+    Not validated for v3: https://idossha.github.io/TI-Toolbox/installation/hpc-apptainer/

@@ -5,7 +5,7 @@
 #
 # Usage:
 #   ./apptainer_run.sh --sif ti-toolbox.sif --project-dir /scratch/myproject
-#   ./apptainer_run.sh --sif ti-toolbox.sif --mode exec --cmd "simulator --help"
+#   ./apptainer_run.sh --sif ti-toolbox.sif --mode exec --cmd "simnibs_python -m tit.sim /mnt/myproject/config.json"
 #   ./apptainer_run.sh --sif ti-toolbox.sif --mode slurm-template
 #
 # See --help for all options.
@@ -88,7 +88,7 @@ ${BOLD}EXAMPLES:${NC}
 
     # Run a simulation
     $(basename "$0") --sif ti-toolbox.sif --project-dir /data/study01 \\
-        --mode exec --cmd "simnibs_python -m tit.cli.simulator --help"
+        --mode exec --cmd "simnibs_python -m tit.sim /mnt/study01/config.json"
 
     # Generate a SLURM script
     $(basename "$0") --sif ti-toolbox.sif --project-dir /data/study01 \\
@@ -326,9 +326,7 @@ apptainer exec \\
     --bind "\${PROJECT_DIR}:/mnt/${project_base}" \\
     "\${LICENSE_BINDS[@]}" \\
     "\${SIF}" \\
-    simnibs_python -m tit.cli.simulator \\
-        --project "/mnt/${project_base}" \\
-        --subject sub-001
+    simnibs_python -m tit.sim "/mnt/${project_base}/config.json"
 
 echo "Job completed at \$(date)"
 SLURM

@@ -183,6 +183,23 @@ class InternalPackagingTests(unittest.TestCase):
             (self.root / "docker-compose.yml").read_text().strip(), "image: " + image
         )
 
+    def test_stable_version_moves_the_apptainer_base_image(self):
+        recipe = self.root / "container/blueprint/apptainer.def"
+        recipe.parent.mkdir(parents=True)
+        recipe.write_text(
+            "Bootstrap: docker\nFrom: idossha/ti-toolbox:v3.0.0\n\n%post\n    true\n"
+        )
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_version("3.1.0")
+        finally:
+            os.chdir(old)
+        self.assertEqual(
+            recipe.read_text(),
+            "Bootstrap: docker\nFrom: idossha/ti-toolbox:v3.1.0\n\n%post\n    true\n",
+        )
+
     def test_version_update_preserves_dated_freesurfer_image(self):
         self.write(
             "version.py",

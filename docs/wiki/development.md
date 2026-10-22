@@ -198,11 +198,13 @@ and project data. Do not give mutually untrusted accounts access to the same Doc
 
 ## Apptainer and clusters
 
-`container/blueprint/apptainer.def` and `apptainer_run.sh` target an earlier combined
-SimNIBS/FreeSurfer environment. They do not reproduce the current Docker image's FastSurfer and
-HTTP job server; viewing is the separate TetraVox app on the host. Migration and workload
-validation are required before offering this route for v3; Electron's Docker controls cannot launch a SIF image. Use a
-consistent source revision and confirm the cluster's container policy before adapting it.
+`container/blueprint/apptainer.def` builds a SIF from the release Docker image
+(`idossha/ti-toolbox:v<version>`, stamped on each release), so the SIF has the image's software
+unchanged; `apptainer_run.sh` runs it interactively, runs one command, or prints a Slurm template.
+The runscript opens a shell instead of starting the HTTP job server, Electron's Docker controls
+cannot launch a SIF, and viewing is the separate TetraVox app on the host. Workload validation is
+required before offering this route for v3; confirm the cluster's container policy first. See
+[the blueprint notes](https://github.com/idossha/TI-Toolbox/blob/main/container/blueprint/README.md#apptainer-recipe).
 
 ## Choose checks that prove the change
 

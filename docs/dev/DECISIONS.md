@@ -3295,3 +3295,30 @@ own file; with the patched file the new test fails on `Unable to avoid copy`.
 then fail at every MNI NIfTI write, charm's `final_tissues_MNI` included), or SimNIBS changes these
 calls.
 
+
+## 2026-10-22 — The Apptainer recipe is the release Docker image
+
+**Decision.** `container/blueprint/apptainer.def` bootstraps from `idossha/ti-toolbox:v<version>`
+(stamped by `dev/update/update_version.py`) and installs nothing. `%post` only runs
+`chmod -R a+rX /root`; `%runscript` opens a shell or runs its arguments; `%test` runs
+`verify_runtime.py`. `tests/test_apptainer_license.py` pins the base image to the compose default
+and refuses `pip`/`bpy` in the recipe. The SIF stays unvalidated for v3 (installation-hpc).
+
+**Why.** The previous recipe (labelled 2.2.4) rebuilt the environment from `ubuntu:22.04` and
+installed `bpy` into SimNIBS's environment, which pulls NumPy below 2; SimNIBS 4.6's
+`nan_to_num(copy=None)` then fails at every MNI NIfTI warp, charm's `final_tissues_MNI` included
+(see the 2026-10-21 entry). The image already isolates Blender and pins NumPy 2.3.5, so building
+from it gives the SIF exactly the Docker environment. SimNIBS lives in `/root/SimNIBS-4.6`; `/root`
+is 700 and its `simnibs_env` 750, so the user Apptainer runs as cannot execute `simnibs_python`
+without the `chmod` [measured, v3.1.1 image, 2026-10-22: as uid 12345 `simnibs_python` exits 255;
+after `chmod -R a+rX /root` the same user passes `verify_runtime.py`: SimNIBS 4.6.0, NumPy 2.3.5,
+Blender 4.4.3 with its own NumPy 1.26.4].
+
+**Alternatives rejected.** Deleting the recipe: the HPC page, the developer notes and
+`apptainer_run.sh` still point at it, and building from the image costs ~20 lines. Keeping a
+separate recipe in step with the Dockerfile: two environments drift, which is how this one broke.
+Starting `tit.server` as the runscript, as the Docker entrypoint does: nothing on a cluster supplies
+its token and port, and the desktop app cannot manage a SIF.
+
+**Revisit if.** The image stops installing SimNIBS under `/root`, or Apptainer becomes a supported
+distribution (then validate the server route and the bind-mount layout).
