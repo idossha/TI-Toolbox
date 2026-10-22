@@ -90,6 +90,8 @@ def test_the_flex_runs_route_answers_200_with_the_well_named_runs(tmp_path):
 
 
 def test_simulator_flex_sources_list_only_the_well_named_runs(tmp_path):
+    """Guard (it passed before the listing fix too): with a badly named run present,
+    the Simulator's flex sources still offer each well-named run in both kinds."""
     pm = get_path_manager(str(_project(tmp_path)))
     options = list_flex_run_options(pm, "x")
     assert sorted({o["run_name"] for o in options}) == sorted(GOOD)

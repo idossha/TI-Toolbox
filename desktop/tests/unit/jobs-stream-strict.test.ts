@@ -53,6 +53,8 @@ describe("JobsStream and strict JSON", () => {
     return { stream, ws };
   }
 
+  // A guard, not a red-before test: JSON.parse already read null before the fix. It pins that the
+  // shape the server now sends for a failed run (null, not Infinity) is applied, not dropped.
   it("applies a failed flex result whose best_value is null", () => {
     const { stream, ws } = started();
     ws.raw(RESULT_BEFORE_FIX.replace("Infinity", "null"));

@@ -19,25 +19,27 @@ footprints' nodes, the edge gap ``|t1 - t2| - 2 r`` from the posmats' translatio
 verdict must equal ``node gap > min distance`` for every ``d``, and differ from the edge-gap rule
 for at least one ``d`` (here 10 and 12 mm: edge gaps 2 and 4 mm pass a 5 mm setting).
 
-Run in the image (the subprocess sees the real SimNIBS, not the host suite's mocks):
-``simnibs_python -m pytest tests/test_flex_electrode_gap.py -q``. On a host it skips.
+Two legs run the same placements and the same assertions. The host leg executes the two shipped
+functions' own source, cut out of the integration file with ``ast`` (both use numpy only), so the
+semantics are pinned on every host run; it fails if either function is renamed or starts to need
+more than numpy. The container leg loads the whole integration through ``integration_module()``
+in a subprocess that sees the real SimNIBS, not the host suite's mocks:
+``simnibs_python -m pytest tests/test_flex_electrode_gap.py -q`` (on a host it skips).
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-_SCRIPT = r"""
-import json
-import numpy as np
-from tit.opt.flex.runtime import integration_module
-
-module = integration_module()
+# The placements, run against `module` (anything with SimNIBS's two functions); leaves `result`.
+_PLACEMENTS = r"""
 spacing, radius, min_distance = 2.0, 4.0, 5.0
 axis = np.arange(-40.0, 260.0 + spacing / 2, spacing)
 gx, gy = np.meshgrid(axis, np.arange(-20.0, 20.0 + spacing / 2, spacing))
@@ -62,8 +64,42 @@ for d in (8.0, 10.0, 12.0, 14.0, 16.0):
         "t_b": np.asarray(posmats[1])[:3, 3].tolist(),
         "posmat_shape": list(np.asarray(posmats[0]).shape),
     })
-print(json.dumps({"radius": radius, "min_distance": min_distance, "rows": rows}))
+result = {"radius": radius, "min_distance": min_distance, "rows": rows}
 """
+
+_SCRIPT = (
+    "import json\n"
+    "import numpy as np\n"
+    "from tit.opt.flex.runtime import integration_module\n"
+    "module = integration_module()\n" + _PLACEMENTS + "print(json.dumps(result))\n"
+)
+
+_SHIPPED = ("get_node_mask_spherical_electrode", "check_electrode_distance")
+
+
+def _run_on_the_shipped_source() -> dict:
+    """The placements against the two functions' source in the shipped integration file."""
+    import numpy as np
+
+    from tit.opt.flex.runtime import _SOURCE
+
+    tree = ast.parse(_SOURCE.read_text())
+    defs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+    missing = [name for name in _SHIPPED if name not in defs]
+    assert not missing, f"{_SOURCE.name} no longer defines {missing}"
+    namespace: dict = {"np": np}
+    exec(  # noqa: S102 - the repository's own file, the code under test
+        compile(
+            ast.Module(body=[defs[n] for n in _SHIPPED], type_ignores=[]),
+            str(_SOURCE),
+            "exec",
+        ),
+        namespace,
+    )
+    module = SimpleNamespace(**{name: namespace[name] for name in _SHIPPED})
+    scope: dict = {"np": np, "module": module}
+    exec(_PLACEMENTS, scope)  # noqa: S102
+    return scope["result"]
 
 
 def _run_in_real_simnibs() -> dict:
@@ -84,10 +120,17 @@ def _run_in_real_simnibs() -> dict:
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
+def test_shipped_check_measures_min_distance_between_footprint_nodes_on_the_host():
+    _assert_node_gap_semantics(_run_on_the_shipped_source())
+
+
 def test_simnibs_min_distance_is_measured_between_footprint_nodes():
+    _assert_node_gap_semantics(_run_in_real_simnibs())
+
+
+def _assert_node_gap_semantics(data: dict) -> None:
     import numpy as np
 
-    data = _run_in_real_simnibs()
     radius, min_distance = data["radius"], data["min_distance"]
     assert len(data["rows"]) == 5, "distances to check"
     edge_rule_disagrees = []
