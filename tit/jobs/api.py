@@ -1,7 +1,7 @@
-"""Stable interface between the job manager (owner: B1) and the rest of ``tit.server``.
+"""The job manager's interface for the rest of ``tit.server``.
 
-Other modules (viewers, plan routes) call ONLY these functions; B1 replaces the bodies with the
-real implementation without changing the signatures. Shapes follow ``contracts/openapi.yaml``
+The plan and project routes submit jobs and ask for lock conflicts through these two functions
+rather than holding the manager themselves. Shapes follow ``contracts/openapi.yaml``
 (``JobStatus``, ``LockConflict``).
 """
 
@@ -34,8 +34,3 @@ def submit(spec: dict[str, Any]) -> dict[str, Any]:
 def lock_conflicts(keys: list[str]) -> list[dict[str, Any]]:
     """Lock keys currently held by other jobs, as ``LockConflict`` dicts (may be empty)."""
     return get_manager().lock_conflicts(keys)
-
-
-def get_status(job_id: str) -> dict[str, Any] | None:
-    """``JobStatus`` for ``job_id`` or ``None`` when unknown."""
-    return get_manager().get(job_id)

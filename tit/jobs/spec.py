@@ -1,10 +1,10 @@
 """Job data model: ``JobSpec``/``JobStatus`` and the small value types they're built from.
 
 Shapes mirror ``contracts/openapi.yaml`` (``JobKind``, ``JobState``, ``JobProgress``,
-``JobError``, ``Artifact``, ``WaitingOn``, ``JobStatus``, ``JobSpec``, ``JobDetail``,
-``LockConflict``).  A few fields exist only on the Python side (persisted to
-``spec.json``/``status.json`` for the scheduler's own bookkeeping — ``locks``, ``cost``,
-``pid``, ``create_time``, ``budget_wait``) and are dropped by
+``JobError``, ``Artifact``, ``WaitingOn``, ``JobStatus``, ``JobSpec``, ``JobDetail``; the
+``LockConflict`` wire model lives in ``tit/server/routes/plan.py``).  A few fields exist only
+on the Python side (persisted to ``spec.json``/``status.json`` for the scheduler's own
+bookkeeping — ``locks``, ``cost``, ``pid``, ``create_time``, ``budget_wait``) and are dropped by
 :meth:`JobStatus.to_api` / :meth:`JobSpec.to_api` before a response leaves the server, so the wire
 shape stays exactly what the contract describes plus one harmless additive field
 (``budget_wait``, not ``additionalProperties: false`` in the schema).
@@ -109,16 +109,6 @@ TERMINAL_STATES: frozenset[str] = frozenset(
 )
 
 CREATED_BY_VALUES: tuple[str, ...] = ("gui", "browser", "api", "notebook", "agent")
-
-EVENT_TYPES: tuple[str, ...] = (
-    "log",
-    "stage",
-    "progress",
-    "marker",
-    "artifact",
-    "result",
-    "exit",
-)
 
 
 def new_job_id() -> str:
@@ -240,18 +230,6 @@ class Artifact:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Artifact":
         return cls(path=data["path"], kind=data["kind"], label=data.get("label"))
-
-
-@dataclass
-class LockConflict:
-    key: str
-    held_by: str
-    kind: str
-    subject: str
-    started_at: str
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 @dataclass
