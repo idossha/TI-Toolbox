@@ -123,8 +123,14 @@ def _config_path() -> Path | None:
     """
     from tit.paths import PathManager
 
-    config_dir = Path(PathManager.user_config_dir())
-    config_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        config_dir = Path(PathManager.user_config_dir())
+        config_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        # A read-only HOME or a missing launcher mount: telemetry is unavailable, and the
+        # operation it would have tracked must still run.
+        logger.debug("Telemetry config directory unavailable: %s", exc)
+        return None
     return config_dir / const.TELEMETRY_CONFIG_FILE
 
 
@@ -142,18 +148,26 @@ def load_config() -> TelemetryConfig:
     path = _config_path()
     if path is None:
         return TelemetryConfig()
-    if path.exists():
-        try:
-            with open(path) as f:
-                data = json.load(f)
-            return TelemetryConfig(
-                enabled=data.get("enabled", False),
-                client_id=data.get("client_id", uuid.uuid4().hex),
-                consent_shown=data.get("consent_shown", False),
-            )
-        except (json.JSONDecodeError, OSError, KeyError):
-            logger.debug("Telemetry config corrupt or unreadable; using defaults.")
-    return TelemetryConfig()
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return TelemetryConfig()
+    except (ValueError, OSError):
+        logger.debug("Telemetry config corrupt or unreadable; using defaults.")
+        return TelemetryConfig()
+    if not isinstance(data, dict):
+        logger.debug("Telemetry config is not a JSON object; using defaults.")
+        return TelemetryConfig()
+    client_id = data.get("client_id")
+    return TelemetryConfig(
+        # Consent is an explicit JSON true; "false", 1 or null never switch telemetry on.
+        enabled=data.get("enabled") is True,
+        client_id=(
+            client_id if isinstance(client_id, str) and client_id else uuid.uuid4().hex
+        ),
+        consent_shown=data.get("consent_shown") is True,
+    )
 
 
 def save_config(config: TelemetryConfig) -> None:
@@ -220,7 +234,7 @@ def is_enabled() -> bool:
     if env_val in ("1", "true", "yes"):
         return False
     cfg = _get_config()
-    if not cfg.enabled:
+    if cfg.enabled is not True:
         return False
     # Don't send events if GA4 credentials haven't been configured yet.
     if const.GA4_MEASUREMENT_ID == "G-XXXXXXXXXX":
@@ -481,34 +495,38 @@ def track_event(
     >>> track_event("gui_launch")
     >>> track_event("sim_ti", {"status": "success"})
     """
-    if not is_enabled():
-        return
+    try:
+        if not is_enabled():
+            return
 
-    cfg = _get_config()
-    merged_params = _system_params()
-    if params:
-        merged_params.update(params)
+        cfg = _get_config()
+        merged_params = _system_params()
+        if params:
+            merged_params.update(params)
 
-    payload = {
-        "client_id": cfg.client_id,
-        "events": [
-            {
-                "name": event_name,
-                "params": merged_params,
-            }
-        ],
-    }
+        payload = {
+            "client_id": cfg.client_id,
+            "events": [
+                {
+                    "name": event_name,
+                    "params": merged_params,
+                }
+            ],
+        }
 
-    # Named so tests can join *only* telemetry sender threads (see
-    # tests/test_telemetry.py::_wait_for_telemetry_threads) instead of every
-    # daemon thread in the process — joining unrelated long-lived daemons
-    # (e.g. the JobManager poll loop) there used to cost seconds per test.
-    thread = threading.Thread(
-        target=_send_ga4, args=(payload,), name="tit-telemetry", daemon=True
-    )
-    thread.start()
-    if _blocking:
-        thread.join(timeout=const.TELEMETRY_TIMEOUT_S + 1)
+        # Named so tests can join *only* telemetry sender threads (see
+        # tests/test_telemetry.py::_wait_for_telemetry_threads) instead of every
+        # daemon thread in the process — joining unrelated long-lived daemons
+        # (e.g. the JobManager poll loop) there used to cost seconds per test.
+        thread = threading.Thread(
+            target=_send_ga4, args=(payload,), name="tit-telemetry", daemon=True
+        )
+        thread.start()
+        if _blocking:
+            thread.join(timeout=const.TELEMETRY_TIMEOUT_S + 1)
+    except Exception:
+        # Best-effort by contract: telemetry never raises into the caller.
+        logger.debug("Telemetry event %s dropped", event_name, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -553,18 +571,20 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
         yield
     except Exception as exc:
         duration_s = int(round(time.monotonic() - t0))
-        track_event(
-            op_name,
-            {
+        try:
+            params = {
                 "status": "error",
                 "run_id": run_id,
                 "error_type": type(exc).__name__,
                 "error_detail": _error_detail(exc),
                 "error_fingerprint": _error_fingerprint(exc),
                 "duration_s": duration_s,
-            },
-            _blocking=True,
-        )
+            }
+        except Exception:
+            # The operation's own exception is what the caller must see, never ours.
+            logger.debug("Telemetry error event for %s dropped", op_name, exc_info=True)
+        else:
+            track_event(op_name, params, _blocking=True)
         raise
     else:
         duration_s = int(round(time.monotonic() - t0))

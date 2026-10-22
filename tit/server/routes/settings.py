@@ -161,26 +161,41 @@ def _validate_panels(panels: Any) -> list[str]:
     return panels
 
 
+def _validate_telemetry(telemetry_body: Any) -> dict[str, Any]:
+    """The ``telemetry`` object of a PUT: only JSON booleans, so ``"false"`` never means on."""
+    if telemetry_body is None:
+        return {}
+    if not isinstance(telemetry_body, dict):
+        raise HTTPException(status_code=422, detail="telemetry must be an object")
+    for key in ("enabled", "consented"):
+        if key in telemetry_body and not isinstance(telemetry_body[key], bool):
+            raise HTTPException(
+                status_code=422,
+                detail=f"telemetry.{key} must be true or false, got {telemetry_body[key]!r}",
+            )
+    return telemetry_body
+
+
 @router.put("/api/settings", summary="Replace server/project settings")
 def put_settings(body: dict[str, Any]) -> Settings:
-    telemetry_body = body.get("telemetry") or {}
+    # Validate everything before changing anything: a 422 leaves telemetry as it was.
+    telemetry_body = _validate_telemetry(body.get("telemetry"))
+    project_settings = {
+        "panels": _validate_panels(body.get("panels", [])),
+        "image_tag": body.get("image_tag"),
+        "theme": _validate_theme(body.get("theme", "system")),
+        # Absent (an older client) is off: the safe direction for a permission.
+        "agent_auto_submit": body.get("agent_auto_submit") is True,
+    }
     if "enabled" in telemetry_body:
         # tit.telemetry.set_enabled also marks consent_shown=True, invalidates
         # the in-process cache, and fires the one-time first_open event --
         # exactly the GUI's "Settings -> Privacy toggle" semantics.
-        telemetry.set_enabled(bool(telemetry_body["enabled"]))
+        telemetry.set_enabled(telemetry_body["enabled"])
     elif telemetry_body.get("consented"):
         tconf = telemetry.load_config()
         tconf.consent_shown = True
         telemetry.save_config(tconf)
 
-    _save_project_settings(
-        {
-            "panels": _validate_panels(body.get("panels", [])),
-            "image_tag": body.get("image_tag"),
-            "theme": _validate_theme(body.get("theme", "system")),
-            # Absent (an older client) is off: the safe direction for a permission.
-            "agent_auto_submit": body.get("agent_auto_submit") is True,
-        }
-    )
+    _save_project_settings(project_settings)
     return Settings.model_validate(_read_settings())
