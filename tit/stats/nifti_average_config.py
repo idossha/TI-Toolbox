@@ -99,7 +99,7 @@ class NiftiAverageConfig:
         (:func:`tit.paths.validate_name`), fewer than 2 *subjects* are given,
         a group label is not a valid file-name part (it names
         ``average_<group>.nii.gz``), or a *diff_pairs* entry does not name
-        two of the groups exactly one way.
+        two different groups exactly one way or repeats an earlier pair.
 
     Notes
     -----
@@ -144,13 +144,13 @@ class NiftiAverageConfig:
         Raises
         ------
         ValueError
-            If an entry does not split into two known group labels, or splits
-            into them at more than one hyphen.
+            If an entry does not split into two different known group labels,
+            splits into them at more than one hyphen, or repeats an earlier pair.
         """
         groups = sorted({s.group for s in self.subjects})
         if not self.diff_pairs:
             return [(a, b) for i, a in enumerate(groups) for b in groups[i + 1 :]]
-        pairs = []
+        pairs: list[tuple[str, str]] = []
         for entry in self.diff_pairs:
             text = entry if isinstance(entry, str) else ""
             splits = {
@@ -158,16 +158,24 @@ class NiftiAverageConfig:
                 for i, char in enumerate(text)
                 if char == "-"
             }
-            matches = [p for p in splits if p[0] in groups and p[1] in groups]
+            named = [p for p in splits if p[0] in groups and p[1] in groups]
+            # A group minus itself is zero everywhere: never a map anyone asked for.
+            matches = [p for p in named if p[0] != p[1]]
             if len(matches) != 1:
-                problem = (
-                    "names two groups in more than one way"
-                    if matches
-                    else "does not name two of the groups"
-                )
+                if matches:
+                    problem = "names two groups in more than one way"
+                elif named:
+                    problem = "names the same group on both sides"
+                else:
+                    problem = "does not name two of the groups"
                 raise ValueError(
                     f"diff_pairs entry {entry!r} {problem} {groups}; write it as "
                     "GroupA-GroupB"
+                )
+            if matches[0] in pairs:
+                raise ValueError(
+                    f"diff_pairs entry {entry!r} repeats an earlier pair "
+                    f"({matches[0][0]}-{matches[0][1]})"
                 )
             pairs.append(matches[0])
         return pairs

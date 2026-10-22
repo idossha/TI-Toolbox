@@ -9,7 +9,10 @@ What this pins, for ``NiftiAverageConfig`` (``tit/stats/nifti_average_config.py`
   split at the first hyphen, skipped the pair with a log warning and exited 0 without the map;
 - a pair naming an absent group, a pair that splits two ways, a label that cannot be part of a
   file name (``x/y``: an errno crash at ``nib.save`` before) and an ``output_name`` that is not
-  a folder name are refused by the config, so ``POST /api/validate/nifti_average`` says so.
+  a folder name are refused by the config, so ``POST /api/validate/nifti_average`` says so;
+- so are a pair of one group with itself (``A-A`` wrote an all-zero ``difference_A_minus_A``)
+  and a pair typed twice (``A-B, A-B`` wrote one file twice and listed it twice in
+  ``config.json``); ``A-B`` and ``B-A`` are two maps of opposite sign, both allowed.
 
 Where the numbers come from: hand arithmetic over constant volumes a=1, b=3, c=10, d=20 --
 mean(a, b) = 2, mean(c, d) = 15, 2 - 15 = -13 and 15 - 2 = 13. The runner reads them through
@@ -105,7 +108,34 @@ def test_no_pairs_means_every_pair_alphabetically() -> None:
     assert config.difference_pairs() == [("A", "B"), ("A", "C"), ("B", "C")]
 
 
+def test_both_directions_of_a_pair_are_two_maps() -> None:
+    config = deserialize_config(
+        NiftiAverageConfig,
+        _config({"a": "A", "b": "B"}, diff_pairs=["A-B", "B-A"]),
+        strict=True,
+    )
+    assert config.difference_pairs() == [("A", "B"), ("B", "A")]
+
+
 REFUSED = [
+    (
+        "self-pair",
+        _config({"a": "A", "b": "B"}, diff_pairs=["A-A"]),
+        "diff_pairs",
+        "same group on both sides",
+    ),
+    (
+        "hyphenated-self-pair",
+        _config({"a": "pre-op", "b": "post-op"}, diff_pairs=["pre-op-pre-op"]),
+        "diff_pairs",
+        "same group on both sides",
+    ),
+    (
+        "repeated-pair",
+        _config({"a": "A", "b": "B"}, diff_pairs=["A-B", " A - B "]),
+        "diff_pairs",
+        "repeats an earlier pair",
+    ),
     (
         "absent-group",
         _config({"a": "Group1", "b": "Group2"}, diff_pairs=["Group1-Group3"]),
