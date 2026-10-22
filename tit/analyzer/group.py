@@ -154,8 +154,10 @@ def run_group_analysis(
         ``"subcortical"`` or ``"mask"``.
     ValueError
         If ``analysis_type="mask"`` with a non-MNI *coordinate_space* or an
-        unreadable *mask_path*, or if a subject's analysis is refused (for
-        example its ROI is empty); the message then starts with ``sub-<id>:``.
+        unreadable *mask_path*; if a sphere lacks a finite centre or a
+        positive, finite radius (checked once, before any subject); or if a
+        subject's analysis is refused (for example its ROI is empty), and
+        then the message starts with ``sub-<id>:``.
     FileNotFoundError
         If a subject has no field file for *simulation* in *space*.
 
@@ -187,6 +189,9 @@ def run_group_analysis(
         if coordinate_space.lower() != "mni":
             raise ValueError("Group mask analysis requires an MNI-space mask")
         validate_mask(mask_path)
+    if analysis_type == "spherical":
+        # The same sphere for every subject: refuse it once, blaming no subject.
+        Analyzer._checked_spheres(spheres or [(*center, radius)])
 
     with track_operation(_const.TELEMETRY_OP_GROUP_ANALYSIS):
         target = _target_label(

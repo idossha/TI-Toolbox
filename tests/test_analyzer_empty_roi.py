@@ -264,8 +264,9 @@ def test_voxel_roi_whose_field_is_never_positive_is_a_value_error(
 
 def test_group_analysis_names_the_subject_whose_roi_is_empty(project: Path) -> None:
     from tit.analyzer import group
+    from tit.analyzer.analyzer import Analyzer
 
-    class _Analyzer:
+    class _Analyzer(Analyzer):  # keeps the real sphere check the group runs up front
         def __init__(self, sid, *args, **kwargs):
             self.sid = sid
 

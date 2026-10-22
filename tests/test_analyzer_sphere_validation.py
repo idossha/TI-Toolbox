@@ -21,7 +21,7 @@ from __future__ import annotations
 import math
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -165,3 +165,49 @@ def test_analyze_sphere_refuses_the_center(center) -> None:
 def test_analyze_spheres_refuses_any_bad_sphere_in_the_union() -> None:
     with pytest.raises(ValueError, match=r"got \(10, 0, 0, 0\)"):
         _analyzer().analyze_spheres([(0, 0, 0, 5.0), (10, 0, 0, 0)])
+
+
+# -- the group API: one refusal before any subject or folder -----------------------------------
+
+
+@pytest.mark.parametrize(
+    "target, shown",
+    [
+        ({"center": (0.0, 0.0, 0.0), "radius": 0}, "(0.0, 0.0, 0.0, 0)"),
+        ({"center": (0.0, math.nan, 0.0), "radius": 5.0}, "(0.0, nan, 0.0, 5.0)"),
+        ({"spheres": [(0, 0, 0, 5.0), (10, 0, 0, -1)]}, "(10, 0, 0, -1)"),
+    ],
+)
+def test_group_refuses_a_bad_sphere_once_and_blames_no_subject(
+    tmp_path: Path, target, shown
+) -> None:
+    """A sphere is the same for every subject: its refusal must not read "sub-101: ..."."""
+    from tit.analyzer import group
+    from tit.analyzer.analyzer import Analyzer
+
+    built: list[str] = []
+
+    class _Subject(Analyzer):  # the real sphere checks, no files
+        def __init__(self, sid, *args, **kwargs):
+            built.append(sid)
+            self.space = "mesh"
+            self._sphere_mesh = MagicMock(side_effect=AssertionError("not reached"))
+
+    out = tmp_path / "group_out"
+    with (
+        patch.object(group, "Analyzer", _Subject),
+        patch.object(group, "add_file_handler"),
+    ):
+        with pytest.raises(ValueError) as err:
+            group.run_group_analysis(
+                ["101", "102"],
+                "M1",
+                analysis_type="spherical",
+                output_dir=str(out),
+                **target,
+            )
+    message = str(err.value)
+    assert message.startswith("A sphere needs a finite centre"), message
+    assert f"got {shown}" in message
+    assert built == []  # refused before the subject loop
+    assert not out.exists()  # and before the group folder is made
