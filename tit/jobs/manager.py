@@ -214,6 +214,10 @@ class JobManager:
 
     def _load_existing(self) -> None:
         for job_id in self.registry.list_ids():
+            if job_id in self._specs:
+                # Submitted by this server life before start(): not left over from a previous
+                # one, so never stranded (and its in-memory record is the live one).
+                continue
             spec = self.registry.read_spec(job_id)
             status = self.registry.read_status(job_id)
             if spec is None or status is None:
@@ -411,10 +415,6 @@ class JobManager:
         with self._lock:
             self._specs[job_id] = spec
             self._status[job_id] = status
-            if status.state not in TERMINAL_STATES:
-                # Snapshot taken *before* the manager's loop thread starts, so a job submitted
-                # by this server life can never be swept up by startup reconciliation.
-                self._stranded.append(job_id)
             self.registry.create(spec, status)
         self._publish_status(status)
         return status.to_api(self.project_dir)
@@ -431,15 +431,24 @@ class JobManager:
         The scheduler runs one job per product at a time (:func:`tit.jobs.scheduler.evaluate`),
         so a group's jobs run one after another.
         """
+        # Labels must be defined before they're referenced (plan_preprocessing emits them in
+        # dependency order). A label that is unknown, or defined only later, is refused before
+        # anything is persisted -- RUN-04's rule for `after` ids in submit(): dropping it would
+        # run the dependant without its dependency.
+        defined: set[str] = set()
+        for job in planned:
+            unresolved = sorted(set(job.after_labels) - defined)
+            if unresolved:
+                raise ValueError(
+                    f"job {job.label!r}: after_labels {unresolved} name no earlier job "
+                    "in this plan"
+                )
+            defined.add(job.label)
         group_id = new_job_id()
         label_to_id: dict[str, str] = {}
         submitted: list[dict[str, Any]] = []
-        # Labels must be defined before they're referenced (plan_preprocessing emits them in
-        # dependency order); resolve what we can, ignore an unknown label defensively.
         for job in planned:
-            after_ids = [
-                label_to_id[lbl] for lbl in job.after_labels if lbl in label_to_id
-            ]
+            after_ids = [label_to_id[lbl] for lbl in job.after_labels]
             status = self.submit(
                 job.kind,
                 job.config,
