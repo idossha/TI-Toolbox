@@ -662,13 +662,14 @@ function outputDirFor(kind, subject, config) {
     // (tit/blender/*_exporter.py). One "blender/NewRun" for all four would have made the Plan card
     // say the same wrong path for every mode.
     case "blender": {
-      // As `_blender_output_dir`: an `output_dir` already on the config always wins; without a
-      // `_type` the server builds its default class, MontageConfig; regions and vectors are
-      // simulation-scoped, so without a simulation there is no folder to name ("").
+      // As `_blender_output_dir`: an `output_dir` already on the config always wins; a config
+      // without `_type` never gets here (the plan route refuses it, as the real one does);
+      // regions and vectors are simulation-scoped, so without a simulation there is no folder
+      // to name ("").
       const explicit = String(cfg.output_dir ?? "").trim();
       if (explicit) return explicit;
       const veBase = `${PROJECT_ROOT}/derivatives/ti-toolbox/visual_exports/sub-${subject}`;
-      const type = cfg._type || "MontageConfig";
+      const type = cfg._type;
       if (type === "SubcorticalConfig") return `${veBase}/sub-cortical`;
       if (type === "MontageConfig") return `${veBase}/montage_publication`;
       const sim = String(cfg.simulation_name ?? "").trim();
@@ -2975,6 +2976,13 @@ route("POST", "/api/validate/:kind", async (ctx) => {
 });
 route("POST", "/api/plan/:kind", async (ctx) => {
   const body = await ctx.body();
+  // `tit/server/routes/validate.py::cls_for`: tit.blender.__main__ dispatches on `_type` alone and
+  // has no default, so the real plan route answers 422 for a blender config without one.
+  if (ctx.params.kind === "blender" && !body.config?._type) {
+    return json(ctx.res, 422, {
+      detail: `kind='blender' config._type is required, one of ['MontageConfig', 'RegionConfig', 'SubcorticalConfig', 'VectorConfig']: the runner picks the export by it and has no default`,
+    });
+  }
   json(ctx.res, 200, planFor(ctx.params.kind, body.config, body.subject_ids, body.overwrite, body.montage_sources));
 });
 

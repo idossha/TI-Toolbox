@@ -136,9 +136,9 @@ _BLENDER = {
     "vector": {"_type": "VectorConfig", "simulation_name": "Thalamus"},
     "montage": {"_type": "MontageConfig", "simulation_name": "Thalamus"},
     "subcortical": {"_type": "SubcorticalConfig"},
-    # No ``_type``: the server's default class for ``blender`` decides the folder.
-    "untyped": {"simulation_name": "Thalamus"},
 }
+# No untyped blender case: ``tit.blender.__main__`` dispatches on ``_type`` alone, so the plan
+# route refuses a blender config without one (HTTP 422) and there is no folder to pin.
 for _mode, _cfg in _BLENDER.items():
     CASES.append(
         (f"blender_{_mode}", "blender", ["001"], {"subject_id": "001", **_cfg})

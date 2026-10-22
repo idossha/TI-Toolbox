@@ -260,6 +260,12 @@ describe("an export the config cannot place yet plans no folder", () => {
     });
   }
 
+  it("a config without _type is refused with 422, as the real plan route does", async () => {
+    const res = await post("/api/plan/blender", { config: { subject_id: "ernie", simulation_name: "Thalamus" }, subject_ids: ["ernie"] });
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { detail: string }).detail).toContain("config._type is required");
+  });
+
   it("a montage or sub-cortical export is not simulation-scoped and still plans its folder", async () => {
     for (const [type, folder] of [["MontageConfig", "montage_publication"], ["SubcorticalConfig", "sub-cortical"]] as const) {
       const plan = (await (await post("/api/plan/blender", { config: { subject_id: "ernie", _type: type }, subject_ids: ["ernie"] })).json()) as Plan;

@@ -244,23 +244,6 @@
    ]
   },
   {
-   "id": "blender_untyped",
-   "kind": "blender",
-   "subject_ids": [
-    "001"
-   ],
-   "config": {
-    "subject_id": "001",
-    "simulation_name": "Thalamus"
-   },
-   "jobs": [
-    {
-     "subject": "001",
-     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/montage_publication"
-    }
-   ]
-  },
-  {
    "id": "blender_region_stl_explicit_output_dir",
    "kind": "blender",
    "subject_ids": [
