@@ -54,7 +54,7 @@ const SETTINGS_TABS = [
 ];
 
 const PANEL_INFO: { id: PanelId; label: string; description: string }[] = [
-  { id: "source", label: "Source", description: "Build EEG forward solutions and map simulation fields to fsaverage." },
+  { id: "source", label: "Source", description: "Build EEG forward solutions." },
   { id: "cluster-permutation", label: "Cluster permutation", description: "Compare or correlate field intensities across subjects with permutation testing." },
   { id: "nifti-group-average", label: "NIfTI group averaging", description: "Compute group averages and differences of NIfTI files." },
   { id: "nilearn-visuals", label: "Nilearn visuals", description: "Create Nilearn high-resolution publication visualizations." },
