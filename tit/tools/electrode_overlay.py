@@ -179,20 +179,6 @@ def _extract_position_pairs(
     )
 
 
-def _extract_xyz_positions(
-    config_data: dict[str, Any],
-    montage_name: str | None = None,
-    eeg_positions_dir: str | Path | None = None,
-) -> list[tuple[float, float, float]]:
-    return [
-        position
-        for pair in _extract_position_pairs(
-            config_data, montage_name, eeg_positions_dir
-        )
-        for position in pair
-    ]
-
-
 def _electrode_geometry(config_data: dict[str, Any]) -> tuple[str, np.ndarray]:
     geometry = config_data.get("electrode_geometry", {})
     shape = geometry.get("shape", config_data.get("electrode_shape", "ellipse"))
@@ -347,25 +333,6 @@ def create_electrode_overlay_nifti(
         electrode_overlay_lut_path(output_path), len(position_pairs)
     )
     return str(output_path)
-
-
-def simulation_config_has_xyz_electrodes(
-    config_path: str | Path,
-    montage_name: str | None = None,
-    eeg_positions_dir: str | Path | None = None,
-) -> bool:
-    """Return whether *config_path* contains resolvable electrode coordinates."""
-    try:
-        with Path(config_path).open() as f:
-            config_data = json.load(f)
-        _extract_xyz_positions(
-            config_data,
-            montage_name=montage_name,
-            eeg_positions_dir=eeg_positions_dir,
-        )
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return False
-    return True
 
 
 def _report_job_outputs(overlay_path: str) -> None:

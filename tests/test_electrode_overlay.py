@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 
 from tit.tools.electrode_overlay import (
+    _extract_position_pairs,
     create_electrode_overlay_nifti,
     electrode_overlay_lut_path,
-    simulation_config_has_xyz_electrodes,
     write_electrode_overlay_lut,
 )
 
@@ -221,43 +221,37 @@ def test_label_only_montage_raises(tmp_path, monkeypatch):
 
 
 @pytest.mark.unit
-def test_simulation_config_has_xyz_electrodes(tmp_path):
-    xyz_path = tmp_path / "xyz.json"
-    xyz_path.write_text(
-        json.dumps(
-            {
-                "electrode_pairs": [
-                    [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
-                    [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]],
-                ]
-            }
-        )
-    )
-    label_path = tmp_path / "labels.json"
-    label_path.write_text(json.dumps({"electrode_pairs": [["C3", "C4"]]}))
+def test_position_pairs_come_from_xyz_pairs_and_labels_need_a_csv():
+    xyz = {
+        "electrode_pairs": [
+            [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+            [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]],
+        ]
+    }
 
-    assert simulation_config_has_xyz_electrodes(xyz_path)
-    assert not simulation_config_has_xyz_electrodes(label_path)
-    assert not simulation_config_has_xyz_electrodes(tmp_path / "missing.json")
+    assert _extract_position_pairs(xyz) == [
+        [(1.0, 2.0, 3.0), (4.0, 5.0, 6.0)],
+        [(7.0, 8.0, 9.0), (10.0, 11.0, 12.0)],
+    ]
+    with pytest.raises(ValueError):
+        _extract_position_pairs({"electrode_pairs": [["C3", "C4"]]})
 
 
 @pytest.mark.unit
-def test_simulation_config_has_xyz_electrodes_from_mapped_positions(tmp_path):
-    config_path = tmp_path / "mapped.json"
-    config_path.write_text(
-        json.dumps(
-            {
-                "mapped_positions": [
-                    [1.0, 2.0, 3.0],
-                    [4.0, 5.0, 6.0],
-                    [7.0, 8.0, 9.0],
-                    [10.0, 11.0, 12.0],
-                ]
-            }
-        )
-    )
+def test_mapped_positions_are_paired_in_order():
+    config = {
+        "mapped_positions": [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+            [10.0, 11.0, 12.0],
+        ]
+    }
 
-    assert simulation_config_has_xyz_electrodes(config_path)
+    assert _extract_position_pairs(config) == [
+        [(1.0, 2.0, 3.0), (4.0, 5.0, 6.0)],
+        [(7.0, 8.0, 9.0), (10.0, 11.0, 12.0)],
+    ]
 
 
 @pytest.mark.unit
@@ -286,7 +280,12 @@ def test_label_montage_resolves_from_eeg_positions_csv(tmp_path, monkeypatch):
         )
     )
 
-    assert simulation_config_has_xyz_electrodes(config_path, eeg_positions_dir=eeg_dir)
+    assert _extract_position_pairs(
+        json.loads(config_path.read_text()), eeg_positions_dir=eeg_dir
+    ) == [
+        [(5.0, 5.0, 5.0), (10.0, 5.0, 5.0)],
+        [(5.0, 10.0, 5.0), (10.0, 10.0, 5.0)],
+    ]
     create_electrode_overlay_nifti(
         config_path,
         tmp_path / "reference.nii.gz",
