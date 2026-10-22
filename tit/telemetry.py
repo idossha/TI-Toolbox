@@ -412,16 +412,28 @@ def _send_ga4(payload: dict[str, Any]) -> None:
         pass  # Network issues, firewall, DNS — silently drop
 
 
+#: A path: a run of non-space characters holding a ``/`` or a backslash (POSIX, ``C:\...``,
+#: ``\\server\...``), together with the word characters right before its first separator,
+#: so ``Doe/Data`` -- the tail of ``/Users/John Doe/Data`` -- goes too. A quote ends it, so a
+#: quoted path keeps its quotes.
+_PATH_RE = re.compile(r"[\w.~:$-]*[/\\][^\s'\"]*")
+#: Pieces of one path that a space split apart (``<path> <path>``) read as one ``<path>``.
+_SPLIT_PATH_RE = re.compile(r"<path>(?:\s+<path>)+")
+_ID = r"[A-Za-z0-9_-]+"
+
 #: Subject identifiers in the forms error messages write them: ``sub-101``, ``m2m_101``,
-#: ``subject 101``, ``Subject: 101``, ``subject_id='101'``.
+#: ``subject 101``, ``Subject: 101``, ``subject_id='101'``, and the lists
+#: ``subjects ['101', '102']`` / ``Subjects: 101, 102``.
 _SUBJECT_PATTERNS = (
-    (re.compile(r"\b(sub-|m2m_)[A-Za-z0-9_-]+"), r"\1<id>"),
+    (re.compile(rf"\b(sub-|m2m_){_ID}"), r"\1<id>"),
     (
         # The separator never takes "<", so an already scrubbed "subject: <path>" stays intact.
+        # A comma-separated list after the keyword is scrubbed id by id.
         re.compile(
-            r"\b(subject(?:_ids?|s)?)([^\w<]{1,3})[A-Za-z0-9_-]+", re.IGNORECASE
+            rf"\b(subject(?:_ids?|s)?)([^\w<]{{1,3}})({_ID}(?:['\"]?\s*,\s*['\"]?{_ID})*)",
+            re.IGNORECASE,
         ),
-        r"\1\2<id>",
+        lambda m: m.group(1) + m.group(2) + re.sub(_ID, "<id>", m.group(3)),
     ),
 )
 
@@ -432,7 +444,7 @@ def _scrub(text: str) -> str:
     Subject ids are also removed wherever they appear bare, for the job's own subjects
     (``TIT_JOB_SUBJECT_IDS``, set by ``tit.jobs.runner.runner_env``).
     """
-    text = re.sub(r"/\S+", "<path>", text)
+    text = _SPLIT_PATH_RE.sub("<path>", _PATH_RE.sub("<path>", text))
     for pattern, replacement in _SUBJECT_PATTERNS:
         text = pattern.sub(replacement, text)
     active = os.environ.get("TIT_JOB_SUBJECT_IDS", "").split(",")
