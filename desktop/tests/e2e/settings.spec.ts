@@ -76,19 +76,29 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
   if ((await nilearnCheckbox.getAttribute("data-state")) !== "checked") await nilearnCheckbox.click();
   await expect(nilearnCheckbox).toHaveAttribute("data-state", "checked");
 
+  // A marker on the window: a reload would wipe it. Save must not reload — a reload runs the
+  // Notebooks unload handler, which shuts down every kernel (pages/notebooks/session.ts).
+  await page.evaluate(() => {
+    (window as unknown as { __noReload?: number }).__noReload = 1;
+  });
   await page.getByRole("button", { name: "Save changes" }).click();
 
-  // Save triggers a reload (the panel list changed) so the nav rail — a static read of
-  // PageDef.enabled — picks up the new panel list (pages/settings/index.tsx, PARITY.md).
-  await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 45_000 });
+  // The rail reads settings.panels live (app/registry.ts::useEnabledPages): the new panel appears
+  // in this same window, while Settings is still open.
   await expect(page.getByRole("link", { name: "Nilearn visuals" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("link", { name: "Source" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __noReload?: number }).__noReload)).toBe(1);
+  // The new rail row routes: a click opens the panel instead of bouncing to the landing page.
+  await page.getByRole("link", { name: "Nilearn visuals" }).click();
+  await expect(page.locator('[data-testid="shell-content"][data-page="panel-nilearn-visuals"]')).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __noReload?: number }).__noReload)).toBe(1);
   // Quick notes is not a rail entry any more — it is the ⌘⇧N drawer, covered by quick-notes.spec.ts.
   // Subject info is gone entirely (R1): its facts are Overview's, and neither the rail nor
   // Settings' panel list offers it.
   await expect(page.getByRole("link", { name: "Subject info" })).toHaveCount(0);
 
-  // Theme survived the reload too (persisted in localStorage independently of the settings save).
+  // The theme applied before Save is untouched by it.
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 

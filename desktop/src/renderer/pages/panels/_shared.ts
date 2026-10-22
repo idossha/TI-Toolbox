@@ -9,15 +9,13 @@
  * successful load and save; each panel's `index.tsx` calls `isPanelEnabled(id)` once, at module
  * scope, to set its own `enabled`.
  *
- * Known gap (out of P8's ownership — reported in the final task report): `app/registry.ts` and
- * `app/NavRail.tsx` (F2-owned) read the static `enabled` field once and never re-render on
- * change, so a toggle only reaches the nav after `pages/settings` reloads the window. A live
- * settings store feeding `enabledPages`/`navGroups` would remove that reload.
+ * That static value is only the first paint's guess. Once `/api/settings` answers, the rail and
+ * the routes follow `settings.panels` live (`app/registry.ts::useEnabledPages`), so a toggle saved
+ * in Settings shows at once with no reload.
  */
 import type { components } from "../../api/schema";
 
 export type PlanResult = components["schemas"]["PlanResult"];
-export type ValidateResult = components["schemas"]["ValidateResult"];
 
 const STORAGE_KEY = "tit-enabled-panels";
 

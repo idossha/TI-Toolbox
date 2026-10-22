@@ -170,47 +170,25 @@ function SettingsPage() {
     if (settingsQuery.data && form === null) setForm({ ...settingsQuery.data });
   }
 
-  // Sync the panels localStorage mirror so a reload (e.g. after Save, or the next time the app
-  // boots) reflects the project's real panel list rather than an empty first-run cache (see
-  // pages/panels/_shared.ts). Pure localStorage IO, no setState — not subject to the same rule.
+  // Keep the panels localStorage mirror in step with the server, so the next app start's first
+  // paint (each panel's static `PageDef.enabled`, pages/panels/_shared.ts) already matches it.
+  // Pure localStorage IO, no setState — not subject to the same rule.
   useEffect(() => {
     if (!settingsQuery.data) return;
     if (!sameStringSet(readEnabledPanels(), settingsQuery.data.panels)) writeEnabledPanels(settingsQuery.data.panels);
-    try {
-      window.localStorage.setItem("tit-enabled-panels-synced", "1");
-    } catch {
-      // best-effort
-    }
   }, [settingsQuery.data]);
-
-  // Only nudge the user to reload if the nav could actually be showing something stale right now
-  // (i.e. this was not simply the very first time the mirror was ever written) — a pure render-time
-  // read, so it clears itself on the next render once the effect above has written the mirror.
-  let syncedBefore = false;
-  try {
-    syncedBefore = window.localStorage.getItem("tit-enabled-panels-synced") === "1";
-  } catch {
-    // best-effort
-  }
-  const staleNotice = syncedBefore && !!settingsQuery.data && !sameStringSet(readEnabledPanels(), settingsQuery.data.panels);
 
   const saveMutation = useMutation({
     mutationFn: (next: Settings) => putSettings(next),
     onSuccess: (saved) => {
-      const panelsChanged = !sameStringSet(readEnabledPanels(), saved.panels);
       writeEnabledPanels(saved.panels);
-      // Same class of fix as pages/panels/quick-notes: without updating the query cache, `dirty`
-      // (which compares `form` against `settingsQuery.data`) would immediately read stale-old
-      // data again and show "Save changes" as enabled right after a successful save whenever the
-      // panel list didn't change (the panels-changed path masks this by reloading the whole app).
+      // The rail and the routes read this same cache entry (`app/registry.ts::useEnabledPages`), so
+      // a toggled panel appears or leaves at once. No reload: a reload runs the Notebooks page's
+      // unload handler, which shuts down every kernel. The cache write also keeps `dirty` (form vs.
+      // settingsQuery.data) from reading the pre-save data and re-enabling Save.
       queryClient.setQueryData(["settings"], saved);
       setForm(saved);
-      if (panelsChanged) {
-        notify.success("Settings saved. Reloading to apply the panel changes…");
-        window.setTimeout(() => window.location.reload(), 600);
-      } else {
-        notify.success("Settings saved");
-      }
+      notify.success("Settings saved");
     },
     onError: () => notify.error("Could not save settings."),
   });
@@ -239,17 +217,9 @@ function SettingsPage() {
   const loading = settingsQuery.isPending || projectQuery.isPending;
 
   // Keep errors visible regardless of the selected category.
-  const banners = (settingsQuery.error || staleNotice) && (
-    <div style={{ breakInside: "avoid", marginBottom: "var(--space-4)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      {settingsQuery.error && <Callout kind="danger">Could not load settings.</Callout>}
-      {staleNotice && (
-        <Callout kind="info" title="Panel list changed on the server">
-          <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
-            Reload now
-          </Button>{" "}
-          to see it reflected in the nav.
-        </Callout>
-      )}
+  const banners = settingsQuery.error && (
+    <div style={{ breakInside: "avoid", marginBottom: "var(--space-4)" }}>
+      <Callout kind="danger">Could not load settings.</Callout>
     </div>
   );
 
@@ -367,7 +337,7 @@ function SettingsPage() {
           <CardHeader title="Feature panels" />
           <CardBody>
             <p className="field-help" style={{ marginBottom: "var(--space-3)" }}>
-              Optional tools. Enabled panels appear in the nav rail. Toggling one requires a reload to take effect.
+              Optional tools. Enabled panels appear in the nav rail as soon as you save.
             </p>
             {form && (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
