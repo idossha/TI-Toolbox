@@ -52,6 +52,9 @@ def _make_flex_config(**overrides):
         roi=SphericalROI(x=0, y=0, z=0),
     )
     defaults.update(overrides)
+    if defaults["goal"] in ("focality", OptGoal.FOCALITY):
+        # A single ROC focality run needs thresholds (SimNIBS has no default).
+        defaults.setdefault("thresholds", "0.1,0.2")
     return FlexConfig(**defaults)
 
 
@@ -154,8 +157,10 @@ class TestFlexConfigValidation:
             _make_flex_config(thresholds="abc,def")
 
     def test_valid_thresholds_passes(self):
-        cfg = _make_flex_config(thresholds="0.5,0.75,0.9")
-        assert cfg.thresholds == "0.5,0.75,0.9"
+        # SimNIBS measures.ROC takes one or two values (non-ROI max, ROI min); a
+        # third was silently ignored, so it is refused (tests/test_flexconfig_validation_edges.py).
+        cfg = _make_flex_config(thresholds="0.5,0.75")
+        assert cfg.thresholds == "0.5,0.75"
 
     def test_single_threshold_passes(self):
         cfg = _make_flex_config(thresholds="0.5")
@@ -170,8 +175,9 @@ class TestFlexConfigValidation:
         assert cfg.min_electrode_distance == 50.0
 
     def test_min_electrode_distance_zero(self):
-        cfg = _make_flex_config(min_electrode_distance=0.0)
-        assert cfg.min_electrode_distance == 0.0
+        # run_flex_search always refused 0 ("must be positive"); FlexConfig now does, at submit.
+        with pytest.raises(ValueError, match="min_electrode_distance"):
+            _make_flex_config(min_electrode_distance=0.0)
 
     def test_skin_region_margin_defaults_preserve_simnibs_region(self):
         cfg = _make_flex_config()
@@ -345,11 +351,12 @@ class TestFlexConfigRatioSearchThresholds:
         )
         assert cfg.thresholds == "0.2"
 
-    def test_roc_focality_without_the_ratio_search_needs_no_thresholds(self):
-        # Unchanged behaviour: SimNIBS picks its own defaults.
-        cfg = _make_flex_config(goal="focality")
-        assert cfg.thresholds is None
-        assert cfg.optimize_current_ratio is False
+    def test_roc_focality_without_the_ratio_search_needs_thresholds_too(self):
+        # SimNIBS has no default: TESoptimize raises "Please define TESoptimze.threshold
+        # for focality optimization!" (resources/map-electrodes/tes_flex_optimization.py),
+        # so a single run is refused at config time, not after the ROI is confirmed.
+        with pytest.raises(ValueError, match="requires thresholds"):
+            _make_flex_config(goal="focality", thresholds=None)
 
     @pytest.mark.parametrize("goal", ["mean", "max", "focality_tf"])
     def test_other_goals_need_no_thresholds_for_the_ratio_search(self, goal):

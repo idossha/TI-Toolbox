@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from tit.jobs.kinds import FLEX_KINDS
+
 #: kind -> :data:`tit.config_io.CONFIG_CLASS_REGISTRY` key.
 CONFIG_CLASS_FOR_KIND: dict[str, str] = {
     "sim": "SimulationConfig",
@@ -56,6 +58,15 @@ def check_job_config(kind: str, config: dict[str, Any]) -> None:
         # The job's own subjects, which the manager writes into config.json
         # (`JobManager._runner_config_path`); only the other fields are checked here.
         data["subject_ids"] = ["subject"]
+    if kind in FLEX_KINDS:
+        # The manager writes the kind as `mode` into the runner's config.json
+        # (JobManager._runner_config_path), so validate the config the runner will read:
+        # FlexConfig's mode/goal and per-mode threshold rules depend on it.
+        data["mode"] = kind
+        if kind == "flex":
+            # A single run ignores the adaptive / multi-threshold driver settings, so
+            # they cannot stand in for the thresholds it needs.
+            data["adaptive"] = data["pareto"] = None
     try:
         deserialize_config(cls, data)
     except Exception as exc:

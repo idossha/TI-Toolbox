@@ -45,6 +45,8 @@ def _non_roi(roi, non_roi) -> SimpleNamespace:
             current_mA=2.0,
             electrode=FlexConfig.ElectrodeConfig(),
             goal="focality",
+            # A single ROC focality run needs thresholds (SimNIBS has no default).
+            thresholds="0.1,0.2",
             non_roi_method="specific",
             roi=roi,
             non_roi=non_roi,
@@ -146,6 +148,7 @@ def test_desktop_wire_config_with_sphere_roi_and_default_cortical_non_roi():
         {
             "subject_id": "001",
             "goal": "focality",
+            "thresholds": "0.1,0.2",
             "postproc": "max_TI",
             "current_mA": 2.0,
             "electrode": {},

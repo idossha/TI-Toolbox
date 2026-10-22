@@ -221,7 +221,8 @@ class TestFlexMainFunction:
             best_value=-0.01,
             best_run_index=0,
         )
-        config_data = self._dispatch_config_data("flex")
+        # A single ROC focality run carries its own thresholds (SimNIBS has no default).
+        config_data = self._dispatch_config_data("flex", {"thresholds": "0.1,0.2"})
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config_data))
 
@@ -356,6 +357,7 @@ class TestFlexMainFunction:
             "subject_id": "001",
             "project_dir": "/proj",
             "goal": "focality",
+            "thresholds": "0.1,0.2",
             "postproc": "max_TI",
             "current_mA": 2.0,
             "non_roi_method": "specific",

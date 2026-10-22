@@ -12,7 +12,7 @@
 import { roiToConfig, type AtlasLookup, type RoiValue } from "../_shared/roi";
 import type { GroupKind } from "../_shared/run";
 import type { FlexConfigWire } from "./api";
-import { buildFlexConfig } from "./flexConfig";
+import { buildFlexConfig, flexFormReason } from "./flexConfig";
 import { buildExConfig, buildMExConfig, exTargets, EX_BUCKET_KEYS, MEX_BUCKET_KEYS, type ExTarget } from "./exConfig";
 import { exFormReason, mexFormReason } from "./cost";
 import { OPT_METHOD_LABEL, rowJobKind, rowStage, type OptimizerRow } from "./rows";
@@ -82,7 +82,8 @@ export function jobsForRow(
 export function rowFormReason(row: OptimizerRow): string | null {
   if (row.method === "flex") {
     const form = row.flex;
-    if (form.electrodeShape === "ellipse" && form.dimensionWidth !== form.dimensionHeight) return "Unequal ellipse dimensions are unsupported. Use equal dimensions or a rectangle.";
+    const reason = flexFormReason(form);
+    if (reason) return reason;
     if (form.enableMapping && !form.eegNet) return "Select an EEG net for the mapped-electrode simulation.";
     if (form.visualizeSkinElectrodes && !form.skinVisualizationNet) return "Select a visualization EEG net.";
     return null;

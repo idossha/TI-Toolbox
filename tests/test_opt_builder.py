@@ -679,10 +679,12 @@ def test_unequal_ellipse_is_rejected_before_optimization(
     mock_gpm.return_value = pm
     from tit.opt.flex.builder import build_optimization
 
-    config = _make_config(
-        electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[20.0, 10.0])
-    )
+    # Refused when the electrode config is built (FlexConfig.ElectrodeConfig), so a job
+    # never reaches the ROI confirmation the builder runs after.
     with pytest.raises(ValueError, match="dimensions must be equal"):
+        config = _make_config(
+            electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[20.0, 10.0])
+        )
         build_optimization(config)
 
 

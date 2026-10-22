@@ -24,6 +24,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
         type="number"
         inputMode="decimal"
         className={cn("control", invalid && "control-error")}
+        aria-invalid={invalid || undefined}
         value={value ?? ""}
         disabled={disabled}
         onChange={(e) => {

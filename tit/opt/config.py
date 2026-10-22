@@ -25,6 +25,8 @@ tit.opt.ex.ex.run_ex_search : Consumes :class:`ExConfig`.
 tit.opt.mex.mex.run_m_ex_search : Consumes :class:`MExConfig`.
 """
 
+import math
+import os
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal
@@ -46,6 +48,77 @@ def _as_list(value) -> list:
 #: explicit numeric threshold.  The empty string is included so a blank GUI field
 #: is treated the same as an unset one.
 _THRESHOLD_PLACEHOLDERS = frozenset({"", "dynamic", "auto"})
+
+
+def _finite(value, name: str) -> float:
+    """*value* as a finite float, or a ValueError naming *name*."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a number (was {value!r})") from None
+    if not math.isfinite(number):
+        raise ValueError(f"{name} must be finite (was {value!r})")
+    return number
+
+
+def _positive(value, name: str) -> float:
+    """*value* as a finite float greater than zero, or a ValueError naming *name*."""
+    number = _finite(value, name)
+    if number <= 0.0:
+        raise ValueError(f"{name} must be greater than 0 (was {number:g})")
+    return number
+
+
+def _count(value, name: str) -> int:
+    """*value* as a whole number of at least 1, or a ValueError naming *name*."""
+    if isinstance(value, bool) or not float(_finite(value, name)).is_integer():
+        raise ValueError(f"{name} must be a whole number (was {value!r})")
+    if int(value) < 1:
+        raise ValueError(f"{name} must be at least 1 (was {int(value)})")
+    return int(value)
+
+
+def _parse_thresholds(thresholds) -> list[float] | None:
+    """Validate a focality threshold specification; ``None`` when it is unset.
+
+    ``None`` and the placeholders in :data:`_THRESHOLD_PLACEHOLDERS` mean "no
+    explicit thresholds". Otherwise SimNIBS's ``measures.ROC`` takes one value
+    (non-ROI max = ROI min) or two (non-ROI max, ROI min: a safety gap, so the
+    first may not exceed the second), each an E-field magnitude in V/m.
+
+    Raises
+    ------
+    ValueError
+        Naming ``thresholds``, for anything else.
+    """
+    if not _has_usable_thresholds(thresholds):
+        return None
+    parts = [part.strip() for part in str(thresholds).split(",")]
+    if len(parts) > 2:
+        raise ValueError(
+            f"thresholds {thresholds!r}: give one value (non-ROI max = ROI min) or "
+            f"two (non-ROI max, ROI min) in V/m, not {len(parts)}"
+        )
+    values = []
+    for part in parts:
+        try:
+            value = float(part)
+        except ValueError:
+            raise ValueError(
+                f"thresholds {thresholds!r}: {part!r} is not a number"
+            ) from None
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError(
+                f"thresholds {thresholds!r}: every value must be a finite field "
+                "strength greater than 0 V/m"
+            )
+        values.append(value)
+    if len(values) == 2 and values[0] > values[1]:
+        raise ValueError(
+            f"thresholds {thresholds!r}: the non-ROI maximum ({values[0]:g} V/m) "
+            f"may not exceed the ROI minimum ({values[1]:g} V/m)"
+        )
+    return values
 
 
 def _has_usable_thresholds(thresholds) -> bool:
@@ -103,13 +176,15 @@ class FlexConfig:
     non_roi : SphericalROI or AtlasROI or SubcorticalROI or None
         Explicit non-ROI region when *non_roi_method* is ``"specific"``.
     thresholds : str or None
-        Comma-separated focality threshold values (e.g. ``"0.1,0.2"``).
-        Only used by the ROC-based ``"focality"`` goal.  ``None`` (or a
-        placeholder such as ``"dynamic"``) lets SimNIBS supply its own
-        defaults -- but that fallback exists only inside SimNIBS, so
-        combining ``goal="focality"`` with *optimize_current_ratio* makes
-        explicit numeric thresholds **required**: the ratio search scores
-        candidates with its own ROC objective, which has no defaults.
+        Focality thresholds in V/m for the ROC-based ``"focality"`` goal: one
+        value (non-ROI max = ROI min) or two, ``"<non-ROI max>,<ROI min>"``
+        (e.g. ``"0.1,0.2"``), each finite and greater than 0, the first not
+        above the second (SimNIBS ``measures.ROC``'s safety gap).  ``None``
+        and the placeholders ``""``, ``"dynamic"``, ``"auto"`` mean unset and
+        are stored as ``None``.  A single ``"focality"`` run requires them --
+        SimNIBS has no default -- while ``mode="flex_adaptive"`` /
+        ``"flex_pareto"`` (or a config carrying *adaptive* / *pareto*
+        settings, whose mode the job kind supplies) derive them per step.
     intensity_weight : float
         Weight ``w`` in ``[0, 1]`` trading ROI intensity against focality
         for the ``"focality_tf"`` goal.  ``0.0`` gives the balanced form,
@@ -120,8 +195,9 @@ class FlexConfig:
         current split between the two channels instead of fixing it at
         1:1.  Applies to any goal.  Scoring then happens in a Python
         callable rather than in SimNIBS, which has two consequences:
-        ``goal="focality"`` requires explicit *thresholds*, and
-        *detailed_results* cannot be used.
+        ``goal="focality"`` in ``mode="flex"`` requires explicit
+        *thresholds* (the adaptive and multi-threshold modes derive them
+        per step), and *detailed_results* cannot be used.
     ratio_total_mA : float or None
         Total current (mA) shared by the two channels during the ratio
         search.  ``None`` uses ``2 * current_mA``, i.e. the 1:1 split is
@@ -171,8 +247,14 @@ class FlexConfig:
         search itself is single-process).  ``None`` uses the global CPU
         limit (:func:`tit.cpu.cpu_limit`); a larger value is clamped to it.
     min_electrode_distance : float
-        Minimum geodesic distance (mm) between any two electrodes.
-        Default ``5.0``.
+        Minimum distance (mm) SimNIBS keeps between any two electrodes,
+        greater than 0.  Default ``5.0``.  SimNIBS measures it as the
+        straight-line distance between the skin-mesh nodes under each
+        electrode (``check_electrode_distance``), not edge to edge: nodes
+        sit inside the footprint, so the physical gap between two discs
+        (centre distance minus both radii) can be several millimetres
+        smaller -- 1.75 mm for the 5 mm default between 8 mm discs on a
+        real head (audit 2026-10-22).
     detailed_results : bool
         If True, save per-restart detailed output.  Incompatible with any
         configuration whose goal is a Python callable -- ``"focality_tf"``
@@ -214,7 +296,7 @@ class FlexConfig:
         *ratio_levels* is below 2 while *optimize_current_ratio* is True,
         if *ratio_total_mA* is set but not positive, if
         *optimize_current_ratio* is combined with ``goal="focality"``
-        without explicit *thresholds*, if *detailed_results* is
+        in ``mode="flex"`` without explicit *thresholds*, if *detailed_results* is
         combined with a callable-goal configuration
         (``goal="focality_tf"`` or *optimize_current_ratio*), or if *mode*
         is ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
@@ -501,6 +583,11 @@ class FlexConfig:
                     "SphericalROI radius must be a scalar or match the number of "
                     "centers"
                 )
+            for name, values in (("x", xs), ("y", ys), ("z", zs)):
+                for value in values:
+                    _finite(value, f"SphericalROI {name}")
+            for value in _as_list(self.radius):
+                _positive(value, "SphericalROI radius (mm)")
 
     @dataclass
     class AtlasROI:
@@ -584,6 +671,15 @@ class FlexConfig:
         atlas_space: Literal["subject", "mni"] = "subject"
 
         def __post_init__(self):
+            # One spelling everywhere: confirm_roi and the mask resolver compare
+            # lower-case, so "MNI" must not reach one of them as a third space.
+            space = str(self.atlas_space).strip().lower()
+            if space not in ("subject", "mni"):
+                raise ValueError(
+                    "SubcorticalROI atlas_space must be 'subject' or 'mni' "
+                    f"(was {self.atlas_space!r})"
+                )
+            self.atlas_space = space
             if self.label is None and not isinstance(self.atlas_path, str):
                 raise ValueError("A whole-file mask requires one atlas_path")
             n = len(_as_list(self.label))
@@ -621,6 +717,28 @@ class FlexConfig:
         shape: str = "ellipse"  # "ellipse" or "rect"
         dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
         gel_thickness: float = 4.0
+
+        def __post_init__(self):
+            if self.shape not in ("ellipse", "rect"):
+                raise ValueError(
+                    f"electrode shape must be 'ellipse' or 'rect' (was {self.shape!r})"
+                )
+            dims = list(self.dimensions)
+            if len(dims) != 2:
+                raise ValueError(
+                    "electrode dimensions must be [width, height] in mm "
+                    f"(was {self.dimensions!r})"
+                )
+            self.dimensions = [_positive(d, "electrode dimensions (mm)") for d in dims]
+            self.gel_thickness = _positive(self.gel_thickness, "gel_thickness (mm)")
+            # SimNIBS's flex electrode is a disc (one radius); the builder would
+            # refuse this only after the ROI was confirmed, so refuse it here.
+            if self.shape == "ellipse" and self.dimensions[0] != self.dimensions[1]:
+                raise ValueError(
+                    "Flex optimization supports circular electrodes only: ellipse "
+                    f"dimensions must be equal (were {self.dimensions}); select equal "
+                    "dimensions or a rectangle."
+                )
 
     # ── required ──
     subject_id: str
@@ -716,27 +834,86 @@ class FlexConfig:
                 f"goal='{self.goal.value}' with method='specific' requires a "
                 "non_roi specification"
             )
+        if (
+            self.is_focality
+            and self.non_roi_method is FlexConfig.NonROIMethod.SPECIFIC
+            and self.non_roi == self.roi
+        ):
+            # ROI and non-ROI fields are then the same samples: every candidate
+            # scores the same contrast (a ratio of 1), so the search is blind.
+            raise ValueError(
+                f"goal='{self.goal.value}': the non_roi region is identical to the "
+                "roi, so ROI and background are the same samples; pick a different "
+                "non-ROI region or non_roi_method='everything_else'"
+            )
+        # The adaptive and multi-threshold drivers set thresholds on every
+        # focality step themselves (tit.opt.flex.drivers). A config carrying
+        # their settings is such a driver config even where its mode is not
+        # spelled out: the job kind supplies it (the job manager writes
+        # mode=kind into the runner's config.json), and /api/validate, /api/plan
+        # and group planning see the body without it.
+        derived_thresholds = (
+            self.mode is not FlexConfig.Mode.FLEX
+            or self.adaptive is not None
+            or self.pareto is not None
+        )
         # The ratio search scores candidates itself, so the ROC goal can no
-        # longer lean on the thresholds SimNIBS would have supplied. Catch it
-        # here: otherwise it surfaces as a ValueError raised deep inside the
+        # longer lean on SimNIBS's own threshold handling. Catch it here:
+        # otherwise it surfaces as a ValueError raised deep inside the
         # `simnibs_python -m tit.opt.flex` child process, long after launch.
         if (
             self.optimize_current_ratio
             and self.goal is FlexConfig.OptGoal.FOCALITY
+            and not derived_thresholds
             and not _has_usable_thresholds(self.thresholds)
         ):
             raise ValueError(
                 "optimize_current_ratio=True with goal='focality' requires "
                 "explicit numeric thresholds, because the current-ratio "
-                "search scores candidates with its own ROC objective and "
-                "cannot fall back on the thresholds SimNIBS would supply "
+                "search scores candidates with its own ROC objective "
                 f"(thresholds={self.thresholds!r}). Set thresholds (e.g. "
                 "'0.1,0.2'), use goal='focality_tf' which needs none, or "
                 "set optimize_current_ratio=False."
             )
-        if self.thresholds is not None:
-            for part in self.thresholds.split(","):
-                float(part.strip())
+        # Placeholders ("", "dynamic", "auto") mean "unset": store them as None so
+        # the builder, the manifest and the report all see one spelling.
+        if _parse_thresholds(self.thresholds) is None:
+            self.thresholds = None
+        # A single ROC run has no driver deriving its thresholds, and SimNIBS has
+        # no default: TESoptimize raises "Please define TESoptimze.threshold for
+        # focality optimization!" only once the run starts, after the ROI is
+        # confirmed.
+        if (
+            self.goal is FlexConfig.OptGoal.FOCALITY
+            and not derived_thresholds
+            and self.thresholds is None
+        ):
+            raise ValueError(
+                "goal='focality' with fixed thresholds (mode='flex') requires "
+                "thresholds: one value (non-ROI max = ROI min) or two (non-ROI "
+                "max, ROI min) in V/m, e.g. '0.1,0.2'. SimNIBS has no default. "
+                "Use mode='flex_adaptive' or 'flex_pareto' to derive them, or "
+                "goal='focality_tf', which needs none."
+            )
+        self.current_mA = _positive(self.current_mA, "current_mA")
+        self.min_electrode_distance = _positive(
+            self.min_electrode_distance, "min_electrode_distance (mm)"
+        )
+        self.n_multistart = _count(self.n_multistart, "n_multistart")
+        if self.cpus is not None:
+            self.cpus = _count(self.cpus, "cpus")
+        if self.output_folder is not None:
+            from tit.paths import is_valid_name
+
+            # The folder name becomes a run name every catalog listing validates
+            # (tit.paths.NAME_RE); one that fails it hides the subject's runs.
+            run_name = os.path.basename(os.path.normpath(str(self.output_folder)))
+            if not is_valid_name(run_name):
+                raise ValueError(
+                    f"output_folder run name {run_name!r}: letters, digits, '.', "
+                    "'_', '-' and inner spaces only, not starting with '.' or a "
+                    "space, at most 128 characters"
+                )
         self.intensity_weight = float(self.intensity_weight)
         if not 0.0 <= self.intensity_weight <= 1.0:
             raise ValueError(
@@ -767,7 +944,11 @@ class FlexConfig:
             trigger = (
                 "goal='focality_tf'"
                 if self.goal is FlexConfig.OptGoal.FOCALITY_TF
-                else "optimize_current_ratio=True"
+                else (
+                    "optimize_current_ratio=True"
+                    if self.optimize_current_ratio
+                    else "observe_background=True"
+                )
             )
             raise ValueError(
                 f"detailed_results=True is not supported with {trigger}: that "

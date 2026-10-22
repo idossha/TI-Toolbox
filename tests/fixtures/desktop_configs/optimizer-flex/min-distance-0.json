@@ -70,8 +70,8 @@
     }
   ],
   "desktop": {
-    "accepts": true,
-    "reason": null
+    "accepts": false,
+    "reason": "Min distance must be greater than 0 mm."
   },
   "expect": {
     "flex_mode": "flex",

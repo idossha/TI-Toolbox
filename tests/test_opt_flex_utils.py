@@ -39,6 +39,9 @@ def _make_config(**overrides):
         roi=SphericalROI(x=-42, y=-20, z=55, radius=10),
     )
     defaults.update(overrides)
+    if defaults["goal"] == "focality":
+        # A single ROC focality run needs thresholds (SimNIBS has no default).
+        defaults.setdefault("thresholds", "0.1,0.2")
     return FlexConfig(**defaults)
 
 
@@ -457,15 +460,15 @@ class TestConfigureSubcorticalROI:
         atlas_file.write_text("fake")
 
         opt = MagicMock()
-        config = _make_config(
-            roi=SubcorticalROI(
-                atlas_path=str(atlas_file),
-                label=11,
-                atlas_space="native",  # type: ignore[arg-type]
-            ),
-        )
-
+        # Refused when the ROI is built, before configure_roi could see it.
         with pytest.raises(ValueError, match="atlas_space"):
+            config = _make_config(
+                roi=SubcorticalROI(
+                    atlas_path=str(atlas_file),
+                    label=11,
+                    atlas_space="native",  # type: ignore[arg-type]
+                ),
+            )
             configure_roi(opt, config)
 
     def test_subcortical_missing_atlas(self):

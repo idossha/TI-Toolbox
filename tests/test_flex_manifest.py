@@ -32,6 +32,9 @@ from tit.opt.flex.utils import (
 
 
 def _make_config(roi, goal="mean", postproc="max_TI", **kwargs):
+    if goal == "focality":
+        # A single ROC focality run needs thresholds (SimNIBS has no default).
+        kwargs.setdefault("thresholds", "0.1,0.2")
     return FlexConfig(
         subject_id="001",
         goal=goal,

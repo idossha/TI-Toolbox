@@ -70,8 +70,8 @@
     }
   ],
   "desktop": {
-    "accepts": true,
-    "reason": null
+    "accepts": false,
+    "reason": "Enter the E-field thresholds: one value (non-ROI max = ROI min) or two (non-ROI max, ROI min) in V/m."
   },
   "expect": {
     "flex_mode": "flex",

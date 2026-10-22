@@ -14,10 +14,15 @@ import { RoiPicker, type RoiValue } from "../_shared/roi";
 import type { EegNet } from "./api";
 import {
   type ElectrodeShape,
+  type FlexBoundKey,
   type FlexFormState,
   type NonRoiMethod,
   type FocalityMode,
+  FLEX_BOUNDS,
+  flexFieldError,
+  paretoReason,
   sweepCombinationCount,
+  thresholdsReason,
 } from "./flexConfig";
 import { flexCost } from "./cost";
 
@@ -66,6 +71,13 @@ const SHAPE_OPTIONS = [
 
 export type FlexPatch = (patch: Partial<FlexFormState>) => void;
 
+/** A bounded field's input attributes and invalid mark, read from `FLEX_BOUNDS` so the input, its
+ *  error and the row gate (`flexFormReason`) cannot drift apart. */
+function bounded(form: FlexFormState, key: FlexBoundKey) {
+  const b: { min: number; max?: number } = FLEX_BOUNDS[key];
+  return { min: b.min, max: b.max, invalid: flexFieldError(form, key) !== undefined };
+}
+
 /** Tier 1: the goal, its post-processing, and — when the goal is focal — the focality machinery. */
 export function ObjectiveSection({
   form,
@@ -99,8 +111,8 @@ export function ObjectiveSection({
           </Field>
         )}
         {isTf && (
-          <Field label="Intensity preference" help="0 optimizes mean ROI / mean non-ROI TImax without an absolute intensity preference. Increasing the weight favors stronger ROI intensity: score = mean(ROI)^(1 + weight) / mean(non-ROI).">
-            <NumberInput value={form.intensityWeight} onValueChange={(v) => onChange({ intensityWeight: v ?? 0 })} min={0} max={1} step={0.05} />
+          <Field label="Intensity preference" help="0 optimizes mean ROI / mean non-ROI TImax without an absolute intensity preference. Increasing the weight favors stronger ROI intensity: score = mean(ROI)^(1 + weight) / mean(non-ROI)." error={flexFieldError(form, "intensityWeight")}>
+            <NumberInput value={form.intensityWeight} onValueChange={(v) => onChange({ intensityWeight: v ?? 0 })} {...bounded(form, "intensityWeight")} step={0.05} />
           </Field>
         )}
         {isThreshold && (
@@ -109,17 +121,20 @@ export function ObjectiveSection({
           </Field>
         )}
         {isThreshold && form.focalityMode === "manual" && (
-          <Field label="E-field thresholds" help="One value: non-ROI max = ROI min. Two: non-ROI max, ROI min. In V/m.">
-            <TextInput value={form.manualThresholds} onChange={(e) => onChange({ manualThresholds: e.target.value })} placeholder="e.g. 0.2 or 0.2,0.5" />
+          <Field label="E-field thresholds" help="One value: non-ROI max = ROI min. Two: non-ROI max, ROI min. In V/m." error={thresholdsReason(form.manualThresholds) ?? undefined}>
+            <TextInput value={form.manualThresholds} onChange={(e) => onChange({ manualThresholds: e.target.value })} placeholder="e.g. 0.2 or 0.2,0.5" aria-invalid={thresholdsReason(form.manualThresholds) !== null || undefined} />
           </Field>
         )}
         {isThreshold && form.focalityMode === "adaptive" && (
           <>
-            <Field label="Non-ROI share" help="Percent of the achievable intensity found by a first mean-optimization run.">
-              <NumberInput value={form.adaptiveNonRoiPct} onValueChange={(v) => onChange({ adaptiveNonRoiPct: v ?? 20 })} min={1} max={99} unit="%" />
+            <Field label="Non-ROI share" help="Percent of the achievable intensity found by a first mean-optimization run." error={flexFieldError(form, "adaptiveNonRoiPct")}>
+              <NumberInput value={form.adaptiveNonRoiPct} onValueChange={(v) => onChange({ adaptiveNonRoiPct: v ?? 20 })} {...bounded(form, "adaptiveNonRoiPct")} unit="%" />
             </Field>
-            <Field label="ROI share">
-              <NumberInput value={form.adaptiveRoiPct} onValueChange={(v) => onChange({ adaptiveRoiPct: v ?? 80 })} min={1} max={99} unit="%" />
+            <Field
+              label="ROI share"
+              error={flexFieldError(form, "adaptiveRoiPct") ?? (form.adaptiveNonRoiPct >= form.adaptiveRoiPct ? "The non-ROI share must be below the ROI share." : undefined)}
+            >
+              <NumberInput value={form.adaptiveRoiPct} onValueChange={(v) => onChange({ adaptiveRoiPct: v ?? 80 })} {...bounded(form, "adaptiveRoiPct")} unit="%" />
             </Field>
           </>
         )}
@@ -128,7 +143,7 @@ export function ObjectiveSection({
             <Field label="ROI thresholds" help="Comma-separated percentages, e.g. 80 or 80,70.">
               <TextInput value={form.paretoRoiPcts} onChange={(e) => onChange({ paretoRoiPcts: e.target.value })} />
             </Field>
-            <Field label="Non-ROI thresholds" help="Comma-separated percentages, e.g. 20,30,40.">
+            <Field label="Non-ROI thresholds" help="Comma-separated percentages, e.g. 20,30,40." error={paretoReason(form) ?? undefined}>
               <TextInput value={form.paretoNonRoiPcts} onChange={(e) => onChange({ paretoNonRoiPcts: e.target.value })} />
             </Field>
           </>
@@ -158,40 +173,69 @@ export function ElectrodesSection({ form, onChange }: { form: FlexFormState; onC
       summary={`${form.electrodeShape} · ${form.dimensionWidth}×${form.dimensionHeight} mm · gel ${form.gelThickness} mm · min dist ${form.minElectrodeDistance} mm`}
     >
       <>
-        <Field label="Current" required>
-          <NumberInput value={form.currentMA} onValueChange={(v) => onChange({ currentMA: v ?? 1 })} unit="mA" min={0.1} step={0.1} />
+        <Field label="Current" required error={flexFieldError(form, "currentMA")}>
+          <NumberInput value={form.currentMA} onValueChange={(v) => onChange({ currentMA: v ?? 1 })} unit="mA" {...bounded(form, "currentMA")} step={0.1} />
         </Field>
         <Field label="Shape">
-          <SegmentedControl value={form.electrodeShape} onValueChange={(v) => onChange({ electrodeShape: v as ElectrodeShape })} options={SHAPE_OPTIONS} aria-label="Electrode shape" />
+          <SegmentedControl
+            value={form.electrodeShape}
+            // A flex electrode is a disc: switching to it keeps one diameter (the width).
+            onValueChange={(v) => onChange(v === "ellipse" ? { electrodeShape: "ellipse", dimensionHeight: form.dimensionWidth } : { electrodeShape: v as ElectrodeShape })}
+            options={SHAPE_OPTIONS}
+            aria-label="Electrode shape"
+          />
         </Field>
-        <Field label="Dimensions (x, y)" required className="optimizer-span">
-          <div style={{ display: "flex", gap: "var(--space-2)" }}>
-            <NumberInput value={form.dimensionWidth} onValueChange={(v) => onChange({ dimensionWidth: v ?? 8 })} unit="mm" min={0.1} step={0.5} aria-label="Electrode width" />
-            <NumberInput value={form.dimensionHeight} onValueChange={(v) => onChange({ dimensionHeight: v ?? 8 })} unit="mm" min={0.1} step={0.5} aria-label="Electrode height" />
-          </div>
+        {form.electrodeShape === "ellipse" ? (
+          <Field
+            label="Diameter"
+            required
+            help="Flex-search electrodes are discs (SimNIBS takes one radius)."
+            error={flexFieldError(form, "dimensionWidth") ?? (form.dimensionWidth !== form.dimensionHeight ? "Unequal ellipse dimensions are unsupported. Use equal dimensions or a rectangle." : undefined)}
+          >
+            <NumberInput value={form.dimensionWidth} onValueChange={(v) => onChange({ dimensionWidth: v ?? 8, dimensionHeight: v ?? 8 })} unit="mm" {...bounded(form, "dimensionWidth")} step={0.5} aria-label="Electrode diameter" />
+          </Field>
+        ) : (
+          <Field label="Dimensions (x, y)" required className="optimizer-span" error={flexFieldError(form, "dimensionWidth") ?? flexFieldError(form, "dimensionHeight")}>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <NumberInput value={form.dimensionWidth} onValueChange={(v) => onChange({ dimensionWidth: v ?? 8 })} unit="mm" {...bounded(form, "dimensionWidth")} step={0.5} aria-label="Electrode width" />
+              <NumberInput value={form.dimensionHeight} onValueChange={(v) => onChange({ dimensionHeight: v ?? 8 })} unit="mm" {...bounded(form, "dimensionHeight")} step={0.5} aria-label="Electrode height" />
+            </div>
+          </Field>
+        )}
+        <Field label="Gel thickness" required error={flexFieldError(form, "gelThickness")}>
+          <NumberInput value={form.gelThickness} onValueChange={(v) => onChange({ gelThickness: v ?? 4 })} unit="mm" {...bounded(form, "gelThickness")} step={0.5} />
         </Field>
-        <Field label="Gel thickness" required>
-          <NumberInput value={form.gelThickness} onValueChange={(v) => onChange({ gelThickness: v ?? 4 })} unit="mm" min={0.1} step={0.5} />
+        <Field
+          label="Min distance"
+          help="SimNIBS keeps the skin-mesh nodes under any two electrodes at least this far apart. It is not an edge-to-edge gap: the gap between two discs can be a few millimetres smaller."
+          error={flexFieldError(form, "minElectrodeDistance")}
+        >
+          <NumberInput value={form.minElectrodeDistance} onValueChange={(v) => onChange({ minElectrodeDistance: v ?? 5 })} unit="mm" {...bounded(form, "minElectrodeDistance")} step={1} />
         </Field>
-        <Field label="Min distance">
-          <NumberInput value={form.minElectrodeDistance} onValueChange={(v) => onChange({ minElectrodeDistance: v ?? 5 })} unit="mm" min={0} step={1} />
-        </Field>
-        <Field label="Current ratio" help="Search the two-channel current split alongside electrode placement.">
+        <Field label="Current ratio" help="Search the two-channel current split alongside electrode placement." error={form.optimizeCurrentRatio ? flexFieldError(form, "ratioLevels") : undefined}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
             <Checkbox checked={form.optimizeCurrentRatio} onCheckedChange={(v) => onChange({ optimizeCurrentRatio: v })} label="Optimize" />
             <NumberInput
               value={form.ratioLevels}
               onValueChange={(v) => onChange({ ratioLevels: v ?? 21 })}
-              min={2}
-              max={51}
+              {...bounded(form, "ratioLevels")}
+              invalid={form.optimizeCurrentRatio && flexFieldError(form, "ratioLevels") !== undefined}
               step={1}
               disabled={!form.optimizeCurrentRatio}
               aria-label="Ratio levels"
             />
           </div>
         </Field>
-        <Field label="Ratio total current" help="Blank = 2 × electrode current (the 1:1 split stays in range).">
-          <NumberInput value={form.ratioTotalMA} onValueChange={(v) => onChange({ ratioTotalMA: v })} unit="mA" min={0.1} step={0.1} disabled={!form.optimizeCurrentRatio} />
+        <Field label="Ratio total current" help="Blank = 2 × electrode current (the 1:1 split stays in range)." error={form.optimizeCurrentRatio ? flexFieldError(form, "ratioTotalMA") : undefined}>
+          <NumberInput
+            value={form.ratioTotalMA}
+            onValueChange={(v) => onChange({ ratioTotalMA: v })}
+            unit="mA"
+            {...bounded(form, "ratioTotalMA")}
+            invalid={form.optimizeCurrentRatio && flexFieldError(form, "ratioTotalMA") !== undefined}
+            step={0.1}
+            disabled={!form.optimizeCurrentRatio}
+          />
         </Field>
       </>
     </FormSection>
@@ -208,8 +252,8 @@ export function SolverSection({ form, onChange, eegNets }: { form: FlexFormState
       summary={`DE · pop ${form.populationSize} · ${form.maxIterations} iter · tol ${form.tolerance}`}
     >
       <>
-        <Field label="Optimization runs" help="Higher values increase the chance of finding the global optimum but take longer.">
-          <NumberInput value={form.nMultistart} onValueChange={(v) => onChange({ nMultistart: v ?? 1 })} min={1} max={20} step={1} />
+        <Field label="Optimization runs" help="Higher values increase the chance of finding the global optimum but take longer." error={flexFieldError(form, "nMultistart")}>
+          <NumberInput value={form.nMultistart} onValueChange={(v) => onChange({ nMultistart: v ?? 1 })} {...bounded(form, "nMultistart")} step={1} />
         </Field>
         <Field label="Max iterations">
           <NumberInput value={form.maxIterations} onValueChange={(v) => onChange({ maxIterations: v ?? 500 })} min={50} max={2000} step={10} />
