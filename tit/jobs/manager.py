@@ -131,6 +131,10 @@ class JobManager:
         self._samplers: dict[str, ResourceSampler] = {}
         self._last_sample_ts: dict[str, float] = {}
         self._cancelled: set[str] = set()
+        #: Succeeded jobs deleted while queued jobs still named them in ``after``. Their success
+        #: still satisfies those dependants (see delete()); queued jobs never outlive a restart,
+        #: so this needs no persistence.
+        self._deleted_succeeded: dict[str, JobStatus] = {}
         #: Non-terminal jobs found in the store at start(), i.e. left over from a previous
         #: server life -- reconciled once, before the first tick (see _reconcile_all).
         self._stranded: list[str] = []
@@ -150,9 +154,11 @@ class JobManager:
     def start(self) -> None:
         if self._started:
             return
+        # Prune first: records retention removes must never be loaded (and listed, with no log
+        # behind them) for the rest of this server life.
+        self.registry.prune()
         self._load_existing()
         locks.reconcile(self.project_dir)
-        self.registry.prune()
         # Only now: a store that could not be read must leave start() retryable, never a
         # manager that reports itself started while no loop exists to admit jobs.
         self._started = True
@@ -742,6 +748,15 @@ class JobManager:
                 return "not_terminal"
             # Keep the in-memory record if persistent deletion fails, so it can be retried.
             self.registry.delete(job_id)
+            if status.state == "succeeded" and any(
+                job_id in spec.after
+                and self._status.get(other_id) is not None
+                and self._status[other_id].state not in TERMINAL_STATES
+                for other_id, spec in self._specs.items()
+            ):
+                # Forgetting the record must not turn a satisfied dependency into an unknown
+                # one: the scheduler would skip the dependants it already let through.
+                self._deleted_succeeded[job_id] = status
             del self._status[job_id]
             self._specs.pop(job_id, None)
             self._tailers.pop(job_id, None)
@@ -822,6 +837,9 @@ class JobManager:
                 if status is not None and status.state == "running":
                     running_cost = running_cost + spec.cost
             status_view = dict(self._status)
+            # Deleted succeeded dependencies still satisfy `after`; they are succeeded, so they
+            # never count as running and are never queued (product rule, cascade skip).
+            dependency_view = {**self._deleted_succeeded, **status_view}
 
         current_holders = locks.holders(self.project_dir)
         # RUN-03: an admitted job holds its locks from the instant it is admitted, not from
@@ -861,7 +879,7 @@ class JobManager:
                 spec.cost = Cost(spec.cost.cpus, budget.mem_gb)
             decision = scheduler.evaluate(
                 spec,
-                status_view,
+                dependency_view,
                 current_holders,
                 running_cost=running_cost,
                 budget=budget,

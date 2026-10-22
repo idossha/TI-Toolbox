@@ -48,6 +48,23 @@ def _storage_path(project_dir: str, path: str) -> str:
         raise PermissionError("Job storage path escapes the project directory") from exc
 
 
+def _instant(stamp: Any) -> float | None:
+    """POSIX time of an ISO-8601 *stamp*, ``None`` if unreadable.
+
+    A naive stamp is UTC: every time the store writes is UTC (``tit.jobs.spec.utcnow_iso``), so
+    reading one in the machine's local zone would shift retention by hours.
+    """
+    import datetime as _dt
+
+    try:
+        parsed = _dt.datetime.fromisoformat(stamp)
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_dt.timezone.utc)
+    return parsed.timestamp()
+
+
 def expired(
     finished: list[tuple[str, str, str | None]],
     *,
@@ -62,18 +79,20 @@ def expired(
     Shared by the job registry (:meth:`JobRegistry.prune`) and the agent proposals
     (:func:`tit.server.proposals.prune`), so both keep the same history.
     """
-    import datetime as _dt
-
     now = now if now is not None else time.time()
     cutoff = now - keep_days * 86400
-    ordered = sorted(finished, key=lambda item: item[1])  # oldest first
+
+    def oldest_first(item: tuple[str, str, str | None]) -> tuple[int, float]:
+        # By instant, not by string: "+05:00", "Z" and fractional seconds do not sort as
+        # text. A created_at that cannot be read sorts first (oldest).
+        created = _instant(item[1])
+        return (0, 0.0) if created is None else (1, created)
+
+    ordered = sorted(finished, key=oldest_first)
     removed: list[str] = []
     for record_id, created_at, finished_at in ordered:
-        try:
-            ts = _dt.datetime.fromisoformat(finished_at or created_at).timestamp()
-        except (TypeError, ValueError):
-            ts = now
-        if ts < cutoff:
+        ts = _instant(finished_at or created_at)
+        if ts is not None and ts < cutoff:
             removed.append(record_id)
     remaining = [item[0] for item in ordered if item[0] not in removed]
     overflow = len(remaining) - keep_count
