@@ -108,11 +108,12 @@ N_NODES = 120
 PLANTED = slice(40, 71)  # 31 neighbouring vertices on the chain
 
 
-def _chain(n: int):
-    import scipy.sparse as sparse
-
-    ones = np.ones(n - 1)
-    return sparse.diags([ones, ones], [-1, 1], shape=(n, n)).tocsr()
+def _chain(n: int) -> np.ndarray:
+    """Vertex i touches i-1 and i+1. Dense on purpose: ``connected_components`` accepts it, and
+    a ``scipy.sparse`` matrix built here can fail its sparse-class check when another module
+    imported scipy before the ``real_scipy`` fixture re-imported it (full-suite order).
+    """
+    return np.eye(n, k=1) + np.eye(n, k=-1)
 
 
 @pytest.fixture()
