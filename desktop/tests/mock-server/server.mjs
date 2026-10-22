@@ -3535,20 +3535,24 @@ route("POST", "/api/jobs", async (ctx) => {
     }
   }
   const job = createJob({ kind: body.kind, config: body.config, subject_ids: body.subject_ids ?? [], after: body.after ?? [], tags: body.tags ?? [], overwrite: !!body.overwrite });
-  recordBody(body.kind, body.config);
+  recordBody(ctx.req, body.kind, body.config, body.subject_ids);
   json(ctx.res, 201, job.status);
 });
-// TIT_E2E_BODIES_LOG=<file>: every config an accepted submission creates a job from is appended
-// as one JSON line {kind, config}, so `tests/test_e2e_recorded_bodies.py` can hand each to the
-// real Python dataclass validators after a mock e2e run. The mock checks only `required` fields;
-// a page that bypasses or post-edits its builder would otherwise stay green here and be refused
-// (or crash a runner) on the real server. The `__mock_*` jobs are this mock's own, never a page's.
+// TIT_E2E_BODIES_LOG=<file>: every config the real server would validate for an accepted
+// submission is appended as one JSON line {kind, config, subject_ids, via}, so
+// `tests/test_e2e_recorded_bodies.py` can hand each to the real Python dataclass validators after
+// a mock e2e run. The mock checks only `required` fields; a page that bypasses or post-edits its
+// builder would otherwise stay green here and be refused (or crash a runner) on the real server.
+// `via` is "app" for a request the renderer made (Chromium sends Sec-Fetch-Mode) and "api" for
+// one a spec posted itself through Playwright's request context to seed the jobs list. The
+// `__mock_*` jobs are this mock's own, never a page's.
 const BODIES_LOG = process.env.TIT_E2E_BODIES_LOG ?? "";
-function recordBody(kind, config) {
+function recordBody(req, kind, config, subjectIds) {
   if (!BODIES_LOG) return;
   const cfg = config && typeof config === "object" ? config : {};
   if (Object.keys(cfg).some((k) => k.startsWith("__mock_"))) return;
-  appendFileSync(BODIES_LOG, JSON.stringify({ kind, config: cfg }) + "\n");
+  const via = req.headers["sec-fetch-mode"] ? "app" : "api";
+  appendFileSync(BODIES_LOG, JSON.stringify({ kind, config: cfg, subject_ids: subjectIds ?? [], via }) + "\n");
 }
 // Mirrors tit.jobs.plans.plan_preprocessing's G1..G6 stage DAG (own dependency comments there):
 // each stage is only planned when its PreprocessConfig flag is set, every stage job's config is
@@ -3621,7 +3625,8 @@ route("POST", "/api/jobs/groups", async (ctx) => {
         );
       }
     }
-    for (const job of created) recordBody(body.kind, job.spec.config);
+    // The real `plan_per_subject` round-trips each generated config through its dataclass.
+    for (const job of created) recordBody(ctx.req, body.kind, job.spec.config, job.status.subject_ids);
     return json(ctx.res, 201, { group_id: groupId, jobs: created.map((j) => j.status) });
   }
 
@@ -3638,7 +3643,9 @@ route("POST", "/api/jobs/groups", async (ctx) => {
       created.push(job);
     }
   }
-  for (const job of created) recordBody("pre", job.spec.config);
+  // The real route deserialises the group's own config once (`_plan_pre_group`), before staging;
+  // the per-stage configs above are this mock's construction, not the page's.
+  recordBody(ctx.req, "pre", body.config, subjectIds);
   json(ctx.res, 201, { group_id: groupId, jobs: created.map((j) => j.status) });
 });
 route("GET", "/api/jobs/:id", (ctx) => {
