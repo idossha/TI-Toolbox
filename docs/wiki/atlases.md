@@ -531,16 +531,24 @@ INFO | tit.analyzer | Resampling aparc.DKTatlas+aseg.mgz: (256, 256, 256) -> (25
   border: 1px solid #e2e2e2;
   border-radius: 4px;
 }
+/* The global `table` rule (style.scss) makes a table a block that hugs its
+   content and scrolls on its own. Here the box above is the one scroll
+   container: the table fills it, and the sticky header sticks to it instead of
+   to a table that never scrolls vertically. */
 .atlas-table-scroll table {
+  display: table;
+  width: 100%;
+  max-width: none;
   margin: 0;
   border: 0;
+  overflow: visible;
 }
 .atlas-table-scroll thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #fff;
-  box-shadow: inset 0 -1px 0 #e2e2e2;
+  background: var(--color-surface);
+  box-shadow: inset 0 -1px 0 var(--color-border);
 }
 .atlas-swatch {
   display: inline-block;
