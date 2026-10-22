@@ -257,3 +257,118 @@ def test_blank_ex_run_names_are_timestamp_previews_and_not_compared(client, proj
     response = _group(client, "ex", [("ernie", c) for c in configs])
     assert response.status_code == 201, response.text
     assert len(response.json()["jobs"]) == 2
+
+
+def test_a_shared_folder_already_on_disk_is_refused_as_shared_not_asked_about(
+    client, project
+):
+    """The 422 comes before the 409 question: no answer to "replace what is on disk?" makes two
+    jobs into one folder safe, so the user must not be offered that answer."""
+    folder = project / "derivatives" / "SimNIBS" / "sub-ernie" / "Simulations" / "M"
+    folder.mkdir(parents=True)
+    (folder / "TI.msh").write_bytes(b"x")
+    # One job into the existing folder is the overwrite question (409), so the folder is live.
+    single = _group(client, "sim", [("ernie", _sim("ernie", "M", [1.0, 1.0]))])
+    assert single.status_code == 409, single.text
+
+    response = _group(
+        client,
+        "sim",
+        [
+            ("ernie", _sim("ernie", "M", [1.0, 1.0])),
+            ("ernie", _sim("ernie", "M", [2.0, 2.0])),
+        ],
+    )
+    assert response.status_code == 422, response.text
+    assert str(folder) in response.json()["detail"]
+    assert _job_count(client) == 0
+
+
+def _flex(sid: str, output_folder: str | None) -> dict:
+    """A flex search the server accepts for a seeded subject (subject-space sphere target)."""
+    return {
+        "subject_id": sid,
+        "goal": "mean",
+        "postproc": "max_TI",
+        "current_mA": 1.0,
+        "electrode": {"shape": "ellipse", "dimensions": [8, 8], "gel_thickness": 4},
+        "roi": {
+            "_type": "SphericalROI",
+            "x": [-30.0],
+            "y": [10.0],
+            "z": [5.0],
+            "radius": [10.0],
+            "use_mni": False,
+            "volumetric": False,
+            "tissues": "GM",
+        },
+        "skin_region_margin_mm": 0,
+        "output_folder": output_folder,
+    }
+
+
+def test_flex_searches_without_a_folder_are_timestamp_previews_and_not_compared(
+    client, monkeypatch
+):
+    """Both plans preview the same timestamp folder (here pinned, as within one second); each
+    run picks its own when it starts, so two agreeing previews prove nothing."""
+    monkeypatch.setattr(
+        "tit.opt.flex.utils.generate_run_dirname", lambda base: "20261022_000000"
+    )
+    response = _group(
+        client,
+        "flex",
+        [("ernie", _flex("ernie", None)), ("ernie", _flex("ernie", None))],
+    )
+    assert response.status_code == 201, response.text
+    assert len(response.json()["jobs"]) == 2
+
+
+def test_two_flex_searches_into_one_named_folder_are_refused(client, project):
+    folder = project / "derivatives" / "SimNIBS" / "sub-ernie" / "flex-search" / "run_a"
+    response = _group(
+        client,
+        "flex",
+        [
+            ("ernie", _flex("ernie", str(folder))),
+            ("ernie", _flex("ernie", str(folder))),
+        ],
+    )
+    assert response.status_code == 422, response.text
+    assert str(folder) in response.json()["detail"]
+    assert _job_count(client) == 0
+
+
+def test_an_approved_proposal_step_with_two_jobs_into_one_folder_queues_nothing(
+    client, project
+):
+    """The proposal engine queues an approved step through the same group check: a step that
+    names one subject twice is two identical simulations into one folder."""
+    montage = _sim("ernie", "M", [1.0, 1.0])["montages"][0]
+    created = client.post(
+        "/api/proposals",
+        headers=BEARER,
+        json={
+            "title": "Simulate M twice",
+            "steps": [
+                {
+                    "id": "sim",
+                    "kind": "sim",
+                    "config": {"montages": [montage], "intensities": [1.0, 1.0]},
+                    "subject_ids": ["ernie", "ernie"],
+                }
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    approved = client.post(
+        f"/api/proposals/{created.json()['id']}/approve", headers=BEARER
+    )
+    assert approved.status_code == 200, approved.text
+    [step] = approved.json()["steps"]
+    folder = project / "derivatives" / "SimNIBS" / "sub-ernie" / "Simulations" / "M"
+    assert step["state"] == "error"
+    assert "would write the same folder" in step["error"]
+    assert str(folder) in step["error"]
+    assert step["job_ids"] == []
+    assert _job_count(client) == 0
