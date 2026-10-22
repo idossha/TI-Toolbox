@@ -53,10 +53,15 @@ tit.opt.flex.__main__ : Dispatches to these by ``FlexConfig.mode``.
 from __future__ import annotations
 
 import copy
+import logging
 import math
 import os
 
 from tit.opt.config import FlexConfig, FlexResult
+
+#: The mean calibration run of both drivers, nested in the job's own run folder: a job is one
+#: Results entry and writes one report, about a folder that still exists afterwards.
+MEAN_CALIBRATION = "mean_calibration"
 
 
 def _achievable_intensity(result: FlexResult) -> float:
@@ -106,6 +111,41 @@ def _step_config(
     return step
 
 
+def _job_folder(config: FlexConfig) -> str:
+    """The job's run folder: ``config.output_folder``, or a new ``flex-search/<timestamp>``."""
+    if config.output_folder:
+        folder = config.output_folder
+    else:
+        from tit.opt.flex.utils import generate_run_dirname
+        from tit.paths import get_path_manager
+
+        flex_root = get_path_manager().flex_search(config.subject_id)
+        os.makedirs(flex_root, exist_ok=True)
+        folder = os.path.join(flex_root, generate_run_dirname(flex_root))
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def _calibrate(config: FlexConfig, folder: str) -> FlexResult:
+    """The ``"mean"`` calibration run, in ``<folder>/mean_calibration``, without a report of its
+    own unless it fails (then that report is the job's one record of why it stopped)."""
+    from tit.opt.flex.flex import _write_report, run_flex_search
+
+    step = _step_config(
+        config,
+        goal=FlexConfig.OptGoal.MEAN,
+        output_folder=os.path.join(folder, MEAN_CALIBRATION),
+    )
+    result = run_flex_search(step, report=False)
+    if not result.success:
+        _write_report(step, result.output_folder, _logger(config))
+    return result
+
+
+def _logger(config: FlexConfig) -> logging.Logger:
+    return logging.getLogger(f"tit.opt.flex.{config.subject_id}")
+
+
 def run_adaptive_focality(config: FlexConfig) -> FlexResult:
     """Run step 1 (mean) then step 2 (focality with adaptive thresholds).
 
@@ -117,6 +157,11 @@ def run_adaptive_focality(config: FlexConfig) -> FlexResult:
         :meth:`FlexConfig.__post_init__`); ``config.adaptive`` supplies
         *roi_percentage*/*nonroi_percentage* (defaulted to 80/20 if
         ``None``).
+
+    Both steps write into the job's one run folder (``config.output_folder``
+    or a new timestamped one): the mean calibration in its
+    ``mean_calibration/`` subfolder without a report, the focality run in
+    the folder itself with the job's report.
 
     Returns
     -------
@@ -136,9 +181,10 @@ def run_adaptive_focality(config: FlexConfig) -> FlexResult:
     from tit.opt.flex.flex import run_flex_search
 
     adaptive = config.adaptive or FlexConfig.AdaptiveFocalityConfig()
+    folder = _job_folder(config)
 
     events.emit_stage("mean_optimization", i=0, n=2)
-    mean_result = run_flex_search(_step_config(config, goal=FlexConfig.OptGoal.MEAN))
+    mean_result = _calibrate(config, folder)
     events.emit_progress(50.0)
     if not mean_result.success:
         return mean_result
@@ -153,7 +199,7 @@ def run_adaptive_focality(config: FlexConfig) -> FlexResult:
             config,
             goal=FlexConfig.OptGoal.FOCALITY,
             thresholds=f"{nonroi_threshold:.4f},{roi_threshold:.4f}",
-            output_folder=config.output_folder,
+            output_folder=folder,
         )
     )
     events.emit_progress(100.0)
@@ -166,7 +212,11 @@ def run_pareto_sweep(config: FlexConfig) -> FlexResult:
     Persists ``pareto_results.json`` and a scatter-plot PNG under the
     sweep's base output folder (:func:`tit.opt.flex.pareto.save_results`),
     which also promotes the best-scoring point's optimizer output into
-    that folder and removes the per-point numbered subdirectories.
+    that folder, records the sweep in its ``flex_meta.json`` (``pareto``)
+    and removes the per-point numbered subdirectories. The mean
+    calibration runs in ``mean_calibration/``; the points and the
+    calibration write no report, the sweep folder gets the job's one.
+    A previous run's outputs in the base folder are removed first.
 
     Parameters
     ----------
@@ -198,7 +248,7 @@ def run_pareto_sweep(config: FlexConfig) -> FlexResult:
     """
     from tit.jobs import events
 
-    from tit.opt.flex.flex import run_flex_search
+    from tit.opt.flex.flex import _write_report, clear_previous_run, run_flex_search
     from tit.opt.flex.pareto import (
         ParetoSweepConfig as _InternalParetoConfig,
         ParetoSweepResult,
@@ -206,24 +256,16 @@ def run_pareto_sweep(config: FlexConfig) -> FlexResult:
         compute_sweep_grid,
         save_results,
     )
-    from tit.opt.flex.utils import generate_run_dirname
-    from tit.paths import get_path_manager
 
     pareto = config.pareto or FlexConfig.ParetoSweepConfig()
-
-    pm = get_path_manager()
-    flex_root = pm.flex_search(config.subject_id)
-    os.makedirs(flex_root, exist_ok=True)
-    base_folder = config.output_folder or os.path.join(
-        flex_root, generate_run_dirname(flex_root)
-    )
-    os.makedirs(base_folder, exist_ok=True)
+    base_folder = _job_folder(config)
+    clear_previous_run(base_folder, _logger(config))
 
     n_points = len(pareto.roi_pcts) * len(pareto.nonroi_pcts)
     total_steps = n_points + 1
 
     events.emit_stage("mean_optimization", i=0, n=total_steps)
-    mean_result = run_flex_search(_step_config(config, goal=FlexConfig.OptGoal.MEAN))
+    mean_result = _calibrate(config, base_folder)
     events.emit_progress(100.0 / total_steps)
     if not mean_result.success:
         return FlexResult(
@@ -252,7 +294,10 @@ def run_pareto_sweep(config: FlexConfig) -> FlexResult:
         )
         os.makedirs(point.output_folder, exist_ok=True)
         point.status = "running"
-        point_result = run_flex_search(build_focality_config(config, point))
+        # A point's own report would name its folder, which save_results removes.
+        point_result = run_flex_search(
+            build_focality_config(config, point), report=False
+        )
         if point_result.success:
             point.focality_score = point_result.best_value
             point.status = "done"
@@ -263,6 +308,7 @@ def run_pareto_sweep(config: FlexConfig) -> FlexResult:
     json_path, plot_path = save_results(sweep_result, base_folder)
     events.emit_artifact(json_path, kind="json", label="pareto_results")
     events.emit_artifact(plot_path, kind="png", label="pareto_sweep_plot")
+    _write_report(config, base_folder, _logger(config))
 
     done = [p for p in points if p.status == "done" and p.focality_score is not None]
     best_value = 0.0

@@ -254,6 +254,7 @@ def build_pareto_manifest_data(result: ParetoSweepResult) -> dict:
     if done:
         best = min(done, key=lambda p: p.focality_score)
         best_point = {
+            "run_index": best.run_index,
             "roi_pct": best.roi_pct,
             "nonroi_pct": best.nonroi_pct,
             "focality_score": best.focality_score,
@@ -266,6 +267,7 @@ def build_pareto_manifest_data(result: ParetoSweepResult) -> dict:
         "best_point": best_point,
         "points": [
             {
+                "run_index": p.run_index,
                 "roi_pct": p.roi_pct,
                 "nonroi_pct": p.nonroi_pct,
                 "roi_threshold_vm": p.roi_threshold,
@@ -366,7 +368,14 @@ def _promote_best_run(result: ParetoSweepResult, base_folder: str) -> str | None
     """Copy the best run's optimizer output into *base_folder* and delete numbered subdirs.
 
     The "best" run is the one with the most negative ``focality_score`` (i.e.
-    ``min(focality_score)``).
+    ``min(focality_score)``) across *all* threshold pairs. Decision (2026-10-22): the sweep
+    promotes one montage, so it needs one rule, and this is it; ROC scores at different
+    thresholds score different things, so the report lists every pair's thresholds and score
+    beside the promoted one rather than calling it best in an absolute sense.
+
+    Every point's ``candidate_history`` is kept as ``candidate_history/point_NNN`` (NNN =
+    ``run_index``), which the base manifest's ``pareto.best_point.run_index`` names for the
+    promoted point.
 
     Args:
         result: The completed sweep result.
@@ -435,6 +444,18 @@ def save_results(result: ParetoSweepResult, output_folder: str) -> tuple:
 
     # Promote best run's files and clean up numbered subdirs
     _promote_best_run(result, output_folder)
+
+    # The promoted flex_meta.json is the best point's; record the sweep it came from, so the
+    # folder describes itself (catalog, report) as a sweep and not as one focality run.
+    meta_path = os.path.join(output_folder, "flex_meta.json")
+    if os.path.isfile(meta_path):
+        from tit.logger import json_finite
+
+        with open(meta_path) as f:
+            meta = json.load(f)
+        meta["pareto"] = build_pareto_manifest_data(result)
+        with open(meta_path, "w") as f:
+            json.dump(json_finite(meta), f, indent=2, allow_nan=False)
 
     json_path = os.path.join(output_folder, "pareto_results.json")
     plot_path = os.path.join(output_folder, "pareto_sweep_plot.png")

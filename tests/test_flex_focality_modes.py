@@ -108,7 +108,7 @@ def _run_desktop_job(
 
     runs: list[tuple[str, object]] = []
 
-    def fake_run_flex_search(config):
+    def fake_run_flex_search(config, *, report=True):
         from tit.opt.flex.builder import build_optimization
 
         opt = build_optimization(config)

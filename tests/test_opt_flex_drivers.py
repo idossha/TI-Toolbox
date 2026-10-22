@@ -57,6 +57,13 @@ def _flex_result(best_value, success=True, output_folder="/out"):
 
 @pytest.mark.unit
 class TestRunAdaptiveFocality:
+    @pytest.fixture(autouse=True)
+    def _job_folder_root(self, tmp_path):
+        """The driver names the job's folder up front (its mean calibration nests in it)."""
+        pm = type("FakePM", (), {"flex_search": lambda self, sid: str(tmp_path)})()
+        with patch("tit.paths.get_path_manager", return_value=pm):
+            yield
+
     def test_two_step_sequence_and_thresholds(self):
         config = _make_config(mode="flex_adaptive")
         assert config.adaptive == FlexConfig.AdaptiveFocalityConfig(
