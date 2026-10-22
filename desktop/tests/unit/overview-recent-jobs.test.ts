@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * `pages/overview/recentModel.ts` — the Overview's "Recent jobs" row model.
  *
@@ -5,7 +6,11 @@
  * is worse than no row, so "which jobs go to Results" is asserted kind by kind rather than
  * described in a comment.
  */
-import { describe, expect, it } from "vitest";
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { MemoryRouter, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobStatus } from "../../src/renderer/app/jobs-rail/api";
 import {
   RECENT_JOBS_LIMIT,
@@ -15,8 +20,33 @@ import {
   relativeTime,
   runNameOf,
 } from "../../src/renderer/pages/overview/recentModel";
+import { RecentJobs } from "../../src/renderer/pages/overview/RecentJobs";
+import { useSubjectSpine } from "../../src/renderer/app/subjectSpine";
+import { clearSubjectPages, readStoredSubject, useSubjectContext } from "../../src/renderer/app/subjectContext";
+import { RESULTS_ROW_STATE } from "../../src/renderer/pages/results/useOutputs";
+import { GROUP_SUBJECT } from "../../src/renderer/pages/results/outputsTree";
 
 const NOW = Date.parse("2026-09-17T12:00:00Z");
+
+/** The jobs the mocked `/ws/jobs` store holds for the rendered section below. */
+const jobsStore = vi.hoisted(() => ({ all: [] as unknown[] }));
+vi.mock("../../src/renderer/app/jobs-rail/model", async (original) => ({
+  ...(await original<object>()),
+  useJobsModel: () => ({
+    all: jobsStore.all,
+    active: [],
+    runningCount: 0,
+    now: Date.parse("2026-09-17T12:00:00Z"),
+    isLoading: false,
+    isRefetching: false,
+    error: null,
+    refetch: () => {},
+  }),
+}));
+vi.mock("../../src/renderer/api/client", async (original) => ({
+  ...(await original<object>()),
+  getProject: vi.fn(async () => ({ name: "example", container_path: "/mnt/example", host_path: null })),
+}));
 
 function job(patch: Partial<JobStatus> = {}): JobStatus {
   return {
@@ -146,5 +176,95 @@ describe("recentJobRows", () => {
 
   it("labels a job with no subject as project work", () => {
     expect(recentJobRows([job({ subject_ids: [] })], NOW)[0]!.subjects).toBe("project");
+  });
+});
+
+// The section's click, followed through the real subject spine (`app/subjectSpine.ts`): the spine
+// adopts a link's `state.subject` as the shell's subject and the project's remembered one. `Group`
+// is a Results row, not a subject, so following a group job must leave both on the subject that
+// was open, while a per-subject job still re-scopes them to its subject.
+describe("RecentJobs, followed through the subject spine", () => {
+  // This jsdom's localStorage is a partial shim; the spine's store swallows its errors, so a real
+  // in-memory one keeps a broken write from passing as "nothing remembered".
+  const stored = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => stored.get(k) ?? null,
+      setItem: (k: string, v: string) => void stored.set(k, String(v)),
+      removeItem: (k: string) => void stored.delete(k),
+      clear: () => stored.clear(),
+      key: (i: number) => [...stored.keys()][i] ?? null,
+      get length() {
+        return stored.size;
+      },
+    },
+  });
+  (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+  let container: HTMLDivElement;
+  let root: Root;
+  let at: { pathname: string; search: string; state: Record<string, unknown> | null };
+
+  function Probe() {
+    useSubjectSpine();
+    const l = useLocation();
+    at = { pathname: l.pathname, search: l.search, state: l.state as Record<string, unknown> | null };
+    return null;
+  }
+
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 10; i++) await act(async () => await new Promise((r) => setTimeout(r, 5)));
+  }
+
+  /** Overview with `subject` open, then a click on `row`'s Recent jobs entry. */
+  async function follow(row: JobStatus, subject: string): Promise<void> {
+    jobsStore.all = [row];
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    act(() =>
+      root.render(
+        createElement(
+          QueryClientProvider,
+          { client },
+          createElement(MemoryRouter, { initialEntries: ["/overview"] }, createElement(Probe), createElement(RecentJobs)),
+        ),
+      ),
+    );
+    await settle();
+    act(() => useSubjectContext.getState().setSubject(subject));
+    await settle();
+    // The spine has published the open subject before the click: the starting point is real.
+    expect(at.search).toBe(`?subject=${subject}`);
+    expect(readStoredSubject("example")).toBe(subject);
+    await act(async () => container.querySelector<HTMLButtonElement>(`[data-testid="overview-recent-${row.id}"]`)!.click());
+    await settle();
+    expect(at.pathname).toBe("/results");
+  }
+
+  beforeEach(() => {
+    stored.clear();
+    act(() => clearSubjectPages());
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("opens a group job on Results' Group row and leaves the open subject, and the remembered one, alone", async () => {
+    await follow(job({ id: "g1", kind: "stats", subject_ids: ["101", "LA", "ernie"] }), "ernie");
+    expect(at.state?.[RESULTS_ROW_STATE]).toBe(GROUP_SUBJECT);
+    expect(useSubjectContext.getState().subjectId).toBe("ernie");
+    expect(at.search).toBe("?subject=ernie");
+    expect(readStoredSubject("example")).toBe("ernie");
+  });
+
+  it("re-scopes the shell to a per-subject job's subject", async () => {
+    await follow(job({ id: "s1", kind: "sim", subject_ids: ["101"] }), "ernie");
+    expect(useSubjectContext.getState().subjectId).toBe("101");
+    expect(at.search).toBe("?subject=101");
+    expect(readStoredSubject("example")).toBe("101");
   });
 });

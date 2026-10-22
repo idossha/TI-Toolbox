@@ -15,7 +15,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { connectLauncher, expectPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, expectPage, expectSubject, launchElectronApp, selectSubject } from "./_helpers";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -154,6 +154,8 @@ test("a finished group-statistics job opens on Results' Group row, on the run it
   await expect.poll(() => jobState(job.id), { timeout: 60_000 }).toBe("succeeded");
 
   await connect();
+  // A subject is open before the click; following a group job must not replace it.
+  await selectSubject(page, "ernie");
   const row = page.getByTestId(`overview-recent-${job.id}`);
   await expect(row).toBeVisible({ timeout: 20_000 });
   await expect(row).toContainText("stats");
@@ -166,8 +168,17 @@ test("a finished group-statistics job opens on Results' Group row, on the run it
   await expect(page.getByTestId("results-subject-101")).toHaveAttribute("aria-selected", "false");
   await expect(page.getByTestId(`results-node-analysis:Group:stats/group_comparison/${GROUP_RUN}`)).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".results-preview-title")).toHaveText(GROUP_RUN);
-  // `Group` is a Results row, not a subject: the shell never adopts it into the address.
-  await expect(page).not.toHaveURL(/[?&]subject=Group\b/);
+  // `Group` is a Results row, not a subject: the shell keeps the subject that was open, and the
+  // project's remembered subject (`tit-subject:<project>`, `app/subjectContext.ts`) stays it too.
+  // Not `toHaveURL`: the app runs a MemoryRouter, so the document URL never moves.
+  await expectSubject(page, "ernie");
+  const remembered = () =>
+    page.evaluate(() =>
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("tit-subject:"))
+        .map((k) => localStorage.getItem(k)),
+    );
+  await expect.poll(remembered).toEqual(["ernie"]);
 });
 
 test("a job that has not finished opens the Jobs page on that job, and the row takes the keyboard", async () => {
