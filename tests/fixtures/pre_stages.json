@@ -1,0 +1,4609 @@
+[
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": []
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": false
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ }
+]
