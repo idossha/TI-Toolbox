@@ -100,10 +100,10 @@ class TestEnsureHeadlessMatplotlibBackend:
 
         # Make get_backend return a different backend
         matplotlib.get_backend.return_value = "TkAgg"
+        matplotlib.use.reset_mock()
         ensure_headless_matplotlib_backend(backend="Agg")
-        # Should NOT call matplotlib.use because backend is already different
-        # The function returns early if the current backend doesn't match
-        # (We just verify it doesn't crash)
+        # An already-selected backend is left alone: matplotlib.use is never called.
+        matplotlib.use.assert_not_called()
 
     def test_calls_matplotlib_use_when_no_backend(self):
         """When current backend is empty or matches, it should call matplotlib.use."""
@@ -633,22 +633,23 @@ class TestPlottingPackageExports:
         opts = SaveFigOptions()
         assert opts.dpi == 600
 
-    def test_function_exports_are_callable(self):
-        from tit.plotting import (
-            ensure_headless_matplotlib_backend,
-            savefig_close,
-            plot_permutation_null_distribution,
-            plot_cluster_size_mass_correlation,
-            plot_montage_distributions,
-            plot_intensity_vs_focality,
-        )
+    def test_function_exports_are_the_implementing_modules_functions(self):
+        import tit.plotting
+        from tit.plotting import _common, stats, ti_metrics
 
-        assert callable(ensure_headless_matplotlib_backend)
-        assert callable(savefig_close)
-        assert callable(plot_permutation_null_distribution)
-        assert callable(plot_cluster_size_mass_correlation)
-        assert callable(plot_montage_distributions)
-        assert callable(plot_intensity_vs_focality)
+        for module, names in (
+            (_common, ("ensure_headless_matplotlib_backend", "savefig_close")),
+            (
+                stats,
+                (
+                    "plot_permutation_null_distribution",
+                    "plot_cluster_size_mass_correlation",
+                ),
+            ),
+            (ti_metrics, ("plot_montage_distributions", "plot_intensity_vs_focality")),
+        ):
+            for name in names:
+                assert getattr(tit.plotting, name) is getattr(module, name), name
 
 
 # ============================================================================

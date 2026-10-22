@@ -103,18 +103,22 @@ class TestPreImports:
             run_tissue_analysis,
         )
 
-        # Smoke-check they are callable
+        # Each export is the function its implementing submodule defines, not a
+        # same-named stand-in (docs/wiki/scripting.md documents these three).
+        from tit.pre import structural, utils
+        from tit.pre.qsi import dti_extractor
+
+        assert run_pipeline is structural.run_pipeline
+        assert discover_subjects is utils.discover_subjects
+        assert check_m2m_exists is utils.check_m2m_exists
+        assert extract_dti_tensor is dti_extractor.extract_dti_tensor
         for fn in (
-            check_m2m_exists,
-            discover_subjects,
-            extract_dti_tensor,
             fastsurfer_available,
             run_charm,
             run_dicom_to_nifti,
-            run_pipeline,
             run_qsiprep,
             run_qsirecon,
             run_fastsurfer,
             run_tissue_analysis,
         ):
-            assert callable(fn), f"{fn!r} is not callable"
+            assert fn.__module__.startswith("tit.pre."), fn.__module__
