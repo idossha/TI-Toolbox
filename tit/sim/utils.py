@@ -37,6 +37,7 @@ tit.sim.TI : 2-pair TI post-processing that uses extract/transform helpers.
 tit.sim.mTI : N-pair mTI post-processing that uses extract/transform helpers.
 """
 
+import glob
 import json
 import logging
 import math
@@ -497,6 +498,63 @@ def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[st
     for path in dirs.values():
         os.makedirs(path, exist_ok=True)
     return dirs
+
+
+#: The folders under a montage directory that hold nothing but one run's derived outputs.
+_DERIVED_OUTPUT_DIRS = ("TI", "mTI", "fsaverage")
+#: SimNIBS's session records (``simnibs_simulation_<stamp>.mat``/``.log``): run history.
+_SESSION_RECORD_PREFIX = "simnibs_simulation_"
+
+
+def existing_result_meshes(montage_dir: str) -> list[str]:
+    """Result meshes an earlier run left in *montage_dir* (``TI/mesh`` or ``mTI/mesh``).
+
+    Parameters
+    ----------
+    montage_dir : str
+        Root output directory of one montage.
+
+    Returns
+    -------
+    list[str]
+        Sorted paths of the ``.msh`` files found; empty when there is no result.
+    """
+    return sorted(
+        path
+        for mode in ("TI", "mTI")
+        for path in glob.glob(os.path.join(montage_dir, mode, "mesh", "*.msh"))
+    )
+
+
+def clear_previous_outputs(montage_dir: str) -> None:
+    """Remove the derived outputs of earlier runs before a confirmed re-run.
+
+    Removes ``TI/``, ``mTI/`` and ``fsaverage/`` and everything in
+    ``high_Frequency/`` except SimNIBS session records, so the folder ends up
+    holding exactly what the new ``config.json`` asks for.  The run history
+    (``documentation/``, session records) and the user's ``Analyses/`` are
+    kept, and so is anything else the simulator does not write.
+
+    Parameters
+    ----------
+    montage_dir : str
+        Root output directory of one montage.
+    """
+    for name in _DERIVED_OUTPUT_DIRS:
+        path = os.path.join(montage_dir, name)
+        if os.path.isdir(path) and not os.path.islink(path):
+            shutil.rmtree(path)
+    hf_dir = os.path.join(montage_dir, "high_Frequency")
+    if not os.path.isdir(hf_dir):
+        return
+    for entry in os.listdir(hf_dir):
+        path = os.path.join(hf_dir, entry)
+        if entry.startswith(_SESSION_RECORD_PREFIX) and os.path.isfile(path):
+            continue
+        if os.path.isdir(path) and not os.path.islink(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
 
 
 # ── Montage visualization ───────────────────────────────────────────────────────────────
@@ -1025,8 +1083,11 @@ def run_simulation(
         with ``(total, total, "Complete")`` when finished.
 
     overwrite : bool, optional
-        Explicitly allow SimNIBS to rerun in the montage output directory. Defaults
-        to False; existing-result protection stays enabled unless confirmed.
+        Replace an earlier result of a montage. Defaults to False; existing-result
+        protection stays enabled unless confirmed. When set, the earlier run's
+        derived outputs (``TI/``, ``mTI/``, ``fsaverage/``, ``high_Frequency/``) are
+        removed before solving, keeping ``documentation/`` and ``Analyses/``, so the
+        folder holds exactly what the new ``config.json`` says.
 
     Returns
     -------
@@ -1044,8 +1105,10 @@ def run_simulation(
         EEG-net CSV is missing from the subject's ``eeg_positions``
         folder, or an XYZ montage holds a malformed coordinate.
     OSError
-        Raised by SimNIBS when a montage output directory already holds
-        results and *overwrite* is ``False``.
+        ``FileExistsError`` when a montage folder already holds a result mesh
+        (``TI/mesh`` or ``mTI/mesh``) and *overwrite* is ``False``; nothing in
+        that folder is written.  SimNIBS raises its own ``OSError`` when an
+        interrupted run left a session record in ``high_Frequency/``.
 
     Examples
     --------

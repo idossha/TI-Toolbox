@@ -35,7 +35,9 @@ from simnibs import run_simnibs, sim_struct
 from tit.paths import get_path_manager
 from tit.sim.config import Montage, SimulationConfig
 from tit.sim.utils import (
+    clear_previous_outputs,
     create_simulation_config_file,
+    existing_result_meshes,
     run_montage_visualization,
     setup_montage_directories,
 )
@@ -121,12 +123,23 @@ class BaseSimulation(ABC):
         ----------
         simulation_dir : str
             Root simulations directory for the subject.
+        overwrite : bool
+            Replace an earlier result of this montage.  The earlier run's
+            derived outputs are removed first (see
+            :func:`tit.sim.utils.clear_previous_outputs`), so the folder holds
+            exactly what the new ``config.json`` says.
 
         Returns
         -------
         dict
             Result dictionary with keys ``montage_name``, ``montage_type``,
             ``status``, and ``output_mesh``.
+
+        Raises
+        ------
+        FileExistsError
+            If *overwrite* is ``False`` and the montage folder already holds a
+            result mesh.  Nothing is written, ``config.json`` included.
 
         See Also
         --------
@@ -136,6 +149,19 @@ class BaseSimulation(ABC):
             self.config.subject_id,
             self.montage.name,
         )
+        # SimNIBS's own guard looks for its session record in pathfem, which
+        # _organize_files moves into documentation/, so after a completed run it
+        # never fires: the result mesh is the toolbox's own marker of a result.
+        if overwrite:
+            clear_previous_outputs(montage_dir)
+        else:
+            existing = existing_result_meshes(montage_dir)
+            if existing:
+                raise FileExistsError(
+                    f"Simulation {self.montage.name!r} already has results in "
+                    f"{montage_dir} ({os.path.basename(existing[0])}); run with "
+                    "overwrite=True to replace them."
+                )
         dirs = setup_montage_directories(montage_dir, self._simulation_mode)
         create_simulation_config_file(
             self.config, self.montage, dirs["documentation"], self.logger
