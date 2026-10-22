@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
  * verify-package.mjs — inspect a *built* TI-Toolbox desktop app and fail loudly if it is not
- * shippable. Run in the release workflow's unsigned validation job (docs/dev/RELEASE.md § 3),
- * before anything is signed, notarised or published, and locally against a `--dir` build.
+ * shippable. Run in the release workflow's unsigned `desktop-validate` job
+ * (.github/workflows/release-build.yml; the release path is docs/dev/RELEASING.md), before anything
+ * is signed, notarised or published, again on the signed rebuild in `desktop-publish`, and locally
+ * against a `--dir` build (`npm run verify:package`, docs/dev/TESTING.md "Workflows, packages and
+ * final build").
  *
  * It exists because the things that break a packaged Electron app are invisible in the source
  * tree and in `electron-vite build` output: they only show up once electron-builder has decided

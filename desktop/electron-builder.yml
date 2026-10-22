@@ -1,6 +1,7 @@
 # electron-builder config for the v3 desktop app — the RELEASE config, driven by
 # .github/workflows/release-build.yml and by `npm run package` / `package:dir` locally.
-# The release path this file serves is written up in docs/dev/RELEASE.md.
+# The release path this file serves is written up in docs/dev/RELEASING.md
+# ("A. Build and distribution modes").
 #
 # It replaces the N0.4 native-packaging spike config that used to live here (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop);
 # docs/dev/DECISIONS.md § 2026-09-03 (Native desktop research)). Three things changed, each because

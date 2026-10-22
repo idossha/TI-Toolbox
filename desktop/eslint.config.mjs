@@ -23,12 +23,4 @@ export default tseslint.config(
     files: ["scripts/**/*.{mjs,js,ts}", "tests/mock-server/**/*.mjs"],
     languageOptions: { globals: globals.node },
   },
-  {
-    // The fake Tetravox embed (desktop/tests/e2e/fixtures/fake-embed/fake-embed.js, R2 item 1) is
-    // a plain browser script served to Chromium, not bundled through Vite/tsc -- it needs
-    // `window`/`document`/`URLSearchParams` as globals the same way the mock server's own .mjs
-    // files need Node's.
-    files: ["tests/e2e/fixtures/**/*.js"],
-    languageOptions: { globals: globals.browser },
-  },
 );
