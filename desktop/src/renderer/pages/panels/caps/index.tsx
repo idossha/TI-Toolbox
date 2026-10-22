@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleDot, Upload } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
+import { EEG_NET_QUERIES } from "../../../app/jobs/invalidation";
 import { getSubjects } from "../../../api/client";
 import { useSubjectContext } from "../../../app/subjectContext";
 import { Card, CardBody, CardHeader, PageLayout } from "../../../ui/Layout";
@@ -96,6 +97,9 @@ function CapsPanel() {
       await queryClient.invalidateQueries({ queryKey: ["caps", subject] });
       await queryClient.invalidateQueries({ queryKey: ["caps-inspect", subject] });
       await queryClient.invalidateQueries({ queryKey: ["scene", "electrodes", subject] });
+      // A warp is a request, not a job, so the job-completion invalidation never sees it: refresh
+      // the Simulator's and Optimizer's net pickers here, with the list a head-model job uses.
+      await Promise.all(EEG_NET_QUERIES.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
     } catch (error) {
       if (isExistingOutputsConflict(error)) setConfirm({ names, existing: existingAmong(caps, names).length ? existingAmong(caps, names) : names });
       else notifySubmitError("Could not apply the cap.", error);
