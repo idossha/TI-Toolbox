@@ -152,9 +152,9 @@ class AnalyzerConfig:
     ------
     ValueError
         If *mode* is ``"single"`` without *subject_id*, ``"group"`` without
-        *subject_ids*, if *analysis_type* is ``"spherical"`` without a
-        *center* of three finite numbers and a positive finite *radius*, or
-        ``"cortical"``/``"subcortical"`` without *atlas*.
+        *subject_ids*, if *analysis_type* is ``"spherical"`` without both
+        *center* and *radius*, or ``"cortical"``/``"subcortical"`` without
+        *atlas*.
 
     Notes
     -----
@@ -202,8 +202,10 @@ class AnalyzerConfig:
                 raise ValueError(
                     "center and radius are required for analysis_type='spherical'"
                 )
-            # Messages name only the offending field: the validate route maps the
-            # first field name in the sentence to the form input it flags.
+            # A sphere is three finite coordinates and a positive finite radius.
+            # (Stated here, not in the class docstring: that docstring is copied
+            # into contracts/generated/config.schema.json.) Messages name only the
+            # offending field: the validate route flags the first field it finds.
             if not isinstance(self.center, (list, tuple)) or len(self.center) != 3:
                 raise ValueError(
                     f"center must be three numbers [x, y, z] in mm; got {self.center!r}"
