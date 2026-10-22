@@ -172,9 +172,11 @@ def convert_mesh_dir(
     fields : list[str] | None
         If given, only these fields are converted.
     skip_patterns : list[str] | None
-        Basenames containing any of these substrings are skipped.
-        Defaults to ``["normal"]`` (surface-only meshes have no volume
-        elements).
+        Basenames containing any of these substrings are skipped. By default
+        only basenames ending in ``_normal`` are -- the surface-only
+        ``<name>_normal.msh`` / ``<name>_mTI_normal.msh`` meshes, which have no
+        volume elements -- so a montage or subject whose name merely contains
+        "normal" is still converted.
     map_to_mni : bool
         Include MNI-space outputs (default True for standalone conversion).
     max_workers : int | None
@@ -265,8 +267,11 @@ def _collect_tasks(
     by both the subject- and MNI-space tasks (``warp_volume`` only accepts
     file paths, not in-memory meshes).
     """
-    if skip_patterns is None:
-        skip_patterns = ["normal"]
+
+    def skipped(base: str) -> bool:
+        if skip_patterns is None:
+            return base.endswith("_normal")  # the surface-only TI_normal mesh
+        return any(p in base for p in skip_patterns)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -285,7 +290,7 @@ def _collect_tasks(
     temp_paths: list[str] = []
     for fname in msh_files:
         base = os.path.splitext(fname)[0]
-        if any(p in base for p in skip_patterns):
+        if skipped(base):
             logger.debug("Skipping surface mesh: %s", fname)
             continue
 
