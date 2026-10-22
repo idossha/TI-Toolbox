@@ -25,6 +25,14 @@ const REPO = join(__dirname, "..", "..", "..");
 
 let fake: FakeEngineApi;
 
+/**
+ * Where the free-port search starts. The packaged app passes no options (8765 upwards); a random
+ * base keeps parallel vitest workers, whose fake servers really listen, from racing for 8765.
+ */
+function startOptions(): { preferredPort: number } {
+  return { preferredPort: 20000 + Math.floor(Math.random() * 30000) };
+}
+
 /** Container stop/remove/create/start requests answered since `index` (reads such as a late log follow are not actions). */
 function containerMutationsSince(index: number): string[] {
   return fake.requests.slice(index).filter((r) => /^(POST|DELETE) \/containers\//.test(r));
@@ -66,7 +74,7 @@ describe("a start whose health wait fails", () => {
     vi.stubEnv("TIT_STACK_HEALTH_TIMEOUT_MS", "200");
     const manager = new StackManager(host(async () => { throw new Error("no answer"); }));
 
-    const result = await manager.start(dir);
+    const result = await manager.start(dir, startOptions());
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining("never answered") });
     const [container] = stackContainers();
     expect(container?.running).toBe(true);
@@ -94,7 +102,7 @@ describe("stop() while start() waits for the server", () => {
     }));
     expect(manager.ownsContainer()).toBe(false);
 
-    const starting = manager.start(dir);
+    const starting = manager.start(dir, startOptions());
     await asked; // the launcher now says "Waiting for the server to answer…"
     const [container] = stackContainers();
     expect(container?.running).toBe(true);
@@ -118,7 +126,7 @@ describe("a start that succeeds", () => {
     fake = await startFakeEngineApi({ autoExit: false, serveTitServer: true, images: ["idossha/ti-toolbox:v3.1.1"] });
     vi.stubEnv("DOCKER_HOST", `unix://${fake.socketPath}`);
     const manager = new StackManager(host(async () => {}));
-    expect(await manager.start(dir)).toMatchObject({ ok: true });
+    expect(await manager.start(dir, startOptions())).toMatchObject({ ok: true });
     const [container] = stackContainers();
     expect(manager.getCurrent()?.containerId).toBe(container!.Id);
     expect(manager.ownsContainer()).toBe(true);

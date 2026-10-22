@@ -42,6 +42,14 @@ const LABEL_KEYS = Object.keys(CONTRACT.cases[0]!.expected.labels).sort();
 
 let fake: FakeEngineApi;
 
+/**
+ * Where the free-port search starts. The packaged app passes no options (8765 upwards); a random
+ * base keeps parallel vitest workers, whose fake servers really listen, from racing for 8765.
+ */
+function startOptions(): { preferredPort: number } {
+  return { preferredPort: 20000 + Math.floor(Math.random() * 30000) };
+}
+
 /** Container stop/remove/create/start requests answered since `index` (reads such as a late log follow are not actions). */
 function containerMutationsSince(index: number): string[] {
   return fake.requests.slice(index).filter((r) => /^(POST|DELETE) \/containers\//.test(r));
@@ -109,7 +117,7 @@ describe("a packaged fresh start realises docker-compose.yml", () => {
     const dir = join(root, "project");
     mkdirSync(dir);
     const manager = new StackManager(host());
-    const result = await manager.start(dir);
+    const result = await manager.start(dir, startOptions());
     expect(result).toMatchObject({ ok: true, attached: false });
     if (!result.ok) return;
     const port = Number(new URL(result.url).port);
@@ -158,7 +166,7 @@ describe("a packaged fresh start realises docker-compose.yml", () => {
     vi.stubEnv("DOCKER_HOST", `unix://${fake.socketPath}`);
     const dir = join(root, "project");
     mkdirSync(dir);
-    expect(await new StackManager(host()).start(dir)).toMatchObject({ ok: true });
+    expect(await new StackManager(host()).start(dir, startOptions())).toMatchObject({ ok: true });
     expect(fake.pulls).toEqual([]);
     expect(stackContainer().Image).toBe(`${RELEASE_IMAGE.name}:fixture-local`);
   });
@@ -169,7 +177,7 @@ describe("a packaged fresh start realises docker-compose.yml", () => {
     vi.stubEnv("TIT_SERVER_RELOAD", "1");
     const dir = join(root, "project");
     mkdirSync(dir);
-    expect(await new StackManager(host()).start(dir)).toMatchObject({ ok: true });
+    expect(await new StackManager(host()).start(dir, startOptions())).toMatchObject({ ok: true });
     const container = stackContainer();
     expect(binds(container).filter((bind) => bind.endsWith(":/ti-toolbox") || bind.includes("evil"))).toEqual([]);
     expect(envOf(container).TIT_SERVER_RELOAD).toBe("");
@@ -180,7 +188,7 @@ describe("a packaged fresh start realises docker-compose.yml", () => {
     vi.stubEnv("TIT_NO_TELEMETRY", "1");
     const dir = join(root, "project");
     mkdirSync(dir);
-    expect(await new StackManager(host()).start(dir)).toMatchObject({ ok: true });
+    expect(await new StackManager(host()).start(dir, startOptions())).toMatchObject({ ok: true });
     expect(envOf(stackContainer()).TIT_NO_TELEMETRY).toBe("1");
   });
 });
@@ -190,7 +198,7 @@ describe("host directory names", () => {
     const dir = join(root, "My Données 数据");
     mkdirSync(dir);
     const manager = new StackManager(host());
-    expect(await manager.start(dir)).toMatchObject({ ok: true });
+    expect(await manager.start(dir, startOptions())).toMatchObject({ ok: true });
     const projectBind = binds(stackContainer()).find((bind) => bind.startsWith(`${dir}:`));
     expect(projectBind).toBe(`${dir}:/mnt/My Données 数据`);
     // index.ts knownProjectRoots: the started stack's container root is /mnt/<name of its host dir>.
@@ -203,7 +211,7 @@ describe("host directory names", () => {
   it("a directory containing ':' is refused with a message naming it, before any container exists", async () => {
     const dir = join(root, "a:b");
     mkdirSync(dir);
-    const result = await new StackManager(host()).start(dir);
+    const result = await new StackManager(host()).start(dir, startOptions());
     expect(result).toMatchObject({ ok: false });
     expect(result.ok ? "" : result.error).toContain(dir);
     expect(fake.containers.size).toBe(0);
@@ -221,7 +229,7 @@ describe("stop", () => {
     const dir = join(root, "project");
     mkdirSync(dir);
     const manager = new StackManager(host());
-    expect(await manager.start(dir)).toMatchObject({ ok: true, attached: false });
+    expect(await manager.start(dir, startOptions())).toMatchObject({ ok: true, attached: false });
     const id = stackContainer().Id;
 
     const before = fake.requests.length;
