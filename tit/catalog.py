@@ -2283,8 +2283,13 @@ def _report_entry(path: str, sid: str) -> dict:
 
 
 def reports(pm: PathManager, sid: str) -> list[dict] | None:
-    """Generated HTML reports for *sid*; ``None`` if the subject is unknown."""
-    if sid not in subject_ids(pm):
+    """Generated HTML reports for *sid*; ``None`` if the subject is unknown.
+
+    A subject known only from staged DICOMs (:func:`sourcedata_only_subject_ids`) is known:
+    :func:`list_subjects` shows it, and its pre-processing report (Dataset 000's sub-102)
+    was unreachable while this answered "unknown subject" for it.
+    """
+    if sid not in subject_ids(pm) and sid not in sourcedata_only_subject_ids(pm):
         return None
     root = _jailed(pm, os.path.join(pm.reports(), f"sub-{sid}"))
     if root is None or not os.path.isdir(root):
