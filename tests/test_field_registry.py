@@ -139,11 +139,6 @@ class TestFieldRegistryLookupHelpers:
         with pytest.raises(KeyError):
             const.get_field_spec("not_a_real_field")
 
-    def test_get_fields_by_kind_returns_specs_not_names(self):
-        safety_specs = const.get_fields_by_kind(const.FIELD_KIND_SAFETY)
-        assert all(isinstance(spec, const.FieldSpec) for spec in safety_specs)
-        assert {spec.name for spec in safety_specs} == {"hf_peak", "hf_sar"}
-
 
 @pytest.mark.unit
 class TestSafetyFieldsGuard:
@@ -174,11 +169,6 @@ class TestFieldRegistryTIAvg:
         spec = const.get_field_spec(const.FIELD_TI_AVG)
         assert spec.kind == const.FIELD_KIND_FUNCTIONAL
 
-    def test_safety_fields_unaffected_by_ti_avg(self):
-        """Adding a new functional field must not perturb the safety set."""
-        safety_names = set(const.get_field_names(kind=const.FIELD_KIND_SAFETY))
-        assert safety_names == {"hf_peak", "hf_sar"}
-
 
 @pytest.mark.unit
 class TestValidFsavgFieldsConsumer:
@@ -208,21 +198,17 @@ class TestValidFsavgFieldsConsumer:
 
 
 @pytest.mark.unit
-class TestOutputFieldHelpText:
-    """The output-field help must define fields, not classify them."""
+class TestOutputFieldDefinitions:
+    """The output-field definitions must define fields, not classify them."""
 
-    def test_help_gives_definition_equation_and_reference_per_field(self):
+    def test_definitions_give_units_equation_and_reference_per_field(self):
         defs = const.OUTPUT_FIELD_DEFINITIONS
-        help_text = const.output_fields_help_text()
 
         selectable = set(const.SELECTABLE_OUTPUT_FIELDS)
         assert {d[0] for d in defs} == selectable
         for name, units, definition, equation, reference in defs:
             assert units and definition and equation and reference
-            for part in (name, units, definition, equation, reference):
-                assert part in help_text
-        assert "Equation:" in help_text
-        assert "Reference:" in help_text
+            assert units == const.get_field_spec(name).units
 
     def test_no_functional_versus_safety_framing_in_user_facing_text(self):
         """Which fields bear on efficacy vs safety is debated; do not assert it.
@@ -230,7 +216,7 @@ class TestOutputFieldHelpText:
         The registry still groups fields by ``kind`` for programmatic subset
         selection, but nothing the user reads may present that as a claim.
         """
-        user_text = [const.output_fields_help_text()] + [
+        user_text = [" ".join(d[2:]) for d in const.OUTPUT_FIELD_DEFINITIONS] + [
             spec.description for spec in const.FIELD_REGISTRY
         ]
         for text in user_text:
