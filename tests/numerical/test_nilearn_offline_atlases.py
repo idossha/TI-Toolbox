@@ -14,33 +14,42 @@ for every key of :data:`tit.plotting.nilearn.atlases.ATLASES`:
 4. it has the published number of regions: Harvard-Oxford cortical 48 and subcortical 21
    (FSL's atlas XML), Schaefer 2018 100 parcels (the 100-parcel release), AAL3v2 at least
    166 non-zero labels (Rolls et al. 2020: 170 labels, four of them empty);
-5. ``NilearnVisualizer._load_atlas(key)`` returns an image and prints no "skipped".
+5. ``NilearnVisualizer._load_atlas(key)`` returns that same file and prints no "skipped".
 
 And the cache itself: no empty directory survived the prune (a fetch would try to delete
 it, a write), and loading every atlas writes nothing under it (paths and mtimes compared),
 so a read-only cache cannot matter. Jobs run as root in the image, where ``os.access``
 always says writable; the literal not-writable check runs only for a non-root user.
 
+Why a subprocess: ``tests/conftest.py`` mocks nilearn, pandas, joblib and sklearn in this
+interpreter, and real nilearn imports real pandas. Swapping pandas in and out of
+``sys.modules`` here broke every later module that imports real pandas
+(``test_stats_csv_loaders.py``). The fetchers and ``_load_atlas`` run in
+``simnibs_python -c`` (``_SCRIPT``), which reports each key's path and what loading it
+printed; the checksums, labels and the cache listing are read here (hashlib, nibabel, os).
+
 Skips with a reason when ``/opt/nilearn_data`` is absent: images up to
 idossha/ti-toolbox:v3.1.1 predate the bundled atlases.
 Run in the image: ``docker run --rm -v <tree>:/ti-toolbox -w /ti-toolbox
 idossha/ti-toolbox:<tag> -lc 'simnibs_python -m pytest tests/numerical/test_nilearn_offline_atlases.py -q -p no:cacheprovider'``.
 Verified 2026-10-22 on v3.1.1 with the Dockerfile step reproduced in a throwaway container
-for the three atlases whose hosts answered (www.gin.cnrs.fr, AAL3's, refused connections).
+for the three atlases whose hosts answered (www.gin.cnrs.fr, AAL3's, refused connections),
+so the AAL3 lower bound (166) has not yet been measured against the bundled file.
 """
 
 from __future__ import annotations
 
 import hashlib
-import importlib
+import json
 import os
-import socket
+import subprocess
 import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+ROOT = Path(__file__).resolve().parents[2]
 _BUNDLED = Path("/opt/nilearn_data")
 pytestmark = pytest.mark.skipif(
     not _BUNDLED.is_dir(),
@@ -50,39 +59,62 @@ pytestmark = pytest.mark.skipif(
 #: Published region counts (see the module docstring); AAL3v2 is a lower bound.
 _REGIONS = {"harvard_oxford": 48, "harvard_oxford_sub": 21, "schaefer_2018": 100}
 _AAL3_MIN = 166
-_SWAP = ("nilearn", "pandas", "joblib", "sklearn")
 
-
-def _root(key: str) -> str:
-    return key.split(".")[0]
-
+#: Resolves and loads every atlas with real nilearn, network blocked; argv: facts.json.
+_SCRIPT = r"""
+import contextlib, io, json, socket, sys
 
 def _blocked(*_args, **_kwargs):
     raise OSError("network blocked by test_nilearn_offline_atlases")
 
+socket.socket.connect = _blocked
+socket.getaddrinfo = _blocked
+
+from tit.plotting.nilearn.atlases import ATLASES, atlas_path
+from tit.plotting.nilearn.visualizer import NilearnVisualizer
+
+facts = {}
+for key in sorted(ATLASES):
+    entry = {}
+    try:
+        entry["path"] = atlas_path(key)
+    except Exception as exc:
+        entry["path_error"] = f"{type(exc).__name__}: {exc}"
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        img, name = NilearnVisualizer()._load_atlas(key)
+    entry.update(image=None if img is None else str(img), name=name,
+                 printed=printed.getvalue())
+    facts[key] = entry
+with open(sys.argv[1], "w") as f:
+    json.dump(facts, f)
+"""
+
+
+def _tree(root: Path) -> dict[str, int]:
+    return {str(p): p.stat().st_mtime_ns for p in [root, *root.rglob("*")]}
+
 
 @pytest.fixture(scope="module")
-def atlases(real_numeric_stack):
-    """Real nilearn, ``atlases`` and ``visualizer`` bound to it, NILEARN_DATA, no network."""
-    saved = {k: sys.modules.pop(k) for k in list(sys.modules) if _root(k) in _SWAP}
-    names = ("tit.plotting.nilearn.atlases", "tit.plotting.nilearn.visualizer")
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("NILEARN_DATA", str(_BUNDLED))
-        mp.setattr(socket.socket, "connect", _blocked)
-        mp.setattr(socket, "getaddrinfo", _blocked)
-        try:
-            importlib.import_module("nilearn.datasets")
-            mods = [importlib.reload(importlib.import_module(n)) for n in names]
-            yield {"atlases": mods[0], "visualizer": mods[1]}
-        finally:
-            for key in [k for k in sys.modules if _root(k) in _SWAP]:
-                del sys.modules[key]
-            sys.modules.update(saved)
-            for name in names:
-                try:
-                    importlib.reload(sys.modules[name])
-                except Exception:  # pragma: no cover - restoring the mocked stack
-                    pass
+def loaded(tmp_path_factory):
+    """Each key's path and load report from a fresh interpreter, and the cache around it."""
+    facts = tmp_path_factory.mktemp("atlases") / "facts.json"
+    before = _tree(_BUNDLED)
+    done = subprocess.run(
+        [sys.executable, "-c", _SCRIPT, str(facts)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "NILEARN_DATA": str(_BUNDLED),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        },
+        timeout=600,
+    )
+    log = done.stdout + done.stderr
+    assert done.returncode == 0 and facts.is_file(), log[-4000:]
+    return {"keys": json.loads(facts.read_text()), "before": before, "log": log}
 
 
 def _keys():
@@ -91,23 +123,30 @@ def _keys():
     return sorted(ATLASES)
 
 
+def _path(loaded: dict, key: str) -> Path:
+    entry = loaded["keys"][key]
+    assert "path" in entry, entry.get("path_error")
+    return Path(entry["path"])
+
+
 def test_every_atlas_key_is_checked():
     assert set(_keys()) == {*_REGIONS, "aal"}
 
 
 @pytest.mark.parametrize("key", _keys())
-def test_the_atlas_resolves_in_the_cache_with_its_recorded_checksum(atlases, key):
-    path = Path(os.path.realpath(atlases["atlases"].atlas_path(key)))
+def test_the_atlas_resolves_in_the_cache_with_its_recorded_checksum(loaded, key):
+    from tit.plotting.nilearn.atlases import ATLASES
+
+    path = Path(os.path.realpath(_path(loaded, key)))
     assert path.is_relative_to(_BUNDLED.resolve()), path
-    expected = atlases["atlases"].ATLASES[key][4]
-    assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == ATLASES[key][4]
 
 
 @pytest.mark.parametrize("key", _keys())
-def test_the_label_image_has_integer_labels_below_200_and_its_regions(atlases, key):
+def test_the_label_image_has_integer_labels_below_200_and_its_regions(loaded, key):
     import nibabel as nib
 
-    data = np.asarray(nib.load(atlases["atlases"].atlas_path(key)).get_fdata())
+    data = np.asarray(nib.load(str(_path(loaded, key))).get_fdata())
     assert np.array_equal(data, np.round(data)), "labels are not integers"
     assert data.min() >= 0 and data.max() < 200
     regions = np.unique(data[data > 0]).size
@@ -118,11 +157,13 @@ def test_the_label_image_has_integer_labels_below_200_and_its_regions(atlases, k
 
 
 @pytest.mark.parametrize("key", _keys())
-def test_the_visualizer_loads_it_without_skipping(atlases, key, capsys):
-    img, name = atlases["visualizer"].NilearnVisualizer()._load_atlas(key)
-    out = capsys.readouterr().out
-    assert img is not None and name == atlases["atlases"].ATLASES[key][0], out
-    assert "skipped" not in out
+def test_the_visualizer_loads_it_without_skipping(loaded, key):
+    from tit.plotting.nilearn.atlases import ATLASES
+
+    entry = loaded["keys"][key]
+    assert "skipped" not in entry["printed"], entry["printed"]
+    assert entry["name"] == ATLASES[key][0], entry["printed"]
+    assert entry["image"] == str(_path(loaded, key)), entry["printed"]
 
 
 def test_the_prune_left_no_empty_directories():
@@ -134,17 +175,9 @@ def test_the_prune_left_no_empty_directories():
     assert empty == []
 
 
-def _tree(root: Path) -> dict[str, int]:
-    return {str(p): p.stat().st_mtime_ns for p in [root, *root.rglob("*")]}
-
-
-def test_loading_every_atlas_writes_nothing_to_the_cache(atlases):
-    before = _tree(_BUNDLED)
-    for key in _keys():
-        atlases["atlases"].atlas_path(key)
-        img, _ = atlases["visualizer"].NilearnVisualizer()._load_atlas(key)
-        assert img is not None, key
-    assert _tree(_BUNDLED) == before
+def test_loading_every_atlas_writes_nothing_to_the_cache(loaded):
+    assert set(loaded["keys"]) == set(_keys()), "has every atlas loaded to check"
+    assert _tree(_BUNDLED) == loaded["before"]
 
 
 @pytest.mark.skipif(

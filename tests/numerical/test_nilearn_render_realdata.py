@@ -30,6 +30,14 @@ blocked. Then:
 
 The dataset is never written: the mtimes of the files read are compared before and after.
 
+Why a subprocess: ``tests/conftest.py`` mocks nilearn, pandas, joblib and sklearn in this
+interpreter, and real nilearn imports real pandas. Swapping pandas in and out of
+``sys.modules`` here broke every later module that imports real pandas
+(``test_stats_csv_loaders.py``: "the dtype str is not supported for parsing", from a second
+import of its C extensions). So the job runs in ``simnibs_python -c`` (``_SCRIPT``), which
+writes the slice figure's raw pixels, each panel's cut and axes boxes, and its log; this
+module computes every expected value itself (nibabel and numpy only) and asserts on those.
+
 Real libraries (nilearn, matplotlib, nibabel), so this runs in the image only:
 ``docker run --rm -v <tree>:/ti-toolbox -w /ti-toolbox -v <dataset000>:/data/000:ro
 -e TIT_DATASET_000=/data/000 idossha/ti-toolbox:<tag> -lc 'simnibs_python -m pytest
@@ -40,17 +48,17 @@ colourbar label precision (``tests/test_nilearn_colorbar_precision.py``).
 
 from __future__ import annotations
 
-import importlib
 import json
 import os
 import re
-import socket
+import subprocess
 import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+ROOT = Path(__file__).resolve().parents[2]
 _DATASET = os.environ.get("TIT_DATASET_000", "")
 _SIM = "L_Insula"
 _SUBJECTS = ("101", "LA")
@@ -78,57 +86,120 @@ pytestmark = pytest.mark.skipif(
 
 #: The image bakes the outline atlases here (container/blueprint/Dockerfile.ti-toolbox).
 _BUNDLED = Path("/opt/nilearn_data")
-#: Packages the host conftest mocks that real nilearn imports (pandas, joblib) or that must be
-#: imported fresh against the real scipy the numerical conftest swapped in (sklearn).
-_SWAP = ("nilearn", "pandas", "joblib", "sklearn")
-#: Reloaded so their module-level ``nib`` / ``plt`` / ``nilearn`` bindings are the real ones.
-#: ``atlases`` first: another module collected earlier (test_nilearn_offline_atlases.py) may
-#: have imported it against the mocked nilearn, and ``visualizer`` binds its ``atlas_path``.
-_RELOAD = (
-    "tit.plotting.nilearn.atlases",
-    "tit.plotting.nilearn.visualizer",
-    "tit.plotting.nilearn.img_slices",
-    "tit.plotting.nilearn.img_glass",
-    "tit.plotting.nilearn.__main__",
-)
 #: matplotlib's ``hot``: red reaches 1 at 0.365079, blue starts rising at 0.746032.
 _HOT_BAND = (0.35, 0.75)
 
+#: Runs one phase of the job with the real stack, network blocked. argv: phase, facts.json,
+#: then the phase's own arguments. Prints the job's log; writes the facts as JSON.
+_SCRIPT = r"""
+import json, socket, sys
+from pathlib import Path
 
-def _root(key: str) -> str:
-    return key.split(".")[0]
+def _blocked(*_args, **_kwargs):
+    raise OSError("network blocked by test_nilearn_render_realdata")
+
+socket.socket.connect = _blocked
+socket.getaddrinfo = _blocked
+
+import matplotlib
+matplotlib.use("Agg")
+import numpy as np
+
+phase, facts_path, args = sys.argv[1], Path(sys.argv[2]), sys.argv[3:]
 
 
-@pytest.fixture(scope="module")
-def nilearn_stack(real_numeric_stack):
-    """Real nilearn (and its pandas / joblib) for this module, and the runner bound to it."""
-    saved = {k: sys.modules.pop(k) for k in list(sys.modules) if _root(k) in _SWAP}
-
-    def put_back():
-        for key in [k for k in sys.modules if _root(k) in _SWAP]:
-            del sys.modules[key]
-        sys.modules.update(saved)
-        for name in _RELOAD:
-            if name in sys.modules:
-                try:
-                    importlib.reload(sys.modules[name])
-                except Exception:  # pragma: no cover - restoring the mocked stack
-                    pass
-
+def run_main(config_path):
+    import tit.plotting.nilearn.__main__ as runner
+    sys.argv = ["tit.plotting.nilearn", config_path]
     try:
-        importlib.import_module("nilearn.plotting")
-        importlib.import_module("nilearn.image")
-    except Exception as exc:  # pragma: no cover - environment without real nilearn
-        put_back()
-        print(f"skipping: real nilearn is not importable ({exc})")
-        pytest.skip(f"real nilearn is not importable here: {exc}")
-    modules = {}
-    for name in _RELOAD:
-        modules[name.rsplit(".", 1)[1]] = importlib.reload(
-            importlib.import_module(name)
-        )
-    yield modules
-    put_back()
+        runner.main()
+    except SystemExit as exc:
+        return exc.code
+    return "returned without exiting"
+
+
+facts = {}
+if phase == "run":
+    from tit.plotting.nilearn import visualizer
+    figures, displays = [], []
+    real_subplots = visualizer.plt.subplots
+    real_plot_stat_map = visualizer.plotting.plot_stat_map
+
+    def subplots(*a, **k):
+        fig, axes = real_subplots(*a, **k)
+        figures.append(fig)
+        return fig, axes
+
+    def plot_stat_map(*a, **k):
+        display = real_plot_stat_map(*a, **k)
+        displays.append(display)
+        return display
+
+    visualizer.plt.subplots = subplots
+    visualizer.plt.close = lambda *a, **k: None  # keep the slice figure to read it back
+    visualizer.plotting.plot_stat_map = plot_stat_map
+    facts["code"] = run_main(args[0])
+    facts["figures"] = len(figures)
+    facts["panels"] = []
+    if figures:
+        fig = figures[0]
+        fig.canvas.draw()
+        rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3].copy()
+        np.save(str(facts_path.with_suffix(".npy")), rgb)
+        for display in displays:
+            boxes = []
+            for cut_axes in display.axes.values():
+                box = cut_axes.ax.get_window_extent()
+                boxes.append([float(box.x0), float(box.y0), float(box.x1), float(box.y1)])
+            facts["panels"].append({
+                "slicer": type(display).__name__,
+                "cut_coords": [float(c) for c in display.cut_coords],
+                "boxes": boxes,
+            })
+elif phase == "glass_blank":
+    import nibabel as nib
+    from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
+    nifti, out_dir, peak = args[0], args[1], float(args[2])
+    facts["path"] = create_glass_brain_entry_point_group(
+        nib.load(nifti), "blank", out_dir, min_cutoff=2 * peak, max_cutoff=3 * peak
+    )
+elif phase == "blank_warning":
+    import tit.plotting.nilearn.__main__ as runner
+
+    def no_render(img, base, output_dir, *a, **k):
+        path = Path(output_dir) / f"{base}.pdf"
+        path.write_bytes(b"%PDF")
+        return str(path)
+
+    runner.create_pdf_entry_point_group = no_render
+    facts["code"] = run_main(args[0])
+else:
+    sys.exit(f"unknown phase {phase!r}")
+facts_path.write_text(json.dumps(facts))
+"""
+
+
+def _launch(
+    phase: str, facts: Path, *args: str, nilearn_data: Path
+) -> tuple[dict, str]:
+    """Run ``_SCRIPT``'s *phase* in a fresh interpreter; return its facts and its log."""
+    env = {
+        **os.environ,
+        "NILEARN_DATA": str(nilearn_data),
+        "MPLBACKEND": "Agg",
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    done = subprocess.run(
+        [sys.executable, "-c", _SCRIPT, phase, str(facts), *args],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=900,
+    )
+    log = done.stdout + done.stderr
+    assert done.returncode == 0 and facts.is_file(), f"{phase} crashed:\n{log[-4000:]}"
+    return json.loads(facts.read_text()), log
 
 
 def _mtimes() -> dict[Path, int]:
@@ -168,118 +239,67 @@ def _files(root: Path) -> set[Path]:
     return {p for p in root.rglob("*") if p.is_file() and not p.is_symlink()}
 
 
-def _blocked(*_args, **_kwargs):
-    raise OSError("network blocked by test_nilearn_render_realdata")
+def _pairs() -> list[dict]:
+    return [{"subject_id": s, "simulation_name": _SIM} for s in _SUBJECTS]
 
 
-def _run_main(runner, project: Path, config: dict, tmp: Path, capsys) -> tuple:
-    import logging
-
+def _write_config(tmp: Path, project: Path, config: dict) -> str:
     path = tmp / f"{config['subdir_name']}.json"
     path.write_text(json.dumps({"project_dir": str(project), **config}))
-    old_argv = sys.argv
-    sys.argv = ["tit.plotting.nilearn", str(path)]
-    logger = logging.getLogger("tit.plotting.nilearn")
-    handlers = list(logger.handlers)
-    try:
-        with pytest.raises(SystemExit) as exited:
-            runner.main()
-    finally:
-        sys.argv = old_argv
-        for handler in [h for h in logger.handlers if h not in handlers]:
-            logger.removeHandler(handler)
-    captured = capsys.readouterr()
-    return exited.value.code, captured.out + captured.err
+    return str(path)
 
 
 @pytest.fixture(scope="module")
-def run(nilearn_stack, tmp_path_factory):
-    """One real run of the Nilearn Visuals job, with its figure and log captured."""
+def run(tmp_path_factory):
+    """One real run of the Nilearn Visuals job, with its slice figure and log captured."""
+    probe = subprocess.run(
+        [sys.executable, "-c", "import nilearn.plotting, matplotlib"],
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        print("skipping: real nilearn is not importable here (run in the image)")
+        pytest.skip("real nilearn is not importable here (run in the image)")
     from tit.config_io import deserialize_config
     from tit.paths import get_path_manager, reset_path_manager
     from tit.plotting.nilearn.config import NilearnConfig
+    from tit.server.routes.plan import _plan_nilearn
 
     tmp = tmp_path_factory.mktemp("nilearn_realdata")
     project = _project(tmp)
     before_mtimes = _mtimes()
-    visualizer = nilearn_stack["visualizer"]
-    runner = nilearn_stack["__main__"]
-
-    figures, displays = [], []
-    real_subplots = visualizer.plt.subplots
-    real_close = visualizer.plt.close
-    real_plot_stat_map = visualizer.plotting.plot_stat_map
-
-    def subplots(*args, **kwargs):
-        fig, axes = real_subplots(*args, **kwargs)
-        figures.append((fig, axes))
-        return fig, axes
-
-    def plot_stat_map(*args, **kwargs):
-        display = real_plot_stat_map(*args, **kwargs)
-        displays.append(display)
-        return display
-
     config = {
-        "subject_simulation_pairs": [
-            {"subject_id": s, "simulation_name": _SIM} for s in _SUBJECTS
-        ],
+        "subject_simulation_pairs": _pairs(),
         "subdir_name": "insula_realdata",
         "create_glass_brain": True,
     }
     nilearn_data = _BUNDLED if _BUNDLED.is_dir() else tmp / "nilearn_data_empty"
-    with pytest.MonkeyPatch.context() as mp:
-        capsys = _Capture(mp)
-        mp.setenv("NILEARN_DATA", str(nilearn_data))
-        mp.setattr(socket.socket, "connect", _blocked)
-        mp.setattr(socket, "getaddrinfo", _blocked)
-        mp.setattr(visualizer.plt, "subplots", subplots)
-        mp.setattr(visualizer.plt, "close", lambda *a, **k: None)
-        mp.setattr(visualizer.plotting, "plot_stat_map", plot_stat_map)
-        before = _files(project)
-        code, log = _run_main(runner, project, config, tmp, capsys)
-        written = _files(project) - before
+    before = _files(project)
+    facts, log = _launch(
+        "run",
+        tmp / "run.json",
+        _write_config(tmp, project, config),
+        nilearn_data=nilearn_data,
+    )
+    written = _files(project) - before
+    try:
         pm = get_path_manager(str(project))
-        from tit.server.routes.plan import _plan_nilearn
-
         [planned] = _plan_nilearn(
             "nilearn", pm, deserialize_config(NilearnConfig, config)
         )[0]
+    finally:
         reset_path_manager()
-    yield {
-        "code": code,
+    return {
+        **facts,
         "log": log,
+        "rgb": tmp / "run.npy",
         "written": written,
         "planned_dir": Path(planned.output_dir),
-        "figures": figures,
-        "displays": displays,
         "before_mtimes": before_mtimes,
         "tmp": tmp,
         "project": project,
-        "runner": runner,
-        "img_glass": nilearn_stack["img_glass"],
-        "close": real_close,
+        "nilearn_data": nilearn_data,
     }
-    for fig, _ in figures:
-        real_close(fig)
-
-
-class _Capture:
-    """``capsys`` for a module-scoped fixture: stdout/stderr into buffers via MonkeyPatch."""
-
-    def __init__(self, mp: pytest.MonkeyPatch):
-        import io
-
-        self._out, self._err = io.StringIO(), io.StringIO()
-        mp.setattr(sys, "stdout", self._out)
-        mp.setattr(sys, "stderr", self._err)
-
-    def readouterr(self):
-        class _Pair:
-            out = self._out.getvalue()
-            err = self._err.getvalue()
-
-        return _Pair()
 
 
 @pytest.fixture(scope="module")
@@ -334,16 +354,14 @@ def test_the_parameters_file_states_the_data_driven_cutoffs(run, mean):
     assert "101: L_Insula" in text and "LA: L_Insula" in text
 
 
-def _hot_pixels(fig, display) -> int:
-    """Pixels of *display*'s drawn slice that matplotlib's ``hot`` paints red to yellow."""
-    buf = np.asarray(fig.canvas.buffer_rgba())
-    height = buf.shape[0]
+def _hot_pixels(rgb: np.ndarray, boxes: list[list[float]]) -> int:
+    """Pixels inside *boxes* (display coordinates) that ``hot`` paints red to yellow."""
+    height = rgb.shape[0]
     total = 0
-    for cut_axes in display.axes.values():
-        box = cut_axes.ax.get_window_extent()
-        rows = slice(max(0, int(height - box.y1)), int(np.ceil(height - box.y0)))
-        cols = slice(max(0, int(box.x0)), int(np.ceil(box.x1)))
-        crop = buf[rows, cols, :3].astype(int)
+    for x0, y0, x1, y1 in boxes:
+        rows = slice(max(0, int(height - y1)), int(np.ceil(height - y0)))
+        cols = slice(max(0, int(x0)), int(np.ceil(x1)))
+        crop = rgb[rows, cols].astype(int)
         total += int(np.count_nonzero((crop[..., 0] > 200) & (crop[..., 2] < 80)))
     return total
 
@@ -365,18 +383,18 @@ def test_every_panel_draws_the_field_where_the_data_has_it(run, mean):
     data = data.reshape(data.shape[:3])
     p95, p999, _ = _cutoffs(data)
     band = (p95 + _HOT_BAND[0] * (p999 - p95), p95 + _HOT_BAND[1] * (p999 - p95))
-    [(fig, _axes)] = run["figures"]
-    displays = run["displays"]
-    assert len(displays) == 21
-    fig.canvas.draw()
+    assert run["figures"] == 1, run["log"][-3000:]
+    panels = run["panels"]
+    assert len(panels) == 21
+    rgb = np.load(run["rgb"])
 
     lit, dark = [], []
-    for display in displays:
-        mode = type(display).__name__[0].lower()  # XSlicer / YSlicer / ZSlicer
-        assert mode in "xyz", type(display).__name__
-        [coord] = list(display.cut_coords)
+    for panel in panels:
+        mode = panel["slicer"][0].lower()  # XSlicer / YSlicer / ZSlicer
+        assert mode in "xyz", panel["slicer"]
+        [coord] = panel["cut_coords"]
         slab = _slab(data, affine, mode, coord)
-        hot = _hot_pixels(fig, display)
+        hot = _hot_pixels(rgb, panel["boxes"])
         in_band = [
             bool(((s >= band[0]) & (s <= band[1])).any()) for s in slab
         ]  # one per slice of the slab
@@ -391,47 +409,44 @@ def test_every_panel_draws_the_field_where_the_data_has_it(run, mean):
 
 
 def test_the_glass_brain_shows_more_than_a_blank_render(run, mean):
-    import nibabel as nib
-
-    data, affine = mean
-    _, _, peak = _cutoffs(data)
+    _, _, peak = _cutoffs(mean[0])
     out_dir = run["tmp"] / "glass_blank"
     out_dir.mkdir()
-    img = nib.Nifti1Image(data.astype(np.float32), affine)
-    blank = run["img_glass"].create_glass_brain_entry_point_group(
-        img, "blank", str(out_dir), min_cutoff=2 * peak, max_cutoff=3 * peak
+    facts, log = _launch(
+        "glass_blank",
+        run["tmp"] / "glass_blank.json",
+        str(run["planned_dir"] / "group_averaged_2_subjects.nii.gz"),
+        str(out_dir),
+        repr(peak),
+        nilearn_data=run["nilearn_data"],
     )
+    blank = Path(facts["path"])
+    assert blank.parent == out_dir, log[-2000:]
     real = run["planned_dir"] / "group_averaged_2_subjects_glass_brain.pdf"
     assert os.path.getsize(real) > os.path.getsize(blank) > 0
 
 
-def test_a_min_cutoff_above_the_peak_logs_the_blank_figure_warning(
-    run, mean, tmp_path, monkeypatch, capsys
-):
+def test_a_min_cutoff_above_the_peak_logs_the_blank_figure_warning(run, mean, tmp_path):
     _, _, peak = _cutoffs(mean[0])
-    runner = run["runner"]
-
-    def no_render(img, base, output_dir, *a, **k):
-        path = Path(output_dir) / f"{base}.pdf"
-        path.write_bytes(b"%PDF")
-        return str(path)
-
-    monkeypatch.setattr(runner, "create_pdf_entry_point_group", no_render)
     config = {
-        "subject_simulation_pairs": [
-            {"subject_id": s, "simulation_name": _SIM} for s in _SUBJECTS
-        ],
+        "subject_simulation_pairs": _pairs(),
         "subdir_name": "insula_blank",
         "min_cutoff": round(1.5 * peak, 4),
         "max_cutoff": round(2.0 * peak, 4),
         "create_glass_brain": False,
     }
-    code, log = _run_main(runner, run["project"], config, tmp_path, capsys)
-    assert code == 0, log[-2000:]
+    facts, log = _launch(
+        "blank_warning",
+        tmp_path / "blank_warning.json",
+        _write_config(tmp_path, run["project"], config),
+        nilearn_data=run["nilearn_data"],
+    )
+    assert facts["code"] == 0, log[-2000:]
     warning = re.search(
-        r"min_cutoff (\S+) V/m is at or above the field's peak (\S+)", log
+        r"min_cutoff (\S+) V/m is at or above the field's peak (\S+) V/m", log
     )
     assert warning, log[-2000:]
+    assert float(warning.group(1)) == pytest.approx(config["min_cutoff"], abs=5e-5)
     assert float(warning.group(2)) == pytest.approx(peak, abs=5e-5)
 
 
