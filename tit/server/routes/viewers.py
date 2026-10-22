@@ -506,7 +506,12 @@ def _scene_files(
 #: (raw data, ``sourcedata/``) and under each ``derivatives/<pipeline>/`` at any depth (SimNIBS,
 #: FastSurfer, FreeSurfer, QSIPrep, QSIRecon's nested tree, ``ti-toolbox/reports``). A ``sub-``
 #: inside a file name, or a folder below the owner that someone named ``sub-foo``, is no subject.
-_SUBJECT_DIR = re.compile(r"(?:^|/)sub-([^/]+)/")
+#: Nor is a project folder named ``sub-<x>`` (mounted at ``/mnt/sub-<x>``): a ``sub-`` directory
+#: holding the project's own top-level folders or other ``sub-`` folders is the project. A
+#: ``sub-`` folder further above the project root is still read as the owner.
+_SUBJECT_DIR = re.compile(
+    r"(?:^|/)sub-([^/]+)/(?!(?:derivatives|sourcedata|code|rawdata|sub-[^/]*)/)"
+)
 
 
 def subject_of_path(path: str) -> str | None:

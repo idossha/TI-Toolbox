@@ -493,7 +493,10 @@ export function groupAnatomy(nodes: TreeNode[]): { key: string; title: string; n
  * The owner is the first *directory* named `sub-<id>`: BIDS gives every subject one under the
  * project root and under each `derivatives/<pipeline>/` (SimNIBS, FastSurfer, FreeSurfer, QSIPrep,
  * QSIRecon's nested tree, `ti-toolbox/reports`) — the anatomy tree offers FastSurfer and FreeSurfer
- * atlases, so SimNIBS alone is not enough. A `sub-` inside a file name is no subject.
+ * atlases, so SimNIBS alone is not enough. A `sub-` inside a file name is no subject, and nor is a
+ * project folder named `sub-<x>` (mounted at `/mnt/sub-<x>`): a `sub-` directory holding the
+ * project's own top-level folders or other `sub-` folders is the project. A `sub-` folder further
+ * above the project root is still read as the owner.
  *
  * `null` is the bundled MNI template and the shared atlases, which an MNI scene is *supposed* to
  * mix in with a subject's own volumes — so they are never dropped by the rescoping below. The
@@ -501,7 +504,7 @@ export function groupAnatomy(nodes: TreeNode[]): { key: string; title: string; n
  * table `tests/fixtures/subject_paths.json`.
  */
 export function subjectOfPath(path: string): string | null {
-  const match = /(?:^|\/)sub-([^/]+)\//.exec(path);
+  const match = /(?:^|\/)sub-([^/]+)\/(?!(?:derivatives|sourcedata|code|rawdata|sub-[^/]*)\/)/.exec(path);
   // The capture group is not optional, but `noUncheckedIndexedAccess` types every match index as
   // possibly undefined; `?? null` says so once rather than asserting it away.
   return match?.[1] ?? null;

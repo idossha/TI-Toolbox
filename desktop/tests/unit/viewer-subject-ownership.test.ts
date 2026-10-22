@@ -24,7 +24,14 @@ interface Row {
 }
 interface Table {
   rows: Row[];
-  two_subject_scene: { files: string[]; subject: string; kept: string[]; dropped: string[] };
+  two_subject_scene: Scene;
+  scene_in_a_project_named_sub_pilot: Scene;
+}
+interface Scene {
+  files: string[];
+  subject: string;
+  kept: string[];
+  dropped: string[];
 }
 
 const table = JSON.parse(readFileSync(resolve(__dirname, "../../../tests/fixtures/subject_paths.json"), "utf8")) as Table;
@@ -44,6 +51,12 @@ describe("subjectOfPath over the shared ownership table", () => {
 describe("rescopeToSubject with files outside SimNIBS", () => {
   it("drops another subject's FastSurfer atlas after a change of subject", () => {
     const scene = table.two_subject_scene;
+    expect(rescopeToSubject(scene.files, scene.subject)).toEqual({ kept: scene.kept, dropped: scene.dropped });
+  });
+
+  it("keeps the subject's files in a project folder named like a subject (/mnt/sub-pilot)", () => {
+    // Read as the owner, "pilot" owned every file and a change to 101 dropped all of them.
+    const scene = table.scene_in_a_project_named_sub_pilot;
     expect(rescopeToSubject(scene.files, scene.subject)).toEqual({ kept: scene.kept, dropped: scene.dropped });
   });
 

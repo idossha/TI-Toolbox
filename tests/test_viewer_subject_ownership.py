@@ -66,6 +66,24 @@ def test_a_scene_mixing_a_fastsurfer_atlas_with_another_subjects_field_is_refuse
     assert "101 (X_TI_subject_TI_max.nii.gz)" in detail
 
 
+def test_a_project_folder_named_like_a_subject_is_not_the_owner() -> None:
+    """``/mnt/sub-pilot``: the project's own name must not make every file pilot's.
+
+    Read as the owner, it gave every file one subject, so the pair was composed (a 404 from the
+    resolver rather than the 422 here, since ``/mnt/sub-pilot`` is not a project on disk).
+    """
+    case = TABLE["scene_in_a_project_named_sub_pilot"]
+    response = _client().post(
+        "/api/view/open",
+        json={"kind": "subject", "subject": case["subject"], "files": case["files"]},
+    )
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert "ernie (aparc.DKTatlas+aseg.deep.nii.gz)" in detail
+    assert "101 (X_TI_subject_TI_max.nii.gz)" in detail
+    assert "pilot" not in detail.replace("/mnt/sub-pilot", "")
+
+
 @pytest.mark.parametrize(
     "files",
     [

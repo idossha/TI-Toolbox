@@ -1,5 +1,5 @@
 {
-  "_about": "Which subject owns a path, shared by tests/test_viewer_subject_ownership.py (tit/server/routes/viewers.py subject_of_path, behind the two-subject refusal of POST /api/view/open) and desktop/tests/unit/viewer-subject-ownership.test.ts (desktop/src/renderer/pages/viewer/lib.ts subjectOfPath / rescopeToSubject). groundTruth: authored -- owners are written by hand from the BIDS layout rule, not produced by either implementation: the first DIRECTORY named sub-<id> owns everything beneath it, whether it sits under the project root (raw BIDS, sourcedata) or under derivatives/<pipeline>/ at any depth (SimNIBS, fastsurfer, freesurfer, qsiprep, the nested qsirecon tree, ti-toolbox/reports|tissue_analysis). The id is the whole directory name after 'sub-', dots included, so sub-1.2 and sub-1 never merge. A 'sub-' inside a file name (HarvardOxford-sub-maxprob) or a folder below the owner (a simulation a person named sub-foo) is not a subject. owner null = belongs to nobody (the bundled MNI template and atlases, FreeSurfer's fsaverage, group outputs), which a scene may always mix in. Paths are container paths, the form the Viewer's file list and the server both carry. Layout checked against Dataset 000 (derivatives/{SimNIBS,fastsurfer,freesurfer,qsiprep,qsirecon/derivatives/qsirecon-DSIStudio,ti-toolbox/reports}) on 2026-10-22.",
+  "_about": "Which subject owns a path, shared by tests/test_viewer_subject_ownership.py (tit/server/routes/viewers.py subject_of_path, behind the two-subject refusal of POST /api/view/open) and desktop/tests/unit/viewer-subject-ownership.test.ts (desktop/src/renderer/pages/viewer/lib.ts subjectOfPath / rescopeToSubject). groundTruth: authored -- owners are written by hand from the BIDS layout rule, not produced by either implementation: the first DIRECTORY named sub-<id> owns everything beneath it, whether it sits under the project root (raw BIDS, sourcedata) or under derivatives/<pipeline>/ at any depth (SimNIBS, fastsurfer, freesurfer, qsiprep, the nested qsirecon tree, ti-toolbox/reports|tissue_analysis). The id is the whole directory name after 'sub-', dots included, so sub-1.2 and sub-1 never merge. A 'sub-' inside a file or directory name (HarvardOxford-sub-maxprob, results-sub-1) or a folder below the owner (a simulation a person named sub-foo) is not a subject. A project folder may itself be named sub-<x> (the container mounts it at /mnt/<folder name>): a sub-<x> directory that holds the project's own top-level folders (derivatives, sourcedata, code, rawdata) or other sub-<id> folders is the project, not a subject, and is skipped. owner null = belongs to nobody (the bundled MNI template and atlases, FreeSurfer's fsaverage, group outputs), which a scene may always mix in. Paths are container paths, the form the Viewer's file list and the server both carry; the two relative rows pin that the rule also reads a path starting at the project root. Layout checked against Dataset 000 (derivatives/{SimNIBS,fastsurfer,freesurfer,qsiprep,qsirecon/derivatives/qsirecon-DSIStudio,ti-toolbox/reports}) on 2026-10-22.",
   "rows": [
     {"why": "SimNIBS simulation output", "path": "/mnt/p/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz", "owner": "101"},
     {"why": "SimNIBS head model T1", "path": "/mnt/p/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz", "owner": "ernie"},
@@ -20,7 +20,17 @@
     {"why": "bundled MNI template", "path": "/ti-toolbox/resources/atlas/MNI152_T1_1mm.nii.gz", "owner": null},
     {"why": "a bundled atlas whose file name contains 'sub-'", "path": "/ti-toolbox/resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz", "owner": null},
     {"why": "group statistics output", "path": "/mnt/p/derivatives/ti-toolbox/stats/group_comparison/run1/pvalues.nii.gz", "owner": null},
-    {"why": "a saved Viewer scene", "path": "/mnt/p/code/ti-toolbox/viewer/simulation.tetravox.json", "owner": null}
+    {"why": "a saved Viewer scene", "path": "/mnt/p/code/ti-toolbox/viewer/simulation.tetravox.json", "owner": null},
+    {"why": "a directory whose name contains 'sub-' is no subject folder", "path": "/mnt/p/derivatives/ti-toolbox/results-sub-1/x.nii.gz", "owner": null},
+    {"why": "relative path: a first directory whose name contains 'sub-' is no subject folder", "path": "HarvardOxford-sub-maxprob/x.nii.gz", "owner": null},
+    {"why": "relative path from the project root: the subject folder comes first", "path": "sub-101/anat/x.nii.gz", "owner": "101"},
+    {"why": "project folder named sub-pilot: SimNIBS output is still 101's", "path": "/mnt/sub-pilot/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz", "owner": "101"},
+    {"why": "project folder named sub-pilot: FastSurfer atlas is still ernie's", "path": "/mnt/sub-pilot/derivatives/fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.nii.gz", "owner": "ernie"},
+    {"why": "project folder named sub-pilot: sourcedata subject", "path": "/mnt/sub-pilot/sourcedata/sub-LA/T1w/scan.nii.gz", "owner": "LA"},
+    {"why": "project folder named sub-pilot: BIDS rawdata subject", "path": "/mnt/sub-pilot/rawdata/sub-1010/anat/sub-1010_T1w.nii.gz", "owner": "1010"},
+    {"why": "project folder named sub-pilot: raw BIDS subject right under the root", "path": "/mnt/sub-pilot/sub-1.2/anat/sub-1.2_T1w.nii.gz", "owner": "1.2"},
+    {"why": "project folder named sub-pilot: a saved Viewer scene belongs to nobody", "path": "/mnt/sub-pilot/code/ti-toolbox/viewer/simulation.tetravox.json", "owner": null},
+    {"why": "project folder named sub-pilot: group statistics belong to nobody", "path": "/mnt/sub-pilot/derivatives/ti-toolbox/stats/group_comparison/run1/pvalues.nii.gz", "owner": null}
   ],
   "two_subject_scene": {
     "why": "ernie's FastSurfer atlas over 101's field: before 2026-10-22 the Viewer kept both after a change to 101 and the server composed the scene",
@@ -31,5 +41,15 @@
     "subject": "101",
     "kept": ["/mnt/p/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz"],
     "dropped": ["/mnt/p/derivatives/fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.nii.gz"]
+  },
+  "scene_in_a_project_named_sub_pilot": {
+    "why": "the same pair in a project folder named sub-pilot: with the project's own name read as the owner, every file was pilot's, so the server let the pair through and the Viewer dropped all of it after a change to 101",
+    "files": [
+      "/mnt/sub-pilot/derivatives/fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.nii.gz",
+      "/mnt/sub-pilot/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz"
+    ],
+    "subject": "101",
+    "kept": ["/mnt/sub-pilot/derivatives/SimNIBS/sub-101/Simulations/X/TI/niftis/X_TI_subject_TI_max.nii.gz"],
+    "dropped": ["/mnt/sub-pilot/derivatives/fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.nii.gz"]
   }
 }
