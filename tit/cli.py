@@ -403,9 +403,6 @@ def prompt_launch(args: argparse.Namespace, *, requested: bool) -> None:
             saved_path.write_text(args.project + "\n", encoding="utf-8")
         except OSError:
             print("Could not remember this project for next time.", file=sys.stderr)
-        args.resume_session = (
-            not args.image and not os.environ.get("TIT_IMAGE_TAG", "").strip()
-        )
         return
 
 
@@ -530,8 +527,7 @@ def run_dev_web(root: Path, args: argparse.Namespace) -> int:
     env = dict(os.environ)
     if args.project:
         env["TIT_DEV_PROJECT_DIR"] = str(Path(args.project).expanduser().resolve())
-    if args.port:
-        env["TIT_DEV_PORT"] = str(args.port)
+    env["TIT_DEV_PORT"] = str(args.port)
     env["TIT_DEV_IMAGE_TAG"] = image.rsplit(":", 1)[-1]
     env["TIT_LAUNCH_EXISTING"] = args.existing or ""
     env["TIT_LAUNCH_CONTAINER"] = args.container or ""

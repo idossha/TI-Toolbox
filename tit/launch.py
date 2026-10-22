@@ -1174,10 +1174,3 @@ def open_in_browser(url: str, *, echo=print) -> None:
         echo("opened your browser")
     else:
         echo("could not open a browser automatically; paste the URL above into one")
-
-
-def run(argv: list[str] | None = None) -> int:
-    """``tit launch`` — see :mod:`tit.cli` for the argument parser."""
-    from tit.cli import main
-
-    return main(["launch", *(argv or sys.argv[1:])])

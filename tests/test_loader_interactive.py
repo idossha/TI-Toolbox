@@ -86,7 +86,6 @@ def test_invalid_path_retries_and_explicit_settings_survive(monkeypatch, tmp_pat
         True,
         180,
     )
-    assert not args.resume_session
 
 
 def test_remembers_project_for_enter_next_time(monkeypatch, tmp_path):
@@ -307,9 +306,10 @@ def test_dev_web_preserves_launch_settings_and_rejects_unsupported_images(
     env = kwargs["env"]
     assert env["TIT_DEV_PROJECT_DIR"] == str(tmp_path.resolve())
     assert env["TIT_DEV_PORT"] == "18888"
-    assert env["TIT_DEV_IMAGE_TAG"] == (image or "idossha/ti-toolbox:current").rsplit(
-        ":", 1
-    )[-1]
+    assert (
+        env["TIT_DEV_IMAGE_TAG"]
+        == (image or "idossha/ti-toolbox:current").rsplit(":", 1)[-1]
+    )
     assert env["TIT_LAUNCH_EXISTING"] == "attach"
     assert env["TIT_LAUNCH_CONTAINER"] == "selected-id"
     assert env["TIT_DEV_MOUNT_REPO"] == "1"
