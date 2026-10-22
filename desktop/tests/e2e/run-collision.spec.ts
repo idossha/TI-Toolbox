@@ -144,12 +144,11 @@ test("Analyzer: a duplicated analysis blocks Run and the Run shortcut, naming th
 
   await first.getByRole("button", { name: "Duplicate row 1", exact: true }).click();
   await expect(analysisRows(page)).toHaveCount(2);
-  // The `_TI_max` suffix is the MOCK's analysis-folder name (`server.mjs::analyzerAnalysisName`);
-  // the real server's `pm.analysis_output_dir` has no field in it. TODO(p21): when p21 aligns the
-  // mock with the server, the suffix goes — the pattern accepts the folder with or without it.
-  const folder = "sub-ernie/Simulations/Thalamus/Analyses/Thalamus_sphere_x-10_y-18_z9_r5";
+  // The real plan's folder (`PathManager.analysis_output_dir`, which the mock ports): a mesh
+  // sphere in subject space, the default TI_max field adding no suffix.
+  const folder = "sub-ernie/Simulations/Thalamus/Analyses/Mesh/sphere_x-10.00_y-18.00_z9.00_r5.0_subject";
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  await expect(run).toHaveAttribute("title", new RegExp(`^Job 1 and Job 2 both write ${escape(folder)}(_TI_max)?${escape(TAIL)}$`), { timeout: 20_000 });
+  await expect(run).toHaveAttribute("title", new RegExp(`^Job 1 and Job 2 both write ${escape(folder)}${escape(TAIL)}$`), { timeout: 20_000 });
   await expect(run).toBeDisabled();
   await expect(page.locator(".action-bar-digest:visible")).toHaveCount(0);
 
