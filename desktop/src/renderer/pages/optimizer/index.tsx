@@ -720,7 +720,6 @@ const page: PageDef = {
   navGroup: "pipeline",
   order: 30,
   icon: Target,
-  shortcut: "4",
   Component: withAppDefaults(OptimizerPage),
   enabled: true,
 };

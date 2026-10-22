@@ -421,7 +421,6 @@ const page: PageDef = {
   navGroup: "pipeline",
   order: 10,
   icon: Workflow,
-  shortcut: "2",
   Component: withAppDefaults(PreprocessPage),
   enabled: true,
 };

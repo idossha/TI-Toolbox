@@ -43,7 +43,7 @@ function appKeys(): [string, string][] {
     [modKey("K"), "Command palette"],
     [modKey("J"), "Jobs panel"],
     [modShiftKey("I"), "Collapse or expand the right pane"],
-    [modShiftKey("V"), "Focus the viewer canvas"],
+    [modShiftKey("V"), "Open or bring forward TetraVox"],
   ];
 }
 
@@ -68,7 +68,7 @@ export function KeyboardTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <p className="text-body" style={{ color: "var(--ink-2)" }}>
-        Unmodified keys belong to whatever has focus, the viewer canvas included. Every app shortcut carries the modifier key shown below, with{" "}
+        Unmodified keys belong to whatever has focus. Every app shortcut carries the modifier key shown below, with{" "}
         <Kbd>?</Kbd> as the one exception.
       </p>
 

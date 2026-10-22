@@ -410,7 +410,6 @@ const page: PageDef = {
   order: 20,
   icon: Zap,
   // DESIGN.md §9 binding shortcut map: Simulator is Cmd/Ctrl+3.
-  shortcut: "3",
   Component: withAppDefaults(SimulatorPageWithFreehandDraft),
   enabled: true,
 };

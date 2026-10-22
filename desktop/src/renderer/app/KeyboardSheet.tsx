@@ -4,10 +4,10 @@ import { enabledPages } from "./registry";
 import { modKey, modShiftKey } from "./keyboard";
 
 /**
- * One sheet, both key sets (DESIGN.md §6.5). App keys are derived from the registry so the sheet
- * cannot drift from what the shell actually binds; the viewer's own keys are listed as a static
- * block because they belong to the engine, not to this app — the canvas owns unmodified keys
- * whenever it has focus, which is the rule the top of the sheet states.
+ * One sheet (DESIGN.md §6.5). Screen keys are derived from the registry so the sheet cannot drift
+ * from what the shell actually binds. The viewer is the separate TetraVox app, whose own keys are
+ * its own; a focused control here owns unmodified keys, which is the rule the top of the sheet
+ * states.
  */
 
 const APP_KEYS: [string, string][] = [
@@ -15,19 +15,12 @@ const APP_KEYS: [string, string][] = [
   [modKey("P"), "Switch subject"],
   [modKey("J"), "Jobs panel"],
   [modShiftKey("N"), "Quick notes"],
-  [modShiftKey("V"), "Focus the viewer canvas"],
+  [modShiftKey("V"), "Open or bring forward TetraVox"],
   [modShiftKey("I"), "Collapse or restore the right pane"],
   [modKey("⏎"), "Run the action bar's primary"],
   [modKey(","), "Settings"],
   ["?", "This sheet"],
   ["Esc", "Close the innermost overlay"],
-];
-
-const VIEWER_KEYS: [string, string][] = [
-  ["Arrows", "Move the cursor one slice"],
-  ["Scroll", "Slice through the stack"],
-  ["Drag", "Rotate (3D) or pan (2D)"],
-  ["Shift + drag", "Window and level"],
 ];
 
 function KeyTable({ title, rows }: { title: string; rows: [string, string][] }) {
@@ -59,12 +52,11 @@ export function KeyboardSheet({ open, onOpenChange }: { open: boolean; onOpenCha
       open={open}
       onOpenChange={onOpenChange}
       title="Keyboard"
-      description="Unmodified keys belong to whatever has focus, the viewer canvas included. Every app shortcut carries the modifier key."
+      description="Unmodified keys belong to whatever has focus. Every app shortcut carries the modifier key."
     >
       <div className="keyboard-sheet" data-testid="keyboard-sheet">
         <KeyTable title="App" rows={APP_KEYS} />
         <KeyTable title="Screens" rows={pageKeys} />
-        <KeyTable title="Viewer canvas" rows={VIEWER_KEYS} />
       </div>
     </Dialog>
   );

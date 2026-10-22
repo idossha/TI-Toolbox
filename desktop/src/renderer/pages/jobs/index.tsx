@@ -22,7 +22,7 @@
  * table-plus-detail split does not want, and it has no inspector and no action bar to place.
  * `.shell-content` is the scroller and already carries the shell's padding.
  *
- * Parity source: `TODO.md` §2.5 (there is no PyQt equivalent — 2.x had no job registry).
+ * There is no PyQt equivalent: 2.x had no job registry.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -284,7 +284,6 @@ const page: PageDef = {
   navGroup: "system",
   order: 80,
   icon: ListChecks,
-  shortcut: "8",
   Component: JobsPage,
   enabled: true,
 };

@@ -921,10 +921,8 @@ const page: PageDef = {
   navGroup: "explore",
   order: 60,
   icon: Eye,
-  shortcut: "7",
   Component: ViewerPage,
   enabled: true,
-  layout: "full-bleed",
 };
 
 export default page;

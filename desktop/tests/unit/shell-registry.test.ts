@@ -58,19 +58,10 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
   });
 
   it("a panel id (panel-<id>) gets its own slot, so it is gated by `enabled` and not palette-only", () => {
-    // §9: an optional panel is a *mode*, toggled by Settings, not a page copied from the PyQt tab
-    // strip — it still needs a rail row while the user has it turned on.
+    // §9: an optional panel is a *mode*, toggled by Settings — it still needs a rail row while the
+    // user has it turned on.
     expect(navSlotOf("panel-source")).toBe("panel-source");
     expect(navSlotOf("panel-caps")).toBe("panel-caps");
-  });
-
-  it("optimizer-flex stands in for the Optimizer slot ONLY until pages/optimizer exists", () => {
-    // Lane B3 creates `pages/optimizer`. The stand-in retires itself the day it lands: the second
-    // argument is the set of discovered ids, and the real page wins as soon as it is in there.
-    expect(navSlotOf("optimizer-flex", new Set(["optimizer-flex"]))).toBe("optimizer");
-    expect(navSlotOf("optimizer-flex", new Set(["optimizer-flex", "optimizer"]))).toBeNull();
-    // optimizer-ex has no slot at all — two nav entries were a copy of the PyQt tab strip.
-    expect(navSlotOf("optimizer-ex")).toBeNull();
   });
 
   it("a page with no slot is hidden from the rail whatever its PageDef says", () => {
@@ -88,14 +79,8 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
     expect(resolved.hidden).toBe(false);
     expect(resolved.slot).toBe("panel-x");
     expect(resolved.section).toBe("workflow");
-    // Sorts after the eight workflow rows, however the panel's own `order` compares to theirs.
+    // Sorts after the nine workflow rows, however the panel's own `order` compares to theirs.
     expect(resolved.order).toBe(NAV_ORDER.length + 100);
-  });
-
-  it("subjectScoped follows the slot, not the group, and stays overridable", () => {
-    expect(resolvePage(def({ id: "simulator", navGroup: "pipeline" })).subjectScoped).toBe(true);
-    expect(resolvePage(def({ id: "overview", navGroup: "workspace" })).subjectScoped).toBe(false);
-    expect(resolvePage(def({ id: "overview", navGroup: "workspace", subjectScoped: true })).subjectScoped).toBe(true);
   });
 });
 
@@ -115,11 +100,11 @@ describe("the shortcut map (DESIGN.md §9: ⌘0 Overview … ⌘7 Notebooks, ⌘
     expect(shortcutForSlot(null)).toBeUndefined();
   });
 
-  it("assigns them to today's page ids, with optimizer-flex holding ⌘2", () => {
+  it("assigns them to today's page ids", () => {
     expect(shortcutOf("overview")).toBe("0");
     expect(shortcutOf("preprocess")).toBe("1");
     expect(shortcutOf("simulator")).toBe("3");
-    expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("2");
+    expect(shortcutOf("optimizer")).toBe("2");
     expect(shortcutOf("analyzer")).toBe("4");
     expect(shortcutOf("notebooks")).toBe("7");
     expect(shortcutOf("results")).toBe("6");
@@ -154,8 +139,6 @@ describe("the rail's two sections, over the real discovered pages", () => {
   });
 
   it("carries every workflow page in NAV_ORDER", () => {
-    // `optimizer-flex` is standing in for `optimizer` until lane B3's page lands; the *slots* are
-    // NAV_ORDER either way, which is the invariant worth asserting.
     expect(sections.find((s) => s.id === "workflow")!.pages.map((p) => p.slot)).toEqual([...NAV_ORDER]);
     expect(ids("pinned")).toEqual([...PINNED_ORDER]);
   });
@@ -164,9 +147,9 @@ describe("the rail's two sections, over the real discovered pages", () => {
     for (const section of sections) expect("label" in section).toBe(false);
   });
 
-  it("keeps dev and optimizer-ex out of the rail but addressable for the palette", () => {
+  it("keeps dev out of the rail but addressable for the palette", () => {
     const railIds = sections.flatMap((s) => s.pages.map((p) => p.id));
-    for (const id of ["dev", "optimizer-ex"]) expect(railIds).not.toContain(id);
+    expect(railIds).not.toContain("dev");
   });
 
   it("pins System ABOVE Settings, and gives it no ⌘ digit (maintainer, 2026-09-07)", () => {
@@ -214,52 +197,23 @@ describe("the rail's two sections, over the real discovered pages", () => {
   });
 });
 
-describe("the viewer flag", () => {
-  it("marks the pages that mount the canvas", () => {
-    expect(pageById("viewer")?.viewer).toBe(true);
-    expect(pageById("overview")?.viewer).toBe(false);
-  });
-});
-
-/**
- * `PageDef.subNav` — the one exception to the flat rail (VE, 2026-09-06). The maintainer: *"In the
- * Viewer, the left menu has two subsections: the Menu, and below it the actual Viewer."*
- *
- * These assert the two properties the design rests on: a sub-item is **not** a page (it takes no
- * rail slot and no ⌘-number of its own), and a page that has sub-items has no route of its own —
- * its row, its number and its palette entry all land on the first one.
- */
-describe("rail sub-items (PageDef.subNav)", () => {
-  it("a sub-item takes no rail slot and no ⌘-number — it is a route inside one page", () => {
-    // The rail is still exactly NAV_ORDER. A sub-item that had a slot would also have a number,
-    // and every number after the Viewer would have shifted the day it grew a second row.
+/** The rail is flat: every page's row, ⌘-number and palette entry go to the page's own route. */
+describe("one route per page", () => {
+  it("a retired Viewer sub-route takes no rail slot and no ⌘-number", () => {
     expect(navSlotOf("menu")).toBeNull();
     expect(navSlotOf("tetravox")).toBeNull();
     expect(shortcutForSlot(navSlotOf("tetravox"))).toBeUndefined();
-    // Relational, not a hard-coded digit. The rail grows -- the Notebooks row arrived while this
-    // lane was open and moved every number after Pipeline, and this assertion was edited twice in
-    // one evening to chase it. What must stay true is that the Viewer's number is its own
-    // NAV_ORDER position, and that its two sub-items consumed none: a sub-item with a slot would
-    // have pushed everything after the Viewer along by two.
+    // Relational, not a hard-coded digit: the Viewer's number is its own NAV_ORDER position, and
+    // the row after it is one slot after it.
     const order = NAV_ORDER as readonly string[];
     const viewerIndex = order.indexOf("viewer");
     expect(viewerIndex).toBeGreaterThanOrEqual(0);
-    expect(pageById("viewer")?.shortcut).toBe(shortcutForSlot("viewer"));
     expect(pageById("viewer")?.shortcut).toBe(String(viewerIndex));
-    // The row after the Viewer is one slot after it, not three.
     expect(order.indexOf("results")).toBe(viewerIndex + 1);
   });
 
-  it("pagePath sends a page with sub-items to its first one, and any other page to itself", () => {
-    expect(pagePath({ id: "viewer", subNav: [{ id: "menu", title: "Menu" }] })).toBe("/viewer/menu");
-    expect(pagePath({ id: "viewer", subNav: [] })).toBe("/viewer");
+  it("pagePath is the page's own route, for a synthetic page and for the real ones", () => {
     expect(pagePath({ id: "jobs" })).toBe("/jobs");
-    // The real page, so the rail, ⌘5 and the palette cannot disagree with this test either.
-    expect(pagePath(pageById("viewer")!)).toBe("/viewer");
-  });
-
-  it("pages use a flat rail, including Viewer", () => {
-    const withSubs = pages.filter((p) => (p.subNav?.length ?? 0) > 0).map((p) => p.id);
-    expect(withSubs).toEqual([]);
+    for (const page of pages) expect(pagePath(page)).toBe(`/${page.id}`);
   });
 });

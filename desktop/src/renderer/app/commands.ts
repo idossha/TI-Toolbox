@@ -88,8 +88,6 @@ export interface CommandPage {
   title: string;
   purpose: string;
   shortcut?: string;
-  /** Rail sub-items (`PageDef.subNav`); each becomes its own row. */
-  subNav?: readonly { id: string; title: string }[];
 }
 
 /** Just enough of a job. */
@@ -135,18 +133,6 @@ export function buildCommands(ctx: CommandContext): Command[] {
       keywords: page.purpose,
       run: () => ctx.navigate(pagePath(page)),
     });
-    // A page's rail sub-items are rows here too. Below 1440 the rail draws no sub-items at all
-    // (there is no room to indent one), so the palette is the only place some people can reach
-    // the Viewer's Tetravox sub-page by name -- it is not a convenience row.
-    for (const sub of page.subNav ?? []) {
-      list.push({
-        id: `page:${page.id}:${sub.id}`,
-        label: `${page.title} · ${sub.title}`,
-        section: "Pages",
-        keywords: page.purpose,
-        run: () => ctx.navigate(`/${page.id}/${sub.id}`),
-      });
-    }
   }
 
   for (const s of ctx.subjects) {

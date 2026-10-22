@@ -10,7 +10,6 @@ const page: PageDef = {
   navGroup: "pipeline",
   order: 50,
   icon: FlaskConical,
-  shortcut: "6",
   Component: AnalyzerPage,
   enabled: true,
 };

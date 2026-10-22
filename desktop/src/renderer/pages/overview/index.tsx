@@ -323,7 +323,6 @@ const page: PageDef = {
   navGroup: "workspace",
   order: 1,
   icon: LayoutGrid,
-  shortcut: "1",
   Component: OverviewPage,
   enabled: true,
 };

@@ -47,7 +47,7 @@ export interface ShellShortcuts {
   toggleQuickNotes: () => void;
   /** ? — the keyboard sheet. The one shortcut without a modifier, and only when nothing is focused. */
   openKeyboardSheet: () => void;
-  /** ⌘⇧V — move focus to the viewer canvas, so its own keys start working. */
+  /** ⌘⇧V — open the native TetraVox app, or bring it forward, without rebuilding a scene. */
   focusViewer: () => void;
 }
 
@@ -123,8 +123,6 @@ export function useGlobalShortcuts(handlers: ShellShortcuts): void {
           : enabledPages.find((p) => p.shortcut === e.key);
         if (page) {
           e.preventDefault();
-          // `pagePath`, not `/${page.id}`: a page with sub-items has no route of its own, and its
-          // ⌘-number lands on the first one (⌘8 -> the Viewer's Menu).
           navigate(pagePath(page));
         }
       }

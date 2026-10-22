@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight, Puzzle } from "lucide-react";
 import { pageById, pagePath, useNavSections, type ResolvedPage } from "./registry";
 import { isMac } from "./keyboard";
@@ -12,9 +12,10 @@ import { AppVersionLabel } from "./appUpdate";
  * The width at which the rail carries labels — the same literal as `shell.css`.
  *
  * The program's Q1: U7 wanted labels at ≥ 1280, but a 216px rail at 1280 leaves a 1064px content
- * box, and the Viewer's embed needs ≥ 1200px there. Rather than one page forcing the icon rail and
- * every other page paying 160px for a label it did not need, the rail is **icons below 1440 and
- * labelled at or above it**: every page gains the width, and the Viewer needs no special case.
+ * box. Rather than one page forcing the icon rail and every other page paying 160px for a label it
+ * did not need, the rail is **icons below 1440 and labelled at or above it**, so no page needs a
+ * special case. (The figure was set for the retired in-app viewer embed, which needed a ≥ 1200px
+ * content box.)
  */
 export const LABEL_RAIL_QUERY = "(min-width: 1440px)";
 
@@ -22,11 +23,11 @@ export const LABEL_RAIL_QUERY = "(min-width: 1440px)";
  * True while the rail is the icon rail. Tooltips exist for that state only — a tooltip repeating
  * a label that is already on screen is noise on every hover of every row.
  *
- * Two independent listeners, not one (found by B5 while wiring the Viewer, DESIGN.md §9 Q1): a
- * resize while the Viewer holds a live postMessage channel open can leave `matchMedia`'s own
- * `"change"` event un-fired — or fired but not landing as a state update — often enough to matter,
- * apparently a scheduling interaction between Electron's window resize and a busy
- * `window.addEventListener("message", …)` stream rather than anything wrong with the query itself.
+ * Two independent listeners, not one (found while wiring the since-retired Viewer embed, DESIGN.md
+ * §9 Q1): a resize during a busy `window.addEventListener("message", …)` stream could leave
+ * `matchMedia`'s own `"change"` event un-fired — or fired but not landing as a state update — often
+ * enough to matter, a scheduling interaction between Electron's window resize and the stream rather
+ * than anything wrong with the query itself.
  * `window`'s own `"resize"` event is dispatched through a different Chromium code path than a media
  * query's `"change"`, so the same race dropping one is very unlikely to drop both; both handlers
  * just re-read `mql.matches` fresh, so there is one source of truth and no risk of the two
@@ -204,34 +205,12 @@ export function NavRail() {
           <div className="nav-section">
             {section.pages.filter((page) => page.navGroup !== "panels").map((page) => {
               const Icon = page.icon;
-              const hasSubs = !icons && (page.subNav?.length ?? 0) > 0;
-              const containsActive = hasSubs && page.id === activePageId;
-              const isCollapsed = collapsed.includes(page.id);
-              const listId = `nav-subitems-${page.id}`;
-
-              // A group row is a plain `Link`, not a `NavLink`, and that is the point: `NavLink`
-              // would set `aria-current="page"` (and with it the full highlight) on "Viewer" while
-              // the user is on "Menu", so two rows would be lit for one page. The group is not the
-              // page — it is the thing the page is inside. It gets `data-contains-active`, which
-              // `shell.css` renders as a quiet mark, and never the page highlight.
               const row: ReactElement = isProjectHome && page.id !== "overview" ? (
                 <span role="link" aria-disabled="true" title="Open a project to use this tool"
                   className="nav-item" aria-label={page.title} data-testid={`nav-item-${page.id}`}>
                   <Icon size={16} aria-hidden />
                   <span className="nav-label">{page.title}</span>
                 </span>
-              ) : hasSubs ? (
-                <Link
-                  to={pagePath(page)}
-                  className="nav-item"
-                  aria-label={page.title}
-                  aria-keyshortcuts={ariaShortcut(page.shortcut)}
-                  data-testid={`nav-item-${page.id}`}
-                  data-contains-active={containsActive ? "true" : undefined}
-                >
-                  <Icon size={16} aria-hidden />
-                  <span className="nav-label">{page.title}</span>
-                </Link>
               ) : (
                 <NavLink
                   to={pagePath(page)}
@@ -245,67 +224,13 @@ export function NavRail() {
                   {page.id === "jobs" && <PendingProposalsBadge />}
                 </NavLink>
               );
-              // Indented rows under the page's own (maintainer, 2026-09-06: "the left menu has two
-              // subsections: the Menu, and below it the actual Viewer"). They are always in the
-              // rail, not only while the page is open, because a rail whose rows appear and
-              // disappear as you navigate is a rail you cannot learn.
-              //
-              // Not rendered in the icon rail: at 56px there is no room for an indent and a label,
-              // and two unlabelled dots under one icon say nothing. Below 1440 the sub-items are
-              // reached from the page itself and from the palette, which both still list them.
-              const subs = hasSubs ? (
-                <div className="nav-subitems" id={listId} key={`${page.id}-subs`} hidden={isCollapsed}>
-                  {page.subNav!.map((sub) => isProjectHome ? (
-                    <span key={sub.id} role="link" aria-disabled="true" title="Open a project to use this tool"
-                      className="nav-subitem" data-testid={`nav-subitem-${page.id}-${sub.id}`}>
-                      <span className="nav-label">{sub.title}</span>
-                    </span>
-                  ) : (
-                    <NavLink
-                      key={sub.id}
-                      to={`/${page.id}/${sub.id}`}
-                      className="nav-subitem"
-                      data-testid={`nav-subitem-${page.id}-${sub.id}`}
-                    >
-                      <span className="nav-label">{sub.title}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              ) : null;
-
-              // The chevron is a separate control from the link, not a click target inside it: a
-              // <button> nested in an <a> is invalid, and more to the point "go to this page" and
-              // "show me what is under it" are two different intents. Clicking the label still
-              // opens the group's first sub-item; only the chevron collapses.
-              const chevron = hasSubs ? (
-                <button
-                  type="button"
-                  className="nav-chevron"
-                  aria-expanded={!isCollapsed}
-                  aria-controls={listId}
-                  aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${page.title}`}
-                  data-testid={`nav-chevron-${page.id}`}
-                  onClick={() => toggleCollapsed(page.id)}
-                >
-                  {isCollapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
-                </button>
-              ) : null;
-
               return icons ? (
                 <Tooltip key={page.id} label={page.title}>
                   {row}
                 </Tooltip>
               ) : (
                 <div key={page.id} className="nav-row">
-                  {chevron === null ? (
-                    row
-                  ) : (
-                    <div className="nav-group-row">
-                      {row}
-                      {chevron}
-                    </div>
-                  )}
-                  {subs}
+                  {row}
                 </div>
               );
             })}
