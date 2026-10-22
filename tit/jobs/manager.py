@@ -1,4 +1,4 @@
-"""``JobManager`` — the in-process job engine (TODO.md §2.3–2.5).
+"""``JobManager`` — the in-process job engine (docs/dev/ARCHITECTURE.md §6).
 
 Owns a private background thread running its own ``asyncio`` event loop (independent of
 whatever loop ``tit.server`` itself runs requests on), so spawning/awaiting subprocesses never

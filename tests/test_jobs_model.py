@@ -276,9 +276,9 @@ def test_command_for_legacy_viewer_kind_raises_clear_error():
 
 def test_command_for_tools():
     argv = kinds.command_for(
-        "tools", {"module": "tit.tools.check_for_update", "args": ["--quiet"]}, "unused"
+        "tools", {"module": "tit.tools.read_annot", "args": ["--quiet"]}, "unused"
     )
-    assert argv == ["simnibs_python", "-m", "tit.tools.check_for_update", "--quiet"]
+    assert argv == ["simnibs_python", "-m", "tit.tools.read_annot", "--quiet"]
 
     with pytest.raises(kinds.KindError, match="module"):
         kinds.command_for("tools", {"module": "definitely.not.a.real.module"}, "unused")
@@ -311,10 +311,10 @@ def test_command_for_tools_allowlist_checks_the_resolved_file_not_just_the_strin
     real submodule) must still be rejected — checking the dotted string alone would not catch
     that (ra_14 finding #2's fix note: "verify it resolves under tit/tools/")."""
     assert kinds._resolve_tool_module_path("tit.tools.does_not_exist_xyz") is None
-    real = kinds._resolve_tool_module_path("tit.tools.check_for_update")
+    real = kinds._resolve_tool_module_path("tit.tools.read_annot")
     assert real is not None
     assert real.is_relative_to(kinds.TOOLS_DIR)
-    assert real.name == "check_for_update.py"
+    assert real.name == "read_annot.py"
 
 
 def test_resolve_tool_module_path_rejects_dunder_init():

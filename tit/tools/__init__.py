@@ -7,8 +7,6 @@ lazily inside each module so that ``import tit.tools`` remains fast.
 
 Modules
 -------
-check_for_update
-    Query the GitHub API for new TI-Toolbox releases.
 extract_labels
     Extract specific label values from a NIfTI segmentation.
 field_extract

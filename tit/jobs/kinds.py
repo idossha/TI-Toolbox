@@ -1,4 +1,4 @@
-"""Job kind -> runner command line (TODO.md §2.3, and the B1 assignment notes).
+"""Job kind -> runner command line (docs/dev/ARCHITECTURE.md §6, the job engine).
 
 Every "module" kind runs ``simnibs_python -m <module> <spec_path>`` — the existing
 ``__main__.py`` contract every runner already implements or will implement (B4). ``tools`` is
@@ -8,19 +8,18 @@ modules only (ra_14 finding #2): any importable module (``-m http.server``, ``-m
 attacker's own package on ``PYTHONPATH``) would otherwise be remote code execution for any
 token holder, and in the container that's host root via the mounted docker.sock.
 
-The allowlist closes *which module* runs; :data:`TOOL_ARG_POLICY` and :func:`check_tool_args`
-close *what it can be told to touch* (RUN-06). Every path-shaped ``config.args`` value must
-resolve inside the manager's project root, and the options a tool treats as identifiers
-(``--pipeline``, ``--node``) must be safe names -- checked when the argv is built, before the
-job is spawned and therefore before any file is created. A ``tools`` job whose args mention a
-path but whose manager has no project root bound is refused rather than trusted.
+The allowlist closes *which module* runs; :func:`check_tool_args` closes *what it can be told
+to touch* (RUN-06). Every path-shaped ``config.args`` value -- a positional, an option's next
+argument, ``--opt=value``, or a value attached to a short option (``-o/out.stl``) -- must
+resolve inside the manager's project root, checked when the argv is built, before the job is
+spawned and therefore before any file is created. A ``tools`` job whose args mention a path but
+whose manager has no project root bound is refused rather than trusted.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import os
-import re
 import shlex
 from pathlib import Path
 from typing import Any
@@ -87,9 +86,7 @@ def command_for(
         if not module_exists(module):
             raise KindError(
                 f"kind '{kind}' maps to '{module}', which is not importable in this "
-                "environment yet (its runner module has not been created — see the "
-                "backend change budget in TODO.md §3). This kind cannot run until that "
-                "lands."
+                "environment; the TI-Toolbox install is incomplete or damaged."
             )
         return [PYTHON_INTERPRETER, "-m", module, spec_path]
 
@@ -106,7 +103,7 @@ def command_for(
                 f"{TOOLS_DIR})"
             )
         args = _string_list(config.get("args", []))
-        check_tool_args(module, args, project_dir)
+        check_tool_args(args, project_dir)
         return [PYTHON_INTERPRETER, "-m", module, *args]
 
     raise KindError(f"unknown job kind: {kind!r}")
@@ -146,19 +143,6 @@ def _resolve_tool_module_path(module: str) -> Path | None:
     return origin
 
 
-#: Per-tool argument policy for the ``tools`` kind: option -> how its value is checked.
-#:
-#: ``"name"``     a bare identifier that becomes a directory or file component
-#: ``"subjects"`` a comma-separated list of subject ids
-#: ``"root"``     must be the manager's own project root, not some other directory
-#:
-#: Anything not listed -- another option's value, or a positional -- is checked by the
-#: default rule: if it looks like a path it must resolve inside the project root. That rule
-#: is what covers ``tit.tools.electrode_overlay``'s three positional paths, and every tool
-#: script added later without a policy entry of its own.
-TOOL_ARG_POLICY: dict[str, dict[str, str]] = {}
-
-
 def _looks_like_a_path(value: str) -> bool:
     """True for anything that could name a filesystem location rather than a plain word."""
     return (
@@ -170,41 +154,32 @@ def _looks_like_a_path(value: str) -> bool:
     )
 
 
-def check_tool_args(module: str, args: list[str], project_dir: str | None) -> None:
+def _attached_values(token: str) -> list[str]:
+    """Every value argparse could read attached to the single-dash *token*.
+
+    argparse reads a short option's value from the rest of its token (``-o/out.stl``), and
+    flags combine (``-vo/out.stl`` is ``-v -o /out.stl``), so the value may start after any of
+    the token's leading option characters. Which ones take a value depends on the tool, so
+    every reading is returned: ``"-vo/x"`` -> ``["o/x", "/x"]``.
+    """
+    end = 1
+    while end < len(token) and token[end].isalnum():
+        end += 1
+    return [token[i:] for i in range(2, min(end, len(token) - 1) + 1)]
+
+
+def check_tool_args(args: list[str], project_dir: str | None) -> None:
     """Raise :class:`KindError` unless every argument of a ``tools`` job stays in bounds.
 
     RUN-06: ``config.args`` used to be forwarded verbatim, so an allowlisted tool could be
     handed an absolute output path and made to write anywhere the container's user can write.
+    Every value that looks like a path must resolve inside *project_dir*: positionals (which
+    covers ``tit.tools.electrode_overlay``'s three paths), an option's next argument,
+    ``--opt=value``, and every reading of a value attached to a short option.
     """
-    from tit.paths import is_valid_subject_id, is_within
+    from tit.paths import is_within
 
-    policy = TOOL_ARG_POLICY.get(module, {})
-
-    def check(option: str | None, value: str) -> None:
-        rule = policy.get(option or "", "")
-        where = option or "argument"
-        if rule == "name":
-            if not _SAFE_ARG_NAME.match(value):
-                raise KindError(
-                    f"tools job: {where} {value!r} must be a plain name "
-                    f"(letters, digits, '_', '-', '.', at most 64 characters)"
-                )
-            return
-        if rule == "subjects":
-            for sid in value.split(","):
-                if sid and not is_valid_subject_id(sid):
-                    raise KindError(
-                        f"tools job: {where} has an invalid subject id {sid!r}"
-                    )
-            return
-        if rule == "root":
-            if not project_dir or os.path.realpath(value) != os.path.realpath(
-                project_dir
-            ):
-                raise KindError(
-                    f"tools job: {where} must be this server's project directory"
-                )
-            return
+    def check(where: str, value: str) -> None:
         if not _looks_like_a_path(value):
             return
         if not project_dir:
@@ -221,20 +196,16 @@ def check_tool_args(module: str, args: list[str], project_dir: str | None) -> No
     pending: str | None = None
     for arg in args:
         if arg.startswith("-") and not os.path.isabs(arg):
-            pending = None
             option, sep, inline = arg.partition("=")
             if sep:
                 check(option, inline)
-            elif option in policy or option.startswith("--"):
-                pending = option
+            if not arg.startswith("--"):
+                for value in _attached_values(arg):
+                    check(arg, value)
+            pending = None if sep else option
             continue
-        check(pending, arg)
+        check(pending or "argument", arg)
         pending = None
-
-
-#: Identifier grammar for a ``"name"`` argument -- a directory or file component a tool builds
-#: a path out of. Wider than a subject id only by ``.`` (run names carry versions).
-_SAFE_ARG_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
 def _string_list(value: Any) -> list[str]:

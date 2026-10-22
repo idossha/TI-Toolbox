@@ -164,25 +164,6 @@ save_mapping_result(mapping, "mapping_result.json", eeg_net_name="GSN-HydroCel-2
 log_mapping_summary(mapping)
 ```
 
-## Other Utilities
-
-### Version Checking
-
-Check GitHub for newer TI-Toolbox releases:
-
-```python
-from tit import __version__
-from tit.tools.check_for_update import check_for_new_version
-
-newer = check_for_new_version(
-    current_version=__version__,
-    repo="idossha/TI-Toolbox",  # default
-    timeout=2.0,                # seconds, default
-)
-if newer:
-    print(f"New version available: {newer}")
-```
-
 ## API Reference
 
 ### Mesh to NIfTI
@@ -266,15 +247,5 @@ if newer:
       show_root_heading: true
 
 ::: tit.tools.map_electrodes.log_mapping_summary
-    options:
-      show_root_heading: true
-
-### Version Checking
-
-::: tit.tools.check_for_update.check_for_new_version
-    options:
-      show_root_heading: true
-
-::: tit.tools.check_for_update.parse_version
     options:
       show_root_heading: true
