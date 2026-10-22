@@ -163,7 +163,9 @@ export function RoiPicker({ value, onChange, modes, subject, space = "subject", 
         <SphericalPanel value={value} onChange={onChange} disabled={disabled} onOpenViewer={onOpenViewer} analyzer={analyzer} />
       )}
       {value.mode === "cortical" && <CorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} analyzer={analyzer} />}
-      {value.mode === "subcortical" && <SubcorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} analyzer={analyzer} />}
+      {/* Ex/mEx (the pickers that offer saved ROIs) score every leadfield element inside the label:
+          ExConfig/MExConfig carry no tissue, so a Tissue type select there would be dropped. */}
+      {value.mode === "subcortical" && <SubcorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} analyzer={analyzer} showTissues={!analyzer && !modes.includes("saved")} />}
       {value.mode === "mask" && <MaskPanel value={value} onChange={onChange} disabled={disabled} subject={subject} showTissues={!analyzer && modes.includes("spherical")} />}
       {value.mode === "saved" && <SavedPanel value={value} onChange={onChange} subject={subject} disabled={disabled} allowCombine={allowCombine} />}
     </div>
@@ -591,12 +593,14 @@ function SubcorticalPanel({
   subject,
   disabled,
   analyzer,
+  showTissues,
 }: {
   value: Extract<RoiValue, { mode: "subcortical" }>;
   onChange: (v: RoiValue) => void;
   subject: string | undefined;
   disabled?: boolean;
   analyzer: boolean;
+  showTissues: boolean;
 }) {
   const atlases = useQuery({
     queryKey: ["atlases", subject, "subcortical", value.space],
@@ -617,7 +621,7 @@ function SubcorticalPanel({
       <Field label="Space" help="Space the volume atlas is defined in. An MNI atlas is transformed into this subject's anatomy before the search runs. The same control sits above the 3D pane; both write the row's one space.">
         <RoiSpaceControl value={value} onChange={onChange} label="Atlas space" id="roi-picker-space" disabled={disabled} />
       </Field>
-      {!analyzer && <Field label="Tissue type" help="Tissue compartment(s) to include when evaluating the volume ROI.">
+      {showTissues && <Field label="Tissue type" help="Tissue compartment(s) to include when evaluating the volume ROI.">
         <Select value={value.tissues} onValueChange={(v) => onChange({ ...value, tissues: v as TissueKind })} options={TISSUE_OPTIONS} disabled={disabled} />
       </Field>}
       <Field label="Volume atlas" required help="Volumetric atlas whose labels the regions below come from.">
