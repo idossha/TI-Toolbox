@@ -20,6 +20,7 @@
  */
 import { categoricalColor, SCENE_CATEGORICAL, rgbToHex, type Rgb, type SceneMarker } from "../../scene";
 import type { ElectrodePosition } from "./api";
+import { isValidPairCount } from "./types";
 
 /** Millimetres, to the same 0.1 mm step the editor's `NumberInput`s use. A pick carries float
  *  noise from the depth buffer that no user typed and no user can reproduce. */
@@ -177,11 +178,11 @@ export function savedMarkers(positions: ElectrodePosition[]): SceneMarker[] {
 export const POSITIONS_PER_STEP = 2;
 
 /**
- * 4 positions (2 pairs, TI) or 8, 12, 16 … (an even pair count from 4, mTI) — the position form of
- * `tit.constants.is_valid_pair_count`. 6 or 10 positions are 3 or 5 pairs, which the server refuses.
+ * 4 positions (2 pairs, TI) or 8, 12, 16 … (an even pair count from 4, mTI) — `isValidPairCount`
+ * on the positions' pairs. 6 or 10 positions are 3 or 5 pairs, which the server refuses.
  */
 export function isValidPositionCount(n: number): boolean {
-  return n >= 4 && n % 4 === 0;
+  return n % 2 === 0 && isValidPairCount(n / 2);
 }
 
 /**

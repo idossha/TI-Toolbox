@@ -55,6 +55,7 @@ import {
   inferMontageKind,
   isRunnableRow,
   isCustomised,
+  isValidPairCount,
   newRowId,
   polarityLabel,
   rowPairCount,
@@ -371,11 +372,6 @@ export interface MontageDraft {
  *  it follows from how many pairs the user ends up filling in (`inferMontageKind`). */
 export function emptyDraft(): MontageDraft {
   return { name: "", pairs: [["", ""], ["", ""]] };
-}
-
-/** Matches `Montage.simulation_mode`: exactly 2 pairs (TI) or 4+ pairs (mTI); 1 or 3 is invalid. */
-function isValidPairCount(n: number): boolean {
-  return n === 2 || n >= 4;
 }
 
 /** A subject as the Subject cell addresses it: its id and whether a simulation can run on it. */
@@ -1257,7 +1253,7 @@ export function JobsTable({
                   />
                 )}
                 {!isValidPairCount(editing.pairs.length) && (
-                  <span className="field-error">Use exactly 2 pairs (standard TI) or 4 or more pairs (multi-channel mTI).</span>
+                  <span className="field-error">Use exactly 2 pairs (standard TI) or an even number of pairs from 4: 4, 6, 8 … (multi-channel mTI).</span>
                 )}
               </Field>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>

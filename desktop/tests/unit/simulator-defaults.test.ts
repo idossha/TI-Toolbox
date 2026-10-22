@@ -10,6 +10,7 @@ import {
   emptyRow,
   inferMontageKind,
   isRunnableRow,
+  isValidPairCount,
   carrierOnlyAllowed,
   polarityLabel,
   type SelectedRow,
@@ -316,6 +317,12 @@ describe("montage table derivations", () => {
     // Degenerate counts still resolve (the editor refuses to save them separately).
     expect(inferMontageKind(1)).toBe("uni_polar");
     expect(inferMontageKind(3)).toBe("multi_polar");
+  });
+
+  it("saves only a pair count the server accepts: 2, or an even count from 4", () => {
+    // `tit.constants.is_valid_pair_count`. The editor's old `n === 2 || n >= 4` let a 5-pair
+    // montage save, which the server then refused ("Expected an even number of electrode pairs").
+    expect(Array.from({ length: 11 }, (_, n) => n).filter(isValidPairCount)).toEqual([2, 4, 6, 8, 10]);
   });
 
   it("labels the polarity as the chip does", () => {

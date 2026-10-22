@@ -225,6 +225,14 @@ export function inferMontageKind(numPairs: number): MontageKind {
   return numPairs > 2 ? "multi_polar" : "uni_polar";
 }
 
+/**
+ * `tit.constants.is_valid_pair_count`: 2 pairs (TI) or an even count from 4 (mTI). An odd count
+ * leaves a channel with nothing to beat against, and the server refuses it.
+ */
+export function isValidPairCount(n: number): boolean {
+  return n === 2 || (n >= 4 && n % 2 === 0);
+}
+
 /** Human label for a polarity — the chip shown beside a montage in the table. */
 export function polarityLabel(kind: MontageKind): string {
   return kind === "uni_polar" ? "TI" : "mTI";
