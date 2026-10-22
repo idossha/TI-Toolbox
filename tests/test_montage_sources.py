@@ -206,7 +206,10 @@ class TestFreehandConfigs:
         ]
         assert montage.eeg_net == "freehand"
 
-    def test_falls_back_to_sorted_keys_when_ordered_keys_missing(self, pm: PathManager):
+    def test_pairs_follow_file_order_not_sorted_labels(self, pm: PathManager):
+        """The desktop Simulator pairs a saved placement's positions in file order
+        (``MontageManager.setRowFreehand``); a plan of the same name must run the same pairs.
+        """
         m2m_dir = pm.m2m("001")
         stim_dir = os.path.join(m2m_dir, "stim_configs")
         os.makedirs(stim_dir, exist_ok=True)
@@ -223,22 +226,43 @@ class TestFreehandConfigs:
             },
         )
         montage = montage_sources.resolve_freehand_montage(pm, "001", "custom")
-        # sorted() order: Alpha, Beta, Gamma, Zeta
         assert montage.electrode_pairs == [
-            ([1, 1, 1], [2, 2, 2]),
-            ([3, 3, 3], [9, 9, 9]),
+            ([9, 9, 9], [1, 1, 1]),
+            ([2, 2, 2], [3, 3, 3]),
         ]
 
-    def test_too_few_electrodes_raises(self, pm: PathManager):
-        m2m_dir = pm.m2m("001")
-        stim_dir = os.path.join(m2m_dir, "stim_configs")
-        os.makedirs(stim_dir, exist_ok=True)
+    def test_eight_positions_resolve_to_four_pair_mti(self, pm: PathManager):
+        """The reported defect: an 8-position placement was cut to its first four, so a plan for
+        it ran as 2-pair TI while the desktop Simulator ran it as 4-pair mTI."""
+        stim_dir = os.path.join(pm.m2m("001"), "stim_configs")
+        positions = {f"E{i // 2 + 1}{'+-'[i % 2]}": [i, i, i] for i in range(8)}
         _write_json(
-            os.path.join(stim_dir, "short.json"),
-            {"name": "short", "electrode_positions": {"E1+": [0, 0, 0]}},
+            os.path.join(stim_dir, "mti.json"),
+            {"name": "mti", "electrode_positions": positions},
         )
-        with pytest.raises(ValueError, match="fewer than 4"):
-            montage_sources.resolve_freehand_montage(pm, "001", "short")
+        montage = montage_sources.resolve_freehand_montage(pm, "001", "mti")
+        assert montage.electrode_pairs == [
+            ([0, 0, 0], [1, 1, 1]),
+            ([2, 2, 2], [3, 3, 3]),
+            ([4, 4, 4], [5, 5, 5]),
+            ([6, 6, 6], [7, 7, 7]),
+        ]
+        assert montage.simulation_mode.value == "mTI"
+
+    @pytest.mark.parametrize("count", [1, 2, 3, 5, 6, 10])
+    def test_a_count_other_than_4_or_a_multiple_of_4_from_8_raises(
+        self, pm: PathManager, count: int
+    ):
+        stim_dir = os.path.join(pm.m2m("001"), "stim_configs")
+        _write_json(
+            os.path.join(stim_dir, "odd.json"),
+            {
+                "name": "odd",
+                "electrode_positions": {f"P{i}": [i, i, i] for i in range(count)},
+            },
+        )
+        with pytest.raises(ValueError, match=f"has {count} electrode positions"):
+            montage_sources.resolve_freehand_montage(pm, "001", "odd")
 
     def test_unknown_config_name_raises(self, pm: PathManager):
         m2m_dir = pm.m2m("001")

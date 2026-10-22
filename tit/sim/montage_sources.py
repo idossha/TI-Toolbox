@@ -21,13 +21,10 @@ Two sources, two resolvers
   alongside the run.
 - **Freehand** (:func:`resolve_freehand_montage`): a
   ``m2m_{subject}/stim_configs/<name>.json`` file holds an
-  ``electrode_positions`` dict keyed by electrode role (``"E1+"``,
-  ``"E1-"``, ``"E2+"``, ``"E2-"``, ...). Only the **first four** coordinates
-  are used, in ``["E1+", "E1-", "E2+", "E2-"]`` order when those keys are
-  present, else sorted-key order for whatever remains -- this is the
-  original GUI's behavior verbatim, not a new convention. mTI (>4
-  electrodes) freehand configs are not resolvable by this function today;
-  see its docstring.
+  ``electrode_positions`` dict of label -> XYZ. Every position is used,
+  paired consecutively in file order (``(1, 2), (3, 4), ...``) -- the same
+  pairing the desktop Simulator applies to a saved placement -- so 4
+  positions are TI and 8, 12, 16, ... are mTI.
 
 See Also
 --------
@@ -44,6 +41,7 @@ import os
 import re
 from typing import Any
 
+from tit import constants as const
 from tit.paths import PathManager, resolve_within
 from tit.sim.config import Montage
 
@@ -427,20 +425,18 @@ def list_freehand_configs(pm: PathManager, subject_id: str) -> list[str]:
 def resolve_freehand_montage(pm: PathManager, subject_id: str, name: str) -> Montage:
     """Resolve one freehand stim-config name into a concrete ``Montage``.
 
-    Only the **first four** coordinates from ``electrode_positions`` are
-    used -- ``["E1+", "E1-", "E2+", "E2-"]`` order when present, else the
-    remaining keys in sorted order -- reproducing
-    ``SimulatorTab._build_montage_configs_from_freehand`` exactly. A
-    freehand config's ``"type"`` field (if any) is not consulted: this
-    matches today's GUI behavior (2-pair TI only) rather than a documented
-    contract, and an mTI (>4-electrode) freehand config cannot be resolved
-    to a usable ``Montage`` by this function -- see the module docstring.
+    Every coordinate in ``electrode_positions`` is used, paired consecutively
+    in file order -- positions 1+2 are pair 1, 3+4 pair 2, and so on -- which
+    is how the desktop Simulator turns a saved placement into a job
+    (``MontageManager.setRowFreehand``). Four positions give TI; 8, 12, 16 ...
+    give mTI.
 
     Raises
     ------
     ValueError
         If the subject has no ``m2m``/``stim_configs`` directory, no config
-        named *name* exists, or it has fewer than 4 electrode positions.
+        named *name* exists, or its position count is not an allowed pair
+        count (:func:`tit.constants.is_valid_pair_count` of half of it).
     """
     m2m_dir = pm.m2m(subject_id)
     if not m2m_dir:
@@ -464,24 +460,16 @@ def resolve_freehand_montage(pm: PathManager, subject_id: str, name: str) -> Mon
         if config_data.get("name", config_file[: -len(".json")]) != name:
             continue
 
-        electrode_positions = config_data.get("electrode_positions", {})
-        ordered_keys = ["E1+", "E1-", "E2+", "E2-"]
-        coords = [
-            electrode_positions[k] for k in ordered_keys if k in electrode_positions
-        ]
-        if len(coords) < 4:
-            for k in sorted(electrode_positions.keys()):
-                if k not in ordered_keys and len(coords) < 4:
-                    coords.append(electrode_positions[k])
-        if len(coords) < 4:
+        coords = list(config_data.get("electrode_positions", {}).values())
+        if len(coords) % 2 or not const.is_valid_pair_count(len(coords) // 2):
             raise ValueError(
-                f"Freehand config {name!r} has fewer than 4 electrode "
-                f"positions (found {len(coords)})"
+                f"Freehand config {name!r} has {len(coords)} electrode positions; "
+                "expected 4 (TI) or a multiple of 4 from 8 up (mTI)"
             )
         return Montage(
             name=name,
             mode=Montage.Mode.FREEHAND,
-            electrode_pairs=[(coords[0], coords[1]), (coords[2], coords[3])],
+            electrode_pairs=list(zip(coords[0::2], coords[1::2])),
             eeg_net="freehand",
         )
 

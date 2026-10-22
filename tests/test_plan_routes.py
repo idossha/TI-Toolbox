@@ -387,6 +387,34 @@ def test_plan_sim_resolves_freehand_montage_source(
     assert body["resolved"]["montages"][0]["name"] == "hand1"
 
 
+def test_plan_sim_keeps_every_pair_of_an_eight_position_freehand_placement(
+    client: TestClient, project: Path
+) -> None:
+    """The agent's plan path ran an 8-position placement as 2-pair TI (its first four positions)
+    while the desktop Simulator ran it as 4-pair mTI; both now pair every position in order.
+    """
+    import json as _json
+
+    stim_dir = os.path.join(get_path_manager().m2m("001"), "stim_configs")
+    os.makedirs(stim_dir)
+    positions = {f"E{i // 2 + 1}{'+-'[i % 2]}": [i, i, i] for i in range(8)}
+    with open(os.path.join(stim_dir, "hand8.json"), "w") as f:
+        _json.dump({"name": "hand8", "electrode_positions": positions}, f)
+
+    resp = client.post(
+        "/api/plan/sim",
+        json={
+            "config": _sim_config(montages=[]),
+            "montage_sources": {"freehand": [{"subject": "001", "name": "hand8"}]},
+        },
+        headers=BEARER,
+    )
+    montage = resp.json()["resolved"]["montages"][0]
+    assert montage["electrode_pairs"] == [
+        [[2 * k] * 3, [2 * k + 1] * 3] for k in range(4)
+    ]
+
+
 def test_plan_sim_resolves_freehand_montage_source_via_top_level_field(
     client: TestClient, project: Path
 ) -> None:
