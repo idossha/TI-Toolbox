@@ -8,7 +8,6 @@ import { api, unwrap } from "../../../api/client";
 import type { components } from "../../../api/schema";
 
 export type SubjectDetail = components["schemas"]["SubjectDetail"];
-export type Simulation = components["schemas"]["Simulation"];
 export type PlanResult = components["schemas"]["PlanResult"];
 export type ValidateResult = components["schemas"]["ValidateResult"];
 export type JobStatus = components["schemas"]["JobStatus"];
@@ -23,10 +22,6 @@ function asPipelineConfig(config: SourceConfig): PipelineConfig {
 
 export async function getSubjectDetail(id: string): Promise<SubjectDetail> {
   return unwrap(await api.GET("/api/catalog/subjects/{id}", { params: { path: { id } } }), `/api/catalog/subjects/${id}`);
-}
-
-export async function getSimulationsFor(subject: string): Promise<Simulation[]> {
-  return unwrap(await api.GET("/api/catalog/simulations", { params: { query: { subject } } }), "/api/catalog/simulations").simulations;
 }
 
 export async function validateSource(config: SourceConfig): Promise<ValidateResult> {

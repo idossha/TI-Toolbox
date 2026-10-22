@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
-import { buildForwardConfig, buildFsavgConfig } from "../../src/renderer/pages/panels/source/config";
+import { buildForwardConfig } from "../../src/renderer/pages/panels/source/config";
 
 // contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
@@ -25,31 +25,6 @@ describe("Source panel configs validate against contracts/generated/config.schem
 
   it("a multi-subject forward-solution config is a valid SourceConfig", () => {
     const config = buildForwardConfig({ subjectIds: ["ernie", "101"], eegNet: "GSN-HydroCel-185", fsaverageSpacing: 6, cpus: 4, overwrite: true });
-    expect(validate("SourceConfig", config)).toMatchObject({ valid: true, errors: [] });
-  });
-
-  it("a default fsaverage-mapping config is a valid SourceConfig", () => {
-    const config = buildFsavgConfig({
-      pairs: [{ subject_id: "ernie", simulation: "Thalamus" }],
-      fields: ["TI_max", "TI_normal"],
-      fsaverageSpacing: 5,
-      workers: 1,
-      overwrite: false,
-    });
-    expect(validate("SourceConfig", config)).toMatchObject({ valid: true, errors: [] });
-  });
-
-  it("a multi-pair, safety-field fsaverage-mapping config is a valid SourceConfig", () => {
-    const config = buildFsavgConfig({
-      pairs: [
-        { subject_id: "ernie", simulation: "Thalamus" },
-        { subject_id: "101", simulation: "docs_example" },
-      ],
-      fields: ["TI_max", "TI_normal", "hf_peak", "hf_sar"],
-      fsaverageSpacing: 7,
-      workers: 2,
-      overwrite: true,
-    });
     expect(validate("SourceConfig", config)).toMatchObject({ valid: true, errors: [] });
   });
 });

@@ -10,7 +10,7 @@ import { AppleGpuSettings, SurferSettingsCard } from "../../src/renderer/pages/s
 import { getSurferSettings, putSurferSettings } from "../../src/renderer/pages/settings/api";
 import type { TitBridge, TitFastSurferStatus } from "../../src/shared/tit-bridge";
 
-vi.mock("../../src/renderer/pages/settings/api", () => ({ getSurferSettings: vi.fn(), putSurferSettings: vi.fn(), putFreeSurferLicense: vi.fn(), deleteFreeSurferLicense: vi.fn() }));
+vi.mock("../../src/renderer/pages/settings/api", () => ({ getSurferSettings: vi.fn(), putSurferSettings: vi.fn() }));
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let container: HTMLDivElement;
 let root: Root;

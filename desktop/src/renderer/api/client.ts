@@ -7,10 +7,8 @@ import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "./schema";
 
 export type Version = components["schemas"]["Version"];
-export type Capabilities = components["schemas"]["Capabilities"];
 export type Project = components["schemas"]["Project"];
 export type Subject = components["schemas"]["Subject"];
-export type Simulation = components["schemas"]["Simulation"];
 export type SystemSnapshot = components["schemas"]["SystemSnapshot"];
 export type ProjectStorage = components["schemas"]["ProjectStorage"];
 
@@ -99,19 +97,8 @@ export async function getProject(client = api): Promise<Project> {
   return unwrap(await client.GET("/api/project"), "/api/project");
 }
 
-export async function getCapabilities(client = api): Promise<Capabilities> {
-  return unwrap(await client.GET("/api/capabilities"), "/api/capabilities");
-}
-
 export async function getSubjects(client = api): Promise<Subject[]> {
   return unwrap(await client.GET("/api/catalog/subjects"), "/api/catalog/subjects").subjects;
-}
-
-export async function getSimulations(subject: string, client = api): Promise<Simulation[]> {
-  return unwrap(
-    await client.GET("/api/catalog/simulations", { params: { query: { subject } } }),
-    "/api/catalog/simulations",
-  ).simulations;
 }
 
 /**

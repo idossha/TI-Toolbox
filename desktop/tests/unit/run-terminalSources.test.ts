@@ -10,61 +10,31 @@ import { describe, expect, it } from "vitest";
 import {
   durationLabel,
   estimateLabel,
-  estimateMinutes,
   RUN_STEPS,
   stepsFor,
 } from "../../src/renderer/pages/_shared/run/terminalSources";
 import { planModelFrom, type PlanResult } from "../../src/renderer/pages/_shared/run/planModel";
 
 describe("the estimate", () => {
-  it("scales with the plan's subject rows and divides by the parallelism", () => {
-    const plan = planModelFrom("pre", { jobs: [], lock_conflicts: [], cost: { cpus: 4, mem_gb: 16 }, warnings: [] } as PlanResult, [
-      "ernie",
-      "101",
-      "MNI152",
-    ]);
-    const steps = stepsFor("pre", ["G1", "G3"]); // 2 + 3 minutes per subject
-    expect(estimateMinutes(steps, plan, 1)).toBe(15);
-    expect(estimateMinutes(steps, plan, 3)).toBe(5);
-  });
-
-  it("never divides by zero and treats a null plan as one subject", () => {
-    expect(estimateMinutes(stepsFor("sim"), null, 0)).toBe(13);
-  });
-
-  it("prefers the server's eta over the step table", () => {
-    // `PlanCost.eta_minutes` knows the electrode count, the mesh and the machine; the table does
-    // not. Whenever the server gives a number, the table is not consulted at all.
+  it("carries the server's eta and the machine it was made for into the plan stats", () => {
+    // `PlanCost.eta_minutes` knows the electrode count, the mesh and the machine.
     const plan = planModelFrom(
       "pre",
       { jobs: [], lock_conflicts: [], cost: { cpus: 4, mem_gb: 16, eta_minutes: 92.4, system: { cpus: 12, emulated: true, factor: 3 } }, warnings: [] } as PlanResult,
       ["ernie", "101"],
     );
-    expect(estimateMinutes(stepsFor("pre", ["G1", "G3"]), plan, 1)).toBe(92);
+    expect(plan.stats.etaMinutes).toBe(92.4);
     expect(plan.stats.system?.emulated).toBe(true);
   });
 
-  it("falls back to the step table when the server has no estimate", () => {
+  it("has no eta when the server sends none, and the label says so", () => {
     const plan = planModelFrom(
       "pre",
       { jobs: [], lock_conflicts: [], cost: { cpus: 4, mem_gb: 16, eta_minutes: null }, warnings: [] } as PlanResult,
       ["ernie", "101"],
     );
-    expect(estimateMinutes(stepsFor("pre", ["G1", "G3"]), plan, 1)).toBe(10);
     expect(plan.stats.etaMinutes).toBeNull();
-  });
-
-  it("does not estimate an unmeasured FreeSurfer stage from the remaining known stages", () => {
-    expect(estimateMinutes(stepsFor("pre", ["G2c"]), null)).toBeNull();
-    expect(estimateMinutes(stepsFor("pre", ["G1", "G2c"]), null)).toBeNull();
     expect(estimateLabel(null)).toBe("Duration unavailable");
-  });
-
-  it("uses a server estimate even when the local FreeSurfer estimate is unknown", () => {
-    const plan = planModelFrom("pre", {
-      jobs: [], lock_conflicts: [], cost: { cpus: 4, mem_gb: 16, eta_minutes: 180 }, warnings: [],
-    } as PlanResult, ["ernie"]);
-    expect(estimateMinutes(stepsFor("pre", ["G2c"]), plan)).toBe(180);
   });
 
   it("names the machine an estimate was made for", () => {

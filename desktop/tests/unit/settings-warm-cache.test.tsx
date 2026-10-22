@@ -35,8 +35,6 @@ vi.mock("../../src/renderer/pages/settings/api", () => ({
   putSurferSettings: vi.fn(),
   getCpuLimit: vi.fn(async () => ({ percent: 70, cores: 8, available_cores: 12, default_percent: 70 })),
   putCpuLimit: vi.fn(),
-  putFreeSurferLicense: vi.fn(),
-  deleteFreeSurferLicense: vi.fn(),
   getSettings: vi.fn(async () => SETTINGS_FIXTURE),
   putSettings: vi.fn(async (s: unknown) => s),
   getProject: vi.fn(async () => ({ name: "example", container_path: "/mnt/example", host_path: null })),

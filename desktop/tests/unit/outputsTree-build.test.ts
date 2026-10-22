@@ -17,11 +17,9 @@ import {
   matchesQuery,
   outputsStatusValue,
   outputsTreeFor,
-  subjectOutputCounts,
   truncatePathLeft,
   treeRows,
   type SubjectCatalog,
-  type SubjectOutputs,
 } from "../../src/renderer/pages/results/outputsTree";
 
 type Sim = components["schemas"]["SimulationDetail"];
@@ -206,20 +204,6 @@ describe("treeRows", () => {
     expect(rows.filter((r) => r.type === "group")).toHaveLength(5);
     expect(rows.filter((r) => r.type === "node")).toHaveLength(9);
     expect(rows[0]).toMatchObject({ type: "group", expanded: false });
-  });
-});
-
-describe("subjectOutputCounts", () => {
-  it("reports a count only for the subjects whose outputs have landed", () => {
-    const loaded: Record<string, SubjectOutputs | undefined> = {
-      ernie: outputsTreeFor("ernie", catalogFor("ernie")),
-      MNI152: outputsTreeFor("MNI152", catalogFor("MNI152")),
-    };
-    expect(subjectOutputCounts(["ernie", "101", "MNI152"], loaded)).toEqual([
-      { subject: "ernie", total: 12, pending: false },
-      { subject: "101", total: 0, pending: true },
-      { subject: "MNI152", total: 0, pending: false },
-    ]);
   });
 });
 

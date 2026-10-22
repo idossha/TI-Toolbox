@@ -4,10 +4,10 @@
  * The arithmetic that used to live here (coverage tiles, readiness, per-stage output totals over a
  * per-subject fan-out) is now the server's: `tit/server/routes/overview.py` owns coverage, counts
  * and readiness, so a row and a stage card cannot disagree and a project of any size gets the same
- * answer. What is left here is presentation — how a `PresenceState` reads, which column order the
- * matrix uses, and the page's status-bar cell.
+ * answer. What is left here is presentation — how a `PresenceState` reads and which column order the
+ * matrix uses.
  */
-import type { Overview, OverviewSubject, PresenceState } from "./api";
+import type { OverviewSubject, PresenceState } from "./api";
 import type { SemanticKind } from "../../ui/Status";
 
 /** The presence vocabulary, in the order the matrix draws it. */
@@ -151,20 +151,4 @@ export function isReady(row: OverviewSubject): boolean {
 /** `sourcedata/` has raw data staged but no BIDS directory yet — the DICOM onboarding case. */
 export function notConverted(row: OverviewSubject): boolean {
   return row.raw === "partial";
-}
-
-/**
- * The `counts` status cell (§11.1): `3 subjects · 3 m2m · 1 leadfield`. Zero counts are dropped
- * rather than printed — the bar has no placeholders (U8).
- */
-export function overviewStatusValue(data: Overview | undefined): string | undefined {
-  if (!data || data.totals.subjects === 0) return undefined;
-  const have = (id: string): number => data.totals.coverage.find((c) => c.id === id)?.have ?? 0;
-  const n = data.totals.subjects;
-  const parts = [`${n} subject${n === 1 ? "" : "s"}`];
-  const m2m = have("m2m");
-  const leadfields = have("leadfield");
-  if (m2m) parts.push(`${m2m} m2m`);
-  if (leadfields) parts.push(`${leadfields} leadfield${leadfields === 1 ? "" : "s"}`);
-  return parts.join(" · ");
 }

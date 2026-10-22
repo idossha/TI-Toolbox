@@ -6,7 +6,7 @@
  * `useSubject()` adds the catalog, batch selection and presence chips to the same scoped store.
  */
 import { create } from "zustand";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, getSubjects, unwrap, type Subject } from "../api/client";
 import { usePageId } from "./pageSession";
@@ -204,23 +204,3 @@ export function useSubject(): UseSubject {
   };
 }
 
-/**
- * Keeps a page's own subject value and its subject context in step, in both directions.
- * Stage-2 pages drop this in beside their existing state and delete their picker; a page that
- * still owns a picker (every page today) can adopt it one screen at a time.
- *
- * Only the calling page's context is read: a hidden page must never adopt a subject chosen in
- * another tab.
- */
-export function useSubjectSync(pageValue: string | null, setPageValue: (id: string) => void): void {
-  const id = useSubjectContext((s) => s.subjectId);
-  const setSubject = useSubjectContext((s) => s.setSubject);
-
-  useEffect(() => {
-    if (id && id !== pageValue) setPageValue(id);
-    else if (!id && pageValue) setSubject(pageValue);
-    // `setPageValue` is a page-owned callback; depending on it would re-run this on every render
-    // of a page that builds it inline, which is most of them.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, pageValue, setSubject]);
-}

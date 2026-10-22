@@ -269,22 +269,6 @@ export function planModelFrom(
   };
 }
 
-/** How many planned *jobs* in the model resolve to a given chip — the digest's overwrite count.
- *  Counted over `cell.jobs`, not over cells, so a summary column that folds several jobs into one
- *  cell reports all of them. */
-export function countChip(plan: PlanModel, chip: PlanChip): number {
-  return plan.subjects.reduce((n, s) => n + s.cells.reduce((m, c) => m + c.jobs.filter((j) => j.chip === chip).length, 0), 0);
-}
-
-/** How many jobs of each chip a cell holds, in vocabulary order — what a summary cell prints
- *  ("2 new · 1 skip"). */
-export function cellChipCounts(cell: PlanCell): { chip: PlanChip; count: number }[] {
-  return [...CHIP_ORDER]
-    .reverse()
-    .map((chip) => ({ chip, count: cell.jobs.filter((j) => j.chip === chip).length }))
-    .filter((e) => e.count > 0);
-}
-
 /**
  * Fold the per-row plan responses a page issues one-per-job (Simulator plans one
  * `POST /api/plan/sim` per (subject, montage) row) into the single `PlanResult` the model reads.

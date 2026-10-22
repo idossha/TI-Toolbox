@@ -33,24 +33,3 @@ export function buildForwardConfig(state: ForwardFormState): SourceConfig {
     forward: { eeg_net: stripCsvSuffix(state.eegNet), fsaverage_spacing: state.fsaverageSpacing, cpus: state.cpus, overwrite: state.overwrite },
   };
 }
-
-export interface FsavgPair {
-  subject_id: string;
-  simulation: string;
-}
-
-export interface FsavgFormState {
-  pairs: FsavgPair[];
-  fields: string[];
-  fsaverageSpacing: number;
-  workers: number;
-  overwrite: boolean;
-}
-
-export function buildFsavgConfig(state: FsavgFormState): SourceConfig {
-  return {
-    mode: "fsavg_map",
-    pairs: state.pairs,
-    fsavg_map: { fields: state.fields, fsaverage_spacing: state.fsaverageSpacing, workers: state.workers, overwrite: state.overwrite },
-  };
-}

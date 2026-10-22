@@ -313,23 +313,6 @@ export function filterOutputs(outputs: SubjectOutputs, filter: OutputFilter, que
 }
 
 /**
- * The left column: one row per subject with its total output count, `Group` last.
- *
- * `loaded` is keyed by subject and is sparse while the per-subject queries are in flight; a subject
- * whose outputs have not arrived reports `total: 0` and `pending: true`, so the row can omit the
- * count rather than print a `0` it has not measured (U8's no-placeholder rule, applied to a table).
- */
-export function subjectOutputCounts(
-  subjects: string[],
-  loaded: Record<string, SubjectOutputs | undefined>,
-): { subject: string; total: number; pending: boolean }[] {
-  return subjects.map((subject) => {
-    const outputs = loaded[subject];
-    return { subject, total: outputs?.total ?? 0, pending: outputs === undefined };
-  });
-}
-
-/**
  * The `counts` status cell for this page (§11.1): `ernie · 3 simulations · 2 analyses · 1 report`.
  * Only non-zero kinds appear, and the words are pluralised from the number they carry.
  */

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, createApi, getSimulations, getSubjects, getVersion, logout, onUnauthorized, wsUrl } from "../../src/renderer/api/client";
+import { ApiError, createApi, getSubjects, getVersion, logout, onUnauthorized, unwrap, wsUrl } from "../../src/renderer/api/client";
 
 const BASE = "http://test";
 
@@ -7,6 +7,11 @@ const BASE = "http://test";
 function fakeClient(handler: (url: string, req: Request) => Response) {
   const fetch = vi.fn(async (req: Request) => handler(req.url, req));
   return { client: createApi({ fetch, baseUrl: BASE }), fetch };
+}
+
+/** A query-parameter GET through the typed client, the way every page module calls one. */
+async function simulationsFor(subject: string, client: ReturnType<typeof createApi>) {
+  return unwrap(await client.GET("/api/catalog/simulations", { params: { query: { subject } } }), "/api/catalog/simulations").simulations;
 }
 
 const jsonResponse = (status: number, body: unknown) =>
@@ -30,7 +35,7 @@ describe("api client", () => {
       expect(url).toBe(`${BASE}/api/catalog/simulations?subject=ernie`);
       return jsonResponse(200, { simulations: [{ name: "Thalamus", path: "/x", has_ti: true, has_mti: false }] });
     });
-    const sims = await getSimulations("ernie", client);
+    const sims = await simulationsFor("ernie", client);
     expect(sims).toHaveLength(1);
     expect(sims[0]?.name).toBe("Thalamus");
   });
@@ -48,7 +53,7 @@ describe("api client", () => {
     const listener = vi.fn();
     const off = onUnauthorized(listener);
     const { client } = fakeClient(() => jsonResponse(404, { detail: "unknown subject" }));
-    const err = await getSimulations("nobody", client).catch((e: unknown) => e);
+    const err = await simulationsFor("nobody", client).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).status).toBe(404);
     expect(listener).not.toHaveBeenCalled();

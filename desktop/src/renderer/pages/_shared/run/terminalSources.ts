@@ -21,7 +21,7 @@
  */
 import type { JobSummary } from "../../../ui/Jobs";
 import type { JobState } from "../../../ui/Status";
-import type { PlanKind, PlanModel } from "./planModel";
+import type { PlanKind } from "./planModel";
 
 /** What the pane is showing: a followed job's live log, or nothing at all. */
 export type TerminalSource = "live" | "empty";
@@ -94,27 +94,6 @@ export interface RunStep {
   detail: string;
   /** Rough wall-clock minutes for ONE subject; null when no estimate is available. */
   minutes: number | null;
-}
-
-/**
- * Estimated wall-clock for the whole plan.
- *
- * **The server's number wins.** `PlanCost.eta_minutes` (`tit/jobs/eta.py`) is computed from what
- * actually drives the run — electrodes in the cap, electrode pairs, evaluated combinations, the
- * stage list — scaled by the subject's mesh and by the machine this container is on (emulated or
- * native, core count), which is knowledge no table in the renderer can have. The step table below
- * is the fallback for a kind the server has no model for, or a plan that has not loaded yet: the
- * steps' per-subject minutes times the subject rows, divided by the rows that run at once.
- *
- * Either way it is an estimate and the UI labels it as one.
- */
-export function estimateMinutes(steps: RunStep[], plan: PlanModel | null, parallel = 1): number | null {
-  const server = plan?.stats.etaMinutes;
-  if (typeof server === "number" && server > 0) return Math.round(server);
-  if (steps.some((step) => step.minutes === null)) return null;
-  const perSubject = steps.reduce((n, s) => n + (s.minutes ?? 0), 0);
-  const rows = Math.max(1, plan?.subjects.length ?? 1);
-  return Math.round((perSubject * rows) / Math.max(1, parallel));
 }
 
 /** "≈ 48 m on this machine" — the estimate with the caveat the number cannot carry alone. */

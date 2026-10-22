@@ -13,7 +13,6 @@
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 
-export type ExampleDataset = components["schemas"]["ExampleDataset"];
 export type ExamplePart = components["schemas"]["ExampleDataPart"];
 export type ExampleStatus = components["schemas"]["ExampleDataStatus"];
 export type ExampleCatalog = components["schemas"]["ExampleDataCatalog"];

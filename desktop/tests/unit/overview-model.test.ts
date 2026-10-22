@@ -20,7 +20,6 @@ import {
   blockedReason,
   isReady,
   notConverted,
-  overviewStatusValue,
   presenceCells,
   readyFor,
 } from "../../src/renderer/pages/overview/model";
@@ -100,13 +99,5 @@ describe("filters and the status cell", () => {
   it("partial raw is 'staged, not converted', not 'missing'", () => {
     expect(notConverted({ ...row("101"), raw: "partial" } as OverviewSubject)).toBe(true);
     expect(notConverted(row("MNI152"))).toBe(false);
-  });
-
-  it("prints the project's counts, dropping the zeroes", () => {
-    expect(overviewStatusValue(data)).toBe("3 subjects · 3 m2m · 1 leadfield");
-    expect(overviewStatusValue(undefined)).toBeUndefined();
-    expect(
-      overviewStatusValue({ subjects: [], totals: { subjects: 0, simulations: 0, optimizations: 0, analyses: 0, coverage: [] } }),
-    ).toBeUndefined();
   });
 });

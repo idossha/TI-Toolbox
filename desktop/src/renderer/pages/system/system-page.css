@@ -378,16 +378,6 @@
   line-height: 1;
 }
 
-/* The jobs-row sparkline (`parts.tsx`'s `Spark`) — unrelated to the core gauges above. */
-.system-spark {
-  display: block;
-  overflow: visible;
-}
-.system-spark polyline {
-  stroke: var(--tone-accent);
-  opacity: 0.8;
-}
-
 /* ---------- the right column ---------- */
 
 /* The stack scrolls as a whole rather than each card scrolling separately: four cards each with

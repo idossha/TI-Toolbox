@@ -660,10 +660,6 @@ export function acquireNotebook(name: string): { session: Session; release: () =
   };
 }
 
-export function getNotebookSession(name: string): Session | null {
-  return sessions.get(name) ?? null;
-}
-
 /** Drop a session and its kernel — the notebook is being deleted. */
 export async function releaseNotebook(name: string): Promise<void> {
   const session = sessions.get(name);

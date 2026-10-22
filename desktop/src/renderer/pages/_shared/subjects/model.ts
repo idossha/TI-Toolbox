@@ -1,9 +1,9 @@
 /**
- * The subject grammar's pure core: the summary line, the filter, the selection algebra and the
- * blocked sentence. No React, no DOM — every rule below is unit-tested in
- * `tests/unit/subjects-field.test.ts`, and every page gets the same words from the same function.
+ * The subject grammar's pure core: the summary line and the blocked sentence. No React, no DOM —
+ * every rule below is unit-tested in `tests/unit/subjects-field.test.tsx`, and every page gets the
+ * same words from the same function. Row selection itself is `ui/SelectionList`'s.
  */
-import type { SubjectEligibility, SubjectLike, SubjectsMode } from "./types";
+import type { SubjectsMode } from "./types";
 
 /** J4's semantics, one phrase per mode, stated in every page's summary line. */
 export const MODE_NOTE: Record<SubjectsMode, string> = {
@@ -50,50 +50,9 @@ export function subjectsSummary(value: string[], mode: SubjectsMode): SubjectsSu
   };
 }
 
-/** Case-insensitive substring filter on the id. One box, no syntax — the table is small. */
-export function filterSubjects<T extends SubjectLike>(subjects: T[], query: string): T[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return subjects;
-  return subjects.filter((s) => s.id.toLowerCase().includes(q));
-}
-
-/**
- * Tick / untick, preserving the order ids were chosen in — that order is the order jobs are
- * submitted in (`optimizer`'s `flexSubmissions`, `simulator`'s rows), so it is not cosmetic.
- * In `single` mode a tick REPLACES the selection: the control cannot express a state the page
- * would then silently narrow behind the user's back.
- */
-export function toggleSelection(value: string[], id: string, on: boolean, mode: SubjectsMode): string[] {
-  if (mode === "single") return on ? [id] : value.filter((x) => x !== id);
-  if (on) return value.includes(id) ? value : [...value, id];
-  return value.filter((x) => x !== id);
-}
-
-/** Select-all takes every *eligible* subject; an ineligible one can never be ticked by any path. */
-export function selectAll<T extends SubjectLike>(subjects: T[], eligible: (s: T) => boolean): string[] {
-  return subjects.filter(eligible).map((s) => s.id);
-}
-
 export interface BlockedSubject {
   id: string;
   reason: string;
-}
-
-/** The selected subjects that cannot run, with the page's own reason for each. */
-export function blockedSubjects<T extends SubjectLike>(
-  subjects: T[],
-  value: string[],
-  eligibility?: (s: T) => SubjectEligibility,
-): BlockedSubject[] {
-  if (!eligibility) return [];
-  const out: BlockedSubject[] = [];
-  for (const id of value) {
-    const subject = subjects.find((s) => s.id === id);
-    if (!subject) continue;
-    const verdict = eligibility(subject);
-    if (!verdict.ok) out.push({ id, reason: verdict.reason ?? "cannot be used here" });
-  }
-  return out;
 }
 
 /**

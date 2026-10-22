@@ -39,12 +39,6 @@ export function formatUptime(seconds: number | undefined): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
-/** "1.42 · 1.10 · 0.98", or "—" where the platform has no load average. */
-export function loadLabel(load: number[] | undefined): string {
-  if (!load || load.length === 0) return "—";
-  return load.map((v) => v.toFixed(2)).join(" · ");
-}
-
 /**
  * A load average is only readable against the core count — 8.0 is saturation on eight cores and
  * half-idle on sixteen — so the tone is the *ratio*, never the absolute.
@@ -147,20 +141,10 @@ export function dockerTotal(df: DfTotals | null | undefined): number {
 
 // -------------------------------------------------------------------- series
 
-export interface Series {
-  /** uPlot's x: seconds since epoch. */
-  timestamps: number[];
-  values: number[];
-}
-
 /** Snapshots inside a window, oldest first. `now` is injected so this is testable. */
 export function windowed(samples: SystemSnapshot[], now: number = Date.now(), ms: number = WINDOW_MS): SystemSnapshot[] {
   const floor = (now - ms) / 1000;
   return samples.filter((s) => s.ts >= floor);
-}
-
-export function seriesOf(samples: SystemSnapshot[], pick: (s: SystemSnapshot) => number): Series {
-  return { timestamps: samples.map((s) => s.ts), values: samples.map(pick) };
 }
 
 export interface CoreRow {
@@ -255,11 +239,6 @@ export function sortProcesses(rows: Process[], sort: ProcessSort): Process[] {
  */
 export function isStoppable(p: Process): boolean {
   return p.owner_kind === "job" || p.owner_kind === "kernel";
-}
-
-/** "sim · ernie" / "kernel k-9f2c" / "" — never a fabricated owner. */
-export function ownerLabel(p: Process): string {
-  return p.owner_label ?? "";
 }
 
 // ------------------------------------------------------------ docker summary

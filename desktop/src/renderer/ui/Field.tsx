@@ -156,11 +156,6 @@ export function useChangedFields<T extends object>(
   return Object.assign(fn, { count: keys.size, keys });
 }
 
-export function describedBy(help?: string, error?: string, helpId?: string, errorId?: string): string | undefined {
-  const ids = [error && errorId, !error && help && helpId].filter(Boolean) as string[];
-  return ids.length ? ids.join(" ") : undefined;
-}
-
 export function TextInput({
   className,
   invalid,

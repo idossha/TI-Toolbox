@@ -13,14 +13,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SubjectsField } from "../../src/renderer/pages/_shared/subjects/SubjectsField";
-import {
-  blockedSubjects,
-  filterSubjects,
-  selectAll,
-  subjectsBlockedReason,
-  subjectsSummary,
-  toggleSelection,
-} from "../../src/renderer/pages/_shared/subjects/model";
+import { subjectsBlockedReason, subjectsSummary } from "../../src/renderer/pages/_shared/subjects/model";
 import { notConvertedColumn, presenceColumns } from "../../src/renderer/pages/_shared/subjects/columns";
 import { clearPageSession } from "../../src/renderer/app/pageSession";
 
@@ -51,60 +44,21 @@ describe("subjectsSummary — one line, and the semantics stated once (J1/J4)", 
   });
 });
 
-describe("filterSubjects", () => {
-  const subjects = [{ id: "ernie" }, { id: "101" }, { id: "MNI152" }];
-  it("is a case-insensitive substring match on the id, and an empty box filters nothing", () => {
-    expect(filterSubjects(subjects, "").map((s) => s.id)).toEqual(["ernie", "101", "MNI152"]);
-    expect(filterSubjects(subjects, "  ").map((s) => s.id)).toEqual(["ernie", "101", "MNI152"]);
-    expect(filterSubjects(subjects, "mni").map((s) => s.id)).toEqual(["MNI152"]);
-    expect(filterSubjects(subjects, "1").map((s) => s.id)).toEqual(["101", "MNI152"]);
-    expect(filterSubjects(subjects, "zz")).toEqual([]);
-  });
-});
-
-describe("toggleSelection — the order ids are chosen in is the order jobs are submitted in", () => {
-  it("appends, and never duplicates", () => {
-    expect(toggleSelection(["ernie"], "101", true, "per-subject")).toEqual(["ernie", "101"]);
-    expect(toggleSelection(["ernie", "101"], "ernie", true, "per-subject")).toEqual(["ernie", "101"]);
-  });
-  it("removes without disturbing the rest", () => {
-    expect(toggleSelection(["ernie", "101", "MNI152"], "101", false, "per-subject")).toEqual(["ernie", "MNI152"]);
-  });
-  it("replaces in single mode — the control cannot express a set the page would silently narrow", () => {
-    expect(toggleSelection(["ernie"], "101", true, "single")).toEqual(["101"]);
-    expect(toggleSelection(["ernie"], "ernie", false, "single")).toEqual([]);
-  });
-});
-
-describe("selectAll / blockedSubjects / subjectsBlockedReason (J3)", () => {
-  const subjects = [
-    { id: "ernie", m2m: true },
-    { id: "101", m2m: false },
-    { id: "MNI152", m2m: false },
-  ];
-  const eligibility = (s: { m2m: boolean }) => (s.m2m ? { ok: true } : { ok: false, reason: "no head model (m2m)" });
-
-  it("select-all takes only what can actually run", () => {
-    expect(selectAll(subjects, (s) => eligibility(s).ok)).toEqual(["ernie"]);
-  });
-
-  it("reports only the SELECTED subjects that cannot run", () => {
-    expect(blockedSubjects(subjects, ["ernie"], eligibility)).toEqual([]);
-    expect(blockedSubjects(subjects, ["ernie", "101"], eligibility)).toEqual([{ id: "101", reason: "no head model (m2m)" }]);
-  });
+describe("subjectsBlockedReason (J3)", () => {
+  const NO_M2M = "no head model (m2m)";
 
   it("an empty selection is the same sentence on every page", () => {
     expect(subjectsBlockedReason([], [])).toBe("Select at least one subject.");
   });
 
   it("names the subject that cannot run and its reason — never a page-wide sentence", () => {
-    expect(subjectsBlockedReason(["ernie", "101"], blockedSubjects(subjects, ["ernie", "101"], eligibility))).toBe(
+    expect(subjectsBlockedReason(["ernie", "101"], [{ id: "101", reason: NO_M2M }])).toBe(
       "101 cannot run — no head model (m2m). Deselect it, or fix it first.",
     );
   });
 
   it("merges one shared reason, and itemises different ones", () => {
-    expect(subjectsBlockedReason(["101", "MNI152"], blockedSubjects(subjects, ["101", "MNI152"], eligibility))).toBe(
+    expect(subjectsBlockedReason(["101", "MNI152"], [{ id: "101", reason: NO_M2M }, { id: "MNI152", reason: NO_M2M }])).toBe(
       "101, MNI152 cannot run — no head model (m2m). Deselect them, or fix them first.",
     );
     expect(
@@ -282,7 +236,7 @@ describe("SubjectsField — the rendered grammar", () => {
     render(<Harness defaultOpen />);
     click(container.querySelector('[data-testid="subject-row-MNI152"] .checkbox-root'));
     expect(container.querySelector('[data-testid="subjects-field"]')!.getAttribute("data-selected")).toBe("2");
-    expect(subjectsBlockedReason(["ernie", "MNI152"], blockedSubjects(ROWS, ["ernie", "MNI152"], ELIGIBILITY))).toBe(
+    expect(subjectsBlockedReason(["ernie", "MNI152"], [{ id: "MNI152", reason: "no head model (m2m)" }])).toBe(
       "MNI152 cannot run — no head model (m2m). Deselect it, or fix it first.",
     );
   });

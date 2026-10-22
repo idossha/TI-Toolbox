@@ -86,18 +86,3 @@ export function MeterLegend({ segments }: { segments: Segment[] }) {
   );
 }
 
-/** A 0-100 sparkline in a 40x14 box. Fewer than two points draws nothing, not a flat line at 0. */
-export function Spark({ values }: { values: number[] }) {
-  const w = 40;
-  const h = 14;
-  if (values.length < 2) return <svg className="system-spark" width={w} height={h} aria-hidden />;
-  const step = w / (values.length - 1);
-  const points = values
-    .map((v, i) => `${(i * step).toFixed(1)},${(h - (Math.max(0, Math.min(100, v)) / 100) * h).toFixed(1)}`)
-    .join(" ");
-  return (
-    <svg className="system-spark" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden preserveAspectRatio="none">
-      <polyline points={points} fill="none" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}

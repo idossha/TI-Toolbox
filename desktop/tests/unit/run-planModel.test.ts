@@ -5,9 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  cellChipCounts,
   chipFor,
-  countChip,
   planCounts,
   jobCountLabel,
   mergePlanResults,
@@ -133,7 +131,7 @@ describe("stats and digest", () => {
     expect(model.subjects[0]?.cells[0]?.chip).toBe("wait");
   });
 
-  it("countChip counts overwrites, independent of the digest", () => {
+  it("planCounts counts overwrites, independent of the lock-conflict waits", () => {
     const busy = planModelFrom(
       "pre",
       result(
@@ -145,7 +143,7 @@ describe("stats and digest", () => {
       ),
       ["ernie", "108", "101"],
     );
-    expect(countChip(busy, "overwrite")).toBe(1);
+    expect(planCounts(busy).overwrites).toBe(1);
     expect(busy.stats.waits).toBe(1);
   });
 });
@@ -258,16 +256,10 @@ describe("stageFor — a column that is a category, not a stage", () => {
   });
 
   it("counts the folded jobs, so the cell breakdown and the footer agree", () => {
-    expect(cellChipCounts(cellOf("ernie", "montage"))).toEqual([
-      { chip: "new", count: 1 },
-      { chip: "skip", count: 1 },
-    ]);
-    expect(cellChipCounts(cellOf("101", "montage"))).toEqual([{ chip: "overwrite", count: 1 }]);
-    expect(cellChipCounts(cellOf("ernie", "freehand"))).toEqual([]);
+    expect(cellOf("101", "montage").jobs.map((j) => j.chip)).toEqual(["overwrite"]);
     // Four jobs planned, four jobs counted — the fold cannot lose one.
     expect(planCounts(plan)).toMatchObject({ jobs: 4, existing: 2, overwrites: 1 });
     expect(planCounts(plan).jobs).toBe(plan.stats.jobs);
-    expect(countChip(plan, "new")).toBe(2);
     expect(jobCountLabel(plan)).toBe("4 jobs");
   });
 });

@@ -41,12 +41,6 @@ type ManifestBody = SceneBody<"/api/scene/manifest">;
 type RegionsBody = SceneBody<"/api/scene/regions">;
 type ElectrodesBody = SceneBody<"/api/scene/electrodes">;
 
-/** One surface part of the manifest (`parts[]`). */
-export type SceneManifestPart = ManifestBody["parts"][number];
-export type SceneManifestNet = ManifestBody["nets"][number];
-export type SceneManifestAtlas = ManifestBody["atlases"][number];
-export type SceneManifestVolume = ManifestBody["volumes"][number];
-
 export interface SceneManifest extends ManifestBody {
   /** `true` when this body came back with HTTP 202 — the caller polls rather than draws. */
   building: boolean;
@@ -158,9 +152,6 @@ type GuideElectrodesBody = SceneBody<"/api/guide/electrodes">;
 export type GuideManifest = GuideManifestBody;
 export type GuideRegions = GuideRegionsBody;
 export type GuideElectrodes = GuideElectrodesBody;
-
-/** The guide is never "building": it ships built. Kept so `<ScenePane>` reads one shape. */
-export type GuideManifestPart = GuideManifestBody["parts"][number];
 
 /**
  * Which packaged guide a request wants: the subject-anatomy head (`"default"`) or the MNI152

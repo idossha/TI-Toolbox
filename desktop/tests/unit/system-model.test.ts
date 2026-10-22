@@ -20,11 +20,9 @@ import {
   formatUptime,
   isStoppable,
   limitsLabel,
-  loadLabel,
   loadTone,
   memorySegments,
   netRate,
-  seriesOf,
   sortProcesses,
   swapSegments,
   toneFor,
@@ -90,12 +88,6 @@ describe("tones", () => {
     expect(loadTone([8, 0, 0], 16)).toBe("accent"); // half the cores busy: normal
     expect(loadTone(undefined, 8)).toBe("neutral");
     expect(loadTone([1], undefined)).toBe("neutral");
-  });
-
-  it("has no load label to print when the platform has no load average", () => {
-    expect(loadLabel(undefined)).toBe("—");
-    expect(loadLabel([])).toBe("—");
-    expect(loadLabel([1.42, 1.1, 0.98])).toBe("1.42 · 1.10 · 0.98");
   });
 });
 
@@ -222,15 +214,6 @@ describe("chart windows", () => {
   it("gives the per-core sparklines their own, shorter window", () => {
     const samples = [at(CORE_WINDOW_MS + 5_000), at(30_000), at(0)];
     expect(windowed(samples, now, CORE_WINDOW_MS)).toHaveLength(2);
-  });
-
-  it("turns a window into the two arrays uPlot wants, in order", () => {
-    const samples = [snap({ ts: 100, cpu_percent: 10 }), snap({ ts: 102, cpu_percent: 20 })];
-    expect(seriesOf(samples, (s) => s.cpu_percent)).toEqual({ timestamps: [100, 102], values: [10, 20] });
-  });
-
-  it("is empty, not undefined, before any sample arrives — the chart says 'collecting'", () => {
-    expect(seriesOf([], (s) => s.cpu_percent)).toEqual({ timestamps: [], values: [] });
   });
 });
 

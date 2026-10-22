@@ -1,7 +1,6 @@
 /**
- * Page-scoped API calls for the Results screen. Kept local rather than added to the shared
- * `api/client.ts` (owned across many pages) — see PARITY.md and the final report. Mirrors the
- * pattern in `pages/simulator/api.ts` and `pages/viewer/api.ts`.
+ * Page-scoped API calls for the Results screen, on the shared `api` client (the same pattern as
+ * `pages/simulator/api.ts` and `pages/viewer/api.ts`).
  *
  * v3 (D3, `docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)`): `launchFreeview`/`launchGmsh` and the
  * `kind=custom` ViewSpec fetch that fed them are gone — `POST /api/viewers/{freeview,gmsh}` no
@@ -30,13 +29,6 @@ export async function getFlexRuns(subject: string): Promise<FlexRun[]> {
 
 export async function getExRuns(subject: string, kind: "ex" | "mex"): Promise<ExRun[]> {
   return unwrap(await api.GET("/api/catalog/ex-runs", { params: { query: { subject, kind } } }), "/api/catalog/ex-runs");
-}
-
-export async function getExRunResults(run: string, subject: string, kind: "ex" | "mex"): Promise<TableData> {
-  return unwrap(
-    await api.GET("/api/catalog/ex-runs/{run}/results", { params: { path: { run }, query: { subject, kind } } }),
-    `/api/catalog/ex-runs/${run}/results`,
-  );
 }
 
 export async function getAnalyses(subject: string, simulation: string): Promise<Analysis[]> {

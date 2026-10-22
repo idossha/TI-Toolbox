@@ -9,7 +9,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { FreeSurferLicenseField, FreeSurferLicenseNotice } from "../../src/renderer/pages/settings/FreeSurferLicense";
 import { getSurferSettings, type SurferSettings } from "../../src/renderer/pages/settings/api";
 
-vi.mock("../../src/renderer/pages/settings/api", () => ({ getSurferSettings: vi.fn(), putFreeSurferLicense: vi.fn(), deleteFreeSurferLicense: vi.fn() }));
+vi.mock("../../src/renderer/pages/settings/api", () => ({ getSurferSettings: vi.fn() }));
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const base: SurferSettings = { charm_options: null, qsiprep_config: qsiPrepPreferences(prepDefaults()), qsi_recon_config: qsiReconPreferences(reconDefaults()), charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, effective_charm_threads: 9, effective_qsiprep_threads: 9, effective_qsirecon_threads: 9, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"], fastsurfer_threads: null, freesurfer_threads: null, available_threads: 12, default_threads: 9, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9, freesurfer_license: { configured: false, source: null, email: null } };

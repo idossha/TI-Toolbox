@@ -1,6 +1,5 @@
 import { ChevronDown } from "lucide-react";
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { Badge } from "./Status";
 import { Button } from "./Button";
 import { Kbd } from "./Feedback";
 import { cn } from "./utils";
@@ -138,12 +137,3 @@ export function RefetchBar({ active, className }: { active: boolean; className?:
   );
 }
 
-/** Count chip for a context bar or a section header ("3 running"). */
-export function CountChip({ count, label }: { count: number; label: string }) {
-  return (
-    <span className="cluster gap-1 items-center">
-      <Badge count={count} neutral />
-      <span>{label}</span>
-    </span>
-  );
-}

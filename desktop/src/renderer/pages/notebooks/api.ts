@@ -6,7 +6,6 @@ import type { Notebook } from "./notebook";
 export type NotebookEntry = components["schemas"]["NotebookEntry"];
 export type NotebookList = components["schemas"]["NotebookList"];
 export type Kernel = components["schemas"]["Kernel"];
-export type KernelList = components["schemas"]["KernelList"];
 
 export async function listNotebooks(): Promise<NotebookList> {
   return unwrap(await api.GET("/api/notebooks"), "/api/notebooks");
@@ -48,10 +47,6 @@ export async function deleteNotebook(name: string): Promise<void> {
     await api.DELETE("/api/notebooks/{name}", { params: { path: { name } } }),
     "/api/notebooks/{name}",
   );
-}
-
-export async function listKernels(): Promise<KernelList> {
-  return unwrap(await api.GET("/api/kernels"), "/api/kernels");
 }
 
 export async function startKernel(): Promise<Kernel> {

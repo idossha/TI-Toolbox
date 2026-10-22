@@ -17,14 +17,11 @@ import {
   markersFromElectrodes,
   placedElectrodes,
   DEFAULT_OPACITY,
-  regionCentroids,
   regionKey,
   regionsFromWireLabels,
-  roundCoord,
   slotAt,
   slotLabel,
   slotOf,
-  sphereMarkers,
   wireLabelsFor,
   withSlot,
   type Pair,
@@ -172,56 +169,6 @@ describe("montage mode: a click toggles the electrode into the current pair slot
   it("does nothing at all when there are no pairs to fill", () => {
     expect(applyElectrodePick([], 0, "F3")).toEqual({ pairs: [], cursor: 0 });
     expect(slotLabel([], 0)).toBe("no pairs");
-  });
-});
-
-describe("sphere mode: one clickable point per atlas region, snapped to a real vertex", () => {
-  // Two regions, both with closed-form centroids:
-  //   label 1 — a 2x2 square in z = 0: centroid (1, 1, 0), every corner sqrt(2) away (first wins);
-  //   label 2 — a three-point arc: centroid (0, 10/3, 0), which lies 3.33 mm from NO vertex and
-  //             is nearest (0, 10, 0) at 6.67 mm — the case that proves the snap is doing work.
-  const positions = new Float32Array([
-    0, 0, 0, 2, 0, 0, 0, 2, 0, 2, 2, 0, // label 1
-    10, 0, 0, 0, 10, 0, -10, 0, 0, // label 2
-    5, 5, 5, // label 0 = no region
-  ]);
-  const labels = new Uint16Array([1, 1, 1, 1, 2, 2, 2, 0]);
-  const legend: SceneLegendRow[] = [
-    { label: 1, id: 11, hemi: "lh", name: "square", color: "#000000" },
-    { label: 2, id: 12, hemi: "rh", name: "arc", color: "#ffffff" },
-  ];
-
-  it("returns the served vertex nearest each region's centroid, never the centroid itself", () => {
-    const centroids = regionCentroids(positions, labels, legend);
-    expect(centroids.map((c) => c.name)).toEqual(["square", "arc"]);
-    expect(centroids[0]?.world).toEqual([0, 0, 0]);
-    expect(centroids[0]?.vertices).toBe(4);
-    // The arc's arithmetic centroid is (0, 3.333, 0) — not a vertex, and 3.3 mm inside the arc.
-    expect(centroids[1]?.world).toEqual([0, 10, 0]);
-    expect(centroids[1]?.vertices).toBe(3);
-  });
-
-  it("ignores label 0 (no region) and regions below the vertex floor", () => {
-    expect(regionCentroids(positions, labels, legend).every((c) => c.label !== 0)).toBe(true);
-    expect(regionCentroids(positions, labels, legend, 4).map((c) => c.name)).toEqual(["square"]);
-  });
-
-  it("draws the current centre and nothing else — the centroid snap is gone", () => {
-    // Before `onPickAt`, this returned one clickable marker per region centroid and a click
-    // snapped the centre to the nearest of them (lane SCC's C11). A pick reports its world point
-    // now, so the only marker left is the centre the form already holds.
-    expect(sphereMarkers(null)).toEqual([]);
-    expect(sphereMarkers([1, 2, 3])).toEqual([
-      { id: "sphere-centre", label: "Sphere centre", world: [1, 2, 3], channel: 0 },
-    ]);
-  });
-
-  it("rounds a picked coordinate to 0.1 mm before it reaches a form field", () => {
-    expect(roundCoord([-26.080394138417162, 113.65480801883132, 19.072867841317812])).toEqual({
-      x: -26.1,
-      y: 113.7,
-      z: 19.1,
-    });
   });
 });
 

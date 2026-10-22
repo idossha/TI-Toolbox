@@ -47,11 +47,3 @@ export async function getCpuLimit(): Promise<CpuLimit> {
 export async function putCpuLimit(percent: number): Promise<CpuLimit> {
   return unwrap(await api.PUT("/api/cpu-limit", { body: { percent } }), "/api/cpu-limit");
 }
-
-/** Optional administrator override; the toolbox supplies its bundled license automatically. */
-export async function putFreeSurferLicense(text: string): Promise<SurferSettings> {
-  return unwrap(await api.PUT("/api/surfer-settings/freesurfer-license", { body: { text } }), "/api/surfer-settings/freesurfer-license");
-}
-export async function deleteFreeSurferLicense(): Promise<SurferSettings> {
-  return unwrap(await api.DELETE("/api/surfer-settings/freesurfer-license"), "/api/surfer-settings/freesurfer-license");
-}
