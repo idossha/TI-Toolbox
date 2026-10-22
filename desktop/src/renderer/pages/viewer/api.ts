@@ -9,14 +9,6 @@
 import { api, ApiError, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 
-export type Subject = components["schemas"]["Subject"];
-export type SubjectDetail = components["schemas"]["SubjectDetail"];
-export type SimulationDetail = components["schemas"]["SimulationDetail"];
-export type Analysis = components["schemas"]["Analysis"];
-export type Atlas = components["schemas"]["Atlas"];
-export type ViewSpec = components["schemas"]["ViewSpec"];
-export type ViewLayer = components["schemas"]["ViewLayer"];
-export type Capabilities = components["schemas"]["Capabilities"];
 export type ViewerOpen = components["schemas"]["ViewerOpen"];
 
 export type ViewKind = "subject" | "simulation" | "analysis" | "group" | "custom";
@@ -35,10 +27,6 @@ export interface ViewQuery {
   atlas?: string;
   roi?: string;
   path?: string;
-}
-
-export async function getView(kind: ViewKind, query: ViewQuery): Promise<ViewSpec> {
-  return unwrap(await api.GET("/api/view/{kind}", { params: { path: { kind }, query } }), `/api/view/${kind}`);
 }
 
 /**
@@ -99,61 +87,14 @@ export async function getCandidates(subject?: string, simulation?: string, space
     .candidates;
 }
 
-export type ViewerPreset = components["schemas"]["ViewerPreset"];
-
-export async function getPresets(): Promise<ViewerPreset[]> {
-  return unwrap(await api.GET("/api/viewer/presets", {}), "/api/viewer/presets").presets;
-}
-
-export async function savePreset(preset: ViewerPreset): Promise<ViewerPreset> {
-  return unwrap(
-    await api.PUT("/api/viewer/presets/{name}", { params: { path: { name: preset.name } }, body: preset }),
-    `/api/viewer/presets/${preset.name}`,
-  );
-}
-
-export async function deletePreset(name: string): Promise<void> {
-  await api.DELETE("/api/viewer/presets/{name}", { params: { path: { name } } });
-}
-
-export async function getSimulationsFor(subject: string): Promise<SimulationDetail[]> {
-  return unwrap(await api.GET("/api/catalog/simulations", { params: { query: { subject } } }), "/api/catalog/simulations").simulations;
-}
-
-export async function getAnalyses(subject: string, simulation: string): Promise<Analysis[]> {
-  return unwrap(await api.GET("/api/catalog/analyses", { params: { query: { subject, simulation } } }), "/api/catalog/analyses");
-}
-
-/**
- * Atlases the Viewer can actually overlay.
- *
- * `kind: "subcortical"` is not a neuroanatomical statement here, it is the catalog's own word for
- * the **voxel** atlases (`tit/catalog.py::atlases`) — the ones that are a NIfTI/MGZ volume and can
- * therefore become a ViewSpec layer. The cortical entries are FreeSurfer `.annot` surface
- * parcellations; offering them in this menu would give a person a choice that silently resolves
- * back to the server's default, which is worse than not offering it.
- */
-export async function getAtlases(subject: string, space?: Space): Promise<Atlas[]> {
-  return unwrap(
-    await api.GET("/api/catalog/atlases", { params: { query: { subject, space, kind: "subcortical" } } }),
-    "/api/catalog/atlases",
-  );
-}
-
-export async function getSubjectDetail(id: string): Promise<SubjectDetail> {
-  return unwrap(await api.GET("/api/catalog/subjects/{id}", { params: { path: { id } } }), `/api/catalog/subjects/${id}`);
-}
-
-// ── the composition tree, saved compositions and saved scenes (2026-09-07) ─────────────────────
+// ── the composition tree and saved scenes ───────────────────────────────────────────────────────
 //
-// Maintainer: the Menu should be "a continuous integrated thing" — subject, then branches for
-// anatomy, simulations and analyses — and a person should be able to keep both *what they chose*
-// (a composition, for reproducibility) and *what they were looking at* (a scene, in Tetravox's own
-// format). `tit/server/routes/viewer_library.py` explains why those are two artefacts and not one.
+// The tree is "a continuous integrated thing" (maintainer, 2026-09-07) — subject, then branches for
+// anatomy, simulations and analyses. A saved scene is what a person was looking at, in TetraVox's
+// own format; the TetraVox app writes it through the desktop bridge, and this page lists, reads
+// and deletes it.
 
 export type ViewerTree = components["schemas"]["ViewerTree"];
-export type ViewerTreeNode = components["schemas"]["ViewerTreeNode"];
-export type ViewerComposition = components["schemas"]["ViewerComposition"];
 export type SavedScene = components["schemas"]["SavedScene"];
 
 /** What this subject offers the tree. `simulations` narrows which analyses are listed. */
@@ -164,21 +105,6 @@ export async function getTree(subject?: string, space?: Space, simulations?: str
   );
 }
 
-export async function getCompositions(): Promise<ViewerComposition[]> {
-  return unwrap(await api.GET("/api/viewer/compositions", {}), "/api/viewer/compositions").compositions;
-}
-
-export async function saveComposition(name: string, body: ViewerComposition): Promise<ViewerComposition> {
-  return unwrap(
-    await api.PUT("/api/viewer/compositions/{name}", { params: { path: { name } }, body }),
-    `/api/viewer/compositions/${name}`,
-  );
-}
-
-export async function deleteComposition(name: string): Promise<void> {
-  await api.DELETE("/api/viewer/compositions/{name}", { params: { path: { name } } });
-}
-
 export async function getSavedScenes(): Promise<SavedScene[]> {
   return unwrap(await api.GET("/api/viewer/scenes", {}), "/api/viewer/scenes").scenes;
 }
@@ -186,24 +112,6 @@ export async function getSavedScenes(): Promise<SavedScene[]> {
 export async function readSavedScene(name: string): Promise<Record<string, unknown>> {
   const body = unwrap(await api.GET("/api/viewer/scenes/{name}", { params: { path: { name } } }), `/api/viewer/scenes/${name}`);
   return body.scene as Record<string, unknown>;
-}
-
-export interface SaveSceneBody {
-  /** The embed's own `serialize` reply — written verbatim, because it is a record of a picture. */
-  scene: Record<string, unknown>;
-  /** The embed's `screenshot` reply. Dropped server-side if it is not a real PNG. */
-  thumbnail?: string | null;
-  subject?: string | null;
-  simulation?: string | null;
-  field?: string | null;
-  space?: string | null;
-}
-
-export async function saveScene(name: string, body: SaveSceneBody): Promise<SavedScene> {
-  return unwrap(
-    await api.PUT("/api/viewer/scenes/{name}", { params: { path: { name } }, body: body as never }),
-    `/api/viewer/scenes/${name}`,
-  );
 }
 
 export async function deleteSavedScene(name: string): Promise<void> {

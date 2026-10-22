@@ -136,14 +136,6 @@
 
 /* ------------------------------------------------- source */
 
-/* Two columns of selectors: the source is six short fields at most, and one 880 px-wide column of
-   them is a lot of white space between a label and its control. */
-.viewer-source-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2) var(--space-5);
-}
-
 .viewer-row {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
@@ -166,16 +158,9 @@
   min-width: 0;
 }
 
-.viewer-source-item .select-trigger,
-.viewer-source-path {
+.viewer-source-item .select-trigger {
   width: 100%;
   min-width: 0;
-}
-
-@media (max-width: 900px) {
-  .viewer-source-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* ------------------------------------------------- the file list */
@@ -359,33 +344,6 @@
   flex: 1 1 auto;
 }
 
-.viewer-callout {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-controls);
-  background: var(--surface);
-}
-
-.viewer-callout-title {
-  margin: 0;
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.viewer-callout-text {
-  margin: 0;
-  max-width: 62ch;
-  font-size: 12px;
-  line-height: 17px;
-  color: var(--ink-2);
-}
-
 .viewer-popover {
   display: flex;
   flex-direction: column;
@@ -399,57 +357,6 @@
   line-height: 16px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.viewer-preset-list,
-.viewer-recent-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.viewer-preset {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.viewer-preset-restore,
-.viewer-preset-forget,
-.viewer-recent-item {
-  border: 0;
-  background: transparent;
-  padding: 4px var(--space-2);
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  border-radius: var(--radius-controls);
-}
-
-.viewer-preset-restore,
-.viewer-recent-item {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 100%;
-}
-
-.viewer-preset-restore:hover,
-.viewer-recent-item:hover {
-  background: var(--bg);
-}
-
-.viewer-preset-forget {
-  flex: 0 0 auto;
   color: var(--ink-2);
 }
 
