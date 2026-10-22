@@ -61,6 +61,7 @@ const planTable = JSON.parse(readFileSync(join(REPO, "tests", "fixtures", "plan_
 const countTable = JSON.parse(readFileSync(join(REPO, "tests", "fixtures", "ex_search_counts.json"), "utf8")) as { cases: CountCase[] };
 const groupCatalog = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "group_catalog.json"), "utf8")) as {
   stats: { name: string; type: string }[];
+  nilearn: { name: string }[];
 };
 
 let child: ChildProcess;
@@ -206,6 +207,65 @@ describe("an existing group run needs an explicit overwrite", () => {
     expect(fresh.status).toBe(201);
     const confirmed = await post("/api/jobs", { kind: "stats", config, subject_ids: [], overwrite: true });
     expect(confirmed.status).toBe(201);
+  });
+});
+
+// The real `_plan_nilearn` keys the folder on `subdir_name` (nilearn_visuals/<subdir_name>) and
+// plans `will_overwrite = exists`; `check_overwrite_permission` then 409s it without overwrite.
+// The mock's project is its group catalog fixture, which lists one nilearn folder.
+describe("an existing nilearn folder needs an explicit overwrite", () => {
+  const existing = groupCatalog.nilearn[0]!;
+  const pairs = [{ subject_id: "ernie", simulation_name: "Thalamus" }];
+  const config = { subject_simulation_pairs: pairs, subdir_name: existing?.name };
+  type Plan = { jobs: { subject: string; exists: boolean; will_overwrite: boolean; output_dir: string }[] };
+
+  it("plans the catalog's folder, found by its subdir_name, as one it would replace", async () => {
+    expect(existing, "the group catalog fixture has a nilearn folder").toBeTruthy();
+    const plan = (await (await post("/api/plan/nilearn", { config })).json()) as Plan;
+    expect(plan.jobs).toEqual([
+      { kind: "nilearn", subject: "", output_dir: `${projectRoot}/derivatives/ti-toolbox/nilearn_visuals/${existing.name}`, exists: true, will_overwrite: true },
+    ]);
+    // A config field other than subdir_name carrying that name is not that folder.
+    const elsewhere = (await (await post("/api/plan/nilearn", { config: { ...config, subdir_name: "p38_fresh_glass", name: existing.name } })).json()) as Plan;
+    expect(elsewhere.jobs[0]).toMatchObject({ output_dir: `${projectRoot}/derivatives/ti-toolbox/nilearn_visuals/p38_fresh_glass`, exists: false, will_overwrite: false });
+  });
+
+  it("refuses the submission with 409 until overwrite is confirmed", async () => {
+    const refused = await post("/api/jobs", { kind: "nilearn", config, subject_ids: [] });
+    expect(refused.status).toBe(409);
+    expect(((await refused.json()) as { detail: string }).detail).toContain(`nilearn_visuals/${existing.name}`);
+    const fresh = await post("/api/jobs", { kind: "nilearn", config: { ...config, subdir_name: "p38_fresh_glass" }, subject_ids: [] });
+    expect(fresh.status).toBe(201);
+    const confirmed = await post("/api/jobs", { kind: "nilearn", config, subject_ids: [], overwrite: true });
+    expect(confirmed.status).toBe(201);
+  });
+});
+
+// `_blender_output_dir` (tit/server/routes/plan.py): regions and vectors are simulation-scoped, so
+// without a simulation there is no folder to name and the plan says "" -- and `_plan_blender`
+// warns that it cannot be resolved yet. The mock used to plan ".../sub-ernie/undefined/vectors".
+describe("an export the config cannot place yet plans no folder", () => {
+  const UNRESOLVED = "This export's output directory cannot be resolved from the configuration yet.";
+  type Plan = { jobs: { subject: string; output_dir: string; exists: boolean; will_overwrite: boolean }[]; warnings: string[] };
+
+  for (const config of [
+    { subject_id: "ernie", _type: "VectorConfig" },
+    { subject_id: "ernie", _type: "RegionConfig", format: "stl" },
+    { subject_id: "ernie", _type: "RegionConfig", simulation_name: "  ", format: "ply" },
+  ]) {
+    it(`${config._type} without a simulation${"simulation_name" in config ? " (blank)" : ""}`, async () => {
+      const plan = (await (await post("/api/plan/blender", { config, subject_ids: ["ernie"] })).json()) as Plan;
+      expect(plan.jobs).toEqual([{ kind: "blender", subject: "ernie", output_dir: "", exists: false, will_overwrite: false }]);
+      expect(plan.warnings).toContain(UNRESOLVED);
+    });
+  }
+
+  it("a montage or sub-cortical export is not simulation-scoped and still plans its folder", async () => {
+    for (const [type, folder] of [["MontageConfig", "montage_publication"], ["SubcorticalConfig", "sub-cortical"]] as const) {
+      const plan = (await (await post("/api/plan/blender", { config: { subject_id: "ernie", _type: type }, subject_ids: ["ernie"] })).json()) as Plan;
+      expect(plan.jobs.map((j) => j.output_dir)).toEqual([`${projectRoot}/derivatives/ti-toolbox/visual_exports/sub-ernie/${folder}`]);
+      expect(plan.warnings).not.toContain(UNRESOLVED);
+    }
   });
 });
 

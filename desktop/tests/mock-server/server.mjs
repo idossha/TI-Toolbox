@@ -662,16 +662,20 @@ function outputDirFor(kind, subject, config) {
     // (tit/blender/*_exporter.py). One "blender/NewRun" for all four would have made the Plan card
     // say the same wrong path for every mode.
     case "blender": {
-      // An `output_dir` already on the config always wins (`_blender_output_dir`); without a
-      // `_type` the server builds its default class, MontageConfig.
+      // As `_blender_output_dir`: an `output_dir` already on the config always wins; without a
+      // `_type` the server builds its default class, MontageConfig; regions and vectors are
+      // simulation-scoped, so without a simulation there is no folder to name ("").
       const explicit = String(cfg.output_dir ?? "").trim();
       if (explicit) return explicit;
       const veBase = `${PROJECT_ROOT}/derivatives/ti-toolbox/visual_exports/sub-${subject}`;
       const type = cfg._type || "MontageConfig";
       if (type === "SubcorticalConfig") return `${veBase}/sub-cortical`;
       if (type === "MontageConfig") return `${veBase}/montage_publication`;
-      if (type === "VectorConfig") return `${veBase}/${cfg.simulation_name}/vectors`;
-      return `${veBase}/${cfg.simulation_name}/${String(cfg.format ?? "stl").toLowerCase()}`;
+      const sim = String(cfg.simulation_name ?? "").trim();
+      if (!sim) return "";
+      if (type === "VectorConfig") return `${veBase}/${sim}/vectors`;
+      if (type === "RegionConfig") return `${veBase}/${sim}/${String(cfg.format ?? "stl").toLowerCase()}`;
+      return "";
     }
     case "nifti_average":
       return `${PROJECT_ROOT}/derivatives/ti-toolbox/nifti_average/${cfg.output_name}`;
@@ -689,13 +693,15 @@ function statsTypeDir(cfg) {
 /** Kinds planned once for the whole project (`subject: ""`), like the real `_plan_stats`. */
 const PROJECT_LEVEL_KINDS = new Set(["stats", "nifti_average", "nilearn"]);
 /** Kinds whose real plan sets `will_overwrite = exists`: their runners replace the folder, so the
- *  submit route answers 409 without an explicit overwrite (`tit/server/overwrite_policy.py`). */
+ *  submit route answers 409 without an explicit overwrite (`tit/server/overwrite_policy.py`).
+ *  In this mock only a stats or nilearn run can exist (the group catalog fixture lists them); it
+ *  has no nifti_average run and no export folder, so those two kinds never plan an overwrite. */
 const REPLACES_WHEN_EXISTS_KINDS = new Set(["stats", "nifti_average", "nilearn", "blender"]);
 function existsForFixture(kind, subject, config) {
   const cfg = config && typeof config === "object" ? config : {};
-  // The group catalog fixture is this mock's project: a run exists when the catalog lists its name.
+  // The group catalog fixture is this mock's project: a stats run exists when the catalog lists its
+  // analysis_name under its type, a nilearn folder when it lists its subdir_name.
   if (kind === "stats") return (groupCatalog.stats ?? []).some((s) => s.name === cfg.analysis_name && s.type === statsTypeDir(cfg));
-  if (kind === "nifti_average") return (groupCatalog.nifti_average ?? []).some((s) => s.name === cfg.output_name);
   if (kind === "nilearn") return (groupCatalog.nilearn ?? []).some((s) => s.name === (cfg.subdir_name ?? "nilearn_visuals"));
   if (kind === "analyzer") {
     const list = analyses[subject]?.[cfg.simulation] ?? [];
@@ -961,6 +967,8 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
   // confirm-button wording varies ("Overwrite and run", "Run analysis", …) — naming the mechanism
   // (the run-time confirmation) rather than one kind's specific button label keeps this true for
   // all of them.
+  // `_plan_blender`'s sentence for an export whose folder `_blender_output_dir` cannot name yet.
+  if (kind === "blender" && jobsPlan.some((j) => !j.output_dir)) warnings.push("This export's output directory cannot be resolved from the configuration yet.");
   if (jobsPlan.some((j) => j.exists && !j.will_overwrite)) warnings.push("Output already exists. Running will ask you to confirm the overwrite.");
   if (jobsPlan.some((j) => j.will_overwrite)) warnings.push("Existing output will be replaced.");
   return { jobs: jobsPlan, lock_conflicts, cost: costFor(kind, ids.length, cfg), warnings, resolved: resolvedFor(kind, cfg, montageSources, ids) };
