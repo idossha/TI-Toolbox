@@ -118,6 +118,35 @@ def test_an_exception_in_the_body_is_reraised_unchanged_when_the_config_is_corru
     send.assert_not_called()
 
 
+def test_a_failure_while_building_an_event_never_reaches_the_operation(
+    config_dir, monkeypatch
+):
+    """With consent given, a broken payload builder still lets the tracked body run."""
+    _write_config(config_dir, '{"enabled": true}')
+
+    def broken():
+        raise RuntimeError("platform probe failed")
+
+    monkeypatch.setattr(telemetry, "_system_params", broken)
+    ran, sent = _run_tracked()
+    assert ran and sent == []
+
+
+def test_a_failure_while_describing_the_error_keeps_the_operations_own_exception(
+    config_dir, monkeypatch
+):
+    _write_config(config_dir, '{"enabled": true}')
+
+    def broken(exc):
+        raise TypeError("scrubber failed")
+
+    monkeypatch.setattr(telemetry, "_error_detail", broken)
+    with patch("tit.telemetry._send_ga4"):
+        with pytest.raises(KeyError, match="the science failed"):
+            with telemetry.track_operation("sim_ti"):
+                raise KeyError("the science failed")
+
+
 def test_a_config_dir_that_cannot_be_resolved_never_breaks_the_operation(
     config_dir, monkeypatch
 ):
