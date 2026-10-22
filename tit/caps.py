@@ -106,12 +106,29 @@ TIT_CAPS = frozenset(
 )
 
 
+def has_electrodes(path: str | os.PathLike) -> bool:
+    """Whether the cap file at *path* has at least one ``Electrode`` row.
+
+    The catalog's rule (``tit.catalog._eeg_caps_with_electrodes``), shared so
+    the caps panel and every net picker agree: SimNIBS's ``Fiducials.csv``
+    (Nz/Iz/LPA/RPA, which charm also writes to every ``eeg_positions``) is a
+    landmark file, not a cap. A file that is not text has no electrodes.
+    """
+    from tit.catalog import _read_cap_electrode_labels
+
+    try:
+        return bool(_read_cap_electrode_labels(os.fspath(path)))
+    except ValueError:  # UnicodeDecodeError: not a text file
+        return False
+
+
 def source_caps(pm: PathManager) -> dict[str, tuple[str, Path]]:
     """``{cap file name: (source, path)}`` for every MNI cap that can be warped.
 
     ``source`` is ``"ti-toolbox"`` (a cap TI-Toolbox ships, even where it
     replaces a SimNIBS file of that name), ``"simnibs"`` or ``"project"``. A
     project cap never shadows an image one: the upload route refuses the name.
+    A file with no electrode (:func:`has_electrodes`) is not a cap.
     """
     found: dict[str, tuple[str, Path]] = {}
     for source, directory in (
@@ -121,7 +138,7 @@ def source_caps(pm: PathManager) -> dict[str, tuple[str, Path]]:
         if not directory.is_dir():
             continue
         for path in directory.glob("*.csv"):
-            if not path.name.startswith("."):
+            if not path.name.startswith(".") and has_electrodes(path):
                 tit = source == "simnibs" and path.name in TIT_CAPS
                 found[path.name] = ("ti-toolbox" if tit else source, path)
     return found
@@ -130,11 +147,14 @@ def source_caps(pm: PathManager) -> dict[str, tuple[str, Path]]:
 def available_caps(pm: PathManager, sid: str) -> list[dict[str, Any]]:
     """Every source cap plus every net already on *sid*, with their status.
 
-    ``subject_mtime`` is when the subject's copy was written (applied).
+    ``subject_mtime`` is when the subject's copy was written (applied). A file
+    on the subject with no electrode (``Fiducials.csv``) is not a net.
     """
     sources = source_caps(pm)
-    on_subject = set(pm.list_eeg_caps(sid))
     positions = Path(pm.eeg_positions(sid))
+    on_subject = {
+        name for name in pm.list_eeg_caps(sid) if has_electrodes(positions / name)
+    }
     rows = []
     for name in sorted(set(sources) | on_subject, key=str.lower):
         rows.append(

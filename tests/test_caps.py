@@ -485,3 +485,37 @@ def test_an_image_cap_name_is_409_even_with_overwrite(project) -> None:
     )
     assert r.status_code == 409
     assert "rename" in r.json()["detail"]
+
+
+# ── p14: a Fiducial-only file is not a cap ─────────────────────────────────────
+
+#: SimNIBS 4.6 ``resources/ElectrodeCaps_MNI/Fiducials.csv``: four landmarks,
+#: no electrode. charm also writes it to every ``eeg_positions``.
+FIDUCIALS = (
+    "Fiducial,0,82.9,-43,Nz\nFiducial,0,-116.2,-30.5,Iz\n"
+    "Fiducial,-79.6,-20.6,-48.6,LPA\nFiducial,80.6,-20.6,-48.1,RPA\n"
+)
+
+
+def test_fiducials_are_neither_a_source_cap_nor_a_net_on_the_subject(project) -> None:
+    from tit import catalog
+
+    (caps.simnibs_caps_dir() / "Fiducials.csv").write_text(FIDUCIALS)
+    (project.positions / "Fiducials.csv").write_text(FIDUCIALS)
+    (project.positions / "EEG10-10.csv").write_text(WARPED)
+    rows = project.client.get(
+        "/api/caps/available?subject=ernie", headers=BEARER
+    ).json()["caps"]
+    assert sorted(r["name"] for r in rows) == ["EEG10-10.csv", "GSN-HydroCel-185.csv"]
+    # The catalog's rule (``catalog._eeg_caps_with_electrodes``) is the one shared rule.
+    on_subject = {r["name"] for r in rows if r["on_subject"]}
+    assert on_subject == {n["name"] for n in catalog.eeg_nets(project.pm, "ernie")}
+    assert on_subject == {"EEG10-10.csv"}
+
+    r = project.client.post(
+        "/api/caps/warp",
+        json={"subject": "ernie", "caps": ["Fiducials.csv"]},
+        headers=BEARER,
+    )
+    assert r.status_code == 404
+    assert project.calls == []
