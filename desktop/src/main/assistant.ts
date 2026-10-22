@@ -15,8 +15,6 @@ import { homedir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { TitAssistantCli, TitAssistantEffort, TitAssistantEvent, TitAssistantModel, TitAssistantOptions } from "../shared/tit-bridge";
 
-export const ASSISTANT_CLIS: readonly TitAssistantCli[] = ["claude", "codex"];
-
 export function isAssistantCli(value: unknown): value is TitAssistantCli {
   return value === "claude" || value === "codex";
 }
