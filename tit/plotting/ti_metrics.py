@@ -5,6 +5,7 @@ Centralizes plots that were previously implemented in optimizer/analyzer modules
 """
 
 import logging
+import math
 from pathlib import Path
 from typing import Sequence
 
@@ -181,22 +182,25 @@ def _resolve_layout(eeg_positions_csv: str) -> dict:
 def _plottable_montages(
     montage_scores: Sequence[dict], positions: dict | None, metric_key: str
 ) -> list[dict]:
-    """Records with electrodes and a numeric ``metric_key`` value.
+    """Records made of whole electrode pairs with a finite ``metric_key`` value.
 
-    With ``positions``, only those whose every electrode is in it.
+    With ``positions``, only those whose every electrode is in it. An odd label
+    count is malformed (it is not a set of pairs), and a NaN or infinite metric
+    has no rank and would break the colour scale.
     """
     plottable = []
     for item in montage_scores:
         electrodes = _montage_electrodes(item)
-        if len(electrodes) < 2:
+        if len(electrodes) < 2 or len(electrodes) % 2:
             continue
         if positions is not None and not all(e in positions for e in electrodes):
             continue
         try:
-            float(item[metric_key])
+            value = float(item[metric_key])
         except (KeyError, TypeError, ValueError):
             continue
-        plottable.append(item)
+        if math.isfinite(value):
+            plottable.append(item)
     return plottable
 
 
