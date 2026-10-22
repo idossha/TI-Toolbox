@@ -7,7 +7,9 @@ What this pins (2026-10-22, package p05 "ex-split-key-collision"):
 * ``final_output.csv`` carries the evaluated currents, not a ``.1f`` rounding of them
   (step 0.25 used to write 1.75 / 0.25 mA as 1.8 / 0.2).
 * The candidate replay (``tit.opt.candidate_catalog.candidate_detail``) turns a row back into
-  the simulation that was scored: ex 1.75 / 0.25 mA, mEx 0.25 mA on all four pairs.
+  the simulation that was scored: ex 1.75 / 0.25 mA, mEx 0.25 mA on all four pairs -- also for
+  an mEx run written before the fix (hand-typed legacy CSV with 0.2 / 0.2), whose replay takes
+  the pair current from ``run_config.json``; a legacy ex row replays its CSV split as written.
 
 Where the numbers come from: the arithmetic spec of the sweep -- ``c1 + c2 = total`` with
 ``c1`` walking down from the channel limit in ``step`` increments and both channels at least one
@@ -215,5 +217,80 @@ def test_mex_replay_drives_all_four_pairs_at_the_configured_current(
         },
     )
     assert _csv_currents(run / "final_output.csv", 2) == [(0.25, 0.25)]
+    with (run / "final_output.csv").open(newline="") as stream:
+        (row,) = list(csv.DictReader(stream))
+    # The montage name carries the pair current too (".1f" wrote 0.25 mA as "I-0.2mA").
+    assert row["Montage"] == "A_B <> C_D <> E_F <> G_H_I-0.25mA"
     detail = catalog.candidate_detail(project, "ernie", "mex", "run", "ex-0")
     assert detail["simulation_config"]["intensities"] == [0.25, 0.25, 0.25, 0.25]
+
+
+# A final_output.csv as the pre-2026-10-22 writer left it (".1f" currents and names), typed by
+# hand: header of tit/opt/ex/results.py build_csv_rows, metric cells arbitrary but valid.
+_LEGACY_HEADER = (
+    "Montage,Current_Ch1_mA,Current_Ch2_mA,TImax_ROI,TImean_ROI,TImean_GM,"
+    "Focality,Composite_Index\n"
+)
+
+
+def _write_legacy_run(directory: Path, rows: list[str], config: dict) -> None:
+    directory.mkdir(parents=True)
+    (directory / "final_output.csv").write_text(_LEGACY_HEADER + "".join(rows))
+    (directory / "run_config.json").write_text(json.dumps(config))
+
+
+def test_legacy_mex_run_replays_the_configured_current_on_every_pair(project):
+    # mEx at 0.25 mA per pair: the old writer rounded the CSV columns and the name to 0.2,
+    # and has no Current_Ch3/Ch4 columns at all.
+    run = Path(project.m_ex_search_run("ernie", "legacy"))
+    _write_legacy_run(
+        run,
+        [
+            "A_B <> C_D <> E_F <> G_H_I-0.2mA,0.2,0.2,0.3000,0.1000,0.0500,2.0000,0.2000\n"
+        ],
+        {
+            "subject_id": "ernie",
+            "leadfield_hdf": "ernie_leadfield_EEG10-10.hdf5",
+            "current_mA": 0.25,
+        },
+    )
+    detail = catalog.candidate_detail(project, "ernie", "mex", "legacy", "ex-0")
+    simulation = detail["simulation_config"]
+    assert simulation["intensities"] == [0.25, 0.25, 0.25, 0.25]
+    assert simulation["montages"][0]["electrode_pairs"] == [
+        ["A", "B"],
+        ["C", "D"],
+        ["E", "F"],
+        ["G", "H"],
+    ]
+
+
+def test_legacy_ex_run_replays_the_csv_currents_as_written(project):
+    # Ex has no single configured current: each row's own split is what was scored. A 0.2 mA
+    # sweep was exact under ".1f", so the old file's 1.4 / 0.6 is the evaluated split.
+    run = Path(project.ex_search_run("ernie", "legacy"))
+    _write_legacy_run(
+        run,
+        [
+            "A_B <> C_D_I1-1.4mA_I2-0.6mA,1.4,0.6,0.3000,0.1000,0.0500,2.0000,0.2000\n",
+            "A_B <> C_D_I1-0.6mA_I2-1.4mA,0.6,1.4,0.3000,0.1000,0.0500,2.0000,0.2000\n",
+        ],
+        {
+            "subject_id": "ernie",
+            "leadfield_hdf": "ernie_leadfield_EEG10-10.hdf5",
+            "total_current_mA": 2.0,
+            "current_step_mA": 0.2,
+            "channel_limit_mA": 1.8,
+        },
+    )
+    replayed = [
+        catalog.candidate_detail(project, "ernie", "ex", "legacy", f"ex-{i}")[
+            "simulation_config"
+        ]
+        for i in range(2)
+    ]
+    assert [s["intensities"] for s in replayed] == [[1.4, 0.6], [0.6, 1.4]]
+    assert all(
+        s["montages"][0]["electrode_pairs"] == [["A", "B"], ["C", "D"]]
+        for s in replayed
+    )

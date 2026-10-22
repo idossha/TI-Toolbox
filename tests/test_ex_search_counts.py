@@ -19,11 +19,10 @@ Reproduce: ``python3 dev/gen_ex_counts.py && pytest tests/test_ex_search_counts.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -96,25 +95,24 @@ def test_mex_runner_count_equals_the_fixture(case):
 
 # ── the server plan ─────────────────────────────────────────────────────────────────
 
-pytest.importorskip("fastapi")
-pytest.importorskip("httpx")
-# The plan app imports tit.stats (scipy.ndimage/scipy.stats) for other kinds; see
-# tests/test_plan_routes.py for the same local fallback.
-for _mod in ("scipy.ndimage", "scipy.stats"):
-    sys.modules.setdefault(_mod, MagicMock())
-
-from fastapi.testclient import TestClient  # noqa: E402
-
-from tit.paths import get_path_manager  # noqa: E402
-from tit.server.app import create_app  # noqa: E402
-from tit.server.settings import ServerSettings  # noqa: E402
+# Only these tests need the server stack; without it the runner counts above still run.
+_needs_server = pytest.mark.skipif(
+    not all(importlib.util.find_spec(m) for m in ("fastapi", "httpx")),
+    reason="skipping: fastapi/httpx not installed, so the plan route cannot be served",
+)
 
 TOKEN = "test-token-p05"
 BEARER = {"Authorization": f"Bearer {TOKEN}"}
 
 
 @pytest.fixture()
-def client(tmp_path: Path) -> TestClient:
+def client(tmp_path: Path):
+    from fastapi.testclient import TestClient
+
+    from tit.paths import get_path_manager
+    from tit.server.app import create_app
+    from tit.server.settings import ServerSettings
+
     os.makedirs(get_path_manager(str(tmp_path)).m2m("001"))
     (tmp_path / "dataset_description.json").write_text("{}")
     settings = ServerSettings(project_dir=str(tmp_path), token=TOKEN)
@@ -139,6 +137,7 @@ def _ex_wire(case) -> dict:
     }
 
 
+@_needs_server
 @pytest.mark.parametrize("case", EX, ids=[c["id"] for c in EX])
 def test_plan_route_reports_the_fixture_count_for_ex(client, case):
     resp = client.post("/api/plan/ex", json={"config": _ex_wire(case)}, headers=BEARER)
@@ -148,6 +147,7 @@ def test_plan_route_reports_the_fixture_count_for_ex(client, case):
     assert space["n_current_ratios"] == len(case["splits"])
 
 
+@_needs_server
 @pytest.mark.parametrize("case", MEX, ids=[c["id"] for c in MEX])
 def test_plan_route_reports_the_fixture_count_for_mex(client, case, tmp_path):
     atlas = tmp_path / "CHARM.nii.gz"

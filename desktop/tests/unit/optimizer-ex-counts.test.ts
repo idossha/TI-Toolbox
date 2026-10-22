@@ -149,6 +149,7 @@ describe("Ex current bounds are row rules, not input hints", () => {
     ["channel limit cleared", { totalCurrent: 2, currentStep: 0.5, channelLimit: null }, null],
     ["channel limit at its minimum", { totalCurrent: 0.2, currentStep: 0.1, channelLimit: 0.1 }, null],
     ["channel limit 0", { totalCurrent: 2, currentStep: 0.5, channelLimit: 0 }, EX_BOUNDS.channelLimit.label],
+    ["negative channel limit", { totalCurrent: 2, currentStep: 0.5, channelLimit: -1 }, EX_BOUNDS.channelLimit.label],
     ["channel limit above 10", { totalCurrent: 10, currentStep: 2, channelLimit: 10.5 }, EX_BOUNDS.channelLimit.label],
   ];
 
