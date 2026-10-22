@@ -7,7 +7,6 @@ import json
 import os
 import subprocess
 import sys
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -22,29 +21,6 @@ from tit.jobs.spec import (
     JobStatus,
     WaitingOn,
 )
-
-
-@pytest.fixture(autouse=True, scope="module")
-def _mock_scipy_ndimage_and_stats():
-    """tit.stats.config's package __init__ eagerly imports tit.stats.permutation ->
-    tit.stats.engine, which needs scipy.ndimage / scipy.stats. Neither is in
-    tests/conftest.py's ``_MOCK_PACKAGES``; test_config_schema.py / test_plotting.py /
-    test_pre_pipeline.py already carry this same fallback so importing tit.stats.config below
-    (for the keys_for() lock-key tests) works regardless of pytest's file collection order.
-
-    Scoped through ``pytest.MonkeyPatch`` (module-scoped: setup once before this file's first
-    test, undone once after its last) rather than a bare module-level ``sys.modules[...] = ...``
-    assignment, so a real ``scipy.ndimage``/``scipy.stats`` already present is never clobbered
-    for good and a mock inserted here can never outlive this module's tests regardless of
-    collection order (a plain, unscoped module-level mutation would do both).
-    """
-    mp = pytest.MonkeyPatch()
-    for _mod in ("scipy.ndimage", "scipy.stats"):
-        if _mod not in sys.modules:
-            mp.setitem(sys.modules, _mod, MagicMock())
-    yield
-    mp.undo()
-
 
 # ---------------------------------------------------------------------------------------------
 # spec.py
@@ -269,7 +245,8 @@ def test_command_for_leadfield():
 
 def test_report_is_no_longer_a_job_kind():
     """``report`` ran the combined preprocessing report, deleted 2026-09-28
-    (docs/dev/DECISIONS.md); the kind left the contract with it (contracts/CHANGES.md)."""
+    (docs/dev/DECISIONS.md); the kind left the contract with it (contracts/CHANGES.md).
+    """
     from tit.jobs.spec import CONTRACT_JOB_KINDS, JOB_KINDS
 
     assert "report" not in JOB_KINDS and "report" not in CONTRACT_JOB_KINDS

@@ -10,37 +10,15 @@ Targets:
 """
 
 import ast
-import importlib
 import logging
 import os
-import sys
 from unittest.mock import MagicMock, patch, mock_open
 
 import numpy as np
 import pytest
 
-# ---------------------------------------------------------------------------
-# Restore real scipy and reload engine (same pattern as test_stats_engine.py)
-# ---------------------------------------------------------------------------
-_scipy_keys = [k for k in list(sys.modules) if k == "scipy" or k.startswith("scipy.")]
-_saved = {k: sys.modules.pop(k) for k in _scipy_keys}
-
-import scipy  # noqa: E402
-import scipy.ndimage  # noqa: E402
-import scipy.stats  # noqa: E402
-
-try:
-    import scipy.optimize  # noqa: E402
-except ImportError:
-    sys.modules["scipy.optimize"] = MagicMock()
-
-sys.modules.setdefault("scipy.spatial", MagicMock())
-sys.modules.setdefault("scipy.spatial.transform", MagicMock())
-
-# Force-reload engine so its top-level from-imports bind to real scipy
-import tit.stats.engine  # noqa: E402
-
-importlib.reload(tit.stats.engine)
+# Real scipy for every test here, engine rebound to it (tests/conftest.py).
+pytestmark = pytest.mark.usefixtures("real_scipy")
 
 from tit.stats.engine import (  # noqa: E402
     PermutationEngine,
@@ -1183,7 +1161,9 @@ class TestLoadSubjectNiftiTiToolbox:
         mock_pm = MagicMock()
         mock_pm.simulation.return_value = str(tmp_path / "nonexistent")
 
-        with patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm):
+        with patch(
+            "tit.analyzer.field_selector.get_path_manager", return_value=mock_pm
+        ):
             from tit.stats.nifti import load_subject_nifti_ti_toolbox
 
             with pytest.raises(FileNotFoundError, match="NIfTI file not found"):
@@ -1199,7 +1179,9 @@ class TestLoadSubjectNiftiTiToolbox:
         # Create a different file
         (nifti_dir / "other_file.nii.gz").touch()
 
-        with patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm):
+        with patch(
+            "tit.analyzer.field_selector.get_path_manager", return_value=mock_pm
+        ):
             from tit.stats.nifti import load_subject_nifti_ti_toolbox
 
             with pytest.raises(FileNotFoundError, match="Directory exists"):

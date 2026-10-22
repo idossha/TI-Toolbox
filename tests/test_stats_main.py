@@ -16,7 +16,6 @@ round-trip coverage) -- `__main__.py` no longer hand-rolls `_build_group_subject
 `_build_correlation_subjects`.
 """
 
-import importlib
 import json
 import os
 import sys
@@ -26,29 +25,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-# ---------------------------------------------------------------------------
-# Restore real scipy so that tit.stats.engine can load properly.
-# (Same pattern as test_stats_engine.py / test_stats_coverage.py)
-# ---------------------------------------------------------------------------
-_scipy_keys = [k for k in list(sys.modules) if k == "scipy" or k.startswith("scipy.")]
-_saved = {k: sys.modules.pop(k) for k in _scipy_keys}
-
-import scipy  # noqa: E402
-import scipy.ndimage  # noqa: E402
-import scipy.stats  # noqa: E402
-
-try:
-    import scipy.optimize  # noqa: E402
-except ImportError:
-    sys.modules["scipy.optimize"] = MagicMock()
-
-sys.modules.setdefault("scipy.spatial", MagicMock())
-sys.modules.setdefault("scipy.spatial.transform", MagicMock())
-
-# Force-reload engine so its top-level from-imports bind to real scipy
-import tit.stats.engine  # noqa: E402
-
-importlib.reload(tit.stats.engine)
+# Real scipy for every test here, engine rebound to it (tests/conftest.py).
+pytestmark = pytest.mark.usefixtures("real_scipy")
 
 # ---------------------------------------------------------------------------
 # Now safe to import from tit.stats

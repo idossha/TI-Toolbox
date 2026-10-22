@@ -17,6 +17,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+# numpy is real in every leg. Importing it here, before any test module is collected, makes
+# that true whatever the collection order: several modules carry a
+# ``sys.modules.setdefault("numpy", MagicMock())`` fallback, and whichever was collected
+# first used to turn numpy into a mock for the whole session.
+import numpy  # noqa: F401
+
 # Belt: the suite must never phone home to Google Analytics. tit.telemetry
 # honours this env var in is_enabled(); set it before anything imports tit so
 # every test starts from a disabled-by-default state. Some tests (notably
@@ -66,6 +72,8 @@ _MOCK_PACKAGES = [
     "scipy.stats",
     "scipy.spatial",
     "scipy.spatial.transform",
+    "scipy.sparse",
+    "scipy.sparse.csgraph",
     "nibabel",
     "nibabel.freesurfer",
     "h5py",
@@ -108,6 +116,55 @@ def pytest_configure(config):
             parent_key = ".".join(parts[:i])
             child_key = ".".join(parts[: i + 1])
             setattr(_mocks[parent_key], parts[i], _mocks[child_key])
+
+
+# ============================================================================
+# Real scipy for the modules that test statistics
+# ============================================================================
+
+
+def _scipy_keys() -> list[str]:
+    return [k for k in sys.modules if k.split(".")[0] == "scipy"]
+
+
+@pytest.fixture(scope="module")
+def real_scipy():
+    """Real scipy for one test module, with ``tit.stats.engine`` rebound to it.
+
+    The mocks above stand in for scipy everywhere else. A module that needs real statistics
+    asks for this with ``pytestmark = pytest.mark.usefixtures("real_scipy")``: the scipy mocks
+    leave ``sys.modules`` for that module's tests only, ``tit.stats.engine`` is reloaded so
+    its ``from scipy... import`` names bind to the real functions, and both are put back when
+    the module finishes. Collection never touches ``sys.modules``, so no module's result
+    depends on which modules pytest happened to import before it.
+
+    Yields:
+        The real ``scipy`` package (``real_scipy.stats.ttest_ind`` ...).
+    """
+    import importlib
+
+    saved = {key: sys.modules.pop(key) for key in _scipy_keys()}
+
+    def put_back():
+        for key in _scipy_keys():
+            del sys.modules[key]
+        sys.modules.update(saved)
+
+    try:
+        scipy = importlib.import_module("scipy")
+        for name in ("scipy.ndimage", "scipy.stats"):
+            importlib.import_module(name)
+    except ImportError as exc:
+        put_back()
+        print(f"skipping: real scipy is not importable ({exc})")
+        pytest.skip("real scipy is not installed; pip install -e '.[test]'")
+    engine = importlib.import_module("tit.stats.engine")
+    importlib.reload(engine)
+    try:
+        yield scipy
+    finally:
+        put_back()
+        importlib.reload(engine)
 
 
 # ============================================================================

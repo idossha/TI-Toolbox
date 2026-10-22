@@ -24,22 +24,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# tit.stats.__main__ imports tit.stats.permutation -> tit.stats.engine, which needs real
-# scipy.ndimage / scipy.stats (conftest.py mocks bare "scipy" but not those submodules).
-# Same local fallback as test_stats_main.py / test_pre_pipeline.py / test_plotting.py so this
-# module's stats tests pass regardless of collection order.
-_scipy_keys = [k for k in list(sys.modules) if k == "scipy" or k.startswith("scipy.")]
-_saved_scipy = {k: sys.modules.pop(k) for k in _scipy_keys}
-import scipy  # noqa: E402
-import scipy.ndimage  # noqa: E402
-import scipy.stats  # noqa: E402
-
-try:
-    import scipy.optimize  # noqa: E402
-except ImportError:
-    sys.modules["scipy.optimize"] = MagicMock()
-sys.modules.setdefault("scipy.spatial", MagicMock())
-sys.modules.setdefault("scipy.spatial.transform", MagicMock())
+# tit.stats.__main__ -> tit.stats.permutation -> tit.stats.engine: real scipy for every
+# test here, engine rebound to it, mocks restored afterwards (tests/conftest.py).
+pytestmark = pytest.mark.usefixtures("real_scipy")
 
 
 def _events(tmp_path: Path) -> list[dict]:

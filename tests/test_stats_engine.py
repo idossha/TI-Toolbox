@@ -9,40 +9,14 @@ Covers:
 - cluster_analysis: connected-component analysis
 """
 
-import importlib
 import logging
-import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
-# ---------------------------------------------------------------------------
-# Restore real scipy and reload engine so its module-level bindings
-# (sp_stats, label, ndimage_sum, rankdata) point to real implementations.
-# conftest.py mocks scipy before we get here, but engine.py needs real math.
-# ---------------------------------------------------------------------------
-_scipy_keys = [k for k in list(sys.modules) if k == "scipy" or k.startswith("scipy.")]
-_saved = {k: sys.modules.pop(k) for k in _scipy_keys}
-
-import scipy  # noqa: E402
-import scipy.ndimage  # noqa: E402
-import scipy.stats  # noqa: E402
-
-# Keep real scipy.optimize too if available, else mock
-try:
-    import scipy.optimize  # noqa: E402
-except ImportError:
-    sys.modules["scipy.optimize"] = MagicMock()
-
-# Spatial sub-packages are not needed by engine — mock them
-sys.modules.setdefault("scipy.spatial", MagicMock())
-sys.modules.setdefault("scipy.spatial.transform", MagicMock())
-
-# Force-reload engine so its top-level from-imports bind to real scipy
-import tit.stats.engine  # noqa: E402
-
-importlib.reload(tit.stats.engine)
+# Real scipy for every test here, engine rebound to it (tests/conftest.py).
+pytestmark = pytest.mark.usefixtures("real_scipy")
 
 from tit.stats.engine import (  # noqa: E402
     _identify_significant_clusters,
@@ -331,12 +305,12 @@ class TestTtestInd:
         assert t[0] == pytest.approx(10.0 / np.sqrt(3.0))
 
     @pytest.mark.unit
-    def test_singleton_group_matches_scipy(self):
+    def test_singleton_group_matches_scipy(self, real_scipy):
         """The 2-vs-1 t and p agree with ``scipy.stats.ttest_ind`` on the same samples."""
         resp = np.array([0.4, 0.9])
         non_resp = np.array([0.15])
         t, p = ttest_ind(np.array([[*resp, *non_resp]]), n_resp=2, n_non_resp=1)
-        ref = scipy.stats.ttest_ind(resp, non_resp, equal_var=True)
+        ref = real_scipy.stats.ttest_ind(resp, non_resp, equal_var=True)
         assert t[0] == pytest.approx(float(ref.statistic))
         assert p[0] == pytest.approx(float(ref.pvalue))
 

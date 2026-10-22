@@ -27,17 +27,8 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
-
-# tit.stats.config's package __init__ eagerly imports tit.stats.permutation ->
-# tit.stats.engine, which needs scipy.ndimage / scipy.stats. Neither is in
-# tests/conftest.py's _MOCK_PACKAGES; test_plotting.py and test_pre_pipeline.py
-# already carry this same local fallback so their (or this) module works
-# regardless of pytest's file collection order.
-for _mod in ("scipy.ndimage", "scipy.stats"):
-    sys.modules.setdefault(_mod, MagicMock())
 
 jsonschema = pytest.importorskip(
     "jsonschema",

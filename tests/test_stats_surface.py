@@ -16,13 +16,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-# tit.stats.__init__ -> permutation -> engine imports scipy submodules the global
-# conftest doesn't mock.  Inject them (numpy stays REAL so the loader test runs).
-for _mod in ("scipy.ndimage", "scipy.stats", "scipy.sparse", "scipy.sparse.csgraph"):
-    sys.modules.setdefault(_mod, MagicMock())
-
-import numpy as np  # noqa: E402
-import pytest  # noqa: E402
+import numpy as np
+import pytest
 
 from tit.stats.config import CorrelationConfig, GroupComparisonConfig  # noqa: E402
 

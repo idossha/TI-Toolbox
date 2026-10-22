@@ -3,23 +3,12 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
-
-# kind="nifti_average"/"nilearn" resolve to tit.stats.nifti_average_config.NiftiAverageConfig /
-# tit.plotting.nilearn.config.NilearnConfig. Importing either runs tit/stats/__init__.py (any
-# submodule import does), which eagerly imports tit.stats.permutation -> tit.stats.engine ->
-# scipy.ndimage/scipy.stats -- neither is in tests/conftest.py's _MOCK_PACKAGES.
-# test_config_schema.py/test_plotting.py/test_pre_pipeline.py carry this same local fallback
-# for the same reason; see their comments.
-for _mod in ("scipy.ndimage", "scipy.stats"):
-    sys.modules.setdefault(_mod, MagicMock())
 
 from fastapi.testclient import TestClient  # noqa: E402
 
