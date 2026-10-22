@@ -291,15 +291,23 @@ class FlexConfig:
     ------
     ValueError
         If *goal* is ``"focality"`` with *non_roi_method* ``"specific"``
-        but *non_roi* is ``None``, if *thresholds* contains non-numeric
-        values, if *intensity_weight* falls outside ``[0, 1]``, if
+        but *non_roi* is ``None`` or equal to *roi*, if *thresholds* is
+        malformed (see *thresholds*) or missing for a single ``"focality"``
+        run, if *current_mA*, *min_electrode_distance*, an electrode size or
+        a sphere radius is not a positive finite number (or a sphere centre
+        is not finite), if *n_multistart* or *cpus* is below 1, if an
+        ``"ellipse"`` electrode has unequal dimensions, if a subcortical
+        *atlas_space* is neither ``"subject"`` nor ``"mni"``, if
+        *output_folder*'s last component breaks :data:`tit.paths.NAME_RE`,
+        if *intensity_weight* falls outside ``[0, 1]``, if
         *ratio_levels* is below 2 while *optimize_current_ratio* is True,
         if *ratio_total_mA* is set but not positive, if
         *optimize_current_ratio* is combined with ``goal="focality"``
-        in ``mode="flex"`` without explicit *thresholds*, if *detailed_results* is
-        combined with a callable-goal configuration
-        (``goal="focality_tf"`` or *optimize_current_ratio*), or if *mode*
-        is ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
+        in ``mode="flex"`` without explicit *thresholds*, if
+        *detailed_results* is combined with a callable-goal configuration
+        (``goal="focality_tf"``, *optimize_current_ratio* or
+        *observe_background*), or if *mode* is
+        ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
         ``"focality"``.
 
     Examples

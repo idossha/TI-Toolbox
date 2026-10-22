@@ -7889,13 +7889,15 @@ export interface components {
          *     non_roi : SphericalROI or AtlasROI or SubcorticalROI or None
          *         Explicit non-ROI region when *non_roi_method* is ``"specific"``.
          *     thresholds : str or None
-         *         Comma-separated focality threshold values (e.g. ``"0.1,0.2"``).
-         *         Only used by the ROC-based ``"focality"`` goal.  ``None`` (or a
-         *         placeholder such as ``"dynamic"``) lets SimNIBS supply its own
-         *         defaults -- but that fallback exists only inside SimNIBS, so
-         *         combining ``goal="focality"`` with *optimize_current_ratio* makes
-         *         explicit numeric thresholds **required**: the ratio search scores
-         *         candidates with its own ROC objective, which has no defaults.
+         *         Focality thresholds in V/m for the ROC-based ``"focality"`` goal: one
+         *         value (non-ROI max = ROI min) or two, ``"<non-ROI max>,<ROI min>"``
+         *         (e.g. ``"0.1,0.2"``), each finite and greater than 0, the first not
+         *         above the second (SimNIBS ``measures.ROC``'s safety gap).  ``None``
+         *         and the placeholders ``""``, ``"dynamic"``, ``"auto"`` mean unset and
+         *         are stored as ``None``.  A single ``"focality"`` run requires them --
+         *         SimNIBS has no default -- while ``mode="flex_adaptive"`` /
+         *         ``"flex_pareto"`` (or a config carrying *adaptive* / *pareto*
+         *         settings, whose mode the job kind supplies) derive them per step.
          *     intensity_weight : float
          *         Weight ``w`` in ``[0, 1]`` trading ROI intensity against focality
          *         for the ``"focality_tf"`` goal.  ``0.0`` gives the balanced form,
@@ -7906,8 +7908,9 @@ export interface components {
          *         current split between the two channels instead of fixing it at
          *         1:1.  Applies to any goal.  Scoring then happens in a Python
          *         callable rather than in SimNIBS, which has two consequences:
-         *         ``goal="focality"`` requires explicit *thresholds*, and
-         *         *detailed_results* cannot be used.
+         *         ``goal="focality"`` in ``mode="flex"`` requires explicit
+         *         *thresholds* (the adaptive and multi-threshold modes derive them
+         *         per step), and *detailed_results* cannot be used.
          *     ratio_total_mA : float or None
          *         Total current (mA) shared by the two channels during the ratio
          *         search.  ``None`` uses ``2 * current_mA``, i.e. the 1:1 split is
@@ -7957,8 +7960,14 @@ export interface components {
          *         search itself is single-process).  ``None`` uses the global CPU
          *         limit (:func:`tit.cpu.cpu_limit`); a larger value is clamped to it.
          *     min_electrode_distance : float
-         *         Minimum geodesic distance (mm) between any two electrodes.
-         *         Default ``5.0``.
+         *         Minimum distance (mm) SimNIBS keeps between any two electrodes,
+         *         greater than 0.  Default ``5.0``.  SimNIBS measures it as the
+         *         straight-line distance between the skin-mesh nodes under each
+         *         electrode (``check_electrode_distance``), not edge to edge: nodes
+         *         sit inside the footprint, so the physical gap between two discs
+         *         (centre distance minus both radii) can be several millimetres
+         *         smaller -- 1.75 mm for the 5 mm default between 8 mm discs on a
+         *         real head (audit 2026-10-22).
          *     detailed_results : bool
          *         If True, save per-restart detailed output.  Incompatible with any
          *         configuration whose goal is a Python callable -- ``"focality_tf"``
@@ -7995,15 +8004,23 @@ export interface components {
          *     ------
          *     ValueError
          *         If *goal* is ``"focality"`` with *non_roi_method* ``"specific"``
-         *         but *non_roi* is ``None``, if *thresholds* contains non-numeric
-         *         values, if *intensity_weight* falls outside ``[0, 1]``, if
+         *         but *non_roi* is ``None`` or equal to *roi*, if *thresholds* is
+         *         malformed (see *thresholds*) or missing for a single ``"focality"``
+         *         run, if *current_mA*, *min_electrode_distance*, an electrode size or
+         *         a sphere radius is not a positive finite number (or a sphere centre
+         *         is not finite), if *n_multistart* or *cpus* is below 1, if an
+         *         ``"ellipse"`` electrode has unequal dimensions, if a subcortical
+         *         *atlas_space* is neither ``"subject"`` nor ``"mni"``, if
+         *         *output_folder*'s last component breaks :data:`tit.paths.NAME_RE`,
+         *         if *intensity_weight* falls outside ``[0, 1]``, if
          *         *ratio_levels* is below 2 while *optimize_current_ratio* is True,
          *         if *ratio_total_mA* is set but not positive, if
          *         *optimize_current_ratio* is combined with ``goal="focality"``
-         *         without explicit *thresholds*, if *detailed_results* is
-         *         combined with a callable-goal configuration
-         *         (``goal="focality_tf"`` or *optimize_current_ratio*), or if *mode*
-         *         is ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
+         *         in ``mode="flex"`` without explicit *thresholds*, if
+         *         *detailed_results* is combined with a callable-goal configuration
+         *         (``goal="focality_tf"``, *optimize_current_ratio* or
+         *         *observe_background*), or if *mode* is
+         *         ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
          *         ``"focality"``.
          *
          *     Examples

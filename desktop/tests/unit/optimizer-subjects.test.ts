@@ -166,7 +166,9 @@ describe("rowFormReason — the per-row half of the disabled-Run sentence", () =
   it("allows all threshold modes", () => {
     const row = flexRow("ernie");
     for (const focalityMode of ["manual", "adaptive", "pareto"] as const) {
-      expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode } })).toBeNull();
+      // Fixed thresholds need a value (a single SimNIBS focality run has no default; the blank
+      // box is refused in tests/unit/flex-form-gates.test.ts), so the manual row carries one.
+      expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode, manualThresholds: "0.1,0.3" } })).toBeNull();
     }
     expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality_tf" } })).toBeNull();
   });
