@@ -28,7 +28,8 @@ export function buildNiftiAverageConfig(args: {
 }): NiftiAverageConfig {
   return {
     output_name: args.outputName,
-    subjects: args.rows.map((r) => ({ subject_id: r.subjectId, simulation_name: r.simulationName, group: r.group })),
+    // Trimmed, as the panel's eligibility check reads it: "Group1 " and "Group1" are one group.
+    subjects: args.rows.map((r) => ({ subject_id: r.subjectId, simulation_name: r.simulationName, group: r.group.trim() })),
     space: args.space,
     nifti_file_pattern: args.niftiFilePattern.trim() || null,
     diff_pairs: args.diffPairs,

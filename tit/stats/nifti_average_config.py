@@ -26,6 +26,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from tit.paths import validate_name
+
 
 class NiftiAverageSpace(StrEnum):
     """Which per-subject NIfTI space the group average is computed in."""
@@ -87,11 +89,22 @@ class NiftiAverageConfig:
     diff_pairs : list of str, optional
         ``"GroupA-GroupB"`` pairs to difference. Empty (the default) means
         every pairwise combination of the groups present in *subjects*.
+        Labels may contain hyphens (``"post-op-pre-op"``): an entry is split
+        at the one hyphen that leaves a group label on both sides.
 
     Raises
     ------
     ValueError
-        If *output_name* is blank, or fewer than 2 *subjects* are given.
+        If *output_name* is blank or not a valid folder name
+        (:func:`tit.paths.validate_name`), fewer than 2 *subjects* are given,
+        a group label is not a valid file-name part (it names
+        ``average_<group>.nii.gz``), or a *diff_pairs* entry does not name
+        two of the groups exactly one way.
+
+    Notes
+    -----
+    Group labels are stripped of edge whitespace, so ``"Group1 "`` and
+    ``"Group1"`` are one group.
 
     See Also
     --------
@@ -107,7 +120,54 @@ class NiftiAverageConfig:
     def __post_init__(self) -> None:
         if not (self.output_name or "").strip():
             raise ValueError("output_name is required")
+        # The run's folder under nifti_average/, held to stats' analysis_name rule.
+        validate_name(self.output_name, "output_name")
         if len(self.subjects) < 2:
             raise ValueError("at least 2 subjects are required")
+        for index, subject in enumerate(self.subjects):
+            label = subject.group.strip() if isinstance(subject.group, str) else None
+            validate_name(label, f"group label of subjects[{index}]")
+            subject.group = label
+        self.difference_pairs()  # an unknown or ambiguous pair is refused here
         if self.nifti_file_pattern is None:
             self.nifti_file_pattern = _DEFAULT_PATTERNS[NiftiAverageSpace(self.space)]
+
+    def difference_pairs(self) -> list[tuple[str, str]]:
+        """The ``(A, B)`` group pairs whose ``A - B`` difference maps the run writes.
+
+        Returns
+        -------
+        list of tuple of str
+            Every pair of the groups in alphabetical order when *diff_pairs* is
+            empty, else one pair per *diff_pairs* entry, in the order given.
+
+        Raises
+        ------
+        ValueError
+            If an entry does not split into two known group labels, or splits
+            into them at more than one hyphen.
+        """
+        groups = sorted({s.group for s in self.subjects})
+        if not self.diff_pairs:
+            return [(a, b) for i, a in enumerate(groups) for b in groups[i + 1 :]]
+        pairs = []
+        for entry in self.diff_pairs:
+            text = entry if isinstance(entry, str) else ""
+            splits = {
+                (text[:i].strip(), text[i + 1 :].strip())
+                for i, char in enumerate(text)
+                if char == "-"
+            }
+            matches = [p for p in splits if p[0] in groups and p[1] in groups]
+            if len(matches) != 1:
+                problem = (
+                    "names two groups in more than one way"
+                    if matches
+                    else "does not name two of the groups"
+                )
+                raise ValueError(
+                    f"diff_pairs entry {entry!r} {problem} {groups}; write it as "
+                    "GroupA-GroupB"
+                )
+            pairs.append(matches[0])
+        return pairs

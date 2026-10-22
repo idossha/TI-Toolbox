@@ -111,25 +111,10 @@ def main() -> None:
                     output_path, kind="nifti", label=f"average ({group_name})"
                 )
 
-            if config.diff_pairs:
-                pairs = [
-                    tuple(p.strip() for p in pair.split("-", 1))
-                    for pair in config.diff_pairs
-                    if "-" in pair
-                ]
-            else:
-                names = sorted(group_averages)
-                pairs = [
-                    (names[i], names[j])
-                    for i in range(len(names))
-                    for j in range(i + 1, len(names))
-                ]
-
+            # The config resolved every pair to two of its groups (a hyphenated label
+            # included) and refused the rest, so each requested map is written.
             differences: list[str] = []
-            for group1, group2 in pairs:
-                if group1 not in group_averages or group2 not in group_averages:
-                    logger.warning(f"Skipping unknown group pair: {group1}-{group2}")
-                    continue
+            for group1, group2 in config.difference_pairs():
                 diff_data = (group_averages[group1] - group_averages[group2]).astype(
                     np.float32
                 )
