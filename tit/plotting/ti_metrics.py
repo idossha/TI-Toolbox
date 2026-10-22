@@ -4,10 +4,13 @@ Simple TI-Toolbox metric visualizations (matplotlib).
 Centralizes plots that were previously implemented in optimizer/analyzer modules.
 """
 
+import logging
 from pathlib import Path
 from typing import Sequence
 
 from ._common import SaveFigOptions, ensure_headless_matplotlib_backend, savefig_close
+
+logger = logging.getLogger(__name__)
 
 
 def plot_montage_distributions(
@@ -88,12 +91,13 @@ def plot_intensity_vs_focality(
 
 # ── Electrode-map figures (ported from Larissa Albantakis's branch) ──────────
 #
-# Both maps draw on a 2-D electrode layout resolved by ``_resolve_layout``:
+# Both maps draw on a 2-D electrode layout resolved by ``_layout_for_montages``:
 # known template nets (GSN, 10-10 families) use the bundled head template
-# image + pixel coordinates in ``resources/amv``; any other EEG-position CSV
-# is drawn as a plain x/y (SimNIBS RAS) scatter.  A montage record is a dict
-# with ``electrodes`` (4 or 8 labels, consecutive pairs) and the metrics
-# ``composite``, ``timean``, ``focality``.
+# image + pixel coordinates in ``resources/amv`` when it can draw every
+# montage the net's own CSV can; otherwise (and for any other net) the
+# EEG-position CSV is drawn as a plain x/y (SimNIBS RAS) scatter.  A montage
+# record is a dict with ``electrodes`` (4 or 8 labels, consecutive pairs) and
+# the metrics ``composite``, ``timean``, ``focality``.
 
 _AMV_DIR = Path(__file__).resolve().parents[2] / "resources" / "amv"
 _TEMPLATE_COORD_FILES = {
@@ -119,7 +123,9 @@ def _montage_electrodes(item: dict) -> list[str]:
 
 
 def _montage_pairs(electrodes: Sequence[str]) -> list[tuple[str, str]]:
-    return [(electrodes[i], electrodes[i + 1]) for i in range(0, len(electrodes) - 1, 2)]
+    return [
+        (electrodes[i], electrodes[i + 1]) for i in range(0, len(electrodes) - 1, 2)
+    ]
 
 
 def _load_eeg_position_csv(path: str) -> dict[str, tuple[float, ...]]:
@@ -142,16 +148,18 @@ def _load_template_projection(path: str) -> dict | None:
     if not coord_path.is_file() or not template_path.is_file():
         return None
     positions = {
-        label: (xy[0], xy[1]) for label, xy in _load_eeg_position_csv(str(coord_path)).items()
+        label: (xy[0], xy[1])
+        for label, xy in _load_eeg_position_csv(str(coord_path)).items()
     }
-    return {"positions": positions, "template_path": template_path, "eeg_net_name": name}
+    return {
+        "positions": positions,
+        "template_path": template_path,
+        "eeg_net_name": name,
+    }
 
 
-def _resolve_layout(eeg_positions_csv: str) -> dict:
-    """Return ``{"positions", "template_path" (or None), "eeg_net_name"}``."""
-    template = _load_template_projection(eeg_positions_csv)
-    if template:
-        return template
+def _csv_layout(eeg_positions_csv: str) -> dict:
+    """The EEG-position CSV's own x/y layout (no template image)."""
     positions = {
         label: (xyz[0], xyz[1])
         for label, xyz in _load_eeg_position_csv(eeg_positions_csv).items()
@@ -163,6 +171,35 @@ def _resolve_layout(eeg_positions_csv: str) -> dict:
     }
 
 
+def _resolve_layout(eeg_positions_csv: str) -> dict:
+    """Return ``{"positions", "template_path" (or None), "eeg_net_name"}``."""
+    return _load_template_projection(eeg_positions_csv) or _csv_layout(
+        eeg_positions_csv
+    )
+
+
+def _plottable_montages(
+    montage_scores: Sequence[dict], positions: dict | None, metric_key: str
+) -> list[dict]:
+    """Records with electrodes and a numeric ``metric_key`` value.
+
+    With ``positions``, only those whose every electrode is in it.
+    """
+    plottable = []
+    for item in montage_scores:
+        electrodes = _montage_electrodes(item)
+        if len(electrodes) < 2:
+            continue
+        if positions is not None and not all(e in positions for e in electrodes):
+            continue
+        try:
+            float(item[metric_key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        plottable.append(item)
+    return plottable
+
+
 def _rank_plottable_montages(
     *,
     montage_scores: Sequence[dict],
@@ -170,19 +207,47 @@ def _rank_plottable_montages(
     metric_key: str,
     top_n: int,
 ) -> list[dict]:
-    plottable = []
-    for item in montage_scores:
-        electrodes = _montage_electrodes(item)
-        if len(electrodes) < 2 or not all(e in positions for e in electrodes):
-            continue
-        try:
-            float(item[metric_key])
-        except (KeyError, TypeError, ValueError):
-            continue
-        plottable.append(item)
+    """The best ``top_n`` drawable records, highest ``metric_key`` first.
+
+    Equal values keep their input order.
+    """
+    plottable = _plottable_montages(montage_scores, positions, metric_key)
     return sorted(plottable, key=lambda item: float(item[metric_key]), reverse=True)[
         :top_n
     ]
+
+
+def _layout_for_montages(
+    eeg_positions_csv: str, montage_scores: Sequence[dict], metric_key: str
+) -> dict:
+    """The template layout, unless the net's own CSV layout draws more montages.
+
+    The template image does not show every electrode of every net it stands for
+    (Iz, I1 and I2 of the 10-10 nets lie below its drawn sensors). Ranking on it
+    would silently drop every montage that uses one, the best one included, so
+    such a run is drawn on the CSV's own x/y layout instead. Montages that
+    neither layout can draw are counted in a warning.
+    """
+    template = _load_template_projection(eeg_positions_csv)
+    own = _csv_layout(eeg_positions_csv)
+    layout = own
+    if template is not None:
+        on_template = _plottable_montages(
+            montage_scores, template["positions"], metric_key
+        )
+        on_own = _plottable_montages(montage_scores, own["positions"], metric_key)
+        if len(on_template) >= len(on_own):
+            layout = template
+    valid = len(_plottable_montages(montage_scores, None, metric_key))
+    drawn = len(_plottable_montages(montage_scores, layout["positions"], metric_key))
+    if drawn < valid:
+        logger.warning(
+            "%d of %d montages name electrodes not in %s and are left out of the map",
+            valid - drawn,
+            valid,
+            layout["eeg_net_name"],
+        )
+    return layout
 
 
 def _get_montage_metric_cmap(plt, mpl, cmap_name: str | tuple[str, str]):
@@ -200,7 +265,9 @@ def _draw_layout_background(ax, layout: dict, mpimg) -> float:
     """
     positions = layout["positions"]
     if layout["template_path"] is not None:
-        ax.imshow(mpimg.imread(layout["template_path"]), cmap="gray", vmin=0, vmax=1, zorder=0)
+        ax.imshow(
+            mpimg.imread(layout["template_path"]), cmap="gray", vmin=0, vmax=1, zorder=0
+        )
         ax.set_axis_off()
         return 18.0
     xs = [xy[0] for xy in positions.values()]
@@ -265,10 +332,10 @@ def plot_montage_score_map(
     accepted) and the requested ``metric_key``.  Curves are coloured by the
     metric; the best montage's electrodes are highlighted and labelled.
     """
-    layout = _resolve_layout(eeg_positions_csv)
-    positions = layout["positions"]
-    if not positions or not montage_scores:
+    if not montage_scores:
         return None
+    layout = _layout_for_montages(eeg_positions_csv, montage_scores, metric_key)
+    positions = layout["positions"]
     ranked = _rank_plottable_montages(
         montage_scores=montage_scores,
         positions=positions,
@@ -315,7 +382,13 @@ def plot_montage_score_map(
     for label in _montage_electrodes(best):
         x, y = positions[label]
         ax.scatter(
-            [x], [y], s=430, facecolors="none", edgecolors="#ffea00", linewidths=4, zorder=5
+            [x],
+            [y],
+            s=430,
+            facecolors="none",
+            edgecolors="#ffea00",
+            linewidths=4,
+            zorder=5,
         )
         ax.text(
             x + label_offset,
@@ -356,11 +429,10 @@ def plot_electrode_score_heatmap(
     montages it appears in (colour) and its frequency (marker size); the
     12 highest-scoring electrodes are labelled.
     """
-    layout = _resolve_layout(eeg_positions_csv)
-    positions = layout["positions"]
-    if not positions or not montage_scores:
+    if not montage_scores:
         return None
-
+    layout = _layout_for_montages(eeg_positions_csv, montage_scores, "composite")
+    positions = layout["positions"]
     ranked = _rank_plottable_montages(
         montage_scores=montage_scores,
         positions=positions,

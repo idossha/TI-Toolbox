@@ -32,14 +32,14 @@ from tit.paths import resolve_resource_path
 # container-only "/ti-toolbox/resources/amv" path, which doesn't exist on a native host).
 _RESOURCES_DIR = resolve_resource_path("amv")
 
+# Net name (without ".csv"; callers pass either form) -> pixel template on GSN-256.png.
 _COORD_FILES: dict[str, str] = {
-    "GSN-HydroCel-185.csv": "GSN-256.csv",
-    "GSN-HydroCel-256.csv": "GSN-256.csv",
     "GSN-HydroCel-185": "GSN-256.csv",
-    "EEG10-10_UI_Jurak_2007.csv": "10-10.csv",
-    "EEG10-10_Cutini_2011.csv": "10-10.csv",
-    "EEG10-20_Okamoto_2004.csv": "10-10.csv",
-    "EEG10-10_Neuroelectrics.csv": "10-10.csv",
+    "GSN-HydroCel-256": "GSN-256.csv",
+    "EEG10-10_UI_Jurak_2007": "10-10.csv",
+    "EEG10-10_Cutini_2011": "10-10.csv",
+    "EEG10-20_Okamoto_2004": "10-10.csv",
+    "EEG10-10_Neuroelectrics": "10-10.csv",
 }
 
 _SKIP_NETS = {
@@ -71,13 +71,13 @@ def is_skipped_net(eeg_net: str) -> bool:
 
 
 def is_supported_net(eeg_net: str) -> bool:
-    """Return True when a coordinate map exists for *eeg_net*."""
-    return eeg_net in _COORD_FILES
+    """Return True when a coordinate map exists for *eeg_net* (with or without ``.csv``)."""
+    return eeg_net.removesuffix(".csv") in _COORD_FILES
 
 
 def _load_coordinates(eeg_net: str) -> dict[str, tuple[int, int]] | None:
     """Return {electrode_label: (x, y)} for the given EEG net."""
-    fname = _COORD_FILES.get(eeg_net)
+    fname = _COORD_FILES.get(eeg_net.removesuffix(".csv"))
     if fname is None:
         raise ValueError(f"Unsupported EEG net for montage visualization: {eeg_net}")
 
@@ -336,12 +336,11 @@ def montage_webp(
 
     from PIL import Image
 
-    net = eeg_net if eeg_net in _COORD_FILES else f"{eeg_net}.csv"
-    if not is_supported_net(net):
+    if not is_supported_net(eeg_net):
         return None
     with TemporaryDirectory(prefix="tit-montage-") as tmp:
         try:
-            visualize_montage("report", electrode_pairs, net, tmp)
+            visualize_montage("report", electrode_pairs, eeg_net, tmp)
         except (OSError, subprocess.CalledProcessError, ValueError):
             return None
         image = Image.open(os.path.join(tmp, get_expected_output_filename("report")))
