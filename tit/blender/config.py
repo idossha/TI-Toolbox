@@ -179,10 +179,8 @@ class VectorConfig:
     and exported as coloured PLY arrow geometry.
 
     All paths are resolved automatically from ``subject_id`` +
-    ``simulation_name`` via PathManager.  An mTI simulation (one with an
-    ``mTI/mesh/`` folder) is exported from its own central surface, and its
-    envelope is computed over every channel's carrier mesh
-    (:func:`carrier_mesh_paths`); ``mesh1``..``mesh4`` hold the first four.
+    ``simulation_name`` via PathManager.  mTI mode is auto-detected
+    when TDCS meshes 3 and 4 exist.
 
     Attributes
     ----------
