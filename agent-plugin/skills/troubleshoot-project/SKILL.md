@@ -21,8 +21,10 @@ Call MCP `inspect_project(project_root, subject?)`. It reports both halves of a 
 project: the BIDS derivatives, and the `code/ti-toolbox/` tree — the job store
 (counts by state plus recent failures with their `error.type`), notebooks and
 viewer scenes. Each subject also lists its mTI meshes/NIfTIs and whether it has a
-FastSurfer or FreeSurfer reconstruction; subjects staged only under `sourcedata/`
-are listed too (`has_sourcedata`).
+FastSurfer or FreeSurfer reconstruction. The subjects are the ones the app lists: a
+subject with only raw data in `sourcedata/` is listed when `sourcedata/sub-<id>/T1w/` or
+`T2w/` holds a series (`has_sourcedata`); an empty or DWI-only folder is not, though
+`sourcedata_subjects` still shows it.
 
 ## 2. Walk the pipeline and report the first missing stage
 

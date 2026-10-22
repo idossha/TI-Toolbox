@@ -113,15 +113,16 @@ def _agrees_with_catalog(out: dict, pm) -> None:
     rows = catalog.list_subjects(pm)
     assert rows, "the catalog lists no subject: nothing to compare"
     by_id = {s["id"]: s for s in out["subjects"]}
+    # The same subjects, no more and no fewer: an extra one is a folder the app never shows.
+    assert set(by_id) == {r["id"] for r in rows}
     for row in rows:
         sid = row["id"]
-        assert sid in by_id, f"sub-{sid} is in the catalog but not in inspect_project"
         got = by_id[sid]
         assert got["has_m2m"] is row["has_m2m"], sid
         assert got["has_fastsurfer"] is row["has_fastsurfer"], sid
         assert got["has_freesurfer"] is row["has_freesurfer"], sid
-        if row.get("has_sourcedata"):
-            assert got["has_sourcedata"] is True, sid
+        # The catalog leaves the key out when nothing is staged.
+        assert got["has_sourcedata"] is row.get("has_sourcedata", False), sid
         sims = catalog.list_simulations(pm, sid)
         if sims is not None:
             assert sorted(got["simulations"]) == sorted(s["name"] for s in sims), sid
@@ -142,6 +143,50 @@ def test_synthetic_project_agrees_with_the_catalog(srv, project):
     assert by_id["102"]["has_sourcedata"] and not by_id["102"]["has_m2m"]
     assert by_id["103"]["has_fastsurfer"] and not by_id["103"]["has_sourcedata"]
     assert by_id["104"]["has_freesurfer"] and not by_id["104"]["has_fastsurfer"]
+
+
+def test_only_a_staged_t1w_or_t2w_series_counts_as_sourcedata(srv, project):
+    """The catalog's rule (``tit.catalog._has_sourcedata_raw``): a sourcedata folder counts
+    when ``T1w/`` or ``T2w/`` holds a series folder or a DICOM-like file, or the subject folder
+    holds a ``.tgz``. An empty folder, a DWI-only folder or a stray text file does not.
+    """
+    sd = project.sourcedata_subject
+    os.makedirs(sd("888"))  # empty
+    _touch(os.path.join(sd("777"), "dwi", "IM0001.dcm"))  # DWI only
+    _touch(os.path.join(sd("776"), "T1w", "notes.txt"))  # not a series
+    _touch(os.path.join(sd("555"), "scans.tgz"))  # an archive in the subject folder
+    os.makedirs(os.path.join(sd("556"), "T2w", "series01"))  # a series folder
+    _touch(os.path.join(sd("557"), "T1w", "IM0001.DCM"))  # upper-case extension
+    _touch(os.path.join(sd("101"), "dwi", "IM0001.dcm"))  # onboarded, DWI only
+    # A SimNIBS folder with no head model, and folders that are no valid subject id.
+    os.makedirs(os.path.join(project.simnibs(), "sub-444"))
+    os.makedirs(os.path.join(project.project_dir, "sub-bad.id"))
+    os.makedirs(os.path.join(project.sourcedata(), "sub-bad.id", "T1w", "series01"))
+
+    out = inspect(srv, project.project_dir)
+    staged = {s["id"]: s["has_sourcedata"] for s in out["subjects"]}
+    # Hand-derived from the rule above.
+    assert staged == {
+        "101": False,
+        "102": True,
+        "103": False,
+        "104": False,
+        "555": True,
+        "556": True,
+        "557": True,
+    }
+    _agrees_with_catalog(out, project)
+    # Every folder stays visible in the raw listing, staged or not.
+    assert {"sub-777", "sub-888", "sub-bad.id"} <= set(out["sourcedata_subjects"])
+
+
+def test_the_copied_subject_rule_is_the_catalogs(srv):
+    """server.py cannot import tit (it runs on the user's host), so it copies two values."""
+    from tit import catalog
+    from tit.paths import SUBJECT_ID_RE
+
+    assert srv._SUBJECT_ID_RE.pattern == SUBJECT_ID_RE.pattern
+    assert srv._DICOM_LIKE_EXTS == catalog._DICOM_LIKE_EXTS
 
 
 def _listing(root: str) -> dict[str, tuple[int, int]]:

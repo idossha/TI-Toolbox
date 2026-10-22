@@ -666,6 +666,45 @@ def _ls(p: Path, *, dirs_only: bool = False) -> List[str]:
     )
 
 
+#: Copies of tit.paths.SUBJECT_ID_RE and tit.catalog._DICOM_LIKE_EXTS (this server cannot
+#: import tit); tests/test_agent_plugin_inspect_project.py pins both to their sources.
+_SUBJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+_DICOM_LIKE_EXTS = (
+    ".dcm",
+    ".dicom",
+    ".zip",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".json",
+    ".nii",
+    ".nii.gz",
+)
+
+
+def _subject_dirs(home: Path) -> List[str]:
+    return [
+        n[4:]
+        for n in _ls(home, dirs_only=True)
+        if n.startswith("sub-") and _SUBJECT_ID_RE.match(n[4:])
+    ]
+
+
+def _has_staged_raw(subject_dir: Path) -> bool:
+    """tit.catalog's rule: T1w/ or T2w/ holds a series folder or a DICOM-like file, or the
+    subject folder holds a .tgz."""
+    for modality in ("T1w", "T2w"):
+        series = subject_dir / modality
+        if series.is_dir() and any(
+            e.is_dir() or e.name.lower().endswith(_DICOM_LIKE_EXTS)
+            for e in series.iterdir()
+        ):
+            return True
+    return subject_dir.is_dir() and any(
+        e.name.endswith(".tgz") for e in subject_dir.iterdir()
+    )
+
+
 def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
     root = Path(str(args.get("project_root", ""))).expanduser()
     if not root.is_dir():
@@ -673,19 +712,23 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
     subject_filter = args.get("subject")
     deriv = root / "derivatives"
     simnibs = deriv / "SimNIBS"
+    sourcedata = root / "sourcedata"
 
-    # Every place a subject can first appear, as tit.catalog.list_subjects unions them:
-    # raw BIDS, FastSurfer, legacy FreeSurfer, SimNIBS, and DICOMs staged in sourcedata/.
-    homes = (
-        root,
-        deriv / "fastsurfer",
-        deriv / "freesurfer",
-        simnibs,
-        root / "sourcedata",
+    # The subjects the app lists (tit.catalog.list_subjects): a raw BIDS, FastSurfer or legacy
+    # FreeSurfer folder, a SimNIBS folder with a head model, or a T1w/T2w series staged in
+    # sourcedata/ -- each under a valid subject id.
+    ids = set(_subject_dirs(root))
+    ids.update(_subject_dirs(deriv / "fastsurfer"))
+    ids.update(_subject_dirs(deriv / "freesurfer"))
+    ids.update(
+        s
+        for s in _subject_dirs(simnibs)
+        if (simnibs / f"sub-{s}" / f"m2m_{s}").is_dir()
     )
-    all_ids = sorted(
-        {n[4:] for home in homes for n in _ls(home, dirs_only=True) if n[:4] == "sub-"}
+    ids.update(
+        s for s in _subject_dirs(sourcedata) if _has_staged_raw(sourcedata / f"sub-{s}")
     )
+    all_ids = sorted(ids)
     if subject_filter:
         all_ids = [s for s in all_ids if s == str(subject_filter)]
 
@@ -700,7 +743,7 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             "anat_files": _ls(anat),
             "has_m2m": m2m.is_dir(),
             "has_head_mesh": (m2m / f"{sid}.msh").is_file(),
-            "has_sourcedata": (root / "sourcedata" / f"sub-{sid}").is_dir(),
+            "has_sourcedata": _has_staged_raw(sourcedata / f"sub-{sid}"),
             "has_fastsurfer": (deriv / "fastsurfer" / f"sub-{sid}").is_dir(),
             "has_freesurfer": (deriv / "freesurfer" / f"sub-{sid}").is_dir(),
             "freesurfer_recon": (
@@ -812,6 +855,11 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             "A flex/ex/mex run directory without its completion manifest (flex_meta.json, "
             "run_config.json) is deliberately ignored by the catalog, so a cancelled or "
             "in-progress run never appears as a result.",
+            "Subjects are the ones the app lists. has_sourcedata is true only when "
+            "sourcedata/sub-<id>/T1w or T2w holds a series (a folder or a DICOM/NIfTI/"
+            "archive file) or sub-<id>/ holds a .tgz; sourcedata_subjects lists every "
+            "folder under sourcedata/, staged or not. A SimNIBS folder without m2m_<id> "
+            "does not make a subject.",
         ],
         "layout_reference": f"{SITE_BASE}/wiki/overview/",
     }
@@ -1290,7 +1338,7 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "inspect_project",
         "description": "Inspect a user's TI-Toolbox/BIDS project directory: subjects "
-        "(including ones staged only in sourcedata/), head models (m2m), FastSurfer/"
+        "(including ones with only a T1w/T2w series staged in sourcedata/), head models (m2m), FastSurfer/"
         "FreeSurfer, leadfields, free-hand stim_configs, simulations (TI and mTI mesh/NIfTI "
         "outputs, analyses), flex/ex/mex search runs, reports, stats, and the v3 "
         "code/ti-toolbox tree — the job store (counts by state plus recent failures with "
