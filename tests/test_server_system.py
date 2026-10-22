@@ -134,7 +134,6 @@ def test_docker_health_reports_a_wedged_daemon_instead_of_raising(
     assert health.reachable is False
     assert "wedged" in health.error
     assert health.containers == []
-    assert system_routes.docker_siblings() == []
 
 
 def test_docker_health_is_ttl_cached_so_a_1s_poll_is_not_a_1s_docker_call(
@@ -232,9 +231,10 @@ def test_process_list_is_the_busiest_processes_not_only_the_keyword_matches() ->
     assert [r.cpu_percent for r in rows] == sorted(
         (r.cpu_percent for r in rows), reverse=True
     )
-    # And `relevant_processes()` -- what the terminate allowlist is defined in terms of -- is
-    # still exactly the keyword-matched subset.
-    assert all(p.relevant for p in system_routes.relevant_processes())
+    # `relevant` is the keyword match over the whole command line, row by row.
+    for row in rows:
+        if len(row.cmdline) < system_routes.CMDLINE_MAX:
+            assert row.relevant == system_routes.is_relevant_process(row.name, row.cmdline)
 
 
 def test_a_snapshot_never_starts_the_job_subsystem(

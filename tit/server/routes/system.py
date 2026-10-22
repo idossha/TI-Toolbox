@@ -1,13 +1,12 @@
 """``GET /api/system`` — one system snapshot (same payload as ``/ws/system``).
 
-The process keyword filter is copied from the PyQt ``system_monitor_tab.py``
-(that module is deleted with the Qt GUI; the server must not import it).
-Only the keyword list is kept: the Qt tab's second branch — any ``python``
-process whose command line contains ``ti-``, ``gui/``, ``pre-process/``,
-``simulator/``, ``flex-search/`` or ``ex-search/`` — matched the legacy
-script directories (``ti-toolbox/gui/…``) that no longer exist and would
-match the server itself; it was dropped intentionally.  The server's own
-process is always excluded.
+:data:`RELEVANT_KEYWORDS` marks the rows the System page shows as toolbox work, and it is the
+allowlist of ``POST /api/system/terminate``: a pid whose name and command line match no keyword
+is never killed. It lists what v3 spawns in this container -- the job runners
+(``simnibs_python -m tit.<module>``), SimNIBS's command-line tools, FastSurfer, dcm2niix and the
+``docker run`` clients of the QSIPrep, QSIRecon and FreeSurfer sibling containers -- and nothing
+else; ``tests/test_terminate_allowlist.py`` holds the command lines each keyword answers to.
+The server's own process is always excluded.
 """
 
 from __future__ import annotations
@@ -47,64 +46,37 @@ router = APIRouter()
 
 CMDLINE_MAX = 200
 
-# Process-name/cmdline keywords the system monitor considers TI-Toolbox-relevant.
+# Process-name/cmdline keywords of what v3 spawns (``tests/test_terminate_allowlist.py``).
 RELEVANT_KEYWORDS: tuple[str, ...] = (
-    "charm",
+    # every job runner (simnibs_python -m tit.<module>) and every SimNIBS CLI launcher
     "simnibs",
+    "charm",
+    "subject_atlas",
     "fastsurfer",
     "run_fastsurfer.sh",
     "dcm2niix",
-    "fsl",
-    "bet",
-    "fast",
-    "first",
-    "flirt",
-    "fnirt",
-    "pre_process.py",
-    "pre/structural.py",
-    "pre/dicom2nifti.py",
-    "pre/charm.py",
-    "pre/fastsurfer.py",
+    # the docker run clients of the sibling containers
     "qsiprep",
     "qsirecon",
     "pennlinc/qsiprep",
     "pennlinc/qsirecon",
-    "dti_extractor",
-    "pre/qsi/",
-    "ti_sim.py",
-    "flex-search.py",
-    "ex-search",
-    "leadfield.py",
-    "mesh_field_analyzer.py",
-    "main-TI.sh",
-    "main-mTI.sh",
-    "simulator",
-    "python.*TI",
-    "matlab.*sim",
-    "gmsh",
-    "tetgen",
-    "subject_atlas",
-    "mri_convert",
-    "mris_",
-    "mri_",
-    "fs_",
-    "preprocessor",
-    "field_extract",
-    "mesh2nii",
+    "fs_",  # -e FS_LICENSE=... on the FreeSurfer (and licensed QSIPrep) docker run line
 )
 
 
-# Each keyword matches as a whole token: no letter or digit on either side, so "bet" is not the
-# tail of "alphabet" nor "fast" the head of "fastapi". A keyword ending in a separator ("mri_",
-# "pre/qsi/") still matches as a prefix. This is the terminate route's allowlist, and a raw
-# substring match made ordinary shells killable.
-_RELEVANT_RE = re.compile(
-    "|".join(
-        rf"(?<![a-z0-9]){re.escape(k.lower())}"
-        + (r"(?![a-z0-9])" if k[-1].isalnum() else "")
-        for k in RELEVANT_KEYWORDS
+def _keyword_pattern(keyword: str) -> str:
+    """Regex for one keyword, matched as a whole token against a lower-cased command line.
+
+    No letter or digit on either side, so "charm" is not the tail of "pycharm". A keyword ending
+    in a separator ("fs_") still matches as a prefix. A raw substring match made ordinary shells
+    killable through the terminate route.
+    """
+    return rf"(?<![a-z0-9]){re.escape(keyword.lower())}" + (
+        r"(?![a-z0-9])" if keyword[-1].isalnum() else ""
     )
-)
+
+
+_RELEVANT_RE = re.compile("|".join(_keyword_pattern(k) for k in RELEVANT_KEYWORDS))
 
 
 def is_relevant_process(proc_name: str, cmdline: str) -> bool:
@@ -167,9 +139,9 @@ def kernel_pid_owners() -> dict[int, tuple[str, str]]:
             # modern KernelManager owns a `provisioner` with the pid, older ones a `kernel`
             # (the Popen object). Try both and skip the kernel rather than guess.
             manager = getattr(session, "manager", None)
-            pid = getattr(getattr(manager, "provisioner", None), "pid", None) or getattr(
-                getattr(manager, "kernel", None), "pid", None
-            )
+            pid = getattr(
+                getattr(manager, "provisioner", None), "pid", None
+            ) or getattr(getattr(manager, "kernel", None), "pid", None)
             if pid is None:
                 continue
             label = f"kernel {session.id[:8]}"
@@ -269,15 +241,6 @@ def process_list() -> tuple[list[ProcessInfo], int]:
     return found[:PROCESS_LIMIT], total
 
 
-def relevant_processes() -> list[ProcessInfo]:
-    """The pre-2026-09-07 list: keyword-matched processes only, busiest first.
-
-    Kept because ``POST /api/system/terminate``'s allowlist is defined in terms of it.
-    """
-    rows, _total = process_list()
-    return [p for p in rows if p.relevant]
-
-
 #: Where the Docker root lives when the daemon's storage directory is visible
 #: from inside this container.  It usually is not (the socket is bind-mounted,
 #: the graph directory is not), which is exactly why ``disk_docker`` is optional
@@ -353,7 +316,9 @@ def net_io() -> NetIO | None:
         return None
     if counters is None:  # pragma: no cover - no interfaces at all
         return None
-    return NetIO(bytes_sent=int(counters.bytes_sent), bytes_recv=int(counters.bytes_recv))
+    return NetIO(
+        bytes_sent=int(counters.bytes_sent), bytes_recv=int(counters.bytes_recv)
+    )
 
 
 # ── Docker health ────────────────────────────────────────────────────────────
@@ -605,7 +570,9 @@ def docker_health(now: float | None = None) -> DockerHealth:
             def _set_containers() -> None:
                 # After `_set_own`, so the container we are running in can be excluded from its
                 # own sibling list. `health.own` is None on a host with no container at all.
-                health.containers = _containers(client, health.own.id if health.own else None)
+                health.containers = _containers(
+                    client, health.own.id if health.own else None
+                )
 
             def _set_images() -> None:
                 health.images = _images(client)
@@ -628,11 +595,6 @@ def docker_health(now: float | None = None) -> DockerHealth:
 
     _docker_cache = (stamp, health)
     return health
-
-
-def docker_siblings(now: float | None = None) -> list[ContainerInfo]:
-    """The sibling containers, from the same bounded, TTL-cached read as everything Docker."""
-    return docker_health(now).containers
 
 
 def snapshot() -> SystemSnapshot:
@@ -739,7 +701,13 @@ def storage_snapshot(refresh: bool = False) -> ProjectStorage:
     cached = storage.load_cache()
     if refresh or storage.is_stale(cached):
         start_scan()
-    payload = (cached.to_dict() if cached else storage.ProjectStorage(project_dir=get_path_manager().project_dir or "").to_dict())
+    payload = (
+        cached.to_dict()
+        if cached
+        else storage.ProjectStorage(
+            project_dir=get_path_manager().project_dir or ""
+        ).to_dict()
+    )
     payload["scanning"] = _scanning.is_set()
     return ProjectStorage(**payload)
 

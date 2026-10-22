@@ -536,24 +536,10 @@ def test_system_snapshot_shape(client: TestClient) -> None:
         assert len(proc["cmdline"]) <= 200
 
 
-def test_process_filter_matches_expected_tools() -> None:
-    """The keyword filter recognises the external tools TI-Toolbox actually spawns."""
-    from tit.server.routes.system import RELEVANT_KEYWORDS, is_relevant_process
-
-    # Every keyword the filter carries must be matched by is_relevant_process itself --
-    # the constant and the predicate cannot drift apart.
-    for keyword in RELEVANT_KEYWORDS:
-        assert is_relevant_process(keyword, "")
-
-    assert is_relevant_process("simnibs_python", "-m tit.sim cfg.json")
-    assert is_relevant_process("", "/opt/fastsurfer/run_fastsurfer.sh --sid x")
-    assert is_relevant_process("mri_convert", "")
-    assert not is_relevant_process("bash", "-lc sleep 1")
-
-
 def test_process_filter_matches_whole_tokens_not_substrings() -> None:
-    """The terminate route's allowlist is this predicate, so a short keyword inside an ordinary
-    word ("bet" in "alphabet", "fast" in "breakfast") must not make a process killable."""
+    """The terminate route's allowlist is this predicate, so a keyword inside an ordinary word
+    ("charm" in "pycharm", "fastsurfer" in "fastsurfers") must not make a process killable.
+    What each keyword is for: ``tests/test_terminate_allowlist.py``."""
     from tit.server.routes.system import is_relevant_process
 
     for name, cmdline in [
@@ -561,16 +547,16 @@ def test_process_filter_matches_whole_tokens_not_substrings() -> None:
         ("pycharm", ""),
         ("python", "-m uvicorn fastapi_app:app"),
         ("xfs_repair", "/dev/sda1"),
+        ("ls", "/data/fastsurfers"),
     ]:
         assert not is_relevant_process(name, cmdline), (name, cmdline)
 
-    assert is_relevant_process("bet", "/usr/local/fsl/bin/bet in.nii out")
-    assert is_relevant_process("zsh", "-c run_first_all -i t1.nii")
+    assert is_relevant_process("bash", "-e /root/SimNIBS-4.6/bin/charm --forceqform 101 t1.nii")
+    assert is_relevant_process("docker", "run -e FS_LICENSE=/run/license.txt img recon-all")
     assert is_relevant_process("python", "/opt/SimNIBS-4.6/bin/simnibs_python -m tit.sim c.json")
-    assert is_relevant_process("mri_convert", "orig.mgz orig.nii")
 
 
-def test_relevant_processes_excludes_own_pid(monkeypatch) -> None:
+def test_process_list_excludes_own_pid(monkeypatch) -> None:
     import psutil
 
     from tit.server.routes import system as system_module
@@ -597,8 +583,10 @@ def test_relevant_processes_excludes_own_pid(monkeypatch) -> None:
 
     fake = [_Proc(os.getpid(), "simnibs_python"), _Proc(424242, "simnibs_python")]
     monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: iter(fake))
-    pids = [p.pid for p in system_module.relevant_processes()]
-    assert pids == [424242]
+    rows, total = system_module.process_list()
+    assert [p.pid for p in rows] == [424242]
+    assert total == 1
+    assert rows[0].relevant is True
 
 
 # --------------------------------------------------------------------------
