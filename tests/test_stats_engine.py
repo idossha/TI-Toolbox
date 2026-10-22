@@ -90,6 +90,20 @@ class TestPvalFromHistogram:
         assert p[1] == pytest.approx(2 / 11)
 
     @pytest.mark.unit
+    @pytest.mark.parametrize("tail", [0, 1, -1])
+    def test_a_rounding_tie_counts_as_at_least_as_extreme(self, tail):
+        """A permutation that reproduces the observed labelling sums the same t values in
+        another order; its statistic can sit one ulp on the wrong side of the observed one
+        (the 2026-10-22 real-path run logged p = 0.015 for 3 tied null maxima of 199, where
+        (1 + 3) / 200 = 0.02). The tie counts; a value 1e-6 away does not.
+        """
+        observed = 10817.88 if tail != -1 else -10817.88
+        inward = np.nextafter(observed, 0.0)  # one ulp less extreme than observed
+        null = np.array([inward, observed * (1 - 1e-6), 1.0, 2.0])
+        p = pval_from_histogram([observed], null, tail=tail)
+        assert p[0] == pytest.approx((1 + 1) / (4 + 1))
+
+    @pytest.mark.unit
     def test_scalar_input(self):
         """Scalar observed is promoted to 1-d array."""
         null = np.array([1.0, 2.0, 3.0])

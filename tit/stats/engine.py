@@ -30,6 +30,11 @@ logger = logging.getLogger(__name__)
 # ─── p-value computation (MNE-style) ─────────────────────────────────────
 
 
+#: Relative tolerance under which a null statistic ties the observed one (see
+#: :func:`pval_from_histogram`).
+TIE_RTOL = 1e-9
+
+
 def pval_from_histogram(observed_stats, null_distribution, tail=0, sampled=True):
     """Compute per-cluster p-values from a permutation null distribution.
 
@@ -70,20 +75,33 @@ def pval_from_histogram(observed_stats, null_distribution, tail=0, sampled=True)
     observed_stats = np.atleast_1d(observed_stats)
     null_distribution = np.asarray(null_distribution)
     m = null_distribution.size
+    # A permutation that reproduces the observed labelling (or its mirror) gives the observed
+    # statistic summed in another order, which can differ in the last bits; it is a tie and
+    # counts as at least as extreme. TIE_RTOL is far below any real difference of two cluster
+    # statistics (sizes are whole voxel counts).
+    tol = TIE_RTOL * np.abs(observed_stats)
 
     if tail == -1:
         counts = np.array(
-            [np.sum(null_distribution <= obs) for obs in observed_stats], dtype=float
+            [
+                np.sum(null_distribution <= obs + t)
+                for obs, t in zip(observed_stats, tol)
+            ],
+            dtype=float,
         )
     elif tail == 1:
         counts = np.array(
-            [np.sum(null_distribution >= obs) for obs in observed_stats], dtype=float
+            [
+                np.sum(null_distribution >= obs - t)
+                for obs, t in zip(observed_stats, tol)
+            ],
+            dtype=float,
         )
     else:
         counts = np.array(
             [
-                np.sum(np.abs(null_distribution) >= np.abs(obs))
-                for obs in observed_stats
+                np.sum(np.abs(null_distribution) >= np.abs(obs) - t)
+                for obs, t in zip(observed_stats, tol)
             ],
             dtype=float,
         )
