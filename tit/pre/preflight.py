@@ -6,7 +6,7 @@ import logging
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from tit import constants as const
 from tit.paths import get_path_manager
@@ -22,6 +22,7 @@ from .fastsurfer import SEG_FILENAME
 from .qsi.qsirecon import existing_reconstructions
 from .qsi.utils import (
     plan_distortion_correction,
+    qsiprep_has_mni_transform,
     validate_bids_dwi,
     validate_qsiprep_output,
 )
@@ -101,10 +102,60 @@ def _has_bids_t1(project_dir: str, subject_id: str) -> bool:
 
 
 def missing_inputs_for_step(
-    project_dir: str, subject_id: str, step: str
+    project_dir: str,
+    subject_id: str,
+    step: str,
+    *,
+    qsirecon_atlases: Sequence[str] = (),
 ) -> list[PreprocessingInputProblem]:
-    """Return missing required inputs for one subject and preprocessing step."""
+    """Return missing required inputs for one subject and preprocessing step.
+
+    Each check is the one the step's runner makes before it starts, read from disk as it
+    is now. *qsirecon_atlases* are the QSIRecon atlases requested: they need the MNI
+    transform in the QSIPrep output. :func:`find_missing_preprocessing_inputs` drops the
+    problems a step selected earlier in the same run will fix.
+    """
     pm = get_path_manager(project_dir)
+    if step == STEP_TISSUE:
+        labeling = Path(pm.tissue_labeling(subject_id))
+        if labeling.is_file():
+            return []
+        return [
+            PreprocessingInputProblem(
+                subject_id=subject_id,
+                step=step,
+                label=STEP_LABELS[step],
+                message=(
+                    f"Tissue analysis reads the charm segmentation "
+                    f"(segmentation/labeling.nii.gz), which sub-{subject_id} does not "
+                    f"have. Run SimNIBS charm for sub-{subject_id} first."
+                ),
+                path=labeling,
+            )
+        ]
+    if step == STEP_QSIRECON:
+        qsiprep_dir = Path(pm.qsiprep_subject(subject_id))
+        qsiprep_ok, qsiprep_error = validate_qsiprep_output(project_dir, subject_id)
+        if not qsiprep_ok:
+            message = (
+                f"QSIRecon reconstructs QSIPrep output: {qsiprep_error}. "
+                f"Run QSIPrep for sub-{subject_id} first."
+            )
+        elif qsirecon_atlases and not qsiprep_has_mni_transform(
+            project_dir, subject_id
+        ):
+            message = (
+                f"{_ATLASES_NEED_MNI}, which sub-{subject_id}'s QSIPrep run skipped. "
+                "Re-run QSIPrep with MNI normalization enabled, or run QSIRecon "
+                "without atlases."
+            )
+        else:
+            return []
+        return [
+            PreprocessingInputProblem(
+                subject_id, step, STEP_LABELS[step], message, qsiprep_dir
+            )
+        ]
     if step in (STEP_CHARM, STEP_FASTSURFER, STEP_FREESURFER) and not _has_bids_t1(
         project_dir, subject_id
     ):
@@ -225,6 +276,46 @@ def missing_inputs_for_step(
     return []
 
 
+_ATLASES_NEED_MNI = "QSIRecon atlases need QSIPrep's MNI normalization"
+
+
+def _qsiprep_run_without_mni_transform(
+    project_dir: str,
+    subject_id: str,
+    qsiprep_config: Mapping[str, Any],
+    converted: set[str],
+) -> list[PreprocessingInputProblem]:
+    """The atlas conflict for a QSIPrep that runs before QSIRecon in the same run.
+
+    That QSIPrep writes the MNI transform when ``mni_normalization`` is on or when it falls
+    back to fieldmap-less SyN (:func:`tit.pre.qsi.qsiprep.run_qsiprep`). The fallback is
+    decided by the subject's BIDS DWI and fieldmaps, so it is unknown while this run's DICOM
+    conversion can still write them.
+    """
+    if qsiprep_config.get("mni_normalization") is True or converted & {"dwi", "fmap"}:
+        return []
+    sdc = plan_distortion_correction(
+        project_dir, subject_id, logger=logging.getLogger(__name__), repair=False
+    )
+    if sdc.use_syn:
+        return []
+    pm = get_path_manager(project_dir)
+    return [
+        PreprocessingInputProblem(
+            subject_id,
+            STEP_QSIRECON,
+            STEP_LABELS[STEP_QSIRECON],
+            (
+                f"{_ATLASES_NEED_MNI}, but this run's QSIPrep for sub-{subject_id} has "
+                f"it off and corrects distortion by {sdc.describe()}, so it writes no "
+                "MNI transform. Turn on MNI normalization in the QSIPrep settings, or "
+                "run QSIRecon without atlases."
+            ),
+            Path(pm.qsiprep_subject(subject_id)),
+        )
+    ]
+
+
 #: The source modalities whose conversion produces what each step's input check reads
 #: (QSIPrep: a converted fieldmap can be the usable one its distortion check wants).
 _CONVERTED_INPUTS = {
@@ -277,13 +368,29 @@ def find_missing_preprocessing_inputs(
     run_freesurfer: bool = False,
     freesurfer_recon_all: bool = True,
     freesurfer_subregions: Sequence[str] = (),
+    run_tissue_analysis: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
     skip_existing_outputs: bool = False,
+    qsiprep_config: Mapping[str, Any] | None = None,
+    qsi_recon_config: Mapping[str, Any] | None = None,
 ) -> list[PreprocessingInputProblem]:
-    """Return missing inputs that can be detected before running subprocesses."""
+    """Return missing inputs that can be detected before running subprocesses.
+
+    *qsiprep_config* and *qsi_recon_config* are the run's settings dicts (only
+    ``mni_normalization`` and ``atlases`` are read): QSIRecon atlases need QSIPrep's MNI
+    transform. Under *skip_existing_outputs*, tissue analysis and QSIRecon are not
+    checked where their output already exists, since the runner skips them there.
+    """
     subject_ids = list(subject_ids)
+    qsiprep_config = qsiprep_config if isinstance(qsiprep_config, Mapping) else {}
+    atlases = (
+        qsi_recon_config.get("atlases")
+        if isinstance(qsi_recon_config, Mapping)
+        else None
+    )
+    atlases = list(atlases) if isinstance(atlases, (list, tuple)) else []
     selected_steps = (
         list(steps)
         if steps is not None
@@ -294,6 +401,7 @@ def find_missing_preprocessing_inputs(
             run_freesurfer=run_freesurfer,
             freesurfer_recon_all=freesurfer_recon_all,
             freesurfer_subregions=freesurfer_subregions,
+            run_tissue_analysis=run_tissue_analysis,
             run_qsiprep=run_qsiprep,
             run_qsirecon=run_qsirecon,
             extract_dti=extract_dti,
@@ -308,6 +416,15 @@ def find_missing_preprocessing_inputs(
             convert_dicom=convert_dicom,
             skip_existing_outputs=skip_existing_outputs,
         )
+        converted = set(produced)
+
+        def runs(step: str, subject_id: str = subject_id) -> bool:
+            """Selected, and not skipped because its output already exists."""
+            return step in selected_steps and not (
+                skip_existing_outputs
+                and existing_outputs_for_step(project_dir, subject_id, step)
+            )
+
         # Conversion in this run can still produce these steps' T1w/DWI inputs,
         # so don't flag them as missing yet.
         subject_steps = [
@@ -327,8 +444,24 @@ def find_missing_preprocessing_inputs(
             project_dir, subject_id, STEP_FREESURFER
         ):
             subject_steps = [s for s in subject_steps if s != STEP_FREESURFER]
+        subject_steps = [
+            s for s in subject_steps if s not in (STEP_TISSUE, STEP_QSIRECON) or runs(s)
+        ]
         for step in subject_steps:
-            found = missing_inputs_for_step(project_dir, subject_id, step)
+            found = missing_inputs_for_step(
+                project_dir, subject_id, step, qsirecon_atlases=atlases
+            )
+            if step == STEP_TISSUE and runs(STEP_CHARM):
+                found = []  # this run's charm writes the segmentation first
+            if step == STEP_QSIRECON and runs(STEP_QSIPREP):
+                # This run's QSIPrep writes the output; its settings decide the transform.
+                found = (
+                    _qsiprep_run_without_mni_transform(
+                        project_dir, subject_id, qsiprep_config, converted
+                    )
+                    if atlases
+                    else []
+                )
             if step == STEP_DTI:
                 # Stages selected in the same run produce these inputs first.
                 produced = [

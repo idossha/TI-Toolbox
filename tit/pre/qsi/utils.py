@@ -846,6 +846,17 @@ def validate_qsiprep_output(
     return True, None
 
 
+def qsiprep_has_mni_transform(project_dir: str, subject_id: str) -> bool:
+    """Whether the subject's QSIPrep output holds the anat-to-MNI transform.
+
+    QSIPrep writes ``anat/*_to-MNI152NLin2009cAsym_*xfm.h5`` only when its MNI
+    normalization ran (opt-in, or forced by SyN distortion correction); QSIRecon warps
+    its atlases through it (the guard in :func:`tit.pre.qsi.qsirecon.run_qsirecon`).
+    """
+    subject = Path(get_path_manager(project_dir).qsiprep_subject(subject_id))
+    return any(subject.glob("**/anat/*_to-MNI152NLin2009cAsym_*xfm.h5"))
+
+
 def format_memory_limit(memory_gb: int) -> str:
     """
     Format memory limit for Docker --memory flag.

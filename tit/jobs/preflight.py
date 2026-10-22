@@ -759,10 +759,13 @@ def _check_pre(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
         run_freesurfer=bool(config.get("run_freesurfer", False)),
         freesurfer_recon_all=bool(config.get("freesurfer_recon_all", True)),
         freesurfer_subregions=config.get("freesurfer_subregions") or [],
+        run_tissue_analysis=bool(config.get("run_tissue_analysis", False)),
         run_qsiprep=bool(config.get("run_qsiprep", False)),
         run_qsirecon=bool(config.get("run_qsirecon", False)),
         extract_dti=bool(config.get("extract_dti", False)),
         skip_existing_outputs=bool(config.get("skip_existing_outputs", False)),
+        qsiprep_config=config.get("qsiprep_config"),
+        qsi_recon_config=config.get("qsi_recon_config"),
     )
     return [
         MissingInput(
