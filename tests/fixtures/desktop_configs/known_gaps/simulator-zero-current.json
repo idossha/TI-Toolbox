@@ -1,0 +1,14 @@
+{
+  "case_ids": [
+    "simulator/currents-zero-one"
+  ],
+  "owner": "p15",
+  "checks": [
+    "verdict"
+  ],
+  "failure": [
+    "page refuses",
+    "server accepts (None)"
+  ],
+  "reason": "The Simulator now refuses a row with a 0 mA channel (a 0 mA channel makes the TI envelope 0 everywhere), but SimulationConfig still accepts intensities [0, 1]; the server half (refuse a zero or non-finite current on a channel the montage uses) is p15's."
+}

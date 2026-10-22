@@ -88,6 +88,15 @@ describe("Free-hand source draft", () => {
     render();
     fill("#sim-freehand-name", "dupes");
     const save = () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Save placement")!;
+    // Four rows never placed sit at the origin, inside the head: not a placement (this used to
+    // pin Save as ENABLED for them). Placed, they save.
+    expect(save().disabled).toBe(true);
+    const placed = [[61.2, 10.4, 40.1], [-60.5, 12.0, 38.7], [5.3, 72.8, 31.9], [3.1, -74.6, 33.0]];
+    placed.forEach(([x, y, z], i) => {
+      fill(`[aria-label="Position ${i + 1} X"]`, String(x));
+      fill(`[aria-label="Position ${i + 1} Y"]`, String(y));
+      fill(`[aria-label="Position ${i + 1} Z"]`, String(z));
+    });
     expect(save().disabled).toBe(false);
     fill('[aria-label="Position 3 label"]', "E1+");
     expect(container.querySelector('[data-testid="freehand-repeated-labels"]')?.textContent).toContain("E1+ is used more than once");

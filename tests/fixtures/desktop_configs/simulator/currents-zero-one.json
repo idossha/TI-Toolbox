@@ -50,8 +50,8 @@
     }
   ],
   "desktop": {
-    "accepts": true,
-    "reason": null
+    "accepts": false,
+    "reason": "isRunnableRow is false"
   },
   "expect": {
     "carrier_only": false,

@@ -44,10 +44,41 @@ import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
 import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
-import { putFreehand, type FreehandConfig } from "./api";
+import { isSafeName, safeNameProblem } from "../_shared/entityNames";
+import { putFreehand, type ElectrodePosition, type FreehandConfig } from "./api";
 import { useFreehandDraft } from "./freehandDraft";
 import { POSITIONS_PER_STEP, isPlaced, isValidPositionCount, positionSwatch, repeatedLabels } from "./freehandPlacement";
+import { MIN_ELECTRODE_SEPARATION_MM, coincidentElectrodes } from "./types";
 import "./freehand-editor.css";
+
+/** A row still at the origin has not been placed: the origin is inside the head, so no scalp pick
+ *  lands there, and a blank row starts there whatever its label says. */
+const atOrigin = (p: ElectrodePosition) => p.x === 0 && p.y === 0 && p.z === 0;
+
+/**
+ * Why these positions cannot be saved as a placement, or `null` when they can: every row placed
+ * (none left at the origin), every coordinate a number, and no two electrodes on one spot — the
+ * rules a job built from the placement must meet before SimNIBS puts a pad on the scalp for each.
+ */
+export function freehandPlacementProblem(positions: ElectrodePosition[]): string | null {
+  const label = (p: ElectrodePosition, i: number) => p.label || `E${i + 1}`;
+  const unplaced = positions.flatMap((p, i) => (atOrigin(p) ? [label(p, i)] : []));
+  if (unplaced.length > 0) {
+    return `Place every electrode on the scalp: ${unplaced.join(", ")} ${unplaced.length === 1 ? "is" : "are"} not placed yet.`;
+  }
+  const bad = positions.findIndex((p) => ![p.x, p.y, p.z].every((v) => typeof v === "number" && Number.isFinite(v)));
+  if (bad >= 0) return `${label(positions[bad]!, bad)} has a coordinate that is not a number.`;
+  const pairs = Array.from({ length: Math.floor(positions.length / 2) }, (_, i) => {
+    const [a, b] = [positions[2 * i]!, positions[2 * i + 1]!];
+    return [[a.x, a.y, a.z], [b.x, b.y, b.z]] as [[number, number, number], [number, number, number]];
+  });
+  const close = coincidentElectrodes(pairs)[0];
+  if (close) {
+    const [a, b] = close;
+    return `${label(positions[a - 1]!, a - 1)} and ${label(positions[b - 1]!, b - 1)} are less than ${MIN_ELECTRODE_SEPARATION_MM} mm apart: each electrode needs its own place on the scalp.`;
+  }
+  return null;
+}
 
 export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjects: string[]; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -95,6 +126,19 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
 
   const validCount = isValidPositionCount(positions.length);
   const repeated = repeatedLabels(positions);
+  // `tit.catalog.put_freehand_config` holds a new name to `is_safe_name`: refused here, in the
+  // server's terms, rather than by a 422 after the click.
+  const trimmedName = name.trim();
+  const nameProblem = trimmedName && !isSafeName(trimmedName) ? safeNameProblem(trimmedName, "placement") : null;
+  const placementProblem = freehandPlacementProblem(positions);
+  const saveProblem =
+    (!activeEditSubject && "Choose a subject.") ||
+    (!trimmedName && "Name the placement.") ||
+    nameProblem ||
+    (!validCount && "Use 4 positions, or 8, 12, 16 …") ||
+    (repeated.length > 0 && `${repeated.join(", ")} is used more than once.`) ||
+    placementProblem ||
+    null;
 
   return (
     <Card>
@@ -113,6 +157,11 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
           </Field>
           <Field label="Configuration name" htmlFor="sim-freehand-name" required>
             <TextInput id="sim-freehand-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. custom_4electrode" />
+            {nameProblem && (
+              <span className="field-error" data-testid="freehand-name-error">
+                {nameProblem}
+              </span>
+            )}
           </Field>
         </div>
         <div className="data-table-container scroll-x" style={{ marginTop: "var(--space-3)" }}>
@@ -231,6 +280,16 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             Each position needs its own label: {repeated.join(", ")} is used more than once.
           </span>
         )}
+        {/* Unplaced rows are an unfinished table (muted); two electrodes on one spot is a mistake. */}
+        {placementProblem && (
+          <span
+            className={positions.some(atOrigin) ? "field-help" : "field-error"}
+            role={positions.some(atOrigin) ? undefined : "alert"}
+            data-testid="freehand-placement-problem"
+          >
+            {placementProblem}
+          </span>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
           {/* A pair at a time: `isValidPositionCount` accepts 4, 8, 12, …, so an odd count is never
               a configuration anyone can save and offering it is offering a dead end. */}
@@ -244,7 +303,8 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             <Button
               variant="primary"
               loading={save.isPending}
-              disabled={!activeEditSubject || !name.trim() || !validCount || repeated.length > 0 || positions.some((p) => p.x === undefined || p.y === undefined || p.z === undefined)}
+              disabled={saveProblem !== null}
+              title={saveProblem ?? undefined}
               onClick={() => save.mutate()}
             >
               Save placement

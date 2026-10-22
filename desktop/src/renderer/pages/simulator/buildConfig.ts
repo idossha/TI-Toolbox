@@ -1,4 +1,4 @@
-import { CARRIER_FIELDS, carrierOnlyAllowed, settingsFor, type JobSettings, type SelectedRow } from "./types";
+import { CARRIER_FIELDS, carrierOnlyAllowed, rowCurrents, sendsXyz, settingsFor, type JobSettings, type SelectedRow } from "./types";
 import type { CustomConductivities } from "./ConductivityDialog";
 import type { MontageSources } from "./api";
 
@@ -7,18 +7,6 @@ import type { MontageSources } from "./api";
  * customised carries its own `settings` and is built from those (`settingsFor`).
  */
 export type GlobalParams = JobSettings & { customConductivities: CustomConductivities };
-
-function parseIntensities(s: string): number[] {
-  const values = s
-    .split(",")
-    .map((v) => Number(v.trim()))
-    .filter((v) => !Number.isNaN(v));
-  if (values.length === 1) {
-    const only = values[0] ?? 1.0;
-    return [only, only];
-  }
-  return values;
-}
 
 /**
  * Builds the JSON body for one (subject, montage) job — one `SimulationConfig` with exactly one
@@ -41,10 +29,9 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
   // `Montage.Mode` makes, and the reason a run with no mapping file is still simulable.
   const mode =
     row.source === "montage" ? "net" : row.source === "flex" ? (row.eegNet ? "flex_mapped" : "flex_free") : "freehand";
-  const electrodePairs =
-    row.source === "freehand" || (row.source === "flex" && !row.eegNet)
-      ? (row.xyzPairs ?? []).map(([a, b]) => [a, b])
-      : (row.pairs ?? []).map(([a, b]) => [a, b]);
+  const electrodePairs = sendsXyz(row)
+    ? (row.xyzPairs ?? []).map(([a, b]) => [a, b])
+    : (row.pairs ?? []).map(([a, b]) => [a, b]);
 
   const originalMontage = row.candidate?.config.montages as Record<string, unknown>[] | undefined;
   const montage: Record<string, unknown> = {
@@ -67,7 +54,10 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     conductivity: params.conductivity,
     aniso_maxratio: params.anisoMaxratio ?? 10,
     aniso_maxcond: params.anisoMaxcond ?? 2,
-    intensities: parseIntensities(row.currents),
+    // Exactly what the row's channel inputs show (`rowCurrents`): one value per channel, a blank
+    // cell 1.0 mA. The old parser read "" as [0, 0] and passed a short or long list through, so
+    // a row showing 1.0 / 1.0 ran at 0 mA and a 4-pair row showing four inputs sent two.
+    intensities: rowCurrents(row),
     electrode_shape: params.electrodeShape,
     electrode_dimensions: params.dimensions,
     gel_thickness: params.gelThickness,

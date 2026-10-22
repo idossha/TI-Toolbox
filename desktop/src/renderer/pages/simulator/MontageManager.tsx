@@ -41,6 +41,7 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePair
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
+import { isSafeName, safeNameProblem } from "../_shared/entityNames";
 import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { flexCurrents, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
@@ -48,7 +49,6 @@ import { useFreehandDraft } from "./freehandDraft";
 import "./simulator-page.css";
 import {
   SOURCE_OPTIONS,
-  currentsCount,
   defaultCurrents,
   defaultCurrentsFor,
   emptyRow,
@@ -58,7 +58,11 @@ import {
   isValidPairCount,
   newRowId,
   polarityLabel,
+  repeatedElectrodes,
+  repeatedElectrodesSentence,
+  rowCurrents,
   rowPairCount,
+  rowProblem,
   type JobSettings,
   type MontageKind,
   type MontagePreview,
@@ -106,26 +110,9 @@ export function rowPairsText(row: SelectedRow): string {
   return n > 0 ? `${n * 2} XYZ coordinates` : "";
 }
 
-/** The row's currents, normalised to the count its polarity requires (extra values dropped, a
- *  short list padded with 1.0). */
-export function currentValues(currents: string, count: number): number[] {
-  // A blank cell is an *unset* current, not zero — `Number("")` is 0, which is why the empty wire
-  // string used to normalise to `[0, 1]` rather than the documented `[1, 1]`.
-  const parsed = currents.split(",").map((v) => (v.trim() === "" ? Number.NaN : Number(v.trim())));
-  return Array.from({ length: count }, (_, i) => {
-    const v = parsed[i];
-    return v === undefined || Number.isNaN(v) ? 1.0 : v;
-  });
-}
-
-/**
- * How many current inputs a row shows: a catalog montage's polarity is the bucket it lives in; a
- * flex or free-hand row has none, so it follows the pair count (`inferMontageKind`).
- */
-export function rowCurrentsCount(row: SelectedRow): number {
-  const pairs = rowPairCount(row);
-  return currentsCount(row.kind ?? inferMontageKind(pairs), pairs);
-}
+/* The currents a row shows are the currents its job sends: both are `rowCurrents` (types.ts), which
+   `buildSimulationConfig` reads too. Re-exported here for the callers that knew them from here. */
+export { currentValues, rowCurrentsCount } from "./types";
 
 /* ------------------------------------------------------------------------------------------------
  * Column widths.
@@ -314,9 +301,9 @@ function ColumnHandle({ label, width, onResize }: { label: string; width: number
  * legend and in the pane.
  */
 function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents: string) => void }) {
-  const count = rowCurrentsCount(row);
+  const values = rowCurrents(row);
+  const count = values.length;
   if (count === 0 || !row.name) return null;
-  const values = currentValues(row.currents, count);
   const labels = channelLabels(row, count);
   // A plan's pending flex run with no currents set runs at the run's own: shown empty, not as 1 mA.
   const own = !!row.planFlexStep && !row.currents.trim();
@@ -372,6 +359,24 @@ export interface MontageDraft {
  *  it follows from how many pairs the user ends up filling in (`inferMontageKind`). */
 export function emptyDraft(): MontageDraft {
   return { name: "", pairs: [["", ""], ["", ""]] };
+}
+
+/**
+ * Why the montage editor's draft cannot be saved, or `null` when it can — the Save button's gate
+ * and its tooltip. Each clause is a refusal the server makes (`tit.catalog.put_montage` holds a
+ * new name to `is_safe_name`; `SimulationConfig` refuses the pair count) or a physical one: an
+ * electrode cannot be its own return, and two channels on one electrode short each other.
+ */
+export function montageDraftProblem(draft: MontageDraft): string | null {
+  const name = draft.name.trim();
+  if (!name) return "Name the montage.";
+  const badName = safeNameProblem(name, "montage");
+  if (badName) return badName;
+  if (draft.pairs.some((p) => !p[0] || !p[1])) return "Pick both electrodes of every pair.";
+  if (!isValidPairCount(draft.pairs.length)) return "Use exactly 2 pairs (standard TI) or an even number of pairs from 4.";
+  const repeated = repeatedElectrodes(draft.pairs);
+  if (repeated.length > 0) return repeatedElectrodesSentence(repeated);
+  return null;
 }
 
 /** A subject as the Subject cell addresses it: its id and whether a simulation can run on it. */
@@ -710,6 +715,13 @@ export function JobsTable({
         staleTime: 60_000,
       });
       const pairs = (mapping.pairs ?? []).filter((p) => p.length === 2).map((p) => [p[0], p[1]] as [string, string]);
+      // A cap whose nearest labels collapse two optimised electrodes onto one is not a placement:
+      // the row keeps the net (so the choice is visible) but no electrodes, so it cannot run.
+      const repeated = repeatedElectrodes(pairs);
+      if (repeated.length > 0) {
+        notify.error(`Could not map ${row.name} onto ${net}.`, repeatedElectrodesSentence(repeated));
+        return;
+      }
       onRowsChange(
         rowsRef.current.map((r) =>
           r.id === row.id && r.eegNet === net
@@ -1179,6 +1191,11 @@ export function JobsTable({
                             <div className="job-line2" data-cell="pairs" data-channels={rowPairCount(row)}>
                               <ChannelList row={row} onChange={(currents) => patch(row.id, { currents })} />
                             </div>
+                            {rowProblem(row) && (
+                              <span className="field-error" role="alert" data-testid="job-row-problem">
+                                {rowProblem(row)}
+                              </span>
+                            )}
                           </td>
                         </>
                       ) : (
@@ -1227,6 +1244,9 @@ export function JobsTable({
               </Field>
               <Field label="Montage name" required>
                 <TextInput value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="e.g. F3_F4" />
+                {editing.name.trim() && !isSafeName(editing.name.trim()) && (
+                  <span className="field-error" data-testid="montage-name-error">{safeNameProblem(editing.name.trim(), "montage")}</span>
+                )}
               </Field>
               {/* Polarity is a readout, not a choice: it follows from the pairs picked. */}
               <Field label="Polarity">
@@ -1255,6 +1275,11 @@ export function JobsTable({
                 {!isValidPairCount(editing.pairs.length) && (
                   <span className="field-error">Use exactly 2 pairs (standard TI) or an even number of pairs from 4: 4, 6, 8 … (multi-channel mTI).</span>
                 )}
+                {repeatedElectrodes(editing.pairs).length > 0 && (
+                  <span className="field-error" role="alert" data-testid="montage-repeated-electrodes">
+                    {repeatedElectrodesSentence(repeatedElectrodes(editing.pairs))}
+                  </span>
+                )}
               </Field>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
                 {/* Deleting a catalog entry is an act on the CATALOG, so it lives with the editor
@@ -1275,12 +1300,8 @@ export function JobsTable({
                 <Button
                   variant="primary"
                   loading={saveMontage.isPending}
-                  disabled={
-                    !editorNet ||
-                    !editing.name.trim() ||
-                    editing.pairs.some((p) => !p[0] || !p[1]) ||
-                    !isValidPairCount(editing.pairs.length)
-                  }
+                  disabled={!editorNet || montageDraftProblem(editing) !== null}
+                  title={montageDraftProblem(editing) ?? undefined}
                   onClick={() => {
                     if (!editorNet) return;
                     // An edit that changed a montage's polarity moves buckets: delete the old

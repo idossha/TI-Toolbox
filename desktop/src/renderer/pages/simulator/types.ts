@@ -153,8 +153,139 @@ export function emptyRow(subjectId = "", source: MontageSource = "montage", eegN
  */
 export function isRunnableRow(row: SelectedRow): boolean {
   if (row.mappingPending || !row.subjectId || !row.name) return false;
-  if (row.source === "montage") return (row.pairs?.length ?? 0) > 0;
-  return (row.pairs?.length ?? 0) > 0 || (row.xyzPairs?.length ?? 0) > 0;
+  if (sentPairCount(row) === 0) return false;
+  return rowProblem(row) === null;
+}
+
+/** Does the job send XYZ coordinates (free-hand, an unmapped flex run) rather than cap labels? */
+export function sendsXyz(row: SelectedRow): boolean {
+  return row.source === "freehand" || (row.source === "flex" && !row.eegNet);
+}
+
+/** How many electrode pairs the job SENDS — the form `buildSimulationConfig` puts on the wire. */
+function sentPairCount(row: SelectedRow): number {
+  return (sendsXyz(row) ? row.xyzPairs?.length : row.pairs?.length) ?? 0;
+}
+
+/**
+ * Two electrodes closer than this are one point: SimNIBS would place both pads on the same patch
+ * of scalp, which shorts a channel (or a channel to itself). Real montages measure 11.5–127 mm.
+ */
+export const MIN_ELECTRODE_SEPARATION_MM = 1;
+
+/**
+ * Labels used by more than one electrode of a montage, sorted. An electrode cannot be its own
+ * return (`["E1","E1"]`), and two channels on one electrode short each other (`E1–E2 · E1–E3`).
+ * An empty slot (the editor's unpicked electrode) is not a label.
+ */
+export function repeatedElectrodes(pairs: readonly (readonly [string, string])[]): string[] {
+  const labels = pairs.flat().filter((label) => label !== "");
+  return [...new Set(labels.filter((label, i) => labels.indexOf(label) !== i))].sort();
+}
+
+/** The sentence a montage with a repeated electrode is refused with (row, editor and mapping). */
+export function repeatedElectrodesSentence(repeated: string[]): string {
+  return `${repeated.join(", ")} ${repeated.length === 1 ? "is" : "are"} used more than once: an electrode cannot be its own return, and two channels cannot share one.`;
+}
+
+type Xyz = readonly [number, number, number];
+
+/**
+ * 1-based electrode numbers (in pair order: pair 1 is electrodes 1 and 2) of every two electrodes
+ * that are less than `MIN_ELECTRODE_SEPARATION_MM` apart — the XYZ form of a repeated electrode.
+ */
+export function coincidentElectrodes(pairs: readonly (readonly [Xyz, Xyz])[]): [number, number][] {
+  const points = pairs.flat();
+  const out: [number, number][] = [];
+  for (let i = 0; i < points.length; i += 1) {
+    for (let j = i + 1; j < points.length; j += 1) {
+      const [a, b] = [points[i]!, points[j]!];
+      if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < MIN_ELECTRODE_SEPARATION_MM) out.push([i + 1, j + 1]);
+    }
+  }
+  return out;
+}
+
+/**
+ * How many currents the server needs for `numPairs` pairs: `SimulationConfig`'s `required` — 2 for
+ * a 2-pair (TI) montage, one per pair for mTI. The pair count decides, not the catalog bucket.
+ */
+export function requiredCurrents(numPairs: number): number {
+  return numPairs === 2 ? 2 : numPairs;
+}
+
+/** The row's currents, normalised to the count its polarity requires (extra values dropped, a
+ *  short list padded with 1.0). */
+export function currentValues(currents: string, count: number): number[] {
+  // A blank cell is an *unset* current, not zero — `Number("")` is 0, which is why the empty wire
+  // string used to normalise to `[0, 1]` rather than the documented `[1, 1]`.
+  const parsed = currents.split(",").map((v) => (v.trim() === "" ? Number.NaN : Number(v.trim())));
+  return Array.from({ length: count }, (_, i) => {
+    const v = parsed[i];
+    return v === undefined || Number.isNaN(v) ? 1.0 : v;
+  });
+}
+
+/**
+ * How many current inputs a row shows: a catalog montage's polarity is the bucket it lives in; a
+ * flex or free-hand row has none, so it follows the pair count (`inferMontageKind`).
+ */
+export function rowCurrentsCount(row: SelectedRow): number {
+  const pairs = rowPairCount(row);
+  return currentsCount(row.kind ?? inferMontageKind(pairs), pairs);
+}
+
+/**
+ * The currents the row's channel inputs SHOW — and therefore the `intensities` the job sends.
+ * One function for both, so the table and the wire cannot disagree: a blank cell is 1.0 mA (never
+ * `Number("") === 0`) and the list is exactly one value per channel.
+ */
+export function rowCurrents(row: SelectedRow): number[] {
+  return currentValues(row.currents, rowCurrentsCount(row));
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/**
+ * Why a row whose electrodes are known cannot run, in the words the row shows; `null` when it can
+ * — or when it is still being filled in (no subject, no montage, no electrodes yet), which is not
+ * a problem but an unfinished row. Each refusal is one the server makes (or a physical one it does
+ * not make yet), so a row the table calls runnable is one the plan accepts.
+ */
+export function rowProblem(row: SelectedRow): string | null {
+  const xyz = sendsXyz(row);
+  const n = sentPairCount(row);
+  if (n === 0) return null;
+  if (!isValidPairCount(n)) {
+    return `${plural(n, "electrode pair")}: a montage needs 2 pairs (TI) or an even number from 4 (mTI).`;
+  }
+  const shown = rowCurrentsCount(row);
+  const required = requiredCurrents(n);
+  if (shown !== required) {
+    return `Saved as ${polarityLabel(row.kind ?? inferMontageKind(n))} with ${n} pairs, which run with ${required} currents, not ${shown}: open it in the montage editor and save it again.`;
+  }
+  if (xyz) {
+    const points = (row.xyzPairs ?? []).flat();
+    const bad = points.findIndex((p) => !p.every(Number.isFinite));
+    if (bad >= 0) return `Electrode ${bad + 1} has a coordinate that is not a number.`;
+    const close = coincidentElectrodes(row.xyzPairs ?? []);
+    if (close.length > 0) {
+      const [a, b] = close[0]!;
+      return `Electrodes ${a} and ${b} are less than ${MIN_ELECTRODE_SEPARATION_MM} mm apart: each electrode needs its own place on the scalp.`;
+    }
+  } else {
+    const repeated = repeatedElectrodes(row.pairs ?? []);
+    if (repeated.length > 0) return repeatedElectrodesSentence(repeated);
+  }
+  // An optimiser candidate keeps its signed currents (a negative channel is that channel's pads
+  // swapped); everywhere else the inputs take 0 mA and up. Zero is never a current: a 0 mA
+  // channel makes the TI envelope 0 everywhere.
+  const currents = rowCurrents(row);
+  const badCurrent = currents.findIndex((v) => !Number.isFinite(v) || (row.candidate ? v === 0 : v <= 0));
+  if (badCurrent >= 0) {
+    return `Channel ${badCurrent + 1} needs a current ${row.candidate ? "other than" : "above"} 0 mA.`;
+  }
+  return null;
 }
 
 /** How many electrode pairs a row carries, whichever form they came in. */

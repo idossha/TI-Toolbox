@@ -66,7 +66,7 @@ const baseParams: GlobalParams = {
 
 describe("Simulator page configs validate against contracts/generated/config.schema.json", () => {
   it.each(["vn", "dir", "mc"])("forwards %s tensor limits per job and supplies defaults for older settings", async (conductivity) => {
-    const row: SelectedRow = { id: "anisotropic", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"]] };
+    const row: SelectedRow = { id: "anisotropic", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"], ["E67", "E77"]] };
     const custom = buildSimulationConfig({ ...row, settings: { ...baseParams, conductivity, anisoMaxratio: 7, anisoMaxcond: 1.5 } }, baseParams);
     expect(custom).toMatchObject({ conductivity, aniso_maxratio: 7, aniso_maxcond: 1.5 });
     expect(await validate("SimulationConfig", custom)).toMatchObject({ valid: true, errors: {} });
@@ -74,7 +74,7 @@ describe("Simulator page configs validate against contracts/generated/config.sch
   });
 
   it("maps only the job that opts in, including older saved settings without the flag", () => {
-    const row: SelectedRow = { id: "mapping", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"]] };
+    const row: SelectedRow = { id: "mapping", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"], ["E67", "E77"]] };
     expect(buildSimulationConfig(row, baseParams).map_to_mni).toBe(false);
     expect(buildSimulationConfig({ ...row, settings: { ...baseParams, mapToMni: true } }, baseParams).map_to_mni).toBe(true);
     expect(buildSimulationConfig({ ...row, settings: baseParams }, baseParams).map_to_mni).toBe(false);
@@ -91,11 +91,14 @@ describe("Simulator page configs validate against contracts/generated/config.sch
       kind: "uni_polar",
       eegNet: "GSN-HydroCel-185",
       name: "F3_F4",
-      pairs: [["E24", "E124"]],
+      pairs: [["E24", "E124"], ["E67", "E77"]],
       currents: "1.0,1.0",
     };
     const config = buildSimulationConfig(row, baseParams);
     expect(await validate("SimulationConfig", config)).toMatchObject({ valid: true, errors: {} });
+    // The schema has no pair-count rule; SimulationConfig does (2, or an even count from 4).
+    expect(isRunnableRow(row)).toBe(true);
+    expect(isRunnableRow({ ...row, pairs: [["E24", "E124"]] })).toBe(false);
   });
 
   it("a montage-source (multi-polar / mTI) row builds a valid SimulationConfig", async () => {
@@ -167,6 +170,10 @@ describe("Simulator page configs validate against contracts/generated/config.sch
           [-68.1, -12.3, 22.5],
           [-55.4, 24.7, -8.1],
         ],
+        [
+          [70.2, -10.9, 20.4],
+          [52.6, 26.1, -7.3],
+        ],
       ],
       currents: "1.0,1.0",
     };
@@ -174,7 +181,7 @@ describe("Simulator page configs validate against contracts/generated/config.sch
     expect(await validate("SimulationConfig", config)).toMatchObject({ valid: true, errors: {} });
   });
 
-  it("a single intensity value broadcasts to both electrodes of a pair", () => {
+  it("a single typed current is channel 1's; channel 2 shows and sends the default 1.0 mA", () => {
     const row: SelectedRow = {
       id: "montage:GSN-HydroCel-185:uni_polar:F3_F4:ernie",
       subjectId: "ernie",
@@ -182,11 +189,13 @@ describe("Simulator page configs validate against contracts/generated/config.sch
       kind: "uni_polar",
       eegNet: "GSN-HydroCel-185",
       name: "F3_F4",
-      pairs: [["E24", "E124"]],
+      pairs: [["E24", "E124"], ["E67", "E77"]],
       currents: "2.0",
     };
+    // The old wire broadcast "2.0" to [2, 2] while the row's two inputs showed 2.0 and 1.0: what
+    // runs is now what the inputs show (MontageManager's currentValues).
     const config = buildSimulationConfig(row, baseParams);
-    expect(config.intensities).toEqual([2, 2]);
+    expect(config.intensities).toEqual([2, 1]);
   });
 
   it("custom tissue conductivity overrides are forwarded under tissue_conductivities", () => {
@@ -197,7 +206,7 @@ describe("Simulator page configs validate against contracts/generated/config.sch
       kind: "uni_polar",
       eegNet: "GSN-HydroCel-185",
       name: "F3_F4",
-      pairs: [["E24", "E124"]],
+      pairs: [["E24", "E124"], ["E67", "E77"]],
       currents: "1.0,1.0",
     };
     const config = buildSimulationConfig(row, { ...baseParams, customConductivities: { 2: 0.3 } });
@@ -282,8 +291,10 @@ describe("the Simulator's job rows own their subject", () => {
     expect(isRunnableRow({ ...emptyRow("ernie"), name: "F3_F4" })).toBe(false);
     expect(isRunnableRow({ ...emptyRow(""), name: "F3_F4", pairs: [["E1", "E2"]] })).toBe(false);
     expect(isRunnableRow({ ...emptyRow("ernie"), name: "F3_F4", pairs: [["E1", "E2"], ["E3", "E4"]] })).toBe(true);
-    // A flex/free-hand row is resolved by its XYZ pairs instead.
-    expect(isRunnableRow({ ...emptyRow("ernie", "flex"), name: "run", xyzPairs: [[[0, 0, 0], [1, 1, 1]]] })).toBe(true);
+    // A flex/free-hand row is resolved by its XYZ pairs instead — two pairs, as for a label montage.
+    const xyz: SelectedRow["xyzPairs"] = [[[60, 10, 40], [-60, 10, 40]], [[0, 70, 30], [0, -70, 30]]];
+    expect(isRunnableRow({ ...emptyRow("ernie", "flex"), name: "run", xyzPairs: xyz })).toBe(true);
+    expect(isRunnableRow({ ...emptyRow("ernie", "flex"), name: "run", xyzPairs: xyz!.slice(0, 1) })).toBe(false);
   });
 
   it("the Jobs summary counts complete jobs, their subjects, and what is still being filled in", () => {

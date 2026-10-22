@@ -15,8 +15,8 @@
         "electrode_shape": "ellipse",
         "gel_thickness": 4,
         "intensities": [
-          0,
-          0
+          1,
+          1
         ],
         "map_to_fsavg": false,
         "map_to_mni": false,

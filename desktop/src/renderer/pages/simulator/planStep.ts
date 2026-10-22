@@ -8,7 +8,7 @@ import type { StepEdit } from "../../app/proposals/api";
 import type { PlanStepTarget } from "../../app/proposals/stepForm";
 import { buildSimulationConfig, type GlobalParams } from "./buildConfig";
 import { settingsFromConfig } from "./candidateHandoff";
-import { isRunnableRow, newRowId, settingsFor, type SelectedRow } from "./types";
+import { isRunnableRow, newRowId, rowProblem, settingsFor, type SelectedRow } from "./types";
 
 type Config = Record<string, unknown>;
 const object = (v: unknown): v is Config => !!v && typeof v === "object" && !Array.isArray(v);
@@ -84,7 +84,8 @@ export function simStepEdit(step: PlanStepTarget, rows: SelectedRow[], params: G
     return { config, subject_ids: subjects };
   }
 
-  if (!mine.every(isRunnableRow)) throw new Error("Complete every job row: a montage and its electrodes.");
+  const unrunnable = mine.find((r) => !isRunnableRow(r));
+  if (unrunnable) throw new Error(rowProblem(unrunnable) ?? "Complete every job row: a montage and its electrodes.");
   const built = mine.map((r) => buildSimulationConfig(r, params));
   const shared = (b: Config) => JSON.stringify({ ...b, montages: undefined });
   if (built.some((b) => shared(b) !== shared(built[0]!))) throw new Error("Every montage of a plan step runs with the same currents and settings.");
