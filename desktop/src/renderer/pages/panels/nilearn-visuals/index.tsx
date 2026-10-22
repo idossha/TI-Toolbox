@@ -134,10 +134,15 @@ function NilearnVisualsPanel() {
   });
 
   const serverErrors = validateQuery.data?.errors.map((e) => `${e.path ? `${e.path}: ` : ""}${e.message}`) ?? [];
+  // The server's verdict blocks Run as well: NilearnConfig refuses a sub-directory that is not
+  // one folder, min ≥ max cutoffs and a repeated pair, and the job would only be refused at
+  // submit. Kept out of `clientErrors`, which decides whether there is a config to validate.
+  const blockers = [...clientErrors, ...serverErrors];
+  const blockedReason = blockers[0] ?? null;
 
   function handleRunClick() {
-    if (!config) {
-      notify.error(clientErrors[0] ?? "Complete the configuration before running.");
+    if (!config || blockedReason) {
+      notify.error(blockedReason ?? "Complete the configuration before running.");
       return;
     }
     void run();
@@ -157,7 +162,7 @@ function NilearnVisualsPanel() {
     }
   }
 
-  const digest = panelDigest(clientErrors, planQuery.data, config !== null && (validateQuery.isPending || planQuery.isFetching));
+  const digest = panelDigest(blockers, planQuery.data, config !== null && (validateQuery.isPending || planQuery.isFetching));
 
   return (
     <PageLayout
@@ -173,16 +178,16 @@ function NilearnVisualsPanel() {
       actionBar={
         <ActionBar
           digest={digest}
-          blocked={clientErrors.length > 0}
+          blocked={blockedReason !== null}
           primary={
             <Button
               variant="primary"
               icon={<Play size={14} />}
               loading={submitting}
-              disabled={clientErrors.length > 0}
+              disabled={blockedReason !== null}
               onClick={handleRunClick}
               data-testid="run-button"
-              title={clientErrors[0] ?? undefined}
+              title={blockedReason ?? undefined}
             >
               Generate images
             </Button>

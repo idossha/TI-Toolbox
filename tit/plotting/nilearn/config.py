@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tit.paths import validate_name
+
 
 @dataclass
 class NilearnSubjectSimulation:
@@ -90,9 +92,48 @@ class NilearnConfig:
     glass_brain_cmap: str = "hot"
 
     def __post_init__(self) -> None:
+        """Refuse what would write outside one output folder, plot nothing, or skew the mean.
+
+        Checked here, before a job runs, because each needs no data:
+
+        - *subdir_name* is one folder under ``nilearn_visuals/`` (the panel's
+          ``derivatives/ti-toolbox/nilearn_visuals/{name}/``), held to
+          :func:`tit.paths.validate_name`: ``"../stats"`` would write into ``stats/``,
+          ``"a/b"`` one level deeper, and ``""`` into ``nilearn_visuals/`` itself, where
+          the Results page never looks.
+        - Both cutoffs given with the minimum not below the maximum is an empty display
+          range in either unit (a percentile is monotone in its rank), which
+          :func:`~tit.plotting.nilearn.cutoffs.resolve_cutoffs` would refuse only after
+          loading every field.
+        - A repeated subject/simulation pair would count that field twice in the
+          voxelwise mean.
+
+        Raises:
+            ValueError: Naming the field and the value it refused.
+        """
         if not self.subject_simulation_pairs:
             raise ValueError("at least one subject/simulation pair is required")
+        validate_name(self.subdir_name, "subdir_name")
         if self.use_percentiles:
             for cutoff in (self.min_cutoff, self.max_cutoff):
                 if cutoff is not None and not (0 <= cutoff <= 100):
                     raise ValueError("percentile cutoffs must be within [0, 100]")
+        if (
+            self.min_cutoff is not None
+            and self.max_cutoff is not None
+            and self.min_cutoff >= self.max_cutoff
+        ):
+            unit = "%" if self.use_percentiles else " V/m"
+            raise ValueError(
+                f"min_cutoff {self.min_cutoff:g}{unit} must be below max_cutoff "
+                f"{self.max_cutoff:g}{unit}: nothing would be drawn"
+            )
+        seen = set()
+        for pair in self.subject_simulation_pairs:
+            key = (pair.subject_id, pair.simulation_name)
+            if key in seen:
+                raise ValueError(
+                    f"subject_simulation_pairs lists sub-{key[0]} / {key[1]} twice: "
+                    "the group average would count that simulation double"
+                )
+            seen.add(key)
