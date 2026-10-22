@@ -82,7 +82,10 @@ _BUNDLED = Path("/opt/nilearn_data")
 #: imported fresh against the real scipy the numerical conftest swapped in (sklearn).
 _SWAP = ("nilearn", "pandas", "joblib", "sklearn")
 #: Reloaded so their module-level ``nib`` / ``plt`` / ``nilearn`` bindings are the real ones.
+#: ``atlases`` first: another module collected earlier (test_nilearn_offline_atlases.py) may
+#: have imported it against the mocked nilearn, and ``visualizer`` binds its ``atlas_path``.
 _RELOAD = (
+    "tit.plotting.nilearn.atlases",
     "tit.plotting.nilearn.visualizer",
     "tit.plotting.nilearn.img_slices",
     "tit.plotting.nilearn.img_glass",
