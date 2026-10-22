@@ -160,9 +160,7 @@ Pauli WM, Nili AN, Tyszka JM. A high-resolution probabilistic in vivo atlas of h
 
 The shipped volume is a **deterministic** label map, derived locally from the paper's probabilistic masks by winner-takes-highest-probability at a 0.05 minimum-probability threshold. The probability maps themselves are not shipped — only the resulting hard segmentation.
 
-The published labeling is **bilateral** (16 labels, each covering a structure in both hemispheres). TI-Toolbox ships it **split at the midline** (x = 0 mm of its own template) since 2026-09-23: 32 labels, where the paper's label k is `2k-1` (`Left-…`, x < 0) and `2k` (`Right-…`, x ≥ 0), made by `dev/build_lateralized_atlases.py`. Nothing else about the map changes.
-
-The label table below is the docs atlas browser's and still lists the 16 bilateral labels, with centroids near the midline. The 32 shipped labels are in `resources/atlas/CIT168_labeling_lateralized_MNI152NLin2009cAsym_LUT.txt`.
+The published labeling is **bilateral** (16 labels, each covering a structure in both hemispheres). TI-Toolbox ships it **split at the midline** (x = 0 mm of its own template) since 2026-09-23: 32 lateralized labels, where the paper's label k is `2k-1` (`Left-…`, x < 0) and `2k` (`Right-…`, x ≥ 0), made by `dev/build_lateralized_atlases.py`. Nothing else about the map changes. The table below lists all 32.
 
 <div class="atlas-table-tools">
   <input type="text" class="atlas-filter" data-target="table-mni-cit168" placeholder="Filter CIT168 regions by name or id…">

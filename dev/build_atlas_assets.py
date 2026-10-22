@@ -11,17 +11,15 @@ Writes, deterministically and idempotently:
   - docs/assets/atlas/ernie_charm.nii.gz     (resampled onto the ernie T1 grid, order=0)
   - docs/assets/atlas/ernie_dkt.nii.gz       (resampled onto the ernie T1 grid, order=0)
   - docs/assets/atlas/ernie_a2009s.nii.gz    (resampled onto the ernie T1 grid, order=0)
-  - docs/assets/atlas/ernie_massp.nii.gz     (resampled onto the ernie T1 grid, order=0)
   - docs/_data/atlases.json                  (per-space, per-atlas metadata + per-label rows)
 
 Every label volume is nearest-neighbour resampled (nibabel.processing.
 resample_from_to, order=0) onto the exact voxel grid of that space's
 template -- MNI152_T1_1mm.nii.gz for the three MNI atlases, the ernie
-example subject's own T1.nii.gz for the four subject atlases -- so a
+example subject's own T1.nii.gz for the three subject atlases -- so a
 browser can overlay any atlas on its matching template with a single
-shared affine. CHARM / subject-space MASSP already ship on the ernie T1
-grid; the resample is still applied to them for a uniform code path (a
-no-op there). The Harvard-Oxford, Cerebellum and Schaefer atlases added
+shared affine. CHARM already ships on the ernie T1 grid; the resample is
+still applied to it for a uniform code path (a no-op there). The Harvard-Oxford, Cerebellum and Schaefer atlases added
 on 2026-09-17 are not in the browser yet.
 
 One known data defect in resources/atlas/ is handled explicitly, not
@@ -37,11 +35,13 @@ silently patched into the source file:
     in the repo, so a deterministic placeholder color is synthesized for it
     and flagged in the printed report.
 
-The four subject atlases come from the ernie example subject's own
+The three subject atlases come from the ernie example subject's own
 derivatives, read directly from a local dataset (not checked into this
 repo) -- override the two directories below via the TI_ATLAS_SUBJECT_M2M
 and TI_ATLAS_SUBJECT_FS_MRI environment variables if your dataset lives
-somewhere else. Subject-space row centroids are in the subject's own
+somewhere else. If any subject input file is missing, the whole subject
+side is skipped and its committed entries in atlases.json (and the ernie_*
+volumes) are kept as they are; only the MNI side is rebuilt. Subject-space row centroids are in the subject's own
 scanner/world coordinates, not MNI; the JSON field is still named
 "centroid_mni" (kept uniform for the viewer code), but each subject
 atlas's "native_space" string says explicitly that these are subject-space
@@ -200,22 +200,6 @@ SUBJECT_ATLASES = [
             "FreeSurfer `recon-all` for the bundled ernie example subject "
             "(derivatives/freesurfer/sub-ernie/mri/aparc.a2009s+aseg.mgz). Labels and "
             "colors from resources/atlas/FreeSurferColorLUT.txt."
-        ),
-    ),
-    dict(
-        key="massp",
-        display_name="MASSP subcortical (subject space)",
-        src_path=SUBJECT_M2M_DIR / "segmentation" / "massp2021_subject.nii.gz",
-        lut_path=ATLAS_DIR / "massp2021_labels.txt",
-        out_filename="ernie_massp.nii.gz",
-        native_space="ernie subject space (world mm)",
-        out_dtype=np.uint8,
-        expected_label_count=31,
-        provenance=(
-            "MASSP subcortical parcellation, warped from MNI into the bundled ernie "
-            "example subject's native space by SimNIBS `charm` (derivatives/SimNIBS/"
-            "sub-ernie/m2m_ernie/segmentation/massp2021_subject.nii.gz). Labels and "
-            "colors from resources/atlas/massp2021_labels.txt."
         ),
     ),
 ]
@@ -535,12 +519,6 @@ def main() -> int:
     if not ATLAS_DIR.is_dir():
         print(f"ERROR: atlas source directory not found: {ATLAS_DIR}")
         return 2
-    if not SUBJECT_M2M_DIR.is_dir():
-        print(f"ERROR: subject m2m directory not found: {SUBJECT_M2M_DIR}")
-        return 2
-    if not SUBJECT_FS_MRI_DIR.is_dir():
-        print(f"ERROR: subject FreeSurfer mri directory not found: {SUBJECT_FS_MRI_DIR}")
-        return 2
 
     OUT_ASSET_DIR.mkdir(parents=True, exist_ok=True)
     OUT_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -552,10 +530,31 @@ def main() -> int:
     )
     report_rows += mni_report_rows
 
-    subj_tpl_out, subj_report_rows, subj_atlases_json = build_space(
-        "subject", SUBJECT_TEMPLATE_FILE, "ernie_t1.nii.gz", SUBJECT_ATLASES, OUT_ASSET_DIR
-    )
-    report_rows += subj_report_rows
+    subject_inputs = [SUBJECT_TEMPLATE_FILE] + [spec["src_path"] for spec in SUBJECT_ATLASES]
+    missing = [path for path in subject_inputs if not path.is_file()]
+    if missing:
+        print("[subject] SKIPPED: missing input files; committed subject entries kept")
+        for path in missing:
+            print(f"  {path}")
+        print()
+        subject_json = json.loads(OUT_JSON.read_text())["subject"]
+    else:
+        subj_tpl_out, subj_report_rows, subj_atlases_json = build_space(
+            "subject", SUBJECT_TEMPLATE_FILE, "ernie_t1.nii.gz", SUBJECT_ATLASES, OUT_ASSET_DIR
+        )
+        report_rows += subj_report_rows
+        subject_json = {
+            "template": {
+                "filename": "ernie_t1.nii.gz",
+                "label": "ernie T1 (subject space)",
+                "note": (
+                    "T1-weighted anatomical image for the SimNIBS example subject ernie, "
+                    "requantised to 5-bit (32 grayscale levels) for the browser; source "
+                    "derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz."
+                ),
+            },
+            "atlases": subj_atlases_json,
+        }
 
     atlases_json = {
         "mni": {
@@ -569,18 +568,7 @@ def main() -> int:
             },
             "atlases": mni_atlases_json,
         },
-        "subject": {
-            "template": {
-                "filename": "ernie_t1.nii.gz",
-                "label": "ernie T1 (subject space)",
-                "note": (
-                    "T1-weighted anatomical image for the SimNIBS example subject ernie, "
-                    "requantised to 5-bit (32 grayscale levels) for the browser; source "
-                    "derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz."
-                ),
-            },
-            "atlases": subj_atlases_json,
-        },
+        "subject": subject_json,
     }
 
     json_bytes = json.dumps(atlases_json, separators=(",", ":")).encode("utf-8")
@@ -599,7 +587,10 @@ def main() -> int:
     print()
 
     problems = verify_written_outputs("mni", mni_tpl_out, ATLASES, OUT_ASSET_DIR)
-    problems += verify_written_outputs("subject", subj_tpl_out, SUBJECT_ATLASES, OUT_ASSET_DIR)
+    if not missing:
+        problems += verify_written_outputs(
+            "subject", subj_tpl_out, SUBJECT_ATLASES, OUT_ASSET_DIR
+        )
 
     if problems:
         print("FAILED: one or more written outputs did not match expectations.")
