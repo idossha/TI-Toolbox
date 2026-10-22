@@ -87,6 +87,24 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
     # dev/run_realdata_tests.sh: every Dataset 000 gate is set, so only the variables Dataset 000
     # cannot satisfy may skip.
     "realdata": [
+        # Image-dependent: one of these two skips on every image, so an image built before
+        # /opt/nilearn_data (v3.1.1) and one built from this source are both green. Each entry
+        # names one test and its whole skip text.
+        {
+            "test": "tests.numerical.test_nilearn_render_realdata."
+            "test_the_atlas_outlines_load_offline_from_the_bundled_cache",
+            "message": "skipping: this image predates the bundled nilearn atlases "
+            "(/opt/nilearn_data)",
+            "why": "the image was built before the Dockerfile bundled /opt/nilearn_data; the "
+            "no-atlas fallback test beside it runs there instead",
+        },
+        {
+            "test": "tests.numerical.test_nilearn_render_realdata."
+            "test_without_the_bundled_atlases_the_job_still_draws_and_says_why",
+            "message": "skipping: the bundled atlases exist, see the test above",
+            "why": "an image that bundles /opt/nilearn_data has no fallback to take; the "
+            "bundled-cache test beside it runs there instead",
+        },
         {
             "test": "tests.numerical.test_roi_islands.*",
             "message": "TIT_ERNIE_LABELING",
@@ -131,6 +149,24 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
         },
     ],
     "numerical-image": [
+        # Image-dependent outcomes of an image built before 7403910d (v3.1.1) and of one built
+        # from this source; each entry names one test and its whole text.
+        {
+            "test": "tests.numerical.test_simnibs_vector_warp."
+            "test_vector_volume_is_mirrored_through_the_inverse_warp",
+            "message": "this image's SimNIBS carries the removed nan_to_num patch (copy=False "
+            "in transformations.py); an image built from this source runs the test",
+            "why": "a strict xfail, which JUnit records as a skip, only where the image's "
+            "transformations.py still has resources/patches/patch_nan_to_num.py's edit; an "
+            "XPASS there fails the leg, and an image without the edit runs the test",
+        },
+        {
+            "test": "tests.numerical.test_nilearn_render_realdata."
+            "test_without_the_bundled_atlases_the_job_still_draws_and_says_why",
+            "message": "skipping: the bundled atlases exist, see the test above",
+            "why": "an image that bundles /opt/nilearn_data has no fallback to take; the "
+            "bundled-cache test beside it runs there instead",
+        },
         {
             "test": "tests.numerical.test_bids_fieldmap_tools.*",
             "message": "sdcflows absent",

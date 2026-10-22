@@ -190,8 +190,10 @@ jobs:
 
   # tests/numerical needs the real SimNIBS stack, so it runs inside the released image with
   # this checkout mounted read-only. It goes red on a numerical regression the host suite's
-  # mocks cannot see; idossha/ti-toolbox:v3.1.1 is red on
-  # test_simnibs_vector_warp.py (the shipped nan_to_num patch) until the image is rebuilt.
+  # mocks cannot see, and only then: what depends on how the image was built is decided by
+  # the image. On idossha/ti-toolbox:v3.1.1 test_simnibs_vector_warp.py is a strict xfail
+  # (its transformations.py still has the removed nan_to_num patch; an XPASS fails), and
+  # check_junit allows the Nilearn skips of an image with or without /opt/nilearn_data.
   numerical-image:
     executor: vm-docker
     steps:

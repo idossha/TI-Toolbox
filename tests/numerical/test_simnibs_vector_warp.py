@@ -10,13 +10,22 @@ mirror x -> -x, so the inverse field's Jacobian is diag(-1, 1, 1) and a constant
 (1, 2, 3) must come out as (-1, 2, 3) with its length kept. A NaN in the input is the
 case ``nifti_transform``'s own ``nan_to_num`` exists for.
 
+An image built before the patch was removed (idossha/ti-toolbox:v3.1.1 and older) still
+carries it, so there the test is a strict expected failure, decided by reading the image's
+own ``transformations.py`` (the patch rewrote ``nan_to_num(..., copy=None)`` to
+``copy=False``), not by a version string: an old image is ``xfail``, an XPASS there is a
+failure (the patch stopped mattering, or the check is wrong), and any image without the edit
+-- every one built from this source -- runs it as an ordinary test.
+
 Run with real SimNIBS (the toolbox container)::
 
     simnibs_python -m pytest tests/numerical/test_simnibs_vector_warp.py -q
 """
 
 import importlib
+import re
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -40,7 +49,31 @@ def real_simnibs():
     sys.modules.update(saved)
 
 
-def test_vector_volume_is_mirrored_through_the_inverse_warp(tmp_path):
+#: The xfail reason on an image that still carries the patch; dev/check_junit.py allows exactly
+#: this text on the numerical-image leg.
+PATCHED_IMAGE = (
+    "this image's SimNIBS carries the removed nan_to_num patch (copy=False in "
+    "transformations.py); an image built from this source runs the test"
+)
+
+
+def _carries_the_nan_to_num_patch() -> bool:
+    """Whether SimNIBS's ``transformations.py`` has resources/patches/patch_nan_to_num.py's edit.
+
+    That script (deleted in 7403910d) replaced every ``copy=None`` in the file with
+    ``copy=False``; SimNIBS 4.6's own file passes ``copy=None`` to ``nan_to_num``.
+    """
+    import simnibs.utils.transformations as transformations
+
+    source = Path(transformations.__file__).read_text(encoding="utf-8")
+    return re.search(r"nan_to_num\(.*copy=False", source) is not None
+
+
+def test_vector_volume_is_mirrored_through_the_inverse_warp(tmp_path, request):
+    if _carries_the_nan_to_num_patch():
+        request.applymarker(
+            pytest.mark.xfail(strict=True, raises=ValueError, reason=PATCHED_IMAGE)
+        )
     import nibabel as nib
     from simnibs.utils.transformations import nifti_transform
 

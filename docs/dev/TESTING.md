@@ -74,11 +74,16 @@ fixed and the rest of the suite run green on Linux at least twice. Then restore 
   the `test` extra of `pyproject.toml`.
 - **Image leg**: the nightly `numerical_nightly` workflow (`numerical-image` job) runs the whole
   directory in `idossha/ti-toolbox:v<tit.__version__>` with the checkout mounted read-only, and
-  `build-and-smoke-image` runs it in the image it just built. On `v3.1.1` it is red on
-  `test_simnibs_vector_warp.py` (the shipped NumPy `nan_to_num` patch) until the image is
-  rebuilt; that red is the leg working. Its allowlist (`--leg numerical-image`) carries the
-  Dataset 000 skips and two Nilearn entries for an image built before `/opt/nilearn_data`, which
-  go once the leg's image is rebuilt.
+  `build-and-smoke-image` runs it in the image it just built. It is red only on a regression:
+  what depends on how the image was built is decided by reading the image, not its version.
+  `test_simnibs_vector_warp.py` is a strict `xfail` where the image's SimNIBS
+  `transformations.py` still has the removed NumPy `nan_to_num` patch (`v3.1.1`), so an XPASS
+  there fails, and an ordinary test in every image built from this source. Its allowlist
+  (`--leg numerical-image`) carries the Dataset 000 skips, that xfail by its exact reason, two
+  Nilearn entries for an image built before `/opt/nilearn_data`, which go once the leg's image
+  is rebuilt, and the no-atlas fallback test a rebuilt image skips;
+  `tests/test_ci_legs_image_expectations.py` runs pytest-written reports of both kinds of image
+  through it.
 - **Release gate**: the `numerical` stage of `dev/verify_release.py`.
 
 Every leg's JUnit XML goes through `dev/check_junit.py`: zero collected, any failure or error, or
@@ -102,7 +107,9 @@ builds its scene cache in a symlinked copy under `tmp_path` and fails if a proje
 `dev/run_realdata_tests.sh --dataset /path/to/000` runs every module that reads one of those
 variables inside the image, with the dataset mounted read-only, and fails on any skip except the
 variables Dataset 000 cannot satisfy (`TIT_ERNIE_LABELING`: no `m2m_ernie/segmentation/
-labeling.nii.gz`; `TIT_DTI_PROTO`: the prototype tensor is not in the dataset). Scene tests use
+labeling.nii.gz`; `TIT_DTI_PROTO`: the prototype tensor is not in the dataset) and the one
+Nilearn render test the image cannot run (the bundled-cache test on an image built before
+`/opt/nilearn_data`, the no-atlas fallback on one built after). Scene tests use
 sub-101 there, because Dataset 000's `m2m_ernie` has no `segmentation/` atlases. It compares a
 size/mtime/SHA-256 listing of the dataset before and after the run. `dev/verify_release.py` runs
 it as the `realdata` stage (`--dataset-000`, default `$TIT_DATASET_000`).
@@ -357,8 +364,9 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   the three CSVs and the rendered PDFs against the inputs.
 - `tests/numerical/test_simnibs_vector_warp.py` pins the image's SimNIBS + NumPy on a vector volume
   warped with an inverse deformation (an authored mirror field: (1, 2, 3) must come out (-1, 2, 3)),
-  the path a `nan_to_num(copy=False)` build patch broke under NumPy 2. It is red on the v3.1.1 image
-  as first published and green once SimNIBS's own `copy=None` is left in place.
+  the path a `nan_to_num(copy=False)` build patch broke under NumPy 2. On an image that still has
+  the patch (v3.1.1 as first published) it is a strict xfail; with SimNIBS's own `copy=None` it
+  runs, and passes.
 - `tests/numerical/test_dti_advisories.py` pins the DTI advisories on synthetic phantoms (flip test finds a
   planted x flip, tract orientation on pure L–R fibres, a planted 3 mm residual shift), slice orientation
   for RAS/LAS/PSR grids, the report size budget, and `vn` conductivity against SimNIBS 4.6
