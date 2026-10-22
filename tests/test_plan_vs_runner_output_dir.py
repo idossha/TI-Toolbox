@@ -35,6 +35,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import shutil
 import sys
 import time
 import types
@@ -403,6 +404,46 @@ def test_bare_mesh_name_is_analysed_over_both_hemispheres(
     assert result.roi_mean == pytest.approx((1 + 2 + 4) / 3)
 
 
+def test_region_key_names_each_requested_region_once_in_order() -> None:
+    from tit.analyzer.masks import analysis_region_key
+
+    assert analysis_region_key(["b", "a", "b", "a"]) == "b+a"
+    assert analysis_region_key(["a", "a"]) == analysis_region_key("a") == "a"
+    assert analysis_region_key(None) == analysis_region_key([]) == ""
+
+
+@pytest.mark.parametrize(
+    "spec, unique",
+    [
+        (
+            SINGLE_CASES["cortical-mesh-repeated-name"],
+            ["lh.insula", "rh.precentral"],
+        ),
+        (
+            SINGLE_CASES["cortical-voxel-repeated-name"],
+            ["Left-Insula", "Right-Insula"],
+        ),
+        (SINGLE_CASES["subcortical-voxel-repeated-label"], "Left-Thalamus"),
+    ],
+    ids=["cortical-mesh", "cortical-voxel", "subcortical-voxel"],
+)
+def test_a_repeated_region_is_the_analysis_of_it_named_once(
+    spec, unique, client, project, fake_science, tmp_path, monkeypatch
+) -> None:
+    """Asking for a region twice is the same ROI (a union), so the same folder."""
+    from tit.analyzer import __main__ as runner
+
+    repeated = _single_config(spec)
+    once = _single_config({**spec, "region": unique})
+    planned = _plan(client, "analyzer", repeated)["jobs"][0]["output_dir"]
+    assert planned == _plan(client, "analyzer", once)["jobs"][0]["output_dir"]
+    before = _files(project, "results.csv")
+    _run(runner, once, project, tmp_path, monkeypatch)
+    assert {p.parent for p in _files(project, "results.csv") - before} == {
+        _real(planned)
+    }
+
+
 def test_explicit_output_dir_single_is_used_verbatim(
     client, project, fake_science, tmp_path, monkeypatch
 ) -> None:
@@ -448,24 +489,28 @@ def _group_run(config, project, tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "spec",
+    "spec, variant",
     [
-        {**_SPHERE, "space": "voxel", "tissue_type": "WM"},
-        {
-            "analysis_type": "cortical",
-            "space": "mesh",
-            "atlas": "DK40",
-            "region": "insula",
-            "field": "hf_peak",
-        },
+        ({**_SPHERE, "space": "voxel", "tissue_type": "WM"}, "_WM"),
+        (
+            {
+                "analysis_type": "cortical",
+                "space": "mesh",
+                "atlas": "DK40",
+                "region": "insula",
+                "field": "hf_peak",
+            },
+            "_hf_peak",
+        ),
     ],
     ids=["sphere-voxel-wm", "cortical-mesh-bare-hf-peak"],
 )
 def test_analyzer_group_plans_each_subject_and_the_group_folder(
-    spec, client, project, fake_science, tmp_path, monkeypatch
+    spec, variant, client, project, fake_science, tmp_path, monkeypatch
 ) -> None:
     # One clock for the plan and the run: the group folder is named by the second it starts.
-    monkeypatch.setattr(time, "strftime", lambda fmt, *a: "20261022_010203")
+    stamp = "20261022_010203"
+    monkeypatch.setattr(time, "strftime", lambda fmt, *a: stamp)
     config = {
         "mode": "group",
         "subject_ids": list(SUBJECTS),
@@ -485,6 +530,37 @@ def test_analyzer_group_plans_each_subject_and_the_group_folder(
     assert {d.parents[4].name for d in subject_dirs} == {f"sub-{s}" for s in SUBJECTS}
     assert by_subject[""] == [group_dir]
     assert group_dir.parent.name == "group_analysis"
+    # The group folder carries the field/tissue the way each subject's folder does, so a
+    # TI_max/GM group run of the same ROI started in the same second is another folder.
+    assert group_dir.name.startswith(f"{SIM}_{spec['space']}_")
+    assert group_dir.name.endswith(f"{variant}_{stamp}")
+    assert all(d.name.endswith(variant) for d in subject_dirs)
+
+
+def test_group_runs_of_one_roi_for_two_fields_keep_two_group_folders(
+    client, project, fake_science, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(time, "strftime", lambda fmt, *a: "20261022_010203")
+    base = {
+        "mode": "group",
+        "subject_ids": list(SUBJECTS),
+        "simulation": SIM,
+        "visualize": False,
+        **_SPHERE,
+        "space": "voxel",
+    }
+    folders = []
+    for config in (base, {**base, "field": "hf_peak"}):
+        planned = _plan(client, "analyzer", config)["jobs"]
+        _, group_dir = _group_run(config, project, tmp_path, monkeypatch)
+        group_job = next(j for j in planned if not j["subject"])
+        # The hf_peak run is not planned as replacing the TI_max run's summary.
+        assert (_real(group_job["output_dir"]), group_job["exists"]) == (
+            group_dir,
+            False,
+        )
+        folders.append(group_dir)
+    assert folders[0] != folders[1]
 
 
 def test_analyzer_group_with_output_dir_plans_it_once_for_the_group(
@@ -501,6 +577,8 @@ def test_analyzer_group_with_output_dir_plans_it_once_for_the_group(
         "space": "mesh",
     }
     planned = _plan(client, "analyzer", config)["jobs"]
+    # Nothing is on disk yet: no job is an existing output the guard would ask about.
+    assert [(j["exists"], j["will_overwrite"]) for j in planned] == [(False, False)] * 3
     subject_dirs, group_dir = _group_run(config, project, tmp_path, monkeypatch)
     assert group_dir == _real(group_out)
     assert sorted(_real(j["output_dir"]) for j in planned if j["subject"]) == sorted(
@@ -510,6 +588,46 @@ def test_analyzer_group_with_output_dir_plans_it_once_for_the_group(
         _real(group_out)
     ]
     assert _real(group_out) not in subject_dirs
+
+    # A second run would replace the summary the first one wrote into output_dir, and each
+    # subject's analysis: the re-plan says so for every folder, the group one included.
+    again = {j["subject"]: j for j in _plan(client, "analyzer", config)["jobs"]}
+    assert sorted(again) == ["", *SUBJECTS]
+    assert {s: (j["exists"], j["will_overwrite"]) for s, j in again.items()} == {
+        s: (True, True) for s in again
+    }
+
+
+def test_existing_group_output_dir_is_409_until_overwrite_is_confirmed(
+    client, project, fake_science, tmp_path, monkeypatch
+) -> None:
+    """The submit guard refuses to replace the group summary folder without confirmation."""
+    from fastapi import HTTPException
+
+    from tit.server.overwrite_policy import check_overwrite_permission
+
+    group_out = project / "derivatives" / "ti-toolbox" / "group_analysis" / "mine"
+    config = {
+        "mode": "group",
+        "subject_ids": list(SUBJECTS),
+        "simulation": SIM,
+        "visualize": False,
+        "output_dir": str(group_out),
+        **_SPHERE,
+        "space": "mesh",
+    }
+    check_overwrite_permission("analyzer", config, [])  # a first run is not refused
+    subject_dirs, _ = _group_run(config, project, tmp_path, monkeypatch)
+    # Only the group folder is left on disk, so the refusal can come from nothing else.
+    for folder in subject_dirs:
+        shutil.rmtree(folder)
+    assert group_out.is_dir()
+
+    with pytest.raises(HTTPException) as refused:
+        check_overwrite_permission("analyzer", config, [])
+    assert refused.value.status_code == 409
+    assert refused.value.detail.endswith(": " + str(group_out))
+    check_overwrite_permission("analyzer", config, [], overwrite=True)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -658,7 +776,9 @@ def test_source_forward_writes_where_the_plan_says(
     assert [_real(j["output_dir"]) for j in planned] == sorted(made)
 
 
-def _fsavg_run(project, tmp_path, monkeypatch, overwrite: bool) -> list[str]:
+def _fsavg_run(
+    project, tmp_path, monkeypatch, overwrite: bool, spacing: int = 5
+) -> list[str]:
     from tit.source import __main__ as runner
     from tit.source import fsaverage
 
@@ -676,7 +796,7 @@ def _fsavg_run(project, tmp_path, monkeypatch, overwrite: bool) -> list[str]:
     monkeypatch.setattr(fsaverage, "write_fsaverage_msh", write)
     monkeypatch.setattr(fsaverage, "_recorded_carrier_only", lambda *a: False)
     monkeypatch.setattr(runner, "_hold_locks", lambda *a: nullcontext())
-    config = _fsavg_config(overwrite)
+    config = _fsavg_config(overwrite, spacing)
     path = tmp_path / "fsavg.json"
     path.write_text(json.dumps({**config, "project_dir": str(project)}))
     monkeypatch.setattr(sys, "argv", ["tit.source", str(path)])
@@ -686,11 +806,11 @@ def _fsavg_run(project, tmp_path, monkeypatch, overwrite: bool) -> list[str]:
     return computed
 
 
-def _fsavg_config(overwrite: bool) -> dict:
+def _fsavg_config(overwrite: bool, spacing: int = 5) -> dict:
     return {
         "mode": "fsavg_map",
         "pairs": [{"subject_id": "001", "simulation": SIM}],
-        "fsavg_map": {"overwrite": overwrite},
+        "fsavg_map": {"overwrite": overwrite, "fsaverage_spacing": spacing},
     }
 
 
@@ -711,3 +831,21 @@ def test_source_fsavg_map_writes_where_the_plan_says_and_replaces_only_on_overwr
     replaced = _plan(client, "source", _fsavg_config(True))["jobs"][0]
     assert _fsavg_run(project, tmp_path, monkeypatch, overwrite=True) == ["001"]
     assert (replaced["exists"], replaced["will_overwrite"]) == (True, True)
+
+
+def test_source_fsavg_map_of_another_spacing_is_not_an_existing_output(
+    client, project, tmp_path, monkeypatch
+) -> None:
+    """The fsaverage folder holds one projection per spacing; only the planned one counts."""
+    assert _fsavg_run(project, tmp_path, monkeypatch, overwrite=False, spacing=6) == [
+        "001"
+    ]
+    fsavg5 = _plan(client, "source", _fsavg_config(False, spacing=5))["jobs"][0]
+    # The runner computes the fsaverage5 projection: nothing of it was on disk to keep.
+    assert _fsavg_run(project, tmp_path, monkeypatch, overwrite=False, spacing=5) == [
+        "001"
+    ]
+    assert (fsavg5["exists"], fsavg5["will_overwrite"]) == (False, False)
+    fsavg6 = _plan(client, "source", _fsavg_config(True, spacing=6))["jobs"][0]
+    assert (fsavg6["exists"], fsavg6["will_overwrite"]) == (True, True)
+    assert fsavg5["output_dir"] == fsavg6["output_dir"]
