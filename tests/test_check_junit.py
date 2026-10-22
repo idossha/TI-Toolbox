@@ -159,6 +159,11 @@ def test_a_report_pytest_wrote_is_read_with_its_skip(tmp_path, capsys):
 def test_every_allowlist_entry_says_why():
     for leg, entries in check_junit.ALLOWLISTS.items():
         for entry in entries:
-            assert entry["test"].startswith("tests.") and entry["message"], (leg, entry)
+            # pytest ids start at tests/; Playwright's (the e2e leg) at the spec file.
+            test_id = entry["test"]
+            assert test_id.startswith("tests.") or (
+                leg.startswith("e2e") and ".spec.ts." in test_id
+            ), (leg, entry)
+            assert entry["message"], (leg, entry)
             assert len(entry["why"]) > 20, (leg, entry)
     assert check_junit.ALLOWLISTS["no-skips"] == []

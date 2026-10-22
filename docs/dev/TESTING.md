@@ -28,10 +28,20 @@ Python suite**, coverage, documentation/build self-tests, route guard and contra
 Python 3.11 VM environment, plus the agent-plugin MCP stdio tests (`unittest discover -s
 agent-plugin/mcp`), the test-inventory guard and the host numerical leg (below). The host suite
 excludes `tests/numerical`. `desktop-checks` runs all TypeScript checks, lint, Vitest units, the
-docs search page test (`node --test docs/tests/search-results.test.mjs`) and a normal production
-build. Browser installation and Electron E2E are absent from the ordinary workflow. Coverage is
-host coverage, not proof of real scientific execution. Image verification remains an explicit
-`build_image` pipeline choice.
+docs search page test (`node --test docs/tests/search-results.test.mjs`), the `schema.d.ts`
+drift diff (below) and a normal production build. Coverage is host coverage, not proof of real
+scientific execution; `.coveragerc` exclusions are anchored statement patterns and every omit
+carries its reason (`tests/test_coveragerc.py` fails on a pattern that hides a block header or
+a dead omit/ignore/flag path). Image verification remains an explicit `build_image` pipeline
+choice.
+
+The mock-server Electron e2e suite (Playwright `--project=default`) runs in `desktop-e2e-mock`
+on `main` and nightly (`e2e_mock_nightly`), not on every pull request: offscreen under Xvfb,
+after asserting that `TIT_E2E_SERVER_URL`, `TIT_E2E_TOKEN`, `TIT_E2E_PROJECT_HOST` and
+`TIT_DATASET_000` are unset, so only the mock server is reachable. Its JUnit report goes through
+`dev/check_junit.py --leg e2e-mock`, whose allowlist names the three skips of the measured run
+(2026-10-22: 364 tests, 361 passed, 7.8 min on macOS; the step's ceiling is 16 min). Real-server
+specs (`tests/e2e/real`) stay in the local release gate.
 
 `tests/numerical` makes claims only real libraries can check, and runs in three places:
 
@@ -186,8 +196,14 @@ ARCHITECTURE, rationale to DECISIONS, verification here and open work to ROADMAP
 not a second source of truth. The import guard prevents heavy scientific imports during route
 registration. The contract guard
 regenerates outputs in a temporary directory and checks byte drift against the authored contract.
-Fix drift with `cd desktop && npm run gen`; never hand-edit generated output. Contract warnings
-must be reported rather than counted as zero. `test_config_schema.py` compares full generated
+Fix drift with `cd desktop && npm run gen`; never hand-edit generated output. With `CI` set and no
+`desktop/node_modules` it exits 2 instead of skipping `schema.d.ts`; `build-and-run-tests` passes
+`--no-schema-d-ts` because `desktop-checks` regenerates and diffs that file after `npm ci`. Request
+bodies are compared in both directions where the server declares the body's properties. Contract
+warnings (untyped `dict`/`list` responses and bodies, schemas with no server model) are ratcheted
+against `dev/contracts_check_baseline.json`: a new one fails, and a fixed one fails until
+`python3 dev/contracts_check.py --write-baseline` lowers the baseline in the same commit
+(`tests/test_contracts_check_unit.py` drives each case red). `test_config_schema.py` compares full generated
 schemas across fresh 1/4/12-CPU processes while asserting independent runtime QSI thread defaults
 and explicit override preservation; generation must not embed the build host's CPU count.
 

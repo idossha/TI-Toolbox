@@ -55,6 +55,20 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "why": "a .tvsc payload has no label table; the format=gii case checks it",
         },
     ],
+    # CircleCI desktop-e2e-mock: Playwright `--project=default` against the mock server
+    # (measured 2026-10-22: 364 tests, these 3 skipped). Ids are `<spec file>.<title>`.
+    "e2e-mock": [
+        {
+            "test": "packaged-launch.spec.ts.packaged Docker launcher › *",
+            "message": "no packaged app under release/",
+            "why": "the packaged-app specs need `npm run package:dir`, which this job does not build",
+        },
+        {
+            "test": "page-memory.spec.ts.a deliberate pointer click is not inverted by the fill controller",
+            "message": "no run page currently renders a page-level collapsible fill section",
+            "why": "its precondition (a collapsible fill section) left the run pages on 2026-09-06",
+        },
+    ],
     "numerical-image": [
         {
             "test": "tests.numerical.test_bids_fieldmap_tools.*",
@@ -134,7 +148,12 @@ def read_cases(xml_text: str) -> list[Case]:
             element = case.find(tag)
             if element is not None:
                 outcome = {"failure": "failed", "skipped": "skipped"}.get(tag, tag)
-                message = element.get("message") or (element.text or "")
+                message = element.get("message") or (element.text or "").strip()
+                if not message and tag == "skipped":
+                    # Playwright's reporter leaves <skipped/> empty and records the reason
+                    # as <property name="skip" value="...">.
+                    prop = case.find("properties/property[@name='skip']")
+                    message = prop.get("value", "") if prop is not None else ""
                 break
         cases.append(Case(test, outcome, message))
     return cases

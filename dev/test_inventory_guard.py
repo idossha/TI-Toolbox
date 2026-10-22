@@ -11,8 +11,8 @@ the files that define what runs:
 * vitest: the ``include`` globs in desktop/vitest.config.ts (CI ``desktop-checks``);
 * ``unittest discover -s DIR -p PATTERN`` and ``node --test FILE`` steps in
   .circleci/config.yml;
-* Playwright's ``testDir`` in desktop/playwright.config.ts, which no CI job runs, so it is in
-  the table below with the script that does;
+* Playwright's ``testDir`` in desktop/playwright.config.ts (mock server: CircleCI
+  ``desktop-e2e-mock`` on main and nightly, not per PR; named in the table below);
 * ``LOCAL_LAYERS``: layers that are local on purpose, each with the job or script that runs
   it.
 
@@ -52,7 +52,10 @@ LOCAL_LAYERS: dict[str, str] = {
         "Playwright --project=real against a live container: dev/verify_release.py `real-e2e`"
     ),
     "tests/smoke/**": "dev/smoke.sh (needs a live tit.server and a real project)",
-    "PLAYWRIGHT": "mock-server Playwright: dev/verify_release.py `mock-e2e` (npm run e2e:quiet)",
+    "PLAYWRIGHT": (
+        "mock-server Playwright: CircleCI desktop-e2e-mock (main + nightly) and "
+        "dev/verify_release.py `mock-e2e` (npm run e2e:quiet)"
+    ),
 }
 
 

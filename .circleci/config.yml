@@ -16,6 +16,50 @@ commands:
     steps:
       - checkout
 
+  desktop-setup:
+    description: Node 22 and `npm ci` in desktop/ (desktop-checks and desktop-e2e-mock)
+    steps:
+      - run:
+          name: "Install Node 22 (package.json engines: >=22.12.0)"
+          command: |
+            set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            # ubuntu-2204:current ships nvm; install/select 22 explicitly rather than trust
+            # whatever LTS the image defaults to today.
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 22
+            nvm alias default 22
+            {
+              echo 'export NVM_DIR="$HOME/.nvm"'
+              echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+              # Each `run` step is a fresh shell that only sources $BASH_ENV -- sourcing
+              # nvm.sh alone does not select a version, so activate "default" explicitly
+              # rather than depend on this image's own bashrc doing it.
+              echo 'nvm use default >/dev/null'
+            } >> "$BASH_ENV"
+            node --version
+            npm --version
+
+      - restore_cache:
+          keys:
+            - desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
+            - desktop-npm-cache-v1-
+
+      - run:
+          name: npm ci
+          working_directory: desktop
+          command: |
+            set -euo pipefail
+            # `npm ci` always wipes and reinstalls node_modules by design, so what actually
+            # benefits from caching is npm's own download cache (~/.npm), not node_modules
+            # itself -- restored/saved below keyed on package-lock.json's checksum.
+            npm ci
+
+      - save_cache:
+          key: desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
+          paths:
+            - ~/.npm
+
 
 jobs:
 
@@ -209,10 +253,18 @@ jobs:
             /tmp/tit-ci-venv/bin/python -m pip install -e '.[test]'
 
       - run:
+          name: Self-test the contract guard
+          command: /tmp/tit-ci-venv/bin/python -m pytest tests/test_contracts_check_unit.py -q -p no:cacheprovider
+
+      - run:
           name: Route and generated-contract guards
           command: |
+            set -euo pipefail
             /tmp/tit-ci-venv/bin/python dev/route_import_guard.py
-            /tmp/tit-ci-venv/bin/python dev/contracts_check.py
+            # This job has no desktop/node_modules, and with CI=true the guard exits 2 rather
+            # than skip schema.d.ts silently. desktop-checks regenerates and diffs that file
+            # after its npm ci ("Generated API types match the contract").
+            /tmp/tit-ci-venv/bin/python dev/contracts_check.py --no-schema-d-ts
 
       - run:
           name: Host regression suite with coverage (tests/numerical runs in the image leg)
@@ -303,47 +355,18 @@ jobs:
     executor: vm-docker
     steps:
       - common-setup
+      - desktop-setup
 
       - run:
-          name: "Install Node 22 (package.json engines: >=22.12.0)"
-          command: |
-            set -euo pipefail
-            export NVM_DIR="$HOME/.nvm"
-            # ubuntu-2204:current ships nvm; install/select 22 explicitly rather than trust
-            # whatever LTS the image defaults to today.
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 22
-            nvm alias default 22
-            {
-              echo 'export NVM_DIR="$HOME/.nvm"'
-              echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
-              # Each `run` step is a fresh shell that only sources $BASH_ENV -- sourcing
-              # nvm.sh alone does not select a version, so activate "default" explicitly
-              # rather than depend on this image's own bashrc doing it.
-              echo 'nvm use default >/dev/null'
-            } >> "$BASH_ENV"
-            node --version
-            npm --version
-
-      - restore_cache:
-          keys:
-            - desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
-            - desktop-npm-cache-v1-
-
-      - run:
-          name: npm ci
+          name: Generated API types match the contract (schema.d.ts drift)
           working_directory: desktop
           command: |
             set -euo pipefail
-            # `npm ci` always wipes and reinstalls node_modules by design, so what actually
-            # benefits from caching is npm's own download cache (~/.npm), not node_modules
-            # itself -- restored/saved below keyed on package-lock.json's checksum.
-            npm ci
-
-      - save_cache:
-          key: desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
-          paths:
-            - ~/.npm
+            # build-and-run-tests checks contracts/generated/openapi.json against the contract
+            # but has no node_modules; this job regenerates schema.d.ts from that file (the
+            # same command as `npm run gen:api`) and fails on any difference.
+            npx openapi-typescript ../contracts/generated/openapi.json -o /tmp/schema.d.ts
+            diff -u src/renderer/api/schema.d.ts /tmp/schema.d.ts
 
       - run:
           name: Docs search results page (node --test, jsdom from desktop/)
@@ -371,12 +394,81 @@ jobs:
           working_directory: desktop
           command: npm run build
 
+  # The mock-server Electron e2e suite (Playwright project `default`: every spec under
+  # desktop/tests/e2e except real/), offscreen under Xvfb. #162 took it out of the per-PR
+  # checks for its cost, so it runs on main and nightly. playwright.config.ts starts the mock
+  # server only when TIT_E2E_SERVER_URL is unset; the first step makes sure it is.
+  desktop-e2e-mock:
+    executor: vm-docker
+    steps:
+      - common-setup
+      - desktop-setup
+
+      - run:
+          name: No real server, token or dataset is reachable from this job
+          command: |
+            set -euo pipefail
+            for name in TIT_E2E_SERVER_URL TIT_E2E_TOKEN TIT_E2E_PROJECT_HOST TIT_DATASET_000; do
+              if [ -n "${!name:-}" ]; then
+                echo "$name is set: the mock e2e job must never reach a real server or dataset"
+                exit 1
+              fi
+            done
+
+      - run:
+          name: Install Xvfb and the Chromium libraries Electron and browser-mode specs need
+          command: |
+            set -euo pipefail
+            # needrestart otherwise waits at a service-restart dialog until CI times out.
+            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y xvfb
+            cd desktop
+            # Run Playwright as root with the selected Node PATH so its apt child inherits
+            # these settings instead of losing them at an internal sudo hop.
+            sudo env "PATH=$PATH" DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+              npx playwright install-deps chromium
+            # browser-mode.spec.ts uses Playwright's own Chromium, installed for this user.
+            npx playwright install chromium
+
+      - run:
+          name: Build with the gallery and scene hooks the specs drive (npm run pree2e)
+          working_directory: desktop
+          command: npm run pree2e
+
+      - run:
+          name: Mock e2e (Electron, offscreen, under Xvfb)
+          working_directory: desktop
+          no_output_timeout: 10m
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results
+            # Measured 2026-10-22 (macOS, offscreen, one worker): 364 tests, 361 passed and
+            # 3 allowed skips, in 470 s (7.8 min). The ceiling is twice that. Playwright's
+            # exit code is not trusted alone: check_junit decides below.
+            TIT_E2E_OFFSCREEN=1 PLAYWRIGHT_JUNIT_OUTPUT_NAME=/tmp/test-results/e2e-mock.xml \
+              timeout 16m xvfb-run -a npx playwright test --project=default \
+              --reporter=line,junit || true
+            # Fails on 0 collected, any failure or error, and any skip not on the e2e-mock
+            # allowlist (each entry states why it may skip).
+            python3 ../dev/check_junit.py --leg e2e-mock /tmp/test-results/e2e-mock.xml
+
+      - store_test_results:
+          path: /tmp/test-results
+
+      - store_artifacts:
+          path: desktop/test-results
+          destination: desktop-e2e-test-results
+
 
 workflows:
   test_workflow:
     jobs:
       - build-and-run-tests
       - desktop-checks
+      - desktop-e2e-mock:
+          filters:
+            branches:
+              only: main
 
   image_verification:
     when: << pipeline.parameters.build_image >>
@@ -392,3 +484,13 @@ workflows:
               only: main
     jobs:
       - numerical-image
+
+  e2e_mock_nightly:
+    triggers:
+      - schedule:
+          cron: "30 7 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - desktop-e2e-mock
