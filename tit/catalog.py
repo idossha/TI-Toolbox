@@ -25,6 +25,7 @@ import functools
 import glob
 import html
 import json
+import logging
 import os
 import re
 import time
@@ -50,6 +51,8 @@ from tit.paths import (
 # imported at server startup by every route module, so a module-level
 # import here would make the whole server fail to boot outside a SimNIBS
 # environment (host dev tooling, --dump-openapi, CI without the container).
+
+logger = logging.getLogger(__name__)
 
 
 def _metadata_names(root: str, project_root: str | None) -> list[str]:
@@ -740,11 +743,20 @@ def classify_sim_nifti(basename: str, simulation: str | None = None) -> dict | N
 def _sim_niftis(
     niftis_dir: str, kind: str, simulation: str | None, project_root: str | None
 ) -> list[dict]:
-    """The *kind* NIfTIs in *niftis_dir*; files the simulator did not name are left out."""
+    """The *kind* NIfTIs in *niftis_dir*; files the simulator did not name are left out.
+
+    Left out silently would hide them for good (a v2.0-2.2 project's
+    ``${BASE}_MNI_...`` volumes, a user's own file), so their names are logged
+    at debug level.
+    """
     out = []
+    unnamed = []
     for path in _metadata_glob(niftis_dir, "*.nii*", project_root):
         info = classify_sim_nifti(os.path.basename(path), simulation)
-        if info is None or info["kind"] != kind:
+        if info is None:
+            unnamed.append(os.path.basename(path))
+            continue
+        if info["kind"] != kind:
             continue
         out.append(
             {
@@ -753,6 +765,12 @@ def _sim_niftis(
                 "space": info["space"],
                 "tissue": info["tissue"],
             }
+        )
+    if unnamed:
+        logger.debug(
+            "Not listed in %s (not a name the simulator writes): %s",
+            niftis_dir,
+            ", ".join(unnamed),
         )
     return out
 

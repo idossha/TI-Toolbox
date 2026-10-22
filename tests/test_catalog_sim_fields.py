@@ -27,6 +27,7 @@ Deliberately elsewhere
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -189,6 +190,66 @@ def test_files_the_simulator_did_not_name_are_not_offered_as_fields(tmp_path):
     assert set(detail["fields"]) == {"TI_max", "TI_avg", "hf_peak", "hf_sar", "magnE"}
     names = {os.path.basename(n["path"]) for n in detail["niftis"]}
     assert "notes_peak.nii.gz" not in names
+
+
+class _Messages(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__(logging.DEBUG)
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.messages.append(record.getMessage())
+
+
+def test_volumes_left_out_of_the_listing_are_named_in_the_debug_log(tmp_path):
+    """A volume the catalog drops is diagnosable: the debug log names it, once per folder.
+
+    ``grey_L_Insula_TI_MNI_TI_max`` is the one-``MNI`` spelling of the v2.0-2.2 shell loop
+    (``${BASE}_MNI_<field>``); ``grey_L_Insula_TI`` a volume without a field suffix.
+    """
+    written = write_simulation(tmp_path, "101", "L_Insula", "TI")
+    niftis = written["sim_dir"] / "TI" / "niftis"
+    legacy = {"grey_L_Insula_TI_MNI_TI_max.nii.gz", "grey_L_Insula_TI.nii.gz"}
+    for name in legacy:
+        (niftis / name).write_bytes(b"nii")
+
+    log = logging.getLogger("tit.catalog")
+    handler, level = _Messages(), log.level
+    log.addHandler(handler)
+    log.setLevel(logging.DEBUG)
+    try:
+        detail = _detail(tmp_path, "101", "L_Insula")
+    finally:
+        log.removeHandler(handler)
+        log.setLevel(level)
+
+    listed = {os.path.basename(n["path"]) for n in detail["niftis"]}
+    assert listed == {p.name for p in written["envelope"].values()} | {
+        p.name for p in written["hf"].values()
+    }
+    notes = [m for m in handler.messages if str(niftis) in m]
+    assert len(notes) == 1, handler.messages
+    assert set(notes[0].rsplit(": ", 1)[1].split(", ")) == legacy
+    # The carriers' folder holds only names the simulator writes: nothing to say about it.
+    hf_dir = str(written["sim_dir"] / "high_Frequency" / "niftis")
+    assert not [m for m in handler.messages if hf_dir in m]
+
+
+@pytest.mark.parametrize("mode", ["TI", "mTI"])
+def test_the_viewer_names_every_written_volume_by_its_field(tmp_path, mode):
+    """The Results tree labels ``grey_<sim>_TI_subject_TI_avg`` "GM · TI_avg (volume)".
+
+    The label needs the field token (``_scene_field_name``): without it a volume is drawn
+    as anatomy, in grayscale, under its raw file stem.
+    """
+    from tit.viewspec import _scene_field_name, _tree_node
+
+    written = write_simulation(tmp_path, "101", "L_Insula", mode)
+    region = {"grey": "GM · ", "white": "WM · ", None: ""}
+    assert {field for _, _, field in written["envelope"]} == set(VOLUME_FIELDS[mode])
+    for (tissue, _space, field), path in written["envelope"].items():
+        assert _scene_field_name(path.name) == field, path.name
+        assert _tree_node(str(path))["label"] == f"{region[tissue]}{field} (volume)"
 
 
 # ── Dataset 000 ──────────────────────────────────────────────────────────────
