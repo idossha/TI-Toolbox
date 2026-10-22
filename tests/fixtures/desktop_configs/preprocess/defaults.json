@@ -1,0 +1,51 @@
+{
+  "id": "preprocess/defaults",
+  "page": "preprocess",
+  "title": "The page's default steps for one subject",
+  "jobs": [
+    {
+      "config": {
+        "charm_options": null,
+        "charm_threads": null,
+        "convert_dicom": true,
+        "create_m2m": true,
+        "extract_dti": false,
+        "fastsurfer_threads": null,
+        "freesurfer_recon_all": true,
+        "freesurfer_subregions": [
+          "thalamus",
+          "hippo-amygdala"
+        ],
+        "freesurfer_threads": null,
+        "qsi_recon_config": null,
+        "qsiprep_config": null,
+        "replace_existing_outputs": false,
+        "run_fastsurfer": true,
+        "run_freesurfer": false,
+        "run_qsiprep": false,
+        "run_qsirecon": false,
+        "run_tissue_analysis": false,
+        "skip_existing_outputs": true,
+        "subject_ids": [
+          "001"
+        ]
+      },
+      "kind": "pre",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "skip_existing_outputs": true,
+    "stages_per_subject": [
+      "G1",
+      "G2a",
+      "G2b"
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "case_ids": [
+    "panels-stats/correlation-2-rows"
+  ],
+  "owner": "p23",
+  "checks": [
+    "verdict"
+  ],
+  "reason": "The Cluster Permutation panel's MIN_PARTICIPANTS is 2 in both modes, so a 2-row correlation is runnable; CorrelationConfig needs at least 3 subjects and the server refuses it."
+}

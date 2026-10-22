@@ -1,0 +1,47 @@
+{
+  "id": "analyzer/group-mask-subject",
+  "page": "analyzer",
+  "title": "Group of two, subject-space mask",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "mask",
+        "atlas": null,
+        "center": null,
+        "coordinate_space": "subject",
+        "field": "TI_max",
+        "mask_path": "/corpus/project/derivatives/ti-toolbox/masks/sub-001/imported/target.nii.gz",
+        "mode": "group",
+        "output_dir": null,
+        "radius": null,
+        "region": null,
+        "simulation": "M1",
+        "space": "voxel",
+        "subject_id": null,
+        "subject_ids": [
+          "001",
+          "002"
+        ],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "Group mask analysis requires an MNI-space mask, transformed separately for each subject."
+  },
+  "expect": {
+    "calls": 1,
+    "method": "run_group_analysis",
+    "subjects": [
+      "001",
+      "002"
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "analyzer/group-mask-mni",
+  "page": "analyzer",
+  "title": "Group of two, MNI mask",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "mask",
+        "atlas": null,
+        "center": null,
+        "coordinate_space": "mni",
+        "field": "TI_max",
+        "mask_path": "/corpus/project/derivatives/ti-toolbox/masks/MNI/imported/target_MNI.nii.gz",
+        "mode": "group",
+        "output_dir": null,
+        "radius": null,
+        "region": null,
+        "simulation": "M1",
+        "space": "voxel",
+        "subject_id": null,
+        "subject_ids": [
+          "001",
+          "002"
+        ],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "calls": 1,
+    "method": "run_group_analysis",
+    "subjects": [
+      "001",
+      "002"
+    ]
+  }
+}

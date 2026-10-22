@@ -1,0 +1,44 @@
+{
+  "id": "analyzer/mesh-cortical-one",
+  "page": "analyzer",
+  "title": "Mesh, cortical lh.insula",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "center": null,
+        "coordinate_space": "subject",
+        "field": "TI_max",
+        "mask_path": null,
+        "mode": "single",
+        "output_dir": null,
+        "radius": null,
+        "region": "lh.insula",
+        "simulation": "M1",
+        "space": "mesh",
+        "subject_id": "001",
+        "subject_ids": [],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "calls": 1,
+    "method": "analyze_cortex",
+    "regions": [
+      [
+        "lh.insula"
+      ]
+    ]
+  }
+}

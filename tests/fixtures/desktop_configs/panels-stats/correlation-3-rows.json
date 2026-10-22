@@ -1,0 +1,61 @@
+{
+  "id": "panels-stats/correlation-3-rows",
+  "page": "panels-stats",
+  "title": "Correlation over three subjects",
+  "jobs": [
+    {
+      "config": {
+        "_type": "CorrelationConfig",
+        "alpha": 0.05,
+        "analysis_name": "corpus_stats",
+        "atlas_files": [],
+        "cluster_stat": "mass",
+        "cluster_threshold": 0.05,
+        "correlation_type": "pearson",
+        "effect_metric": "Effect size",
+        "field_metric": "Electric field magnitude",
+        "fsaverage_field": "TI_max",
+        "fsaverage_spacing": 5,
+        "n_jobs": -1,
+        "n_permutations": 1000,
+        "nifti_file_pattern": null,
+        "space": "mni",
+        "subjects": [
+          {
+            "effect_size": 0.4,
+            "simulation_name": "M1",
+            "subject_id": "001",
+            "weight": 1
+          },
+          {
+            "effect_size": 1.2,
+            "simulation_name": "M1",
+            "subject_id": "002",
+            "weight": 1
+          },
+          {
+            "effect_size": -0.3,
+            "simulation_name": "M1",
+            "subject_id": "003",
+            "weight": 1
+          }
+        ],
+        "tissue_type": "grey",
+        "use_weights": true
+      },
+      "kind": "stats",
+      "subject_ids": [
+        "001",
+        "002",
+        "003"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "runner_call": "run_correlation"
+  }
+}

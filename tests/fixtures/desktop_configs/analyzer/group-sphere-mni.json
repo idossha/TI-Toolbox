@@ -1,0 +1,51 @@
+{
+  "id": "analyzer/group-sphere-mni",
+  "page": "analyzer",
+  "title": "Group of two, MNI sphere",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "spherical",
+        "atlas": null,
+        "center": [
+          -38,
+          4,
+          2
+        ],
+        "coordinate_space": "mni",
+        "field": "TI_max",
+        "mask_path": null,
+        "mode": "group",
+        "output_dir": null,
+        "radius": 8,
+        "region": null,
+        "simulation": "M1",
+        "space": "mesh",
+        "subject_id": null,
+        "subject_ids": [
+          "001",
+          "002"
+        ],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "calls": 1,
+    "method": "run_group_analysis",
+    "subjects": [
+      "001",
+      "002"
+    ]
+  }
+}

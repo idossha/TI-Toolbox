@@ -1,0 +1,30 @@
+{
+  "id": "visual-exporter/montage",
+  "page": "visual-exporter",
+  "title": "Montage publication scene (net montage)",
+  "jobs": [
+    {
+      "config": {
+        "_type": "MontageConfig",
+        "electrode_diameter_mm": 10,
+        "electrode_height_mm": 6,
+        "show_full_net": true,
+        "simulation_name": "M1",
+        "subject_id": "001"
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "blender_types": [
+      "MontageConfig"
+    ]
+  }
+}

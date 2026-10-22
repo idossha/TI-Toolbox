@@ -1,0 +1,57 @@
+{
+  "id": "simulator/no-montage-picked",
+  "page": "simulator",
+  "title": "A row with a subject but no montage yet",
+  "jobs": [
+    {
+      "config": {
+        "aniso_maxcond": 2,
+        "aniso_maxratio": 10,
+        "conductivity": "scalar",
+        "electrode_dimensions": [
+          8,
+          8
+        ],
+        "electrode_shape": "ellipse",
+        "gel_thickness": 4,
+        "intensities": [
+          1,
+          1
+        ],
+        "map_to_fsavg": false,
+        "map_to_mni": false,
+        "montages": [
+          {
+            "_type": "Montage",
+            "eeg_net": "GSN-HydroCel-185.csv",
+            "electrode_pairs": [],
+            "mode": "net",
+            "name": ""
+          }
+        ],
+        "output_fields": [
+          "TI_max"
+        ],
+        "subject_id": "001"
+      },
+      "kind": "sim",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "isRunnableRow is false"
+  },
+  "expect": {
+    "carrier_only": false,
+    "intensities": [
+      1,
+      1
+    ],
+    "montage_mode": "net",
+    "runner": "run_simulation",
+    "tissue_conductivities": {}
+  }
+}

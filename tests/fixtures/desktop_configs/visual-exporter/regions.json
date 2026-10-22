@@ -1,0 +1,55 @@
+{
+  "id": "visual-exporter/regions",
+  "page": "visual-exporter",
+  "title": "Cortical regions lh.insula (STL + PLY)",
+  "jobs": [
+    {
+      "config": {
+        "_type": "RegionConfig",
+        "atlas": "DK40",
+        "field_name": "TI_max",
+        "format": "stl",
+        "keep_meshes": true,
+        "regions": [
+          "lh.insula"
+        ],
+        "simulation_name": "M1",
+        "skip_regions": false,
+        "subject_id": "001"
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    },
+    {
+      "config": {
+        "_type": "RegionConfig",
+        "atlas": "DK40",
+        "field_name": "TI_max",
+        "format": "ply",
+        "keep_meshes": true,
+        "regions": [
+          "lh.insula"
+        ],
+        "simulation_name": "M1",
+        "skip_regions": false,
+        "subject_id": "001"
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "blender_types": [
+      "RegionConfig",
+      "RegionConfig"
+    ]
+  }
+}

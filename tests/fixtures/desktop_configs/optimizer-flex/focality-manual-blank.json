@@ -1,0 +1,81 @@
+{
+  "id": "optimizer-flex/focality-manual-blank",
+  "page": "optimizer-flex",
+  "title": "Focality, manual mode with the thresholds box left blank",
+  "jobs": [
+    {
+      "config": {
+        "aniso_maxcond": 2,
+        "aniso_maxratio": 10,
+        "anisotropy_type": "scalar",
+        "avoid_landmark_regions": true,
+        "current_mA": 1,
+        "detailed_results": false,
+        "disable_mapping_simulation": false,
+        "eeg_net": null,
+        "electrode": {
+          "dimensions": [
+            8,
+            8
+          ],
+          "gel_thickness": 4,
+          "shape": "ellipse"
+        },
+        "enable_mapping": false,
+        "goal": "focality",
+        "intensity_weight": 0,
+        "max_iterations": 500,
+        "min_electrode_distance": 5,
+        "mutation": "0.01,0.5",
+        "n_multistart": 1,
+        "non_roi": null,
+        "non_roi_method": "everything_else",
+        "optimize_current_ratio": false,
+        "output_folder": "/corpus/project/derivatives/SimNIBS/sub-001/flex-search/20261022_120000_000_focality-manual-blank",
+        "population_size": 13,
+        "postproc": "max_TI",
+        "ratio_levels": 21,
+        "ratio_total_mA": null,
+        "recombination": 0.7,
+        "roi": {
+          "_type": "SphericalROI",
+          "radius": [
+            10
+          ],
+          "tissues": "GM",
+          "use_mni": false,
+          "volumetric": false,
+          "x": [
+            -30
+          ],
+          "y": [
+            10
+          ],
+          "z": [
+            5
+          ]
+        },
+        "run_final_electrode_simulation": false,
+        "skin_region_margin_mm": 0,
+        "skin_visualization_net": null,
+        "subject_id": "001",
+        "thresholds": "",
+        "tolerance": 0.1,
+        "visualize_valid_skin_region": true
+      },
+      "kind": "flex",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "flex_mode": "flex",
+    "goal": "focality",
+    "roi_type": "spherical"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "id": "analyzer/mesh-cortical-separate",
+  "page": "analyzer",
+  "title": "Mesh, two cortical regions run separately",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "center": null,
+        "coordinate_space": "subject",
+        "field": "TI_max",
+        "mask_path": null,
+        "mode": "single",
+        "output_dir": null,
+        "radius": null,
+        "region": "lh.insula",
+        "simulation": "M1",
+        "space": "mesh",
+        "subject_id": "001",
+        "subject_ids": [],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001"
+      ]
+    },
+    {
+      "config": {
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "center": null,
+        "coordinate_space": "subject",
+        "field": "TI_max",
+        "mask_path": null,
+        "mode": "single",
+        "output_dir": null,
+        "radius": null,
+        "region": "lh.precuneus",
+        "simulation": "M1",
+        "space": "mesh",
+        "subject_id": "001",
+        "subject_ids": [],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "calls": 2,
+    "method": "analyze_cortex",
+    "regions": [
+      [
+        "lh.insula"
+      ],
+      [
+        "lh.precuneus"
+      ]
+    ]
+  }
+}

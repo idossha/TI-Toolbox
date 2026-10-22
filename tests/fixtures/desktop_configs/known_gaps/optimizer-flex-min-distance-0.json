@@ -1,0 +1,10 @@
+{
+  "case_ids": [
+    "optimizer-flex/min-distance-0"
+  ],
+  "owner": "p08",
+  "checks": [
+    "dispatch"
+  ],
+  "reason": "A minimum electrode distance of 0 mm passes the page, FlexConfig, validate and plan, then run_flex_search's _validate_flex_inputs raises 'min_electrode_distance must be positive' inside the runner."
+}

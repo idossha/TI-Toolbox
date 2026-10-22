@@ -1,0 +1,42 @@
+{
+  "id": "visual-exporter/vectors",
+  "page": "visual-exporter",
+  "title": "Vector field export",
+  "jobs": [
+    {
+      "config": {
+        "_type": "VectorConfig",
+        "all_nodes": false,
+        "anchor": "tail",
+        "blue_percentile": 50,
+        "color": "rgb",
+        "count": 10000,
+        "export_ch1_ch2": false,
+        "export_sum": false,
+        "export_ti_normal": false,
+        "green_percentile": 80,
+        "length_scale": 1,
+        "red_percentile": 95,
+        "seed": 42,
+        "simulation_name": "M1",
+        "subject_id": "001",
+        "vector_length": 1,
+        "vector_scale": 1,
+        "vector_width": 1
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "blender_types": [
+      "VectorConfig"
+    ]
+  }
+}

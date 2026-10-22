@@ -1,0 +1,65 @@
+{
+  "id": "optimizer-ex/bucketed-mask",
+  "page": "optimizer-ex",
+  "title": "Ex, imported subject mask",
+  "jobs": [
+    {
+      "config": {
+        "channel_limit": 1.6,
+        "current_step": 0.2,
+        "electrodes": {
+          "_type": "BucketElectrodes",
+          "e1_minus": [
+            "E011",
+            "E013"
+          ],
+          "e1_plus": [
+            "E010",
+            "E012"
+          ],
+          "e2_minus": [
+            "E021",
+            "E023"
+          ],
+          "e2_plus": [
+            "E020",
+            "E022"
+          ]
+        },
+        "leadfield_hdf": "/corpus/project/derivatives/SimNIBS/sub-001/leadfields/GSN-HydroCel-185_leadfield.hdf5",
+        "n_jobs": -1,
+        "roi_atlas": [
+          {
+            "atlas_path": "/corpus/project/derivatives/ti-toolbox/masks/sub-001/imported/target.nii.gz",
+            "atlas_space": "subject",
+            "label": null
+          }
+        ],
+        "roi_coordinate_space": "subject",
+        "roi_name": "target",
+        "roi_names": [],
+        "roi_radius": 3,
+        "run_name": null,
+        "subject_id": "001",
+        "symmetric_bucket": false,
+        "symmetry_eeg_csv": null,
+        "symmetry_pairing": "within_pairs",
+        "total_current": 2
+      },
+      "kind": "ex",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "roi_names": [
+      "target"
+    ],
+    "runner": "run_ex_search"
+  }
+}

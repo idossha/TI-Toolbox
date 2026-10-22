@@ -1,0 +1,43 @@
+{
+  "id": "panels-nifti/hyphen-space-labels",
+  "page": "panels-nifti",
+  "title": "Group labels with a hyphen and a space",
+  "jobs": [
+    {
+      "config": {
+        "diff_pairs": [],
+        "nifti_file_pattern": null,
+        "output_name": "corpus_average",
+        "space": "mni",
+        "subjects": [
+          {
+            "group": "pre-op",
+            "simulation_name": "M1",
+            "subject_id": "001"
+          },
+          {
+            "group": "post op",
+            "simulation_name": "M1",
+            "subject_id": "002"
+          }
+        ]
+      },
+      "kind": "nifti_average",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "groups": [
+      "pre-op",
+      "post op"
+    ],
+    "nifti_pattern_space": "mni"
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "id": "simulator/freehand-4-pairs",
+  "page": "simulator",
+  "title": "Free-hand, 8 positions (mTI)",
+  "jobs": [
+    {
+      "config": {
+        "aniso_maxcond": 2,
+        "aniso_maxratio": 10,
+        "conductivity": "scalar",
+        "electrode_dimensions": [
+          8,
+          8
+        ],
+        "electrode_shape": "ellipse",
+        "gel_thickness": 4,
+        "intensities": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "map_to_fsavg": false,
+        "map_to_mni": false,
+        "montages": [
+          {
+            "_type": "Montage",
+            "eeg_net": null,
+            "electrode_pairs": [
+              [
+                [
+                  -40,
+                  20,
+                  60
+                ],
+                [
+                  40,
+                  20,
+                  60
+                ]
+              ],
+              [
+                [
+                  -41,
+                  21,
+                  59
+                ],
+                [
+                  41,
+                  21,
+                  59
+                ]
+              ],
+              [
+                [
+                  -42,
+                  22,
+                  58
+                ],
+                [
+                  42,
+                  22,
+                  58
+                ]
+              ],
+              [
+                [
+                  -43,
+                  23,
+                  57
+                ],
+                [
+                  43,
+                  23,
+                  57
+                ]
+              ]
+            ],
+            "mode": "freehand",
+            "name": "fh8"
+          }
+        ],
+        "output_fields": [
+          "TI_max"
+        ],
+        "subject_id": "001"
+      },
+      "kind": "sim",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "carrier_only": false,
+    "intensities": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "montage_mode": "freehand",
+    "runner": "run_simulation",
+    "tissue_conductivities": {}
+  }
+}

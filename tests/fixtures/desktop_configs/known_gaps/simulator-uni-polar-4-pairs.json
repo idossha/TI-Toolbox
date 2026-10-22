@@ -1,0 +1,10 @@
+{
+  "case_ids": [
+    "simulator/uni-polar-bucket-4-pairs"
+  ],
+  "owner": "p09",
+  "checks": [
+    "verdict"
+  ],
+  "reason": "A 4-pair montage stored under uni_polar_montages takes its current count from the bucket (currentsCount('uni_polar') = 2), so the row sends 2 currents for 4 pairs and SimulationConfig refuses it ('requires 4 current intensities')."
+}

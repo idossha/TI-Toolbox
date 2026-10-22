@@ -1,0 +1,10 @@
+{
+  "case_ids": [
+    "optimizer-flex/ellipse-8x10"
+  ],
+  "owner": "p08",
+  "checks": [
+    "verdict"
+  ],
+  "reason": "The page refuses an 8x10 ellipse (rowFormReason) but FlexConfig, /api/validate and /api/plan accept it; only the builder raises, after confirm_roi, at run time. The server should refuse what the builder cannot build."
+}

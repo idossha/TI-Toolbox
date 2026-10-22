@@ -1,0 +1,10 @@
+{
+  "case_ids": [
+    "visual-exporter/montage-xyz"
+  ],
+  "owner": "p22",
+  "checks": [
+    "dispatch"
+  ],
+  "reason": "Montage publication on a simulation with XYZ electrodes (eeg_net null: free-hand or flex_free) passes the panel, validate, plan and preflight, then montage_publication raises KeyError \"config.json missing required field: 'eeg_net'\" in the runner."
+}

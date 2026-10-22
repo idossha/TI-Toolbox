@@ -1,0 +1,11 @@
+{
+  "case_ids": [
+    "optimizer-flex/focality-adaptive-ratio",
+    "optimizer-flex/focality-pareto-ratio"
+  ],
+  "owner": "p08",
+  "checks": [
+    "verdict"
+  ],
+  "reason": "Adaptive and multi-threshold focality compute thresholds per step, but FlexConfig.__post_init__ demands explicit numeric thresholds whenever optimize_current_ratio is on with goal focality, so every adaptive/pareto job with the ratio box ticked is refused (audit_flex #1)."
+}

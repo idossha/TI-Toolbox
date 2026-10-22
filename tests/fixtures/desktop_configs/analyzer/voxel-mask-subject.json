@@ -1,0 +1,39 @@
+{
+  "id": "analyzer/voxel-mask-subject",
+  "page": "analyzer",
+  "title": "Voxel, imported subject mask",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "mask",
+        "atlas": null,
+        "center": null,
+        "coordinate_space": "subject",
+        "field": "TI_max",
+        "mask_path": "/corpus/project/derivatives/ti-toolbox/masks/sub-001/imported/target.nii.gz",
+        "mode": "single",
+        "output_dir": null,
+        "radius": null,
+        "region": null,
+        "simulation": "M1",
+        "space": "voxel",
+        "subject_id": "001",
+        "subject_ids": [],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "calls": 1,
+    "method": "analyze_mask"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "preprocess/no-steps",
+  "page": "preprocess",
+  "title": "No step ticked",
+  "jobs": [
+    {
+      "config": {
+        "charm_options": null,
+        "charm_threads": null,
+        "convert_dicom": false,
+        "create_m2m": false,
+        "extract_dti": false,
+        "fastsurfer_threads": null,
+        "freesurfer_recon_all": true,
+        "freesurfer_subregions": [
+          "thalamus",
+          "hippo-amygdala"
+        ],
+        "freesurfer_threads": null,
+        "qsi_recon_config": null,
+        "qsiprep_config": null,
+        "replace_existing_outputs": false,
+        "run_fastsurfer": false,
+        "run_freesurfer": false,
+        "run_qsiprep": false,
+        "run_qsirecon": false,
+        "run_tissue_analysis": false,
+        "skip_existing_outputs": true,
+        "subject_ids": [
+          "001"
+        ]
+      },
+      "kind": "pre",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "Select at least one processing step."
+  },
+  "expect": {
+    "skip_existing_outputs": true,
+    "stages_per_subject": []
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "panels-stats/classification-paired-2v1",
+  "page": "panels-stats",
+  "title": "Paired classification, 2 responders vs 1",
+  "jobs": [
+    {
+      "config": {
+        "_type": "GroupComparisonConfig",
+        "alpha": 0.05,
+        "alternative": "two-sided",
+        "analysis_name": "corpus_stats",
+        "atlas_files": [],
+        "cluster_stat": "mass",
+        "cluster_threshold": 0.05,
+        "fsaverage_field": "TI_max",
+        "fsaverage_spacing": 5,
+        "group1_name": "Responders",
+        "group2_name": "Non-Responders",
+        "n_jobs": -1,
+        "n_permutations": 1000,
+        "nifti_file_pattern": null,
+        "space": "mni",
+        "subjects": [
+          {
+            "response": 1,
+            "simulation_name": "M1",
+            "subject_id": "001"
+          },
+          {
+            "response": 1,
+            "simulation_name": "M1",
+            "subject_id": "002"
+          },
+          {
+            "response": 0,
+            "simulation_name": "M1",
+            "subject_id": "003"
+          }
+        ],
+        "test_type": "paired",
+        "tissue_type": "grey",
+        "value_metric": "Current intensity"
+      },
+      "kind": "stats",
+      "subject_ids": [
+        "001",
+        "002",
+        "003"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "runner_call": "run_group_comparison"
+  }
+}

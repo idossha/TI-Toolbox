@@ -1,0 +1,69 @@
+{
+  "id": "optimizer-ex/mex-saved",
+  "page": "optimizer-ex",
+  "title": "mEx, eight buckets, one saved ROI",
+  "jobs": [
+    {
+      "config": {
+        "current_mA": 2,
+        "electrodes": {
+          "_type": "BucketElectrodes",
+          "e1_minus": [
+            "E011",
+            "E013"
+          ],
+          "e1_plus": [
+            "E010",
+            "E012"
+          ],
+          "e2_minus": [
+            "E021",
+            "E023"
+          ],
+          "e2_plus": [
+            "E020",
+            "E022"
+          ],
+          "e3_minus": [
+            "E031"
+          ],
+          "e3_plus": [
+            "E030"
+          ],
+          "e4_minus": [
+            "E041"
+          ],
+          "e4_plus": [
+            "E040"
+          ]
+        },
+        "leadfield_hdf": "/corpus/project/derivatives/SimNIBS/sub-001/leadfields/GSN-HydroCel-185_leadfield.hdf5",
+        "n_jobs": -1,
+        "roi_atlas": null,
+        "roi_coordinate_space": "subject",
+        "roi_name": "L_Insula",
+        "roi_names": null,
+        "roi_radius": 3,
+        "run_name": null,
+        "subject_id": "001",
+        "symmetric_bucket": false,
+        "symmetry_eeg_csv": null,
+        "symmetry_pairing": "within_pairs"
+      },
+      "kind": "mex",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "roi_names": [
+      "L_Insula"
+    ],
+    "runner": "run_m_ex_search"
+  }
+}

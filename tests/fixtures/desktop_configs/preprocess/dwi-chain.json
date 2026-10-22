@@ -1,0 +1,72 @@
+{
+  "id": "preprocess/dwi-chain",
+  "page": "preprocess",
+  "title": "QSIPrep, QSIRecon and DTI extraction",
+  "jobs": [
+    {
+      "config": {
+        "charm_options": null,
+        "charm_threads": null,
+        "convert_dicom": false,
+        "create_m2m": false,
+        "extract_dti": true,
+        "fastsurfer_threads": null,
+        "freesurfer_recon_all": true,
+        "freesurfer_subregions": [
+          "thalamus",
+          "hippo-amygdala"
+        ],
+        "freesurfer_threads": null,
+        "qsi_recon_config": {
+          "atlases": null,
+          "cpus": null,
+          "image_tag": "26.0.0",
+          "memory_gb": null,
+          "omp_threads": 1,
+          "recon_specs": [
+            "dsi_studio_gqi"
+          ],
+          "skip_odf_reports": true,
+          "use_gpu": false
+        },
+        "qsiprep_config": {
+          "cpus": null,
+          "denoise_method": "dwidenoise",
+          "image_tag": "26.0.0",
+          "memory_gb": null,
+          "mni_normalization": false,
+          "omp_threads": 1,
+          "output_resolution": null,
+          "skip_bids_validation": true,
+          "unringing_method": "auto"
+        },
+        "replace_existing_outputs": false,
+        "run_fastsurfer": false,
+        "run_freesurfer": false,
+        "run_qsiprep": true,
+        "run_qsirecon": true,
+        "run_tissue_analysis": false,
+        "skip_existing_outputs": true,
+        "subject_ids": [
+          "001"
+        ]
+      },
+      "kind": "pre",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "skip_existing_outputs": true,
+    "stages_per_subject": [
+      "G4",
+      "G5",
+      "G6"
+    ]
+  }
+}

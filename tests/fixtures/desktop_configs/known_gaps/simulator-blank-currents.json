@@ -1,0 +1,10 @@
+{
+  "case_ids": [
+    "simulator/plan-step-no-intensities"
+  ],
+  "owner": "p09",
+  "checks": [
+    "dispatch"
+  ],
+  "reason": "A row whose currents string is blank (a plan step with no intensities) SHOWS 1.0 mA per channel (currentValues) but buildSimulationConfig sends Number('') = 0, so the runner receives intensities [0, 0]: a physically empty simulation the server accepts."
+}

@@ -1,0 +1,44 @@
+{
+  "id": "analyzer/mesh-field-hf-peak",
+  "page": "analyzer",
+  "title": "Mesh sphere measuring hf_peak",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "spherical",
+        "atlas": null,
+        "center": [
+          -30,
+          10,
+          5
+        ],
+        "coordinate_space": "subject",
+        "field": "hf_peak",
+        "mask_path": null,
+        "mode": "single",
+        "output_dir": null,
+        "radius": 10,
+        "region": null,
+        "simulation": "M1",
+        "space": "mesh",
+        "subject_id": "001",
+        "subject_ids": [],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "calls": 1,
+    "field": "hf_peak",
+    "method": "analyze_sphere"
+  }
+}

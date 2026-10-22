@@ -1,0 +1,10 @@
+{
+  "case_ids": [
+    "panels-nifti/untrimmed-label"
+  ],
+  "owner": "p23",
+  "checks": [
+    "dispatch"
+  ],
+  "reason": "The NIfTI averaging panel trims a group label to decide eligibility but sends it untrimmed, so 'Group1' and 'Group1 ' reach the runner as two groups although the user typed one."
+}

@@ -1,0 +1,69 @@
+{
+  "id": "simulator/all-output-fields",
+  "page": "simulator",
+  "title": "Every selectable output field, MNI and fsaverage",
+  "jobs": [
+    {
+      "config": {
+        "aniso_maxcond": 2,
+        "aniso_maxratio": 10,
+        "conductivity": "scalar",
+        "electrode_dimensions": [
+          8,
+          8
+        ],
+        "electrode_shape": "ellipse",
+        "gel_thickness": 4,
+        "intensities": [
+          1,
+          1
+        ],
+        "map_to_fsavg": true,
+        "map_to_mni": true,
+        "montages": [
+          {
+            "_type": "Montage",
+            "eeg_net": "GSN-HydroCel-185.csv",
+            "electrode_pairs": [
+              [
+                "E010",
+                "E011"
+              ],
+              [
+                "E012",
+                "E013"
+              ]
+            ],
+            "mode": "net",
+            "name": "M1"
+          }
+        ],
+        "output_fields": [
+          "TI_max",
+          "TI_avg",
+          "hf_peak",
+          "hf_sar"
+        ],
+        "subject_id": "001"
+      },
+      "kind": "sim",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "carrier_only": false,
+    "intensities": [
+      1,
+      1
+    ],
+    "montage_mode": "net",
+    "runner": "run_simulation",
+    "tissue_conductivities": {}
+  }
+}

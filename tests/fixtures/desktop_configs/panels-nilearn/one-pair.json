@@ -1,0 +1,41 @@
+{
+  "id": "panels-nilearn/one-pair",
+  "page": "panels-nilearn",
+  "title": "One subject/simulation pair",
+  "jobs": [
+    {
+      "config": {
+        "atlas_name": "harvard_oxford_sub",
+        "create_glass_brain": true,
+        "glass_brain_cmap": "hot",
+        "max_cutoff": null,
+        "min_cutoff": null,
+        "selected_regions": null,
+        "subdir_name": "corpus_figs",
+        "subject_simulation_pairs": [
+          {
+            "simulation_name": "M1",
+            "subject_id": "001"
+          }
+        ],
+        "use_percentiles": false
+      },
+      "kind": "nilearn",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "pairs": [
+      [
+        "001",
+        "M1"
+      ]
+    ]
+  }
+}
