@@ -10,8 +10,16 @@ What this pins (``tit.examples._safe_members`` / ``_place`` / ``fetch`` / ``stat
   policy is a whitelist: only regular files and directories are unpacked (2026-10-22; before it,
   FIFOs and device nodes were extracted, and a refused archive still left the part's empty
   ``derivatives/SimNIBS/sub-<subject>`` directories behind).
+* The other half of the whitelist: an archive whose directories are their own members -- as
+  ``tar czf m2m_ernie`` and :meth:`tarfile.TarFile.add` write every real head model -- unpacks,
+  into a fresh project and over an installed one. Refusing directory members would break every
+  example fetch while every files-only fixture stayed green.
 * ``force=True`` replaces an installed head model with exactly the archive's files (a stale file
   is gone), and keeps the on-disk case of an existing ``m2m_Ernie``.
+* ``_resolve`` decides by the directory listing, the exact spelling first: with ``exists()`` made
+  case-insensitive (the macOS host, emulated so it is red on a case-sensitive CI filesystem too)
+  ``m2m_ernie`` still resolves to the ``m2m_Ernie`` on disk, and a listing holding both spellings
+  (a faked one -- macOS cannot hold both) gives each its own.
 * On Dataset 000 (env ``TIT_DATASET_000``, read-only): every catalogue part reports installed, each
   head-model part's target is ``PathManager.m2m(subject)``, and the catalog lists that subject
   with ``has_m2m``.
@@ -29,6 +37,8 @@ import gzip
 import hashlib
 import io
 import os
+import shutil
+import subprocess
 import tarfile
 from pathlib import Path
 
@@ -67,6 +77,18 @@ def _tarball(members) -> bytes:
 
 def _good_tarball(files=GOOD) -> bytes:
     return _tarball([_member(name, data=data) for name, data in files])
+
+
+# GOOD as ``tar czf m2m_ernie`` lays it out: each directory is its own DIRTYPE member, ahead of
+# its files. 0o755 because TarInfo defaults to 0o644, which unpacks an untraversable directory.
+GOOD_WITH_DIRS = [
+    _member("m2m_ernie", tarfile.DIRTYPE, mode=0o755),
+    _member("m2m_ernie/ernie.msh", data=b"mesh v2"),
+    _member("m2m_ernie/segmentation", tarfile.DIRTYPE, mode=0o755),
+    _member("m2m_ernie/segmentation/labeling.nii.gz", data=b"labels v2"),
+]
+# GOOD's files as they land under the head-model directory.
+GOOD_RELATIVE = [(name.removeprefix("m2m_ernie/"), data) for name, data in GOOD]
 
 
 def _serve(monkeypatch, archive: bytes) -> list[str]:
@@ -236,7 +258,83 @@ def test_unsafe_archive_on_force_keeps_the_installed_head_model(
     assert _tree(project) == before
 
 
-def test_force_replaces_the_head_model_with_exactly_the_archive(tmp_path, monkeypatch):
+def _member_kinds(archive: bytes) -> list[tuple[str, bytes]]:
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
+        return [(m.name, m.type) for m in tar.getmembers()]
+
+
+def test_directory_member_fixture_holds_explicit_directory_entries():
+    """The fixture is the real-archive shape it claims: two DIRTYPE members, each before its files."""
+    assert _member_kinds(_tarball(GOOD_WITH_DIRS)) == [
+        ("m2m_ernie", tarfile.DIRTYPE),
+        ("m2m_ernie/ernie.msh", tarfile.REGTYPE),
+        ("m2m_ernie/segmentation", tarfile.DIRTYPE),
+        ("m2m_ernie/segmentation/labeling.nii.gz", tarfile.REGTYPE),
+    ]
+
+
+def test_archive_with_directory_members_unpacks_into_a_fresh_project(
+    tmp_path, monkeypatch
+):
+    project = tmp_path / "project"
+    archive = _tarball(GOOD_WITH_DIRS)
+    _serve(monkeypatch, archive)
+
+    m2m = examples.fetch("ernie", "headmodel", project, log=lambda *a, **k: None)
+
+    assert m2m == project / "derivatives" / "SimNIBS" / "sub-ernie" / "m2m_ernie"
+    assert _files_under(m2m) == _archive_files(archive, "m2m_ernie")
+    assert (m2m / "segmentation").is_dir()
+    assert {s["id"]: s["installed"] for s in examples.status(project)} == {
+        "ernie/headmodel": True
+    }
+
+
+def _write_with_tarfile_add(src: Path, out: Path) -> None:
+    with tarfile.open(out, "w:gz") as tar:
+        tar.add(src / "m2m_ernie", arcname="m2m_ernie")
+
+
+def _write_with_system_tar(src: Path, out: Path) -> None:
+    tar = shutil.which("tar")
+    if tar is None:
+        pytest.skip("skipping: no tar executable on PATH to write a real archive")
+    # COPYFILE_DISABLE: macOS bsdtar would otherwise add AppleDouble ._* members for xattrs.
+    env = {**os.environ, "COPYFILE_DISABLE": "1"}
+    subprocess.run([tar, "czf", str(out), "m2m_ernie"], cwd=src, env=env, check=True)
+
+
+@pytest.mark.parametrize(
+    "writer",
+    [_write_with_tarfile_add, _write_with_system_tar],
+    ids=["tarfile-add", "tar-czf"],
+)
+def test_archive_a_real_writer_made_from_a_head_model_tree_unpacks(
+    tmp_path, monkeypatch, writer
+):
+    """The store's archives come from a real writer, which records every directory as a member."""
+    src = tmp_path / "src"
+    for name, data in GOOD:
+        (src / name).parent.mkdir(parents=True, exist_ok=True)
+        (src / name).write_bytes(data)
+    out = tmp_path / ARCHIVE
+    writer(src, out)
+    archive = out.read_bytes()
+    kinds = dict(_member_kinds(archive))
+    assert kinds.get("m2m_ernie") == tarfile.DIRTYPE, kinds
+    assert kinds.get("m2m_ernie/segmentation") == tarfile.DIRTYPE, kinds
+    _serve(monkeypatch, archive)
+    project = tmp_path / "project"
+
+    m2m = examples.fetch("ernie", "headmodel", project, log=lambda *a, **k: None)
+
+    assert _files_under(m2m) == _files_under(src / "m2m_ernie") == dict(GOOD_RELATIVE)
+
+
+@pytest.mark.parametrize("layout", ["files-only", "directory-members"])
+def test_force_replaces_the_head_model_with_exactly_the_archive(
+    tmp_path, monkeypatch, layout
+):
     project = tmp_path / "project"
     _serve(monkeypatch, _good_tarball([("m2m_ernie/ernie.msh", b"mesh v1")]))
     m2m = examples.fetch("ernie", "headmodel", project, log=lambda *a, **k: None)
@@ -244,7 +342,7 @@ def test_force_replaces_the_head_model_with_exactly_the_archive(tmp_path, monkey
     (m2m / "stale_dir").mkdir()
     (m2m / "stale_dir" / "x").write_bytes(b"stale")
 
-    archive = _good_tarball()
+    archive = _good_tarball() if layout == "files-only" else _tarball(GOOD_WITH_DIRS)
     _serve(monkeypatch, archive)
     again = examples.fetch(
         "ernie", "headmodel", project, force=True, log=lambda *a, **k: None
@@ -280,6 +378,55 @@ def test_force_keeps_the_on_disk_case_of_an_existing_tree(tmp_path, monkeypatch)
     assert {s["id"]: s["installed"] for s in examples.status(project)} == {
         "ernie/headmodel": True
     }
+
+
+def test_resolve_keeps_the_on_disk_case_where_exists_ignores_case(
+    tmp_path, monkeypatch
+):
+    """Emulates the macOS host on any filesystem: ``exists()`` answers case-insensitively.
+
+    Only ``m2m_Ernie`` is on disk, so ``m2m_ernie`` must resolve to it. Red before 2026-10-22 on
+    every filesystem with this emulation: ``_resolve`` trusted ``exists()`` and kept the requested
+    spelling, which a forced re-fetch then wrote to disk.
+    """
+    (tmp_path / "m2m_Ernie").mkdir()
+    on_disk = {p.name.lower() for p in tmp_path.iterdir()}
+    real_exists = Path.exists
+
+    def exists_ignoring_case(self, *args, **kwargs):
+        if self.parent == tmp_path:
+            return self.name.lower() in on_disk
+        return real_exists(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "exists", exists_ignoring_case)
+    assert (tmp_path / "m2m_ernie").exists(), "the emulation ignores case"
+
+    assert examples._resolve(tmp_path, "m2m_ernie").name == "m2m_Ernie"
+    assert examples._resolve(tmp_path, "sub-0042").name == "sub-0042"
+
+
+def test_resolve_prefers_the_exact_spelling_over_a_case_variant(tmp_path, monkeypatch):
+    """A case-sensitive directory holding ``m2m_Ernie`` and ``m2m_ernie``, the variant listed first.
+
+    The listing is faked (the macOS host cannot hold both). Each exact name resolves to itself; a
+    spelling that is on disk only in other cases resolves to one of those, never to itself.
+    """
+    listing = ["m2m_Ernie", "m2m_ernie", "sub-0042"]
+    real_iterdir = Path.iterdir
+
+    def iterdir(self):
+        if self == tmp_path:
+            return iter([tmp_path / name for name in listing])
+        return real_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+
+    assert examples._resolve(tmp_path, "m2m_ernie").name == "m2m_ernie"
+    assert examples._resolve(tmp_path, "m2m_Ernie").name == "m2m_Ernie"
+    variant = examples._resolve(tmp_path, "M2M_ERNIE").name
+    assert variant in {"m2m_Ernie", "m2m_ernie"}
+    assert examples._resolve(tmp_path, "m2m_MNI152") == tmp_path / "m2m_MNI152"
+    assert examples._resolve(tmp_path / "absent", "x") == tmp_path / "absent" / "x"
 
 
 # ------------------------------------------------------------------ Dataset 000 (read-only)
