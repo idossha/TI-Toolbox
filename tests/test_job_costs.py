@@ -14,6 +14,10 @@ What this pins
   after another (so sim memory does not scale with the montage count), and flex memory never
   decreases with ``n_multistart`` (Dataset 000 measured 5.8 GB at 1 restart, 15.2 GB at 4; the
   measured-peak check itself is ``tests/test_job_memory_realdata.py``).
+- The claim covers each recorded Dataset 000 peak (``MEASURED_PEAKS``, copied from the jobs'
+  ``status.json`` so the floor holds without the dataset), and a fractional count
+  (``n_jobs``/thread counts of ``0.5``) is no count: truncated, ``n_jobs`` would claim 0 CPUs
+  and a thread count one thread instead of the tool's default.
 
 Expected values: the budget arithmetic is ``Cost.fits`` done by hand in each test's comment;
 the fallbacks are the documented defaults (70 %, the kind's table entry).
@@ -83,15 +87,42 @@ def test_a_fractional_cpu_claim_still_claims_one_cpu():
 
 
 @pytest.mark.parametrize("kind", ["ex", "mex", "stats"])
-@pytest.mark.parametrize("n_jobs", [math.nan, math.inf, -math.inf, -1, 0], ids=str)
+@pytest.mark.parametrize("n_jobs", [math.nan, math.inf, -math.inf, -1, 0, 0.5], ids=str)
 def test_n_jobs_that_is_not_a_finite_count_means_the_whole_cpu_limit(
     kind, n_jobs, monkeypatch
 ):
     monkeypatch.setattr(costs, "cpu_limit", lambda: 6)
+    # 0.5 is not a count either: truncated, it would claim 0 CPUs.
     assert costs.default_cost(kind, {"n_jobs": n_jobs}).cpus == 6
     # ...and a real count is still clamped to it.
     assert costs.default_cost(kind, {"n_jobs": 4}).cpus == 4
     assert costs.default_cost(kind, {"n_jobs": 64}).cpus == 6
+
+
+@pytest.mark.parametrize(
+    "stage,field",
+    [
+        ("run_fastsurfer", "fastsurfer_threads"),
+        ("run_freesurfer", "freesurfer_threads"),
+        ("create_m2m", "charm_threads"),
+    ],
+)
+@pytest.mark.parametrize(
+    "value", [0.5, *BAD], ids=["0.5", "nan", "inf", "-inf", "-5", "0"]
+)
+def test_a_thread_count_that_is_not_a_count_claims_the_tools_default(
+    stage, field, value, tmp_path, monkeypatch
+):
+    """A fraction of a thread is no thread count: truncated, ``0.5`` became ``0``, which
+    ``effective_threads`` raises to one thread instead of the tool's default."""
+    monkeypatch.setattr("tit.surfer_settings.available_threads", lambda: 8)
+    monkeypatch.setattr(
+        "tit.surfer_settings.settings_path", lambda: tmp_path / "preferences.json"
+    )
+    monkeypatch.delenv("TIT_FASTSURFER_THREADS", raising=False)
+    plain = costs.default_cost("pre", {stage: True})
+    assert plain.cpus == 8  # no preference saved: the whole (patched) capacity
+    assert costs.default_cost("pre", {stage: True, field: value}) == plain
 
 
 @pytest.mark.parametrize("value", BAD, ids=["nan", "inf", "-inf", "-5", "0"])
@@ -139,11 +170,33 @@ def test_flex_memory_never_decreases_with_more_restarts(kind):
     assert costs.default_cost(kind, {}).mem_gb == claims[0]
 
 
-@pytest.mark.parametrize("n", [math.nan, math.inf, -3, 0, "4", True])
+@pytest.mark.parametrize("n", [math.nan, math.inf, -3, 0, 0.5, "4", True])
 def test_a_restart_count_that_is_not_a_count_costs_one_restart(n):
     assert costs.default_cost("flex", {"n_multistart": n}) == costs.default_cost(
         "flex", {"n_multistart": 1}
     )
+
+
+#: Peak PSS of succeeded Dataset 000 jobs, in bytes: ``status.json`` ``rss_peak``, the server's
+#: own psutil sample of the job's process tree, read 2026-10-22 from
+#: ``/Users/idohaber/datasets/000/code/ti-toolbox/jobs/<id>/``. Copied here so the floor holds
+#: in every CI run; ``tests/test_job_memory_realdata.py`` re-reads them live (TIT_DATASET_000).
+#: Each sim ran one montage; the flex runs' ``n_multistart`` is from their ``spec.json``.
+MEASURED_PEAKS = [
+    ("sim 34ffcc59", "sim", {"montages": [_montage("m1")]}, 7_769_851_904),
+    ("sim b8fa6613", "sim", {"montages": [_montage("m1")]}, 7_567_846_400),
+    ("sim f56383c0", "sim", {"montages": [_montage("m1")]}, 8_297_352_192),
+    ("flex e689f217", "flex", {"n_multistart": 1}, 5_838_716_928),
+    ("flex ad8cf881", "flex", {"n_multistart": 4}, 15_187_990_528),
+]
+
+
+@pytest.mark.parametrize(
+    "job,kind,config,peak", MEASURED_PEAKS, ids=[m[0] for m in MEASURED_PEAKS]
+)
+def test_the_memory_claim_covers_the_recorded_peak(job, kind, config, peak):
+    # 1e9 bytes per GB: the smaller reading of "GB", so the check is the strict one.
+    assert costs.default_cost(kind, config).mem_gb * 1e9 >= peak, job
 
 
 # ---------------------------------------------------------------------------------------------

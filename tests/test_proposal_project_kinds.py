@@ -30,7 +30,6 @@ from __future__ import annotations
 import dataclasses
 import json
 import sys
-import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -52,7 +51,11 @@ from tit.jobs.spec import Cost  # noqa: E402
 from tit.paths import get_path_manager  # noqa: E402
 from tit.server.app import create_app  # noqa: E402
 from tit.server.routes import jobs as jobs_route  # noqa: E402
-from tit.server.routes.validate import ALL_KINDS, cls_for  # noqa: E402
+from tit.server.routes.validate import (  # noqa: E402
+    ALL_KINDS,
+    AMBIGUOUS_KIND_CLASSES,
+    cls_for,
+)
 from tit.server.settings import ServerSettings  # noqa: E402
 
 TOKEN = "test-token-cohort"
@@ -133,6 +136,9 @@ def client(project: Path, manager) -> TestClient:
 
 
 def test_the_once_for_all_subjects_kinds_are_those_with_no_subject_id_field():
+    # Set aside: `pre` (its config lists its subjects in `subject_ids` and plan_submission
+    # gives it its own branch, the stage DAG), and the two kinds whose class depends on the
+    # config's `_type` (cls_for needs one for blender): each of their classes is checked below.
     no_subject_id = set()
     for kind in ALL_KINDS - {"pre", "blender", "stats"}:
         fields = {f.name for f in dataclasses.fields(cls_for(kind, {}))}
@@ -144,6 +150,12 @@ def test_the_once_for_all_subjects_kinds_are_those_with_no_subject_id_field():
         }
         assert "subject_id" not in fields
     no_subject_id.add("stats")
+    # Every blender export is of one subject: blender stays per-subject.
+    for type_tag in AMBIGUOUS_KIND_CLASSES["blender"]:
+        fields = {
+            f.name for f in dataclasses.fields(cls_for("blender", {"_type": type_tag}))
+        }
+        assert "subject_id" in fields, type_tag
     assert set(jobs_route.ONCE_FOR_ALL_SUBJECTS_KINDS) == no_subject_id
 
 

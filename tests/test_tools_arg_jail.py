@@ -17,6 +17,7 @@ Deliberately elsewhere: the module allowlist and the positional-path rule
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 
@@ -121,3 +122,41 @@ def test_an_attached_path_with_no_project_root_is_refused():
             "unused",
             project_dir=None,
         )
+
+
+def _parser(*flags: str, value: str) -> argparse.ArgumentParser:
+    """A tool's argparse with store-true *flags* and one option *value* that takes a path."""
+    parser = argparse.ArgumentParser(exit_on_error=False)
+    for flag in flags:
+        parser.add_argument(flag, dest=f"flag{flag}", action="store_true")
+    parser.add_argument(value, dest="path")
+    return parser
+
+
+def test_a_digit_flag_does_not_end_the_run_of_combined_flags(tmp_path):
+    """argparse combines digit flags like letters: with ``-v``, ``-1`` and ``-o``, the token
+    ``-v1o/tmp/x`` is ``-v -1 -o /tmp/x``. The jail must read past the digit to that ``/tmp/x``
+    (``tit.tools`` has no digit flag today; the jail is per token, not per tool)."""
+    project = str(tmp_path / "project")
+    os.makedirs(project)
+    parsed = _parser("-v", "-1", value="-o").parse_args(["-v1o/tmp/x"])
+    assert parsed.path == "/tmp/x"
+    assert not is_within(project, os.path.join(project, parsed.path))
+    with pytest.raises(kinds.KindError, match="outside the project"):
+        _argv(["seg.nii.gz", "-v1o/tmp/x"], project)
+
+
+def test_a_relative_path_attached_to_a_short_option_is_refused_on_purpose(tmp_path):
+    """Deliberate false positive. For ``nifti_to_mesh``, ``-oout/x`` is ``--output out/x``,
+    inside the project, but the jail does not know which letters a tool's flags are: with
+    flags ``-o`` and ``-u`` and an option ``-t``, the same token is ``-o -o -u -t /x``. So every
+    reading is checked and this one is refused; write ``-o out/x`` (checked as one path).
+    """
+    project = str(tmp_path / "project")
+    os.makedirs(project)
+    parsed = _parser("-o", "-u", value="-t").parse_args(["-oout/x"])
+    assert parsed.path == "/x"
+    with pytest.raises(kinds.KindError, match="outside the project"):
+        _argv(["seg.nii.gz", "-oout/x"], project)
+    split = ["seg.nii.gz", "-o", "out/x"]
+    assert _argv(split, project) == ["simnibs_python", "-m", MODULE, *split]

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -39,6 +40,7 @@ from tit.jobs import kinds, locks
 from tit.jobs.manager import JobManager
 from tit.jobs.registry import events_path, job_file_path
 from tit.jobs.spec import Cost
+from tit.jobs.tailer import read_events
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -352,9 +354,14 @@ def _quiet_runner_logging(monkeypatch):
     reset_path_manager()
 
 
-def test_a_leadfield_that_finished_while_the_server_was_down_is_succeeded(
-    tmp_path, monkeypatch, _quiet_runner_logging
-):
+def _run_leadfield_in_process(tmp_path, monkeypatch, generate):
+    """Submit a leadfield job (never started), then run the REAL runner's ``main()`` for it in
+    this process with ``LeadfieldGenerator.generate`` replaced by *generate*.
+
+    Returns ``(project, submitter, job_id, outcome)``; *outcome* is the ``SystemExit`` or the
+    exception ``main()`` ended with. The job record is then made to look like the server went
+    away mid-run (state running, pid gone), ready for a restarted manager to reconcile.
+    """
     from tit.opt import leadfield_runner
 
     project = str(tmp_path)
@@ -365,8 +372,6 @@ def test_a_leadfield_that_finished_while_the_server_was_down_is_succeeded(
         ["001"],
     )
     job_id = job["id"]
-    recorded_locks = sorted(submitter._specs[job_id].locks)
-
     config_path = job_file_path(project, job_id, "config.json")
     Path(config_path).write_text(
         json.dumps(
@@ -378,21 +383,9 @@ def test_a_leadfield_that_finished_while_the_server_was_down_is_succeeded(
             }
         )
     )
-    held_while_running: list[list[str]] = []
-    hdf5 = str(tmp_path / "leadfields" / "001_leadfield_GSN-HydroCel-185.hdf5")
-
-    def _generate(**_kwargs):
-        # reconcile_stale=False: the runner runs in this test's process, whose pid
-        # tit.jobs.runner.is_alive never counts as a live holder (it is "the server's").
-        on_disk = locks.holders(project, reconcile_stale=False)
-        held_while_running.append(
-            sorted(h["key"] for h in on_disk if h["job_id"] == job_id)
-        )
-        return hdf5
-
     generator = MagicMock()
     generator.list_leadfields.return_value = []
-    generator.generate.side_effect = _generate
+    generator.generate.side_effect = generate
     monkeypatch.setattr(
         leadfield_runner, "LeadfieldGenerator", MagicMock(return_value=generator)
     )
@@ -400,30 +393,96 @@ def test_a_leadfield_that_finished_while_the_server_was_down_is_succeeded(
     monkeypatch.setenv("TIT_EVENTS_FILE", events_path(project, job_id))
     monkeypatch.setattr(sys, "argv", ["leadfield_runner", config_path])
 
-    with pytest.raises(SystemExit) as exited:
+    try:
         leadfield_runner.main()
-    assert exited.value.code == 0
-    assert held_while_running == [recorded_locks]
-    assert (
-        locks.holders(project, reconcile_stale=False) == []
-    )  # released on the way out
+    except (
+        BaseException
+    ) as exc:  # SystemExit on success, the generator's error on failure
+        outcome = exc
+    else:  # pragma: no cover - main() always ends in sys.exit or an exception
+        outcome = None
 
-    # The server went away while the job "ran": its record still says running, pid gone.
     status = submitter.registry.read_status(job_id)
     status.state, status.pid, status.create_time = "running", 999_999_999, 0.0
     submitter.registry.write_status(status)
+    return project, submitter, job_id, outcome
 
+
+def _reconciled_after_restart(project: str, job_id: str) -> dict:
     restarted = JobManager(project, budget=Cost(cpus=8, mem_gb=64))
     restarted.start()
     try:
-        final = _wait_until(
+        return _wait_until(
             lambda: (lambda s: s if s["state"] != "running" else None)(
                 restarted.get(job_id)
             )
         )
-        assert final["state"] == "succeeded"
-        assert final["exit_code"] == 0
-        assert final["error"] is None
-        assert [a["path"] for a in final["artifacts"]] == [hdf5]
     finally:
         restarted.shutdown()
+
+
+def test_a_leadfield_that_finished_while_the_server_was_down_is_succeeded(
+    tmp_path, monkeypatch, _quiet_runner_logging
+):
+    project = str(tmp_path)
+    hdf5 = str(tmp_path / "leadfields" / "001_leadfield_GSN-HydroCel-185.hdf5")
+    held_while_running: list[list[str]] = []
+
+    def _generate(**_kwargs):
+        # reconcile_stale=False: the runner runs in this test's process, whose pid
+        # tit.jobs.runner.is_alive never counts as a live holder (it is "the server's").
+        running = os.environ["TIT_JOB_ID"]
+        on_disk = locks.holders(project, reconcile_stale=False)
+        held_while_running.append(
+            sorted(h["key"] for h in on_disk if h["job_id"] == running)
+        )
+        return hdf5
+
+    project, submitter, job_id, outcome = _run_leadfield_in_process(
+        tmp_path, monkeypatch, _generate
+    )
+    assert isinstance(outcome, SystemExit) and outcome.code == 0
+    assert held_while_running == [sorted(submitter._specs[job_id].locks)]
+    # released on the way out
+    assert locks.holders(project, reconcile_stale=False) == []
+    assert [
+        e["code"]
+        for e in read_events(events_path(project, job_id))
+        if e["type"] == "exit"
+    ] == [0]
+
+    final = _reconciled_after_restart(project, job_id)
+    assert final["state"] == "succeeded"
+    assert final["exit_code"] == 0
+    assert final["error"] is None
+    assert [a["path"] for a in final["artifacts"]] == [hdf5]
+
+
+def test_a_leadfield_that_crashed_while_the_server_was_down_is_failed(
+    tmp_path, monkeypatch, _quiet_runner_logging
+):
+    """The failure path of the same scaffold: ``generate`` raising must still release the
+    locks and write ``exit`` with code 1, and the restart must read that as ``failed``. An
+    ``exit`` of 0 here would reconcile a crashed leadfield as ``succeeded`` (``_finalize_
+    interrupted`` decides by the recorded code), so the code itself is what this pins.
+    """
+
+    def _crash(**_kwargs):
+        raise RuntimeError("SimNIBS leadfield solve failed")
+
+    project, _submitter, job_id, outcome = _run_leadfield_in_process(
+        tmp_path, monkeypatch, _crash
+    )
+    # The generator's error propagates (the job's log gets the traceback); nothing swallows it.
+    assert isinstance(outcome, RuntimeError)
+    assert str(outcome) == "SimNIBS leadfield solve failed"
+    assert locks.holders(project, reconcile_stale=False) == []
+    events = read_events(events_path(project, job_id))
+    assert [e["code"] for e in events if e["type"] == "exit"] == [1]
+    assert not any(e["type"] == "result" for e in events)
+
+    final = _reconciled_after_restart(project, job_id)
+    assert final["state"] == "failed"
+    assert final["exit_code"] == 1
+    assert final["error"]["type"] == "runner_failed"
+    assert final["error"]["message"] == "exited with code 1"
