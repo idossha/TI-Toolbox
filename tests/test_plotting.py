@@ -169,18 +169,6 @@ class TestSavefigClose:
         assert result == "my_output.pdf"
 
 
-@pytest.mark.unit
-class TestSuppressMatplotlibFindfontNoise:
-    """Tests for suppress_matplotlib_findfont_noise (no-op function)."""
-
-    def test_is_noop(self):
-        from tit.plotting._common import suppress_matplotlib_findfont_noise
-
-        # Should not raise and return None
-        result = suppress_matplotlib_findfont_noise()
-        assert result is None
-
-
 # ============================================================================
 # stats.py tests
 # ============================================================================

@@ -23,9 +23,9 @@ electrode_placement
 io
     Low-level binary STL / PLY read-write and colourmap utilities.
 scene_setup
-    Reusable Blender scene helpers (cameras, lights, materials).
+    Blender scene helpers for the montage scene (lights, cameras, materials).
 utils
-    Shared mesh extraction, electrode parsing, and config readers.
+    Shared mesh extraction and the simulation config reader.
 
 See Also
 --------

@@ -595,14 +595,6 @@ class PathManager:
         """Path to the ``project_status.json`` file."""
         return os.path.join(self.config_dir(), "project_status.json")
 
-    def extensions_config(self) -> str:
-        """Path to the ``extensions.json`` configuration file.
-
-        Uses the user-level config directory so that extension
-        preferences persist across projects and container restarts.
-        """
-        return os.path.join(self.user_config_dir(), "extensions.json")
-
     @staticmethod
     def user_config_dir() -> str:
         """Path to the user-level config directory.
@@ -1013,22 +1005,6 @@ class PathManager:
         if not self.project_dir:
             return []
         return self._list_sub_dirs(self.project_dir)
-
-    def list_fastsurfer_subjects(self) -> list[str]:
-        """Subject ids with a ``derivatives/fastsurfer/sub-*`` folder, naturally sorted."""
-        if not self.project_dir:
-            return []
-        return self._list_sub_dirs(self.fastsurfer())
-
-    def list_freesurfer_subjects(self) -> list[str]:
-        """Subject ids with a ``derivatives/freesurfer/sub-*`` folder (legacy).
-
-        Kept so projects carrying old ``recon-all`` output still list those
-        subjects; nothing in the toolbox writes this tree any more.
-        """
-        if not self.project_dir:
-            return []
-        return self._list_sub_dirs(self.freesurfer())
 
     def list_simnibs_subjects(self) -> list[str]:
         """List subject IDs that have a SimNIBS head-model (m2m) folder.

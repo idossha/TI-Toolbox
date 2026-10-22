@@ -544,65 +544,6 @@ def _sphere_scene(entries, spheres, *, m2m, destination, anatomy) -> dict | None
     )
 
 
-def cortical_entries(m2m: str, atlas: str, regions) -> list[dict]:
-    """``.annot`` path and label index for each named cortical region.
-
-    The analyzer names a cortical target by atlas and region (``DK40`` /
-    ``lh.superiorfrontal``); the scene needs the file and the integer.  Discovery
-    goes through :class:`tit.atlas.MeshAtlasManager`, the same one
-    ``GET /api/catalog/atlases`` uses, so the scene sees exactly the atlases the
-    subject has.  A name that resolves to neither hemisphere is skipped with one
-    log line -- an artefact never fails a job.
-    """
-    from nibabel.freesurfer import read_annot
-
-    from tit.atlas import MeshAtlasManager
-
-    manager = MeshAtlasManager(str(Path(m2m) / "segmentation"))
-    tables: dict[str, tuple[str, dict[str, int]]] = {}
-    for hemi in ("lh", "rh"):
-        path = manager.find_atlas_file(atlas, hemi)
-        if not path or not Path(path).is_file():
-            continue
-        _, _, labels = read_annot(str(path))
-        tables[hemi] = (
-            str(path),
-            {
-                (name.decode() if isinstance(name, bytes) else str(name)).lower(): index
-                for index, name in enumerate(labels)
-            },
-        )
-    entries: list[dict] = []
-    for raw in regions:
-        text = str(raw)
-        stem = text
-        hemis = ("lh", "rh")
-        for prefix in ("lh.", "rh."):
-            if text.lower().startswith(prefix):
-                hemis, stem = (prefix[:2],), text[3:]
-        for suffix in ("-lh", "-rh", "_lh", "_rh"):
-            if text.lower().endswith(suffix):
-                hemis, stem = (suffix[1:],), text[: -len(suffix)]
-        for hemi in hemis:
-            table = tables.get(hemi)
-            if table is None:
-                continue
-            index = table[1].get(stem.lower())
-            if index is None:
-                continue
-            entries.append(
-                {
-                    "atlas_path": table[0],
-                    "label": int(index),
-                    "space": "subject",
-                    "name": f"{hemi}.{stem}",
-                }
-            )
-    if not entries:
-        logger.warning("no .annot region of %s matched %s", atlas, list(regions))
-    return entries
-
-
 def _label_values_annot(annot_path: str, label) -> list[int]:
     """The ids the **scene** makes visible for one ``.annot`` region.
 

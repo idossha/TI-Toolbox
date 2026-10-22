@@ -124,7 +124,6 @@ PANEL_ASPECT = 0.75
 
 #: The one artefact per target.
 SCENE_NAME = "roi.tetravox.json"
-SCENE_SUFFIX = ".tetravox.json"
 
 #: The one legitimate intermediate: an MNI target's transformed mask.
 MNI_MASK_NAME = "roi_mask.nii.gz"

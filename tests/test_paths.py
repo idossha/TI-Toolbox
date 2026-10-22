@@ -160,10 +160,6 @@ class TestProjectLevelPaths:
         p, root = pm
         assert p.project_status().endswith("project_status.json")
 
-    def test_extensions_config(self, pm):
-        p, root = pm
-        assert p.extensions_config().endswith("extensions.json")
-
     def test_reports(self, pm):
         p, root = pm
         assert p.reports() == os.path.join(root, "derivatives", "ti-toolbox", "reports")
@@ -754,11 +750,11 @@ if __name__ == "__main__":
 
 
 # ---------------------------------------------------------------------------
-# list_bids_subjects / list_freesurfer_subjects — sub-* dirs, natural sort
+# list_bids_subjects — sub-* dirs, natural sort
 # ---------------------------------------------------------------------------
 
 
-class TestListBidsAndFreesurferSubjects:
+class TestListBidsSubjects:
     def test_bids_subjects_natural_sort_and_ignores_files(self, tmp_path):
         root = _make_project(tmp_path)
         for sid in ("10", "2", "1"):
@@ -768,49 +764,15 @@ class TestListBidsAndFreesurferSubjects:
         pm = PathManager(project_dir=root)
         assert pm.list_bids_subjects() == ["1", "2", "10"]
 
-    def test_freesurfer_subjects_ignore_fsaverage(self, tmp_path):
-        root = _make_project(tmp_path)
-        fs = pathlib.Path(root) / "derivatives" / "freesurfer"
-        (fs / "sub-002" / "mri").mkdir(parents=True)
-        (fs / "sub-001").mkdir()
-        (fs / "fsaverage").mkdir()
-        pm = PathManager(project_dir=root)
-        assert pm.list_freesurfer_subjects() == ["001", "002"]
-
-    def test_fastsurfer_subjects_natural_sort(self, tmp_path):
-        root = _make_project(tmp_path)
-        fs = pathlib.Path(root) / "derivatives" / "fastsurfer"
-        (fs / "sub-010" / "mri").mkdir(parents=True)
-        (fs / "sub-2").mkdir()
-        pm = PathManager(project_dir=root)
-        assert pm.list_fastsurfer_subjects() == ["2", "010"]
-
-    def test_fastsurfer_and_freesurfer_listings_are_independent(self, tmp_path):
-        """A legacy recon-all project lists under freesurfer only, and vice versa."""
-        root = _make_project(tmp_path)
-        (pathlib.Path(root) / "derivatives" / "freesurfer" / "sub-old").mkdir(
-            parents=True
-        )
-        (pathlib.Path(root) / "derivatives" / "fastsurfer" / "sub-new").mkdir(
-            parents=True
-        )
-        pm = PathManager(project_dir=root)
-        assert pm.list_freesurfer_subjects() == ["old"]
-        assert pm.list_fastsurfer_subjects() == ["new"]
-
     def test_empty_when_dirs_missing_or_project_unset(self, tmp_path):
         root = tmp_path / "bare"
         root.mkdir()
         pm = PathManager(project_dir=str(root))
         assert pm.list_bids_subjects() == []
-        assert pm.list_freesurfer_subjects() == []
-        assert pm.list_fastsurfer_subjects() == []
         assert pm.list_simnibs_subjects() == []
         unset = PathManager()
         unset._project_dir = None
         assert unset.list_bids_subjects() == []
-        assert unset.list_freesurfer_subjects() == []
-        assert unset.list_fastsurfer_subjects() == []
 
 
 # ---------------------------------------------------------------------------

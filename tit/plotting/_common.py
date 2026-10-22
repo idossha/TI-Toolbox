@@ -10,13 +10,6 @@ from dataclasses import dataclass
 from typing import Any
 
 
-def suppress_matplotlib_findfont_noise() -> None:
-    """
-    No-op: matplotlib.font_manager silencing is now handled by tit.logger.setup_logging()
-    in its third-party quieting loop.
-    """
-
-
 def ensure_headless_matplotlib_backend(backend: str = "Agg") -> None:
     """
     Best-effort backend setup for headless environments.
@@ -29,9 +22,6 @@ def ensure_headless_matplotlib_backend(backend: str = "Agg") -> None:
     import matplotlib
 
     os.environ.setdefault("MPLBACKEND", backend)
-
-    # Silence noisy `findfont:` chatter (safe even if pyplot was already imported).
-    suppress_matplotlib_findfont_noise()
 
     current = str(matplotlib.get_backend() or "")
     if current and current.lower() != backend.lower():

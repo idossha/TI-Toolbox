@@ -181,10 +181,6 @@ def _example_stamp(project_root: str | Path) -> Path:
     return _checked_notebook_entry(project_root, f"{EXAMPLES_DIR}/.seeded")
 
 
-def _example_was_deleted(project_root: str | Path) -> bool:
-    return _example_stamp(project_root).exists()
-
-
 def list_notebooks(project_root: str | Path) -> list[NotebookEntry]:
     """Every notebook, newest first. Missing dir → empty.
 

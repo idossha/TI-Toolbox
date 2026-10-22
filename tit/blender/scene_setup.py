@@ -1,6 +1,7 @@
 #!/usr/bin/env simnibs_python
 """
-Reusable Blender scene setup helpers for TI-Toolbox 3D exporter.
+Blender scene helpers for the montage publication scene (collections, world,
+render settings, lights, cameras, materials and STL import).
 
 This module is intended to be imported from within Blender/simnibs_python
 (i.e., when `bpy` is available). Keep it lightweight and "ops"-free where
@@ -278,22 +279,6 @@ def create_hero_camera(
     return cam_obj
 
 
-def add_point_light(
-    *,
-    location: tuple[float, float, float] = (3.0290, 14.2176, 22.8508),
-    energy: float = 1000.0,
-    name: str = "Light",
-):
-    """Add a point light."""
-    import bpy
-
-    bpy.ops.object.light_add(type="POINT", location=location)
-    light = bpy.context.selected_objects[0]
-    light.name = name
-    light.data.energy = float(energy)
-    return light
-
-
 def add_sun_light(
     *,
     location: tuple[float, float, float] = (0.0, 0.0, 0.0),
@@ -334,26 +319,6 @@ def add_area_light(
         # Light size setting may fail in some Blender versions
         pass
     return light
-
-
-def add_camera(
-    *,
-    location: tuple[float, float, float] = (2.1216, 27.0958, 406.2056),
-    rotation_euler: tuple[float, float, float] = (-0.0223, 0.0060, -0.0028),
-    lens: float = 50.0,
-    name: str = "Camera",
-):
-    """Add a perspective camera and set it as active scene camera."""
-    import bpy
-
-    bpy.ops.object.camera_add(location=location)
-    cam = bpy.context.selected_objects[0]
-    cam.name = name
-    cam.rotation_euler = rotation_euler
-    cam.data.type = "PERSP"
-    cam.data.lens = float(lens)
-    bpy.context.scene.camera = cam
-    return cam
 
 
 def _world_bounds(
@@ -519,14 +484,6 @@ def copy_material_with_color(
         # Ensure opaque for electrode highlight colors
         bsdf.inputs["Alpha"].default_value = 1.0
     return mat
-
-
-def assign_material(obj, mat) -> None:
-    """Assign a single material to a mesh object (replace existing slots)."""
-    if not hasattr(obj, "data") or not hasattr(obj.data, "materials"):
-        return
-    obj.data.materials.clear()
-    obj.data.materials.append(mat)
 
 
 def import_stl(filepath: str, *, name: str | None = None, collection=None):

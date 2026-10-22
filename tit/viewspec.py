@@ -1803,11 +1803,6 @@ def _scene_stem(name: str) -> str:
     return name
 
 
-def _scene_slug(name: str) -> str:
-    slug = "".join(c if c.isalnum() else "_" for c in _scene_stem(name).lower())
-    return slug.strip("_") or "layer"
-
-
 def _scene_is_mesh(path: str) -> bool:
     return path.lower().endswith(_MESH_EXTS)
 
