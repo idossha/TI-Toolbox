@@ -4,39 +4,54 @@
       {
         "name": "Thalamus_DK40_TI_max",
         "space": "subject",
+        "analysis_space": "mesh",
         "field": "TI_max",
         "roi": "Thalamus_target",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.json",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/analysis.json",
         "msh": null,
-        "nifti": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/TI_max_masked.nii.gz",
-        "pdf": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/report.pdf"
+        "nifti": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/TI_max_masked.nii.gz",
+        "pdf": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/histogram.pdf",
+        "figures": [
+          {
+            "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/histogram.pdf",
+            "kind": "pdf",
+            "label": "histogram"
+          }
+        ],
+        "scene": null
       }
     ],
     "L_Insula": [
       {
         "name": "L_Insula_a2009s_TI_max",
         "space": "subject",
+        "analysis_space": "mesh",
         "field": "TI_max",
         "roi": "L_Insula_target",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/L_Insula_a2009s_TI_max/summary.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/L_Insula_a2009s_TI_max/summary.json",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/L_Insula_a2009s_TI_max/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/L_Insula_a2009s_TI_max/analysis.json",
         "msh": null,
         "nifti": null,
-        "pdf": null
+        "pdf": null,
+        "figures": [],
+        "scene": null
       }
     ],
     "docs_example": [
       {
         "name": "docs_example_CIT168_mTI_max",
         "space": "mni",
+        "analysis_space": "voxel",
         "field": "mTI_max",
         "roi": "MNI_DLPFC_L",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/docs_example_CIT168_mTI_max/summary.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/docs_example_CIT168_mTI_max/summary.json",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/Voxel/docs_example_CIT168_mTI_max/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/Voxel/docs_example_CIT168_mTI_max/analysis.json",
         "msh": null,
         "nifti": null,
-        "pdf": null
+        "pdf": null,
+        "figures": [],
+        "scene": null
       }
     ]
   },
@@ -45,13 +60,16 @@
       {
         "name": "Thalamus_DK40_TI_max",
         "space": "subject",
+        "analysis_space": "mesh",
         "field": "TI_max",
         "roi": "Thalamus_target",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.json",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/analysis.json",
         "msh": null,
         "nifti": null,
-        "pdf": null
+        "pdf": null,
+        "figures": [],
+        "scene": null
       }
     ]
   }

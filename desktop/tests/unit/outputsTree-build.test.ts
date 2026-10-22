@@ -101,8 +101,10 @@ describe("outputsTreeFor", () => {
     // A simulation with a report previews the report; the report id is the one the fixture names.
     expect(byId.get("simulation:ernie:Thalamus")!.preview).toEqual({
       type: "report",
-      reportId: "ernie-thalamus-2026-08-01",
+      reportId: "ernie/simulation_report_20260801_110000",
     });
+    // A simulation with no report previews its artifacts instead.
+    expect(byId.get("simulation:ernie:L_Insula")!.preview.type).toBe("artifacts");
     expect(byId.get("ex:ernie:ex_L_Insula_20260812_090000")!.preview).toEqual({
       type: "exRun",
       subject: "ernie",
@@ -154,11 +156,13 @@ describe("groupOutputsFor", () => {
 
   it("turns the project catalog into the same tree shape under the Group pseudo-subject", () => {
     expect(group.subject).toBe(GROUP_SUBJECT);
-    expect(group.total).toBe(3);
+    // The fixture lists a NIfTI group average, as the real group catalog does since p11.
+    expect(group.total).toBe(4);
     expect(group.groups.map((g) => [g.label, g.count])).toEqual([
       ["Group statistics", 1],
       ["Nilearn visuals", 1],
       ["Group analyses", 1],
+      ["NIfTI group averages", 1],
     ]);
     expect(group.groups[0]!.nodes[0]!.label).toBe("group_comparison_Thalamus_TI_max_20260815");
   });
@@ -176,8 +180,11 @@ describe("filtering", () => {
   });
 
   it("narrows by substring over the label, the path and the badges", () => {
-    // Thalamus simulation, flex_Thalamus…, mex_Thalamus…, the Thalamus analysis and its report.
-    expect(filterOutputs(ernie, "all", "thalamus").total).toBe(5);
+    // Thalamus simulation, flex_Thalamus…, mex_Thalamus… and the Thalamus analysis. Its report is
+    // listed as the real catalog lists it -- "Simulation report", `simulation_report_<stamp>.html`
+    // -- so nothing in it names the simulation.
+    expect(filterOutputs(ernie, "all", "thalamus").total).toBe(4);
+    expect(filterOutputs(ernie, "all", "simulation_report").total).toBe(2);
     expect(filterOutputs(ernie, "all", "no-such-thing").total).toBe(0);
     expect(filterOutputs(ernie, "all", "no-such-thing").groups).toEqual([]);
     const node = ernie.groups[0]!.nodes[0]!;

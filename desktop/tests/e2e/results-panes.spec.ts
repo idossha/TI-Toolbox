@@ -131,12 +131,12 @@ test("clicking a previewable file's NAME opens it inline; a NIfTI's name is not 
 
   // The `View` capability did not disappear with the button — it moved onto the name.
   await expect(page.getByTestId("results-file-preview")).toHaveCount(0);
-  await page.getByTestId("results-file-summary.csv").click();
+  await page.getByTestId("results-file-results.csv").click();
   const preview = page.getByTestId("results-file-preview");
   await expect(preview).toBeVisible();
   await expect(preview.locator("pre")).toContainText("roi_mean");
   // Clicking it again closes it; only one file is open at a time.
-  await page.getByTestId("results-file-summary.csv").click();
+  await page.getByTestId("results-file-results.csv").click();
   await expect(page.getByTestId("results-file-preview")).toHaveCount(0);
 
   // A file this pane cannot render is a plain row: label, name, folder icon, no name button.

@@ -1,36 +1,38 @@
 {
   "stats": [
     {
+      "type": "group_comparison",
       "name": "group_comparison_Thalamus_TI_max_20260815",
-      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815",
-      "field": "TI_max",
-      "subjects": [
-        "ernie",
-        "101"
-      ],
-      "created": "2026-08-15T12:00:00Z",
-      "type": "group_comparison"
+      "path": "/mnt/example/derivatives/ti-toolbox/stats/group_comparison/group_comparison_Thalamus_TI_max_20260815",
+      "created": "2026-08-15T12:00:00Z"
     }
   ],
   "nilearn": [
     {
       "name": "nilearn_TI_max_glass_brain_20260816",
-      "path": "/mnt/example/derivatives/group/nilearn/nilearn_TI_max_glass_brain_20260816.png",
-      "field": "TI_max",
+      "path": "/mnt/example/derivatives/ti-toolbox/nilearn_visuals/nilearn_TI_max_glass_brain_20260816",
       "created": "2026-08-16T09:30:00Z"
     }
   ],
   "group_analyses": [
     {
       "name": "group_avg_TI_max_DK40_20260817",
-      "path": "/mnt/example/derivatives/group/analyses/group_avg_TI_max_DK40_20260817",
-      "field": "TI_max",
-      "atlas": "DK40",
-      "subjects": [
-        "ernie",
-        "101"
-      ],
+      "path": "/mnt/example/derivatives/ti-toolbox/group_analysis/group_avg_TI_max_DK40_20260817",
       "created": "2026-08-17T15:45:00Z"
+    }
+  ],
+  "nifti_average": [
+    {
+      "name": "cohort_mean",
+      "path": "/mnt/example/derivatives/ti-toolbox/nifti_average/cohort_mean",
+      "created": "2026-08-18T10:00:00Z",
+      "artifacts": [
+        {
+          "path": "/mnt/example/derivatives/ti-toolbox/nifti_average/cohort_mean/average_all.nii.gz",
+          "kind": "nifti",
+          "label": "average all"
+        }
+      ]
     }
   ]
 }

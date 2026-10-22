@@ -12,7 +12,7 @@
 // checkout failed in the fixture write rather than on anything about the contract (audit TEST-01).
 // The tracked JSON copy is owned by `dev/build_contract.py` / `npm run gen:api`, not by a test.
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -245,7 +245,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/catalog/group", "GET", "/api/catalog/group");
     await call("/api/catalog/notes", "GET", "/api/catalog/notes");
     await call("/api/catalog/notes", "PUT", "/api/catalog/notes", { body: { text: "contract test note" } });
-    await call("/api/catalog/subject-info", "GET", "/api/catalog/subject-info");
     await call("/api/catalog/overview", "GET", "/api/catalog/overview");
     await call("/api/catalog/project-summary", "GET", "/api/catalog/project-summary");
 
@@ -376,7 +375,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/viewer/scenes/{name}", "DELETE", "/api/viewer/scenes/contract");
 
     // files (v1)
-    await call("/api/files/report/{id}", "GET", "/api/files/report/ernie-thalamus-2026-08-01");
+    await call("/api/files/report/{id}", "GET", "/api/files/report/ernie/simulation_report_20260801_110000");
     const artifactPath = encodeURIComponent("/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.csv");
     await call("/api/files/artifact", "GET", `/api/files/artifact?path=${artifactPath}`);
     await call("/api/files/text", "GET", `/api/files/text?path=${artifactPath}&tail=2`);
@@ -468,8 +467,131 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     declared.delete("GET /ws/system");
     declared.delete("GET /ws/jobs");
     declared.delete("GET /ws/kernels/{kernel_id}");
+    // The real server keeps this route, but the desktop stopped reading it when R1 deleted the
+    // Subject Info page, so the mock does not serve it. Pinned below: no renderer source asks for it.
+    declared.delete("GET /api/catalog/subject-info");
     expect([...exercised].sort()).toEqual([...declared].sort());
   }, 20_000);
+
+  it("leaves out only routes the desktop never reads", () => {
+    const rendererDir = join(__dirname, "..", "..", "src", "renderer");
+    // The generated contract types name every route; a reader is any other renderer source.
+    const sources = (readdirSync(rendererDir, { recursive: true }) as string[]).filter(
+      (file) => /\.(ts|tsx)$/.test(file) && !file.endsWith("schema.d.ts"),
+    );
+    expect(sources.length).toBeGreaterThan(100);
+    const readers = sources.filter((file) => readFileSync(join(rendererDir, file), "utf8").includes("/api/catalog/subject-info"));
+    expect(readers).toEqual([]);
+  });
+});
+
+// --------------------------------------------------------------------- parity with the real server
+// Expected values are read from the real server's source, not retyped: a report's CSP from
+// tit/server/routes/files.py, the report kinds from tit/catalog.py, the candidate montage name
+// from the real `candidate_detail` output (fixtures/contracts/, dev/make_contract_fixtures.py).
+const repoFile = (...parts: string[]) => readFileSync(join(__dirname, "..", "..", "..", ...parts), "utf8");
+const fixture = <T,>(...parts: string[]): T => JSON.parse(readFileSync(join(__dirname, "..", "fixtures", ...parts), "utf8")) as T;
+
+/** `REPORT_CSP = ("..." "...")` in files.py: the adjacent string literals, joined. */
+function realReportCsp(): string {
+  const block = /^REPORT_CSP = \(([\s\S]*?)^\)/m.exec(repoFile("tit", "server", "routes", "files.py"));
+  if (!block) throw new Error("REPORT_CSP not found in tit/server/routes/files.py");
+  const literals = [...block[1]!.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+  expect(literals.length).toBeGreaterThan(0);
+  return literals.join("");
+}
+/** `_REPORT_KIND_TITLES = {...}` in catalog.py, as kind -> title. */
+function realReportKinds(): Record<string, string> {
+  const block = /^_REPORT_KIND_TITLES = \{([\s\S]*?)^\}/m.exec(repoFile("tit", "catalog.py"));
+  if (!block) throw new Error("_REPORT_KIND_TITLES not found in tit/catalog.py");
+  return Object.fromEntries([...block[1]!.matchAll(/"([a-z_]+)":\s*"([^"]+)"/g)].map((m) => [m[1]!, m[2]!]));
+}
+
+type ReportRow = { id: string; kind: string; title: string; path: string; created: string };
+describe("mock reports match the real server's", () => {
+  const reports = fixture<Record<string, ReportRow[]>>("reports.json");
+  const all = Object.entries(reports).flatMap(([sid, rows]) => rows.map((r) => ({ sid, ...r })));
+
+  it("serves a report under the real REPORT_CSP, unaltered and unsniffable", async () => {
+    const csp = realReportCsp();
+    expect(csp).toContain("script-src 'unsafe-inline'");
+    expect(csp).toContain("sandbox allow-scripts");
+    for (const { id, sid } of all) {
+      // Both spellings the real `{report_id:path}` route takes: the slash encoded and plain.
+      for (const url of [`/api/files/report/${encodeURIComponent(id)}`, `/api/files/report/${id}`]) {
+        const res = await fetch(`${BASE}${url}`, { headers: { authorization: `Bearer ${TOKEN}` } });
+        expect(res.status, url).toBe(200);
+        expect(res.headers.get("content-security-policy")).toBe(csp);
+        expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+        const body = await res.text();
+        expect(body).toBe(readFileSync(join(__dirname, "..", "fixtures", "reports", sid, `${id.split("/")[1]}.html`), "utf8"));
+      }
+    }
+    const missing = await fetch(`${BASE}/api/files/report/ernie/simulation_report_19990101_000000`, { headers: { authorization: `Bearer ${TOKEN}` } });
+    expect(missing.status).toBe(404);
+  });
+
+  it("lists ids, kinds, titles and paths in the real catalog's grammar", () => {
+    const kinds = realReportKinds();
+    expect(Object.keys(kinds)).toContain("simulation_report");
+    expect(all.length).toBeGreaterThan(0);
+    for (const r of all) {
+      expect(r.id).toMatch(new RegExp(`^${r.sid}/(charm_report|(simulation_report|flex_search_report|ex_search_report|dti_qc)_\\d{8}_\\d{6})$`));
+      expect(Object.keys(kinds)).toContain(r.kind);
+      expect(r.id.split("/")[1]!.startsWith(r.kind)).toBe(true);
+      expect(r.title).toBe(kinds[r.kind]);
+      expect(r.path).toBe(`/mnt/example/derivatives/ti-toolbox/reports/sub-${r.sid}/${r.id.split("/")[1]}.html`);
+    }
+  });
+
+  it("links every simulation's report_ids to a listed simulation report of its subject", () => {
+    const simulations = fixture<Record<string, { name: string; report_ids: string[] }[]>>("simulations.json");
+    let linked = 0;
+    for (const [sid, sims] of Object.entries(simulations)) {
+      for (const sim of sims) {
+        for (const id of sim.report_ids) {
+          const row = (reports[sid] ?? []).find((r) => r.id === id);
+          expect(row, `${sid}/${sim.name} -> ${id}`).toBeDefined();
+          expect(row!.kind).toBe("simulation_report");
+          linked += 1;
+        }
+      }
+    }
+    expect(linked).toBeGreaterThan(0);
+  });
+
+  it("records a finished simulation job's report under the subject's reports folder", async () => {
+    const { json: submitted } = await call("/api/jobs", "POST", "/api/jobs", {
+      body: { kind: "sim", config: { subject_id: "ernie", __mock_fast: true }, subject_ids: ["ernie"] },
+    });
+    const id = (submitted as { id: string }).id;
+    // The agent-approved sim job of the coverage test (not __mock_fast) may still hold the slot.
+    expect((await waitForState(id, ["succeeded", "failed"], 25_000)).status.state).toBe("succeeded");
+    const { json: artifacts } = await call("/api/jobs/{id}/artifacts", "GET", `/api/jobs/${id}/artifacts`);
+    const files = (artifacts as { files: { path: string; kind: string }[] }).files;
+    const reportFiles = files.filter((f) => f.kind === "report");
+    expect(reportFiles).toHaveLength(1);
+    expect(reportFiles[0]!.path).toMatch(/^\/mnt\/example\/derivatives\/ti-toolbox\/reports\/sub-ernie\/simulation_report_\d{8}_\d{6}\.html$/);
+  }, 30_000);
+});
+
+describe("mock candidate detail is the real candidate_detail", () => {
+  for (const kind of ["flex", "ex", "mex"]) {
+    it(`${kind}: the mock resolves the generated request to the server's exact simulation_config`, async () => {
+      const { request, response } = fixture<{
+        request: { subject: string; kind: string; run: string; candidate_id: string };
+        response: { simulation_config: Record<string, unknown> };
+      }>("contracts", `candidate_detail_${kind}.json`);
+      const query = new URLSearchParams({ subject: request.subject, kind: request.kind, run: request.run });
+      const { res, json } = await call(
+        "/api/catalog/optimization-candidates/{candidate_id}",
+        "GET",
+        `/api/catalog/optimization-candidates/${encodeURIComponent(request.candidate_id)}?${query}`,
+      );
+      expect(res.status).toBe(200);
+      expect((json as { simulation_config: unknown }).simulation_config).toStrictEqual(response.simulation_config);
+    });
+  }
 });
 
 describe("contract: job lifecycle", () => {

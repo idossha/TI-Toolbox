@@ -11,7 +11,6 @@ import { connectLauncher, expectPage, gotoPage, launchElectronApp } from "./_hel
 import { setJobPlacement } from "./_jobs";
 
 const SERVER = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
-const fixture = JSON.parse(readFileSync(join(__dirname, "../fixtures/optimization_candidates.json"), "utf8"));
 let app: ElectronApplication;
 let page: Page;
 test.beforeEach(async () => {
@@ -57,15 +56,22 @@ test("candidate table and trade-off plot select one exact subject montage for a 
   await expect.poll(() => page.evaluate(() => window.__scenePane?.markers)).toBe(4);
   await browser.getByRole("button", { name: "trial-2", exact: true }).click();
   await expect(browser.locator('circle[aria-label="Select candidate trial-2"]')).toHaveAttribute("data-selected", "true");
+  // The server's resolved candidate (the mock serves the real `candidate_detail` output from
+  // fixtures/contracts/) is the expectation: the draft plans exactly what it answered.
+  const detailResponse = page.waitForResponse((response) => /\/api\/catalog\/optimization-candidates\/trial-2\?/.test(response.url()));
   await browser.getByRole("button", { name: "Use in Simulator", exact: true }).click();
+  const expected = (await (await detailResponse).json()).simulation_config;
+  const name = expected.montages[0].name as string;
+  expect(name).toMatch(/^candidate_[0-9a-f]{16}$/);
+  expect(expected.montages[0].provenance).toMatchObject({ kind: "flex", candidate_id: "trial-2", run: "flex_Thalamus_20260810_101500" });
+  // Left out when there are no tissue overrides; `null` on the server, the same default.
+  delete expected.tissue_conductivities;
   await expectPage(page, "simulator");
   await expect(page.getByTestId("sim-jobs-table").locator(".job-candidate-source")).toHaveAttribute("title", /Candidate trial-2/);
-  await expect.poll(() => plans.find((config) => (config.montages as { name: string }[])?.[0]?.name === "candidate_trial-2"), { timeout: 20_000 }).toBeTruthy();
-  const expected = structuredClone(fixture.simulation_config);
-  expected.montages[0].provenance = { candidate_id: "trial-2", run: "flex_Thalamus_20260810_101500" };
-  expect(plans.find((config) => (config.montages as { name: string }[])?.[0]?.name === "candidate_trial-2")).toEqual(expected);
+  await expect.poll(() => plans.find((config) => (config.montages as { name: string }[])?.[0]?.name === name), { timeout: 20_000 }).toBeTruthy();
+  expect(plans.find((config) => (config.montages as { name: string }[])?.[0]?.name === name)).toEqual(expected);
   expect(submitted).toEqual([]);
-  const signedCurrent = page.getByRole("spinbutton", { name: "candidate_trial-2 channel 2 current (mA)" });
+  const signedCurrent = page.getByRole("spinbutton", { name: `${name} channel 2 current (mA)` });
   await expect(signedCurrent).toHaveCount(1);
   await signedCurrent.fill("-1.1");
   await signedCurrent.press("Tab");

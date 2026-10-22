@@ -114,13 +114,13 @@
       "artifacts": [
         {
           "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500/convergence.png",
-          "kind": "png",
-          "label": "Convergence plot"
+          "kind": "image",
+          "label": "convergence"
         },
         {
-          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500/manifest.json",
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500/flex_meta.json",
           "kind": "manifest",
-          "label": "Run manifest"
+          "label": "flex meta"
         }
       ]
     }

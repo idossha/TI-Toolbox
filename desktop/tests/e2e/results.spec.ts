@@ -118,15 +118,16 @@ test("a simulation previews its configuration, its files and its report — not 
   // What this simulation holds: its analyses and its report, each a jump to that node.
   const holds = page.getByTestId("results-holds");
   await expect(holds.getByRole("button", { name: /Thalamus_DK40_TI_max/ })).toBeVisible();
-  await holds.getByRole("button", { name: /Thalamus simulation report/ }).first().click();
-  await expect(page.getByTestId("results-preview")).toContainText("Thalamus simulation report");
+  // The catalog titles a report by its kind ("Simulation report"), as tit.catalog.reports does.
+  await holds.getByRole("button", { name: /Simulation report/ }).first().click();
+  await expect(page.getByTestId("results-preview")).toContainText("Simulation report");
 
   // Back on the simulation, the report is inline under the numbers and still sandboxed.
   await page.getByTestId("results-node-simulation:ernie:Thalamus").click();
   const frame = page.getByTestId("results-report-frame");
   await expect(frame).toHaveAttribute("sandbox", "allow-scripts");
-  await expect(frame).toHaveAttribute("src", /\/api\/files\/report\/ernie-thalamus-2026-08-01$/);
-  await expect(page.frameLocator('[data-testid="results-report-frame"]').getByRole("heading", { name: /Thalamus simulation/ })).toBeVisible({
+  await expect(frame).toHaveAttribute("src", /\/api\/files\/report\/ernie%2Fsimulation_report_20260801_110000$/);
+  await expect(page.frameLocator('[data-testid="results-report-frame"]').getByRole("heading", { name: "Thalamus", exact: true })).toBeVisible({
     timeout: 10_000,
   });
 
@@ -164,8 +165,9 @@ test("a flex run previews its goal, its best value and its final electrode posit
 
   // The run's PNGs are thumbnails, its other files are rows.
   await expect(page.getByTestId("results-figures")).toBeVisible();
-  await expect(page.getByText("Convergence plot")).toBeVisible();
-  await expect(page.getByText("Run manifest")).toBeVisible();
+  // Labelled as tit.catalog labels a run's files: the file name, underscores as spaces.
+  await expect(page.getByTestId("results-figure-convergence.png")).toContainText("convergence");
+  await expect(page.getByText("flex meta", { exact: true })).toBeVisible();
 });
 
 test("an ex run previews its search config and paginated evaluated candidates", async () => {
@@ -201,21 +203,25 @@ test("selecting an ex-search run and an analysis swaps the preview for their tab
   // Candidate metrics keep their named ROI / non-ROI definitions.
   await expect(page.getByTestId("candidate-browser").locator(".candidate-table").getByRole("table")).toContainText("ROI mean (V/m)");
   // The run's own artifacts, from the same cached list read the tree was built from.
-  await expect(page.getByText("Final output")).toBeVisible();
-  await expect(page.getByText("Ranked montages plot")).toBeVisible();
+  // Labelled the way tit.catalog labels a run's files: the file name, underscores as spaces.
+  await expect(page.getByText("final output", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("results-figure-ex_search_ranked.png")).toContainText("ex search ranked");
 
   await page.getByTestId("results-node-analysis:ernie:Thalamus/Thalamus_DK40_TI_max").click();
   await expect(page.getByTestId("results-key-numbers")).toBeVisible();
   await expect(page.getByText("Summary table")).toBeVisible();
-  await expect(page.getByText("PDF report")).toBeVisible();
+  // The analysis PDF is one of its figures (every PNG/PDF in the folder), not a file row.
+  await expect(page.getByTestId("results-figure-histogram.pdf")).toContainText("histogram");
 });
 
 test("the filter box and the kind segments narrow the tree", async () => {
   await connect();
   await openResults();
 
+  // The Thalamus simulation, flex and mEx runs and analysis; its report is named by its kind and
+  // time (tit.catalog.reports), so nothing in it names the simulation.
   await page.getByTestId("results-tree-filter").fill("thalamus");
-  await expect(page.getByTestId("results-tree").getByRole("treeitem", { level: 2 })).toHaveCount(5);
+  await expect(page.getByTestId("results-tree").getByRole("treeitem", { level: 2 })).toHaveCount(4);
 
   await page.getByTestId("results-tree-filter").fill("");
   await page.getByRole("radiogroup", { name: "Output kind" }).getByRole("radio", { name: "Ex", exact: true }).click();
@@ -254,6 +260,8 @@ test("the Group pseudo-subject holds the project catalog", async () => {
     "group statistics 1",
     "nilearn visuals 1",
     "group analyses 1",
+    // The mock lists NIfTI group averages as the real group catalog does.
+    "nifti group averages 1",
   ]);
   // A group output has no subject-space field, so it offers no viewer link rather than a broken one.
   await expect(page.getByTestId("results-open-in-viewer")).toHaveCount(0);
