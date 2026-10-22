@@ -32,7 +32,7 @@ import { ActionBar } from "../../../ui/Chrome";
 import { notify, notifySubmitError } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
-import { getAvailableCaps, inspectNet, uploadCap, warpCaps, type CapStatus } from "./api";
+import { canReplaceUpload, getAvailableCaps, inspectNet, uploadCap, warpCaps, type CapStatus } from "./api";
 import { CAPS_HELP, INSPECT_HELP, NO_HEAD_MODEL, appliedDate, capLabel, capStatus, defaultCapsSubject, electrodeColumns, existingAmong, inspectionMarkers, inspectionWarnings, mm, reapplicable, sourceLabel } from "./model";
 
 const WIKI = `${DOCS_SITE}wiki/eeg-caps/`;
@@ -63,6 +63,7 @@ function CapsPanel() {
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<{ names: string[]; existing: string[] } | null>(null);
+  const [replaceUpload, setReplaceUpload] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const capsQuery = useQuery({ queryKey: ["caps", subject], queryFn: () => getAvailableCaps(subject), enabled: !!subject });
@@ -109,14 +110,20 @@ function CapsPanel() {
     else void apply(names, false);
   }
 
-  async function onUpload(file: File | undefined) {
+  async function onUpload(file: File | undefined, overwrite = false) {
     if (!file) return;
     try {
-      const added = await uploadCap(file);
-      notify.success(`Added ${capLabel(added.name)} (${added.electrodes} electrodes) to this project's caps`);
+      const added = await uploadCap(file, overwrite);
+      setReplaceUpload(null);
+      notify.success(`${overwrite ? "Replaced" : "Added"} ${capLabel(added.name)} (${added.electrodes} electrodes) in this project's caps`);
       await queryClient.invalidateQueries({ queryKey: ["caps"] });
     } catch (error) {
-      notifySubmitError("Could not add the cap.", error);
+      // The project already has a cap of that name: ask, as Apply does, rather than end on an error.
+      if (!overwrite && canReplaceUpload(error, file.name, caps)) setReplaceUpload(file);
+      else {
+        setReplaceUpload(null);
+        notifySubmitError("Could not add the cap.", error);
+      }
     } finally {
       if (fileInput.current) fileInput.current.value = "";
     }
@@ -327,6 +334,18 @@ function CapsPanel() {
             setConfirm(null);
             void apply(fresh, false);
           }
+        }}
+      />
+      {/* An upload whose name the project's caps already use: Replace resends it with overwrite. */}
+      <ExistingOutputsDialog
+        open={replaceUpload !== null}
+        onOpenChange={(open) => !open && setReplaceUpload(null)}
+        existing={1}
+        total={1}
+        noun="EEG cap"
+        onDecide={(decision) => {
+          if (decision === "replace" && replaceUpload) void onUpload(replaceUpload, true);
+          else setReplaceUpload(null);
         }}
       />
     </PageLayout>
