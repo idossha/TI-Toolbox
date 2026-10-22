@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 
-from tit.opt.flex import FlexConfig, run_flex_search
+from tit.opt import FlexConfig, run_flex_search
 
 
 SUBJECTS = ["ernie"]

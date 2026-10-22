@@ -9,8 +9,7 @@ run_pipeline(
 
     # Structural pipeline
     convert_dicom=False,        # DICOM → NIfTI (dcm2niix)
-    run_recon=False,            # FreeSurfer recon-all
-    parallel_recon=False,      # run recon-all in parallel across subjects
+    run_fastsurfer=False,       # FastSurfer deep segmentation (--seg_only)
     create_m2m=False,           # SimNIBS charm (head mesh)
     run_tissue_analysis=False, # tissue volume / thickness analysis
 
@@ -18,5 +17,4 @@ run_pipeline(
     run_qsiprep=False,
     run_qsirecon=False,
     extract_dti=False,
-    run_subcortical_segmentations=True,
 )

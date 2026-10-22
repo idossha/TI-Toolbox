@@ -1,89 +1,79 @@
-"""Tests that verify example scripts in examples/scripts/ have valid syntax and reference real APIs."""
+"""``examples/scripts/*.py`` import and call the ``tit`` API that actually exists.
 
-import os
-from pathlib import Path
+These scripts are what a user copies first, and they run SimNIBS at module level, so
+they are never executed here. Instead each one is checked off its source text with the
+resolver in ``tests/test_docs_code_api.py`` (the same one the wiki and skills use):
+every ``from tit... import X`` resolves, and every keyword passed to an imported
+callable, a nested config class, or a method of an instance built from an imported
+class binds against the real signature. Each script must also have had the calls it is
+built on bound -- so a script whose imports stop resolving cannot pass by checking
+nothing.
+
+Until 2026-10-22 this file only grepped for names, and preprocess.py/pipeline.py passed
+``run_recon``/``parallel_recon``/``run_subcortical_segmentations`` to ``run_pipeline``
+(TypeError) while flex.py imported ``FlexConfig`` from ``tit.opt.flex`` (ImportError).
+
+Reproduce: ``.venv/bin/python -m pytest tests/test_scripts.py -q``.
+"""
+
+from __future__ import annotations
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "examples" / "scripts"
+from tests.test_docs_code_api import REPO, check_blocks, script_blocks
+
+SCRIPTS_DIR = REPO / "examples" / "scripts"
+
+#: The calls each script is built on, by qualified name (methods as ``Class.method``).
+EXPECTED_CALLS: dict[str, list[str]] = {
+    "analyzer.py": ["Analyzer", "Analyzer.analyze_sphere"],
+    "blender.py": [
+        "MontageConfig",
+        "run_montage",
+        "VectorConfig",
+        "run_vectors",
+        "RegionConfig",
+        "run_regions",
+    ],
+    "cluster_permutation.py": [
+        "GroupComparisonConfig.load_subjects",
+        "GroupComparisonConfig",
+        "run_group_comparison",
+    ],
+    "ex.py": ["ExConfig", "PoolElectrodes", "run_ex_search"],
+    "flex.py": ["FlexConfig", "ElectrodeConfig", "SphericalROI", "run_flex_search"],
+    "leadfield.py": ["LeadfieldGenerator", "LeadfieldGenerator.generate"],
+    "pipeline.py": [
+        "run_pipeline",
+        "FlexConfig",
+        "run_flex_search",
+        "load_montages",
+        "SimulationConfig",
+        "run_simulation",
+        "Analyzer",
+        "Analyzer.analyze_sphere",
+    ],
+    "preprocess.py": ["run_pipeline"],
+    "simulator.py": ["Montage", "SimulationConfig", "run_simulation"],
+}
+
+BLOCKS = {block.path.rsplit("/", 1)[-1]: block for block in script_blocks()}
 
 
-def _script_paths():
-    """Yield all .py files under examples/scripts/."""
-    if not SCRIPTS_DIR.is_dir():
-        return
-    for p in sorted(SCRIPTS_DIR.glob("*.py")):
-        yield p
-
-
-def _read_script(name: str) -> str:
-    """Return the source text of a script file."""
-    path = SCRIPTS_DIR / name
-    assert path.is_file(), f"Expected script not found: {path}"
-    return path.read_text(encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
-# Syntax validation
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestScriptSyntax:
-    @pytest.mark.parametrize("script", list(_script_paths()), ids=lambda p: p.name)
-    def test_scripts_have_valid_python_syntax(self, script):
-        """Every .py file under examples/scripts/ must be syntactically valid Python."""
-        source = script.read_text(encoding="utf-8")
-        compile(source, str(script), "exec")
-
-
-# ---------------------------------------------------------------------------
-# API reference checks (string-based, no execution)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestSimulatorScriptAPI:
-    def test_simulator_script_references_valid_api(self):
-        src = _read_script("simulator.py")
-        assert "SimulationConfig" in src
-        assert "run_simulation" in src
-
-
-@pytest.mark.unit
-class TestAnalyzerScriptAPI:
-    def test_analyzer_script_references_valid_api(self):
-        src = _read_script("analyzer.py")
-        assert "Analyzer" in src
+def test_every_script_is_listed() -> None:
+    assert sorted(BLOCKS) == sorted(
+        EXPECTED_CALLS
+    ), "examples/scripts changed: list the new script's calls in EXPECTED_CALLS"
 
 
 @pytest.mark.unit
-class TestFlexScriptAPI:
-    def test_flex_script_references_valid_api(self):
-        src = _read_script("flex.py")
-        assert "FlexConfig" in src
-        assert "run_flex_search" in src
-
-
-@pytest.mark.unit
-class TestExScriptAPI:
-    def test_ex_script_references_valid_api(self):
-        src = _read_script("ex.py")
-        assert "ExConfig" in src
-        assert "run_ex_search" in src
-
-
-@pytest.mark.unit
-class TestPreprocessScriptAPI:
-    def test_preprocess_script_references_valid_api(self):
-        src = _read_script("preprocess.py")
-        assert "run_pipeline" in src
-
-
-@pytest.mark.unit
-class TestClusterPermutationScriptAPI:
-    def test_cluster_permutation_script_references_valid_api(self):
-        src = _read_script("cluster_permutation.py")
-        assert "run_group_comparison" in src
-        assert "GroupComparisonConfig" in src
-        assert "TestType" in src
+@pytest.mark.parametrize("name", sorted(EXPECTED_CALLS))
+def test_script_resolves_against_tit(name: str) -> None:
+    block = BLOCKS[name]
+    compile(block.source, block.path, "exec")
+    problems, _imports, calls = check_blocks([block])
+    assert not problems, "\n".join(problems)
+    for expected in EXPECTED_CALLS[name]:
+        assert any(
+            call == expected or call.endswith("." + expected) for call in calls
+        ), f"{name}: {expected} was never bound (bound: {sorted(set(calls))})"

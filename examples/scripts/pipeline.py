@@ -21,7 +21,7 @@ EEG_NET = "GSN-HydroCel-185.csv"
 run_pipeline(
     subject_ids=SUBJECTS,
     convert_dicom=False,
-    run_recon=False,
+    run_fastsurfer=False,
     create_m2m=False,
     run_tissue_analysis=False,
 )
