@@ -160,6 +160,28 @@ def test_generate_returns_the_file_simnibs_wrote_for_this_cap(
     assert Path(other).is_file()  # the other net's leadfield is left alone
 
 
+def test_generate_returns_the_simnibs_file_even_for_a_cap_given_with_csv(
+    tmp_path, monkeypatch
+):
+    """``electrode_cap`` is a stem by contract; given ``x.csv`` anyway, generate() hands
+    SimNIBS ``x.csv.csv``, SimNIBS writes ``<sid>_leadfield_x.csv.hdf5``, and that is the
+    file generate() must return -- not raise because it looked for ``..._x.hdf5``."""
+    pm = _project(tmp_path, "E")
+    cap = "EEG10-10_UI_Jurak_2007.csv"
+
+    def run_simnibs(lf):
+        Path(lf.pathfem, _simnibs_name(lf.fnamehead, lf.eeg_cap)).write_bytes(b"lf")
+
+    simnibs = sys.modules["simnibs"]
+    monkeypatch.setattr(simnibs, "run_simnibs", run_simnibs)
+    monkeypatch.setattr(
+        simnibs, "sim_struct", SimpleNamespace(TDCSLEADFIELD=SimpleNamespace)
+    )
+    result = LeadfieldGenerator("E", electrode_cap=cap).generate()
+    assert result.name == "E_leadfield_EEG10-10_UI_Jurak_2007.csv.hdf5"
+    assert result.is_file()
+
+
 def test_generate_raises_when_simnibs_wrote_no_leadfield_for_the_cap(
     tmp_path, monkeypatch
 ):

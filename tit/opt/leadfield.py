@@ -36,9 +36,10 @@ def leadfield_filename(subject_id: str, net: str) -> str:
     SimNIBS 4.6 ``TDCSLEADFIELD._lf_name``: ``basename(fnamehead)`` without its
     extension, ``_leadfield_``, ``basename(eeg_cap)`` without its extension,
     ``.hdf5``. :meth:`LeadfieldGenerator.generate` sets ``fnamehead`` to
-    ``m2m_<sid>/<sid>.msh`` and ``eeg_cap`` to ``<net>.csv``.
+    ``m2m_<sid>/<sid>.msh`` and ``eeg_cap`` to ``<net>.csv``, so the cap half
+    is *net* exactly as given (a stem by contract).
     """
-    return f"{subject_id}_leadfield_{net.removesuffix('.csv')}.hdf5"
+    return f"{subject_id}_leadfield_{net}.hdf5"
 
 
 def leadfield_net(filename: str, subject_id: str) -> str:
