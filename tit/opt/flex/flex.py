@@ -15,6 +15,7 @@ tit.opt.config.FlexResult : Output result container.
 tit.opt.flex.builder : SimNIBS object construction used internally.
 """
 
+import fnmatch
 import logging
 import os
 import re
@@ -32,7 +33,7 @@ from . import builder, utils
 from .skin_visualization import create_valid_skin_region_visualization
 
 
-def run_flex_search(config: FlexConfig) -> FlexResult:
+def run_flex_search(config: FlexConfig, *, report: bool = True) -> FlexResult:
     """Run differential-evolution electrode placement optimization.
 
     Uses ``scipy.optimize.differential_evolution`` (via SimNIBS
@@ -43,11 +44,19 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     ``config.n_multistart``) are executed sequentially; the best run's
     output is promoted to the base output folder.
 
+    An existing ``output_folder`` is re-used in place: the outputs a
+    previous run wrote there (:data:`RUN_OUTPUTS`) are removed first, so
+    the folder describes exactly this run; other files are left alone.
+
     Parameters
     ----------
     config : FlexConfig
         Fully specified optimization configuration including subject,
         ROI definition, electrode geometry, and DE hyperparameters.
+    report : bool, optional
+        Write the flex-search report (default). The adaptive and Pareto
+        drivers pass ``False`` for their intermediate steps and write one
+        report for the job's own folder.
 
     Returns
     -------
@@ -99,7 +108,59 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     validate_mask_paths(config)
     _validate_flex_inputs(config)
     with track_operation(const.TELEMETRY_OP_FLEX_SEARCH):
-        return _run_flex_search_inner(config)
+        return _run_flex_search_inner(config, report=report)
+
+
+#: What a flex-search run, or a sweep built from runs, writes into its folder: restart folders
+#: (all digits), the promoted SimNIBS outputs, the ROI plate, the manifest, the net mapping and
+#: a sweep's point folders and summary. ``mean_calibration/`` is not listed: the adaptive driver
+#: runs its focality step into the folder that already holds it.
+RUN_OUTPUTS = (
+    "candidate_history",
+    "flex_meta.json",
+    "electrode_positions.json",
+    "electrode_mapping*.json",
+    "electrode_channel_*_array_*.png",
+    "summary.txt",
+    "roi.png",
+    "roi.tetravox.json",
+    "roi_mask.nii*",
+    "valid_skin_region.png",
+    ".lg.png",
+    "*_tes_flex_opt*",
+    "simnibs_optimization_*.log",
+    "simnibs_simulation_*.mat",
+    "final_sim_*",
+    "pareto_results.json",
+    "pareto_sweep_plot.png",
+    "[0-9]*_roi*_nonroi*",
+)
+
+
+def clear_previous_run(folder: str, logger: logging.Logger | None = None) -> None:
+    """Remove a previous run's :data:`RUN_OUTPUTS` from *folder*, leaving anything else.
+
+    Without this a re-run into the same folder crashed on an aborted run's ``00/candidates.csv``
+    (the recorder creates it exclusively) and, after a finished run, kept its extra
+    ``candidate_history/NN``, ``electrode_mapping_<net>.json`` and ``final_sim_*`` beside the new
+    manifest. The server asks before a job replaces an existing run folder.
+    """
+    removed = []
+    for entry in os.scandir(folder):
+        name = entry.name
+        if not (
+            name.isdigit() or any(fnmatch.fnmatchcase(name, p) for p in RUN_OUTPUTS)
+        ):
+            continue
+        if entry.is_dir(follow_symlinks=False):
+            shutil.rmtree(entry.path)
+        else:
+            os.remove(entry.path)
+        removed.append(name)
+    if removed and logger is not None:
+        logger.info(
+            f"Replaced the previous run in {folder}: removed {', '.join(sorted(removed))}"
+        )
 
 
 def _validate_flex_inputs(config: FlexConfig) -> None:
@@ -209,7 +270,7 @@ def _confirm_roi_message(config) -> str:
     return "Confirming ROI placement"
 
 
-def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
+def _run_flex_search_inner(config: FlexConfig, report: bool = True) -> FlexResult:
     """Inner implementation of :func:`run_flex_search` (unwrapped)."""
     from .manifest import write_manifest
     from .utils import generate_label, generate_run_dirname
@@ -239,6 +300,7 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
         base_folder = os.path.join(flex_root, dirname)
 
     os.makedirs(base_folder, exist_ok=True)
+    clear_previous_run(base_folder, logger)
 
     # The ROI is resolved into this subject BEFORE any optimisation runs, and
     # leaves a plate and a JSON behind: a misplaced ROI is the one error here
@@ -311,7 +373,8 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
         )
         label = generate_label(config)
         write_manifest(base_folder, config, result, label)
-        _write_report(config, base_folder, logger)
+        if report:
+            _write_report(config, base_folder, logger)
         return result
 
     best_idx = int(np.argmin(np.where(valid_mask, fvals, np.inf)))
@@ -373,7 +436,8 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     # -- Write manifest --
     label = generate_label(config)
     write_manifest(base_folder, config, result, label, current_split=splits[best_idx])
-    _write_report(config, base_folder, logger)
+    if report:
+        _write_report(config, base_folder, logger)
 
     return result
 
