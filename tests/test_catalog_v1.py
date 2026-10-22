@@ -748,6 +748,39 @@ def test_put_freehand_rejects_non_numeric_coordinates(client: TestClient) -> Non
     assert r.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "labels, repeated",
+    [
+        (["A", "B", "A", "C"], "A"),
+        # An unlabelled position takes `E<n>` from its row, so a typed "E3" collides with row 3.
+        (["E3", None, None, None], "E3"),
+    ],
+)
+def test_put_freehand_rejects_repeated_labels(
+    client: TestClient, labels: list, repeated: str
+) -> None:
+    """Positions are stored keyed by label, so a repeat silently dropped a position (a
+    four-electrode placement came back with three) instead of being refused."""
+    r = client.put(
+        "/api/catalog/freehand/dupes",
+        params={"subject": "ernie"},
+        json={
+            "type": "U",
+            "electrode_positions": [
+                {"label": label, "x": i, "y": 0, "z": 0}
+                for i, label in enumerate(labels)
+            ],
+        },
+        headers=BEARER,
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"] == f"electrode labels must be unique; repeated: {repeated}"
+    saved = client.get(
+        "/api/catalog/freehand", params={"subject": "ernie"}, headers=BEARER
+    ).json()
+    assert "dupes" not in {c["name"] for c in saved}
+
+
 def test_notes_roundtrip(client: TestClient) -> None:
     body = client.get("/api/catalog/notes", headers=BEARER).json()
     assert body["text"] == "hello notes"

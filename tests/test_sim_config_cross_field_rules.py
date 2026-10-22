@@ -21,7 +21,8 @@ Deliberately elsewhere: the filesystem-dependent half of the same validation (th
 directory, the EEG-net CSV) stays in ``tit.sim.utils`` and is tested with the simulation runner;
 mode inference itself is ``tests/test_config_io.py``'s.
 
-Written 2026-09-03 (lane S1).
+Written 2026-09-03 (lane S1). 2026-10-21: an odd pair count is rejected here too (it failed
+only at run time, "Invalid number of electrode pairs: 5", for a 10-position free-hand job).
 """
 
 from __future__ import annotations
@@ -68,13 +69,41 @@ def test_an_electrode_pair_that_is_not_a_pair_is_rejected():
         SimulationConfig(subject_id="101", montages=[montage])
 
 
-@pytest.mark.parametrize("n_pairs", [1, 3])
-def test_a_pair_count_the_mode_cannot_classify_still_constructs(n_pairs: int):
-    """Unchanged behaviour, deliberately: `Montage.simulation_mode` raises for 1 or 3 pairs and
-    `run_simulation` is where that has always surfaced. Deciding it in ``__post_init__`` would
-    make configs that existing callers build on purpose unconstructable."""
-    config = SimulationConfig(subject_id="101", montages=[_montage("odd", n_pairs)])
-    assert config.montages[0].num_pairs == n_pairs
+@pytest.mark.parametrize("n_pairs", [1, 3, 5])
+def test_a_pair_count_the_mode_cannot_classify_is_rejected(n_pairs: int):
+    """Changed 2026-10-21: an odd pair count used to construct and fail only inside the job
+    (a 10-position free-hand placement -> "Invalid number of electrode pairs: 5" at run time).
+    It is now refused here, so validate, plan and submit all reject it up front."""
+    with pytest.raises(
+        ValueError, match=f"'odd': Invalid number of electrode pairs: {n_pairs}"
+    ):
+        SimulationConfig(
+            subject_id="101",
+            montages=[_montage("odd", n_pairs)],
+            intensities=[1.0] * n_pairs,
+        )
+
+
+def test_the_job_submission_check_refuses_a_five_pair_freehand_montage():
+    """The reported job: a 10-position free-hand placement submitted as one sim job."""
+    from tit.jobs.config_check import check_job_config
+
+    pairs = [[[k, 0.0, 0.0], [k, 1.0, 0.0]] for k in range(5)]
+    config = {
+        "subject_id": "101",
+        "montages": [
+            {
+                "_type": "Montage",
+                "name": "hand10",
+                "mode": "freehand",
+                "electrode_pairs": pairs,
+                "eeg_net": None,
+            }
+        ],
+        "intensities": [1.0] * 5,
+    }
+    with pytest.raises(ValueError, match="Invalid number of electrode pairs: 5"):
+        check_job_config("sim", config)
 
 
 def test_the_validate_route_now_reports_the_mismatch():

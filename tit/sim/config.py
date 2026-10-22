@@ -474,14 +474,13 @@ class SimulationConfig:
                         f"Montage {montage.name!r} has an invalid electrode pair {pair!r}; "
                         "each pair must contain exactly two electrodes."
                     )
+            # A pair count `simulation_mode` cannot classify (1, 3, 5, ...) is refused here, not
+            # only in `run_simulation`: a 5-pair free-hand job was accepted and then failed at
+            # run time with "Invalid number of electrode pairs: 5" (2026-10-21).
             try:
                 mode = montage.simulation_mode
-            except ValueError:
-                # A pair count `simulation_mode` cannot classify (1, 3, ...) is left exactly
-                # where it was: `run_simulation` raises on it. Deciding it here instead would
-                # turn "constructs, fails at run time" into "cannot be constructed" for
-                # configs that existing callers and tests build deliberately.
-                continue
+            except ValueError as exc:
+                raise ValueError(f"Montage {montage.name!r}: {exc}") from exc
             required = 2 if mode == SimulationMode.TI else montage.num_pairs
             if len(self.intensities) < required:
                 raise ValueError(

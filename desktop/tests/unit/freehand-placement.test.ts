@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   autoLabel,
   isBlankPosition,
+  isValidPositionCount,
   markerIndexOfRow,
   placeAt,
   placementMarkers,
@@ -9,6 +10,7 @@ import {
   positionSwatch,
   removeAt,
   renumber,
+  repeatedLabels,
   roundMm,
   rowOfMarkerIndex,
 } from "../../src/renderer/pages/simulator/freehandPlacement";
@@ -183,5 +185,21 @@ describe("row ↔ dot", () => {
     expect(markerIndexOfRow(rows, 1)).toBe(-1);
     expect(rowOfMarkerIndex(rows, 1)).toBe(2);
     expect(rowOfMarkerIndex(rows, 5)).toBe(-1);
+  });
+});
+
+describe("what Save accepts", () => {
+  it("takes 4 positions (TI) or 8, 12, 16 … (an even pair count, mTI) — never 3 or 5 pairs", () => {
+    // `tit.constants.is_valid_pair_count` on half the count: 6 and 10 positions are 3 and 5 pairs,
+    // which the job runner refused with "Invalid number of electrode pairs: 5" after Save took them.
+    const valid = Array.from({ length: 20 }, (_, n) => n).filter(isValidPositionCount);
+    expect(valid).toEqual([4, 8, 12, 16]);
+  });
+
+  it("names a label two rows share, counting an empty label as the server's E<row>", () => {
+    const rows = (labels: string[]): ElectrodePosition[] => labels.map((label) => ({ label, x: 1, y: 1, z: 1 }));
+    expect(repeatedLabels(rows(["E1+", "E1-", "E2+", "E2-"]))).toEqual([]);
+    expect(repeatedLabels(rows(["Fz", "Cz", "Fz", "Pz", "Cz", "Oz", "A", "B"]))).toEqual(["Cz", "Fz"]);
+    expect(repeatedLabels(rows(["E3", "", "", ""]))).toEqual(["E3"]);
   });
 });

@@ -83,6 +83,20 @@ describe("Free-hand source draft", () => {
     expect(container.textContent).toContain("Use 4 positions");
   });
 
+  it("refuses to save two positions under one label, and says which label", () => {
+    // The server keys a saved placement by label, so a repeat would keep only one of the two.
+    render();
+    fill("#sim-freehand-name", "dupes");
+    const save = () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Save placement")!;
+    expect(save().disabled).toBe(false);
+    fill('[aria-label="Position 3 label"]', "E1+");
+    expect(container.querySelector('[data-testid="freehand-repeated-labels"]')?.textContent).toContain("E1+ is used more than once");
+    expect(save().disabled).toBe(true);
+    fill('[aria-label="Position 3 label"]', "Fz");
+    expect(container.querySelector('[data-testid="freehand-repeated-labels"]')).toBeNull();
+    expect(save().disabled).toBe(false);
+  });
+
   it("carries the selection on a radio target, not on a row background", () => {
     // Maintainer, 2026-09-06, with a screenshot of the old accent band: *"we have this weird
     // shading … maybe have a switch to switch between the electrodes … this broken shading is

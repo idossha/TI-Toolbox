@@ -2072,15 +2072,23 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
     path = _jailed(pm, os.path.join(stim_dir, f"{name}.json"))
     if path is None:
         raise ValueError("Free-hand config path must remain inside the project")
-    os.makedirs(stim_dir, exist_ok=True)
+    entries = config.get("electrode_positions", [])
+    # The file keys positions by label, so a repeated label would silently drop a position.
+    labels = [entry.get("label") or f"E{i + 1}" for i, entry in enumerate(entries)]
+    repeated = sorted({label for label in labels if labels.count(label) > 1})
+    if repeated:
+        raise ValueError(
+            f"electrode labels must be unique; repeated: {', '.join(repeated)}"
+        )
     positions = {
-        (entry.get("label") or f"E{i + 1}"): [
+        label: [
             as_float(entry["x"], "electrode_positions[].x"),
             as_float(entry["y"], "electrode_positions[].y"),
             as_float(entry["z"], "electrode_positions[].z"),
         ]
-        for i, entry in enumerate(config.get("electrode_positions", []))
+        for label, entry in zip(labels, entries)
     }
+    os.makedirs(stim_dir, exist_ok=True)
     data = {
         "name": name,
         "type": config.get("type", "U"),

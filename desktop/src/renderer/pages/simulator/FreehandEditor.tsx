@@ -46,14 +46,8 @@ import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
 import { putFreehand, type FreehandConfig } from "./api";
 import { useFreehandDraft } from "./freehandDraft";
-import { POSITIONS_PER_STEP, isPlaced, positionSwatch } from "./freehandPlacement";
+import { POSITIONS_PER_STEP, isPlaced, isValidPositionCount, positionSwatch, repeatedLabels } from "./freehandPlacement";
 import "./freehand-editor.css";
-
-
-/** Matches `Montage.simulation_mode`: 2 or 4+ pairs, i.e. 4 or 8+ positions (an even count). */
-function isValidPositionCount(n: number): boolean {
-  return n % 2 === 0 && (n / 2 === 2 || n / 2 >= 4);
-}
 
 export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjects: string[]; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -100,6 +94,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
   });
 
   const validCount = isValidPositionCount(positions.length);
+  const repeated = repeatedLabels(positions);
 
   return (
     <Card>
@@ -227,11 +222,18 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             have made a mistake when they have simply not finished; the blocking reason is carried
             by the disabled Save button directly above it (DESIGN.md §6.3). */}
         <span className="field-help">
-          Use 4 positions (2 pairs, standard TI) or 8 or more (4+ pairs, multi-channel mTI).
+          Use 4 positions (2 pairs, standard TI) or 8, 12, 16 … (an even number of pairs from 4, multi-channel mTI).
         </span>
+        {/* Unlike the count, a repeated label is a mistake, not an unfinished table: saving would
+            keep only one of the positions that share it. */}
+        {repeated.length > 0 && (
+          <span className="field-error" role="alert" data-testid="freehand-repeated-labels">
+            Each position needs its own label: {repeated.join(", ")} is used more than once.
+          </span>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
-          {/* A pair at a time: `isValidPositionCount` accepts 4 or 8+, so an odd count is never a
-              configuration anyone can save and offering it is offering a dead end. */}
+          {/* A pair at a time: `isValidPositionCount` accepts 4, 8, 12, …, so an odd count is never
+              a configuration anyone can save and offering it is offering a dead end. */}
           <Button variant="ghost" size="sm" icon={<Plus size={14} />} onClick={add}>
             Add electrode{POSITIONS_PER_STEP > 1 ? " pair" : ""}
           </Button>
@@ -242,7 +244,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             <Button
               variant="primary"
               loading={save.isPending}
-              disabled={!activeEditSubject || !name.trim() || !validCount || positions.some((p) => p.x === undefined || p.y === undefined || p.z === undefined)}
+              disabled={!activeEditSubject || !name.trim() || !validCount || repeated.length > 0 || positions.some((p) => p.x === undefined || p.y === undefined || p.z === undefined)}
               onClick={() => save.mutate()}
             >
               Save placement

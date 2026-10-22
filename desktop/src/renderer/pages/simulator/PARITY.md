@@ -48,8 +48,9 @@ built by other tools) — it has no *editor* for them. `catalog.json`'s `Freehan
 (`{name, type: "U"|"M", electrode_positions: [{label?, x,y,z}]}`) is the actual v3.0 writer
 surface (per the lane brief: "the ONLY writer of stim_configs in v3.0"), so this page builds a
 genuine table editor (label, x, y, z per row, add/remove rows) rather than porting a UI that never
-existed. Row count is validated to 4 (2 pairs, TI) or 8+ in steps of 2 (4+ pairs, mTI), matching
-`Montage.simulation_mode`. `type` is derived from pair count (`U` for 2 pairs, `M` for 4+) — fixed
+existed. Row count is validated to 4 (2 pairs, TI) or 8, 12, 16 … (an even pair count from 4,
+mTI), matching `Montage.simulation_mode`, and labels must be unique (the file keys positions by
+label; 2026-10-21, both were accepted before and failed later). `type` is derived from pair count (`U` for 2 pairs, `M` for 4+) — fixed
 fix:pages-a 2026-08-27 after the contract lane's reconciliation narrowed `FreehandConfig.type` from
 `"xyz"|"label"` to the real on-disk `"U"|"M"` values (`tit/catalog.py::_read_freehand_file`); the
 previous `xyz`/`label` guess (keyed off whether any position had a label) no longer type-checks.

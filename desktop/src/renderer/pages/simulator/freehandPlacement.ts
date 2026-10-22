@@ -95,7 +95,7 @@ export function positionSwatch(index: number): string {
  *  - **The selection does not move afterwards.** Placing and then adjusting is one row's worth of
  *    work; a selection that jumped on would make the second click land on a different electrode.
  *  - **Nothing is appended.** Rows come from "Add electrode pair", because a montage's position
- *    count is 4 or 8+ (`isValidPositionCount`) and a click that grew the table past a valid count
+ *    count is 4, 8, 12, … (`isValidPositionCount`) and a click that grew the table past a valid count
  *    would leave Save disabled with nothing saying why.
  */
 export function placeAt(
@@ -170,8 +170,26 @@ export function savedMarkers(positions: ElectrodePosition[]): SceneMarker[] {
 }
 
 /**
- * Positions come in pairs, and the pair count is 2 or 4+ — `Montage.simulation_mode`, which is what
- * `FreehandEditor`'s own Save gate checks. "Add electrode" adds **two** rows for the same reason:
- * an odd row count is never a valid configuration, so offering it is offering a dead end.
+ * Positions come in pairs, and the pair count is 2 or an even 4+ — `Montage.simulation_mode`, which
+ * is what `FreehandEditor`'s own Save gate checks. "Add electrode" adds **two** rows for the same
+ * reason: an odd row count is never a valid configuration, so offering it is offering a dead end.
  */
 export const POSITIONS_PER_STEP = 2;
+
+/**
+ * 4 positions (2 pairs, TI) or 8, 12, 16 … (an even pair count from 4, mTI) — the position form of
+ * `tit.constants.is_valid_pair_count`. 6 or 10 positions are 3 or 5 pairs, which the server refuses.
+ */
+export function isValidPositionCount(n: number): boolean {
+  return n >= 4 && n % 4 === 0;
+}
+
+/**
+ * Labels used by more than one row. A saved placement is keyed by label
+ * (`tit/catalog.py::put_freehand_config`), so a repeat would silently drop a position; an empty
+ * label stands for `E<row>`, the name the server gives it.
+ */
+export function repeatedLabels(positions: ElectrodePosition[]): string[] {
+  const labels = positions.map((p, i) => p.label || `E${i + 1}`);
+  return [...new Set(labels.filter((label, i) => labels.indexOf(label) !== i))].sort();
+}

@@ -3220,3 +3220,26 @@ fetching after `COPY /ti-toolbox` (re-downloads on every source change).
 `desktop/tests/unit/nilearn-visuals-panel.test.tsx`, `desktop/tests/unit/nilearn-visuals-defaults.test.ts`;
 offline runs (`docker run --network none`) of the runner on Dataset 000 sub-LA and sub-101 with the
 pruned cache, and in an image built with the Dockerfile step.
+
+## 2026-10-21 — An odd electrode-pair count is refused when a simulation config is built
+
+**Decision.** `SimulationConfig.__post_init__` raises for a montage whose pair count
+`is_valid_pair_count` rejects (1, 3, 5, …), so `POST /api/validate/sim`, plans and every job
+submission refuse it. The free-hand editor saves only 4 or 8, 12, 16 … positions with unique labels,
+and `PUT /api/catalog/freehand/{name}` refuses a repeated label. Supersedes the 2026-09-03 choice
+(lane S1, recorded only in `tests/test_sim_config_cross_field_rules.py`) to let such a config
+construct and fail inside `run_simulation`.
+
+**Why.** The editor accepted 10 positions; the job was accepted and then failed at run time with
+"Invalid number of electrode pairs: 5". The callers the old choice protected built odd counts
+only in tests. A repeated label silently dropped a position, because the file keys positions by
+label.
+
+**Alternatives rejected.** A sim-only check in `tit.jobs.config_check` (`/api/validate/sim` and
+`/api/jobs/groups` deserialize without it, so the form would still say the config is valid);
+renaming repeated labels on save (it changes what the user typed).
+
+**Evidence.** `tests/test_sim_config_cross_field_rules.py`;
+`tests/test_catalog_v1.py::test_put_freehand_rejects_repeated_labels`;
+`desktop/tests/unit/freehand-placement.test.ts`; `desktop/tests/unit/freehand-session.test.tsx`.
+

@@ -149,7 +149,7 @@ class TestSimMain:
                 Montage(
                     name="m1",
                     mode=Montage.Mode.NET,
-                    electrode_pairs=[("E1", "E2")],
+                    electrode_pairs=[("E1", "E2"), ("E3", "E4")],
                     eeg_net="GSN-HydroCel-185.csv",
                 )
             ],
