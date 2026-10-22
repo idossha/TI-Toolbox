@@ -443,10 +443,11 @@ jobs:
             set -euo pipefail
             mkdir -p /tmp/test-results
             # Measured 2026-10-22 (macOS, offscreen, one worker): 364 tests, 361 passed and
-            # 3 allowed skips, in 470 s (7.8 min). The ceiling is twice that. Playwright's
+            # 3 allowed skips, in 470 s and 538 s (two green runs). The ceiling is twice the
+            # slower one (18 min). Playwright's
             # exit code is not trusted alone: check_junit decides below.
             TIT_E2E_OFFSCREEN=1 PLAYWRIGHT_JUNIT_OUTPUT_NAME=/tmp/test-results/e2e-mock.xml \
-              timeout 16m xvfb-run -a npx playwright test --project=default \
+              timeout 18m xvfb-run -a npx playwright test --project=default \
               --reporter=line,junit || true
             # Fails on 0 collected, any failure or error, and any skip not on the e2e-mock
             # allowlist (each entry states why it may skip).

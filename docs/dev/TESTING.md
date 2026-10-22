@@ -40,7 +40,7 @@ on `main` and nightly (`e2e_mock_nightly`), not on every pull request: offscreen
 after asserting that `TIT_E2E_SERVER_URL`, `TIT_E2E_TOKEN`, `TIT_E2E_PROJECT_HOST` and
 `TIT_DATASET_000` are unset, so only the mock server is reachable. Its JUnit report goes through
 `dev/check_junit.py --leg e2e-mock`, whose allowlist names the three skips of the measured run
-(2026-10-22: 364 tests, 361 passed, 7.8 min on macOS; the step's ceiling is 16 min). Real-server
+(2026-10-22: 364 tests, 361 passed, 7.8 and 9.0 min on macOS; the step's ceiling is 18 min). Real-server
 specs (`tests/e2e/real`) stay in the local release gate.
 
 `tests/numerical` makes claims only real libraries can check, and runs in three places:
