@@ -474,11 +474,11 @@ function quitWithWatchdog(): void {
 
 /** Stop the selected Docker/native runtime before closing; failures keep the window open. */
 async function handleQuitRequest(triggerWindow: BrowserWindow | null, proceed: () => void, closeProject = false, confirmedSwitch = false): Promise<void> {
-  const current = stack.getCurrent();
   const owner = triggerWindow ?? mainWindow ?? undefined;
   let mayQuit: boolean;
   try { mayQuit = await runQuitPlan(
-    { docker: current !== null && current !== undefined, native: nativeRuntime.getCurrent() !== null },
+    // Every container this app created, including one whose start is still waiting for its server.
+    { docker: stack.ownsContainer(), native: nativeRuntime.getCurrent() !== null },
     {
       listRunningJobs: getRunningJobIds,
       cancelJob: cancelJobOnQuit,

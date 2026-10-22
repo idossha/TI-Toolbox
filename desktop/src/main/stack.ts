@@ -81,6 +81,7 @@ export function attachHealthTimeoutMs(env: NodeJS.ProcessEnv = process.env): num
   return positiveFromEnv("TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS", 45_000, env);
 }
 const EXIT_POLL_MS = 400;
+const STOPPED_WHILE_STARTING = "the container was stopped while it was starting";
 
 export type StackEvent =
   | { type: "progress"; stage: string; message: string }
@@ -206,6 +207,14 @@ function isUnsupportedEngine(version: DockerVersionInfo): boolean {
 
 export class StackManager {
   private current: CurrentStack | null = null;
+  /**
+   * Containers this process created that are not `current`: one still waiting for its server, or
+   * one whose health wait gave up while it kept running. Owned from creation, so `stop()` — and
+   * therefore quitting — stops them too.
+   */
+  private owned = new Set<string>();
+  /** Bumped by every `stop()`; a start that sees it change was stopped while it waited. */
+  private stops = 0;
   private listeners = new Set<(event: StackEvent) => void>();
   private starting = false;
   private host: StackHost;
@@ -230,6 +239,11 @@ export class StackManager {
 
   getCurrent(): CurrentStack | null {
     return this.current;
+  }
+
+  /** Whether `stop()` has a container to stop: the current stack, or one a start created. */
+  ownsContainer(): boolean {
+    return this.current !== null || this.owned.size > 0;
   }
 
   /** Validate a replacement's compose plan before ending the current session. */
@@ -433,7 +447,11 @@ export class StackManager {
 
     this.progress("Creating the container…");
     await this.removeByName(api, plan.containerName);
+    const stops = this.stops;
     const created = await api.createContainer(plan.body, { name: plan.containerName, platform: plan.platform });
+    // Owned from here on: a health timeout leaves it running for its logs, and a quit while this
+    // start waits must stop it (stack.ts's contract: closing Electron stops its stack).
+    this.owned.add(created.Id);
     this.progress("Starting the container…");
     await client.startContainer(created.Id);
 
@@ -441,11 +459,13 @@ export class StackManager {
     this.progress("Waiting for the server to answer…");
     const stopLogs = this.pumpLogs(client, created.Id);
     try {
-      await this.waitForServer(api, origin, created.Id, plan.containerPort);
+      await this.waitForServer(api, origin, created.Id, plan.containerPort, () => this.stops !== stops);
     } finally {
       stopLogs();
     }
+    if (this.stops !== stops) throw new StackStartError("unknown", STOPPED_WHILE_STARTING);
 
+    this.owned.delete(created.Id);
     this.current = { projectName, hostProjectDir, containerId: created.Id, containerName: plan.containerName, image: plan.image, origin, token, port: plan.hostPort };
     this.emit({ type: "started", origin, port: plan.hostPort, attached: false });
     return { ok: true, url: origin, token, attached: false };
@@ -516,7 +536,7 @@ export class StackManager {
    * seconds in (a bad mount, a missing image entrypoint) would otherwise keep the user staring at
    * "waiting for the server" for the full health timeout and then report the wrong cause.
    */
-  private async waitForServer(api: StackApi, origin: string, containerId: string, containerPort: number): Promise<void> {
+  private async waitForServer(api: StackApi, origin: string, containerId: string, containerPort: number, stopped: () => boolean): Promise<void> {
     let settled = false;
     const timeoutMs = startHealthTimeoutMs();
     const health = this.host.waitForHealth(origin, timeoutMs).then(() => "healthy" as const);
@@ -525,6 +545,7 @@ export class StackManager {
       while (!settled && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, EXIT_POLL_MS));
         if (settled) break;
+        if (stopped()) return "stopped" as const;
         const state = await api.inspect(containerId, containerPort).catch(() => null);
         if (state && !state.running && state.status !== "created") return state.exitCode;
       }
@@ -534,6 +555,7 @@ export class StackManager {
     try {
       const outcome = await Promise.race([health, exited]);
       if (outcome === "healthy") return;
+      if (outcome === "stopped") throw new StackStartError("unknown", STOPPED_WHILE_STARTING);
       if (typeof outcome === "number") throw new StackStartError("container-exited", `exit code ${outcome} — see the container log lines above`);
       // `exited` gave up at the deadline; let the health promise report its own timeout.
       await health;
@@ -547,27 +569,38 @@ export class StackManager {
     }
   }
 
-  /** Stop and remove the container. Named volumes are kept — they hold the user's cached data. */
+  /**
+   * Stop and remove every container this process owns: the current stack and any a start created
+   * (including one still waiting for its server, whose start then fails as stopped). Named volumes
+   * are kept — they hold the user's cached data.
+   */
   async stop(): Promise<StackStopResult> {
     const current = this.current;
-    if (!current) return { ok: true };
+    const ids = [...new Set([...(current ? [current.containerId] : []), ...this.owned])];
+    if (ids.length === 0) return { ok: true };
+    this.stops++;
     this.progress("Stopping the container…");
     try {
       const found = await discover();
       if (!found.available) throw new DockerEngineError(found.kind, found.message);
       const client = new DockerEngineClient(found.connection);
-      await client.stopContainer(current.containerId, 10);
-      await client.removeContainer(current.containerId, { volumes: false });
-    } catch (err) {
-      // The container may already be gone (the user ran `docker rm` themselves); that is the state
-      // this method exists to reach, so it is a success, not an error.
-      if (!(err instanceof DockerEngineError && err.kind === "not-found")) {
-        const message = this.describe(err);
-        this.emit({ type: "error", message });
-        return { ok: false, error: message };
+      for (const id of ids) {
+        try {
+          await client.stopContainer(id, 10);
+          await client.removeContainer(id, { volumes: false });
+        } catch (err) {
+          // The container may already be gone (the user ran `docker rm` themselves); that is the
+          // state this method exists to reach, so it is a success, not an error.
+          if (!(err instanceof DockerEngineError && err.kind === "not-found")) throw err;
+        }
       }
+    } catch (err) {
+      const message = this.describe(err);
+      this.emit({ type: "error", message });
+      return { ok: false, error: message };
     }
-    this.current = null;
+    if (this.current === current) this.current = null;
+    for (const id of ids) this.owned.delete(id);
     this.emit({ type: "stopped" });
     return { ok: true };
   }
