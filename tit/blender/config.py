@@ -335,6 +335,17 @@ class VectorConfig:
             raise ValueError("green_percentile must be in [0, 100]")
         if not (0.0 <= self.red_percentile <= 100.0):
             raise ValueError("red_percentile must be in [0, 100]")
+        # Each threshold starts the next colour band; the runner used to clamp a
+        # non-monotone order silently into a ramp nobody typed. RGB colouring
+        # reads none of them.
+        if self.color == VectorConfig.Color.MAGSCALE and not (
+            self.blue_percentile <= self.green_percentile <= self.red_percentile
+        ):
+            raise ValueError(
+                "magnitude-scale percentiles must rise blue <= green <= red; got "
+                f"blue {self.blue_percentile}, green {self.green_percentile}, "
+                f"red {self.red_percentile}"
+            )
 
     @property
     def is_mti(self) -> bool:

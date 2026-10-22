@@ -110,6 +110,9 @@ def create_arrow(
             T = np.eye(4)
             T[:3, :3] = rot.as_matrix()
             arrow.apply_transform(T)
+        elif ndir[2] < 0:
+            # Anti-parallel to +Z: the cross product vanishes, so turn half a circle about x.
+            arrow.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
     else:
         ndir = np.array([0.0, 0.0, 1.0])
 
