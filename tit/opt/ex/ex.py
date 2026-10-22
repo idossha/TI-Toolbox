@@ -25,7 +25,7 @@ from .roi import (
     confirm_atlas_targets,
     mni_roi_files_to_subject_space,
 )
-from .symmetry import build_symmetry_mirror_map
+from .symmetry import build_symmetry_mirror_map, net_name_from_leadfield
 
 
 def run_ex_search(config: ExConfig) -> ExResult:
@@ -53,7 +53,8 @@ def run_ex_search(config: ExConfig) -> ExResult:
     ------
     ValueError
         If no candidate montage can be enumerated (empty pool/buckets or
-        an over-restrictive symmetry rule), a referenced ROI CSV or atlas
+        an over-restrictive symmetry rule), an electrode is not in the
+        leadfield (raised before it is loaded), a referenced ROI CSV or atlas
         file does not exist, or the ROI selects no leadfield mesh element
         (raised before the search; no results are written).
     FileNotFoundError
@@ -149,6 +150,13 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         )
     logger.info(f"Candidate montage x ratio combinations: {n_candidates}")
 
+    leadfield_path = os.path.join(
+        pm.leadfields(config.subject_id), config.leadfield_hdf
+    )
+    refuse_electrodes_off_leadfield(
+        "ex-search", [*e1_plus, *e1_minus, *e2_plus, *e2_minus], leadfield_path
+    )
+
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Output: {output_dir}")
 
@@ -174,10 +182,6 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     if atlas_entries:
         logger.info(f"Adding {len(atlas_entries)} atlas ROI target(s)")
         roi_files = roi_files + atlas_entries
-
-    leadfield_path = os.path.join(
-        pm.leadfields(config.subject_id), config.leadfield_hdf
-    )
 
     engine = ExSearchEngine(leadfield_path, roi_files, config.roi_name, logger)
     engine.initialize(roi_radius=config.roi_radius)
@@ -207,6 +211,50 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         results_csv=output_info.get("csv_path"),
         config_json=output_info.get("config_json_path"),
     )
+
+
+def leadfield_electrode_names(leadfield_path: str) -> list[str]:
+    """The electrode names a leadfield HDF5 holds, read from its attributes only.
+
+    The ``electrode_names`` attribute :func:`simnibs.utils.TI_utils.load_leadfield` builds
+    its electrode index from (the reference electrode included), read without loading the
+    multi-GB field.
+    """
+    import h5py
+
+    with h5py.File(leadfield_path, "r") as handle:
+        attrs = handle["mesh_leadfield"]["leadfields"]["tdcs_leadfield"].attrs
+        return [
+            name.decode() if isinstance(name, bytes) else str(name)
+            for name in attrs["electrode_names"]
+        ]
+
+
+def refuse_electrodes_off_leadfield(
+    search: str, labels: list[str], leadfield_path: str
+) -> None:
+    """Raise before the leadfield is loaded when an electrode label is not in it.
+
+    Without this the engine loads the whole leadfield and the first unknown label then
+    dies as a bare ``KeyError`` inside SimNIBS's ``TI.get_field`` (on a worker process
+    when ``n_jobs > 1``). A missing file is left to the engine, whose load names it; so is
+    a file whose name list reads empty (no real leadfield has one and SimNIBS's load
+    refuses it; it is what the host suite's h5py stand-in reads).
+
+    Raises:
+        ValueError: Naming the leadfield's net and every label it does not hold.
+    """
+    if not os.path.isfile(leadfield_path):
+        return
+    names = set(leadfield_electrode_names(leadfield_path))
+    missing = [label for label in dict.fromkeys(labels) if label not in names]
+    if names and missing:
+        net = net_name_from_leadfield(leadfield_path)
+        raise ValueError(
+            f"{search} electrodes not in the leadfield of {net}: "
+            f"{', '.join(missing)}. Pick electrodes from {net}, or the leadfield of "
+            "the net these came from."
+        )
 
 
 def _write_report(subject_id: str, run_dir: str, logger) -> None:

@@ -13,6 +13,7 @@ from pathlib import Path
 from tit.logger import add_file_handler
 from tit.opt.masks import validate_mask_paths
 from tit.opt.config import MExConfig, MExResult
+from tit.opt.ex.ex import refuse_electrodes_off_leadfield
 from tit.opt.ex.results import process_and_save
 from tit.opt.ex.roi import (
     atlas_roi_entries,
@@ -49,7 +50,8 @@ def run_m_ex_search(config: MExConfig) -> MExResult:
     Raises
     ------
     ValueError
-        If no candidate montage can be enumerated, a referenced ROI CSV or
+        If no candidate montage can be enumerated, an electrode is not in
+        the leadfield (raised before it is loaded), a referenced ROI CSV or
         atlas file does not exist, or the ROI selects no leadfield mesh
         element (raised before the search; no results are written).
     FileNotFoundError
@@ -138,6 +140,16 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         raise ValueError(f"m-ex-search has no candidate montages to evaluate: {reason}")
     logger.info("Candidate montages: %d", n_candidates)
 
+    leadfield_path = os.path.join(
+        pm.leadfields(config.subject_id), config.leadfield_hdf
+    )
+    labels = (
+        buckets_or_pool
+        if all_combinations
+        else [label for bucket in buckets_or_pool.values() for label in bucket]
+    )
+    refuse_electrodes_off_leadfield("m-ex-search", labels, leadfield_path)
+
     os.makedirs(output_dir, exist_ok=True)
     logger.info("Output: %s", output_dir)
 
@@ -167,10 +179,6 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         logger.info("Adding %d atlas ROI target(s)", len(atlas_entries))
         roi_files = roi_files + atlas_entries
     roi_target = roi_files
-
-    leadfield_path = os.path.join(
-        pm.leadfields(config.subject_id), config.leadfield_hdf
-    )
 
     engine = MExSearchEngine(leadfield_path, roi_target, config.roi_name, logger)
     engine.initialize(roi_radius=config.roi_radius)

@@ -321,6 +321,60 @@ def _check_flex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
 # -- ex / mex --------------------------------------------------------------------------------
 
 
+def _leadfield_labels(csv_path: Path) -> set[str]:
+    """The electrode names a leadfield built on the net CSV *csv_path* holds, or empty.
+
+    SimNIBS's TDCSLEADFIELD stores every ``Electrode`` row and the ``ReferenceElectrode``
+    row (Dataset 000: the 75 electrodes of EEG10-10_UI_Jurak_2007 plus ``Cz``), and
+    ``TI_utils.load_leadfield`` maps the reference too (as the zero-potential pole), so
+    both are usable Ex/mEx labels; a ``Fiducial`` row is not an electrode.
+    """
+    labels: set[str] = set()
+    try:
+        with open(csv_path, newline="") as handle:
+            for row in csv.reader(handle):
+                kind = row[0].strip().lower() if row else ""
+                if len(row) >= 5 and kind in ("electrode", "referenceelectrode"):
+                    labels.add(row[4].strip())
+    except OSError:
+        return set()
+    return labels
+
+
+def _ex_labels_off_net(electrodes: Any, net: str, net_csv: Path) -> list[MissingInput]:
+    """Every bucket/pool label of an Ex/mEx ``electrodes`` dict the leadfield lacks, as one finding.
+
+    The runner would load the whole leadfield and only then fail on the first unknown
+    label inside SimNIBS's index lookup (``tit.opt.ex.engine``, ``TI.get_field``).
+    """
+    if not isinstance(electrodes, dict):
+        return []
+    wanted = [
+        label
+        for value in electrodes.values()
+        if isinstance(value, (list, tuple))  # skips the "_type" discriminator
+        for label in value
+        if isinstance(label, str)
+    ]
+    known = _leadfield_labels(net_csv)
+    unknown = [label for label in dict.fromkeys(wanted) if label not in known]
+    if not unknown or not known:
+        return []
+    return [
+        MissingInput(
+            what=(
+                f"electrode(s) {', '.join(unknown)} in EEG net {net!r}, "
+                "the leadfield's net"
+            ),
+            expected_path=str(net_csv),
+            how_to_fix=(
+                f"Pick electrodes from {net}, or the leadfield of the net these "
+                "came from."
+            ),
+        )
+    ]
+
+
 def _check_ex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
     sid = config.get("subject_id")
     if not isinstance(sid, str) or not sid:
@@ -355,6 +409,7 @@ def _check_ex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
                     "is wrong too.",
                 )
             )
+            missing.extend(_ex_labels_off_net(config.get("electrodes"), net, net_csv))
     # ExConfig/MExConfig.__post_init__ append ".csv"; roi_names=None means [roi_name].
     names = config.get("roi_names")
     if names is None:
