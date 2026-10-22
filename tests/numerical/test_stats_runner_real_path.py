@@ -38,12 +38,9 @@ Pins, for both modes and both cluster statistics:
   the significant-voxel mask is 0/1, inside the testable region and only on voxels whose
   uncorrected p is below the cluster-forming threshold;
 * ``catalog.group_stats_detail`` reads status ``ok``, the groups with their exact subject ids,
-  and "Significant clusters" equal to the result event's count; for a mass run "Cluster
-  threshold" equals the summary's threshold line.
-
-Known gap, xfail(strict): for a size run the catalog shows no "Cluster threshold" -- its log
-regex wants "<value> <word> units" and the engine logs "12.00 voxels" (``tit/catalog.py``,
-owned elsewhere).
+  and "Significant clusters" equal to the result event's count; "Cluster threshold" equals
+  the summary's threshold line, for a mass run and for a size run (whose log line reads
+  "12.00 voxels", with no "units").
 
 Run (container): ``simnibs_python -m pytest tests/numerical/test_stats_runner_real_path.py -q``.
 """
@@ -394,27 +391,7 @@ def test_the_results_detail_reads_what_the_run_reported(runs, mode, stat):
     )
 
 
-@pytest.mark.parametrize(
-    "mode,stat",
-    [
-        pytest.param(
-            m,
-            s,
-            marks=(
-                [
-                    pytest.mark.xfail(
-                        strict=True,
-                        reason="catalog log regex misses a size run's threshold line "
-                        "('12.00 voxels', no 'units'); tit/catalog.py is owned elsewhere",
-                    )
-                ]
-                if s == "size"
-                else []
-            ),
-        )
-        for m, s in RUNS
-    ],
-)
+@pytest.mark.parametrize("mode,stat", RUNS)
 def test_the_results_detail_shows_the_summarys_cluster_threshold(runs, mode, stat):
     from tit.catalog import group_stats_detail
     from tit.paths import get_path_manager
