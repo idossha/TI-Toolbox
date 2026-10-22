@@ -176,6 +176,8 @@ def test_the_engine_assembles_pairs_and_carriers_as_the_symmetry_assumes(
         * (lf[idx.index(pair[0])] - lf[idx.index(pair[1])])
     )
     monkeypatch.setattr(engine_mod, "TI", fake_ti)
+    # The real envelope, whatever an earlier test module left bound in the engine module.
+    monkeypatch.setattr(engine_mod, "get_TI_vectors", get_TI_vectors)
     engine = MExSearchEngine("/lf.hdf5", [], "roi", MagicMock())
     engine.leadfield, engine.idx_lf = leadfield, names
     engine.roi_indices = np.array([0, 2])
