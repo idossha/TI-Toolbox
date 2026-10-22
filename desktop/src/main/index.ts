@@ -23,7 +23,7 @@ import { portFromEnv } from "./port";
 import { notifyJobCompletions, setJobFinishedListener, showNativeNotification, stopNotifyingJobCompletions } from "./jobsNotifier";
 import type { NotifyResult } from "../shared/jobNotifications";
 import { renderPlatesForJob } from "./roiPlates";
-import { containerToHostPath, hasDotSegment, hostToContainerPath, projectDirName, type HostPlatform } from "../shared/paths";
+import { containerToHostPath, hasDotSegment, projectDirName, type HostPlatform } from "../shared/paths";
 import { createQuitGate } from "../shared/quitGate";
 import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
 import { mayLaunchNativeViewer, mayShowSystemUi, windowMode } from "./window";
@@ -33,7 +33,6 @@ import type {
   TitAssistantStatus,
   TitConnectArgs,
   TitConnectResult,
-  TitSelectFileOptions,
   TitSaveFileOptions,
   TitSaveFileResult,
   TitStackEvent,
@@ -327,10 +326,10 @@ function toHostPlatform(platform: NodeJS.Platform): HostPlatform {
 /**
  * `GET /api/project`, cached per session — fetched through main (never the renderer, R5) with the
  * bearer token, the same way `getRunningJobsCount` reaches the server without going through the
- * renderer's Vite proxy. Used only as `resolveHostPathStrict`/`resolveContainerPathForBrowse`'s
- * fallback when this app did not itself start the stack (no `ProjectMount` from
- * `stack.getCurrent()`), so a manually-connected external server's own `host_path` (when it knows
- * one) can still resolve `openPath`/`showItemInFolder`/`selectFile`.
+ * renderer's Vite proxy. Used only as `resolveHostPathStrict`'s fallback when this app did not
+ * itself start the stack (no `ProjectMount` from `stack.getCurrent()`), so a manually-connected
+ * external server's own `host_path` (when it knows one) can still resolve
+ * `openPath`/`showItemInFolder`.
  */
 let projectRootCache: { origin: string; containerPath: string; hostPath: string | null } | null = null;
 
@@ -388,14 +387,6 @@ async function resolveHostPathStrict(pathFromServer: string): Promise<PathResolv
   return mapped ? { ok: true, path: mapped } : { ok: false, reason: "path is outside the project" };
 }
 
-/**
- * The reverse mapping, for the file/directory picker (`tit:selectFile` — ra_13 finding 8): a host
- * path the user just picked in a native dialog -> the container path a `PathInput` field expects.
- * Same known-mount preference as `resolveHostPathStrict`. Returns `null` (not an error object —
- * the caller logs the reason and falls back to the OS-picker returning nothing, matching
- * `selectDirectory`'s existing "cancelled" contract) when the picked path is outside every known
- * mount, so a page can never receive a host path it has no business seeing.
- */
 /** The container paths of everything one job produced; `[]` when it cannot be asked. */
 async function jobArtifactPaths(jobId: string): Promise<string[]> {
   if (!activeSession) return [];
@@ -409,17 +400,6 @@ async function jobArtifactPaths(jobId: string): Promise<string[]> {
   } catch {
     return [];
   }
-}
-
-async function resolveContainerPathForBrowse(hostPath: string): Promise<string | null> {
-  const project = await knownProjectRoots();
-  if (!project) {
-    log("warn", "selectFile: no known project mount to map the chosen path into");
-    return null;
-  }
-  const mapped = hostToContainerPath(hostPath, project.hostPath, project.containerPath, toHostPlatform(process.platform));
-  if (!mapped) log("warn", "selectFile: chosen path is outside the project");
-  return mapped;
 }
 
 async function getRunningJobIds(): Promise<string[]> {
@@ -1035,20 +1015,6 @@ function registerIpc(): void {
     if (result.canceled || result.filePaths.length === 0) return undefined;
     void updateSettings({ lastProjectDir: result.filePaths[0] });
     return result.filePaths[0];
-  });
-  ipcMain.handle("tit:selectFile", async (e, options: unknown): Promise<string | undefined> => {
-    // Deliberately still callable from a server-served page (unlike selectDirectory above): pages'
-    // `PathInput` "Browse…" (ra_13 finding 8) is a real, in-use feature (`pages/viewer/index.tsx`).
-    // What changed here is not who may call it but what it returns — a *container* path mapped
-    // through the known project mount, never the raw host path the OS dialog produced.
-    if (!fromMainWindow(e) || !mainWindow) return undefined;
-    const opts = (options ?? {}) as TitSelectFileOptions;
-    const result = await dialog.showOpenDialog(mainWindow, { properties: ["openFile"], filters: opts.filters });
-    if (result.canceled || result.filePaths.length === 0) return undefined;
-    const hostPath = result.filePaths[0];
-    if (hostPath === undefined) return undefined;
-    const containerPath = await resolveContainerPathForBrowse(hostPath);
-    return containerPath ?? undefined;
   });
   ipcMain.handle(
     "tit:saveFile",

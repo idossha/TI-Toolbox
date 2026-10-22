@@ -109,9 +109,8 @@ test("launcher connects and the shell renders its chrome around the landing page
 
   // Context bar (U11): no project crumb, no subject switcher — the search field took the space
   // they used to occupy, on the left, wide, with the ⌘K hint; the running-jobs chip and the
-  // connection dot stay on the right. Measured: 40px, unchanged from v2.
-  await expect(page.getByTestId("project-crumb")).toHaveCount(0);
-  await expect(page.getByTestId("subject-switcher")).toHaveCount(0);
+  // connection dot stay on the right. Measured: 40px, unchanged from v2. The bar never names the
+  // project ("example", below) or the subject (the palette test selects ernie and checks again).
   const contextBar = page.locator(".context-bar");
   expect(Math.round((await contextBar.boundingBox())!.height)).toBe(40);
   await expect(contextBar).not.toContainText("example");
@@ -155,7 +154,7 @@ test("launcher connects and the shell renders its chrome around the landing page
   // adds `assistant`, one namespace for the host terminal running the user's own Claude Code or
   // Codex (the renderer names the CLI only): twenty-four. The 2026-10-09 update-notice entry adds
   // `checkAppUpdate`, TI-Toolbox's own newest-release check (read-only, no arguments but `force`):
-  // twenty-five.
+  // twenty-five. Removing `selectFile`, a host file picker no page ever called, leaves twenty-four.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
@@ -178,7 +177,6 @@ test("launcher connects and the shell renders its chrome around the landing page
     "saveFile",
     "saveNativeTetravoxScene",
     "selectDirectory",
-    "selectFile",
     "setSettings",
     "showItemInFolder",
     "stack",

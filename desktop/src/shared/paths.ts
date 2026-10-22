@@ -1,5 +1,5 @@
 /**
- * Host <-> container path mapping for one mounted project.
+ * Container -> host path mapping for one mounted project.
  *
  * The compose stack always mounts exactly one host directory at `/mnt/<basename>` inside the
  * container (`LOCAL_PROJECT_DIR:/mnt/${PROJECT_DIR_NAME}`, see the root `docker-compose.yml`).
@@ -11,7 +11,8 @@
  * Pure and dependency-free on purpose: no `node:path` (its separator/casing rules are those of
  * the machine running the code, not of the host platform a path string claims to be from), so the
  * same test suite can exercise Windows/WSL/macOS path shapes from any CI runner. `tit/host_path.py`
- * holds the same rules; both suites read `tests/fixtures/host_paths.json` so they cannot drift.
+ * holds the same rules (plus the host -> container direction the server needs); both suites read
+ * `tests/fixtures/host_paths.json` so they cannot drift.
  */
 
 export type HostPlatform = "darwin" | "win32" | "linux";
@@ -78,26 +79,6 @@ function joinHostPath(root: string, segments: string[], platform: HostPlatform):
   return "/" + segments.join("/");
 }
 
-function isCaseInsensitive(platform: HostPlatform): boolean {
-  // Windows and (default, non-"Case-sensitive" APFS) macOS volumes fold case; Linux does not.
-  return platform !== "linux";
-}
-
-function segmentsEqual(a: string, b: string, caseInsensitive: boolean): boolean {
-  return caseInsensitive ? a.toLowerCase() === b.toLowerCase() : a === b;
-}
-
-/**
- * Root identity (drive letter, UNC server/share) is compared case-insensitively regardless of
- * platform: Windows drive letters and SMB/WSL hostnames are conventionally case-insensitive even
- * though the platform as a whole might not be (this only matters for the exotic case of a Linux
- * host reached over a UNC-style path, which does not occur in practice today).
- */
-function rootsEqual(a: string, b: string): boolean {
-  return segmentsEqual(a, b, true);
-}
-
-
 /**
  * The `<name>` in `/mnt/<name>` the compose stack mounts `hostDir` at. Throws for a drive or share
  * root, which has no name. `tit/host_path.py`'s `project_dir_name` is the same rule.
@@ -132,30 +113,4 @@ export function containerToHostPath(
   if (rest.includes("..")) return null;
   const project = parseHostPath(hostRoot);
   return joinHostPath(project.root, [...project.segments, ...rest], platform);
-}
-
-/**
- * A host path under `hostRoot` -> its container path under `containerRoot`, folding case on Windows
- * and macOS hosts. `null` when `hostRoot` is unknown or `hostPath` is outside it. Used by the file
- * picker so a page receives the container path its `PathInput` expects, never a raw host path.
- * `tit/host_path.py`'s `to_container` agrees (it folds case for Windows-syntax paths only).
- */
-export function hostToContainerPath(
-  hostPath: string,
-  hostRoot: string | null,
-  containerRoot: string,
-  platform: HostPlatform,
-): string | null {
-  if (!hostRoot) return null;
-  const project = parseHostPath(hostRoot);
-  const target = parseHostPath(hostPath);
-  if (!project.root || !rootsEqual(target.root, project.root)) return null;
-  const ci = isCaseInsensitive(platform);
-  if (target.segments.length < project.segments.length) return null;
-  for (let i = 0; i < project.segments.length; i++) {
-    if (!segmentsEqual(target.segments[i] ?? "", project.segments[i] ?? "", ci)) return null;
-  }
-  const rest = target.segments.slice(project.segments.length);
-  if (rest.includes("..")) return null;
-  return [normContainerPath(containerRoot), ...rest].join("/") || "/";
 }

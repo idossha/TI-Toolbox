@@ -21,10 +21,6 @@ export interface TitConnectArgs {
 
 export type TitConnectResult = { ok: true } | { ok: false; error: string };
 
-export interface TitSelectFileOptions {
-  filters?: { name: string; extensions: string[] }[];
-}
-
 export interface TitSaveFileOptions {
   /** Suggested file name, e.g. `"participants.tsv"`. Basename only; any directory is stripped. */
   defaultName?: string;
@@ -224,18 +220,9 @@ export interface TitBridge {
   /**
    * Host directory picker for project selection, including switching. Requires an explicit native
    * picker selection; its result is a raw host path (`stack.start` needs one), never mapped into a
-   * project — unlike `selectFile`, below.
+   * project.
    */
   selectDirectory(): Promise<string | undefined>;
-  /**
-   * Host file picker (`PathInput` `onBrowse` for a file field, ra_13 finding 8). Callable from any
-   * page — the picked host path is mapped through the known project mount (`stack.getCurrent()`'s
-   * mount, or `GET /api/project`'s `host_path`) before it is returned, so callers only ever get a
-   * *container* path. Resolves to `undefined` both when the user cancels the dialog and when the
-   * picked path falls outside every known mount (the reason is logged in main, not surfaced here —
-   * there is no secret in a "no mount" case, only a path the caller has no way to use anyway).
-   */
-  selectFile(options?: TitSelectFileOptions): Promise<string | undefined>;
   /**
    * Save renderer-produced **text** to a host file the user picks.
    *
