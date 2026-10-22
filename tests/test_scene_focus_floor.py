@@ -15,6 +15,11 @@ What this pins
     matter's own lowest vertex out of its focus box (container probe: the source floor,
     the surviving vertex index and both roundings printed from the real mesh).
 
+    Two consequences of the fix: a sidecar the previous builder ("4") cached for an unchanged
+    mesh is not what the scene route finds (only the builder version can expire it), and
+    each part's ``build_ms`` still counts its own simplification, which now runs in a loop of
+    its own before the floor is read.
+
 Where the numbers come from
     Hand-made octahedra, not a real mesh (``simnibs`` is a ``MagicMock`` here, so
     ``read_msh`` is replaced by a fake that crops these arrays). The floor value is sub-101's
@@ -24,6 +29,8 @@ Where the numbers come from
     never from the sidecar under test. The second case lowers the grey matter's published
     floor 0.1 mm below its input minimum, the shape of a simplifier that places vertices off
     the input (centroid or quadric placement), so the rule holds whatever the simplifier does.
+    The stale sidecar carries the real leg's measured boxes; the build times come from a fake
+    clock that moves only in the mesh read and in each simplification.
 
 How to run it
     ``python -m pytest tests/test_scene_focus_floor.py -q -p no:cacheprovider``
@@ -212,6 +219,78 @@ def test_a_simplified_floor_below_the_input_floor_is_the_floor(
     assert metas["skin"]["bbox"][2] == NECK
 
 
-def test_the_builder_version_moved_with_the_sidecar_content() -> None:
-    """The fix changes sidecar values, so a version-4 cache entry must not be served."""
-    assert build.BUILDER_VERSION != "4"
+def _sub101_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, dict[int, tuple[np.ndarray, np.ndarray]]]:
+    gm = _octahedron(-20.0, SUB101_GM_FLOOR, 41.0, 60.0, 75.0)
+    skin = _octahedron(SUB101_GM_FLOOR, NECK, SKIN_TOP, 70.0, 80.0)
+    head = {build.PART_TAGS["gm"]: gm, build.PART_TAGS["skin"]: skin}
+    return _project(tmp_path, monkeypatch, head), head
+
+
+def test_a_sidecar_the_previous_builder_cached_is_not_served(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unchanged mesh keeps its source fingerprint; only the builder version expires the
+    sidecar builder "4" (the one before this fix) cached with sub-101's cropped focus box.
+    """
+    project, head = _sub101_head(tmp_path, monkeypatch)
+    pm = get_path_manager()
+    gm_v, gm_t = head[build.PART_TAGS["gm"]]
+    stale_fp = cache.fingerprint(build.surface_sources(pm, "101"), "4")
+    # The defect as the real leg measured it: focus z0 -92.335 against a bbox z0 -92.396.
+    stale = {
+        "bbox": [-60.0, -75.0, -92.396, 60.0, 75.0, 41.0],
+        "focus_bbox": [-60.0, -75.0, -92.335, 60.0, 75.0, 41.0],
+    }
+    cache.publish(project, "101", "gm", stale_fp, tvsc.encode(gm_v, gm_t), stale)
+    assert cache.find_cached(project, "101", "gm", stale_fp) is not None
+
+    # What the scene route looks the part up by (tit/server/routes/scene.py _surface_ready).
+    served_fp = build.surface_fingerprint(pm, "101")
+    assert cache.find_cached(project, "101", "gm", served_fp) is None, "stale served"
+
+    build.build_surfaces(pm, "101")
+
+    served = cache.find_cached(project, "101", "gm", served_fp)
+    assert served.meta["focus_bbox"] == served.meta["bbox"]
+    assert served.meta["bbox"][2] == -92.396
+    assert cache.find_cached(project, "101", "gm", stale_fp) is None, "not expired"
+
+
+def test_each_parts_build_time_is_the_read_plus_its_own_simplification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Simplification now runs before the floor, in its own loop; its time stays its part's.
+
+    A clock that moves only in the one mesh read (1 s) and in each part's simplification
+    (grey matter 2 s, skin 3 s) gives every sidecar time by hand: ``build_ms`` is the shared
+    read plus the part's own work, ``mesh_read_ms`` the read alone.
+    """
+    _project_dir, head = _sub101_head(tmp_path, monkeypatch)
+    gm_v, _gm_t = head[build.PART_TAGS["gm"]]
+    clock = [0.0]
+
+    def reading(_path):  # noqa: ANN001, ANN202 - stands in for mesh_io.read_msh
+        clock[0] += 1.0
+        return _FakeMesh(head)
+
+    real = build.simplify_to_budget
+
+    def timed(
+        vertices, triangles, max_triangles, max_bytes=None
+    ):  # noqa: ANN001, ANN202
+        clock[0] += 2.0 if np.array_equal(vertices, gm_v) else 3.0
+        return real(vertices, triangles, max_triangles, max_bytes)
+
+    monkeypatch.setattr(sys.modules["simnibs.mesh_tools.mesh_io"], "read_msh", reading)
+    monkeypatch.setattr(build, "simplify_to_budget", timed)
+    monkeypatch.setattr(build, "time", SimpleNamespace(perf_counter=lambda: clock[0]))
+
+    metas = build.build_surfaces(get_path_manager(), "101")
+
+    assert {part: meta["build_ms"] for part, meta in metas.items()} == {
+        "gm": 3000.0,
+        "skin": 4000.0,
+    }
+    assert {meta["mesh_read_ms"] for meta in metas.values()} == {1000.0}
