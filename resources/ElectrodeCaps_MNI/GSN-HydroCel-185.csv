@@ -183,5 +183,5 @@ Electrode,62.415968,41.366121,31.408767,E223
 Electrode,52.039379,43.520465,46.277278,E224
 Fiducial,0,82.9,-43,Nz
 Fiducial,0,-116.2,-30.5,Iz
-Fiducial,79.6,-20.6,-48.6,LPA
-Fiducial,-80.6,-20.6,-48.1,RPA
+Fiducial,79.6,-20.6,-48.6,RPA
+Fiducial,-80.6,-20.6,-48.1,LPA
