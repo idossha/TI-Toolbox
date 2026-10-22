@@ -16,6 +16,7 @@ tit.analyzer.analyzer : Analyzer class that consumes the resolved paths.
 """
 
 import logging
+import re
 from pathlib import Path
 
 from tit.paths import get_path_manager
@@ -88,7 +89,7 @@ def select_field_file(
     if space == "mesh":
         return _select_mesh(sim_dir, simulation, is_mti, field)
     if space == "voxel":
-        return _select_voxel(sim_dir, is_mti, tissue_type, field)
+        return _select_voxel(sim_dir, simulation, is_mti, tissue_type, field)
     raise ValueError(f"Unsupported space: {space!r} (expected 'mesh' or 'voxel')")
 
 
@@ -120,11 +121,12 @@ def simulation_nifti_path(
     """The NIfTI *nifti_file_pattern* names in *simulation*, for TI and mTI alike.
 
     Patterns use the 2-pair spelling (``grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz``,
-    read from ``TI/niftis/``). An mTI run writes the same files from its ``<sim>_mTI.msh``,
-    whose envelope field is ``mTI_max``, into ``mTI/niftis/``
-    (``grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz``), so for mTI every ``_TI_`` of the pattern
-    becomes ``_mTI_`` before the names are filled in. A pattern already spelled for mTI
-    is unchanged.
+    read from ``TI/niftis/``). An mTI run writes the same files from its ``<sim>_mTI.msh``
+    into ``mTI/niftis/``, and of its fields only the envelope is spelled differently
+    (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_sar`` keep their names). So for mTI the
+    mesh token before the space (``_TI_subject_`` / ``_TI_MNI_``) becomes ``_mTI_`` and a
+    trailing ``_TI_max`` becomes ``_mTI_max``: ``grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz``,
+    ``grey_<sim>_mTI_MNI_MNI_TI_avg.nii.gz``. A pattern already spelled for mTI is unchanged.
 
     Parameters
     ----------
@@ -142,7 +144,8 @@ def simulation_nifti_path(
     """
     is_mti = is_mti_simulation(subject_id, simulation)
     if is_mti:
-        nifti_file_pattern = nifti_file_pattern.replace("_TI_", "_mTI_")
+        nifti_file_pattern = _MTI_MESH_TOKEN.sub("_mTI_", nifti_file_pattern)
+        nifti_file_pattern = _TI_MAX_SUFFIX.sub("_mTI_max", nifti_file_pattern)
     filename = nifti_file_pattern.format(
         subject_id=subject_id, simulation_name=simulation
     )
@@ -153,6 +156,11 @@ def simulation_nifti_path(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+#: The ``_TI_`` of the mesh stem, right before mesh2nii's space token.
+_MTI_MESH_TOKEN = re.compile(r"_TI_(?=subject_|MNI_)")
+#: The envelope field at the end of a 2-pair name; mTI meshes call it ``mTI_max``.
+_TI_MAX_SUFFIX = re.compile(r"_TI_max(?=\.nii(?:\.gz)?$)")
 
 
 def _canonical_field_name(field_name: str, is_mti: bool) -> str:
@@ -219,9 +227,18 @@ def _select_mesh(
 
 
 def _select_voxel(
-    sim_dir: Path, is_mti: bool, tissue_type: str, field: str | None
+    sim_dir: Path, simulation: str, is_mti: bool, tissue_type: str, field: str | None
 ) -> tuple[Path, str]:
-    """Resolve a voxel (.nii.gz) field file."""
+    """Resolve a voxel (.nii.gz) field file.
+
+    The simulator's own name for it comes first: mesh2nii converts
+    ``<tissue_><simulation>_<TI|mTI>.msh`` into
+    ``<tissue_><simulation>_<TI|mTI>_subject_<field>.nii.gz``, so the file is
+    known exactly and no part of a simulation name (``MNI_target``,
+    ``grey_matter``) can be mistaken for a space or tissue tag. Folders whose
+    files do not carry that name (renamed, or written by an older release)
+    fall back to a scan.
+    """
     subdir = "mTI" if is_mti else "TI"
     nifti_dir = sim_dir / subdir / "niftis"
     field_name = (
@@ -264,6 +281,33 @@ def _select_voxel(
             f"Unsupported tissue_type: {tissue_type!r} (expected 'GM', 'WM', or 'both')"
         )
 
+    preferred_prefix = prefix_map[tissue]
+    mode = "mTI" if is_mti else "TI"
+    stem = f"{preferred_prefix or ''}{simulation}_{mode}_subject_{field_name}"
+    for exact in (nifti_dir / f"{stem}.nii.gz", nifti_dir / f"{stem}.nii"):
+        if exact.is_file():
+            logger.debug(
+                "Selected voxel field file: %s (field=%s, tissue=%s)",
+                exact,
+                field_name,
+                tissue,
+            )
+            return exact, field_name
+
+    # Every other file named by that same rule is known exactly too -- another
+    # tissue, field or space of this simulation -- so it is never a stand-in
+    # (``grey_matter_TI_subject_TI_avg`` is the whole-head file of a simulation
+    # called ``grey_matter``, not its grey-matter copy). The scan below is for
+    # the files that rule does not name.
+    known_fields = "|".join(
+        re.escape(name) for name in (*const.get_field_names(), "magnE")
+    )
+    writer_name = re.compile(
+        rf"(?:grey_|white_)?{re.escape(simulation)}_{mode}_(?:subject|MNI_MNI)_"
+        rf"(?:{known_fields})\.nii(?:\.gz)?"
+    )
+    niftis = [nii for nii in niftis if not writer_name.fullmatch(nii.name)]
+
     # The field name must appear as the filename suffix (mesh2nii writes
     # "{base}_{field}.nii.gz"), so distinct fields sharing a mesh (TI_max,
     # TI_avg, hf_peak, ...) aren't conflated. This applies to the implicit
@@ -274,7 +318,6 @@ def _select_voxel(
     def _field_matches(name: str) -> bool:
         return name.endswith(field_suffixes)
 
-    preferred_prefix = prefix_map[tissue]
     if preferred_prefix is None:
         # Prefer subject-space, full-field files (no tissue prefix, no MNI tag).
         candidates = (
@@ -305,13 +348,21 @@ def _select_voxel(
             f"No {tissue_type} NIfTI file found for field {field_name!r} in {nifti_dir}"
         )
     # Legacy fallback for the implicit default only: older simulations wrote
-    # a single NIfTI without a field suffix, so take the first candidate.
-    if candidates:
+    # a single NIfTI without a field suffix, so take the first such candidate.
+    # A file that ends in another field's name (``_TI_avg``, ``_hf_peak``) is
+    # that field, never the envelope, so it is not a fallback.
+    other_fields = tuple(
+        f"_{name}{ext}"
+        for name in (*const.get_field_names(), "magnE")
+        for ext in (".nii.gz", ".nii")
+    )
+    unsuffixed = [nii for nii in candidates if not nii.name.endswith(other_fields)]
+    if unsuffixed:
         logger.debug(
             "No %s-suffixed NIfTI in %s; falling back to %s",
             field_name,
             nifti_dir,
-            candidates[0],
+            unsuffixed[0],
         )
-        return candidates[0], field_name
+        return unsuffixed[0], field_name
     raise FileNotFoundError(f"No {tissue_type} NIfTI file found in {nifti_dir}")
