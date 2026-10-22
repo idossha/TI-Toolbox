@@ -45,16 +45,26 @@ def _resolve_selected(regions: list[str], atlas_keys: set[str]) -> set[str]:
 
     Users can specify "insula" to match both "lh.insula" and "rh.insula",
     or "lh.insula" to match only the left hemisphere.
+
+    Raises:
+        ValueError: If any entry matches no atlas key. An empty selection would
+            otherwise read as "no filter" and export every region.
     """
     selected: set[str] = set()
+    unmatched: list[str] = []
     for r in regions:
         if r in atlas_keys:
             selected.add(r)
-        else:
-            for prefix in ("lh.", "rh."):
-                candidate = f"{prefix}{r}"
-                if candidate in atlas_keys:
-                    selected.add(candidate)
+            continue
+        found = {f"{p}{r}" for p in ("lh.", "rh.") if f"{p}{r}" in atlas_keys}
+        if not found:
+            unmatched.append(r)
+        selected |= found
+    if unmatched:
+        raise ValueError(
+            f"Region(s) {', '.join(map(repr, unmatched))} match no key of this atlas. "
+            f"Available: {', '.join(sorted(atlas_keys))}."
+        )
     return selected
 
 
@@ -200,18 +210,18 @@ def _run_stl_export(config: RegionConfig, mesh_path: str) -> int:
         key = name if name.startswith("rh.") else f"rh.{name}"
         atlas[key] = np.concatenate([np.zeros(n_lh, dtype=bool), mask])
 
-    cortical_dir = os.path.join(config.output_dir, "cortical_stls")
-    regions_dir = os.path.join(cortical_dir, "regions")
-    os.makedirs(regions_dir, exist_ok=True)
-
     selected = (
         _resolve_selected(config.regions, set(atlas.keys())) if config.regions else None
     )
 
+    cortical_dir = os.path.join(config.output_dir, "cortical_stls")
+    regions_dir = os.path.join(cortical_dir, "regions")
+    os.makedirs(regions_dir, exist_ok=True)
+
     if not config.skip_regions:
         with tempfile.TemporaryDirectory() as temp_dir:
             for region_name in atlas.keys():
-                if selected and region_name not in selected:
+                if selected is not None and region_name not in selected:
                     continue
                 if _export_region_stl(
                     surface_mesh,
@@ -425,6 +435,10 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
         key = name if name.startswith("rh.") else f"rh.{name}"
         atlas[key] = np.concatenate([np.zeros(n_lh, dtype=bool), mask])
 
+    selected = (
+        _resolve_selected(config.regions, set(atlas.keys())) if config.regions else None
+    )
+
     cortical_dir = os.path.join(config.output_dir, "cortical_plys")
     regions_dir = os.path.join(cortical_dir, "regions")
     os.makedirs(regions_dir, exist_ok=True)
@@ -436,14 +450,11 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
 
     use_colors = not config.scalars
     fr = _effective_field_range(config, mesh, mesh_path)
-    selected = (
-        _resolve_selected(config.regions, set(atlas.keys())) if config.regions else None
-    )
 
     if not config.skip_regions:
         with tempfile.TemporaryDirectory() as temp_dir:
             for region_name, region_mask in atlas.items():
-                if selected and region_name not in selected:
+                if selected is not None and region_name not in selected:
                     continue
                 if _export_region_ply(
                     mesh,
@@ -511,7 +522,8 @@ def run_regions(config: RegionConfig) -> int:
         Number of individual regions successfully exported.
 
     Raises:
-        ValueError: If the mesh is missing the requested field.
+        ValueError: If the mesh is missing the requested field, or a
+            requested region matches no atlas key.
         FileNotFoundError: If a required input file is missing.
     """
     _resolve_paths(config)
