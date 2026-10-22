@@ -128,6 +128,7 @@ def test_mesh_sphere_with_no_node_is_a_value_error_and_writes_nothing(
     region = analyzer._sphere_region_name([(*center, radius)])
     assert region in message, label
     assert "mesh" in message and "surface" in message
+    assert "holds 0 surface node(s)" in message  # neither sphere contains a node
     assert "zero-size" not in message
     assert _snapshot(project) == before  # no Analyses/ folder, no results.csv of zeros
 
@@ -146,6 +147,8 @@ def test_mesh_roi_whose_field_is_never_positive_is_a_value_error(project: Path) 
         with pytest.raises(ValueError, match="TI_max") as err:
             analyzer.analyze_sphere((0.0, 0.0, 0.0), 12.0)
     assert "sphere_x0.00_y0.00_z0.00_r12.0" in str(err.value)
+    # The sentence counts the sphere's nodes (7, hand-counted above), not the other 993.
+    assert "holds 7 surface node(s)" in str(err.value)
     assert _snapshot(project) == before
 
 

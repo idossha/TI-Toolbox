@@ -74,6 +74,25 @@ def test_percentiles_split_where_the_weight_does() -> None:
     assert m["focality_75_area"] == pytest.approx(0.0015)
 
 
+def test_a_cumulative_fraction_equal_to_q_is_that_percentile() -> None:
+    """The rule is cumulative/total >= q, not > q: the boundary element itself is the answer."""
+    m = metrics([10, 20, 30], [95, 4, 1])
+    # Cumulative 95/100, 99/100, 100/100 -- exact doubles equal to 0.95 and 0.99, so q is hit
+    # exactly: p95 = 10 (not 20), p99 = 20 (not 30), p99.9 = 30.
+    assert (
+        95 / 100 == 0.95 and 99 / 100 == 0.99
+    )  # the premise: no rounding at the boundary
+    assert (m["percentile_95"], m["percentile_99"], m["percentile_99_9"]) == (
+        10,
+        20,
+        30,
+    )
+    # Cutoffs 15, 22.5, 27, 28.5 of 30: weight of values >= each is 4+1, 1, 1, 1 (mm^2 / 100).
+    assert m["focality_50_area"] == pytest.approx(0.05)
+    assert m["focality_75_area"] == pytest.approx(0.01)
+    assert m["focality_95_area"] == pytest.approx(0.01)
+
+
 def test_nan_and_infinities_are_not_field_values() -> None:
     clean = metrics([1, 2, 3, 4], [1, 1, 1, 97])
     dirty = metrics([np.nan, 1, 2, np.inf, 3, -np.inf, 4], [50, 1, 1, 50, 1, 50, 97])
