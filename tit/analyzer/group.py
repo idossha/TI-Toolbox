@@ -134,7 +134,8 @@ def run_group_analysis(
     output_dir : str, pathlib.Path, or None, optional
         Override output directory. If ``None``, each run writes to its own
         ``derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>[_<field>][_<tissue>]_<timestamp>/``
-        (the field and tissue suffixes as :func:`group_run_name` adds them). The
+        (the field and tissue suffixes as :func:`group_run_name` adds them; a second
+        run of the same name started in the same second gets ``_2``, ``_3``, ...). The
         per-subject analyses always go to each subject's own default folder.
     field : str or None, optional
         Field to analyze (``constants.FIELD_REGISTRY`` name, e.g.
@@ -214,73 +215,82 @@ def run_group_analysis(
         # File handler so group analysis logs are persisted
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         log_file = out / f"group_analysis_{timestamp}.log"
-        add_file_handler(log_file)
+        group_log = add_file_handler(log_file)
+        try:
+            logger.info(
+                "Group analysis started: %d subjects, space=%s, type=%s",
+                len(subject_ids),
+                space,
+                analysis_type,
+            )
 
-        logger.info(
-            "Group analysis started: %d subjects, space=%s, type=%s",
-            len(subject_ids),
-            space,
-            analysis_type,
-        )
-
-        dispatch: dict[str, callable] = {
-            "spherical": lambda a: (
-                a.analyze_spheres(
-                    spheres=spheres,
+            dispatch: dict[str, callable] = {
+                "spherical": lambda a: (
+                    a.analyze_spheres(
+                        spheres=spheres,
+                        coordinate_space=coordinate_space,
+                        visualize=visualize,
+                    )
+                    if spheres
+                    else a.analyze_sphere(
+                        center=center,
+                        radius=radius,
+                        coordinate_space=coordinate_space,
+                        visualize=visualize,
+                    )
+                ),
+                "mask": lambda a: a.analyze_mask(
+                    mask_path=mask_path,
                     coordinate_space=coordinate_space,
                     visualize=visualize,
-                )
-                if spheres
-                else a.analyze_sphere(
-                    center=center,
-                    radius=radius,
+                ),
+                "cortical": lambda a: a.analyze_cortex(
+                    atlas=atlas,
+                    region=region,
+                    visualize=visualize,
+                ),
+                "subcortical": lambda a: a.analyze_subcortical(
+                    atlas=atlas,
+                    region=region,
                     coordinate_space=coordinate_space,
                     visualize=visualize,
-                )
-            ),
-            "mask": lambda a: a.analyze_mask(
-                mask_path=mask_path,
-                coordinate_space=coordinate_space,
-                visualize=visualize,
-            ),
-            "cortical": lambda a: a.analyze_cortex(
-                atlas=atlas,
-                region=region,
-                visualize=visualize,
-            ),
-            "subcortical": lambda a: a.analyze_subcortical(
-                atlas=atlas,
-                region=region,
-                coordinate_space=coordinate_space,
-                visualize=visualize,
-            ),
-        }
-        analyze_fn = dispatch[analysis_type]
+                ),
+            }
+            analyze_fn = dispatch[analysis_type]
 
-        results: dict[str, AnalysisResult] = {}
-        for sid in subject_ids:
-            logger.info("Analyzing subject %s", sid)
-            try:
-                results[sid] = analyze_fn(
-                    Analyzer(sid, simulation, space, tissue_type, field=field)
-                )
-            except ValueError as exc:
-                # An empty or invalid target is per subject (anatomy differs): say whose.
-                raise ValueError(f"sub-{sid}: {exc}") from exc
+            results: dict[str, AnalysisResult] = {}
+            for sid in subject_ids:
+                logger.info("Analyzing subject %s", sid)
+                analyzer = None
+                try:
+                    analyzer = Analyzer(
+                        sid, simulation, space, tissue_type, field=field
+                    )
+                    results[sid] = analyze_fn(analyzer)
+                except ValueError as exc:
+                    # An empty or invalid target is per subject (anatomy differs): say whose.
+                    raise ValueError(f"sub-{sid}: {exc}") from exc
+                finally:
+                    # Each subject's own log holds its own analysis only, not the next one's.
+                    handler = getattr(analyzer, "_log_handler", None)
+                    if handler is not None:
+                        _detach_log_handler(handler)
 
-        df = _build_summary_df(results)
-        csv_path = out / "group_summary.csv"
-        df.to_csv(csv_path, index=False, float_format="%.3f")
-        logger.info("Summary CSV written to %s", csv_path)
+            df = _build_summary_df(results)
+            csv_path = out / "group_summary.csv"
+            df.to_csv(csv_path, index=False, float_format="%.3f")
+            logger.info("Summary CSV written to %s", csv_path)
 
-        plot_path = _generate_comparison_plot(df, out)
-        logger.info("Comparison plot written to %s", plot_path)
+            plot_path = _generate_comparison_plot(df, out)
+            logger.info("Comparison plot written to %s", plot_path)
 
-        return GroupResult(
-            subject_results=results,
-            summary_csv_path=csv_path,
-            comparison_plot_path=plot_path,
-        )
+            return GroupResult(
+                subject_results=results,
+                summary_csv_path=csv_path,
+                comparison_plot_path=plot_path,
+            )
+        finally:
+            _detach_log_handler(group_log)
 
 
 # ---------------------------------------------------------------------------
@@ -378,13 +388,41 @@ def _resolve_output_dir(output_dir: str | Path | None, run_name: str) -> Path:
     Without *output_dir* every run gets its own
     ``derivatives/ti-toolbox/group_analysis/<run_name>_<YYYYmmdd_HHMMSS>/``: one fixed
     folder let each run overwrite the last one's summary and plot, and one Run press in
-    the Analyzer submits one group job per sphere or region.
+    the Analyzer submits one group job per sphere or region. The folder is created
+    exclusively, so a second run of the same name started in the same second takes
+    ``<stamp>_2`` (then ``_3`` ...) instead of writing into the first one's folder.
     """
-    return Path(get_path_manager().ensure(group_output_dir(output_dir, run_name)))
+    if output_dir:
+        return Path(get_path_manager().ensure(group_output_dir(output_dir, run_name)))
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    attempt = 1
+    while True:
+        candidate = Path(
+            group_output_dir(
+                None, run_name, stamp if attempt == 1 else f"{stamp}_{attempt}"
+            )
+        )
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            candidate.mkdir()
+            return candidate
+        except FileExistsError:
+            attempt += 1
+
+
+def _detach_log_handler(handler) -> None:
+    """Remove *handler* from the ``tit`` logger and close its file."""
+    logging.getLogger("tit").removeHandler(handler)
+    handler.close()
 
 
 def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:
-    """One row per subject plus an AVERAGE row at the bottom."""
+    """One row per subject plus an AVERAGE row at the bottom.
+
+    A subject without normal-component statistics (every voxel analysis; a mesh run
+    without a normal mesh) has empty ``Normal_*`` cells, not ``0``: the AVERAGE of a
+    column is over the subjects that have it, and is empty when none does.
+    """
     rows = [
         {
             "Subject": sid,
@@ -394,33 +432,43 @@ def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:
             "ROI_Focality": r.roi_focality,
             "GM_Mean": r.gm_mean,
             "GM_Max": r.gm_max,
-            "Normal_Mean": r.normal_mean or 0.0,
-            "Normal_Max": r.normal_max or 0.0,
-            "Normal_Focality": r.normal_focality or 0.0,
+            "Normal_Mean": r.normal_mean,
+            "Normal_Max": r.normal_max,
+            "Normal_Focality": r.normal_focality,
         }
         for sid, r in results.items()
     ]
     df = pd.DataFrame(rows)
+    df[_NUMERIC_COLS] = df[_NUMERIC_COLS].astype(float)  # None -> NaN
     avg = {"Subject": "AVERAGE", **df[_NUMERIC_COLS].mean().to_dict()}
     return pd.concat([df, pd.DataFrame([avg])], ignore_index=True)
 
 
 def _generate_comparison_plot(df: pd.DataFrame, output_dir: Path) -> Path:
-    """2x2 bar chart: Mean, Max, Focality, Normal_Mean per subject."""
+    """2x2 bar chart: Mean, Max, Focality, Normal_Mean per subject.
+
+    The Normal Mean panel is left out when no subject has normal statistics; a subject
+    without them has no bar there, and the group mean and spread are over the rest.
+    """
     subject_df = df[df["Subject"] != "AVERAGE"]
     metrics = ["ROI_Mean", "ROI_Max", "ROI_Focality", "Normal_Mean"]
     labels = ["Mean (V/m)", "Max (V/m)", "Focality", "Normal Mean (V/m)"]
     colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+    if subject_df["Normal_Mean"].isna().all():
+        metrics, labels, colors = metrics[:3], labels[:3], colors[:3]
 
     fig, axes = plt.subplots(2, 2, figsize=(15, 10))
     fig.suptitle("Group Field Value Comparison", fontsize=16, fontweight="bold")
     subjects = subject_df["Subject"].tolist()
     x_pos = np.arange(len(subjects))
 
+    for ax in axes.flat[len(metrics) :]:
+        fig.delaxes(ax)
     for ax, metric, label, color in zip(axes.flat, metrics, labels, colors):
         values = subject_df[metric].values.astype(float)
-        mean_val = float(np.mean(values))
-        std_val = float(np.std(values, ddof=1)) if len(values) > 1 else 0.0
+        present = values[np.isfinite(values)]
+        mean_val = float(np.mean(present))
+        std_val = float(np.std(present, ddof=1)) if len(present) > 1 else 0.0
 
         bars = ax.bar(x_pos, values, color=color, alpha=0.7)
         for bar, val in zip(bars, values):
