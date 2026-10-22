@@ -265,14 +265,14 @@ export function AnalyzerPage() {
         return plannableRows.flatMap((row) => rowTargets(row).map((roi) => make(row, roi)));
       })();
 
-  /**
-   * Every config with the subjects IT runs over: one row's own subject per job, or the whole
-   * cohort on each of a group run's configs.
-   */
   /** Each config's row, as the table numbers it — in the order `configs` was built. */
   const configLabels: string[] = group
     ? configs.map(() => "Group analysis")
     : plannableRows.flatMap((row) => rowTargets(row).map(() => `Job ${rows.indexOf(row) + 1}`));
+  /**
+   * Every config with the subjects IT runs over: one row's own subject per job, or the whole
+   * cohort on each of a group run's configs.
+   */
   const jobSpecs: AnalyzerJobSpec[] = configs.map((config, i) => ({
     config,
     subjectIds: group ? cohort : [config.subject_id as string],

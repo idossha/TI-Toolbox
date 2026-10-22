@@ -7,7 +7,10 @@
  * Analyzer's `Promise.all` dropped the whole plan on one 422, leaving "Resolving the plan…" with
  * Run enabled; the Optimizer stayed on "Resolving the run folders…" forever; Pre-processing never
  * read `planQuery.error`. The pages' wiring is driven end to end by
- * `tests/e2e/run-plan-errors.spec.ts`; this file pins the shared sentence and the two pure seams.
+ * `tests/e2e/run-plan-errors.spec.ts` (and the Analyzer's collision by `run-collision.spec.ts`);
+ * this file pins the shared sentence, the two pure seams, and the Analyzer's `blockedReasonFor`
+ * order: the form's own clauses first, then the server's refusal, then two jobs into one folder
+ * (a refused job has no folder to compare).
  *
  * The expected sentences are the server's `detail` strings as `api/client.ts::unwrap` hands them
  * over (an `ApiError` whose message IS the detail), typed here, prefixed by the row label.
@@ -18,6 +21,7 @@ import { ApiError } from "../../src/renderer/api/client";
 import { planFailureReason } from "../../src/renderer/pages/_shared/run/planModel";
 import { simPlanBlockedReason } from "../../src/renderer/pages/simulator/RunControls";
 import { AnalyzerPlanError, planAnalyzerBatch, type AnalyzerJobSpec } from "../../src/renderer/pages/analyzer/api";
+import { blockedReasonFor } from "../../src/renderer/pages/analyzer/AnalyzerPage";
 
 const DETAIL = "mask_path: mask is not accessible";
 const refused = (detail = DETAIL) => new ApiError(422, "/api/plan/{kind}", detail);
@@ -121,5 +125,37 @@ describe("Analyzer: planAnalyzerBatch", () => {
     const result = await planAnalyzerBatch([spec("a", "Job 1"), spec("c", "Job 2")], false, client);
     expect(result.items?.map((p) => p.jobs.map((j) => j.output_dir))).toEqual([["/p/a"], ["/p/c"]]);
     expect(result.jobs.map((j) => j.output_dir)).toEqual(["/p/a", "/p/c"]);
+  });
+});
+
+describe("Analyzer: blockedReasonFor states the server's verdicts after the form's", () => {
+  const REFUSED = `Job 2: ${DETAIL}`;
+  const SHARED = "Job 1 and Job 2 both write sub-ernie/Simulations/Thalamus/Analyses/A; the last to run would replace the others' results. Rename or remove one.";
+  const complete = { subjectsBlocked: null, rowCount: 2, targetReady: true };
+
+  it("blocks on the server's refusal of a complete table, verbatim", () => {
+    expect(blockedReasonFor({ ...complete, planFailure: REFUSED })).toBe(REFUSED);
+  });
+
+  it("blocks on two jobs into one folder, verbatim", () => {
+    expect(blockedReasonFor({ ...complete, outputCollision: SHARED })).toBe(SHARED);
+  });
+
+  it("names the refusal before the collision: a refused job's folder is unknown", () => {
+    expect(blockedReasonFor({ ...complete, planFailure: REFUSED, outputCollision: SHARED })).toBe(REFUSED);
+  });
+
+  it("lets Run through when the server neither refused a job nor found a shared folder", () => {
+    expect(blockedReasonFor({ ...complete, planFailure: null, outputCollision: null })).toBeNull();
+  });
+
+  it("says what the form lacks first: only a complete table is planned", () => {
+    const server = { planFailure: REFUSED, outputCollision: SHARED };
+    expect(blockedReasonFor({ ...complete, ...server, targetReady: false })).toBe("Complete the target before running.");
+    expect(blockedReasonFor({ ...complete, ...server, groupMismatch: "mixed simulations" })).toBe("mixed simulations");
+    expect(blockedReasonFor({ ...complete, ...server, subjectsBlocked: "101 cannot run — no simulations." })).toBe(
+      "101 cannot run — no simulations.",
+    );
+    expect(blockedReasonFor({ ...complete, ...server, rowCount: 0 })).toBe("Add a row with a subject and a simulation.");
   });
 });
