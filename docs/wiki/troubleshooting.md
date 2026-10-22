@@ -221,6 +221,7 @@ reference; use the [installation guide]({{ site.baseurl }}/installation/) for cu
 
 | Symptom | Fixed in | Note / workaround on older versions | Source |
 |---|---|---|---|
+| Flex-search report not written for a **Mean** or **Max** goal: `could not convert string to float: ''` | v3.1.1 (rebuilt image) | the search results are unchanged; after upgrading, rebuild the report with `simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run folder>` (for example from a **Notebooks** cell) | [Changelog]({{ site.baseurl }}/releases/changelog/) |
 | Simulation report not written: `matmul: Input operand 1 has a mismatch in its core dimension 0` | v3.1.1 | simulation outputs are unchanged; after upgrading, re-run the simulation to get its report | [v3.1.1]({{ site.baseurl }}/releases/v3.1.1/) |
 | Flex-search refuses the skin-visualization net: *"Could not queue the search. Missing inputs: Skin visualization EEG net …"* | v3.1.0 (image of 2026-10-12) | untick **Optimizer ▸ Solver ▸ Skin visualization ▸ Plot EEG net electrodes**; the search still runs | [changelog]({{ site.baseurl }}/releases/changelog/) |
 | Flex-search fails with `Please define TESoptimize.threshold for focallity optimization!` (Threshold-based focality, Adaptive or Multi-threshold) | v3.1.0 (image of 2026-10-12) | choose **Fixed thresholds** (e.g. `0.2,0.5`) or **Threshold-free focality** | [changelog]({{ site.baseurl }}/releases/changelog/) |
