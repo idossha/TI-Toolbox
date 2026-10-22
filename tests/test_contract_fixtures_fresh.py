@@ -235,3 +235,27 @@ def test_mock_report_listing_names_every_generated_page(
         if "/simulation_report_" in rel:
             assert re.search(r"<title>[^<]+ simulation</title>", text), rel
 
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "tit.catalog titles every simulation report 'Simulation report' (p39 finding 2), so "
+        "the Results Reports group cannot tell two simulations' reports apart and its filter "
+        "cannot find a report by simulation. Remove this mark when the catalog titles a "
+        "report from its page."
+    ),
+)
+def test_a_simulation_reports_listed_title_names_its_simulation(
+    reports: dict[str, str],
+) -> None:
+    listing = json.loads(reports["reports.json"])
+    checked = 0
+    for sid, rows in listing.items():
+        for row in rows:
+            if row["kind"] != "simulation_report":
+                continue
+            page = reports[f"reports/{sid}/{row['id'].split('/', 1)[1]}.html"]
+            simulation = re.search(r"<title>([^<]+) simulation</title>", page)[1]
+            checked += 1
+            assert simulation in row["title"], (row["id"], row["title"])
+    assert checked >= 2

@@ -104,7 +104,35 @@ describe("Overview model over the real build_overview response", () => {
     expect(cell("m2monly", "leadfield").state).toBe("absent");
   });
 
-  it("every Overview subject is one the Results page lists, so Open in Results lands on it", () => {
+  it("a queued pre job makes every absent column a pre job produces pending, and nothing else", () => {
+    // `STAGE_JOB_KINDS` (tit/server/routes/overview.py): raw, FastSurfer, FreeSurfer, head model,
+    // DWI and CT are pre's; the leadfield is the leadfield job's; the EEG net no job's. The server
+    // sees only the job's kind, not which stages it will run, so a T1-only pre job still shows
+    // DWI and CT as on their way (p39 finding 3: a server rule worth revisiting, pinned here so a
+    // change to it is a decision, not drift).
+    const states = Object.fromEntries(presenceCells(row("queued")).map((c) => [c.key, c.state]));
+    expect(states).toMatchObject({
+      raw: "present", // on disk wins over a job
+      fastsurfer: "pending",
+      freesurfer: "pending",
+      m2m: "pending",
+      dwi: "pending",
+      ct: "pending",
+      leadfield: "absent",
+      eeg_net: "absent",
+    });
+    // The same pre job is no one else's: rawonly holds the same files and no job.
+    expect(presenceCells(row("rawonly")).filter((c) => c.state === "pending")).toEqual([]);
+  });
+
+  it("every Overview subject is in the Results subject list, the precondition for Open in Results to land on its outputs", () => {
+    // `catalog_subjects` is the real `list_subjects` over the same project (GET
+    // /api/catalog/subjects, what Results lists); `subjectRows` is the list the Results page
+    // shows. A subject missing from it would land on a subject Results never fetches outputs
+    // for. This is membership, not a rendered Results page: the landing itself is exercised, for
+    // ernie, by tests/e2e/overview.spec.ts. The interesting row is `staged`: sourcedata only, which the
+    // onboarded-subject set (`catalog.subject_ids`) leaves out and `list_subjects` keeps.
+    expect(fixture.catalog_subjects).toContain("staged");
     const listed = subjectRows(fixture.catalog_subjects);
     for (const subject of fixture.response.subjects) expect(listed, subject.id).toContain(subject.id);
   });

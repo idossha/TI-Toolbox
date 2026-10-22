@@ -88,6 +88,26 @@ describe("the real candidate_detail output round-trips through the Simulator han
     expect(mex.currents).toBe("1,1,1,1");
   });
 
+  it("keeps the server's montage mode where the row's source would read another one", () => {
+    // A flex candidate mapped onto a cap: what `snapCandidateRow` writes and a server answering a
+    // mapped run would send -- `Montage.Mode.FLEX_MAPPED` with cap labels and the net. The page
+    // reads labelled pairs as a "montage" row, whose own mode is "net"; the identity spec says the
+    // server's resolved mode is what is submitted, so it must survive the round trip.
+    const fixture = load("flex");
+    const config = structuredClone(fixture.response.simulation_config);
+    const montage = montageOf(config);
+    montage.mode = "flex_mapped";
+    montage.electrode_pairs = [["E020", "E074"], ["E101", "E133"]];
+    montage.eeg_net = "GSN-HydroCel-185.csv";
+    delete montage.electrode_poses;
+    const row = candidateRow({ ...handoff(fixture), config });
+    expect(row.source).toBe("montage");
+    const built = buildSimulationConfig(row, defaultJobSettings());
+    expect(montageOf(built).mode).toBe("flex_mapped");
+    delete config.tissue_conductivities;
+    expect(built).toStrictEqual(config);
+  });
+
   it("an edited current is a changed candidate, and only the current moves", () => {
     const fixture = load("flex");
     const row = candidateRow(handoff(fixture));
