@@ -38,7 +38,12 @@ from tit.source.fsaverage import read_fsaverage_field, write_fsaverage_msh
 
 from .config import CorrelationResult, GroupComparisonResult
 from .engine import (
+    _neutralise_degenerate,
+    check_paired_sizes,
     correlation,
+    exclude_degenerate,
+    no_testable_voxel_error,
+    peak_signed,
     pval_from_histogram,
     tail_from_alternative,
     tail_statistic,
@@ -315,9 +320,11 @@ def _identify_surface_clusters(
     tail = tail_from_alternative(alternative)
     tail_stats = np.array(
         [
-            float(tail_statistic([size], [sv], "mass", tail)[0])
-            if cluster_stat != "size"
-            else float(size)
+            (
+                float(tail_statistic([size], [sv], "mass", tail)[0])
+                if cluster_stat != "size"
+                else float(size)
+            )
             for _, size, sv in info
         ]
     )
@@ -341,7 +348,7 @@ def _identify_surface_clusters(
                 "vertices": verts.tolist(),
             }
             if r_full is not None:
-                entry["peak_r"] = float(np.max(r_full[verts]))
+                entry["peak_r"] = peak_signed(r_full[verts])
                 entry["mean_r"] = float(np.mean(r_full[verts]))
             sig_clusters.append(entry)
     return sig_mask, sig_clusters, all_observed
@@ -596,6 +603,9 @@ def run_surface_group_comparison(
     non = [s for s in config.subjects if s.response == 0]
     ordered = resp + non
     n_resp = len(resp)
+    paired = config.test_type.value == "paired"
+    if paired:
+        check_paired_sizes(n_resp, len(non))
     pairs = [(s.subject_id, s.simulation_name) for s in ordered]
     data, ids = load_group_surface_data(
         pairs, config.fsaverage_field, config.fsaverage_spacing
@@ -608,9 +618,22 @@ def run_surface_group_comparison(
     # must stay in the analysis; background is exactly 0 for all fields.
     valid_mask = np.any(data != 0, axis=1)
     valid_idx = np.flatnonzero(valid_mask)
-    data_valid = data[valid_idx]
-    paired = config.test_type.value == "paired"
     alt = config.alternative.value
+
+    def _test(mat):
+        if paired:
+            return ttest_rel(mat, n_resp, alternative=alt)
+        return ttest_ind(mat, n_resp, n_total - n_resp, alternative=alt)
+
+    # Same rule as engine.ttest_voxelwise: a vertex with zero within-group variance
+    # has t = nan (constant groups) or +/-inf (perfect separation); it leaves the
+    # analysis, and a run with no testable vertex left is an error, not 0 clusters.
+    _, _, degenerate = exclude_degenerate(*_test(data[valid_idx]), log)
+    valid_mask[valid_idx[degenerate]] = False
+    if not valid_mask.any():
+        raise no_testable_voxel_error(valid_idx.size)
+    valid_idx = np.flatnonzero(valid_mask)
+    data_valid = data[valid_idx]
     log.info(
         "resp=%d  non=%d  valid vertices=%d  paired=%s",
         n_resp,
@@ -620,10 +643,8 @@ def run_surface_group_comparison(
     )
 
     def _maps(mat):
-        if paired:
-            t, p = ttest_rel(mat, n_resp, alternative=alt)
-        else:
-            t, p = ttest_ind(mat, n_resp, n_total - n_resp, alternative=alt)
+        # A relabelling can make a vertex degenerate; an inf mass would swamp the null.
+        t, p = _neutralise_degenerate(*_test(mat))
         t_full = np.zeros(n_nodes)
         p_full = np.ones(n_nodes)
         t_full[valid_idx], p_full[valid_idx] = t, p

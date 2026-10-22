@@ -12,11 +12,51 @@ generate_correlation_summary
 
 See Also
 --------
-tit.stats.comparison : Group comparison pipeline that calls ``generate_summary``.
-tit.stats.correlation : Correlation pipeline that calls ``generate_correlation_summary``.
+tit.stats.permutation : The pipelines that call both generators.
 """
 
 import numpy as np
+
+#: Stands in for the cluster threshold when no permutation ran.
+_NO_THRESHOLD = "no candidate clusters; threshold not computed"
+
+
+def _write_threshold(f, cluster_stat, threshold):
+    """The cluster threshold line, or why there is none (*threshold* is ``None``)."""
+    label = (
+        "Cluster size threshold" if cluster_stat == "size" else "Cluster mass threshold"
+    )
+    if threshold is None:
+        f.write(f"{label}: {_NO_THRESHOLD}\n")
+        f.write(
+            "Null-distribution figure: not drawn (no cluster formed at the "
+            "cluster-forming threshold, so no permutations ran)\n"
+        )
+    elif cluster_stat == "size":
+        f.write(f"{label}: {threshold:.1f} voxels\n")
+    else:
+        f.write(f"{label}: {threshold:.2f}\n")
+
+
+def _by_extremeness(clusters):
+    """Clusters ordered by ``|stat_value|`` (size when absent), largest first."""
+    return sorted(clusters, key=lambda c: -abs(c.get("stat_value", c["size"])))
+
+
+def _sort_label(cluster_stat):
+    if cluster_stat == "mass":
+        return "by |cluster mass|, largest first"
+    return "by cluster size, largest first"
+
+
+def _write_cluster_line(f, i, c, cluster_stat):
+    """``i. Cluster <id>: <n> voxels[, mass = <signed>][, p = <p>]``."""
+    f.write(f"{i}. Cluster {c['cluster_id']}: {c['size']} voxels")
+    if cluster_stat == "mass" and "stat_value" in c:
+        f.write(f", mass = {c['stat_value']:.2f}")
+    if "p_value" in c:
+        f.write(f", p = {c['p_value']:.4f}")
+    f.write("\n")
 
 
 def generate_summary(
@@ -32,8 +72,8 @@ def generate_summary(
     """Write a plain-text summary report for a two-group comparison.
 
     The report includes analysis parameters, sample sizes, significant
-    voxel counts, top-10 clusters (sorted by the configured cluster
-    statistic), and atlas overlap tables.
+    voxel counts, the top-10 significant clusters (most extreme first, each
+    with its signed mass and permutation p-value), and atlas overlap tables.
 
     Parameters
     ----------
@@ -45,11 +85,14 @@ def generate_summary(
         Electric-field data for group 2, shape ``(X, Y, Z, n_group2)``.
     sig_mask : numpy.ndarray
         Binary mask of significant voxels, shape ``(X, Y, Z)``.
-    correction_threshold : float
-        Cluster-statistic threshold from the permutation distribution.
+    correction_threshold : float or None
+        Cluster-statistic threshold from the permutation distribution;
+        ``None`` when no candidate cluster formed, so no permutation ran.
     clusters : list of dict
-        Each dict contains at least ``'cluster_id'``, ``'size'``, and
-        ``'center_mni'`` keys.
+        The significant clusters
+        (:func:`tit.stats.engine.significant_cluster_table`): at least
+        ``'cluster_id'``, ``'size'`` and ``'center_mni'``, plus
+        ``'stat_value'`` (signed mass, or size) and ``'p_value'``.
     atlas_results : dict
         Mapping of atlas name to list of region overlap dicts.
     output_file : str
@@ -79,11 +122,7 @@ def generate_summary(
         )
         f.write(f"Number of permutations: {config.n_permutations}\n")
         f.write(f"Cluster-level alpha: {config.alpha}\n")
-
-        if cluster_stat == "size":
-            f.write(f"Cluster size threshold: {correction_threshold:.1f} voxels\n")
-        else:
-            f.write(f"Cluster mass threshold: {correction_threshold:.2f}\n")
+        _write_threshold(f, cluster_stat, correction_threshold)
 
         from tit.cpu import resolve_n_jobs
 
@@ -124,14 +163,10 @@ def generate_summary(
         f.write(f"\nNumber of Clusters: {len(clusters)}\n\n")
 
         if clusters:
-            sort_label = "by statistic" if cluster_stat == "mass" else "by size"
-            f.write(f"TOP 10 CLUSTERS ({sort_label}):\n")
+            f.write(f"TOP 10 CLUSTERS ({_sort_label(cluster_stat)}):\n")
             f.write("-" * 70 + "\n")
-            for i, c in enumerate(clusters[:10], 1):
-                f.write(f"{i}. Cluster {c['cluster_id']}: {c['size']} voxels")
-                if cluster_stat == "mass" and "stat_value" in c:
-                    f.write(f", mass = {c['stat_value']:.2f}")
-                f.write("\n")
+            for i, c in enumerate(_by_extremeness(clusters)[:10], 1):
+                _write_cluster_line(f, i, c, cluster_stat)
                 f.write(
                     f"   MNI Center: ({c['center_mni'][0]:.1f}, "
                     f"{c['center_mni'][1]:.1f}, {c['center_mni'][2]:.1f})\n"
@@ -174,6 +209,7 @@ def generate_correlation_summary(
     *,
     subject_ids=None,
     weights=None,
+    alternative="two-sided",
 ):
     """Write a plain-text summary report for a correlation analysis.
 
@@ -193,11 +229,13 @@ def generate_correlation_summary(
         Voxelwise correlation map, shape ``(X, Y, Z)``.
     sig_mask : numpy.ndarray
         Binary mask of significant voxels, shape ``(X, Y, Z)``.
-    cluster_threshold : float
-        Cluster-statistic threshold from the permutation distribution.
+    cluster_threshold : float or None
+        Cluster-statistic threshold from the permutation distribution;
+        ``None`` when no candidate cluster formed, so no permutation ran.
     clusters : list of dict
         Each dict contains ``'cluster_id'``, ``'size'``, ``'center_mni'``,
-        and optionally ``'mean_r'`` / ``'peak_r'``.
+        and optionally ``'stat_value'``, ``'p_value'``, ``'mean_r'`` /
+        ``'peak_r'`` (``peak_r`` is the ``r`` of largest magnitude, sign kept).
     atlas_results : dict
         Mapping of atlas name to list of region overlap dicts.
     output_file : str
@@ -205,8 +243,11 @@ def generate_correlation_summary(
     subject_ids : list of str, optional
         Subject identifiers (printed per-row when provided).
     weights : numpy.ndarray or None, optional
-        Per-subject weights.  When provided the weight distribution is
-        included in the report.
+        Per-subject weights, aligned with *effect_sizes*.  When provided the
+        weight distribution is included in the report.
+    alternative : str, optional
+        The alternative hypothesis the permutation test ran with
+        (``"two-sided"``, ``"greater"`` or ``"less"``); stated in the report.
     """
     cluster_stat = config.cluster_stat.value
     cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
@@ -225,15 +266,12 @@ def generate_correlation_summary(
         f.write(f"Correlation Type: {corr_type}{weighted_str}\n")
         f.write(f"Outcome Measure: {config.effect_metric}\n")
 
+        f.write(f"Alternative hypothesis: {alternative}\n")
         f.write(f"Cluster Statistic: {cluster_stat_name}\n")
         f.write(f"Cluster-forming threshold: p < {config.cluster_threshold}\n")
         f.write(f"Number of permutations: {config.n_permutations}\n")
         f.write(f"Cluster-level alpha: {config.alpha}\n")
-
-        if cluster_stat == "size":
-            f.write(f"Cluster size threshold: {cluster_threshold:.1f} voxels\n")
-        else:
-            f.write(f"Cluster mass threshold: {cluster_threshold:.2f}\n")
+        _write_threshold(f, cluster_stat, cluster_threshold)
         f.write("\n")
 
         f.write("SAMPLE INFORMATION:\n")
@@ -252,12 +290,10 @@ def generate_correlation_summary(
         f.write(f"Range: {np.max(effect_sizes) - np.min(effect_sizes):.4f}\n")
 
         if subject_ids:
+            # By row: a subject id can repeat (two simulations of one person).
             f.write("\nPer-Subject Effect Sizes:\n")
-            for sid, es in zip(subject_ids, effect_sizes):
-                weight_str = ""
-                if weights is not None:
-                    idx = list(subject_ids).index(sid)
-                    weight_str = f", weight={weights[idx]:.2f}"
+            for i, (sid, es) in enumerate(zip(subject_ids, effect_sizes)):
+                weight_str = "" if weights is None else f", weight={weights[i]:.2f}"
                 f.write(f"  {sid}: {es:.4f}{weight_str}\n")
         f.write("\n")
 
@@ -276,15 +312,16 @@ def generate_correlation_summary(
 
         if n_sig > 0:
             sig_bool = sig_mask.astype(bool)
-            mean_r = np.mean(r_values[sig_bool])
-            max_r = np.max(r_values[sig_bool])
-            min_r = np.min(r_values[sig_bool])
+            sig_r = np.ravel(r_values[sig_bool])
+            # Peak = largest |r|, sign kept: a negative cluster's peak is its most negative r.
+            peak_r = sig_r[np.argmax(np.abs(sig_r))]
 
             f.write("CORRELATION STATISTICS IN SIGNIFICANT VOXELS:\n")
             f.write("-" * 70 + "\n")
-            f.write(f"Mean r: {mean_r:.4f}\n")
-            f.write(f"Peak r: {max_r:.4f}\n")
-            f.write(f"Min r:  {min_r:.4f}\n\n")
+            f.write(f"Mean r: {np.mean(sig_r):.4f}\n")
+            f.write(f"Peak r: {peak_r:.4f}\n")
+            f.write(f"Min r:  {np.min(sig_r):.4f}\n")
+            f.write(f"Max r:  {np.max(sig_r):.4f}\n\n")
 
             # E-field statistics in significant voxels
             mean_efield = np.mean(subject_data[sig_bool, :])
@@ -295,10 +332,11 @@ def generate_correlation_summary(
             f.write(f"Max E-field:  {max_efield:.6f}\n\n")
 
         if clusters:
-            f.write("SIGNIFICANT CLUSTERS:\n")
+            f.write(f"SIGNIFICANT CLUSTERS ({_sort_label(cluster_stat)}):\n")
             f.write("-" * 70 + "\n")
-            for i, c in enumerate(clusters[:20], 1):
-                f.write(f"\n{i}. Cluster {c['cluster_id']}: {c['size']} voxels\n")
+            for i, c in enumerate(_by_extremeness(clusters)[:20], 1):
+                f.write("\n")
+                _write_cluster_line(f, i, c, cluster_stat)
                 f.write(
                     f"   MNI Center: ({c['center_mni'][0]:.1f}, "
                     f"{c['center_mni'][1]:.1f}, {c['center_mni'][2]:.1f})\n"
@@ -338,12 +376,21 @@ def generate_correlation_summary(
         )
         f.write(f"correlates with {config.effect_metric}.\n\n")
         f.write("Positive correlations (r > 0):\n")
-        f.write(f"  Higher E-field → Higher {config.effect_metric}\n\n")
-        f.write("Note: This analysis tests positive correlations only (as per ACES).\n")
-        f.write(
-            "To find regions with negative correlations, invert your effect sizes\n"
-        )
-        f.write("(multiply by -1) and re-run the analysis.\n\n")
+        f.write(f"  Higher E-field → Higher {config.effect_metric}\n")
+        f.write("Negative correlations (r < 0):\n")
+        f.write(f"  Higher E-field → Lower {config.effect_metric}\n\n")
+        if alternative == "two-sided":
+            f.write(
+                "Note: the test is two-sided. Clusters of positive and of negative r\n"
+                "are formed separately and both are tested; the sign of a cluster's\n"
+                "Mean r / Peak r says which direction it is.\n\n"
+            )
+        else:
+            direction = "positive" if alternative == "greater" else "negative"
+            f.write(
+                f"Note: the test is one-sided ({alternative}): only {direction}\n"
+                "correlations can form a cluster.\n\n"
+            )
 
         f.write("References:\n")
         f.write("  - Wischnewski et al. (2021) - ACES approach\n")

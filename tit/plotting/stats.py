@@ -12,6 +12,63 @@ import numpy as np
 from ._common import SaveFigOptions, ensure_headless_matplotlib_backend, savefig_close
 
 
+def null_plot_series(
+    null_distribution: np.ndarray,
+    observed_clusters: Sequence[Mapping[str, float]],
+    *,
+    threshold: float,
+    alpha: float,
+    cluster_stat: str,
+    alternative: str = "two-sided",
+) -> dict:
+    """What the null-distribution figure draws, as plain numbers.
+
+    The null holds each permutation's maximum *oriented* cluster statistic
+    (:func:`tit.stats.engine.tail_statistic`: ``|mass|`` two-sided, ``mass``
+    for ``"greater"``, ``-mass`` for ``"less"``; size as is), so an observed
+    cluster is placed on the same scale: a significant negative cluster sits to
+    the right of the null, not at ``x < 0``. A cluster is significant when its
+    permutation p-value is below the configured *alpha* (when it has no
+    p-value, when its oriented statistic exceeds *threshold*).
+
+    Returns
+    -------
+    dict
+        ``null`` (float array), ``observed_x`` (float array, one per observed
+        cluster), ``significant`` (bool array) and ``x_label``.
+    """
+    from tit.stats.engine import tail_from_alternative, tail_statistic
+
+    tail = tail_from_alternative(alternative)
+    stat = np.array([float(c["stat_value"]) for c in observed_clusters])
+    sizes = np.array([float(c.get("size", c["stat_value"])) for c in observed_clusters])
+    observed_x = tail_statistic(sizes, stat, cluster_stat, tail)
+    significant = np.array(
+        [
+            (
+                float(c["p_value"]) < alpha
+                if c.get("p_value") is not None
+                else bool(x > threshold)
+            )
+            for c, x in zip(observed_clusters, observed_x)
+        ],
+        dtype=bool,
+    )
+    if cluster_stat == "size":
+        x_label = "Maximum Cluster Size (voxels)"
+    else:
+        x_label = {
+            1: "Maximum Cluster Mass (sum of t)",
+            -1: "Maximum Negated Cluster Mass (-(sum of t))",
+        }.get(tail, "Maximum |Cluster Mass| (|sum of t|)")
+    return {
+        "null": np.asarray(null_distribution, dtype=float),
+        "observed_x": np.asarray(observed_x, dtype=float),
+        "significant": significant,
+        "x_label": x_label,
+    }
+
+
 def plot_permutation_null_distribution(
     null_distribution: np.ndarray,
     threshold: float,
@@ -20,11 +77,23 @@ def plot_permutation_null_distribution(
     *,
     alpha: float = 0.05,
     cluster_stat: str = "size",
+    alternative: str = "two-sided",
     dpi: int = 300,
 ) -> str:
     """
     Plot permutation null distribution with threshold and observed clusters.
+
+    Observed clusters are drawn at their oriented statistic and coloured by
+    ``p < alpha`` (see :func:`null_plot_series`).
     """
+    series = null_plot_series(
+        null_distribution,
+        observed_clusters,
+        threshold=threshold,
+        alpha=alpha,
+        cluster_stat=cluster_stat,
+        alternative=alternative,
+    )
     ensure_headless_matplotlib_backend()
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -35,14 +104,14 @@ def plot_permutation_null_distribution(
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Labels based on cluster statistic
+    x_label = series["x_label"]
     if cluster_stat == "size":
-        x_label = "Maximum Cluster Size (voxels)"
         title = "Permutation Null Distribution of Maximum Cluster Sizes"
         threshold_label = f"Discrete Threshold (p<{alpha}): {threshold:.1f} voxels"
     else:
-        x_label = "Maximum Cluster Mass (sum of t-statistics)"
         title = "Permutation Null Distribution of Maximum Cluster Mass"
         threshold_label = f"Discrete Threshold (p<{alpha}): {threshold:.2f}"
+    null_distribution = series["null"]
 
     # Histogram
     if sns is not None:
@@ -73,25 +142,18 @@ def plot_permutation_null_distribution(
     # Observed clusters
     sig_plotted = False
     nonsig_plotted = False
-    for cluster in observed_clusters:
-        stat_value = float(cluster["stat_value"])
-        p_value = cluster.get("p_value", None)
-        if p_value is not None:
-            is_significant = float(p_value) < 0.05
-        else:
-            is_significant = stat_value > threshold
-
+    for x, is_significant in zip(series["observed_x"], series["significant"]):
         color = "green" if is_significant else "orange"
         label = None
         if is_significant and not sig_plotted:
-            label = "Significant Clusters (p<0.05)"
+            label = f"Significant Clusters (p<{alpha})"
             sig_plotted = True
         elif (not is_significant) and (not nonsig_plotted):
-            label = "Non-significant Clusters (p≥0.05)"
+            label = f"Non-significant Clusters (p≥{alpha})"
             nonsig_plotted = True
 
         ax.axvline(
-            stat_value, color=color, linestyle="-", linewidth=2, alpha=0.7, label=label
+            float(x), color=color, linestyle="-", linewidth=2, alpha=0.7, label=label
         )
 
     ax.set_xlabel(x_label, fontsize=12)

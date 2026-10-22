@@ -156,6 +156,16 @@ def tail_statistic(sizes, masses, cluster_stat, tail):
     return np.abs(masses)
 
 
+def peak_signed(values):
+    """The value of largest magnitude, sign kept (``-0.99`` beats ``+0.5``).
+
+    The peak of a negative-correlation cluster is its most negative ``r``;
+    ``np.max`` would pick the value closest to zero, the weakest one.
+    """
+    values = np.asarray(values, dtype=float).ravel()
+    return float(values[np.argmax(np.abs(values))])
+
+
 def _max_cluster_stats(labeled, n_clusters, t_vol, cluster_stat, tail):
     """Max oriented cluster statistic over multi-voxel clusters.
 
@@ -407,6 +417,56 @@ def _neutralise_degenerate(t_values, p_values):
     return np.where(bad, 0.0, t_values), np.where(bad, 1.0, p_values)
 
 
+def check_paired_sizes(n_first, n_second):
+    """Raise unless a paired test has as many first-group as second-group subjects."""
+    if n_first != n_second:
+        raise ValueError(
+            f"Paired test requires equal sample sizes: {n_first} vs {n_second}"
+        )
+
+
+def exclude_degenerate(t_1d, p_1d, log):
+    """Drop tests whose t is not finite; return ``(t, p, degenerate)``.
+
+    Zero within-group variance gives ``nan`` (identical constant groups) or
+    ``+/-inf`` (perfect separation). Neither carries a usable cluster mass, so
+    the caller removes the ``degenerate`` entries from its valid mask; here they
+    become the null-effect pair (0, 1) so no inf/nan can reach a cluster.
+    """
+    degenerate = ~np.isfinite(t_1d)
+    if np.any(degenerate):
+        log.warning(
+            "Excluding %d voxel(s) with zero within-group variance "
+            "(degenerate t: %d perfectly separated, %d constant)",
+            int(degenerate.sum()),
+            int(np.isinf(t_1d).sum()),
+            int(np.isnan(t_1d).sum()),
+        )
+        t_1d = np.where(degenerate, 0.0, t_1d)
+        p_1d = np.where(degenerate, 1.0, p_1d)
+    return t_1d, p_1d, degenerate
+
+
+def no_testable_voxel_error(n_with_data):
+    """The error for an empty valid mask, saying which of its two causes it is.
+
+    Every reduction over ``values[valid_mask]`` downstream would otherwise raise
+    "zero-size array to reduction operation", a numpy traceback that says
+    nothing about why. *n_with_data* is the number of voxels (or vertices) that
+    had data before the degenerate ones were excluded.
+    """
+    return ValueError(
+        "No voxel could be tested. "
+        + (
+            "Every voxel with data has zero within-group variance — a constant value "
+            "across every subject in a group — and was excluded as degenerate."
+            if n_with_data > 0
+            else "No voxel is non-zero in either group; the input images or the mask are empty."
+        )
+        + " Check that the input images are the fields you meant and that the groups vary."
+    )
+
+
 def ttest_voxelwise(
     responders,
     non_responders,
@@ -420,11 +480,8 @@ def ttest_voxelwise(
     if test_type not in ("paired", "unpaired"):
         raise ValueError("test_type must be 'paired' or 'unpaired'")
 
-    if test_type == "paired" and responders.shape[-1] != non_responders.shape[-1]:
-        raise ValueError(
-            f"Paired test requires equal sample sizes: "
-            f"{responders.shape[-1]} vs {non_responders.shape[-1]}"
-        )
+    if test_type == "paired":
+        check_paired_sizes(responders.shape[-1], non_responders.shape[-1])
 
     test_name = "Paired" if test_type == "paired" else "Unpaired"
     _log.info("Voxelwise %s t-test (alternative=%s)", test_name, alternative)
@@ -454,42 +511,18 @@ def ttest_voxelwise(
     # ``nan`` for identical constant groups, ``+/-inf`` for perfect separation).
     # They carry no usable cluster mass, so they are dropped from valid_mask
     # rather than being allowed to poison a cluster with inf/nan.
-    degenerate = ~np.isfinite(t_1d)
+    t_1d, p_1d, degenerate = exclude_degenerate(t_1d, p_1d, _log)
     if np.any(degenerate):
-        _log.warning(
-            "Excluding %d voxel(s) with zero within-group variance "
-            "(degenerate t: %d perfectly separated, %d constant)",
-            int(degenerate.sum()),
-            int(np.isinf(t_1d).sum()),
-            int(np.isnan(t_1d).sum()),
-        )
         valid_mask = valid_mask.copy()
-        valid_mask[
-            idx_i[degenerate], idx_j[degenerate], idx_k[degenerate]
-        ] = False
-        t_1d = np.where(degenerate, 0.0, t_1d)
-        p_1d = np.where(degenerate, 1.0, p_1d)
+        valid_mask[idx_i[degenerate], idx_j[degenerate], idx_k[degenerate]] = False
 
     t_statistics[idx_i, idx_j, idx_k] = t_1d
     p_values[idx_i, idx_j, idx_k] = p_1d
 
-    # An empty mask is a real, reportable state of the data, not something a caller can use.
-    # Every reduction over `values[valid_mask]` downstream — the caller's own `np.min(p_values
-    # [valid_mask])` first of all — raises "zero-size array to reduction operation minimum",
-    # a numpy traceback that says nothing about why. Two things produce it: no voxel is
-    # non-zero in either group, and (since the degenerate exclusion above) every testable voxel
-    # has zero within-group variance. Say which of the two, here, where both are known.
+    # An empty mask is a real, reportable state of the data, not something a caller can use:
+    # no voxel is non-zero in either group, or every testable voxel was degenerate.
     if not valid_mask.any():
-        raise ValueError(
-            "No voxel could be tested. "
-            + (
-                "Every voxel with data has zero within-group variance — a constant value "
-                "across every subject in a group — and was excluded as degenerate."
-                if len(valid_coords) > 0
-                else "No voxel is non-zero in either group; the input images or the mask are empty."
-            )
-            + " Check that the input images are the fields you meant and that the groups vary."
-        )
+        raise no_testable_voxel_error(len(valid_coords))
 
     return p_values, t_statistics, valid_mask
 
@@ -1121,9 +1154,10 @@ def _identify_significant_clusters(
                     "size": info["size"],
                     "stat_value": info["stat_value"],
                     "p_value": float(pvals[i]),
+                    "center_voxel": np.mean(np.stack(coords, axis=1), axis=0),
                 }
                 if r_values is not None:
-                    entry["peak_r"] = float(np.max(r_values[coords]))
+                    entry["peak_r"] = peak_signed(r_values[coords])
                     entry["mean_r"] = float(np.mean(r_values[coords]))
                 sig_clusters.append(entry)
 
@@ -1131,6 +1165,51 @@ def _identify_significant_clusters(
 
 
 # ─── cluster analysis ────────────────────────────────────────────────────
+
+
+def significant_cluster_table(sig_clusters, affine, log=None):
+    """The engine's significant clusters, with MNI centres, most extreme first.
+
+    *sig_clusters* are the sign-separated clusters that passed the permutation
+    test (from :meth:`PermutationEngine.correct_groups` /
+    :meth:`~PermutationEngine.correct_correlation`). Relabelling the union of
+    their voxels instead (as :func:`cluster_analysis` does) fuses touching
+    clusters of opposite sign and loses each one's statistic and p-value.
+
+    Each row keeps the engine's ``id`` as ``cluster_id`` plus ``size``,
+    ``stat_value`` (signed mass, or size), ``p_value``, ``center_voxel``,
+    ``center_mni`` (``affine`` applied to the voxel centroid) and, for a
+    correlation, ``mean_r`` / ``peak_r``. Rows are ordered by ``|stat_value|``
+    (the extremeness the permutation test ranks on; clusters are
+    sign-homogeneous), largest first.
+    """
+    _log = log or logger
+    affine = np.asarray(affine, dtype=float)
+    rows = []
+    for c in sig_clusters:
+        center = np.asarray(c["center_voxel"], dtype=float)
+        row = {
+            "cluster_id": c["id"],
+            "size": c["size"],
+            "stat_value": c["stat_value"],
+            "p_value": c["p_value"],
+            "center_voxel": center,
+            "center_mni": affine[:3, :3] @ center + affine[:3, 3],
+        }
+        for key in ("mean_r", "peak_r"):
+            if key in c:
+                row[key] = c[key]
+        rows.append(row)
+    rows.sort(key=lambda r: (-abs(r["stat_value"]), r["cluster_id"]))
+
+    for r in rows[:10]:
+        _log.info(
+            "  Cluster %d: %d voxels, MNI (%.1f, %.1f, %.1f)",
+            r["cluster_id"],
+            r["size"],
+            *r["center_mni"],
+        )
+    return rows
 
 
 def cluster_analysis(sig_mask, affine, log=None):

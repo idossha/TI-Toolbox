@@ -32,8 +32,8 @@ from .config import (
 )
 from .engine import (
     PermutationEngine,
-    cluster_analysis,
     correlation_voxelwise,
+    significant_cluster_table,
     ttest_voxelwise,
 )
 from .nifti import load_group_data_ti_toolbox
@@ -46,6 +46,11 @@ from .visualization import (
 _logger = logging.getLogger(__name__)
 
 _ATLAS_DIR = Path(__file__).resolve().parent.parent.parent / "resources" / "atlas"
+
+#: The correlation test is two-sided: clusters of positive and of negative r are
+#: formed separately and both are tested. The engine, the null-distribution
+#: figure and the summary all read this one value.
+_CORRELATION_ALTERNATIVE = "two-sided"
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────
@@ -82,6 +87,27 @@ def _log_failure(analysis_type: str, exc: BaseException) -> None:
 def _resolve_output_dir(analysis_type: str, analysis_name: str) -> str:
     pm = get_path_manager()
     return pm.ensure(pm.stats_output(analysis_type, analysis_name))
+
+
+def _plot_null(log, output_dir, null_dist, threshold, observed, **plot_options):
+    """Draw ``permutation_null_distribution.pdf``, or say why there is none.
+
+    With no candidate cluster at the cluster-forming threshold the engine runs
+    no permutation, so there is no null to draw: an empty histogram with a
+    threshold line at 0 would look like a result.
+    """
+    if len(null_dist) == 0:
+        log.info(
+            "No null-distribution figure: no candidate clusters, so no permutations ran"
+        )
+        return
+    plot_permutation_null_distribution(
+        null_dist,
+        threshold,
+        observed,
+        os.path.join(output_dir, "permutation_null_distribution.pdf"),
+        **plot_options,
+    )
 
 
 def _save_nifti(data, template_img, path):
@@ -309,18 +335,19 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
 
     # ── 4. Cluster analysis ──────────────────────────────────────────────
     log.info("[4/8] Cluster analysis")
-    clusters = cluster_analysis(sig_mask, template_img.affine, log=log)
+    clusters = significant_cluster_table(sig_clusters, template_img.affine, log=log)
 
     # ── 5. Plots ─────────────────────────────────────────────────────────
     log.info("[5/8] Generating plots")
-    perm_plot = os.path.join(output_dir, "permutation_null_distribution.pdf")
-    plot_permutation_null_distribution(
+    _plot_null(
+        log,
+        output_dir,
         null_dist,
         cluster_threshold,
         all_clusters,
-        perm_plot,
         alpha=config.alpha,
         cluster_stat=config.cluster_stat.value,
+        alternative=config.alternative.value,
     )
     corr_plot = os.path.join(output_dir, "cluster_size_mass_correlation.pdf")
     plot_cluster_size_mass_correlation(
@@ -374,7 +401,7 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
         responders,
         non_responders,
         sig_mask,
-        cluster_threshold,
+        cluster_threshold if len(null_dist) else None,
         clusters,
         atlas_results,
         summary_path,
@@ -538,16 +565,18 @@ def _run_correlation_inner(
         dtype=np.float32,
     )
 
-    # Build effect sizes / weights aligned with loaded subjects
-    config_lookup = {s.subject_id: s for s in config.subjects}
+    # Effect sizes / weights by row: the loader stacks one volume per config row, in
+    # row order, so row i of the config is column i of the data. A lookup keyed by
+    # subject_id would give every row of a repeated subject (two simulations of one
+    # person) the last row's values.
     effect_sizes = np.array(
-        [config_lookup[sid].effect_size for sid in subject_ids],
+        [s.effect_size for s in config.subjects],
         dtype=np.float64,
     )
     weights = None
     if config.use_weights:
         weights = np.array(
-            [config_lookup[sid].weight for sid in subject_ids],
+            [s.weight for s in config.subjects],
             dtype=np.float64,
         )
 
@@ -595,7 +624,7 @@ def _run_correlation_inner(
         n_permutations=config.n_permutations,
         alpha=config.alpha,
         cluster_stat=config.cluster_stat.value,
-        alternative="two-sided",
+        alternative=_CORRELATION_ALTERNATIVE,
         n_jobs=config.n_jobs,
         log=log,
     )
@@ -622,28 +651,21 @@ def _run_correlation_inner(
     )
 
     # ── 4. Cluster analysis ──────────────────────────────────────────────
+    # The engine's significant clusters already carry mean_r / peak_r.
     log.info("[4/7] Cluster analysis")
-    clusters = cluster_analysis(sig_mask, template_img.affine, log=log)
-
-    # Annotate with correlation stats
-    from scipy.ndimage import label as scipy_label
-
-    labeled, _ = scipy_label(sig_mask)
-    for c in clusters:
-        c_mask = labeled == c["cluster_id"]
-        c["mean_r"] = float(np.mean(r_values[c_mask]))
-        c["peak_r"] = float(np.max(r_values[c_mask]))
+    clusters = significant_cluster_table(sig_clusters, template_img.affine, log=log)
 
     # ── 5. Plots ─────────────────────────────────────────────────────────
     log.info("[5/7] Generating plots")
-    perm_plot = os.path.join(output_dir, "permutation_null_distribution.pdf")
-    plot_permutation_null_distribution(
+    _plot_null(
+        log,
+        output_dir,
         null_dist,
         cluster_threshold,
         all_clusters,
-        perm_plot,
         alpha=config.alpha,
         cluster_stat=config.cluster_stat.value,
+        alternative=_CORRELATION_ALTERNATIVE,
     )
     if len(corr_data["sizes"]) > 0:
         corr_plot = os.path.join(output_dir, "cluster_size_mass_correlation.pdf")
@@ -706,12 +728,13 @@ def _run_correlation_inner(
         effect_sizes,
         r_values,
         sig_mask,
-        cluster_threshold,
+        cluster_threshold if len(null_dist) else None,
         clusters,
         atlas_results,
         summary_path,
         subject_ids=subject_ids,
         weights=weights,
+        alternative=_CORRELATION_ALTERNATIVE,
     )
 
     total = time.time() - t0
