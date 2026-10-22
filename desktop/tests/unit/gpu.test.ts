@@ -75,7 +75,7 @@ describe("a fresh stack start whose GPU probe cannot be removed", () => {
     vi.stubEnv("HOME", join(root, "home")); // the user-config dir prepareFresh creates lands here
     vi.stubEnv("TIT_IMAGE_TAG", "");
     const log = vi.fn();
-    const host: StackHost = { isPackaged: true, appPath: join(root, "desktop"), log, waitForHealth: vi.fn().mockResolvedValue(undefined), fetchJson: vi.fn() };
+    const host: StackHost = { isPackaged: true, appPath: join(root, "desktop"), log, waitForHealth: vi.fn().mockResolvedValue(undefined) };
     const created: unknown[] = [];
     const fakeApi = {
       imageExists: vi.fn(async () => true),

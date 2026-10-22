@@ -2,8 +2,8 @@ import { mkdtempSync, realpathSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { StackApi, type ContainerSummary } from "../../src/main/docker/stackApi";
-import { decideAttach, resolveRepoDir, sameHostDir } from "../../src/main/stack";
+import { StackApi } from "../../src/main/docker/stackApi";
+import { resolveRepoDir, sameHostDir } from "../../src/main/stack";
 import { DockerEngineError } from "../../src/main/docker/engine";
 import { buildContainerPlan, parseComposeFile } from "../../src/shared/composeFile";
 import { startFakeEngineApi, type FakeEngineApi } from "../e2e/fixtures/fake-engine-api.mjs";
@@ -182,17 +182,7 @@ describe("resolveRepoDir — the dev bind mount is opt-in, by name, unpackaged o
   });
 });
 
-describe("sameHostDir / decideAttach — the hash is a name, not an identity", () => {
-  const summary = (over: Partial<ContainerSummary>): ContainerSummary => ({
-    Id: "c0ffee1234567890",
-    Names: ["/ti-toolbox-deadbeef-tit-1"],
-    Image: "idossha/ti-toolbox:dev",
-    State: "running",
-    Status: "Up 3 minutes",
-    Labels: {},
-    ...over,
-  });
-
+describe("sameHostDir — the hash is a name, not an identity", () => {
   let dir: string;
   let link: string;
 
@@ -211,33 +201,5 @@ describe("sameHostDir / decideAttach — the hash is a name, not an identity", (
     expect(sameHostDir("/some/other/project", dir)).toBe(false);
     expect(sameHostDir(undefined, dir)).toBe(false);
     expect(sameHostDir("", dir)).toBe(false);
-  });
-
-  it("attaches to a running container whose recorded host directory is ours", () => {
-    const decision = decideAttach([summary({ Labels: { "tit.host_project_dir": dir } })], dir);
-    expect(decision.kind).toBe("attach");
-  });
-
-  it("REFUSES a running container that carries this project's name but another directory", () => {
-    const decision = decideAttach([summary({ Labels: { "tit.host_project_dir": "/Users/ido/datasets/other" } })], dir);
-    expect(decision.kind).toBe("refuse");
-    expect(decision.kind === "refuse" && decision.reason).toContain("ti-toolbox-deadbeef-tit-1");
-    expect(decision.kind === "refuse" && decision.reason).toContain("/Users/ido/datasets/other");
-  });
-
-  it("refuses a running container with no host-directory label at all — there is nothing to compare", () => {
-    const decision = decideAttach([summary({ Labels: {} })], dir);
-    expect(decision.kind).toBe("refuse");
-    expect(decision.kind === "refuse" && decision.reason).toContain("unrecorded");
-  });
-
-  it("recreates (rather than refusing) when the only collision is a stopped container", () => {
-    const decision = decideAttach([summary({ State: "exited", Labels: { "tit.host_project_dir": "/elsewhere" } })], dir);
-    expect(decision.kind).toBe("recreate");
-    expect(decision.kind === "recreate" && decision.warnings[0]).toContain("different host directory");
-  });
-
-  it("starts fresh when nothing carries the label", () => {
-    expect(decideAttach([], dir).kind).toBe("none");
   });
 });

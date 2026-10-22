@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { DEV_ENV_EXAMPLE, DEV_ENV_FILE, DevConfigError, loadDevConfig, mergeDevEnv, parseDotenv } from "./devEnv";
 
-const USAGE = `Usage: tsx scripts/dev.ts [--web] [--host] [--project PATH] [--down] [--force]
+const USAGE = `Usage: tsx scripts/dev.ts [--web] [--host] [--project PATH] [--down]
 
   With no flags, build and open the desktop project home. Choose a project in the app.
   Rerun after source changes; use --web for renderer live reload.
@@ -13,7 +13,6 @@ const USAGE = `Usage: tsx scripts/dev.ts [--web] [--host] [--project PATH] [--do
   --web    the renderer dev server only, no Electron window (http://127.0.0.1:5173/)
   --project PATH  prefill the desktop project path; select the project for --web/--host/--down
   --down   stop and remove this project's dev container, then exit
-  --force  deprecated; running containers still require an explicit attach/replace choice
 
 Web/host/container configuration comes from desktop/${DEV_ENV_FILE} (see ${DEV_ENV_EXAMPLE}); any of its variables can
 be overridden for one run from the shell, e.g. TIT_DEV_PORT=8766 npm run dev:web.`;
@@ -57,7 +56,6 @@ async function main(argv: string[]): Promise<number> {
   const web = argv.includes("--web");
   const host = argv.includes("--host");
   const down = argv.includes("--down");
-  const force = argv.includes("--force");
 
   const { DESKTOP_DIR, REPO_DIR, ensureDevStack, stopDevStack } = await loadDevStack();
 
@@ -110,7 +108,7 @@ async function main(argv: string[]): Promise<number> {
     throw err;
   }
 
-  if (host && (down || force)) throw new DevConfigError("--host cannot be combined with --down or --force; Ctrl-C stops the host server.");
+  if (host && down) throw new DevConfigError("--host cannot be combined with --down; Ctrl-C stops the host server.");
 
   if (down) {
     const { removed } = await stopDevStack(config);
@@ -122,7 +120,7 @@ async function main(argv: string[]): Promise<number> {
   const hostServer = host
     ? await (await import("./devHost")).startHostServer(REPO_DIR, config.projectDir, config.port)
     : undefined;
-  const stack = hostServer ?? await ensureDevStack(config, { forceRecreate: force });
+  const stack = hostServer ?? await ensureDevStack(config);
   if (hostServer) {
     process.once("exit", hostServer.stop);
     for (const signal of ["SIGINT", "SIGTERM"] as const) {

@@ -114,15 +114,12 @@ export interface StackHost {
   log(level: "info" | "warn" | "error", message: string): void;
   /** Poll `<origin>/api/health` until it answers `{status:"ok"}` or the timeout expires (throws). */
   waitForHealth(origin: string, timeoutMs: number): Promise<void>;
-  /** One authenticated GET returning parsed JSON; throws on anything but a 2xx. */
-  fetchJson(url: string, headers: Record<string, string>): Promise<unknown>;
 }
 
 /**
  * Per-start overrides. Empty (the packaged app's own call) uses port 8765 upwards, the compose
- * file's default image tag, the repo mount only if the
- * environment asked for one by name, no `--reload`, and attach only when this project's running
- * container uses the requested image reference.
+ * file's default image tag, the repo mount only if the environment asked for one by name and no
+ * `--reload`. None of them bypasses the explicit attach/replace choice for a running container.
  */
 export interface StackStartOptions {
   /** First port to try when creating a container (default `DEFAULT_PORT`). */
@@ -143,10 +140,6 @@ export interface StackStartOptions {
    * `process.env.TIT_STATIC_DIR`.
    */
   staticDir?: string;
-  /** @deprecated Retained for callers; attachment always requires an explicit choice. */
-  requireMatch?: boolean;
-  /** @deprecated Never bypasses the explicit running-container choice. */
-  forceRecreate?: boolean;
 }
 
 export type StackStartResult = { ok: true; url: string; token: string; attached: boolean } | { ok: false; error: string };
@@ -713,92 +706,6 @@ function realDir(dir: string): string {
 export function sameHostDir(labelValue: string | undefined, hostProjectDir: string): boolean {
   if (!labelValue) return false;
   return realDir(labelValue) === realDir(hostProjectDir);
-}
-
-export type AttachDecision =
-  /** Nothing carries this project's name — start fresh. */
-  | { kind: "none" }
-  /** Only stopped containers: remove them (they hold the name) and start fresh. */
-  | { kind: "recreate"; warnings: string[] }
-  /** A running container this project genuinely owns. */
-  | { kind: "attach"; container: ContainerSummary; warnings: string[] }
-  /** A running container with this project's name but somebody else's directory. */
-  | { kind: "refuse"; reason: string };
-
-/**
- * What to do about the containers already carrying this project's `tit.project` label.
- *
- * Pure, and separated from the Engine API calls around it, because the interesting case is the one
- * that is hardest to stage live: a 32-bit hash collision, where two host directories produce the
- * same project name (QA engineer finding 5). Attaching on the name alone handed the second project
- * the first one's container — its published port, its bearer token, its mounted data — silently.
- * A running container whose recorded directory is not ours is refused by name instead: removing it
- * would kill a stack another project is actively using, so the user, who can see both, decides.
- */
-export function decideAttach(existing: ContainerSummary[], hostProjectDir: string): AttachDecision {
-  if (existing.length === 0) return { kind: "none" };
-  const mine = existing.filter((c) => sameHostDir(c.Labels?.[LABEL_HOST_DIR], hostProjectDir));
-  const foreign = existing.filter((c) => !mine.includes(c));
-  const foreignRunning = foreign.find((c) => c.State === "running");
-  if (foreignRunning) {
-    const name = foreignRunning.Names[0]?.replace(/^\//, "") ?? foreignRunning.Id.slice(0, 12);
-    const other = foreignRunning.Labels?.[LABEL_HOST_DIR] ?? "an unrecorded directory";
-    return { kind: "refuse", reason: `the container ${name} carries this project's name but was started for ${other}; stop or remove it, then try again` };
-  }
-  const warnings = foreign.map((c) => `ignoring ${c.Id.slice(0, 12)} — same project name, different host directory (${c.Labels?.[LABEL_HOST_DIR] ?? "unrecorded"})`);
-  const running = mine.find((c) => c.State === "running");
-  return running ? { kind: "attach", container: running, warnings } : { kind: "recreate", warnings };
-}
-
-/**
- * Why a running container cannot serve this `start()`'s options, or `null` when it can.
- *
- * Docker's actual mounts establish checkout identity; a stale TIT_REPO_DIR marker cannot.
- * Environment inspection checks import precedence, reload and the selected UI directory.
- *
- * Pure and exported so `tests/unit/dev-stack.test.ts` can pin every branch without Docker.
- */
-export function describeMismatch(
-  state: { env: Record<string, string>; mounts?: { Type: string; Source: string; Destination: string }[] },
-  image: string,
-  want: Pick<StackStartOptions, "imageTag" | "repoDir" | "serverReload" | "staticDir">,
-): string | null {
-  const show = (value: string): string => value || "(none)";
-  const wantRepo = want.repoDir ?? "";
-  const repoMount = state.mounts?.find((mount) => mount.Destination === "/ti-toolbox");
-  const haveRepo = repoMount?.Source ?? "";
-  if (wantRepo && repoMount?.Type !== "bind") return `it mounts ${show(haveRepo)} at /ti-toolbox without the requested checkout bind, this run wants ${wantRepo}`;
-  if (!sameHostDir(haveRepo, wantRepo) && haveRepo !== wantRepo) return `it mounts ${show(haveRepo)} at /ti-toolbox, this run wants ${show(wantRepo)}`;
-  if (wantRepo && state.env.PYTHONPATH?.split(":")[0] !== "/ti-toolbox")
-    return "its PYTHONPATH does not put /ti-toolbox first, so the installed package may shadow this checkout";
-  const wantReload = want.serverReload ? "1" : "";
-  const haveReload = state.env.TIT_SERVER_RELOAD ?? "";
-  if (haveReload !== wantReload) return `it has TIT_SERVER_RELOAD=${show(haveReload)}, this run wants ${show(wantReload)}`;
-  const wantStatic = want.staticDir ?? "";
-  const haveStatic = state.env.TIT_STATIC_DIR ?? "";
-  if (haveStatic !== wantStatic)
-    return `it serves its UI from ${show(haveStatic) === "(none)" ? "the image's baked bundle" : show(haveStatic)}, this run wants ${show(wantStatic) === "(none)" ? "the image's baked bundle" : show(wantStatic)}`;
-  if (want.imageTag && !image.endsWith(`:${want.imageTag}`)) return `it runs ${image}, this run wants tag ${want.imageTag}`;
-  // The published port is deliberately NOT compared. `preferredPort` is where `findFreePort` starts
-  // looking, not a promise: measured on 2026-09-03, ports 8766-8780 were held by another agent's
-  // mock servers and a start asking for 8766 legitimately landed on 8781. Requiring an exact match
-  // would then have recreated that container on every subsequent `npm run dev` — killing the
-  // developer's running jobs to move a port number that nothing depends on, since the dev script
-  // hands Vite and Electron whatever origin the container actually has.
-  return null;
-}
-
-/** Names unfinished jobs; malformed replies cannot establish that recreation is safe. */
-export function runningJobLabels(body: unknown): string[] {
-  if (!Array.isArray(body)) throw new Error("Expected a job list");
-  const finished = new Set(["succeeded", "failed", "cancelled"]);
-  return body.map((job: unknown) => {
-    if (typeof job !== "object" || job === null || !("state" in job) || typeof job.state !== "string")
-      throw new Error("Invalid job in server reply");
-    if (finished.has(job.state)) return null;
-    const record = job as Record<string, unknown>;
-    return `${String(record.kind ?? "job")} ${String(record.id ?? "?")}`;
-  }).filter((label): label is string => label !== null);
 }
 
 /** One manager per host process. Electron main uses `./stackHost.ts`'s; the dev script its own. */

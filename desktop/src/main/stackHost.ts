@@ -9,7 +9,7 @@
  * with a `TypeError: Cannot read properties of undefined (reading 'isPackaged')` — a plain Node
  * `require("electron")` returns the *path to the binary*, not the API surface.
  */
-import { app, net, dialog } from "electron";
+import { app, dialog } from "electron";
 import { waitForHealth } from "./health";
 import { log } from "./log";
 import { createStackManager, type StackHost } from "./stack";
@@ -52,11 +52,6 @@ export const electronStackHost: StackHost = {
   },
   log,
   waitForHealth,
-  async fetchJson(url, headers) {
-    const res = await net.fetch(url, { headers, signal: AbortSignal.timeout(5000) });
-    if (!res.ok) throw new Error(`GET ${url} failed with HTTP ${res.status}`);
-    return await res.json();
-  },
 };
 
 export const stack = createStackManager(electronStackHost);

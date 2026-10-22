@@ -73,7 +73,7 @@ async function pollHealth(origin: string, timeoutMs: number): Promise<void> {
 }
 
 function host(): StackHost {
-  return { isPackaged: true, appPath: join(REPO, "desktop"), log: () => {}, waitForHealth: pollHealth, fetchJson: async () => ({}) };
+  return { isPackaged: true, appPath: join(REPO, "desktop"), log: () => {}, waitForHealth: pollHealth };
 }
 
 function envOf(container: FakeEngineApiContainer): Record<string, string> {

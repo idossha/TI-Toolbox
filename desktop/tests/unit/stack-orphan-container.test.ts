@@ -45,7 +45,7 @@ function stackContainers(): FakeEngineApiContainer[] {
 }
 
 function host(waitForHealth: StackHost["waitForHealth"]): StackHost {
-  return { isPackaged: true, appPath: join(REPO, "desktop"), log: () => {}, waitForHealth, fetchJson: async () => ({}) };
+  return { isPackaged: true, appPath: join(REPO, "desktop"), log: () => {}, waitForHealth };
 }
 
 beforeEach(async () => {

@@ -90,11 +90,6 @@ export const nodeStackHost: StackHost = {
     if (level !== "info") console.error(`[dev] ${level}: ${message}`);
   },
   waitForHealth,
-  async fetchJson(url, headers) {
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
-    if (!res.ok) throw new Error(`GET ${url} failed with HTTP ${res.status}`);
-    return (await res.json()) as unknown;
-  },
 };
 
 export interface DevStackResult {
@@ -105,7 +100,7 @@ export interface DevStackResult {
 }
 
 /** Return credentials and ownership for the explicitly selected or freshly created dev container. */
-export async function ensureDevStack(config: DevConfig, options: { forceRecreate?: boolean } = {}): Promise<DevStackResult> {
+export async function ensureDevStack(config: DevConfig): Promise<DevStackResult> {
   const stack = createStackManager(nodeStackHost);
   const off = stack.onEvent((event: StackEvent) => {
     if (event.type === "progress") console.log(`[dev] ${event.message}`);
@@ -119,8 +114,6 @@ export async function ensureDevStack(config: DevConfig, options: { forceRecreate
       serverReload: config.mountRepo,
       // Keep the selected UI independent of build timing and stray shell settings.
       staticDir: config.mountRepo ? "/ti-toolbox/desktop/out/renderer" : "/opt/ti-toolbox/ui",
-      requireMatch: true,
-      forceRecreate: options.forceRecreate ?? false,
     });
     if (!result.ok) throw new Error(result.error);
     // TIT_DEV_PORT is where `findFreePort` starts, not a guarantee: another process (or another
@@ -142,9 +135,9 @@ export interface DevStackDownResult {
 /**
  * `npm run dev:down` — stop and remove this project's container.
  *
- * By label, not by anything this process remembers, so it works from a fresh shell. Both labels
- * are checked for the same reason attach does (`decideAttach`): `tit.project` is a 32-bit hash, so
- * matching on it alone could remove another directory's stack.
+ * By label, not by anything this process remembers, so it works from a fresh shell. The recorded
+ * host directory is checked too (`sameHostDir`): `tit.project` is a 32-bit hash, so matching on it
+ * alone could remove another directory's stack.
  */
 export async function stopDevStack(config: DevConfig): Promise<DevStackDownResult> {
   const found = await discover();

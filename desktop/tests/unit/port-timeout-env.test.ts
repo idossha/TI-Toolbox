@@ -85,7 +85,7 @@ describe("StackManager.start with a bad timeout in the environment", () => {
     const lookedForDocker = vi.spyOn(discovery, "discover").mockRejectedValue(new Error("must not look for Docker"));
     const project = mkdtempSync(join(tmpdir(), "tit-timeout-env-"));
     try {
-      const host = { isPackaged: true, appPath: project, log: vi.fn(), waitForHealth: vi.fn(), fetchJson: vi.fn() };
+      const host = { isPackaged: true, appPath: project, log: vi.fn(), waitForHealth: vi.fn() };
       const result = await createStackManager(host).start(project);
       expect(result.ok).toBe(false);
       expect(result.ok ? "" : result.error).toContain(name);

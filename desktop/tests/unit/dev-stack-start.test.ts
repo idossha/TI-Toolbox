@@ -31,8 +31,6 @@ describe("dev stack options", () => {
       repoDir: mountRepo ? REPO_DIR : undefined,
       serverReload: mountRepo,
       staticDir: mountRepo ? "/ti-toolbox/desktop/out/renderer" : "/opt/ti-toolbox/ui",
-      requireMatch: true,
-      forceRecreate: false,
     });
   });
 });

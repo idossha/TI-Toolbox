@@ -17,7 +17,7 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "tit-image-attach-"));
   writeFileSync(join(root, "docker-compose.yml"), "services:\n  tit:\n    image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-fixture}\n");
   vi.stubEnv("TIT_IMAGE_TAG", "");
-  host = { isPackaged: true, appPath: join(root, "desktop"), log: vi.fn(), waitForHealth: vi.fn().mockResolvedValue(undefined), fetchJson: vi.fn() };
+  host = { isPackaged: true, appPath: join(root, "desktop"), log: vi.fn(), waitForHealth: vi.fn().mockResolvedValue(undefined) };
   state = { Id: "existing", Name: "existing", image: "idossha/ti-toolbox:internal-fixture", running: true, status: "running", exitCode: 0, health: "healthy", publishedPort: 8765, labels: {}, mounts: [], env: { TIT_SERVER_TOKEN: "fixture-token", TIT_SERVER_PORT: "8765" } };
   vi.spyOn(discovery, "discover").mockResolvedValue({ available: true, connection: { kind: "unix", socketPath: "/unused" }, source: "fixture" });
   vi.spyOn(DockerEngineClient.prototype, "version").mockResolvedValue({ Version: "29.0.0", ApiVersion: "1.51", MinAPIVersion: "1.24", Os: "linux", Arch: "amd64" });
@@ -61,7 +61,7 @@ describe("explicit running-container selection", () => {
     state.image = "idossha/ti-toolbox:older";
     state.labels[LABEL_HOST_DIR] = "/other/project";
     const manager = new StackManager(host);
-    expect(await manager.start(root, { requireMatch: true, forceRecreate: true })).toMatchObject({ ok: true, attached: true });
+    expect(await manager.start(root)).toMatchObject({ ok: true, attached: true });
     expect(manager.getCurrent()).toMatchObject({ image: state.image, hostProjectDir: "/other/project" });
     expect(StackApi.prototype.listContainers).toHaveBeenCalledWith({});
     expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
