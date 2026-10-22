@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import os
 import struct
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -355,3 +356,55 @@ def test_a_skipped_charm_does_not_supply_the_segmentation(project, client):
         },
     )
     _refused(r, _labeling(project), "Tissue analysis")
+
+
+# ---------------------------------------------------------------------------------------------
+# Dataset 000 (read-only): sub-CHN's real DWI, fieldmaps and QSIPrep output
+# ---------------------------------------------------------------------------------------------
+DATASET = os.environ.get("TIT_DATASET_000", "")
+
+
+@pytest.mark.skipif(
+    not DATASET or not (Path(DATASET) / "sub-CHN" / "dwi").is_dir(),
+    reason="skipping: TIT_DATASET_000 is unset or has no sub-CHN/dwi (Dataset 000)",
+)
+def test_sub_chn_the_real_fieldmap_and_transform_decide_the_atlas_check(tmp_path):
+    """sub-CHN: DWI j-, fmap acq-dwi_dir-AP j with a TotalReadoutTime (usable, so TOPUP and no
+    SyN), and a finished QSIPrep run that wrote the MNI transform. The project is a tmp folder of
+    symlinks into the dataset; nothing is written there (mtimes compared)."""
+    from tit.pre.preflight import find_missing_preprocessing_inputs
+
+    root = Path(DATASET)
+    for rel in (
+        "sub-CHN/anat",
+        "sub-CHN/dwi",
+        "sub-CHN/fmap",
+        "derivatives/qsiprep/sub-CHN",
+    ):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).symlink_to(root / rel, target_is_directory=True)
+    read = [
+        p
+        for rel in ("sub-CHN", "derivatives/qsiprep/sub-CHN")
+        for p in sorted((root / rel).rglob("*"))
+        if p.is_file()
+    ]
+    before = {p: p.stat().st_mtime_ns for p in read}
+
+    def problems(**flags):
+        return find_missing_preprocessing_inputs(
+            str(tmp_path), ["CHN"], qsi_recon_config={"atlases": ["AAL116"]}, **flags
+        )
+
+    # QSIRecon alone reads the transform the real QSIPrep run wrote.
+    assert problems(run_qsirecon=True) == []
+    # Rerunning QSIPrep with MNI normalization off: TOPUP with the AP fieldmap, no transform.
+    rerun = dict(run_qsiprep=True, run_qsirecon=True, skip_existing_outputs=False)
+    (refused,) = problems(**rerun, qsiprep_config={"mni_normalization": False})
+    assert refused.subject_id == "CHN" and ATLAS_MSG in refused.message
+    assert "sub-CHN_acq-dwi_dir-AP_epi.nii.gz" in refused.message
+    assert problems(**rerun, qsiprep_config={"mni_normalization": True}) == []
+    # Under skip the existing QSIPrep output is kept, and it has the transform.
+    kept = dict(run_qsiprep=True, run_qsirecon=True, skip_existing_outputs=True)
+    assert problems(**kept, qsiprep_config={"mni_normalization": False}) == []
+    assert {p: p.stat().st_mtime_ns for p in read} == before
