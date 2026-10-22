@@ -41,6 +41,7 @@ from .preflight import (
     FREESURFER_SUBREGION_STEPS,
     STEP_QSIPREP,
     STEP_QSIRECON,
+    STEP_TISSUE,
     existing_outputs_for_step,
     find_missing_preprocessing_inputs,
     remove_preprocessing_output,
@@ -133,6 +134,14 @@ def _should_run_output_step(
         return True
 
     if skip_existing_outputs:
+        missing = [name for output in existing_outputs for name in output.missing]
+        if missing:
+            # A partial run is not done, and skip never deletes: only replace may.
+            raise PreprocessError(
+                f"{label} output for subject {subject_id} is incomplete: {paths} has "
+                f"no {', '.join(missing)}, so an earlier run did not finish. Choose "
+                "replace existing outputs to rerun it."
+            )
         logger.info(f"{label}: skipping because output already exists: {paths}")
         return False
 
@@ -196,7 +205,9 @@ def _run_subject_pipeline(
     durations: dict[str, float | None] = {}
 
     if convert_dicom:
-        if _should_run_output_step(
+        # "skip" is per modality: the converter leaves converted modalities alone
+        # and still ingests one added later (a T2w after the T1w, say).
+        if skip_existing_outputs or _should_run_output_step(
             project_dir,
             subject_id,
             STEP_DICOM,
@@ -211,6 +222,7 @@ def _run_subject_pipeline(
                     subject_id,
                     logger=logger,
                     runner=runner,
+                    skip_existing=skip_existing_outputs,
                 ),
                 logger,
             )
@@ -314,15 +326,25 @@ def _run_subject_pipeline(
         )
 
     if run_tissue:
-        durations["Tissue Analysis"] = _run_step(
-            "Tissue analysis",
-            lambda: run_tissue_analysis(
-                project_dir,
-                subject_id,
-                logger=logger,
-            ),
-            logger,
-        )
+        if _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_TISSUE,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
+        ):
+            durations["Tissue Analysis"] = _run_step(
+                "Tissue analysis",
+                lambda: run_tissue_analysis(
+                    project_dir,
+                    subject_id,
+                    logger=logger,
+                ),
+                logger,
+            )
+        else:
+            durations["Tissue Analysis"] = None
 
     # QSI pipeline steps (DWI preprocessing)
     if run_qsiprep_step:
@@ -500,7 +522,10 @@ def run_pipeline(
     extract_dti : bool, optional
         Extract DTI tensor for SimNIBS anisotropic conductivity.
     skip_existing_outputs : bool, optional
-        Skip selected preprocessing steps when their output already exists.
+        Skip selected preprocessing steps whose output already exists
+        (DICOM conversion: per modality). An output an interrupted run left
+        incomplete is never skipped or deleted: the step raises
+        ``PreprocessError`` asking for *replace_existing_outputs*.
     replace_existing_outputs : bool, optional
         Remove selected existing outputs before rerunning their steps.
     stop_event : object or None, optional

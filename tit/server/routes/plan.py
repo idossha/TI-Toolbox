@@ -44,11 +44,13 @@ Per-kind output-dir resolution
     :func:`tit.jobs.plans.plan_preprocessing`'s ``G1``-``G6``/``report`` DAG, flattened to one
     :class:`PlanJob` per *stage* per subject (not one per subject) -- exactly the granularity
     ``POST /api/jobs/groups`` submits. Each stage's ``output_dir`` is a best-effort mapping to
-    the directory that stage's flag writes to (see :func:`_pre_stage_output_dir`) -- several
-    stages share a directory with other content (e.g. ``G2a`` and ``G6`` both touch
-    ``m2m_<subject>/``), so ``exists``/``will_overwrite`` there are coarser than for the
-    single-output kinds above. The stages run one at a time (one job per product), so the ETA
-    is their sum and the cost is one stage's.
+    the directory that stage's flag writes to (see :func:`_pre_stage_output_dir`); its
+    ``exists`` is :func:`tit.pre.preflight.existing_outputs_for_step` for that stage -- the
+    output the run's skip/replace policy acts on -- not the directory's existence (``G2a``
+    and ``G6`` both touch ``m2m_<subject>/``). Under "skip", a stage whose output an
+    interrupted run left incomplete gets a warning naming the subject and the stage. The
+    stages run one at a time (one job per product), so the ETA is their sum and the cost is
+    one stage's.
 ``source``
     ``forward`` mode: :meth:`PathManager.forward` per subject. ``fsavg_map`` mode:
     :meth:`PathManager.sim_fsaverage` per ``(subject, simulation)`` pair.
@@ -632,6 +634,19 @@ def _plan_pre(
         )
         return [], {"stages": []}
 
+    from tit.pre import preflight
+
+    # The answer the stage's own skip/replace policy acts on, so the plan's `exists`
+    # is what the run will find (and what its runner would refuse to overwrite).
+    stage_steps = {
+        "G1": preflight.STEP_DICOM,
+        "G2a": preflight.STEP_CHARM,
+        "G2b": preflight.STEP_FASTSURFER,
+        "G3": preflight.STEP_TISSUE,
+        "G4": preflight.STEP_QSIPREP,
+        "G5": preflight.STEP_QSIRECON,
+        "G6": preflight.STEP_DTI,
+    }
     planned = plan_preprocessing(config, subjects)
     jobs: list[PlanJob] = []
     stages: list[dict[str, Any]] = []
@@ -639,18 +654,30 @@ def _plan_pre(
         sid = planned_job.subject_ids[0] if planned_job.subject_ids else ""
         stage = planned_job.tags[0] if planned_job.tags else planned_job.kind
         output_dir = _pre_stage_output_dir(pm, sid, stage) if sid else ""
-        exists = _dir_exists(output_dir)
-        if stage == "G2c":
-            from tit.pre.preflight import find_existing_preprocessing_outputs
-
-            exists = bool(
-                find_existing_preprocessing_outputs(
-                    pm.project_dir,
-                    [sid],
-                    run_freesurfer=True,
-                    freesurfer_recon_all=config.freesurfer_recon_all,
-                    freesurfer_subregions=config.freesurfer_subregions,
-                )
+        outputs: list = []
+        if sid and stage == "G2c":
+            outputs = preflight.find_existing_preprocessing_outputs(
+                pm.project_dir,
+                [sid],
+                run_freesurfer=True,
+                freesurfer_recon_all=config.freesurfer_recon_all,
+                freesurfer_subregions=config.freesurfer_subregions,
+            )
+        elif sid and stage in stage_steps:
+            outputs = preflight.existing_outputs_for_step(
+                pm.project_dir, sid, stage_steps[stage]
+            )
+        if stage == "G5" and outputs:
+            # The reconstruction folder is named for the spec that wrote it.
+            output_dir = str(outputs[0].path)
+        exists = bool(outputs)
+        incomplete = [output for output in outputs if not output.complete]
+        if incomplete and config.skip_existing_outputs:
+            # Names the subject and the stage id, which marks the desktop's cell blocked.
+            warnings.append(
+                f"{sid} {stage}: {incomplete[0].label} output at {incomplete[0].path} "
+                f"is incomplete (no {', '.join(incomplete[0].missing)}); skip existing "
+                "outputs will stop this stage. Choose replace existing outputs to rerun it."
             )
         will_overwrite = exists and not config.skip_existing_outputs
         jobs.append(

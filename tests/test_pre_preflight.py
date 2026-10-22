@@ -43,7 +43,13 @@ def test_find_existing_structural_and_qsi_outputs(tmp_path):
         tmp_path / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001",
         tmp_path / "derivatives" / "fastsurfer" / "sub-001",
         tmp_path / "derivatives" / "qsiprep" / "sub-001",
-        tmp_path / "derivatives" / "qsirecon" / "sub-001",
+        # QSIRecon 26 writes reconstructions here, not to qsirecon/sub-001 (logs).
+        tmp_path
+        / "derivatives"
+        / "qsirecon"
+        / "derivatives"
+        / "qsirecon-DSIStudio"
+        / "sub-001",
     ):
         output_dir.mkdir(parents=True)
         (output_dir / "output.txt").touch()
@@ -195,7 +201,8 @@ def test_missing_t1_input_ignored_when_dicom_conversion_selected(tmp_path):
     assert problems == []
 
 
-def test_missing_t1_input_detected_when_dicom_conversion_would_be_skipped(tmp_path):
+def test_missing_t1_input_deferred_when_skip_still_converts_the_t1w(tmp_path):
+    """Skip is per modality: a converted T2w does not stop the T1w being converted."""
     anat_dir = tmp_path / "sub-001" / "anat"
     anat_dir.mkdir(parents=True)
     (anat_dir / "sub-001_T2w.nii.gz").touch()
@@ -208,8 +215,32 @@ def test_missing_t1_input_detected_when_dicom_conversion_would_be_skipped(tmp_pa
         skip_existing_outputs=True,
     )
 
-    assert len(problems) == 1
-    assert problems[0].step == STEP_CHARM
+    assert problems == []
+
+
+def test_inputs_checked_when_skip_leaves_no_modality_to_convert(tmp_path):
+    """Every modality already converted: conversion produces nothing, so check now."""
+    for datatype, name in (
+        ("anat", "sub-001_T1w"),
+        ("anat", "sub-001_T2w"),
+        ("anat", "sub-001_ct"),
+        ("dwi", "sub-001_dwi"),  # no .bval/.bvec: QSIPrep cannot use it
+        ("fmap", "sub-001_dir-PA_epi"),
+    ):
+        folder = tmp_path / "sub-001" / datatype
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{name}.nii.gz").touch()
+
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path),
+        ["001"],
+        convert_dicom=True,
+        run_qsiprep=True,
+        skip_existing_outputs=True,
+    )
+
+    assert [p.step for p in problems] == [STEP_QSIPREP]
+    assert "requires BIDS DWI data" in problems[0].message
 
 
 def test_missing_t1_input_ignored_when_dicom_conversion_will_run_with_skip_policy(

@@ -119,9 +119,11 @@ class TestRunCharm:
         mock_gpm.return_value = mock_pm
         mock_find.return_value = (tmp_path / "t1.nii.gz", None)
 
-        # Create the m2m directory so it exists
+        # Create a non-empty m2m directory (an empty one is not an output and
+        # is removed instead, see tests/test_pre_incomplete_outputs.py)
         m2m = Path(mock_pm.m2m.return_value)
         m2m.mkdir(parents=True, exist_ok=True)
+        (m2m / "charm_log.html").write_text("earlier run")
 
         with pytest.raises(PreprocessError, match="already exists"):
             run_charm("/proj", "001", logger=MagicMock())

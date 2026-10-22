@@ -224,6 +224,29 @@ def _find_files(directory: Path, suffixes: tuple[str, ...]) -> list[Path]:
     )
 
 
+def _is_dicom(path: Path) -> bool:
+    """Return ``True`` for a ``.dcm``/``.dicom`` file or a DICOM Part 10 file.
+
+    PS3.10 section 7.1: a 128-byte preamble, then the prefix ``DICM``. Siemens
+    ``.IMA`` and extensionless PACS exports carry it, and dcm2niix reads them.
+    """
+    if _has_suffix(path.name, _DICOM_SUFFIXES):
+        return True
+    if _has_suffix(path.name, _NIFTI_SUFFIXES + _SIDECAR_SUFFIXES + _ARCHIVE_SUFFIXES):
+        return False
+    try:
+        with path.open("rb") as handle:
+            handle.seek(128)
+            return handle.read(4) == b"DICM"
+    except OSError:
+        return False
+
+
+def _find_dicoms(directory: Path) -> list[Path]:
+    """Return sorted DICOM files under *directory* (see :func:`_is_dicom`)."""
+    return sorted(path for path in _iter_files(directory) if _is_dicom(path))
+
+
 def _safe_target(base_dir: Path, member_name: str) -> Path:
     """Resolve an archive member target and reject path traversal."""
     target = (base_dir / member_name).resolve()
@@ -408,19 +431,33 @@ def _copy_nifti(
     return True
 
 
-def _reject_existing_output(output_dir: Path, subject_id: str, modality: str) -> None:
-    """Raise if *modality* has already been ingested.
+def converted_nifti(output_dir: Path, subject_id: str, modality: str) -> Path | None:
+    """The NIfTI an earlier ingestion of *modality* left in *output_dir*, or ``None``.
 
-    Both extensions are checked: we always write ``.nii.gz``, but a
-    hand-placed ``.nii`` counts too, and leaving it would make the subject
-    carry the same BIDS entity twice. ``dir-`` variants count as well.
+    Both extensions count: we always write ``.nii.gz``, but a hand-placed
+    ``.nii`` is the same BIDS entity. ``dir-`` variants count as well.
     """
-    for path in bids_outputs(output_dir, subject_id, modality):
-        if _has_suffix(path.name, _NIFTI_SUFFIXES):
-            raise PreprocessError(
-                f"Output already exists for {path.name}. "
-                "Remove the files manually before rerunning."
-            )
+    return next(
+        (
+            path
+            for path in bids_outputs(output_dir, subject_id, modality)
+            if _has_suffix(path.name, _NIFTI_SUFFIXES)
+        ),
+        None,
+    )
+
+
+def _reject_existing_output(output_dir: Path, subject_id: str, modality: str) -> None:
+    """Raise if *modality* has already been ingested (see :func:`converted_nifti`).
+
+    Leaving the old file would make the subject carry the same BIDS entity twice.
+    """
+    existing = converted_nifti(output_dir, subject_id, modality)
+    if existing is not None:
+        raise PreprocessError(
+            f"Output already exists for {existing.name}. "
+            "Remove the files manually before rerunning."
+        )
 
 
 def _check_dcm2niix_outputs(
@@ -547,7 +584,7 @@ def _ingest_modality(
 
     _extract_archives(modality_dir, logger)
 
-    dicom_files = _find_files(modality_dir, _DICOM_SUFFIXES)
+    dicom_files = _find_dicoms(modality_dir)
     nifti_files = _find_files(modality_dir, _NIFTI_SUFFIXES)
     if dicom_files:
         logger.info(f"Found {len(dicom_files)} DICOM file(s) under {modality_dir}")
@@ -667,6 +704,7 @@ def run_dicom_to_nifti(
     *,
     logger,
     runner: CommandRunner | None = None,
+    skip_existing: bool = False,
 ) -> None:
     """Ingest a subject's source images into BIDS-named NIfTI files.
 
@@ -682,10 +720,12 @@ def run_dicom_to_nifti(
 
     Each modality folder is searched recursively. Supported archives
     (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``) are safely extracted to
-    ``extracted_archives/`` first. DICOM files (``.dcm``/``.dicom``) are then
-    converted with ``dcm2niix``; if the folder holds no DICOMs but does hold a
-    NIfTI, that file is copied into place instead (compressing a bare ``.nii``
-    on the way). Dotfiles are ignored throughout.
+    ``extracted_archives/`` first. DICOM files (``.dcm``/``.dicom``, or any
+    file carrying the DICOM Part 10 ``DICM`` prefix, such as ``.IMA`` or
+    extensionless exports) are then converted with ``dcm2niix``; if the folder
+    holds no DICOMs but does hold a NIfTI, that file is copied into place
+    instead (compressing a bare ``.nii`` on the way). Dotfiles are ignored
+    throughout.
 
     CT is written as ``anat/sub-{id}_ct.nii.gz``. This is a local convention,
     not BIDS -- see :data:`MODALITIES`.
@@ -700,11 +740,16 @@ def run_dicom_to_nifti(
         Logger for progress messages.
     runner : CommandRunner or None, optional
         Subprocess runner for streaming output.
+    skip_existing : bool, optional
+        Leave a modality whose NIfTI already exists as it is and ingest the
+        others, instead of raising.
 
     Raises
     ------
     PreprocessError
-        If an output NIfTI already exists for a modality.
+        If an output NIfTI already exists for a modality (unless
+        *skip_existing*), or if modality folders hold files and nothing at all
+        could be ingested from them.
 
     See Also
     --------
@@ -718,16 +763,36 @@ def run_dicom_to_nifti(
         pm = get_path_manager(project_dir)
         sourcedata_dir = Path(pm.sourcedata_subject(subject_id))
 
-        converted = False
+        converted = skipped = False
+        unconverted: list[str] = []
         for modality, datatype in MODALITIES:
             modality_dir = _modality_source_dir(sourcedata_dir, modality)
             if not modality_dir.exists():
                 continue
             output_dir = Path(pm.bids_datatype(subject_id, datatype))
+            existing = converted_nifti(output_dir, subject_id, modality)
+            if skip_existing and existing is not None:
+                logger.info(f"{modality}: skipping because {existing} already exists")
+                skipped = True
+                continue
             if _ingest_modality(
                 modality_dir, output_dir, subject_id, modality, logger, runner
             ):
                 converted = True
+                continue
+            count = sum(1 for _ in _iter_files(modality_dir))
+            if count:
+                unconverted.append(f"{modality_dir} holds {count} file(s)")
 
-        if not converted:
+        if not converted and not skipped and unconverted:
+            # Returning here would hand the next stage nothing, and it would fail
+            # telling the user to run the conversion they just ran.
+            raise PreprocessError(
+                f"DICOM conversion produced nothing for sub-{subject_id}: "
+                f"{'; '.join(unconverted)}, but none could be converted. A DICOM "
+                "needs a .dcm/.dicom extension or the DICM prefix of a DICOM file, "
+                "a NIfTI a .nii/.nii.gz extension, and dcm2niix must succeed "
+                "(see the warnings above)."
+            )
+        if not converted and not skipped:
             logger.warning("No DICOM or NIfTI files found or converted")

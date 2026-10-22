@@ -24,6 +24,25 @@ from .utils import (
 )
 
 
+def existing_reconstructions(project_dir: str, subject_id: str) -> list[Path]:
+    """Return the subject's non-empty QSIRecon reconstruction folders, sorted.
+
+    QSIRecon 26 writes each reconstruction to
+    ``derivatives/qsirecon/derivatives/qsirecon-<suffix>/sub-<id>/`` and reserves
+    ``derivatives/qsirecon/sub-<id>/`` for logs and figures. Only the former is an
+    output: counting the latter would block every rerun after the first attempt,
+    including one that crashed and produced nothing but a log. :func:`run_qsirecon`
+    refuses to run over these, and the skip/replace policy
+    (:func:`tit.pre.preflight.existing_outputs_for_step`) acts on the same list.
+    """
+    recon_root = Path(get_path_manager(project_dir).qsirecon()) / "derivatives"
+    return sorted(
+        candidate
+        for candidate in recon_root.glob(f"qsirecon-*/sub-{subject_id}")
+        if candidate.is_dir() and any(candidate.iterdir())
+    )
+
+
 def run_qsirecon(
     project_dir: str,
     subject_id: str,
@@ -124,17 +143,7 @@ def run_qsirecon(
         # No mkdir here — Docker's `-v` creates host directories automatically.
         # Creating them from SimNIBS fails on Docker Desktop due to phantom
         # bind-mount entries left by previous sibling containers.
-        # QSIRecon 26 writes its reconstructions under
-        # <out>/derivatives/qsirecon-<suffix>/sub-<id>/ and reserves
-        # <out>/sub-<id>/ for logs and figures. Guarding on the latter would
-        # block every rerun after the first attempt, including one that
-        # crashed and produced nothing but a log.
-        recon_root = Path(get_path_manager(project_dir).qsirecon()) / "derivatives"
-        existing = [
-            candidate
-            for candidate in recon_root.glob(f"qsirecon-*/sub-{subject_id}")
-            if any(candidate.iterdir())
-        ]
+        existing = existing_reconstructions(project_dir, subject_id)
         if existing:
             raise PreprocessError(
                 "QSIRecon output already exists at "

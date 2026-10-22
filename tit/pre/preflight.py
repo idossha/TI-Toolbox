@@ -4,19 +4,22 @@ from __future__ import annotations
 
 import logging
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, Sequence
 
 from tit import constants as const
 from tit.paths import get_path_manager
 
-from .dicom2nifti import MODALITIES, bids_outputs
+from .dicom2nifti import MODALITIES, bids_outputs, converted_nifti
+from .fastsurfer import SEG_FILENAME
+from .qsi.qsirecon import existing_reconstructions
 from .qsi.utils import (
     plan_distortion_correction,
     validate_bids_dwi,
     validate_qsiprep_output,
 )
+from .tissue_analyzer import DEFAULT_TISSUES
 from .utils import _find_nifti
 
 STEP_DICOM = "dicom"
@@ -29,6 +32,7 @@ FREESURFER_SUBREGION_STEPS = {
     "thalamus": STEP_FREESURFER_THALAMUS,
     "hippo-amygdala": STEP_FREESURFER_HIPPO,
 }
+STEP_TISSUE = "tissue"
 STEP_QSIPREP = "qsiprep"
 STEP_QSIRECON = "qsirecon"
 STEP_DTI = "dti"
@@ -40,6 +44,7 @@ STEP_LABELS = {
     STEP_FREESURFER: "FreeSurfer recon-all",
     STEP_FREESURFER_THALAMUS: "FreeSurfer thalamic nuclei",
     STEP_FREESURFER_HIPPO: "FreeSurfer hippocampus/amygdala",
+    STEP_TISSUE: "Tissue analysis",
     STEP_QSIPREP: "QSIPrep",
     STEP_QSIRECON: "QSIRecon",
     STEP_DTI: "DTI tensor extraction",
@@ -48,17 +53,28 @@ STEP_LABELS = {
 
 @dataclass(frozen=True)
 class PreprocessingOutput:
-    """Existing output for one preprocessing step."""
+    """Existing output for one preprocessing step.
+
+    ``missing`` names the files the step's producer writes when it finishes and that
+    are not there: a non-empty value means an earlier run was interrupted, so the
+    output is incomplete -- "skip" must not keep it, only "replace" can clear it.
+    """
 
     subject_id: str
     step: str
     label: str
     path: Path
     cleanup_paths: tuple[Path, ...] = ()
+    missing: tuple[str, ...] = ()
 
     @property
     def paths_to_remove(self) -> tuple[Path, ...]:
         return self.cleanup_paths or (self.path,)
+
+    @property
+    def complete(self) -> bool:
+        """``True`` when the producer's own success markers are all present."""
+        return not self.missing
 
 
 @dataclass(frozen=True)
@@ -214,7 +230,16 @@ def _dicom_conversion_will_run(
         return False
     if not skip_existing_outputs:
         return True
-    return not existing_outputs_for_step(project_dir, subject_id, STEP_DICOM)
+    # "skip" skips per modality, so conversion still runs for every modality that has
+    # no NIfTI yet -- including the T1w and DWI the deferred checks are about.
+    pm = get_path_manager(project_dir)
+    return any(
+        converted_nifti(
+            Path(pm.bids_datatype(subject_id, datatype)), subject_id, modality
+        )
+        is None
+        for modality, datatype in MODALITIES
+    )
 
 
 def find_missing_preprocessing_inputs(
@@ -366,17 +391,48 @@ def _single_path_output(
     subject_id: str,
     step: str,
     path: Path,
+    markers: Sequence[Path] = (),
 ) -> list[PreprocessingOutput]:
     # An empty directory is not a real output (older releases pre-created
     # empty per-subject derivative dirs in existing projects).
     if not path.exists() or (path.is_dir() and not any(path.iterdir())):
         return []
+    missing = tuple(
+        str(marker.relative_to(path)) for marker in markers if not marker.is_file()
+    )
     return [
         PreprocessingOutput(
             subject_id=subject_id,
             step=step,
             label=STEP_LABELS[step],
             path=path,
+            missing=missing,
+        )
+    ]
+
+
+def _qsirecon_outputs(project_dir: str, subject_id: str) -> list[PreprocessingOutput]:
+    """The reconstructions ``run_qsirecon`` refuses to overwrite, with what goes with them.
+
+    QSIRecon 26 writes each reconstruction to
+    ``derivatives/qsirecon/derivatives/qsirecon-<suffix>/sub-<id>/`` beside a
+    ``sub-<id>.html`` report, and the run's logs to ``derivatives/qsirecon/sub-<id>/``.
+    Only the reconstructions block a rerun (the runner's guard); the report and the
+    logs describe them, so a replace removes them too.
+    """
+    reconstructions = existing_reconstructions(project_dir, subject_id)
+    if not reconstructions:
+        return []
+    reports = [path.with_name(f"{path.name}.html") for path in reconstructions]
+    logs = Path(get_path_manager(project_dir).qsirecon_subject(subject_id))
+    extras = tuple(path for path in (*reports, logs) if path.exists())
+    return [
+        PreprocessingOutput(
+            subject_id,
+            STEP_QSIRECON,
+            STEP_LABELS[STEP_QSIRECON],
+            reconstructions[0],
+            (*reconstructions, *extras),
         )
     ]
 
@@ -389,12 +445,23 @@ def existing_outputs_for_step(
     if step == STEP_DICOM:
         return _dicom_outputs(project_dir, subject_id)
     if step == STEP_CHARM:
+        # charm's last science step writes the mesh; the segmentation comes before it.
+        m2m = Path(pm.m2m(subject_id))
         return _single_path_output(
-            project_dir, subject_id, step, Path(pm.m2m(subject_id))
+            project_dir,
+            subject_id,
+            step,
+            m2m,
+            (m2m / f"{subject_id}.msh", m2m / "final_tissues.nii.gz"),
         )
     if step == STEP_FASTSURFER:
+        # The file run_fastsurfer checks for success (and returns early on).
         return _single_path_output(
-            project_dir, subject_id, step, Path(pm.fastsurfer_subject(subject_id))
+            project_dir,
+            subject_id,
+            step,
+            Path(pm.fastsurfer_subject(subject_id)),
+            (Path(pm.fastsurfer_mri(subject_id)) / SEG_FILENAME,),
         )
     if step == STEP_FREESURFER:
         return _single_path_output(
@@ -441,14 +508,30 @@ def existing_outputs_for_step(
             if paths
             else []
         )
-    if step == STEP_QSIPREP:
+    if step == STEP_TISSUE:
+        # One report per tissue, written by TissueAnalyzer once its analysis is done.
+        root = Path(pm.tissue_analysis_output(subject_id))
         return _single_path_output(
+            project_dir,
+            subject_id,
+            step,
+            root,
+            tuple(
+                root / f"{tissue}_analysis" / f"{tissue}_analysis.txt"
+                for tissue in DEFAULT_TISSUES
+            ),
+        )
+    if step == STEP_QSIPREP:
+        outputs = _single_path_output(
             project_dir, subject_id, step, Path(pm.qsiprep_subject(subject_id))
         )
+        # The check QSIRecon and DTI extraction apply to this output.
+        valid, _error = validate_qsiprep_output(project_dir, subject_id)
+        if outputs and not valid:
+            return [replace(outputs[0], missing=("dwi/*_dwi.nii[.gz]",))]
+        return outputs
     if step == STEP_QSIRECON:
-        return _single_path_output(
-            project_dir, subject_id, step, Path(pm.qsirecon_subject(subject_id))
-        )
+        return _qsirecon_outputs(project_dir, subject_id)
     if step == STEP_DTI:
         m2m = Path(pm.m2m(subject_id))
         tensor = m2m / const.FILE_DTI_TENSOR
@@ -468,6 +551,19 @@ def existing_outputs_for_step(
     raise ValueError(f"Unknown preprocessing step: {step}")
 
 
+def step_output_complete(project_dir: str, subject_id: str, step: str) -> bool:
+    """Return ``True`` when *step* has an output for *subject_id* and it is finished.
+
+    A folder an interrupted run left behind is an existing output (replace can clear
+    it) but not a complete one: FastSurfer without its segmentation, charm without its
+    mesh and final segmentation, QSIPrep without a preprocessed DWI, tissue analysis
+    without every tissue's report. Callers that show whether a stage is done use this,
+    not the folder's existence.
+    """
+    outputs = existing_outputs_for_step(project_dir, subject_id, step)
+    return bool(outputs) and all(output.complete for output in outputs)
+
+
 def selected_preprocessing_steps(
     *,
     convert_dicom: bool = False,
@@ -476,6 +572,7 @@ def selected_preprocessing_steps(
     run_freesurfer: bool = False,
     freesurfer_recon_all: bool = True,
     freesurfer_subregions: Sequence[str] = (),
+    run_tissue_analysis: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
@@ -495,6 +592,8 @@ def selected_preprocessing_steps(
             FREESURFER_SUBREGION_STEPS[item]
             for item in dict.fromkeys(freesurfer_subregions)
         )
+    if run_tissue_analysis:
+        steps.append(STEP_TISSUE)
     if run_qsiprep:
         steps.append(STEP_QSIPREP)
     if run_qsirecon:
@@ -515,6 +614,7 @@ def find_existing_preprocessing_outputs(
     run_freesurfer: bool = False,
     freesurfer_recon_all: bool = True,
     freesurfer_subregions: Sequence[str] = (),
+    run_tissue_analysis: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
@@ -530,6 +630,7 @@ def find_existing_preprocessing_outputs(
             run_freesurfer=run_freesurfer,
             freesurfer_recon_all=freesurfer_recon_all,
             freesurfer_subregions=freesurfer_subregions,
+            run_tissue_analysis=run_tissue_analysis,
             run_qsiprep=run_qsiprep,
             run_qsirecon=run_qsirecon,
             extract_dti=extract_dti,

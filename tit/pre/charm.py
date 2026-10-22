@@ -108,8 +108,8 @@ def run_charm(
     Raises
     ------
     PreprocessError
-        If no T1 image is found, the m2m directory already exists, or
-        ``charm`` exits with a non-zero code.
+        If no T1 image is found, a non-empty m2m directory already exists
+        (an empty one is removed), or ``charm`` exits with a non-zero code.
 
     See Also
     --------
@@ -132,10 +132,20 @@ def run_charm(
             raise PreprocessError(f"No T1 image found in {bids_anat_dir}")
 
         if m2m_dir.exists():
-            raise PreprocessError(
-                f"m2m output already exists at {m2m_dir}. "
-                "Remove the directory manually before rerunning."
-            )
+            if any(m2m_dir.iterdir()):
+                raise PreprocessError(
+                    f"m2m output already exists at {m2m_dir}. "
+                    "Remove the directory manually before rerunning."
+                )
+            # An empty folder holds no head model (a Docker bind mount or an older
+            # release can leave one); the skip/replace policy does not count it
+            # either, so it must not block charm, which creates the folder itself.
+            try:
+                m2m_dir.rmdir()
+            except OSError as exc:
+                raise PreprocessError(
+                    f"Could not remove the empty m2m folder {m2m_dir}: {exc}"
+                ) from exc
 
         form_flag = _get_form_flag(t1_file)
         cmd = ["charm", form_flag, subject_id, str(t1_file)]
