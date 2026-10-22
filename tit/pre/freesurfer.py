@@ -19,6 +19,10 @@ from .utils import CommandRunner, PreprocessError, _find_anat_files
 
 IMAGE = "idossha/ti-toolbox:freesurfer-20260910"
 SUBREGIONS = frozenset({"thalamus", "hippo-amygdala"})
+#: The worker gets 16 GiB. The server sees its machine's memory in whole GiB, rounded down,
+#: and a Docker VM configured with 16 GB shows Linux ~2.5 % less (the kernel keeps the rest;
+#: an 8 GB VM shows 7.8 GB): ~15.6 GiB, seen as 15. A 15 GB VM shows ~14.6, seen as 14.
+_MIN_VISIBLE_MEMORY_GIB = 15
 
 
 def validate_reconstruction(subject_id: str) -> None:
@@ -117,7 +121,7 @@ def run_freesurfer(
     from tit.surfer_settings import effective_threads
 
     cpus = min(cpus, effective_threads("freesurfer", threads))
-    if memory < 16:
+    if memory < _MIN_VISIBLE_MEMORY_GIB:
         raise PreprocessError(
             "FreeSurfer requires at least 16 GiB of available container memory."
         )
