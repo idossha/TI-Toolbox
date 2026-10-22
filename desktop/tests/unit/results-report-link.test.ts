@@ -56,7 +56,9 @@ function simulationNode(reportIds: string[]): OutputNode {
   };
   const group = outputsTreeFor("ernie", data).groups.find((g) => g.kind === "simulation");
   expect(group?.nodes).toHaveLength(1);
-  return group!.nodes[0];
+  const node = group?.nodes[0];
+  if (!node) throw new Error("no simulation node");
+  return node;
 }
 
 describe("a simulation's preview", () => {
