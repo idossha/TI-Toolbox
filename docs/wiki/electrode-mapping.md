@@ -6,11 +6,19 @@ permalink: /wiki/electrode-mapping/
 
 ## Overview
 
-The `map_electrodes.py` tool maps optimized electrode positions to the nearest available positions in an EEG net using the Hungarian algorithm (linear sum assignment) for optimal matching.
+Electrode mapping moves optimized free electrode positions onto distinct sites of an EEG net, using the Hungarian algorithm (linear sum assignment) to minimize the total distance, so a [flex-search]({{ site.baseurl }}/wiki/flex-search/) result can be delivered with a real cap. Distances are straight-line millimetres.
 
-## Usage
+## In the application
 
-In the Simulator, choose a **Flex** montage source and enable mapping to an EEG net. The same mapping helpers can be used from a script:
+Three routes map positions onto a net:
+
+1. **Simulator**: in a job row choose Source **Flex result**, the run, then a net in **Placement**. The run's positions are mapped onto that net when you choose it, and the result is saved in the run folder as `electrode_mapping_<net>.json`, so choosing the same net again reads the file. **Optimised (XYZ)** keeps the free positions. See [Simulator]({{ site.baseurl }}/wiki/simulator/#montage-sources).
+2. **Flex-search**: **After the search ▸ Run simulation with mapped electrodes** maps the winning placement onto the chosen net at the end of the run and simulates that montage. This mapping is SimNIBS's own step, with the same assignment, and is saved in the run folder as `electrode_mapping.json`.
+3. **Results**: **Evaluated candidates ▸ Use in Simulator** on a Flex candidate, then a net in the row's **Placement**, snaps that candidate to distinct cap sites. The pane shows the original positions hollow, with dashed links to the cap sites; nothing is written to disk. See [Flex search]({{ site.baseurl }}/wiki/flex-search/#results).
+
+## From Python
+
+The same mapping helpers can be used from a script:
 
 ```python
 import os
@@ -51,30 +59,19 @@ log_mapping_summary(result)    # per-electrode distances, via the tit.tools logg
 
 ### EEG Net CSV
 
-The tool supports multiple CSV formats commonly used in neuroimaging:
-
-**SimNIBS format:**
+Only the SimNIBS layout is read, the format of the nets in `m2m_<id>/eeg_positions/`: one row per position, `Type,X,Y,Z,Name[,…]`, with an optional header row (detected when its second column is not a number):
 
 ```csv
-Type,X,Y,Z,Name,Extra
-Electrode,-85.5,-28.9,-8.4,E1,
-ReferenceElectrode,0.0,85.0,0.0,REF,
-```
-
-**Simple format:**
-
-```csv
-Label,X,Y,Z
-E1,-85.5,-28.9,-8.4
-E2,72.9,-44.5,-17.1
-REF,0.0,85.0,0.0
+Type,X,Y,Z,Name
+Electrode,-85.5,-28.9,-8.4,E1
+ReferenceElectrode,0.0,85.0,0.0,REF
 ```
 
 **Notes:**
 
-- The tool automatically detects the format based on the first column
-- Only `Electrode` and `ReferenceElectrode` types are included (Fiducials are ignored)
-- Empty lines and lines starting with `#` are skipped
+- Only `Electrode` and `ReferenceElectrode` rows are used; `Fiducial` and other rows are ignored.
+- Other layouts are not converted. A `Label,X,Y,Z` file, for example, yields no electrodes at all, without an error.
+- A blank line anywhere in the file, including one at the end (a file ending in two newlines), makes the reader fail. A single final newline is fine.
 
 ## Output Format
 
@@ -104,12 +101,7 @@ The tool generates a JSON file with the following structure:
 
 - **Optimal Assignment**: Uses the Hungarian algorithm to find the globally optimal mapping that minimizes total distance
 - **Detailed Reporting**: `log_mapping_summary()` logs a per-electrode distance summary
-- **Flexible Input**: Supports multiple CSV formats commonly used in neuroimaging
-- **Error Handling**: Validates input files and provides clear error messages
-
-## Integration with TI-Toolbox
-
-This module is called when a flex-search result is simulated with electrodes mapped onto an EEG net (see `tit/sim/montage_sources.py`). It can also be used standalone for post-hoc analysis or custom workflows.
+- **Standalone use**: the functions above also serve post-hoc analysis or custom workflows outside the app
 
 ## Mapping Distance and Target Depth
 

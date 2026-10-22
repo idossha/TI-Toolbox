@@ -48,7 +48,7 @@ The **Target** picker has four modes:
 
 A sphere is evaluated on the cortical surface unless **Volumetric evaluation** is checked. For a deep target (amygdala, hippocampus, thalamus) leave it unchecked and the sphere scores the overlying cortex instead of the structure, so check it and pick the tissue for anything off the cortical ribbon.
 
-The Scene pane follows the active job: cortical regions stay clickable, while masks, subcortical regions and spheres show a read-only target extent in subject space (before search-specific tissue and mesh filtering). For MNI atlases and the **Explode** view, see [Atlases]({{ site.baseurl }}/wiki/atlases/).
+The Scene pane follows the active job. Cortical and subcortical regions are drawn, and clicking a region adds it to the target or removes it. A subject-space target is drawn on the subject's own head, or on the packaged reference head when the subject's head model has no copy of the atlas, which is always the case for a subcortical atlas (the pane says which head it shows); an MNI-space target is drawn on MNI152. Spherical and NIfTI-mask targets are not drawn in the pane: it offers **Open target in TetraVox** instead. For MNI atlases and the **Explode** view, see [Atlases]({{ site.baseurl }}/wiki/atlases/).
 
 ## Goals
 
