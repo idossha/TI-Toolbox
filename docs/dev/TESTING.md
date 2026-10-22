@@ -221,7 +221,7 @@ The packaged example notebook (`tit/server/examples/example_workflow.ipynb`, the
 host suite, resolves every import, keyword argument and `pm.` attribute of every cell against the
 real `tit` API. `tests/test_docs_code_api.py` applies the same resolution to every fenced Python
 block in `docs/wiki`, the README and the agent-plugin skills (a page's blocks share their imports
-in document order) and to `examples/scripts`, and checks that every cited `python -m tit.X` names a
+in document order) and to `examples/scripts`, and checks that every cited `python -m tit.<module>` names a
 runnable module. `dev/run_example_notebook.sh` executes the
 notebook in the release image against a fresh project (downloads ernie, runs the reduced flex
 search, one TI FEM solve and the analyzer); it is the run that proves the notebook works and is
