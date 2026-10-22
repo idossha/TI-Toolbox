@@ -608,22 +608,79 @@ function validateConfig(kind, config) {
   return { ok: errors.length === 0, errors };
 }
 /**
- * AnalyzerConfig has no `name`/`run_name` field (unlike sim/flex/ex) -- the analysis folder name
- * is derived from its ROI (atlas for cortical/subcortical, sphere center+radius for spherical) and
- * field, matching the naming this mock's own analyses.json fixture already uses
- * ("Thalamus_DK40_TI_max" = simulation "Thalamus" + atlas "DK40" + field "TI_max").
+ * The folder an analyzer run of `cfg` writes for one subject: `tit.server.routes.plan._analysis_dir`,
+ * i.e. `PathManager.analysis_output_dir` -- `Simulations/<sim>/Analyses/<Mesh|Voxel>/<roi><variant>`
+ * (tit/paths.py). AnalyzerConfig has no run name: the ROI, field and tissue name the folder.
+ * `fixtures/contracts/analyzer_plans.json` (the real route's answers, `dev/make_contract_fixtures.py`)
+ * holds this to the real grammar through `contract.test.ts`, and `fixtures/analyses.json` is the
+ * real catalog listing of the folders it names, so this plan and this mock's catalog agree.
  */
-function analyzerAnalysisName(cfg) {
-  const sim = cfg.simulation || "NewRun";
-  const field = cfg.field || "TI_max";
-  const roiToken =
-    cfg.analysis_type === "spherical"
-      ? (() => {
-          const [x = 0, y = 0, z = 0] = Array.isArray(cfg.center) ? cfg.center : [];
-          return `sphere_x${x}_y${y}_z${z}_r${cfg.radius ?? 5}`;
-        })()
-      : cfg.atlas || "unknown_atlas";
-  return `${sim}_${roiToken}_${field}`;
+const NAME_UNSAFE = /[^A-Za-z0-9._ -]+/g; // tit/paths.py _NAME_UNSAFE
+const md5 = (text) => createHash("md5").update(text).digest("hex");
+/** Python's `f"{x:.2f}"`: an exact binary tie (an odd multiple of 1/8) rounds to even, where
+ *  `toFixed` rounds it away from zero (0.125 -> "0.12", not "0.13"). */
+function pyFixed2(x) {
+  if (!(Number.isInteger(x * 8) && !Number.isInteger(x * 4))) return x.toFixed(2);
+  const down = Math.floor(Math.abs(x) * 100);
+  return `${x < 0 ? "-" : ""}${((down % 2 === 0 ? down : down + 1) / 100).toFixed(2)}`;
+}
+/** Python's `str(float(r))` for an ordinary radius: 5 -> "5.0", 7.5 -> "7.5". */
+const pyFloat = (r) => (Number.isInteger(r) ? r.toFixed(1) : String(r));
+/** `PathManager._atlas_name_clean`. */
+function atlasNameClean(atlas) {
+  let s = String(atlas || "unknown_atlas").split("/").pop();
+  const ext = [".nii.gz", ".nii", ".mgz"].find((e) => s.endsWith(e));
+  if (ext) s = s.slice(0, -ext.length);
+  return s.replaceAll("+", "_").replaceAll(".", "_");
+}
+/** `tit.analyzer.masks.analysis_region_key`: the requested names, each once, joined by `+`. */
+function analysisRegionKey(region) {
+  const names = (Array.isArray(region) ? region : [region]).filter((r) => r !== null && r !== undefined && String(r) !== "").map(String);
+  return [...new Set(names)].join("+");
+}
+/** `PathManager.cortical_analysis_name`. */
+function corticalAnalysisName(region, atlas) {
+  const atlasClean = atlasNameClean(atlas);
+  if (!region) return `whole_head_${atlasClean}`;
+  const value = region.trim();
+  const h = md5(value).slice(0, 8);
+  if (value.includes("+")) return `cortical_${value.split("+").length}regions_${atlasClean}_${h}`;
+  const safe = value.replace(NAME_UNSAFE, "_");
+  return safe !== value ? `cortical_${safe}_${atlasClean}_${h}` : `cortical_${value}_${atlasClean}`;
+}
+/** `PathManager.analysis_variant_suffix`: another field, and in voxel space another tissue. */
+function analysisVariantSuffix(space, field, tissue) {
+  const parts = [];
+  if (field && field !== "TI_max" && field !== "mTI_max") parts.push(String(field));
+  const t = String(tissue || "GM").trim().toUpperCase();
+  if (String(space).toLowerCase() === "voxel" && t !== "GM") parts.push(t === "BOTH" ? "both" : t);
+  return parts.map((p) => `_${p}`).join("");
+}
+function analyzerOutputDir(subject, cfg) {
+  // A single-subject run with an output folder writes there; a group run never hands it down.
+  if (cfg.output_dir && cfg.mode !== "group") return cfg.output_dir;
+  const space = cfg.space ?? "mesh";
+  const coordSpace = cfg.coordinate_space ?? "subject";
+  const type = cfg.analysis_type ?? "spherical"; // AnalyzerConfig's default
+  let name;
+  if (type === "spherical") {
+    // No centre or radius: AnalyzerConfig refuses the config (the real route answers 422), so
+    // there is no folder to name.
+    if (!Array.isArray(cfg.center) || cfg.center.length !== 3 || cfg.radius == null) return "";
+    const [x, y, z] = cfg.center;
+    name = `sphere_x${pyFixed2(x)}_y${pyFixed2(y)}_z${pyFixed2(z)}_r${pyFloat(cfg.radius)}${String(coordSpace).toUpperCase() === "MNI" ? "_MNI" : "_subject"}`;
+  } else if (type === "mask") {
+    if (!cfg.mask_path) return "";
+    // `mask_region_name`, named like a cortical region of no atlas.
+    const stem = String(cfg.mask_path).split("/").pop().replace(/\.gz$/, "").replace(/\.nii$/, "");
+    const digest = createHash("sha256").update(`${cfg.mask_path}:${coordSpace}`).digest("hex").slice(0, 10);
+    name = corticalAnalysisName(`mask_${stem}_${coordSpace}_${digest}`, null);
+  } else {
+    name = corticalAnalysisName(analysisRegionKey(cfg.region), cfg.atlas);
+    if (type === "subcortical") name = `sub${name}`;
+  }
+  const sim = [`${PROJECT_ROOT}/derivatives/SimNIBS/sub-${subject}/Simulations`, cfg.simulation].filter(Boolean).join("/");
+  return `${sim}/Analyses/${String(space).toLowerCase() === "mesh" ? "Mesh" : "Voxel"}/${name}${analysisVariantSuffix(space, cfg.field, cfg.tissue_type)}`;
 }
 function outputDirFor(kind, subject, config) {
   const base = `${PROJECT_ROOT}/derivatives/SimNIBS/sub-${subject}`;
@@ -648,7 +705,7 @@ function outputDirFor(kind, subject, config) {
     case "leadfield":
       return `${base}/leadfields/${cfg.eeg_net || "GSN-HydroCel-185"}`;
     case "analyzer":
-      return `${base}/Simulations/${cfg.simulation || "Thalamus"}/Analyses/${analyzerAnalysisName(cfg)}`;
+      return analyzerOutputDir(subject, cfg);
     // The group kinds and the four export modes plan exactly where the real
     // `tit/server/routes/plan.py` does: `tests/fixtures/plan_output_dirs.json` (written from the
     // real route by `dev/gen_plan_output_dirs.py`) holds both to one table, through
@@ -695,9 +752,10 @@ function statsTypeDir(cfg) {
 const PROJECT_LEVEL_KINDS = new Set(["stats", "nifti_average", "nilearn"]);
 /** Kinds whose real plan sets `will_overwrite = exists`: their runners replace the folder, so the
  *  submit route answers 409 without an explicit overwrite (`tit/server/overwrite_policy.py`).
- *  In this mock only a stats or nilearn run can exist (the group catalog fixture lists them); it
- *  has no nifti_average run and no export folder, so those two kinds never plan an overwrite. */
-const REPLACES_WHEN_EXISTS_KINDS = new Set(["stats", "nifti_average", "nilearn", "blender"]);
+ *  In this mock only a stats or nilearn run (the group catalog fixture lists them) or an analysis
+ *  (the analyses fixture lists them) can exist; it has no nifti_average run and no export folder,
+ *  so those two kinds never plan an overwrite. */
+const REPLACES_WHEN_EXISTS_KINDS = new Set(["stats", "nifti_average", "nilearn", "blender", "analyzer"]);
 function existsForFixture(kind, subject, config) {
   const cfg = config && typeof config === "object" ? config : {};
   // The group catalog fixture is this mock's project: a stats run exists when the catalog lists its
@@ -705,8 +763,9 @@ function existsForFixture(kind, subject, config) {
   if (kind === "stats") return (groupCatalog.stats ?? []).some((s) => s.name === cfg.analysis_name && s.type === statsTypeDir(cfg));
   if (kind === "nilearn") return (groupCatalog.nilearn ?? []).some((s) => s.name === (cfg.subdir_name ?? "nilearn_visuals"));
   if (kind === "analyzer") {
-    const list = analyses[subject]?.[cfg.simulation] ?? [];
-    return list.some((a) => a.name === analyzerAnalysisName(cfg));
+    // The catalog fixture is this mock's project: the folder exists when it lists an analysis there.
+    const dir = analyzerOutputDir(subject, cfg);
+    return !!dir && Object.values(analyses[subject] ?? {}).some((list) => list.some((a) => dirname(a.csv) === dir));
   }
   const name = cfg.name || cfg.run_name;
   if (!name) return false;
@@ -1404,7 +1463,8 @@ function buildArtifacts(job) {
       // screenshot showed them. The mesh and its `.opt` sidecar are what the Artifacts tab's
       // "Open in Tetravox" rule is decided on, so the mock has to carry both or the e2e is
       // asserting a button against a list that could never produce it.
-      const dir = `${base}/Simulations/mock/Analyses/mock_${id}`;
+      // Where the plan put it (an unnameable config -- no sphere centre -- keeps a per-job folder).
+      const dir = analyzerOutputDir(subject, job.spec.config ?? {}) || `${base}/Simulations/mock/Analyses/Mesh/mock_${id}`;
       return [
         { path: `${dir}/analysis.json`, kind: "json", label: "Analysis" },
         { path: `${dir}/histogram_histogram.pdf`, kind: "pdf", label: "Histogram" },

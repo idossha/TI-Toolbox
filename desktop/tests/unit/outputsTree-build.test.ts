@@ -91,7 +91,7 @@ describe("outputsTreeFor", () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("simulation:ernie:Thalamus");
     expect(ids).toContain("mex:ernie:mex_Thalamus_20260814_140000");
-    expect(ids).toContain("analysis:ernie:Thalamus/Thalamus_DK40_TI_max");
+    expect(ids).toContain("analysis:ernie:Thalamus/cortical_2regions_DK40_71a9008a");
     // A second build of the same data yields the same ids, so selection survives a refetch.
     expect(outputsTreeFor("ernie", catalogFor("ernie")).groups.flatMap((g) => g.nodes.map((n) => n.id))).toEqual(ids);
   });
@@ -111,11 +111,11 @@ describe("outputsTreeFor", () => {
       run: "ex_L_Insula_20260812_090000",
       kind: "ex",
     });
-    expect(byId.get("analysis:ernie:Thalamus/Thalamus_DK40_TI_max")!.preview).toEqual({
+    expect(byId.get("analysis:ernie:Thalamus/cortical_2regions_DK40_71a9008a")!.preview).toEqual({
       type: "analysis",
       subject: "ernie",
       simulation: "Thalamus",
-      name: "Thalamus_DK40_TI_max",
+      name: "cortical_2regions_DK40_71a9008a",
     });
     const flex = byId.get("flex:ernie:flex_Thalamus_20260810_101500")!;
     expect(flex.preview.type).toBe("artifacts");

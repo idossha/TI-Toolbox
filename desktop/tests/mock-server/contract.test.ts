@@ -235,7 +235,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/catalog/ex-runs", "GET", "/api/catalog/ex-runs?subject=ernie&kind=ex");
     await call("/api/catalog/ex-runs/{run}/results", "GET", "/api/catalog/ex-runs/ex_L_Insula_20260812_090000/results?subject=ernie&kind=ex");
     await call("/api/catalog/analyses", "GET", "/api/catalog/analyses?subject=ernie&simulation=Thalamus");
-    await call("/api/catalog/analyses/{name}/summary", "GET", "/api/catalog/analyses/Thalamus_DK40_TI_max/summary?subject=ernie&simulation=Thalamus");
+    await call("/api/catalog/analyses/{name}/summary", "GET", "/api/catalog/analyses/cortical_2regions_DK40_71a9008a/summary?subject=ernie&simulation=Thalamus");
     await call("/api/catalog/reports", "GET", "/api/catalog/reports?subject=ernie");
     await call("/api/catalog/freehand", "GET", "/api/catalog/freehand?subject=ernie");
     await call("/api/catalog/freehand/{name}", "PUT", "/api/catalog/freehand/contract_test?subject=ernie", {
@@ -376,7 +376,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
 
     // files (v1)
     await call("/api/files/report/{id}", "GET", "/api/files/report/ernie/simulation_report_20260801_110000");
-    const artifactPath = encodeURIComponent("/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.csv");
+    const artifactPath = encodeURIComponent("/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a/results.csv");
     await call("/api/files/artifact", "GET", `/api/files/artifact?path=${artifactPath}`);
     await call("/api/files/text", "GET", `/api/files/text?path=${artifactPath}&tail=2`);
     await call("/api/files/csv", "GET", `/api/files/csv?path=${artifactPath}`);
@@ -592,6 +592,80 @@ describe("mock candidate detail is the real candidate_detail", () => {
       expect((json as { simulation_config: unknown }).simulation_config).toStrictEqual(response.simulation_config);
     });
   }
+});
+
+// The real `POST /api/plan/analyzer` answers (fixtures/contracts/analyzer_plans.json,
+// dev/make_contract_fixtures.py): the folder PathManager.analysis_output_dir names for each config,
+// whether it exists and whether running replaces it. The held cases are the analyses the mock's
+// catalog lists (fixtures/analyses.json, the real catalog's listing of those same folders).
+type AnalyzerPlanCase = {
+  id: string;
+  subject_ids: string[];
+  held: boolean;
+  config: Record<string, unknown>;
+  jobs: { subject: string; output_dir: string; exists: boolean; will_overwrite: boolean }[];
+};
+describe("the mock plans an analysis where the real route does", () => {
+  const { cases } = fixture<{ cases: AnalyzerPlanCase[] }>("contracts", "analyzer_plans.json");
+  const analyses = fixture<Record<string, Record<string, { name: string; csv: string }[]>>>("analyses.json");
+
+  it("covers the held analyses and every piece of the name grammar", () => {
+    const held = Object.values(analyses).flatMap((perSim) => Object.values(perSim).flat());
+    expect(cases.filter((c) => c.held)).toHaveLength(held.length);
+    expect(held.length).toBeGreaterThanOrEqual(4);
+    // One folder name per grammar branch: a sphere in each space, cortical one/many/unsafe,
+    // subcortical, whole head, a NIfTI mask, a field and a tissue suffix, an explicit folder.
+    const names = cases.map((c) => c.jobs[0]!.output_dir.split("/").pop()!);
+    for (const pattern of [/^sphere_.*_subject$/, /^sphere_.*_MNI$/, /^cortical_lh\./, /^cortical_\dregions_/, /^cortical_.*_[0-9a-f]{8}$/, /^subcortical_/, /^whole_head_/, /^cortical_mask_/, /_hf_peak$/, /_WM$/, /_both$/]) {
+      expect(names.some((n) => pattern.test(n)), String(pattern)).toBe(true);
+    }
+  });
+
+  async function mockPlan(c: AnalyzerPlanCase) {
+    const { res, json } = await call("/api/plan/{kind}", "POST", "/api/plan/analyzer", { body: { config: c.config, subject_ids: c.subject_ids } });
+    expect(res.status).toBe(200);
+    return (json as { jobs: Record<string, unknown>[] }).jobs.map(({ subject, output_dir, exists, will_overwrite }) => ({ subject, output_dir, exists, will_overwrite }));
+  }
+  const perSubject = (jobs: { subject: unknown }[]) => jobs.filter((j) => j.subject !== "");
+
+  for (const c of cases) {
+    it(`${c.id}: same folder, existence and overwrite as the real plan`, async () => {
+      expect(perSubject(c.jobs)).toHaveLength(c.subject_ids.length);
+      expect(perSubject(await mockPlan(c))).toStrictEqual(perSubject(c.jobs));
+    });
+  }
+
+  // KNOWN GAP (reported): a group run's real plan adds the cohort summary job (subject "", the
+  // config's output_dir, or a timestamped group_analysis/<group_run_name>_<stamp>). The mock plans
+  // only the per-subject jobs. Flip to `it` when the mock plans it.
+  it.fails("group_output_dir: the mock also plans the cohort summary job", async () => {
+    const group = cases.find((c) => c.id === "group_output_dir")!;
+    expect(group.jobs.some((j) => j.subject === "")).toBe(true);
+    expect(await mockPlan(group)).toStrictEqual(group.jobs);
+  });
+
+  it("a held analysis is listed by the mock catalog in the folder the mock plans for it", async () => {
+    for (const c of cases.filter((x) => x.held)) {
+      const sim = c.config.simulation as string;
+      const { json } = await call("/api/catalog/analyses", "GET", `/api/catalog/analyses?subject=${c.subject_ids[0]}&simulation=${sim}`);
+      const folders = (json as { csv: string }[]).map((a) => a.csv.slice(0, a.csv.lastIndexOf("/")));
+      expect(folders, c.id).toContain(c.jobs[0]!.output_dir);
+    }
+  });
+
+  it("an existing analysis needs an explicit overwrite to be submitted again", async () => {
+    // `check_overwrite_permission` 409s a plan with `will_overwrite`. Plain fetch: openapi.yaml
+    // does not declare the 409 the real POST /api/jobs answers (reported, not owned here). No job
+    // is created, so the lifecycle tests below keep the queue to themselves.
+    const held = cases.find((c) => c.held)!;
+    const refused = await fetch(`${BASE}/api/jobs`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ kind: "analyzer", config: held.config, subject_ids: held.subject_ids }),
+    });
+    expect(refused.status).toBe(409);
+    expect(((await refused.json()) as { detail: string }).detail).toContain(held.jobs[0]!.output_dir);
+  });
 });
 
 describe("contract: job lifecycle", () => {

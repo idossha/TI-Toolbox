@@ -1,0 +1,380 @@
+{
+  "generated_by": "dev/make_contract_fixtures.py",
+  "catalog": "desktop/tests/fixtures/analyses.json lists the held cases",
+  "cases": [
+    {
+      "id": "held_ernie_Thalamus",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": true,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "region": [
+          "lh.bankssts",
+          "rh.bankssts"
+        ],
+        "field": "TI_max"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a",
+          "exists": true,
+          "will_overwrite": true
+        }
+      ]
+    },
+    {
+      "id": "held_ernie_L_Insula",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": true,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "L_Insula",
+        "space": "mesh",
+        "analysis_type": "cortical",
+        "atlas": "a2009s",
+        "region": "lh.G_insular_short",
+        "field": "TI_max"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/cortical_lh.G_insular_short_a2009s",
+          "exists": true,
+          "will_overwrite": true
+        }
+      ]
+    },
+    {
+      "id": "held_ernie_docs_example",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": true,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "docs_example",
+        "space": "voxel",
+        "analysis_type": "spherical",
+        "center": [
+          -38,
+          44,
+          26
+        ],
+        "radius": 10,
+        "coordinate_space": "mni",
+        "field": "mTI_max"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/Voxel/sphere_x-38.00_y44.00_z26.00_r10.0_MNI",
+          "exists": true,
+          "will_overwrite": true
+        }
+      ]
+    },
+    {
+      "id": "held_101_Thalamus",
+      "subject_ids": [
+        "101"
+      ],
+      "held": true,
+      "config": {
+        "subject_id": "101",
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "analysis_type": "spherical",
+        "center": [
+          -12,
+          -18,
+          6
+        ],
+        "radius": 5,
+        "field": "TI_max"
+      },
+      "jobs": [
+        {
+          "subject": "101",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/sphere_x-12.00_y-18.00_z6.00_r5.0_subject",
+          "exists": true,
+          "will_overwrite": true
+        }
+      ]
+    },
+    {
+      "id": "another_field",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "region": "lh.insula",
+        "field": "hf_peak"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_lh.insula_DK40_hf_peak",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "repeated_regions",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "region": [
+          "rh.insula",
+          "lh.insula",
+          "rh.insula"
+        ]
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_0d623e44",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "unsafe_label",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "voxel",
+        "analysis_type": "cortical",
+        "atlas": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+        "region": "Inferior Frontal Gyrus, pars triangularis"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Voxel/cortical_Inferior Frontal Gyrus_ pars triangularis_HarvardOxford-cort-maxprob-thr25-1mm_3dffd9e5",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "subcortical_tissue",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "voxel",
+        "tissue_type": "both",
+        "analysis_type": "subcortical",
+        "atlas": "aparc.a2009s+aseg.mgz",
+        "region": "Left-Thalamus"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Voxel/subcortical_Left-Thalamus_aparc_a2009s_aseg_both",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "whole_head",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "analysis_type": "cortical",
+        "atlas": "DK40"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/whole_head_DK40",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "sphere_rounding",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "voxel",
+        "tissue_type": "WM",
+        "analysis_type": "spherical",
+        "center": [
+          0.125,
+          -1.375,
+          2.5
+        ],
+        "radius": 7.5,
+        "coordinate_space": "mni",
+        "field": null
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Voxel/sphere_x0.12_y-1.38_z2.50_r7.5_MNI_WM",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "mesh_ignores_tissue",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "tissue_type": "WM",
+        "analysis_type": "spherical",
+        "center": [
+          1,
+          2,
+          3
+        ],
+        "radius": 5
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/sphere_x1.00_y2.00_z3.00_r5.0_subject",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "explicit_output_dir",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "region": "lh.insula",
+        "output_dir": "/mnt/example/derivatives/custom/insula_run"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/custom/insula_run",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "mask",
+      "subject_ids": [
+        "ernie"
+      ],
+      "held": false,
+      "config": {
+        "subject_id": "ernie",
+        "simulation": "Thalamus",
+        "space": "voxel",
+        "analysis_type": "mask",
+        "mask_path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/masks/roi.nii.gz",
+        "coordinate_space": "subject"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Voxel/cortical_mask_roi_subject_c32fd625b8_unknown_atlas",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    },
+    {
+      "id": "group_output_dir",
+      "subject_ids": [
+        "ernie",
+        "101"
+      ],
+      "held": false,
+      "config": {
+        "mode": "group",
+        "subject_ids": [
+          "ernie",
+          "101"
+        ],
+        "simulation": "Thalamus",
+        "space": "mesh",
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "region": "lh.insula",
+        "output_dir": "/mnt/example/derivatives/ti-toolbox/group_analysis/insula_cohort"
+      },
+      "jobs": [
+        {
+          "subject": "ernie",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_lh.insula_DK40",
+          "exists": false,
+          "will_overwrite": false
+        },
+        {
+          "subject": "101",
+          "output_dir": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/cortical_lh.insula_DK40",
+          "exists": false,
+          "will_overwrite": false
+        },
+        {
+          "subject": "",
+          "output_dir": "/mnt/example/derivatives/ti-toolbox/group_analysis/insula_cohort",
+          "exists": false,
+          "will_overwrite": false
+        }
+      ]
+    }
+  ]
+}

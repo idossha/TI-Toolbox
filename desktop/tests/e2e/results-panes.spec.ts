@@ -77,7 +77,7 @@ test("one folder icon per pane, zero per file row, and no View or Open button", 
     "results-node-simulation:ernie:Thalamus",
     "results-node-flex:ernie:flex_Thalamus_20260810_101500",
     "results-node-ex:ernie:ex_L_Insula_20260812_090000",
-    "results-node-analysis:ernie:Thalamus/Thalamus_DK40_TI_max",
+    "results-node-analysis:ernie:Thalamus/cortical_2regions_DK40_71a9008a",
   ]) {
     await page.getByTestId(node).click();
     const files = page.getByTestId("results-files");
@@ -127,7 +127,7 @@ test("the pane header keeps one folder icon, not a folder and a diagonal arrow",
 
 test("clicking a previewable file's NAME opens it inline; a NIfTI's name is not a button", async () => {
   await openResults("ernie");
-  await page.getByTestId("results-node-analysis:ernie:Thalamus/Thalamus_DK40_TI_max").click();
+  await page.getByTestId("results-node-analysis:ernie:Thalamus/cortical_2regions_DK40_71a9008a").click();
 
   // The `View` capability did not disappear with the button — it moved onto the name.
   await expect(page.getByTestId("results-file-preview")).toHaveCount(0);
@@ -150,7 +150,7 @@ test("clicking a previewable file's NAME opens it inline; a NIfTI's name is not 
 
 test("an analysis reads header · key numbers · figures · files, not a 22-row metric dump", async () => {
   await openResults("ernie");
-  await page.getByTestId("results-node-analysis:ernie:Thalamus/Thalamus_DK40_TI_max").click();
+  await page.getByTestId("results-node-analysis:ernie:Thalamus/cortical_2regions_DK40_71a9008a").click();
 
   expect(await sectionOrder()).toEqual([
     "results-header-block",

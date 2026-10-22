@@ -2,19 +2,19 @@
   "ernie": {
     "Thalamus": [
       {
-        "name": "Thalamus_DK40_TI_max",
+        "name": "cortical_2regions_DK40_71a9008a",
         "space": "subject",
         "analysis_space": "mesh",
         "field": "TI_max",
-        "roi": "Thalamus_target",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/results.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/analysis.json",
+        "roi": "lh.bankssts+rh.bankssts",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a/analysis.json",
         "msh": null,
-        "nifti": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/TI_max_masked.nii.gz",
-        "pdf": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/histogram.pdf",
+        "nifti": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a/TI_max_masked.nii.gz",
+        "pdf": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a/histogram.pdf",
         "figures": [
           {
-            "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/histogram.pdf",
+            "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a/histogram.pdf",
             "kind": "pdf",
             "label": "histogram"
           }
@@ -24,13 +24,13 @@
     ],
     "L_Insula": [
       {
-        "name": "L_Insula_a2009s_TI_max",
+        "name": "cortical_lh.G_insular_short_a2009s",
         "space": "subject",
         "analysis_space": "mesh",
         "field": "TI_max",
-        "roi": "L_Insula_target",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/L_Insula_a2009s_TI_max/results.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/L_Insula_a2009s_TI_max/analysis.json",
+        "roi": "lh.G_insular_short",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/cortical_lh.G_insular_short_a2009s/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/cortical_lh.G_insular_short_a2009s/analysis.json",
         "msh": null,
         "nifti": null,
         "pdf": null,
@@ -40,13 +40,13 @@
     ],
     "docs_example": [
       {
-        "name": "docs_example_CIT168_mTI_max",
+        "name": "sphere_x-38.00_y44.00_z26.00_r10.0_MNI",
         "space": "mni",
         "analysis_space": "voxel",
         "field": "mTI_max",
-        "roi": "MNI_DLPFC_L",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/Voxel/docs_example_CIT168_mTI_max/results.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/Voxel/docs_example_CIT168_mTI_max/analysis.json",
+        "roi": "",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/Voxel/sphere_x-38.00_y44.00_z26.00_r10.0_MNI/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/Voxel/sphere_x-38.00_y44.00_z26.00_r10.0_MNI/analysis.json",
         "msh": null,
         "nifti": null,
         "pdf": null,
@@ -58,13 +58,13 @@
   "101": {
     "Thalamus": [
       {
-        "name": "Thalamus_DK40_TI_max",
+        "name": "sphere_x-12.00_y-18.00_z6.00_r5.0_subject",
         "space": "subject",
         "analysis_space": "mesh",
         "field": "TI_max",
-        "roi": "Thalamus_target",
-        "csv": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/results.csv",
-        "json": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/Thalamus_DK40_TI_max/analysis.json",
+        "roi": "",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/sphere_x-12.00_y-18.00_z6.00_r5.0_subject/results.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Mesh/sphere_x-12.00_y-18.00_z6.00_r5.0_subject/analysis.json",
         "msh": null,
         "nifti": null,
         "pdf": null,

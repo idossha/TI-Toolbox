@@ -117,7 +117,7 @@ test("a simulation previews its configuration, its files and its report — not 
 
   // What this simulation holds: its analyses and its report, each a jump to that node.
   const holds = page.getByTestId("results-holds");
-  await expect(holds.getByRole("button", { name: /Thalamus_DK40_TI_max/ })).toBeVisible();
+  await expect(holds.getByRole("button", { name: /cortical_2regions_DK40_71a9008a/ })).toBeVisible();
   // The catalog titles a report by its kind ("Simulation report"), as tit.catalog.reports does.
   await holds.getByRole("button", { name: /Simulation report/ }).first().click();
   await expect(page.getByTestId("results-preview")).toContainText("Simulation report");
@@ -207,7 +207,7 @@ test("selecting an ex-search run and an analysis swaps the preview for their tab
   await expect(page.getByText("final output", { exact: true })).toBeVisible();
   await expect(page.getByTestId("results-figure-ex_search_ranked.png")).toContainText("ex search ranked");
 
-  await page.getByTestId("results-node-analysis:ernie:Thalamus/Thalamus_DK40_TI_max").click();
+  await page.getByTestId("results-node-analysis:ernie:Thalamus/cortical_2regions_DK40_71a9008a").click();
   await expect(page.getByTestId("results-key-numbers")).toBeVisible();
   await expect(page.getByText("Summary table")).toBeVisible();
   // The analysis PDF is one of its figures (every PNG/PDF in the folder), not a file row.
@@ -304,7 +304,7 @@ test("Open in viewer on an analysis opens that analysis, never an unnamed analys
     string,
     Record<string, { name: string; nifti: string | null; scene?: string | null }[]>
   >;
-  const analysis = fixture.ernie!.Thalamus!.find((a) => a.name === "Thalamus_DK40_TI_max")!;
+  const analysis = fixture.ernie!.Thalamus!.find((a) => a.name === "cortical_2regions_DK40_71a9008a")!;
   expect(analysis.nifti, "the fixture analysis has an overlay to open").toBeTruthy();
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("tit:tetravox:open");

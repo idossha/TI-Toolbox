@@ -14,6 +14,14 @@ hand-written guess of it:
 * ``overview.json`` -- ``tit.server.routes.overview.build_overview`` (the body of ``GET
   /api/catalog/overview``) for one subject of each kind the Overview page tells apart, plus the
   job list it was given. Read by ``desktop/tests/unit/overview-contract.test.ts``.
+* ``analyzer_plans.json`` -- what ``POST /api/plan/analyzer`` answers (the folder
+  ``PathManager.analysis_output_dir`` names, whether it exists, whether running replaces it) for
+  the analyses the mock project holds and for one config per remaining piece of the folder-name
+  grammar. ``desktop/tests/mock-server/contract.test.ts`` posts every config to the mock and
+  expects the same answer.
+* ``../analyses.json`` -- the mock server's analyses catalog: the real ``GET
+  /api/catalog/analyses`` listing of the folders the plan route named for the held analyses, so
+  the mock's plan and its catalog agree about where an analysis lives.
 
 Every fixture carries the request (or the project spec) it answers. Temporary paths are
 rewritten to the mock server's project root, ``/mnt/example``.
@@ -37,8 +45,9 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "desktop" / "tests" / "fixtures" / "contracts"
+FIXTURES = ROOT / "desktop" / "tests" / "fixtures"
 MOCK_ROOT = "/mnt/example"
+TOKEN = "contract-fixtures"
 SUBJECT = "ernie"
 NET = "GSN-HydroCel-185.csv"
 FLEX_RUN = "flex_Thalamus_20260810_101500"
@@ -291,6 +300,318 @@ def _overview_project(pm) -> tuple[dict[str, str], list[dict]]:
     return spec, jobs
 
 
+#: The analyses the mock project holds, as the configs that produced them: (subject, config,
+#: files the run left beside ``analysis.json`` and ``results.csv``). The subjects and simulations
+#: are the mock's (``simulations.json``). Ernie's Thalamus analysis is the one the Results e2e
+#: specs open: two DK40 regions, as ``fixtures/analysis_summary.csv`` (its ``results.csv``) says.
+HELD_ANALYSES: list[tuple[str, dict, tuple[str, ...]]] = [
+    (
+        "ernie",
+        {
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": ["lh.bankssts", "rh.bankssts"],
+            "field": "TI_max",
+        },
+        ("histogram.pdf", "TI_max_masked.nii.gz"),
+    ),
+    (
+        "ernie",
+        {
+            "simulation": "L_Insula",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "a2009s",
+            "region": "lh.G_insular_short",
+            "field": "TI_max",
+        },
+        (),
+    ),
+    (
+        "ernie",
+        {
+            "simulation": "docs_example",
+            "space": "voxel",
+            "analysis_type": "spherical",
+            "center": [-38, 44, 26],
+            "radius": 10,
+            "coordinate_space": "mni",
+            "field": "mTI_max",
+        },
+        (),
+    ),
+    (
+        "101",
+        {
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "analysis_type": "spherical",
+            "center": [-12, -18, 6],
+            "radius": 5,
+            "field": "TI_max",
+        },
+        (),
+    ),
+]
+
+#: Configs the project does not hold, each pinning one more piece of the folder-name grammar.
+PLANNED_ANALYSES: list[tuple[str, list[str], dict]] = [
+    (
+        # Another field is another folder: ``_<field>`` after the ROI.
+        "another_field",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": "lh.insula",
+            "field": "hf_peak",
+        },
+    ),
+    (
+        # Each region once, in first-seen order, then hashed: ``cortical_<n>regions_<atlas>_<md5>``.
+        "repeated_regions",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": ["rh.insula", "lh.insula", "rh.insula"],
+        },
+    ),
+    (
+        # A label a folder cannot carry is sanitised and hashed; an atlas file loses its suffix.
+        "unsafe_label",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "voxel",
+            "analysis_type": "cortical",
+            "atlas": "HarvardOxford-cort-maxprob-thr25-1mm.nii.gz",
+            "region": "Inferior Frontal Gyrus, pars triangularis",
+        },
+    ),
+    (
+        # ``subcortical_`` prefix; ``+`` and ``.`` in an atlas name become ``_``; voxel tissue.
+        "subcortical_tissue",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "voxel",
+            "tissue_type": "both",
+            "analysis_type": "subcortical",
+            "atlas": "aparc.a2009s+aseg.mgz",
+            "region": "Left-Thalamus",
+        },
+    ),
+    (
+        # No region: the whole head of the atlas.
+        "whole_head",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+        },
+    ),
+    (
+        # Python's ``:.2f`` rounds an exact binary tie to even (0.125 -> 0.12); MNI; WM tissue;
+        # the Auto field (null) is the envelope and adds nothing.
+        "sphere_rounding",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "voxel",
+            "tissue_type": "WM",
+            "analysis_type": "spherical",
+            "center": [0.125, -1.375, 2.5],
+            "radius": 7.5,
+            "coordinate_space": "mni",
+            "field": None,
+        },
+    ),
+    (
+        # A mesh analysis is grey-matter surface: the tissue never reaches the name.
+        "mesh_ignores_tissue",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "tissue_type": "WM",
+            "analysis_type": "spherical",
+            "center": [1, 2, 3],
+            "radius": 5,
+        },
+    ),
+    (
+        # A single-subject run with an output folder writes exactly there.
+        "explicit_output_dir",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": "lh.insula",
+            "output_dir": f"{MOCK_ROOT}/derivatives/custom/insula_run",
+        },
+    ),
+    (
+        # A NIfTI mask is named by its file and space plus a hash of both, with no atlas.
+        "mask",
+        ["ernie"],
+        {
+            "simulation": "Thalamus",
+            "space": "voxel",
+            "analysis_type": "mask",
+            "mask_path": f"{MOCK_ROOT}/derivatives/SimNIBS/sub-ernie/m2m_ernie/masks/roi.nii.gz",
+            "coordinate_space": "subject",
+        },
+    ),
+    (
+        # A group run never hands its output folder to the subjects: each analysis goes to its
+        # default folder, and the folder holds the cohort summary (the job with subject "").
+        "group_output_dir",
+        ["ernie", "101"],
+        {
+            "mode": "group",
+            "subject_ids": ["ernie", "101"],
+            "simulation": "Thalamus",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": "lh.insula",
+            "output_dir": f"{MOCK_ROOT}/derivatives/ti-toolbox/group_analysis/insula_cohort",
+        },
+    ),
+]
+
+
+def _analysis_metadata(config: dict) -> dict:
+    """The ``analysis.json`` ``Analyzer._save_metadata`` writes for *config* (its keys)."""
+    sphere = config["analysis_type"] == "spherical"
+    region = config.get("region")
+    metadata = {
+        "analysis_type": config["analysis_type"],
+        "space": config["space"],
+        "field_name": config["field"],
+    }
+    if config["space"] == "voxel":
+        metadata["tissue_types"] = ["GM"]
+    metadata.update(
+        {
+            "atlas": config.get("atlas"),
+            "regions": [region] if isinstance(region, str) else region,
+            "center": config["center"] if sphere else None,
+            "radius": config["radius"] if sphere else None,
+            "spheres": [[*config["center"], config["radius"]]] if sphere else None,
+            "coordinate_space": config.get("coordinate_space", "subject"),
+        }
+    )
+    return metadata
+
+
+def _analyzer_fixtures(pm, root: Path) -> tuple[dict, dict]:
+    """The plan table and the analyses catalog, from the real routes on one project.
+
+    Each held analysis is written into the folder the plan route names for its config; then
+    every config (held or not) is planned again, so a held one plans as existing, and the
+    analyses route lists the held folders.
+    """
+    from unittest import mock
+
+    from fastapi.testclient import TestClient
+
+    from tit.server.app import create_app
+    from tit.server.settings import ServerSettings
+
+    client = TestClient(
+        create_app(ServerSettings(project_dir=str(root), token=TOKEN)),
+        base_url="http://127.0.0.1:8765",
+    )
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    def plan(subject_ids: list[str], config: dict) -> dict:
+        config = dict(config)
+        if config.get("output_dir"):
+            # An output folder must be inside the project the route serves.
+            config["output_dir"] = config["output_dir"].replace(MOCK_ROOT, str(root))
+        body = {"config": config, "subject_ids": subject_ids}
+        # The mask case names the mock's own file (its path is part of the folder's hash), which
+        # does not exist here; the route's "is it readable" check is the one step skipped.
+        with mock.patch("tit.analyzer.masks.validate_mask_path"):
+            response = client.post("/api/plan/analyzer", json=body, headers=headers)
+        if response.status_code != 200:
+            raise RuntimeError(f"{config}: HTTP {response.status_code} {response.text}")
+        return response.json()
+
+    def single(sid: str, cfg: dict) -> dict:
+        return {"subject_id": sid, **cfg}
+
+    cases = [
+        (f"held_{sid}_{cfg['simulation']}", [sid], single(sid, cfg), True)
+        for sid, cfg, _files in HELD_ANALYSES
+    ] + [
+        (
+            case_id,
+            ids,
+            cfg if cfg.get("mode") == "group" else single(ids[0], cfg),
+            False,
+        )
+        for case_id, ids, cfg in PLANNED_ANALYSES
+    ]
+    for sid, cfg, files in HELD_ANALYSES:
+        _write(Path(pm.m2m(sid)) / f"{sid}.msh", b"\0")
+        (job,) = plan([sid], single(sid, cfg))["jobs"]
+        folder = Path(job["output_dir"])
+        _write(folder / "analysis.json", json.dumps(_analysis_metadata(cfg), indent=2))
+        _write(folder / "results.csv", "Metric,Value\n")
+        for name in files:
+            _write(folder / name, b"\0")
+
+    table = []
+    for case_id, subject_ids, config, held in cases:
+        answer = plan(subject_ids, config)
+        table.append(
+            {
+                "id": case_id,
+                "subject_ids": subject_ids,
+                "held": held,
+                "config": config,
+                "jobs": [
+                    {
+                        key: job[key]
+                        for key in ("subject", "output_dir", "exists", "will_overwrite")
+                    }
+                    for job in answer["jobs"]
+                ],
+            }
+        )
+
+    catalog: dict[str, dict[str, list]] = {}
+    for sid, cfg, _files in HELD_ANALYSES:
+        sim = cfg["simulation"]
+        response = client.get(
+            "/api/catalog/analyses",
+            params={"subject": sid, "simulation": sim},
+            headers=headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"{sid}/{sim}: HTTP {response.status_code}")
+        catalog.setdefault(sid, {})[sim] = response.json()
+    plans = {
+        "generated_by": "dev/make_contract_fixtures.py",
+        "catalog": "desktop/tests/fixtures/analyses.json lists the held cases",
+        "cases": table,
+    }
+    return _rewrite_root(plans, root), _rewrite_root(catalog, root)
+
+
 def _rewrite_root(value, root: Path):
     """Replace the temporary project root by the mock's, in every string of *value*."""
     roots = sorted({str(root), os.path.realpath(root)}, key=len, reverse=True)
@@ -311,7 +632,7 @@ def render(data: dict) -> str:
 
 
 def build() -> dict[str, str]:
-    """``{file name: text}`` for every fixture, from the real code on a fresh project."""
+    """``{path under desktop/tests/fixtures: text}`` for every fixture, from the real code."""
     from tit.catalog import list_subjects
     from tit.opt.candidate_catalog import candidate_detail
     from tit.paths import get_path_manager, reset_path_manager
@@ -340,7 +661,7 @@ def build() -> dict[str, str]:
                 "run": run,
                 "candidate_id": candidate_id,
             }
-            out[f"candidate_detail_{kind}.json"] = render(
+            out[f"contracts/candidate_detail_{kind}.json"] = render(
                 {"request": request, "response": _rewrite_root(response, root)}
             )
         reset_path_manager()
@@ -354,7 +675,7 @@ def build() -> dict[str, str]:
         # What ``GET /api/catalog/subjects`` lists for the same project: the subject list the
         # Results page shows, which Overview's "Open in Results" lands in.
         listed = [row["id"] for row in list_subjects(pm)]
-        out["overview.json"] = render(
+        out["contracts/overview.json"] = render(
             {
                 "subjects": spec,
                 "jobs": jobs,
@@ -362,6 +683,15 @@ def build() -> dict[str, str]:
                 "response": _rewrite_root(response, root),
             }
         )
+        reset_path_manager()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "project"
+        root.mkdir()
+        pm = get_path_manager(str(root))
+        plans, analyses = _analyzer_fixtures(pm, root)
+        out["contracts/analyzer_plans.json"] = render(plans)
+        out["analyses.json"] = render(analyses)
         reset_path_manager()
     return out
 
@@ -385,7 +715,7 @@ def main(argv: list[str] | None = None) -> int:
     _stub_missing_runtime_libraries()
     stale = []
     for name, text in build().items():
-        path = OUT / name
+        path = FIXTURES / name
         if args.check:
             if not path.is_file() or path.read_text(encoding="utf-8") != text:
                 stale.append(name)
