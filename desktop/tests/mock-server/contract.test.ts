@@ -262,11 +262,14 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     // caps (v1) -- the EEG caps panel.
     await call("/api/caps/available", "GET", "/api/caps/available?subject=ernie");
     // Caps are named by file name, as `PathManager.list_eeg_caps` names them; the real route 404s a stem.
-    await call("/api/caps/warp", "POST", "/api/caps/warp", { body: { subject: "ernie", caps: ["GSN-HydroCel-185.csv"] } }); // 409: already on ernie, declared
+    // 409, not 404: the name is a known MNI cap and that cap is already on ernie.
+    expect((await call("/api/caps/warp", "POST", "/api/caps/warp", { body: { subject: "ernie", caps: ["GSN-HydroCel-185.csv"] } })).res.status).toBe(409);
     await call("/api/caps/upload", "POST", "/api/caps/upload?name=contract_cap.csv", {
       rawBody: new TextEncoder().encode("Electrode,1,2,3,A\n"), headers: { "content-type": "text/csv" },
     });
-    await call("/api/caps/inspect", "GET", "/api/caps/inspect?subject=ernie&net=GSN-HydroCel-185.csv&compare=EGI_template.csv");
+    const capsInspect = await call("/api/caps/inspect", "GET", "/api/caps/inspect?subject=ernie&net=GSN-HydroCel-185.csv&compare=EGI_template.csv");
+    expect(capsInspect.res.status).toBe(200);
+    expect((capsInspect.json as { net: string }).net).toBe("GSN-HydroCel-185.csv");
 
     // The fixed guide (plan R4). None of these takes a subject — that is the point.
     await call("/api/guide/manifest", "GET", "/api/guide/manifest");
