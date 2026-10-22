@@ -201,8 +201,12 @@ class TestFindVoxelRegionId:
                 )
         assert result == 17
 
-    def test_first_ascending_match_wins_on_ambiguity(self):
-        """Matches ``mri_segstats``' own row order (ascending SegId): first hit wins."""
+    def test_a_name_two_labels_contain_is_refused_not_resolved_to_the_lowest(self):
+        """A bare name in two hemispheres' labels is ambiguous, not the left one.
+
+        The lowest id used to win, so a voxel "insula" measured ctx-lh-insula only while
+        the same name in mesh measures both hemispheres (p33).
+        """
         from tit.atlas.segstats import SegStat
 
         stats = [
@@ -211,10 +215,12 @@ class TestFindVoxelRegionId:
         ]
         with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}):
             with patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
-                result = Analyzer._find_voxel_region_id(
-                    np.zeros((1, 1, 1)), Path("/unused.mgz"), "Cortex-A"
-                )
-        assert result == 3
+                with pytest.raises(ValueError, match="matches 2 labels") as err:
+                    Analyzer._find_voxel_region_id(
+                        np.zeros((1, 1, 1)), Path("/unused.mgz"), "Cortex-A"
+                    )
+        assert "Left-Cortex-A (3)" in str(err.value)
+        assert "Right-Cortex-A (9)" in str(err.value)
 
     def test_no_match_raises_value_error(self):
         with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}):

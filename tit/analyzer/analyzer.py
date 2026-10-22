@@ -847,8 +847,8 @@ class Analyzer:
 
         regions = region if isinstance(region, list) else [region]
 
-        # Resolve user-facing names to atlas keys (handles "cuneus-lh",
-        # "lh.cuneus", or bare "cuneus" → both hemispheres).
+        # Resolve user-facing names to atlas keys ("lh.cuneus", or bare
+        # "cuneus" → both hemispheres).
         atlas_keys = []
         seen = set()
         for r in regions:
@@ -1928,6 +1928,30 @@ class Analyzer:
                 exc,
             )
 
+    #: DK40 surface regions the DKT volume parcellation (``aparc.DKTatlas+aseg``, FastSurfer's
+    #: and recon-all's) does not carry: the DKT protocol dropped the banks of the superior
+    #: temporal sulcus, the frontal and temporal poles and the corpus callosum (Klein &
+    #: Tourville 2012). A voxel DK40 analysis of one cannot be measured.
+    DKT_VOLUME_LACKS = frozenset(
+        {"bankssts", "corpuscallosum", "frontalpole", "temporalpole"}
+    )
+
+    @classmethod
+    def surface_regions_without_volume(cls, atlas: str, regions) -> list[str]:
+        """The names in *regions* a voxel analysis of surface atlas *atlas* cannot measure.
+
+        Shared with :mod:`tit.jobs.preflight`, so such a region is refused at submit, not
+        after the job started. Only ``DK40`` (read from the DKT volume) has any.
+        """
+        if atlas != "DK40":
+            return []
+        return [
+            str(r)
+            for r in regions
+            if re.sub(r"^(lh|rh)[._-]", "", str(r).strip().lower())
+            in cls.DKT_VOLUME_LACKS
+        ]
+
     @staticmethod
     def _find_voxel_region_id(
         atlas_arr: np.ndarray,
@@ -1938,10 +1962,16 @@ class Analyzer:
 
         Pure-Python replacement for shelling out to ``mri_segstats``: labels
         actually present in the volume (:func:`~tit.atlas.segstats.compute_segstats`)
-        are named via :func:`~tit.atlas.segstats.resolve_lut_for_atlas` and the
-        first substring match (by ascending label id, matching
-        ``mri_segstats``'s own row order) wins -- identical matching
-        semantics to the subprocess it replaces.
+        are named via :func:`~tit.atlas.segstats.resolve_lut_for_atlas`. The exact
+        name, or a surface-style hemisphere name's volume spelling, names one label;
+        otherwise the one label whose name contains *region*. A name contained in
+        several labels' names (a bare ``"insula"`` is in ``ctx-lh-insula`` and
+        ``ctx-rh-insula``) is refused rather than resolved to the lowest id, which
+        measured the left hemisphere only while a mesh analysis of the same name
+        measures both.
+
+        Raises:
+            ValueError: *region* names no label present in the volume, or several.
         """
         region_stripped = region.strip()
         if region_stripped.isdigit():
@@ -1949,28 +1979,40 @@ class Analyzer:
 
         lut = resolve_lut_for_atlas(str(atlas_path))
         stats = compute_segstats(str(atlas_path), lut)
-        rid = Analyzer.match_region_label(
-            region_stripped, [(stat.seg_id, stat.name) for stat in stats]
-        )
-        if rid is None:
+        labels = [(stat.seg_id, stat.name) for stat in stats]
+        hits = Analyzer._region_label_matches(region_stripped, labels)
+        if len(hits) > 1:
+            names = ", ".join(f"{name} ({rid})" for rid, name in hits[:6])
+            more = f" and {len(hits) - 6} more" if len(hits) > 6 else ""
+            raise ValueError(
+                f"Region '{region}' matches {len(hits)} labels in atlas {atlas_path}: "
+                f"{names}{more}. Name one exactly (e.g. 'lh.insula' or "
+                "'Left-Thalamus'), or list each region to analyze their union."
+            )
+        if not hits:
+            bare = re.sub(r"^(lh|rh)[._-]", "", region_stripped.lower())
+            if bare in Analyzer.DKT_VOLUME_LACKS:
+                raise ValueError(
+                    f"Region '{region}' is a DK40 surface region the DKT volume "
+                    f"parcellation {atlas_path} does not have; analyze it in mesh space."
+                )
             raise ValueError(f"Region '{region}' not found in atlas {atlas_path}")
-        return rid
+        return hits[0][0]
 
     @staticmethod
-    def match_region_label(region: str, labels) -> int | None:
-        """The label id whose name *region* names, or ``None``.
+    def _region_label_matches(region: str, labels) -> list[tuple[int, str]]:
+        """``(id, name)`` of the labels *region* names: one exact match, or every substring hit.
 
-        *labels* is ``(id, name)`` pairs in ascending id order. The exact name (any case)
-        wins, then a surface-style hemisphere name's volume spelling, then the first name
-        containing *region* -- the matching ``mri_segstats`` row order gave. Shared with
-        :mod:`tit.jobs.preflight`, which matches against the atlas's lookup table.
+        The exact name (any case) wins, then a surface-style hemisphere name's volume
+        spelling; only without either are the names containing *region* returned, in
+        *labels*' order.
         """
         region_lower = region.strip().lower()
         # The exact name wins over a longer one containing it: hippocampal subfields list
         # "parasubiculum" (203) before "subiculum" (205).
         for rid, name in labels:
             if name.lower() == region_lower:
-                return rid
+                return [(rid, name)]
         # A surface-style name ("lh.insula") is spelled "ctx-lh-insula" in the
         # DKT volume and "ctx_lh_G_insular_short" in the a2009s one; try the
         # exact volume spellings before falling back to substring matching.
@@ -1980,8 +2022,19 @@ class Analyzer:
             exact = {f"ctx-{hemi}-{hemi_name}", f"ctx_{hemi}_{hemi_name}"}
             for rid, name in labels:
                 if name.lower() in exact:
-                    return rid
-        for rid, name in labels:
-            if region_lower in name.lower():
-                return rid
-        return None
+                    return [(rid, name)]
+        return [(rid, name) for rid, name in labels if region_lower in name.lower()]
+
+    @staticmethod
+    def match_region_label(region: str, labels) -> int | None:
+        """The label id whose name *region* names, or ``None``.
+
+        *labels* is ``(id, name)`` pairs in ascending id order. The exact name (any case)
+        wins, then a surface-style hemisphere name's volume spelling, then the first name
+        containing *region*. Shared with :mod:`tit.jobs.preflight`, which matches against
+        the atlas's whole lookup table -- names the volume may not carry -- so it only
+        asks whether *region* names anything; the runner
+        (:meth:`_find_voxel_region_id`) refuses a name several present labels contain.
+        """
+        hits = Analyzer._region_label_matches(region, labels)
+        return hits[0][0] if hits else None

@@ -561,8 +561,22 @@ def _analyzer_atlas(
         fs_mri = Path(pm.fastsurfer_mri(sid))
         legacy_mri = Path(pm.freesurfer_mri(sid))
         seg_dir = Path(pm.segmentation(sid))
-        if any(p.exists() for p in Analyzer.voxel_atlas_candidates(pm, sid, atlas)):
-            return []
+        found = next(
+            (p for p in Analyzer.voxel_atlas_candidates(pm, sid, atlas) if p.exists()),
+            None,
+        )
+        if found is not None:
+            return [
+                MissingInput(
+                    f"region {name!r} in the {found.name} volume of atlas {atlas!r}",
+                    str(found),
+                    f"{atlas}'s DKT volume parcellation has no {name!r} (the DKT protocol "
+                    "dropped it); analyze this region in mesh space, or pick another.",
+                )
+                for name in Analyzer.surface_regions_without_volume(
+                    atlas, _as_list(config.get("region"))
+                )
+            ]
         volumes = Analyzer._SURFACE_ATLAS_VOLUMES.get(atlas)
         if volumes is not None:
             return [
