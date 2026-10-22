@@ -32,6 +32,7 @@ from typing import Any
 from tit.atlas.constants import VOXEL_ATLASES, mni_resources_dir
 from tit.atlas.mesh import MeshAtlasManager
 from tit.atlas.voxel import VoxelAtlasManager, parse_region_label
+from tit.constants import get_field_names
 from tit.paths import (
     PathManager,
     is_valid_subject_id,
@@ -655,7 +656,25 @@ def subject_detail(pm: PathManager, sid: str) -> dict | None:
 
 _MODE_DIRS = ("mTI", "TI")
 _TISSUE_PREFIXES = ("grey_", "white_", "csf_", "bone_", "skin_", "eyes_")
-_FIELD_RE = re.compile(r"_(TI_max|TI_normal|TI_focality|magnE)(?:\.nii)")
+
+#: The field names a simulation NIfTI ends in: every ``FIELD_REGISTRY`` name plus
+#: ``magnE``, the carrier magnitude SimNIBS writes. Longest first, so a name is never
+#: read as a shorter field it ends with (``mTI_max`` against ``TI_max``).
+SIM_NIFTI_FIELDS: tuple[str, ...] = tuple(
+    sorted({*get_field_names(), "magnE"}, key=lambda f: (-len(f), f))
+)
+# mesh2nii hands SimNIBS the prefixes ``<base>_subject`` and ``<base>_MNI``, and SimNIBS
+# appends ``_<field>`` and ``_MNI_<field>``. The space and field are therefore the last
+# tokens of the name, whatever the simulation is called.
+_SIM_NIFTI_RE = re.compile(
+    r"(?P<base>.+)_(?P<space>subject|MNI_MNI)_(?P<field>"
+    + "|".join(re.escape(f) for f in SIM_NIFTI_FIELDS)
+    + r")\.nii(?:\.gz)?"
+)
+# ``<sid>_TDCS_<i>_<cond>``: one carrier's SimNIBS mesh (``i`` is renamed A..Z for mTI).
+_CARRIER_BASE_RE = re.compile(r".+_TDCS_(?:[0-9]+|[A-Z])_(?:scalar|vn|dir|mc)")
+# ``<tissue_>?<sim>_<TI|mTI>``: the envelope mesh and its grey/white copies.
+_ENVELOPE_BASE_RE = re.compile(r"(?P<rest>.+)_(?P<mode>mTI|TI)")
 
 
 def _strip_tissue_prefix(basename: str) -> tuple[str, str | None]:
@@ -665,34 +684,88 @@ def _strip_tissue_prefix(basename: str) -> tuple[str, str | None]:
     return basename, None
 
 
-def _guess_field(rest: str) -> str:
-    stem = re.sub(r"\.nii(\.gz)?$", "", rest)
-    tokens = stem.split("_")
-    return tokens[-1] if tokens else stem
+def classify_sim_nifti(basename: str, simulation: str | None = None) -> dict | None:
+    """What a simulation NIfTI holds, read from the name the simulator gives it.
+
+    The simulator names every volume ``<base>_subject_<field>.nii.gz`` or
+    ``<base>_MNI_MNI_<field>.nii.gz`` (``tit.tools.mesh2nii``), where ``<base>`` is
+    the mesh it came from: ``<tissue_><sim>_<TI|mTI>`` for the envelope fields
+    (``extract_fields`` adds ``grey_``/``white_``) and ``<sid>_TDCS_<i>_<cond>`` for a
+    carrier's ``magnE``. Space and field are read from the tokens at the end and the
+    tissue from the prefix before the simulation's own name, so a simulation called
+    ``MNI_target``, ``grey_matter`` or ``TDCS_vs_TI`` is classified like any other.
+
+    Parameters
+    ----------
+    basename : str
+        File name, without directory.
+    simulation : str or None, optional
+        The simulation the file belongs to. With it the tissue prefix is read exactly
+        (``grey_matter_TI`` is the whole-head file of ``grey_matter``); without it a
+        known tissue prefix is stripped.
+
+    Returns
+    -------
+    dict or None
+        ``{"kind": "envelope" | "carrier", "field", "space": "subject" | "mni",
+        "tissue": "grey" | "white" | None}``, or ``None`` for a name the simulator
+        does not write.
+    """
+    match = _SIM_NIFTI_RE.fullmatch(basename)
+    if match is None:
+        return None
+    base, field = match["base"], match["field"]
+    space = "mni" if match["space"] == "MNI_MNI" else "subject"
+    if _CARRIER_BASE_RE.fullmatch(base):
+        return {"kind": "carrier", "field": field, "space": space, "tissue": None}
+    envelope = _ENVELOPE_BASE_RE.fullmatch(base)
+    if envelope is None:
+        return None
+    rest = envelope["rest"]
+    tissue = None
+    if simulation is not None and rest in (
+        simulation,
+        f"grey_{simulation}",
+        f"white_{simulation}",
+    ):
+        if rest != simulation:
+            tissue = rest.split("_", 1)[0]
+    else:
+        tissue = _strip_tissue_prefix(rest)[1]
+    return {"kind": "envelope", "field": field, "space": space, "tissue": tissue}
 
 
-def _mode_niftis(mode_dir: str, *, project_root: str | None = None) -> list[dict]:
-    niftis_dir = os.path.join(mode_dir, "niftis")
-    out: list[dict] = []
+def _sim_niftis(
+    niftis_dir: str, kind: str, simulation: str | None, project_root: str | None
+) -> list[dict]:
+    """The *kind* NIfTIs in *niftis_dir*; files the simulator did not name are left out."""
+    out = []
     for path in _metadata_glob(niftis_dir, "*.nii*", project_root):
-        basename = os.path.basename(path)
-        if "TDCS" in basename:
+        info = classify_sim_nifti(os.path.basename(path), simulation)
+        if info is None or info["kind"] != kind:
             continue
-        rest, tissue = _strip_tissue_prefix(basename)
-        space = "mni" if "_MNI" in basename else "subject"
-        match = _FIELD_RE.search(rest)
-        field = match.group(1) if match else _guess_field(rest)
-        out.append({"path": path, "field": field, "space": space, "tissue": tissue})
+        out.append(
+            {
+                "path": path,
+                "field": info["field"],
+                "space": info["space"],
+                "tissue": info["tissue"],
+            }
+        )
     return out
+
+
+def _mode_niftis(
+    mode_dir: str, *, simulation: str | None = None, project_root: str | None = None
+) -> list[dict]:
+    return _sim_niftis(
+        os.path.join(mode_dir, "niftis"), "envelope", simulation, project_root
+    )
 
 
 def _hf_niftis(hf_dir: str, *, project_root: str | None = None) -> list[dict]:
-    out = []
-    for path in _metadata_glob(hf_dir, "*_scalar_*magnE.nii.gz", project_root):
-        basename = os.path.basename(path)
-        space = "mni" if "_MNI" in basename else "subject"
-        out.append({"path": path, "field": "magnE", "space": space, "tissue": None})
-    return out
+    """Every carrier's ``magnE`` volume, for any conductivity (scalar, vn, dir, mc)."""
+    return _sim_niftis(hf_dir, "carrier", None, project_root)
 
 
 def _dir_meshes(
@@ -737,7 +810,9 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
         mode_dir = os.path.join(sim_dir, mode)
         if not _project_isdir(pm, mode_dir):
             continue
-        niftis.extend(_mode_niftis(mode_dir, project_root=pm.project_dir))
+        niftis.extend(
+            _mode_niftis(mode_dir, simulation=sim, project_root=pm.project_dir)
+        )
         meshes.extend(
             _dir_meshes(
                 os.path.join(mode_dir, "mesh"), "field", project_root=pm.project_dir

@@ -86,7 +86,9 @@ from typing import Any
 
 from tit.atlas import MNI_ATLAS_DIR, MNI_TEMPLATE, VoxelAtlasManager
 from tit.catalog import (
+    SIM_NIFTI_FIELDS,
     VIEW_ATTACHMENT_KINDS,
+    classify_sim_nifti,
     classify_view_file,
     surface_attachments,
 )
@@ -269,15 +271,19 @@ def _ti_max_layers(sim_dir: str, space: str) -> list[dict[str, Any]]:
     niftis_dir = _mode_niftis_dir(sim_dir)
     if niftis_dir is None:
         return []
+    simulation = os.path.basename(os.path.normpath(sim_dir))
     out = []
     for path in sorted(glob.glob(os.path.join(niftis_dir, "*.nii*"))):
-        basename = os.path.basename(path)
-        if "TI_max" not in basename or "TDCS" in basename:
+        info = classify_sim_nifti(os.path.basename(path), simulation)
+        if (
+            info is None
+            or info["kind"] != "envelope"
+            or info["field"] not in ("TI_max", "mTI_max")
+        ):
             continue
-        is_mni = "_MNI" in basename
-        if is_mni != (space == "mni"):
+        if (info["space"] == "mni") != (space == "mni"):
             continue
-        visible = basename.startswith("grey_")
+        visible = info["tissue"] == "grey"
         out.append(
             _layer(
                 path,
@@ -296,10 +302,12 @@ def _hf_layers(sim_dir: str, space: str) -> list[dict[str, Any]]:
     if not os.path.isdir(hf_dir):
         return []
     out = []
-    for path in sorted(glob.glob(os.path.join(hf_dir, "*_scalar_*magnE.nii.gz"))):
-        basename = os.path.basename(path)
-        is_mni = "_MNI" in basename
-        if is_mni != (space == "mni"):
+    for path in sorted(glob.glob(os.path.join(hf_dir, "*.nii*"))):
+        # Any conductivity: SimNIBS names a carrier <sid>_TDCS_<i>_<scalar|vn|dir|mc>.
+        info = classify_sim_nifti(os.path.basename(path))
+        if info is None or info["kind"] != "carrier" or info["field"] != "magnE":
+            continue
+        if (info["space"] == "mni") != (space == "mni"):
             continue
         out.append(
             _layer(
@@ -1404,6 +1412,11 @@ def _in_space(name: str, space: str, *, is_mesh: bool) -> bool:
     """
     if is_mesh:
         return True
+    # A simulator output carries its space in its last tokens; reading those first keeps a
+    # simulation called `L_MNI_target` or `subject_A` in the right scene.
+    info = classify_sim_nifti(name)
+    if info is not None:
+        return (info["space"] == "mni") == (space == "mni")
     lowered = name.lower()
     if "_mni_" in lowered or lowered.endswith("_mni.nii.gz"):
         return space == "mni"
@@ -1841,17 +1854,11 @@ def _scene_role(path: str, colormap: str) -> str:
     return "base"
 
 
-#: The field tokens SimNIBS puts at the **end** of a volume's basename. Longest-first, so
-#: `TI_normal` is not shadowed by a shorter token that is also a suffix of it.
-_VOLUME_FIELD_TOKENS = (
-    "mTI_normal",
-    "mTI_max",
-    "TI_normal",
-    "TI_max",
-    "hf_peak",
-    "hf_sar",
-    "magnE",
-    "normE",
+#: The field tokens SimNIBS puts at the **end** of a volume's basename: the catalog's
+#: (every ``FIELD_REGISTRY`` name plus ``magnE``) and SimNIBS's ``normE``/``mTI_normal``.
+#: Longest-first, so `TI_normal` is not shadowed by a shorter token that is also a suffix of it.
+_VOLUME_FIELD_TOKENS = tuple(
+    sorted({*SIM_NIFTI_FIELDS, "mTI_normal", "normE"}, key=lambda f: (-len(f), f))
 )
 
 
