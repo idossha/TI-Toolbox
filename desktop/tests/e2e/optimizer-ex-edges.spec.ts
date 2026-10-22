@@ -210,13 +210,15 @@ test("switching the net drops or names an electrode the new net does not have", 
   const kept = (await field("E1+", again).getByRole("combobox").innerText()).trim();
   await closeOptEditor(page);
   const run = page.getByTestId("run-button");
+  // The title first: Run is also disabled for a moment while the plan resolves the run folders,
+  // so only the sentence (which the settled gate sets) tells the refusal apart from that.
   if (kept.includes("E200")) {
     // Kept on screen, so the page must refuse to run it, and say which electrode and which job.
-    await expect(run).toBeDisabled();
     await expect(run).toHaveAttribute("title", /Job 1: .*E200/);
+    await expect(run).toBeDisabled();
   } else {
     // Dropped: the bucket is then empty, which the row gate already refuses by name.
-    await expect(run).toBeDisabled();
     await expect(run).toHaveAttribute("title", /Job 1: Fill in every electrode bucket\./);
+    await expect(run).toBeDisabled();
   }
 });
