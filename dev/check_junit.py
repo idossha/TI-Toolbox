@@ -213,8 +213,8 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "why": "Dataset 000 is not in CI; dev/run_realdata_tests.sh runs it",
         },
         # Measured on idossha/ti-toolbox:v3.1.1, 2026-10-22, TIT_DATASET_000 unset: 466
-        # collected, 400 passed, 1 failed (test_simnibs_vector_warp, the shipped nan_to_num
-        # patch), 65 skipped, all of them on this list.
+        # collected, 400 passed, 66 skipped (63 skips and 3 strict xfails, the vector warp's
+        # among them), all of them on this list.
         *_HOST_NUMERICAL_DATASET_000,
         _dataset_000(
             "test_analyzer_p06_real.*", "reads sub-101's Thalamus_example surface fields"
