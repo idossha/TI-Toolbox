@@ -422,7 +422,7 @@ export class StackManager {
     await this.ensureImage(client, api, plan, !(options.repoDir ?? resolveRepoDir(process.env, this.host.isPackaged)));
 
     this.progress("Checking container GPU access…");
-    const gpu = await probeContainerGpu(api, client, plan.image, plan.platform);
+    const gpu = await probeContainerGpu(api, client, plan.image, plan.platform, undefined, (message) => this.host.log("warn", `[stack] ${message}`));
     if (gpu.available) {
       plan.body.HostConfig.DeviceRequests = [GPU_REQUEST];
       plan.body.Env.push("NVIDIA_DRIVER_CAPABILITIES=compute,utility");

@@ -631,12 +631,16 @@ def probe_container_gpu(image: str, echo: Callable[[str], None] = print) -> bool
     except (OSError, subprocess.TimeoutExpired) as exc:
         detail = str(exc)
     finally:
-        subprocess.run(
-            ["docker", "rm", "--force", name],
-            capture_output=True,
-            timeout=15,
-            check=False,
-        )
+        # The GPU is optional: a failed cleanup must not replace the verdict with an exception.
+        try:
+            subprocess.run(
+                ["docker", "rm", "--force", name],
+                capture_output=True,
+                timeout=15,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            echo(f"Warning: could not remove the GPU probe container {name}: {exc}")
     echo(
         f"Container GPU unavailable ({detail}). CPU remains available; "
         "Apple Silicon users can enable native Apple GPU in Pre-processing."

@@ -6,13 +6,17 @@ import type { StackApi } from "./stackApi";
 export const CUDA_PROBE = "import torch; assert torch.cuda.is_available(); x=torch.ones((32,32),device='cuda'); y=x@x; torch.cuda.synchronize(); assert y[0,0].item()==32";
 export const GPU_REQUEST = { Driver: "nvidia", Count: -1, Capabilities: [["gpu"]] };
 
-/** Verify the selected image can execute CUDA without granting access to project data. */
+/**
+ * Verify the selected image can execute CUDA without granting access to project data. Resolves
+ * with the verdict even when removing the probe container fails; that failure goes to `warn`.
+ */
 export async function probeContainerGpu(
   api: Pick<StackApi, "createContainer" | "inspect" | "removeContainerById">,
   client: Pick<DockerEngineClient, "startContainer">,
   image: string,
   platform: string | undefined,
   timeoutMs = 60_000,
+  warn: (message: string) => void = () => {},
 ): Promise<{ available: boolean; reason: string }> {
   let id: string | undefined;
   try {
@@ -34,6 +38,13 @@ export async function probeContainerGpu(
   } catch (error) {
     return { available: false, reason: error instanceof Error ? error.message : String(error) };
   } finally {
-    if (id) await api.removeContainerById(id, true);
+    // The GPU is optional: a failed cleanup (e.g. Docker's 409 "removal already in progress") is
+    // reported through `warn`, never allowed to replace the verdict and abort the stack start.
+    if (id) {
+      const probeId = id;
+      await api.removeContainerById(probeId, true).catch((error: unknown) => {
+        warn(`GPU probe container ${probeId} was not removed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }
   }
 }
