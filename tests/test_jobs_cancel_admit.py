@@ -7,14 +7,21 @@ that window finalizes the still-``queued`` job as ``cancelled`` -- and then, bef
 ``finished_at`` earlier than ``started_at``, its process left to run to completion.
 
 Where the expected values come from: ``contracts/openapi.yaml`` (``POST /api/jobs/{id}/cancel``:
-a cancelled job never runs; ``force``: a recovery hatch that lands the job in a terminal state)
-and plain time ordering (a job cannot finish before it starts). No number here comes from the
-code under test.
+a cancelled job never runs; ``force``: a recovery hatch that lands the job in a terminal state),
+plain time ordering (a job cannot finish before it starts), and the manager's two cancel
+promises that ``tests/test_jobs_manager.py`` already holds a running job to: the log of a
+cancelled job ends with ``CANCEL_NOTE``, and a stopped job holds no lock. No number here comes
+from the code under test.
 
 How the window is made deterministic: a ``LocalPopenRunner`` subclass sets an event on entry to
 ``spawn()`` and then awaits ``asyncio.sleep(0.5)`` before really spawning, so a ``cancel()``
 issued after the event is guaranteed to land while ``_admit`` is suspended. The spawned command
 sleeps 60 s, so "the pid is dead within 10 s" can only be true if the manager killed it.
+
+The lock: right after the real spawn, the runner registers a lock for the job (``locks.hold``),
+as a runner process does when it starts -- after ``force()`` has already released the job's
+locks. The descriptor names a live process (a separate sleeper the fixture owns), so the lazy
+clean-up of dead holders can never remove it: only the manager's explicit release can.
 
 Run: ``python -m pytest tests/test_jobs_cancel_admit.py -q -p no:cacheprovider``.
 Deliberately elsewhere: cancel of a *running* job (``tests/test_jobs_manager.py``).
@@ -23,7 +30,9 @@ Deliberately elsewhere: cancel of a *running* job (``tests/test_jobs_manager.py`
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import queue
+import subprocess
 import sys
 import threading
 import time
@@ -31,7 +40,8 @@ import time
 import psutil
 import pytest
 
-from tit.jobs.manager import JobManager
+from tit.jobs import locks
+from tit.jobs.manager import CANCEL_NOTE, JobManager
 from tit.jobs.registry import JobRegistry
 from tit.jobs.runner import LocalPopenRunner
 from tit.jobs.spec import Cost
@@ -41,19 +51,33 @@ LONG_SLEEP_ARGV = [sys.executable, "-c", "import time; time.sleep(60)"]
 SHORT_SLEEP_ARGV = [sys.executable, "-c", "import time; time.sleep(0.2)"]
 
 
-class SlowSpawnRunner(LocalPopenRunner):
-    """Holds ``_admit`` inside ``spawn()`` for 0.5 s before the real spawn."""
+#: The lock the runner takes for its job once spawned.
+RUNNER_LOCK = locks.LockRequest(resource="subject:p18:m2m", mode="write")
 
-    def __init__(self) -> None:
+
+class SlowSpawnRunner(LocalPopenRunner):
+    """Holds ``_admit`` inside ``spawn()`` for 0.5 s before the real spawn, then takes a lock."""
+
+    def __init__(self, project_dir: str, holder_pid: int) -> None:
+        self.project_dir = project_dir
+        self.holder_pid = holder_pid
         self.entered = threading.Event()
         self.spawned = threading.Event()
         self.pid: int | None = None
+        self.held = contextlib.ExitStack()
+        self.took_lock = False
 
     async def spawn(self, request):
         self.entered.set()
         await asyncio.sleep(0.5)
         proc = await super().spawn(request)
         self.pid = proc.pid
+        self.held.enter_context(
+            locks.hold(
+                self.project_dir, request.job_id, [RUNNER_LOCK], pid=self.holder_pid
+            )
+        )
+        self.took_lock = _locks_of(self.project_dir, request.job_id) != []
         self.spawned.set()
         return proc
 
@@ -97,10 +121,24 @@ def _drain(q: queue.Queue) -> list[dict]:
             return out
 
 
+def _last_log_lines(manager: JobManager, job_id: str) -> list[str]:
+    return (manager.get_log(job_id) or "").splitlines()
+
+
+def _locks_of(project_dir: str, job_id: str) -> list[dict]:
+    return [h for h in locks.holders(project_dir) if h.get("job_id") == job_id]
+
+
 @pytest.fixture()
-def slow_runner():
-    runner = SlowSpawnRunner()
+def slow_runner(tmp_path):
+    # The lock's owner: alive for the whole test, and not this process (whose own pid the lock
+    # store never counts as a live holder).
+    holder = subprocess.Popen(LONG_SLEEP_ARGV)
+    runner = SlowSpawnRunner(str(tmp_path), holder.pid)
     yield runner
+    runner.held.close()
+    holder.kill()
+    holder.wait()
     # Never leave a 60 s sleeper behind when an assertion fails on the unfixed code.
     if runner.pid is not None and _alive(runner.pid):
         psutil.Process(runner.pid).kill()
@@ -152,6 +190,18 @@ def test_a_job_stopped_while_spawning_stays_cancelled_and_its_process_dies(
         assert on_disk.pid is None
         if how == "force":
             assert final["error"]["type"] == "forced"
+        # The stop finishes after the process is reaped: the log is closed with the cancel
+        # note, then the lock the runner took is released.
+        _wait_until(
+            lambda: _last_log_lines(manager, job["id"])[-1:] == [CANCEL_NOTE]
+            and not _locks_of(str(tmp_path), job["id"]),
+            timeout=10.0,
+        )
+        assert slow_runner.took_lock  # the release below had something to release
+        lines = _last_log_lines(manager, job["id"])
+        assert lines[-1:] == [CANCEL_NOTE], lines
+        assert lines.count(CANCEL_NOTE) == 1, lines
+        assert _locks_of(str(tmp_path), job["id"]) == []
     finally:
         manager.shutdown()
 
