@@ -39,6 +39,7 @@ tit.sim.mTI : N-pair mTI post-processing that uses extract/transform helpers.
 
 import json
 import logging
+import math
 import os
 import shutil
 import subprocess
@@ -347,7 +348,8 @@ def load_montages(
     :func:`list_montage_names` to see which names exist.  A name that is
     not defined under *eeg_net* is silently skipped (no error), so the
     result can be shorter than *montage_names*; check ``len()`` or the
-    returned ``.name`` values before relying on positions.
+    returned ``.name`` values before relying on positions.  A name saved
+    under both the uni- and the multi-polar section raises ``ValueError``.
 
     Reads the ``montage_list.json`` file (managed by
     :func:`ensure_montage_file`), looks up each name under the given
@@ -408,6 +410,14 @@ def load_montages(
     uni = net.get("uni_polar_montages", {})
     multi = net.get("multi_polar_montages", {})
 
+    ambiguous = [n for n in montage_names if n in uni and n in multi]
+    if ambiguous:
+        # It used to return the multi-polar pairs without a word, whichever was meant.
+        raise ValueError(
+            f"Montage(s) {', '.join(map(repr, ambiguous))} are saved under both "
+            f"uni_polar and multi_polar for {eeg_net!r}; delete one before loading."
+        )
+
     if eeg_net == "freehand":
         mode = Montage.Mode.FREEHAND
     elif eeg_net == "flex_mode":
@@ -419,7 +429,7 @@ def load_montages(
         Montage(
             name=n,
             mode=mode,
-            electrode_pairs=multi.get(n) or uni[n],
+            electrode_pairs=multi[n] if n in multi else uni[n],
             eeg_net=eeg_net,
         )
         for n in montage_names
@@ -585,7 +595,10 @@ def run_montage_visualization(
 def _as_xyz(value) -> list[float]:
     if not isinstance(value, (list, tuple)) or len(value) != 3:
         raise ValueError(f"Expected XYZ coordinate, got {value!r}")
-    return [float(value[0]), float(value[1]), float(value[2])]
+    xyz = [float(value[0]), float(value[1]), float(value[2])]
+    if not all(math.isfinite(v) for v in xyz):
+        raise ValueError(f"Expected a finite XYZ coordinate, got {value!r}")
+    return xyz
 
 
 def _load_eeg_position_csv(path: str) -> dict[str, list[float]]:

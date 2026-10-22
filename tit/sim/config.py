@@ -10,6 +10,10 @@ Defines the primary configuration types consumed by
 * :class:`SimulationMode` -- enum distinguishing TI from mTI.
 * :func:`parse_intensities` -- helper to parse intensity strings from
   the CLI or GUI.
+* :func:`check_electrode_pairs` -- the electrode rules every saved or
+  simulated montage meets (pair shape, 2-26 pairs, each electrode its own
+  point). ``SimulationConfig`` also refuses two montages with one name and a
+  zero or non-finite current on a channel a montage uses.
 
 See Also
 --------
@@ -268,6 +272,93 @@ class Montage:
 
 _VALID_CONDUCTIVITIES = {"scalar", "vn", "dir", "mc"}
 
+#: mTI names its channels A..Z (``tit.sim.mTI``), so a montage holds at most 26 pairs.
+MAX_ELECTRODE_PAIRS = 26
+
+#: Two electrodes closer than this are one point: SimNIBS would place both pads on the same
+#: patch of scalp. Mirrors the desktop's ``MIN_ELECTRODE_SEPARATION_MM``
+#: (``desktop/src/renderer/pages/simulator/types.ts``); real montages measure 11.5-127 mm.
+MIN_ELECTRODE_SEPARATION_MM = 1.0
+
+
+def _is_finite_number(value) -> bool:
+    return (
+        isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
+    )
+
+
+def check_electrode_pairs(pairs, *, xyz: bool) -> None:
+    """Raise ``ValueError`` unless *pairs* is a montage SimNIBS can place.
+
+    The rules a montage's electrodes must meet wherever it is saved or run:
+    every pair holds exactly two electrodes; the pair count is an allowed one
+    (:func:`tit.constants.is_valid_pair_count`) and at most
+    :data:`MAX_ELECTRODE_PAIRS`; every electrode is its own point -- a label is
+    a non-empty string used once in the montage (an electrode cannot be its own
+    return, and two channels cannot share one), an XYZ electrode is three
+    finite numbers at least :data:`MIN_ELECTRODE_SEPARATION_MM` from every other.
+
+    Parameters
+    ----------
+    pairs : sequence
+        The montage's electrode pairs, in channel order.
+    xyz : bool
+        ``True`` when electrodes are ``[x, y, z]`` coordinates, ``False`` for
+        EEG-cap labels.
+
+    Raises
+    ------
+    ValueError
+        Naming the first rule the montage breaks.
+    """
+    for pair in pairs:
+        if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+            raise ValueError(
+                f"invalid electrode pair {pair!r}; each pair must contain exactly "
+                "two electrodes."
+            )
+    n = len(pairs)
+    if not const.is_valid_pair_count(n):
+        raise ValueError(
+            f"Invalid number of electrode pairs: {n}. Expected {const.PAIR_COUNT_RULE}."
+        )
+    if n > MAX_ELECTRODE_PAIRS:
+        raise ValueError(
+            f"{n} electrode pairs; mTI names its channels A-Z, so at most "
+            f"{MAX_ELECTRODE_PAIRS} pairs."
+        )
+    electrodes = [electrode for pair in pairs for electrode in pair]
+    if not xyz:
+        for electrode in electrodes:
+            if not isinstance(electrode, str) or not electrode.strip():
+                raise ValueError(
+                    f"electrode label {electrode!r} must be a non-empty string."
+                )
+        repeated = sorted({e for e in electrodes if electrodes.count(e) > 1})
+        if repeated:
+            raise ValueError(
+                f"{', '.join(repeated)} used more than once: an electrode cannot be its "
+                "own return, and two channels cannot share one."
+            )
+        return
+    for i, point in enumerate(electrodes, start=1):
+        if (
+            not isinstance(point, (list, tuple))
+            or len(point) != 3
+            or not all(_is_finite_number(v) for v in point)
+        ):
+            raise ValueError(
+                f"electrode {i} must be three finite numbers [x, y, z]; got {point!r}."
+            )
+    for i, a in enumerate(electrodes):
+        for j in range(i + 1, len(electrodes)):
+            if math.dist(a, electrodes[j]) < MIN_ELECTRODE_SEPARATION_MM:
+                raise ValueError(
+                    f"electrodes {i + 1} and {j + 1} are less than "
+                    f"{MIN_ELECTRODE_SEPARATION_MM:g} mm apart: each electrode needs "
+                    "its own place on the scalp."
+                )
+
 
 @dataclass
 class SimulationConfig:
@@ -467,6 +558,13 @@ class SimulationConfig:
         # the default 2 intensities -> "requires 4 current intensities; got 2"). Anything that
         # needs the filesystem (the m2m directory, the EEG-net CSV) stays in utils, which is
         # why this is a split and not a move.
+        names = [montage.name for montage in self.montages]
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        if repeated:
+            raise ValueError(
+                f"Montage name(s) {', '.join(map(repr, repeated))} used more than once: "
+                "each montage writes Simulations/<name>/, so one would overwrite the other."
+            )
         for montage in self.montages:
             for pair in montage.electrode_pairs:
                 if len(pair) != 2:
@@ -479,6 +577,9 @@ class SimulationConfig:
             # run time with "Invalid number of electrode pairs: 5" (2026-10-21).
             try:
                 mode = montage.simulation_mode
+                # 2026-10-22: the A-Z pair cap, repeated or coincident electrodes and
+                # non-finite coordinates failed only after the FEM solves, or never.
+                check_electrode_pairs(montage.electrode_pairs, xyz=montage.is_xyz)
             except ValueError as exc:
                 raise ValueError(f"Montage {montage.name!r}: {exc}") from exc
             required = 2 if mode == SimulationMode.TI else montage.num_pairs
@@ -487,6 +588,18 @@ class SimulationConfig:
                     f"Montage {montage.name!r} requires {required} current "
                     f"intensities; got {len(self.intensities)}."
                 )
+            # A 0 mA channel makes the envelope 0 everywhere. A negative current is a
+            # polarity (an optimiser candidate's swapped pads), not an error.
+            for channel, current in enumerate(self.intensities[:required], start=1):
+                if not _is_finite_number(current) or current == 0:
+                    raise ValueError(
+                        f"Montage {montage.name!r}: channel {channel} needs a finite "
+                        f"current other than 0 mA; got {current!r}."
+                    )
+        if not all(_is_finite_number(v) for v in self.intensities):
+            raise ValueError(
+                f"intensities must be finite numbers (mA); got {self.intensities!r}."
+            )
 
         if self.carrier_only:
             envelope = sorted(

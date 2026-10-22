@@ -126,7 +126,9 @@ def test_validate_sim_reports_carrier_only_errors(client: TestClient) -> None:
     assert body["errors"][0]["path"] == "output_fields"
     assert "TI_max" in body["errors"][0]["message"]
 
-    mti = {**_montage(), "electrode_pairs": [["E1", "E2"], ["E3", "E4"]] * 2}
+    # Four distinct electrodes per channel pair: a repeated label is refused for its own sake.
+    pairs = [["E1", "E2"], ["E3", "E4"], ["E5", "E6"], ["E7", "E8"]]
+    mti = {**_montage(), "electrode_pairs": pairs}
     body = check(output_fields=["hf_peak"], montages=[mti], intensities=[1.0] * 4)
     assert body["ok"] is False
     assert body["errors"][0]["path"] == "carrier_only"

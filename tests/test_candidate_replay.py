@@ -4,7 +4,6 @@ Distinct quarter-turn rotations catch copying the first pair's orientation onto
 later pairs. Expected y-directions are authored coordinates, not a replay helper.
 """
 
-from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -21,8 +20,17 @@ ROTATIONS = [
 EXPECTED_Y = [[11, 43, 37], [-33, 29, 41], [17, -51, 43], [39, 47, -53]]
 
 
+#: Each further copy of the four authored electrodes sits this far along x: two electrodes
+#: on one point are refused (SimulationConfig), and a shift keeps the authored poses exact.
+SHIFT_MM = 100
+
+
+def _shifted(point, copy):
+    return [point[0] + SHIFT_MM * copy, *point[1:]]
+
+
 def make_montage(pair_count=2):
-    centres = deepcopy(CENTRES * (pair_count // 2))
+    centres = [_shifted(c, k) for k in range(pair_count // 2) for c in CENTRES]
     rotations = ROTATIONS * (pair_count // 2)
     poses = [
         [row + [centre[i]] for i, row in enumerate(rotation)] + [[0, 0, 0, 1]]
@@ -90,8 +98,9 @@ def assert_session(session, pair_count):
         assert list(tdcs.currents) == expected_currents[pair_index]
         for electrode_index, electrode in enumerate(tdcs.electrode):
             index = (2 * pair_index + electrode_index) % 4
-            assert list(electrode.centre) == CENTRES[index]
-            assert list(electrode.pos_ydir) == EXPECTED_Y[index]
+            copy = (2 * pair_index + electrode_index) // 4
+            assert list(electrode.centre) == _shifted(CENTRES[index], copy)
+            assert list(electrode.pos_ydir) == _shifted(EXPECTED_Y[index], copy)
             assert electrode.channelnr == electrode_index + 1
             assert electrode.shape == "rect"
             assert list(electrode.dimensions) == [12.0, 8.0]
