@@ -18,10 +18,16 @@ free-hand configs, caps) and validated with ``jsonschema``'s Draft 2020-12 valid
   exactly, each exemption with its reason: a new route cannot go unchecked, and a
   route that becomes exercised must leave the list.
 * A corrupted response fails validation, so the check cannot be vacuous.
+* The job and proposal routes are called on an app whose real ``JobManager`` runs
+  ``tests/fake_runner.py`` in place of SimNIBS: a ``sim`` job with a real
+  ``SimulationConfig``, a ``tools`` job that reports an artifact folder of the
+  project, and a pending agent proposal, so ``JobStatus``, ``JobDetail``, ``Event``,
+  ``JobOutputs`` and ``Proposal`` items are validated, not empty lists.
 * Violations found and left open are listed in ``KNOWN_VIOLATIONS`` with why and who
   fixes them (2026-10-22: the contract's OpenAPI 3.0 ``nullable: true`` on candidate
-  metrics, and ``/api/system``'s null optional blocks); an entry that stops occurring
-  fails, so the list only shrinks.
+  metrics, ``/api/system``'s null optional blocks, and ``PipelineConfig``'s ``oneOf``
+  that every job config matches more than once); an entry that stops occurring fails,
+  so the list only shrinks.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_contract_response_conformance.py -q``.
 The scene routes' bodies are validated in ``tests/test_scene_routes.py`` (they need
@@ -32,6 +38,7 @@ from __future__ import annotations
 
 import copy
 import re
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -43,6 +50,10 @@ from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
 from tests.contract_project import ContractProject, build_contract_project
+from tests.test_jobs_routes import wait_until
+from tit.jobs import bootstrap
+from tit.jobs.manager import JobManager
+from tit.jobs.spec import Cost
 from tit.server.app import create_app
 from tit.server.settings import ServerSettings
 
@@ -53,6 +64,8 @@ CONTRACT = yaml.safe_load(
 CONTRACT_URI = "urn:tit-contract"
 TOKEN = "contract-conformance"
 BEARER = {"Authorization": f"Bearer {TOKEN}"}
+BASE_URL = "http://127.0.0.1:8765"
+FAKE_RUNNER = str(REPO / "tests" / "fake_runner.py")
 
 
 def _json_get_paths() -> set[str]:
@@ -141,8 +154,12 @@ REQUESTS: dict[str, tuple[str, Callable[[Any], list] | None]] = {
     "/api/catalog/overview": ("/api/catalog/overview", None),
     "/api/schema": ("/api/schema", None),
     "/api/schema/{name}": ("/api/schema/SimulationConfig", None),
-    "/api/jobs": ("/api/jobs", None),
-    "/api/proposals": ("/api/proposals", None),
+    "/api/jobs": ("/api/jobs", _items()),
+    "/api/jobs/{id}": ("/api/jobs/{sim_job}", None),
+    "/api/jobs/{id}/events": ("/api/jobs/{tools_job}/events", _items()),
+    "/api/jobs/{id}/artifacts": ("/api/jobs/{tools_job}/artifacts", _items("files")),
+    "/api/proposals": ("/api/proposals", _items()),
+    "/api/proposals/{id}": ("/api/proposals/{proposal}", _items("steps")),
     "/api/sim-from-flex": (
         f"/api/sim-from-flex?subject={SID}&flex_run={P.flex_run}&eeg_net={P.net}",
         None,
@@ -197,10 +214,6 @@ EXEMPT: dict[str, str] = {
         "written by SimNIBS's optimizer"
     ),
     "/api/caps/inspect": "warps the cap onto the subject's scalp with SimNIBS (mocked)",
-    "/api/jobs/{id}": "needs a job record the job manager writes when it runs a job",
-    "/api/jobs/{id}/events": "needs a job's events.jsonl, written while a job runs",
-    "/api/jobs/{id}/artifacts": "needs a job's artifacts, written while a job runs",
-    "/api/proposals/{id}": "needs an agent proposal created through POST /api/proposals",
     "/api/viewer/scenes/{name}": "needs a scene saved by the native viewer",
 }
 
@@ -218,6 +231,13 @@ KNOWN_VIOLATIONS: dict[str, tuple[str, str]] = {
     "/api/catalog/optimization-candidates/{candidate_id}": (
         r"candidate/metrics/(roi_p99_9|background_p95): None is not of type 'number'",
         "same `nullable: true` contract defect as the candidate page",
+    ),
+    "/api/jobs/{id}": (
+        r"spec/config: \{'subject_id': '101'.* is valid under each of .*",
+        "contract: JobSpec.config is PipelineConfig, a `oneOf` of 19 placeholder members "
+        "that each accept any object, so every real config matches all of them and `oneOf` "
+        "(exactly one) fails for every job. Make it `anyOf`, or pick the member by `kind` "
+        "(contracts owner).",
     ),
     "/api/system": (
         r"(disk_docker|docker/own): None is not of type 'object'",
@@ -244,8 +264,101 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ContractProject:
 @pytest.fixture()
 def client(project: ContractProject) -> TestClient:
     app = create_app(ServerSettings(project_dir=str(project.root), token=TOKEN))
-    with TestClient(app, base_url="http://127.0.0.1:8765") as test_client:
+    with TestClient(app, base_url=BASE_URL) as test_client:
         yield test_client
+
+
+#: Contract paths answered from job and proposal records, called on the ``jobs`` app.
+JOB_PATHS = {p for p in REQUESTS if p.startswith(("/api/jobs", "/api/proposals"))}
+MONTAGE = {
+    "_type": "Montage",
+    "name": "m1",
+    "mode": "net",
+    "electrode_pairs": [["E001", "E002"], ["E003", "E004"]],
+    "eeg_net": P.net,  # the four electrodes contract_project writes on this net
+}
+
+
+@pytest.fixture()
+def jobs(project: ContractProject) -> tuple[TestClient, dict[str, str]]:
+    """An app whose real JobManager ran two finished jobs, plus one pending proposal.
+
+    The manager is the real one with ``tests/fake_runner.py`` as the runner (the
+    wiring of ``tests/test_jobs_routes.py``): submission, preflight, the job records,
+    events.jsonl and the artifact walk are the server's own.
+    """
+    root = str(project.root)
+    manager = JobManager(
+        root,
+        runner_cwd=root,
+        poll_interval=0.05,
+        budget=Cost(cpus=8, mem_gb=64),
+        command_for=lambda kind, config, spec: [sys.executable, FAKE_RUNNER, spec],
+    )
+    manager.start()
+    bootstrap.set_manager_for_testing(manager)
+    try:
+        app = create_app(ServerSettings(project_dir=root, token=TOKEN))
+        with TestClient(app, base_url=BASE_URL) as test_client:
+            yield test_client, _seed_jobs(test_client, project)
+    finally:
+        bootstrap.reset_manager()
+
+
+def _state(client: TestClient, job_id: str) -> str:
+    return client.get(f"/api/jobs/{job_id}", headers=BEARER).json()["status"]["state"]
+
+
+def _seed_jobs(client: TestClient, project: ContractProject) -> dict[str, str]:
+    sim_dir = (
+        project.root / "derivatives" / "SimNIBS" / f"sub-{SID}" / "Simulations" / SIM
+    )
+    submitted = {
+        "sim_job": {
+            "kind": "sim",
+            "subject_ids": [SID],
+            "config": {"subject_id": SID, "montages": [MONTAGE]},
+        },
+        "tools_job": {
+            "kind": "tools",
+            "subject_ids": [SID],
+            "config": {
+                "__fake": {
+                    "stages": ["prepare", "run"],
+                    "progress_steps": 2,
+                    "artifact": str(sim_dir),
+                    "outputs": {"simulation": SIM},
+                }
+            },
+        },
+    }
+    ids = {}
+    for key, body in submitted.items():
+        response = client.post("/api/jobs", headers=BEARER, json=body)
+        assert response.status_code == 201, response.text
+        ids[key] = response.json()["id"]
+    for job_id in ids.values():
+        wait_until(lambda job_id=job_id: _state(client, job_id) == "succeeded")
+    response = client.post(
+        "/api/proposals",
+        headers=BEARER,
+        json={
+            "title": "Simulate m1",
+            "rationale": "contract conformance",
+            "client": "Claude Code",
+            "steps": [
+                {
+                    "id": "sim",
+                    "kind": "sim",
+                    "subject_ids": [SID],
+                    "config": {"montages": [MONTAGE]},
+                }
+            ],
+        },
+    )
+    assert response.status_code == 201, response.text
+    ids["proposal"] = response.json()["id"]
+    return ids
 
 
 def _validator(path: str) -> jsonschema.Draft202012Validator:
@@ -260,8 +373,15 @@ def _validator(path: str) -> jsonschema.Draft202012Validator:
     )
 
 
-def _url(client: TestClient, project: ContractProject, template: str) -> str:
+def _url(
+    client: TestClient,
+    project: ContractProject,
+    template: str,
+    seeded: dict[str, str] | None = None,
+) -> str:
     url = template.replace("{root}", str(project.root))
+    for key, value in (seeded or {}).items():
+        url = url.replace("{" + key + "}", value)
     if "{candidate}" in url:
         page = client.get(
             f"/api/catalog/optimization-candidates?subject={SID}&kind=ex&run={P.ex_run}",
@@ -295,10 +415,15 @@ def test_every_contract_json_get_is_exercised_or_exempt() -> None:
 
 @pytest.mark.parametrize("path", sorted(REQUESTS))
 def test_the_real_response_matches_the_contract(
-    client: TestClient, project: ContractProject, path: str
+    request: pytest.FixtureRequest, project: ContractProject, path: str
 ) -> None:
+    if path in JOB_PATHS:
+        client, seeded = request.getfixturevalue("jobs")
+    else:
+        client, seeded = request.getfixturevalue("client"), {}
     template, items = REQUESTS[path]
-    url = _url(client, project, template)
+    url = _url(client, project, template, seeded)
+    assert "{" not in url, f"unfilled placeholder in {url}"
     response = client.get(url, headers=BEARER)
     assert response.status_code == 200, (url, response.status_code, response.text[:400])
     body = response.json()
