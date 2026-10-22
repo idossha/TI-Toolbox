@@ -25,7 +25,11 @@ from tit.jobs.preflight import preflight
 from tit.jobs.spec import CREATED_BY_VALUES, JOB_KINDS, JOB_STATES
 from tit.paths import is_valid_subject_id
 from tit.server.app_defaults import with_app_defaults
-from tit.server.overwrite_policy import check_overwrite_permission
+from tit.server.overwrite_policy import (
+    check_overwrite_permission,
+    planned_outputs,
+    refuse_unconfirmed_overwrite,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -372,11 +376,59 @@ def plan_submission(
         )
     if refused is not None:
         raise InputsMissing(refused)
-    for job in planned:
-        check_overwrite_permission(
-            job.kind, job.config, job.subject_ids, overwrite=job.overwrite
+    receipts = [
+        (
+            job,
+            planned_outputs(
+                job.kind, job.config, job.subject_ids, overwrite=job.overwrite
+            ),
         )
+        for job in planned
+    ]
+    # Two jobs into one folder is refused before the overwrite question is asked: no answer
+    # to "replace what is on disk?" makes such a group safe.
+    _refuse_shared_output_dirs(receipts)
+    for job, outputs in receipts:
+        refuse_unconfirmed_overwrite(job.kind, outputs, overwrite=job.overwrite)
     return planned
+
+
+#: The config field naming an optimisation run's folder. Unset, the plan previews a timestamp
+#: and the run picks a fresh one when it starts, so two previews agreeing proves nothing.
+_RUN_FOLDER_FIELD = {
+    "ex": "run_name",
+    "mex": "run_name",
+    "flex": "output_folder",
+    "flex_adaptive": "output_folder",
+    "flex_pareto": "output_folder",
+}
+
+
+def _refuse_shared_output_dirs(receipts: list[tuple[Any, list[Any]]]) -> None:
+    """HTTP 422 when two jobs of one submission would write one output folder.
+
+    The scheduler runs a group's jobs one after another, nothing exists at submit, and no
+    runner refuses an existing folder of its own kind, so the second job silently replaced the
+    first's results (two Simulator rows with one montage name; two Ex targets sharing a run
+    name). One output folder belongs to one job, as it already does for analyses.
+    """
+    claims: dict[str, int] = {}
+    for job, outputs in receipts:
+        field = _RUN_FOLDER_FIELD.get(job.kind)
+        if field and not job.config.get(field):
+            continue
+        for output in outputs:
+            claims[output.output_dir] = claims.get(output.output_dir, 0) + 1
+    shared = [folder for folder, count in claims.items() if count > 1]
+    if shared:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{claims[shared[0]]} jobs of this group would write the same folder "
+                f"{shared[0]}; the last to run would replace the others' results. Give "
+                "each job its own montage or run name."
+            ),
+        )
 
 
 def _plan_pre_group(config: dict[str, Any], subject_ids: list[str]) -> list[Any]:
