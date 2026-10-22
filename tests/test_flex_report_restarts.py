@@ -282,3 +282,61 @@ def test_a_pareto_folder_without_its_sweep_section_still_renders(tmp_path):
     _structure(html, SECTIONS, flex.SIZE_BUDGET, require_status=False)
     rows = _run_rows(html)
     assert len(rows) == 1 and rows[0][1] == "70.000" and rows[0][2] == "—"
+
+
+def test_a_legacy_infinity_restart_is_failed_not_a_score(tmp_path):
+    """Manifests written before the strict-JSON fix hold ``Infinity`` (Python's json reads it):
+    that restart accepted nothing, so its row reads "failed", never "-inf" or a huge score.
+    """
+    run = _flex_dir(tmp_path, values=(-1.8, -1.8))
+    meta = json.loads((run / "flex_meta.json").read_text())
+    meta["result"].update(best_value=-1.8, best_run_index=1)
+    (run / "flex_meta.json").write_text(
+        json.dumps(meta).replace(
+            '"all_values": [-1.8, -1.8]', '"all_values": [Infinity, -1.8]'
+        )
+    )
+    assert "Infinity" in (run / "flex_meta.json").read_text()
+    rows = _run_rows(_html(run))
+    assert [r[:2] for r in rows] == [["1", "failed"], ["2 (best)", "1.800"]]
+
+
+def test_a_manifest_that_says_failed_has_no_best_restart(tmp_path):
+    """``success`` false is a failed run even when ``best_run_index`` names a restart (a manifest
+    edited or written by an older driver): no "(best)" row, and the dose is the manifest's
+    ``current_mA`` rather than restart 00's accepted split (0.7 / 1.3 mA in the fixture).
+    """
+    run = _flex_dir(tmp_path, values=(-1.8,))
+    meta = json.loads((run / "flex_meta.json").read_text())
+    meta.update(current_mA=1.5)
+    meta["result"].update(success=False, best_run_index=0)
+    (run / "flex_meta.json").write_text(json.dumps(meta))
+    html = _html(run)
+    assert '<h2 id="verdict-h">No valid montage found</h2>' in html
+    assert _kv(html, "Currents").startswith("1.5 mA per channel, 3 mA total")
+    assert [r[0] for r in _run_rows(html)] == ["1"]
+
+
+@pytest.mark.parametrize(
+    "thresholds,words",
+    [
+        ("0.2", "0.2 V/m, as both the non-ROI maximum and the ROI minimum"),
+        ("0.1,0.25", "non-ROI maximum 0.1 V/m, ROI minimum 0.25 V/m"),
+    ],
+)
+def test_a_roc_report_states_one_or_two_thresholds(tmp_path, thresholds, words):
+    """SimNIBS reads one ROC threshold as both bounds and two as (non-ROI max, ROI min)."""
+    run = _flex_dir(tmp_path, goal="focality")
+    meta = json.loads((run / "flex_meta.json").read_text())
+    meta["thresholds"] = thresholds
+    (run / "flex_meta.json").write_text(json.dumps(meta))
+    assert _kv(_html(run), "Thresholds") == words
+
+
+def test_three_roc_thresholds_are_not_given_a_meaning(tmp_path):
+    """Three values match neither SimNIBS form: the report shows no Thresholds row."""
+    run = _flex_dir(tmp_path, goal="focality")
+    meta = json.loads((run / "flex_meta.json").read_text())
+    meta["thresholds"] = "0.1,0.2,0.3"
+    (run / "flex_meta.json").write_text(json.dumps(meta))
+    assert "<dt>Thresholds</dt>" not in _html(run)
