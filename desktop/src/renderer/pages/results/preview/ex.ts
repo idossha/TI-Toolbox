@@ -21,9 +21,10 @@ export const EX_TABLE_COLUMNS = [
   "Montage",
   "Current_Ch1_mA",
   "Current_Ch2_mA",
-  // An mEx run's CSV names the same two quantities `mTImax_ROI`/`mTImean_ROI`, and carries four
-  // current columns; listing both spellings keeps one projection for both kinds, and the columns a
-  // given file does not have are dropped rather than rendered empty.
+  // `tit/opt/ex/results.py::build_csv_rows` writes `TImax_ROI`/`TImean_ROI` for ex and mEx alike
+  // (an mEx CSV adds `Current_Ch3_mA`/`Current_Ch4_mA`, not listed here). No writer emits the `mTI`
+  // spellings; columns a file does not have are dropped rather than rendered empty. Only
+  // `rankExRows` reads this list, and no page calls it.
   "TImax_ROI",
   "mTImax_ROI",
   "TImean_ROI",
