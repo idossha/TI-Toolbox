@@ -317,6 +317,25 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
     return _manager(request).submit_plan(planned, created_by=created_by)
 
 
+#: Kinds whose config names its whole cohort and has no ``subject_id`` field (``subjects`` /
+#: ``subject_simulation_pairs`` rows, a source run's ``subject_ids`` or ``pairs``): one job runs
+#: every subject, as the run pages submit it. A job per subject would repeat the whole run.
+ONCE_FOR_ALL_SUBJECTS_KINDS: tuple[str, ...] = (
+    "stats",
+    "nifti_average",
+    "nilearn",
+    "source",
+)
+
+
+def runs_once_for_all_subjects(kind: str, config: dict[str, Any]) -> bool:
+    """True when one job of *kind* with *config* covers all its subjects (see
+    :data:`ONCE_FOR_ALL_SUBJECTS_KINDS`), and for an analyzer config in group mode."""
+    return kind in ONCE_FOR_ALL_SUBJECTS_KINDS or (
+        kind == "analyzer" and config.get("mode") == "group"
+    )
+
+
 class InputsMissing(Exception):
     """:func:`plan_submission`'s refusal: ``response`` is the route's 422 body as sent."""
 
@@ -339,10 +358,11 @@ def plan_submission(
     """Every check ``POST /api/jobs/groups`` makes, returning the jobs it would submit.
 
     Shared with the proposal engine (:mod:`tit.server.proposals`), which queues an approved
-    step through exactly this path. Group kinds expand as :func:`submit_group` documents; any
-    other kind becomes one job per subject with that subject's id in its config (what the agent
-    plugin's ``submit_job`` sends to ``POST /api/jobs``). Raises :class:`HTTPException`
-    (422/409/501) or :class:`InputsMissing`.
+    step through exactly this path. Group kinds expand as :func:`submit_group` documents; a
+    config that runs once for all its subjects (:func:`runs_once_for_all_subjects`) is one job,
+    as its run page submits it; any other kind becomes one job per subject with that subject's
+    id in its config (what the agent plugin's ``submit_job`` sends to ``POST /api/jobs``).
+    Raises :class:`HTTPException` (422/409/501) or :class:`InputsMissing`.
     """
     from tit.jobs.plans import GROUP_KINDS
     from tit.jobs.spec import PlannedJob
@@ -356,7 +376,19 @@ def plan_submission(
         # later one (charm) needs, which a per-stage sweep could not know.
         refused = _missing_inputs(manager, [(kind, config, subject_ids)])
     else:
-        if kind in GROUP_KINDS:
+        if runs_once_for_all_subjects(kind, config):
+            _check_config(kind, config)
+            planned = [
+                PlannedJob(
+                    label=f"all:{kind}",
+                    kind=kind,
+                    config=dict(config),
+                    subject_ids=list(subject_ids),
+                    tags=tags,
+                    overwrite=overwrite,
+                )
+            ]
+        elif kind in GROUP_KINDS:
             planned = _plan_generic_group(
                 kind,
                 config,

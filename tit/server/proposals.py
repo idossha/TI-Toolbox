@@ -237,12 +237,18 @@ def _entries(
     record: dict[str, Any], step: dict[str, Any]
 ) -> tuple[str, list[tuple[str, dict[str, Any]]]]:
     """``(job kind, [(subject, config)])`` for *step*: ``pre`` is one entry for all subjects,
-    a flex step gets each subject's absolute run folder, and a ``sim_from_flex`` step is
-    resolved against its flex run now (:class:`ValueError` when that run is not usable).
+    a config that runs once for all its subjects (stats, a group analysis, ...) is one entry
+    with the config as sent, a flex step gets each subject's absolute run folder, and a
+    ``sim_from_flex`` step is resolved against its flex run now (:class:`ValueError` when that
+    run is not usable). Subject ``""`` marks an entry that covers every subject of the step.
     """
+    from tit.server.routes.jobs import runs_once_for_all_subjects
+
     kind, config = step["kind"], step["config"]
     if kind == "pre":
         return kind, [("", {**config, "subject_ids": step["subject_ids"]})]
+    if runs_once_for_all_subjects(kind, config):
+        return kind, [("", dict(config))]
     if kind != SIM_FROM_FLEX:
         entries = []
         for sid in step["subject_ids"]:
@@ -678,10 +684,11 @@ def _submit(record: dict[str, Any], step: dict[str, Any], manager: Any) -> None:
             kind,
             entries[0][1],
             step["subject_ids"],
+            # One entry for every subject ("" -- pre, a cohort run) has no per-subject configs.
             subject_configs=(
-                None
-                if kind == "pre"
-                else [{"subject_id": s, "config": c} for s, c in entries]
+                [{"subject_id": s, "config": c} for s, c in entries]
+                if entries[0][0]
+                else None
             ),
             tags=[f"proposal:{record['id']}"],
             overwrite=step["overwrite"],
