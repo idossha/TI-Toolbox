@@ -17,7 +17,7 @@ import { connectLauncher, expectPage, launchElectronApp } from "./_helpers";
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const ARTIFACTS = process.env.TIT_E2E_ARTIFACTS ?? join(__dirname, "artifacts");
-const PANELS = ["source", "subject-info", "visual-exporter"];
+const PANELS = ["source", "visual-exporter"];
 
 let app: ElectronApplication;
 let page: Page;

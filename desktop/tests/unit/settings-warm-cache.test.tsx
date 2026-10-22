@@ -25,7 +25,7 @@ import { clearPageSession } from "../../src/renderer/app/pageSession";
 
 const SETTINGS_FIXTURE = {
   telemetry: { consented: true, enabled: false },
-  panels: ["source", "subject-info"],
+  panels: ["source", "caps"],
   image_tag: null,
   theme: "system" as const,
 };

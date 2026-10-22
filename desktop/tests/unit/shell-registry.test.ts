@@ -61,7 +61,7 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
     // §9: an optional panel is a *mode*, toggled by Settings, not a page copied from the PyQt tab
     // strip — it still needs a rail row while the user has it turned on.
     expect(navSlotOf("panel-source")).toBe("panel-source");
-    expect(navSlotOf("panel-subject-info")).toBe("panel-subject-info");
+    expect(navSlotOf("panel-caps")).toBe("panel-caps");
   });
 
   it("optimizer-flex stands in for the Optimizer slot ONLY until pages/optimizer exists", () => {
