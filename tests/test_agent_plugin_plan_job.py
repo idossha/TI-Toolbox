@@ -6,8 +6,10 @@ against the real FastAPI app (``tit.server.app.create_app``) with the fake runne
 
 * an invalid flex / flex_adaptive / flex_pareto config answers ``ok: false`` with the
   validate route's own field errors -- not a raw ``HTTP 422`` tool error from the run-folder
-  probe that used to run first;
-* a config that plans zero jobs is not ``ok`` and carries no ETA;
+  probe that used to run first, and the errors are the refused kind's own (a config can be
+  valid as ``flex`` and invalid as ``flex_adaptive``);
+* a config that plans zero jobs is not ``ok`` and carries no ETA, as the tool description
+  and the README's tools table say;
 * for each flex kind a run name ``run_<kind>`` lands in ``PathManager.flex_search_run`` and
   the runner's ``config.json`` carries ``mode == kind`` (the Adaptive / Multi-threshold
   dispatch the Optimizer relies on).
@@ -24,6 +26,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 import threading
 import time
@@ -143,6 +146,29 @@ def test_an_invalid_flex_config_returns_the_validators_errors(live, kind):
     assert err and "roi" in text and "HTTP 422" not in text
 
 
+@pytest.mark.parametrize("kind", ("flex_adaptive", "flex_pareto"))
+def test_a_refusal_is_explained_by_its_own_kinds_validator(live, kind):
+    """The same fields can be valid as one flex kind and invalid as another: the app's
+    defaults (``tit.server.app_defaults``) make Adaptive and Multi-threshold runs ``goal:
+    "focality"``, which a current-ratio search refuses without explicit thresholds, while plain
+    flex defaults to ``"mean"``. The errors must be the refused kind's own."""
+    js, _, _, as_user = live
+    config = {"roi": ROI, "optimize_current_ratio": True}
+
+    def validate(as_kind):
+        body = {"config": {**config, "subject_id": "101"}, "created_by": "agent"}
+        return as_user("POST", f"/api/validate/{as_kind}", body)
+
+    assert validate("flex") == {"ok": True, "errors": []}  # the premise
+    expected = validate(kind)
+    assert expected["ok"] is False and "thresholds" in expected["errors"][0]["message"]
+
+    err, plan = call(js, "plan_job", kind=kind, config=config, subject_ids=["101"])
+    assert not err, plan
+    assert plan["ok"] is False and plan["errors"] == expected["errors"]
+    assert plan["jobs"] == [] and plan["eta_minutes"] is None
+
+
 def test_an_invalid_goal_is_a_field_error_too(live):
     js, _, _, as_user = live
     config = {"roi": ROI, "goal": "nonsense", "subject_id": "101"}
@@ -165,6 +191,13 @@ def test_a_plan_with_no_jobs_is_not_ok(live):
     assert plan["ok"] is False
     assert plan["eta_minutes"] is None
     assert "no jobs" in plan["reason"]
+    # The rule is stated where an agent and a user read the tool's contract.
+    listed = js.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    [tool] = [t for t in listed["result"]["tools"] if t["name"] == "plan_job"]
+    readme = (REPO / "agent-plugin" / "README.md").read_text(encoding="utf-8")
+    [row] = [ln for ln in readme.splitlines() if ln.startswith("| `plan_job` |")]
+    for text in (tool["description"], row):
+        assert re.search(r"no jobs is not ok|ok is true only .* at least one job", text)
 
 
 @pytest.mark.parametrize("kind", FLEX_KINDS)

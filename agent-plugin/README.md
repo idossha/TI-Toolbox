@@ -73,7 +73,7 @@ With several projects open, the agent is asked which one.
 | `connect` | Finds the open TI-Toolbox; project folder, subjects and what each has, queued/running jobs |
 | `find_regions` | Searches a subject's atlases ("thalamus") and returns ready ROI objects: bilateral, left, right (the app's `GET /api/catalog/regions`) |
 | `get_config_schema` | The config schema of a job kind and the app defaults the server fills in |
-| `plan_job` | Validation errors, missing inputs, output folders, what would be overwritten, ETA. Reads only |
+| `plan_job` | Validation errors, missing inputs, output folders, what would be overwritten, ETA. A plan with no jobs is not ok and says why. Reads only |
 | `propose_pipeline` | Puts a multi-step plan in front of you for approval (validated and planned by the app first) |
 | `watch_proposal` | Returns on the plan's next change: your decision (with any edits, or your note), a finished step with its outputs, or all done |
 | `get_proposal` | Each step's state (waiting, queued, running, succeeded, ...) and job ids |
