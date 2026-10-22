@@ -163,10 +163,15 @@ test("a second row plans a second job, and the group switch folds the rows into 
   // No separate "Combine" field label above it.
   await expect(page.getByTestId("analysis-combine-row").locator(".field-label")).toHaveCount(0);
 
+  // The cohort below shares ONE target, so it is one every head can read: an MNI sphere. A
+  // subject-space sphere is ernie's millimetres — re-pointing a row clears it, and a cohort
+  // refuses it (p19).
+  await setAnalysisSphere(page, analysisRows(page).first(), { x: -10, y: -18, z: 9, radius: 10, space: "MNI" });
   await addRow.click();
   await expect(analysisRows(page)).toHaveCount(2);
   const second = analysisRows(page).nth(1);
   await setAnalysisSubject(page, second, "101");
+  await expect(analysisTargetText(second)).toHaveText("Sphere -10,-18,9 r10 mm · MNI");
   await setAnalysisCell(page, second, "simulation", "Thalamus");
   await expect(second).toHaveAttribute("data-simulation", "Thalamus");
 
@@ -191,9 +196,12 @@ test("a second row plans a second job, and the group switch folds the rows into 
   // Evidence (§8.1).
   await page.getByTestId("analysis-jobs-table-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-analyzer.png" });
 
-  // Leave one row for the acceptance measurement below.
+  // Leave one row for the acceptance measurement below, with the subject-space sphere the next
+  // tests start from.
   await analysisRows(page).nth(1).getByRole("button", { name: "Remove row 2" }).click();
   await expect(analysisRows(page)).toHaveCount(1);
+  await setAnalysisSphere(page, analysisRows(page).first(), { x: -10, y: -18, z: 9, radius: 10, space: "Subject" });
+  await expect(analysisTargetText(analysisRows(page).first())).toHaveText("Sphere -10,-18,9 r10 mm · Subject");
 });
 
 /**
@@ -440,7 +448,9 @@ test("tissue is a job setting, read-only in mesh, and a cohort needs the rows to
   await expect(page.getByRole("option", { name: "TI_normal (mesh only)" })).toBeDisabled();
   await page.keyboard.press("Escape");
 
-  // A second voxel row on another tissue: two jobs apart, refused as a cohort.
+  // A second voxel row on another tissue: two jobs apart, refused as a cohort. The shared target
+  // is an MNI sphere, the one a cohort (and a row re-pointed at 101) can carry (p19).
+  await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 10, space: "MNI" });
   await page.getByTestId("analysis-jobs-footer").getByRole("button", { name: "Add row", exact: true }).click();
   const second = analysisRows(page).nth(1);
   await setAnalysisSubject(page, second, "101");
@@ -460,6 +470,7 @@ test("tissue is a job setting, read-only in mesh, and a cohort needs the rows to
   await second.getByRole("button", { name: "Remove row 2" }).click();
   await expect(analysisRows(page)).toHaveCount(1);
   await setAnalysisCell(page, row, "space", "Mesh");
+  await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 10, space: "Subject" });
 });
 
 /**
@@ -536,6 +547,10 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
   await duplicate.click();
   await duplicate.click();
   await expect(analysisRows(page)).toHaveCount(3);
+  // Three identical analyses would write one folder and block Run (p19); valid rows differ: one
+  // more sphere centre and one more radius, so each row has its own analysis folder.
+  await setAnalysisSphere(page, analysisRows(page).nth(1), { x: 10, y: -18, z: 9, radius: 10 });
+  await setAnalysisSphere(page, analysisRows(page).nth(2), { x: -10, y: -18, z: 9, radius: 5 });
   const rows: PageMetrics[] = [];
   for (const size of [
     { width: 1280, height: 800 },

@@ -486,14 +486,21 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
   await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 1 montage · 7 current splits · 7 iterations");
 
-  // Even a fully configured target cannot run against an absent leadfield.
+  // Moved to 101, the row cannot run: 101 has no leadfield, and the saved ROIs are ernie's CSVs,
+  // so the move clears them (p19, `roiForSubject`) rather than optimising ernie's targets in 101.
   await setOptSubject(page, row, "101");
+  await expect(optRowSummary(row)).toHaveText("Choose a target…");
   await cell.click();
   await page.getByRole("option", { name: "GSN-HydroCel-185 — no leadfield" }).click();
   await expect(page.getByTestId("run-button")).toBeDisabled();
   await setOptSubject(page, row, "ernie");
   await cell.click();
   await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
+  // Back on ernie, ernie's ROIs are picked again.
+  const again = await openOptEditor(page, row);
+  await pickSavedTarget(again, "Thalamus_target");
+  await pickSavedTarget(again, "L_Insula_target");
+  await closeOptEditor(page);
 
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches", { timeout: 15_000 });
 
