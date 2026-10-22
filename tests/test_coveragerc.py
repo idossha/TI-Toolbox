@@ -19,8 +19,9 @@ function whose signature says ``passes=`` or ``st="pass"`` and every
 * coverage.py's own parser, fed the configured patterns, keeps the functions
   the old pattern hid (found by name with ``ast``, not by line number).
 * Every ``omit`` pattern matches a file under ``tit/`` and carries a reason
-  comment; every ``codecov.yml`` ignore and flag path matches a file coverage
-  reports, and the flags declared are exactly the flags CI uploads.
+  comment; ``codecov.yml`` has no ``ignore`` list of its own, every flag path
+  matches a file coverage reports, and the flags declared are exactly the flags
+  CI uploads.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_coveragerc.py -q``.
 The coverage numbers themselves come from the CI host leg (``--cov=tit``).
@@ -207,7 +208,7 @@ def test_every_omit_pattern_matches_a_file_and_says_why() -> None:
     ), f"omit patterns without a reason comment above them: {unexplained}"
 
 
-def test_codecov_ignores_and_flags_name_reported_files() -> None:
+def test_codecov_flags_name_reported_files_and_equal_the_uploads() -> None:
     config = yaml.safe_load(CODECOV.read_text(encoding="utf-8"))
     measured = _measured_files()
     assert len(measured) > 100, f"only {len(measured)} measured files -- omit broke?"
@@ -219,11 +220,6 @@ def test_codecov_ignores_and_flags_name_reported_files() -> None:
             fnmatch.fnmatch(f, pattern) or f == pattern or f.startswith(pattern + "/")
             for f in measured
         )
-
-    dead_ignores = [p for p in config.get("ignore", []) or [] if not matches(p)]
-    assert (
-        not dead_ignores
-    ), f"codecov.yml ignores files coverage never reports: {dead_ignores}"
 
     flags = config.get("flags", {}) or {}
     dead_paths = [
@@ -243,6 +239,19 @@ def test_codecov_ignores_and_flags_name_reported_files() -> None:
         f"codecov.yml declares flags {sorted(flags)} but CI uploads {sorted(uploaded)}: "
         "a declared flag that is never uploaded reports nothing"
     )
+
+
+def test_codecov_has_no_second_ignore_list() -> None:
+    """What is left unmeasured is decided once, in ``.coveragerc`` ``omit``.
+
+    codecov.yml's ``ignore`` list hid library code from the reported number (its
+    ``tit/tools/**`` covered modules sim, catalog and viewspec import) while the
+    coverage run measured it, so a reader of either saw a different scope.
+    """
+    config = yaml.safe_load(CODECOV.read_text(encoding="utf-8"))
+    assert "ignore" not in config, f"codecov.yml ignore: {config['ignore']}"
+    flagged = [name for name, flag in config["flags"].items() if "ignore" in flag]
+    assert not flagged, f"codecov.yml flags with their own ignore list: {flagged}"
 
 
 def test_package_inits_with_real_code_are_measured() -> None:
