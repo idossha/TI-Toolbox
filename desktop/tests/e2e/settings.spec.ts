@@ -82,6 +82,9 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
     (window as unknown as { __noReload?: number }).__noReload = 1;
   });
   await page.getByRole("button", { name: "Save changes" }).click();
+  // The confirmation announces no reload (it used to read "…Reloading to apply the panel changes…").
+  await expect(page.getByText("Settings saved", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Reloading/)).toHaveCount(0);
 
   // The rail reads settings.panels live (app/registry.ts::useEnabledPages): the new panel appears
   // in this same window, while Settings is still open.
