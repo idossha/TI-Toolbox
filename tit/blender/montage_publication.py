@@ -162,6 +162,13 @@ def _resolve_eeg_net_csv(*, subject_id: str, eeg_net_name: str) -> str:
     path = os.path.join(eeg_dir, eeg_net_name)
     if not os.path.exists(path):
         raise FileNotFoundError(f"EEG net CSV not found: {path}")
+    from tit import caps
+
+    # A stale warp puts dozens of electrodes on one scalp point; drawing that as a
+    # publication montage would show a few blobs and no error.
+    pairs = caps.net_file_collapsed(path)
+    if pairs:
+        raise ValueError(caps.collapsed_message(eeg_net_name, subject_id, pairs))
     return path
 
 

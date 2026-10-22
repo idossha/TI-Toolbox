@@ -903,19 +903,33 @@ def _labels_key(atlas_id: str) -> str:
     return f"labels-{safe}"
 
 
-def read_net(pm: PathManager, sid: str, net: str) -> dict:
+def read_net(
+    pm: PathManager, sid: str, net: str, *, allow_collapsed: bool = False
+) -> dict:
     """One EEG net's electrode positions in the surfaces' own world space.
 
     Cheap enough (75-256 rows of CSV) that it is never cached: the cost is a
     file read, and a cache entry would only add a way to serve stale
     positions after an electrode file is regenerated.
+
+    A net whose electrodes collapsed onto each other (a warp from before the
+    3.1.1 frame fix; :func:`tit.caps.collapsed_pairs`) is refused with the
+    re-apply sentence instead of being drawn as a few points. Only the caps
+    panel's Inspect, whose job is to show that collapse, passes
+    *allow_collapsed*.
     """
+    from tit import caps
+
     if "/" in net or "\\" in net or net in ("", ".", ".."):
         raise SceneUnavailable(f"{net!r} is not a net file name")
     path = source_path(pm, Path(pm.eeg_positions(sid)) / net)
     if path is None or not path.is_file():
         raise SceneUnavailable(f"{sid} has no EEG net file {net}")
     parsed = parse_electrode_csv(path.read_text(encoding="utf-8", errors="replace"))
+    if not allow_collapsed:
+        pairs = caps.collapsed_pairs(parsed)
+        if pairs:
+            raise SceneUnavailable(caps.collapsed_message(net, sid, pairs))
     return {"net": net, "space": "subject-ras", **parsed}
 
 

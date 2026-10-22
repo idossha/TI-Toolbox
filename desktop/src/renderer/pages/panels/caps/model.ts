@@ -52,10 +52,25 @@ export function reapplicable(caps: CapStatus[]): string[] {
   return caps.filter((c) => c.on_subject && c.source !== null).map((c) => c.name);
 }
 
+/** The four 10-20 sites with two names: T3/T4/T5/T6 of the original system are T7/T8/P7/P8 in the
+ *  10-10 nomenclature (Oostenveld & Praamstra 2001). A cap listing both (SimNIBS's SPM12 cap) puts
+ *  them on one point by design, so that pair is not a collapse. Mirrors `tit.caps.ALIAS_PAIRS`. */
+const ALIAS_PAIRS = new Set(["T3|T7", "T4|T8", "P7|T5", "P8|T6"]);
+
+/** Whether two labels name one 10-20 site, in either order. */
+export function isAliasPair(a: string, b: string): boolean {
+  return ALIAS_PAIRS.has([a, b].sort().join("|"));
+}
+
+/** Collapsed pairs that are a real problem: the 10-20 alias pairs are dropped, whichever server answered. */
+function collapsedPairs(inspection: CapInspection): CapInspection["collapsed"] {
+  return inspection.collapsed.filter((p) => !isAliasPair(p.a, p.b));
+}
+
 /** One sentence per problem the inspection found; empty when the net looks sound. */
 export function inspectionWarnings(inspection: CapInspection): string[] {
   const out: string[] = [];
-  const pairs = inspection.collapsed;
+  const pairs = collapsedPairs(inspection);
   if (pairs.length > 0) {
     const shown = pairs.slice(0, 3).map((p) => `${p.a}–${p.b} ${p.distance_mm.toFixed(1)} mm`).join(", ");
     out.push(`${pairs.length} electrode pair${pairs.length === 1 ? "" : "s"} closer than ${inspection.collapse_mm} mm: ${shown}${pairs.length > 3 ? ", …" : ""}`);
@@ -70,7 +85,7 @@ const WARN_COLOR = SCENE_CATEGORICAL[7]!; // red
 
 /** The net's electrodes (collapsed ones in red), then the compare net's. Index i < n is row i. */
 export function inspectionMarkers(inspection: CapInspection): SceneMarker[] {
-  const collapsed = new Set(inspection.collapsed.flatMap((p) => [p.a, p.b]));
+  const collapsed = new Set(collapsedPairs(inspection).flatMap((p) => [p.a, p.b]));
   const net = inspection.electrodes.map((e, i) => ({
     id: `net:${i}`,
     label: e.name,

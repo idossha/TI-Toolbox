@@ -70,7 +70,10 @@ def seed_head_model(
     (m2m / f"{subject_id}.msh").write_bytes(b"")
     eeg = Path(pm.eeg_positions(subject_id))
     eeg.mkdir(parents=True, exist_ok=True)
-    rows = "".join(f"Electrode,{i},0,0,{name}\n" for i, name in enumerate(electrodes))
+    # 10 mm apart: closer than 2 mm is a collapsed net, which preflight refuses.
+    rows = "".join(
+        f"Electrode,{10 * i},0,0,{name}\n" for i, name in enumerate(electrodes)
+    )
     (eeg / "GSN-HydroCel-185.csv").write_text(rows)
 
 

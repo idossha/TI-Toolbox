@@ -143,7 +143,7 @@ def _net_points(pm, subject: str, net: str) -> tuple[list[str], np.ndarray]:
     if net not in pm.list_eeg_caps(subject):
         raise HTTPException(404, f"{subject} has no EEG net file {net!r}")
     try:
-        parsed = build.read_net(pm, subject, net)
+        parsed = build.read_net(pm, subject, net, allow_collapsed=True)
     except build.SceneUnavailable as exc:
         raise HTTPException(404, str(exc)) from exc
     rows = parsed["electrodes"] + parsed["reference"]

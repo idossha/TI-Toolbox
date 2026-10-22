@@ -45,6 +45,22 @@ SKIN_TAG = 1005
 #: below any real spacing and well above warp round-off.
 COLLAPSE_MM = 2.0
 
+#: The four 10-20 sites that carry two names: the original 10-20 system's
+#: T3/T4/T5/T6 are the 10-10 nomenclature's T7/T8/P7/P8 (Oostenveld &
+#: Praamstra 2001, Table 1; ACNS guideline 5, 2006). A cap that lists both
+#: names (SimNIBS's ``EEG10-20_extended_SPM12``) puts them on one point by
+#: design, so such a pair is an alias, not a collapse.
+ALIAS_PAIRS = frozenset(
+    frozenset(pair) for pair in (("T3", "T7"), ("T4", "T8"), ("T5", "P7"), ("T6", "P8"))
+)
+
+#: What to do about a collapsed net: the panel action that re-warps it.
+REAPPLY_FIX = (
+    "Re-apply in EEG caps: open the EEG caps panel for sub-{sid}, select {net} and "
+    "apply it again (or Re-apply all). That re-warps it onto this head; a net warped "
+    "before TI-Toolbox 3.1.1 can have many electrodes on one scalp point."
+)
+
 #: An uploaded MNI cap: a few hundred rows at most in any real cap.
 MAX_CAP_BYTES = 256 * 1024
 MAX_CAP_ROWS = 2048
@@ -251,11 +267,17 @@ def net_stats(
     skin: np.ndarray | None = None,
     collapse_mm: float = COLLAPSE_MM,
 ) -> dict[str, Any]:
-    """Per-electrode spacing and scalp distance, collapsed pairs, duplicate labels."""
+    """Per-electrode spacing and scalp distance, collapsed pairs, duplicate labels.
+
+    Two electrodes closer than *collapse_mm* are ``collapsed``, unless their
+    labels are one of the 10-20 :data:`ALIAS_PAIRS`; those are listed under
+    ``aliases`` instead, since a cap carrying both names puts them on one point.
+    """
     world = np.asarray(world, dtype=np.float64).reshape(-1, 3)
     n = len(world)
     rows: list[dict[str, Any]] = []
     collapsed: list[dict[str, Any]] = []
+    aliases: list[dict[str, Any]] = []
     nn = np.full(n, np.nan)
     nn_index = np.zeros(n, dtype=int)
     if n > 1:
@@ -264,9 +286,13 @@ def net_stats(
         nn = d.min(axis=1)
         nn_index = d.argmin(axis=1)
         for i, j in zip(*np.nonzero(np.triu(d < collapse_mm, k=1))):
-            collapsed.append(
-                {"a": names[i], "b": names[j], "distance_mm": round(float(d[i, j]), 3)}
-            )
+            pair = {
+                "a": names[i],
+                "b": names[j],
+                "distance_mm": round(float(d[i, j]), 3),
+            }
+            is_alias = frozenset((names[i], names[j])) in ALIAS_PAIRS
+            (aliases if is_alias else collapsed).append(pair)
     scalp = nearest_distance(world, skin) if skin is not None and n else None
     for i, name in enumerate(names):
         rows.append(
@@ -289,6 +315,7 @@ def net_stats(
         "collapse_mm": collapse_mm,
         "electrodes": rows,
         "collapsed": collapsed,
+        "aliases": aliases,
         "duplicate_names": sorted(k for k, v in Counter(names).items() if v > 1),
         "summary": {
             "count": n,
@@ -299,6 +326,53 @@ def net_stats(
             "scalp_max_mm": stat(scalp, np.max),
         },
     }
+
+
+def net_points(parsed: dict[str, list[dict[str, Any]]]) -> tuple[list[str], np.ndarray]:
+    """Names and world positions of a parsed net's electrodes and reference.
+
+    *parsed* is :func:`tit.scene.build.parse_electrode_csv`'s split. The
+    reference is a physical electrode on the head, so it counts for spacing;
+    fiducials are landmarks, not electrodes, and do not.
+    """
+    rows = parsed["electrodes"] + parsed["reference"]
+    world = np.asarray([r["world"] for r in rows], dtype=np.float64).reshape(-1, 3)
+    return [r["name"] for r in rows], world
+
+
+def collapsed_pairs(parsed: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """The electrode pairs of a parsed net that sit on one point (aliases excluded)."""
+    names, world = net_points(parsed)
+    return net_stats(names, world)["collapsed"]
+
+
+def net_file_collapsed(path: str | os.PathLike) -> list[dict[str, Any]]:
+    """:func:`collapsed_pairs` of the net CSV at *path*; ``[]`` if it cannot be read."""
+    from tit.scene.build import parse_electrode_csv
+
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    return collapsed_pairs(parse_electrode_csv(text))
+
+
+def collapsed_summary(net: str, sid: str, pairs: list[dict[str, Any]]) -> str:
+    """What is wrong with a collapsed net: how many pairs, and the first three."""
+    shown = ", ".join(f"{p['a']}-{p['b']}" for p in pairs[:3])
+    more = ", ..." if len(pairs) > 3 else ""
+    return (
+        f"EEG net {net} on sub-{sid} has {len(pairs)} electrode pair"
+        f"{'' if len(pairs) == 1 else 's'} closer than {COLLAPSE_MM:g} mm "
+        f"({shown}{more})"
+    )
+
+
+def collapsed_message(net: str, sid: str, pairs: list[dict[str, Any]]) -> str:
+    """:func:`collapsed_summary` and the fix, as one message for an error."""
+    return (
+        f"{collapsed_summary(net, sid, pairs)}. {REAPPLY_FIX.format(sid=sid, net=net)}"
+    )
 
 
 def compare_nets(

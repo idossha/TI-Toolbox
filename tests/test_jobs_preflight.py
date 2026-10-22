@@ -35,7 +35,7 @@ def project(tmp_path: Path) -> Path:
     touch(Path(pm.m2m(SID)) / f"{SID}.msh")
     touch(
         Path(pm.eeg_positions(SID)) / NET,
-        "Electrode,1,0,0,E1\nElectrode,2,0,0,E2\nElectrode,3,0,0,E3\nElectrode,4,0,0,E4\n",
+        "Electrode,10,0,0,E1\nElectrode,20,0,0,E2\nElectrode,30,0,0,E3\nElectrode,40,0,0,E4\n",
     )
     touch(pm.ti_mesh(SID, SIM))
     touch(pm.ti_central_surface(SID, SIM))

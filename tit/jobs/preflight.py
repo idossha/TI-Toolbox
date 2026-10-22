@@ -106,6 +106,28 @@ def _eeg_net_missing(
     )
 
 
+def _collapsed_net(sid: str, csv_path: Path, then: str = "") -> list[MissingInput]:
+    """A net whose electrodes collapsed onto each other, as one finding (or none).
+
+    Nets warped before the 3.1.1 frame fix put dozens of electrodes on one scalp
+    point; a simulation, mapping or leadfield on such a net runs and is wrong.
+    :func:`tit.caps.net_file_collapsed` is the caps panel's own check, with the
+    10-20 alias pairs (T3/T7, ...) of a correct SPM12 cap not counted.
+    """
+    from tit import caps
+
+    pairs = caps.net_file_collapsed(csv_path)
+    if not pairs:
+        return []
+    return [
+        MissingInput(
+            what=caps.collapsed_summary(csv_path.name, sid, pairs),
+            expected_path=str(csv_path),
+            how_to_fix=caps.REAPPLY_FIX.format(sid=sid, net=csv_path.name) + then,
+        )
+    ]
+
+
 def _eeg_labels(csv_path: Path) -> set[str]:
     """Electrode labels of a SimNIBS net CSV (``Electrode,x,y,z,label`` rows), or empty."""
     labels: set[str] = set()
@@ -183,6 +205,7 @@ def _check_sim(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
     missing = _head_model(pm, sid)
     if missing:
         return missing  # everything else lives under the head model
+    checked_nets: set[Path] = set()  # one collapse finding per net, not per montage
     for montage in config.get("montages") or []:
         if not isinstance(montage, dict):
             continue
@@ -209,6 +232,9 @@ def _check_sim(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
                 )
             )
             continue
+        if csv_path not in checked_nets:
+            checked_nets.add(csv_path)
+            missing.extend(_collapsed_net(sid, csv_path))
         labels = _eeg_labels(csv_path)
         wanted = [
             e
@@ -259,6 +285,10 @@ def _check_flex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
         csv_path = Path(pm.eeg_positions(sid)) / filename
         if not csv_path.is_file():
             missing.append(_eeg_net_missing(pm, sid, csv_path, f"{what} {net!r}"))
+        elif what == "mapped EEG net":
+            # The run's result is mapped onto this net's labels; the skin picture
+            # net only draws, so a collapsed one is not worth refusing the run for.
+            missing.extend(_collapsed_net(sid, csv_path))
     if (
         config.get("avoid_landmark_regions", True)
         and (config.get("skin_region_margin_mm") or 0) > 0
@@ -307,6 +337,21 @@ def _check_ex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
                     str(path),
                     f"Generate the leadfield for sub-{sid} and this EEG net first "
                     "(Optimizer page, Leadfield).",
+                )
+            )
+        # The leadfield's net, by tit.opt.ex.symmetry.net_name_from_leadfield's rule
+        # (not imported: tit.opt pulls SimNIBS in): "<sid>_leadfield_<net>.hdf5".
+        stem = Path(hdf).name.removesuffix(".hdf5")
+        _, sep, net = stem.partition("_leadfield_")
+        net = net if sep else stem.removesuffix("_leadfield")
+        net_csv = Path(pm.eeg_positions(sid)) / f"{net}.csv"
+        if net and net_csv.is_file():
+            missing.extend(
+                _collapsed_net(
+                    sid,
+                    net_csv,
+                    " Then regenerate this leadfield: one built on the collapsed net "
+                    "is wrong too.",
                 )
             )
     # ExConfig/MExConfig.__post_init__ append ".csv"; roi_names=None means [roi_name].
@@ -367,6 +412,8 @@ def _check_leadfield(pm: PathManager, config: dict[str, Any]) -> list[MissingInp
         csv_path = Path(pm.eeg_positions(sid)) / f"{net}.csv"
         if not csv_path.is_file():
             missing.append(_eeg_net_missing(pm, sid, csv_path, f"EEG net {net!r}"))
+        else:
+            missing.extend(_collapsed_net(sid, csv_path))
     return missing
 
 

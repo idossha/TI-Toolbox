@@ -886,7 +886,7 @@ def test_against_the_real_server_jobs_are_recorded_as_agent(js, monkeypatch, tmp
     eeg = Path(pm.eeg_positions("101"))
     eeg.mkdir(parents=True)
     (eeg / "GSN-HydroCel-185.csv").write_text(
-        "".join(f"Electrode,{i},0,0,E{i}\n" for i in range(1, 5))
+        "".join(f"Electrode,{10 * i},0,0,E{i}\n" for i in range(1, 5))
     )
     fake_runner = str(REPO / "tests" / "fake_runner.py")
     manager = JobManager(
