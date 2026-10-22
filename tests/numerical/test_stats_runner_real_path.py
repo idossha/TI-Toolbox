@@ -2,9 +2,22 @@
 
 Each run is the job runner as the server starts it: a subprocess on the JSON config the desktop
 builders emit (``tests/fixtures/desktop_configs/panels-stats``: every key as sent, with the rows
-swapped for a 3-vs-3 design or a 6-subject correlation, 19 permutations and one worker), plus
+swapped for a 5-vs-5 design or an 8-subject correlation, 199 permutations and one worker), plus
 the ``project_dir`` envelope and ``TIT_EVENTS_FILE``. The subjects are real NIfTI files on a
-shared grid, with a zero outer shell (no field there) and one planted 3x3x3 block.
+shared grid: a zero outer shell (no field there), per-subject noise, one planted 3x3x3 block,
+and a one-voxel ring around the block that holds the same value in every subject (nothing to
+test there, so no noise voxel can join the block's cluster).
+
+Why this design can show the block being detected (3 vs 3 cannot): an unpaired relabelling of
+5 vs 5 reproduces the planted split (or its mirror) in 2 of C(10, 5) = 252 cases, and a 4/1
+split gives t = 2.12 in the block, under the two-sided t(8) cut 2.306 -- so with 199
+permutations the block's p is (1 + b) / 200 with b ~ Binomial(199, 2/252), below 0.05 unless
+b >= 9 (probability ~3e-5). For the correlation (r ~ 0.9999 in the block), a shuffle's cluster
+mass in the block is far below the observed one except for the identity and the reversal (2 of
+8! shuffles). A SIZE statistic on a correlation block whose voxels share one r is different: a
+shuffle that passes the cluster-forming p < 0.05 in one block voxel passes in all 27, so ~5% of
+shuffles tie the observed size and its p sits near 0.05 by construction; for that run the test
+checks the p-value and the mask agree with the written null, not that it is significant.
 
 Pins, for both modes and both cluster statistics:
 
@@ -12,12 +25,18 @@ Pins, for both modes and both cluster statistics:
   ``derivatives/ti-toolbox/stats/<mode>/<analysis_name>``, and the name in the job's lock key
   (``tit.jobs.locks.keys_for``);
 * the files are the mode's entries of ``catalog._STATS_FILE_LABELS`` plus one run log, and are
-  exactly the runner's artifact events; the correlation's ``permutation_details.txt`` lists 19
-  permutations;
-* ``difference_map`` equals the responders' mean minus the non-responders' (``np.mean`` over the
-  input files read back here); ``pvalues_map`` (``-log10 p``) lies in ``[-1e-9, 10]`` and is 0 in
-  the zero shell, where nothing can be tested; the significant-voxel mask is 0/1 and inside the
-  testable region;
+  exactly the runner's artifact events; ``permutation_details.txt`` lists 199 permutations;
+* the block's cluster p-value in the run log is ``(1 + #null >= observed) / (m + 1)`` (Phipson &
+  Smyth 2010) recomputed from the null maxima written to ``permutation_details.txt``; the
+  significant mask is exactly the block when that p is below alpha and empty around it
+  otherwise; the block is detected in the group comparison (size and mass) and the correlation
+  (mass);
+* ``difference_map`` equals the responders' mean minus the non-responders' and
+  ``correlation_map`` equals the Pearson r of the inputs (``np.mean`` / ``np.corrcoef`` over
+  the input files read back here; r is reported 0 where the field is the same in every
+  subject); ``pvalues_map`` (``-log10 p``) lies in ``[-1e-9, 10]`` and is 0 in the zero shell;
+  the significant-voxel mask is 0/1, inside the testable region and only on voxels whose
+  uncorrected p is below the cluster-forming threshold;
 * ``catalog.group_stats_detail`` reads status ``ok``, the groups with their exact subject ids,
   and "Significant clusters" equal to the result event's count; for a mass run "Cluster
   threshold" equals the summary's threshold line.
@@ -43,11 +62,27 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 CORPUS = REPO / "tests" / "fixtures" / "desktop_configs" / "panels-stats"
-SHAPE = (8, 8, 8, 1)
+SHAPE = (10, 10, 10, 1)
 AFFINE = np.diag([-2.0, 2.0, 2.0, 1.0])
 AFFINE[:3, 3] = [90.0, -126.0, -72.0]
-BLOCK = (slice(2, 5), slice(2, 5), slice(2, 5))
-EFFECTS = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+#: Field present (per-subject noise) inside this cube; the shell around it is zero.
+TESTABLE = (slice(1, 9),) * 3
+#: The block plus a one-voxel ring that holds the same value in every subject.
+INNER = (slice(1, 6),) * 3
+BLOCK = (slice(2, 5),) * 3
+N_PERM = 199
+N_PER_GROUP = 5
+EFFECTS = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+#: Runs whose design guarantees the block is significant (module docstring).
+DETECTED = {
+    ("group_comparison", "mass"): True,
+    ("group_comparison", "size"): True,
+    ("correlation", "mass"): True,
+    (
+        "correlation",
+        "size",
+    ): None,  # p near 0.05 by construction; agreement checked only
+}
 
 #: The ``_STATS_FILE_LABELS`` entries each volume runner writes when clusters form (its
 #: docstring's output list); the run log ``<mode>_analysis_<ts>.log`` comes on top.
@@ -79,12 +114,23 @@ EXPECTED = {
 RUNS = [(m, s) for m in ("group_comparison", "correlation") for s in ("mass", "size")]
 
 
+#: The ring's value at each voxel, shared by every subject.
+_SHARED = 0.1 + 0.05 * np.random.default_rng(7).random(SHAPE[:3])
+
+
 def _volume(rng: np.random.Generator, block_value: float | None) -> np.ndarray:
-    data = np.zeros(SHAPE)
-    data[1:7, 1:7, 1:7, 0] = 0.1 + 0.05 * rng.random((6, 6, 6))
+    data = np.zeros(SHAPE[:3])
+    data[TESTABLE] = 0.1 + 0.05 * rng.random((8, 8, 8))
+    data[INNER] = _SHARED[INNER]
     if block_value is not None:
-        data[BLOCK + (0,)] = block_value + 0.02 * rng.random((3, 3, 3))
-    return data
+        data[BLOCK] = block_value + 0.02 * rng.random((3, 3, 3))
+    return data[..., None]
+
+
+def _mask(region) -> np.ndarray:
+    mask = np.zeros(SHAPE[:3], dtype=bool)
+    mask[region] = True
+    return mask
 
 
 def _write(project: Path, sid: str, data: np.ndarray) -> Path:
@@ -113,14 +159,19 @@ def _config(mode: str, stat: str) -> tuple[dict, dict[str, float]]:
     )
     (job,) = json.loads((CORPUS / f"{fixture}.json").read_text())["jobs"]
     config = dict(job["config"])
-    ids = [f"{i:03d}" for i in range(1, 7)]
     if mode == "group_comparison":
+        ids = [f"{i:03d}" for i in range(1, 2 * N_PER_GROUP + 1)]
         config["subjects"] = [
-            {"subject_id": s, "simulation_name": "M1", "response": int(i < 3)}
+            {
+                "subject_id": s,
+                "simulation_name": "M1",
+                "response": int(i < N_PER_GROUP),
+            }
             for i, s in enumerate(ids)
         ]
-        block = {s: (1.0 if i < 3 else None) for i, s in enumerate(ids)}
+        block = {s: (1.0 if i < N_PER_GROUP else None) for i, s in enumerate(ids)}
     else:
+        ids = [f"{i:03d}" for i in range(1, len(EFFECTS) + 1)]
         config["subjects"] = [
             {"subject_id": s, "simulation_name": "M1", "effect_size": e, "weight": 1}
             for s, e in zip(ids, EFFECTS)
@@ -129,7 +180,7 @@ def _config(mode: str, stat: str) -> tuple[dict, dict[str, float]]:
     config.update(
         analysis_name=f"real_{mode}_{stat}",
         cluster_stat=stat,
-        n_permutations=19,
+        n_permutations=N_PERM,
         n_jobs=1,
     )
     return config, block
@@ -219,17 +270,19 @@ def test_the_runner_writes_the_planned_folder_and_the_modes_files(runs, mode, st
     artifacts = {e["path"] for e in run["events"] if e["type"] == "artifact"}
     assert artifacts == {str(out / n) for n in on_disk}
 
-    if mode == "correlation":
-        lines = (out / "permutation_details.txt").read_text().splitlines()
-        assert len([ln for ln in lines if ln.startswith("Permutation ")]) == 19
+    lines = (out / "permutation_details.txt").read_text().splitlines()
+    assert len([ln for ln in lines if ln.startswith("Permutation ")]) == N_PERM
 
 
 @pytest.mark.parametrize("mode,stat", RUNS)
 def test_maps_are_right_where_the_field_is_and_silent_where_it_is_not(runs, mode, stat):
     run = runs(mode, stat)
     out = Path(_result(run)["output_dir"])
-    testable = np.zeros(SHAPE[:3], dtype=bool)
-    testable[1:7, 1:7, 1:7] = True  # the zero shell holds no field in any subject
+    testable = _mask(TESTABLE)
+    inputs = np.stack(
+        [_read(run["inputs"][r["subject_id"]]) for r in run["config"]["subjects"]],
+        axis=-1,
+    )
 
     log_p = _read(out / "pvalues_map.nii.gz")
     assert log_p.min() >= -1e-9 and log_p.max() <= 10
@@ -237,6 +290,9 @@ def test_maps_are_right_where_the_field_is_and_silent_where_it_is_not(runs, mode
     sig = _read(out / "significant_voxels_mask.nii.gz")
     assert set(np.unique(sig)) <= {0.0, 1.0}
     assert not np.any(sig[~testable])
+    # A cluster holds only voxels past the cluster-forming threshold (log_p = -log10(p + 1e-10)).
+    supra = log_p > -np.log10(run["config"]["cluster_threshold"] + 1e-10)
+    assert not np.any((sig == 1) & ~supra)
 
     if mode == "group_comparison":
         rows = run["config"]["subjects"]
@@ -251,6 +307,56 @@ def test_maps_are_right_where_the_field_is_and_silent_where_it_is_not(runs, mode
             np.mean(resp, axis=0) - np.mean(non, axis=0),
             atol=1e-6,
         )
+    else:
+        effects = np.array([r["effect_size"] for r in run["config"]["subjects"]])
+        varies = np.ptp(inputs, axis=-1) > 0
+        expected = np.zeros(SHAPE[:3])
+        for idx in zip(*np.nonzero(varies)):
+            expected[idx] = np.corrcoef(inputs[idx], effects)[0, 1]
+        r_map = _read(out / "correlation_map.nii.gz")
+        np.testing.assert_allclose(r_map, expected, atol=1e-5)
+        assert np.all(
+            r_map[_mask(BLOCK)] > 0.999
+        )  # the planted block follows the effect
+
+
+def _null_maxima(out: Path) -> list[float]:
+    text = (out / "permutation_details.txt").read_text()
+    return [float(v) for v in re.findall(r"Max Cluster Stat:\s*([-\d.]+)", text)]
+
+
+@pytest.mark.parametrize("mode,stat", RUNS)
+def test_the_block_p_value_is_the_written_null_count_and_the_mask_follows_it(
+    runs, mode, stat
+):
+    run = runs(mode, stat)
+    out = Path(_result(run)["output_dir"])
+    (log,) = [p for p in out.iterdir() if p.suffix == ".log"]
+    # The engine logs each candidate cluster: "Cluster <id>: <stat>=<value>, size=<n>, p=<p>".
+    found = re.findall(
+        rf"Cluster \d+: {stat}=([-\d.]+), size=27, p=([\d.]+) \((SIG|ns)\)",
+        log.read_text(),
+    )
+    assert len(found) == 1, "the block's cluster must be exactly its 27 voxels"
+    observed, logged_p, status = found[0]
+
+    null = _null_maxima(out)
+    assert len(null) == N_PERM
+    # Two-sided: the null holds |max cluster statistic| per permutation (Maris & Oostenveld).
+    beyond = sum(v >= abs(float(observed)) for v in null)
+    expected_p = (1 + beyond) / (N_PERM + 1)
+    assert float(logged_p) == pytest.approx(expected_p, abs=5e-5)
+
+    significant = expected_p < run["config"]["alpha"]
+    assert (status == "SIG") is significant
+    if DETECTED[(mode, stat)]:
+        assert significant, f"planted block not detected: p = {expected_p}"
+
+    sig = _read(out / "significant_voxels_mask.nii.gz") == 1
+    block = _mask(BLOCK)
+    assert np.array_equal(sig[INNER], (block & significant)[INNER])
+    if significant:
+        assert _result(run)["n_significant_clusters"] >= 1
 
 
 @pytest.mark.parametrize("mode,stat", RUNS)

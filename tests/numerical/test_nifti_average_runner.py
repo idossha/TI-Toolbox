@@ -25,8 +25,12 @@ hand-written three-group config for the default pairs. Input paths are spelled f
 documented simulation layout (``derivatives/SimNIBS/sub-<id>/Simulations/<sim>/TI/niftis``),
 not from ``PathManager``.
 
-Known gap (reported, not fixed here): two GROUPS on different grids are not compared with
-each other (``load_grouped_subjects_ti_toolbox`` checks the grid within a group only).
+Known gap, xfail(strict) (``tit/stats/nifti.py`` is owned elsewhere): two GROUPS on different
+grids are not compared with each other (``load_grouped_subjects_ti_toolbox`` checks the grid
+within a group only). Equal shapes with different affines give exit 0 and a difference map of
+voxels that are not the same points; unequal shapes fail on a numpy broadcast error that names
+no subject. When that loader checks every group against one reference grid, these XPASS and
+the marker goes.
 
 Run (container): ``simnibs_python -m pytest tests/numerical/test_nifti_average_runner.py -q``.
 """
@@ -337,3 +341,40 @@ def test_a_missing_file_fails_with_the_path_preflight_reports(project, tmp_path)
     assert proc.returncode == 1
     error = _result(events)["error"]
     assert error.startswith(f"NIfTI file not found: {missing.expected_path}")
+
+
+_SHIFTED = AFFINE.copy()
+_SHIFTED[:3, 3] += 10.0
+#: The second group's grid: the same shape 10 mm away, or one more voxel along x.
+OTHER_GRIDS = {
+    "shifted-affine": (SHAPE, _SHIFTED),
+    "other-shape": ((6, 6, 7, 1), AFFINE),
+}
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="load_grouped_subjects_ti_toolbox checks the grid within a group only; "
+    "tit/stats/nifti.py is owned elsewhere",
+)
+@pytest.mark.parametrize("grid", sorted(OTHER_GRIDS))
+def test_two_groups_on_different_grids_fail_naming_the_subject(project, tmp_path, grid):
+    config = _fixture_config("subject-space")  # Group1: one subject, Group2: another
+    first, second = config["subjects"]
+    assert first["group"] != second["group"]
+    sim = first["simulation_name"]
+    shape, affine = OTHER_GRIDS[grid]
+    _write(
+        _niftis(project, first["subject_id"], sim) / SUBJECT_FILE.format(sim=sim),
+        _volume(6),
+    )
+    _write(
+        _niftis(project, second["subject_id"], sim) / SUBJECT_FILE.format(sim=sim),
+        _volume(7, shape=shape),
+        affine,
+    )
+    proc, events = _run(project, config, tmp_path)
+    assert proc.returncode == 1
+    result = _result(events)
+    assert result["success"] is False
+    assert f"Subject {second['subject_id']} " in result["error"]
