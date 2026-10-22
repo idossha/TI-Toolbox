@@ -55,6 +55,9 @@ jobs:
       - name: Check for broken asset references
         run: python docs/tests/check_assets.py ./_site
 
+      - name: Check that only public sections are published
+        run: python docs/tests/check_published_set.py ./_site
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 

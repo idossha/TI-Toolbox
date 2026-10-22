@@ -33,8 +33,11 @@ google_analytics: G-YMJPLLDT3Q
 # Jekyll otherwise drops these underscore-prefixed MkDocs outputs, breaking API styling
 # and navigation. Jekyll 3.9 filters static entries by basename; these names occur only
 # in the generated API output. Source trees remain excluded below.
+# The changelog lives in the excluded dev/ and is published as /releases/changelog/.
+# It must be listed by basename: Jekyll 3.9 matches include entries against a bare
+# file name, so "dev/CHANGELOG.md" never matches and dev/ would swallow the page.
 include:
-  - dev/CHANGELOG.md
+  - CHANGELOG.md
   - _mkdocstrings.css
   - _common
   - _mti_kernel
@@ -55,11 +58,6 @@ exclude:
   # MkDocs sources for API docs (the built site is committed to `docs/api/`)
   - api_mkdocs/
   # Developer references stay private to the checkout; the changelog is included above.
-  - dev/ARCHITECTURE.md
-  - dev/DECISIONS.md
-  - dev/TESTING.md
-  - dev/RELEASING.md
-  - dev/BENCHMARKS.md
-  - dev/ROADMAP.md
-  - dev/AUTOMATION.md
+  # The whole directory is excluded, so a new note under dev/ is never published.
+  - dev/
 
