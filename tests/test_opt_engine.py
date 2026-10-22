@@ -506,6 +506,9 @@ class TestComputeTiField:
         assert e1.shape == (4, 3)
 
     def test_empty_roi(self):
+        """The metric helper stays total (zeros, never a NaN or a crash) on purpose: the search
+        can no longer reach it with an empty ROI, because ``initialize`` refuses one before the
+        search starts (``tests/test_ex_empty_roi.py``)."""
         import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()

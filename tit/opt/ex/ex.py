@@ -53,8 +53,9 @@ def run_ex_search(config: ExConfig) -> ExResult:
     ------
     ValueError
         If no candidate montage can be enumerated (empty pool/buckets or
-        an over-restrictive symmetry rule), or a referenced ROI CSV or
-        atlas file does not exist.
+        an over-restrictive symmetry rule), a referenced ROI CSV or atlas
+        file does not exist, or the ROI selects no leadfield mesh element
+        (raised before the search; no results are written).
     FileNotFoundError
         If ``config.leadfield_hdf`` cannot be found under the subject's
         ``leadfields/`` directory.

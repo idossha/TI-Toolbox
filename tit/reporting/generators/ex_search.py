@@ -24,6 +24,7 @@ import json
 import logging
 import math
 import re
+import statistics
 import time
 from datetime import datetime
 from pathlib import Path
@@ -44,9 +45,16 @@ _FIELDS = ("TImax_ROI", "TImean_ROI", "TImean_GM", "Focality", "Composite_Index"
 
 def read_results(csv_path: str | Path) -> list[dict]:
     """``final_output.csv`` rows with numbers as floats, ranked by composite (best first)."""
+    return _read_rows(csv_path)[0]
+
+
+def _read_rows(csv_path: str | Path) -> tuple[list[dict], int]:
+    """The ranked rows of :func:`read_results` and how many rows were left out: an unreadable
+    montage or a number that is missing or not finite (NaN, inf) has no place in a ranking.
+    """
     from tit.opt.ex.results import parse_montage_string
 
-    rows = []
+    rows, skipped = [], 0
     with open(csv_path, newline="") as f:
         for r in csv.DictReader(f):
             try:
@@ -54,13 +62,17 @@ def read_results(csv_path: str | Path) -> list[dict]:
                 row["I1"], row["I2"] = float(r["Current_Ch1_mA"]), float(
                     r["Current_Ch2_mA"]
                 )
-            except (KeyError, TypeError, ValueError):
+                e = parse_montage_string(r["Montage"])
+            except (KeyError, TypeError, ValueError, AttributeError):
+                skipped += 1
                 continue
-            e = parse_montage_string(r["Montage"])
+            if not all(math.isfinite(v) for v in row.values()):
+                skipped += 1
+                continue
             row["pairs"] = [e[i : i + 2] for i in range(0, len(e), 2)]
             rows.append(row)
     rows.sort(key=lambda r: r["Composite_Index"], reverse=True)
-    return rows
+    return rows, skipped
 
 
 def top_distinct(rows: list[dict], top: int = TOP_N) -> list[dict]:
@@ -109,10 +121,12 @@ def collect(run_dir: str | Path, leadfield_dir: str | Path | None = None) -> dic
         logs = sorted(Path(leadfield_dir).glob("simnibs_simulation_*.log"))
         if logs:
             lf = leadfield_facts(logs[-1].read_text(errors="replace"))
+    rows, skipped = _read_rows(run_dir / "final_output.csv")
     return {
         "run": run_dir.name,
         "config": cfg,
-        "rows": read_results(run_dir / "final_output.csv"),
+        "rows": rows,
+        "skipped": skipped,
         "roi": common.roi_summary(run_dir),
         "leadfield": lf,
     }
@@ -136,8 +150,11 @@ def density_chart(rows: list[dict], top: int = TOP_N) -> str:
     pw, ph = width - ml - mr, height - mt - mb
     xs = [r["TImean_ROI"] for r in rows]
     ys = [r["Focality"] for r in rows]
-    x0, x1 = 0.0, max(xs) * 1.05
+    # One value on an axis (a single row, or every montage tied at 0) still needs a span.
+    x0, x1 = 0.0, max(xs) * 1.05 or 1.0
     y0, y1 = min(ys) * 0.97, max(ys) * 1.03
+    if y1 <= y0:
+        y1 = y0 + 1.0
     nx, ny = 72, 40
 
     def X(v: float) -> float:
@@ -180,7 +197,7 @@ def density_chart(rows: list[dict], top: int = TOP_N) -> str:
             f'fill="var(--s1)" fill-opacity="{a:.2f}" data-tip="{esc(tip)}"/>'
         )
     best = rows[0]["Composite_Index"]
-    for k in (0.5, 0.75):
+    for k in (0.5, 0.75) if best > 0 else ():
         level = best * k
         pts = []
         for s in range(61):
@@ -245,7 +262,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         (
             "ROI mean",
             f"{best['TImean_ROI']:.3f}<small>V/m</small>",
-            f"search median {sorted(r['TImean_ROI'] for r in rows)[n // 2]:.3f} V/m",
+            f"search median {statistics.median(r['TImean_ROI'] for r in rows):.3f} V/m",
         ),
         (
             "Focality",
@@ -368,10 +385,17 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         right={0, 3, 4, 5, 6, 7, 8},
         sortable=True,
     )
+    skipped = rec.get("skipped", 0)
+    left_out = (
+        f'<p class="muted" style="font-size:13px">{skipped:,} row{"s" if skipped != 1 else ""} '
+        "of final_output.csv left out: an unreadable montage or a number that is not finite.</p>"
+        if skipped
+        else ""
+    )
     results_sec = c.section(
         "results",
         "Search results",
-        fig + table,
+        fig + table + left_out,
         lead="Where the winner sits among all candidates.",
     )
 
@@ -499,6 +523,12 @@ def create_ex_search_report(
     rec = collect(run_dir, pm.leadfields(subject_id))
     if not rec["rows"]:
         raise ValueError(f"{run_dir}/final_output.csv has no montages")
+    if all(r["TImax_ROI"] == 0 and r["TImean_ROI"] == 0 for r in rec["rows"]):
+        raise ValueError(
+            f"Every montage in {run_dir}/final_output.csv scored 0 in the ROI "
+            f"{rec['config'].get('roi_name')!r}: the ROI selected no leadfield mesh elements, "
+            "so the ranking is arbitrary and there is no winner to report."
+        )
     return common.write_report(
         build_html(rec, subject_id),
         project_dir,

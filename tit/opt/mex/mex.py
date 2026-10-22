@@ -49,8 +49,9 @@ def run_m_ex_search(config: MExConfig) -> MExResult:
     Raises
     ------
     ValueError
-        If no candidate montage can be enumerated, or a referenced ROI
-        CSV or atlas file does not exist.
+        If no candidate montage can be enumerated, a referenced ROI CSV or
+        atlas file does not exist, or the ROI selects no leadfield mesh
+        element (raised before the search; no results are written).
     FileNotFoundError
         If ``config.leadfield_hdf`` cannot be found under the subject's
         ``leadfields/`` directory.

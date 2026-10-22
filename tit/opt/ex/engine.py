@@ -162,6 +162,12 @@ class ExSearchEngine:
         ``(path, label)`` atlas-label selections) -- every source in
         ``roi_file`` is OR-folded into one region (a single spherical
         center is the N=1 case).
+
+        Raises
+        ------
+        ValueError
+            If the region holds no mesh element: every metric of an empty
+            ROI is undefined, so the search must not start.
         """
         self.logger.info(f"Finding ROI elements (radius={roi_radius}mm)...")
         baricenters = self.mesh.elements_baricenters().value
@@ -184,6 +190,15 @@ class ExSearchEngine:
         self.roi_indices = np.flatnonzero(mask)
         self.roi_volumes = volumes[mask]
         self.logger.info(f"Found {len(self.roi_indices)} ROI elements")
+        if not len(self.roi_indices):
+            centres = [list(map(float, c)) for c in roi_centers if c is not None]
+            masks = [e for e in self._roi_entries() if self._is_nifti_roi(e)]
+            raise ValueError(
+                f"ROI '{self.roi_name}' selects 0 leadfield mesh elements "
+                f"({roi_radius:g} mm spheres around {centres or 'no centre'}, "
+                f"{len(masks)} atlas/mask target(s)): every montage would score 0. "
+                "Check that the target lies inside the head model."
+            )
 
     def _find_gm_elements(self) -> None:
         """Find grey matter elements by tissue tag."""
