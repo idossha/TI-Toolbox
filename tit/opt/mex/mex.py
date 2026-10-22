@@ -187,6 +187,7 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
     output_info = process_and_save(results, config, output_dir, logger)
     logger.info("Config: %s", output_info["config_json_path"])
     logger.info("CSV: %s", output_info["csv_path"])
+    _write_report(config.subject_id, output_dir, logger)
 
     return MExResult(
         success=True,
@@ -195,3 +196,16 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         results_csv=output_info.get("csv_path"),
         config_json=output_info.get("config_json_path"),
     )
+
+
+def _write_report(subject_id: str, run_dir: str, logger) -> None:
+    """Write the mEx-search report (the ex-search page, four channels); never fails the search."""
+    from tit.reporting.generators.ex_search import create_ex_search_report
+
+    try:
+        path = create_ex_search_report(
+            get_path_manager().project_dir, subject_id, run_dir
+        )
+        logger.info("mEx-search report: %s", path)
+    except Exception as exc:  # the search results stand without their report
+        logger.warning("mEx-search report could not be written: %s", exc)

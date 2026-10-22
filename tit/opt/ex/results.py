@@ -140,10 +140,11 @@ def build_csv_rows(
     comp_vals : list of float
         Composite index (``timean * focality``) for each montage.
     """
+    # Two channels for ex, four for mEx (its engine records current_ch1..4_mA).
+    n_channels = 4 if any("current_ch3_mA" in d for d in results.values()) else 2
     header = [
         "Montage",
-        "Current_Ch1_mA",
-        "Current_Ch2_mA",
+        *[f"Current_Ch{k}_mA" for k in range(1, n_channels + 1)],
         "TImax_ROI",
         "TImean_ROI",
         "TImean_GM",
@@ -164,8 +165,10 @@ def build_csv_rows(
         rows.append(
             [
                 name,
-                format_current_mA(data.get("current_ch1_mA", 0)),
-                format_current_mA(data.get("current_ch2_mA", 0)),
+                *[
+                    format_current_mA(data.get(f"current_ch{k}_mA", 0))
+                    for k in range(1, n_channels + 1)
+                ],
                 f"{ti_max:.4f}",
                 f"{ti_mean:.4f}",
                 f"{ti_mean_gm:.4f}",

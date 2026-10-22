@@ -11,7 +11,8 @@ The default view is the winner (ranked by composite = ROI mean × focality) with
 dose, one chart of every montage's ROI mean against focality, the top 25 as a sortable table, and
 the ROI and ranking in words; methods and the run record are collapsed.
 
-``tit.opt.ex`` writes one when a search finishes. Rebuild one (nothing is re-searched)::
+``tit.opt.ex`` and ``tit.opt.mex`` write one when a search finishes (an mEx page lists four
+channels at its one current). Rebuild one (nothing is re-searched)::
 
     simnibs_python -m tit.reporting.generators.ex_search <project> <subject> <run name> [--out DIR]
 """
@@ -27,6 +28,7 @@ import re
 import statistics
 import time
 from datetime import datetime
+from itertools import zip_longest
 from pathlib import Path
 
 from tit.reporting.generators import common
@@ -63,13 +65,20 @@ def _read_rows(csv_path: str | Path) -> tuple[list[dict], int]:
                     r["Current_Ch2_mA"]
                 )
                 e = parse_montage_string(r["Montage"])
+                # An mEx CSV carries Current_Ch3/Ch4 too (older ones only Ch1/Ch2).
+                currents = [row["I1"], row["I2"]] + [
+                    float(r[f"Current_Ch{k}_mA"])
+                    for k in range(3, len(e) // 2 + 1)
+                    if r.get(f"Current_Ch{k}_mA") not in (None, "")
+                ]
             except (KeyError, TypeError, ValueError, AttributeError):
                 skipped += 1
                 continue
-            if not all(math.isfinite(v) for v in row.values()):
+            if not all(math.isfinite(v) for v in [*row.values(), *currents]):
                 skipped += 1
                 continue
             row["pairs"] = [e[i : i + 2] for i in range(0, len(e), 2)]
+            row["currents"] = currents
             rows.append(row)
     rows.sort(key=lambda r: r["Composite_Index"], reverse=True)
     return rows, skipped
@@ -85,8 +94,8 @@ def top_distinct(rows: list[dict], top: int = TOP_N) -> list[dict]:
     seen, kept = set(), []
     for r in rows:
         key = frozenset(
-            (frozenset(pair), round(current, 9))
-            for pair, current in zip(r["pairs"], (r["I1"], r["I2"]))
+            (frozenset(pair), None if current is None else round(current, 9))
+            for pair, current in zip_longest(r["pairs"], channel_currents(r))
         )
         if key not in seen:
             seen.add(key)
@@ -94,6 +103,11 @@ def top_distinct(rows: list[dict], top: int = TOP_N) -> list[dict]:
             if len(kept) == top:
                 break
     return kept
+
+
+def channel_currents(row: dict) -> list[float]:
+    """The current of each channel of *row* (mA), in pair order: two for ex, four for mEx."""
+    return row.get("currents") or [row["I1"], row["I2"]]
 
 
 def leadfield_facts(log_text: str) -> dict:
@@ -148,6 +162,11 @@ def collect(run_dir: str | Path, leadfield_dir: str | Path | None = None) -> dic
     if log:
         lf = leadfield_facts(log)
     rows, skipped = _read_rows(run_dir / "final_output.csv")
+    if cfg.get("current_mA") is not None:
+        # mEx drives every pair at the one configured current; its older CSVs carry only the
+        # first two channels' currents, rounded to 0.1 mA.
+        for row in rows:
+            row["currents"] = [float(cfg["current_mA"])] * len(row["pairs"])
     return {
         "run": run_dir.name,
         "config": cfg,
@@ -267,7 +286,7 @@ def density_chart(rows: list[dict], top: int = TOP_N) -> str:
     for r in top_distinct(rows, top)[1:]:
         p.append(
             f'<circle cx="{X(r["TImean_ROI"]):.1f}" cy="{Y(r["Focality"]):.1f}" r="4.5" fill="none" stroke="var(--s2)" stroke-width="1.6" '
-            f'data-tip="{esc(_montage_name(r["pairs"]))}\n{r["I1"]:g}/{r["I2"]:g} mA: ROI mean {r["TImean_ROI"]:.3f} V/m, focality {r["Focality"]:.2f}"/>'
+            f'data-tip="{esc(_montage_name(r["pairs"]))}\n{"/".join(f"{v:g}" for v in channel_currents(r))} mA: ROI mean {r["TImean_ROI"]:.3f} V/m, focality {r["Focality"]:.2f}"/>'
         )
     w = rows[0]
     wx, wy = X(w["TImean_ROI"]), Y(w["Focality"])
@@ -300,7 +319,11 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     name = _montage_name(pairs)
     roi_name = roi.get("name") or target_description(cfg)
     net = net_of(cfg)
-    mA = [best["I1"], best["I2"]]
+    mA = channel_currents(best)
+    channels = len(pairs)
+    channels_word = {2: "two", 4: "four"}.get(channels, str(channels))
+    # ex sweeps the split; mEx (run_config "current_mA") runs one fixed current per pair
+    swept = cfg.get("current_mA") is None
 
     # ── 1. verdict ──
     headline = f"{name} leads {n:,} montages"
@@ -325,7 +348,15 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             f"{best['TImax_ROI']:.3f}<small>V/m</small>",
             "maximum in the ROI",
         ),
-        ("Montages", f"{n:,}", "montage × current-split combinations"),
+        (
+            "Montages",
+            f"{n:,}",
+            (
+                "montage × current-split combinations"
+                if swept
+                else "montages, one current on every channel"
+            ),
+        ),
     ]
     verdict_sec = c.verdict_section(seal, headline, lede, c.stats(key))
 
@@ -353,8 +384,15 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             f"{common.per_channel(mA)} mA per channel, {fmt(sum(mA))} mA total",
         ),
         (
-            "Current sweep",
-            f"{fmt(total)} mA total in {fmt(step)} mA steps, at most {fmt(limit)} mA per channel",
+            (
+                "Current sweep",
+                f"{fmt(total)} mA total in {fmt(step)} mA steps, at most {fmt(limit)} mA per channel",
+            )
+            if swept
+            else (
+                "Current sweep",
+                f"none: every channel at {common.per_channel(mA)} mA",
+            )
         ),
         (
             "Carrier frequencies",
@@ -401,12 +439,15 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     )
     table_rows = []
     for i, r in enumerate(top_distinct(rows), 1):
+        currents = channel_currents(r)
         table_rows.append(
             [
                 (str(i), i),
-                esc("–".join(r["pairs"][0])),
-                esc("–".join(r["pairs"][1])) if len(r["pairs"]) > 1 else "",
-                (f"{fmt(r['I1'])} / {fmt(r['I2'])}", r["I1"]),
+                *[
+                    esc("–".join(r["pairs"][k])) if k < len(r["pairs"]) else ""
+                    for k in range(channels)
+                ],
+                (" / ".join(fmt(v) for v in currents), currents[0]),
                 (f"{r['TImean_ROI']:.3f}", r["TImean_ROI"]),
                 (f"{r['TImax_ROI']:.3f}", r["TImax_ROI"]),
                 (f"{r['TImean_GM']:.3f}", r["TImean_GM"]),
@@ -424,8 +465,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     table = c.table(
         [
             "#",
-            "Channel 1",
-            "Channel 2",
+            *[f"Channel {k}" for k in range(1, channels + 1)],
             "mA",
             "ROI mean",
             "ROI max",
@@ -435,7 +475,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ],
         table_rows,
         caption=f"Top {TOP_N} by composite. Fields in V/m. Select a column header to sort.",
-        right={0, 3, 4, 5, 6, 7, 8},
+        right={0, *range(channels + 1, channels + 7)},
         sortable=True,
     )
     skipped = rec.get("skipped", 0)
@@ -500,7 +540,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
 
     # ── 5. technical ──
     paras = [
-        f"Electrode montages for temporal interference stimulation were ranked by exhaustive search in TI-Toolbox: {n:,} two-channel combinations and current splits on the {esc(Path(net).stem)} positions"
+        f"Electrode montages for temporal interference stimulation were ranked by exhaustive search in TI-Toolbox: {n:,} {channels_word}-channel combinations{' and current splits' if swept else ''} on the {esc(Path(net).stem)} positions"
         + (f" {cite('jurcak2007_eeg_positions')}" if "10-" in net else "")
         + f", each evaluated from a SimNIBS {esc(lf.get('simnibs') or '')} {cite('saturnino2019_simnibs21')} leadfield of subject {esc(subject_id)}'s head model "
         f"{cite('puonti2020_charm')}"
@@ -569,7 +609,8 @@ def create_ex_search_report(
     run_dir: str | Path,
     out_dir: str | Path | None = None,
 ) -> Path:
-    """Write the report for one ex-search run folder; into the project's reports unless *out_dir*."""
+    """Write the report for one ex- or mEx-search run folder; into the project's reports unless
+    *out_dir*."""
     from tit.paths import get_path_manager
 
     t0 = time.time()
