@@ -724,7 +724,7 @@ export function createGlScene(
     depth: true,
     stencil: false,
     // The pane is a form control that redraws on interaction; a discrete GPU spun up for it costs
-    // battery for no gain on a laptop, and the default is what the Viewer's embed asks for too.
+    // battery for no gain on a laptop.
     powerPreference: "default",
     preserveDrawingBuffer: false,
   }) as WebGL2RenderingContext | null;
@@ -1044,7 +1044,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
 
   /** `cull` is the face to drop, or `null` for "draw both faces" — the state is set here rather
    *  than at the call site so a pass cannot enable culling and then forget which face it culls. */
-  function drawSurface(uploaded: UploadedPart, program: Program, cull: number | null): void {
+  function drawSurface(uploaded: UploadedPart, cull: number | null): void {
     if (cull === null) {
       gl.disable(gl.CULL_FACE);
     } else {
@@ -1083,7 +1083,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     gl.clear(gl.DEPTH_BUFFER_BIT);
     bindSurfaceCommon(sheetDepthProgram, vp, view);
     setUniform1i(sheetDepthProgram, "uUseLabels", 0);
-    drawSurface(uploaded, sheetDepthProgram, null);
+    drawSurface(uploaded, null);
 
     if (level === 1) {
       // (b) peel one layer: what is strictly behind the nearest sheet, into `sheets.far`.
@@ -1094,7 +1094,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       gl.activeTexture(gl.TEXTURE0 + UNIT_SHEET_DEPTH);
       gl.bindTexture(gl.TEXTURE_2D, sheets.near);
       setUniform1i(sheetPeelProgram, "uSheetDepth", UNIT_SHEET_DEPTH);
-      drawSurface(uploaded, sheetPeelProgram, null);
+      drawSurface(uploaded, null);
     }
 
     // (c) colour, keeping only the fragments the resolved depth bounds admit.
@@ -1111,7 +1111,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       gl.bindTexture(gl.TEXTURE_2D, sheets.near);
       setUniform1i(program, "uSheetPeel", UNIT_SHEET_PEEL);
     }
-    drawSurface(uploaded, program, null);
+    drawSurface(uploaded, null);
   }
 
   function bindMarkerCommon(program: Program, vp: Mat4): void {
@@ -1186,7 +1186,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         // see through no veil, i.e. every labelled one plus every opaque one.
         const opaque = opacityOf(uploaded) >= 1;
         const wanted = options.allSurfaces || opaque;
-        if (uploaded.hasLabels || (depthPass && wanted)) drawSurface(uploaded, surface, null);
+        if (uploaded.hasLabels || (depthPass && wanted)) drawSurface(uploaded, null);
       }
     }
     if (options.markers) {
@@ -1203,7 +1203,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       if (markerOcclusion) {
         gl.colorMask(false, false, false, false);
         bindSurfaceCommon(surfaceDepthProgram, vpPushed, viewPushed);
-        for (const uploaded of ordered()) drawSurface(uploaded, surfaceDepthProgram, null);
+        for (const uploaded of ordered()) drawSurface(uploaded, null);
         gl.colorMask(true, true, true, true);
       }
       gl.disable(gl.CULL_FACE);
@@ -1377,7 +1377,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         setUniform1i(surfaceProgram, "uUseLabels", uploaded.hasLabels ? 1 : 0);
         // Both faces: neither of our surfaces is reliably wound, so culling would punch holes in a
         // folded gyrus. Depth resolves the sheet instead, exactly as in the translucent path.
-        drawSurface(uploaded, surfaceProgram, null);
+        drawSurface(uploaded, null);
       }
       gl.enable(gl.BLEND);
       gl.depthMask(false);
@@ -1412,7 +1412,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       if (markerOcclusion) {
         gl.colorMask(false, false, false, false);
         bindSurfaceCommon(surfaceDepthProgram, vpPushed, viewPushed);
-        for (const uploaded of list) drawSurface(uploaded, surfaceDepthProgram, null);
+        for (const uploaded of list) drawSurface(uploaded, null);
         gl.colorMask(true, true, true, true);
       }
 

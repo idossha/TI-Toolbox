@@ -134,11 +134,7 @@
 .run-subject-table tbody tr:hover {
   background: var(--accent-soft);
 }
-.run-subject-cell {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
+
 .run-presence {
   display: flex;
   gap: var(--space-1);
@@ -170,7 +166,6 @@
   min-width: 0;
 }
 
-
 /* ---------- Two-up threshold on the run shape (FXU1) ---------- */
 
 /* `.form-grid`'s shared collapse is `@container (max-width: 760px)`, and the run work pane
@@ -189,9 +184,6 @@
 
 /* A table row is a surface. Empty cells are drawn as ground rather than as holes, which is what
    lets a table keep a minimum row count without the extra rows reading as a rendering bug. */
-.run-table-min-rows tbody tr {
-  height: var(--row-h);
-}
 .run-table-filler td {
   background: var(--surface);
   border-top: 1px solid var(--line);

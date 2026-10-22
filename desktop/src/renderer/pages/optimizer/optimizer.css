@@ -1,17 +1,5 @@
 /* Optimizer-only furniture. Tokens only — no literal colours (checklist item 5). */
 
-/* Method segment + run name on one 28px row: the merge's first row (wireframes §4). */
-.optimizer-method-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  min-height: var(--control-h);
-}
-.optimizer-method-row .field {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
 /* The Ex/mEx precondition strip: a gate, not a form field. One row, stated fact, one action. */
 .optimizer-precondition {
   display: flex;
@@ -45,11 +33,6 @@
   color: var(--ink-2);
 }
 
-/* Eight buckets read as four pairs: two columns keeps E1+/E1- adjacent at any pane width. */
-.optimizer-buckets {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .optimizer-help {
   display: inline-flex;
   align-items: center;
@@ -80,7 +63,6 @@
 .page-optimizer .optimizer-span {
   grid-column: 1 / -1;
 }
-
 
 /* Density (checklist item 1): the sections stack tighter than the shared 12 px, because a run
    page's work pane is a form and every 4 px of gutter is a row that does not fit above the fold. */

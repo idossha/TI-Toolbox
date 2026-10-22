@@ -414,10 +414,6 @@
   min-height: 220px;
 }
 
-.jobs-pane-empty {
-  padding: var(--space-2) var(--pane-pad);
-}
-
 /* ---------- Host tab ---------- */
 
 .host-panel {

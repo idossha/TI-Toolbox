@@ -1,7 +1,6 @@
 /*
- * The DOM around the embedded Tetravox scene on a run page: the stage that gives the iframe a
- * sized box, the one readable line every non-ready state renders, and the hint that says what a
- * click does.
+ * The DOM around a run page's own WebGL2 scene pane: the stage that gives the canvas a sized box,
+ * the one readable line every non-ready state renders, and the hint that says what a click does.
  */
 
 .scene-pane-host {
@@ -22,37 +21,6 @@
   background: var(--surface-2);
 }
 
-.scene-pane-embed {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 180px;
-  border: 0;
-  background: var(--canvas);
-}
-
-.scene-pane-opacity {
-  flex: none;
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border-top: 1px solid var(--line);
-}
-
-.scene-pane-opacity-row {
-  display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  font-size: 11px;
-  color: var(--ink-2);
-}
-
-.scene-pane-opacity-row .slider-row {
-  min-width: 0;
-}
-
 .scene-pane-placeholder {
   display: flex;
   flex-direction: column;
@@ -63,13 +31,6 @@
   padding: var(--space-3);
   border-radius: var(--radius-card);
   background: var(--surface-2);
-}
-
-.scene-pane-overlay {
-  position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
-  pointer-events: none;
 }
 
 .scene-pane-message {
@@ -221,7 +182,6 @@
    sliver. 360px keeps the WebGL stage a usable size at the width it now has. */
 @media (max-width: 1139px) {
   .scene-pane-stage,
-  .scene-pane-embed,
   .scene-pane-placeholder {
     min-height: 360px;
   }

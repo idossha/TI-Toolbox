@@ -34,18 +34,6 @@
   min-width: 0;
 }
 
-/* The Plan lives in the right pane, exactly where the four run pages put it — so the page reads
-   the same way (Subjects, then what will run, then the plan beside it, then the action bar) and
-   the 360 px column carries content instead of the page's own bottom third being ground. */
-.panel-plan-pane {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  height: 100%;
-  min-height: 0;
-  overflow: auto;
-}
-
 /* Legacy two-column inputs for panels without a dedicated run pane. */
 .panel-page-split {
   flex: 1;
@@ -78,23 +66,6 @@
 .participants-scroll[data-fill="true"] {
   flex: 1;
   min-height: 0;
-}
-
-/* A browse table that stops a quarter of the way down the page reads as broken, not as a short
- * list. The ground rows are `ui/DataTable`'s own now (`fill`) — this file used to paint the same
- * repeating gradient behind the table, and `jobs-page.css` carried an identical copy of the rule.
- * What is left here is only the page's part: give the card the height, and let the table fill it. */
-.panel-fill-card {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.panel-fill-card > .card-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 /* The Source panel keeps its vertical stack (Subjects, then the two pipelines), so the growing

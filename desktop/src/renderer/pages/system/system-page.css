@@ -266,32 +266,6 @@
   color: var(--ink);
 }
 
-/* ---------- charts ---------- */
-
-.system-area {
-  flex: none;
-  position: relative;
-  width: 100%;
-  min-width: 0;
-}
-.system-area > div {
-  width: 100%;
-}
-.system-area-collecting {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-3);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-controls);
-}
-/* uPlot paints its own legend/cursor chrome; the page supplies the frame. */
-.system-area .u-wrap {
-  cursor: crosshair;
-}
-
 /* ---------- the timeline's per-core footer ---------- */
 
 /*

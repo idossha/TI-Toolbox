@@ -602,7 +602,6 @@
   color: var(--ink-2);
 }
 
-
 /* ── key numbers ─────────────────────────────────────────────────────────────────────────────
  *
  * A two-column table per group, not a grid of tiles. Labels left, values right, `tabular-nums` so
@@ -803,10 +802,4 @@
   min-height: 0;
   width: 100%;
   object-fit: contain;
-}
-.results-lightbox-doc {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  border: 0;
 }

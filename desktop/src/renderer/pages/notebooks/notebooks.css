@@ -443,8 +443,7 @@
   overflow-x: auto;
 }
 
-.nb-output__image,
-.nb-output__svg svg {
+.nb-output__image {
   max-width: 100%;
   height: auto;
   /* Figures are authored on white; a dark theme must not invert them into

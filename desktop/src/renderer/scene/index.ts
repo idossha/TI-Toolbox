@@ -18,7 +18,7 @@
  *
  * ## Non-goals, verbatim from S1
  *
- * These belong to the Tetravox embed on the Viewer page (`renderer/viewer/`), and adding any of
+ * These belong to the native TetraVox app the Viewer page opens (`renderer/viewer/`), and adding any of
  * them here is how TI-Toolbox ends up maintaining a second general-purpose viewer — the failure the
  * microservice split exists to prevent:
  *

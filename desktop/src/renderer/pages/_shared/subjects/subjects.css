@@ -66,15 +66,6 @@
   flex-direction: column;
   gap: var(--space-2);
 }
-.subjects-field-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.subjects-field-filter {
-  flex: 1;
-  min-width: 0;
-}
 
 /* `.subject-picker-row` is `display: flex` in components.css (it was a <label> row there). These
    rows are <tr>s of the shared `.run-subject-table`, so the element+class selector wins the
@@ -88,19 +79,6 @@ tr.subject-picker-row {
 }
 tr.subject-picker-row:hover {
   background: var(--accent-soft);
-}
-/* An ineligible row is still tickable (its reason is what the Run button then prints), so it
-   keeps the pointer and the hover — only its id is muted, next to the reason. */
-tr.subject-picker-row[data-eligible="false"] .subjects-field-id {
-  color: var(--ink-2);
-}
-
-.subjects-field-rows .subjects-field-check {
-  width: 24px;
-  padding-right: 0;
-}
-.subjects-field-id {
-  font-family: var(--font-mono);
 }
 /* The reason a subject cannot be used: 12px, --ink-2, never truncated to a tooltip — it is the
    same sentence the action bar prints, and the row is where a user is deciding. */
