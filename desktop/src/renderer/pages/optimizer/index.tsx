@@ -78,7 +78,7 @@ import {
 } from "./buckets";
 import { useOpenInViewer } from "../../app/openInViewer";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
-import { leadfieldPathFor, defaultNet } from "./nets";
+import { electrodesForNet, keepElectrodesOnNet, leadfieldPathFor, defaultNet } from "./nets";
 import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
 import { automaticRunName, flexOutputFolder, jobsForRow, optimizerOutputClaims, rowFormReason, validateJobs, type OptimizerJobSpec } from "./plan";
 import {
@@ -257,6 +257,23 @@ function OptimizerPage() {
     if (filled.some((r, i) => r !== rows[i])) setRows(filled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, leadfieldsLoaded]);
+
+  // An Ex/mEx row holds only electrodes its net has (`keepElectrodesOnNet`): switching the net —
+  // in the table, in the editor's leadfield strip, or by the default above — drops the labels the
+  // new net lacks and says which, instead of keeping a job whose leadfield has no field for them.
+  // A functional update, so it cannot undo the default-net fill that may land in the same commit.
+  const netsLoaded = modelled.map((id) => (netsBySubject[id] ? "1" : "0")).join("");
+  useEffect(() => {
+    const onNet = (r: OptimizerRow) => keepElectrodesOnNet(r, electrodesForNet(netsBySubject[r.subjectId], r.net));
+    const notes = rows.flatMap((r, i) => {
+      const { dropped } = onNet(r);
+      return dropped.length ? [`Job ${i + 1}: removed ${dropped.join(", ")} — not on ${r.net}.`] : [];
+    });
+    if (notes.length === 0) return;
+    setRows((previous) => previous.map((r) => onNet(r).row));
+    notify.info(notes.join(" "));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, netsLoaded]);
 
   // The page starts with one row on the shell's subject: a table whose first act is "press Add
   // job" would make the page's own subject a thing to discover (the Simulator's own seeding).

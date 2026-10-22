@@ -19,6 +19,7 @@
  * there would ask for `<net>.csv.csv`, the same double-suffix bug S2 fixed in the source panel).
  */
 import type { EegNet, Leadfield } from "./api";
+import type { OptimizerRow } from "./rows";
 
 /** The bare net name: `"EEG10-10_UI_Jurak_2007.csv"` and `"EEG10-10_UI_Jurak_2007"` are one net. */
 export function netKey(name: string): string {
@@ -71,3 +72,34 @@ export function defaultNet(leadfields: Leadfield[] | undefined, nets: EegNet[] |
   return first ? netKey(first) : null;
 }
 
+/**
+ * An Ex/mEx row with every electrode its net does not have taken out, and the labels taken out
+ * (first-seen order, once each).
+ *
+ * The rule a net switch follows: a label is kept when the net's electrode list (`electrodesForNet`,
+ * the list every bucket is filled from) has it, and dropped otherwise -- the new net's leadfield
+ * has no field for it, so the job could only fail on the server. A bucket left empty, or a pool
+ * left under four, is then refused by the row gate's own sentence (`rowFormReason`). Both the Ex
+ * buckets and pool and the mEx buckets are reconciled, since a row carries both forms.
+ *
+ * An empty `electrodes` means the net's list is unknown here (the nets listing has not arrived, or
+ * a leadfield's cap CSV is gone): nothing is dropped, and the server's preflight and the runner
+ * judge the labels against the leadfield instead. A Flex row's net is a mapping net, not a
+ * leadfield, so a Flex row is returned as is. The same row object comes back when nothing is
+ * dropped.
+ */
+export function keepElectrodesOnNet(row: OptimizerRow, electrodes: readonly string[]): { row: OptimizerRow; dropped: string[] } {
+  if (row.method !== "ex" || electrodes.length === 0) return { row, dropped: [] };
+  const onNet = new Set(electrodes);
+  const dropped: string[] = [];
+  const keep = (labels: string[] | undefined): string[] =>
+    (labels ?? []).filter((label) => {
+      if (onNet.has(label)) return true;
+      if (!dropped.includes(label)) dropped.push(label);
+      return false;
+    });
+  const buckets = (b: Record<string, string[]>) => Object.fromEntries(Object.entries(b).map(([key, labels]) => [key, keep(labels)]));
+  const ex = { ...row.ex, buckets: buckets(row.ex.buckets), pool: keep(row.ex.pool) };
+  const mex = { ...row.mex, buckets: buckets(row.mex.buckets) };
+  return dropped.length === 0 ? { row, dropped } : { row: { ...row, ex, mex }, dropped };
+}

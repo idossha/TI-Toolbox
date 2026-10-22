@@ -186,12 +186,8 @@ test("mEx with the same four electrodes in all eight buckets: 0 combinations and
 });
 
 test("switching the net drops or names an electrode the new net does not have", async () => {
-  // KNOWN BUG (found by this spec, 2026-10-22; the fix belongs to the Optimizer page, outside
-  // package p38): after the switch E1+ still holds E200, Run is ENABLED with no title, and the job
-  // would be submitted with an electrode the GSN-HydroCel-185 leadfield does not have.
-  // `test.fail` keeps the flow in the suite and turns red the day the page drops or names it --
-  // then delete this line.
-  test.fail(true, "Optimizer keeps an electrode the new net lacks and lets the job run");
+  // The page drops a label the new net lacks (`keepElectrodesOnNet`, package c1_4); the spec
+  // accepts either rule, so it stays the contract if the page ever keeps and names it instead.
   // The mock's EGI_template has E1..E256 and GSN-HydroCel-185 E1..E185 (server.mjs NET_SIZES).
   const row = await freshExRow();
   await setOptCell(page, row, "net", "EGI_template — no leadfield");
