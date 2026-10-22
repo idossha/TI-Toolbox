@@ -770,6 +770,7 @@ def _resolve_paths(config: VectorConfig) -> list[str]:
         config.mesh3, config.mesh4 = carriers[2], carriers[3]
 
     config.central_surface = central_surface_path(sid, sim)
+    config.output_dir = (config.output_dir or "").strip()
     if not config.output_dir:
         config.output_dir = os.path.join(
             pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, "vectors"

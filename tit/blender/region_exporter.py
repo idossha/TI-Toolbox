@@ -513,6 +513,7 @@ def _resolve_paths(config: RegionConfig) -> None:
     config.m2m_dir = pm.m2m(sid)
     config.mesh = central_surface_path(sid, sim)
     config.field_name = surface_field_name(sid, sim, config.field_name)
+    config.output_dir = (config.output_dir or "").strip()
     if not config.output_dir:
         fmt = str(config.format).lower()
         config.output_dir = os.path.join(

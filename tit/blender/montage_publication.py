@@ -233,8 +233,8 @@ def build_montage_publication_blend(
     simulation_name : str
         Name of the simulation to visualise.
     output_dir : str or None, optional
-        Directory for all output files.  When *None*, a default BIDS-derivative
-        path is constructed via :class:`PathManager`.
+        Directory for all output files.  When *None* or blank, a default
+        BIDS-derivative path is constructed via :class:`PathManager`.
     show_full_net : bool, optional
         If *True*, render the entire EEG net; otherwise only active electrodes.
     electrode_diameter_mm : float, optional
@@ -287,7 +287,8 @@ def build_montage_publication_blend(
             f"any high_Frequency/mesh/*.msh under {sim_dir}."
         )
 
-    if output_dir is None:
+    output_dir = (output_dir or "").strip()  # blank is no directory, as the plan says
+    if not output_dir:
         if not pm.project_dir:
             raise RuntimeError(
                 "Project directory is not set (PathManager.project_dir is None)."

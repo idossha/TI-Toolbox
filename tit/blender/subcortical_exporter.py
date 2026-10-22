@@ -101,7 +101,8 @@ def run_subcortical(
             f"{pm.simulation(config.subject_id, config.simulation_name)}"
         )
 
-    output_dir = config.output_dir or _visual_exports_dir(
+    # A blank output_dir is no directory; the plan route reports the default for it.
+    output_dir = (config.output_dir or "").strip() or _visual_exports_dir(
         pm.project_dir, config.subject_id
     )
     os.makedirs(output_dir, exist_ok=True)

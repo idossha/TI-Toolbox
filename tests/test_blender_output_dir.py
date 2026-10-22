@@ -194,6 +194,47 @@ def test_montage_runner_writes_where_the_plan_says(project, monkeypatch):
     )
 
 
+@pytest.mark.parametrize(
+    "mode, default_parts",
+    [
+        ("RegionConfig", (SIM, "stl")),
+        ("VectorConfig", (SIM, "vectors")),
+        ("SubcorticalConfig", ("sub-cortical",)),
+        ("MontageConfig", ("montage_publication",)),
+    ],
+)
+def test_a_blank_output_dir_is_the_default_for_plan_and_runner(
+    project, monkeypatch, mode, default_parts
+):
+    """A whitespace-only output_dir is no directory: the plan says the default, so must the job."""
+    monkeypatch.chdir(project)  # a runner that kept "   " would make it here, not in the repo
+    blank = "   "
+    if mode == "RegionConfig":
+        cfg = RegionConfig(subject_id=SID, simulation_name=SIM, format="stl")
+        cfg.output_dir = blank
+        planned = _blender_output_dir(_pm(), cfg)
+        resolved = _region_dir(cfg)
+    elif mode == "VectorConfig":
+        cfg = VectorConfig(subject_id=SID, simulation_name=SIM)
+        cfg.output_dir = blank
+        planned = _blender_output_dir(_pm(), cfg)
+        resolved = _vector_dir(cfg)
+    elif mode == "SubcorticalConfig":
+        cfg = SubcorticalConfig(
+            subject_id=SID, nifti_path=str(project / "labeling.nii.gz")
+        )
+        cfg.output_dir = blank
+        planned = _blender_output_dir(_pm(), cfg)
+        resolved = _subcortical_dir(cfg, monkeypatch)
+    else:
+        cfg = MontageConfig(subject_id=SID, simulation_name=SIM, output_dir=blank)
+        planned = _blender_output_dir(_pm(), cfg)
+        resolved = _montage_dir(cfg, monkeypatch)
+    assert planned == _default(project, *default_parts)
+    assert resolved == planned
+    assert not (project / blank).exists()
+
+
 def _pm():
     from tit.paths import get_path_manager
 
