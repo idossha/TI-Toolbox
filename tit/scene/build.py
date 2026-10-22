@@ -55,7 +55,7 @@ import numpy as np
 
 from tit.paths import PathManager, resolve_within
 from tit.scene import cache, gifti, tvsc
-from tit.scene.simplify import simplify_to_budget
+from tit.scene.simplify import SimplifyResult, simplify_to_budget
 
 __all__ = [
     "PART_TAGS",
@@ -139,7 +139,12 @@ LABEL_SMOOTH_PASSES = 3
 #:     whose nearest central-surface neighbour sat across a region border no
 #:     longer paints a stray triangle. Every sidecar gains ``smooth_passes``
 #:     and ``smoothed_vertices``.
-BUILDER_VERSION = "4"
+#: ``"5"``
+#:     the framing floor is the grey matter's *published* (float32) lowest vertex, the
+#:     one its ``bbox`` reports, so the grey matter's ``focus_bbox`` is its ``bbox`` on
+#:     every subject. Measured on Dataset 000's ``sub-101`` before this: ``focus_bbox``
+#:     z0 -92.335 against ``bbox`` z0 -92.396, the lowest vertex cut by float32 rounding.
+BUILDER_VERSION = "5"
 
 #: Whose lowest vertex marks the bottom of "the head" for :func:`focus_bbox`.
 #: The grey matter's floor is the bottom of the cerebellum and brainstem;
@@ -632,15 +637,28 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
         extracted[part] = (vertices, triangles, flipped, extract_ms)
     del mesh
 
-    floor_source = extracted.get(FOCUS_FLOOR_PART)
+    simplified: dict[str, tuple[SimplifyResult, float]] = {}
+    for part, (vertices, triangles, _flipped, _extract_ms) in extracted.items():
+        part_started = time.perf_counter()
+        result = simplify_to_budget(vertices, triangles, MAX_TRIANGLES, MAX_BYTES)
+        simplified[part] = (result, (time.perf_counter() - part_started) * 1000.0)
+
+    # The floor is read off the vertices the floor part publishes -- the very set its `bbox`
+    # is taken from -- not off the extracted float64 ones: the payloads are float32, and on
+    # sub-101 the lowest grey-matter vertex survives simplification and rounds 7.8e-7 mm
+    # *below* its float64 self (-92.396347 vs -92.3963463), so a float64 floor cut it out of
+    # the grey matter's own focus box (-92.335 against a bbox floor of -92.396).
+    floor_source = simplified.get(FOCUS_FLOOR_PART)
     floor_z = (
-        float(floor_source[0][:, 2].min()) if floor_source is not None else -np.inf
+        float(floor_source[0].vertices[:, 2].min())
+        if floor_source is not None
+        else -np.inf
     )
 
     metas: dict[str, dict] = {}
     for part, (vertices, triangles, flipped, extract_ms) in extracted.items():
+        result, simplify_ms = simplified[part]
         part_started = time.perf_counter()
-        result = simplify_to_budget(vertices, triangles, MAX_TRIANGLES, MAX_BYTES)
         # One extraction, one simplification, two serialisations (decision E7).
         # `tvsc` is the frozen compatibility payload and `gii` is the standard
         # GIfTI mesh; both are the SAME vertices and triangles, which
@@ -651,7 +669,12 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
             "gii": gifti.encode_surface(result.vertices, result.triangles),
         }
         blob = blobs["tvsc"]
-        build_ms = read_ms + extract_ms + (time.perf_counter() - part_started) * 1000.0
+        build_ms = (
+            read_ms
+            + extract_ms
+            + simplify_ms
+            + (time.perf_counter() - part_started) * 1000.0
+        )
         bbox = np.concatenate(
             [result.vertices.min(axis=0), result.vertices.max(axis=0)]
         )
