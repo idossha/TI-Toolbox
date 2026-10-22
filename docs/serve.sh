@@ -40,6 +40,10 @@ if ! command -v bundle >/dev/null; then
     echo "Bundler is missing. Install it with: gem install bundler" >&2
     exit 1
 fi
+if ! command -v python3 >/dev/null; then
+    echo "Python 3 is required to build the search index." >&2
+    exit 1
+fi
 
 # Explain a busy port instead of killing an unrelated site or failing deep inside Jekyll.
 if ! ruby -rsocket -e 'TCPServer.new("127.0.0.1", Integer(ARGV[0], 10)).close' "$port" 2>/dev/null; then
@@ -54,7 +58,12 @@ if ! bundle check; then
     bundle install
 fi
 export ENABLE_ANALYTICS="${ENABLE_ANALYTICS:-false}"
+# The search index is written from the built pages, the same way for the published site
+# (GitHub Pages never runs Jekyll plugins). _config.yml keeps it across rebuilds, so
+# search reflects the pages as they were when this script started.
+bundle exec jekyll build --baseurl ""
+python3 tests/build_search_index.py _site
 echo "Docs: http://127.0.0.1:$port/"
 echo "Wait for 'Server running', then open the URL. Changes rebuild automatically; refresh your browser."
 echo "Press Ctrl+C to stop."
-exec bundle exec jekyll serve --host 127.0.0.1 --port "$port" --baseurl ""
+exec bundle exec jekyll serve --host 127.0.0.1 --port "$port" --baseurl "" --skip-initial-build

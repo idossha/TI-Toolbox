@@ -61,3 +61,8 @@ exclude:
   # The whole directory is excluded, so a new note under dev/ is never published.
   - dev/
 
+# The search index is written into the built site after Jekyll runs
+# (docs/tests/build_search_index.py); keep it when `jekyll serve` rebuilds.
+keep_files:
+  - search/search.json
+
