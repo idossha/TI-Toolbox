@@ -25,8 +25,7 @@ Simulation Constants
     Simulation types (``SIM_TYPE_*``), modes, electrode shapes, and default
     electrode parameters.
 Atlas Names
-    Cortical (``ATLAS_DK40``, ``ATLAS_A2009S``) and subcortical atlas
-    identifiers.
+    Atlas identifiers (``ATLAS_*``).
 Logging Constants
     Log levels (``LOG_LEVEL_*``) and format strings (``LOG_FORMAT_*``).
 Numerical Constants
@@ -67,7 +66,6 @@ DIR_CODE = "code"
 DIR_REPORTS = "reports"
 
 # Derivative subdirectories
-DIR_SIMNIBS = "SimNIBS"
 DIR_TI_TOOLBOX = "ti-toolbox"
 DIR_LOGS = "logs"
 DIR_NILEARN_VISUALS = "nilearn_visuals"
@@ -76,9 +74,7 @@ DIR_NILEARN_VISUALS = "nilearn_visuals"
 DIR_EEG_POSITIONS = "eeg_positions"
 DIR_ROIS = "ROIs"
 DIR_EX_SEARCH = "ex-search"
-DIR_FLEX_SEARCH = "flex-search"
 DIR_LEADFIELDS = "leadfields"
-DIR_ANALYSIS = "Analyses"
 
 # Configuration directory
 DIR_CONFIG = "config"
@@ -95,7 +91,6 @@ FILE_SIMULATOR_CONFIG = "simulator.json"
 FILE_PREPROCESS_CONFIG = "preprocess.json"
 
 # Template files
-FILE_EGI_TEMPLATE = "GSN-HydroCel-185.csv"
 
 # NIfTI files
 FILE_T1 = "T1.nii.gz"
@@ -103,8 +98,6 @@ FILE_DTI_TENSOR = "DTI_coregT1_tensor.nii.gz"
 FILE_DTI_QC = "DTI_coregT1_qc.json"
 
 # File extensions
-EXT_NIFTI = ".nii.gz"
-EXT_MESH = ".msh"
 EXT_CSV = ".csv"
 EXT_JSON = ".json"
 EXT_MAT = ".mat"
@@ -119,7 +112,6 @@ EXT_HTML = ".html"
 
 # BIDS naming conventions
 PREFIX_SUBJECT = "sub-"
-PREFIX_SESSION = "ses-"
 
 # ============================================================================
 # ENVIRONMENT VARIABLES
@@ -412,7 +404,6 @@ FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 # Default analysis parameters
 DEFAULT_PERCENTILES = [95, 99, 99.9]
 DEFAULT_FOCALITY_CUTOFFS = [50, 75, 90, 95]
-DEFAULT_RADIUS_MM = 5.0
 
 # ============================================================================
 # SIMULATION CONSTANTS
@@ -453,8 +444,6 @@ PAIR_COUNT_RULE = (
 
 
 # Simulation types
-SIM_TYPE_TI = "TI"
-SIM_TYPE_MTI = "mTI"
 SIM_TYPE_TDCS = "tDCS"
 
 # Simulation modes
@@ -483,13 +472,7 @@ WM_TISSUE_TAG = 1  # White matter element tag in SimNIBS meshes
 # ============================================================================
 
 # Cortical atlases
-ATLAS_DK40 = "DK40"
-ATLAS_A2009S = "a2009s"
 ATLAS_DESIKAN_KILLIANY = "desikan-killiany"
-
-# Subcortical atlases
-ATLAS_ASEG = "aseg"
-ATLAS_APARC_ASEG = "aparc+aseg"
 
 # ============================================================================
 # LOGGING CONSTANTS
@@ -534,8 +517,6 @@ COLOR_UNDERLINE = "\033[4m"
 COLOR_RESET = "\033[0m"
 
 # Plot parameters
-PLOT_DPI = 600
-PLOT_FIGSIZE_DEFAULT = (10, 8)
 PLOT_FIGSIZE_WIDE = (12, 6)
 PLOT_FIGSIZE_TALL = (8, 12)
 
@@ -576,8 +557,6 @@ REPORT_FORMAT_PDF = "pdf"
 # TIMESTAMP FORMATS
 # ============================================================================
 
-TIMESTAMP_FORMAT_DEFAULT = "%Y%m%d_%H%M%S"
-TIMESTAMP_FORMAT_READABLE = "%Y-%m-%d %H:%M:%S"
 TIMESTAMP_FORMAT_DATE_ONLY = "%Y-%m-%d"
 TIMESTAMP_FORMAT_TIME_ONLY = "%H:%M:%S"
 
@@ -725,7 +704,6 @@ QSI_ATLASES = [
 QSI_DEFAULT_ATLASES = ["4S156Parcels", "AAL116"]
 
 # QSI default resource settings
-QSI_DEFAULT_CPUS = 8
 QSI_DEFAULT_MEMORY_GB = 32
 # Threads per process, mirroring QSIPrep's own default of min(nprocs - 1, 8).
 # This was pinned at 1, which left every ANTs registration single-threaded --

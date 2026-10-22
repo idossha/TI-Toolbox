@@ -173,34 +173,29 @@ Stream handlers use minimal format: `%(message)s`.
 
 ## Constants
 
-All hardcoded values live in `tit.constants`. Key categories:
+Shared names and values live in `tit.constants`. Key categories:
 
 | Category | Examples |
 |----------|----------|
-| **Directory names** | `DIR_DERIVATIVES`, `DIR_SIMNIBS`, `DIR_FLEX_SEARCH`, `DIR_ANALYSIS` |
-| **File names** | `FILE_MONTAGE_LIST`, `FILE_T1`, `FILE_EGI_TEMPLATE` |
-| **File extensions** | `EXT_NIFTI` (`.nii.gz`), `EXT_MESH` (`.msh`), `EXT_CSV` |
-| **BIDS prefixes** | `PREFIX_SUBJECT` (`sub-`), `PREFIX_SESSION` (`ses-`) |
-| **Field names** | `FIELD_TI_MAX` (`TI_max`), `FIELD_MTI_MAX` (`mTI_max`), `FIELD_TI_NORMAL` (`TI_normal`) |
-| **Tissue tags** | `GM_TISSUE_TAG` (2), `WM_TISSUE_TAG` (1), `BRAIN_TISSUE_TAG_RANGES` |
-| **Conductivities** | `CONDUCTIVITY_GRAY_MATTER` (0.275 S/m), `CONDUCTIVITY_WHITE_MATTER` (0.126 S/m), 12 tissues total |
-| **Tissue properties** | `TISSUE_PROPERTIES` — list of dicts with number, name, conductivity, and reference |
-| **Atlas names** | `ATLAS_DK40`, `ATLAS_A2009S`, `ATLAS_ASEG`, `ATLAS_APARC_ASEG` |
-| **Analysis defaults** | `DEFAULT_PERCENTILES` ([95, 99, 99.9]), `DEFAULT_FOCALITY_CUTOFFS` ([50, 75, 90, 95]), `DEFAULT_RADIUS_MM` (5.0) |
-| **Simulation** | `SIM_TYPE_TI`, `SIM_TYPE_MTI`, `ELECTRODE_SHAPE_ELLIPSE`, `DEFAULT_INTENSITY` (1.0) |
-| **EEG nets** | `EEG_NETS` — list of dicts with value, label, electrode_count |
-| **Validation bounds** | `VALIDATION_BOUNDS` — min/max for radius, current, iterations, etc. |
-| **Plot settings** | `PLOT_DPI` (600), `PLOT_FIGSIZE_DEFAULT` ((10, 8)) |
-| **Timestamps** | `TIMESTAMP_FORMAT_DEFAULT` (`%Y%m%d_%H%M%S`), `TIMESTAMP_FORMAT_READABLE` |
-| **QSI integration** | `QSI_RECON_SPECS`, `QSI_ATLASES`, `QSI_DEFAULT_CPUS` (8) |
+| **Directory names** | `DIR_DERIVATIVES`, `DIR_TI_TOOLBOX`, `DIR_NILEARN_VISUALS` |
+| **File names** | `FILE_MONTAGE_LIST`, `FILE_T1`, `FILE_DTI_TENSOR`, `FILE_DTI_QC` |
+| **BIDS prefix** | `PREFIX_SUBJECT` (`sub-`) |
+| **Environment** | `ENV_PROJECT_DIR`, `ENV_PROJECT_DIR_NAME`, `DOCKER_MOUNT_PREFIX` |
+| **Field names** | `FIELD_TI_MAX` (`TI_max`), `FIELD_MTI_MAX` (`mTI_max`), `FIELD_TI_NORMAL` (`TI_normal`), `FIELD_HF_PEAK` (`hf_peak`), `FIELD_HF_SAR` (`hf_sar`) |
+| **Field registry** | `FIELD_REGISTRY`, `get_field_names()`, `get_field_spec()`, `SELECTABLE_OUTPUT_FIELDS` |
+| **Electrode pairs** | `TI_ELECTRODE_PAIRS` (2), `is_valid_pair_count()`, `PAIR_COUNT_RULE` |
+| **Mesh tissue tags** | `BRAIN_TISSUE_TAG_RANGES` (`((1, 100), (1001, 1100))`) |
+| **fsaverage** | `FSAVG_NODES`, `FSAVG_FIELD_NAMES` |
+| **QSI integration** | `QSI_QSIPREP_IMAGE`, `QSI_RECON_SPECS`, `QSI_ATLASES`, `QSI_DEFAULT_OMP_THREADS` |
+| **Telemetry** | `TELEMETRY_OP_*` operation names, `GA4_ENDPOINT` |
 
 ```python
 from tit import constants as const
 
-const.FIELD_TI_MAX         # "TI_max"
-const.GM_TISSUE_TAG        # 2
-const.DEFAULT_RADIUS_MM    # 5.0
-const.TISSUE_PROPERTIES    # [{"number": 1, "name": "White Matter", ...}, ...]
+const.FIELD_TI_MAX             # "TI_max"
+const.TI_ELECTRODE_PAIRS       # 2
+const.is_valid_pair_count(4)   # True: 4 pairs is an mTI montage
+const.get_field_names()[:2]    # ("TI_max", "mTI_max")
 ```
 
 ## Config IO
