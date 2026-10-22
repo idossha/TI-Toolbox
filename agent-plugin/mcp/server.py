@@ -656,13 +656,22 @@ def tool_search_source(args: Dict[str, Any]) -> Dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-def _ls(p: Path, *, dirs_only: bool = False) -> List[str]:
-    if not p.is_dir():
+def _inside(root: Path, p: Path) -> bool:
+    """tit.paths.is_within: *p* resolves inside *root*, so a symlink leading out does not."""
+    base, real = os.path.realpath(root), os.path.realpath(p)
+    return real == base or real.startswith(base.rstrip(os.sep) + os.sep)
+
+
+def _ls(p: Path, *, dirs_only: bool = False, jail: Optional[Path] = None) -> List[str]:
+    """Sorted non-hidden names in *p*; with *jail*, only entries that resolve inside it."""
+    if not p.is_dir() or (jail is not None and not _inside(jail, p)):
         return []
     return sorted(
         e.name
         for e in p.iterdir()
-        if not e.name.startswith(".") and (e.is_dir() or not dirs_only)
+        if not e.name.startswith(".")
+        and (e.is_dir() or not dirs_only)
+        and (jail is None or _inside(jail, e))
     )
 
 
@@ -682,27 +691,35 @@ _DICOM_LIKE_EXTS = (
 )
 
 
-def _subject_dirs(home: Path) -> List[str]:
+def _natural_key(text: str) -> List[Any]:
+    """tit.paths.natural_key: ``2`` sorts before ``10`` (digits compared as numbers)."""
+    return [int(c) if c.isdigit() else c.lower() for c in re.split("([0-9]+)", text)]
+
+
+def _subject_dirs(home: Path, jail: Path) -> List[str]:
     return [
         n[4:]
-        for n in _ls(home, dirs_only=True)
+        for n in _ls(home, dirs_only=True, jail=jail)
         if n.startswith("sub-") and _SUBJECT_ID_RE.match(n[4:])
     ]
 
 
-def _has_staged_raw(subject_dir: Path) -> bool:
+def _has_staged_raw(subject_dir: Path, jail: Path) -> bool:
     """tit.catalog's rule: T1w/ or T2w/ holds a series folder or a DICOM-like file, or the
-    subject folder holds a .tgz."""
+    subject folder holds a .tgz -- counting only what lies inside *jail*."""
+
+    def entries(d: Path) -> List[Path]:
+        if not d.is_dir() or not _inside(jail, d):
+            return []
+        return [e for e in d.iterdir() if _inside(jail, e)]
+
     for modality in ("T1w", "T2w"):
-        series = subject_dir / modality
-        if series.is_dir() and any(
+        if any(
             e.is_dir() or e.name.lower().endswith(_DICOM_LIKE_EXTS)
-            for e in series.iterdir()
+            for e in entries(subject_dir / modality)
         ):
             return True
-    return subject_dir.is_dir() and any(
-        e.name.endswith(".tgz") for e in subject_dir.iterdir()
-    )
+    return any(e.name.endswith(".tgz") for e in entries(subject_dir))
 
 
 def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -710,6 +727,17 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
     if not root.is_dir():
         raise ToolError(f"project_root is not a directory: {root}")
     subject_filter = args.get("subject")
+
+    # Only what lies inside the project counts, as in the app (tit.catalog's project jail).
+    def ls(p: Path, dirs_only: bool = False) -> List[str]:
+        return _ls(p, dirs_only=dirs_only, jail=root)
+
+    def isdir(p: Path) -> bool:
+        return _inside(root, p) and p.is_dir()
+
+    def isfile(p: Path) -> bool:
+        return _inside(root, p) and p.is_file()
+
     deriv = root / "derivatives"
     simnibs = deriv / "SimNIBS"
     sourcedata = root / "sourcedata"
@@ -717,18 +745,20 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
     # The subjects the app lists (tit.catalog.list_subjects): a raw BIDS, FastSurfer or legacy
     # FreeSurfer folder, a SimNIBS folder with a head model, or a T1w/T2w series staged in
     # sourcedata/ -- each under a valid subject id.
-    ids = set(_subject_dirs(root))
-    ids.update(_subject_dirs(deriv / "fastsurfer"))
-    ids.update(_subject_dirs(deriv / "freesurfer"))
+    ids = set(_subject_dirs(root, root))
+    ids.update(_subject_dirs(deriv / "fastsurfer", root))
+    ids.update(_subject_dirs(deriv / "freesurfer", root))
     ids.update(
         s
-        for s in _subject_dirs(simnibs)
-        if (simnibs / f"sub-{s}" / f"m2m_{s}").is_dir()
+        for s in _subject_dirs(simnibs, root)
+        if isdir(simnibs / f"sub-{s}" / f"m2m_{s}")
     )
     ids.update(
-        s for s in _subject_dirs(sourcedata) if _has_staged_raw(sourcedata / f"sub-{s}")
+        s
+        for s in _subject_dirs(sourcedata, root)
+        if _has_staged_raw(sourcedata / f"sub-{s}", root)
     )
-    all_ids = sorted(ids)
+    all_ids = sorted(ids, key=_natural_key)
     if subject_filter:
         all_ids = [s for s in all_ids if s == str(subject_filter)]
 
@@ -740,56 +770,54 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
         sims = sub / "Simulations"
         entry: Dict[str, Any] = {
             "id": sid,
-            "anat_files": _ls(anat),
-            "has_m2m": m2m.is_dir(),
-            "has_head_mesh": (m2m / f"{sid}.msh").is_file(),
-            "has_sourcedata": _has_staged_raw(sourcedata / f"sub-{sid}"),
-            "has_fastsurfer": (deriv / "fastsurfer" / f"sub-{sid}").is_dir(),
-            "has_freesurfer": (deriv / "freesurfer" / f"sub-{sid}").is_dir(),
-            "freesurfer_recon": (
+            "anat_files": ls(anat),
+            "has_m2m": isdir(m2m),
+            "has_head_mesh": isfile(m2m / f"{sid}.msh"),
+            "has_sourcedata": _has_staged_raw(sourcedata / f"sub-{sid}", root),
+            "has_fastsurfer": isdir(deriv / "fastsurfer" / f"sub-{sid}"),
+            "has_freesurfer": isdir(deriv / "freesurfer" / f"sub-{sid}"),
+            "freesurfer_recon": isfile(
                 deriv / "freesurfer" / f"sub-{sid}" / "mri" / "aparc+aseg.mgz"
-            ).is_file(),
-            "qsiprep": (deriv / "qsiprep" / f"sub-{sid}").is_dir(),
-            "qsirecon": (deriv / "qsirecon" / f"sub-{sid}").is_dir(),
-            "dti_tensor": (m2m / "DTI_coregT1_tensor.nii.gz").is_file(),
-            "leadfields": _ls(sub / "leadfields"),
+            ),
+            "qsiprep": isdir(deriv / "qsiprep" / f"sub-{sid}"),
+            "qsirecon": isdir(deriv / "qsirecon" / f"sub-{sid}"),
+            "dti_tensor": isfile(m2m / "DTI_coregT1_tensor.nii.gz"),
+            "leadfields": ls(sub / "leadfields"),
             "freehand_configs": [
-                f for f in _ls(m2m / "stim_configs") if f.endswith(".json")
+                f for f in ls(m2m / "stim_configs") if f.endswith(".json")
             ],
             "simulations": {},
-            "flex_search_runs": _ls(sub / "flex-search", dirs_only=True),
-            "ex_search_runs": _ls(sub / "ex-search", dirs_only=True),
-            "mex_search_runs": _ls(sub / "m-ex-search", dirs_only=True),
+            "flex_search_runs": ls(sub / "flex-search", dirs_only=True),
+            "ex_search_runs": ls(sub / "ex-search", dirs_only=True),
+            "mex_search_runs": ls(sub / "m-ex-search", dirs_only=True),
         }
-        for sim in _ls(sims, dirs_only=True):
+        for sim in ls(sims, dirs_only=True):
             sd = sims / sim
             entry["simulations"][sim] = {
-                "contents": _ls(sd),
-                "has_ti_dir": (sd / "TI").is_dir(),
-                "mesh_files": [
-                    f for f in _ls(sd / "TI" / "mesh") if f.endswith(".msh")
-                ],
+                "contents": ls(sd),
+                "has_ti_dir": isdir(sd / "TI"),
+                "mesh_files": [f for f in ls(sd / "TI" / "mesh") if f.endswith(".msh")],
                 "nifti_files": [
                     f
-                    for f in _ls(sd / "TI" / "niftis")
+                    for f in ls(sd / "TI" / "niftis")
                     if f.endswith((".nii", ".nii.gz"))
                 ],
                 # A 4+ pair (mTI) run writes its result under mTI/ (tit/sim/mTI.py).
-                "has_mti_dir": (sd / "mTI").is_dir(),
+                "has_mti_dir": isdir(sd / "mTI"),
                 "mti_mesh_files": [
-                    f for f in _ls(sd / "mTI" / "mesh") if f.endswith(".msh")
+                    f for f in ls(sd / "mTI" / "mesh") if f.endswith(".msh")
                 ],
                 "mti_nifti_files": [
                     f
-                    for f in _ls(sd / "mTI" / "niftis")
+                    for f in ls(sd / "mTI" / "niftis")
                     if f.endswith((".nii", ".nii.gz"))
                 ],
                 "analyses": {
-                    space: _ls(sd / "Analyses" / space, dirs_only=True)
+                    space: ls(sd / "Analyses" / space, dirs_only=True)
                     for space in ("Mesh", "Voxel")
-                    if (sd / "Analyses" / space).is_dir()
+                    if isdir(sd / "Analyses" / space)
                 },
-                "has_fsaverage": (sd / "fsaverage").is_dir(),
+                "has_fsaverage": isdir(sd / "fsaverage"),
             }
         subjects.append(entry)
 
@@ -799,12 +827,12 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
     jobs = code / "jobs"
 
     # The v3 job store: one directory per job, each with status.json.
-    job_dirs = _ls(jobs, dirs_only=True)
+    job_dirs = ls(jobs, dirs_only=True)
     job_summary: Dict[str, int] = {}
     recent_failures: List[Dict[str, Any]] = []
     for jid in job_dirs:
         sp = jobs / jid / "status.json"
-        if not sp.is_file():
+        if not isfile(sp):
             continue
         try:
             st = json.loads(sp.read_text(encoding="utf-8", errors="replace"))
@@ -829,23 +857,23 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "project_root": str(root),
-        "looks_like_ti_project": simnibs.is_dir() or code.is_dir(),
+        "looks_like_ti_project": isdir(simnibs) or isdir(code),
         "subjects": subjects,
-        "sourcedata_subjects": _ls(root / "sourcedata", dirs_only=True),
-        "config_files": _ls(cfg),
-        "reports": _ls(tt / "reports"),
+        "sourcedata_subjects": ls(root / "sourcedata", dirs_only=True),
+        "config_files": ls(cfg),
+        "reports": ls(tt / "reports"),
         "stats_analyses": {
-            t: _ls(tt / "stats" / t, dirs_only=True)
-            for t in _ls(tt / "stats", dirs_only=True)
+            t: ls(tt / "stats" / t, dirs_only=True)
+            for t in ls(tt / "stats", dirs_only=True)
         },
         "code_ti_toolbox": {
             "jobs_count": len(job_dirs),
             "jobs_by_state": job_summary,
             "recent_failures": recent_failures[:10],
-            "notebooks": _ls(code / "notebooks"),
-            "notebook_examples": _ls(code / "notebooks" / "examples"),
+            "notebooks": ls(code / "notebooks"),
+            "notebook_examples": ls(code / "notebooks" / "examples"),
             "viewer_scenes": [
-                f for f in _ls(code / "viewer") if f.endswith(".tetravox.json")
+                f for f in ls(code / "viewer") if f.endswith(".tetravox.json")
             ],
         },
         "notes": [
@@ -855,11 +883,13 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             "A flex/ex/mex run directory without its completion manifest (flex_meta.json, "
             "run_config.json) is deliberately ignored by the catalog, so a cancelled or "
             "in-progress run never appears as a result.",
-            "Subjects are the ones the app lists. has_sourcedata is true only when "
+            "Subjects are the ones the app lists, in its order (2 before 10). "
+            "has_sourcedata is true only when "
             "sourcedata/sub-<id>/T1w or T2w holds a series (a folder or a DICOM/NIfTI/"
             "archive file) or sub-<id>/ holds a .tgz; sourcedata_subjects lists every "
             "folder under sourcedata/, staged or not. A SimNIBS folder without m2m_<id> "
-            "does not make a subject.",
+            "does not make a subject. As in the app, a folder that is a symlink leading "
+            "out of the project is not read.",
         ],
         "layout_reference": f"{SITE_BASE}/wiki/overview/",
     }

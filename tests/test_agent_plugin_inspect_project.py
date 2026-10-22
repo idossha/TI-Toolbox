@@ -7,7 +7,9 @@ inspector agents call before diagnosing "my result is missing" -- reports
   read only ``TI/``), and
 * FastSurfer/FreeSurfer presence, ``has_m2m`` and simulation names exactly as
   ``tit.catalog.list_subjects`` reports them, with every subject the catalog lists (including
-  subjects staged only under ``sourcedata/``) and every flex run the catalog lists.
+  subjects staged only under ``sourcedata/``), in the catalog's natural order, and every flex
+  run the catalog lists;
+* nothing reached through a symlink that leads out of the project (the catalog's jail).
 
 Where the expected values come from: the synthetic project is laid out with ``PathManager``
 (``ti_mesh_dir``/``mti_mesh_dir``) and the mTI file name of ``tit/sim/mTI.py``
@@ -113,8 +115,9 @@ def _agrees_with_catalog(out: dict, pm) -> None:
     rows = catalog.list_subjects(pm)
     assert rows, "the catalog lists no subject: nothing to compare"
     by_id = {s["id"]: s for s in out["subjects"]}
-    # The same subjects, no more and no fewer: an extra one is a folder the app never shows.
-    assert set(by_id) == {r["id"] for r in rows}
+    # The same subjects in the same order, no more and no fewer: an extra one is a folder
+    # the app never shows.
+    assert [s["id"] for s in out["subjects"]] == [r["id"] for r in rows]
     for row in rows:
         sid = row["id"]
         got = by_id[sid]
@@ -180,13 +183,79 @@ def test_only_a_staged_t1w_or_t2w_series_counts_as_sourcedata(srv, project):
     assert {"sub-777", "sub-888", "sub-bad.id"} <= set(out["sourcedata_subjects"])
 
 
+def test_subjects_come_in_the_apps_natural_order(srv, tmp_path):
+    """``sub-2`` before ``sub-10`` before ``sub-101`` (``tit.paths.natural_key``), not the
+    lexicographic ``10, 101, 2``."""
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager(str(tmp_path))
+    for sid in ("101", "2", "10"):
+        os.makedirs(pm.bids_subject(sid))
+    out = inspect(srv, str(tmp_path))
+    assert [s["id"] for s in out["subjects"]] == ["2", "10", "101"]
+    _agrees_with_catalog(out, pm)
+
+
+def test_folders_that_link_outside_the_project_are_not_read(
+    srv, project, tmp_path_factory
+):
+    """The catalog's project jail (``tit.paths.is_within``): a subject, head-model, staged-scan
+    or simulation folder that is a symlink leading out of the project is not the project's,
+    so neither the app nor the inspector lists it."""
+    pm = project
+    outside = tmp_path_factory.mktemp("elsewhere")  # not under the project
+    for sub in ("anat", "m2m_998", "T1w/series01", "Simulations/OUT/TI/mesh"):
+        (outside / sub).mkdir(parents=True)
+    os.symlink(outside, os.path.join(pm.project_dir, "sub-999"))
+    os.makedirs(pm.sub("998"))
+    os.symlink(outside / "m2m_998", pm.m2m("998"))
+    os.symlink(outside, os.path.join(pm.sourcedata(), "sub-997"))
+    os.symlink(outside / "Simulations" / "OUT", pm.simulation("101", "OUT"))
+
+    out = inspect(srv, pm.project_dir)
+    assert [s["id"] for s in out["subjects"]] == ["101", "102", "103", "104"]
+    assert "OUT" not in out["subjects"][0]["simulations"]
+    _agrees_with_catalog(out, pm)
+
+
+def test_the_jail_is_the_project_folder_and_nothing_beside_it(srv, tmp_path):
+    """Three edges of ``tit.paths.is_within``: a sibling whose name merely starts with the
+    project's (``proj-twin``) is outside; a root folder that links outside is read as empty
+    even where what it holds links back in; a staged series that links out does not count.
+    """
+    from tit.paths import get_path_manager
+
+    proj, twin = tmp_path / "proj", tmp_path / "proj-twin"
+    proj.mkdir()
+    pm = get_path_manager(str(proj))
+    os.makedirs(pm.bids_subject("1"))
+    (twin / "anat").mkdir(parents=True)
+    os.symlink(twin, pm.bids_subject("2"))
+    (twin / "fs").mkdir()
+    os.symlink(pm.bids_subject("1"), twin / "fs" / "sub-3")  # links back in
+    os.makedirs(pm.derivatives())
+    os.symlink(twin / "fs", pm.fastsurfer())
+    (twin / "series").mkdir()
+    staged = Path(pm.sourcedata_subject("4"), "T1w")
+    staged.mkdir(parents=True)
+    os.symlink(twin / "series", staged / "series01")
+
+    out = inspect(srv, str(proj))
+    assert [s["id"] for s in out["subjects"]] == ["1"]
+    assert out["subjects"][0]["has_fastsurfer"] is False
+    _agrees_with_catalog(out, pm)
+
+
 def test_the_copied_subject_rule_is_the_catalogs(srv):
-    """server.py cannot import tit (it runs on the user's host), so it copies two values."""
+    """server.py cannot import tit (it runs on the user's host), so it copies two values and
+    the sort key."""
     from tit import catalog
-    from tit.paths import SUBJECT_ID_RE
+    from tit.paths import SUBJECT_ID_RE, natural_key
 
     assert srv._SUBJECT_ID_RE.pattern == SUBJECT_ID_RE.pattern
     assert srv._DICOM_LIKE_EXTS == catalog._DICOM_LIKE_EXTS
+    for sid in ("2", "10", "101", "007", "P2b10", "p2B9", "ernie", "A-1_x"):
+        assert srv._natural_key(sid) == natural_key(sid), sid
 
 
 def _listing(root: str) -> dict[str, tuple[int, int]]:
