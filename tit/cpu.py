@@ -137,7 +137,7 @@ def _valid_percent(value: object) -> int | None:
         return None
     try:
         percent = int(float(value))  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError: +-Infinity, 1e999
         return None
     return percent if MIN_CPU_LIMIT_PERCENT <= percent <= 100 else None
 
@@ -185,7 +185,7 @@ def job_cpus() -> int:
     if raw:
         try:
             value = int(float(raw))
-        except ValueError:
+        except (ValueError, OverflowError):  # "nan", "inf"
             value = 0
         if value > 0:
             return value

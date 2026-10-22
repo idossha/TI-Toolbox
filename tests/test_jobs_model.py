@@ -146,11 +146,13 @@ def test_default_cost_legacy_viewer_kind_falls_back_without_crashing():
     assert costs.default_cost("viewer") == costs._FALLBACK
 
 
-def test_default_cost_sim_scales_with_montage_count():
+def test_default_cost_sim_does_not_scale_with_montage_count():
+    # tit/sim/__main__.py runs a config's montages one after another, so the peak is one
+    # montage's (tests/test_job_costs.py; the measured peaks: tests/test_job_memory_realdata.py).
     one = costs.default_cost("sim", {"montages": [{"name": "m1"}]})
     two = costs.default_cost("sim", {"montages": [{"name": "m1"}, {"name": "m2"}]})
     none = costs.default_cost("sim", {})
-    assert one.mem_gb == 4 and two.mem_gb == 8 and none.mem_gb == 4
+    assert one.mem_gb == two.mem_gb == none.mem_gb == costs.SIM_MEM_GB
     assert one.cpus == two.cpus == 1
 
 
@@ -158,7 +160,8 @@ def test_default_cost_config_override_wins():
     cost = costs.default_cost("pre", {"cpus": 6, "memory_gb": 12})
     assert cost == Cost(cpus=6, mem_gb=12)
     cost2 = costs.default_cost("flex", {"cpus": 4})
-    assert cost2.cpus == 4 and cost2.mem_gb == 6  # mem stays at the table default
+    # mem stays at the table default (one restart)
+    assert cost2.cpus == 4 and cost2.mem_gb == costs.DEFAULT_COSTS["flex"].mem_gb
 
 
 # ---------------------------------------------------------------------------------------------
