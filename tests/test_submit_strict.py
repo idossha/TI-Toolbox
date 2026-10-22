@@ -13,6 +13,12 @@ What this pins
 3. Rerun applies the admission checks of submit: a finished analyzer job whose simulation
    folder was deleted is refused with exactly the 422 ``POST /api/jobs`` gives the same config
    now (computed in the test -- parity is the oracle), and no job record is created.
+4. ``pre``: a config whose subjects ride in the body (no ``subject_ids`` in it) still has its
+   misspelling named -- only the strict parse in ``check_job_config`` can see it there. The
+   keys from before the FastSurfer stage (``run_recon``, ...) are the one deliberate difference
+   from ``/api/validate``: the runner and ``POST /api/plan/pre`` translate them, so submission
+   accepts them, with or without ``subject_ids`` in the config, and a group plans the stage
+   ``run_recon`` asks for (G2b), as the plan route shows for the same body.
 
 Configs: one accepted desktop-corpus case per kind (``tests/fixtures/desktop_configs``, written
 by the real desktop builders and accepted by every server validator), plus a hand-written
@@ -351,3 +357,110 @@ def test_rerun_of_a_clean_finished_job_still_runs(
     rerun = client.post(f"/api/jobs/{first.json()['id']}/rerun", headers=BEARER)
     assert rerun.status_code == 201, rerun.text
     assert rerun.json()["id"] != first.json()["id"]
+
+
+# ---------------------------------------------------------------------------------------------
+# pre: the subjects ride in the body, and keys from before the FastSurfer stage are translated
+# ---------------------------------------------------------------------------------------------
+
+
+def _pre_without_subjects(project: Path) -> dict:
+    config, _ = _corpus_configs(project)["pre"]
+    return {k: v for k, v in config.items() if k != "subject_ids"}
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_a_pre_config_without_its_subjects_still_refuses_a_misspelled_key(
+    route: str, client: TestClient, project: Path
+) -> None:
+    """``POST /api/jobs`` takes a pre job's subjects from the body, so its config may carry no
+    ``subject_ids``. ``PreprocessConfig`` refuses an empty subject list, so the lenient parse
+    ``refuse_unknown_keys`` starts from fails and it has nothing to say: the strict parse in
+    ``check_job_config`` (with the subjects filled in, as the manager writes config.json) is
+    what must name the misspelling."""
+    r = client.post(
+        route,
+        json={
+            "kind": "pre",
+            "config": {**_pre_without_subjects(project), TYPO: 1},
+            "subject_ids": ["001"],
+        },
+        headers=BEARER,
+    )
+    assert r.status_code == 422, r.text
+    assert TYPO in r.json()["detail"]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
+#: A config JSON from before the FastSurfer stage: the four keys of
+#: ``tit.pre.config.LEGACY_KEYS``. ``run_recon`` means ``run_fastsurfer``
+#: (``tests/test_pre_config_migration.py``), the others are dropped.
+LEGACY_PRE = {
+    "convert_dicom": True,  # supplies the T1w, so preflight has nothing missing
+    "create_m2m": True,
+    "run_recon": True,
+    "parallel_recon": True,
+    "parallel_cores": 4,
+    "run_subcortical_segmentations": False,
+}
+
+
+def test_a_legacy_pre_config_is_translated_not_refused_at_submit(
+    client: TestClient, project: Path
+) -> None:
+    """The pre runner and ``POST /api/plan/pre`` translate these keys
+    (``migrate_legacy_keys``), so submission accepts them too; only a key nobody translates
+    is unknown."""
+    r = client.post(
+        "/api/jobs",
+        json={"kind": "pre", "config": LEGACY_PRE, "subject_ids": ["001"]},
+        headers=BEARER,
+    )
+    assert r.status_code == 201, r.text
+    refused = client.post(
+        "/api/jobs",
+        json={
+            "kind": "pre",
+            "config": {**LEGACY_PRE, TYPO: 1},
+            "subject_ids": ["001"],
+        },
+        headers=BEARER,
+    )
+    assert refused.status_code == 422 and TYPO in refused.json()["detail"]
+
+
+def _stage_tags(tags) -> set[str]:
+    return {t for t in tags if t.startswith("G")}
+
+
+def test_a_legacy_pre_group_queues_the_stages_the_plan_shows(
+    client: TestClient, project: Path, manager: JobManager
+) -> None:
+    """A group carries ``subject_ids`` in the config, as the Preprocess page sends it. Such a
+    legacy config was refused as ``unknown key run_recon`` while the same body without
+    ``subject_ids`` passed ``POST /api/jobs``; and once accepted, it must run what it asked
+    for: ``run_recon`` is the FastSurfer stage (G2b), which the group used to drop. The oracle
+    is ``POST /api/plan/pre`` for the same body. (A proposal step validates through
+    ``/api/validate`` first, which still names these keys as outdated.)"""
+    body = {
+        "kind": "pre",
+        "config": {**LEGACY_PRE, "subject_ids": ["001"]},
+        "subject_ids": ["001"],
+    }
+    plan = client.post(
+        "/api/plan/pre",
+        json={"config": body["config"], "subject_ids": ["001"]},
+        headers=BEARER,
+    )
+    assert plan.status_code == 200, plan.text
+    planned = {
+        stage["label"].split(":")[1] for stage in plan.json()["resolved"]["stages"]
+    }
+    assert "G2b" in planned
+
+    r = client.post("/api/jobs/groups", json=body, headers=BEARER)
+    assert r.status_code == 201, r.text
+    queued = manager.list_jobs()
+    assert {
+        tag for job in queued for tag in _stage_tags(manager._specs[job["id"]].tags)
+    } == planned

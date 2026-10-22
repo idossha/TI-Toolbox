@@ -222,7 +222,10 @@ def refuse_unknown_keys(kind: str, config: dict[str, Any]) -> None:
     same envelope (``project_dir``) and dispatch (stats ``mode``) keys set aside, to that one
     rule: a config that is invalid for another reason is left to ``check_job_config``, the
     preflight and the runner (the analyzer and source runners still read their older layouts).
-    Kinds with no config class (``tools``, ``project_init``) have nothing to check.
+    Kinds with no config class (``tools``, ``project_init``) have nothing to check. A ``pre``
+    key from before the FastSurfer stage (``tit.pre.config.LEGACY_KEYS``) is not unknown here:
+    the runner and ``POST /api/plan/pre`` translate it (``migrate_legacy_keys``), and
+    ``check_job_config`` checks the translated config. ``/api/validate`` itself still flags it.
 
     Raises
     ------
@@ -240,6 +243,10 @@ def refuse_unknown_keys(kind: str, config: dict[str, Any]) -> None:
     if cls is None:
         return
     ignored = ENVELOPE_KEYS | DISPATCH_KEYS.get(kind, frozenset())
+    if kind == "pre":
+        from tit.pre.config import LEGACY_KEYS
+
+        ignored |= frozenset(LEGACY_KEYS)
     data = {k: v for k, v in config.items() if k not in ignored}
     try:
         deserialize_config(cls, data, strict=True)

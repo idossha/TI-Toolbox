@@ -486,9 +486,11 @@ def _plan_pre_group(config: dict[str, Any], subject_ids: list[str]) -> list[Any]
 
     try:
         from tit.config_io import deserialize_config
-        from tit.pre.config import PreprocessConfig
+        from tit.pre.config import PreprocessConfig, migrate_legacy_keys
 
-        pre_config = deserialize_config(PreprocessConfig, config)
+        # A key from before the FastSurfer stage means what the runner and the plan route
+        # read it as (`run_recon` is the FastSurfer stage), not nothing.
+        pre_config = deserialize_config(PreprocessConfig, migrate_legacy_keys(config))
     except Exception as exc:  # invalid config shape -> 422, not a 500
         raise HTTPException(
             status_code=422, detail=f"invalid PreprocessConfig: {exc}"
