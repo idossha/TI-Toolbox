@@ -1,0 +1,137 @@
+{
+  "available_threads": 8,
+  "config": {
+    "charm_options": null,
+    "charm_threads": null,
+    "convert_dicom": false,
+    "create_m2m": false,
+    "extract_dti": false,
+    "fastsurfer_threads": null,
+    "freesurfer_recon_all": true,
+    "freesurfer_subregions": [
+      "thalamus",
+      "hippo-amygdala"
+    ],
+    "freesurfer_threads": null,
+    "qsi_recon_config": {
+      "atlases": [
+        "AAL116",
+        "4S156Parcels"
+      ],
+      "cpus": 4,
+      "image_tag": "26.0.0",
+      "memory_gb": null,
+      "omp_threads": 4,
+      "recon_specs": [
+        "dsi_studio_gqi",
+        "dipy_dki"
+      ],
+      "skip_odf_reports": true,
+      "use_gpu": false
+    },
+    "qsiprep_config": {
+      "cpus": 6,
+      "denoise_method": "patch2self",
+      "image_tag": "26.0.0",
+      "memory_gb": 24,
+      "mni_normalization": true,
+      "omp_threads": 3,
+      "output_resolution": 1.5,
+      "skip_bids_validation": true,
+      "unringing_method": "mrdegibbs"
+    },
+    "replace_existing_outputs": false,
+    "run_fastsurfer": false,
+    "run_freesurfer": false,
+    "run_qsiprep": true,
+    "run_qsirecon": true,
+    "run_tissue_analysis": false,
+    "skip_existing_outputs": true,
+    "subject_ids": [
+      "001"
+    ]
+  },
+  "flags": {
+    "convert_dicom": false,
+    "create_m2m": false,
+    "extract_dti": false,
+    "run_fastsurfer": false,
+    "run_freesurfer": false,
+    "run_qsiprep": true,
+    "run_qsirecon": true,
+    "run_tissue_analysis": false
+  },
+  "id": "qsi-preferences",
+  "policy": "skip",
+  "preferences": {
+    "qsi_recon_config": {
+      "atlases": [
+        "AAL116",
+        "4S156Parcels"
+      ],
+      "recon_specs": [
+        "dsi_studio_gqi",
+        "dipy_dki"
+      ]
+    },
+    "qsiprep_config": {
+      "denoise_method": "patch2self",
+      "mni_normalization": true,
+      "output_resolution": 1.5,
+      "unringing_method": "mrdegibbs"
+    },
+    "qsiprep_memory_gb": 24,
+    "qsiprep_omp_threads": 3,
+    "qsiprep_threads": 6,
+    "qsirecon_threads": 4
+  },
+  "settings": {
+    "available_threads": 8,
+    "charm_options": null,
+    "charm_threads": null,
+    "default_threads": 8,
+    "effective_charm_threads": 8,
+    "effective_fastsurfer_threads": 8,
+    "effective_freesurfer_threads": 8,
+    "effective_qsiprep_threads": 6,
+    "effective_qsirecon_threads": 4,
+    "fastsurfer_threads": null,
+    "freesurfer_recon_all": true,
+    "freesurfer_subregions": [
+      "thalamus",
+      "hippo-amygdala"
+    ],
+    "freesurfer_threads": null,
+    "qsi_recon_config": {
+      "atlases": [
+        "AAL116",
+        "4S156Parcels"
+      ],
+      "image_tag": "26.0.0",
+      "recon_specs": [
+        "dsi_studio_gqi",
+        "dipy_dki"
+      ],
+      "skip_odf_reports": true,
+      "use_gpu": false
+    },
+    "qsiprep_config": {
+      "denoise_method": "patch2self",
+      "image_tag": "26.0.0",
+      "mni_normalization": true,
+      "output_resolution": 1.5,
+      "skip_bids_validation": true,
+      "unringing_method": "mrdegibbs"
+    },
+    "qsiprep_memory_gb": 24,
+    "qsiprep_omp_threads": 3,
+    "qsiprep_threads": 6,
+    "qsirecon_memory_gb": null,
+    "qsirecon_omp_threads": null,
+    "qsirecon_threads": 4
+  },
+  "subject_ids": [
+    "001"
+  ],
+  "title": "QSIPrep and QSIRecon with saved processing preferences and resource limits"
+}

@@ -16,6 +16,12 @@ Three readers, one source:
 A kind with no entry (``mex``: the page starts at ``MExConfig``'s own defaults) takes the
 dataclass defaults only. Fields the agent sends always win; the merge is one level deep, so an
 ``electrode`` the agent sends replaces the table's whole ``electrode``.
+
+``pre`` also takes what the Pre-processing page fills from the user's saved Settings
+(:mod:`tit.surfer_settings`, the page's ``toSubmitConfig``): the FreeSurfer operations, and for a
+QSIPrep or QSIRecon step that settings dict -- processing preferences plus the per-process thread
+limit -- under the fields the agent sent in it. Charm options and the other resource limits are
+filled for every caller when the job is planned (``resolve_job_threads``).
 """
 
 from __future__ import annotations
@@ -70,4 +76,36 @@ def with_app_defaults(kind: str, config: Any) -> Any:
     unchanged, for the caller's own validation to reject."""
     if not isinstance(config, dict):
         return config
-    return {**copy.deepcopy(APP_DEFAULTS.get(kind, {})), **config}
+    filled = {**copy.deepcopy(APP_DEFAULTS.get(kind, {})), **config}
+    return _with_saved_preferences(filled, config) if kind == "pre" else filled
+
+
+#: QSI step flag -> its settings field and the tool name its preferences are saved under.
+_QSI_STEPS = (
+    ("run_qsiprep", "qsiprep_config", "qsiprep"),
+    ("run_qsirecon", "qsi_recon_config", "qsirecon"),
+)
+
+
+def _with_saved_preferences(
+    filled: dict[str, Any], sent: dict[str, Any]
+) -> dict[str, Any]:
+    """The user's saved choices the Pre-processing page sends, where the agent sent none."""
+    from tit.surfer_settings import effective_threads, load_preferences
+
+    preferences = load_preferences()
+    for key in ("freesurfer_recon_all", "freesurfer_subregions"):
+        if key not in sent:
+            filled[key] = copy.deepcopy(preferences[key])
+    for flag, field, tool in _QSI_STEPS:
+        own = sent.get(field)
+        if not filled.get(flag) or not (own is None or isinstance(own, dict)):
+            continue
+        settings = {**preferences[field], **(own or {})}
+        if "omp_threads" not in settings:
+            # The page's rule: the saved per-process limit, else every thread the job gets.
+            settings["omp_threads"] = preferences[f"{tool}_omp_threads"] or (
+                effective_threads(tool, settings.get("cpus"))
+            )
+        filled[field] = settings
+    return filled

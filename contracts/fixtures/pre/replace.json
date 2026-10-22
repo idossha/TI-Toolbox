@@ -1,0 +1,101 @@
+{
+  "available_threads": 8,
+  "config": {
+    "charm_options": {
+      "denoise": false,
+      "skin_facet_size": 2.5
+    },
+    "charm_threads": null,
+    "convert_dicom": false,
+    "create_m2m": true,
+    "extract_dti": false,
+    "fastsurfer_threads": null,
+    "freesurfer_recon_all": true,
+    "freesurfer_subregions": [
+      "thalamus",
+      "hippo-amygdala"
+    ],
+    "freesurfer_threads": null,
+    "qsi_recon_config": null,
+    "qsiprep_config": null,
+    "replace_existing_outputs": true,
+    "run_fastsurfer": false,
+    "run_freesurfer": false,
+    "run_qsiprep": false,
+    "run_qsirecon": false,
+    "run_tissue_analysis": true,
+    "skip_existing_outputs": false,
+    "subject_ids": [
+      "001",
+      "002"
+    ]
+  },
+  "flags": {
+    "convert_dicom": false,
+    "create_m2m": true,
+    "extract_dti": false,
+    "run_fastsurfer": false,
+    "run_freesurfer": false,
+    "run_qsiprep": false,
+    "run_qsirecon": false,
+    "run_tissue_analysis": true
+  },
+  "id": "replace",
+  "policy": "replace",
+  "preferences": {
+    "charm_options": {
+      "denoise": false,
+      "skin_facet_size": 2.5
+    },
+    "charm_threads": 2
+  },
+  "settings": {
+    "available_threads": 8,
+    "charm_options": {
+      "denoise": false,
+      "skin_facet_size": 2.5
+    },
+    "charm_threads": 2,
+    "default_threads": 8,
+    "effective_charm_threads": 2,
+    "effective_fastsurfer_threads": 8,
+    "effective_freesurfer_threads": 8,
+    "effective_qsiprep_threads": 8,
+    "effective_qsirecon_threads": 8,
+    "fastsurfer_threads": null,
+    "freesurfer_recon_all": true,
+    "freesurfer_subregions": [
+      "thalamus",
+      "hippo-amygdala"
+    ],
+    "freesurfer_threads": null,
+    "qsi_recon_config": {
+      "atlases": null,
+      "image_tag": "26.0.0",
+      "recon_specs": [
+        "dsi_studio_gqi"
+      ],
+      "skip_odf_reports": true,
+      "use_gpu": false
+    },
+    "qsiprep_config": {
+      "denoise_method": "dwidenoise",
+      "image_tag": "26.0.0",
+      "mni_normalization": false,
+      "output_resolution": null,
+      "skip_bids_validation": true,
+      "unringing_method": "auto"
+    },
+    "qsiprep_memory_gb": null,
+    "qsiprep_omp_threads": null,
+    "qsiprep_threads": null,
+    "qsirecon_memory_gb": null,
+    "qsirecon_omp_threads": null,
+    "qsirecon_threads": null
+  },
+  "subject_ids": [
+    "001",
+    "002"
+  ],
+  "title": "Head model and tissue analysis for two subjects, replacing existing outputs, with saved charm options"
+}
