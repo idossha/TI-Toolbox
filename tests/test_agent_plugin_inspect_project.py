@@ -68,7 +68,8 @@ def _touch(path: str) -> Path:
 @pytest.fixture()
 def project(tmp_path):
     """sub-101: head model, FastSurfer, one 4-pair (mTI) simulation; sub-102: DICOMs staged in
-    sourcedata only; sub-103: a FastSurfer run and nothing else."""
+    sourcedata only; sub-103: a FastSurfer run and nothing else; sub-104: a legacy FreeSurfer
+    recon and nothing else."""
     from tit.paths import get_path_manager
 
     pm = get_path_manager(str(tmp_path))
@@ -85,6 +86,7 @@ def project(tmp_path):
     _touch(os.path.join(mti_niftis, "S_mTI_max.nii"))
     _touch(os.path.join(pm.sourcedata_subject("102"), "T1w", "IM0001.dcm"))
     os.makedirs(pm.fastsurfer_subject("103"))
+    os.makedirs(pm.freesurfer_subject("104"))
     return pm
 
 
@@ -133,12 +135,13 @@ def _agrees_with_catalog(out: dict, pm) -> None:
 
 def test_synthetic_project_agrees_with_the_catalog(srv, project):
     out = inspect(srv, project.project_dir)
-    assert [s["id"] for s in out["subjects"]] == ["101", "102", "103"]
+    assert [s["id"] for s in out["subjects"]] == ["101", "102", "103", "104"]
     _agrees_with_catalog(out, project)
     by_id = {s["id"]: s for s in out["subjects"]}
     assert by_id["101"]["has_fastsurfer"] and not by_id["101"]["has_freesurfer"]
     assert by_id["102"]["has_sourcedata"] and not by_id["102"]["has_m2m"]
     assert by_id["103"]["has_fastsurfer"] and not by_id["103"]["has_sourcedata"]
+    assert by_id["104"]["has_freesurfer"] and not by_id["104"]["has_fastsurfer"]
 
 
 def _listing(root: str) -> dict[str, tuple[int, int]]:
