@@ -141,9 +141,10 @@ export function analyzerTargetLabel(roi: RoiValue, combine = true): string {
   if (!isRoiComplete(roi)) return "Choose a target…";
   if (roi.mode === "spherical") {
     const spheres = roi.spheres.map((s) => `${num(s.x)},${num(s.y)},${num(s.z)} r${num(s.radius)} mm`);
-    const parts = [`Sphere ${joinNames(spheres)}`, roi.space === "mni" ? "MNI" : "Subject"];
-    if (roi.volumetric) parts.push(`volumetric ${roi.tissues}`);
-    return parts.join(" · ");
+    // No "volumetric" here: the Analyzer never reads it (the row's space and tissue decide). Several
+    // spheres are one analysis each (`rowTargets`), never a union, so the line says so.
+    const head = [`Sphere ${joinNames(spheres)}`, roi.space === "mni" ? "MNI" : "Subject"].join(" · ");
+    return spheres.length > 1 ? `${head} (separate jobs)` : head;
   }
   if (roi.mode === "mask") return `NIfTI mask · ${roi.path.split("/").pop()} · ${roi.space === "mni" ? "MNI" : "Subject"}`;
   if (roi.mode === "saved") return "Choose a target…";

@@ -15,7 +15,7 @@ export function AnalyzerSettings({row,onChange,onOpenViewer}: {row:AnalyzerRow;o
               value={row.roi}
               onChange={(roi) => onChange({ roi })}
               modes={[...ANALYZER_ROI_MODES]}
-              showMaskTissues={false}
+              analyzer
               subject={row.subjectId || undefined}
               space={row.space === "voxel" ? "mni" : "subject"}
               onOpenViewer={onOpenViewer}

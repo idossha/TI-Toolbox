@@ -4,7 +4,7 @@
  * `tit/gui/components/roi_picker.py` (`ROIPickerWidget`).
  *
  * Three modes, one at a time via `modes`: spherical (a table of x/y/z/radius rows — multiple rows
- * union into one combined target), cortical (a FreeSurfer `.annot` atlas + region chips, searched
+ * union into one combined target, except in the Analyzer: see `analyzer`), cortical (a FreeSurfer `.annot` atlas + region chips, searched
  * by name), subcortical (a volumetric atlas, Subject/MNI space, region chips, tissue compartment).
  * Multi-selecting regions/spheres *is* combining — flex-search's ROI classes take a region/sphere
  * list natively (see `types.ts`), unlike ex-search's separate Combine toggle.
@@ -132,11 +132,16 @@ export interface RoiPickerProps {
   /** `saved` mode only: mEx never unions selected ROIs (its run path has no combined mode), so
    *  the Optimizer hides the checkbox on that method rather than showing a dead control. */
   allowCombine?: boolean;
-  /** Hide when the caller already owns tissue selection (Analyzer job settings). */
-  showMaskTissues?: boolean;
+  /**
+   * The Analyzer's job settings. Its row owns the tissue (Job settings ▸ Space options), and the
+   * page runs one analysis per sphere (`AnalyzerConfig` has one center) and per region unless the
+   * row's Combine box is ticked, so the picker hides its own tissue and volumetric controls, which
+   * the Analyzer never reads, and does not promise a union.
+   */
+  analyzer?: boolean;
 }
 
-export function RoiPicker({ value, onChange, modes, subject, space = "subject", disabled, onOpenViewer, allowCombine, showMaskTissues }: RoiPickerProps) {
+export function RoiPicker({ value, onChange, modes, subject, space = "subject", disabled, onOpenViewer, allowCombine, analyzer = false }: RoiPickerProps) {
   function setMode(mode: RoiMode) {
     if (mode === value.mode) return;
     // The row's own space survives a mode change: `space` is a property of the target the user is
@@ -155,11 +160,11 @@ export function RoiPicker({ value, onChange, modes, subject, space = "subject", 
         />
       )}
       {value.mode === "spherical" && (
-        <SphericalPanel value={value} onChange={onChange} disabled={disabled} onOpenViewer={onOpenViewer} />
+        <SphericalPanel value={value} onChange={onChange} disabled={disabled} onOpenViewer={onOpenViewer} analyzer={analyzer} />
       )}
-      {value.mode === "cortical" && <CorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} />}
-      {value.mode === "subcortical" && <SubcorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} />}
-      {value.mode === "mask" && <MaskPanel value={value} onChange={onChange} disabled={disabled} subject={subject} showTissues={showMaskTissues ?? modes.includes("spherical")} />}
+      {value.mode === "cortical" && <CorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} analyzer={analyzer} />}
+      {value.mode === "subcortical" && <SubcorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} analyzer={analyzer} />}
+      {value.mode === "mask" && <MaskPanel value={value} onChange={onChange} disabled={disabled} subject={subject} showTissues={!analyzer && modes.includes("spherical")} />}
       {value.mode === "saved" && <SavedPanel value={value} onChange={onChange} subject={subject} disabled={disabled} allowCombine={allowCombine} />}
     </div>
   );
@@ -344,16 +349,24 @@ function SavedPanel({
   );
 }
 
+/** The Region(s) help: several regions are a union, except in the Analyzer, where the row's
+ *  Combine box decides. */
+function regionsHelp(analyzer: boolean, union: string): string {
+  return analyzer ? "Combine regions into one ROI (below) measures them together; off, each region is its own analysis." : union;
+}
+
 function SphericalPanel({
   value,
   onChange,
   disabled,
   onOpenViewer,
+  analyzer,
 }: {
   value: Extract<RoiValue, { mode: "spherical" }>;
   onChange: (v: RoiValue) => void;
   disabled?: boolean;
   onOpenViewer?: () => void;
+  analyzer: boolean;
 }) {
   function updateRow(i: number, patch: Partial<(typeof value.spheres)[number]>) {
     onChange({ ...value, spheres: value.spheres.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) });
@@ -415,12 +428,14 @@ function SphericalPanel({
       <Button variant="ghost" size="sm" icon={<Plus size={14} />} disabled={disabled} onClick={() => onChange({ ...value, spheres: [...value.spheres, emptySphereRow()] })}>
         Add sphere
       </Button>
-      <p className="field-help">Each row is a sphere. Multiple rows union into one combined target.</p>
+      <p className="field-help">
+        {analyzer ? "Each row is a sphere, analyzed as its own job." : "Each row is a sphere. Multiple rows union into one combined target."}
+      </p>
       {/* One line: the option, the (i) that explains it, and the compartment it applies to
           (maintainer, 2026-09-06). The sentence this replaces was the whole explanation printed as
           a checkbox label, which wrapped to three lines in any dialog and still had to be read in
           full before the checkbox could be understood. */}
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+      {!analyzer && <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
         <Checkbox
           checked={value.volumetric}
           onCheckedChange={(v) => onChange({ ...value, volumetric: v })}
@@ -448,7 +463,7 @@ function SphericalPanel({
             aria-label="Volumetric tissue"
           />
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -458,11 +473,13 @@ function CorticalPanel({
   onChange,
   subject,
   disabled,
+  analyzer,
 }: {
   value: Extract<RoiValue, { mode: "cortical" }>;
   onChange: (v: RoiValue) => void;
   subject: string | undefined;
   disabled?: boolean;
+  analyzer: boolean;
 }) {
   const atlases = useQuery({
     queryKey: ["atlases", subject, "cortical", value.space],
@@ -542,7 +559,7 @@ function CorticalPanel({
           />
         )}
       </Field>
-      <Field label="Region(s)" required help="Multiple regions union into one combined target. Search by name; the picker lists both hemispheres.">
+      <Field label="Region(s)" required help={`${regionsHelp(analyzer, "Multiple regions union into one combined target.")} Search by name; the picker lists both hemispheres.`}>
         {/* One grammar (plan C1): an atlas has 68-360 regions, so this is the same list the subject
             table and the ex buckets are — filter, ⇧-range over neighbouring regions, All · None,
             `N of M selected` — rather than a chip combobox that could only add one region per
@@ -573,11 +590,13 @@ function SubcorticalPanel({
   onChange,
   subject,
   disabled,
+  analyzer,
 }: {
   value: Extract<RoiValue, { mode: "subcortical" }>;
   onChange: (v: RoiValue) => void;
   subject: string | undefined;
   disabled?: boolean;
+  analyzer: boolean;
 }) {
   const atlases = useQuery({
     queryKey: ["atlases", subject, "subcortical", value.space],
@@ -598,9 +617,9 @@ function SubcorticalPanel({
       <Field label="Space" help="Space the volume atlas is defined in. An MNI atlas is transformed into this subject's anatomy before the search runs. The same control sits above the 3D pane; both write the row's one space.">
         <RoiSpaceControl value={value} onChange={onChange} label="Atlas space" id="roi-picker-space" disabled={disabled} />
       </Field>
-      <Field label="Tissue type" help="Tissue compartment(s) to include when evaluating the volume ROI.">
+      {!analyzer && <Field label="Tissue type" help="Tissue compartment(s) to include when evaluating the volume ROI.">
         <Select value={value.tissues} onValueChange={(v) => onChange({ ...value, tissues: v as TissueKind })} options={TISSUE_OPTIONS} disabled={disabled} />
-      </Field>
+      </Field>}
       <Field label="Volume atlas" required help="Volumetric atlas whose labels the regions below come from.">
         {/* First load only: a background refetch (a finished job invalidates ["atlases"]) must not
             unmount an atlas dropdown the user has open. */}
@@ -617,7 +636,7 @@ function SubcorticalPanel({
           />
         )}
       </Field>
-      <Field label="Region(s)" required help="Multiple regions union into one combined target (e.g. both hippocampi).">
+      <Field label="Region(s)" required help={regionsHelp(analyzer, "Multiple regions union into one combined target (e.g. both hippocampi).")}>
         {/* One grammar (plan C1): an atlas has 68-360 regions, so this is the same list the subject
             table and the ex buckets are — filter, ⇧-range over neighbouring regions, All · None,
             `N of M selected` — rather than a chip combobox that could only add one region per

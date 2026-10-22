@@ -317,9 +317,10 @@ describe("a row's own target", () => {
     expect(analyzerTargetLabel(emptyAnalyzerRow().roi)).toBe("Choose a target…");
     expect(analyzerTargetLabel(sphereRoi())).toBe("Sphere 10,10,10 r30 mm · MNI");
     expect(analyzerTargetLabel(sphereRoi({ space: "subject" }))).toBe("Sphere 10,10,10 r30 mm · Subject");
-    // The line has room for the whole answer now, so a volumetric sphere names its compartment.
+    // The Analyzer never reads a sphere's "volumetric" flag (the row's space and tissue decide),
+    // so the line does not claim it.
     expect(analyzerTargetLabel(sphereRoi({ volumetric: true, tissues: "GM" }))).toBe(
-      "Sphere 10,10,10 r30 mm · MNI · volumetric GM",
+      "Sphere 10,10,10 r30 mm · MNI",
     );
     expect(analyzerTargetLabel(corticalRoi)).toBe("Cortical · DK40 · lh.insula");
     expect(analyzerTargetLabel(subcorticalRoi)).toBe("Subcortical · CIT168 · CIT168_Pu_Putamen");
@@ -347,7 +348,7 @@ describe("a row's own target", () => {
     ).toBe("Cortical · DK40 · lh.superiorfrontal + lh.rostralmiddlefrontal + 1 more (combined)");
     expect(
       analyzerTargetLabel(sphereRoi({ spheres: [{ x: 10, y: 10, z: 10, radius: 30 }, { x: 1, y: 2, z: 3, radius: 5 }] })),
-    ).toBe("Sphere 10,10,10 r30 mm + 1,2,3 r5 mm · MNI");
+    ).toBe("Sphere 10,10,10 r30 mm + 1,2,3 r5 mm · MNI (separate jobs)");
   });
 
   it("a row is plannable only once its own target is complete", () => {

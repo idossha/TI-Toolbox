@@ -498,10 +498,9 @@ test("the job settings dialog is one 560px structure in every mode", async () =>
   // count instead. (Hidden by this page's own stylesheet: the sentence belongs to the shared
   // picker, which other pages still show it on.)
   await expect(dialog.getByText(/Each row is a sphere/)).not.toBeVisible();
-  // "Volumetric" is one line with its tissue select beside it, not a three-line label.
-  const volumetric = dialog.getByRole("checkbox", { name: /Volumetric/ });
-  const volumetricRow = (await volumetric.locator("xpath=ancestor::label[1]").boundingBox())!;
-  expect(volumetricRow.height).toBeLessThanOrEqual(28);
+  // No "Volumetric evaluation" or its tissue here: the Analyzer never read them — the row's Space
+  // and Job settings ▸ Tissue decide what is measured.
+  await expect(dialog.getByRole("checkbox", { name: /Volumetric/ })).toHaveCount(0);
   await page.screenshot({ path: "tests/e2e/artifacts/analyzer-target-spherical.png" });
 
   // Cortical: Atlas and Region(s) are label-left rows, and the combine checkbox is ONE line with
