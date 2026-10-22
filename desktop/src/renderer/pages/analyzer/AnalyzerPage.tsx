@@ -120,6 +120,10 @@ export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
   const lead = runnable[0] as AnalyzerRow;
   if (lead.roi.mode === "mask" && lead.roi.space !== "mni")
     return "Group mask analysis requires an MNI-space mask, transformed separately for each subject.";
+  // The same rule for a sphere: subject-space millimetres are a point in ONE head, so one centre
+  // shared by a cohort measures a different place in every other subject.
+  if (lead.roi.mode === "spherical" && lead.roi.space !== "mni")
+    return "Group sphere analysis requires MNI coordinates, transformed separately for each subject.";
   if (runnable.some((r) => !sameTarget(lead, r)))
     return "A group analysis measures one target — these rows name more than one.";
   return null;

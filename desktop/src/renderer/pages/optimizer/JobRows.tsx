@@ -29,6 +29,8 @@ import { Select } from "../../ui/Select";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { RoiPicker, type RoiValue } from "../_shared/roi";
+import { roiForSubject } from "../_shared/roi/subjectChange";
+import { notify } from "../../ui/Toast";
 import type { EegNet, Leadfield } from "./api";
 import { GOAL_OPTIONS, ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
@@ -325,7 +327,14 @@ export function OptimizerJobRows({
                           (isFlexMethod(row.method)
                             ? (netsBySubject[next] ?? []).some((n) => netKey(n.name) === row.net)
                             : leadfieldPathFor(leadfieldsBySubject[next], row.net) !== null);
-                        patch(row.id, { subjectId: next, net: keeps ? row.net : null });
+                        // A target in the old subject's own frame (subject-space sphere or mask,
+                        // a saved ROI) is cleared, and the toast says so; atlas and MNI targets
+                        // carry over (`roiForSubject`). The flex "avoid" region follows the rule too.
+                        const roi = roiForSubject(row.roi, row.subjectId, next);
+                        const nonRoi = roiForSubject(row.nonRoi, row.subjectId, next);
+                        patch(row.id, { subjectId: next, net: keeps ? row.net : null, roi: roi.roi, nonRoi: nonRoi.roi });
+                        const note = roi.note ?? (nonRoi.note ? `Non-ROI: ${nonRoi.note}` : null);
+                        if (note) notify.info(note);
                       }}
                       placeholder="Subject"
                       headers={{ label: "Subject", reason: "Preparation needed" }}

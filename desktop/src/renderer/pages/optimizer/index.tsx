@@ -650,8 +650,10 @@ function OptimizerPage() {
                 <div style={{ maxWidth: 360 }} className="text-dense">
                   One row is one search. Each row picks its own subject and its own method — flex over free
                   electrode positions, or an exhaustive two-channel (Ex) or four-pair (mEx) search over a
-                  precomputed leadfield — and carries its own target, goal and parameters. Duplicate a row to
-                  run the same search on another subject.
+                  precomputed leadfield — and carries its own target, goal and parameters. To run the same
+                  search on another subject, duplicate the row and change its subject: atlas regions and
+                  MNI targets carry over, while subject-space spheres, subject-space masks and saved ROIs
+                  are cleared, because they belong to the first subject&apos;s head.
                 </div>
               </Popover>
             }

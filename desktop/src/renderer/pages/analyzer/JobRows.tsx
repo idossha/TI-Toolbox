@@ -35,6 +35,8 @@ import { Select } from "../../ui/Select";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { emptyRoi, isRoiComplete, type RoiRegion, type RoiValue, type TissueKind } from "../_shared/roi";
 import { AUTO_FIELD, rowTargets, type Space } from "./buildConfig";
+import { roiForSubject } from "../_shared/roi/subjectChange";
+import { notify } from "../../ui/Toast";
 import "./analyzer-page.css";
 
 /**
@@ -376,7 +378,12 @@ export function AnalyzerJobRows({
                         // A simulation the new subject has not run is not a job — clear it rather
                         // than carrying a row the plan will refuse.
                         const keeps = simulationsOf(next).includes(row.simulation);
-                        patch(row.id, { subjectId: next, simulation: keeps ? row.simulation : "" });
+                        // A target in the old subject's own frame (subject-space sphere or mask)
+                        // would be measured in the wrong head without any error — cleared, and
+                        // said so; atlas and MNI targets carry over (`roiForSubject`).
+                        const moved = roiForSubject(row.roi, row.subjectId, next);
+                        patch(row.id, { subjectId: next, simulation: keeps ? row.simulation : "", roi: moved.roi });
+                        if (moved.note) notify.info(moved.note);
                       }}
                       placeholder="Subject"
                       headers={{ label: "Subject", reason: "Why not" }}
