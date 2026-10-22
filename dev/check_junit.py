@@ -54,6 +54,19 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "message": "the label table only exists in the GIfTI serialisation",
             "why": "a .tvsc payload has no label table; the format=gii case checks it",
         },
+        {
+            "test": "tests.test_ex_mirror_map.test_real_*",
+            "message": "stale cap with many electrodes at one position",
+            "why": "Dataset 000's sub-CHN and sub-LA BioSemi-64 and GSN-HydroCel-128 nets were "
+            "applied before v3.1.1 and are collapsed until the caps are re-applied there",
+        },
+        {
+            "test": "tests.test_examples_archive_safety.test_status_sees_a_head_model_under_an_"
+            "unlistable_subject_directory",
+            "message": "root lists a 0o111 directory anyway",
+            "why": "the image runs as root, which a directory mode cannot restrict; the host "
+            "suite runs it as a user",
+        },
     ],
     # CircleCI desktop-e2e-mock: Playwright `--project=default` against the mock server
     # (measured 2026-10-22: 364 tests, these 3 skipped). Ids are `<spec file>.<title>`.

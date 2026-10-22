@@ -58,6 +58,7 @@ NOT_SET=(
   "TIT_DTI_PROTO: the prototype CHN tensor is not part of Dataset 000"
   "TIT_DOTCACHE_CHILD: set by test_dot_cache_layout.py for its own child process"
   "TIT_ROI_KEEP_ISLANDS: set by test_roi_islands.py itself"
+  "TIT_EVENTS_FILE: removed by the report tests, so a rebuilt report writes no job events"
 )
 
 cd "$ROOT"
@@ -69,7 +70,10 @@ if [ "${#MODULES[@]}" -eq 0 ]; then
   echo "could not check: no test module reads a Dataset 000 variable" >&2
   exit 2
 fi
-for var in $(grep -hoE "TIT_[A-Z0-9_]+" "${MODULES[@]}" | sort -u); do
+# Every quoted TIT_* name is accounted for (an environment variable is named by a string
+# literal: in the read itself or in an ENV_* constant); bare identifiers such as the
+# caps.TIT_CAPS constant are Python names, not variables.
+for var in $(grep -hoE "[\"']TIT_[A-Z0-9_]+[\"']" "${MODULES[@]}" | tr -d "\"'" | sort -u); do
   if ! printf '%s\n' "${SET_VARS[@]%%=*}" "${NOT_SET[@]%%:*}" | grep -qx "$var"; then
     echo "could not check: $var is read by a real-data test but this runner neither sets it" \
       "nor says why not (SET_VARS / NOT_SET in $0)" >&2
