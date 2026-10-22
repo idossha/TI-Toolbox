@@ -1,0 +1,48 @@
+{
+  "id": "panels-nifti/blank-name",
+  "page": "panels-nifti",
+  "title": "Two groups with the analysis name left blank",
+  "jobs": [
+    {
+      "config": {
+        "diff_pairs": [],
+        "nifti_file_pattern": null,
+        "output_name": "",
+        "space": "mni",
+        "subjects": [
+          {
+            "group": "Group1",
+            "simulation_name": "M1",
+            "subject_id": "001"
+          },
+          {
+            "group": "Group2",
+            "simulation_name": "M1",
+            "subject_id": "002"
+          }
+        ]
+      },
+      "kind": "nifti_average",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "Enter an analysis name."
+  },
+  "expect": {
+    "differences": [
+      "Group1 - Group2"
+    ],
+    "groups": [
+      "Group1",
+      "Group2"
+    ],
+    "nifti_pattern_space": "mni",
+    "output_name": "  ",
+    "pattern": null
+  }
+}

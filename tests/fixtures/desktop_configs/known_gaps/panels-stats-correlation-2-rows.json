@@ -6,5 +6,9 @@
   "checks": [
     "verdict"
   ],
+  "failure": [
+    "page accepts (None)",
+    "Need at least 3 subjects for correlation, got 2"
+  ],
   "reason": "The Cluster Permutation panel's MIN_PARTICIPANTS is 2 in both modes, so a 2-row correlation is runnable; CorrelationConfig needs at least 3 subjects and the server refuses it."
 }

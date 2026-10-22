@@ -1,0 +1,30 @@
+{
+  "id": "visual-exporter/montage-no-simulation",
+  "page": "visual-exporter",
+  "title": "Montage publication scene with no simulation picked",
+  "jobs": [
+    {
+      "config": {
+        "_type": "MontageConfig",
+        "electrode_diameter_mm": 10,
+        "electrode_height_mm": 6,
+        "show_full_net": true,
+        "simulation_name": "",
+        "subject_id": "001"
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "Select a simulation."
+  },
+  "expect": {
+    "blender_types": [
+      "MontageConfig"
+    ]
+  }
+}

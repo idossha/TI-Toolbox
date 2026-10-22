@@ -18,8 +18,13 @@
  *     `jobsForRow`; `groupMismatchReason` + `blockedReasonFor`; the pre page's blocked chain; and for
  *     a panel the rendered Run button's `title` (its `clientErrors[0]`).
  *   - `expect` — the user's selection itself (which goal, which mode, the currents the row SHOWS
- *     via `currentValues`), never the builder's output, so a builder that drops the selection
- *     disagrees with it downstream.
+ *     via `currentValues`, each analyzer call's centre/radius/space/atlas/regions/mask typed out,
+ *     the group differences and cutoffs asked for), never the builder's output, so a builder that
+ *     drops the selection disagrees with it downstream.
+ *   - Analyzer and Optimizer job lists are derived here from the pages' exported pieces, clause for
+ *     clause; `ANALYZER_MIRROR`/`OPTIMIZER_MIRROR` fail when the page's own clauses change, so a new
+ *     gate on either page cannot leave the corpus judging by the old one. The panels (stats, NIfTI
+ *     average, nilearn, source, visual exporter) are rendered for real.
  *
  * Reproduce / regenerate:
  *   cd desktop && npx vitest run tests/unit/desktop-config-corpus.test.ts
@@ -30,7 +35,10 @@
  * Paths are written under the placeholder project root `/corpus/project`; the Python tests map it
  * onto a synthetic tmp project. Deliberately elsewhere: boundary values (radius 0, NaN, negative
  * currents) belong to the owning fix packages, and disagreements found today are listed — one file
- * each — in `tests/fixtures/desktop_configs/known_gaps/`. Dated 2026-10-22.
+ * each — in `tests/fixtures/desktop_configs/known_gaps/` with the texts its failure must contain.
+ * Not covered: the Source panel's fsavg_map mode (no control on the page sends it), and form states
+ * the config cannot express (two analyzer group rows naming different simulations: the server only
+ * sees the lead row). Dated 2026-10-22.
  */
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -68,6 +76,16 @@ vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   planBlender: vi.fn(async () => planResult),
   createBlenderJob: vi.fn(async () => ({ id: "job" })),
 }));
+vi.mock("../../src/renderer/pages/panels/source/api", () => ({
+  // Every selected subject offers one cap, as `SubjectDetail.eeg_nets` lists it (with ".csv").
+  getSubjectDetail: vi.fn(async () => ({ eeg_nets: ["GSN-HydroCel-185.csv"] })),
+  getSimulationsFor: vi.fn(async () => []),
+  validateSource: vi.fn(async () => okResult),
+  planSource: vi.fn(async () => planResult),
+  createSourceJob: vi.fn(async () => ({ id: "job" })),
+}));
+// The Source panel's empty state links to Pre-processing; no router is mounted here.
+vi.mock("react-router-dom", async (importOriginal) => ({ ...(await importOriginal<typeof import("react-router-dom")>()), useNavigate: () => () => {} }));
 // The run pane (job console), the scene preview and scroll memory have their own tests; the corpus
 // reads the form's gate and the config it sends.
 vi.mock("../../src/renderer/pages/panels/ExtensionRunPanel", () => ({
@@ -81,12 +99,13 @@ import { buildSimulationConfig, type GlobalParams } from "../../src/renderer/pag
 import { defaultJobSettings, isRunnableRow, type SelectedRow } from "../../src/renderer/pages/simulator/types";
 import { currentValues, rowCurrentsCount } from "../../src/renderer/pages/simulator/MontageManager";
 import { simStepRows } from "../../src/renderer/pages/simulator/planStep";
+import { candidateRow } from "../../src/renderer/pages/simulator/candidateHandoff";
 import { automaticRunName, flexOutputFolder, jobsForRow, rowFormReason } from "../../src/renderer/pages/optimizer/plan";
 import { emptyOptimizerRow, isRunnableOptimizerRow, type OptimizerRow } from "../../src/renderer/pages/optimizer/rows";
 import { defaultFlexFormState, type FlexFormState } from "../../src/renderer/pages/optimizer/flexConfig";
 import { defaultExFormState, defaultMExFormState } from "../../src/renderer/pages/optimizer/exConfig";
 import { buildConfig as buildAnalyzerConfig, rowTargets, type AnalysisType } from "../../src/renderer/pages/analyzer/buildConfig";
-import { blockedReasonFor, groupMismatchReason } from "../../src/renderer/pages/analyzer/AnalyzerPage";
+import { blockedReasonFor, cohortSubjects, groupMismatchReason } from "../../src/renderer/pages/analyzer/AnalyzerPage";
 import { isPlannableAnalyzerRow, isRunnableAnalyzerRow, type AnalyzerRow } from "../../src/renderer/pages/analyzer/JobRows";
 import { EMPTY_SPHERE } from "../../src/renderer/pages/analyzer/SphereRows";
 import { isRoiComplete, type RoiValue } from "../../src/renderer/pages/_shared/roi";
@@ -101,7 +120,11 @@ import * as statsApi from "../../src/renderer/pages/panels/cluster-permutation/a
 import * as niftiApi from "../../src/renderer/pages/panels/nifti-group-average/api";
 import * as nilearnApi from "../../src/renderer/pages/panels/nilearn-visuals/api";
 import * as blenderApi from "../../src/renderer/pages/panels/visual-exporter/api";
+import * as sourceApi from "../../src/renderer/pages/panels/source/api";
+import { buildForwardConfig } from "../../src/renderer/pages/panels/source/config";
+import { getSubjects } from "../../src/renderer/api/client";
 import statsPage from "../../src/renderer/pages/panels/cluster-permutation/index";
+import sourcePage from "../../src/renderer/pages/panels/source/index";
 import niftiPage from "../../src/renderer/pages/panels/nifti-group-average/index";
 import nilearnPage from "../../src/renderer/pages/panels/nilearn-visuals/index";
 import blenderPage from "../../src/renderer/pages/panels/visual-exporter/index";
@@ -221,6 +244,22 @@ function simulatorCases(): CorpusCase[] {
     subjectIds: ["001"],
     overwrite: false,
   })[0] as SelectedRow;
+  // An optimiser candidate handed to the Simulator (candidateHandoff.ts): XYZ electrodes with one
+  // homogeneous 4x4 pose each, which the runner must receive untouched (rect-electrode orientation).
+  const candidatePairs = xyz(2);
+  const candidate = candidateRow({
+    id: "8",
+    subject: "001",
+    run: "flexrun",
+    config: {
+      subject_id: "001",
+      montages: [{ _type: "Montage", name: "candidate_8", mode: "flex_free", eeg_net: null, electrode_pairs: candidatePairs,
+        electrode_poses: candidatePairs.flat().map(([x, y, z]) => [[0, -1, 0, x], [1, 0, 0, y], [0, 0, 1, z], [0, 0, 0, 1]]) }],
+      intensities: [1.5, 0.5],
+      electrode_shape: "rect",
+      electrode_dimensions: [10, 6],
+    },
+  });
   return [
     simCase("ti-net", "TI montage on an EEG net, 2 pairs", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2) }), { mode: "net" }),
     simCase("mti-net-4-pairs", "mTI montage, 4 pairs, 4 currents", simRow({ kind: "multi_polar", eegNet: NET, pairs: labelPairs(4), currents: "1.0,1.0,1.0,1.0" }), { mode: "net" }),
@@ -242,6 +281,7 @@ function simulatorCases(): CorpusCase[] {
     simCase("plan-step-no-intensities", "A plan step row whose step names no intensities (currents '')", step, { mode: "net" }),
     simCase("currents-zero-one", "Channel currents typed as 0 and 1 mA", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2), currents: "0,1" }), { mode: "net" }),
     simCase("no-montage-picked", "A row with a subject but no montage yet", simRow({ name: "", kind: "uni_polar", eegNet: NET, pairs: [] }), { mode: "net" }),
+    simCase("candidate-poses", "An optimiser candidate (XYZ + electrode poses, 1.5/0.5 mA, rect 10x6)", candidate, { mode: "flex_free" }),
   ];
 }
 
@@ -351,6 +391,8 @@ function optimizerExCases(): CorpusCase[] {
     exCase("bucketed-subcortical", "Ex, subject labeling.nii.gz thalamus", exRow("bucketed-subcortical", { ex: ex({}), roi: subcortical }), { runner: "run_ex_search", roiNames: ["labeling.nii.gz_1region"] }),
     exCase("bucketed-mask", "Ex, imported subject mask", exRow("bucketed-mask", { ex: ex({}), roi: subjectMask }), { runner: "run_ex_search", roiNames: ["target"] }),
     exCase("pool-too-small", "Ex, electrode pool of three", exRow("pool-too-small", { ex: ex({ electrodeMode: "all", pool: ["E010", "E011", "E012"] }), roi: saved(["L_Insula"], false) }), { runner: "run_ex_search", roiNames: ["L_Insula"] }),
+    exCase("pool-mask", "Ex, electrode pool of five, imported subject mask", exRow("pool-mask", { ex: ex({ electrodeMode: "all", pool: ["E010", "E011", "E012", "E013", "E014"] }), roi: subjectMask }), { runner: "run_ex_search", roiNames: ["target"] }),
+    exCase("pool-subcortical", "Ex, electrode pool of five, subject labeling.nii.gz thalamus", exRow("pool-subcortical", { ex: ex({ electrodeMode: "all", pool: ["E010", "E011", "E012", "E013", "E014"] }), roi: subcortical }), { runner: "run_ex_search", roiNames: ["labeling.nii.gz_1region"] }),
     exCase("mex-saved", "mEx, eight buckets, one saved ROI", exRow("mex-saved", { exPairs: 4, mex: { ...defaultMExFormState(), buckets: mexBuckets }, roi: saved(["L_Insula"], false) }), { runner: "run_m_ex_search", roiNames: ["L_Insula"] }),
     exCase("mex-subcortical", "mEx, subject labeling.nii.gz thalamus", exRow("mex-subcortical", { exPairs: 4, mex: { ...defaultMExFormState(), buckets: mexBuckets }, roi: subcortical }), { runner: "run_m_ex_search", roiNames: ["labeling.nii.gz_1region"] }),
   ];
@@ -364,14 +406,21 @@ function analyzerRow(seed: Partial<AnalyzerRow>): AnalyzerRow {
   return { id: "a", subjectId: "001", simulation: "M1", space: "mesh", field: "TI_max", tissue: "GM", roi: sphere, combine: true, ...seed };
 }
 
-/** AnalyzerPage.tsx's `configs` derivation, line for line over the page's exported pieces. */
+/**
+ * AnalyzerPage.tsx's `configs` derivation and its Run gate, clause for clause over the page's
+ * exported pieces (`ANALYZER_MIRROR` below fails when the page's own clauses change). One
+ * deliberate difference: a refused case still builds its configs, so the server can be asked
+ * about them too — the page builds none while `configsValid` is false.
+ */
 function analyzerJobs(rows: AnalyzerRow[], group: boolean): { jobs: CorpusJob[]; desktop: CorpusCase["desktop"] } {
-  const runnable = rows.filter(isRunnableAnalyzerRow);
-  const cohort = [...new Set(runnable.map((r) => r.subjectId))];
-  const targetReady = runnable.length > 0 && runnable.every((r) => isRoiComplete(r.roi));
+  const runnableRows = rows.filter(isRunnableAnalyzerRow);
+  const cohort = cohortSubjects(rows);
+  const effectiveSubjectIds = group ? cohort : runnableRows.map((r) => r.subjectId);
+  const incompleteTargetRow = runnableRows.find((r) => !isRoiComplete(r.roi));
+  const targetReady = runnableRows.length > 0 && incompleteTargetRow === undefined;
   const groupMismatch = group ? groupMismatchReason(rows) : null;
-  const effectiveSubjectIds = group ? cohort : runnable.map((r) => r.subjectId);
-  const reason = blockedReasonFor({ subjectsBlocked: subjectsBlockedReason(effectiveSubjectIds, []), rowCount: runnable.length, groupMismatch, targetReady });
+  // Every corpus subject is eligible, so the page's per-subject blocked list is empty.
+  const reason = blockedReasonFor({ subjectsBlocked: subjectsBlockedReason(effectiveSubjectIds, []), rowCount: runnableRows.length, groupMismatch, targetReady });
   const plannable = rows.filter(isPlannableAnalyzerRow);
   const make = (row: AnalyzerRow, roi: RoiValue) =>
     buildAnalyzerConfig({
@@ -395,29 +444,74 @@ function analyzerJobs(rows: AnalyzerRow[], group: boolean): { jobs: CorpusJob[];
   };
 }
 
-function analyzerCase(slug: string, title: string, rows: AnalyzerRow[], group: boolean, ui: Record<string, unknown>): CorpusCase {
-  const { jobs, desktop } = analyzerJobs(rows, group);
-  return { id: `analyzer/${slug}`, page: "analyzer", title, jobs, desktop, expect: ui };
+/**
+ * The runner call the user's selection names, typed out literally from that selection (the row's
+ * subject/simulation/space/field/tissue and the ROI's centre, radius, space, atlas, regions or mask
+ * path) — never read back from `buildConfig`. `calls` holds, per call in order, the arguments that
+ * call must carry (`region` always as a list, however many regions); `analyzer` is the
+ * `Analyzer(...)` constructor every single-subject call must see. Shared by
+ * `tests/test_runner_dispatch_replay.py`, which compares the recorded call with it key by key.
+ */
+interface AnalyzerExpect {
+  method: "analyze_sphere" | "analyze_cortex" | "analyze_subcortical" | "analyze_mask" | "run_group_analysis";
+  calls: Record<string, unknown>[];
+  analyzer?: { subject_id: string; simulation: string; space: string; tissue_type: string; field: string | null };
 }
+
+/** The constructor a single-subject row of `analyzerRow`'s defaults asks for, with *patch* applied. */
+const ctor = (patch: Partial<NonNullable<AnalyzerExpect["analyzer"]>> = {}): AnalyzerExpect["analyzer"] => ({
+  subject_id: "001",
+  simulation: "M1",
+  space: "mesh",
+  tissue_type: "GM",
+  field: "TI_max",
+  ...patch,
+});
+
+function analyzerCase(slug: string, title: string, rows: AnalyzerRow[], group: boolean, ui: AnalyzerExpect): CorpusCase {
+  const { jobs, desktop } = analyzerJobs(rows, group);
+  return { id: `analyzer/${slug}`, page: "analyzer", title, jobs, desktop, expect: ui as unknown as Record<string, unknown> };
+}
+
+const CIT168 = "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz";
 
 function analyzerCases(): CorpusCase[] {
   const mniSphere: RoiValue = { ...sphere, space: "mni", spheres: [{ x: -38, y: 4, z: 2, radius: 8 }] } as RoiValue;
   const twoRegions: RoiValue = { mode: "cortical", space: "subject", atlas: "DK40", regions: [{ id: 35, name: "insula", hemi: "lh" }, { id: 30, name: "precuneus", hemi: "lh" }] };
+  const insula: RoiValue = { ...twoRegions, regions: [twoRegions.regions[0]!] } as RoiValue;
   const mniMask: RoiValue = { mode: "mask", path: MNI_MASK, space: "mni", tissues: "GM" };
   const thal: RoiValue = { mode: "subcortical", space: "subject", atlas: "labeling.nii.gz", regions: [{ id: 10, name: "Left-Thalamus" }], tissues: "GM" };
+  const mniPutamen: RoiValue = { mode: "subcortical", space: "mni", atlas: CIT168, regions: [{ id: 1, name: "Left-CIT168_Pu_Putamen" }], tissues: "GM" };
+  const group = (patch: Record<string, unknown>) => ({ subject_ids: ["001", "002"], simulation: "M1", field: "TI_max", ...patch });
   return [
-    analyzerCase("mesh-sphere-single", "Mesh, subject-space sphere, one subject", [analyzerRow({})], false, { method: "analyze_sphere", calls: 1 }),
-    analyzerCase("voxel-sphere-mni-both", "Voxel, MNI sphere, GM+WM", [analyzerRow({ space: "voxel", tissue: "both", roi: mniSphere })], false, { method: "analyze_sphere", calls: 1, tissue_type: "both" }),
-    analyzerCase("mesh-cortical-one", "Mesh, cortical lh.insula", [analyzerRow({ roi: { ...twoRegions, regions: [twoRegions.regions[0]!] } as RoiValue })], false, { method: "analyze_cortex", calls: 1, regions: [["lh.insula"]] }),
-    analyzerCase("mesh-cortical-combined", "Mesh, two cortical regions combined", [analyzerRow({ roi: twoRegions, combine: true })], false, { method: "analyze_cortex", calls: 1, regions: [["lh.insula", "lh.precuneus"]] }),
-    analyzerCase("mesh-cortical-separate", "Mesh, two cortical regions run separately", [analyzerRow({ roi: twoRegions, combine: false })], false, { method: "analyze_cortex", calls: 2, regions: [["lh.insula"], ["lh.precuneus"]] }),
-    analyzerCase("voxel-subcortical-subject", "Voxel, subject labeling.nii.gz Left-Thalamus", [analyzerRow({ space: "voxel", roi: thal })], false, { method: "analyze_subcortical", calls: 1, regions: [["Left-Thalamus"]] }),
-    analyzerCase("mesh-subcortical-subject", "Mesh, subject labeling.nii.gz Left-Thalamus", [analyzerRow({ roi: thal })], false, { method: "analyze_subcortical", calls: 1, regions: [["Left-Thalamus"]] }),
-    analyzerCase("voxel-mask-subject", "Voxel, imported subject mask", [analyzerRow({ space: "voxel", roi: subjectMask })], false, { method: "analyze_mask", calls: 1 }),
-    analyzerCase("mesh-field-hf-peak", "Mesh sphere measuring hf_peak", [analyzerRow({ field: "hf_peak" })], false, { method: "analyze_sphere", calls: 1, field: "hf_peak" }),
-    analyzerCase("group-sphere-mni", "Group of two, MNI sphere", [analyzerRow({ roi: mniSphere }), analyzerRow({ subjectId: "002", roi: mniSphere })], true, { method: "run_group_analysis", calls: 1, subjects: ["001", "002"] }),
-    analyzerCase("group-mask-mni", "Group of two, MNI mask", [analyzerRow({ space: "voxel", roi: mniMask }), analyzerRow({ subjectId: "002", space: "voxel", roi: mniMask })], true, { method: "run_group_analysis", calls: 1, subjects: ["001", "002"] }),
-    analyzerCase("group-mask-subject", "Group of two, subject-space mask", [analyzerRow({ space: "voxel", roi: subjectMask }), analyzerRow({ subjectId: "002", space: "voxel", roi: subjectMask })], true, { method: "run_group_analysis", calls: 1, subjects: ["001", "002"] }),
+    analyzerCase("mesh-sphere-single", "Mesh, subject-space sphere, one subject", [analyzerRow({})], false,
+      { method: "analyze_sphere", analyzer: ctor(), calls: [{ center: [-30, 10, 5], radius: 10, coordinate_space: "subject" }] }),
+    analyzerCase("voxel-sphere-mni-both", "Voxel, MNI sphere, GM+WM", [analyzerRow({ space: "voxel", tissue: "both", roi: mniSphere })], false,
+      { method: "analyze_sphere", analyzer: ctor({ space: "voxel", tissue_type: "both" }), calls: [{ center: [-38, 4, 2], radius: 8, coordinate_space: "mni" }] }),
+    analyzerCase("mesh-cortical-one", "Mesh, cortical lh.insula", [analyzerRow({ roi: insula })], false,
+      { method: "analyze_cortex", analyzer: ctor(), calls: [{ atlas: "DK40", region: ["lh.insula"] }] }),
+    analyzerCase("mesh-cortical-combined", "Mesh, two cortical regions combined", [analyzerRow({ roi: twoRegions, combine: true })], false,
+      { method: "analyze_cortex", analyzer: ctor(), calls: [{ atlas: "DK40", region: ["lh.insula", "lh.precuneus"] }] }),
+    analyzerCase("mesh-cortical-separate", "Mesh, two cortical regions run separately", [analyzerRow({ roi: twoRegions, combine: false })], false,
+      { method: "analyze_cortex", analyzer: ctor(), calls: [{ atlas: "DK40", region: ["lh.insula"] }, { atlas: "DK40", region: ["lh.precuneus"] }] }),
+    analyzerCase("voxel-subcortical-subject", "Voxel, subject labeling.nii.gz Left-Thalamus", [analyzerRow({ space: "voxel", roi: thal })], false,
+      { method: "analyze_subcortical", analyzer: ctor({ space: "voxel" }), calls: [{ atlas: "labeling.nii.gz", region: ["Left-Thalamus"], coordinate_space: "subject" }] }),
+    analyzerCase("mesh-subcortical-subject", "Mesh, subject labeling.nii.gz Left-Thalamus", [analyzerRow({ roi: thal })], false,
+      { method: "analyze_subcortical", analyzer: ctor(), calls: [{ atlas: "labeling.nii.gz", region: ["Left-Thalamus"], coordinate_space: "subject" }] }),
+    analyzerCase("voxel-subcortical-mni", "Voxel, packaged MNI CIT168 atlas, left putamen", [analyzerRow({ space: "voxel", roi: mniPutamen })], false,
+      { method: "analyze_subcortical", analyzer: ctor({ space: "voxel" }), calls: [{ atlas: CIT168, region: ["Left-CIT168_Pu_Putamen"], coordinate_space: "mni" }] }),
+    analyzerCase("voxel-mask-subject", "Voxel, imported subject mask", [analyzerRow({ space: "voxel", roi: subjectMask })], false,
+      { method: "analyze_mask", analyzer: ctor({ space: "voxel" }), calls: [{ mask_path: SUBJECT_MASK, coordinate_space: "subject" }] }),
+    analyzerCase("mesh-field-hf-peak", "Mesh sphere measuring hf_peak", [analyzerRow({ field: "hf_peak" })], false,
+      { method: "analyze_sphere", analyzer: ctor({ field: "hf_peak" }), calls: [{ center: [-30, 10, 5], radius: 10, coordinate_space: "subject" }] }),
+    analyzerCase("group-sphere-mni", "Group of two, MNI sphere", [analyzerRow({ roi: mniSphere }), analyzerRow({ subjectId: "002", roi: mniSphere })], true,
+      { method: "run_group_analysis", calls: [group({ space: "mesh", tissue_type: "GM", analysis_type: "spherical", center: [-38, 4, 2], radius: 8, coordinate_space: "mni", mask_path: null, atlas: null })] }),
+    analyzerCase("group-mask-mni", "Group of two, MNI mask", [analyzerRow({ space: "voxel", roi: mniMask }), analyzerRow({ subjectId: "002", space: "voxel", roi: mniMask })], true,
+      { method: "run_group_analysis", calls: [group({ space: "voxel", tissue_type: "GM", analysis_type: "mask", mask_path: MNI_MASK, coordinate_space: "mni", center: null, atlas: null })] }),
+    analyzerCase("group-cortical", "Group of two, cortical lh.insula", [analyzerRow({ roi: insula }), analyzerRow({ subjectId: "002", roi: insula })], true,
+      { method: "run_group_analysis", calls: [group({ space: "mesh", tissue_type: "GM", analysis_type: "cortical", atlas: "DK40", region: ["lh.insula"], mask_path: null, center: null })] }),
+    analyzerCase("group-mask-subject", "Group of two, subject-space mask", [analyzerRow({ space: "voxel", roi: subjectMask }), analyzerRow({ subjectId: "002", space: "voxel", roi: subjectMask })], true,
+      { method: "run_group_analysis", calls: [group({ space: "voxel", tissue_type: "GM", analysis_type: "mask", mask_path: SUBJECT_MASK, coordinate_space: "subject" })] }),
   ];
 }
 
@@ -457,7 +551,13 @@ function preprocessCases(): CorpusCase[] {
 // ---------------------------------------------------------------------------------------------
 type PanelPage = { Component: () => React.ReactElement | null };
 
-async function renderPanel(page: PanelPage, session: Record<string, unknown>): Promise<{ title: string | null; disabled: boolean; click: () => Promise<void>; unmount: () => void }> {
+const runButton = (container: HTMLElement) => container.querySelector<HTMLButtonElement>('[data-testid="run-button"]');
+
+async function renderPanel(
+  page: PanelPage,
+  session: Record<string, unknown>,
+  findRun: (container: HTMLElement) => HTMLButtonElement | null = runButton,
+): Promise<{ title: string | null; disabled: boolean; click: () => Promise<void>; unmount: () => void }> {
   clearPageSession();
   for (const [key, value] of Object.entries(session)) writeSession(sessionSlot("", key), value);
   const container = document.createElement("div");
@@ -470,7 +570,7 @@ async function renderPanel(page: PanelPage, session: Record<string, unknown>): P
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1500);
   });
-  const button = container.querySelector<HTMLButtonElement>('[data-testid="run-button"]');
+  const button = findRun(container);
   expect(button, "the panel renders its Run button").not.toBeNull();
   return {
     title: button!.getAttribute("title"),
@@ -544,42 +644,90 @@ async function statsCase(slug: string, title: string, mode: "classification" | "
   };
 }
 
-async function niftiCase(slug: string, title: string, rows: { subjectId: string; simulationName: string; group: string }[], space: "subject" | "mni", ui: { groups: string[] }): Promise<CorpusCase> {
+/**
+ * `expect.differences` is what the user asked to be differenced, typed out: with the pairs box left
+ * empty every pair of the groups they typed, alphabetically (`NiftiAverageConfig.diff_pairs`
+ * docstring), otherwise exactly the pairs they typed. `pattern` is the file they typed, or null for
+ * "the chosen space's own file".
+ */
+async function niftiCase(
+  slug: string,
+  title: string,
+  rows: { subjectId: string; simulationName: string; group: string }[],
+  space: "subject" | "mni",
+  ui: { groups: string[]; differences: string[] },
+  typed: { pattern?: string; diffPairs?: string; outputName?: string } = {},
+): Promise<CorpusCase> {
   vi.useFakeTimers();
   vi.mocked(niftiApi.planNiftiAverage).mockClear();
-  const panel = await renderPanel(niftiPage as unknown as PanelPage, { rows: rows.map((r, i) => ({ id: `n${i}`, ...r })), outputName: "corpus_average", space, pattern: "", diffPairs: "" });
-  const built = buildNiftiAverageConfig({ outputName: "corpus_average", rows, space, niftiFilePattern: "", diffPairs: [] });
+  const outputName = typed.outputName ?? "corpus_average";
+  const pattern = typed.pattern ?? "";
+  const diffPairs = typed.diffPairs ?? "";
+  const panel = await renderPanel(niftiPage as unknown as PanelPage, { rows: rows.map((r, i) => ({ id: `n${i}`, ...r })), outputName, space, pattern, diffPairs });
+  const built = buildNiftiAverageConfig({ outputName: outputName.trim(), rows, space, niftiFilePattern: pattern, diffPairs: diffPairs.split(",").map((s) => s.trim()).filter(Boolean) });
   const subjects = [...new Set(rows.map((r) => r.subjectId))];
   const sent = vi.mocked(niftiApi.planNiftiAverage).mock.calls.at(-1);
   panel.unmount();
   const accepts = panel.title === null;
   if (accepts) expect(sent, `${slug}: the panel planned the config it would submit`).toEqual([built, subjects]);
+  else expect(panel.disabled, `${slug}: a blocked panel disables Run`).toBe(true);
   return {
     id: `panels-nifti/${slug}`,
     page: "panels-nifti",
     title,
     jobs: [{ kind: "nifti_average", subject_ids: subjects, config: built }],
     desktop: { accepts, reason: panel.title },
-    expect: { nifti_pattern_space: space, groups: ui.groups },
+    expect: { nifti_pattern_space: space, groups: ui.groups, differences: ui.differences, pattern: typed.pattern ?? null, output_name: outputName },
   };
 }
 
-async function nilearnCase(slug: string, title: string, pairs: { subjectId: string; simulationName: string }[]): Promise<CorpusCase> {
+/** `typed` is what the user entered beyond the pairs; `expect` repeats it for the runner check. */
+async function nilearnCase(
+  slug: string,
+  title: string,
+  pairs: { subjectId: string; simulationName: string }[],
+  typed: { subdir?: string; usePercentiles?: boolean; minCutoff?: number; maxCutoff?: number; region?: string } = {},
+): Promise<CorpusCase> {
   vi.useFakeTimers();
   vi.mocked(nilearnApi.planNilearn).mockClear();
-  const panel = await renderPanel(nilearnPage as unknown as PanelPage, { pairs: pairs.map((p, i) => ({ id: `p${i}`, ...p })), subdir: "corpus_figs" });
+  const subdir = typed.subdir ?? "corpus_figs";
+  const session: Record<string, unknown> = { pairs: pairs.map((p, i) => ({ id: `p${i}`, ...p })), subdir };
+  if (typed.usePercentiles !== undefined) session.usePercentiles = typed.usePercentiles;
+  if (typed.minCutoff !== undefined) session.minCutoff = typed.minCutoff;
+  if (typed.maxCutoff !== undefined) session.maxCutoff = typed.maxCutoff;
+  if (typed.region !== undefined) session.region = typed.region;
+  const panel = await renderPanel(nilearnPage as unknown as PanelPage, session);
   const sent = vi.mocked(nilearnApi.planNilearn).mock.calls.at(-1);
   panel.unmount();
   const accepts = panel.title === null;
-  const subjects = [...new Set(pairs.map((p) => p.subjectId))];
-  const built = (sent?.[0] as unknown) ?? buildNilearnConfig({ pairs, subdirName: "corpus_figs", usePercentiles: false, atlasName: "harvard_oxford_sub", selectedRegion: "__all__" });
+  // The panel builds from the rows it counts (`validPairs`: subject AND simulation filled in).
+  const valid = pairs.filter((p) => p.subjectId && p.simulationName);
+  const subjects = [...new Set(valid.map((p) => p.subjectId))];
+  const built = buildNilearnConfig({
+    pairs: valid,
+    subdirName: subdir.trim(),
+    usePercentiles: typed.usePercentiles ?? false,
+    minCutoff: typed.minCutoff,
+    maxCutoff: typed.maxCutoff,
+    atlasName: "harvard_oxford_sub",
+    selectedRegion: typed.region ?? "__all__",
+  });
+  if (accepts) expect(sent, `${slug}: the panel planned the config it would submit`).toEqual([built, subjects]);
+  else expect(panel.disabled, `${slug}: a blocked panel disables Run`).toBe(true);
   return {
     id: `panels-nilearn/${slug}`,
     page: "panels-nilearn",
     title,
     jobs: [{ kind: "nilearn", subject_ids: subjects, config: built }],
     desktop: { accepts, reason: panel.title },
-    expect: { pairs: pairs.map((p) => [p.subjectId, p.simulationName]) },
+    expect: {
+      pairs: valid.map((p) => [p.subjectId, p.simulationName]),
+      subdir,
+      use_percentiles: typed.usePercentiles ?? false,
+      min_cutoff: typed.minCutoff ?? null,
+      max_cutoff: typed.maxCutoff ?? null,
+      selected_regions: typed.region === undefined ? null : [Number(typed.region)],
+    },
   };
 }
 
@@ -588,11 +736,10 @@ async function blenderCase(slug: string, title: string, session: Record<string, 
   vi.mocked(blenderApi.createBlenderJob).mockClear();
   const panel = await renderPanel(blenderPage as unknown as PanelPage, session);
   const accepts = panel.title === null;
-  if (accepts) {
-    await panel.click();
-    // One Run click submits every config the mode builds (regions: an STL and a PLY job).
-    expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: the panel submits its builder's configs`).toEqual(built.map((c) => [c, [session.subjectId]]));
-  }
+  // One Run click submits every config the mode builds (regions: an STL and a PLY job); a blocked
+  // panel's click (its Run stays enabled and explains itself in a toast) submits nothing.
+  await panel.click();
+  expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: what one Run click submits`).toEqual(accepts ? built.map((c) => [c, [session.subjectId]]) : []);
   panel.unmount();
   return {
     id: `visual-exporter/${slug}`,
@@ -604,8 +751,90 @@ async function blenderCase(slug: string, title: string, session: Record<string, 
   };
 }
 
+/**
+ * The Source panel's "Build forward" (its only run button): the verdict is that button's title,
+ * and an enabled click submits through `createSourceJob`. `ui.eegNet` is the cap's name as the
+ * runner must receive it — without ".csv" (`SourceConfig.eeg_net` docstring) — typed out here.
+ */
+async function sourceCase(slug: string, title: string, subjects: string[], ui: { eegNet: string }): Promise<CorpusCase> {
+  vi.useFakeTimers();
+  vi.mocked(sourceApi.createSourceJob).mockClear();
+  vi.mocked(getSubjects).mockResolvedValue(
+    ["001", "002", "003"].map((id) => ({ id, has_raw: true, has_fastsurfer: false, has_freesurfer: false, has_m2m: true })) as unknown as Awaited<ReturnType<typeof getSubjects>>,
+  );
+  const findBuild = (container: HTMLElement) => [...container.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.includes("Build forward")) ?? null;
+  const panel = await renderPanel(sourcePage as unknown as PanelPage, { subjects, "forward.net": NET }, findBuild);
+  const accepts = panel.title === null;
+  const built = buildForwardConfig({ subjectIds: subjects, eegNet: NET, fsaverageSpacing: 5, cpus: 1, overwrite: false });
+  if (accepts) {
+    await panel.click();
+    expect(vi.mocked(sourceApi.createSourceJob).mock.calls, `${slug}: the panel submits its builder's config`).toEqual([[built, subjects, false]]);
+  } else expect(panel.disabled, `${slug}: a blocked panel disables Build forward`).toBe(true);
+  panel.unmount();
+  vi.mocked(getSubjects).mockResolvedValue([]);
+  return {
+    id: `panels-source/${slug}`,
+    page: "panels-source",
+    title,
+    jobs: [{ kind: "source", subject_ids: subjects, config: built }],
+    desktop: { accepts, reason: panel.title },
+    expect: { runner: "_run_forward", subject_ids: subjects, eeg_net: ui.eegNet },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two run pages whose job lists the corpus derives itself (the panels above are rendered):
+// a page that adds a gate, or changes how it turns rows into configs, must change the corpus too.
+// ---------------------------------------------------------------------------------------------
+const PAGES_SRC = resolve(__dirname, "../../src/renderer/pages");
+
+/** Source text with `//` comments dropped and every whitespace run collapsed to one space. */
+function normalisedSource(file: string): string {
+  return readFileSync(join(PAGES_SRC, file), "utf8")
+    .split("\n")
+    .map((line) => line.replace(/(^|\s)\/\/.*$/, ""))
+    .join(" ")
+    .replace(/\s+/g, " ");
+}
+
+/** Clauses `analyzerJobs` above copies from AnalyzerPage.tsx, exactly as the page writes them. */
+const ANALYZER_MIRROR = [
+  "const runnableRows = rows.filter(isRunnableAnalyzerRow);",
+  "const cohort = cohortSubjects(rows);",
+  "const effectiveSubjectIds = group ? cohort : runnableRows.map((r) => r.subjectId);",
+  "const incompleteTargetRow = runnableRows.find((r) => !isRoiComplete(r.roi));",
+  "const targetReady = runnableRows.length > 0 && incompleteTargetRow === undefined;",
+  "const groupMismatch = group ? groupMismatchReason(rows) : null;",
+  "const plannableRows = rows.filter(isPlannableAnalyzerRow);",
+  "const configsValid = plannableRows.length > 0 && targetReady && !groupMismatch;",
+  "buildConfig({ mode: group ? \"group\" : \"single\", subjectId: group ? null : row.subjectId, subjectIds: group ? cohort : [], simulation: row.simulation, space: row.space, tissueType: row.tissue, field: row.field, analysisType: roi.mode as AnalysisType, coordinateSpace: roi.space, roiValue: roi, sphere: roi.mode === \"spherical\" ? (roi.spheres[0] ?? EMPTY_SPHERE) : EMPTY_SPHERE, });",
+  "const lead = plannableRows[0]; return lead ? rowTargets(lead).map((roi) => make(lead, roi)) : [];",
+  "return plannableRows.flatMap((row) => rowTargets(row).map((roi) => make(row, roi)));",
+  "subjectIds: group ? cohort : [config.subject_id as string],",
+  "rowCount: runnableRows.length, groupMismatch, targetReady, });",
+];
+
+/** Clauses `optimizerJobs`/`optimizerVerdict` above copy from optimizer/index.tsx. */
+const OPTIMIZER_MIRROR = [
+  "const runnableRows = rows.filter((r) => isRunnableOptimizerRow(r, hasLeadfield));",
+  "const jobs = runnableRows.flatMap((row) => jobsForRow(row, { atlas: atlasFor, leadfield: leadfieldFor }));",
+  "if (job.stage !== \"flex\") return { plan: await planFor(job.kind, job.config, [job.subject], false), config: job.config };",
+  "const base = await planFor(job.kind, { ...config, output_folder: null }, [job.subject], false); const folder = base.jobs[0]?.output_dir;",
+  "const resolved = { ...config, output_folder: flexOutputFolder(folder, String(config.output_folder ?? \"\"), automaticRunName(job.rowId)) };",
+  // The whole refusal chain, in order: the corpus models every clause but the subject (m2m) one,
+  // since every corpus subject has a head model, and the transient "Resolving…" one.
+  "if (rows.length === 0) return \"Add a search job.\"; if (runnableRows.length === 0) return \"Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.\"; if (subjectsBlocked) return subjectsBlocked; for (const [i, row] of runnableRows.entries()) { const reason = rowFormReason(row); if (reason) return `Job ${rows.indexOf(row) + 1}: ${reason}`; void i; } if (jobs.length === 0) return \"No job resolves to a target yet.\"; if (jobsSig !== debouncedSig || !allPlanned) return \"Resolving the run folders…\"; return null;",
+];
+
 // ---------------------------------------------------------------------------------------------
 describe("desktop config corpus", () => {
+  it("copies the analyzer and optimizer pages' job derivations clause for clause", () => {
+    const analyzer = normalisedSource("analyzer/AnalyzerPage.tsx");
+    for (const clause of ANALYZER_MIRROR) expect(analyzer.includes(clause), `AnalyzerPage.tsx still reads: ${clause}`).toBe(true);
+    const optimizer = normalisedSource("optimizer/index.tsx");
+    for (const clause of OPTIMIZER_MIRROR) expect(optimizer.includes(clause), `optimizer/index.tsx still reads: ${clause}`).toBe(true);
+  });
+
   it("simulator", () => checkPage("simulator", simulatorCases()));
   it("optimizer-flex", () => checkPage("optimizer-flex", optimizerFlexCases()));
   it("optimizer-ex", () => checkPage("optimizer-ex", optimizerExCases()));
@@ -626,10 +855,15 @@ describe("desktop config corpus", () => {
   it("panels-nifti", async () => {
     const row = (subjectId: string, group: string) => ({ subjectId, simulationName: "M1", group });
     checkPage("panels-nifti", [
-      await niftiCase("subject-space", "Two groups averaged in subject space", [row("001", "Group1"), row("002", "Group2")], "subject", { groups: ["Group1", "Group2"] }),
-      await niftiCase("mni-space", "Two groups averaged in MNI space", [row("001", "Group1"), row("002", "Group2")], "mni", { groups: ["Group1", "Group2"] }),
-      await niftiCase("hyphen-space-labels", "Group labels with a hyphen and a space", [row("001", "pre-op"), row("002", "post op")], "mni", { groups: ["pre-op", "post op"] }),
-      await niftiCase("untrimmed-label", "One row typed 'Group1 ' with a trailing space", [row("001", "Group1"), row("002", "Group1 ")], "mni", { groups: ["Group1"] }),
+      await niftiCase("subject-space", "Two groups averaged in subject space", [row("001", "Group1"), row("002", "Group2")], "subject", { groups: ["Group1", "Group2"], differences: ["Group1 - Group2"] }),
+      await niftiCase("mni-space", "Two groups averaged in MNI space", [row("001", "Group1"), row("002", "Group2")], "mni", { groups: ["Group1", "Group2"], differences: ["Group1 - Group2"] }),
+      await niftiCase("hyphen-space-labels", "Group labels with a hyphen and a space", [row("001", "pre-op"), row("002", "post op")], "mni", { groups: ["pre-op", "post op"], differences: ["post op - pre-op"] }),
+      await niftiCase("untrimmed-label", "One row typed 'Group1 ' with a trailing space", [row("001", "Group1"), row("002", "Group1 ")], "mni", { groups: ["Group1"], differences: [] }),
+      await niftiCase("single-group", "Two subjects in one group: an average, no difference", [row("001", "Group1"), row("002", "Group1")], "subject", { groups: ["Group1"], differences: [] }),
+      await niftiCase("typed-pattern-and-pairs", "Three groups, a typed file pattern and one typed difference", [row("001", "Group1"), row("002", "Group2"), row("003", "Group3")], "mni",
+        { groups: ["Group1", "Group2", "Group3"], differences: ["Group3 - Group1"] }, { pattern: "custom_{simulation_name}_TI_MNI.nii.gz", diffPairs: "Group3-Group1" }),
+      await niftiCase("one-row", "A single subject row", [row("001", "Group1")], "mni", { groups: ["Group1"], differences: [] }),
+      await niftiCase("blank-name", "Two groups with the analysis name left blank", [row("001", "Group1"), row("002", "Group2")], "mni", { groups: ["Group1", "Group2"], differences: ["Group1 - Group2"] }, { outputName: "  " }),
     ]);
   });
 
@@ -637,6 +871,8 @@ describe("desktop config corpus", () => {
     checkPage("panels-nilearn", [
       await nilearnCase("one-pair", "One subject/simulation pair", [{ subjectId: "001", simulationName: "M1" }]),
       await nilearnCase("two-pairs", "Two pairs averaged", [{ subjectId: "001", simulationName: "M1" }, { subjectId: "002", simulationName: "M1" }]),
+      await nilearnCase("percentiles-region", "Percentile cutoffs 90-99 and one atlas region", [{ subjectId: "001", simulationName: "M1" }], { usePercentiles: true, minCutoff: 90, maxCutoff: 99, region: "3" }),
+      await nilearnCase("no-simulation", "A subject row with no simulation picked", [{ subjectId: "001", simulationName: "" }]),
     ]);
   });
 
@@ -653,15 +889,28 @@ describe("desktop config corpus", () => {
         [buildMontageConfig({ subjectId: "001", simulationName: "FH1", montageOnly: false, electrodeDiameterMm: 10, electrodeHeightMm: 6 })], { types: ["MontageConfig"] }),
       await blenderCase("subcortical", "Subcortical labels 10,49 from labeling.nii.gz", { ...base, mode: "subcortical", niftiPath: SUBJECT_LABELING, labelsText: "10,49" },
         [buildSubcorticalConfig({ ...base, niftiPath: SUBJECT_LABELING, labels: [10, 49], cleanComponents: false, fieldName: "TI_max" })], { types: ["SubcorticalConfig"] }),
+      await blenderCase("regions-whole-cortex", "Cortical regions with none picked (the whole cortex)", { ...base, mode: "regions", regions: [] },
+        buildRegionConfigs({ ...base, atlas: "DK40", fieldName: "TI_max", regions: [] }), { types: ["RegionConfig", "RegionConfig"] }),
+      await blenderCase("montage-no-simulation", "Montage publication scene with no simulation picked", { subjectId: "001", simulationName: "", mode: "montage" },
+        [buildMontageConfig({ subjectId: "001", simulationName: "", montageOnly: false, electrodeDiameterMm: 10, electrodeHeightMm: 6 })], { types: ["MontageConfig"] }),
     ]);
   });
 
-  it("every known gap names cases that exist, an owner and a reason", () => {
+  it("panels-source", async () => {
+    checkPage("panels-source", [
+      await sourceCase("forward-one-subject", "Forward solution for one subject on its EEG net", ["001"], { eegNet: "GSN-HydroCel-185" }),
+      await sourceCase("forward-two-subjects", "Forward solutions for two subjects", ["001", "002"], { eegNet: "GSN-HydroCel-185" }),
+      await sourceCase("no-subject", "No subject selected", [], { eegNet: "GSN-HydroCel-185" }),
+    ]);
+  });
+
+  it("every known gap names cases that exist, an owner, a reason and the failure it expects", () => {
     const dir = join(CORPUS, "known_gaps");
     const files = readdirSync(dir).filter((n) => n.endsWith(".json"));
     expect(files.length, "known gaps to check").toBeGreaterThan(0);
     for (const name of files) {
-      const gap = JSON.parse(readFileSync(join(dir, name), "utf8")) as { case_ids: string[]; owner: string; reason: string; checks: string[] };
+      const gap = JSON.parse(readFileSync(join(dir, name), "utf8")) as { case_ids: string[]; owner: string; reason: string; checks: string[]; failure: string[] };
+      expect(Array.isArray(gap.failure) && gap.failure.length > 0 && gap.failure.every((s) => typeof s === "string" && s.length > 0), `${name}: failure lists the text the failure must contain`).toBe(true);
       expect(gap.case_ids.length, name).toBeGreaterThan(0);
       expect(gap.owner, name).toMatch(/^(p\d\d|triage)$/);
       expect(gap.reason.length, name).toBeGreaterThan(20);

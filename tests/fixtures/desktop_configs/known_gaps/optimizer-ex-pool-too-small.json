@@ -6,5 +6,9 @@
   "checks": [
     "verdict"
   ],
+  "failure": [
+    "page refuses (Add at least four electrodes to the pool.)",
+    "server accepts (None)"
+  ],
   "reason": "The page refuses an ex-search electrode pool of three ('Add at least four electrodes to the pool') but ExConfig, /api/validate and /api/plan accept it, so an agent or notebook can queue a search with no montage to evaluate. Candidate owners: p05 (ex enumeration) or p08 (tit/opt/config.py)."
 }

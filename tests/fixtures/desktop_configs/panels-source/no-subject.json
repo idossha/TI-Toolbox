@@ -1,0 +1,30 @@
+{
+  "id": "panels-source/no-subject",
+  "page": "panels-source",
+  "title": "No subject selected",
+  "jobs": [
+    {
+      "config": {
+        "forward": {
+          "cpus": 1,
+          "eeg_net": "GSN-HydroCel-185",
+          "fsaverage_spacing": 5,
+          "overwrite": false
+        },
+        "mode": "forward",
+        "subject_ids": []
+      },
+      "kind": "source",
+      "subject_ids": []
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "Select at least one subject first."
+  },
+  "expect": {
+    "eeg_net": "GSN-HydroCel-185",
+    "runner": "_run_forward",
+    "subject_ids": []
+  }
+}

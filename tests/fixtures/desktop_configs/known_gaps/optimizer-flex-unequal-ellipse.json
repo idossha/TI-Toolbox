@@ -6,5 +6,9 @@
   "checks": [
     "verdict"
   ],
+  "failure": [
+    "page refuses (Unequal ellipse dimensions are unsupported",
+    "server accepts (None)"
+  ],
   "reason": "The page refuses an 8x10 ellipse (rowFormReason) but FlexConfig, /api/validate and /api/plan accept it; only the builder raises, after confirm_roi, at run time. The server should refuse what the builder cannot build."
 }

@@ -9,21 +9,31 @@ recorder, nothing is simulated or optimised.
 
 Per replay it asserts:
 
-- the runner exits 0 and calls exactly the dispatch target its kind (and ``_type``/mode) names;
+- the runner exits 0 (else the failure carries the runner's own error log lines) and calls
+  exactly the dispatch target its kind (and ``_type``/mode) names;
 - ``config.json`` carries ``project_dir`` = the project and, for the flex kinds, ``mode`` = kind;
-- the typed config the target receives serialises back to the submitted value, key by key (the
-  expected values are the recorded JSON itself);
+- the submitted values reach the target key by key (the expected values are the recorded JSON):
+  a typed config serialises back to them; ``analyzer`` passes each field its entry point takes
+  (``Analyzer(...)`` and ``analyze_sphere/_mask/_cortex/_subcortical`` or
+  ``run_group_analysis``) with ``visualize=True``; ``nifti_average`` loads every subject row in
+  order with its group, the typed pattern, and writes under ``nifti_average/<output_name>``;
+  ``nilearn`` averages the pairs in order and hands the renderers the sub-directory, atlas,
+  regions, colour map and the cutoffs ``NilearnConfig``'s docstring defines; ``pre`` hands
+  ``run_pipeline`` config.json's fields, where the manager may only fill a submitted null;
 - the runner's own lock request (captured at ``tit.jobs.locks.hold``) equals ``spec.locks``, which
   the manager computed at submit time;
 - every line of the job's events file validates against ``contracts/events.schema.json``;
-- for corpus cases, the call matches ``expect`` -- the UI selection the page showed (the currents
-  a row displays, the focality mode picked, the analysis type, the space, the group labels).
+- for corpus cases, the call matches ``expect`` -- the UI selection the page showed, typed out by
+  the corpus generator rather than read back from a builder (the currents a row displays, the
+  focality mode, each analyzer call's centre/radius/space/atlas/regions/mask, the group labels
+  and differences, the cutoffs, the forward cap).
 
 The flex recorder also runs ``tit.opt.flex.flex._validate_flex_inputs`` -- the runner's own
 precondition before any compute -- since a config the runner refuses there never runs.
 
 Known gaps (``tests/fixtures/desktop_configs/known_gaps/*.json`` with ``"dispatch"`` in
-``checks``) are ``xfail(strict=True)``. Reproduce:
+``checks``) are ``xfail(strict=True, raises=KnownGapFailure)``: only the failure whose message
+contains every ``failure`` text of the gap file is expected. Reproduce:
 ``.venv/bin/python -m pytest tests/test_runner_dispatch_replay.py -q -p no:cacheprovider``.
 """
 
@@ -44,6 +54,7 @@ import pytest
 from tests.test_desktop_config_corpus import (
     PAGES,
     _case_files,
+    expect_known_gap,
     known_gap_marks,
     load_case,
     make_project,
@@ -69,15 +80,26 @@ RUNNER_MODULE["nifti_average"] = "tit.stats.nifti_average"
 # The recorder: one science entry per runner, patched where the runner looks it up.
 # ---------------------------------------------------------------------------------------------
 class Recorder:
-    def __init__(self) -> None:
+    def __init__(self, project: Path) -> None:
+        self.project = project
         self.calls: list[tuple[str, Any]] = []
         self.locks: list[list[str]] = []
         self.env: dict[str, str] = {}
         self.ctor: list[dict[str, Any]] = []
         self.prechecks: list[str] = []
+        #: The nilearn runner's renderer calls (after the one dispatch target).
+        self.renders: list[dict[str, Any]] = []
+        #: ``outputs`` of the runner's last ``result`` event.
+        self.result: dict[str, Any] = {}
+        #: The ``config.json`` the manager wrote for the runner.
+        self.written: dict[str, Any] = {}
 
     def record(self, name: str, payload: Any) -> None:
         self.calls.append((name, payload))
+
+
+#: What the nilearn recorder's averaged image holds: 27 voxels 0..1, one of them zero.
+_NILEARN_AVERAGE = np.linspace(0.0, 1.0, 27).reshape(3, 3, 3)
 
 
 def _flex_target(rec: Recorder, name: str):
@@ -264,18 +286,59 @@ def _science_patches(kind: str, rec: Recorder) -> list:
                 "_average_fields", [(p.subject_id, p.simulation_name) for p in pairs]
             )
             img = MagicMock(name="averaged")
-            img.get_fdata.return_value = np.linspace(0.0, 1.0, 27).reshape(3, 3, 3)
+            img.get_fdata.return_value = _NILEARN_AVERAGE.copy()
             return img
+
+        # The renderers' own parameter names, none defaulted: a dropped argument is a TypeError
+        # here rather than the renderer's default standing in for the user's choice.
+        def slices(
+            averaged_img,
+            base_filename,
+            output_dir,
+            min_cutoff,
+            max_cutoff,
+            atlas_name,
+            selected_regions,
+            output_callback=None,
+        ):
+            rec.renders.append(
+                {
+                    "kind": "slices",
+                    "output_dir": output_dir,
+                    "min": min_cutoff,
+                    "max": max_cutoff,
+                    "atlas_name": atlas_name,
+                    "selected_regions": selected_regions,
+                }
+            )
+            return "slices.pdf"
+
+        def glass(
+            averaged_img,
+            base_filename,
+            output_dir,
+            min_cutoff,
+            max_cutoff,
+            cmap,
+            output_callback=None,
+        ):
+            rec.renders.append(
+                {
+                    "kind": "glass",
+                    "output_dir": output_dir,
+                    "min": min_cutoff,
+                    "max": max_cutoff,
+                    "cmap": cmap,
+                }
+            )
+            return "glass.pdf"
 
         return [
             patch("tit.plotting.nilearn.__main__._average_fields", average),
-            patch(
-                "tit.plotting.nilearn.__main__.create_pdf_entry_point_group",
-                lambda *a, **k: "slices.pdf",
-            ),
+            patch("tit.plotting.nilearn.__main__.create_pdf_entry_point_group", slices),
             patch(
                 "tit.plotting.nilearn.__main__.create_glass_brain_entry_point_group",
-                lambda *a, **k: "glass.pdf",
+                glass,
             ),
         ]
     if kind == "source":
@@ -389,8 +452,11 @@ def replay(
     runner_file = manager._runner_config_path(spec)
     written = json.loads(Path(runner_file).read_text())
 
-    rec = Recorder()
+    rec = Recorder(project)
     events_file = project / "events.jsonl"
+    events_file.unlink(
+        missing_ok=True
+    )  # one events file per replay (a case may run two jobs)
     monkeypatch.setenv("TIT_EVENTS_FILE", str(events_file))
     monkeypatch.setenv("TIT_JOB_ID", spec.id)
     import tit.jobs.events as events_mod
@@ -423,19 +489,30 @@ def replay(
         logger_mod._event_sinks.clear()
         events_mod._reset_state()
 
-    assert code in (0, None), f"{kind} runner exited {code}"
+    events = _events(events_file)
+    # A refusing runner says why in its log; that sentence is the failure, not just the code.
+    errors = [e["msg"] for e in events if e["type"] == "log" and e["level"] == "error"]
+    assert code in (0, None), f"{kind} runner exited {code}: {' | '.join(errors)}"
     assert written["project_dir"] == str(project)
     if kind in kinds.FLEX_KINDS:
         assert written["mode"] == kind
     assert rec.locks == [list(spec.locks)], "runner lock request != spec.locks"
-    _validate_events(events_file)
+    _validate_events(events)
+    results = [e for e in events if e["type"] == "result"]
+    rec.result = results[-1]["outputs"] if results else {}
+    rec.written = written
     return rec, written, spec
 
 
-def _validate_events(path: Path) -> None:
+def _events(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line]
+
+
+def _validate_events(lines: list[dict]) -> None:
     import jsonschema
 
-    lines = [json.loads(line) for line in path.read_text().splitlines() if line]
     assert lines, "the runner emitted no events"
     assert lines[-1]["type"] == "exit" and lines[-1].get("code", 0) == 0
     validator = jsonschema.Draft202012Validator(EVENTS_SCHEMA)
@@ -449,8 +526,7 @@ def _plain(value: Any) -> Any:
 
 #: Normalisations a config dataclass documents, applied to the SUBMITTED value before comparing:
 #: ``ExConfig``/``MExConfig.roi_name`` gain ".csv" (``tit/opt/config.py`` docstring example), and
-#: a null ``NiftiAverageConfig.nifti_file_pattern`` becomes the space's default file (the
-#: corpus ``expect`` checks which space's file that is).
+#: a null stats ``nifti_file_pattern`` becomes the space's default file.
 def _csv(name: str) -> str:
     return name if name.endswith(".csv") else f"{name}.csv"
 
@@ -461,9 +537,46 @@ _NORMALISED = {
     ("ex", "roi_names"): lambda v: v and [_csv(n) for n in v],
     ("mex", "roi_names"): lambda v: v and [_csv(n) for n in v],
 }
-_FILLED_WHEN_NULL = {
-    ("nifti_average", "nifti_file_pattern"),
-    ("stats", "nifti_file_pattern"),
+_FILLED_WHEN_NULL = {("stats", "nifti_file_pattern")}
+
+#: The submitted ``AnalyzerConfig`` fields each analyzer entry point takes, by that entry point's
+#: own parameter names (``test_analyzer_argument_table_names_real_parameters`` reads the real
+#: signatures). ``tit/analyzer/__main__.py`` must hand each one the submitted value.
+_ANALYZER_CTOR_FIELDS = (
+    "subject_id",
+    "simulation",
+    "space",
+    "tissue_type",
+    "output_dir",
+    "field",
+)
+_ANALYZER_CALL_FIELDS = {
+    "analyze_sphere": ("center", "radius", "coordinate_space", "visualize"),
+    "analyze_mask": ("mask_path", "coordinate_space", "visualize"),
+    "analyze_cortex": ("atlas", "region", "visualize"),
+    "analyze_subcortical": ("atlas", "region", "coordinate_space", "visualize"),
+    "run_group_analysis": (
+        "subject_ids",
+        "simulation",
+        "space",
+        "tissue_type",
+        "analysis_type",
+        "center",
+        "radius",
+        "coordinate_space",
+        "atlas",
+        "region",
+        "visualize",
+        "output_dir",
+        "field",
+        "mask_path",
+    ),
+}
+_ANALYZER_METHOD = {
+    "spherical": "analyze_sphere",
+    "cortical": "analyze_cortex",
+    "subcortical": "analyze_subcortical",
+    "mask": "analyze_mask",
 }
 
 
@@ -486,6 +599,23 @@ def _subset_equal(received: Any, submitted: Any, where: str) -> None:
         assert received == submitted, f"{where}: {received!r} != {submitted!r}"
 
 
+def _set_values_kept(received: Any, submitted: Any, where: str) -> None:
+    """Like :func:`_subset_equal`, except that a submitted ``None`` may have been filled in."""
+    if submitted is None:
+        return
+    if isinstance(submitted, dict):
+        assert isinstance(received, dict), f"{where}: {received!r} is not an object"
+        for key, value in submitted.items():
+            assert key in received, f"{where}.{key} was dropped"
+            _set_values_kept(received[key], value, f"{where}.{key}")
+    elif isinstance(submitted, list):
+        assert isinstance(received, list) and len(received) == len(submitted), where
+        for i, (r, v) in enumerate(zip(received, submitted)):
+            _set_values_kept(r, v, f"{where}[{i}]")
+    else:
+        assert received == submitted, f"{where}: {received!r} != {submitted!r}"
+
+
 def _assert_fields_match(
     kind: str, typed: Any, submitted: dict, skip: set[str]
 ) -> None:
@@ -499,26 +629,122 @@ def _assert_fields_match(
         _subset_equal(received[key], value, key)
 
 
+def _assert_analyzer_dispatch(config: dict, rec: Recorder) -> None:
+    """The one analyzer call, and its constructor, carry every submitted field it takes."""
+    sent = _plain(config)
+    group = sent.get("mode") == "group"
+    method = "run_group_analysis" if group else _ANALYZER_METHOD[sent["analysis_type"]]
+    assert [name for name, _ in rec.calls] == [method]
+    received = _plain(rec.calls[0][1])
+    for field in _ANALYZER_CALL_FIELDS[method]:
+        if field in sent:
+            assert (
+                received.get(field) == sent[field]
+            ), f"{method}({field}=...): runner passed {received.get(field)!r}, submitted {sent[field]!r}"
+    # The desktop always asks for the figures; every entry point defaults visualize to False.
+    assert received["visualize"] is True, f"{method} ran without visualize=True"
+    if group:
+        assert rec.ctor == [], "a group analysis constructed a single-subject Analyzer"
+        return
+    assert len(rec.ctor) == 1
+    ctor = _plain(rec.ctor[0])
+    for field in _ANALYZER_CTOR_FIELDS:
+        if field in sent:
+            assert (
+                ctor.get(field) == sent[field]
+            ), f"Analyzer({field}=...): runner passed {ctor.get(field)!r}, submitted {sent[field]!r}"
+
+
+def _assert_nifti_average_dispatch(config: dict, rec: Recorder) -> None:
+    """Every subject row reaches the loader as submitted, in order, with its group label."""
+    loaded = rec.calls[0][1]
+    # ``NiftiAverageSubject.group`` defaults to "Group1" (its dataclass).
+    rows = [
+        {
+            "subject_id": s["subject_id"],
+            "simulation_name": s["simulation_name"],
+            "group": s.get("group", "Group1"),
+        }
+        for s in config["subjects"]
+    ]
+    assert loaded["subjects"] == rows, "subject rows changed on the way to the loader"
+    if config.get("nifti_file_pattern"):
+        assert loaded["pattern"] == config["nifti_file_pattern"], "typed pattern lost"
+    out = Path(
+        rec.project, "derivatives", "ti-toolbox", "nifti_average", config["output_name"]
+    )
+    assert rec.result["output_dir"] == str(out)
+    written = json.loads((out / "config.json").read_text())
+    if "space" in config:
+        assert written["space"] == config["space"]
+    assert written["nifti_file_pattern"] == loaded["pattern"]
+    if not config.get("diff_pairs"):
+        # Empty diff_pairs = every pairwise combination of the groups present (its docstring).
+        n = len({r["group"] for r in rows})
+        assert len(rec.result["differences"]) == n * (n - 1) // 2
+
+
+def _nilearn_cutoff(
+    use_percentiles: bool, given: float | None, default_pct: float
+) -> float:
+    """``NilearnConfig`` docstring: unset = that percentile of the averaged non-zero voxels;
+    with *use_percentiles* a given value is a percentile; otherwise it is V/m as given.
+    """
+    nonzero = _NILEARN_AVERAGE[_NILEARN_AVERAGE > 0]
+    if given is None:
+        return float(np.percentile(nonzero, default_pct))
+    return float(np.percentile(nonzero, given)) if use_percentiles else given
+
+
+def _assert_nilearn_dispatch(config: dict, rec: Recorder) -> None:
+    """The pairs are averaged in order and every display choice reaches the renderers."""
+    pairs = [
+        [p["subject_id"], p["simulation_name"]]
+        for p in config["subject_simulation_pairs"]
+    ]
+    assert [list(p) for p in rec.calls[0][1]] == pairs
+    slices = [r for r in rec.renders if r["kind"] == "slices"]
+    glass = [r for r in rec.renders if r["kind"] == "glass"]
+    assert len(slices) == 1, "the multi-slice PDF was not rendered once"
+    assert len(glass) == (1 if config["create_glass_brain"] else 0)
+    out = str(
+        Path(rec.project, "derivatives", "ti-toolbox", "nilearn_visuals").joinpath(
+            config["subdir_name"]
+        )
+    )
+    pct = config["use_percentiles"]
+    lo = _nilearn_cutoff(pct, config["min_cutoff"], 95.0)
+    hi = _nilearn_cutoff(pct, config["max_cutoff"], 99.9)
+    for render in slices + glass:
+        assert render["output_dir"] == out
+        assert render["min"] == pytest.approx(lo) and render["max"] == pytest.approx(hi)
+    assert slices[0]["atlas_name"] == config["atlas_name"]
+    assert slices[0]["selected_regions"] == config["selected_regions"]
+    if glass:
+        assert glass[0]["cmap"] == config["glass_brain_cmap"]
+
+
 def _assert_dispatch(kind: str, config: dict, rec: Recorder) -> None:
     if kind == "analyzer":
-        names = [name for name, _ in rec.calls]
-        want = (
-            "run_group_analysis"
-            if config.get("mode") == "group"
-            else {
-                "spherical": "analyze_sphere",
-                "cortical": "analyze_cortex",
-                "subcortical": "analyze_subcortical",
-                "mask": "analyze_mask",
-            }[config["analysis_type"]]
-        )
-        assert names == [want]
+        _assert_analyzer_dispatch(config, rec)
         return
     assert [name for name, _ in rec.calls] == [EXPECTED_TARGET[kind](config)]
     name, typed = rec.calls[0]
-    if kind in ("pre", "nilearn", "nifti_average"):
-        return
-    _assert_fields_match(kind, typed, config, skip={"_type", "project_dir", "mode"})
+    if kind == "nifti_average":
+        _assert_nifti_average_dispatch(config, rec)
+    elif kind == "nilearn":
+        _assert_nilearn_dispatch(config, rec)
+    elif kind == "pre":
+        # The manager snapshots the thread/resource defaults a null asks for at submit time
+        # (``tit.surfer_settings.resolve_job_threads``), so config.json may fill a null and must
+        # keep every value the client set; run_pipeline then takes config.json's fields by
+        # their own names.
+        _set_values_kept(rec.written, _plain(config), "config.json")
+        on_file = {k: v for k, v in rec.written.items() if k != "project_dir"}
+        kwargs = _plain({k: v for k, v in typed.items() if k != "logger_callback"})
+        _subset_equal(kwargs, on_file, "run_pipeline")
+    else:
+        _assert_fields_match(kind, typed, config, skip={"_type", "project_dir", "mode"})
 
 
 # ---------------------------------------------------------------------------------------------
@@ -553,24 +779,7 @@ def test_recorded_payload_reaches_its_runner(path: Path, tmp_path, monkeypatch) 
     rec, written, _ = replay(tmp_path, kind, config, subject_ids, monkeypatch)
     _assert_dispatch(kind, config, rec)
     if kind == "pre":
-        flags = rec.calls[0][1]
-        for flag in (
-            "convert_dicom",
-            "create_m2m",
-            "run_tissue_analysis",
-            "run_qsiprep",
-            "run_qsirecon",
-            "extract_dti",
-        ):
-            assert flags[flag] == config[flag], flag
-        assert flags["subject_ids"] == subject_ids
-    if kind == "analyzer":
-        call = rec.calls[0][1]
-        if config["analysis_type"] == "spherical":
-            assert tuple(call["center"]) == tuple(config["center"])
-            assert call["radius"] == config["radius"]
-        assert call["coordinate_space"] == config["coordinate_space"]
-        assert call["visualize"] is True
+        assert rec.calls[0][1]["subject_ids"] == subject_ids
 
 
 # ---------------------------------------------------------------------------------------------
@@ -593,13 +802,60 @@ def _accepted_corpus_cases() -> list:
     return params
 
 
+def _as_regions(value: Any) -> Any:
+    """A region argument as a list: one region may travel as a bare string."""
+    return [value] if isinstance(value, str) else value
+
+
+def _check_analyzer_expect(
+    exp: dict, calls: list[tuple[str, Any]], ctor: list[dict]
+) -> None:
+    """Each recorded call carries the arguments the user's selection names (``expect.calls``,
+    typed out from the selection by the corpus generator, not read back from ``buildConfig``).
+    """
+    assert [name for name, _ in calls] == [exp["method"]] * len(exp["calls"])
+    for i, ((name, kwargs), want) in enumerate(zip(calls, exp["calls"])):
+        got = _plain({key: kwargs.get(key) for key in want})
+        if "region" in got:
+            got["region"] = _as_regions(got["region"])
+        assert got == want, f"{name} call {i}: received {got}, the user chose {want}"
+        assert kwargs["visualize"] is True
+    if exp["method"] == "run_group_analysis":
+        assert ctor == []
+    else:
+        received = [{key: c.get(key) for key in exp["analyzer"]} for c in ctor]
+        assert received == [exp["analyzer"]] * len(exp["calls"])
+
+
+def test_analyzer_argument_table_names_real_parameters() -> None:
+    """The field->argument table above names parameters the real entry points have."""
+    import inspect
+
+    from tit.analyzer import Analyzer, run_group_analysis
+
+    def params(fn) -> set[str]:
+        return set(inspect.signature(fn).parameters)
+
+    assert set(_ANALYZER_CTOR_FIELDS) <= params(Analyzer.__init__)
+    for method, fields in _ANALYZER_CALL_FIELDS.items():
+        target = (
+            run_group_analysis
+            if method == "run_group_analysis"
+            else getattr(Analyzer, method)
+        )
+        assert set(fields) <= params(target), method
+
+
 def _check_expect(case: dict, recs: list[tuple[dict, Recorder]]) -> None:
     exp = case["expect"]
     page = case["page"]
     calls = [(name, payload) for _, rec in recs for name, payload in rec.calls]
     if page == "simulator":
         config = calls[0][1]
-        assert list(config.intensities) == exp["intensities"]
+        got = list(config.intensities)
+        assert (
+            got == exp["intensities"]
+        ), f"intensities: the runner received {got}, the row shows {exp['intensities']}"
         assert config.montages[0].mode.value == exp["montage_mode"]
         assert bool(config.carrier_only) is exp["carrier_only"]
         env = recs[0][1].env
@@ -613,32 +869,43 @@ def _check_expect(case: dict, recs: list[tuple[dict, Recorder]]) -> None:
         assert {name for name, _ in calls} == {exp["runner"]}
         assert [c.roi_name for _, c in calls] == [f"{n}.csv" for n in exp["roi_names"]]
     elif page == "analyzer":
-        assert [name for name, _ in calls] == [exp["method"]] * exp["calls"]
-        if "regions" in exp:
-            got = [
-                [kw["region"]] if isinstance(kw["region"], str) else list(kw["region"])
-                for _, kw in calls
-            ]
-            assert got == exp["regions"]
-        ctor = [kw for _, rec in recs for kw in rec.ctor]
-        if "field" in exp:
-            assert [kw["field"] for kw in ctor] == [exp["field"]] * exp["calls"]
-        if "tissue_type" in exp:
-            assert [kw["tissue_type"] for kw in ctor] == [exp["tissue_type"]] * exp[
-                "calls"
-            ]
-        if "subjects" in exp:
-            assert list(calls[0][1]["subject_ids"]) == exp["subjects"]
+        _check_analyzer_expect(exp, calls, [kw for _, rec in recs for kw in rec.ctor])
     elif page == "panels-stats":
         assert [name for name, _ in calls] == [exp["runner_call"]]
     elif page == "panels-nifti":
         loaded = calls[0][1]
-        assert sorted({s["group"] for s in loaded["subjects"]}) == sorted(exp["groups"])
-        # The space the user picked decides which file is averaged.
-        token = "_TI_subject_" if exp["nifti_pattern_space"] == "subject" else "_MNI"
-        assert loaded["pattern"] is not None and token in loaded["pattern"]
+        groups = sorted({s["group"] for s in loaded["subjects"]})
+        assert groups == sorted(
+            exp["groups"]
+        ), f"the runner averaged groups {groups}; the user typed {sorted(exp['groups'])}"
+        if exp["pattern"] is None:
+            # The space the user picked decides which file is averaged.
+            token = (
+                "_TI_subject_" if exp["nifti_pattern_space"] == "subject" else "_MNI"
+            )
+            assert loaded["pattern"] is not None and token in loaded["pattern"]
+        else:
+            assert loaded["pattern"] == exp["pattern"]
+        result = recs[0][1].result
+        assert result["differences"] == exp["differences"]
+        assert Path(result["output_dir"]).name == exp["output_name"]
     elif page == "panels-nilearn":
         assert [list(p) for p in calls[0][1]] == exp["pairs"]
+        (slices,) = [r for r in recs[0][1].renders if r["kind"] == "slices"]
+        assert Path(slices["output_dir"]).name == exp["subdir"]
+        assert slices["selected_regions"] == exp["selected_regions"]
+        pct = exp["use_percentiles"]
+        assert slices["min"] == pytest.approx(
+            _nilearn_cutoff(pct, exp["min_cutoff"], 95.0)
+        )
+        assert slices["max"] == pytest.approx(
+            _nilearn_cutoff(pct, exp["max_cutoff"], 99.9)
+        )
+    elif page == "panels-source":
+        assert [name for name, _ in calls] == [exp["runner"]]
+        source = calls[0][1]
+        assert list(source.subject_ids) == exp["subject_ids"]
+        assert source.forward.eeg_net == exp["eeg_net"]
     elif page == "visual-exporter":
         assert [type(c).__name__ for _, c in calls] == exp["blender_types"]
     elif page == "preprocess":
@@ -665,14 +932,15 @@ def test_accepted_corpus_case_reaches_its_runner_as_the_user_chose(
 ) -> None:
     case = load_case(path, tmp_path)
     make_project(tmp_path, case)
-    recs = []
-    for job in case["jobs"]:
-        rec, _, _ = replay(
-            tmp_path, job["kind"], job["config"], job["subject_ids"], monkeypatch
-        )
-        _assert_dispatch(job["kind"], job["config"], rec)
-        recs.append((job, rec))
-    _check_expect(case, recs)
+    with expect_known_gap(case["id"], "dispatch"):
+        recs = []
+        for job in case["jobs"]:
+            rec, _, _ = replay(
+                tmp_path, job["kind"], job["config"], job["subject_ids"], monkeypatch
+            )
+            _assert_dispatch(job["kind"], job["config"], rec)
+            recs.append((job, rec))
+        _check_expect(case, recs)
 
 
 def test_every_page_with_a_runner_is_replayed() -> None:

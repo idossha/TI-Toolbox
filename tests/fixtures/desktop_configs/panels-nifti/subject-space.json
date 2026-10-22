@@ -34,10 +34,15 @@
     "reason": null
   },
   "expect": {
+    "differences": [
+      "Group1 - Group2"
+    ],
     "groups": [
       "Group1",
       "Group2"
     ],
-    "nifti_pattern_space": "subject"
+    "nifti_pattern_space": "subject",
+    "output_name": "corpus_average",
+    "pattern": null
   }
 }

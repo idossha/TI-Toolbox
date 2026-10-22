@@ -1,0 +1,39 @@
+{
+  "id": "panels-source/forward-two-subjects",
+  "page": "panels-source",
+  "title": "Forward solutions for two subjects",
+  "jobs": [
+    {
+      "config": {
+        "forward": {
+          "cpus": 1,
+          "eeg_net": "GSN-HydroCel-185",
+          "fsaverage_spacing": 5,
+          "overwrite": false
+        },
+        "mode": "forward",
+        "subject_ids": [
+          "001",
+          "002"
+        ]
+      },
+      "kind": "source",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "eeg_net": "GSN-HydroCel-185",
+    "runner": "_run_forward",
+    "subject_ids": [
+      "001",
+      "002"
+    ]
+  }
+}

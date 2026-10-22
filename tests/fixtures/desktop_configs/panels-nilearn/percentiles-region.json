@@ -1,0 +1,50 @@
+{
+  "id": "panels-nilearn/percentiles-region",
+  "page": "panels-nilearn",
+  "title": "Percentile cutoffs 90-99 and one atlas region",
+  "jobs": [
+    {
+      "config": {
+        "atlas_name": "harvard_oxford_sub",
+        "create_glass_brain": true,
+        "glass_brain_cmap": "hot",
+        "max_cutoff": 99,
+        "min_cutoff": 90,
+        "selected_regions": [
+          3
+        ],
+        "subdir_name": "corpus_figs",
+        "subject_simulation_pairs": [
+          {
+            "simulation_name": "M1",
+            "subject_id": "001"
+          }
+        ],
+        "use_percentiles": true
+      },
+      "kind": "nilearn",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "max_cutoff": 99,
+    "min_cutoff": 90,
+    "pairs": [
+      [
+        "001",
+        "M1"
+      ]
+    ],
+    "selected_regions": [
+      3
+    ],
+    "subdir": "corpus_figs",
+    "use_percentiles": true
+  }
+}

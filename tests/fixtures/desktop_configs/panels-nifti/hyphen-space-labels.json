@@ -34,10 +34,15 @@
     "reason": null
   },
   "expect": {
+    "differences": [
+      "post op - pre-op"
+    ],
     "groups": [
       "pre-op",
       "post op"
     ],
-    "nifti_pattern_space": "mni"
+    "nifti_pattern_space": "mni",
+    "output_name": "corpus_average",
+    "pattern": null
   }
 }

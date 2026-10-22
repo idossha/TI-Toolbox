@@ -33,12 +33,21 @@
     "reason": null
   },
   "expect": {
-    "calls": 1,
-    "method": "analyze_cortex",
-    "regions": [
-      [
-        "lh.insula"
-      ]
-    ]
+    "analyzer": {
+      "field": "TI_max",
+      "simulation": "M1",
+      "space": "mesh",
+      "subject_id": "001",
+      "tissue_type": "GM"
+    },
+    "calls": [
+      {
+        "atlas": "DK40",
+        "region": [
+          "lh.insula"
+        ]
+      }
+    ],
+    "method": "analyze_cortex"
   }
 }

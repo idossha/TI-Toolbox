@@ -1,0 +1,61 @@
+{
+  "id": "analyzer/group-cortical",
+  "page": "analyzer",
+  "title": "Group of two, cortical lh.insula",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "center": null,
+        "coordinate_space": "subject",
+        "field": "TI_max",
+        "mask_path": null,
+        "mode": "group",
+        "output_dir": null,
+        "radius": null,
+        "region": "lh.insula",
+        "simulation": "M1",
+        "space": "mesh",
+        "subject_id": null,
+        "subject_ids": [
+          "001",
+          "002"
+        ],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "calls": [
+      {
+        "analysis_type": "cortical",
+        "atlas": "DK40",
+        "center": null,
+        "field": "TI_max",
+        "mask_path": null,
+        "region": [
+          "lh.insula"
+        ],
+        "simulation": "M1",
+        "space": "mesh",
+        "subject_ids": [
+          "001",
+          "002"
+        ],
+        "tissue_type": "GM"
+      }
+    ],
+    "method": "run_group_analysis"
+  }
+}

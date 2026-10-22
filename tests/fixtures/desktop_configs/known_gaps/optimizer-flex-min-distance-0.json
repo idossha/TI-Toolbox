@@ -6,5 +6,8 @@
   "checks": [
     "dispatch"
   ],
+  "failure": [
+    "ValueError: min_electrode_distance must be positive"
+  ],
   "reason": "A minimum electrode distance of 0 mm passes the page, FlexConfig, validate and plan, then run_flex_search's _validate_flex_inputs raises 'min_electrode_distance must be positive' inside the runner."
 }

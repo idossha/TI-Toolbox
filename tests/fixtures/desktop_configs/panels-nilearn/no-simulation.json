@@ -1,0 +1,34 @@
+{
+  "id": "panels-nilearn/no-simulation",
+  "page": "panels-nilearn",
+  "title": "A subject row with no simulation picked",
+  "jobs": [
+    {
+      "config": {
+        "atlas_name": "harvard_oxford_sub",
+        "create_glass_brain": true,
+        "glass_brain_cmap": "hot",
+        "max_cutoff": null,
+        "min_cutoff": null,
+        "selected_regions": null,
+        "subdir_name": "corpus_figs",
+        "subject_simulation_pairs": [],
+        "use_percentiles": false
+      },
+      "kind": "nilearn",
+      "subject_ids": []
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "Add at least one subject with a simulation."
+  },
+  "expect": {
+    "max_cutoff": null,
+    "min_cutoff": null,
+    "pairs": [],
+    "selected_regions": null,
+    "subdir": "corpus_figs",
+    "use_percentiles": false
+  }
+}

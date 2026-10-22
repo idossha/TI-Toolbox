@@ -15,8 +15,9 @@ conjunction of every check a submission meets before a runner starts:
 Where the expected values come from: the page side is the committed fixture (the TypeScript wrote
 it); the server side is computed here by the real validators, never retyped. Disagreements found
 on 2026-10-22 are listed one file each in ``tests/fixtures/desktop_configs/known_gaps/`` with the
-package that owns the fix; those cases are ``xfail(strict=True)`` so that a fix turns them red
-until the gap file is deleted.
+package that owns the fix and the ``failure`` texts the failure message must contain; those
+cases are ``xfail(strict=True, raises=KnownGapFailure)``, so a fix turns them red until the gap
+file is deleted, and a case failing for any other reason fails the run.
 
 Paths in the corpus sit under the placeholder root ``/corpus/project``; each test maps it onto a
 synthetic tmp project (m2m folders, empty files for every path the config names), the same way
@@ -33,6 +34,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -67,6 +70,7 @@ PAGES = (
     "panels-stats",
     "panels-nifti",
     "panels-nilearn",
+    "panels-source",
     "visual-exporter",
 )
 TOKEN = "corpus-token"
@@ -90,17 +94,47 @@ def _known_gaps() -> dict[str, list[dict[str, Any]]]:
     return gaps
 
 
-def known_gap_marks(case_id: str, check: str) -> list[pytest.MarkDecorator]:
-    """``xfail(strict=True)`` for a case a known-gap file lists under *check*."""
+class KnownGapFailure(Exception):
+    """The failure a known-gap file describes: every one of its ``failure`` texts is in it."""
+
+
+def _gap_for(case_id: str, check: str) -> dict[str, Any] | None:
     for gap in _known_gaps().get(case_id, []):
         if check in gap["checks"]:
-            return [
-                pytest.mark.xfail(
-                    strict=True,
-                    reason=f"known gap {gap['file']} (owner {gap['owner']}): {gap['reason']}",
-                )
-            ]
-    return []
+            return gap
+    return None
+
+
+def known_gap_marks(case_id: str, check: str) -> list[pytest.MarkDecorator]:
+    """``xfail(strict=True, raises=KnownGapFailure)`` for a case a known-gap file lists.
+
+    Only the failure the file describes is expected: the test body runs under
+    :func:`expect_known_gap`, which turns that failure (and only that one) into
+    :class:`KnownGapFailure`. A case that fails some other way fails the run.
+    """
+    gap = _gap_for(case_id, check)
+    if gap is None:
+        return []
+    return [
+        pytest.mark.xfail(
+            strict=True,
+            raises=KnownGapFailure,
+            reason=f"known gap {gap['file']} (owner {gap['owner']}): {gap['reason']}",
+        )
+    ]
+
+
+@contextmanager
+def expect_known_gap(case_id: str, check: str) -> Iterator[None]:
+    """Re-raise the failure *case_id*'s known-gap file names as :class:`KnownGapFailure`."""
+    gap = _gap_for(case_id, check)
+    try:
+        yield
+    except Exception as exc:
+        text = f"{type(exc).__name__}: {exc}"
+        if gap is not None and all(part in text for part in gap["failure"]):
+            raise KnownGapFailure(f"{gap['file']}: {text}") from exc
+        raise
 
 
 def load_case(path: Path, project: Path) -> dict[str, Any]:
@@ -195,13 +229,14 @@ def test_server_accepts_exactly_what_the_page_accepts(
 ) -> None:
     case = load_case(path, tmp_path)
     make_project(tmp_path, case)
-    refusal = server_verdict(_client(tmp_path), tmp_path, case["jobs"])
-    desktop = case["desktop"]
-    assert (refusal is None) == desktop["accepts"], (
-        f"{case['id']}: page {'accepts' if desktop['accepts'] else 'refuses'} "
-        f"({desktop['reason']}); server {'accepts' if refusal is None else 'refuses'}"
-        f" ({refusal})"
-    )
+    with expect_known_gap(case["id"], "verdict"):
+        refusal = server_verdict(_client(tmp_path), tmp_path, case["jobs"])
+        desktop = case["desktop"]
+        assert (refusal is None) == desktop["accepts"], (
+            f"{case['id']}: page {'accepts' if desktop['accepts'] else 'refuses'} "
+            f"({desktop['reason']}); server {'accepts' if refusal is None else 'refuses'}"
+            f" ({refusal})"
+        )
 
 
 def test_the_validators_are_live_on_this_host(tmp_path: Path) -> None:
@@ -250,7 +285,17 @@ def test_known_gap_files_name_real_cases_and_an_owner() -> None:
     ids = {f"{p.parent.name}/{p.stem}" for p in _case_files()}
     for path in files:
         gap = json.loads(path.read_text())
-        assert set(gap) == {"case_ids", "owner", "reason", "checks"}, path.name
+        assert set(gap) == {
+            "case_ids",
+            "owner",
+            "reason",
+            "checks",
+            "failure",
+        }, path.name
+        # The texts the failure must contain, so a case failing some other way is not hidden.
+        assert gap["failure"] and all(
+            isinstance(t, str) and t for t in gap["failure"]
+        ), path.name
         assert gap["case_ids"] and set(gap["case_ids"]) <= ids, path.name
         assert gap["checks"] and set(gap["checks"]) <= {"verdict", "dispatch"}
         assert gap["owner"] == "triage" or (

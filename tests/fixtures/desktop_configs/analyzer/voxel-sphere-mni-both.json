@@ -37,8 +37,24 @@
     "reason": null
   },
   "expect": {
-    "calls": 1,
-    "method": "analyze_sphere",
-    "tissue_type": "both"
+    "analyzer": {
+      "field": "TI_max",
+      "simulation": "M1",
+      "space": "voxel",
+      "subject_id": "001",
+      "tissue_type": "both"
+    },
+    "calls": [
+      {
+        "center": [
+          -38,
+          4,
+          2
+        ],
+        "coordinate_space": "mni",
+        "radius": 8
+      }
+    ],
+    "method": "analyze_sphere"
   }
 }

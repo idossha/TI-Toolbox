@@ -57,15 +57,27 @@
     "reason": null
   },
   "expect": {
-    "calls": 2,
-    "method": "analyze_cortex",
-    "regions": [
-      [
-        "lh.insula"
-      ],
-      [
-        "lh.precuneus"
-      ]
-    ]
+    "analyzer": {
+      "field": "TI_max",
+      "simulation": "M1",
+      "space": "mesh",
+      "subject_id": "001",
+      "tissue_type": "GM"
+    },
+    "calls": [
+      {
+        "atlas": "DK40",
+        "region": [
+          "lh.insula"
+        ]
+      },
+      {
+        "atlas": "DK40",
+        "region": [
+          "lh.precuneus"
+        ]
+      }
+    ],
+    "method": "analyze_cortex"
   }
 }

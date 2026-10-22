@@ -1,0 +1,54 @@
+{
+  "id": "analyzer/voxel-subcortical-mni",
+  "page": "analyzer",
+  "title": "Voxel, packaged MNI CIT168 atlas, left putamen",
+  "jobs": [
+    {
+      "config": {
+        "analysis_type": "subcortical",
+        "atlas": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+        "center": null,
+        "coordinate_space": "mni",
+        "field": "TI_max",
+        "mask_path": null,
+        "mode": "single",
+        "output_dir": null,
+        "radius": null,
+        "region": "Left-CIT168_Pu_Putamen",
+        "simulation": "M1",
+        "space": "voxel",
+        "subject_id": "001",
+        "subject_ids": [],
+        "tissue_type": "GM",
+        "visualize": true
+      },
+      "kind": "analyzer",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "analyzer": {
+      "field": "TI_max",
+      "simulation": "M1",
+      "space": "voxel",
+      "subject_id": "001",
+      "tissue_type": "GM"
+    },
+    "calls": [
+      {
+        "atlas": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+        "coordinate_space": "mni",
+        "region": [
+          "Left-CIT168_Pu_Putamen"
+        ]
+      }
+    ],
+    "method": "analyze_subcortical"
+  }
+}

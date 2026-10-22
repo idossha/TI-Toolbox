@@ -34,9 +34,12 @@
     "reason": null
   },
   "expect": {
+    "differences": [],
     "groups": [
       "Group1"
     ],
-    "nifti_pattern_space": "mni"
+    "nifti_pattern_space": "mni",
+    "output_name": "corpus_average",
+    "pattern": null
   }
 }

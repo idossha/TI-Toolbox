@@ -6,5 +6,9 @@
   "checks": [
     "verdict"
   ],
+  "failure": [
+    "page accepts (None)",
+    "could not convert string to float: ''"
+  ],
   "reason": "Manual focality with the thresholds box left blank sends thresholds '' and the page runs it; FlexConfig fails with \"could not convert string to float: ''\" although its docstring and builder treat a blank as 'let SimNIBS pick'."
 }

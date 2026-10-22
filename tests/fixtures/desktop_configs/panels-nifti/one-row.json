@@ -1,0 +1,39 @@
+{
+  "id": "panels-nifti/one-row",
+  "page": "panels-nifti",
+  "title": "A single subject row",
+  "jobs": [
+    {
+      "config": {
+        "diff_pairs": [],
+        "nifti_file_pattern": null,
+        "output_name": "corpus_average",
+        "space": "mni",
+        "subjects": [
+          {
+            "group": "Group1",
+            "simulation_name": "M1",
+            "subject_id": "001"
+          }
+        ]
+      },
+      "kind": "nifti_average",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": false,
+    "reason": "Add at least 2 subjects with a simulation."
+  },
+  "expect": {
+    "differences": [],
+    "groups": [
+      "Group1"
+    ],
+    "nifti_pattern_space": "mni",
+    "output_name": "corpus_average",
+    "pattern": null
+  }
+}

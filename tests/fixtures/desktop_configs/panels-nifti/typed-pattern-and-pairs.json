@@ -1,0 +1,57 @@
+{
+  "id": "panels-nifti/typed-pattern-and-pairs",
+  "page": "panels-nifti",
+  "title": "Three groups, a typed file pattern and one typed difference",
+  "jobs": [
+    {
+      "config": {
+        "diff_pairs": [
+          "Group3-Group1"
+        ],
+        "nifti_file_pattern": "custom_{simulation_name}_TI_MNI.nii.gz",
+        "output_name": "corpus_average",
+        "space": "mni",
+        "subjects": [
+          {
+            "group": "Group1",
+            "simulation_name": "M1",
+            "subject_id": "001"
+          },
+          {
+            "group": "Group2",
+            "simulation_name": "M1",
+            "subject_id": "002"
+          },
+          {
+            "group": "Group3",
+            "simulation_name": "M1",
+            "subject_id": "003"
+          }
+        ]
+      },
+      "kind": "nifti_average",
+      "subject_ids": [
+        "001",
+        "002",
+        "003"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "differences": [
+      "Group3 - Group1"
+    ],
+    "groups": [
+      "Group1",
+      "Group2",
+      "Group3"
+    ],
+    "nifti_pattern_space": "mni",
+    "output_name": "corpus_average",
+    "pattern": "custom_{simulation_name}_TI_MNI.nii.gz"
+  }
+}

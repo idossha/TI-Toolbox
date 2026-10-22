@@ -1,0 +1,36 @@
+{
+  "id": "panels-source/forward-one-subject",
+  "page": "panels-source",
+  "title": "Forward solution for one subject on its EEG net",
+  "jobs": [
+    {
+      "config": {
+        "forward": {
+          "cpus": 1,
+          "eeg_net": "GSN-HydroCel-185",
+          "fsaverage_spacing": 5,
+          "overwrite": false
+        },
+        "mode": "forward",
+        "subject_ids": [
+          "001"
+        ]
+      },
+      "kind": "source",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "eeg_net": "GSN-HydroCel-185",
+    "runner": "_run_forward",
+    "subject_ids": [
+      "001"
+    ]
+  }
+}

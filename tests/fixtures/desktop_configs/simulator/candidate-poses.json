@@ -1,0 +1,188 @@
+{
+  "id": "simulator/candidate-poses",
+  "page": "simulator",
+  "title": "An optimiser candidate (XYZ + electrode poses, 1.5/0.5 mA, rect 10x6)",
+  "jobs": [
+    {
+      "config": {
+        "aniso_maxcond": 2,
+        "aniso_maxratio": 10,
+        "conductivity": "scalar",
+        "electrode_dimensions": [
+          10,
+          6
+        ],
+        "electrode_shape": "rect",
+        "gel_thickness": 4,
+        "intensities": [
+          1.5,
+          0.5
+        ],
+        "map_to_fsavg": false,
+        "map_to_mni": false,
+        "montages": [
+          {
+            "_type": "Montage",
+            "eeg_net": null,
+            "electrode_pairs": [
+              [
+                [
+                  -40,
+                  20,
+                  60
+                ],
+                [
+                  40,
+                  20,
+                  60
+                ]
+              ],
+              [
+                [
+                  -41,
+                  21,
+                  59
+                ],
+                [
+                  41,
+                  21,
+                  59
+                ]
+              ]
+            ],
+            "electrode_poses": [
+              [
+                [
+                  0,
+                  -1,
+                  0,
+                  -40
+                ],
+                [
+                  1,
+                  0,
+                  0,
+                  20
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  60
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              [
+                [
+                  0,
+                  -1,
+                  0,
+                  40
+                ],
+                [
+                  1,
+                  0,
+                  0,
+                  20
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  60
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              [
+                [
+                  0,
+                  -1,
+                  0,
+                  -41
+                ],
+                [
+                  1,
+                  0,
+                  0,
+                  21
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  59
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              [
+                [
+                  0,
+                  -1,
+                  0,
+                  41
+                ],
+                [
+                  1,
+                  0,
+                  0,
+                  21
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  59
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              ]
+            ],
+            "mode": "flex_free",
+            "name": "candidate_8"
+          }
+        ],
+        "output_fields": [
+          "TI_max"
+        ],
+        "subject_id": "001"
+      },
+      "kind": "sim",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "carrier_only": false,
+    "intensities": [
+      1.5,
+      0.5
+    ],
+    "montage_mode": "flex_free",
+    "runner": "run_simulation",
+    "tissue_conductivities": {}
+  }
+}

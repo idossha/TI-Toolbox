@@ -33,7 +33,19 @@
     "reason": null
   },
   "expect": {
-    "calls": 1,
+    "analyzer": {
+      "field": "TI_max",
+      "simulation": "M1",
+      "space": "voxel",
+      "subject_id": "001",
+      "tissue_type": "GM"
+    },
+    "calls": [
+      {
+        "coordinate_space": "subject",
+        "mask_path": "/corpus/project/derivatives/ti-toolbox/masks/sub-001/imported/target.nii.gz"
+      }
+    ],
     "method": "analyze_mask"
   }
 }

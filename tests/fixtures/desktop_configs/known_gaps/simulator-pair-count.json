@@ -7,5 +7,9 @@
   "checks": [
     "verdict"
   ],
+  "failure": [
+    "page accepts (None)",
+    "Invalid number of electrode pairs"
+  ],
   "reason": "isRunnableRow checks only that a montage row has pairs; SimulationConfig refuses any pair count other than 2 or an even count from 4 (tit.constants.is_valid_pair_count), so a hand-written 1- or 3-pair montage is a runnable row the server rejects at plan/submit."
 }

@@ -36,6 +36,8 @@
     "reason": null
   },
   "expect": {
+    "max_cutoff": null,
+    "min_cutoff": null,
     "pairs": [
       [
         "001",
@@ -45,6 +47,9 @@
         "002",
         "M1"
       ]
-    ]
+    ],
+    "selected_regions": null,
+    "subdir": "corpus_figs",
+    "use_percentiles": false
   }
 }

@@ -33,12 +33,22 @@
     "reason": null
   },
   "expect": {
-    "calls": 1,
-    "method": "analyze_subcortical",
-    "regions": [
-      [
-        "Left-Thalamus"
-      ]
-    ]
+    "analyzer": {
+      "field": "TI_max",
+      "simulation": "M1",
+      "space": "mesh",
+      "subject_id": "001",
+      "tissue_type": "GM"
+    },
+    "calls": [
+      {
+        "atlas": "labeling.nii.gz",
+        "coordinate_space": "subject",
+        "region": [
+          "Left-Thalamus"
+        ]
+      }
+    ],
+    "method": "analyze_subcortical"
   }
 }

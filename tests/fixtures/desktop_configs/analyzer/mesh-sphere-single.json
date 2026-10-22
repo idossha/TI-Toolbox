@@ -37,7 +37,24 @@
     "reason": null
   },
   "expect": {
-    "calls": 1,
+    "analyzer": {
+      "field": "TI_max",
+      "simulation": "M1",
+      "space": "mesh",
+      "subject_id": "001",
+      "tissue_type": "GM"
+    },
+    "calls": [
+      {
+        "center": [
+          -30,
+          10,
+          5
+        ],
+        "coordinate_space": "subject",
+        "radius": 10
+      }
+    ],
     "method": "analyze_sphere"
   }
 }

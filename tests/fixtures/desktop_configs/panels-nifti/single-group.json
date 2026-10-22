@@ -1,0 +1,45 @@
+{
+  "id": "panels-nifti/single-group",
+  "page": "panels-nifti",
+  "title": "Two subjects in one group: an average, no difference",
+  "jobs": [
+    {
+      "config": {
+        "diff_pairs": [],
+        "nifti_file_pattern": null,
+        "output_name": "corpus_average",
+        "space": "subject",
+        "subjects": [
+          {
+            "group": "Group1",
+            "simulation_name": "M1",
+            "subject_id": "001"
+          },
+          {
+            "group": "Group1",
+            "simulation_name": "M1",
+            "subject_id": "002"
+          }
+        ]
+      },
+      "kind": "nifti_average",
+      "subject_ids": [
+        "001",
+        "002"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "differences": [],
+    "groups": [
+      "Group1"
+    ],
+    "nifti_pattern_space": "subject",
+    "output_name": "corpus_average",
+    "pattern": null
+  }
+}
