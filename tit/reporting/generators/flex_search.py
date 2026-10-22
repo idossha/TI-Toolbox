@@ -89,26 +89,64 @@ def goal_words(meta: dict) -> tuple[str, str, float]:
     )
 
 
-def _best_rows(run_dir: Path) -> list[dict]:
-    """Per restart: the accepted candidate's row (``candidates.csv``) plus its manifest."""
+def _history_root(run_dir: Path, meta: dict) -> Path:
+    """Where this run's restarts live: ``candidate_history/``, or for a Pareto sweep folder the
+    promoted point's ``candidate_history/point_NNN/`` (named in the manifest's ``pareto``).
+    """
+    best_point = (meta.get("pareto") or {}).get("best_point") or {}
+    index = best_point.get("run_index")
+    root = run_dir / "candidate_history"
+    return root / f"point_{index:03d}" if isinstance(index, int) else root
+
+
+def _best_rows(run_dir: Path, meta: dict) -> list[dict]:
+    """Per restart ``i`` of ``result.all_values``: the accepted candidate's row
+    (``candidates.csv``) and its manifest from ``candidate_history/<i:02d>``.
+
+    Restarts are keyed by their directory name, never by position: a ``.DS_Store``, an
+    AppleDouble ``._00``, a Pareto ``point_NNN`` folder or a stale ``03`` beyond ``all_values``
+    is not a restart, and a missing ``01`` leaves row 2 empty instead of shifting row 3.
+    A restart that accepted no candidate has no row: its rejected trials are not its result.
+    """
+    root = _history_root(run_dir, meta)
+    dirs = (
+        {int(p.name): p for p in root.iterdir() if p.is_dir() and p.name.isdigit()}
+        if root.is_dir()
+        else {}
+    )
+    values = (meta.get("result") or {}).get("all_values")
+    n = len(values) if isinstance(values, list) else max(dirs, default=-1) + 1
     out = []
-    for hist in sorted((run_dir / "candidate_history").glob("*")):
+    for i in range(n):
+        hist = dirs.get(i)
         manifest = (
             json.loads((hist / "candidate_manifest.json").read_text())
-            if (hist / "candidate_manifest.json").is_file()
+            if hist and (hist / "candidate_manifest.json").is_file()
             else {}
         )
         row = {}
-        if (hist / "candidates.csv").is_file():
+        if hist and (hist / "candidates.csv").is_file():
             accepted = manifest.get("accepted_candidate_id")
-            for r in csv.DictReader((hist / "candidates.csv").open()):
-                if r["candidate_id"] == accepted or (
-                    not accepted
-                    and (not row or float(r["objective"]) < float(row["objective"]))
-                ):
-                    row = r
-        out.append({"restart": hist.name, "row": row, "manifest": manifest})
+            legacy = (
+                "accepted_candidate_id" not in manifest
+            )  # histories before the recorder
+            with (hist / "candidates.csv").open() as stream:
+                for r in csv.DictReader(stream):
+                    if r["candidate_id"] == accepted or (
+                        legacy
+                        and (not row or float(r["objective"]) < float(row["objective"]))
+                    ):
+                        row = r
+        out.append({"restart": f"{i:02d}", "row": row, "manifest": manifest})
     return out
+
+
+def _best_index(rec: dict) -> int | None:
+    """The winning restart's position, or ``None`` for a failed run (``best_run_index`` -1)."""
+    result = rec["meta"]["result"]
+    i = result.get("best_run_index")
+    ok = result.get("success") and isinstance(i, int) and 0 <= i < len(rec["restarts"])
+    return i if ok else None
 
 
 def run_figures(run_dir: Path) -> dict[str, bytes]:
@@ -163,7 +201,7 @@ def collect(run_dir: str | Path) -> dict:
     rec = {
         "run": run_dir.name,
         "meta": meta,
-        "restarts": _best_rows(run_dir),
+        "restarts": _best_rows(run_dir, meta),
         "positions": positions.get("optimized_positions") or [],
         "channel_array": positions.get("channel_array_indices") or [],
         "carriers": carriers,
@@ -172,26 +210,79 @@ def collect(run_dir: str | Path) -> dict:
         "calibration_error_pct": float(calib.group(1)) if calib else None,
         "figures": run_figures(run_dir),
     }
-    config = (
-        rec["restarts"][0]["manifest"].get("config") if rec["restarts"] else None
-    ) or {}
-    rec["config"] = config
+    rec["config"] = next(
+        (
+            r["manifest"]["config"]
+            for r in rec["restarts"]
+            if r["manifest"].get("config")
+        ),
+        {},
+    )
     return rec
 
 
 def currents(rec: dict) -> list[float]:
-    """Per-channel currents of the accepted montage (the searched split when there is one)."""
+    """Per-channel currents of the accepted montage (the searched split when there is one);
+    a failed run used the manifest's ``current_mA`` on every channel."""
     meta = rec["meta"]
-    best = (
-        rec["restarts"][meta["result"].get("best_run_index") or 0]["row"]
-        if rec["restarts"]
-        else {}
-    )
+    i = _best_index(rec)
+    best = rec["restarts"][i]["row"] if i is not None else {}
     if best.get("current_ch1_mA"):
         return [float(best["current_ch1_mA"]), float(best["current_ch2_mA"])]
-    if meta.get("current_split"):
+    if meta.get("current_split") and i is not None:
         return [float(v) for v in meta["current_split"]]
     return [float(meta["current_mA"])] * 2
+
+
+def _thresholds(meta: dict) -> str | None:
+    """SimNIBS's ROC thresholds as the run used them (``"non-ROI max,ROI min"``, V/m)."""
+    raw = meta.get("thresholds")
+    try:
+        vals = [float(v) for v in str(raw).split(",")] if raw else []
+    except ValueError:
+        return esc(str(raw))
+    if len(vals) == 1:
+        return f"{vals[0]:g} V/m, as both the non-ROI maximum and the ROI minimum"
+    if len(vals) == 2:
+        return f"non-ROI maximum {vals[0]:g} V/m, ROI minimum {vals[1]:g} V/m"
+    return None
+
+
+def _sweep_table(pareto: dict) -> str:
+    """One row per threshold pair of a Pareto (multi-threshold) sweep."""
+    best = (pareto.get("best_point") or {}).get("run_index")
+    rows = []
+    for p in pareto.get("points") or []:
+        score = p.get("focality_score")
+        rows.append(
+            [
+                f"{p.get('roi_pct', 0):g} %",
+                f"{p.get('nonroi_pct', 0):g} %",
+                f"{p.get('roi_threshold_vm', 0):.3f}",
+                f"{p.get('nonroi_threshold_vm', 0):.3f}",
+                f"{-score:.2f}" if isinstance(score, (int, float)) else "—",
+                esc(str(p.get("status", "")))
+                + (" (promoted)" if p.get("run_index") == best else ""),
+            ]
+        )
+    return c.table(
+        [
+            "ROI %",
+            "Non-ROI %",
+            "ROI minimum (V/m)",
+            "Non-ROI maximum (V/m)",
+            "ROC score",
+            "Status",
+        ],
+        rows,
+        caption=(
+            "Threshold sweep: percentages of the achievable target mean, "
+            f"{pareto.get('achievable_roi_mean_vm', 0):.3f} V/m, from the mean calibration run. "
+            "The promoted montage has the highest ROC score; scores at different thresholds "
+            "score different things, so read each beside its thresholds."
+        ),
+        right={2, 3, 4},
+    )
 
 
 def build_html(rec: dict, subject_id: str, generated: datetime | None = None) -> str:
@@ -207,12 +298,15 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     total = sum(mA)
     el = meta.get("electrode") or {}
     dims = "×".join(f"{d:g}" for d in el.get("dimensions") or [])
-    best_i = meta["result"].get("best_run_index") or 0
-    best = rec["restarts"][best_i]["row"] if rec["restarts"] else {}
-    defs = (
-        rec["restarts"][best_i]["manifest"].get("metric_definitions", {})
-        if rec["restarts"]
-        else {}
+    best_i = _best_index(rec)
+    best = rec["restarts"][best_i]["row"] if best_i is not None else {}
+    defs = next(
+        (
+            r["manifest"]["metric_definitions"]
+            for r in rec["restarts"]
+            if r["manifest"].get("metric_definitions")
+        ),
+        {},
     )
     roi_name = esc(roi["name"])
 
@@ -302,6 +396,8 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             ),
         ),
     ]
+    if meta.get("goal") == "focality" and _thresholds(meta):
+        goal_rows.append(("Thresholds", _thresholds(meta)))
     for k, v in defs.items():
         goal_rows.append((_METRIC.get(k, k.replace("_", " ")), esc(v)))
     target_sec = c.section(
@@ -386,10 +482,11 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
 
     # ── 4. runs ──
     run_rows = []
+    values = meta["result"].get("all_values") or []
     for i, r in enumerate(rec["restarts"]):
         row, man = r["row"], r["manifest"]
-        val = (meta["result"].get("all_values") or [None] * (i + 1))[i]
-        ok = val is not None and abs(val) < 1e30
+        val = values[i] if i < len(values) else None
+        ok = isinstance(val, (int, float)) and abs(val) < 1e30
         run_rows.append(
             [
                 f"{i + 1}" + (" (best)" if i == best_i and success else ""),
@@ -422,6 +519,8 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         right={1, 2, 3, 4, 5},
         sortable=len(run_rows) > 1,
     )
+    if meta.get("pareto"):
+        runs += _sweep_table(meta["pareto"])
     runs_sec = c.section(
         "runs",
         "Optimiser runs",
@@ -450,7 +549,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             ),
             "the winning electrodes simulated one channel at a time",
         )
-    man = rec["restarts"][best_i]["manifest"] if rec["restarts"] else {}
+    man = rec["restarts"][best_i]["manifest"] if best_i is not None else {}
     term = (man.get("optimizer_termination") or {}).get("global") or {}
     paras = [
         "Electrode positions for temporal interference stimulation were optimised in TI-Toolbox "
