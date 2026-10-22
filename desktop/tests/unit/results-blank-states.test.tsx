@@ -54,6 +54,21 @@ const S101 = { id: "101", has_raw: true, has_fastsurfer: false, has_freesurfer: 
 const S102 = { id: "102", has_raw: false, has_fastsurfer: false, has_freesurfer: false, has_m2m: false, n_simulations: 0, has_sourcedata: true };
 /** A FastSurfer-only subject is in `subject_ids`, so its routes answer and it must be read. */
 const FS_ONLY = { id: "fsonly", has_raw: false, has_fastsurfer: true, has_freesurfer: false, has_m2m: false, n_simulations: 0 };
+/**
+ * One subject per source `tit.catalog.subject_ids` unions (raw BIDS, FastSurfer, legacy FreeSurfer,
+ * m2m), each with only that one artefact. Any one of them puts the subject in the onboarded set the
+ * per-subject routes answer, so each must be read: reading none would print "no outputs yet" over
+ * the simulations it really has.
+ */
+const SINGLE_SOURCE = (["has_raw", "has_fastsurfer", "has_freesurfer", "has_m2m"] as const).map((flag) => ({
+  id: `only_${flag.slice("has_".length)}`,
+  has_raw: false,
+  has_fastsurfer: false,
+  has_freesurfer: false,
+  has_m2m: false,
+  n_simulations: 1,
+  [flag]: true,
+}));
 
 const SIM = {
   name: "Thalamus",
@@ -137,12 +152,42 @@ describe("useSubjectOutputs", () => {
     expect(state.bySubject.ernie?.total).toBe(1);
   });
 
+  // The five list reads a subject's tree waits on. Whichever one fails, its reason is the subject's
+  // error: a scan that skipped one would leave that failure as the old silent blank.
+  /** Fails `getExRuns` for one of its two kinds only; the other kind still answers. */
+  const failExKind = (failing: string, message: string) =>
+    api.getExRuns.mockImplementation(async (_s: string, kind: string) => {
+      if (kind === failing) throw new ApiError(500, "/api/catalog/ex-runs", message);
+      return [];
+    });
+  it.each([
+    { read: "simulations", message: "Simulations/ is unreadable", fail: (m: string) => api.getSimulationsFor.mockRejectedValueOnce(new ApiError(500, "/api/catalog/simulations", m)) },
+    { read: "flex runs", message: "flex-search/ is unreadable", fail: (m: string) => api.getFlexRuns.mockRejectedValueOnce(new ApiError(500, "/api/catalog/flex-runs", m)) },
+    { read: "ex runs", message: "ex-search/ is unreadable", fail: (m: string) => failExKind("ex", m) },
+    { read: "mex runs", message: "mex-search/ is unreadable", fail: (m: string) => failExKind("mex", m) },
+    { read: "reports", message: "reports/ is unreadable", fail: (m: string) => api.getReports.mockRejectedValueOnce(new ApiError(500, "/api/catalog/reports", m)) },
+  ])("exposes a failed $read read as the subject's error", async ({ message, fail }) => {
+    fail(message);
+    const state = await run([ERNIE], "ernie");
+    expect(state.errors.ernie?.message).toBe(message);
+    expect(state.bySubject.ernie).toBeUndefined();
+  });
+
   it("sends no per-subject read for a sourcedata-only subject and reports it as empty", async () => {
     const state = await run([ERNIE, S101, S102, FS_ONLY], "102");
     expect(subjectsRead()).toEqual(["101", "ernie", "fsonly"]);
     expect(state.bySubject["102"]?.total).toBe(0);
     expect(state.errors["102"]).toBeUndefined();
     expect(state.bySubject.fsonly?.total).toBe(0);
+  });
+
+  it.each(SINGLE_SOURCE)("reads $id, a subject with only that one artefact, and lists its simulation", async (row) => {
+    api.getSimulationsFor.mockImplementation(async (s: string) => (known(s), [{ ...SIM, path: `/mnt/p/derivatives/SimNIBS/sub-${s}/Simulations/Thalamus` }]));
+    const state = await run([row, S102], row.id);
+    expect(subjectsRead()).toEqual([row.id]);
+    expect(state.errors[row.id]).toBeUndefined();
+    expect(state.bySubject[row.id]?.total).toBe(1);
+    expect(state.bySubject["102"]?.total).toBe(0);
   });
 
   it("exposes a failed group catalog", async () => {
