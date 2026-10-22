@@ -22,7 +22,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal, get_args
 
-# All kinds the internal job model understands (TODO.md §2.3).
+# All kinds the internal job model understands.
 JOB_KINDS: tuple[str, ...] = (
     "pre",
     "sim",
@@ -43,7 +43,7 @@ JOB_KINDS: tuple[str, ...] = (
 )
 
 # Kinds present in the frozen wire contract's JobKind enum (contracts/openapi.yaml).
-# "project_init" is in the contract but has no runner mapping in tit.jobs.kinds yet.
+# "project_init" is in the contract and maps to ``-m tit.project_init`` in tit.jobs.kinds.
 CONTRACT_JOB_KINDS: frozenset[str] = frozenset(
     {
         "pre",

@@ -1,4 +1,4 @@
-"""Admission logic (TODO.md §2.4): pure decision function plus budget discovery.
+"""Admission logic (docs/dev/ARCHITECTURE.md §6): pure decision function plus budget discovery.
 
 ``evaluate()`` takes a snapshot of the world (the candidate job, every other job the manager
 knows about, currently held locks, and the running/budget cost totals) and returns one
@@ -56,7 +56,9 @@ def _dependency_state(job: JobSpec, jobs: dict[str, JobStatus]) -> Decision | No
             # (JobManager.submit), so reaching here means the record went away after the
             # fact -- recovery from the store included, which is why this is a skip with
             # its own reason rather than a wait for something that will never arrive.
-            logger.warning("job %s: dependency %s not found; refusing to run", job.id, dep_id)
+            logger.warning(
+                "job %s: dependency %s not found; refusing to run", job.id, dep_id
+            )
             return Decision(skip_reason=f"dependency {dep_id} is unknown")
         if dep.state in FAILED_LIKE_STATES:
             return Decision(skip_reason=f"dependency {dep_id} {dep.state}")
@@ -172,7 +174,7 @@ def build_after_edges(specs: dict[str, JobSpec]) -> dict[str, list[str]]:
 
 
 def discover_budget() -> Cost:
-    """The pool every admitted job shares (TODO.md §2.4).
+    """The pool every admitted job shares.
 
     CPUs are the user's global CPU limit (:func:`tit.cpu.cpu_limit`, 70 % of the container's
     cores by default, set on the Settings page), never the whole container: TI-Toolbox shares

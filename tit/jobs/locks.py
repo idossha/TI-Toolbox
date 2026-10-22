@@ -1,4 +1,4 @@
-"""Advisory, filesystem-based locks (TODO.md §2.4).
+"""Advisory, filesystem-based locks.
 
 Keys are **held by the runner process itself** (``with tit.jobs.locks.hold(...)``, a few lines
 per ``__main__``) and *predicted* by the scheduler by reading the same lock directory with
@@ -16,7 +16,7 @@ conflicts with *any* existing holder of the same resource (read or write) other 
 concurrent readers each get their own directory (discriminated by job id) and never collide.
 
 The full lock-key table (which kind holds which resource, in which mode) lives in
-:func:`keys_for`, transcribed from TODO.md §2.4.
+:func:`keys_for`.
 """
 
 from __future__ import annotations
@@ -323,7 +323,7 @@ def _owned_by_another_live_job(project_dir: str, path: str, job_id: str) -> bool
 
 
 # ---------------------------------------------------------------------------------------------
-# keys_for(): the lock table, transcribed from TODO.md §2.4.
+# keys_for(): the lock table.
 # ---------------------------------------------------------------------------------------------
 
 #: ``PreprocessConfig`` step-flag name -> lock stage name (``tit/pre/config.py``, ``tit.jobs.plans``

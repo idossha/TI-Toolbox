@@ -1,4 +1,4 @@
-"""On-disk job state (TODO.md §2.3): ``<project>/code/ti-toolbox/jobs/<id>/{spec.json,
+"""On-disk job state: ``<project>/code/ti-toolbox/jobs/<id>/{spec.json,
 status.json, events.jsonl, stdout.log}``.
 
 Persisted inside the project (not a temp dir) so notebook users and a restarted server both see

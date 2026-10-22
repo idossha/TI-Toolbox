@@ -1,10 +1,10 @@
-"""Job-group plans: the preprocessing DAG and the generic per-subject group (TODO.md §2.3, ``G1``-``G6``).
+"""Job-group plans: the preprocessing DAG and the generic per-subject group.
 
 Pure data: this module only *describes* the DAG a ``PreprocessConfig`` + subject list would
 produce, as a flat list of :class:`tit.jobs.spec.PlannedJob`. It never touches the job registry,
 the scheduler, or the filesystem beyond what :func:`tit.config_io.serialize_config` needs (an
 active :class:`~tit.paths.PathManager`, for the ``project_dir`` it injects into every stage's
-config) -- callers submit the plan themselves (``POST /api/jobs/groups``, owned by B1, resolves
+config) -- callers submit the plan themselves (``POST /api/jobs/groups`` resolves
 each ``PlannedJob.label``/``after_labels`` to a real job id in topological order), and notebook
 users can call this directly to inspect or hand-tune the DAG before submitting it job by job.
 

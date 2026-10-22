@@ -1,9 +1,8 @@
-"""Reading ``events.jsonl`` (TODO.md §2.3): full parse for backfill, incremental poll for live
-push.
+"""Reading ``events.jsonl``: full parse for backfill, incremental poll for live push.
 
 ``seq`` is the 0-based line index — assigned here, not trusted from the file, so a line a writer
 managed to corrupt (or a stray non-JSON line) doesn't shift every later ``seq``. Polling is by
-``st_size`` (inotify is unreliable on Docker Desktop bind mounts, per TODO.md §2.3) at whatever
+``st_size`` (inotify is unreliable on Docker Desktop bind mounts) at whatever
 cadence the caller chooses (the manager's background loop uses 250 ms).
 """
 

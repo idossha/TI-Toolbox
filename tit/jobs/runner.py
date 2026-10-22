@@ -1,6 +1,6 @@
-"""Runner interface + the local subprocess implementation (TODO.md §2.3).
+"""Runner interface + the local subprocess implementation.
 
-``Runner`` is deliberately narrow (``spawn`` only) so a future ``SbatchRunner`` (3.1, HPC) can
+``Runner`` is deliberately narrow (``spawn`` only) so a future ``SbatchRunner`` (HPC) can
 drop in: everything else — waiting for exit, killing a process tree — works on a bare pid and
 doesn't care how the process was started, which is also what makes cancelling a *re-attached*
 job (one this server process never spawned) possible.
@@ -87,7 +87,7 @@ class Runner(abc.ABC):
 
 
 class LocalPopenRunner(Runner):
-    """``asyncio.create_subprocess_exec`` with the safe-spawn options from TODO.md §2.3.
+    """``asyncio.create_subprocess_exec`` with safe-spawn options.
 
     Its own process group (:func:`tit.jobs.processes.spawn_kwargs` -- POSIX
     ``start_new_session``, Windows ``CREATE_NEW_PROCESS_GROUP`` -- so a cancel's SIGTERM/SIGKILL
@@ -128,7 +128,7 @@ def runner_env(
     kind: str | None = None,
     subject_ids: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, str]:
-    """The child process environment (TODO.md §2.3): unbuffered/faulthandler Python, job
+    """The child process environment: unbuffered/faulthandler Python, job
     identity, thread knobs derived from the budget, and ``TIT_SERVER_TOKEN`` /
     ``TIT_SERVER_SETTINGS_FILE`` scrubbed so a job can never read the server's own auth secret
     directly, or the 0600 settings file a ``--reload`` parent hands its child (which itself
@@ -393,7 +393,7 @@ async def stop_docker_siblings(
 ) -> None:
     """Best-effort ``docker stop`` for any container labelled ``tit.job_id=<id>``.
 
-    QSIPrep/QSIRecon's DooD builders add this label (TODO.md §2.3); a job that never spawned a
+    QSIPrep/QSIRecon's DooD builders add this label (:mod:`tit.jobs.docker_engine`); a job that never spawned a
     sibling container, or a host without a docker CLI, makes this a silent no-op. Every call is
     bounded by *timeout_s* so an unresponsive daemon degrades to a logged warning.
     """
