@@ -284,27 +284,13 @@ describe("buildContainerPlan", () => {
 });
 
 /**
- * The shipped file, whichever generation of it is on disk. Lane W2 is rewriting it to the one-`tit`
- * shape; until that lands the tree still holds the legacy two-service file, and the assertion worth
- * making about *that* one is that the parser refuses it by name rather than silently dropping its
- * freesurfer service and X11 mounts.
+ * The shipped file: one `tit` service, no FreeSurfer service and no X11 (decisions D2/D3). The
+ * legacy two-service file's keys are refused by name above ("names an unsupported service key").
  */
 describe("the shipped docker-compose.yml", () => {
   const text = readFileSync(SHIPPED, "utf8");
-  const rewritten = !/^\s*freesurfer:/m.test(text);
 
-  it(rewritten ? "parses into a single tit service on loopback" : "is still the legacy file, and is refused by name", () => {
-    if (!rewritten) {
-      let thrown: StackError | null = null;
-      try {
-        parseComposeFile(text, { ...ENV, DISPLAY: ":0", HOME: "/Users/ido", TIT_REPO_DIR: "/repo" });
-      } catch (err) {
-        thrown = err as StackError;
-      }
-      expect(thrown).toBeInstanceOf(StackError);
-      expect(thrown?.message).toMatch(/is not supported by this app/);
-      return;
-    }
+  it("parses into a single tit service on loopback", () => {
     const stack = parseComposeFile(text, { ...ENV, TIT_REPO_DIR: "/repo" });
     expect(Object.keys(stack.services)).toEqual(["tit"]);
     expect(stack.services.tit?.ports[0]?.hostIp).toBe("127.0.0.1");
@@ -323,7 +309,6 @@ describe("the shipped docker-compose.yml", () => {
   // The shipped file is the one a packaged app reads, so the "no dev mount by default" property is
   // asserted against it directly, not only against the fixture that mirrors it.
   it("bind-mounts nothing over /ti-toolbox by default, and does when a repo is named", () => {
-    if (!rewritten) return;
     const withoutRepo = parseComposeFile(text, { ...ENV, TIT_REPO_DIR: "" });
     const plan = buildContainerPlan(withoutRepo, { serviceName: "tit", projectName: "ti-toolbox-deadbeef", labels: {} });
     expect(plan.body.HostConfig.Binds.join(" ")).not.toContain(":/ti-toolbox");
@@ -336,7 +321,6 @@ describe("the shipped docker-compose.yml", () => {
   // `stack.ts` interpolates from `{...process.env, ...buildStackEnv(...)}`; the container's env is
   // only what the file names, so a host `TIT_NO_TELEMETRY=1` was dropped until the file named it.
   it("forwards the app's TIT_NO_TELEMETRY to the container, and an empty value when unset", () => {
-    if (!rewritten) return;
     const stackEnv = buildStackEnv({
       hostProjectDir: "/Users/ido/datasets/000", projectDirName: "000", userConfigDir: "/Users/ido/.config/ti-toolbox",
       port: 8801, token: "sekret", timezone: "UTC", hostOs: "darwin", hostOsVersion: "24.6.0", hostArch: "arm64",
