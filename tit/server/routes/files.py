@@ -112,7 +112,9 @@ def report(report_id: str) -> Response:
     path = catalog.find_report_path(pm, report_id)
     if path is None:
         raise HTTPException(status_code=404, detail="Unknown report id")
-    with open(path, encoding="utf-8") as f:
+    # The bytes on disk, not a text-mode re-read: that rewrote CRLF line endings (SimNIBS's
+    # charm report has them) and failed outright on a byte that is not UTF-8.
+    with open(path, "rb") as f:
         html = f.read()
     return Response(
         content=html,
