@@ -133,7 +133,9 @@ def run_group_analysis(
         Generate per-subject visualization artifacts. Default ``False``.
     output_dir : str, pathlib.Path, or None, optional
         Override output directory. If ``None``, each run writes to its own
-        ``derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<timestamp>/``.
+        ``derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>[_<field>][_<tissue>]_<timestamp>/``
+        (the field and tissue suffixes as :func:`group_run_name` adds them). The
+        per-subject analyses always go to each subject's own default folder.
     field : str or None, optional
         Field to analyze (``constants.FIELD_REGISTRY`` name, e.g.
         ``"TI_max"``, ``"TI_normal"``, ``"hf_peak"``). Default ``None``
@@ -320,6 +322,23 @@ def group_run_name(
     The target as :func:`_target_label` words it, then the field and tissue the way an
     analysis folder carries them (:meth:`PathManager.analysis_variant_suffix`), so a
     TI_max and an hf_peak run of one ROI are told apart by name too.
+
+    Args:
+        simulation: Simulation folder name shared by the subjects.
+        space: ``"mesh"`` or ``"voxel"``.
+        analysis_type: ``"spherical"``, ``"cortical"``, ``"subcortical"`` or ``"mask"``.
+        center: Sphere centre ``(x, y, z)`` (spherical).
+        radius: Sphere radius in mm (spherical).
+        coordinate_space: ``"subject"`` or ``"MNI"``.
+        spheres: One ``(x, y, z, r)`` per sphere of a union (spherical).
+        region: Region name or names (cortical, subcortical).
+        mask_path: Mask file (mask).
+        field: The analysed field; ``None`` or the envelope adds no suffix.
+        tissue_type: Voxel tissue; ``None`` or ``"GM"`` adds no suffix.
+
+    Returns:
+        The run name, before :func:`group_output_dir` makes it folder-safe and
+        stamps it, e.g. ``"M1_voxel_sphere_x-35.00_y5.00_z5.00_r10.0_subject_WM"``.
     """
     target = _target_label(
         analysis_type, center, radius, coordinate_space, spheres, region, mask_path
@@ -333,10 +352,16 @@ def group_output_dir(
 ) -> str:
     """The folder a group run writes its summary into (not created).
 
-    *output_dir* when given; otherwise
-    ``derivatives/ti-toolbox/group_analysis/<run_name>_<YYYYmmdd_HHMMSS>/``, *stamp*
-    being the second the run starts (now, when not given). Shared with the plan, which
-    previews the folder a run started now would name.
+    Shared with the plan, which previews the folder a run started now would name.
+
+    Args:
+        output_dir: The run's explicit output folder, used verbatim when set.
+        run_name: :func:`group_run_name`'s name; characters a folder name may not carry
+            become ``_`` and it is cut so the stamped name fits 128 characters.
+        stamp: ``YYYYmmdd_HHMMSS`` of the second the run starts; now when ``None``.
+
+    Returns:
+        *output_dir*, or ``derivatives/ti-toolbox/group_analysis/<run_name>_<stamp>``.
     """
     if output_dir:
         return str(output_dir)

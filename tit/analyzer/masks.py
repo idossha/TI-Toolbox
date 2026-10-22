@@ -18,6 +18,14 @@ def analysis_region_key(region) -> str:
     plan and the Analyzer both name the folder by. A mesh analysis of a bare name such as
     ``"insula"`` still analyses both hemispheres; its folder keeps the name it was asked by,
     because the hemisphere split is only known once the atlas is read.
+
+    Args:
+        region: A region name, a list of names, or ``None`` (whole head).
+
+    Returns:
+        The names joined with ``+``, each once in first-seen order, e.g.
+        ``["lh.insula", "lh.insula", "rh.precentral"]`` -> ``"lh.insula+rh.precentral"``;
+        ``""`` when no name is given.
     """
     regions = region if isinstance(region, (list, tuple)) else [region]
     names = (str(r) for r in regions if r is not None and str(r) != "")
