@@ -48,6 +48,7 @@ import {
   buildVectorConfig,
   NO_RECORDED_NET,
   outputHint,
+  PERCENTILE_ORDER,
   parseLabels,
   type Mode,
 } from "./config";
@@ -188,6 +189,9 @@ function VisualExporterPanel() {
   if (!subjectId) clientErrors.push("Select a subject.");
   else if (mode !== "subcortical" && !simulationName) clientErrors.push("Select a simulation.");
   else if (mode === "montage" && montageQuery.error?.message === NO_RECORDED_NET) clientErrors.push(NO_RECORDED_NET);
+  // VectorConfig refuses a ramp whose thresholds do not rise; say so before the server does.
+  if (mode === "vectors" && color === "magscale" && !((bluePct ?? 50) <= (greenPct ?? 80) && (greenPct ?? 80) <= (redPct ?? 95)))
+    clientErrors.push(PERCENTILE_ORDER);
   let subcorticalLabels: number[] = [];
   if (mode === "subcortical") {
     if (labelsBrowsable) {

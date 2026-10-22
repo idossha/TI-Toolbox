@@ -17,6 +17,9 @@ import type { MontageConfig, RegionConfig, SubcorticalConfig, VectorConfig } fro
  */
 export const NO_RECORDED_NET = "This simulation has no recorded EEG net.";
 
+/** `VectorConfig` (tit/blender/config.py) refuses magnitude-scale thresholds that do not rise. */
+export const PERCENTILE_ORDER = "Magnitude-scale percentiles must rise: blue ≤ green ≤ red.";
+
 export type Mode = "regions" | "vectors" | "montage" | "subcortical";
 
 export interface RegionsForm {

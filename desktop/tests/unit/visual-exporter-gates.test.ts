@@ -10,6 +10,9 @@
  * reason and a click submits nothing, while the same simulation still exports regions and
  * vectors (neither reads a net), and a simulation with a recorded net still exports a montage.
  *
+ * The same file pins the magnitude-scale percentile gate: `VectorConfig` refuses thresholds that
+ * do not rise (blue ≤ green ≤ red), so the panel says so instead of queueing a refused job.
+ *
  * Where the expectations come from: the recorded config is the Dataset 000 shape typed out
  * below; the sentence is the runner's (tit/blender/montage_publication.py), read here through
  * the panel's real `readExportMontage`. The panel is rendered for real with its API mocked.
@@ -132,6 +135,20 @@ describe("visual exporter montage gate", () => {
       expect(submitted.length, mode).toBe(mode === "regions" ? 2 : 1);
       expect(submitted.every((c) => (c as { simulation_name: string }).simulation_name === "20260919_131736_879_1")).toBe(true);
     }
+  });
+
+  it("refuses a magnitude-scale ramp whose percentiles do not rise, as VectorConfig does", async () => {
+    const base = { mode: "vectors", subjectId: "101", simulationName: "L_Insula", color: "magscale" };
+    const refused = await render({ ...base, bluePct: 90, greenPct: 50, redPct: 95 });
+    expect(refused.title).toBe("Magnitude-scale percentiles must rise: blue ≤ green ≤ red.");
+    expect(refused.submitted).toEqual([]);
+    // Equal neighbours are a step, not a fall; RGB colouring reads no percentile.
+    const step = await render({ ...base, bluePct: 50, greenPct: 50, redPct: 95 });
+    expect(step.title).toBeNull();
+    expect(step.submitted).toEqual([expect.objectContaining({ blue_percentile: 50, green_percentile: 50, red_percentile: 95 })]);
+    const rgb = await render({ ...base, color: "rgb", bluePct: 90, greenPct: 50, redPct: 95 });
+    expect(rgb.title).toBeNull();
+    expect(rgb.submitted).toHaveLength(1);
   });
 
   it("runs a montage of a simulation that recorded its net", async () => {
