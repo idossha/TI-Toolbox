@@ -428,5 +428,31 @@ def keys_for(
         )
         name = config.get("analysis_name") or "default"
         requests.append(LockRequest(f"project:stats:{analysis_type}/{name}"))
+        requests.extend(_simulation_reads(config))
+    elif kind == "nifti_average":
+        # NiftiAverageConfig (tit/stats/nifti_average_config.py): the runner writes
+        # derivatives/ti-toolbox/nifti_average/<output_name>/.
+        name = config.get("output_name") or "default"
+        requests.append(LockRequest(f"project:nifti_average:{name}"))
+        requests.extend(_simulation_reads(config))
 
     return requests
+
+
+def _simulation_reads(config: dict[str, Any]) -> list[LockRequest]:
+    """Read locks on every simulation a group tool's config rows name.
+
+    A simulation run write-locks ``subject:<sid>:sim:<montage>`` (above), so a group job
+    reading that simulation's NIfTIs waits for a re-run of it instead of averaging or
+    testing half-written files. Rows come from the config itself (``subjects`` of
+    ``GroupComparisonConfig``/``CorrelationConfig``/``NiftiAverageConfig``), the one place
+    that pairs each subject with its simulation.
+    """
+    keys: dict[str, None] = {}
+    for row in config.get("subjects") or []:
+        if not isinstance(row, dict):
+            continue
+        sid, sim = row.get("subject_id"), row.get("simulation_name")
+        if sid and sim:
+            keys[f"subject:{sid}:sim:{sim}"] = None
+    return [LockRequest(resource, mode="read") for resource in keys]
