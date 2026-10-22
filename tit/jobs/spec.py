@@ -135,6 +135,32 @@ def _drop_none(d: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
 
 
+def _record(data: Any, what: str) -> dict[str, Any]:
+    """*data* if it is a JSON object, else ``ValueError`` (a malformed ``spec``/``status`` file)."""
+    if not isinstance(data, dict):
+        raise ValueError(f"{what} must be a JSON object, got {type(data).__name__}")
+    return data
+
+
+def _text(data: dict[str, Any], key: str) -> str:
+    """``data[key]`` when it is a string; ``KeyError``/``ValueError`` otherwise."""
+    value = data[key]
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be a string, got {type(value).__name__}")
+    return value
+
+
+def _text_list(data: dict[str, Any], key: str) -> list[str]:
+    """``data[key]`` (default empty) when it is a list of strings; ``ValueError`` otherwise.
+
+    ``list("101")`` would quietly turn a string into ``["1", "0", "1"]``.
+    """
+    value = data.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ValueError(f"{key} must be a list of strings")
+    return list(value)
+
+
 @dataclass
 class Cost:
     """Estimated resource cost of one job, for scheduler admission (§2.4)."""
@@ -288,17 +314,19 @@ class JobSpec:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "JobSpec":
+        """Parse a ``spec.json`` body; ``ValueError``/``TypeError``/``KeyError`` if malformed."""
+        data = _record(data, "spec.json")
         cost = data.get("cost") or {"cpus": 1.0, "mem_gb": 1.0}
         return cls(
-            id=data["id"],
-            kind=data["kind"],
+            id=_text(data, "id"),
+            kind=_text(data, "kind"),
             config=data.get("config", {}),
-            subject_ids=list(data.get("subject_ids", [])),
-            after=list(data.get("after", [])),
+            subject_ids=_text_list(data, "subject_ids"),
+            after=_text_list(data, "after"),
             tags=list(data.get("tags", [])),
             env=dict(data.get("env", {})),
-            locks=list(data.get("locks", [])),
-            cost=Cost(cpus=cost["cpus"], mem_gb=cost["mem_gb"]),
+            locks=_text_list(data, "locks"),
+            cost=Cost(cpus=float(cost["cpus"]), mem_gb=float(cost["mem_gb"])),
             created_by=data.get("created_by", "api"),
             created_at=data.get("created_at", utcnow_iso()),
             group_id=data.get("group_id"),
@@ -406,13 +434,15 @@ class JobStatus:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "JobStatus":
+        """Parse a ``status.json`` body; ``ValueError``/``TypeError``/``KeyError`` if malformed."""
+        data = _record(data, "status.json")
         return cls(
-            id=data["id"],
-            kind=data["kind"],
-            state=data["state"],
-            subject_ids=list(data.get("subject_ids", [])),
+            id=_text(data, "id"),
+            kind=_text(data, "kind"),
+            state=_text(data, "state"),
+            subject_ids=_text_list(data, "subject_ids"),
             group_id=data.get("group_id"),
-            created_at=data["created_at"],
+            created_at=_text(data, "created_at"),
             started_at=data.get("started_at"),
             finished_at=data.get("finished_at"),
             progress=JobProgress.from_dict(data.get("progress")),

@@ -150,10 +150,12 @@ class JobManager:
     def start(self) -> None:
         if self._started:
             return
-        self._started = True
         self._load_existing()
         locks.reconcile(self.project_dir)
         self.registry.prune()
+        # Only now: a store that could not be read must leave start() retryable, never a
+        # manager that reports itself started while no loop exists to admit jobs.
+        self._started = True
         self._thread = threading.Thread(
             target=self._run_loop, name="tit-job-manager", daemon=True
         )

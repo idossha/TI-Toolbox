@@ -186,18 +186,33 @@ class JobRegistry:
     # -- read --------------------------------------------------------------------------------
 
     def read_spec(self, job_id: str) -> JobSpec | None:
-        try:
-            with open(spec_path(self.project_dir, job_id), encoding="utf-8") as fh:
-                return JobSpec.from_dict(json.load(fh))
-        except (OSError, json.JSONDecodeError, KeyError):
-            return None
+        """The job's ``spec.json``, or ``None`` when it is missing, unreadable or malformed."""
+        return self._read(job_id, spec_path, JobSpec.from_dict)
 
     def read_status(self, job_id: str) -> JobStatus | None:
+        """The job's ``status.json``, or ``None`` when it is missing, unreadable or malformed."""
+        return self._read(job_id, status_path, JobStatus.from_dict)
+
+    def _read(self, job_id: str, path_for: Any, parse: Any) -> Any:
+        # One record of the wrong shape (a hand edit, a sync conflict) is skipped, never
+        # allowed to raise into the manager's startup and leave the whole scheduler dead.
         try:
-            with open(status_path(self.project_dir, job_id), encoding="utf-8") as fh:
-                return JobStatus.from_dict(json.load(fh))
-        except (OSError, json.JSONDecodeError, KeyError):
+            path = path_for(self.project_dir, job_id)
+            with open(path, encoding="utf-8") as fh:
+                record = parse(json.load(fh))
+        except FileNotFoundError:
             return None
+        except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            logger.warning("job %s: skipping unreadable record: %s", job_id, exc)
+            return None
+        if record.id != job_id:
+            logger.warning(
+                "job %s: skipping a record that names another job (%s)",
+                job_id,
+                record.id,
+            )
+            return None
+        return record
 
     def list_ids(self) -> list[str]:
         try:

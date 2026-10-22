@@ -41,8 +41,11 @@ def get_manager(app: Any | None = None) -> JobManager:
         if not os.path.isdir(runner_cwd):
             # Host/dev fallback: /ti-toolbox only exists inside the container.
             runner_cwd = project_dir
-        _manager = JobManager(project_dir, runner_cwd=runner_cwd)
-        _manager.start()
+        manager = JobManager(project_dir, runner_cwd=runner_cwd)
+        # Stored only once started: a start that raised (the server lifespan suppresses it)
+        # must be retried by the next caller, not cached as a manager with no loop.
+        manager.start()
+        _manager = manager
     if app is not None:
         app.state.job_manager = _manager
     return _manager
