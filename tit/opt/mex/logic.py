@@ -7,6 +7,7 @@ Albantakis's branch ``alba/ex-search-multipolar`` as-is.
 from itertools import combinations, permutations, product
 from math import comb
 
+from tit.opt.ex.logic import _distinct_product
 from tit.opt.ex.symmetry import (
     SYMMETRY_PAIRING_CROSS_PAIRS,
     SYMMETRY_PAIRING_WITHIN_PAIRS,
@@ -32,9 +33,7 @@ _CROSS_PAIR_CHECKS = (
     ("e2_plus", "e4_plus"),
     ("e2_minus", "e4_minus"),
 )
-_WITHIN_PAIR_CHECKS = tuple(
-    (f"e{idx}_plus", f"e{idx}_minus") for idx in range(1, 5)
-)
+_WITHIN_PAIR_CHECKS = tuple((f"e{idx}_plus", f"e{idx}_minus") for idx in range(1, 5))
 
 
 def _valid_multipolar_tuple(electrodes):
@@ -126,9 +125,7 @@ def _bucket_electrode_combinations(
     symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
 ):
     if symmetry_mirror_map is None:
-        for combo in product(*(buckets[key] for key in MEX_BUCKET_KEYS)):
-            if _valid_multipolar_tuple(combo):
-                yield combo
+        yield from _distinct_product([buckets[key] for key in MEX_BUCKET_KEYS])
         return
 
     if symmetry_pairing not in SYMMETRY_PAIRINGS:

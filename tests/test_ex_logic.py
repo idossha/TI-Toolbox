@@ -137,11 +137,12 @@ class TestElectrodeCombinations:
         assert len(combos) == 2 * 2 * 2 * 2
 
     def test_all_combinations_mode(self):
-        """all_combinations=True: permutations of 4 from e1_plus pool, all unique."""
+        """all_combinations=True: one tuple per physical montage of the pool, all unique."""
         pool = ["E1", "E2", "E3", "E4"]
         combos = list(_electrode_combinations(pool, [], [], [], all_combinations=True))
-        # 4 electrodes choose 4 with order, all distinct = 4! = 24
-        assert len(combos) == 24
+        # 3 ways to split 4 electrodes into 2 pairs x 2 channel orders = 6; flipping a
+        # channel's polarity leaves TI_max unchanged, so the 4! = 24 orderings were 4x repeats.
+        assert len(combos) == 6
         for combo in combos:
             assert len(set(combo)) == 4
 
@@ -152,10 +153,10 @@ class TestElectrodeCombinations:
         assert len(combos) == 0
 
     def test_all_combinations_five_electrodes(self):
-        """5 electrodes: P(5,4) = 120 unique 4-tuples."""
+        """5 electrodes: C(5,4) = 5 sets x 6 physical montages = 30."""
         pool = ["E1", "E2", "E3", "E4", "E5"]
         combos = list(_electrode_combinations(pool, [], [], [], all_combinations=True))
-        assert len(combos) == 120
+        assert len(combos) == 30
 
     def test_all_combinations_ignores_other_buckets(self):
         """In all_combinations mode, only e1_plus is used."""
@@ -215,8 +216,9 @@ class TestGenerateMontagesCombinations:
         pool = ["E1", "E2", "E3", "E4"]
         ratios = [(1.0, 1.0), (0.5, 1.5)]
         combos = list(generate_montage_combinations(pool, [], [], [], ratios, True))
-        # 24 electrode combos * 2 ratios = 48
-        assert len(combos) == 48
+        # (1.0, 1.0) and (0.5, 1.5) is not its own mirror, so both channel orders are
+        # evaluated: 3 pairings * 2 orders * 2 ratios = 12
+        assert len(combos) == 12
 
 
 # ===========================================================================
@@ -241,7 +243,8 @@ class TestCountCombinations:
         pool = ["E1", "E2", "E3", "E4", "E5"]
         ratios = [(1.0, 1.0)]
         count = count_combinations(pool, [], [], [], ratios, True)
-        assert count == 120  # P(5,4) * 1 ratio
+        # C(5,4) * 3 pairings; the balanced split is its own mirror, so one channel order
+        assert count == 15
 
     def test_zero_ratios_gives_zero(self):
         """No current ratios means zero combinations."""

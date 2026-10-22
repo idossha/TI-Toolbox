@@ -705,11 +705,12 @@ def test_plan_ex_reports_exact_search_space_count(
     body = resp.json()
     assert body["jobs"][0]["kind"] == "ex"
     assert body["jobs"][0]["subject"] == "001"
-    # Pool of 4 electrodes, all_combinations=True: 4*3*2*1 = 24 electrode arrangements.
+    # Pool of 4 electrodes, all_combinations=True: 3 pair splits, one channel order (the
+    # single balanced ratio is its own mirror); polarity flips are the same TI field.
     # current_step=1.0, total_current=2.0 -> channel_limit defaults to 1.0, one ratio (1.0, 1.0).
     n = body["resolved"]["search_space"]["n_combinations"]
     n_ratios = body["resolved"]["search_space"]["n_current_ratios"]
-    assert n == 24 * n_ratios
+    assert n == 3 * n_ratios
     assert n_ratios >= 1
 
 

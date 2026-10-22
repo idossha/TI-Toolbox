@@ -63,6 +63,27 @@ def read_results(csv_path: str | Path) -> list[dict]:
     return rows
 
 
+def top_distinct(rows: list[dict], top: int = TOP_N) -> list[dict]:
+    """The best *top* rows that are different stimulations.
+
+    A row is the set of its channels, each an unordered electrode pair at its current: the TI
+    envelope ignores channel polarity and order, so runs written before pool mode evaluated each
+    montage once list one montage up to eight times. Rows are ranked best first.
+    """
+    seen, kept = set(), []
+    for r in rows:
+        key = frozenset(
+            (frozenset(pair), round(current, 9))
+            for pair, current in zip(r["pairs"], (r["I1"], r["I2"]))
+        )
+        if key not in seen:
+            seen.add(key)
+            kept.append(r)
+            if len(kept) == top:
+                break
+    return kept
+
+
 def leadfield_facts(log_text: str) -> dict:
     """Electrode geometry and conductivity the leadfield was computed with (its SimNIBS log)."""
 
@@ -171,7 +192,7 @@ def density_chart(rows: list[dict], top: int = TOP_N) -> str:
                 f'<polyline points="{" ".join(pts)}" fill="none" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="3 4"/>'
                 f'<text x="{pts[-1].split(",")[0]}" y="{float(pts[-1].split(",")[1]) - 5:.1f}" text-anchor="end">composite {level:.3f}</text>'
             )
-    for r in rows[1:top]:
+    for r in top_distinct(rows, top)[1:]:
         p.append(
             f'<circle cx="{X(r["TImean_ROI"]):.1f}" cy="{Y(r["Focality"]):.1f}" r="4.5" fill="none" stroke="var(--s2)" stroke-width="1.6" '
             f'data-tip="{esc(_montage_name(r["pairs"]))}\n{r["I1"]:g}/{r["I2"]:g} mA: ROI mean {r["TImean_ROI"]:.3f} V/m, focality {r["Focality"]:.2f}"/>'
@@ -309,7 +330,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         "Up and to the right is better on both. Dashed curves have equal composite; hover a cell or ring for its values.",
     )
     table_rows = []
-    for i, r in enumerate(rows[:TOP_N], 1):
+    for i, r in enumerate(top_distinct(rows), 1):
         table_rows.append(
             [
                 (str(i), i),

@@ -35,6 +35,8 @@ from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import Any
 
+from .logic import format_current_mA
+
 MONTAGE_MAP_TOP_N = 150
 HEATMAP_TOP_N = 50
 
@@ -151,8 +153,8 @@ def build_csv_rows(
         rows.append(
             [
                 name,
-                f"{data.get('current_ch1_mA', 0):.1f}",
-                f"{data.get('current_ch2_mA', 0):.1f}",
+                format_current_mA(data.get("current_ch1_mA", 0)),
+                format_current_mA(data.get("current_ch2_mA", 0)),
                 f"{ti_max:.4f}",
                 f"{ti_mean:.4f}",
                 f"{ti_mean_gm:.4f}",
@@ -425,7 +427,9 @@ def _eeg_positions_csv_for_config(config) -> Path | None:
         return None
 
 
-def regenerate_plots(run_dir: str | Path, eeg_csv: str | Path | None = None) -> list[str]:
+def regenerate_plots(
+    run_dir: str | Path, eeg_csv: str | Path | None = None
+) -> list[str]:
     """Rebuild the electrode maps of an existing ex-/m-ex-search run.
 
     Reads ``final_output.csv`` in *run_dir* and writes the three map PNGs

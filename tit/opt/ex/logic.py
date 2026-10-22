@@ -11,13 +11,16 @@ generate_montage_combinations
     Yield ``(e1+, e1-, e2+, e2-, (ch1_mA, ch2_mA))`` tuples.
 count_combinations
     Count total montage combinations without materializing them.
+format_current_mA
+    The text a current split is written as (result keys, ``final_output.csv``).
 
 See Also
 --------
 tit.opt.ex.ex_search : Orchestrator that consumes these generators.
 """
 
-from itertools import product
+from itertools import combinations, product
+from math import comb
 
 from .symmetry import (
     SYMMETRY_PAIRING_CROSS_PAIRS,
@@ -72,11 +75,87 @@ def generate_current_ratios(total_current, current_step, channel_limit):
     return ratios
 
 
+_SPLIT_TOLERANCE_MA = 1e-9
+
+
+def format_current_mA(value):
+    """Current in mA as written in result keys and ``final_output.csv``.
+
+    Enough decimals that two splits of one sweep never print alike (a ``.1f``
+    key merged 1.95/0.05 with 1.9/0.1), without the floating-point tail of the
+    sweep's repeated subtraction: ``1.0``, ``0.25``, ``1.95``.
+    """
+    text = f"{float(value):.10f}".rstrip("0")
+    return text + "0" if text.endswith(".") else text
+
+
+def ratios_mirror_symmetric(current_ratios):
+    """True when the split list contains ``(b, a)`` for every ``(a, b)``.
+
+    The TI envelope is symmetric in its two channels, so channel 1 on pair P at
+    ``a`` with channel 2 on pair Q at ``b`` is the same stimulation as the swapped
+    order at ``(b, a)``. The list from :func:`generate_current_ratios` is sorted by
+    descending channel-1 current, so it is its own mirror exactly when entry ``i``
+    channel 1 equals entry ``-1-i`` channel 2.
+    """
+    ratios = list(current_ratios)
+    return all(
+        abs(ratios[i][0] - ratios[-1 - i][1]) <= _SPLIT_TOLERANCE_MA
+        for i in range(len(ratios))
+    )
+
+
 def _valid_quad(combo):
     return len(set(combo)) == 4
 
 
-def _within_pair_symmetric_combinations(e1_plus, e1_minus, e2_plus, e2_minus, mirror_map):
+def _distinct_product(buckets):
+    """``itertools.product(*buckets)`` restricted to tuples of distinct electrodes.
+
+    Same order as the filtered product; a label listed twice in one bucket is
+    one electrode. Backtracking skips used electrodes instead of generating and
+    discarding them.
+    """
+    lists = [list(dict.fromkeys(bucket)) for bucket in buckets]
+    chosen = []
+
+    def walk(level):
+        if level == len(lists):
+            yield tuple(chosen)
+            return
+        for electrode in lists[level]:
+            if electrode in chosen:
+                continue
+            chosen.append(electrode)
+            yield from walk(level + 1)
+            chosen.pop()
+
+    yield from walk(0)
+
+
+def _pool_montages(pool, both_channel_orders):
+    """One ``(e1+, e1-, e2+, e2-)`` per physical montage of a pool.
+
+    TI_max is unchanged when either channel's polarity flips, so each pair is
+    taken once (pool order: first-listed electrode is ``+``); four electrodes
+    split into pairs three ways; the channel order matters only when the split
+    list is not its own mirror (:func:`ratios_mirror_symmetric`).
+    """
+    labels = list(dict.fromkeys(pool))
+    for a, b, c, d in combinations(labels, 4):
+        for (p1, p2), (q1, q2) in (
+            ((a, b), (c, d)),
+            ((a, c), (b, d)),
+            ((a, d), (b, c)),
+        ):
+            yield (p1, p2, q1, q2)
+            if both_channel_orders:
+                yield (q1, q2, p1, p2)
+
+
+def _within_pair_symmetric_combinations(
+    e1_plus, e1_minus, e2_plus, e2_minus, mirror_map
+):
     """Each pair's minus electrode is the mirror of its plus electrode."""
     pair1 = list(symmetric_pair_options(e1_plus, e1_minus, mirror_map))
     pair2 = list(symmetric_pair_options(e2_plus, e2_minus, mirror_map))
@@ -86,7 +165,9 @@ def _within_pair_symmetric_combinations(e1_plus, e1_minus, e2_plus, e2_minus, mi
             yield combo
 
 
-def _cross_pair_symmetric_combinations(e1_plus, e1_minus, e2_plus, e2_minus, mirror_map):
+def _cross_pair_symmetric_combinations(
+    e1_plus, e1_minus, e2_plus, e2_minus, mirror_map
+):
     """Pair 2 is the mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``)."""
     plus_options = list(symmetric_pair_options(e1_plus, e2_plus, mirror_map))
     minus_options = list(symmetric_pair_options(e1_minus, e2_minus, mirror_map))
@@ -104,20 +185,25 @@ def _electrode_combinations(
     all_combinations,
     symmetry_mirror_map=None,
     symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
+    both_channel_orders=True,
 ):
     """Yield valid electrode 4-tuples from the bucket or pool lists.
 
-    With a *symmetry_mirror_map* (bucket mode only) the enumeration is
-    restricted to left/right mirrored montages, following *symmetry_pairing*
-    (``"within_pairs"`` or ``"cross_pairs"``).
+    Every tuple has four distinct electrodes: a channel whose plus and minus
+    electrode coincide carries no current, and one electrode is never shared by
+    the two channels (as in m-ex-search, which needs all eight distinct).
+
+    Pool mode (*all_combinations*) yields one tuple per physical montage, in
+    both channel orders only when *both_channel_orders* (see
+    :func:`_pool_montages`). With a *symmetry_mirror_map* (bucket mode only) the
+    enumeration is restricted to left/right mirrored montages, following
+    *symmetry_pairing* (``"within_pairs"`` or ``"cross_pairs"``).
     """
     if all_combinations:
-        for combo in product(e1_plus, repeat=4):
-            if _valid_quad(combo):
-                yield combo
+        yield from _pool_montages(e1_plus, both_channel_orders)
         return
     if symmetry_mirror_map is None:
-        yield from product(e1_plus, e1_minus, e2_plus, e2_minus)
+        yield from _distinct_product((e1_plus, e1_minus, e2_plus, e2_minus))
         return
     if symmetry_pairing not in SYMMETRY_PAIRINGS:
         raise ValueError(f"Unsupported ex-search symmetry pairing: {symmetry_pairing}")
@@ -186,7 +272,11 @@ def explain_zero_combinations(
             f"symmetric_bucket={symmetry_pairing}: every mirrored montage "
             "reuses an electrode (the four electrodes must be distinct)"
         )
-    return "every montage was rejected by the enumeration filters"
+    return (
+        "every bucket combination reuses an electrode (the four electrodes must "
+        "be distinct: a channel cannot start and end on one electrode, and the "
+        "two channels cannot share one)"
+    )
 
 
 def generate_montage_combinations(
@@ -208,8 +298,8 @@ def generate_montage_combinations(
     current_ratios : list of tuple of (float, float)
         Valid current splits from :func:`generate_current_ratios`.
     all_combinations : bool
-        When *True*, treat all four lists as a single pool and require
-        four distinct electrodes (permutation mode).
+        When *True*, treat *e1_plus* as a single pool and yield each
+        physical montage once (see :func:`_pool_montages`).
     symmetry_mirror_map : dict or None
         Electrode mirror map for symmetric bucket mode (see
         :mod:`tit.opt.ex.symmetry`); ``None`` disables the constraint.
@@ -229,6 +319,7 @@ def generate_montage_combinations(
         all_combinations,
         symmetry_mirror_map,
         symmetry_pairing,
+        both_channel_orders=not ratios_mirror_symmetric(current_ratios),
     ):
         for ratio in current_ratios:
             yield (*electrodes, ratio)
@@ -260,6 +351,9 @@ def count_combinations(
     int
         Total number of ``(electrode_quad, ratio)`` combinations.
     """
+    if all_combinations:
+        orders = 1 if ratios_mirror_symmetric(current_ratios) else 2
+        return comb(len(dict.fromkeys(e1_plus)), 4) * 3 * orders * len(current_ratios)
     n_electrodes = sum(
         1
         for _ in _electrode_combinations(

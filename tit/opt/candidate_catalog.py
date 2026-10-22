@@ -216,12 +216,18 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
                     "comparison_key": str(directory),
                     "pairs": [labels[i : i + 2] for i in range(0, len(labels), 2)],
                     "eeg_net": _net_from_leadfield_hdf(leadfield),
-                    "currents_mA": [
-                        _number(
-                            row.get(f"Current_Ch{i+1}_mA", config.get("current_mA"))
-                        )
-                        for i in range(len(labels) // 2)
-                    ],
+                    # mEx drives every pair at the one configured current; its CSV
+                    # columns were rounded to 0.1 mA before 2026-10-22.
+                    "currents_mA": (
+                        [_number(config.get("current_mA"))] * 4
+                        if kind == "mex" and _number(config.get("current_mA"))
+                        else [
+                            _number(
+                                row.get(f"Current_Ch{i+1}_mA", config.get("current_mA"))
+                            )
+                            for i in range(len(labels) // 2)
+                        ]
+                    ),
                     "_manifest": {"config": config},
                     "replay_note": "Simulator defaults for electrode geometry; Ex history records leadfield estimates, not a full-electrode model.",
                 }

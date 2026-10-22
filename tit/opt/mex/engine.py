@@ -10,6 +10,7 @@ from simnibs.utils import TI_utils as TI
 
 from tit.calc import get_TI_vectors
 from tit.opt.ex.engine import ExSearchEngine
+from tit.opt.ex.logic import format_current_mA
 from tit.opt.ex.parallel import evaluate_ordered, resolve_n_jobs
 
 from .logic import count_multipolar_combinations, generate_multipolar_combinations
@@ -135,7 +136,7 @@ class MExSearchEngine(ExSearchEngine):
             pair_names = [
                 f"{electrodes[idx]}_{electrodes[idx + 1]}" for idx in range(0, 8, 2)
             ]
-            name = "_and_".join(pair_names) + f"_I-{current_mA:.1f}mA"
+            name = "_and_".join(pair_names) + f"_I-{format_current_mA(current_mA)}mA"
             key = f"TI_field_{name}.msh"
 
             elapsed = time.time() - start_time

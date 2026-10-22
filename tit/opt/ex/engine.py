@@ -18,8 +18,10 @@ from .roi import read_roi_center
 from .logic import (
     _electrode_combinations,
     count_combinations,
+    format_current_mA,
     generate_current_ratios,
     generate_montage_combinations,
+    ratios_mirror_symmetric,
 )
 from .parallel import evaluate_ordered, resolve_n_jobs
 
@@ -357,6 +359,7 @@ class ExSearchEngine:
                 all_combinations,
                 symmetry_mirror_map,
                 symmetry_pairing,
+                both_channel_orders=not ratios_mirror_symmetric(ratios),
             )
         )
         evaluations = evaluate_ordered(
@@ -372,7 +375,10 @@ class ExSearchEngine:
             montage_start = time.time()
             for (ch1, ch2), data in zip(ratios, montage_results):
                 i += 1
-                name = f"{ep1}_{em1}_and_{ep2}_{em2}_I1-{ch1:.1f}mA_I2-{ch2:.1f}mA"
+                name = (
+                    f"{ep1}_{em1}_and_{ep2}_{em2}"
+                    f"_I1-{format_current_mA(ch1)}mA_I2-{format_current_mA(ch2)}mA"
+                )
                 key = f"TI_field_{name}.msh"
 
                 elapsed = time.time() - start_time
