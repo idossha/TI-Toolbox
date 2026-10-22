@@ -38,6 +38,8 @@ class NiftiAverageSpace(StrEnum):
 #: envelope ``tit.tools.mesh2nii`` writes under a simulation's ``TI/niftis/``
 #: (``<mesh>_subject_<field>`` / ``<mesh>_MNI_MNI_<field>``). The subject entry
 #: read ``grey_{simulation_name}_TI_max.nii.gz``, a file no simulation writes.
+#: An mTI simulation is read from ``mTI/niftis/`` with the mTI spelling
+#: (:func:`tit.analyzer.field_selector.simulation_nifti_path`).
 _DEFAULT_PATTERNS: dict[NiftiAverageSpace, str] = {
     NiftiAverageSpace.MNI: "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     NiftiAverageSpace.SUBJECT: "grey_{simulation_name}_TI_subject_TI_max.nii.gz",

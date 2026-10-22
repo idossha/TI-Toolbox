@@ -7,6 +7,8 @@ Public API
 ----------
 select_field_file
     Resolve the field path and SimNIBS field name for a subject/simulation.
+simulation_nifti_path
+    Locate a named NIfTI of a TI or mTI simulation (used by the group tools).
 
 See Also
 --------
@@ -110,6 +112,42 @@ def is_mti_simulation(subject_id: str, simulation: str) -> bool:
     """
     sim_dir = Path(get_path_manager().simulation(subject_id, simulation))
     return (sim_dir / "mTI" / "mesh").is_dir()
+
+
+def simulation_nifti_path(
+    subject_id: str, simulation: str, nifti_file_pattern: str
+) -> Path:
+    """The NIfTI *nifti_file_pattern* names in *simulation*, for TI and mTI alike.
+
+    Patterns use the 2-pair spelling (``grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz``,
+    read from ``TI/niftis/``). An mTI run writes the same files from its ``<sim>_mTI.msh``,
+    whose envelope field is ``mTI_max``, into ``mTI/niftis/``
+    (``grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz``), so for mTI every ``_TI_`` of the pattern
+    becomes ``_mTI_`` before the names are filled in. A pattern already spelled for mTI
+    is unchanged.
+
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation : str
+        Simulation (montage) folder name.
+    nifti_file_pattern : str
+        File name with ``{subject_id}``/``{simulation_name}`` placeholders.
+
+    Returns
+    -------
+    pathlib.Path
+        Where the file is (or would be); existence is not checked.
+    """
+    is_mti = is_mti_simulation(subject_id, simulation)
+    if is_mti:
+        nifti_file_pattern = nifti_file_pattern.replace("_TI_", "_mTI_")
+    filename = nifti_file_pattern.format(
+        subject_id=subject_id, simulation_name=simulation
+    )
+    sim_dir = Path(get_path_manager().simulation(subject_id, simulation))
+    return sim_dir / ("mTI" if is_mti else "TI") / "niftis" / filename
 
 
 # ---------------------------------------------------------------------------

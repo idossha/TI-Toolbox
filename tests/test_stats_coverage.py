@@ -1128,7 +1128,7 @@ class TestLoadSubjectNiftiTiToolbox:
         mock_img.get_fdata.return_value = np.random.rand(3, 3, 3).astype(np.float32)
 
         with (
-            patch("tit.stats.nifti.get_path_manager", return_value=mock_pm),
+            patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm),
             patch("tit.stats.nifti.nib.load", return_value=mock_img),
         ):
             from tit.stats.nifti import load_subject_nifti_ti_toolbox
@@ -1143,7 +1143,7 @@ class TestLoadSubjectNiftiTiToolbox:
         mock_pm = MagicMock()
         mock_pm.simulation.return_value = str(tmp_path / "nonexistent")
 
-        with patch("tit.stats.nifti.get_path_manager", return_value=mock_pm):
+        with patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm):
             from tit.stats.nifti import load_subject_nifti_ti_toolbox
 
             with pytest.raises(FileNotFoundError, match="NIfTI file not found"):
@@ -1159,7 +1159,7 @@ class TestLoadSubjectNiftiTiToolbox:
         # Create a different file
         (nifti_dir / "other_file.nii.gz").touch()
 
-        with patch("tit.stats.nifti.get_path_manager", return_value=mock_pm):
+        with patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm):
             from tit.stats.nifti import load_subject_nifti_ti_toolbox
 
             with pytest.raises(FileNotFoundError, match="Directory exists"):
@@ -1180,7 +1180,7 @@ class TestLoadSubjectNiftiTiToolbox:
         mock_img.get_fdata.return_value = np.random.rand(3, 3, 3, 1).astype(np.float32)
 
         with (
-            patch("tit.stats.nifti.get_path_manager", return_value=mock_pm),
+            patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm),
             patch("tit.stats.nifti.nib.load", return_value=mock_img),
         ):
             from tit.stats.nifti import load_subject_nifti_ti_toolbox
@@ -1203,7 +1203,7 @@ class TestLoadSubjectNiftiTiToolbox:
         mock_img.get_fdata.return_value = np.random.rand(3, 3, 3).astype(np.float32)
 
         with (
-            patch("tit.stats.nifti.get_path_manager", return_value=mock_pm),
+            patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm),
             patch("tit.stats.nifti.nib.load", return_value=mock_img),
         ):
             from tit.stats.nifti import load_subject_nifti_ti_toolbox
@@ -1215,6 +1215,28 @@ class TestLoadSubjectNiftiTiToolbox:
             )
 
         assert "custom_001_my_sim.nii.gz" in fpath
+
+    def test_mti_simulation_reads_mti_niftis(self, tmp_path):
+        """The group tools read TI/niftis/ only, so an mTI simulation (which writes
+        mTI/niftis/grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz) could never be loaded."""
+        mock_pm = MagicMock()
+        mock_pm.simulation.return_value = str(tmp_path)
+        (tmp_path / "mTI" / "mesh").mkdir(parents=True)  # what marks an mTI run
+        nifti_dir = tmp_path / "mTI" / "niftis"
+        nifti_dir.mkdir()
+        (nifti_dir / "grey_my_sim_mTI_MNI_MNI_mTI_max.nii.gz").touch()
+        mock_img = MagicMock()
+        mock_img.get_fdata.return_value = np.zeros((3, 3, 3), dtype=np.float32)
+
+        with (
+            patch("tit.analyzer.field_selector.get_path_manager", return_value=mock_pm),
+            patch("tit.stats.nifti.nib.load", return_value=mock_img),
+        ):
+            from tit.stats.nifti import load_subject_nifti_ti_toolbox
+
+            _, _, fpath = load_subject_nifti_ti_toolbox("001", "my_sim")
+
+        assert fpath == str(nifti_dir / "grey_my_sim_mTI_MNI_MNI_mTI_max.nii.gz")
 
 
 @pytest.mark.unit

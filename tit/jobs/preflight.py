@@ -145,22 +145,32 @@ def _simulation_fix(sid: str, sim: str) -> str:
     return f"Run the {sim} simulation for sub-{sid} first (Simulator page)."
 
 
-def _sim_nifti(
-    pm: PathManager, sid: str, sim: str, filename: str
-) -> list[MissingInput]:
-    """``<simulation>/TI/niftis/<filename>`` -- the MNI NIfTI the group tools read."""
-    path = Path(pm.simulation(sid, sim)) / "TI" / "niftis" / filename
+def _sim_nifti(pm: PathManager, sid: str, sim: str, pattern: str) -> list[MissingInput]:
+    """The NIfTI *pattern* names in the simulation -- the file the group tools read.
+
+    Resolved as the tools resolve it (``TI/niftis/``, or ``mTI/niftis/`` with mTI names).
+    """
+    from tit.analyzer.field_selector import simulation_nifti_path
+
+    path = simulation_nifti_path(sid, sim, pattern)
     if path.is_file():
         return []
-    fix = (
-        _simulation_fix(sid, sim)
-        if not Path(pm.simulation(sid, sim)).is_dir()
-        else (
-            f"Re-run the {sim} simulation for sub-{sid} with MNI NIfTI export enabled "
-            "(map_to_mni); this file is the MNI-space field it writes."
+    is_mni = "_MNI" in path.name
+    if not Path(pm.simulation(sid, sim)).is_dir():
+        fix = _simulation_fix(sid, sim)
+    elif is_mni:
+        fix = (
+            f"Re-run the {sim} simulation for sub-{sid} with 'Generate MNI NIfTI "
+            "outputs' ticked (Simulator, Job settings, Standard-space outputs); this "
+            "file is the MNI-space field it writes."
         )
-    )
-    return [MissingInput(f"MNI field NIfTI for sub-{sid} / {sim}", str(path), fix)]
+    else:
+        fix = (
+            f"The {sim} simulation for sub-{sid} wrote no {path.name}; check the NIfTI "
+            f"file pattern against the files in {path.parent}."
+        )
+    what = f"{'MNI field' if is_mni else 'field'} NIfTI for sub-{sid} / {sim}"
+    return [MissingInput(what, str(path), fix)]
 
 
 # -- sim -------------------------------------------------------------------------------------
@@ -658,10 +668,9 @@ def _check_nifti_subjects(
         if not (isinstance(sid, str) and isinstance(sim, str) and sid and sim):
             continue
         try:
-            filename = pattern.format(subject_id=sid, simulation_name=sim)
+            missing.extend(_sim_nifti(pm, sid, sim, pattern))
         except (KeyError, IndexError, ValueError):
             return []
-        missing.extend(_sim_nifti(pm, sid, sim, filename))
     return missing
 
 

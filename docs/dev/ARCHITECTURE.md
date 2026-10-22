@@ -794,7 +794,8 @@ volume loaded), built on `PathManager` and the runner's own resolution rules so 
 disagree: the analyzer's `select_field_file` and `Analyzer._SURFACE_ATLAS_VOLUMES` (a voxel
 analysis of the surface atlas id `DK40` needs FastSurfer's DKT volume; the mesh analysis needs no
 parcellation), the flex mapping-net rule, `ExConfig`'s `.csv` suffixing, the stats/nilearn MNI
-NIfTI patterns, `tit.pre.preflight` for preprocessing. Each finding names the input, the exact
+NIfTI patterns resolved by `simulation_nifti_path` (the loader's own rule: `TI/niftis/`, or
+`mTI/niftis/` with `_TI_` read as `_mTI_` for an mTI run), `tit.pre.preflight` for preprocessing. Each finding names the input, the exact
 path it was expected at and what produces it ("run FastSurfer for sub-101", "run the L_Insula
 simulation first", "analyze in mesh space instead"). A `pre` group is checked with the whole
 group's flags, not per stage, because an early stage supplies what a later one needs. The

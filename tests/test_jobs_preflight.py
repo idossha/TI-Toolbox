@@ -320,7 +320,7 @@ def test_group_tools_need_the_mni_nifti(project: Path) -> None:
     ):
         found = preflight(kind, cfg, str(project))
         assert missing_paths(found) == [str(mni)], kind
-        assert "map_to_mni" in found[0].how_to_fix
+        assert "'Generate MNI NIfTI outputs' ticked" in found[0].how_to_fix
     # white matter is a different file, resolved through the stats config's own default.
     found = preflight(
         "stats", {"subjects": subjects, "tissue_type": "white"}, str(project)
@@ -328,6 +328,31 @@ def test_group_tools_need_the_mni_nifti(project: Path) -> None:
     assert missing_paths(found) == [
         str(mni.with_name(f"white_{SIM}_TI_MNI_MNI_TI_max.nii.gz"))
     ]
+
+
+def test_group_tools_read_an_mti_simulation_from_mti_niftis(project: Path) -> None:
+    """The group tools only looked in TI/niftis/, so an mTI simulation was refused with
+    "re-run with map_to_mni", which no re-run could satisfy. mTI writes mTI/niftis/ with
+    mTI names (grey_<sim>_mTI.msh's mTI_max field, mesh2nii's _MNI_MNI spelling)."""
+    pm = get_path_manager()
+    mti = "Thalamus_mTI"
+    sim_dir = Path(pm.simulation(SID, mti))
+    (sim_dir / "mTI" / "mesh").mkdir(parents=True)
+    mni = touch(sim_dir / "mTI" / "niftis" / f"grey_{mti}_mTI_MNI_MNI_mTI_max.nii.gz")
+    subjects = [{"subject_id": SID, "simulation_name": mti, "response": 1}]
+    pairs = [{"subject_id": SID, "simulation_name": mti}]
+    cases = (
+        ("stats", {"subjects": subjects}),
+        ("nifti_average", {"subjects": subjects}),
+        ("nilearn", {"subject_simulation_pairs": pairs}),
+    )
+    for kind, cfg in cases:
+        assert preflight(kind, cfg, str(project)) == [], kind
+    mni.unlink()
+    for kind, cfg in cases:
+        found = preflight(kind, cfg, str(project))
+        assert missing_paths(found) == [str(mni)], kind
+        assert "'Generate MNI NIfTI outputs' ticked" in found[0].how_to_fix
 
 
 def test_nifti_average_subject_space_reads_the_subject_file(project: Path) -> None:

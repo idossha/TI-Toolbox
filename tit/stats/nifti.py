@@ -26,7 +26,7 @@ import numpy as np
 import nibabel as nib
 
 # Import TI-Toolbox core modules
-from tit.paths import get_path_manager
+from tit.analyzer.field_selector import simulation_nifti_path
 
 # ==============================================================================
 # TI-TOOLBOX INTEGRATED LOADING
@@ -49,7 +49,9 @@ def load_subject_nifti_ti_toolbox(
         Simulation folder name (e.g. ``'ICP_RHIPPO'``).
     nifti_file_pattern : str, optional
         Filename pattern with ``{subject_id}`` / ``{simulation_name}``
-        placeholders.
+        placeholders, in the 2-pair spelling; an mTI simulation's file is read
+        from ``mTI/niftis/`` (see
+        :func:`tit.analyzer.field_selector.simulation_nifti_path`).
     dtype : numpy dtype, optional
         Data type for the returned array.  Default is ``np.float32``.
 
@@ -67,19 +69,9 @@ def load_subject_nifti_ti_toolbox(
     FileNotFoundError
         If the resolved NIfTI path does not exist.
     """
-    pm = get_path_manager()
-
-    nifti_dir = os.path.join(
-        pm.simulation(subject_id, simulation_name),
-        "TI",
-        "niftis",
-    )
-
-    # Format the filename pattern
-    filename = nifti_file_pattern.format(
-        subject_id=subject_id, simulation_name=simulation_name
-    )
-    filepath = os.path.join(nifti_dir, filename)
+    # TI/niftis/ for a 2-pair run, mTI/niftis/ (mTI file names) for an mTI run.
+    path = simulation_nifti_path(subject_id, simulation_name, nifti_file_pattern)
+    nifti_dir, filepath = str(path.parent), str(path)
 
     # Load the file (inline basic loading)
     if not os.path.exists(filepath):
