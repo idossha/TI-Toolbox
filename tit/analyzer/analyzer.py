@@ -1847,12 +1847,23 @@ class Analyzer:
         extension. Truncating at the first dot would collapse
         ``aparc.DKTatlas+aseg`` and ``aparc.a2009s+aseg`` onto one key, so an
         analysis of either atlas could be served the other's labels.
+
+        The source's size and modification time are part of the key too: the
+        cache sits beside a subject's FastSurfer/FreeSurfer outputs, which a
+        sub-region re-run or a recon outside the app rewrites in place, and a
+        key of the grid alone kept serving the old labels.
         """
         sx, sy, sz = target_shape
+        try:
+            stat = Path(src_path).stat()
+            source = f"{stat.st_size}:{stat.st_mtime_ns}".encode()
+        except OSError:
+            source = b""
         # blake2b, not sha1: this is a cache key, never a security boundary,
         # and blake2b takes the digest length directly.
         digest = hashlib.blake2b(
-            np.round(target_affine, 5).astype(np.float64).tobytes(), digest_size=4
+            np.round(target_affine, 5).astype(np.float64).tobytes() + source,
+            digest_size=4,
         ).hexdigest()
         name = src_path.name
         for ext in (".nii.gz", ".nii", ".mgz", ".mgh"):
