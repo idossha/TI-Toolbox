@@ -57,6 +57,10 @@ def _project(root: Path, sid: str) -> object:
     (root / "dataset_description.json").write_text("{}")
     pm = get_path_manager(str(root))
     os.makedirs(pm.m2m(sid))
+    # A finished head model (charm's mesh and final segmentation): subject_detail lists
+    # leadfields only for a subject whose head model is done.
+    Path(pm.m2m(sid), f"{sid}.msh").write_bytes(b"")
+    Path(pm.m2m(sid), "final_tissues.nii.gz").write_bytes(b"")
     os.makedirs(pm.leadfields(sid))
     return pm
 

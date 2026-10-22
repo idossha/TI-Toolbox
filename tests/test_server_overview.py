@@ -89,6 +89,9 @@ def project(tmp_path: Path) -> Path:
     m2m = pm.m2m("ernie")
     os.makedirs(m2m)
     Path(m2m, "T1.nii.gz").write_bytes(b"t1")
+    # A finished head model: charm's mesh and final segmentation.
+    Path(m2m, "ernie.msh").write_bytes(b"")
+    Path(m2m, "final_tissues.nii.gz").write_bytes(b"")
     eeg_dir = pm.eeg_positions("ernie")
     os.makedirs(eeg_dir)
     Path(eeg_dir, "GSN-HydroCel-185.csv").write_text("Electrode,1,2,3,E001\n")

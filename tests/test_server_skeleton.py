@@ -42,6 +42,9 @@ def project(tmp_path: Path) -> Path:
     os.makedirs(pm.bids_anat("001"))
     os.makedirs(pm.freesurfer_mri("001"))
     os.makedirs(pm.m2m("001"))
+    # A finished head model: charm's mesh and final segmentation.
+    open(os.path.join(pm.m2m("001"), "001.msh"), "wb").close()
+    open(os.path.join(pm.m2m("001"), "final_tissues.nii.gz"), "wb").close()
     os.makedirs(pm.ti_mesh_dir("001", "simA"))
     os.makedirs(pm.ti_mesh_dir("001", "simB"))
     os.makedirs(pm.mti_mesh_dir("001", "simB"))

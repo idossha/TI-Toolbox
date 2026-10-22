@@ -178,6 +178,28 @@ def _has_sourcedata_raw(pm: PathManager, sid: str) -> bool:
         return False
 
 
+def _has_fastsurfer(pm: PathManager, sid: str) -> bool:
+    """FastSurfer finished for *sid*: its folder is in the project and holds the segmentation."""
+    return _project_isdir(pm, pm.fastsurfer_subject(sid)) and _stage_done(
+        pm, sid, "fastsurfer"
+    )
+
+
+def _has_m2m(pm: PathManager, sid: str) -> bool:
+    """charm finished for *sid*: ``m2m_<sid>`` is in the project and holds mesh and labels."""
+    return _project_isdir(pm, pm.m2m(sid)) and _stage_done(pm, sid, "charm")
+
+
+def _stage_done(pm: PathManager, sid: str, step: str) -> bool:
+    """Pre-processing's own completion rule for *step*, so an interrupted run's folder
+    (FastSurfer cut off before its segmentation, charm before its mesh) is not shown as done
+    while the pipeline refuses to skip it (:func:`tit.pre.preflight.step_output_complete`).
+    """
+    from tit.pre.preflight import step_output_complete
+
+    return step_output_complete(pm.project_dir, sid, step)
+
+
 def sourcedata_only_subject_ids(pm: PathManager) -> list[str]:
     """Subject ids with raw data staged under ``sourcedata/`` and nowhere else.
 
@@ -231,9 +253,9 @@ def list_subjects(pm: PathManager) -> list[dict]:
         row = {
             "id": sid,
             "has_raw": _project_isdir(pm, pm.bids_subject(sid)),
-            "has_fastsurfer": _project_isdir(pm, pm.fastsurfer_subject(sid)),
+            "has_fastsurfer": _has_fastsurfer(pm, sid),
             "has_freesurfer": _project_isdir(pm, pm.freesurfer_subject(sid)),
-            "has_m2m": _project_isdir(pm, pm.m2m(sid)),
+            "has_m2m": _has_m2m(pm, sid),
             "n_simulations": len(_simulation_names(pm, sid)),
         }
         if _has_sourcedata_raw(pm, sid):
@@ -634,7 +656,7 @@ def subject_detail(pm: PathManager, sid: str) -> dict | None:
     """
     if sid not in subject_ids(pm) and sid not in sourcedata_only_subject_ids(pm):
         return None
-    has_m2m = _project_isdir(pm, pm.m2m(sid))
+    has_m2m = _has_m2m(pm, sid)
     # Only caps that carry electrodes: see :func:`_eeg_caps_with_electrodes`.
     eeg_nets_list = (
         [n for n, _ in _eeg_caps_with_electrodes(pm, sid)] if has_m2m else []
@@ -647,7 +669,7 @@ def subject_detail(pm: PathManager, sid: str) -> dict | None:
     return {
         "id": sid,
         "has_raw": _project_isdir(pm, pm.bids_subject(sid)),
-        "has_fastsurfer": _project_isdir(pm, pm.fastsurfer_subject(sid)),
+        "has_fastsurfer": _has_fastsurfer(pm, sid),
         "has_freesurfer": _project_isdir(pm, pm.freesurfer_subject(sid)),
         "has_m2m": has_m2m,
         "n_simulations": len(_simulation_names(pm, sid)),
@@ -2872,9 +2894,9 @@ def subject_info_matrix(pm: PathManager) -> dict:
             [
                 sid,
                 _project_isdir(pm, pm.bids_subject(sid)),
-                _project_isdir(pm, pm.fastsurfer_subject(sid)),
+                _has_fastsurfer(pm, sid),
                 _project_isdir(pm, pm.freesurfer_subject(sid)),
-                _project_isdir(pm, pm.m2m(sid)),
+                _has_m2m(pm, sid),
                 _project_isdir(pm, pm.bids_dwi(sid)),
                 _has_ct(pm, sid),
                 len(_simulation_names(pm, sid)),
