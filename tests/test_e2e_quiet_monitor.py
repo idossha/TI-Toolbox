@@ -17,6 +17,20 @@ monitor = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(monitor)
 
 
+def monitor_clock(*readings):
+    """Give the monitor's own ``time.monotonic`` these readings, and nothing else in the process.
+
+    Patching ``time.monotonic`` on the shared module is process-wide: any other thread that
+    reads the clock meanwhile (an asyncio loop or server thread an earlier host test left
+    running, say) consumes the readings, and the monitor then gets StopIteration (CircleCI
+    #1268). The monitor's ``time`` is replaced instead; every other function still wraps the
+    real module.
+    """
+    clock = mock.Mock(wraps=monitor.time)
+    clock.monotonic.side_effect = list(readings)
+    return mock.patch.object(monitor, "time", clock)
+
+
 def proc(pid, parent, group, start=None):
     return {"pid": pid, "ppid": parent, "pgid": group, "start": start or str(pid)}
 
@@ -232,12 +246,12 @@ class LauncherTests(unittest.TestCase):
         sample = snapshot(
             [proc(1, 0, 1), proc(20, 1, 20), proc(100, 30, 100), proc(110, 100, 100)]
         )
-        with mock.patch.object(monitor.time, "monotonic", side_effect=[1, 7]):
+        with monitor_clock(1, 7):
             self.assertEqual(self.run_monitor(sample)[0], 2)
 
     def test_live_unseen_orphan_after_exit_cannot_claim_quiet(self):
         sample = snapshot([proc(1, 0, 1), proc(20, 1, 20), proc(110, 1, 110)])
-        with mock.patch.object(monitor.time, "monotonic", side_effect=[1, 7]):
+        with monitor_clock(1, 7):
             self.assertEqual(self.run_monitor(sample)[0], 2)
 
     def test_exit_is_observed_before_final_inventory_is_acquired(self):
