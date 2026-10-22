@@ -10,7 +10,10 @@ name from Python) replaces the earlier run instead of writing over part of it.
   stayed beside run 2's outputs, and ``catalog.group_stats_detail`` -- which lists every file in
   the folder -- showed them as run 2's.
 - NIfTI averaging (``python -m tit.stats.nifti_average``): run 1 averages groups A and B, run 2
-  groups A and C; ``average_B.nii.gz`` must not survive.
+  groups A and C; ``average_B.nii.gz`` must not survive. A re-run that fails while reading its
+  inputs (a missing file) replaces nothing: run 1's files stay as they were, because the runner
+  reads every input before it clears the folder. (The stats runner clears its folder before it
+  starts, as the run log is opened inside it; that order is not pinned here.)
 
 Where the expected file sets come from: the runner's own artifact events of the SECOND run
 (what it says it wrote) and the groups the second config names, compared with ``os.listdir``;
@@ -127,7 +130,7 @@ def test_a_correlation_rerun_that_forms_no_cluster_keeps_none_of_the_first_runs_
             {"subject_id": f"s{i}", "simulation_name": "N", "effect_size": float(e)}
             for i, e in enumerate(EFFECTS, 1)
         ],
-        "n_permutations": 19,
+        "n_permutations": 20,
         "n_jobs": 1,
         "use_weights": False,
     }
@@ -218,3 +221,63 @@ def test_a_nifti_average_rerun_with_other_groups_drops_the_old_groups_maps(
         "config.json",
     }
     assert on_disk == _artifacts(events_path)
+
+
+def test_a_nifti_average_rerun_that_cannot_read_its_inputs_keeps_the_earlier_run(
+    tmp_path, monkeypatch, events_file
+) -> None:
+    import tit.stats.nifti as nifti_mod
+    import tit.stats.nifti_average as runner
+
+    _events_path, reset_events = events_file
+    monkeypatch.delenv("TIT_JOB_ID", raising=False)
+    missing = {"3"}
+
+    def load_one(subject_id, simulation_name, pattern, dtype=np.float32):
+        if subject_id in missing:
+            raise FileNotFoundError(f"NIfTI file not found: /in/{subject_id}")
+        img = SimpleNamespace(affine=np.eye(4), header={})
+        return np.full((2, 2, 2), 1.0, dtype=dtype), img, f"/in/{subject_id}"
+
+    monkeypatch.setattr(nifti_mod, "load_subject_nifti_ti_toolbox", load_one)
+    monkeypatch.setattr(
+        nifti_mod,
+        "nib",
+        SimpleNamespace(
+            Nifti1Image=lambda d, a, h: SimpleNamespace(affine=a, header=h)
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "nib",
+        SimpleNamespace(Nifti1Image=lambda d, a, h: d, save=_write_placeholder),
+    )
+    project = tmp_path / "project"
+    project.mkdir()
+    out = project / "derivatives" / "ti-toolbox" / "nifti_average" / "groups"
+
+    def run(groups: dict[str, str]) -> int:
+        reset_events()
+        cfg = tmp_path / "avg.json"
+        rows = [
+            {"subject_id": s, "simulation_name": "M1", "group": g}
+            for s, g in groups.items()
+        ]
+        cfg.write_text(
+            json.dumps(
+                {"project_dir": str(project), "output_name": "groups", "subjects": rows}
+            )
+        )
+        return _main(runner, cfg, monkeypatch)
+
+    assert run({"1": "A", "2": "B"}) == 0
+    before = {p.name: p.read_bytes() for p in out.iterdir()}
+    assert set(before) == {
+        "average_A.nii.gz",
+        "average_B.nii.gz",
+        "difference_A_minus_B.nii.gz",
+        "config.json",
+    }
+
+    assert run({"1": "A", "3": "C"}) == 1
+    assert {p.name: p.read_bytes() for p in out.iterdir()} == before

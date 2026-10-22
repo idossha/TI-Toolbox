@@ -79,13 +79,6 @@ def main() -> None:
                 "nifti_average",
                 config.output_name,
             )
-            # A re-run under an existing name replaces that run (the app asks first): an
-            # average or difference of a group the new run does not have must not stay
-            # beside its outputs and be listed as one of them.
-            if os.path.isdir(output_dir):
-                shutil.rmtree(output_dir)
-            os.makedirs(output_dir)
-
             subject_configs = [
                 {
                     "subject_id": s.subject_id,
@@ -100,6 +93,14 @@ def main() -> None:
                 nifti_file_pattern=config.nifti_file_pattern,
                 dtype=np.float32,
             )
+
+            # A re-run under an existing name replaces that run (the app asks first): an
+            # average or difference of a group the new run does not have must not stay
+            # beside its outputs and be listed as one of them. Cleared only once every
+            # input has been read, so a run that cannot read its inputs replaces nothing.
+            if os.path.isdir(output_dir):
+                shutil.rmtree(output_dir)
+            os.makedirs(output_dir)
 
             group_averages: dict[str, np.ndarray] = {}
             for group_name, data_4d in groups_data.items():
