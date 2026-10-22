@@ -277,3 +277,29 @@ def test_an_agents_own_choice_wins_over_the_saved_preference(server):
     assert qsiprep["unringing_method"] == "mrdegibbs"
     assert qsiprep["mni_normalization"] is True
     assert agent["001:G2c"]["freesurfer_subregions"] == ["hippo-amygdala"]
+
+
+def test_an_agents_non_integer_cpus_is_refused_not_a_server_error(server):
+    client, manager, _ = server
+    client.put(
+        "/api/settings",
+        headers=AUTH,
+        json={"panels": [], "theme": "system", "agent_auto_submit": True},
+    )
+    r = client.post(
+        "/api/jobs/groups",
+        headers=AUTH,
+        json={
+            "kind": "pre",
+            "config": {
+                "subject_ids": ["001"],
+                "run_qsiprep": True,
+                "qsiprep_config": {"cpus": "four"},
+            },
+            "subject_ids": ["001"],
+            "created_by": "agent",
+        },
+    )
+    assert r.status_code == 422, r.text
+    assert "QSIPrepSettings.cpus" in r.json()["detail"]
+    assert manager.list_jobs() == []

@@ -104,8 +104,10 @@ def _with_saved_preferences(
         settings = {**preferences[field], **(own or {})}
         if "omp_threads" not in settings:
             # The page's rule: the saved per-process limit, else every thread the job gets.
+            # A cpus that is not an integer is the config check's to refuse, not ours to read.
+            cpus = settings.get("cpus")
             settings["omp_threads"] = preferences[f"{tool}_omp_threads"] or (
-                effective_threads(tool, settings.get("cpus"))
+                effective_threads(tool, cpus if type(cpus) is int else None)
             )
         filled[field] = settings
     return filled
