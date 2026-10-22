@@ -31,17 +31,21 @@ excludes `tests/numerical`. `desktop-checks` runs all TypeScript checks, lint, V
 docs search page test (`node --test docs/tests/search-results.test.mjs`), the `schema.d.ts`
 drift diff (below) and a normal production build. Coverage is host coverage, not proof of real
 scientific execution; `.coveragerc` exclusions are anchored statement patterns and every omit
-carries its reason (`tests/test_coveragerc.py` fails on a pattern that hides a block header or
-a dead omit/ignore/flag path). Image verification remains an explicit `build_image` pipeline
-choice.
+carries its reason (`tests/test_coveragerc.py` fails on a pattern that hides a block header,
+a dead omit or flag path, or any `ignore` list in `codecov.yml`). Image verification remains an
+explicit `build_image` pipeline choice.
 
 The mock-server Electron e2e suite (Playwright `--project=default`) runs in `desktop-e2e-mock`
 on `main` and nightly (`e2e_mock_nightly`), not on every pull request: offscreen under Xvfb,
 after asserting that `TIT_E2E_SERVER_URL`, `TIT_E2E_TOKEN`, `TIT_E2E_PROJECT_HOST` and
 `TIT_DATASET_000` are unset, so only the mock server is reachable. Its JUnit report goes through
 `dev/check_junit.py --leg e2e-mock`, whose allowlist names the three skips of the measured run
-(2026-10-22: 364 tests, 361 passed, 7.8 and 9.0 min on macOS; the step's ceiling is 18 min). Real-server
-specs (`tests/e2e/real`) stay in the local release gate.
+(2026-10-22: 364 tests, 361 passed, 7.8 and 9.0 min on macOS; the step's ceiling is 18 min). Every
+store step in every job runs with `when: always`, so a red run keeps its JUnit report, traces and
+screenshots. `tests/test_circleci_e2e_mock_job.py` pins the job: the guard (run in bash) fails when
+a real server is configured, `check_junit` is the Playwright step's last and unswallowed command,
+and the job runs only on `main` and the nightly schedule. Real-server specs (`tests/e2e/real`) stay
+in the local release gate.
 
 `tests/numerical` makes claims only real libraries can check, and runs in three places:
 
@@ -201,16 +205,24 @@ Fix drift with `cd desktop && npm run gen`; never hand-edit generated output. Wi
 `--no-schema-d-ts` because `desktop-checks` regenerates and diffs that file after `npm ci`. Request
 bodies are compared in both directions where the server declares the body's properties. Contract
 warnings (untyped `dict`/`list` responses and bodies, schemas with no server model) are ratcheted
-against `dev/contracts_check_baseline.json`: a new one fails, and a fixed one fails until
+against `dev/contracts_check_baseline.json` as a multiset: a new one (or a second copy of a listed
+one) fails, and a fixed one fails until
 `python3 dev/contracts_check.py --write-baseline` lowers the baseline in the same commit
-(`tests/test_contracts_check_unit.py` drives each case red). `test_config_schema.py` compares full generated
+(`tests/test_contracts_check_unit.py` drives each case red). The responses themselves are checked
+by `tests/test_contract_response_conformance.py`: every contract JSON GET is called on the real app
+over the synthetic project in `tests/contract_project.py` (jobs and proposals from a real
+`JobManager` running `tests/fake_runner.py`) and validated against `contracts/openapi.yaml`; open
+violations are listed in its `KNOWN_VIOLATIONS`, each failing once fixed. `test_config_schema.py` compares full generated
 schemas across fresh 1/4/12-CPU processes while asserting independent runtime QSI thread defaults
 and explicit override preservation; generation must not embed the build host's CPU count.
 
 The packaged example notebook (`tit/server/examples/example_workflow.ipynb`, the one source;
 `examples/notebooks/` symlinks to it) is guarded two ways. `tests/test_example_notebook_api.py`, in the
 host suite, resolves every import, keyword argument and `pm.` attribute of every cell against the
-real `tit` API. `dev/run_example_notebook.sh` executes the
+real `tit` API. `tests/test_docs_code_api.py` applies the same resolution to every fenced Python
+block in `docs/wiki`, the README and the agent-plugin skills (a page's blocks share their imports
+in document order) and to `examples/scripts`, and checks that every cited `python -m tit.X` names a
+runnable module. `dev/run_example_notebook.sh` executes the
 notebook in the release image against a fresh project (downloads ernie, runs the reduced flex
 search, one TI FEM solve and the analyzer); it is the run that proves the notebook works and is
 run before a release, not on every CI push, because it needs a real solve.
