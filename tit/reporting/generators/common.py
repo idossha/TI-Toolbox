@@ -41,6 +41,15 @@ def per_channel(mA: list[float]) -> str:
     return fmt(mA[0]) if len(set(mA)) == 1 else " / ".join(fmt(v) for v in mA)
 
 
+def electrode_name(electrode: str | list[float]) -> str:
+    """An electrode as the reports name it: its cap label, or its position (subject-space mm,
+    rounded to the millimetre) as ``"(74, -19, 39)"`` for a flex-free or free-hand montage.
+    """
+    if isinstance(electrode, (list, tuple)):
+        return "(" + ", ".join(str(round(float(v))) for v in electrode) + ")"
+    return str(electrode)
+
+
 def channel_rows(
     pairs: list[list[str]], currents_mA: list[float]
 ) -> list[tuple[str, str]]:
@@ -109,7 +118,9 @@ def roi_summary(run_dir: str | Path) -> dict | None:
                 stems[f"{rest.removesuffix('.annot')} ({hemi})"] = None
                 continue
             names.append(region_name(src, lab, space or "subject").replace("-", " "))
-            stems[Path(src).name.split(".nii")[0] + (" (MNI)" if space == "mni" else "")] = None
+            stems[
+                Path(src).name.split(".nii")[0] + (" (MNI)" if space == "mni" else "")
+            ] = None
         name = " + ".join(dict.fromkeys(names))
         atlas = ", ".join(stems)
     for s in meta.get("spheres") or []:

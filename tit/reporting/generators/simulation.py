@@ -19,6 +19,7 @@ per-carrier fields, methods, references and the run record are collapsed under T
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import logging
 import re
@@ -95,12 +96,20 @@ def _envelope_niftis(sim_dir: Path, name: str, mode: str) -> dict[str, Path]:
     for tissue in ("grey", "white"):
         hits = sorted(
             (sim_dir / mode / "niftis").glob(
-                f"{tissue}_{name}_*_subject_*TI_max.nii.gz"
+                f"{tissue}_{glob.escape(name)}_*_subject_*TI_max.nii.gz"
             )
         )
         if hits:
             out[tissue] = hits[0]
     return out
+
+
+def _volume(img) -> np.ndarray:
+    """The image's voxels as float32, 3-D: trailing single frames (``(X, Y, Z, 1)``) dropped."""
+    data = np.asarray(img.dataobj, dtype=np.float32)
+    while data.ndim > 3 and data.shape[-1] == 1:
+        data = data[..., 0]
+    return data
 
 
 def collect(sim_dir: str | Path) -> dict:
@@ -122,15 +131,20 @@ def collect(sim_dir: str | Path) -> dict:
         ),
         "envelope": None,
     }
-    niftis = _envelope_niftis(sim_dir, rec["name"], mode)
+    # A carrier-only control computes no envelope; a TI volume in its folder is from another run.
+    niftis = (
+        {}
+        if config.get("carrier_only")
+        else _envelope_niftis(sim_dir, rec["name"], mode)
+    )
     if "grey" in niftis:
         import nibabel as nib
 
         img = nib.load(niftis["grey"])
-        gm = np.asarray(img.dataobj, dtype=np.float32)
+        gm = _volume(img)
         v = gm[gm > 0]
         if v.size:
-            ijk = np.unravel_index(np.argmax(gm), gm.shape)
+            ijk = np.unravel_index(np.nanargmax(gm), gm.shape)
             rec["envelope"] = {
                 "median": float(np.median(v)),
                 "p99_9": float(np.percentile(v, 99.9)),
@@ -147,6 +161,49 @@ def collect(sim_dir: str | Path) -> dict:
 # ── the envelope figure ──────────────────────────────────────────────────
 
 
+def hotspot_centre(grey: np.ndarray, hi: float) -> tuple[int, int, int]:
+    """The voxel the envelope figure is centred on, inside the grey-matter hot spot.
+
+    The hot spot is the face-connected set of grey-matter voxels at or above *hi* (the grey
+    99.9th percentile) that holds the grey maximum; the centre is its voxel nearest to its
+    centroid, so the three slices cross it and the field there is at least *hi*. Only grey
+    matter counts, and NaN voxels are neither the peak nor hot. (The mean position of every
+    grey or white voxel above *hi*, used before, fell between hot spots: 9-17 voxels from any
+    of them on 4 of 6 Dataset 000 simulations.)
+
+    Args:
+        grey: Grey-matter envelope (V/m), 3-D.
+        hi: The grey-matter 99.9th percentile (V/m).
+
+    Returns:
+        The centre voxel's indices.
+    """
+    g = np.where(np.isnan(grey), -np.inf, grey)
+    peak = tuple(int(i) for i in np.unravel_index(np.argmax(g), g.shape))
+    hot = {tuple(p) for p in np.argwhere(g >= hi).tolist()}
+    if peak not in hot:
+        return peak
+    spot, frontier = {peak}, [peak]
+    while frontier:
+        grown = []
+        for i, j, k in frontier:
+            for n in (
+                (i - 1, j, k),
+                (i + 1, j, k),
+                (i, j - 1, k),
+                (i, j + 1, k),
+                (i, j, k - 1),
+                (i, j, k + 1),
+            ):
+                if n in hot and n not in spot:
+                    spot.add(n)
+                    grown.append(n)
+        frontier = grown
+    pts = np.array(sorted(spot))
+    best = pts[np.argmin(((pts - pts.mean(axis=0)) ** 2).sum(axis=1))]
+    return tuple(int(v) for v in best)
+
+
 def field_images(rec: dict, t1_path: str | Path) -> dict | None:
     """Axial, coronal and sagittal envelope panels through the grey-matter hot spot, over the T1;
     WebP bytes plus label geometry."""
@@ -157,24 +214,28 @@ def field_images(rec: dict, t1_path: str | Path) -> dict | None:
     if "grey" not in rec["niftis"] or not rec["envelope"]:
         return None
     t1_img = nib.load(str(t1_path))
-    t1, affine = s.canonical(
-        np.asarray(t1_img.dataobj, dtype=np.float32), t1_img.affine
-    )
+    t1, affine = s.canonical(_volume(t1_img), t1_img.affine)
     field = np.zeros_like(t1)
-    for path in rec["niftis"].values():
+    tissues = {}
+    for tissue, path in rec["niftis"].items():
         img = nib.load(path)
-        f, _ = s.canonical(np.asarray(img.dataobj, dtype=np.float32), img.affine)
+        f, _ = s.canonical(_volume(img), img.affine)
         if f.shape != t1.shape:
             return None
         field = np.maximum(field, f)
+        tissues[tissue] = f
     brain = field > 0
     lo, hi = rec["envelope"]["median"], rec["envelope"]["p99_9"]
-    centre = np.round(np.argwhere(field >= hi).mean(axis=0)).astype(int)
+    # A uniform envelope (median == 99.9th percentile) is drawn at the top of the scale, not 0 / 0;
+    # the step is relative because the volume is float32 (hi > 0: it is a percentile of field > 0).
+    draw_lo = lo if hi > lo else hi * (1 - 1e-6)
+    centre = hotspot_centre(tissues["grey"], hi)
     box = s.brain_box(brain)
-    grey = np.clip(
-        (t1 - np.percentile(t1[brain], 1)) / np.ptp(np.percentile(t1[brain], [1, 99])),
-        0,
-        1,
+    t1_lo, t1_hi = np.percentile(t1[brain], [1, 99])
+    grey = (
+        np.clip((t1 - t1_lo) / (t1_hi - t1_lo), 0, 1)
+        if t1_hi > t1_lo
+        else np.zeros_like(t1)  # a constant T1 has no contrast to show
     )
     world = affine[:3, :3] @ centre + affine[:3, 3]
     names = ("sagittal", "coronal", "axial")
@@ -183,7 +244,7 @@ def field_images(rec: dict, t1_path: str | Path) -> dict | None:
         rgb = s.overlay(
             s.oriented(grey, axis, centre[axis], box),
             s.oriented(field, axis, centre[axis], box),
-            lo,
+            draw_lo,
             hi,
         )
         tiles.append(rgb)
@@ -253,20 +314,37 @@ def build_html(
     cfg, log, env = rec["config"], rec["log"], rec["envelope"]
     cite = c.Cites()
     fig_no = iter(range(1, 20))
-    pairs = [list(p) for p in cfg.get("electrode_pairs") or []]
+    raw_pairs = [list(p) for p in cfg.get("electrode_pairs") or []]
+    xyz = any(isinstance(e, (list, tuple)) for p in raw_pairs for e in p)
+    pairs = [[common.electrode_name(e) for e in p] for p in raw_pairs]
+    # One current per pair: SimNIBS read the first two for TI and one per pair for mTI, and a
+    # config.json written before 2026-10-22 recorded every configured value.
     currents = [float(v) for v in cfg.get("intensities") or []]
-    total = sum(currents)
+    currents = currents[: len(pairs)] if pairs else currents
+    total = sum(abs(v) for v in currents)  # a negative current is a polarity
     seal = "pass"
     cond = cfg.get("conductivity", "scalar")
-    montage = " and ".join("–".join(p) for p in pairs) or rec["name"]
+    overrides = ", ".join(
+        f"tissue {k} = {v:g} S/m"
+        for k, v in sorted(
+            (int(k), float(v))
+            for k, v in (cfg.get("tissue_conductivities") or {}).items()
+        )
+    )
+    carrier_only = bool(cfg.get("carrier_only"))
+    # A coordinate already holds minus signs, so its pairs read "a → b", not "a–b".
+    montage = (
+        " and ".join((" → " if xyz else "–").join(p) for p in pairs) or rec["name"]
+    )
     per_ch = common.per_channel(currents)
 
     # ── 1. verdict ──
-    headline = (
-        f"{env['p99_9']:.3f} V/m peak envelope in grey matter"
-        if env
-        else f"{rec['name']} simulated; no grey-matter envelope was written"
-    )
+    if env:
+        headline = f"{env['p99_9']:.3f} V/m peak envelope in grey matter"
+    elif carrier_only:
+        headline = f"{rec['name']}: carrier-only control, no envelope (ΔF = 0)"
+    else:
+        headline = f"{rec['name']} simulated; no grey-matter envelope was written"
     tensor = log["tensor"]
     cond_txt = _CONDUCTIVITY.get(cond, esc(cond))
     if cond != "scalar":
@@ -275,10 +353,25 @@ def build_html(
             if tensor
             else " (the log does not confirm a tensor was read)"
         )
+    if overrides and cond == "scalar":
+        cond_txt = f"isotropic (SimNIBS standard tissue values except {overrides})"
+    elif overrides:
+        cond_txt += f"; {overrides}"
+    if carrier_only:
+        kind = "Carrier-only control"
+    elif rec["mode"] == "mTI":
+        kind = "Multichannel temporal interference"
+    else:
+        kind = "Temporal interference"
     lede = (
-        f"{'Multichannel temporal' if rec['mode'] == 'mTI' else 'Temporal'} interference with {esc(montage)} "
+        f"{kind} with {esc(montage)} "
         f"at {per_ch} mA per channel ({fmt(total)} mA total), {cond_txt}."
     )
+    if carrier_only:
+        lede += (
+            " Both channels ran at one frequency, in phase, so the carriers add without a "
+            "beat and there is no envelope."
+        )
     if env:
         lede += (
             f" In grey matter the envelope reaches {env['p99_9']:.3f} V/m (99.9th percentile), "
@@ -328,16 +421,27 @@ def build_html(
         ),
         (
             "Carrier frequencies",
-            "not part of the field model (quasi-static); set them on the stimulator",
+            (
+                "one frequency for both channels, in phase (ΔF = 0)"
+                if carrier_only
+                else "not part of the field model (quasi-static); set them on the stimulator"
+            ),
         ),
-        ("EEG net", esc(Path(str(cfg.get("eeg_net") or "—")).stem)),
+        (
+            "EEG net",
+            (
+                "none: electrodes placed at subject-space coordinates (mm)"
+                if xyz
+                else esc(Path(str(cfg.get("eeg_net") or "—")).stem)
+            ),
+        ),
         (
             "Conductivity",
             cond_txt + (f": <code>{esc(Path(tensor).name)}</code>" if tensor else ""),
         ),
     ]
-    if cfg.get("is_xyz_montage") or not cfg.get("eeg_net"):
-        cap = c.kv(common.channel_rows([[str(e) for e in p] for p in pairs], currents))
+    if xyz or cfg.get("is_xyz_montage") or not cfg.get("eeg_net"):
+        cap = c.kv(common.channel_rows(pairs, currents))
     else:
         cap = common.cap_figure(next(fig_no), pairs, cfg["eeg_net"], currents)
     montage_sec = c.section(
@@ -360,13 +464,19 @@ def build_html(
             f"({images['lo']:.2f} V/m), up to its 99.9th percentile; grey and white matter only. "
             "Neurological convention: subject left on image left.",
         )
+    elif carrier_only:
+        body = '<p class="muted">No envelope figure: a carrier-only control has no envelope.</p>'
     else:
         body = '<p class="muted">No envelope figure: the grey-matter envelope or the T1 could not be read.</p>'
     field_sec = c.section(
         "field",
         "Field",
         body,
-        lead="Where the envelope is strongest.",
+        lead=(
+            "A carrier-only control has no envelope (ΔF = 0)."
+            if carrier_only
+            else "Where the envelope is strongest."
+        ),
     )
 
     # ── 4. technical details ──
@@ -397,7 +507,12 @@ def build_html(
             "per-carrier grey-matter percentiles",
         )
     paras = [
-        "Temporal interference stimulation was simulated in TI-Toolbox with SimNIBS "
+        (
+            "A carrier-only control (both channels at one frequency, in phase) was"
+            if carrier_only
+            else "Temporal interference stimulation was"
+        )
+        + " simulated in TI-Toolbox with SimNIBS "
         f"{esc(log['simnibs'] or '')} {cite('saturnino2019_simnibs21')} on the head model of subject {esc(subject_id)} {cite('puonti2020_charm')}. "
         f"{len(pairs)} channels ({esc(montage)}) each delivered {per_ch} mA through {esc(geo.get('shape', ''))} {dims} mm electrodes with "
         f"{geo.get('gel_thickness', '?')} mm gel"
@@ -409,16 +524,25 @@ def build_html(
         + ". "
         + (
             f"Tissue conductivities were anisotropic in white and grey matter, derived from diffusion tensors ({esc(cond)}) "
-            f"{cite(*_CONDUCTIVITY_CITE.get(cond, ()))}."
+            f"{cite(*_CONDUCTIVITY_CITE.get(cond, ()))}"
+            + (f"; {overrides}" if overrides else "")
+            + "."
             if cond != "scalar"
-            else "Tissue conductivities were isotropic SimNIBS standard values."
+            else "Tissue conductivities were isotropic SimNIBS standard values"
+            + (f" except {overrides}" if overrides else "")
+            + "."
         ),
-        "The TI envelope was taken as the maximal modulation amplitude over field orientations "
-        f"{cite('grossman2017_ti')}"
-        + (
-            f"; in grey matter its 99.9th percentile was {env['p99_9']:.3f} V/m and its median {env['median']:.3f} V/m."
-            if env
-            else "."
+        (
+            "With no frequency difference there is no beat and no envelope; the fields written "
+            f"({esc(', '.join(cfg.get('output_fields') or []))}) are those of the summed carriers."
+            if carrier_only
+            else "The TI envelope was taken as the maximal modulation amplitude over field orientations "
+            f"{cite('grossman2017_ti')}"
+            + (
+                f"; in grey matter its 99.9th percentile was {env['p99_9']:.3f} V/m and its median {env['median']:.3f} V/m."
+                if env
+                else "."
+            )
         ),
     ]
     tech += c.details(
@@ -442,11 +566,15 @@ def build_html(
     )
 
     masthead = c.masthead(
-        "TI simulation" if rec["mode"] == "TI" else "mTI simulation",
+        (
+            "Carrier-only control"
+            if carrier_only
+            else "TI simulation" if rec["mode"] == "TI" else "mTI simulation"
+        ),
         rec["name"],
         [
             ("Subject", esc(subject_id)),
-            ("Conductivity", esc(cond)),
+            ("Conductivity", esc(cond) + (" + custom tissues" if overrides else "")),
             ("Total current", f"{fmt(total)} mA"),
             ("Report", generated.strftime(common.STAMP)),
         ],

@@ -638,7 +638,13 @@ def create_simulation_config_file(
 
     Serialises subject ID, montage details, electrode geometry, mapping
     options, and a timestamp into ``config.json`` inside
-    *documentation_dir*.
+    *documentation_dir*. It records what this montage runs with:
+    ``intensities`` holds one current per pair (SimNIBS reads the first two
+    for TI and one per pair for mTI, though a config may list more), and
+    ``tissue_conductivities`` the per-tissue overrides (S/m, keyed by tissue
+    number) that ``BaseSimulation._apply_tissue_conductivities`` applies --
+    the ``TISSUE_COND_<n>`` environment variables, which ``tit.sim.__main__``
+    sets from ``SimulationConfig.tissue_conductivities``.
 
     Parameters
     ----------
@@ -659,6 +665,12 @@ def create_simulation_config_file(
     electrode_coordinates, electrode_coordinate_source = (
         resolve_montage_electrode_coordinates(config, montage, logger)
     )
+    prefix = "TISSUE_COND_"
+    tissue_overrides = {
+        key[len(prefix) :]: float(value)
+        for key, value in os.environ.items()
+        if key.startswith(prefix) and key[len(prefix) :].isdigit()
+    }
     data = {
         "subject_id": config.subject_id,
         "simulation_name": montage.name,
@@ -671,7 +683,8 @@ def create_simulation_config_file(
         "is_xyz_montage": montage.is_xyz,
         "electrode_coordinates": electrode_coordinates,
         "electrode_coordinate_source": electrode_coordinate_source,
-        "intensities": config.intensities,
+        "intensities": config.intensities[: montage.num_pairs],
+        "tissue_conductivities": tissue_overrides,
         "output_fields": config.output_fields,
         "carrier_only": config.carrier_only,
         "electrode_geometry": {
