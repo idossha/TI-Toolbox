@@ -15,7 +15,7 @@ import { createScenePreviewQueue, renderNativeScenePreview } from "./nativeScene
 import { orchestrateNativeSceneSave } from "./nativeSceneSave";
 import { createViewerHandoff } from "./viewerHandoff";
 import { checkViewerScene, checkViewerUpdate, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setViewerProgressListener, updateNativeViewer, watchViewerUpdateRequests } from "./tetravoxNative";
-import { createUpdateChecker, RELEASE_FEED, updateCheckOffReason } from "./updates";
+import { createAppUpdateChecker } from "./updates";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -998,13 +998,7 @@ function registerIpc(): void {
     return fastSurferStatus();
   });
   ipcMain.handle("tit:appVersion", () => app.getVersion());
-  const updateOffReason = updateCheckOffReason(process.env, app.isPackaged);
-  const checkAppUpdate = createUpdateChecker({
-    current: app.getVersion(),
-    enabled: updateOffReason === null,
-    offReason: updateOffReason,
-    feedUrl: process.env.TIT_UPDATE_FEED_URL || RELEASE_FEED,
-  });
+  const checkAppUpdate = createAppUpdateChecker(process.env, app.isPackaged, app.getVersion());
   ipcMain.handle("tit:checkAppUpdate", (e, force: unknown) => {
     if (!fromMainWindow(e)) throw new Error("Untrusted update request.");
     return checkAppUpdate(force === true);

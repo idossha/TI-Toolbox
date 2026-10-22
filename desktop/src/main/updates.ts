@@ -102,3 +102,12 @@ export function createUpdateChecker(options: { current: string; enabled: boolean
     return { ...result, prompt };
   };
 }
+
+/**
+ * The app's own checker (main/index.ts): whether it runs, and the reason when it does not, come
+ * from {@link updateCheckOffReason}; `TIT_UPDATE_FEED_URL` points it at a fixture feed.
+ */
+export function createAppUpdateChecker(env: NodeJS.ProcessEnv, packaged: boolean, current: string, fetchImpl?: typeof fetch) {
+  const offReason = updateCheckOffReason(env, packaged);
+  return createUpdateChecker({ current, enabled: offReason === null, offReason, feedUrl: env.TIT_UPDATE_FEED_URL || RELEASE_FEED, fetchImpl });
+}

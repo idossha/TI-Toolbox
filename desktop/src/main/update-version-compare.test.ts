@@ -9,7 +9,7 @@
  * development builds". Run: cd desktop && npx vitest run src/main/update-version-compare.test.ts
  */
 import { describe, expect, it, vi } from "vitest";
-import { compareVersions, createUpdateChecker, updateCheckOffReason, updateChecksEnabled } from "./updates";
+import { compareVersions, createAppUpdateChecker, createUpdateChecker, updateCheckOffReason, updateChecksEnabled } from "./updates";
 
 /** SemVer §11.4's example, lowest first. */
 const SPEC_PRERELEASE_CHAIN = ["1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.beta", "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1", "1.0.0"];
@@ -87,13 +87,42 @@ describe("a disabled check names its real reason", () => {
     expect(updateCheckOffReason({ TIT_E2E_OFFSCREEN: "1" }, true)).toMatch(/automated/);
   });
 
-  it("is null exactly when the check runs", () => {
-    const cases: [NodeJS.ProcessEnv, boolean][] = [
-      [{}, true], [{}, false], [{ TIT_UPDATE_CHECK: "1" }, false], [{ TIT_UPDATE_CHECK: "1", TIT_E2E_TOKEN: "t" }, true],
-      [{ TIT_UPDATE_CHECK: "0" }, true], [{ TIT_E2E_TOKEN: "t" }, true], [{ TIT_E2E_OFFSCREEN: "1" }, false],
-    ];
-    for (const [env, packaged] of cases) expect(updateCheckOffReason(env, packaged) === null).toBe(updateChecksEnabled(env, packaged));
+  it("has no reason on a packaged app, or when TIT_UPDATE_CHECK=1 forces the check on", () => {
     expect(updateCheckOffReason({}, true)).toBeNull();
     expect(updateCheckOffReason({ TIT_UPDATE_CHECK: "1" }, false)).toBeNull();
+    // Forced on outranks the automated-run rule: the app-update e2e spec points the feed at a fixture.
+    expect(updateCheckOffReason({ TIT_UPDATE_CHECK: "1", TIT_E2E_TOKEN: "t" }, true)).toBeNull();
+  });
+});
+
+describe("the app's own checker (what main/index.ts builds)", () => {
+  /** The GitHub REST endpoint for a repository's latest published release. */
+  const GITHUB_LATEST = "https://api.github.com/repos/idossha/TI-Toolbox/releases/latest";
+
+  it("answers TIT_UPDATE_CHECK=0 on a packaged app with that reason, without a request", async () => {
+    const fetchImpl = feed("v9.9.9");
+    const answer = await createAppUpdateChecker({ TIT_UPDATE_CHECK: "0" }, true, "3.1.1", fetchImpl)(true);
+    expect(answer).toMatchObject({ current: "3.1.1", latest: null, available: false, prompt: false });
+    expect(answer.error).toMatch(/TIT_UPDATE_CHECK=0/);
+    expect(answer.error).not.toMatch(/development/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("calls an unpackaged run a development build, without a request", async () => {
+    const fetchImpl = feed("v9.9.9");
+    const answer = await createAppUpdateChecker({}, false, "3.1.1", fetchImpl)(true);
+    expect(answer.error).toBe("Update checks are off in development builds.");
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("asks GitHub's latest-release endpoint on a packaged app, or TIT_UPDATE_FEED_URL when set", async () => {
+    const fromGithub = feed("v3.1.2");
+    expect(await createAppUpdateChecker({}, true, "3.1.2-rc.1", fromGithub)()).toMatchObject({ latest: "3.1.2", available: true, error: null });
+    expect(vi.mocked(fromGithub).mock.calls.map(([url]) => url)).toEqual([GITHUB_LATEST]);
+
+    const fixture = "http://127.0.0.1:9/latest.json";
+    const fromFixture = feed("v3.1.2");
+    await createAppUpdateChecker({ TIT_UPDATE_FEED_URL: fixture }, true, "3.1.1", fromFixture)();
+    expect(vi.mocked(fromFixture).mock.calls.map(([url]) => url)).toEqual([fixture]);
   });
 });
