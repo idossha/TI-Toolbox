@@ -86,23 +86,34 @@ def _real_modules_or_skip() -> None:
     ``simnibs``/``nibabel``/``scipy`` so the host suite runs without them. This
     module is the one that needs the real thing, so it drops those entries and
     lets the import machinery find the installed packages -- which only exist
-    inside the SimNIBS container.
+    inside the SimNIBS container. When it skips (a host run with
+    ``TIT_SCENE_TESTDATA`` set), it puts the mocks back first: the modules
+    collected after this one import ``tit`` code that needs them.
     """
-    for name in list(sys.modules):
-        root = name.split(".")[0]
-        if root in {"simnibs", "nibabel", "scipy"} and isinstance(
-            sys.modules[name], MagicMock
-        ):
-            del sys.modules[name]
+    roots = {"simnibs", "nibabel", "scipy"}
+    removed = {
+        name: sys.modules.pop(name)
+        for name in list(sys.modules)
+        if name.split(".")[0] in roots and isinstance(sys.modules[name], MagicMock)
+    }
+    kept = set(sys.modules)
+
+    def skip(reason: str) -> None:
+        for name in set(sys.modules) - kept:
+            if name.split(".")[0] in roots:
+                del sys.modules[name]
+        sys.modules.update(removed)
+        pytest.skip(reason)
+
     for name in ("simnibs", "nibabel", "scipy.spatial"):
         try:
             module = __import__(name)
         except Exception as exc:  # noqa: BLE001
             print(f"skipping: {name} is not importable here ({exc})")
-            pytest.skip(f"{name} is not installed (run inside the SimNIBS container)")
+            skip(f"{name} is not installed (run inside the SimNIBS container)")
         if getattr(module, "__file__", None) is None:
             print(f"skipping: {name} is still a mock, not the real package")
-            pytest.skip(f"{name} is mocked, not real")
+            skip(f"{name} is mocked, not real")
 
 
 def _file_listing(root: Path) -> dict[str, tuple[int, int]]:
