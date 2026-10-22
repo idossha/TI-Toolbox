@@ -1206,3 +1206,13 @@ a shared bare name instead of returning the Mesh table for both. A name used onc
 `Analysis` gains optional `analysis_space` (`mesh` | `voxel` | null), `figures` (`Artifact[]`:
 every PNG as `image` and PDF as `pdf` in the folder) and `scene` (the folder's
 `scene.tetravox.json`, or null). Additive: `pdf` stays.
+
+## 2026-10-22 — `GroupCatalog.nifti_average`: NIfTI group averages are listed
+
+`GET /api/catalog/group` gains `nifti_average`: one row per
+`derivatives/ti-toolbox/nifti_average/<output_name>/` (the directory `tit.stats.nifti_average`
+writes and `POST /api/plan/nifti_average` names), `{name, path, created, artifacts}` with the
+run's files as `Artifact`s (`average_<group>.nii.gz` and `difference_<a>_minus_<b>.nii.gz` as
+`nifti`, `config.json` as `json`). Before, these runs were never listed and Results showed
+nothing after a NIfTI Group Averaging job. Optional in the schema (the server always sends it,
+`[]` when there are none); the other three keys are unchanged.

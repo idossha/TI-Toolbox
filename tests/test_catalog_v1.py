@@ -815,7 +815,7 @@ def test_subject_info_matrix(client: TestClient) -> None:
 
 def test_group_catalog_shape(client: TestClient) -> None:
     body = client.get("/api/catalog/group", headers=BEARER).json()
-    assert set(body) == {"stats", "nilearn", "group_analyses"}
+    assert set(body) == {"stats", "nilearn", "group_analyses", "nifti_average"}
 
 
 def test_atlases_and_regions_with_fake_lut(client: TestClient, project: Path) -> None:

@@ -1820,7 +1820,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Project-level group catalog (group stats runs, nilearn visuals, group analyses) */
+        /** Project-level group catalog (group stats runs, nilearn visuals, group analyses, NIfTI group averages) */
         get: {
             parameters: {
                 query?: never;
@@ -6900,6 +6900,14 @@ export interface components {
             }[];
             group_analyses: {
                 [key: string]: unknown;
+            }[];
+            /** @description NIfTI group-averaging runs, one per `derivatives/ti-toolbox/nifti_average/<output_name>/`, with the files the run wrote (`average_<group>.nii.gz`, `difference_<a>_minus_<b>.nii.gz`, `config.json`) as artifacts */
+            nifti_average?: {
+                name: string;
+                path: string;
+                /** Format: date-time */
+                created: string;
+                artifacts: components["schemas"]["Artifact"][];
             }[];
         };
         Notes: {

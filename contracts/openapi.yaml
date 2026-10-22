@@ -1129,7 +1129,7 @@ paths:
   /api/catalog/group:
     get:
       tags: [catalog]
-      summary: Project-level group catalog (group stats runs, nilearn visuals, group analyses)
+      summary: Project-level group catalog (group stats runs, nilearn visuals, group analyses, NIfTI group averages)
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       responses:
         "200":
@@ -5254,6 +5254,22 @@ components:
         group_analyses:
           type: array
           items: { type: object, additionalProperties: true }
+        nifti_average:
+          type: array
+          description: >-
+            NIfTI group-averaging runs, one per `derivatives/ti-toolbox/nifti_average/<output_name>/`,
+            with the files the run wrote (`average_<group>.nii.gz`,
+            `difference_<a>_minus_<b>.nii.gz`, `config.json`) as artifacts
+          items:
+            type: object
+            required: [name, path, created, artifacts]
+            properties:
+              name: { type: string }
+              path: { type: string }
+              created: { type: string, format: date-time }
+              artifacts:
+                type: array
+                items: { $ref: "#/components/schemas/Artifact" }
     Notes:
       type: object
       required: [text]

@@ -2326,14 +2326,15 @@ def delete_freehand_config(pm: PathManager, sid: str, name: str) -> bool:
 
 
 def group_catalog(pm: PathManager) -> dict:
-    """Project-level group catalog: stats runs, nilearn visuals, group analyses.
+    """Project-level group catalog: one row per run of every project-level writer.
 
-    The ``nilearn`` directory convention (``derivatives/ti-toolbox/nilearn_visuals/``)
-    is a best-effort guess, unverified against a real project. ``stats``
-    (``derivatives/ti-toolbox/stats/<type>/<name>/``) is confirmed by
-    :meth:`PathManager.stats_output`, ``group_analyses`` (one folder per group analyzer
-    run under ``derivatives/ti-toolbox/group_analysis/``) by
-    :meth:`PathManager.group_analysis`.
+    ``stats`` (``derivatives/ti-toolbox/stats/<type>/<name>/``, :meth:`PathManager.stats_output`),
+    ``nilearn`` (``derivatives/ti-toolbox/nilearn_visuals/<subdir_name>/``, the
+    ``tit.plotting.nilearn`` runner), ``group_analyses`` (one folder per group analyzer run under
+    ``derivatives/ti-toolbox/group_analysis/``, :meth:`PathManager.group_analysis`) and
+    ``nifti_average`` (``derivatives/ti-toolbox/nifti_average/<output_name>/``, the
+    ``tit.stats.nifti_average`` runner, with the files it wrote as ``artifacts``).
+    ``tests/test_group_catalog_writers.py`` pins each reader against its writer.
     """
 
     def _subdirs(root: str) -> list[str]:
@@ -2378,7 +2379,35 @@ def group_catalog(pm: PathManager) -> dict:
         path = os.path.join(group_root, name)
         group_analyses.append({"name": name, "path": path, "created": _mtime_iso(path)})
 
-    return {"stats": stats, "nilearn": nilearn, "group_analyses": group_analyses}
+    nifti_average = []
+    average_root = os.path.join(pm.ti_toolbox(), "nifti_average")
+    for name in _subdirs(average_root):
+        path = os.path.join(average_root, name)
+        nifti_average.append(
+            {
+                "name": name,
+                "path": path,
+                "created": _mtime_iso(path),
+                "artifacts": [
+                    {
+                        "path": f["path"],
+                        "kind": f["kind"],
+                        "label": f["label"]
+                        .removesuffix(".nii.gz")
+                        .removesuffix(".json")
+                        .replace("_", " "),
+                    }
+                    for f in output_files(path, project_root=pm.project_dir)
+                ],
+            }
+        )
+
+    return {
+        "stats": stats,
+        "nilearn": nilearn,
+        "group_analyses": group_analyses,
+        "nifti_average": nifti_average,
+    }
 
 
 # ── group statistics detail ──────────────────────────────────────────────────
