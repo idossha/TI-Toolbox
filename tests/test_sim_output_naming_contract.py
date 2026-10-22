@@ -409,6 +409,67 @@ def test_default_voxel_field_never_falls_back_to_another_field(project):
         select_field_file("101", "L_Insula", "voxel", tissue_type="GM")
 
 
+def _renamed_simulation(project: Path, mode: str) -> Path:
+    """A ``L_Insula`` run without its envelope, whose folder was renamed to ``L_Insula_copy``.
+
+    Its files keep the old name, so the writer's exact name for ``L_Insula_copy`` matches
+    none of them and the selector falls through to its scan of the folder: the case where
+    only the field suffix still tells ``TI_avg`` and ``hf_peak`` apart from the envelope.
+    """
+    written = write_simulation(
+        project, "101", "L_Insula", mode, fields=("TI_avg", "hf_peak")
+    )
+    copy = written["sim_dir"].with_name("L_Insula_copy")
+    written["sim_dir"].rename(copy)
+    return copy / mode / "niftis"
+
+
+@pytest.mark.parametrize("mode", ["TI", "mTI"])
+@pytest.mark.parametrize("tissue_type", ["GM", "WM", "both"])
+def test_a_renamed_simulation_never_analyses_another_field_as_the_envelope(
+    project, mode, tissue_type
+):
+    """The scan of a renamed folder refuses ``*_TI_avg`` / ``*_hf_peak`` for the default field."""
+    from tit.analyzer.field_selector import select_field_file
+
+    niftis = _renamed_simulation(project, mode)
+    names = sorted(p.name for p in niftis.iterdir())
+    # The folder still holds this tissue's TI_avg and hf_peak volumes, just no envelope.
+    prefix = {"GM": "grey_", "WM": "white_", "both": ""}[tissue_type]
+    for field in ("TI_avg", "hf_peak"):
+        assert f"{prefix}L_Insula_{mode}_subject_{field}.nii.gz" in names
+    with pytest.raises(FileNotFoundError):
+        select_field_file("101", "L_Insula_copy", "voxel", tissue_type=tissue_type)
+    # Asked for by name, the field the folder does hold is still found.
+    path, field = select_field_file(
+        "101", "L_Insula_copy", "voxel", tissue_type=tissue_type, field="TI_avg"
+    )
+    assert (path.name, field) == (
+        f"{prefix}L_Insula_{mode}_subject_TI_avg.nii.gz",
+        "TI_avg",
+    )
+
+
+@pytest.mark.parametrize("mode", ["TI", "mTI"])
+def test_a_suffix_less_legacy_volume_is_still_the_default(project, mode):
+    """An older release wrote one grey-matter volume without a field suffix: the default reads it.
+
+    ``grey_montage.nii.gz`` sorts after ``grey_L_Insula_*`` (``m`` > ``L``), so a scan that
+    took the first grey-matter file without checking its suffix would answer ``TI_avg``.
+    """
+    from tit.analyzer.field_selector import select_field_file
+
+    niftis = _renamed_simulation(project, mode)
+    legacy = niftis / "grey_montage.nii.gz"
+    legacy.write_bytes(b"nii")
+    envelope = "TI_max" if mode == "TI" else "mTI_max"
+    assert sorted(p.name for p in niftis.glob("grey_*"))[-1] == legacy.name
+    assert select_field_file("101", "L_Insula_copy", "voxel", tissue_type="GM") == (
+        legacy,
+        envelope,
+    )
+
+
 # ── the writer model against the real thing ─────────────────────────────────
 
 _DATASET = os.environ.get("TIT_DATASET_000")
