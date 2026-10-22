@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -1629,17 +1630,18 @@ def test_system_terminate_refuses_own_pid(client: TestClient) -> None:
 
 
 def test_system_terminate_refuses_non_toolbox_process(client: TestClient) -> None:
-    """The current test-runner process is real and alive, but its cmdline
-    matches none of `RELEVANT_KEYWORDS` -- must be refused, never killed."""
-    r = client.post(
-        "/api/system/terminate",
-        json={"pid": os.getppid() or os.getpid()},
-        headers=BEARER,
-    )
-    # os.getppid() is the test runner's own parent -- practically never a
-    # toolbox-relevant process by keyword match, and if it somehow guessed
-    # `pid == 1` (rare, container init) that's covered by the other test.
-    assert r.status_code in (403, 404)
+    """A live process matching none of `RELEVANT_KEYWORDS` is refused and left running.
+
+    The target is a `sleep` this test spawns and owns. It used to be `os.getppid()`, and the
+    route really signals: a parent shell whose command line held a keyword got SIGTERM."""
+    child = subprocess.Popen(["sleep", "60"])
+    try:
+        r = client.post("/api/system/terminate", json={"pid": child.pid}, headers=BEARER)
+        assert r.status_code == 403, r.json()
+        assert child.poll() is None
+    finally:
+        child.kill()
+        child.wait()
 
 
 def test_system_terminate_rejects_bad_pid_type(client: TestClient) -> None:

@@ -551,6 +551,25 @@ def test_process_filter_matches_expected_tools() -> None:
     assert not is_relevant_process("bash", "-lc sleep 1")
 
 
+def test_process_filter_matches_whole_tokens_not_substrings() -> None:
+    """The terminate route's allowlist is this predicate, so a short keyword inside an ordinary
+    word ("bet" in "alphabet", "fast" in "breakfast") must not make a process killable."""
+    from tit.server.routes.system import is_relevant_process
+
+    for name, cmdline in [
+        ("zsh", "-c echo breakfast alphabet firstly"),
+        ("pycharm", ""),
+        ("python", "-m uvicorn fastapi_app:app"),
+        ("xfs_repair", "/dev/sda1"),
+    ]:
+        assert not is_relevant_process(name, cmdline), (name, cmdline)
+
+    assert is_relevant_process("bet", "/usr/local/fsl/bin/bet in.nii out")
+    assert is_relevant_process("zsh", "-c run_first_all -i t1.nii")
+    assert is_relevant_process("python", "/opt/SimNIBS-4.6/bin/simnibs_python -m tit.sim c.json")
+    assert is_relevant_process("mri_convert", "orig.mgz orig.nii")
+
+
 def test_relevant_processes_excludes_own_pid(monkeypatch) -> None:
     import psutil
 

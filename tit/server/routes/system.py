@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 import time
 from typing import Any
@@ -93,10 +94,22 @@ RELEVANT_KEYWORDS: tuple[str, ...] = (
 )
 
 
+# Each keyword matches as a whole token: no letter or digit on either side, so "bet" is not the
+# tail of "alphabet" nor "fast" the head of "fastapi". A keyword ending in a separator ("mri_",
+# "pre/qsi/") still matches as a prefix. This is the terminate route's allowlist, and a raw
+# substring match made ordinary shells killable.
+_RELEVANT_RE = re.compile(
+    "|".join(
+        rf"(?<![a-z0-9]){re.escape(k.lower())}"
+        + (r"(?![a-z0-9])" if k[-1].isalnum() else "")
+        for k in RELEVANT_KEYWORDS
+    )
+)
+
+
 def is_relevant_process(proc_name: str, cmdline: str) -> bool:
-    """Substring match of any keyword against ``"<name> <cmdline>"`` (lower-cased)."""
-    search_text = f"{proc_name} {cmdline}".lower()
-    return any(keyword.lower() in search_text for keyword in RELEVANT_KEYWORDS)
+    """Whole-token match of any keyword against ``"<name> <cmdline>"`` (lower-cased)."""
+    return _RELEVANT_RE.search(f"{proc_name} {cmdline}".lower()) is not None
 
 
 #: The htop-style table shows the busiest processes, not literally all of them: a snapshot every
