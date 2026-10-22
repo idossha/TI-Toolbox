@@ -322,6 +322,12 @@ FLOOR_BY_HAND = [
     (0.001, 1000),
     (0.03, 33),
     (0.3, 3),
+    # A float edge: 1 / (1/99) evaluates to 98.99999999999999, so floor(1 / alpha) alone would
+    # accept 98 permutations, whose smallest p (1/99) equals alpha and is not below it.
+    (1 / 99, 99),
+    # And the other way: the float just above 1/9 has 1 / alpha == 9.0, yet 8 permutations
+    # already give a smallest p of 1/9, just below it.
+    (math.nextafter(1 / 9, 1), 8),
 ]
 
 
@@ -344,6 +350,25 @@ def test_the_floor_is_the_smallest_count_whose_minimum_p_is_below_alpha(
 
     assert smallest_p(m_hand) < alpha
     assert not smallest_p(m_hand - 1) < alpha
+
+
+@pytest.mark.parametrize(
+    "responses,sentence",
+    [
+        ([1, 1, 0], "got 2 responders and 1 non-responder"),
+        ([1, 0, 0], "got 1 responder and 2 non-responders"),
+    ],
+)
+def test_the_paired_refusal_counts_each_group_in_words(
+    responses: list[int], sentence: str
+) -> None:
+    subjects = [
+        {"subject_id": f"00{i}", "simulation_name": "M1", "response": r}
+        for i, r in enumerate(responses, 1)
+    ]
+    with pytest.raises(ValueError) as err:
+        _build(_comparison(test_type="paired", subjects=subjects))
+    assert str(err.value).endswith(sentence)
 
 
 def test_numpy_numbers_are_numbers() -> None:
