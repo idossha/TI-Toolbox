@@ -212,8 +212,9 @@ function FilterBox({
  *
  * Every catalog query key here is one `useSubjectOutputs` already primed, so naming the artifacts
  * of an ex-search run or an analysis costs no extra request. The three manifest reads are the only
- * new traffic, one small file each, cached for the session (`staleTime: Infinity` — a finished run
- * does not rewrite its own config).
+ * new traffic, one small file each, cached for the session (`staleTime: Infinity`). A re-run with
+ * Replace does rewrite them, so a finished job of that kind invalidates `results-file-text`, like
+ * every other key this pane reads (`app/jobs/invalidation.ts`).
  */
 function Preview({
   subject,

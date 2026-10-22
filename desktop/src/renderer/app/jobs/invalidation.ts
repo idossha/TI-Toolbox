@@ -34,46 +34,75 @@ const COMMON: readonly QueryKey[] = [
 ];
 
 // Each run page's plan says which outputs exist, so a finished job of that kind makes it stale.
+// `results-file-text` is a run's own manifest or text file in the Results preview (a simulation's
+// `documentation/config.json`, a flex `summary.txt`, an ex `run_config.json`, any text artifact),
+// cached for the session: a re-run with Replace rewrites those files in place. `viewer-resolution`
+// is the Viewer's draft resolved to the files on disk, which a re-run can change.
 const SIMULATIONS: readonly QueryKey[] = [
   ["plan-sim"],
   ["simulations"],
   ["results-simulations"],
   ["results-simulation-figures"],
+  ["results-file-text"],
   ["export-montage"],
   ["viewer-tree"],
   ["viewer-candidates"],
+  ["viewer-resolution"],
 ];
 
 const SEARCH_RESULTS: readonly QueryKey[] = [
   ["plan"],
   ["results-flex-runs"],
   ["results-ex-runs"],
+  ["results-file-text"],
   ["optimization-candidates"],
   ["optimization-candidate-history"],
   ["viewer-tree"],
   ["viewer-candidates"],
+  ["viewer-resolution"],
 ];
 
-const ANALYSES: readonly QueryKey[] = [["analyzer-plan"], ["results-analyses"], ["results-reports"], ["viewer-tree"], ["viewer-candidates"]];
+const ANALYSES: readonly QueryKey[] = [
+  ["analyzer-plan"],
+  ["results-analyses"],
+  ["results-analysis-summary"],
+  ["results-file-text"],
+  ["results-reports"],
+  ["viewer-tree"],
+  ["viewer-candidates"],
+  ["viewer-resolution"],
+];
 
-const GROUP_OUTPUTS: readonly QueryKey[] = [["results-group"], ["results-reports"], ["results-simulation-figures"]];
+const GROUP_OUTPUTS: readonly QueryKey[] = [
+  ["results-group"],
+  ["results-group-stats"],
+  ["results-file-text"],
+  ["results-reports"],
+  ["results-simulation-figures"],
+];
+
+/**
+ * What an EEG net in `m2m_<sid>/eeg_positions/` feeds: the Optimizer's net picker (`eeg-nets`), the
+ * Simulator's (`subject-detail`), the montage editor's electrode list and ex-search's leadfield
+ * ETA. A head-model job changes them, and so does the EEG caps panel's Apply, which is a request
+ * rather than a job and invalidates this same list.
+ */
+export const EEG_NET_QUERIES: readonly QueryKey[] = [["eeg-nets"], ["eeg-net-electrodes"], ["leadfield-eta"], ["subject-detail"]];
 
 /** Head model, EEG nets, atlases and the scene panes all come from `m2m_<sid>`. */
 const HEAD_MODEL: readonly QueryKey[] = [
-  ["eeg-nets"],
-  ["eeg-net-electrodes"],
+  ...EEG_NET_QUERIES,
   ["atlases"],
   ["atlas-regions"],
   ["nifti-labels"],
   ["rois"],
   ["scene"],
   ["results-reports"],
-  ["leadfield-eta"],
 ];
 
-const BY_KIND: Record<string, readonly QueryKey[]> = {
+/** One entry per job kind the server runs (`JOB_KINDS`), and no other kinds. */
+export const BY_KIND: Readonly<Record<string, readonly QueryKey[]>> = {
   pre: HEAD_MODEL,
-  report: [["results-reports"]],
   project_init: HEAD_MODEL,
   sim: SIMULATIONS,
   // A flex run is also a montage source for the Simulator (`flex-runs` / `flex-mapping`).
@@ -82,7 +111,6 @@ const BY_KIND: Record<string, readonly QueryKey[]> = {
   flex_pareto: [...SEARCH_RESULTS, ["flex-runs"], ["flex-mapping"]],
   ex: SEARCH_RESULTS,
   mex: SEARCH_RESULTS,
-  recip: SEARCH_RESULTS,
   leadfield: [["leadfields"], ["leadfield-eta"], ["plan"]],
   analyzer: ANALYSES,
   stats: GROUP_OUTPUTS,

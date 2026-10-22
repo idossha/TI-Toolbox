@@ -26,7 +26,8 @@ describe("queriesAffectedBy", () => {
       expect(keys).toContain(JSON.stringify(["flex-mapping"]));
       expect(keys).toContain(JSON.stringify(["results-flex-runs"]));
     }
-    for (const kind of ["ex", "mex", "recip"]) {
+    // `recip` is not a job kind on main (`JOB_KINDS`); its entry was removed with p32.
+    for (const kind of ["ex", "mex"]) {
       expect(keysOf(kind)).toContain(JSON.stringify(["results-ex-runs"]));
       expect(keysOf(kind)).toContain(JSON.stringify(["optimization-candidates"]));
     }
@@ -48,7 +49,7 @@ describe("queriesAffectedBy", () => {
   it("a finished run refreshes its page's plan, so the existing-outputs pre-check is not stale", () => {
     expect(keysOf("sim")).toContain(JSON.stringify(["plan-sim"]));
     expect(keysOf("analyzer")).toContain(JSON.stringify(["analyzer-plan"]));
-    for (const kind of ["flex", "ex", "mex", "recip"]) expect(keysOf(kind)).toContain(JSON.stringify(["plan"]));
+    for (const kind of ["flex", "ex", "mex"]) expect(keysOf(kind)).toContain(JSON.stringify(["plan"]));
   });
 
   it("leadfields keep the invalidation the Optimizer used to do on its own", () => {
