@@ -89,6 +89,10 @@ describe("buildSimulationConfig sends the currents the row shows", () => {
     expect(row!.currents).toBe("");
     expect(sent(row!)).toEqual([1, 1]);
     expect(isRunnableRow(row!)).toBe(true);
+    // "Save to plan" writes what the row shows, and refuses a row the server would, saying why.
+    const target = { proposalId: "p", stepId: "s", number: 1, title: "Simulate", kind: "sim", subjectIds: ["ernie"], overwrite: false, config: {} };
+    expect(simStepEdit(target, [row!], params).config?.intensities).toEqual([1, 1]);
+    expect(() => simStepEdit(target, [{ ...row!, currents: "0,1" }], params)).toThrow("Channel 1 needs a current above 0 mA.");
   });
 
   it("a plan's pending flex run with blank currents keeps the run's own; typed currents are sent", () => {

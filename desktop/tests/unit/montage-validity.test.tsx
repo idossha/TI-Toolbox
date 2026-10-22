@@ -75,8 +75,9 @@ describe("repeated and coincident electrodes", () => {
     const a: Xyz = [60, 10, 40];
     expect(coincidentElectrodes([[a, [60, 10, 40.5]], [[-60, 0, 0], [0, 70, 30]]])).toEqual([[1, 2]]);
     expect(coincidentElectrodes([[a, [0, 70, 30]], [[-60, 0, 0], [60.6, 10.6, 40]]])).toEqual([[1, 4]]);
-    // 1 mm exactly is two places (hypot(0.6, 0.8) = 1).
-    expect(coincidentElectrodes([[a, [60.6, 10.8, 40]], [[-60, 0, 0], [0, 70, 30]]])).toEqual([]);
+    // 1 mm exactly is two places; just under it is one.
+    expect(coincidentElectrodes([[a, [60, 10, 41]], [[-60, 0, 0], [0, 70, 30]]])).toEqual([]);
+    expect(coincidentElectrodes([[a, [60, 10, 40.99]], [[-60, 0, 0], [0, 70, 30]]])).toEqual([[1, 2]]);
   });
 
   it("a montage row that repeats an electrode is not runnable, and the row says which", () => {
