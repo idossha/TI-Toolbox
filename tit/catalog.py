@@ -2352,6 +2352,8 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
     entries = config.get("electrode_positions", [])
     if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
         raise ValueError("electrode_positions must be a list of {label, x, y, z}")
+    if not all(isinstance(e.get("label") or "", str) for e in entries):
+        raise ValueError("electrode_positions[].label must be a string")
     # The file keys positions by label, so a repeated label would silently drop a position.
     labels = [entry.get("label") or f"E{i + 1}" for i, entry in enumerate(entries)]
     repeated = sorted({label for label in labels if labels.count(label) > 1})

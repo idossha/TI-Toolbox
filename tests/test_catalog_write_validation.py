@@ -159,6 +159,72 @@ def test_the_python_writer_applies_the_same_rules() -> None:
         catalog.put_montage(pm, NET, "uni_polar", "X", _labels(4))
 
 
+@pytest.mark.parametrize("kind", ["bipolar", "Multi_polar", "M", ""])
+def test_the_python_writer_refuses_a_kind_outside_the_two_buckets(
+    project: Path, kind: str
+) -> None:
+    """The route checks ``kind`` before calling it; a script calling ``put_montage`` does not.
+
+    Four pairs, so the uni-polar-is-2-pairs rule cannot be what refuses it: without the enum,
+    ``"bipolar"`` would be filed as multi-polar.
+    """
+    from tit import catalog
+
+    before = _montage_file()
+    with pytest.raises(ValueError, match="kind must be uni_polar or multi_polar"):
+        catalog.put_montage(get_path_manager(), NET, kind, "X", _labels(4))
+    assert _montage_file() == before
+
+
+def test_saving_a_name_under_the_other_polarity_moves_it_instead_of_keeping_both(
+    client: TestClient,
+) -> None:
+    """One montage name is one ``Simulations/<name>/`` folder, and ``load_montages`` refuses a
+    name saved under both polarities, so a PUT replaces the montage whichever bucket held it.
+
+    The Simulator's editor deletes the old bucket's entry in a request that races this PUT;
+    the server must not depend on which one lands first. A same-named montage of another net
+    is a different montage and is left alone.
+    """
+    from tit.sim.utils import load_montages
+
+    other = "EEG10-10_UI_Jurak_2007.csv"
+    two, four = _labels(2), _labels(4)
+    assert (
+        client.put(
+            f"/api/catalog/montages/{other}/uni_polar/L_Insula",
+            json={"pairs": two},
+            headers=BEARER,
+        ).status_code
+        == 200
+    )
+    r = client.put(
+        f"/api/catalog/montages/{NET}/multi_polar/L_Insula",
+        json={"pairs": four},
+        headers=BEARER,
+    )
+    assert r.status_code == 200
+    listed = client.get("/api/catalog/montages", headers=BEARER).json()
+    assert listed == {
+        "nets": {
+            NET: {"uni_polar": {}, "multi_polar": {"L_Insula": four}},
+            other: {"uni_polar": {"L_Insula": two}, "multi_polar": {}},
+        }
+    }
+    (montage,) = load_montages(["L_Insula"], NET, include_flex=False)
+    assert [list(pair) for pair in montage.electrode_pairs] == four
+
+    # And back: a multi-polar name saved as uni-polar leaves the multi-polar bucket.
+    r = client.put(
+        f"/api/catalog/montages/{NET}/uni_polar/L_Insula",
+        json={"pairs": two},
+        headers=BEARER,
+    )
+    assert r.status_code == 200
+    listed = client.get("/api/catalog/montages", headers=BEARER).json()
+    assert listed["nets"][NET] == {"uni_polar": {"L_Insula": two}, "multi_polar": {}}
+
+
 # ── free-hand ────────────────────────────────────────────────────────────────
 
 _SQUARE = [
@@ -203,6 +269,39 @@ BAD_FREEHAND = [
     ({"type": "U", "electrode_positions": _positions(8)}, "8 positions are M"),
     ({"type": "M", "electrode_positions": _square()}, "4 positions are U"),
     ({"type": "M", "electrode_positions": _positions(10)}, "5 pairs"),
+    # An odd count leaves the last electrode without a partner: pairing consecutively would
+    # drop it without a word (5 as M looks like 2 pairs, 9 like 4).
+    ({"type": "M", "electrode_positions": _positions(5)}, "5 positions as M"),
+    ({"type": "M", "electrode_positions": _positions(7)}, "7 positions as M"),
+    ({"type": "M", "electrode_positions": _positions(9)}, "9 positions as M"),
+    ({"type": "U", "electrode_positions": _positions(5)}, "5 positions as U"),
+    # The enum on its own: an M-sized placement under a type outside [U, M].
+    ({"type": "Q", "electrode_positions": _positions(8)}, "type 'Q' with 8 positions"),
+    (
+        {"type": "m", "electrode_positions": _positions(8)},
+        "type 'm' (the enum is U, M)",
+    ),
+    ({"type": None, "electrode_positions": _positions(8)}, "type null"),
+    ({"type": ["M"], "electrode_positions": _positions(8)}, "type a list"),
+    # ElectrodePosition.label is a string; a number would be written as a JSON key "7" and
+    # read back as text, so the listing would not equal the write.
+    (
+        {
+            "type": "U",
+            "electrode_positions": [{**row, "label": 5} for row in _square()],
+        },
+        "a numeric label four times",
+    ),
+    (
+        {
+            "type": "U",
+            "electrode_positions": [
+                {**row, "label": 7} if i == 0 else row
+                for i, row in enumerate(_square())
+            ],
+        },
+        "one numeric label",
+    ),
     (
         {
             "type": "U",

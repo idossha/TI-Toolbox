@@ -166,8 +166,9 @@ def upsert_montage(
         ``eeg_positions`` folder, e.g. ``"GSN-HydroCel-185.csv"`` or
         ``"EEG10-10_UI_Jurak_2007.csv"``.  Created in the file if absent.
     montage_name : str
-        Montage name; an existing montage of the same name under this net
-        and mode is replaced.
+        Montage name; an existing montage of the same name under this net is
+        replaced, whichever polarity it was saved under (one name, one
+        ``Simulations/<name>/`` folder).
     electrode_pairs : list[list[str]]
         Electrode pairs, each a two-element list of labels from that net
         (e.g. ``[["E010", "E011"], ["E012", "E013"]]``).  Two pairs for
@@ -206,6 +207,11 @@ def upsert_montage(
         eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
     )
     key = "uni_polar_montages" if mode.upper() == "U" else "multi_polar_montages"
+    other = (
+        "multi_polar_montages" if key == "uni_polar_montages" else "uni_polar_montages"
+    )
+    # One name is one Simulations/<name>/ folder, and load_montages refuses a name in both.
+    net.get(other, {}).pop(montage_name, None)
     net[key][montage_name] = electrode_pairs
     save_montage_data(data, pm=pm)
 
