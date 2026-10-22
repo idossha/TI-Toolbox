@@ -1,16 +1,16 @@
 [run]
 source = tit
 branch = True
+# Every omit pattern needs the reason comment above it and must match a file under
+# tit/ (tests/test_coveragerc.py). Package __init__.py files are measured: some carry
+# real code (tit/examples/__init__.py is the example-data downloader).
 omit =
-    */tests/*
-    */test_*.py
-    */__pycache__/*
-    */__init__.py
-    */benchmark/*
+    # tit/blender: the scene half (montage_scene, scene_setup, electrode_placement,
+    # helpers/) runs inside Blender's own Python with bpy, which neither the host suite
+    # nor the image leg has; the package is omitted as one unit so its number is not
+    # read as a measurement of the bpy code. Its config/io/exporter half is still
+    # exercised by tests/test_blender_*.py.
     */blender/*
-    */gui/*
-    setup.py
-    version.py
 
 [report]
 precision = 2
@@ -18,22 +18,24 @@ skip_covered = False
 skip_empty = True
 sort = Cover
 
+# coverage.py searches each pattern over the whole source in MULTILINE mode, and a
+# matched line that opens a block (a def, an if) excludes the WHOLE block. So every
+# pattern is anchored to the statement it names, and uses [ \t] rather than \s so it
+# cannot run on into the next line: an unanchored `pass` hid every function whose
+# signature said `passes=` or `st="pass"` (tests/test_coveragerc.py).
 exclude_lines =
     # Standard pragma
     pragma: no cover
     # Don't complain about missing debug code
-    def __repr__
-    def __str__
+    ^[ \t]*def __repr__\(
+    ^[ \t]*def __str__\(
     # Don't complain if tests don't hit defensive assertion code
-    raise AssertionError
-    raise NotImplementedError
+    ^[ \t]*raise AssertionError\b
+    ^[ \t]*raise NotImplementedError\b
     # Don't complain if non-runnable code isn't run
-    if __name__ == .__main__.:
-    if TYPE_CHECKING:
-    if typing.TYPE_CHECKING:
+    ^[ \t]*if __name__ == .__main__.:
+    ^[ \t]*if (typing\.)?TYPE_CHECKING:
     # Don't complain about abstract methods
-    @(abc\.)?abstractmethod
-    # Don't complain about deprecation warnings
-    warnings.warn
-    # Don't complain about pass statements
-    pass
+    ^[ \t]*@(abc\.)?abstractmethod\b
+    # Don't complain about bare pass statements
+    ^[ \t]*pass[ \t]*(#.*)?$

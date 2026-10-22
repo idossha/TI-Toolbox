@@ -30,74 +30,15 @@ coverage:
         base: auto
         if_ci_failed: error
 
-# Component-specific coverage flags
+# Coverage flags: exactly the flags CI uploads (`-F unittests` in .circleci/config.yml).
+# A flag declared here but never uploaded reports nothing, so tests/test_coveragerc.py
+# requires the two sets to be equal. What is left out of the measurement is decided once,
+# in .coveragerc's omit list; there is no second ignore list here.
 flags:
   unittests:
     paths:
       - tit/
     carryforward: false
-
-  core:
-    paths:
-      - tit/paths.py
-      - tit/constants.py
-      - tit/calc.py
-      - tit/logger.py
-      - tit/errors.py
-      - tit/config_io.py
-    carryforward: false
-
-  simulator:
-    paths:
-      - tit/sim/
-    carryforward: false
-
-  analyzer:
-    paths:
-      - tit/analyzer/
-    carryforward: false
-
-  optimizer:
-    paths:
-      - tit/opt/
-    carryforward: false
-
-  stats:
-    paths:
-      - tit/stats/
-    carryforward: false
-
-  plotting:
-    paths:
-      - tit/plotting/
-    carryforward: false
-
-  preprocessing:
-    paths:
-      - tit/pre/
-    carryforward: false
-
-  reporting:
-    paths:
-      - tit/reporting/
-    carryforward: false
-
-  atlas:
-    paths:
-      - tit/atlas/
-    carryforward: false
-
-# Files to ignore in coverage reports
-ignore:
-  - "**/__pycache__"
-  - "**/*.pyc"
-  - "**/test_*.py"
-  - "tests/**"
-  - "**/gui/**"        # GUI code requires X11/display environment
-  - "**/__init__.py"
-  - "scripts/**"
-  - "tit/tools/**"     # Standalone scripts, not library code
-  - "tit/blender/**"   # Blender-specific code
 
 # Comment configuration for pull requests
 comment:
