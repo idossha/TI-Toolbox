@@ -192,9 +192,17 @@ trades focality between the sites; an mTI montage is the alternative.
 **Fix:** nothing to do in TI-Toolbox. `dsi_studio_gqi` is the default spec, and the toolbox runs it through its own scalar-only recon YAML, which has no connectivity node and so avoids the bug. Running QSIRecon's built-in spec yourself can still hit it.
 **Source:** [#81](https://github.com/idossha/TI-Toolbox/discussions/81).
 
-### SimNIBS 4.6 quirks the image patches for you
+### SimNIBS 4.6 quirks the image handles for you
 
-`atlas2subject(split_labels=True)` label misalignment and a `np.nan_to_num(copy=None)` call are patched into the image at build time (`resources/atlas2subject/`, `resources/patches/`). If you install SimNIBS 4.6 outside the container, you get them unpatched.
+The `atlas2subject(split_labels=True)` label misalignment is patched into the image at build time (`resources/atlas2subject/`); if you install SimNIBS 4.6 outside the container you get it unpatched. SimNIBS 4.6's own `np.nan_to_num(..., copy=None)` needs NumPy 2: the image ships NumPy 2.3.5 and runs it unmodified. In a SimNIBS environment whose NumPy was pulled below 2 (for example by `pip install bpy`), every MNI-space NIfTI warp fails with `ValueError: NoneType copy mode not allowed`.
+
+### Warping E or J to MNI fails with `Unable to avoid copy while creating an array as requested`
+
+**Applies to:** images v3.0.0–v3.1.1 as first published, when you run `subject2mni` / `mni2subject` on a mesh with `E` or `J` or on a 3-component NIfTI, or `run_simnibs` with `map_to_MNI`.
+
+**Cause:** a build-time patch written for the old NumPy 1 environment turned SimNIBS's `nan_to_num(copy=None)` into `copy=False`, which NumPy 2 refuses whenever a copy is needed.
+
+**Fix:** update the image. TI-Toolbox's own simulation, analyzer, search and EEG-cap outputs only warp scalar fields and were never affected.
 
 ### Ex-search needs a leadfield
 
