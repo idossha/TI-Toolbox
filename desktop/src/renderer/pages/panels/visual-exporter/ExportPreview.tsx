@@ -1,11 +1,10 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { ScenePane } from "../../_shared/scene";
 import {
   useSceneElectrodes,
   useSceneManifest,
 } from "../../_shared/scene/queries";
 import { markersFromElectrodes } from "../../_shared/scene/model";
-import { getTextFile } from "../../results/api";
 import { openView } from "../../viewer/api";
 import { Button } from "../../../ui/Button";
 import { openNativeScene, exportNativeScene } from "../../../viewer/native";
@@ -13,7 +12,7 @@ import { getAtlasRegions } from "./api";
 import type { Mode } from "./config";
 import {
   exportRegionKey,
-  readExportMontage,
+  type readExportMontage,
   selectedSceneRegions,
   segmentationPreviewScene,
 } from "./previewModel";
@@ -23,6 +22,8 @@ export interface ExportPreviewProps {
   subjectId: string;
   simulationName: string;
   simulationPath?: string;
+  /** The panel's read of the simulation's recorded montage (it gates Run on it too). */
+  montage: UseQueryResult<ReturnType<typeof readExportMontage>, Error>;
   atlas: string;
   regions: string[];
   onRegionsChange: (regions: string[]) => void;
@@ -56,15 +57,7 @@ export function ExportPreview(props: ExportPreviewProps) {
     queryFn: () => getAtlasRegions(subjectId, atlas),
     enabled: mode === "regions" && !!subjectId,
   });
-  const montage = useQuery({
-    queryKey: ["export-montage", subjectId, simulationName, simulationPath],
-    queryFn: async () =>
-      readExportMontage(
-        await getTextFile(`${simulationPath}/documentation/config.json`),
-      ),
-    enabled: mode === "montage" && !!subjectId && !!simulationPath,
-    retry: false,
-  });
+  const { montage } = props;
   const electrodes = useSceneElectrodes(
     mode === "montage" ? subjectId || null : null,
     montage.data?.net ?? null,

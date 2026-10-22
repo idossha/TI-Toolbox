@@ -11,6 +11,12 @@
  */
 import type { MontageConfig, RegionConfig, SubcorticalConfig, VectorConfig } from "./api";
 
+/**
+ * What `readExportMontage` (previewModel.ts) says of a simulation placed by coordinates, and the
+ * sentence `tit/blender/montage_publication.py` refuses its montage export with.
+ */
+export const NO_RECORDED_NET = "This simulation has no recorded EEG net.";
+
 export type Mode = "regions" | "vectors" | "montage" | "subcortical";
 
 export interface RegionsForm {

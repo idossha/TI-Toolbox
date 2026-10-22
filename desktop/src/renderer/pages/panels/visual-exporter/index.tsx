@@ -38,12 +38,15 @@ import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { ExportPreview } from "./ExportPreview";
+import { readExportMontage } from "./previewModel";
+import { getTextFile } from "../../results/api";
 import { createBlenderJob, getAtlasRegions, getNiftiLabels, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
 import {
   buildMontageConfig,
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
+  NO_RECORDED_NET,
   outputHint,
   parseLabels,
   type Mode,
@@ -134,6 +137,15 @@ function VisualExporterPanel() {
     queryFn: () => getAtlasRegions(subjectId, atlas),
     enabled: mode === "regions" && !!subjectId,
   });
+  const simulationPath = simulationsQuery.data?.find((simulation) => simulation.name === simulationName)?.path;
+  // The simulation's own record: the preview draws its montage from it, and Run refuses a
+  // montage export of a simulation that recorded no net (montage_publication refuses it too).
+  const montageQuery = useQuery({
+    queryKey: ["export-montage", subjectId, simulationName, simulationPath],
+    queryFn: async () => readExportMontage(await getTextFile(`${simulationPath}/documentation/config.json`)),
+    enabled: mode === "montage" && !!subjectId && !!simulationPath,
+    retry: false,
+  });
   const labelsQuery = useQuery({
     queryKey: ["nifti-labels", subjectId, niftiPath],
     queryFn: () => getNiftiLabels(subjectId, niftiPath),
@@ -175,6 +187,7 @@ function VisualExporterPanel() {
   const clientErrors: string[] = [];
   if (!subjectId) clientErrors.push("Select a subject.");
   else if (mode !== "subcortical" && !simulationName) clientErrors.push("Select a simulation.");
+  else if (mode === "montage" && montageQuery.error?.message === NO_RECORDED_NET) clientErrors.push(NO_RECORDED_NET);
   let subcorticalLabels: number[] = [];
   if (mode === "subcortical") {
     if (labelsBrowsable) {
@@ -320,7 +333,8 @@ function VisualExporterPanel() {
           </>}
           scene={<ExportPreview
             mode={mode} subjectId={subjectId} simulationName={simulationName}
-            simulationPath={simulationsQuery.data?.find((simulation) => simulation.name === simulationName)?.path}
+            simulationPath={simulationPath}
+            montage={montageQuery}
             atlas={atlas} regions={regions} onRegionsChange={setRegions} onAtlasChange={setAtlas}
             montageOnly={montageOnly} diameterMm={diameter ?? 10}
             labels={subcorticalLabels} niftiPath={niftiPath}
