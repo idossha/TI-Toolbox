@@ -158,7 +158,10 @@ NAME_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._ -]{0,127}$")
 
 def is_valid_name(value: object) -> bool:
     """``True`` if *value* may be used as a single path component."""
-    return isinstance(value, str) and bool(NAME_RE.match(value)) and ".." not in value
+    # fullmatch, not match: ``$`` also matches before a trailing newline, so ``"x\n"`` passed.
+    return (
+        isinstance(value, str) and bool(NAME_RE.fullmatch(value)) and ".." not in value
+    )
 
 
 def validate_name(value: object, what: str = "name") -> str:

@@ -1,0 +1,168 @@
+{
+  "_about": "The server's two name rules, one verdict per name, typed from their documentation. is_valid_name = tit.paths.is_valid_name (NAME_RE: any name that becomes one path component). is_safe_name = tit.catalog.is_safe_name (a new montage, free-hand placement or ROI). Read by tests/test_entity_names.py and desktop/tests/unit/entity-names.test.ts.",
+  "valid_name_rule": "letters, digits, '.', '_', '-' and inner spaces only, not starting with '.', at most 128 characters",
+  "cases": [
+    {
+      "name": "Thalamus_L",
+      "is_valid_name": true,
+      "is_safe_name": true,
+      "why": "letters and '_'"
+    },
+    {
+      "name": "F3_F4",
+      "is_valid_name": true,
+      "is_safe_name": true,
+      "why": "a montage name"
+    },
+    {
+      "name": "L-Insula",
+      "is_valid_name": true,
+      "is_safe_name": true,
+      "why": "'-' inside"
+    },
+    {
+      "name": "-x",
+      "is_valid_name": true,
+      "is_safe_name": true,
+      "why": "'-' may start a name"
+    },
+    {
+      "name": "_x",
+      "is_valid_name": true,
+      "is_safe_name": true,
+      "why": "'_' may start a name"
+    },
+    {
+      "name": "2026",
+      "is_valid_name": true,
+      "is_safe_name": true,
+      "why": "digits only"
+    },
+    {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "is_valid_name": true,
+      "is_safe_name": true,
+      "why": "64 characters: the safe-name cap"
+    },
+    {
+      "name": "run 2",
+      "is_valid_name": true,
+      "is_safe_name": false,
+      "why": "an inner space: allowed in a path component, not in a saved entry"
+    },
+    {
+      "name": "EEG10-10_Cutini_2011.csv",
+      "is_valid_name": true,
+      "is_safe_name": false,
+      "why": "a dot inside: a cap filename"
+    },
+    {
+      "name": "MNI_Glasser_HCP_v1.0",
+      "is_valid_name": true,
+      "is_safe_name": false,
+      "why": "a dot inside: an atlas name"
+    },
+    {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "is_valid_name": true,
+      "is_safe_name": false,
+      "why": "65 characters: past the safe-name cap"
+    },
+    {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "is_valid_name": true,
+      "is_safe_name": false,
+      "why": "128 characters: the NAME_RE cap"
+    },
+    {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "129 characters: past every cap"
+    },
+    {
+      "name": "Thalamus (L)",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "parentheses"
+    },
+    {
+      "name": "a+b",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "'+'"
+    },
+    {
+      "name": ".x",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "starts with a dot (hidden file)"
+    },
+    {
+      "name": " x",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "starts with a space"
+    },
+    {
+      "name": "a/b",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "a path separator"
+    },
+    {
+      "name": "a\\b",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "a Windows path separator"
+    },
+    {
+      "name": "..",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "the parent directory"
+    },
+    {
+      "name": "a..b",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "'..' inside"
+    },
+    {
+      "name": "\u00fc",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "a non-ASCII letter"
+    },
+    {
+      "name": "\u540d\u524d",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "a non-Latin script"
+    },
+    {
+      "name": "",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "empty"
+    },
+    {
+      "name": "x\n",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "a trailing newline"
+    },
+    {
+      "name": "x\ty",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "a tab"
+    },
+    {
+      "name": "x\u0000",
+      "is_valid_name": false,
+      "is_safe_name": false,
+      "why": "NUL"
+    }
+  ]
+}

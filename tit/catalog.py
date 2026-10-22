@@ -1516,7 +1516,8 @@ def is_safe_name(name: Any) -> bool:
     Used for ROI names, free-hand config names, and montage names on every
     write path -- never trust a client-supplied string used to build a path.
     """
-    return isinstance(name, str) and bool(_SAFE_NAME_RE.match(name))
+    # fullmatch, not match: ``$`` also matches before a trailing newline, so ``"x\n"`` passed.
+    return isinstance(name, str) and bool(_SAFE_NAME_RE.fullmatch(name))
 
 
 def _project_paths_safe(pm: PathManager, *paths: str) -> bool:
