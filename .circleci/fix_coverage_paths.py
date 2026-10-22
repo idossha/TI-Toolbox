@@ -1,7 +1,7 @@
 """Rewrite coverage.xml so Codecov can map files correctly.
 
-pytest-cov inside Docker writes the Docker mount path as <source>.
-Codecov needs an empty <source> with repo-relative filenames.
+pytest-cov writes the absolute checkout path as <source> (the host venv's working directory
+in CircleCI). Codecov needs an empty <source> with repo-relative filenames.
 """
 
 import sys
