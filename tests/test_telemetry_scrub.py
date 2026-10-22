@@ -1,4 +1,4 @@
-"""``error_detail`` and the error fingerprint never carry a path fragment or a subject id.
+"""``error_detail`` and the error fingerprint drop paths and subject ids, and stay fast.
 
 What this pins (2026-10-22, package p18 "telemetry-scrub-gaps"): the privacy contract in
 ``tit.telemetry``'s module docstring -- "Not collected: file paths, subject IDs ... usernames".
@@ -6,7 +6,17 @@ Before this fix ``_scrub`` treated only ``/\\S+`` as a path, so:
 
 - ``C:\\Users\\JohnDoe\\...`` and ``\\\\fileserver\\lab\\JaneDoe\\...`` went out unchanged;
 - ``/Users/John Doe/Data`` became ``<path> Doe<path>`` (the second half of the user name leaked);
-- ``subjects ['101', '102']`` and ``Subjects: 101, 102`` kept every id after the first.
+- ``subjects ['101', '102']`` and ``Subjects: 101, 102`` kept every id after the first, and the
+  repr forms ``subjects: ['101', '102']`` / ``Subjects = [101, 102]`` /
+  ``subject_ids: ["101", "102"]`` kept every id.
+
+The scrub runs on the whole exception text, on the failing job's own path, twice per error (detail
+and fingerprint), so it must stay linear: a 50 000-character token with no separator (base64, hex,
+a long dotted name) must not stall the job.
+
+Known residual leak, deliberately not pinned: a path whose last component follows a space at the
+very end of a message (``... /Users/John Doe``) keeps that last word (``Doe``). No separator marks
+it as part of the path, so it cannot be told apart from ordinary text.
 
 Where the expected values come from: the contract itself -- each message below is written with
 its paths replaced by ``<path>`` and its subject ids by ``<id>``, everything else kept -- worked
@@ -23,6 +33,7 @@ from __future__ import annotations
 
 import random
 import string
+import time
 
 import pytest
 
@@ -53,6 +64,14 @@ ROWS = [
         "[Errno 2] No such file or directory: '<path>'",
     ),
     ("subject_ids=['101', 'ernie'] invalid", "subject_ids=['<id>', '<id>'] invalid"),
+    # The repr of a list after a colon or an equals sign: up to six characters sit between the
+    # keyword and the first id.
+    ("subjects: ['101', '102'] mismatch", "subjects: ['<id>', '<id>'] mismatch"),
+    ("Subjects = [101, 102]", "Subjects = [<id>, <id>]"),
+    ('subject_ids: ["101", "102"] invalid', 'subject_ids: ["<id>", "<id>"] invalid'),
+    ("subjects = ('ernie', '101')", "subjects = ('<id>', '<id>')"),
+    # Six characters: a list padded inside its brackets, as hand-written messages lay it out.
+    ("Subjects = [ '101', '102' ]", "Subjects = [ '<id>', '<id>' ]"),
 ]
 
 
@@ -71,7 +90,8 @@ def test_paths_and_id_lists_are_scrubbed(message, expected):
 
 # -- property: random subject ids in every documented form --------------------------------------
 
-#: (message template, expected template); "{sid}"/"{other}" are subject ids.
+#: (message template, expected template); "{sid}"/"{other}" are subject ids. Every form but the
+#: bare one is recognised by its own shape, without the job's subject list.
 FORMS = [
     ("sub-{sid} failed", "sub-<id> failed"),
     ("m2m_{sid} has no EEG net", "m2m_<id> has no EEG net"),
@@ -82,9 +102,13 @@ FORMS = [
         "cannot read <path>",
     ),
     (r"cannot read C:\proj\sub-{sid}\x.msh", "cannot read <path>"),
-    ("montage for {sid} is empty", "montage for <id> is empty"),
     ("subjects ['{sid}', '{other}'] mismatch", "subjects ['<id>', '<id>'] mismatch"),
+    ("subjects: ['{sid}', '{other}'] mismatch", "subjects: ['<id>', '<id>'] mismatch"),
+    ("Subjects = [{sid}, {other}]", "Subjects = [<id>, <id>]"),
+    ('subject_ids: ["{sid}", "{other}"]', 'subject_ids: ["<id>", "<id>"]'),
 ]
+#: A bare id is only known to be one because the job lists it (TIT_JOB_SUBJECT_IDS).
+BARE_FORM = ("montage for {sid} is empty", "montage for <id> is empty")
 _FIRST = string.ascii_letters + string.digits
 _REST = _FIRST + "_-"
 
@@ -104,13 +128,23 @@ def _random_ids(n: int, seed: int) -> list[str]:
 IDS = _random_ids(200, seed=20261022)
 
 
-@pytest.mark.parametrize("template, expected", FORMS)
+@pytest.mark.parametrize(
+    "template, expected, job_env",
+    [(*form, True) for form in [*FORMS, BARE_FORM]]
+    + [(*form, False) for form in FORMS],
+)
 def test_no_random_subject_id_survives_in_any_documented_form(
-    monkeypatch, template, expected
+    monkeypatch, template, expected, job_env
 ):
+    """With the job's subjects exported, and -- for every shaped form -- without them.
+
+    The run without ``TIT_JOB_SUBJECT_IDS`` is the one that tests the shape rules: with the
+    variable set, the bare-id pass would hide a shape rule that misses.
+    """
     for sid, other in zip(IDS, reversed(IDS)):
-        # The runner exports the job's own subjects (tit.jobs.runner.runner_env).
-        monkeypatch.setenv("TIT_JOB_SUBJECT_IDS", f"{sid},{other}")
+        if job_env:
+            # The runner exports the job's own subjects (tit.jobs.runner.runner_env).
+            monkeypatch.setenv("TIT_JOB_SUBJECT_IDS", f"{sid},{other}")
         detail = _error_detail(RuntimeError(template.format(sid=sid, other=other)))
         assert detail == expected[:80], (sid, other)
         assert len(detail) <= 80
@@ -123,6 +157,50 @@ def test_the_property_ids_are_not_trivial():
     assert "-" in joined and "_" in joined
     assert any(c.isdigit() for c in joined) and any(c.isupper() for c in joined)
     assert max(len(s) for s in IDS) == 20
+
+
+# -- size: the scrub is linear in the message length -----------------------------------------
+
+#: Separator-free tokens the old path rule needed 2-37 s for (measured by the p18 verifier); each
+#: is a single word to the scrub, so it must come out unchanged apart from the 80-character cut.
+LONG_TOKENS = [
+    "a" * 50_000,
+    "a.b" * 30_000,
+    "deadbeef" * 7_000,
+    "x-y_z:" * 9_000,
+]
+
+
+def _raised(message: str) -> ValueError:
+    """An exception with a real traceback, as ``track_operation`` hands it over."""
+    try:
+        raise ValueError(message)
+    except ValueError as exc:
+        return exc
+
+
+def _timed(fn, *args):
+    start = time.perf_counter()
+    value = fn(*args)
+    return value, time.perf_counter() - start
+
+
+@pytest.mark.parametrize("token", LONG_TOKENS, ids=lambda t: f"{t[:6]}x{len(t)}")
+def test_a_huge_token_without_a_separator_is_scrubbed_in_well_under_a_second(token):
+    exc = _raised(f"bad value {token}")
+    detail, detail_s = _timed(_error_detail, exc)
+    fingerprint, fingerprint_s = _timed(_error_fingerprint, exc)
+    assert detail_s < 1.0 and fingerprint_s < 1.0, (detail_s, fingerprint_s)
+    assert detail == f"bad value {token}"[:80]
+    assert len(fingerprint) == 16
+
+
+def test_a_huge_word_glued_to_a_path_goes_with_the_path():
+    """The whole word before the first separator is part of the path, however long it is."""
+    exc = _raised("open " + "u" * 50_000 + "/Data/x.nii failed")
+    detail, seconds = _timed(_error_detail, exc)
+    assert seconds < 1.0, seconds
+    assert detail == "open <path> failed"
 
 
 # -- fingerprint --------------------------------------------------------------------------------

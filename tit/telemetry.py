@@ -415,22 +415,26 @@ def _send_ga4(payload: dict[str, Any]) -> None:
 #: A path: a run of non-space characters holding a ``/`` or a backslash (POSIX, ``C:\...``,
 #: ``\\server\...``), together with the word characters right before its first separator,
 #: so ``Doe/Data`` -- the tail of ``/Users/John Doe/Data`` -- goes too. A quote ends it, so a
-#: quoted path keeps its quotes.
-_PATH_RE = re.compile(r"[\w.~:$-]*[/\\][^\s'\"]*")
+#: quoted path keeps its quotes. The lookbehind starts a match only where a word run starts:
+#: without it, a long run with no separator (base64, hex) was rescanned from every position,
+#: quadratic in its length, and stalled the failing job for seconds.
+_PATH_RE = re.compile(r"(?<![\w.~:$-])[\w.~:$-]*[/\\][^\s'\"]*")
 #: Pieces of one path that a space split apart (``<path> <path>``) read as one ``<path>``.
 _SPLIT_PATH_RE = re.compile(r"<path>(?:\s+<path>)+")
 _ID = r"[A-Za-z0-9_-]+"
 
 #: Subject identifiers in the forms error messages write them: ``sub-101``, ``m2m_101``,
 #: ``subject 101``, ``Subject: 101``, ``subject_id='101'``, and the lists
-#: ``subjects ['101', '102']`` / ``Subjects: 101, 102``.
+#: ``subjects ['101', '102']`` / ``Subjects: 101, 102`` / ``subjects: ['101', '102']`` /
+#: ``Subjects = [101, 102]`` / ``subject_ids: ["101", "102"]``.
 _SUBJECT_PATTERNS = (
     (re.compile(rf"\b(sub-|m2m_){_ID}"), r"\1<id>"),
     (
         # The separator never takes "<", so an already scrubbed "subject: <path>" stays intact.
+        # Up to six characters cover a list's repr after a colon or "=" (": ['", " = [").
         # A comma-separated list after the keyword is scrubbed id by id.
         re.compile(
-            rf"\b(subject(?:_ids?|s)?)([^\w<]{{1,3}})({_ID}(?:['\"]?\s*,\s*['\"]?{_ID})*)",
+            rf"\b(subject(?:_ids?|s)?)([^\w<]{{1,6}})({_ID}(?:['\"]?\s*,\s*['\"]?{_ID})*)",
             re.IGNORECASE,
         ),
         lambda m: m.group(1) + m.group(2) + re.sub(_ID, "<id>", m.group(3)),
