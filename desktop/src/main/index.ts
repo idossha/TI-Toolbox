@@ -15,7 +15,7 @@ import { createScenePreviewQueue, renderNativeScenePreview } from "./nativeScene
 import { orchestrateNativeSceneSave } from "./nativeSceneSave";
 import { createViewerHandoff } from "./viewerHandoff";
 import { checkViewerScene, checkViewerUpdate, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, setViewerProgressListener, updateNativeViewer, watchViewerUpdateRequests } from "./tetravoxNative";
-import { createUpdateChecker, RELEASE_FEED, updateChecksEnabled } from "./updates";
+import { createUpdateChecker, RELEASE_FEED, updateCheckOffReason } from "./updates";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -998,9 +998,11 @@ function registerIpc(): void {
     return fastSurferStatus();
   });
   ipcMain.handle("tit:appVersion", () => app.getVersion());
+  const updateOffReason = updateCheckOffReason(process.env, app.isPackaged);
   const checkAppUpdate = createUpdateChecker({
     current: app.getVersion(),
-    enabled: updateChecksEnabled(process.env, app.isPackaged),
+    enabled: updateOffReason === null,
+    offReason: updateOffReason,
     feedUrl: process.env.TIT_UPDATE_FEED_URL || RELEASE_FEED,
   });
   ipcMain.handle("tit:checkAppUpdate", (e, force: unknown) => {
