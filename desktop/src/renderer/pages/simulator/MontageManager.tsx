@@ -43,7 +43,7 @@ import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
 import { isSafeName, safeNameProblem } from "../_shared/entityNames";
 import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
-import { flexCurrents, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
+import { flexCurrents, FlexSnapWarning, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
 import { useFreehandDraft } from "./freehandDraft";
 import "./simulator-page.css";
@@ -1196,6 +1196,7 @@ export function JobsTable({
                                 {rowProblem(row)}
                               </span>
                             )}
+                            {row.source === "flex" && !row.candidate && <FlexSnapWarning run={runOfRow(row)} net={row.eegNet} />}
                           </td>
                         </>
                       ) : (

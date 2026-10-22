@@ -27,7 +27,7 @@ import {
   ACTIONS_W,
 } from "../../src/renderer/pages/simulator/MontageManager";
 import { jobSubjectsFrom, jobsSummary, runLabelFor } from "../../src/renderer/pages/simulator/index";
-import { OPTIMIZED, placementSummary, placementsFor } from "../../src/renderer/pages/simulator/FlexTab";
+import { OPTIMIZED, placementsFor } from "../../src/renderer/pages/simulator/FlexTab";
 import type { FlexRun } from "../../src/renderer/pages/simulator/api";
 import { SIM_PLAN_STAGES, sourceOfJob } from "../../src/renderer/pages/simulator/RunControls";
 
@@ -448,7 +448,8 @@ describe("Flex result placements", () => {
       }),
     );
     expect(options.map((o) => o.value)).toEqual(["GSN-HydroCel-185.csv", OPTIMIZED]);
-    expect(options.map((o) => placementSummary(o))).toEqual(["E1→E2, E3→E4", "2 optimised coordinates"]);
+    expect(options.map((o) => o.pairs)).toEqual([[["E1", "E2"], ["E3", "E4"]], undefined]);
+    expect(options.map((o) => o.xyzPairs)).toEqual([undefined, [[[1, 2, 3], [4, 5, 6]]]]);
   });
 
   it("a run that was never mapped is still selectable through its free positions", () => {
