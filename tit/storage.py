@@ -182,6 +182,9 @@ def kind_prefixes(pm: Any | None = None) -> list[tuple[str, str]]:
         # The dot-directory: everything in it is regenerable, and a user
         # deciding what to delete should see exactly that.
         (pm.dot_dir(), "cache"),
+        # The QSIPrep/QSIRecon containers' scratch (``-w``): regenerable too, and
+        # gigabytes of it -- left out, it was most of "Other" on Dataset 000.
+        *[(os.path.join(pm.derivatives(), name), "cache") for name in _qsi_work_dirs()],
     ]
 
     for sid in _subjects(pm):
@@ -214,6 +217,13 @@ def kind_prefixes(pm: Any | None = None) -> list[tuple[str, str]]:
 
 def _root(pm: Any) -> str:
     return pm.project_dir or "/"
+
+
+def _qsi_work_dirs() -> tuple[str, str]:
+    """The work-dir names the QSI docker builder mounts, from the builder itself."""
+    from tit.pre.qsi.docker_builder import QSIPREP_WORK_DIR, QSIRECON_WORK_DIR
+
+    return QSIPREP_WORK_DIR, QSIRECON_WORK_DIR
 
 
 def _subjects(pm: Any) -> list[str]:
@@ -309,10 +319,15 @@ def scan_project(
                     continue
                 seen.add(key)
             blocks = getattr(stat, "st_blocks", None)
-            size = int(blocks) * BLOCK_BYTES if blocks is not None else int(stat.st_size)
+            size = (
+                int(blocks) * BLOCK_BYTES if blocks is not None else int(stat.st_size)
+            )
             entry_kind = classify(entry.path, prefixes) if kind == "other" else kind
             bucket = totals.setdefault(
-                entry_kind, KindUsage(kind=entry_kind, label=KIND_LABELS.get(entry_kind, entry_kind))
+                entry_kind,
+                KindUsage(
+                    kind=entry_kind, label=KIND_LABELS.get(entry_kind, entry_kind)
+                ),
             )
             bucket.bytes += size
             bucket.files += 1
@@ -366,11 +381,17 @@ def cache_path(pm: Any | None = None) -> str:
 
 
 def load_cache(pm: Any | None = None) -> ProjectStorage | None:
+    """The last scan, or ``None`` when there is none or it is not a scan.
+
+    Valid JSON of the wrong shape (a list, a kind that is not an object) is no
+    cache, not an error: raising here made the storage route answer 500 until
+    the file was deleted by hand, while ``None`` starts the scan that replaces it.
+    """
     path = cache_path(pm)
     try:
         with open(path, encoding="utf-8") as fh:
             return ProjectStorage.from_dict(json.load(fh))
-    except (OSError, ValueError):
+    except (OSError, ValueError, TypeError, AttributeError):
         return None
 
 

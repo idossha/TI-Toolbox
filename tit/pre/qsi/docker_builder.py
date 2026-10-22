@@ -30,6 +30,12 @@ _CUSTOM_PIPELINE_MAP = {
     # 5M-streamline tractography nobody here reads.
     "dsi_studio_gqi": "dsi_studio_gqi_scalar.yaml",
 }
+
+#: The scratch directories under ``derivatives/`` the QSIPrep and QSIRecon containers
+#: get as ``-w``. Rebuildable: ``tit.storage`` counts them as cache, not "Other".
+QSIPREP_WORK_DIR = ".qsiprep_work"
+QSIRECON_WORK_DIR = ".qsirecon_work"
+
 from .config import QSIPrepConfig, QSIReconConfig
 from tit.host_path import bind_mount, flavour, get_host_project_dir
 from .utils import (
@@ -257,7 +263,7 @@ class DockerCommandBuilder:
         qsiprep_output = str(self._host_project_dir / "derivatives" / "qsiprep")
         cmd.extend(bind_mount(qsiprep_output, self.paths.output_dir))
 
-        work_dir = str(self._host_project_dir / "derivatives" / ".qsiprep_work")
+        work_dir = str(self._host_project_dir / "derivatives" / QSIPREP_WORK_DIR)
         cmd.extend(bind_mount(work_dir, self.paths.work_dir))
 
         if self._host_license_path:
@@ -370,7 +376,7 @@ class DockerCommandBuilder:
         qsirecon_output = str(self._host_project_dir / "derivatives" / "qsirecon")
         cmd.extend(bind_mount(qsirecon_output, self.paths.output_dir))
 
-        work_dir = str(self._host_project_dir / "derivatives" / ".qsirecon_work")
+        work_dir = str(self._host_project_dir / "derivatives" / QSIRECON_WORK_DIR)
         cmd.extend(bind_mount(work_dir, self.paths.work_dir))
 
         if self._host_license_path:
