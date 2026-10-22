@@ -473,6 +473,27 @@ def test_a_user_run_mounts_no_repo():
     ), "a user run mounted something at /ti-toolbox"
 
 
+@pytest.mark.parametrize("host_value", ["1", None])
+def test_the_host_telemetry_opt_out_reaches_the_container(monkeypatch, host_value):
+    """``TIT_NO_TELEMETRY=1`` on the host was dropped: the container env is built only from the
+    compose spec, which did not name it, so jobs and the server kept sending events."""
+    if host_value is None:
+        monkeypatch.delenv("TIT_NO_TELEMETRY", raising=False)
+    else:
+        monkeypatch.setenv("TIT_NO_TELEMETRY", host_value)
+    env = launch.build_env(
+        host_project_dir=PROJECT,
+        port=8765,
+        token="t",
+        user_config="/tmp/cfg",
+        image_tag="3.0.0",
+    )
+    argv = launch.build_run_argv(
+        launch.BUILTIN_SPEC, env, host_project_dir=PROJECT, image="img"
+    )
+    assert f"TIT_NO_TELEMETRY={host_value or ''}" in argv
+
+
 def test_python_m_tit_cli_is_runnable():
     """The Python CLI must produce help when invoked as a module.
 

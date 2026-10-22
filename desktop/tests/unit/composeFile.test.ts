@@ -13,6 +13,7 @@ import {
   splitCommand,
   type Stack,
 } from "../../src/shared/composeFile";
+import { buildStackEnv } from "../../src/shared/compose";
 
 /**
  * The compose subset the app implements (`docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)` §1), against the
@@ -330,5 +331,19 @@ describe("the shipped docker-compose.yml", () => {
     const withRepo = parseComposeFile(text, { ...ENV, TIT_REPO_DIR: "/Users/ido/repo" });
     const devPlan = buildContainerPlan(withRepo, { serviceName: "tit", projectName: "ti-toolbox-deadbeef", labels: {} });
     expect(devPlan.body.HostConfig.Binds).toContain("/Users/ido/repo:/ti-toolbox");
+  });
+
+  // `stack.ts` interpolates from `{...process.env, ...buildStackEnv(...)}`; the container's env is
+  // only what the file names, so a host `TIT_NO_TELEMETRY=1` was dropped until the file named it.
+  it("forwards the app's TIT_NO_TELEMETRY to the container, and an empty value when unset", () => {
+    if (!rewritten) return;
+    const stackEnv = buildStackEnv({
+      hostProjectDir: "/Users/ido/datasets/000", projectDirName: "000", userConfigDir: "/Users/ido/.config/ti-toolbox",
+      port: 8801, token: "sekret", timezone: "UTC", hostOs: "darwin", hostOsVersion: "24.6.0", hostArch: "arm64",
+    });
+    const envOf = (host: Record<string, string>) =>
+      buildContainerPlan(parseComposeFile(text, { ...host, ...stackEnv }), { serviceName: "tit", projectName: "p", labels: {} }).body.Env;
+    expect(envOf({ TIT_NO_TELEMETRY: "1" })).toContain("TIT_NO_TELEMETRY=1");
+    expect(envOf({})).toContain("TIT_NO_TELEMETRY=");
   });
 });

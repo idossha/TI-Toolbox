@@ -114,6 +114,7 @@ BUILTIN_SPEC = StackSpec(
         ("TIT_HOST_OS", "${TIT_HOST_OS:-unknown}"),
         ("TIT_HOST_OS_VERSION", "${TIT_HOST_OS_VERSION:-unknown}"),
         ("TIT_HOST_ARCH", "${TIT_HOST_ARCH:-unknown}"),
+        ("TIT_NO_TELEMETRY", "${TIT_NO_TELEMETRY:-}"),
     ),
     ports=("127.0.0.1:${TIT_SERVER_PORT:-8765}:${TIT_SERVER_PORT:-8765}",),
     healthcheck=(
@@ -385,6 +386,8 @@ def build_env(
     Mirrors ``shared/compose.ts#buildStackEnv``.  ``TIT_REPO_DIR`` and
     ``TIT_SERVER_RELOAD`` are always present and empty by default for the reason
     that file gives: an omitted key would let the user's own shell supply one.
+    ``TIT_NO_TELEMETRY`` is the opposite case: the user's own opt-out, read from
+    the host environment so it reaches the container.
     """
     return {
         "LOCAL_PROJECT_DIR": host_project_dir,
@@ -393,6 +396,7 @@ def build_env(
         "TIT_HOST_OS": platform.system().lower(),
         "TIT_HOST_OS_VERSION": platform.release(),
         "TIT_HOST_ARCH": platform.machine(),
+        "TIT_NO_TELEMETRY": os.environ.get("TIT_NO_TELEMETRY", ""),
         "TZ": os.environ.get("TZ", "UTC"),
         "TIT_SERVER_PORT": str(port),
         "TIT_SERVER_TOKEN": token,

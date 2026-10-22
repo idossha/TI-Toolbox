@@ -25,6 +25,7 @@ services:
       TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
       TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
       TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
+      TIT_NO_TELEMETRY: ${TIT_NO_TELEMETRY:-} # host opt-out (1/true/yes) reaches the server and jobs
     ports:
       - "127.0.0.1:${TIT_SERVER_PORT:-8765}:${TIT_SERVER_PORT:-8765}"
     healthcheck:
