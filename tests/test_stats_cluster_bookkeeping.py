@@ -6,7 +6,9 @@ same sign-separated clusters the permutation engine tested. v3.1.x re-labelled t
 significant voxels without regard to sign, so two touching clusters of opposite sign became one
 summary entry ("Number of Clusters: 1" beside ``n_significant_clusters == 2``), never printed
 the mass or p-value, and sorted by size under a "by statistic" header. A run with no candidate
-cluster printed "Cluster mass threshold: 0.00" as if a permutation null had been computed.
+cluster printed "Cluster mass threshold: 0.00" as if a permutation null had been computed, and
+its ``result.cluster_threshold`` was 0.0 -- the same number a computed null of zeros gives; it is
+now NaN.
 
 Fixture: 3 responders vs 3 non-responders, two touching 4x4x4 blocks (x 2..5 responders > non,
 x 6..9 responders < non) on a background identical across all subjects (excluded as
@@ -18,6 +20,7 @@ affine applied by hand to the block centroids.
 Run: ``.venv/bin/python -m pytest tests/test_stats_cluster_bookkeeping.py -q -p no:cacheprovider``.
 """
 
+import math
 import re
 from types import SimpleNamespace
 
@@ -139,6 +142,9 @@ def test_counts_agree_between_result_engine_and_summary(touching_run):
     _, body = _cluster_lines(summary)
     assert len(body) == 2
     assert result.n_significant_voxels == 128
+    # A permutation null of zeros puts every quantile of it at 0: a computed threshold of 0,
+    # which the result must keep apart from "no permutation ran" (NaN, below).
+    assert result.cluster_threshold == 0.0
 
 
 def test_each_cluster_carries_its_signed_mass_and_p(touching_run):
@@ -243,6 +249,8 @@ def test_no_candidate_cluster_says_threshold_was_not_computed(
         lines = fh.read().splitlines()
 
     assert result.n_significant_clusters == 0
+    # The result object says what the summary says: no threshold was computed.
+    assert math.isnan(result.cluster_threshold)
     assert (
         "Cluster mass threshold: no candidate clusters; threshold not computed" in lines
     )

@@ -11,7 +11,7 @@ out as a volume, and against ``scipy.stats.ttest_ind`` as the reference t-test:
 (c) a vertex block with zero within-group variance and different group means: scipy gives
     ``t = +/-inf`` there; those vertices leave the analysis (t = 0, p = 1 in the map, as the
     volume path writes them), so no ``inf`` reaches a cluster's ``stat_value`` or
-    ``null_distribution.csv``.
+    ``null_distribution.csv``; the run log counts only the vertices left to test.
 
 The adjacency is a chain (``tests/stats_real_scipy.chain_adjacency``) and the loader returns a
 synthetic matrix, as ``testmap/stats_repro/repro_surface.py`` did; ``surface_stats.msh`` goes
@@ -177,6 +177,11 @@ def test_degenerate_vertices_leave_the_analysis(surface, seeded_permutations):
     clustered = {v for c in result.clusters for v in c["vertices"]}
     assert clustered.isdisjoint(range(N_VERTICES)[DEGENERATE])
     assert set(range(N_VERTICES)[EFFECT]) <= clustered
+    # Every fixture vertex has data (values >= 0.1); only the DEGENERATE block is excluded, so
+    # the run tests N_VERTICES - 10 vertices, and its log says so.
+    n_tested = N_VERTICES - len(range(N_VERTICES)[DEGENERATE])
+    with open(result.log_file) as fh:
+        assert f"valid vertices={n_tested}  paired=False" in fh.read()
 
     with open(f"{result.output_dir}/null_distribution.csv") as fh:
         rows = list(csv.DictReader(fh))

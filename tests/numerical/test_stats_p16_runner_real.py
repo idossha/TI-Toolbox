@@ -16,8 +16,9 @@ Pins:
 * two touching opposite-sign clusters are two summary entries with their mass and p, and each
   centre equals ``nibabel.affines.apply_affine`` of the block centroid (a second
   implementation of the affine map);
-* a run with no candidate cluster asks for no null-distribution figure; one with candidates
-  does, with the configured alpha.
+* a run with no candidate cluster (group comparison or correlation) asks for no
+  null-distribution figure, says "threshold not computed" and returns a NaN
+  ``cluster_threshold``; one with candidates asks for the figure, with the configured alpha.
 
 Run (container): ``simnibs_python -m pytest tests/numerical/test_stats_p16_runner_real.py -q``.
 """
@@ -190,5 +191,36 @@ def test_no_candidate_cluster_writes_no_null_figure(init_pm, seeded):
 
     assert result.n_significant_clusters == 0
     assert seeded == []
+    assert np.isnan(result.cluster_threshold)
     with open(os.path.join(result.output_dir, "analysis_summary.txt")) as fh:
         assert "no candidate clusters; threshold not computed" in fh.read()
+
+
+def test_correlation_without_candidate_cluster_writes_no_null_figure(init_pm, seeded):
+    from tit.stats import CorrelationConfig, run_correlation
+
+    rng = np.random.default_rng(3)
+    rows = [(f"c{i}", "A", float(i)) for i in range(1, 7)]
+    for sid, sim, _ in rows:
+        _write(init_pm, sid, sim, 1.0 + rng.random((10, 10, 10)))
+    cfg = CorrelationConfig(
+        analysis_name="p16_corr_none",
+        subjects=[CorrelationConfig.Subject(s, sim, e) for s, sim, e in rows],
+        n_permutations=20,
+        n_jobs=1,
+        use_weights=False,
+        cluster_threshold=1e-12,
+    )
+    result = run_correlation(cfg)
+    with open(os.path.join(result.output_dir, "analysis_summary.txt")) as fh:
+        lines = fh.read().splitlines()
+
+    assert result.n_significant_clusters == 0
+    assert seeded == []
+    assert np.isnan(result.cluster_threshold)
+    assert (
+        "Cluster mass threshold: no candidate clusters; threshold not computed" in lines
+    )
+    assert not os.path.exists(
+        os.path.join(result.output_dir, "permutation_null_distribution.pdf")
+    )

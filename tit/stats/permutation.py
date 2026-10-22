@@ -110,6 +110,16 @@ def _plot_null(log, output_dir, null_dist, threshold, observed, **plot_options):
     )
 
 
+def _result_threshold(threshold, null_dist):
+    """The result's cluster threshold: NaN when no permutation ran.
+
+    The engine returns 0 when no cluster formed at the cluster-forming threshold,
+    but a null whose quantile really is 0 gives 0 too; NaN keeps "not computed"
+    apart from it, as the summary's "threshold not computed" line does.
+    """
+    return float(threshold) if len(null_dist) else float("nan")
+
+
 def _save_nifti(data, template_img, path):
     img = nib.Nifti1Image(data, template_img.affine, template_img.header)
     nib.save(img, path)
@@ -147,7 +157,8 @@ def run_group_comparison(
     GroupComparisonResult
         Summary of the outcome: output directory, subject counts,
         significant voxel/cluster counts, the permutation-derived cluster
-        threshold and the per-cluster details.
+        threshold (NaN when no cluster formed at the cluster-forming
+        threshold, so no permutation ran) and the per-cluster details.
 
     Raises
     ------
@@ -429,7 +440,7 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
         n_non_responders=len(non_resp_ids),
         n_significant_voxels=int(np.sum(sig_mask)),
         n_significant_clusters=len(sig_clusters),
-        cluster_threshold=float(cluster_threshold),
+        cluster_threshold=_result_threshold(cluster_threshold, null_dist),
         analysis_time=total,
         clusters=clusters,
         log_file=log_file,
@@ -465,7 +476,8 @@ def run_correlation(
     -------
     CorrelationResult
         Output directory, subject count, significant voxel/cluster counts,
-        cluster threshold and per-cluster details.
+        cluster threshold (NaN when no cluster formed at the cluster-forming
+        threshold, so no permutation ran) and per-cluster details.
 
     Raises
     ------
@@ -758,7 +770,7 @@ def _run_correlation_inner(
         n_subjects=n_subjects,
         n_significant_voxels=int(np.sum(sig_mask)),
         n_significant_clusters=len(sig_clusters),
-        cluster_threshold=float(cluster_threshold),
+        cluster_threshold=_result_threshold(cluster_threshold, null_dist),
         analysis_time=total,
         clusters=clusters,
         log_file=log_file,

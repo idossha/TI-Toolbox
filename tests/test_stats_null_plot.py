@@ -7,7 +7,11 @@ Pins:
   significant negative cluster lands to the right of the null, not at ``x < 0``;
 * a cluster is drawn significant when ``p < alpha`` for the configured alpha, and the legend
   says that alpha (v3.1.x hard-coded 0.05: alpha 0.01 with p 0.03 was drawn green);
-* with no candidate cluster (empty null) no figure is written, and the summary says why.
+* with no candidate cluster (empty null) no figure is written, and the summary says why --
+  for the group comparison and the correlation runner alike, and ``result.cluster_threshold``
+  is NaN rather than a 0.0 nobody computed;
+* each runner hands the figure the configured alpha and cluster statistic and the alternative
+  its engine ran with (the correlation runner: always two-sided).
 
 Expected x positions are the hand-oriented masses of the fixtures below (the orientation rule
 as stated in Maris & Oostenveld 2007 / MNE ``tail``), not values read from the code under test.
@@ -15,6 +19,7 @@ as stated in Maris & Oostenveld 2007 / MNE ``tail``), not values read from the c
 Run: ``.venv/bin/python -m pytest tests/test_stats_null_plot.py -q -p no:cacheprovider``.
 """
 
+import math
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -22,7 +27,10 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from tests.stats_real_scipy import real_scipy  # noqa: F401  (fixture)
+from tests.stats_real_scipy import (  # noqa: F401  (fixtures)
+    real_scipy,
+    seeded_permutations,
+)
 
 # One negative and one positive cluster: (size, signed mass, p).
 OBSERVED = [
@@ -203,3 +211,123 @@ def test_runner_passes_alpha_and_alternative_to_the_figure(
     np.testing.assert_array_equal(
         series["observed_x"], [-o["stat_value"] for o in negative]
     )
+
+
+# ── correlation runner (two-sided, its own call sites) ───────────────────────
+
+EFFECTS = np.arange(1.0, 7.0)
+
+
+def _corr_run(monkeypatch, data, plots, size_plots, **cfg_kw):
+    import tit.stats.permutation as perm
+    from tit.stats.config import CorrelationConfig
+
+    template = SimpleNamespace(affine=np.eye(4), header=None)
+    monkeypatch.setattr(
+        perm,
+        "load_group_data_ti_toolbox",
+        lambda dicts, **_: (data, template, [d["subject_id"] for d in dicts]),
+    )
+    monkeypatch.setattr(perm, "_save_nifti", lambda *a, **k: None)
+    monkeypatch.setattr(
+        perm, "plot_permutation_null_distribution", lambda *a, **k: plots.append((a, k))
+    )
+    monkeypatch.setattr(
+        perm, "plot_cluster_size_mass_correlation", lambda *a, **k: size_plots.append(a)
+    )
+    subjects = [
+        CorrelationConfig.Subject(f"s{i}", "N", float(e))
+        for i, e in enumerate(EFFECTS, 1)
+    ]
+    cfg = CorrelationConfig(
+        analysis_name=cfg_kw.pop("analysis_name", "corr_nullplot"),
+        subjects=subjects,
+        n_jobs=1,
+        use_weights=False,
+        **cfg_kw,
+    )
+    return perm.run_correlation(cfg)
+
+
+def _noise_only():
+    """Per-subject uniform noise: no voxel's r reaches p < 1e-12 with 6 subjects."""
+    rng = np.random.default_rng(8)
+    return (rng.random((6, 6, 6, EFFECTS.size)) + 1.0).astype(np.float32)
+
+
+def _planted_negative_block():
+    """A 3x3x3 block whose field falls with the effect (r near -1) on a constant background."""
+    rng = np.random.default_rng(12)
+    data = np.ones((6, 6, 6, EFFECTS.size), dtype=np.float32)
+    for k, e in enumerate(EFFECTS):
+        data[1:4, 1:4, 1:4, k] = 10.0 - e + rng.random((3, 3, 3))
+    return data
+
+
+@pytest.mark.parametrize(
+    "cluster_stat, label",
+    [("mass", "Cluster mass threshold"), ("size", "Cluster size threshold")],
+)
+def test_correlation_without_candidate_cluster_draws_no_null_and_says_why(
+    real_scipy, init_pm, monkeypatch, cluster_stat, label
+):
+    plots, size_plots = [], []
+    result = _corr_run(
+        monkeypatch,
+        _noise_only(),
+        plots,
+        size_plots,
+        analysis_name=f"corr_none_{cluster_stat}",
+        cluster_threshold=1e-12,
+        cluster_stat=cluster_stat,
+        n_permutations=20,
+    )
+    with open(f"{result.output_dir}/analysis_summary.txt") as fh:
+        lines = fh.read().splitlines()
+
+    assert result.n_significant_clusters == 0
+    assert plots == [] and size_plots == []
+    assert f"{label}: no candidate clusters; threshold not computed" in lines
+    assert not any(line.startswith(f"{label}: 0") for line in lines)
+    assert (
+        "Null-distribution figure: not drawn (no cluster formed at the "
+        "cluster-forming threshold, so no permutations ran)"
+    ) in lines
+    assert math.isnan(result.cluster_threshold)
+    with open(result.log_file) as fh:
+        assert (
+            "No null-distribution figure: no candidate clusters, so no permutations ran"
+            in fh.read()
+        )
+
+
+@pytest.mark.parametrize("alpha, cluster_stat", [(0.01, "mass"), (0.02, "size")])
+def test_correlation_runner_hands_the_figure_its_alpha_statistic_and_two_sided_test(
+    real_scipy, seeded_permutations, init_pm, monkeypatch, alpha, cluster_stat
+):
+    plots, size_plots = [], []
+    result = _corr_run(
+        monkeypatch,
+        _planted_negative_block(),
+        plots,
+        size_plots,
+        analysis_name=f"corr_fig_{cluster_stat}",
+        alpha=alpha,
+        cluster_stat=cluster_stat,
+        n_permutations=30,
+    )
+
+    ((args, kwargs),) = plots
+    null, threshold, observed, path = args
+    # Exactly the configured alpha and statistic, and the test the engine ran (two-sided).
+    assert kwargs == {
+        "alpha": alpha,
+        "cluster_stat": cluster_stat,
+        "alternative": "two-sided",
+    }
+    assert len(null) == 30
+    assert path.endswith("permutation_null_distribution.pdf")
+    assert threshold == result.cluster_threshold
+    assert math.isfinite(result.cluster_threshold)
+    # The planted block (27 voxels, r < 0) is among the clusters handed to the figure.
+    assert any(o["size"] == 27 for o in observed)
