@@ -26,6 +26,7 @@ import glob
 import html
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -1002,13 +1003,32 @@ def get_montages(pm: PathManager) -> dict:
 def put_montage(
     pm: PathManager, net: str, kind: str, name: str, pairs: list[list[str]]
 ) -> list[list[str]]:
-    """Create or overwrite one montage; returns *pairs* back."""
+    """Create or overwrite one montage; returns *pairs* back.
+
+    *pairs* must be a montage the simulator can run
+    (:func:`tit.sim.config.check_electrode_pairs`: pairs of two distinct
+    labels, an even count from 2 to 26) and fit *kind*: ``uni_polar`` is 2
+    pairs (TI), ``multi_polar`` 4 or more (mTI).  Anything else raises
+    ``ValueError`` before the file is touched.
+    """
     if not is_safe_name(name):
         raise ValueError(
             "name must match ^[A-Za-z0-9_-]{1,64}$ (no path separators or '..')"
         )
+    from tit import constants as const
+    from tit.sim.config import check_electrode_pairs
     from tit.sim.utils import upsert_montage
 
+    if kind not in ("uni_polar", "multi_polar"):
+        raise ValueError("kind must be uni_polar or multi_polar")
+    if not isinstance(pairs, list):
+        raise ValueError("pairs must be a list of electrode pairs")
+    check_electrode_pairs(pairs, xyz=False)
+    if (kind == "uni_polar") != (len(pairs) == const.TI_ELECTRODE_PAIRS):
+        raise ValueError(
+            f"{len(pairs)} pairs cannot be saved as {kind}: uni_polar is "
+            f"{const.TI_ELECTRODE_PAIRS} pairs (TI), multi_polar 4 or more (mTI)."
+        )
     if not _project_paths_safe(pm, pm.montage_config()):
         raise ValueError("Montage path must remain inside the project")
     mode = "U" if kind == "uni_polar" else "M"
@@ -1550,9 +1570,13 @@ def as_float(value: Any, field_name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         raise ValueError(f"{field_name} must be a number")
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field_name} must be a number") from exc
+    # "nan", "inf" and 1e309 all parse; none is a coordinate, and JSON cannot carry them back.
+    if not math.isfinite(number):
+        raise ValueError(f"{field_name} must be a finite number")
+    return number
 
 
 def list_rois(pm: PathManager, sid: str) -> list[dict] | None:
@@ -2264,7 +2288,19 @@ def freehand_configs(pm: PathManager, sid: str) -> list[dict] | None:
 
 
 def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> dict:
-    """Create or overwrite one free-hand electrode configuration."""
+    """Create or overwrite one free-hand electrode configuration.
+
+    Positions are paired consecutively, as the simulator reads them
+    (:func:`tit.sim.montage_sources.resolve_freehand_montage`), so the
+    placement must be one it can run: ``type`` ``"U"`` with 4 positions (TI)
+    or ``"M"`` with 8, 12, ... (mTI), every coordinate finite and every
+    electrode at least 1 mm from the others
+    (:func:`tit.sim.config.check_electrode_pairs`).  Anything else raises
+    ``ValueError`` before the file is touched.
+    """
+    from tit import constants as const
+    from tit.sim.config import check_electrode_pairs
+
     if not is_safe_name(name):
         raise ValueError(
             "name must match ^[A-Za-z0-9_-]{1,64}$ (no path separators or '..')"
@@ -2273,7 +2309,12 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
     path = _jailed(pm, os.path.join(stim_dir, f"{name}.json"))
     if path is None:
         raise ValueError("Free-hand config path must remain inside the project")
+    kind = config.get("type", "U")
+    if kind not in ("U", "M"):
+        raise ValueError(f"type must be U or M; got {kind!r}")
     entries = config.get("electrode_positions", [])
+    if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
+        raise ValueError("electrode_positions must be a list of {label, x, y, z}")
     # The file keys positions by label, so a repeated label would silently drop a position.
     labels = [entry.get("label") or f"E{i + 1}" for i, entry in enumerate(entries)]
     repeated = sorted({label for label in labels if labels.count(label) > 1})
@@ -2289,10 +2330,23 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
         ]
         for label, entry in zip(labels, entries)
     }
+    n = len(entries)
+    if n % 2 or not const.is_valid_pair_count(n // 2):
+        raise ValueError(
+            f"{n} electrode positions; a placement needs 4 (TI) or a multiple of 4 "
+            "from 8 (mTI)."
+        )
+    if (kind == "U") != (n == 2 * const.TI_ELECTRODE_PAIRS):
+        raise ValueError(
+            f"type {kind} does not fit {n} positions: U is 4 positions (TI), "
+            "M is 8 or more (mTI)."
+        )
+    points = list(positions.values())
+    check_electrode_pairs(list(zip(points[0::2], points[1::2])), xyz=True)
     os.makedirs(stim_dir, exist_ok=True)
     data = {
         "name": name,
-        "type": config.get("type", "U"),
+        "type": kind,
         "electrode_positions": positions,
     }
     with open(path, "w") as f:

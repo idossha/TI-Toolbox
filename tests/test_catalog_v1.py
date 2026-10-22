@@ -204,13 +204,14 @@ def test_montages_roundtrip(client: TestClient) -> None:
 
     r = client.put(
         "/api/catalog/montages/GSN-HydroCel-185.csv/uni_polar/New_One",
-        json={"pairs": [["E001", "E002"]]},
+        json={"pairs": [["E001", "E002"], ["E003", "E004"]]},
         headers=BEARER,
     )
     assert r.status_code == 200
     got = client.get("/api/catalog/montages", headers=BEARER).json()
     assert got["nets"]["GSN-HydroCel-185.csv"]["uni_polar"]["New_One"] == [
-        ["E001", "E002"]
+        ["E001", "E002"],
+        ["E003", "E004"],
     ]
 
     r = client.delete(
@@ -236,10 +237,11 @@ def test_put_montage_rejects_encoded_traversal_name(client: TestClient) -> None:
     *does* reach the handler as a single opaque path-param value."""
     r = client.put(
         "/api/catalog/montages/GSN-HydroCel-185.csv/uni_polar/%2e%2e",
-        json={"pairs": [["E001", "E002"]]},
+        json={"pairs": [["E001", "E002"], ["E003", "E004"]]},
         headers=BEARER,
     )
     assert r.status_code == 422
+    assert "invalid name '..'" in str(r.json()["detail"])
 
 
 def test_put_montage_rejects_unsafe_characters(client: TestClient) -> None:
@@ -248,10 +250,11 @@ def test_put_montage_rejects_unsafe_characters(client: TestClient) -> None:
     routing doesn't block it) but isn't `^[A-Za-z0-9_-]{1,64}$`."""
     r = client.put(
         "/api/catalog/montages/GSN-HydroCel-185.csv/uni_polar/weird%20name",
-        json={"pairs": [["E001", "E002"]]},
+        json={"pairs": [["E001", "E002"], ["E003", "E004"]]},
         headers=BEARER,
     )
     assert r.status_code == 422
+    assert "name" in r.json()["detail"]
 
 
 def test_eeg_nets(client: TestClient) -> None:
@@ -688,6 +691,19 @@ def test_report_route_has_exactly_one_csp_header(client: TestClient) -> None:
     assert len(r.headers.get_list("content-security-policy")) == 1
 
 
+#: A runnable U placement (4 positions, centimetres apart), so a test's one defect is its own.
+_FOUR_POSITIONS = [
+    {"label": "P1", "x": -60.0, "y": 10.0, "z": 40.0},
+    {"label": "P2", "x": 60.0, "y": 10.0, "z": 40.0},
+    {"label": "P3", "x": -60.0, "y": -40.0, "z": 40.0},
+    {"label": "P4", "x": 60.0, "y": -40.0, "z": 40.0},
+]
+_FOUR_POSITIONS_B = [
+    {"label": f"Q{i + 1}", "x": p["x"], "y": p["y"], "z": 70.0}
+    for i, p in enumerate(_FOUR_POSITIONS)
+]
+
+
 def test_freehand_roundtrip(client: TestClient) -> None:
     body = client.get(
         "/api/catalog/freehand", params={"subject": "ernie"}, headers=BEARER
@@ -700,13 +716,11 @@ def test_freehand_roundtrip(client: TestClient) -> None:
         }
     ]
 
+    # An M placement is 8, 12, ... positions (p15: a 1-position "M" was saved and could never run).
     r = client.put(
         "/api/catalog/freehand/second",
         params={"subject": "ernie"},
-        json={
-            "type": "M",
-            "electrode_positions": [{"label": "P1", "x": 1.0, "y": 2.0, "z": 3.0}],
-        },
+        json={"type": "M", "electrode_positions": _FOUR_POSITIONS + _FOUR_POSITIONS_B},
         headers=BEARER,
     )
     assert r.status_code == 200
@@ -725,28 +739,24 @@ def test_put_freehand_rejects_unsafe_characters(client: TestClient) -> None:
     r = client.put(
         "/api/catalog/freehand/weird%20name",
         params={"subject": "ernie"},
-        json={
-            "type": "U",
-            "electrode_positions": [{"label": "P1", "x": 1, "y": 2, "z": 3}],
-        },
+        json={"type": "U", "electrode_positions": _FOUR_POSITIONS},
         headers=BEARER,
     )
     assert r.status_code == 422
+    assert "name" in r.json()["detail"]
 
 
 def test_put_freehand_rejects_non_numeric_coordinates(client: TestClient) -> None:
+    positions = [dict(p) for p in _FOUR_POSITIONS]
+    positions[0]["x"] = "not-a-number"
     r = client.put(
         "/api/catalog/freehand/bad_coords",
         params={"subject": "ernie"},
-        json={
-            "type": "U",
-            "electrode_positions": [
-                {"label": "P1", "x": "not-a-number", "y": 2, "z": 3}
-            ],
-        },
+        json={"type": "U", "electrode_positions": positions},
         headers=BEARER,
     )
     assert r.status_code == 422
+    assert r.json()["detail"] == "electrode_positions[].x must be a number"
 
 
 @pytest.mark.parametrize(
@@ -1102,7 +1112,7 @@ def test_catalog_mutation_and_run_symlink_containment(
             "/api/catalog/freehand/Boundary",
             params={"subject": sid},
             headers=BEARER,
-            json={"type": "U", "electrode_positions": []},
+            json={"type": "U", "electrode_positions": _FOUR_POSITIONS},
         )
         expected = 422 if outside else 200
     else:
@@ -1327,13 +1337,18 @@ def test_catalog_remaining_file_symlink_containment(
         else:
             assert catalog.write_notes(pm, "replacement")["text"] == "replacement"
     elif kind == "montage":
+        # p15: an empty montage is refused for its own sake now; a valid one isolates the
+        # project-boundary rule.
+        pairs = [["A", "B"], ["C", "D"]]
         assert bool(catalog.get_montages(pm)["nets"]) is not outside
         if outside:
             with pytest.raises(ValueError, match="project"):
-                catalog.put_montage(pm, "cap", "uni_polar", "Boundary", [])
+                catalog.put_montage(pm, "cap", "uni_polar", "Boundary", pairs)
             assert not catalog.delete_montage(pm, "cap", "uni_polar", "Boundary")
         else:
-            assert catalog.put_montage(pm, "cap", "uni_polar", "Boundary", []) == []
+            assert (
+                catalog.put_montage(pm, "cap", "uni_polar", "Boundary", pairs) == pairs
+            )
             assert catalog.delete_montage(pm, "cap", "uni_polar", "Boundary")
     elif kind == "simulation":
         assert (
@@ -1363,9 +1378,10 @@ def test_catalog_montages_use_explicit_project_not_singleton(
     original = Path(get_path_manager().montage_config()).read_bytes()
     (project / "other-project").mkdir()
     other = PathManager(str(project / "other-project"))
-    catalog.put_montage(other, "cap", "uni_polar", "Boundary", [["A", "B"]])
+    catalog.put_montage(other, "cap", "uni_polar", "Boundary", [["A", "B"], ["C", "D"]])
     assert catalog.get_montages(other)["nets"]["cap"]["uni_polar"]["Boundary"] == [
-        ["A", "B"]
+        ["A", "B"],
+        ["C", "D"],
     ]
     assert Path(get_path_manager().montage_config()).read_bytes() == original
 
