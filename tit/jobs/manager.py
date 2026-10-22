@@ -559,8 +559,23 @@ class JobManager:
     # -- lock conflicts (for tit.jobs.api / plan routes) -----------------------------------------
 
     def lock_conflicts(self, keys: list[str]) -> list[dict[str, Any]]:
+        """Running jobs that hold a lock *keys* would wait on -- what ``/api/plan`` reports.
+
+        The same holders the scheduler admits against (``_tick``): the on-disk descriptors plus
+        every running job's reservation, so a runner that has not taken (or never takes) its
+        own ``locks.hold`` is still named, and the plan never says "no conflict" while the
+        submitted job would wait.
+        """
         requests = [locks.parse_key(k) for k in keys]
         current = locks.holders(self.project_dir)
+        with self._lock:
+            running = [
+                spec
+                for job_id, spec in self._specs.items()
+                if job_id in self._status and self._status[job_id].state == "running"
+            ]
+        for spec in running:
+            current.extend(self._reserved_holders(spec))
         blocking = locks.match_conflicts(requests, current)
         out: list[dict[str, Any]] = []
         for holder in blocking:

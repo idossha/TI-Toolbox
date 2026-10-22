@@ -18,17 +18,38 @@ to set ``interpolation`` at all. Both are pre-existing bugs in
 when ``False`` and a leadfield for ``(subject_id, eeg_net)`` already exists
 (per ``LeadfieldGenerator.list_leadfields``), generation is skipped and the
 existing path is reported instead of recomputing.
+
+Like every other runner, it holds ``tit.jobs.locks.keys_for("leadfield", ...)``
+while it works (so a bare ``simnibs_python -m`` run and the plan route see the
+same holder the scheduler reserves) and writes an ``exit`` event in a
+``finally``, so a restart can tell a finished job from a lost one.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
+from contextlib import nullcontext
 
 from tit.config_io import deserialize_config
 from tit.opt.leadfield import LeadfieldGenerator
 from tit.opt.leadfield_config import LeadfieldConfig
 from tit.paths import get_path_manager
+
+
+def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
+    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
+    try:
+        from tit.jobs import locks
+        from tit.jobs.runner import ENV_JOB_ID
+    except ImportError:
+        return nullcontext()
+    job_id = os.environ.get(ENV_JOB_ID)
+    if not job_id:
+        return nullcontext()
+    requests = locks.keys_for(kind, subject_ids, config_dict)
+    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def main() -> None:
@@ -45,6 +66,22 @@ def main() -> None:
 
     get_path_manager(data.pop("project_dir"))
     config = deserialize_config(LeadfieldConfig, data)
+    lock_cm = _hold_locks("leadfield", [config.subject_id], data)
+
+    exit_code = 1
+    try:
+        with lock_cm:
+            _run(config)
+            exit_code = 0
+    finally:
+        events.emit_exit(exit_code)
+
+    sys.exit(exit_code)
+
+
+def _run(config: LeadfieldConfig) -> None:
+    """Generate the leadfield, or report the existing one when ``overwrite`` is off."""
+    from tit.jobs import events
 
     generator = LeadfieldGenerator(config.subject_id, electrode_cap=config.eeg_net)
 
@@ -61,13 +98,12 @@ def main() -> None:
             events.emit_result(
                 {"leadfield_hdf": existing[config.eeg_net], "skipped": True}
             )
-            sys.exit(0)
+            return
 
     hdf5_path = generator.generate(tissues=config.tissues)
     events.emit_artifact(str(hdf5_path), kind="hdf5", label="leadfield")
     events.emit_result({"leadfield_hdf": str(hdf5_path)})
     print(f"Leadfield ready: {hdf5_path}")
-    sys.exit(0)
 
 
 if __name__ == "__main__":
