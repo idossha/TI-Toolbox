@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-
 logger = logging.getLogger(__name__)
 
 MARKER_FILES = (
@@ -126,7 +125,7 @@ Data processing and simulations were performed using:
 
 For more information about TI-Toolbox, visit:
 - GitHub: https://github.com/idossha/TI-Toolbox
-- Documentation: https://idossha.github.io/TI-toolbox/
+- Documentation: https://idossha.github.io/TI-Toolbox/
 
 ## BIDS Compliance
 
