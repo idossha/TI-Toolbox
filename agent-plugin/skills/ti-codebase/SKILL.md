@@ -106,11 +106,12 @@ States: `queued running succeeded failed cancelled skipped lost`.
   / parallel`. `mesh_scale` uses the `.msh` *file size* as a cheap proxy for
   element count (a `stat()`, not a parse). `EMULATION_FACTOR = 3.0` (amd64 under
   Rosetta). Every number is an estimate and the UI must label it as one.
-- **Failure taxonomy** — ten `error.type` values, labelled in
-  `desktop/src/renderer/app/jobs-rail/format.ts`: `preflight`, `lock_wait`,
-  `budget_wait`, `runner_failed`, `oom_suspected`, `cancelled`, `skipped`,
-  **`lost` → "Lost (server restarted mid-run)"**, `docker_unavailable`,
-  `kind_error`. `lost` is also what `POST /api/jobs/{id}/force` produces.
+- **Failure taxonomy** — six `error.type` values, the `JobError(type=...)` literals in
+  `tit/jobs/manager.py`, labelled in `desktop/src/renderer/app/jobs-rail/format.ts`:
+  `runner_failed` (a non-zero exit or a signal; signal 9 says "likely out-of-memory"),
+  `skipped` (a dependency failed), **`lost` → "Lost (server restarted mid-run)"**,
+  `forced` (`POST /api/jobs/{id}/force`: the job lands in state `lost`, or `cancelled` if
+  it was still queued), `kind_error` and `spawn_error` (the runner could not start).
 - **A server restart never re-adopts running jobs** (by design, Sep 2026):
   startup reconciliation (`JobManager._reconcile_all`) terminates a still-live
   runner tree and records the job `failed` with `error.type` `lost`; a queued job
@@ -188,8 +189,10 @@ Tests: `reset_path_manager()`; the `_reset_path_manager` fixture is `autouse`.
   and/or `VITE_INCLUDE_GALLERY=1` at build time.
 - **Guards** — `python3 dev/route_import_guard.py && python3 dev/contracts_check.py`.
 - **Real-container smoke** — `dev/smoke.sh --list | dev/smoke.sh | dev/smoke.sh <row>`.
-- pytest markers: `unit integration slow requires_simnibs requires_freesurfer
-  requires_data gui smoke` (`smoke` is deselected by default; `dev/smoke.sh` runs it).
+- pytest markers: `unit integration requires_data host_numerical smoke` (`smoke` is
+  deselected by default; `dev/smoke.sh` runs it. `host_numerical` marks a `tests/numerical`
+  module that needs only real numpy, scipy and nibabel, so CI also runs it on the host with
+  `pytest tests/numerical -m host_numerical`).
 
 ## The gate
 

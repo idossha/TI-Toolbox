@@ -691,6 +691,10 @@ _DICOM_LIKE_EXTS = (
 )
 
 
+#: tit.pre.fastsurfer.SEG_FILENAME: the segmentation a finished FastSurfer run leaves.
+_FASTSURFER_SEG = "aparc.DKTatlas+aseg.deep.mgz"
+
+
 def _natural_key(text: str) -> List[Any]:
     """tit.paths.natural_key: ``2`` sorts before ``10`` (digits compared as numbers)."""
     return [int(c) if c.isdigit() else c.lower() for c in re.split("([0-9]+)", text)]
@@ -771,10 +775,16 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
         entry: Dict[str, Any] = {
             "id": sid,
             "anat_files": ls(anat),
-            "has_m2m": isdir(m2m),
+            # Finished stages only, as in the app (tit.catalog via
+            # tit.pre.preflight.step_output_complete): an interrupted run's folder is not done.
+            "has_m2m": isdir(m2m)
+            and isfile(m2m / f"{sid}.msh")
+            and isfile(m2m / "final_tissues.nii.gz"),
             "has_head_mesh": isfile(m2m / f"{sid}.msh"),
             "has_sourcedata": _has_staged_raw(sourcedata / f"sub-{sid}", root),
-            "has_fastsurfer": isdir(deriv / "fastsurfer" / f"sub-{sid}"),
+            "has_fastsurfer": isfile(
+                deriv / "fastsurfer" / f"sub-{sid}" / "mri" / _FASTSURFER_SEG
+            ),
             "has_freesurfer": isdir(deriv / "freesurfer" / f"sub-{sid}"),
             "freesurfer_recon": isfile(
                 deriv / "freesurfer" / f"sub-{sid}" / "mri" / "aparc+aseg.mgz"
@@ -890,6 +900,11 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             "folder under sourcedata/, staged or not. A SimNIBS folder without m2m_<id> "
             "does not make a subject. As in the app, a folder that is a symlink leading "
             "out of the project is not read.",
+            "has_m2m and has_fastsurfer mean the stage finished, as in the app and "
+            "pre-processing's skip: has_m2m needs m2m_<id>/<id>.msh and "
+            "final_tissues.nii.gz (charm), has_fastsurfer needs "
+            "mri/aparc.DKTatlas+aseg.deep.mgz (FastSurfer). The folder of an interrupted "
+            "run still lists its subject; replace the stage to finish it.",
         ],
         "layout_reference": f"{SITE_BASE}/wiki/overview/",
     }
@@ -1044,16 +1059,12 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "lost",
         ],
         "failure_taxonomy": {
-            "preflight": "Preflight check failed",
-            "lock_wait": "Waiting on a lock",
-            "budget_wait": "Waiting on the resource budget",
             "runner_failed": "Runner failed",
-            "oom_suspected": "Likely out of memory",
-            "cancelled": "Cancelled",
             "skipped": "Skipped",
             "lost": "Lost (server restarted mid-run)",
-            "docker_unavailable": "Docker is unavailable",
+            "forced": "Force-stopped",
             "kind_error": "Invalid job configuration",
+            "spawn_error": "Could not start the job",
         },
         "entry_points": {
             "desktop_app": "the packaged Electron app (desktop/)",

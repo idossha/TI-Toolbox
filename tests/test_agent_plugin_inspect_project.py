@@ -75,10 +75,14 @@ def project(tmp_path):
     sourcedata only; sub-103: a FastSurfer run and nothing else; sub-104: a legacy FreeSurfer
     recon and nothing else."""
     from tit.paths import get_path_manager
+    from tit.pre.fastsurfer import SEG_FILENAME
 
     pm = get_path_manager(str(tmp_path))
+    # Finished stages, as their producers leave them: charm's mesh and final segmentation,
+    # FastSurfer's segmentation (tit.pre.fastsurfer.SEG_FILENAME).
     _touch(os.path.join(pm.m2m("101"), "101.msh"))
-    _touch(os.path.join(pm.fastsurfer_subject("101"), "mri", "aparc.DKTatlas+aseg.mgz"))
+    _touch(os.path.join(pm.m2m("101"), "final_tissues.nii.gz"))
+    _touch(os.path.join(pm.fastsurfer_mri("101"), SEG_FILENAME))
     # A 4-pair simulation "S": the two intermediate TI meshes, the mTI mesh and its NIfTIs.
     _touch(os.path.join(pm.ti_mesh_dir("101", "S"), "S_TI_AB.msh"))
     _touch(os.path.join(pm.ti_mesh_dir("101", "S"), "S_TI_CD.msh"))
@@ -89,7 +93,7 @@ def project(tmp_path):
     _touch(os.path.join(mti_niftis, "grey_S_mTI_max.nii.gz"))
     _touch(os.path.join(mti_niftis, "S_mTI_max.nii"))
     _touch(os.path.join(pm.sourcedata_subject("102"), "T1w", "IM0001.dcm"))
-    os.makedirs(pm.fastsurfer_subject("103"))
+    _touch(os.path.join(pm.fastsurfer_mri("103"), SEG_FILENAME))
     os.makedirs(pm.freesurfer_subject("104"))
     return pm
 

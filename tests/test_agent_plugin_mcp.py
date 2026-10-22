@@ -52,6 +52,7 @@ def project(tmp_path):
     sn = root / "derivatives" / "SimNIBS" / "sub-101"
     (sn / "m2m_101").mkdir(parents=True)
     (sn / "m2m_101" / "101.msh").write_bytes(b"")
+    (sn / "m2m_101" / "final_tissues.nii.gz").write_bytes(b"")  # charm finished
     (sn / "leadfields").mkdir()
     (sn / "leadfields" / "101_leadfield_EEG10-20.hdf5").write_bytes(b"")
     sim = sn / "Simulations" / "L_Insula"
@@ -314,9 +315,7 @@ class TestProtocol:
         )
         assert proc.returncode == 0, proc.stderr
         # tools/call answers on its own thread, so match responses by id, not by order.
-        out = {
-            r["id"]: r for r in map(json.loads, proc.stdout.splitlines()) if r
-        }
+        out = {r["id"]: r for r in map(json.loads, proc.stdout.splitlines()) if r}
         assert out[1]["result"]["serverInfo"]["name"] == "ti-toolbox"
         assert {t["name"] for t in out[2]["result"]["tools"]} >= {
             "inspect_project",

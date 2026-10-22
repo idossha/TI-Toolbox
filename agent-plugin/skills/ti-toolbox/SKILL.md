@@ -197,20 +197,17 @@ Failure `error.type` values and the wording the UI shows:
 
 | type | label |
 |------|-------|
-| `preflight` | Preflight check failed |
-| `lock_wait` | Waiting on a lock |
-| `budget_wait` | Waiting on the resource budget |
 | `runner_failed` | Runner failed |
-| `oom_suspected` | Likely out of memory |
-| `cancelled` | Cancelled |
 | `skipped` | Skipped |
 | `lost` | **Lost (server restarted mid-run)** |
-| `docker_unavailable` | Docker is unavailable |
+| `forced` | Force-stopped |
 | `kind_error` | Invalid job configuration |
+| `spawn_error` | Could not start the job |
 
 `lost` means the server restarted while the job was running: the job is over and
 will not resume. A job stuck at `running` with no process behind it is freed with
-`POST /api/jobs/{id}/force`, which lands it in `lost`.
+`POST /api/jobs/{id}/force`, which lands it in state `lost` with `error.type`
+`forced`.
 
 ## Common user pitfalls to check first
 

@@ -17,7 +17,7 @@ failure) is not:
 | what ``loader.sh`` needs | ``loader.sh`` line 2, "Python-free" |
 | that ``loader.sh``, ``loader.py`` and ``tit launch`` open the desktop app | ``loader.sh`` ("The desktop app is the default UI") and ``tit.cli.LAUNCH_EPILOG`` |
 | wiki slugs and WebSocket routes | ``docs/wiki/*.md`` and the ``@...websocket(...)`` routes under ``tit/server`` |
-| "N ``error.type`` values" | the ``JobError.type`` enum in ``contracts/openapi.yaml`` |
+| "N ``error.type`` values" | the ``JobError(type=...)`` literals under ``tit/jobs`` |
 | a server restart and re-adoption | ``JobManager._reconcile_all`` (never re-adopts; records ``lost``) |
 | the pytest marker list | the ``markers`` of ``pytest.ini`` |
 | the project layouts (ti-toolbox and ti-domain trees, quick facts ``project_layout``) | the directories ``PathManager``, ``NOTEBOOK_SUBDIR`` and ``tit.storage.kind_prefixes`` name, checked at the levels in ``_CHECKED_PARENTS``; each names ``TI/mesh`` and ``mTI/mesh`` |
@@ -481,11 +481,20 @@ def test_cited_websockets_are_served():
 # ---------------------------------------------------------------------------------------------
 
 
-def test_the_error_type_count_is_the_contracts(texts):
-    import yaml
+def test_the_error_type_count_is_the_job_managers(texts):
+    import ast
 
-    contract = yaml.safe_load((REPO / "contracts/openapi.yaml").read_text())
-    enum = contract["components"]["schemas"]["JobError"]["properties"]["type"]["enum"]
+    # The types the job manager writes (every literal JobError(type=...) under tit/jobs); the
+    # contract enum is not the source, it still lists types nothing emits.
+    emitted = set()
+    for path in sorted((REPO / "tit" / "jobs").glob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            func = getattr(node, "func", None)
+            name = getattr(func, "id", None) or getattr(func, "attr", None)
+            if isinstance(node, ast.Call) and name == "JobError":
+                [value] = [k.value for k in node.keywords if k.arg == "type"]
+                emitted.add(value.value)
+    assert {"runner_failed", "lost"} <= emitted  # the collector found the common ones
     words = (
         "zero one two three four five six seven eight nine ten eleven twelve".split()
     )
@@ -498,8 +507,8 @@ def test_the_error_type_count_is_the_contracts(texts):
             checked.add(name)
             n = int(count) if count.isdigit() else words.index(count)
             assert n == len(
-                enum
-            ), f"{name}: {m.group(0)!r}, the contract has {len(enum)}"
+                emitted
+            ), f"{name}: {m.group(0)!r}, the job manager writes {len(emitted)}"
     assert "agent-plugin/skills/ti-codebase/SKILL.md" in checked
 
 

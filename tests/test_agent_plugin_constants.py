@@ -15,7 +15,7 @@ source here:
 | ``PROPOSAL_DONE`` / ``STEP_DONE`` | the states ``tit.server.proposals.view`` / ``_step_state`` can never leave |
 | the ``kind`` description | ``tit.jobs.spec.JOB_KINDS`` |
 | quick facts ``job_kinds`` / ``job_states`` | ``tit.jobs.spec.JOB_KINDS`` / ``JOB_STATES`` |
-| quick facts ``failure_taxonomy`` | ``JobError.type`` in ``contracts/openapi.yaml`` and the labels in ``desktop/src/renderer/app/jobs-rail/format.ts`` |
+| quick facts ``failure_taxonomy`` | the ``JobError(type=...)`` literals under ``tit/jobs`` and the labels in ``desktop/src/renderer/app/jobs-rail/format.ts`` |
 
 Where the expected values come from: the ``tit`` modules, the frozen contract and the desktop
 label table, read at test time. "Final" proposal/step states are computed by driving the
@@ -29,6 +29,7 @@ Deliberately elsewhere: the prose facts (tests/test_agent_plugin_facts.py).
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import itertools
 import json
@@ -213,12 +214,22 @@ def test_quick_facts_kinds_and_states_are_the_job_models(facts):
     assert facts["job_states"] == list(JOB_STATES)
 
 
-def test_quick_facts_failure_taxonomy_is_the_contracts_and_the_apps(facts):
-    contract = yaml.safe_load((REPO / "contracts/openapi.yaml").read_text())
-    enum = contract["components"]["schemas"]["JobError"]["properties"]["type"]["enum"]
-    assert list(facts["failure_taxonomy"]) == enum
+def test_quick_facts_failure_taxonomy_is_the_job_managers_and_the_apps(facts):
+    # The types the job manager writes: every literal JobError(type=...) under tit/jobs. The
+    # contract's JobError.type enum still lists ten values (six never emitted, `forced` and
+    # `spawn_error` missing), so it is not the source here.
+    emitted = set()
+    for path in sorted((REPO / "tit" / "jobs").glob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            func = getattr(node, "func", None)
+            name = getattr(func, "id", None) or getattr(func, "attr", None)
+            if isinstance(node, ast.Call) and name == "JobError":
+                [value] = [k.value for k in node.keywords if k.arg == "type"]
+                emitted.add(value.value)
+    assert {"runner_failed", "lost"} <= emitted  # the collector found the common ones
+    assert set(facts["failure_taxonomy"]) == emitted
     fmt = (REPO / "desktop/src/renderer/app/jobs-rail/format.ts").read_text()
     table = re.search(r"const ERROR_LABEL[^{]*\{(.*?)\};", fmt, re.S).group(1)
     labels = dict(re.findall(r'(\w+): "([^"]+)"', table))
-    assert len(labels) == len(enum)
+    assert len(labels) == len(emitted)
     assert facts["failure_taxonomy"] == labels

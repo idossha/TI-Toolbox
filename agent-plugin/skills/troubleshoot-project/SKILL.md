@@ -51,19 +51,20 @@ cancelled skipped lost`. Map the `error.type` to what to tell the user:
 
 | `error.type` | Shown as | What it means |
 |---|---|---|
-| `preflight` | Preflight check failed | Inputs were missing before anything ran — go back to step 2. |
-| `lock_wait` / `budget_wait` | Waiting on a lock / on the resource budget | Not a failure. Another job holds the resource. |
-| `runner_failed` | Runner failed | The module raised. Read the last lines of `stdout.log`. |
-| `oom_suspected` | Likely out of memory | Raise Docker's memory (32 GB+ for diffusion), or run fewer jobs at once. |
-| `cancelled` / `skipped` | Cancelled / Skipped | A user cancelled it, or a dependency failed or was unknown. |
+| `runner_failed` | Runner failed | The module raised or exited non-zero. Read the last lines of `stdout.log`. "terminated by signal 9 — likely out-of-memory" means raise Docker's memory (32 GB+ for diffusion), or run fewer jobs at once. |
+| `skipped` | Skipped | A job it depended on failed or was unknown. |
 | **`lost`** | **Lost (server restarted mid-run)** | The server restarted while it ran. The job is over and will not resume — re-submit it. |
-| `docker_unavailable` | Docker is unavailable | The daemon is not running, or the socket is not mounted. |
+| `forced` | Force-stopped | Someone force-stopped it with `POST /api/jobs/{id}/force` without waiting for the process. |
 | `kind_error` | Invalid job configuration | The config does not match the job kind. |
+| `spawn_error` | Could not start the job | The runner process could not be started. |
+
+A cancelled job carries no `error.type`. Missing inputs are refused before a job is
+queued (the preflight check), so they never appear here — go back to step 2.
 
 A server restart never re-adopts a running job: startup reconciliation stops it
 and records it `failed` with `error.type` `lost`. A job still shown at `running`
 with nothing behind it is freed with `POST /api/jobs/{id}/force`, which lands it in
-`lost`.
+state `lost` with `error.type` `forced`.
 
 ## 4. Won't start at all
 
