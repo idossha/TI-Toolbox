@@ -208,9 +208,9 @@ function isUnsupportedEngine(version: DockerVersionInfo): boolean {
 export class StackManager {
   private current: CurrentStack | null = null;
   /**
-   * Containers this process created that are not `current`: one still waiting for its server, or
-   * one whose health wait gave up while it kept running. Owned from creation, so `stop()` — and
-   * therefore quitting — stops them too.
+   * Every container this process created and has not stopped yet — including one still waiting
+   * for its server, and one whose health wait gave up while it kept running. Owned from creation,
+   * so `stop()` — and therefore quitting — stops them along with `current`.
    */
   private owned = new Set<string>();
   /** Bumped by every `stop()`; a start that sees it change was stopped while it waited. */
@@ -465,7 +465,6 @@ export class StackManager {
     }
     if (this.stops !== stops) throw new StackStartError("unknown", STOPPED_WHILE_STARTING);
 
-    this.owned.delete(created.Id);
     this.current = { projectName, hostProjectDir, containerId: created.Id, containerName: plan.containerName, image: plan.image, origin, token, port: plan.hostPort };
     this.emit({ type: "started", origin, port: plan.hostPort, attached: false });
     return { ok: true, url: origin, token, attached: false };
