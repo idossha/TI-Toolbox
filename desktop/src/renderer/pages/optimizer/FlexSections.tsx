@@ -189,6 +189,8 @@ export function ElectrodesSection({ form, onChange }: { form: FlexFormState; onC
           <Field
             label="Diameter"
             required
+            // The full row the (x, y) pair held, so the fields after it keep their columns.
+            className="optimizer-span"
             help="Flex-search electrodes are discs (SimNIBS takes one radius)."
             error={flexFieldError(form, "dimensionWidth") ?? (form.dimensionWidth !== form.dimensionHeight ? "Unequal ellipse dimensions are unsupported. Use equal dimensions or a rectangle." : undefined)}
           >
