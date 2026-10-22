@@ -13,12 +13,20 @@
  * become four small labelled grids in the order a result is read, and any metric a future analyzer
  * adds falls through to `extras` rather than being silently dropped.
  *
- * Units. Field values are V/m (`tit.analyzer` works in V/m throughout). `focality_*_area` is cm²
- * in **mesh** space and cm³ in **voxel** space — the field name says "area" for both, which is the
- * naming SCI-03 deliberately kept when it fixed the voxel divisor; the label here says which one
- * this run is, because that is the only place the reader can learn it.
+ * Units. Field values carry the unit `tit.constants.FIELD_REGISTRY` gives the analysed field
+ * (`field_name`): V/m for the envelopes and `hf_peak`, (V/m)² for `hf_sar`. `focality_*_area` is
+ * cm² in **mesh** space and cm³ in **voxel** space — the field name says "area" for both, which is
+ * the naming SCI-03 deliberately kept when it fixed the voxel divisor; the label here says which
+ * one this run is, because that is the only place the reader can learn it.
  * `total_area_or_volume` is mm²/mm³ and was never rescaled (SCI-03 again).
+ *
+ * Whole-tissue numbers. `gm_*` and `percentile_*` describe the whole analysed tissue, not the ROI
+ * (`tit/analyzer/analyzer.py` AnalysisResult): the grey-matter surface in mesh space, the selected
+ * tissue (GM, WM or both — `results.csv` does not say which) in voxel space. They are one group
+ * titled by that tissue, so a whole-tissue 99.9th percentile above the ROI maximum does not read as
+ * an ROI percentile. `focality_X_area` is the extent at or above X % of that 99.9th percentile.
  */
+import { fieldSpecForName } from "../../analyzer/fields";
 import { formatCount, formatMetric, type KeyNumber } from "./metrics";
 import type { SummaryRow } from "./simulation";
 
@@ -80,6 +88,16 @@ export function focalityUnit(space: string | undefined): string {
   return space === "voxel" ? "cm³" : "cm²";
 }
 
+/** The unit of a field's values: `FIELD_REGISTRY`'s, V/m for a field it does not list. */
+export function fieldUnit(field: string | undefined): string {
+  return (field && fieldSpecForName(field)?.units) || "V/m";
+}
+
+/** What the whole-tissue numbers are taken over: the GM surface (mesh) or the analysed volume. */
+export function wholeTissueTitle(space: string | undefined): string {
+  return space === "voxel" ? "Whole analysed tissue" : "Whole grey matter";
+}
+
 /** The unit of `total_area_or_volume` for a given analysis space. */
 export function extentUnit(space: string | undefined): string {
   return space === "voxel" ? "mm³" : "mm²";
@@ -135,7 +153,7 @@ export function analysisView(
 ): AnalysisView {
   const map = metricMap(table);
   const space = map.get("space")?.trim() || undefined;
-  const fieldUnit = "V/m";
+  const unit = fieldUnit(map.get("field_name")?.trim());
 
   const header: SummaryRow[] = [];
   if (context.subject) header.push({ label: "Subject", value: context.subject });
@@ -153,39 +171,34 @@ export function analysisView(
     {
       title: "ROI",
       metrics: keep([
-        metric("Mean", numberOf(map, "roi_mean"), fieldUnit, { lead: true }),
-        metric("Max", numberOf(map, "roi_max"), fieldUnit, { lead: true }),
-        metric("Min", numberOf(map, "roi_min"), fieldUnit),
+        metric("Mean", numberOf(map, "roi_mean"), unit, { lead: true }),
+        metric("Max", numberOf(map, "roi_max"), unit, { lead: true }),
+        metric("Min", numberOf(map, "roi_min"), unit),
         metric("Focality ratio", numberOf(map, "roi_focality")),
       ]),
     },
     {
-      title: "Percentiles",
+      title: wholeTissueTitle(space),
       metrics: keep([
-        metric("95th", numberOf(map, "percentile_95"), fieldUnit),
-        metric("99th", numberOf(map, "percentile_99"), fieldUnit),
-        metric("99.9th", numberOf(map, "percentile_99_9"), fieldUnit),
-      ]),
-    },
-    {
-      title: "Grey matter",
-      metrics: keep([
-        metric("Mean", numberOf(map, "gm_mean"), fieldUnit),
-        metric("Max", numberOf(map, "gm_max"), fieldUnit),
+        metric("Mean", numberOf(map, "gm_mean"), unit),
+        metric("Max", numberOf(map, "gm_max"), unit),
+        metric("95th percentile", numberOf(map, "percentile_95"), unit),
+        metric("99th percentile", numberOf(map, "percentile_99"), unit),
+        metric("99.9th percentile", numberOf(map, "percentile_99_9"), unit),
       ]),
     },
     {
       title: "Normal component",
       metrics: keep([
-        metric("Mean", numberOf(map, "normal_mean"), fieldUnit),
-        metric("Max", numberOf(map, "normal_max"), fieldUnit),
+        metric("Mean", numberOf(map, "normal_mean"), unit),
+        metric("Max", numberOf(map, "normal_max"), unit),
         metric("Focality ratio", numberOf(map, "normal_focality")),
       ]),
     },
     {
       title: `Focality extent · ${fu}`,
       metrics: keep([
-        metric("≥ 50 % of max", numberOf(map, "focality_50_area"), fu),
+        metric(`≥ 50 % of ${space === "voxel" ? "tissue" : "GM"} 99.9th percentile`, numberOf(map, "focality_50_area"), fu),
         metric("≥ 75 %", numberOf(map, "focality_75_area"), fu),
         metric("≥ 90 %", numberOf(map, "focality_90_area"), fu),
         metric("≥ 95 %", numberOf(map, "focality_95_area"), fu),

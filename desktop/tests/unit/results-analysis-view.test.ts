@@ -158,7 +158,8 @@ describe("analysisView (mesh)", () => {
   it("labels the focality extent group with cm² for a mesh analysis", () => {
     const focality = view.groups.find((g) => g.title.startsWith("Focality extent"));
     expect(focality?.title).toBe("Focality extent · cm²");
-    expect(focality?.metrics[0]).toEqual({ label: "≥ 50 % of max", value: "119.3 cm²" });
+    // The extent is relative to the GM 99.9th percentile (analyzer focality_*_area), not the max.
+    expect(focality?.metrics[0]).toEqual({ label: "≥ 50 % of GM 99.9th percentile", value: "119.3 cm²" });
   });
 
   it("counts mesh elements and reports the ROI area in mm²", () => {
