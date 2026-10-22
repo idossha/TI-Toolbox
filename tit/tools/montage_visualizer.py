@@ -252,7 +252,9 @@ def visualize_montage(
         Directory to write the output PNG(s) into.
     sim_mode : str, optional
         ``"U"`` produces one image per montage; ``"M"`` produces a
-        single combined image.  Default ``"U"``.
+        single combined image.  Default ``"U"``.  Either way the image is
+        drawn on the blank template, so a re-run never keeps an earlier
+        run's rings.
     """
     if is_skipped_net(eeg_net):
         expected = get_expected_output_filename(montage_name, sim_mode)
@@ -309,10 +311,7 @@ def visualize_montage(
     # never leave a bare template at the successful-output path (or damage an existing image).
     with TemporaryDirectory(prefix=".montage-", dir=output_dir) as staging:
         out_image = os.path.join(staging, "montage.png")
-        source = (
-            final_image if sim_mode != "U" and os.path.exists(final_image) else template
-        )
-        shutil.copy2(source, out_image)
+        shutil.copy2(template, out_image)
         for i, pair in enumerate(electrode_pairs):
             e1, e2 = pair
             color = _COLORS[i % len(_COLORS)]
