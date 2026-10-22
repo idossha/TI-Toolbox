@@ -16,29 +16,6 @@ import type { SummaryRow } from "./simulation";
 import type { ExTable } from "./ex";
 import type { FlexElectrode } from "./flex";
 
-/** A flush section of the preview: an 11px eyebrow over its content, no card, no border box. */
-export function PreviewSection({
-  title,
-  actions,
-  children,
-  testid,
-}: {
-  title: string;
-  actions?: ReactNode;
-  children: ReactNode;
-  testid?: string;
-}) {
-  return (
-    <section className="results-preview-section" data-testid={testid}>
-      <div className="results-preview-section-head">
-        <span className="results-eyebrow">{title}</span>
-        {actions}
-      </div>
-      {children}
-    </section>
-  );
-}
-
 /** The label/value rows. `DefinitionList` is the read-only pair primitive (DESIGN.md §5). */
 export function SummaryRows({ rows, testid }: { rows: SummaryRow[]; testid?: string }) {
   if (rows.length === 0) return null;

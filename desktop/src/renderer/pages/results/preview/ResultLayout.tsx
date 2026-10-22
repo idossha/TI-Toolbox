@@ -36,8 +36,6 @@ export const SECTION_ORDER = [
   "trailing",
 ] as const;
 
-export type SectionKind = (typeof SECTION_ORDER)[number];
-
 export type ResultSection =
   /** The compact key/value block that says what this output is. */
   | { kind: "header"; rows: SummaryRow[]; chips?: string[] }
