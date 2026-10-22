@@ -43,6 +43,11 @@ def _read_conductivity(sid: str, sim: str) -> str:
 
     Returns one of ``"scalar"``, ``"vn"``, ``"dir"``, or ``"mc"``.
     Raises if the config is missing — a completed simulation always has one.
+
+    Raises:
+        FileNotFoundError: If the simulation has no ``documentation/config.json``.
+        ValueError: If the record holds no conductivity, which spells the carrier
+            meshes' names (``<sid>_TDCS_<channel>_<conductivity>.msh``).
     """
     from tit.paths import get_path_manager
 
@@ -50,7 +55,13 @@ def _read_conductivity(sid: str, sim: str) -> str:
     config_path = os.path.join(pm.simulation(sid, sim), "documentation", "config.json")
     with open(config_path) as f:
         data = json.load(f)
-    return data["conductivity"]
+    cond = data.get("conductivity") if isinstance(data, dict) else None
+    if not isinstance(cond, str) or not cond:
+        raise ValueError(
+            f"No conductivity recorded in {config_path}; it names the carrier meshes "
+            "(high_Frequency/mesh/<sid>_TDCS_<channel>_<conductivity>.msh)."
+        )
+    return cond
 
 
 # ──────────────────────────────────────────────────────────────────────────────

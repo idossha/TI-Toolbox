@@ -48,20 +48,9 @@ def configure_montage_loggers(parent_logger: logging.Logger) -> None:
 
 
 def _find_tetrahedral_mesh(sim_dir: str) -> str:
-    candidates: list[str] = []
+    from tit.blender.config import tetrahedral_mesh_candidates
 
-    ti_mesh_dir = os.path.join(sim_dir, "TI", "mesh")
-    if os.path.isdir(ti_mesh_dir):
-        for f in os.listdir(ti_mesh_dir):
-            if f.endswith("_TI_final.msh") or f.endswith("_T1.msh"):
-                candidates.append(os.path.join(ti_mesh_dir, f))
-
-    hf_mesh_dir = os.path.join(sim_dir, "high_Frequency", "mesh")
-    if os.path.isdir(hf_mesh_dir):
-        for f in os.listdir(hf_mesh_dir):
-            if f.endswith(".msh"):
-                candidates.append(os.path.join(hf_mesh_dir, f))
-
+    candidates = tetrahedral_mesh_candidates(sim_dir)
     if not candidates:
         raise FileNotFoundError(f"No tetrahedral mesh found under {sim_dir}")
     return sorted(candidates)[0]
@@ -287,12 +276,16 @@ def build_montage_publication_blend(
     subject_m2m = pm.m2m(subject_id)
     if not subject_m2m or not os.path.isdir(subject_m2m):
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
+    from tit.blender.config import scalp_source_mesh
+
+    # Shared with tit.jobs.preflight, so the check before the job names this file too.
     canonical_mesh = pm.ti_mesh(subject_id, simulation_name)
-    scalp_mesh = (
-        canonical_mesh
-        if os.path.isfile(canonical_mesh)
-        else _find_tetrahedral_mesh(sim_dir)
-    )
+    scalp_mesh = scalp_source_mesh(canonical_mesh, sim_dir)
+    if scalp_mesh is None:
+        raise FileNotFoundError(
+            f"No tetrahedral mesh to cut the scalp from: neither {canonical_mesh} nor "
+            f"any high_Frequency/mesh/*.msh under {sim_dir}."
+        )
 
     if output_dir is None:
         if not pm.project_dir:

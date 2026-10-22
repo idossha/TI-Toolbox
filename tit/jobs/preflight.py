@@ -911,7 +911,11 @@ def _blender_simulation_inputs(
     pm: PathManager, sid: str, sim: str, mode: str
 ) -> list[MissingInput]:
     """What a region / vector / montage export reads from the simulation itself."""
-    from tit.blender.config import carrier_mesh_paths, central_surface_path
+    from tit.blender.config import (
+        carrier_mesh_paths,
+        central_surface_path,
+        scalp_source_mesh,
+    )
 
     found: list[MissingInput] = []
     rerun = _simulation_fix(sid, sim)
@@ -947,6 +951,17 @@ def _blender_simulation_inputs(
                 found.append(_eeg_net_missing(pm, sid, csv_path, f"EEG net {net!r}"))
             else:
                 found.extend(_collapsed_net(sid, csv_path))
+    if mode == "MontageConfig":
+        ti_mesh = pm.ti_mesh(sid, sim)
+        if scalp_source_mesh(ti_mesh, pm.simulation(sid, sim)) is None:
+            found.append(
+                MissingInput(
+                    f"volume mesh of {sim!r} to cut the montage's scalp from (its TI "
+                    "mesh, or any high_Frequency/mesh/*.msh)",
+                    ti_mesh,
+                    rerun,
+                )
+            )
     if mode == "VectorConfig" and isinstance(record, dict):
         cond = record.get("conductivity")
         if not isinstance(cond, str) or not cond:

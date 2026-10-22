@@ -18,7 +18,13 @@ that drift together still fail.
 Simulation trees: (a) a labelled 2-pair run; (b) an XYZ run, with the ``config.json`` shape of
 Dataset 000 ``sub-101/20260919_131736_879_1`` (``eeg_net: null``, coordinate pairs); (c) an mTI
 run; (d) a 2-pair run without its high-frequency meshes; (e) a 2-pair run without
-``documentation/config.json``; (f) an mTI run without its central surface.
+``documentation/config.json``; (f) an mTI run without its central surface; (g) a run whose
+recorded net has no CSV in the subject's eeg_positions; (h) a run whose record has
+``conductivity: null``; (i) a run on a subject without ``m2m/segmentation/labeling.nii.gz`` (the
+sub-cortical default volume); (j) a simulation that does not exist; (k) a run with neither its
+TI volume mesh nor any high-frequency mesh (nothing to cut the montage's scalp from). An explicit
+sub-cortical ``nifti_path`` that is not there, and which mesh the montage cuts its scalp from
+(the run's TI mesh; an mTI run's first carrier), are pinned below the table.
 
 Host leg. Reproduce:
 ``.venv/bin/python -m pytest tests/test_blender_preflight_matches_runner.py -q -p no:cacheprovider``
@@ -107,6 +113,18 @@ def _mti_tree(sim: Path, *, surface: bool = True) -> None:
     _write_config(sim, {**LABELLED, "simulation_mode": "mTI"})
 
 
+def _no_labeling_tree(sim: Path) -> None:
+    from tit.paths import get_path_manager
+
+    _ti_tree(sim)
+    (Path(get_path_manager().m2m(SID)) / "segmentation" / "labeling.nii.gz").unlink()
+
+
+def _no_volume_mesh_tree(sim: Path) -> None:
+    _ti_tree(sim, hf=False)
+    (sim / "TI" / "mesh" / f"{sim.name}_TI.msh").unlink()
+
+
 TREES = {
     "a_labelled": lambda sim: _ti_tree(sim),
     "b_xyz": lambda sim: _ti_tree(sim, record=XYZ),
@@ -114,6 +132,16 @@ TREES = {
     "d_no_hf": lambda sim: _ti_tree(sim, hf=False),
     "e_no_config": lambda sim: _ti_tree(sim, record=None),
     "f_mti_no_surface": lambda sim: _mti_tree(sim, surface=False),
+    # A net the subject's eeg_positions has no CSV for (the fixture writes only NET).
+    "g_net_csv_missing": lambda sim: _ti_tree(
+        sim, record={**LABELLED, "eeg_net": "GSN-HydroCel-256.csv"}
+    ),
+    "h_no_conductivity": lambda sim: _ti_tree(
+        sim, record={**LABELLED, "conductivity": None}
+    ),
+    "i_no_labeling": _no_labeling_tree,
+    "j_ghost": lambda sim: None,  # named, never run
+    "k_no_volume_mesh": _no_volume_mesh_tree,
 }
 MODES = ["RegionConfig", "VectorConfig", "MontageConfig", "SubcorticalConfig"]
 
@@ -269,6 +297,21 @@ SPEC = {
     ("f_mti_no_surface", "RegionConfig"): True,
     ("f_mti_no_surface", "VectorConfig"): True,
     ("f_mti_no_surface", "SubcorticalConfig"): False,  # volumes, not surfaces
+    ("g_net_csv_missing", "MontageConfig"): True,  # the net's electrode positions
+    ("g_net_csv_missing", "VectorConfig"): False,  # vectors never read the net
+    ("h_no_conductivity", "VectorConfig"): True,  # it spells the carrier meshes' names
+    ("h_no_conductivity", "MontageConfig"): False,
+    ("h_no_conductivity", "RegionConfig"): False,
+    ("i_no_labeling", "SubcorticalConfig"): True,  # its default volume
+    ("i_no_labeling", "RegionConfig"): False,
+    ("i_no_labeling", "MontageConfig"): False,
+    ("j_ghost", "RegionConfig"): True,
+    ("j_ghost", "VectorConfig"): True,
+    ("j_ghost", "MontageConfig"): True,
+    ("j_ghost", "SubcorticalConfig"): True,  # named, so a field-coloured PLY was asked for
+    ("k_no_volume_mesh", "MontageConfig"): True,  # no tetrahedral mesh holds the scalp
+    ("k_no_volume_mesh", "RegionConfig"): False,
+    ("k_no_volume_mesh", "SubcorticalConfig"): False,
 }
 
 
@@ -301,3 +344,52 @@ def test_mti_preflight_names_the_mti_surface_and_only_it(project, mode):
     assert [m.expected_path for m in found] == [
         str(sim / "mTI" / "mesh" / "surfaces" / "Deep_mTI_central.msh")
     ]
+
+
+def test_an_explicit_nifti_path_that_does_not_exist_is_found_and_refused(project):
+    """A sub-cortical export pointed at a volume that is not there: both sides name it."""
+    from tit.blender.subcortical_exporter import run_subcortical
+
+    nifti = str(project / "atlases" / "aseg.nii.gz")
+    config = {**_config("SubcorticalConfig", ""), "nifti_path": nifti}
+    found = preflight("blender", config, str(project))
+    assert [m.expected_path for m in found] == [nifti]
+    with pytest.raises(ValueError, match="NIfTI file not found") as refused:
+        run_subcortical(SubcorticalConfig(SID, nifti_path=nifti))
+    assert nifti in str(refused.value)
+    assert _written(project) == []
+
+
+def test_montage_without_a_volume_mesh_names_the_runs_ti_mesh(project):
+    """The canonical mesh is named; the high-frequency meshes are the fallback it says."""
+    sim = project / "derivatives" / "SimNIBS" / f"sub-{SID}" / "Simulations" / "Bare"
+    TREES["k_no_volume_mesh"](sim)
+    (found,) = preflight("blender", _config("MontageConfig", "Bare"), str(project))
+    assert found.expected_path == str(sim / "TI" / "mesh" / "Bare_TI.msh")
+    assert "high_Frequency/mesh" in found.what
+
+
+@pytest.mark.parametrize(
+    "tree, source",
+    [
+        # tit/sim writes TI/mesh/<sim>_TI.msh; the scene cuts the scalp from it.
+        ("a_labelled", "TI/mesh/a_labelled_TI.msh"),
+        # An mTI run has no TI mesh; its first carrier (A) holds the same head.
+        ("c_mti", f"high_Frequency/mesh/{SID}_TDCS_A_scalar.msh"),
+    ],
+)
+def test_montage_cuts_the_scalp_from_the_runs_own_volume_mesh(
+    project, monkeypatch, tree, source
+):
+    sim = project / "derivatives" / "SimNIBS" / f"sub-{SID}" / "Simulations" / tree
+    TREES[tree](sim)  # a_labelled also holds TDCS_1/2, which a sorted search finds first
+    _patch_heavy_io(monkeypatch)
+    cut: list[str] = []
+
+    def scalp(path, skin_tag=1005):
+        cut.append(str(path))
+        return np.eye(3), np.array([[0, 1, 2]])
+
+    monkeypatch.setattr(montage_publication.be_utils, "extract_scalp_from_msh", scalp)
+    assert _run("MontageConfig", tree) is None
+    assert cut[0] == str(sim / source)

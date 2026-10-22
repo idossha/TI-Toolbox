@@ -18,7 +18,7 @@ RegionConfig
 
 Functions
 ---------
-central_surface_path, surface_field_name, carrier_mesh_paths
+central_surface_path, surface_field_name, carrier_mesh_paths, scalp_source_mesh
     Which files of a TI or mTI simulation an export reads. The runners and
     :mod:`tit.jobs.preflight` both call these, so the check before a job and
     the job itself cannot disagree about where an input lives.
@@ -115,6 +115,44 @@ def carrier_mesh_paths(
             break
         letters.append(letter)
     return [path(letter) for letter in letters]
+
+
+def tetrahedral_mesh_candidates(sim_dir: str) -> list[str]:
+    """Legacy volume meshes under *sim_dir* that hold the head's skin.
+
+    ``TI/mesh/*_TI_final.msh`` / ``*_T1.msh`` and every ``high_Frequency/mesh/*.msh``,
+    unsorted.
+    """
+    candidates: list[str] = []
+    ti_mesh_dir = os.path.join(sim_dir, "TI", "mesh")
+    if os.path.isdir(ti_mesh_dir):
+        for f in os.listdir(ti_mesh_dir):
+            if f.endswith("_TI_final.msh") or f.endswith("_T1.msh"):
+                candidates.append(os.path.join(ti_mesh_dir, f))
+    hf_mesh_dir = os.path.join(sim_dir, "high_Frequency", "mesh")
+    if os.path.isdir(hf_mesh_dir):
+        for f in os.listdir(hf_mesh_dir):
+            if f.endswith(".msh"):
+                candidates.append(os.path.join(hf_mesh_dir, f))
+    return candidates
+
+
+def scalp_source_mesh(ti_mesh: str, sim_dir: str) -> str | None:
+    """The tetrahedral mesh a montage scene cuts its scalp from.
+
+    Args:
+        ti_mesh: The run's ``TI/mesh/<sim>_TI.msh`` (``PathManager.ti_mesh``).
+        sim_dir: The simulation folder (``PathManager.simulation``).
+
+    Returns:
+        *ti_mesh* when it exists; otherwise the first, sorted, of
+        :func:`tetrahedral_mesh_candidates` (an mTI run has only its high-frequency
+        meshes); ``None`` when the simulation holds no volume mesh at all.
+    """
+    if os.path.isfile(ti_mesh):
+        return ti_mesh
+    candidates = tetrahedral_mesh_candidates(sim_dir)
+    return sorted(candidates)[0] if candidates else None
 
 
 # ── Montage config ──────────────────────────────────────────────────────────
