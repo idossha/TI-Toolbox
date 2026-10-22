@@ -229,7 +229,7 @@ test("every kind paints the same section order", async () => {
 test("a group-statistics run shows its inputs, its outcome, its clusters and its files", async () => {
   await openResults("Group");
   await page
-    .getByTestId("results-node-analysis:Group:stats/group_comparison_Thalamus_TI_max_20260815")
+    .getByTestId("results-node-analysis:Group:stats/group_comparison/group_comparison_Thalamus_TI_max_20260815")
     .click();
 
   // Screenshot 3: this pane used to be the single row "Kind analysis".
@@ -291,7 +291,7 @@ test("a group-statistics run that wrote only a log says why, instead of showing 
   });
   await openResults("Group");
   await page
-    .getByTestId("results-node-analysis:Group:stats/group_comparison_Thalamus_TI_max_20260815")
+    .getByTestId("results-node-analysis:Group:stats/group_comparison/group_comparison_Thalamus_TI_max_20260815")
     .click();
 
   const notice = page.getByTestId("results-notice");

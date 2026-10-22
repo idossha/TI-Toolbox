@@ -9,6 +9,7 @@
  * `pages/results/api.ts` is untouched by design: this module sits beside it and consumes what it
  * returns.
  */
+import type { ViewerLink } from "../../app/openInViewer";
 import type { Analysis, Artifact, ExRun, FlexRun, GroupCatalog, Report, SimulationDetail } from "./api";
 
 export type OutputKind = "simulation" | "flex" | "ex" | "mex" | "analysis" | "report";
@@ -34,6 +35,9 @@ export interface OutputNode {
   /** ISO timestamp; the `CREATED` column the tree gains at 1440. */
   created?: string;
   preview: PreviewRef;
+  /** The one file "Open in viewer" opens, for a node that names one (an analysis's own scene,
+   * else its masked field). */
+  viewTarget?: string;
   /**
    * Reserved by the u0 §3.7 contract. Deliberately left unset: the wireframe gives analyses their
    * own group, so nesting them under their simulation as well would put the same node id on screen
@@ -83,15 +87,33 @@ function simulationArtifacts(sim: SimulationDetail): Artifact[] {
   ];
 }
 
-/** Artifacts of an analysis: whichever of its four optional files exist. */
+/**
+ * Artifacts of an analysis: whichever of its files exist, then every picture the catalog listed
+ * (`figures`: the analyzer's `histogram.png`, the desktop's `scene.png`, older PDFs). A PDF the
+ * catalog names both as `pdf` and among `figures` is listed once; a server that sends no
+ * `figures` still shows its `pdf`.
+ */
 export function analysisArtifacts(a: Analysis): Artifact[] {
   const out: Artifact[] = [];
   if (a.csv) out.push({ path: a.csv, kind: "csv", label: "Summary table" });
   if (a.json) out.push({ path: a.json, kind: "json", label: "Summary JSON" });
   if (a.nifti) out.push(nifti(a.nifti, "Masked field"));
   if (a.msh) out.push({ path: a.msh, kind: "mesh", label: "Masked mesh" });
-  if (a.pdf) out.push({ path: a.pdf, kind: "pdf", label: "PDF report" });
+  if (a.scene) out.push({ path: a.scene, kind: "json", label: "Viewer scene" });
+  const figures = a.figures ?? [];
+  if (a.pdf && !figures.some((f) => f.path === a.pdf)) out.push({ path: a.pdf, kind: "pdf", label: "PDF report" });
+  out.push(...figures);
   return out;
+}
+
+/**
+ * The node id of one analysis in the tree. The Results page's "Holds" buttons build theirs with
+ * this too, so a button cannot select a node the tree spelled differently. The server keeps
+ * `name` unique within a simulation (a Mesh and a Voxel run of one ROI are
+ * `Analyses__Mesh__<X>` / `Analyses__Voxel__<X>`), so the id is unique within the subject.
+ */
+export function analysisNodeId(subject: string, simulation: string, name: string): string {
+  return `analysis:${subject}:${simulation}/${name}`;
 }
 
 function simulationNode(subject: string, sim: SimulationDetail): OutputNode {
@@ -134,8 +156,9 @@ function exNode(subject: string, run: ExRun, kind: "ex" | "mex"): OutputNode {
 }
 
 function analysisNode(subject: string, simulation: string, a: Analysis): OutputNode {
+  const viewTarget = a.scene ?? a.nifti ?? a.msh ?? undefined;
   return {
-    id: `analysis:${subject}:${simulation}/${a.name}`,
+    id: analysisNodeId(subject, simulation, a.name),
     kind: "analysis",
     label: `${simulation} / ${a.name}`,
     badges: ["analysis"],
@@ -143,7 +166,25 @@ function analysisNode(subject: string, simulation: string, a: Analysis): OutputN
     // user reveals, and every other file sits beside it.
     path: a.csv ?? a.json ?? a.pdf ?? a.nifti ?? a.msh ?? "",
     preview: { type: "analysis", subject, simulation, name: a.name },
+    ...(viewTarget ? { viewTarget } : {}),
   };
+}
+
+/**
+ * The viewer link a tree node stands for. `undefined` for a node with nothing to open.
+ *
+ * `open: true` on every one of them: this is the pane's "Open in viewer" button, and a person who
+ * pressed it asked to see the result, not to be shown a form about it. An analysis opens its own
+ * `scene.tetravox.json` (the viewer opens a scene file as is), else its masked field as a
+ * one-file view -- never `kind: "analysis"` without naming the analysis, which the server refuses.
+ */
+export function viewerLinkFor(subject: string, node: OutputNode): ViewerLink | undefined {
+  if (subject === GROUP_SUBJECT) return undefined;
+  if (node.kind === "simulation") return { subject, simulation: node.label, open: true };
+  if (node.kind === "analysis") {
+    return node.viewTarget ? { subject, kind: "custom", path: node.viewTarget, open: true } : undefined;
+  }
+  return { subject, open: true };
 }
 
 function reportNode(subject: string, r: Report): OutputNode {
@@ -191,7 +232,7 @@ export function outputsTreeFor(subject: string, data: SubjectCatalog): SubjectOu
  * pane, the filter and the keyboard navigation need no second code path.
  */
 export function groupOutputsFor(catalog: GroupCatalog): SubjectOutputs {
-  const rows = (list: { [key: string]: unknown }[], label: string): OutputNode[] =>
+  const rows = (list: { [key: string]: unknown }[], label: string, badge = "analysis"): OutputNode[] =>
     list.map((row, i) => {
       const name = typeof row.name === "string" ? row.name : `${label} ${i + 1}`;
       const path = typeof row.path === "string" ? row.path : "";
@@ -201,16 +242,23 @@ export function groupOutputsFor(catalog: GroupCatalog): SubjectOutputs {
       // pane could only show the directory path — which is what it did show, as the single row
       // "Kind analysis" in the maintainer's screenshot.
       const statsType = typeof row.type === "string" ? row.type : undefined;
+      // A NIfTI-average row lists the files its run wrote; the pane shows those.
+      const artifacts = Array.isArray(row.artifacts) ? (row.artifacts as Artifact[]) : undefined;
       return {
-        id: `analysis:${GROUP_SUBJECT}:${label}/${name}`,
+        // The type is part of a stats run's identity: `group_comparison/X` and `correlation/X`
+        // are two runs, and one id for both made the second row unselectable.
+        id: `analysis:${GROUP_SUBJECT}:${label}/${statsType ? `${statsType}/` : ""}${name}`,
         kind: "analysis" as const,
         label: name,
-        badges: [statsType ? statsType.replace(/_/g, " ") : "analysis"],
+        badges: [statsType ? statsType.replace(/_/g, " ") : badge],
         path,
         created,
         preview: statsType
           ? { type: "groupStats" as const, statsType, name }
-          : { type: "artifacts" as const, artifacts: path ? [{ path, kind: "group", label: name }] : [] },
+          : {
+              type: "artifacts" as const,
+              artifacts: artifacts ?? (path ? [{ path, kind: "group", label: name }] : []),
+            },
       };
     });
 
@@ -218,6 +266,7 @@ export function groupOutputsFor(catalog: GroupCatalog): SubjectOutputs {
     group("group", "Group statistics", rows(catalog.stats, "stats")),
     group("group", "Nilearn visuals", rows(catalog.nilearn, "nilearn")),
     group("group", "Group analyses", rows(catalog.group_analyses, "analyses")),
+    group("group", "NIfTI group averages", rows(catalog.nifti_average ?? [], "nifti_average", "average")),
   ].filter((g) => g.count > 0);
 
   return { subject: GROUP_SUBJECT, total: groups.reduce((n, g) => n + g.count, 0), groups };

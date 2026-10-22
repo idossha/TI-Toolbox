@@ -161,7 +161,7 @@ test("the Results pane renders that run's inputs, numbers, clusters and files", 
     timeout: 30_000,
   });
   await page.getByTestId("results-subject-Group").click();
-  const node = page.getByTestId(`results-node-analysis:Group:stats/${ANALYSIS_NAME}`);
+  const node = page.getByTestId(`results-node-analysis:Group:stats/group_comparison/${ANALYSIS_NAME}`);
   await expect(node).toBeVisible({ timeout: 30_000 });
   await node.click();
 

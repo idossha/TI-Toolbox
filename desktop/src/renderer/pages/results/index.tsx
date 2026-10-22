@@ -81,10 +81,12 @@ import {
 } from "./preview/views";
 import {
   analysisArtifacts,
+  analysisNodeId,
   filterOutputs,
   GROUP_SUBJECT,
   treeRows,
   truncatePathLeft,
+  viewerLinkFor,
   type OutputFilter,
   type OutputNode,
   type SubjectOutputs,
@@ -164,26 +166,9 @@ function simulationFieldFiles(sim: SimulationDetail): Artifact[] {
 // helper, and the shell must not import a page module to do it. Re-exported here so this module
 // stays the import site its existing callers (Optimizer, Analyzer) already use.
 export { viewerSearch, useOpenInViewer, type ViewerLink } from "../../app/openInViewer";
-import { useOpenInViewer, type ViewerLink } from "../../app/openInViewer";
-
-/**
- * The viewer link a tree node stands for. `undefined` for a node with no subject-space field.
- *
- * `open: true` on every one of them: this is the pane's "Open in viewer" button, and a person who
- * pressed it asked to see the result, not to be shown a form about it.
- */
-export function viewerLinkFor(
-  subject: string,
-  node: OutputNode,
-): ViewerLink | undefined {
-  if (subject === GROUP_SUBJECT) return undefined;
-  if (node.kind === "simulation") return { subject, simulation: node.label, open: true };
-  if (node.kind === "analysis") {
-    const simulation = node.label.split(" / ")[0];
-    return { subject, simulation, kind: "analysis", open: true };
-  }
-  return { subject, open: true };
-}
+import { useOpenInViewer } from "../../app/openInViewer";
+// The link a node stands for is a pure function of the node; it lives beside the tree.
+export { viewerLinkFor };
 
 // ----------------------------------------------------------------------- small views
 
@@ -444,7 +429,7 @@ function Preview({
                 key={a.name}
                 type="button"
                 className="results-hold"
-                onClick={() => onSelectNode?.(`analysis:${subject}:${node.label}/${a.name}`)}
+                onClick={() => onSelectNode?.(analysisNodeId(subject, node.label, a.name))}
               >
                 <Chip kind="neutral">analysis</Chip>
                 {a.name}
