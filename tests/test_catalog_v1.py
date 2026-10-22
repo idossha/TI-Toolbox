@@ -366,13 +366,13 @@ def test_create_roi_accepts_numeric_string_coordinates(client: TestClient) -> No
         headers=BEARER,
     )
     assert r.status_code == 201
+    # No "radius": null (p15): the contract's Roi.radius is a number when present.
     assert r.json() == {
         "name": "String_Coords",
         "x": 1.5,
         "y": 2.0,
         "z": -3.25,
         "space": "subject",
-        "radius": None,
     }
 
 

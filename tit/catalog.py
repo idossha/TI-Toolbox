@@ -1598,20 +1598,50 @@ def list_rois(pm: PathManager, sid: str) -> list[dict] | None:
             x, y, z = read_roi_center(os.path.join(roi_dir, name))[:3]
         except (OSError, ValueError):
             continue
+        if not all(math.isfinite(v) for v in (x, y, z)):
+            continue  # a "nan" saved before the writer refused it is no centre
         roi_name = name[: -len(".csv")]
-        space = "mni" if roi_name.upper().endswith("_MNI") else "subject"
-        out.append({"name": roi_name, "x": x, "y": y, "z": z, "space": space})
+        item = {"name": roi_name, "x": x, "y": y, "z": z}
+        item["space"] = "mni" if roi_name.upper().endswith("_MNI") else "subject"
+        # create_roi's sidecar holds what the CSV cannot (space, radius). It counts only
+        # while it describes this centre: another writer (the Ex-search engine) rewrites the
+        # CSV without one, and a stale space must not stick to a new centre.
+        sidecar = os.path.join(roi_dir, f"{roi_name}.json")
+        meta = _read_json(sidecar) if _project_paths_safe(pm, sidecar) else None
+        if (
+            isinstance(meta, dict)
+            and [meta.get(k) for k in ("x", "y", "z")] == [x, y, z]
+            and meta.get("space") in ("subject", "mni")
+        ):
+            item["space"] = meta["space"]
+            radius = meta.get("radius")
+            if (
+                isinstance(radius, (int, float))
+                and math.isfinite(radius)
+                and radius > 0
+            ):
+                item["radius"] = float(radius)
+        out.append(item)
     return out
 
 
 def create_roi(pm: PathManager, sid: str, roi: dict) -> dict:
-    """Save a new spherical ROI centre for *sid* (subject-space CSV convention).
+    """Save a new spherical ROI centre for *sid*.
 
     Mirrors :meth:`tit.opt.ex.engine.ExSearchEngine.create_roi` (a plain
     ``x,y,z`` row plus a ``roi_list.txt`` entry) rather than importing it, so
     this module stays the single writer of the CRUD shape the v1 contract
-    expects (radius/space are accepted but not persisted -- the CSV format
-    has never carried them; see this lane's final report).
+    expects. The CSV format has never carried the space or the radius, so they
+    go in a ``<name>.json`` sidecar beside it, which :func:`list_rois` reads
+    back: the listing returns what this function answered. Without a
+    ``space`` the ``_MNI`` name suffix decides, as it always has.
+
+    Raises
+    ------
+    ValueError
+        If the name is unsafe, a coordinate or the radius is not a finite
+        number, the radius is not positive, or the space is not ``subject``
+        or ``mni``. Nothing is written then.
     """
     name = str(roi["name"])
     if not is_safe_name(name):
@@ -1624,16 +1654,30 @@ def create_roi(pm: PathManager, sid: str, roi: dict) -> dict:
     radius = roi.get("radius")
     if radius is not None:
         radius = as_float(radius, "radius")
+        if radius <= 0:
+            raise ValueError("radius must be greater than 0 mm")
+    if "space" in roi:
+        space = roi["space"]
+        if space not in ("subject", "mni"):
+            raise ValueError("space must be subject or mni")
+    else:
+        space = "mni" if name.upper().endswith("_MNI") else "subject"
 
     roi_dir = pm.rois(sid)
     filename = f"{name}.csv"
     base_name = name
     roi_path = _jailed(pm, os.path.join(roi_dir, filename))
     roi_list = _jailed(pm, os.path.join(roi_dir, "roi_list.txt"))
-    if roi_path is None or roi_list is None:
+    sidecar = _jailed(pm, os.path.join(roi_dir, f"{name}.json"))
+    if roi_path is None or roi_list is None or sidecar is None:
         raise ValueError("ROI paths must remain inside the project")
     os.makedirs(roi_dir, exist_ok=True)
 
+    saved = {"name": base_name, "x": x, "y": y, "z": z, "space": space}
+    if radius is not None:
+        saved["radius"] = radius
+    with open(sidecar, "w") as f:
+        json.dump(saved, f, indent=2)
     with open(roi_path, "w", newline="") as f:
         csv.writer(f).writerow([x, y, z])
 
@@ -1644,15 +1688,8 @@ def create_roi(pm: PathManager, sid: str, roi: dict) -> dict:
         with open(roi_list, "a") as f:
             f.write(f"{filename}\n")
 
-    space = "mni" if base_name.upper().endswith("_MNI") else "subject"
-    return {
-        "name": base_name,
-        "x": x,
-        "y": y,
-        "z": z,
-        "space": roi.get("space", space),
-        "radius": radius,
-    }
+    # No "radius": null -- the contract's Roi.radius is a number when present.
+    return saved
 
 
 def delete_roi(pm: PathManager, sid: str, name: str) -> bool:
