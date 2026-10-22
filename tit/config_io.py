@@ -35,6 +35,7 @@ tit.sim.config : ``Montage`` dataclass.
 
 import importlib
 import json
+import numbers
 import os
 import tempfile
 import types
@@ -324,9 +325,12 @@ def deserialize_config(cls: type, data: dict[str, Any], *, strict: bool = False)
     ValueError
         If *data* carries a ``_type`` that does not match *cls* itself, if
         a union-typed field's value is missing its ``_type`` tag or
-        carries one not registered for that union's members, or (only
-        when *strict* is True) if *data* carries a key that is not one of
-        *cls*'s fields.
+        carries one not registered for that union's members, if a field
+        declared as a list or tuple gets anything but a JSON array, or one
+        declared ``int``/``float`` anything but a number (a string or a
+        boolean is never coerced: ``"001"`` is not ``["0", "0", "1"]``), or
+        (only when *strict* is True) if *data* carries a key that is not one
+        of *cls*'s fields.
 
     See Also
     --------
@@ -361,10 +365,30 @@ def deserialize_config(cls: type, data: dict[str, Any], *, strict: bool = False)
     for fld in fields(cls):
         if not fld.init or fld.name not in data:
             continue
-        kwargs[fld.name] = _deserialize_value(
-            data[fld.name], hints.get(fld.name), strict=strict
-        )
+        try:
+            kwargs[fld.name] = _deserialize_value(
+                data[fld.name], hints.get(fld.name), strict=strict
+            )
+        except _WrongType as exc:
+            raise ValueError(f"{cls.__name__}.{fld.name}: {exc}") from None
     return cls(**kwargs)
+
+
+class _WrongType(ValueError):
+    """A value whose JSON shape is not its field's declared type (named by the caller)."""
+
+
+def _check_shape(value: Any, tp: Any) -> None:
+    """Refuse a value a declared list/tuple or number type would otherwise coerce."""
+    if typing.get_origin(tp) in (list, tuple):
+        if not isinstance(value, (list, tuple)):
+            raise _WrongType(f"expected an array, got {value!r}")
+    elif tp in (int, float) and (
+        isinstance(value, bool) or not isinstance(value, numbers.Real)
+    ):
+        raise _WrongType(f"expected a number, got {value!r}")
+    elif _is_dataclass_type(tp) and not isinstance(value, dict):
+        raise _WrongType(f"expected an object, got {value!r}")
 
 
 def _is_dataclass_type(tp: Any) -> bool:
@@ -385,6 +409,7 @@ def _deserialize_value(value: Any, tp: Any, *, strict: bool = False) -> Any:
         return None
     if tp is None:
         return value
+    _check_shape(value, tp)
 
     origin = typing.get_origin(tp)
     if origin in _UNION_ORIGINS:

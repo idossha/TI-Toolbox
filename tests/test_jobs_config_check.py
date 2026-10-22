@@ -113,7 +113,8 @@ def test_project_dir_is_not_treated_as_an_unknown_field() -> None:
 
 
 def test_unlisted_kinds_are_a_no_op() -> None:
-    # `pre`/`analyzer`/`source` runners tolerate configs deserialize_config rejects.
-    for kind in ("pre", "analyzer", "source", "tools", "report", "not-a-kind"):
+    # `analyzer`/`source` runners tolerate configs deserialize_config rejects (`pre` no longer
+    # does: tests/test_pre_config_coercion.py).
+    for kind in ("analyzer", "source", "tools", "report", "not-a-kind"):
         assert kind not in CONFIG_CLASS_FOR_KIND
         check_job_config(kind, {"nonsense": True})

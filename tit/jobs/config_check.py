@@ -11,10 +11,10 @@ which reaches the user as a dead job with a stack trace rather than a rejected r
 runners for these kinds call :func:`tit.config_io.deserialize_config` directly and have no
 fallback, so exactly the same call made here at submit time turns that into a 422.
 
-Only kinds whose ``__main__`` deserialises one class with no fallback are listed. ``pre``,
-``analyzer`` and ``source`` deliberately tolerate a config ``deserialize_config`` rejects (they
-fall back to a filtered constructor), so pre-validating them here would reject configs those
-runners can genuinely run.
+Only kinds whose ``__main__`` deserialises one class with no fallback are listed. ``analyzer``
+and ``source`` deliberately tolerate a config ``deserialize_config`` rejects (they fall back to a
+filtered constructor), so pre-validating them here would reject configs those runners can
+genuinely run. ``pre`` lost its fallback (it accepted ``subject_ids: "001"`` as three subjects).
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ CONFIG_CLASS_FOR_KIND: dict[str, str] = {
     "flex_pareto": "FlexConfig",
     "ex": "ExConfig",
     "mex": "MExConfig",
+    "pre": "PreprocessConfig",
 }
 
 
@@ -51,6 +52,10 @@ def check_job_config(kind: str, config: dict[str, Any]) -> None:
     # Mirrors the runner: `project_dir` is popped before deserialising, and unknown keys are
     # ignored (strict=False). What is left is the required/typed-field check.
     data = {k: v for k, v in config.items() if k != "project_dir"}
+    if kind == "pre" and "subject_ids" not in data:
+        # The job's own subjects, which the manager writes into config.json
+        # (`JobManager._runner_config_path`); only the other fields are checked here.
+        data["subject_ids"] = ["subject"]
     try:
         deserialize_config(cls, data)
     except Exception as exc:

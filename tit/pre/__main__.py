@@ -39,64 +39,21 @@ def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
     return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
-def _build_config_legacy(data: dict) -> PreprocessConfig:
-    """Old, pre-``PreprocessConfig`` dict layout -- read verbatim.
-
-    Kept for one release so a caller sending the flat dict this entry point
-    accepted before :class:`~tit.pre.config.PreprocessConfig` existed still
-    works. In practice its shape already matches the dataclass field for
-    field, so this only differs from ``deserialize_config`` in skipping
-    ``__post_init__`` validation errors that aren't about ``subject_ids``.
-    Pre-FastSurfer keys are already translated by
-    :func:`~tit.pre.config.migrate_legacy_keys` before this runs.
-    """
-    from tit.pre.config import QSIPrepSettings, QSIReconSettings
-
-    qsiprep_config = data.get("qsiprep_config")
-    qsi_recon_config = data.get("qsi_recon_config")
-    return PreprocessConfig(
-        subject_ids=data["subject_ids"],
-        convert_dicom=data.get("convert_dicom", False),
-        run_fastsurfer=data.get("run_fastsurfer", False),
-        charm_threads=data.get("charm_threads"),
-        fastsurfer_threads=data.get("fastsurfer_threads"),
-        run_freesurfer=data.get("run_freesurfer", False),
-        freesurfer_recon_all=data.get("freesurfer_recon_all", True),
-        freesurfer_subregions=data.get("freesurfer_subregions", []),
-        freesurfer_threads=data.get("freesurfer_threads"),
-        create_m2m=data.get("create_m2m", False),
-        run_tissue_analysis=data.get("run_tissue_analysis", False),
-        run_qsiprep=data.get("run_qsiprep", False),
-        run_qsirecon=data.get("run_qsirecon", False),
-        qsiprep_config=(QSIPrepSettings(**qsiprep_config) if qsiprep_config else None),
-        qsi_recon_config=(
-            QSIReconSettings(**qsi_recon_config) if qsi_recon_config else None
-        ),
-        extract_dti=data.get("extract_dti", False),
-        skip_existing_outputs=data.get("skip_existing_outputs", False),
-        replace_existing_outputs=data.get("replace_existing_outputs", False),
-    )
-
-
 def _build_config(data: dict) -> PreprocessConfig:
-    """Build a :class:`PreprocessConfig`, preferring ``deserialize_config``.
+    """Build a :class:`PreprocessConfig` from config.json, after migrating legacy keys.
 
-    Falls back to :func:`_build_config_legacy` when *data* does not
-    round-trip through the typed path (e.g. a caller still sending the
-    pre-dataclass flat-dict shape with extra/renamed keys) -- see the
-    module-level "old dict layout for one release" note.
+    There is no lenient fallback: a value ``deserialize_config`` refuses (a string where the
+    dataclass declares a list or a number) would otherwise run as something the user never
+    sent, e.g. ``subject_ids: "001"`` as subjects ``0``, ``0`` and ``1``.
+
+    Raises
+    ------
+    ValueError
+        If *data* is not a valid ``PreprocessConfig``.
     """
     from tit.config_io import deserialize_config
 
-    data = migrate_legacy_keys(data)
-    try:
-        return deserialize_config(PreprocessConfig, data)
-    except (TypeError, ValueError, KeyError) as exc:
-        logging.getLogger("tit.pre").debug(
-            f"deserialize_config(PreprocessConfig, ...) failed ({exc}); "
-            "falling back to the legacy dict layout"
-        )
-        return _build_config_legacy(data)
+    return deserialize_config(PreprocessConfig, migrate_legacy_keys(data))
 
 
 def main() -> None:
