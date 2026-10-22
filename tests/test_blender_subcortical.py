@@ -44,25 +44,16 @@ class TestSubcorticalConfig:
     def test_labels_are_coerced_to_int(self):
         # The GUI's own "10,49" text field parses to ints before it gets here, but a hand-written
         # config.json (or a JSON round trip through a float) must not silently produce "10.0".
-        assert SubcorticalConfig(subject_id="ernie", labels=["10", 49]).labels == [
-            10,
-            49,
-        ]
+        assert SubcorticalConfig(subject_id="ernie", labels=["10", 49]).labels == [10, 49]
 
     def test_non_integer_label_raises(self):
         with pytest.raises(ValueError, match="labels must be integers"):
             SubcorticalConfig(subject_id="ernie", labels=["thalamus"])
 
     def test_round_trips_with_its_discriminator(self):
-        cfg = SubcorticalConfig(
-            subject_id="ernie", simulation_name="sim1", labels=[10, 49]
-        )
+        cfg = SubcorticalConfig(subject_id="ernie", simulation_name="sim1", labels=[10, 49])
         data = serialize_config(cfg)
-        assert (
-            data["_type"]
-            == "SubcorticalConfig"
-            == _discriminator_for(SubcorticalConfig)
-        )
+        assert data["_type"] == "SubcorticalConfig" == _discriminator_for(SubcorticalConfig)
         data.pop("project_dir", None)
         assert deserialize_config(SubcorticalConfig, data) == cfg
 
@@ -227,6 +218,17 @@ class TestRunnerFieldPly:
         expected = str(sim / "TI" / "niftis" / "L_Insula_TI_subject_TI_max.nii.gz")
         assert any(level == "WARNING" and expected in msg for level, msg in lines)
 
+    def test_a_named_simulation_that_does_not_exist_refuses_before_writing(
+        self, run, tmp_path
+    ):
+        # Naming a simulation asks for a field-coloured PLY. 2.5.0 warned and wrote the
+        # uncoloured meshes; the job now refuses, as preflight does, before any file exists.
+        before = sorted(p for p in tmp_path.rglob("*") if p.is_file())
+        with pytest.raises(FileNotFoundError) as refused:
+            run("ghost")
+        assert str(_sim(tmp_path, "001", "ghost")) in str(refused.value)
+        assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == before
+
 
 @pytest.mark.skipif(
     not os.path.isdir(os.environ.get("TIT_DATASET_000", "") or "/nonexistent"),
@@ -238,13 +240,23 @@ def test_dataset_000_runs_resolve_to_their_whole_head_volume(sid, sim):
     from tit.paths import get_path_manager
 
     root = os.environ["TIT_DATASET_000"]
+    sim_dir = os.path.join(root, "derivatives", "SimNIBS", f"sub-{sid}", "Simulations", sim)
+
+    def mtimes():
+        return {
+            os.path.join(d, f): os.stat(os.path.join(d, f)).st_mtime_ns
+            for d, _, files in os.walk(sim_dir)
+            for f in files
+        }
+
+    before = mtimes()
     get_path_manager(root)
     path = field_nifti_path(sid, sim, "TI_max")
-    before = os.stat(path).st_mtime_ns
+    assert path == os.path.join(sim_dir, "TI", "niftis", f"{sim}_TI_subject_TI_max.nii.gz")
     assert os.path.isfile(path)
-    assert not os.path.basename(path).startswith(("grey_", "white_"))
-    assert os.path.basename(path) == f"{sim}_TI_subject_TI_max.nii.gz"
-    assert os.stat(path).st_mtime_ns == before  # read-only: nothing touched the dataset
+    # The masked copies the old sorted glob could pick are on disk beside it.
+    assert os.path.isfile(os.path.join(os.path.dirname(path), f"grey_{os.path.basename(path)}"))
+    assert before and mtimes() == before  # read-only: nothing under the run changed
 
 
 class TestJobWiring:
