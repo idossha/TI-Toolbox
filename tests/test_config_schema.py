@@ -603,15 +603,27 @@ class TestBuildSchemaScript:
 
     def test_build_schema_serves_the_servers_kind_to_class_table(self):
         """The agent plugin's get_config_schema reads x-kind-classes (2026-10-08): every kind the
-        validate/plan routes accept maps to the class they resolve without a ``_type``.
+        validate/plan routes accept maps to the class they resolve without a ``_type`` -- or,
+        for ``blender``, whose runner has no default and so needs one (2026-10-22), to a class
+        they resolve.
         """
-        from tit.server.routes.validate import ALL_KINDS, cls_for
+        from tit.server.routes.validate import (
+            ALL_KINDS,
+            TYPE_REQUIRED_KINDS,
+            KindNotConfigurable,
+            cls_for,
+        )
 
         build_schema = _load_dev_script("build_schema")
         kinds = build_schema.build_schema()["x-kind-classes"]
         assert set(kinds) == set(ALL_KINDS)
         for kind, name in kinds.items():
-            assert cls_for(kind, {}).__name__ == name
+            if kind in TYPE_REQUIRED_KINDS:
+                with pytest.raises(KindNotConfigurable):
+                    cls_for(kind, {})
+                assert cls_for(kind, {"_type": name}).__name__ == name
+            else:
+                assert cls_for(kind, {}).__name__ == name
 
     def test_build_schema_is_idempotent(self):
         build_schema = _load_dev_script("build_schema")

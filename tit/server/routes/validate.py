@@ -19,7 +19,10 @@ discriminator convention :mod:`tit.config_io` already uses for union-typed *fiel
 electrodes, montages) -- just applied here to the top-level kind/class choice. ``_type`` is not a
 field of any of these dataclasses, so :func:`~tit.config_io.deserialize_config` silently ignores
 it (documented behavior: "keys in *data* that are not fields of *cls* ... are ignored"), making
-this additive rather than a contract change. ``NO_SCHEMA_KINDS`` is empty as of the runners
+this additive rather than a contract change. The tag is read exactly as each runner dispatches:
+``blender`` requires it (``tit.blender.__main__`` has no default), and ``stats`` lets the older
+``mode`` key win over it (``tit.stats.__main__``), so the server never plans one class while
+the runner runs another. ``NO_SCHEMA_KINDS`` is empty as of the runners
 lane registering ``NiftiAverageConfig``/``NilearnConfig`` in
 :data:`~tit.config_io.CONFIG_CLASS_REGISTRY` -- kept as a (currently-empty) frozenset rather
 than removed outright since ``contracts/generated/config.schema.json`` has not been regenerated with these two
@@ -84,11 +87,30 @@ AMBIGUOUS_KIND_CLASSES: dict[str, dict[str, str]] = {
     },
 }
 
-#: Default class for an ambiguous kind when the request omits "_type".
+#: The class ``x-kind-classes`` (``dev/build_schema.py``) shows for an ambiguous kind. ``stats``
+#: also resolves to it when the config names neither ``_type`` nor ``mode``, as its runner does;
+#: ``blender`` never does -- :func:`cls_for` refuses a blender config without ``_type``, because
+#: ``tit.blender.__main__`` dispatches on ``_type`` alone and exits 1 without it.
 AMBIGUOUS_KIND_DEFAULT: dict[str, str] = {
     "stats": "GroupComparisonConfig",
     "blender": "MontageConfig",
 }
+
+#: Ambiguous kinds whose runner has no default class: ``_type`` is required.
+TYPE_REQUIRED_KINDS: frozenset[str] = frozenset({"blender"})
+
+#: ``stats`` only: the older top-level ``mode`` key -> the class it runs. ``tit.stats.__main__``
+#: pops ``mode`` and lets it win over ``_type`` (its ``MODE_FOR_TYPE`` read backwards), and
+#: ``tit.jobs.locks.keys_for`` files the run under ``project:stats:<mode>/``. Any other value
+#: would run as a group comparison under a lock key naming another folder, so it is refused.
+STATS_MODE_CLASSES: dict[str, str] = {
+    "group_comparison": "GroupComparisonConfig",
+    "correlation": "CorrelationConfig",
+}
+
+#: Keys an ambiguous kind's runner pops before it deserialises the config (``stats``:
+#: ``mode``), so strict validation does not report them as unknown fields.
+DISPATCH_KEYS: dict[str, frozenset[str]] = {"stats": frozenset({"mode"})}
 
 #: Keys the *server* owns on a runner config, not the config dataclass: ``tit.jobs.manager.
 #: _runner_config_path`` writes ``project_dir`` into every runner's config.json (and the GUI has
@@ -116,19 +138,23 @@ ALL_KINDS: frozenset[str] = frozenset(
 
 
 class KindNotConfigurable(ValueError):
-    """Raised by :func:`cls_for` for an unknown ``_type`` on an ambiguous kind."""
+    """Raised by :func:`cls_for` when an ambiguous kind's config names no class it can run."""
 
 
 def cls_for(kind: str, config_body: dict[str, Any]) -> type | None:
-    """Resolve *kind* (and, for an ambiguous kind, ``config_body["_type"]``) to a dataclass.
+    """Resolve *kind* (and, for an ambiguous kind, the config's own tag) to a dataclass.
+
+    An ambiguous kind is read the way its runner dispatches it: ``stats`` by its ``mode`` key
+    when present (:data:`STATS_MODE_CLASSES`), else by ``_type``, else
+    ``GroupComparisonConfig``; ``blender`` by ``_type`` only.
 
     Parameters
     ----------
     kind : str
         A :data:`ALL_KINDS` member (callers should 404 first for anything else).
     config_body : dict
-        The request's raw ``config`` object (read for ``_type`` only when *kind* is
-        ambiguous; never mutated).
+        The request's raw ``config`` object (read for ``_type`` -- and, for ``stats``,
+        ``mode`` -- only when *kind* is ambiguous; never mutated).
 
     Returns
     -------
@@ -139,7 +165,8 @@ def cls_for(kind: str, config_body: dict[str, Any]) -> type | None:
     ------
     KindNotConfigurable
         If *kind* is ambiguous and ``_type`` (or its default) does not name one of its
-        known classes.
+        known classes, a ``blender`` config has no ``_type``, or a ``stats`` config's
+        ``mode`` is unknown or contradicts its ``_type``.
     """
     from tit.config_io import resolve_config_class
 
@@ -150,7 +177,15 @@ def cls_for(kind: str, config_body: dict[str, Any]) -> type | None:
 
     choices = AMBIGUOUS_KIND_CLASSES.get(kind)
     if choices is not None:
-        type_tag = config_body.get("_type") or AMBIGUOUS_KIND_DEFAULT[kind]
+        type_tag = config_body.get("_type")
+        if kind == "stats" and config_body.get("mode"):
+            type_tag = _stats_mode_class(config_body["mode"], type_tag)
+        if not type_tag and kind in TYPE_REQUIRED_KINDS:
+            raise KindNotConfigurable(
+                f"kind={kind!r} config._type is required, one of {sorted(choices)}: "
+                "the runner picks the export by it and has no default"
+            )
+        type_tag = type_tag or AMBIGUOUS_KIND_DEFAULT[kind]
         registry_key = choices.get(type_tag)
         if registry_key is None:
             raise KindNotConfigurable(
@@ -160,6 +195,22 @@ def cls_for(kind: str, config_body: dict[str, Any]) -> type | None:
         return resolve_config_class(registry_key)
 
     raise KindNotConfigurable(f"unknown kind: {kind!r}")
+
+
+def _stats_mode_class(mode: Any, type_tag: Any) -> str:
+    """The class a stats config's ``mode`` runs, checked against its ``_type`` if it has one."""
+    cls_name = STATS_MODE_CLASSES.get(mode) if isinstance(mode, str) else None
+    if cls_name is None:
+        raise KindNotConfigurable(
+            f"kind='stats' config.mode must be one of {sorted(STATS_MODE_CLASSES)}, "
+            f"got {mode!r}"
+        )
+    if type_tag and type_tag != cls_name:
+        raise KindNotConfigurable(
+            f"kind='stats' config.mode={mode!r} runs {cls_name}, but config._type is "
+            f"{type_tag!r}; send one of them"
+        )
+    return cls_name
 
 
 #: dataclass field names are always identifiers; a message quoting or bareword-mentioning one
@@ -243,7 +294,8 @@ def validate(kind: str, body: ValidateRequest) -> ValidateResult:
         from tit.server.app_defaults import with_app_defaults
 
         body.config = with_app_defaults(kind, body.config)
-    config = {k: v for k, v in body.config.items() if k not in ENVELOPE_KEYS}
+    ignored = ENVELOPE_KEYS | DISPATCH_KEYS.get(kind, frozenset())
+    config = {k: v for k, v in body.config.items() if k not in ignored}
     try:
         parsed = deserialize_config(cls, config, strict=True)
         if kind in {"ex", "mex", "flex", "flex_adaptive", "flex_pareto"}:
