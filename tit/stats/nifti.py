@@ -16,8 +16,8 @@ load_grouped_subjects_ti_toolbox
 
 See Also
 --------
-tit.stats.comparison : Voxelwise group comparison pipeline.
-tit.stats.correlation : Voxelwise correlation pipeline.
+tit.stats.permutation.run_group_comparison : Voxelwise group comparison pipeline.
+tit.stats.permutation.run_correlation : Voxelwise correlation pipeline.
 """
 
 import os

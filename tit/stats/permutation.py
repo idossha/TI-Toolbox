@@ -39,7 +39,7 @@ from .engine import (
 )
 from .nifti import load_group_data_ti_toolbox
 from .reporting import generate_correlation_summary, generate_summary
-from .visualization import (
+from tit.plotting.stats import (
     plot_cluster_size_mass_correlation,
     plot_permutation_null_distribution,
 )
