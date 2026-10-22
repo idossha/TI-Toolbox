@@ -19,8 +19,8 @@ tit.analyzer.field_selector : Automatic field file resolution.
 
 import hashlib
 import logging
-import mmap
 import re
+import struct
 import tempfile
 import time
 from dataclasses import asdict, dataclass
@@ -78,30 +78,70 @@ def _world_distance_grid(
     return np.sqrt(dist_sq)
 
 
+#: Nodes per element for the Gmsh element types a SimNIBS mesh holds (line, triangle,
+#: quadrangle, tetrahedron, hexahedron, prism, pyramid, point).
+_GMSH_NODES_PER_ELEMENT = {1: 2, 2: 3, 3: 4, 4: 4, 5: 8, 6: 6, 7: 5, 15: 1}
+
+
 def msh_field_names(path) -> set[str] | None:
     """Names of the node/element data fields in a Gmsh 2.2 ``.msh`` file, or ``None``.
 
-    Reads only the ``$NodeData`` / ``$ElementData`` section headers (the first string tag of
-    each is the field name), so a 40 MB central surface costs a byte scan, not a mesh load,
-    and nothing here needs SimNIBS. ``None`` means "could not tell" (not a Gmsh file, empty,
-    unreadable) -- callers then skip the check rather than report a field as missing.
+    Walks the section headers and seeks over every payload (nodes, elements, field values),
+    so a 40 MB central surface costs a few kilobytes of reading, not a mesh load, and
+    nothing here needs SimNIBS. The field name is the first string tag of each
+    ``$NodeData`` / ``$ElementData`` block. ``None`` means "could not tell" (not a Gmsh 2.2
+    file, empty, truncated, an element type this table lacks) -- callers then skip the
+    check rather than report a field as missing.
     """
     try:
         with open(path, "rb") as fh:
-            if fh.read(11) != b"$MeshFormat":
+            if fh.readline().strip() != b"$MeshFormat":
                 return None
-            with mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-                names: set[str] = set()
-                for tag in (b"\n$NodeData\n", b"\n$ElementData\n"):
-                    pos = mm.find(tag)
-                    while pos >= 0:
-                        start = pos + len(tag)
-                        lines = mm[start : start + 1024].split(b"\n")
-                        if int(lines[0]) > 0:
-                            names.add(lines[1].strip().strip(b'"').decode())
-                        pos = mm.find(tag, start)
-                return names
-    except (OSError, ValueError, IndexError, UnicodeDecodeError):
+            version, file_type, size = fh.readline().split()[:3]
+            if not version.startswith(b"2"):
+                return None
+            binary, size = file_type == b"1", int(size)
+            names: set[str] = set()
+            for line in iter(fh.readline, b""):
+                tag = line.strip()
+                if tag == b"$Nodes":
+                    count = int(fh.readline())
+                    if binary:
+                        fh.seek(count * (4 + 3 * size), 1)
+                    else:
+                        for _ in range(count):
+                            fh.readline()
+                elif tag == b"$Elements":
+                    count = int(fh.readline())
+                    while binary and count > 0:  # blocks of one element type each
+                        etype, block, ntags = struct.unpack("<3i", fh.read(12))
+                        nodes = _GMSH_NODES_PER_ELEMENT[etype]
+                        fh.seek(block * 4 * (1 + ntags + nodes), 1)
+                        count -= block
+                    for _ in range(0 if binary else count):
+                        fh.readline()
+                elif tag in (b"$NodeData", b"$ElementData"):
+                    strings = [fh.readline() for _ in range(int(fh.readline()))]
+                    if strings:
+                        names.add(strings[0].strip().strip(b'"').decode())
+                    for _ in range(int(fh.readline())):  # real tags (time)
+                        fh.readline()
+                    ints = [int(fh.readline()) for _ in range(int(fh.readline()))]
+                    components, count = ints[1], ints[2]
+                    if binary:
+                        fh.seek(count * (4 + components * size), 1)
+                    else:
+                        for _ in range(count):
+                            fh.readline()
+            return names
+    except (
+        OSError,
+        ValueError,
+        IndexError,
+        KeyError,
+        struct.error,
+        UnicodeDecodeError,
+    ):
         return None
 
 

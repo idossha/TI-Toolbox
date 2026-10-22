@@ -159,22 +159,51 @@ def _ascii_msh(fields: list[tuple[str, str]]) -> bytes:
     return ("\n".join(out) + "\n").encode()
 
 
-def _binary_msh(fields: list[tuple[str, str]]) -> bytes:
+TRIANGLE = (2, [[1, 1002, 1, 1, 2, 3]])  # Gmsh type 2: two tags, three nodes
+# 24 bytes a byte-scanning reader would take for a field header; a header walker seeks
+# over them, because they are one node's three coordinates.
+POISON = b'\n$NodeData\n1\n"FAKE"\n1\n00'
+
+
+def _binary_msh(
+    fields: list[tuple[str, str]], blocks=(TRIANGLE,), poison: bool = False
+) -> bytes:
     """The same mesh in Gmsh 2.2 binary: int 1 marker, packed nodes/elements/data."""
     out = b"$MeshFormat\n2.2 1 8\n" + struct.pack("<i", 1) + b"\n$EndMeshFormat\n"
-    out += b"$Nodes\n3\n"
-    for i, xyz in enumerate([(0, 0, 0), (1, 0, 0), (0, 1, 0)], start=1):
-        out += struct.pack("<i3d", i, *xyz)
-    out += b"\n$EndNodes\n$Elements\n1\n"
-    out += struct.pack("<3i", 2, 1, 2) + struct.pack("<6i", 1, 1002, 1, 1, 2, 3)
+    out += b"$Nodes\n4\n"
+    for i, xyz in enumerate([(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)], start=1):
+        if poison and i == 2:
+            out += struct.pack("<i", i) + POISON
+        else:
+            out += struct.pack("<i3d", i, *xyz)
+    count = sum(len(rows) for _, rows in blocks)
+    out += f"\n$EndNodes\n$Elements\n{count}\n".encode()
+    for etype, rows in blocks:
+        out += struct.pack("<3i", etype, len(rows), 2)
+        for row in rows:
+            out += struct.pack(f"<{len(row)}i", *row)
     out += b"\n$EndElements\n"
     for section, name in fields:
-        count = 3 if section == "NodeData" else 1
+        count = 4 if section == "NodeData" else 1
         out += f'${section}\n1\n"{name}"\n1\n0.0\n3\n0\n1\n{count}\n'.encode()
         for i in range(count):
             out += struct.pack("<id", i + 1, 0.5 + i)
         out += f"\n$End{section}\n".encode()
     return out
+
+
+def test_msh_field_names_seeks_over_payloads_and_element_blocks(tmp_path: Path) -> None:
+    from tit.analyzer.analyzer import msh_field_names
+
+    assert len(POISON) == 24
+    path = tmp_path / "volume.msh"
+    tetra = (4, [[2, 2, 2, 1, 2, 3, 4], [3, 2, 2, 4, 3, 2, 1]])
+    path.write_bytes(
+        _binary_msh([("ElementData", "TI_max")], blocks=(TRIANGLE, tetra), poison=True)
+    )
+    assert msh_field_names(path) == {"TI_max"}  # not "FAKE"
+    path.write_bytes(_binary_msh([("NodeData", "x")], blocks=((99, [[1, 0, 0]]),)))
+    assert msh_field_names(path) is None  # an element type it cannot size
 
 
 @pytest.mark.parametrize("writer", [_ascii_msh, _binary_msh])
