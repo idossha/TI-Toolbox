@@ -28,12 +28,10 @@ function getAjv(): Ajv2020 {
  * that's self-contained. Compiling one extracted `$defs/<Name>` object on its own — stripped of
  * every other `$defs` entry — makes Ajv throw `can't resolve reference #/$defs/<Other> from id #`
  * for any config that isn't a flat leaf: electrode/ROI `oneOf` branches, `PreprocessConfig`'s
- * `qsi*_config`, `SimulationConfig`'s `Montage`, and more. Reported independently by several page
- * lanes hitting the same crash (`pages/preprocess/PARITY.md` #4, `pages/optimizer-flex/PARITY.md`
- * #4, `pages/simulator/PARITY.md` #7, `tests/unit/optimizer-ex-defaults.test.ts`'s file comment) —
- * this is that fix. The whole document is added to Ajv exactly once, under one fixed key; a named
- * `$defs` entry is then resolved *from within it* via `ajv.getSchema(key + "#/$defs/<Name>")`, so
- * every sibling `$ref` stays resolvable because it's still part of the one schema Ajv compiled.
+ * `qsi*_config`, `SimulationConfig`'s `Montage`, and more. So the whole document is added to Ajv
+ * exactly once, under one fixed key; a named `$defs` entry is then resolved *from within it* via
+ * `ajv.getSchema(key + "#/$defs/<Name>")`, so every sibling `$ref` stays resolvable because it's
+ * still part of the one schema Ajv compiled.
  */
 const SCHEMA_DOC_KEY = "tit-contract-schema.json";
 let schemaDocAdded: Promise<void> | null = null;

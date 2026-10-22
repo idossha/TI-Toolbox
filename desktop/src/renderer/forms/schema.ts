@@ -36,11 +36,6 @@ export function resolveDef(root: JSONSchema, name: string): JSONSchema {
   return def;
 }
 
-/** Load `/api/schema` (from cache) and resolve one named config's definition. */
-export async function loadConfigSchema(name: string): Promise<JSONSchema> {
-  return resolveDef(await loadSchema(), name);
-}
-
 export interface SchemaProperty {
   type?: string | string[];
   enum?: unknown[];
@@ -56,10 +51,6 @@ export interface SchemaProperty {
 
 export function schemaProperties(def: JSONSchema): Record<string, SchemaProperty> {
   return (def.properties as Record<string, SchemaProperty> | undefined) ?? {};
-}
-
-export function requiredFields(def: JSONSchema): string[] {
-  return (def.required as string[] | undefined) ?? [];
 }
 
 /** Build a partial values object from every property's `default`, for `useForm({ defaultValues })`. */

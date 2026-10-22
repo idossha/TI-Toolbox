@@ -26,8 +26,8 @@ src/shared/tit-bridge.d.ts  the bridge's TypeScript surface (renderer + preload)
 src/renderer/
   ui/          design system — tokens.css/base.css/components.css + every primitive (docs/dev/ARCHITECTURE.md §11);
                pages import only from here, never a literal colour
-  forms/       schema loader (/api/schema, cached), Ajv 2020-12 react-hook-form resolver, SchemaField,
-               server-error -> field mapping (see forms/README.md)
+  forms/       schema loader (/api/schema, cached), Ajv 2020-12 react-hook-form resolver, app defaults
+               (see forms/README.md)
   app/         shell: nav rail, top bar, page registry (pages/*/index.tsx, auto-discovered), jobs
                store + rail (app/jobs/README.md), theme store, keyboard shortcuts, memory router
   pages/       one directory per screen; each exports a `PageDef` and owns its own tests/e2e/<name>.spec.ts
