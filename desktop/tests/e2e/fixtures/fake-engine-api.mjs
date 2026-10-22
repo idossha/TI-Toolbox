@@ -35,10 +35,16 @@
  *                      container stays up like a real server, unless its own label asks otherwise.
  *                      GPU probes always finish: they run a finite computation, not a server.
  *   `serveTitServer` — on container start, listen on the container's own `TIT_SERVER_PORT` and
- *                      answer `/api/health`, `/api/version`, `/api/jobs`, `/auth/session` and `/`
- *                      the way `tit.server` does, using its `TIT_SERVER_TOKEN`. This is what makes
- *                      "the container" real enough for the launcher e2e: the published port the
- *                      fake engine reports is the port that server is actually listening on.
+ *                      answer `/api/health`, `/api/version`, `/api/jobs`, `POST /api/jobs/{id}/cancel`,
+ *                      `/auth/session` and `/` the way `tit.server` does, using its
+ *                      `TIT_SERVER_TOKEN`. This is what makes "the container" real enough for the
+ *                      launcher e2e: the published port the fake engine reports is the port that
+ *                      server is actually listening on.
+ *   `jobs`           — what that server's `GET /api/jobs` answers. A cancel marks the job
+ *                      `cancelled` and is logged in `requests` as `POST /api/jobs/<id>/cancel`, so a
+ *                      test can order it against the engine's own `POST /containers/<id>/stop`.
+ *   `healthDelayMs`  — that server answers `/api/health` with 503 until this long after its
+ *                      container started: a slow first boot, for "quit while waiting for the server".
  *   `podman`         — report a Podman-flavoured `/version`, for the unsupported-engine path.
  *
  * `startFakeEngineApi()` returns `{ socketPath, close, containers }` — `containers` is the live
@@ -110,9 +116,23 @@ export async function startFakeEngineApi(opts = {}) {
     const port = Number(envOf(container, "TIT_SERVER_PORT"));
     const token = envOf(container, "TIT_SERVER_TOKEN") ?? "";
     if (!port) return;
+    const startedAt = Date.now();
     const server = createServer((req, res) => {
       const url = new URL(req.url, "http://127.0.0.1");
-      if (url.pathname === "/api/health") return writeJson(res, 200, { status: "ok", uptime_s: 1 });
+      if (url.pathname === "/api/health") {
+        if (Date.now() - startedAt < (opts.healthDelayMs ?? 0)) return writeJson(res, 503, { status: "starting" });
+        return writeJson(res, 200, { status: "ok", uptime_s: 1 });
+      }
+      const cancel = url.pathname.match(/^\/api\/jobs\/([^/]+)\/cancel$/);
+      if (cancel && req.method === "POST") {
+        if ((req.headers.authorization || "") !== `Bearer ${token}`) return writeJson(res, 401, { detail: "Unauthorized" });
+        const id = decodeURIComponent(cancel[1]);
+        requests.push(`POST /api/jobs/${id}/cancel`);
+        const job = (opts.jobs ?? []).find((j) => j.id === id);
+        if (!job) return writeJson(res, 404, { detail: `No job ${id}` });
+        job.state = "cancelled";
+        return writeJson(res, 200, job);
+      }
       if (url.pathname === "/api/jobs") return writeJson(res, 200, opts.jobs ?? []);
       if (url.pathname === "/api/version") {
         if ((req.headers.authorization || "") !== `Bearer ${token}`) return writeJson(res, 401, { detail: "Unauthorized" });

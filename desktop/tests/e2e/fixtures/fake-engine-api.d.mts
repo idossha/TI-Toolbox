@@ -38,7 +38,7 @@ export interface FakeEngineApi {
   containers: Map<string, FakeEngineApiContainer>;
   networks: Map<string, FakeEngineApiNetwork>;
   volumes: Map<string, FakeEngineApiVolume>;
-  /** Every request answered, as "METHOD /path" (version prefix stripped). */
+  /** Every engine request answered, as "METHOD /path" (version prefix stripped), plus each fake-server job cancel. */
   requests: string[];
   /** Every `POST /images/create`, with the query the client sent. */
   pulls: Array<{ image: string; tag: string; platform: string | undefined }>;
@@ -53,8 +53,10 @@ export interface FakeEngineApiOptions {
   autoExit?: boolean;
   /** Listen on the started container's own `TIT_SERVER_PORT` and answer like `tit.server`. */
   serveTitServer?: boolean;
-  /** Job states exposed by the fake server for shutdown confirmation scenarios. */
+  /** Job states exposed by the fake server for shutdown confirmation scenarios; a cancel sets `state` to `cancelled`. */
   jobs?: Array<{ id: string; state: string }>;
+  /** The fake server answers `/api/health` with 503 until this long after its container started. */
+  healthDelayMs?: number;
   /** Report a Podman-flavoured `/version` (the unsupported-engine path). */
   podman?: boolean;
   /** Override the reported `ApiVersion` (the too-old-engine path). */

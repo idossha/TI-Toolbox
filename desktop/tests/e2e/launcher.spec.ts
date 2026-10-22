@@ -459,3 +459,59 @@ test("invalid or cancelled destinations leave the current project running", asyn
   expect(fake.requests).not.toContain(`POST /containers/${oldId}/stop`);
   expect(fake.requests).not.toContain(`DELETE /containers/${oldId}`);
 });
+
+test("Stop Docker stack with an active job asks first: Cancel keeps the container, confirming cancels the job before the stop", async () => {
+  // The quit plan's spec (shared/quitPlan.ts): the running-jobs question is asked for every backend
+  // this app owns, and its "stop" branch cancels the jobs before the container goes. The fake
+  // server's page has no Settings, so the page calls what Settings ▸ Stop Docker stack calls.
+  const jobs = [{ id: "j1", state: "running" }];
+  await launchApp({ engine: { jobs } });
+  await page.locator("#project-dir").fill(projectDir);
+  await page.locator("#start-stack").click();
+  await expect(page.getByTestId("fake-server-home")).toBeVisible();
+  const connectedUrl = page.url();
+  const id = [...fake.containers.keys()][0]!;
+  const answerWith = (label: string) =>
+    app.evaluate(({ dialog }, wanted) => {
+      dialog.showMessageBox = async (...args: unknown[]) => {
+        const options = args.at(-1) as { buttons: string[]; message: string };
+        if (!options.message.includes("1 active job")) throw new Error(`Unexpected question: ${options.message}`);
+        return { response: options.buttons.indexOf(wanted), checkboxChecked: false };
+      };
+    }, label);
+
+  await answerWith("Cancel");
+  expect(await page.evaluate(() => window.tit!.stack.stop())).toMatchObject({ ok: false });
+  await expect(page).toHaveURL(connectedUrl);
+  expect(fake.containers.get(id)?.running).toBe(true);
+  expect(fake.requests).not.toContain(`POST /containers/${id}/stop`);
+  expect(fake.requests).not.toContain("POST /api/jobs/j1/cancel");
+  expect(jobs[0]!.state).toBe("running");
+
+  await answerWith("Stop jobs and close project");
+  expect(await page.evaluate(() => window.tit!.stack.stop())).toEqual({ ok: true });
+  const cancel = fake.requests.indexOf("POST /api/jobs/j1/cancel");
+  const stop = fake.requests.indexOf(`POST /containers/${id}/stop`);
+  expect(cancel).toBeGreaterThanOrEqual(0);
+  expect(stop).toBeGreaterThan(cancel);
+  expect(fake.requests.indexOf(`DELETE /containers/${id}`)).toBeGreaterThan(stop);
+  expect(fake.containers.has(id)).toBe(false);
+  await expect(page).toHaveURL(/^app:\/\/launcher\//, { timeout: 15_000 });
+});
+
+test("quitting while the server is still starting stops and removes the container being started", async () => {
+  // stack.ts: "Closing Electron stops its selected stack" — a container this app created is its
+  // own from creation, not from its first health answer.
+  await launchApp({ engine: { healthDelayMs: 120_000 } });
+  void page.evaluate((dir) => window.tit!.stack.start(dir), projectDir).catch(() => undefined);
+  // The log follow starts right after the launcher says "Waiting for the server to answer…".
+  const starting = () => [...fake.containers.values()].find((c) => c.Labels["tit.stack"] !== undefined && c.running && fake.requests.includes(`GET /containers/${c.Id}/logs`));
+  await expect.poll(() => starting() !== undefined, { timeout: 15_000 }).toBe(true);
+  const id = starting()!.Id;
+  const electronProcess = app.process();
+  await app.evaluate(({ app: electronApp }) => { electronApp.quit(); });
+  await expect.poll(() => electronProcess.exitCode, { timeout: 15_000 }).toBe(0);
+  expect(fake.requests).toContain(`POST /containers/${id}/stop`);
+  expect(fake.requests).toContain(`DELETE /containers/${id}`);
+  expect(fake.containers.has(id)).toBe(false);
+});
