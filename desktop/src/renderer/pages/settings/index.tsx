@@ -351,7 +351,9 @@ function SettingsPage() {
               </div>
             )}
             <p className="field-help" style={{ marginTop: "var(--space-2)" }}>
-              No project data, file paths, or subject identifiers are ever sent — only feature usage and error counts.
+              Sends which operations run, how long they take and whether they succeed; for a failure, the error type and
+              the first 80 characters of its message with file paths and subject identifiers removed. No project data, file
+              paths or subject identifiers are sent.
             </p>
           </CardBody>
         </Card>

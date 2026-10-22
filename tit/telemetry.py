@@ -12,7 +12,9 @@ Collected Data
 - Operation type (``sim_ti``, ``sim_mti``, ``flex_search``, etc.)
 - Operation status (``start``, ``success``, ``error``)
 - Operation wall-clock duration (seconds, on completion events)
-- Error class name on failure (e.g. ``ValueError`` — **no** tracebacks)
+- Error class name on failure (e.g. ``ValueError`` — **no** tracebacks), with the
+  first 80 characters of its message after file paths and subject identifiers are
+  replaced by ``<path>`` / ``<id>`` (:func:`_scrub`)
 - Anonymous client ID (random UUID, stored locally)
 - Approximate country via GA4 IP-based geolocation (IP is anonymised by Google)
 
@@ -396,6 +398,35 @@ def _send_ga4(payload: dict[str, Any]) -> None:
         pass  # Network issues, firewall, DNS — silently drop
 
 
+#: Subject identifiers in the forms error messages write them: ``sub-101``, ``m2m_101``,
+#: ``subject 101``, ``Subject: 101``, ``subject_id='101'``.
+_SUBJECT_PATTERNS = (
+    (re.compile(r"\b(sub-|m2m_)[A-Za-z0-9_-]+"), r"\1<id>"),
+    (
+        # The separator never takes "<", so an already scrubbed "subject: <path>" stays intact.
+        re.compile(
+            r"\b(subject(?:_ids?|s)?)([^\w<]{1,3})[A-Za-z0-9_-]+", re.IGNORECASE
+        ),
+        r"\1\2<id>",
+    ),
+)
+
+
+def _scrub(text: str) -> str:
+    """*text* with paths and subject identifiers replaced by ``<path>`` / ``<id>``.
+
+    Subject ids are also removed wherever they appear bare, for the job's own subjects
+    (``TIT_JOB_SUBJECT_IDS``, set by ``tit.jobs.runner.runner_env``).
+    """
+    text = re.sub(r"/\S+", "<path>", text)
+    for pattern, replacement in _SUBJECT_PATTERNS:
+        text = pattern.sub(replacement, text)
+    active = os.environ.get("TIT_JOB_SUBJECT_IDS", "").split(",")
+    for sid in sorted(filter(None, active), key=len, reverse=True):
+        text = re.sub(rf"(?<![\w<-]){re.escape(sid)}(?![\w>-])", "<id>", text)
+    return text
+
+
 def _error_fingerprint(exc: BaseException) -> str:
     """Return a stable, non-reversible fingerprint for an exception."""
     frames = traceback.extract_tb(exc.__traceback__)
@@ -403,14 +434,14 @@ def _error_fingerprint(exc: BaseException) -> str:
     location = "<unknown>"
     if frame is not None:
         location = f"{Path(frame.filename).name}:{frame.name}:{frame.lineno}"
-    detail = re.sub(r"/\S+", "<path>", str(exc))[:80]
+    detail = _scrub(str(exc))[:80]
     signature = f"{type(exc).__name__}|{location}|{detail}"
     return hashlib.sha256(signature.encode("utf-8")).hexdigest()[:16]
 
 
 def _error_detail(exc: BaseException) -> str:
-    """Return a short, path-sanitized exception detail for telemetry."""
-    detail = re.sub(r"/\S+", "<path>", str(exc)).strip()[:80]
+    """Return a short exception detail for telemetry, without paths or subject ids."""
+    detail = _scrub(str(exc)).strip()[:80]
     if detail:
         return detail
     frames = traceback.extract_tb(exc.__traceback__)

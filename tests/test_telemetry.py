@@ -517,3 +517,137 @@ class TestConsentCLI:
         consent_prompt_cli()
         cfg = load_config()
         assert cfg.enabled is True  # Still yes from first call
+
+
+# ---------------------------------------------------------------------------
+# error_detail never carries a subject identifier
+# ---------------------------------------------------------------------------
+
+
+class TestErrorDetailScrubsSubjects:
+    """2026-10-21: ``error_detail`` stripped only ``/...`` paths, so tracked failures that name
+    their subject (charm, FastSurfer, the group-stats grid check) sent the subject id to GA4.
+    The first three tests raise the real messages from the real code; the rest pin the forms."""
+
+    @pytest.fixture(autouse=True)
+    def _enabled(self, monkeypatch):
+        set_enabled(True)
+        _invalidate_cache()
+        monkeypatch.setattr("tit.constants.GA4_MEASUREMENT_ID", "G-REALVALUE")
+        monkeypatch.delenv("TIT_JOB_SUBJECT_IDS", raising=False)
+
+    def _sent_error(self, run) -> dict:
+        payloads = []
+        with patch("tit.telemetry._send_ga4", side_effect=lambda p: payloads.append(p)):
+            with pytest.raises(Exception):
+                run()
+        _wait_for_telemetry_threads()
+        return _operation_params_by_status(payloads)["error"]
+
+    def test_charm_failure(self, tmp_path, monkeypatch):
+        import simnibs  # the conftest's stand-in; run_charm copies its charm.ini
+
+        from tit.pre.charm import run_charm
+
+        (tmp_path / "charm.ini").write_text("[general]\nthreads = 0\n")
+        monkeypatch.setattr(simnibs, "SIMNIBSDIR", str(tmp_path), raising=False)
+        pm = MagicMock()
+        pm.sub.return_value = str(tmp_path / "sub-101")
+        pm.m2m.return_value = str(tmp_path / "sub-101" / "m2m_101")
+        runner = MagicMock()
+        runner.run.return_value = 1
+        with (
+            patch("tit.pre.charm.get_path_manager", return_value=pm),
+            patch(
+                "tit.pre.charm._find_anat_files",
+                return_value=(tmp_path / "t1.nii.gz", None),
+            ),
+            patch("tit.pre.charm._get_form_flag", return_value="--forcesform"),
+        ):
+            error = self._sent_error(
+                lambda: run_charm("/proj", "101", logger=MagicMock(), runner=runner)
+            )
+        assert error["error_detail"] == "charm failed for subject <id> (exit 1)."
+
+    def test_fastsurfer_failure(self, tmp_path, monkeypatch):
+        from tit.paths import get_path_manager, reset_path_manager
+        from tit.pre import fastsurfer as fs
+
+        reset_path_manager()
+        monkeypatch.setenv("PROJECT_DIR", str(tmp_path))
+        anat = tmp_path / "sub-ernie" / "anat"
+        anat.mkdir(parents=True)
+        (anat / "sub-ernie_T1w.nii.gz").write_bytes(b"")
+        home = tmp_path / "fastsurfer_home"
+        home.mkdir()
+        (home / fs.RUN_SCRIPT).write_text("#!/bin/sh\nexit 0\n")
+        monkeypatch.setenv(fs.ENV_FASTSURFER_HOME, str(home))
+        monkeypatch.setattr(fs, "_probe_device", lambda *args: ("cpu", "test"))
+        get_path_manager(str(tmp_path))
+        runner = MagicMock()
+        runner.run.return_value = 1
+        try:
+            error = self._sent_error(
+                lambda: fs.run_fastsurfer(
+                    str(tmp_path), "ernie", logger=MagicMock(), runner=runner
+                )
+            )
+        finally:
+            reset_path_manager()
+        assert error["error_detail"] == "FastSurfer failed for subject <id> (exit 1)."
+
+    def test_group_grid_mismatch(self):
+        import numpy as np
+
+        from tit.stats.nifti import _check_same_grid
+
+        def run():
+            with track_operation("group_stats"):
+                _check_same_grid(
+                    "101",
+                    "/data/proj/derivatives/SimNIBS/sub-101/x.nii.gz",
+                    (5, 5, 6),
+                    np.eye(4),
+                    (5, 5, 5),
+                    np.eye(4),
+                    "/data/proj/ref.nii.gz",
+                )
+
+        detail = self._sent_error(run)["error_detail"]
+        assert detail.startswith("Subject <id> has shape (5, 5, 6)")
+        assert "101" not in detail
+
+    @pytest.mark.parametrize(
+        "message, expected",
+        [
+            ("No m2m directory for subject ernie", "No m2m directory for subject <id>"),
+            ("missing sub-101_T1w in sub-101", "missing sub-<id> in sub-<id>"),
+            ("m2m_ernie has no EEG net", "m2m_<id> has no EEG net"),
+            ("bad subject_id='P-07'", "bad subject_id='<id>'"),
+            ("Subjects: 101", "Subjects: <id>"),
+            # A scrubbed path stays a path; "subject:" is not followed by an id here.
+            ("subject: /mnt/p/sub-101/a.nii", "subject: <path>"),
+        ],
+    )
+    def test_subject_forms(self, message, expected):
+        from tit.telemetry import _error_detail
+
+        assert _error_detail(ValueError(message)) == expected
+
+    def test_the_jobs_own_subjects_are_removed_wherever_they_appear(self, monkeypatch):
+        from tit.telemetry import _error_detail
+
+        monkeypatch.setenv("TIT_JOB_SUBJECT_IDS", "101,ernie")
+        detail = _error_detail(ValueError("montage for 101 and ernie: 1010 electrodes"))
+        assert detail == "montage for <id> and <id>: 1010 electrodes"
+
+    def test_the_fingerprint_does_not_depend_on_the_subject(self):
+        from tit.telemetry import _error_fingerprint
+
+        def fingerprint(sid):
+            try:
+                raise RuntimeError(f"charm failed for subject {sid} (exit 1).")
+            except RuntimeError as exc:
+                return _error_fingerprint(exc)
+
+        assert fingerprint("101") == fingerprint("ernie")
