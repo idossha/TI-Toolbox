@@ -68,7 +68,9 @@ MAX_CAP_ROWS = 2048
 #: value past this is a cap in some other space (or millimetres x 10).
 MNI_LIMIT_MM = 200.0
 
-_ROW_TYPES = {"electrode", "referenceelectrode", "fiducial"}
+#: The row types SimNIBS's ``read_csv_positions`` keeps, spelled the only way it
+#: compares them (exactly: no strip, no case folding).
+_ROW_TYPES = ("Electrode", "ReferenceElectrode", "Fiducial")
 
 
 class CapError(ValueError):
@@ -188,40 +190,115 @@ def warp_caps(m2m_dir: str, sid: str, caps: list[Path], out_dir: str) -> list[di
     return written
 
 
+def _csv_rows(text: str) -> list[list[str]]:
+    """*text*'s CSV rows, any line ending; a UTF-8 byte-order mark is dropped."""
+    try:
+        return list(csv.reader(io.StringIO(text.removeprefix("\ufeff"), newline="")))
+    except csv.Error as exc:
+        raise CapError(f"Not a readable CSV file: {exc}.") from None
+
+
+def normalise_mni_cap(text: str) -> str:
+    """*text* as the upload route stores it: no byte-order mark, no blank rows, ``\\n`` ends.
+
+    SimNIBS's ``read_csv_positions`` reads ``row[0]`` of every row, so a blank
+    row in the middle of a cap raises ``IndexError``; it refuses a file whose
+    last row has fewer than three cells, so one blank line too many at the end
+    raises ``OSError``; and a byte-order mark (Excel's "CSV UTF-8") becomes
+    part of the first type cell, so that row is dropped. Removing them changes
+    no electrode.
+    """
+    out = io.StringIO()
+    csv.writer(out, lineterminator="\n").writerows(
+        row for row in _csv_rows(text) if any(cell.strip() for cell in row)
+    )
+    return out.getvalue()
+
+
+def _mni_mm(cells: list[str], number: int) -> None:
+    try:
+        values = [float(v) for v in cells]
+    except ValueError:
+        raise CapError(f"Row {number}: x, y and z must be numbers.") from None
+    if not all(math.isfinite(v) and abs(v) <= MNI_LIMIT_MM for v in values):
+        raise CapError(
+            f"Row {number}: coordinates must be MNI millimetres within ±{MNI_LIMIT_MM:g}."
+        )
+
+
+def _numbers(cells: list[str]) -> bool:
+    try:
+        [float(v) for v in cells]
+    except ValueError:
+        return False
+    return True
+
+
 def validate_mni_cap(text: str) -> int:
     """Number of electrodes in an MNI cap CSV, or raise :class:`CapError`.
 
-    The format charm reads: ``Type,x,y,z,name[,...]`` with ``Type`` one of
-    ``Electrode`` / ``ReferenceElectrode`` / ``Fiducial``. Untrusted input:
-    every row is checked, and nothing is accepted that the warp would
-    silently skip or misplace.
+    The format charm reads, as SimNIBS's ``read_csv_positions`` reads it:
+    ``Type,x,y,z,name[,...]`` or ``Type,x,y,z,pos2_x,pos2_y,pos2_z,name[,...]``,
+    with ``Type`` spelled exactly ``Electrode`` / ``ReferenceElectrode`` /
+    ``Fiducial``. Untrusted input: the :func:`normalise_mni_cap` form of
+    *text* is checked row by row, and nothing is accepted that the warp would
+    skip, crash on or file under another name -- a type in another case or
+    with a space (skipped), a name with spaces around it (kept with them, so
+    ``Cz`` is not found), a repeated electrode name (the net keeps one).
+
+    Args:
+        text: The cap file's text.
+
+    Returns:
+        The number of ``Electrode`` and ``ReferenceElectrode`` rows.
+
+    Raises:
+        CapError: The first rule the file breaks, naming its row.
     """
-    rows = [r for r in csv.reader(io.StringIO(text)) if any(c.strip() for c in r)]
+    rows = _csv_rows(normalise_mni_cap(text))
     if not rows:
         raise CapError("The file has no rows.")
     if len(rows) > MAX_CAP_ROWS:
         raise CapError(f"More than {MAX_CAP_ROWS} rows; that is not an EEG cap.")
-    electrodes = 0
+    names: list[str] = []
     for number, row in enumerate(rows, start=1):
-        kind = row[0].strip().lower()
+        kind = row[0]
+        if kind not in _ROW_TYPES:
+            spelled = [t for t in _ROW_TYPES if t.lower() == kind.strip().lower()]
+            if spelled:
+                raise CapError(
+                    f"Row {number}: write the type exactly as {spelled[0]}; "
+                    f"SimNIBS skips a row typed {kind!r}."
+                )
         if kind not in _ROW_TYPES or len(row) < 5:
             raise CapError(
                 f"Row {number}: expected Electrode|ReferenceElectrode|Fiducial,x,y,z,name."
             )
-        try:
-            xyz = [float(v) for v in row[1:4]]
-        except ValueError:
-            raise CapError(f"Row {number}: x, y and z must be numbers.") from None
-        if not all(math.isfinite(v) and abs(v) <= MNI_LIMIT_MM for v in xyz):
-            raise CapError(
-                f"Row {number}: coordinates must be MNI millimetres within ±{MNI_LIMIT_MM:g}."
-            )
-        if not row[4].strip():
+        _mni_mm(row[1:4], number)
+        name = row[4]
+        if kind != "Fiducial" and len(row) >= 7 and _numbers(row[4:7]):
+            # SimNIBS reads cells 5-7 as a second position and the name from cell 8.
+            _mni_mm(row[4:7], number)
+            name = row[7] if len(row) >= 8 else ""
+        if not name.strip():
             raise CapError(f"Row {number}: the electrode has no name.")
-        electrodes += kind != "fiducial"
-    if electrodes == 0:
+        if name != name.strip():
+            raise CapError(
+                f"Row {number}: the name {name!r} has spaces around it; SimNIBS keeps "
+                f"them, so the electrode would not be found as {name.strip()!r}."
+            )
+        if kind != "Fiducial":
+            names.append(name)
+    repeated = sorted(k for k, v in Counter(names).items() if v > 1)
+    if repeated:
+        raise CapError(
+            f"Electrode names repeat: {', '.join(repeated[:5])}"
+            f"{', ...' if len(repeated) > 5 else ''}; SimNIBS keeps only the last row "
+            f"of each name."
+        )
+    if not names:
         raise CapError("The file has no Electrode rows.")
-    return electrodes
+    return len(names)
 
 
 def _distances(a: np.ndarray, b: np.ndarray) -> np.ndarray:

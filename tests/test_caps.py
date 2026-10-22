@@ -152,7 +152,11 @@ def project(tmp_path, monkeypatch):
         fp = build.surface_fingerprint(pm, sid)
         blob = tvsc.encode(skin["nodes"].astype(np.float32))
         meta = {"simplified": skin["simplified"]}
-        return {"skin": scene_cache.publish(pm.project_dir, sid, "skin", fp, blob, meta).meta}
+        return {
+            "skin": scene_cache.publish(
+                pm.project_dir, sid, "skin", fp, blob, meta
+            ).meta
+        }
 
     monkeypatch.setattr(build, "build_surfaces", build_surfaces)
     monkeypatch.setattr(caps, "skin_nodes", lambda path: np.array([[10.0, 0, 95]]))
@@ -341,3 +345,143 @@ def test_inspect_measures_a_simplified_skin_against_the_full_mesh(project) -> No
     (project.positions / "A.csv").write_text(WARPED)
     project.skin["simplified"] = True
     assert _fz_scalp(project) == 5.0  # caps.skin_nodes' full-resolution (10,0,95)
+
+
+# ── p14: the upload accepts only what SimNIBS's reader keeps ──────────────────
+#
+# The oracle is SimNIBS 4.6 ``simnibs/utils/csv_reader.py::read_csv_positions``
+# (the reader ``warp_coordinates`` calls on the stored file), read as source:
+#
+# * it keeps a row only when ``row[0]`` is exactly ``"Electrode"``,
+#   ``"ReferenceElectrode"`` or ``"Fiducial"`` (no strip, no case folding), so
+#   ``electrode`` and `` Electrode`` rows are dropped and the warp of an
+#   all-dropped file raises IndexError;
+# * it indexes ``row[0]`` of every row, so a blank row in the middle raises
+#   IndexError, and it refuses a file whose last row has < 3 cells, so one
+#   extra blank line at the end raises ``IOError("... at least 4 rows")``;
+# * a UTF-8 byte-order mark is read into the first type cell
+#   (``"\ufeffElectrode"``), so that row is dropped;
+# * when cells 5-7 of an Electrode row are numbers it reads them as a second
+#   position and takes the name from cell 8;
+# * names are kept verbatim (``" Cz"`` is not ``"Cz"``), and
+#   ``_get_eeg_positions`` keys the net by name, so a repeated name keeps only
+#   the last row.
+#
+# The same corpus against the real reader is
+# ``tests/numerical/test_caps_validator_vs_simnibs.py``.
+
+#: Three electrodes as SimNIBS reads them; every normalised upload below must
+#: be stored as exactly this text.
+CANON = "Electrode,10,0,80,Fz\nElectrode,-10,0,80,Cz\nElectrode,0,20,80,Fp\n"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(CANON.replace("Electrode", "electrode"), id="lowercase-type"),
+        pytest.param(CANON.replace("Electrode", " Electrode"), id="leading-space"),
+        pytest.param(CANON.replace("Fp\n", "Fz\n"), id="duplicate-name"),
+        pytest.param(CANON.replace(",Cz", ", Cz"), id="padded-name"),
+        pytest.param("Electrode,10,0,80,1,2,3\n", id="second-position-no-name"),
+        pytest.param("Electrode,10,0,80,1,2,300,Fz\n", id="second-position-not-mni"),
+    ],
+)
+def test_validate_mni_cap_refuses_rows_simnibs_drops_or_renames(text: str) -> None:
+    with pytest.raises(caps.CapError):
+        caps.validate_mni_cap(text)
+
+
+def test_validate_mni_cap_names_the_exact_type_spelling() -> None:
+    with pytest.raises(caps.CapError, match="Row 2: .*Electrode"):
+        caps.validate_mni_cap("Electrode,10,0,80,Fz\nelectrode,-10,0,80,Cz\n")
+
+
+def test_validate_mni_cap_takes_the_name_simnibs_takes_from_a_second_position() -> None:
+    # Type,x,y,z,pos2_x,pos2_y,pos2_z,name: two electrodes, names in cell 8.
+    text = "Electrode,10,0,80,11,0,80,Fz\nElectrode,-10,0,80,-11,0,80,Cz\n"
+    assert caps.validate_mni_cap(text) == 2
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(CANON.replace("Fz\n", "Fz\n\n"), id="blank-middle-row"),
+        pytest.param(CANON + "\n", id="trailing-blank-line"),
+        pytest.param(CANON.replace("Fz\n", "Fz\n , ,\n"), id="whitespace-row"),
+        pytest.param("\ufeff" + CANON, id="utf8-bom"),
+        pytest.param(CANON.replace("\n", "\r\n"), id="crlf"),
+        pytest.param(CANON.replace("\n", "\r"), id="cr-only"),
+    ],
+)
+def test_upload_stores_the_rows_simnibs_reads(project, text: str) -> None:
+    r = project.client.post(
+        "/api/caps/upload?name=x.csv", content=text.encode("utf-8"), headers=BEARER
+    )
+    assert r.status_code == 201, r.text
+    assert r.json() == {"name": "x.csv", "electrodes": 3}
+    stored = (Path(project.pm.custom_eeg_caps()) / "x.csv").read_bytes()
+    assert stored.decode("utf-8") == CANON
+
+
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        pytest.param(
+            CANON.replace("Electrode", "electrode"), "Row 1", id="lowercase-type"
+        ),
+        pytest.param(
+            CANON.replace("Fp\n", "Fz\n"), "Electrode names repeat", id="duplicate"
+        ),
+    ],
+)
+def test_upload_refuses_a_cap_simnibs_would_misread(project, text, reason) -> None:
+    r = project.client.post("/api/caps/upload?name=x.csv", content=text, headers=BEARER)
+    assert r.status_code == 422
+    assert r.json()["detail"].startswith(reason)
+    assert not (Path(project.pm.custom_eeg_caps()) / "x.csv").exists()
+
+
+@pytest.mark.parametrize("error", [IndexError, KeyError])
+def test_a_warp_simnibs_crashes_on_is_422_and_leaves_nothing(
+    project, monkeypatch, error
+) -> None:
+    def crashes(cap, m2m_dir, **kwargs):
+        Path(kwargs["out_name"]).write_text("half a net")
+        raise error("list index out of range")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "simnibs.utils",
+        SimpleNamespace(transformations=SimpleNamespace(warp_coordinates=crashes)),
+    )
+    r = project.client.post(
+        "/api/caps/warp",
+        json={"subject": "ernie", "caps": ["EEG10-10.csv"]},
+        headers=BEARER,
+    )
+    assert r.status_code == 422
+    assert "list index out of range" in r.json()["detail"]
+    assert list(project.positions.iterdir()) == []
+
+
+def test_upload_with_overwrite_replaces_the_project_cap(project) -> None:
+    c = project.client
+    directory = Path(project.pm.custom_eeg_caps())
+    first = c.post("/api/caps/upload?name=Mine.csv", content=CAP, headers=BEARER)
+    assert first.json() == {"name": "Mine.csv", "electrodes": 2}
+    r = c.post(
+        "/api/caps/upload?name=Mine.csv&overwrite=true", content=CANON, headers=BEARER
+    )
+    assert r.status_code == 201, r.text
+    assert r.json() == {"name": "Mine.csv", "electrodes": 3}
+    assert (directory / "Mine.csv").read_text() == CANON
+    # Written to a temporary name and renamed into place: no temporary is left.
+    assert sorted(p.name for p in directory.iterdir()) == ["Mine.csv"]
+
+
+def test_an_image_cap_name_is_409_even_with_overwrite(project) -> None:
+    r = project.client.post(
+        "/api/caps/upload?name=EEG10-10.csv&overwrite=true", content=CAP, headers=BEARER
+    )
+    assert r.status_code == 409
+    assert "rename" in r.json()["detail"]

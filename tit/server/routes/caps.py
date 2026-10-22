@@ -83,7 +83,9 @@ def warp(body: WarpRequest) -> dict:
             written = caps_core.warp_caps(
                 m2m, subject, [sources[name][1] for name in body.caps], out_dir
             )
-        except (OSError, ValueError, RuntimeError) as exc:
+        except (OSError, ValueError, RuntimeError, LookupError) as exc:
+            # LookupError: SimNIBS's reader indexes rows it cannot read (a cap
+            # copied into the project's folder by hand, past the upload check).
             raise HTTPException(422, f"Could not warp the cap: {exc}") from exc
     return {"subject": subject, "written": written}
 
@@ -121,7 +123,10 @@ async def upload(
         if len(data) > caps_core.MAX_CAP_BYTES:
             raise HTTPException(413, "Cap file exceeds 256 KiB")
     try:
-        electrodes = caps_core.validate_mni_cap(data.decode("utf-8"))
+        # Stored as validated: without the blank rows and byte-order mark
+        # SimNIBS's reader crashes on or misreads.
+        text = caps_core.normalise_mni_cap(data.decode("utf-8"))
+        electrodes = caps_core.validate_mni_cap(text)
     except UnicodeDecodeError as exc:
         raise HTTPException(422, "The cap file is not UTF-8 text") from exc
     except caps_core.CapError as exc:
@@ -134,7 +139,7 @@ async def upload(
     with tempfile.NamedTemporaryFile(
         dir=directory, prefix=".upload-", delete=False
     ) as tmp:
-        tmp.write(bytes(data))
+        tmp.write(text.encode("utf-8"))
     os.replace(tmp.name, target)
     return {"name": name, "electrodes": electrodes}
 
