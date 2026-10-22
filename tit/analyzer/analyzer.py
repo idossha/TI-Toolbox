@@ -135,7 +135,9 @@ class AnalysisResult:
     focality_95_area : float or None
         Same for 95 % threshold.
     n_elements : int
-        Number of mesh nodes or voxels in the ROI mask.
+        Number of ROI mesh nodes or voxels with a positive field value -- the
+        elements every ``roi_*`` statistic and ``total_area_or_volume`` describe,
+        defined identically in both spaces.
     total_area_or_volume : float
         Total surface area (mm^2) or volume (mm^3) of positive-valued ROI
         elements.
@@ -954,7 +956,7 @@ class Analyzer:
             normal_mean=normal.get("mean") if normal else None,
             normal_max=normal.get("max") if normal else None,
             normal_focality=normal.get("focality") if normal else None,
-            n_elements=int(np.sum(roi_mask)),
+            n_elements=int(roi_pos.size),
             total_area_or_volume=float(np.sum(roi_areas)),
             **focality,
         )
@@ -1171,7 +1173,9 @@ class Analyzer:
             hard-coded ``100`` and so reported voxel focality volumes 10x too
             large.
         """
-        valid = ~np.isnan(values)
+        # NaN and +/-inf are not field values: an inf would become the 99.9th
+        # percentile and zero every focality area.
+        valid = np.isfinite(values)
         data = values[valid]
         sizes = weights[valid]
 
