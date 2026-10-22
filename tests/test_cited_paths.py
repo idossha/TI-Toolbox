@@ -145,6 +145,24 @@ def test_a_gitignored_output_directory_is_described_not_cited(tree, empty_allowl
     assert proc.returncode == 0, _out(proc)
 
 
+def test_a_gitignored_file_is_described_not_cited(tree, empty_allowlist):
+    _write(tree, "AGENTS.md", "The build log is `desktop/build.log`.\n")
+    subprocess.run(["git", "init", "-q", str(tree)], check=True)
+    subprocess.run(["git", "-C", str(tree), "add", "."], check=True)
+    proc = _run(tree, allowlist=empty_allowlist)
+    assert proc.returncode == 1
+    assert "AGENTS.md:1: path does not resolve: desktop/build.log" in proc.stderr
+    _write(tree, "desktop/.gitignore", "*.log\n")
+    proc = _run(tree, allowlist=empty_allowlist)
+    assert proc.returncode == 0, _out(proc)
+    # `*.log` alone ignores both `desktop/build.log` and `desktop/build.log/`. Re-including
+    # directories (`!*/`) leaves only the file form ignored, so only the guard's plain-file
+    # check (not its directory check) exempts the citation.
+    _write(tree, "desktop/.gitignore", "*.log\n!*/\n")
+    proc = _run(tree, allowlist=empty_allowlist)
+    assert proc.returncode == 0, _out(proc)
+
+
 # ── exit 1: a stale citation ───────────────────────────────────────────────
 
 
