@@ -1,12 +1,13 @@
 """Every job's outputs stay inside the project (ARCHITECTURE §6, 2026-10-08).
 
-What this pins: a config that names an output folder outside the project -- an absolute
-``FlexConfig.output_folder`` elsewhere on disk, or a name that climbs out (``subdir_name``
-``../..``, which ``NilearnConfig`` itself refuses since 2026-10-22) -- is refused with a 422 on ``/api/plan``, ``/api/jobs`` (even with
-``overwrite: true``, which used to skip the planning step), ``/api/jobs/groups`` and a proposal
-step, and nothing is queued; an absolute folder inside the project, which is what the Optimizer
-page sends, is accepted. The check is the plan route's (``_require_outputs_inside_project``),
-which every creator runs.
+What this pins: a config that names an output folder outside the project -- an
+absolute ``FlexConfig.output_folder`` elsewhere on disk, or a name that climbs out
+(``subdir_name`` ``../..``, which ``NilearnConfig`` itself refuses since 2026-10-22) --
+is refused with a 422 on ``/api/plan``, ``/api/jobs`` (even with ``overwrite: true``,
+which used to skip the planning step), ``/api/jobs/groups`` and a proposal step, and
+nothing is queued; an absolute folder inside the project, which is what the Optimizer
+page sends, is accepted. The check is the plan route's
+(``_require_outputs_inside_project``), which every creator runs.
 
 Where the values come from: the paths are built here from pytest's ``tmp_path`` (the project and
 a sibling folder), so "inside" and "outside" are known without the code under test.
@@ -83,8 +84,8 @@ def test_plan_refuses_a_name_that_climbs_out_of_the_project(
             }
         },
     )
-    # NilearnConfig itself refuses a subdir_name that is not one folder name (p35), before the
-    # plan route's containment check is reached: the name is refused either way, earlier now.
+    # NilearnConfig itself refuses a subdir_name that is not one folder name (p35),
+    # before the plan route's containment check: still refused, only earlier now.
     assert r.status_code == 422
     assert "invalid subdir_name '../../../../escape'" in r.json()["detail"]
 
