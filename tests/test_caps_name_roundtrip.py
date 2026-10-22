@@ -121,6 +121,43 @@ def test_every_listed_source_cap_round_trips_by_its_file_name(project) -> None:
     assert r.status_code == 409
 
 
+def test_a_net_only_on_the_subject_is_listed_drawn_and_never_warped(project) -> None:
+    # A net with no MNI file of its name (charm's own, or one copied in by hand): listed with
+    # source null, readable by its file name, and a 404 on warp -- nothing to warp it from, and
+    # the subject's copy is left as it was.
+    c = project.client
+    own = project.positions / "OnlyOnSubject.csv"
+    own.write_text(WARPED)
+    before = own.read_bytes()
+
+    listed = c.get("/api/caps/available?subject=ernie", headers=BEARER).json()["caps"]
+    row = next(r for r in listed if r["name"] == own.name)
+    assert row["source"] is None
+    assert row["on_subject"] is True
+
+    r = c.post(
+        "/api/caps/warp", json={"subject": "ernie", "caps": [own.name]}, headers=BEARER
+    )
+    assert r.status_code == 404
+    assert r.json()["detail"] == f"No MNI cap named {own.name}"
+    r = c.post(
+        "/api/caps/warp",
+        json={"subject": "ernie", "caps": [own.name], "overwrite": True},
+        headers=BEARER,
+    )
+    assert r.status_code == 404, "overwrite does not invent a source"
+    assert own.read_bytes() == before
+
+    scene = c.get(f"/api/scene/electrodes?subject=ernie&net={own.name}", headers=BEARER)
+    assert scene.status_code == 200, scene.text
+    assert len(scene.json()["electrodes"]) == _electrode_rows(own)
+    nets = {
+        row["name"]: row["n"]
+        for row in c.get("/api/catalog/eeg-nets?subject=ernie", headers=BEARER).json()
+    }
+    assert nets[own.name] == _electrode_rows(own) == 3
+
+
 def test_the_stem_the_mock_used_is_not_a_cap_name(project) -> None:
     c = project.client
     stem = {"subject": "ernie", "caps": ["GSN-HydroCel-185"]}
