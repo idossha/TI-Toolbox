@@ -2,7 +2,7 @@
 """Render fsaverage surface field/stat maps on the inflated cortex.
 
 The :class:`~tit.plotting.nilearn.visualizer.NilearnVisualizer` renders MNI
-*volumes* (optionally projected onto a surface).  This module is the missing
+*volumes*.  This module is the missing
 counterpart: it paints a per-vertex fsaverage array -- a group-mean field, a
 t/r map, or a thresholded significant-cluster mask -- directly on the
 fsaverage inflated surface (lateral + medial, both hemispheres), the layout
@@ -15,7 +15,7 @@ vertex order is ``[lh; rh]``, matching nilearn's left/right hemispheres.
 
 See Also
 --------
-tit.plotting.nilearn.visualizer.NilearnVisualizer : Volume / volume-to-surface.
+tit.plotting.nilearn.visualizer.NilearnVisualizer : MNI volume slices.
 tit.stats.surface : Produces the ``surface_stats.msh`` rendered here.
 """
 

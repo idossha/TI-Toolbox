@@ -1,77 +1,9 @@
-#!/usr/bin/env simnibs_python
-"""
-TI-Toolbox Glass Brain Visualizations
-Creates glass brain visualizations using nilearn's plot_glass_brain.
+"""Glass-brain PDF of a group-averaged field (Nilearn Visuals).
 
-Usage:
-    python img_glass.py --subject 001 --simulation montage1
-    python img_glass.py --subject 001 --simulation montage1 --cutoff 0.5 --cmap plasma
+Called by :mod:`tit.plotting.nilearn.__main__`, the runner behind the desktop panel.
 """
-
-import argparse
-import sys
 
 from .cutoffs import format_vm, resolve_cutoffs
-from .visualizer import NilearnVisualizer
-
-
-def create_glass_brain_entry_point(
-    subject_id: str,
-    simulation_name: str,
-    min_cutoff: float | None = None,
-    max_cutoff: float | None = None,
-    cmap: str = "hot",
-    output_callback=None,
-):
-    """
-    Entry point for glass brain visualization creation.
-
-    Args:
-        subject_id: Subject ID
-        simulation_name: Simulation name
-        min_cutoff: Minimum cutoff for visualization (V/m)
-        max_cutoff: Maximum cutoff for visualization (V/m), if None uses 99.9th percentile
-        cmap: Colormap name for visualization
-        output_callback: Optional callback function for output (for GUI integration)
-    """
-    # Redirect stdout if callback provided (for GUI integration)
-    import sys
-    from contextlib import redirect_stdout
-    import io
-
-    if output_callback:
-        # Capture stdout and send to callback
-        captured_output = io.StringIO()
-        with redirect_stdout(captured_output):
-            visualizer = NilearnVisualizer()
-            result = visualizer.create_glass_brain_visualization(
-                subject_id, simulation_name, min_cutoff, max_cutoff, cmap
-            )
-
-        # Send captured output to callback line by line
-        output_text = captured_output.getvalue()
-        for line in output_text.split("\n"):
-            if line.strip():
-                output_callback(line)
-
-        if result:
-            output_callback(f"✓ Glass brain visualization completed: {result}")
-            return result
-        else:
-            output_callback("✗ Glass brain visualization failed")
-            return None
-    else:
-        # Normal operation - print to stdout
-        visualizer = NilearnVisualizer()
-        result = visualizer.create_glass_brain_visualization(
-            subject_id, simulation_name, min_cutoff, max_cutoff, cmap
-        )
-        if result:
-            print(f"\n✓ Glass brain visualization completed: {result}")
-            return result
-        else:
-            print("\n✗ Glass brain visualization failed")
-            return None
 
 
 def create_glass_brain_entry_point_group(
@@ -214,55 +146,3 @@ def create_glass_brain_entry_point_group(
         else:
             print("\n✗ Glass brain visualization failed")
             return None
-
-
-def main():
-    """Main CLI entry point for glass brain visualizations."""
-    parser = argparse.ArgumentParser(
-        description="TI-Toolbox Glass Brain Visualizations",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Create glass brain visualization
-  python img_glass.py --subject 001 --simulation montage1
-
-  # Use custom cutoffs and colormap
-  python img_glass.py --subject 001 --simulation montage1 --min-cutoff 0.5 --max-cutoff 10.0 --cmap plasma
-        """,
-    )
-
-    parser.add_argument(
-        "--subject", "-s", required=True, help="Subject ID (e.g., 001, 101)"
-    )
-    parser.add_argument("--simulation", "-sim", required=True, help="Simulation name")
-    parser.add_argument(
-        "--min-cutoff",
-        "-c",
-        type=float,
-        default=None,
-        help="Minimum cutoff for visualization (V/m, default: 95th percentile of the field)",
-    )
-    parser.add_argument(
-        "--max-cutoff",
-        "-mc",
-        type=float,
-        default=None,
-        help="Maximum cutoff for visualization (V/m, default: 99.9th percentile)",
-    )
-    parser.add_argument(
-        "--cmap",
-        default="hot",
-        choices=["hot", "plasma", "inferno", "viridis", "cividis", "coolwarm"],
-        help="Colormap for visualization (default: hot)",
-    )
-
-    args = parser.parse_args()
-
-    # Run the glass brain visualization
-    return create_glass_brain_entry_point(
-        args.subject, args.simulation, args.min_cutoff, args.max_cutoff, args.cmap
-    )
-
-
-if __name__ == "__main__":
-    sys.exit(main())

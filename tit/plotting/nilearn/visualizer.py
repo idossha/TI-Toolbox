@@ -1,32 +1,20 @@
-#!/usr/bin/env simnibs_python
-"""
-TI-Toolbox Visualization Module
-Provides comprehensive visualization tools for electric field distributions from TES simulations.
+"""Multi-slice field figures with atlas outlines for Nilearn Visuals.
 
-Features:
-1. Multiple surface views (lateral, medial, left/right hemispheres) saved as high-res PDF
-2. Interactive 3D visualization saved as HTML using plotly
-3. Atlas contour overlays for anatomical context
-4. Support for both subject-specific and MNI space visualizations
-
-Based on: https://nilearn.github.io/dev/auto_examples/01_plotting/plot_3d_map_to_surface_projection.html
+:func:`field_nifti` names the MNI field file one simulation contributes, and
+:class:`NilearnVisualizer` draws the 3 x 7 slice grid of a group-averaged field
+(:mod:`tit.plotting.nilearn.img_slices` wraps it for the runner).
 """
 
-import argparse
 import os
-import sys
 import warnings
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from nilearn import image, plotting
+from nilearn import plotting
 from nilearn.image import threshold_img
-from nilearn.plotting import view_img_on_surf
 
 from tit.analyzer.field_selector import is_mti_simulation
-from tit.constants import DIR_NILEARN_VISUALS
 from tit.paths import get_path_manager
 from tit.plotting.nilearn.atlases import ATLASES, atlas_path
 from tit.plotting.nilearn.cutoffs import format_vm, resolve_cutoffs
@@ -51,120 +39,13 @@ def field_nifti(subject_id: str, simulation_name: str) -> str:
 
 
 class NilearnVisualizer:
-    """Main visualization class for electric field distributions.
-
-    Provides methods for creating both static PDF visualizations and
-    interactive HTML plots.  Uses PathManager for consistent path handling
-    and supports multiple atlas overlays.
-
-    Parameters
-    ----------
-    subject_id : str or None, optional
-        Subject identifier.  When *None*, PathManager auto-detection is
-        used instead.
-
-    Attributes
-    ----------
-    pm : PathManager
-        Resolved path-manager instance.
-    subject_id : str or None
-        Subject identifier passed at construction time.
-    output_dir : str
-        Directory where visualizations are saved.
+    """Draws a group-averaged field as a multi-slice PDF with atlas outlines.
 
     See Also
     --------
-    tit.plotting.nilearn.img_slices : Convenience entry-points for PDF creation.
-    tit.plotting.nilearn.img_glass : Convenience entry-points for glass-brain PNGs.
-    tit.plotting.nilearn.html_report : Convenience entry-point for HTML reports.
+    tit.plotting.nilearn.img_slices : The runner's entry point to this class.
+    tit.plotting.nilearn.img_glass : The glass-brain PDF of the same field.
     """
-
-    def __init__(self, subject_id: str | None = None):
-        """Create a new visualizer instance.
-
-        Parameters
-        ----------
-        subject_id : str or None, optional
-            Subject identifier.  When *None*, PathManager auto-detection
-            is used instead.
-        """
-        self.pm = get_path_manager()
-        self.subject_id = subject_id
-        self.output_dir = None
-
-        # Set up output directory
-        self._setup_output_directory()
-
-    def _setup_output_directory(self):
-        """Create the output directory for visualizations if it does not exist."""
-        derivatives_dir = self.pm.derivatives()
-        self.output_dir = os.path.join(
-            derivatives_dir, "ti-toolbox", DIR_NILEARN_VISUALS
-        )
-        os.makedirs(self.output_dir, exist_ok=True)
-
-    def _load_electric_field_data(self, filepath: str) -> nib.Nifti1Image | None:
-        """Load a NIfTI file, returning *None* when *filepath* does not exist."""
-        if os.path.exists(filepath):
-            return nib.load(filepath)
-        else:
-            print(f"Warning: {filepath} not found")
-            return None
-
-    def create_pdf_visualization(
-        self,
-        subject_id: str,
-        simulation_name: str,
-        min_cutoff: float | None = None,
-        max_cutoff: float | None = None,
-        atlas_name: str = "harvard_oxford_sub",
-        selected_regions: list[int] | None = None,
-    ) -> str | None:
-        """Create a multi-slice PDF with atlas contours for a single subject.
-
-        Generates sagittal, coronal, and axial slice rows with the electric
-        field overlaid as a hot colormap and optional atlas contour lines.
-        Reads the simulation's MNI grey-matter NIfTI (:func:`field_nifti`).
-
-        Parameters
-        ----------
-        subject_id : str
-            Subject identifier (e.g. ``'070'``).
-        simulation_name : str
-            Name of the simulation folder.
-        min_cutoff : float or None, optional
-            Lower display threshold in V/m.  When *None* the 95th
-            percentile of non-zero voxels is used.
-        max_cutoff : float or None, optional
-            Upper display threshold in V/m.  When *None* the 99.9th
-            percentile of non-zero voxels is used.
-        atlas_name : str, optional
-            Nilearn atlas key.  One of ``'harvard_oxford'``,
-            ``'harvard_oxford_sub'``, ``'aal'``, ``'schaefer_2018'``.
-        selected_regions : list of int or None, optional
-            0-indexed region indices to include in the atlas overlay.
-            When *None*, all regions are shown.
-
-        Returns
-        -------
-        str or None
-            Path to the saved PDF, or *None* on failure.
-        """
-        print(f"=== Creating PDF Visualization for {subject_id}/{simulation_name} ===")
-        ef_img = self._load_electric_field_data(
-            field_nifti(subject_id, simulation_name)
-        )
-        if ef_img is None:
-            return None
-        return self.create_pdf_visualization_group(
-            ef_img,
-            f"{subject_id}_{simulation_name}",
-            self.output_dir,
-            min_cutoff,
-            max_cutoff,
-            atlas_name,
-            selected_regions,
-        )
 
     def _load_atlas(
         self, atlas_name: str, selected_regions: list[int] | None = None
@@ -325,67 +206,6 @@ class NilearnVisualizer:
 
         plt.close(fig)
 
-    def create_html_visualization(
-        self, subject_id: str, simulation_name: str, min_cutoff: float | None = None
-    ) -> str | None:
-        """Create an interactive HTML surface visualization.
-
-        Uses ``nilearn.plotting.view_img_on_surf`` to project the
-        electric-field map onto the cortical surface and saves the result
-        as a self-contained HTML file.
-
-        Parameters
-        ----------
-        subject_id : str
-            Subject identifier.
-        simulation_name : str
-            Name of the simulation folder.
-        min_cutoff : float or None, optional
-            Lower display threshold in V/m.  When *None* the 95th
-            percentile of non-zero voxels is used.
-
-        Returns
-        -------
-        str or None
-            Path to the saved HTML file, or *None* on failure.
-        """
-        print(f"=== Creating HTML Visualization for {subject_id}/{simulation_name} ===")
-        ef_img = self._load_electric_field_data(
-            field_nifti(subject_id, simulation_name)
-        )
-        if ef_img is None:
-            return None
-
-        # Analyze data for thresholds
-        data = ef_img.get_fdata()
-        data_nonzero = data[data > 0]
-        if len(data_nonzero) == 0:
-            print("Warning: No non-zero field values found")
-            return None
-
-        min_cutoff, percentile_999 = resolve_cutoffs(data_nonzero, min_cutoff, None)
-
-        # Create output filename
-        html_filename = f"{subject_id}_{simulation_name}_interactive.html"
-        html_filepath = os.path.join(self.output_dir, html_filename)
-
-        # Create interactive visualization
-        view = view_img_on_surf(
-            stat_map=ef_img,
-            threshold=min_cutoff,
-            vmax=percentile_999,
-            cmap="hot",
-            symmetric_cmap=False,
-            bg_on_data=True,
-            title=f"Electric Field - {subject_id}/{simulation_name}",
-        )
-
-        # Save as HTML
-        view.save_as_html(html_filepath)
-        print(f"✓ Saved interactive HTML: {html_filepath}")
-
-        return html_filepath
-
     def create_pdf_visualization_group(
         self,
         averaged_img,
@@ -398,9 +218,8 @@ class NilearnVisualizer:
     ) -> str | None:
         """Create a multi-slice PDF from a pre-averaged group NIfTI image.
 
-        Identical layout to :meth:`create_pdf_visualization` but accepts
-        an already-averaged ``nibabel.Nifti1Image`` instead of looking up
-        a per-subject simulation file.
+        Sagittal, coronal and axial rows of seven slices each, the field on
+        a hot colour map over the MNI template, with optional atlas outlines.
 
         Parameters
         ----------
@@ -471,84 +290,3 @@ class NilearnVisualizer:
         )
 
         return pdf_filepath
-
-    def create_glass_brain_visualization(
-        self,
-        subject_id: str,
-        simulation_name: str,
-        min_cutoff: float | None = None,
-        max_cutoff: float | None = None,
-        cmap: str = "hot",
-    ) -> str | None:
-        """Create a glass-brain PNG for a single subject simulation.
-
-        Uses ``nilearn.plotting.plot_glass_brain`` to render a
-        maximum-intensity projection of the electric-field map.
-
-        Parameters
-        ----------
-        subject_id : str
-            Subject identifier.
-        simulation_name : str
-            Name of the simulation folder.
-        min_cutoff : float or None, optional
-            Lower display threshold in V/m.  When *None* the 95th
-            percentile of non-zero voxels is used.
-        max_cutoff : float or None, optional
-            Upper display threshold in V/m.  When *None* the 99.9th
-            percentile of non-zero voxels is used.
-        cmap : str, optional
-            Matplotlib colormap name.  Default is ``'hot'``.
-
-        Returns
-        -------
-        str or None
-            Path to the saved PNG file, or *None* on failure.
-        """
-        print(
-            f"=== Creating Glass Brain Visualization for {subject_id}/{simulation_name} ==="
-        )
-        ef_img = self._load_electric_field_data(
-            field_nifti(subject_id, simulation_name)
-        )
-        if ef_img is None:
-            return None
-
-        # Load and analyze data
-        data = ef_img.get_fdata()
-        data_nonzero = data[data > 0]
-        if len(data_nonzero) == 0:
-            print("Warning: No non-zero field values found")
-            return None
-
-        max_value = np.max(data)
-        percentile_999 = np.percentile(data_nonzero, 99.9)
-        min_value = np.min(data_nonzero)
-        min_cutoff, max_cutoff = resolve_cutoffs(data_nonzero, min_cutoff, max_cutoff)
-
-        print(f"Electric field statistics:")
-        print(f"  Absolute maximum: {max_value:.2f} V/m")
-        print(f"  99.9th percentile: {percentile_999:.2f} V/m")
-        print(f"  Minimum (non-zero): {min_value:.2f} V/m")
-        print(f"  Visualization range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
-
-        # Create output filename
-        png_filename = f"{subject_id}_{simulation_name}_glass_brain.png"
-        png_filepath = os.path.join(self.output_dir, png_filename)
-
-        # Create glass brain visualization
-        plotting.plot_glass_brain(
-            stat_map_img=ef_img,
-            threshold=min_cutoff,
-            vmax=max_cutoff,
-            cmap=cmap,
-            colorbar=True,
-            plot_abs=False,
-            symmetric_cbar=False,
-            title=f"Electric Field - {subject_id}/{simulation_name}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m",
-            output_file=png_filepath,
-        )
-
-        print(f"✓ Saved glass brain visualization: {png_filepath}")
-
-        return png_filepath
