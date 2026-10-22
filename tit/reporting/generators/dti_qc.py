@@ -26,8 +26,6 @@ from tit.reporting.html import components as c
 from tit.reporting.html.components import Check, esc
 from tit.reporting.qc_rules import RULES
 
-logger = logging.getLogger(__name__)
-
 REPORT_PREFIX = "dti_qc"
 #: Report size budget (bytes); the rebuild command and tests check it.
 SIZE_BUDGET = 2_500_000
