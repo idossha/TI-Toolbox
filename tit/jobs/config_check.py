@@ -41,6 +41,26 @@ CONFIG_CLASS_FOR_KIND: dict[str, str] = {
 }
 
 
+def runner_view(kind: str, config: dict[str, Any]) -> dict[str, Any]:
+    """*config* as the runner of *kind* reads it, for every door that judges it.
+
+    The manager writes the kind as ``mode`` into a flex runner's ``config.json``
+    (``JobManager._runner_config_path``), and FlexConfig's mode/goal and per-mode threshold
+    rules depend on it, so :func:`check_job_config`, ``POST /api/validate`` and
+    ``POST /api/plan`` all judge that config rather than the body without it (before, validate
+    and plan called a ``flex_pareto`` config with ``goal='mean'`` fine and submit refused it).
+    A single ``flex`` run ignores the adaptive / multi-threshold driver settings, so they are
+    cleared: they cannot stand in for the thresholds it needs. Any other kind is returned
+    unchanged; *config* is never mutated.
+    """
+    if kind not in FLEX_KINDS:
+        return config
+    data = {**config, "mode": kind}
+    if kind == "flex":
+        data["adaptive"] = data["pareto"] = None
+    return data
+
+
 def check_job_config(kind: str, config: dict[str, Any]) -> None:
     """Raise :class:`ValueError` if *config* is not a deserialisable config for *kind*.
 
@@ -68,15 +88,7 @@ def check_job_config(kind: str, config: dict[str, Any]) -> None:
             # The job's own subjects, which the manager writes into config.json
             # (`JobManager._runner_config_path`); only the other fields are checked here.
             data["subject_ids"] = ["subject"]
-    if kind in FLEX_KINDS:
-        # The manager writes the kind as `mode` into the runner's config.json
-        # (JobManager._runner_config_path), so validate the config the runner will read:
-        # FlexConfig's mode/goal and per-mode threshold rules depend on it.
-        data["mode"] = kind
-        if kind == "flex":
-            # A single run ignores the adaptive / multi-threshold driver settings, so
-            # they cannot stand in for the thresholds it needs.
-            data["adaptive"] = data["pareto"] = None
+    data = runner_view(kind, data)
     try:
         deserialize_config(cls, data, strict=True)
     except Exception as exc:

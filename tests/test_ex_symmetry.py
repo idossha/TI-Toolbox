@@ -281,13 +281,17 @@ class TestZeroCombinationsFailFast:
         from tit.opt.ex.ex import run_ex_search
 
         mock_gpm.return_value = _pm(tmp_path, "ex_search_run")
-        config = _bucket_ex_config(
-            electrodes=ExConfig.BucketElectrodes(
-                e1_plus=["L1"], e1_minus=[], e2_plus=["L2"], e2_minus=["R2"]
+        # ExConfig itself refuses the empty bucket now, so no run can start with one.
+        with pytest.raises(
+            ValueError, match="Fill in every electrode bucket \\(e1_minus empty\\)"
+        ):
+            run_ex_search(
+                _bucket_ex_config(
+                    electrodes=ExConfig.BucketElectrodes(
+                        e1_plus=["L1"], e1_minus=[], e2_plus=["L2"], e2_minus=["R2"]
+                    )
+                )
             )
-        )
-        with pytest.raises(ValueError, match="empty electrode bucket\\(s\\): e1_minus"):
-            run_ex_search(config)
         mock_engine_cls.assert_not_called()
         assert not (tmp_path / "output").exists()
 
@@ -329,14 +333,18 @@ class TestZeroCombinationsFailFast:
         from tit.opt.mex.mex import run_m_ex_search
 
         mock_gpm.return_value = _pm(tmp_path, "m_ex_search_run")
-        config = MExConfig(
-            subject_id="001",
-            leadfield_hdf="/lf/001_leadfield_net.hdf5",
-            roi_name="roi.csv",
-            electrodes=MExConfig.PoolElectrodes(electrodes=["A", "B", "C"]),
-        )
-        with pytest.raises(ValueError, match="8 distinct electrodes, got 3"):
-            run_m_ex_search(config)
+        # MExConfig itself refuses the pool now, so no run can start with one.
+        with pytest.raises(
+            ValueError, match="at least eight different electrodes.*pool has 3"
+        ):
+            run_m_ex_search(
+                MExConfig(
+                    subject_id="001",
+                    leadfield_hdf="/lf/001_leadfield_net.hdf5",
+                    roi_name="roi.csv",
+                    electrodes=MExConfig.PoolElectrodes(electrodes=["A", "B", "C"]),
+                )
+            )
         mock_engine_cls.assert_not_called()
         assert not (tmp_path / "output").exists()
 
@@ -350,7 +358,7 @@ class TestZeroCombinationsFailFast:
             "roi_name": "roi.csv",
             "electrodes": {
                 "_type": "BucketElectrodes",
-                "e1_plus": ["A"], "e1_minus": [], "e2_plus": ["B"], "e2_minus": ["C"],
+                "e1_plus": ["A"], "e1_minus": ["D"], "e2_plus": ["B"], "e2_minus": ["C"],
             },
         }
         path = tmp_path / "cfg.json"

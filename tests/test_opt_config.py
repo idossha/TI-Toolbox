@@ -556,7 +556,7 @@ class TestExConfigValidation:
             subject_id="001",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
-            electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2"]),
+            electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
             total_current=3.0,
             current_step=1.0,
         )
@@ -568,10 +568,10 @@ class TestExConfigValidation:
             subject_id="001",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
-            electrodes={"electrodes": ["E1", "E2", "E3"]},
+            electrodes={"electrodes": ["E1", "E2", "E3", "E4"]},
         )
         assert isinstance(cfg.electrodes, ExConfig.PoolElectrodes)
-        assert cfg.electrodes.electrodes == ["E1", "E2", "E3"]
+        assert cfg.electrodes.electrodes == ["E1", "E2", "E3", "E4"]
 
     def test_dict_to_bucket_electrodes(self):
         cfg = ExConfig(
@@ -593,7 +593,7 @@ class TestExConfigValidation:
             subject_id="001",
             leadfield_hdf="/lf.hdf5",
             roi_name="my_region",
-            electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+            electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
         )
         assert cfg.roi_name == "my_region.csv"
 
@@ -602,7 +602,7 @@ class TestExConfigValidation:
             subject_id="001",
             leadfield_hdf="/lf.hdf5",
             roi_name="my_region.csv",
-            electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+            electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
         )
         assert cfg.roi_name == "my_region.csv"
 
@@ -612,7 +612,7 @@ class TestExConfigValidation:
                 subject_id="001",
                 leadfield_hdf="/lf.hdf5",
                 roi_name="region",
-                electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+                electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
                 current_step=0,
             )
 
@@ -622,7 +622,7 @@ class TestExConfigValidation:
                 subject_id="001",
                 leadfield_hdf="/lf.hdf5",
                 roi_name="region",
-                electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+                electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
                 total_current=-1.0,
             )
 
@@ -632,7 +632,7 @@ class TestExConfigValidation:
                 subject_id="001",
                 leadfield_hdf="/lf.hdf5",
                 roi_name="region",
-                electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+                electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
                 channel_limit=-0.5,
             )
 
@@ -653,7 +653,7 @@ class TestExConfigAtlasRoiAndCoordinateSpace:
             subject_id="001",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
-            electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
+            electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(4)),
         )
         defaults.update(overrides)
         return ExConfig(**defaults)
@@ -763,7 +763,7 @@ class TestAtlasRoiConfigIORoundtrip:
             subject_id="001",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
-            electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
+            electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(4)),
             roi_atlas=[
                 ExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=17),
                 ExConfig.AtlasROI(atlas_path="/mask.nii.gz", atlas_space="mni"),
@@ -785,7 +785,7 @@ class TestAtlasRoiConfigIORoundtrip:
 
             data.pop("project_dir")
             rebuilt = ExConfig(
-                electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
+                electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(4)),
                 **{k: v for k, v in data.items() if k != "electrodes"},
             )
             assert rebuilt.roi_atlas == config.roi_atlas

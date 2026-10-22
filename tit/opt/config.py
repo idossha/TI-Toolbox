@@ -164,6 +164,37 @@ def _has_usable_thresholds(thresholds) -> bool:
     return thresholds.strip().lower() not in _THRESHOLD_PLACEHOLDERS
 
 
+def _check_electrode_choice(
+    electrodes,
+    pool_cls: type,
+    needed: int,
+    pool_sentence: str,
+    bucket_sentence: str,
+) -> None:
+    """Refuse an ex/mEx electrode choice that holds no montage, naming what is missing.
+
+    A montage puts one distinct electrode on each bucket position, so a pool needs at least
+    *needed* distinct labels (the number of positions: four for ex, eight for mEx), and no
+    bucket may be empty. The Optimizer page refuses both with these sentences; a config from
+    an agent, a notebook or a rerun used to reach the runner and stop there.
+    """
+    if isinstance(electrodes, pool_cls):
+        labels = sorted(set(electrodes.electrodes))
+        if len(labels) < needed:
+            raise ValueError(
+                f"electrodes: {pool_sentence}, and the pool has {len(labels)} "
+                f"({', '.join(labels) or 'none'})."
+            )
+        return
+    empty = [
+        name
+        for name in electrodes.__dataclass_fields__
+        if not getattr(electrodes, name)
+    ]
+    if empty:
+        raise ValueError(f"electrodes: {bucket_sentence} ({', '.join(empty)} empty).")
+
+
 # ── Flex-search config ───────────────────────────────────────────────────────
 
 
@@ -1280,6 +1311,14 @@ class ExConfig:
                 self.electrodes = ExConfig.PoolElectrodes(**self.electrodes)
             else:
                 self.electrodes = ExConfig.BucketElectrodes(**self.electrodes)
+        _check_electrode_choice(
+            self.electrodes,
+            ExConfig.PoolElectrodes,
+            4,
+            "Add at least four different electrodes to the pool: an ex-search "
+            "montage uses four",
+            "Fill in every electrode bucket",
+        )
         if not self.roi_name.endswith(".csv"):
             self.roi_name += ".csv"
         if self.roi_names is not None:
@@ -1547,6 +1586,14 @@ class MExConfig:
                 self.electrodes = MExConfig.PoolElectrodes(**self.electrodes)
             else:
                 self.electrodes = MExConfig.BucketElectrodes(**self.electrodes)
+        _check_electrode_choice(
+            self.electrodes,
+            MExConfig.PoolElectrodes,
+            8,
+            "Add at least eight different electrodes to the pool: an mEx montage "
+            "uses eight (four pairs of two)",
+            "Fill in all eight electrode buckets",
+        )
         if not self.roi_name.endswith(".csv"):
             self.roi_name += ".csv"
         if self.roi_names is not None:

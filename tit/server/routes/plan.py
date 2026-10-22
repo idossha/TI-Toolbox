@@ -992,8 +992,10 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
 
         config_dict = migrate_legacy_keys(config_dict, warnings=warnings)
 
+    from tit.jobs.config_check import runner_view
+
     try:
-        config = deserialize_config(cls, config_dict)
+        config = deserialize_config(cls, runner_view(kind, config_dict))
         if kind in {"ex", "mex", "flex", "flex_adaptive", "flex_pareto"}:
             from tit.opt.masks import validate_mask_paths
 

@@ -141,6 +141,12 @@ def _ex_wire(case) -> dict:
 @pytest.mark.parametrize("case", EX, ids=[c["id"] for c in EX])
 def test_plan_route_reports_the_fixture_count_for_ex(client, case):
     resp = client.post("/api/plan/ex", json={"config": _ex_wire(case)}, headers=BEARER)
+    if case["mode"] == "all" and len(set(case["pool"])) < 4:
+        # An ex montage needs four different electrodes: ExConfig refuses such a pool,
+        # so nothing is planned (its zero count is still the engine's, tested above).
+        assert resp.status_code == 422, resp.text
+        assert "at least four different electrodes" in resp.json()["detail"]
+        return
     assert resp.status_code == 200, resp.text
     space = resp.json()["resolved"]["search_space"]
     assert space["n_combinations"] == case["expected_combinations"]

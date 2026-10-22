@@ -340,10 +340,12 @@ def validate(kind: str, body: ValidateRequest) -> ValidateResult:
         from tit.server.app_defaults import with_app_defaults
 
         body.config = with_app_defaults(kind, body.config)
+    from tit.jobs.config_check import runner_view
+
     ignored = ENVELOPE_KEYS | DISPATCH_KEYS.get(kind, frozenset())
     config = {k: v for k, v in body.config.items() if k not in ignored}
     try:
-        parsed = deserialize_config(cls, config, strict=True)
+        parsed = deserialize_config(cls, runner_view(kind, config), strict=True)
         if kind in {"ex", "mex", "flex", "flex_adaptive", "flex_pareto"}:
             from tit.opt.masks import validate_mask_paths
 
