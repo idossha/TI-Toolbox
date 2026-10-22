@@ -556,6 +556,7 @@ class Analyzer:
         for name in regions:
             rid = self._find_voxel_region_id(labels, atlas_path, name)
             one, _, _ = keep_main_components(labels == rid, what=name)
+            self._require_label_voxels(one, name, rid, atlas_path)
             roi |= one
         region_name = "+".join(regions)
         with tempfile.TemporaryDirectory() as scratch:
@@ -863,6 +864,7 @@ class Analyzer:
             # Per label, not on the union: a union of two structures is legitimately
             # disconnected, and each of them separately is what has islands.
             one, _, _ = keep_main_components(atlas_arr == rid, what=str(name))
+            self._require_label_voxels(one, name, rid, atlas_path)
             region_mask_raw = region_mask_raw | one
             region_values[one & (region_values == 0)] = index
         region_name = "+".join(regions)
@@ -907,27 +909,14 @@ class Analyzer:
         roi_areas = node_areas[roi_mask][pos_within_roi]
 
         if roi_pos.size == 0:
-            logger.warning("ROI %s: empty mask, returning zeros", region_name)
-            out_dir = self._resolve_output_dir(
-                analysis_type=analysis_type,
-                region_name=region_name,
-                **kwargs,
+            # Raised before the output folder exists: an empty ROI has no statistics, and a
+            # results.csv of zeros (gm_mean = 0 included) would read as a measurement.
+            raise ValueError(
+                f"{region_name} does not overlap positive {self.field_name} values on "
+                f"the gray-matter surface (mesh space): it holds {int(np.sum(roi_mask))} "
+                "surface node(s), none with a positive value. Check the target's position "
+                "and size, or analyze it in voxel space."
             )
-            result = AnalysisResult(
-                field_name=self.field_name,
-                region_name=region_name,
-                space="mesh",
-                analysis_type=analysis_type,
-                roi_mean=0.0,
-                roi_max=0.0,
-                roi_min=0.0,
-                roi_focality=0.0,
-                gm_mean=0.0,
-                gm_max=0.0,
-                n_elements=int(np.sum(roi_mask)),
-            )
-            save_results_csv(asdict(result), Path(out_dir))
-            return result
 
         surface_pos_mask = values > 0
         surface_pos = values[surface_pos_mask]
@@ -1009,6 +998,14 @@ class Analyzer:
         roi_values = field_arr[roi_mask]
         tissue_values = field_arr[analysis_mask]
         voxel_vol = voxel_volume_mm3(affine)
+
+        if roi_values.size == 0:
+            tissue = "+".join(self._tissue_type_list())
+            raise ValueError(
+                f"{region_name} does not overlap positive {self.field_name} values in "
+                f"the selected tissue ({tissue}, voxel space). Check the target's position "
+                "and size, or choose another tissue."
+            )
 
         roi_mean = float(np.mean(roi_values))
         roi_max = float(np.max(roi_values))
@@ -1455,6 +1452,14 @@ class Analyzer:
         if hasattr(areas, "value"):
             areas = areas.value
         return np.asarray(areas)
+
+    @staticmethod
+    def _require_label_voxels(mask: np.ndarray, name, rid: int, atlas_path) -> None:
+        """Refuse a region whose label has no voxel in the atlas (on the grid read)."""
+        if not np.any(mask):
+            raise ValueError(
+                f"Region {str(name)!r} (label {rid}) has no voxels in atlas {atlas_path}"
+            )
 
     @staticmethod
     def _squeeze_4d(arr: np.ndarray) -> np.ndarray:

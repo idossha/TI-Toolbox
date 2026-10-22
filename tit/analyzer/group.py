@@ -154,7 +154,8 @@ def run_group_analysis(
         ``"subcortical"`` or ``"mask"``.
     ValueError
         If ``analysis_type="mask"`` with a non-MNI *coordinate_space* or an
-        unreadable *mask_path*.
+        unreadable *mask_path*, or if a subject's analysis is refused (for
+        example its ROI is empty); the message then starts with ``sub-<id>:``.
     FileNotFoundError
         If a subject has no field file for *simulation* in *space*.
 
@@ -242,9 +243,13 @@ def run_group_analysis(
         results: dict[str, AnalysisResult] = {}
         for sid in subject_ids:
             logger.info("Analyzing subject %s", sid)
-            results[sid] = analyze_fn(
-                Analyzer(sid, simulation, space, tissue_type, field=field)
-            )
+            try:
+                results[sid] = analyze_fn(
+                    Analyzer(sid, simulation, space, tissue_type, field=field)
+                )
+            except ValueError as exc:
+                # An empty or invalid target is per subject (anatomy differs): say whose.
+                raise ValueError(f"sub-{sid}: {exc}") from exc
 
         df = _build_summary_df(results)
         csv_path = out / "group_summary.csv"
