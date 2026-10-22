@@ -5,7 +5,8 @@
 
 A neuroscience research platform for simulating, optimizing, and analyzing
 temporal interference (TI) stimulation of the brain. Built on top of
-SimNIBS for finite-element modeling and FreeSurfer for cortical reconstruction.
+SimNIBS for finite-element modeling; FastSurfer segments the head by default
+and FreeSurfer reconstruction is optional.
 
 Modules
 -------
@@ -18,14 +19,26 @@ analyzer
 stats
     Permutation testing and group-level comparisons.
 pre
-    Preprocessing pipelines (DICOM conversion, FreeSurfer, CHARM).
+    Preprocessing pipelines (DICOM conversion, FastSurfer, CHARM, optional
+    FreeSurfer, QSIPrep/QSIRecon and DTI fit).
+calc
+    TI envelope calculations (``get_TI_vectors``, ``get_TI_avg``, ``get_TI_dir``).
+fields
+    Carrier-derived high-frequency field metrics.
+source
+    EEG source-forward preparation and fsaverage field mapping.
 server
-    FastAPI HTTP server the v3 desktop app (``desktop/``) drives; it
-    replaced the former PyQt5 interface.
+    FastAPI HTTP server the v3 desktop app (``desktop/``) drives.
+jobs
+    The server's job engine: queue, locks, CPU budget and events.
+catalog
+    Project discovery (subjects, simulations, analyses) for the app.
+scene
+    The scene service behind the app's 3D panes.
 cli
-    Command-line tools built on a shared ``BaseCLI`` base class.
+    The ``tit launch`` console command (``tit/cli.py``, ``tit/launch.py``).
 reporting
-    Self-contained HTML reports (DTI QC, simulator, flex-search, ex-search).
+    Self-contained HTML reports (DTI QC, simulation, flex-search, ex-search).
 
 Public API
 ----------
