@@ -5,7 +5,7 @@
  * and their badges, the pane widths `paneWidths()` reads off the layout, the dead-space ratio, and
  * the status cell the page registered. The screenshots this spec writes are evidence for a human.
  */
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -286,6 +286,44 @@ test("Open in viewer launches natively without leaving Results", async () => {
   await expect.poll(() => app.evaluate(() => (globalThis as unknown as { launchedScene: string }).launchedScene)).toBe(payload.scene_path ?? payload.path);
   await expectPage(page, "results");
   await expectSubject(page, "ernie");
+});
+
+test("Open in viewer on an analysis opens that analysis, never an unnamed analysis view", async () => {
+  // The real server 404s `{kind: "analysis"}` without an analysis name (tit/viewspec.py), and the
+  // mock now does too. The analysis's own overlay -- the path the mock catalog fixture lists for
+  // it -- is what the button must open.
+  const fixture = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "analyses.json"), "utf8")) as Record<
+    string,
+    Record<string, { name: string; nifti: string | null; scene?: string | null }[]>
+  >;
+  const analysis = fixture.ernie!.Thalamus!.find((a) => a.name === "Thalamus_DK40_TI_max")!;
+  expect(analysis.nifti, "the fixture analysis has an overlay to open").toBeTruthy();
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:open");
+    ipcMain.handle("tit:tetravox:open", (_event, path: string) => {
+      (globalThis as unknown as { launchedScene: string }).launchedScene = path;
+      return { ok: true };
+    });
+  });
+  await connect();
+  await openResults();
+  const bodies: Record<string, unknown>[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/view/open")) bodies.push(r.postDataJSON() as Record<string, unknown>);
+  });
+  await page.getByTestId(`results-node-analysis:ernie:Thalamus/${analysis.name}`).click();
+  const written = page.waitForResponse((r) => r.url().endsWith("/api/view/open") && r.request().postDataJSON()?.dry_run !== true);
+  await page.getByTestId("results-open-in-viewer").click();
+  const response = await written;
+  expect(response.status()).toBe(200);
+  const payload = await response.json();
+  await expect.poll(() => app.evaluate(() => (globalThis as unknown as { launchedScene: string }).launchedScene)).toBe(payload.scene_path ?? payload.path);
+  expect(bodies.length).toBeGreaterThan(0);
+  for (const body of bodies) {
+    expect(body.kind).toBe("custom");
+    expect(body.path).toBe(analysis.nifti);
+  }
+  await expectPage(page, "results");
 });
 
 test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async () => {
