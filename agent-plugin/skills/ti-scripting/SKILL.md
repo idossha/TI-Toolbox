@@ -88,8 +88,8 @@ also how `hf_peak(*fields)` and `hf_sar(*fields)` in `tit.fields` read their inp
 ## Preprocessing
 
 ```python
-run_pipeline(subject_ids=["101"], convert_dicom=True, run_recon=True,
-             create_m2m=True, parallel_recon=True)
+run_pipeline(subject_ids=["101"], convert_dicom=True, run_fastsurfer=True,
+             create_m2m=True)
 ```
 
 ## Simulation

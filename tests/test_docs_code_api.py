@@ -8,7 +8,9 @@ and every ``examples/scripts/*.py`` is checked off its source text against the
 installed ``tit`` package, the way ``tests/test_example_notebook_api.py`` checks
 the packaged notebook:
 
-* it compiles;
+* it compiles (the blocks of one file share their imports and instances in
+  document order, as a reader runs them, so a call under an import made two blocks
+  up is checked too);
 * every ``from tit... import X`` resolves through ``getattr`` (so ``tit.blender``'s
   lazy ``__getattr__`` exports count, and a name a package does not export fails);
 * every keyword passed to an imported callable, a nested class or enum reached
@@ -105,13 +107,23 @@ def _getattr(base: object, attr: str) -> object:
 
 
 class _Checker:
-    """Resolves one block's ``tit`` imports and calls; collects problems."""
+    """Resolves one block's ``tit`` imports and calls; collects problems.
 
-    def __init__(self, block: Block) -> None:
+    ``bound`` and ``instances`` seed the names earlier blocks of the same file
+    imported or built: a reader runs a page's blocks top to bottom, so a block that
+    calls ``SimulationConfig(...)`` under an import two blocks up is checked too.
+    """
+
+    def __init__(
+        self,
+        block: Block,
+        bound: dict[str, object] | None = None,
+        instances: dict[str, type] | None = None,
+    ) -> None:
         self.block = block
         self.problems: list[str] = []
-        self.bound: dict[str, object] = {}
-        self.instances: dict[str, type] = {}
+        self.bound: dict[str, object] = dict(bound or {})
+        self.instances: dict[str, type] = dict(instances or {})
         self.imports = 0
         self.calls: list[str] = []
 
@@ -193,6 +205,10 @@ class _Checker:
         for name, classes in seen.items():
             if len(classes) == 1 and None not in classes:
                 self.instances[name] = next(iter(classes))
+            else:
+                # Reassigned here to something else: an earlier block's instance
+                # no longer describes this name.
+                self.instances.pop(name, None)
 
     def _resolve(self, node: ast.expr, *, report: bool = True) -> object | None:
         """A ``Name``/``Attribute`` chain rooted at an imported name or a known instance."""
@@ -266,13 +282,20 @@ class _Method:
 
 
 def check_blocks(blocks: list[Block]) -> tuple[list[str], int, list[str]]:
-    """``(problems, imports resolved, calls bound)`` over ``blocks``."""
+    """``(problems, imports resolved, calls bound)`` over ``blocks``.
+
+    Blocks of one file (same ``path``) share their imports and instances in the
+    order given (document order), each keeping its own line numbers.
+    """
     problems: list[str] = []
     imports = 0
     calls: list[str] = []
+    scopes: dict[str, tuple[dict[str, object], dict[str, type]]] = {}
     for block in blocks:
-        checker = _Checker(block)
+        bound, instances = scopes.get(block.path, ({}, {}))
+        checker = _Checker(block, bound, instances)
         checker.run()
+        scopes[block.path] = (checker.bound, checker.instances)
         problems += checker.problems
         imports += checker.imports
         calls += checker.calls
@@ -301,7 +324,7 @@ def test_the_docs_python_blocks_compile_and_resolve_against_tit() -> None:
     print(f"{len(blocks)} blocks, {imports} tit imports, {len(calls)} calls bound")
     assert not problems, "\n".join(problems)
     assert imports >= 60, f"only {imports} tit imports resolved (73 on 2026-10-22)"
-    assert len(calls) >= 40, f"only {len(calls)} calls bound (51 on 2026-10-22)"
+    assert len(calls) >= 70, f"only {len(calls)} calls bound (78 on 2026-10-22)"
 
 
 def test_an_indented_fence_inside_a_list_item_is_checked() -> None:
@@ -335,6 +358,69 @@ def test_a_stale_keyword_fails_with_its_file_and_line(tmp_path: Path) -> None:
         "fixture.md:8: SimulationConfig(subject_id, nonexistent_kw)"
     )
     assert "nonexistent_kw" in problems[0]
+
+
+def test_an_import_in_an_earlier_block_binds_a_later_block(tmp_path: Path) -> None:
+    """A page imports once and calls further down: the later call is still checked.
+
+    Until 2026-10-22 each block was checked alone, so every call under an earlier
+    block's import was skipped (the ti-scripting skill's 23 calls, among them a
+    ``run_pipeline(run_recon=True, parallel_recon=True)`` that raises TypeError).
+    """
+    doc = tmp_path / "fixture.md"
+    doc.write_text(
+        "# Fixture\n"
+        "\n"
+        "```python\n"
+        "from tit.sim import SimulationConfig\n"
+        "```\n"
+        "\n"
+        "Then build it:\n"
+        "\n"
+        "```python\n"
+        "config = SimulationConfig(subject_id='ernie', nonexistent_kw=1)\n"
+        "```\n",
+        encoding="utf-8",
+    )
+    blocks = python_blocks(doc, root=tmp_path)
+    assert [b.line for b in blocks] == [4, 10]
+    problems, imports, _calls = check_blocks(blocks)
+    assert imports == 1
+    assert len(problems) == 1, problems
+    assert problems[0].startswith(
+        "fixture.md:10: SimulationConfig(subject_id, nonexistent_kw)"
+    ), problems
+
+
+def test_an_instance_from_an_earlier_block_is_checked_until_reassigned() -> None:
+    build = (
+        "from tit.analyzer import Analyzer\n"
+        "a = Analyzer(subject_id='x', simulation='s', space='mesh')\n"
+    )
+    problems, _imports, calls = check_blocks(
+        [
+            Block("page.md", 10, build),
+            Block("page.md", 20, "a.analyse_sphere(center=(0, 0, 0))\n"),
+            Block("page.md", 30, "a = 5\n"),
+            Block("page.md", 40, "a.analyse_sphere(center=(0, 0, 0))\n"),
+        ]
+    )
+    assert problems == ["page.md:20: Analyzer has no attribute analyse_sphere"]
+    assert calls == ["Analyzer"]
+
+
+def test_names_do_not_carry_from_one_file_to_the_next() -> None:
+    """Another page never imported the name, so its call is not resolved at all."""
+    problems, imports, calls = check_blocks(
+        [
+            Block("one.md", 1, "from tit.sim import SimulationConfig\n"),
+            Block("two.md", 1, "SimulationConfig(nonexistent_kw=1)\n"),
+            Block("one.md", 9, "SimulationConfig(nonexistent_kw=1)\n"),
+        ]
+    )
+    assert imports == 1
+    assert len(problems) == 1 and problems[0].startswith("one.md:9: "), problems
+    assert calls == []
 
 
 @pytest.mark.parametrize(
