@@ -146,7 +146,8 @@ def clear_previous_run(folder: str, logger: logging.Logger | None = None) -> Non
     manifest. The server asks before a job replaces an existing run folder.
     """
     removed = []
-    for entry in os.scandir(folder):
+    # Listed up front: readdir after a removal is unspecified on some (bind-mount, FUSE) filesystems.
+    for entry in list(os.scandir(folder)):
         name = entry.name
         if not (
             name.isdigit() or any(fnmatch.fnmatchcase(name, p) for p in RUN_OUTPUTS)

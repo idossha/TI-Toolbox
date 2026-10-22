@@ -8,7 +8,9 @@ Pins (2026-10-22, package p12; spec: "one self-contained HTML record per flex-se
   (``pareto``: one entry per point, thresholds = pct/100 x the calibration's achievable mean);
 * an adaptive job leaves one report and one catalog entry (focality run, with the calibration in
   ``mean_calibration/``), also when the job names no output folder;
-* a focality (ROC) report states the score and both thresholds in V/m.
+* a focality (ROC) report states the score and both thresholds in V/m;
+* an adaptive re-run clears the folder's previous run before calibrating (as the Pareto driver
+  does), so a failed calibration leaves no earlier complete run beside ``mean_calibration/``.
 
 The drivers, ``run_flex_search``, the manifest writer, the recorder and the report generator are
 all real; only the SimNIBS optimiser is :class:`tests.test_flex_rerun_same_folder.FakeOpt`. Its
@@ -187,3 +189,33 @@ def test_a_failed_calibration_still_leaves_the_jobs_one_report(flex_project):
     assert '<h2 id="verdict-h">No valid montage found</h2>' in page.read_text()
     assert (folder / "mean_calibration" / "flex_meta.json").is_file()
     assert not (folder / "flex_meta.json").exists()  # the focality step never ran
+
+
+def test_an_adaptive_rerun_clears_the_previous_run_before_calibrating(flex_project):
+    """A re-run whose calibration fails leaves no earlier complete run in the folder: the
+    folder holds the new failed calibration only, as after a Pareto re-run."""
+    from tit.catalog import flex_runs
+    from tit.opt.flex.drivers import run_adaptive_focality
+
+    pm, scales = flex_project
+    scales[:] = [
+        1.6,
+        280.0,
+        float("nan"),
+    ]  # the first job's two steps, then the re-run's
+    folder = Path(pm.flex_search("001")) / "deep"
+    config = flex_config(str(folder), goal="focality", mode="flex_adaptive")
+    assert run_adaptive_focality(config).success
+    assert (folder / "flex_meta.json").is_file()  # the first job finished
+
+    result = run_adaptive_focality(config)
+
+    assert not result.success
+    assert not (folder / "flex_meta.json").exists()
+    assert not (folder / "candidate_history").exists()
+    assert not (folder / "electrode_positions.json").exists()
+    calibration = json.loads(
+        (folder / "mean_calibration" / "flex_meta.json").read_text()
+    )
+    assert calibration["result"]["success"] is False
+    assert [r["name"] for r in flex_runs(pm, "001")] == []

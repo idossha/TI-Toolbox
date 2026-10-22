@@ -190,7 +190,8 @@ class CandidateRecorder:
             self.head_mesh_identity = {"path": str(path), "sha256": sha256_file(path)}
         self.directory = Path(self.opt.output_folder)
         self.directory.mkdir(parents=True, exist_ok=True)
-        # Exclusive creation protects prior runs from accidental reuse.
+        # run_flex_search clears the run folder before a run, so this file is new; the exclusive
+        # create only guards against a stray leftover (it raises rather than appending to it).
         with (self.directory / "candidates.csv").open("x", newline="") as stream:
             csv.DictWriter(stream, fieldnames=_COLUMNS).writeheader()
         (self.directory / "candidate_geometry.jsonl").touch(exist_ok=False)

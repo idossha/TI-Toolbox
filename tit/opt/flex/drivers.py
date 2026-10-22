@@ -161,7 +161,8 @@ def run_adaptive_focality(config: FlexConfig) -> FlexResult:
     Both steps write into the job's one run folder (``config.output_folder``
     or a new timestamped one): the mean calibration in its
     ``mean_calibration/`` subfolder without a report, the focality run in
-    the folder itself with the job's report.
+    the folder itself with the job's report. A previous run's outputs in
+    that folder are removed first.
 
     Returns
     -------
@@ -178,10 +179,13 @@ def run_adaptive_focality(config: FlexConfig) -> FlexResult:
     """
     from tit.jobs import events
 
-    from tit.opt.flex.flex import run_flex_search
+    from tit.opt.flex.flex import clear_previous_run, run_flex_search
 
     adaptive = config.adaptive or FlexConfig.AdaptiveFocalityConfig()
     folder = _job_folder(config)
+    # Before calibrating, as the Pareto driver does: a failed calibration must not leave the
+    # previous run's manifest beside the new mean_calibration/.
+    clear_previous_run(folder, _logger(config))
 
     events.emit_stage("mean_optimization", i=0, n=2)
     mean_result = _calibrate(config, folder)
