@@ -539,7 +539,12 @@ describe("mock reports match the real server's", () => {
       expect(r.id).toMatch(new RegExp(`^${r.sid}/(charm_report|(simulation_report|flex_search_report|ex_search_report|dti_qc)_\\d{8}_\\d{6})$`));
       expect(Object.keys(kinds)).toContain(r.kind);
       expect(r.id.split("/")[1]!.startsWith(r.kind)).toBe(true);
-      expect(r.title).toBe(kinds[r.kind]);
+      // Every mock report is a simulation or ex-search page, whose <title> names its run; the
+      // real catalog lists such a report by that title (tit/catalog.py, _report_entry_title).
+      const page = readFileSync(join(__dirname, "..", "fixtures", "reports", r.sid, `${r.id.split("/")[1]}.html`), "utf8");
+      const pageTitle = /<title>([^<]+)<\/title>/.exec(page)?.[1];
+      expect(pageTitle).toMatch(r.kind === "ex_search_report" ? / ex-search$/ : / simulation$/);
+      expect(r.title).toBe(pageTitle);
       expect(r.path).toBe(`/mnt/example/derivatives/ti-toolbox/reports/sub-${r.sid}/${r.id.split("/")[1]}.html`);
     }
   });

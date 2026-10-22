@@ -2265,14 +2265,62 @@ def _report_kind_from_stem(stem: str) -> str:
     return "_".join(parts[:-2]) if len(parts) > 2 else stem
 
 
+#: Report kinds whose page ``<title>`` names the run it reports on, and the words the generator
+#: puts after the run: ``"<simulation> simulation"`` (``generators/simulation.py``),
+#: ``"<run folder> flex-search"`` and ``"<run folder> ex-search"`` (``flex_search.py``,
+#: ``ex_search.py``).
+_RUN_TITLE_SUFFIX = {
+    "simulation_report": " simulation",
+    "flex_search_report": " flex-search",
+    "ex_search_report": " ex-search",
+}
+
+
+def _report_stamp(stem: str) -> str | None:
+    """``"<kind>_<YYYYMMDD>_<HHMMSS>"`` -> ``"YYYY-MM-DD HH:MM:SS"``, or ``None``."""
+    try:
+        when = datetime.strptime("_".join(stem.split("_")[-2:]), "%Y%m%d_%H%M%S")
+    except ValueError:
+        return None
+    return when.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _report_entry_title(path: str, sid: str, kind: str, stem: str) -> str:
+    """The title Results lists a report under: its page's own when that names the run.
+
+    A subject's reports of one kind used to share one title ("Flex-search report" seventeen
+    times for Dataset 000's sub-101). A page whose ``<title>`` (read from the head of the
+    file only, :func:`_report_title`) names the run is listed by it; a legacy page that names
+    only the subject (``"sub-101 flex-search"``, ``"Flex-Search Optimization Report - Subject
+    101"``), a page with no title, and every other kind are listed by kind plus the time in
+    the file name (``"Flex-search report, 2026-07-30 00:24:24"``).
+    """
+    suffix = _RUN_TITLE_SUFFIX.get(kind)
+    if suffix:
+        try:
+            stat = os.stat(path)
+            page = _report_title(path, stat.st_mtime_ns, stat.st_size)
+        except OSError:
+            page = None
+        page = " ".join((page or "").split())
+        if (
+            page.endswith(suffix)
+            and len(page) > len(suffix)
+            and page != f"sub-{sid}{suffix}"
+        ):
+            return page
+    title = _REPORT_KIND_TITLES.get(kind, kind.replace("_", " ").capitalize())
+    stamp = _report_stamp(stem)
+    return f"{title}, {stamp}" if stamp else title
+
+
 def _report_entry(path: str, sid: str) -> dict:
     stem = os.path.splitext(os.path.basename(path))[0]
     kind = _report_kind_from_stem(stem)
-    title = _REPORT_KIND_TITLES.get(kind, kind.replace("_", " ").capitalize())
     return {
         "id": f"{sid}/{stem}",
         "kind": kind,
-        "title": title,
+        "title": _report_entry_title(path, sid, kind, stem),
         "path": path,
         "created": _mtime_iso(path),
     }

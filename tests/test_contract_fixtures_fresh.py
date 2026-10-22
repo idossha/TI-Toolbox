@@ -236,15 +236,6 @@ def test_mock_report_listing_names_every_generated_page(
             assert re.search(r"<title>[^<]+ simulation</title>", text), rel
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "tit.catalog titles every simulation report 'Simulation report' (p39 finding 2), so "
-        "the Results Reports group cannot tell two simulations' reports apart and its filter "
-        "cannot find a report by simulation. Remove this mark when the catalog titles a "
-        "report from its page."
-    ),
-)
 def test_a_simulation_reports_listed_title_names_its_simulation(
     reports: dict[str, str],
 ) -> None:

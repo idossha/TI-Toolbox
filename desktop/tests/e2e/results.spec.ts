@@ -118,9 +118,10 @@ test("a simulation previews its configuration, its files and its report — not 
   // What this simulation holds: its analyses and its report, each a jump to that node.
   const holds = page.getByTestId("results-holds");
   await expect(holds.getByRole("button", { name: /cortical_2regions_DK40_71a9008a/ })).toBeVisible();
-  // The catalog titles a report by its kind ("Simulation report"), as tit.catalog.reports does.
-  await holds.getByRole("button", { name: /Simulation report/ }).first().click();
-  await expect(page.getByTestId("results-preview")).toContainText("Simulation report");
+  // The catalog lists a report by its page title, which names the simulation, as
+  // tit.catalog.reports does.
+  await holds.getByRole("button", { name: /Thalamus simulation/ }).first().click();
+  await expect(page.getByTestId("results-preview")).toContainText("Thalamus simulation");
 
   // Back on the simulation, the report is inline under the numbers and still sandboxed.
   await page.getByTestId("results-node-simulation:ernie:Thalamus").click();
@@ -218,10 +219,11 @@ test("the filter box and the kind segments narrow the tree", async () => {
   await connect();
   await openResults();
 
-  // The Thalamus simulation, flex and mEx runs and analysis; its report is named by its kind and
-  // time (tit.catalog.reports), so nothing in it names the simulation.
+  // The Thalamus simulation, flex and mEx runs and analysis, and its report: the catalog lists a
+  // report by its page title, "Thalamus simulation" (tit.catalog.reports).
   await page.getByTestId("results-tree-filter").fill("thalamus");
-  await expect(page.getByTestId("results-tree").getByRole("treeitem", { level: 2 })).toHaveCount(4);
+  await expect(page.getByTestId("results-tree").getByRole("treeitem", { level: 2 })).toHaveCount(5);
+  await expect(page.getByTestId("results-node-report:ernie:ernie/simulation_report_20260801_110000")).toContainText("Thalamus simulation");
 
   await page.getByTestId("results-tree-filter").fill("");
   await page.getByRole("radiogroup", { name: "Output kind" }).getByRole("radio", { name: "Ex", exact: true }).click();

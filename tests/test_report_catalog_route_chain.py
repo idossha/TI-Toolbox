@@ -22,7 +22,8 @@ Pins (2026-10-22):
   ``tit.pre.charm.copy_charm_report`` into a tmp project, is listed and served byte for byte under
   the report policy, which blocks nothing it embeds. The dataset is only read (mtimes compared).
 
-Expected values: kinds and titles from ``REPORT_TITLES`` (docs/dev/DECISIONS.md 2026-09-28);
+Expected values: kinds and titles from ``REPORT_TITLES`` (docs/dev/DECISIONS.md 2026-09-28), a
+report whose page names its run listed by that page title (c1_5);
 page titles from the inputs (subject ``X``, simulation ``M``) and the reports' title convention;
 the fetch-directive fallback rule from CSP Level 3 (a missing ``img-src``/``font-src``/... falls
 back to ``default-src``). Inputs are the synthetic run folders of ``tests/test_reporting_runs.py``
@@ -66,14 +67,17 @@ from tit.server.settings import ServerSettings  # noqa: E402
 TOKEN = "test-token"
 BEARER = {"Authorization": f"Bearer {TOKEN}"}
 
-#: The browser-tab title each report carries, from its inputs (subject X, simulation M).
+#: The browser-tab title each report carries, from its inputs (subject X, simulation M, and the
+#: run folders ``run`` and ``ex`` of tests/test_reporting_runs.py's flex and ex fixtures).
 PAGE_TITLES = {
     "simulation_report": "M simulation",
-    "flex_search_report": f"sub-{SUBJECT} flex-search",
-    "ex_search_report": f"sub-{SUBJECT} ex-search",
+    "flex_search_report": "run flex-search",
+    "ex_search_report": "ex ex-search",
     "dti_qc": f"sub-{SUBJECT} DTI QC",
     "charm_report": f"charm report sub-{SUBJECT}",
 }
+#: The kinds whose page title names the run, so the Reports list shows that title.
+_RUN_TITLED = ("simulation_report", "flex_search_report", "ex_search_report")
 
 #: Which fetch directive governs a resource, by element (CSP Level 3 §6.1).
 _DIRECTIVE_FOR_TAG = {
@@ -191,7 +195,18 @@ def test_the_reports_list_names_exactly_the_written_reports(chain):
     assert {e["path"]: e["kind"] for e in listed} == {
         str(path): kind for kind, path in written.items()
     }
-    assert {e["kind"]: e["title"] for e in listed} == REPORT_TITLES
+    # A page that names its run is listed by it (c1_5); the DTI page names only the subject, so
+    # it is listed by kind and the time in its file name; the charm copy has no time in its name.
+    dti_stamp = re.search(r"_(\d{8})_(\d{6})$", written["dti_qc"].stem).groups()
+    dti_when = (
+        f"{dti_stamp[0][:4]}-{dti_stamp[0][4:6]}-{dti_stamp[0][6:]} "
+        f"{dti_stamp[1][:2]}:{dti_stamp[1][2:4]}:{dti_stamp[1][4:]}"
+    )
+    assert {e["kind"]: e["title"] for e in listed} == {
+        **{k: PAGE_TITLES[k] for k in _RUN_TITLED},
+        "dti_qc": f"{REPORT_TITLES['dti_qc']}, {dti_when}",
+        "charm_report": REPORT_TITLES["charm_report"],
+    }
     assert {e["id"] for e in listed} == {
         f"{SUBJECT}/{path.stem}" for path in written.values()
     }

@@ -3,7 +3,7 @@
     {
       "id": "101/simulation_report_20260805_110000",
       "kind": "simulation_report",
-      "title": "Simulation report",
+      "title": "Thalamus simulation",
       "path": "/mnt/example/derivatives/ti-toolbox/reports/sub-101/simulation_report_20260805_110000.html",
       "created": "2026-08-05T11:00:00+00:00"
     }
@@ -13,21 +13,21 @@
     {
       "id": "ernie/ex_search_report_20260812_093000",
       "kind": "ex_search_report",
-      "title": "Ex-search report",
+      "title": "ex_L_Insula_20260812_090000 ex-search",
       "path": "/mnt/example/derivatives/ti-toolbox/reports/sub-ernie/ex_search_report_20260812_093000.html",
       "created": "2026-08-12T09:30:00+00:00"
     },
     {
       "id": "ernie/simulation_report_20260720_110000",
       "kind": "simulation_report",
-      "title": "Simulation report",
+      "title": "docs_example simulation",
       "path": "/mnt/example/derivatives/ti-toolbox/reports/sub-ernie/simulation_report_20260720_110000.html",
       "created": "2026-07-20T11:00:00+00:00"
     },
     {
       "id": "ernie/simulation_report_20260801_110000",
       "kind": "simulation_report",
-      "title": "Simulation report",
+      "title": "Thalamus simulation",
       "path": "/mnt/example/derivatives/ti-toolbox/reports/sub-ernie/simulation_report_20260801_110000.html",
       "created": "2026-08-01T11:00:00+00:00"
     }

@@ -84,8 +84,9 @@ def test_two_ex_search_reports_in_one_second_are_two_files(tmp_path, events_file
     assert "leads 11 montages" in second.read_text()
 
     listed = catalog.reports(pm, SUBJECT)
+    # Listed by the page title, which names the run folder: both runs' folders are named "ex".
     assert [(e["kind"], e["title"]) for e in listed] == [
-        ("ex_search_report", REPORT_TITLES["ex_search_report"])
+        ("ex_search_report", "ex ex-search")
     ] * 2
     assert sorted(e["path"] for e in listed) == sorted([str(first), str(second)])
     assert len({e["id"] for e in listed}) == 2

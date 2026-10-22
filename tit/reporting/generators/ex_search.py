@@ -587,7 +587,8 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ("technical", "Technical details", None),
     ]
     return c.page(
-        title=f"sub-{subject_id} ex-search",
+        # The run, not only the subject: tit.catalog lists the report by this title.
+        title=f"{rec['run']} ex-search",
         kind="Ex-search report",
         subject=f"sub-{subject_id}",
         toc=toc,

@@ -180,10 +180,14 @@ describe("filtering", () => {
   });
 
   it("narrows by substring over the label, the path and the badges", () => {
-    // Thalamus simulation, flex_Thalamus…, mex_Thalamus… and the Thalamus analysis. Its report is
-    // listed as the real catalog lists it -- "Simulation report", `simulation_report_<stamp>.html`
-    // -- so nothing in it names the simulation.
-    expect(filterOutputs(ernie, "all", "thalamus").total).toBe(4);
+    // Thalamus simulation, flex_Thalamus…, mex_Thalamus…, the Thalamus analysis, and its report:
+    // the real catalog lists a report by its page title, "Thalamus simulation" (c1_5), so the
+    // filter finds a report by the simulation it reports on.
+    const thalamus = filterOutputs(ernie, "all", "thalamus");
+    expect(thalamus.total).toBe(5);
+    expect(thalamus.groups.find((g) => g.kind === "report")?.nodes.map((n) => [n.id, n.label])).toEqual([
+      ["report:ernie:ernie/simulation_report_20260801_110000", "Thalamus simulation"],
+    ]);
     expect(filterOutputs(ernie, "all", "simulation_report").total).toBe(2);
     expect(filterOutputs(ernie, "all", "no-such-thing").total).toBe(0);
     expect(filterOutputs(ernie, "all", "no-such-thing").groups).toEqual([]);

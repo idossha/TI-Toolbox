@@ -671,13 +671,19 @@ def test_reports_and_report_file(client: TestClient) -> None:
 
 
 def test_dti_qc_report_title(tmp_path) -> None:
-    """``dti_qc_<date>_<time>.html`` is titled "DTI QC report", not the stem's "Dti qc"."""
+    """``dti_qc_<date>_<time>.html`` is titled "DTI QC report", not the stem's "Dti qc".
+
+    Its page names only the subject, so the time in the file name follows (c1_5).
+    """
     from tit.catalog import _report_entry
 
     path = tmp_path / "dti_qc_20260927_230922.html"
     path.write_text("<html></html>")
     entry = _report_entry(str(path), "CHN")
-    assert (entry["kind"], entry["title"]) == ("dti_qc", "DTI QC report")
+    assert (entry["kind"], entry["title"]) == (
+        "dti_qc",
+        "DTI QC report, 2026-09-27 23:09:22",
+    )
 
 
 def test_report_route_has_exactly_one_csp_header(client: TestClient) -> None:

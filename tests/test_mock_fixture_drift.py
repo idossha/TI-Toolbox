@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -456,5 +457,9 @@ def test_reports_are_listed_in_the_real_grammar(real: dict) -> None:
             assert r["id"] == f"{sid}/{stem}"
             assert r["kind"] == catalog._report_kind_from_stem(stem)
             assert r["kind"] in catalog._REPORT_KIND_TITLES
-            assert r["title"] == catalog._REPORT_KIND_TITLES[r["kind"]]
+            # Every mock report is a simulation or ex-search page, whose <title> names its
+            # run; the catalog lists such a report by that title (c1_5).
+            page = (FIXTURES / "reports" / sid / f"{stem}.html").read_text("utf-8")
+            assert r["title"] == re.search(r"<title>([^<]+)</title>", page)[1]
+            assert r["title"].endswith((" simulation", " ex-search"))
             assert _mock_dir(r["path"]) == template.format(sid=sid)
