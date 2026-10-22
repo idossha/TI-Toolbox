@@ -15,7 +15,6 @@ import pytest
 from tit.pre.qsi import dti_extractor as dx
 from tit.pre.qsi.dti_extractor import (
     DtiQc,
-    check_dti_tensor_exists,
     extract_dti_tensor,
     fit_tensor,
     qsiprep_inputs,
@@ -130,24 +129,6 @@ class TestFitTensorPreconditions:
         grad.write_text("0 0 0\n1 0 0\n")
         with pytest.raises(PreprocessError, match="MRtrix"):
             fit_tensor(tmp_path / "dwi.nii.gz", grad, tmp_path / "mask.nii.gz")
-
-
-class TestCheckDtiTensorExists:
-    @patch(f"{MODULE}.get_path_manager")
-    def test_exists(self, mock_gpm, tmp_path):
-        mock_gpm.return_value.m2m.return_value = str(tmp_path)
-        (tmp_path / "DTI_coregT1_tensor.nii.gz").touch()
-        assert check_dti_tensor_exists("/proj", "001") is True
-
-    @patch(f"{MODULE}.get_path_manager")
-    def test_not_exists(self, mock_gpm, tmp_path):
-        mock_gpm.return_value.m2m.return_value = str(tmp_path)
-        assert check_dti_tensor_exists("/proj", "001") is False
-
-    @patch(f"{MODULE}.get_path_manager")
-    def test_no_m2m_dir(self, mock_gpm, tmp_path):
-        mock_gpm.return_value.m2m.return_value = str(tmp_path / "missing")
-        assert check_dti_tensor_exists("/proj", "001") is False
 
 
 @pytest.fixture

@@ -505,8 +505,9 @@ ROWS: tuple[Row, ...] = (
         kind="pre",
         behaviour=REFUSED,
         subject="101",
-        why_subject="Dataset 000 has no DWI for any subject; 101 is the subject whose BIDS tree "
-        "is otherwise complete, so the only thing that can fail is the DWI preflight.",
+        why_subject="sub-101 has no DWI (its dwi/ folder is empty; sub-CHN is the subject with "
+        "DWI) and its BIDS tree is otherwise complete, so the only thing that can fail is the "
+        "DWI preflight.",
         build=lambda ctx: _pre_submission(ctx, "101", "G4", run_qsiprep=True),
         group_tag="G4",
         budget_s=120.0,

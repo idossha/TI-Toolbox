@@ -206,27 +206,3 @@ def run_qsirecon(
             logger.info(f"QSIRecon {spec} completed for subject {subject_id}")
 
         logger.info(f"QSIRecon completed successfully for subject {subject_id}")
-
-
-def list_available_recon_specs() -> list[str]:
-    """
-    Return list of available QSIRecon reconstruction specifications.
-
-    Returns
-    -------
-    list[str]
-        List of available recon spec names.
-    """
-    return list(const.QSI_RECON_SPECS)
-
-
-def list_available_atlases() -> list[str]:
-    """
-    Return list of available atlases for connectivity analysis.
-
-    Returns
-    -------
-    list[str]
-        List of available atlas names.
-    """
-    return list(const.QSI_ATLASES)

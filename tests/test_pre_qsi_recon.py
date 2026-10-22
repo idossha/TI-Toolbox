@@ -5,11 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tit.pre.qsi.qsirecon import (
-    list_available_atlases,
-    list_available_recon_specs,
-    run_qsirecon,
-)
+from tit.pre.qsi.qsirecon import run_qsirecon
 from tit.pre.utils import PreprocessError
 
 MODULE = "tit.pre.qsi.qsirecon"
@@ -217,20 +213,6 @@ class TestRunQsirecon:
 
         with pytest.raises(PreprocessError, match="Failed to build"):
             run_qsirecon(str(tmp_path), "001", logger=MagicMock(), runner=runner)
-
-
-class TestListFunctions:
-    """Tests for list_available_recon_specs and list_available_atlases."""
-
-    def test_list_recon_specs(self):
-        result = list_available_recon_specs()
-        assert isinstance(result, list)
-        assert len(result) > 0
-
-    def test_list_atlases(self):
-        result = list_available_atlases()
-        assert isinstance(result, list)
-        assert len(result) > 0
 
 
 class TestAtlasesNeedMniNormalization:

@@ -17,8 +17,6 @@ run_qsirecon
     Run the QSIRecon DWI reconstruction pipeline.
 extract_dti_tensor
     Extract a DTI tensor and register it to the SimNIBS T1 grid.
-check_dti_tensor_exists
-    Check whether an extracted DTI tensor already exists.
 
 Configuration Classes
 ---------------------
@@ -41,14 +39,13 @@ tit.pre.structural.run_pipeline : Full pipeline that can invoke QSI steps.
 
 from .qsiprep import run_qsiprep
 from .qsirecon import run_qsirecon
-from .dti_extractor import extract_dti_tensor, check_dti_tensor_exists
+from .dti_extractor import extract_dti_tensor
 from .config import QSIPrepConfig, QSIReconConfig, ReconSpec, QSIAtlas, ResourceConfig
 
 __all__ = [
     "run_qsiprep",
     "run_qsirecon",
     "extract_dti_tensor",
-    "check_dti_tensor_exists",
     "QSIPrepConfig",
     "QSIReconConfig",
     "ReconSpec",

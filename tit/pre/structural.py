@@ -62,15 +62,15 @@ def _install_sigterm_handler(runner: "CommandRunner") -> None:
 
     ``run_pipeline`` owns *runner* (the only thing holding references to the
     live subprocesses), so it is the one place that can act on a job-manager
-    cancellation: ``tit.jobs`` (B1) SIGTERMs the runner process, and this
+    cancellation: ``tit.jobs`` SIGTERMs the runner process, and this
     handler forwards that into ``CommandRunner.terminate_all()`` so
     charm/FastSurfer/QSIPrep children (each in their own session, see
     :func:`tit.pre.utils.CommandRunner.run`) are not orphaned.
 
     A no-op outside the main thread: ``signal.signal`` only works there, and
-    ``run_pipeline`` may also be called from a worker thread (e.g. today's
-    GUI ``QThread`` callers) where the process's own signal handling is
-    someone else's responsibility.
+    ``run_pipeline`` may also be called from a worker thread (a notebook or a
+    test harness), where the process's own signal handling is someone else's
+    responsibility.
     """
     if threading.current_thread() is not threading.main_thread():
         return
@@ -538,7 +538,8 @@ def run_pipeline(
     Returns
     -------
     int
-        ``0`` on success, ``1`` on failure.
+        ``0`` once every subject's selected steps have finished. A failure
+        raises (see Raises); ``1`` is never returned.
 
     Raises
     ------
