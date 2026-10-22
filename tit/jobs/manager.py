@@ -651,7 +651,7 @@ class JobManager:
 
     def _append_note(self, job_id: str, note: str) -> None:
         """Close a job's log with one line saying what happened to it (a cancel, or a server
-        restart that interrupted it).
+        restart that interrupted it) -- or, before it starts, why it will run alone.
 
         A cancelled job's last log line used to be whatever the runner happened to be printing
         when SIGTERM landed -- and, before ``tit.jobs.runner``'s ``PETSC_OPTIONS`` fix, PETSc's
@@ -837,6 +837,17 @@ class JobManager:
                 # The limit was lowered after this job was costed: shrink its claim (and so the
                 # threads the runner gives it) rather than leave it waiting forever.
                 spec.cost = Cost(budget.cpus, spec.cost.mem_gb)
+            if spec.cost.mem_gb > budget.mem_gb:
+                # Same for memory, which is fixed at server start: claim all of it, so the job
+                # runs alone once nothing else is running instead of never fitting.
+                self._append_note(
+                    job_id,
+                    f"needs about {spec.cost.mem_gb:g} GB of memory, more than the "
+                    f"{budget.mem_gb:.1f} GB this container has: it will run alone, once no "
+                    "other job is running, and may still run out of memory (give Docker "
+                    "more memory to avoid that)",
+                )
+                spec.cost = Cost(spec.cost.cpus, budget.mem_gb)
             decision = scheduler.evaluate(
                 spec,
                 status_view,

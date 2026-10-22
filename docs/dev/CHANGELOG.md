@@ -68,6 +68,10 @@ written again. Other projects, nets and results open unchanged.
 
 - **Removed: the Quick notes switch in Settings ▸ Extensions** — it turned nothing on or off: the notes drawer was always there. Quick notes stays available everywhere with **⌘⇧N** (Ctrl+Shift+N) or **Open quick notes** in the command palette, and your notes are unchanged. A project whose settings still list the old switch opens and saves as before.
 
+#### Jobs
+
+- **Fixed: a job that needs more memory than Docker gives the container no longer waits forever** — a FreeSurfer run or a Blender montage export (about 16 GB) on a container with less memory, or a simulation of many montages, sat at *Waiting on the resource budget* indefinitely. It now runs alone: it starts once no other job is running, and nothing else starts beside it until it finishes. Its log opens with *"needs about 16 GB of memory, more than the 7.8 GB this container has: it will run alone, once no other job is running, and may still run out of memory (give Docker more memory to avoid that)"*. FreeSurfer still refuses to start below its own 16 GiB minimum, with its own message. Jobs that fit run as before. Give Docker more memory in **Docker Desktop ▸ Settings ▸ Resources** to run such jobs beside others.
+
 ### v3.1.0 — October 9, 2026
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.0/">Release notes →</a>

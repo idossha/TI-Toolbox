@@ -934,7 +934,10 @@ costed above a lowered limit has its claim shrunk to the limit instead of waitin
 back to it. Explicit per-job values (`n_jobs`, `cpus`, tool threads) remain an API override but are
 clamped to the limit, since a claim above the budget could never be admitted. Exhaustive-search
 workers share the job's budget with numba: `workers × numba threads ≤ TIT_JOB_CPUS`. RAM is not
-limited by it: the budget's memory is the container limit clamped by available memory. Excluded
+limited by it: the budget's memory is the container limit clamped by available memory, read once
+at server start. A queued job costed above it claims the whole memory budget instead of waiting
+forever: it starts once nothing else runs, nothing is admitted beside it, and one line in its log
+says it needs more memory than the container has and runs alone. Excluded
 alternative: only per-page or per-job thread controls — they cannot stop two jobs together from
 taking the whole machine. The global CPU limit is the only resource setting. The duration tile is an estimate from the per-kind models documented in
 [`tit/jobs/eta.py`](../../tit/jobs/eta.py), calibrated against [BENCHMARKS](BENCHMARKS.md); it is

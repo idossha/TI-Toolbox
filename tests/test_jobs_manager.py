@@ -627,6 +627,33 @@ def test_the_global_cpu_limit_is_read_at_admission_and_shrinks_a_larger_claim(
         manager.shutdown()
 
 
+def test_a_job_needing_more_memory_than_the_container_runs_alone(tmp_path):
+    """A job costed above the memory budget (16 GB on a 4 GB container: FreeSurfer, a Blender
+    montage export) waited on the budget forever. It now claims the whole budget, so it starts
+    once nothing else runs, nothing starts beside it, and its log says why."""
+    manager = make_manager(tmp_path, budget=Cost(cpus=8, mem_gb=4))
+    try:
+        small = {"mem_gb": 1, "__fake": {"duration_s": 0.6}}
+        first = manager.submit("tools", small, [])
+        wait_until(lambda: manager.get(first["id"])["state"] == "running")
+        big = manager.submit("tools", {"mem_gb": 16, "__fake": {"duration_s": 0.6}}, [])
+        note = "needs about 16 GB of memory, more than the 4.0 GB this container has"
+        wait_until(lambda: note in manager.get_log(big["id"]))
+        assert manager.get(big["id"])["state"] == "queued"  # not beside the running job
+
+        wait_until(lambda: manager.get(big["id"])["state"] == "running", timeout=5)
+        assert manager._specs[big["id"]].cost.mem_gb == 4
+        after = manager.submit("tools", small, [])
+        time.sleep(0.2)  # several 0.05 s ticks
+        assert manager.get(after["id"])["state"] == "queued"  # nothing beside it either
+
+        for job in (big, after):
+            wait_until(lambda j=job: manager.get(j["id"])["state"] == "succeeded", timeout=5)
+        assert manager.get_log(big["id"]).count(note) == 1
+    finally:
+        manager.shutdown()
+
+
 # ---------------------------------------------------------------------------------------------
 # cancel
 # ---------------------------------------------------------------------------------------------
