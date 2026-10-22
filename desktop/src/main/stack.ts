@@ -9,8 +9,9 @@
  * and starts the container with this app's own labels and env, streams its log lines while it
  * comes up, waits for `/api/health`, and hands back `{url, token}`.
  *
- * Every launch discovers running TI-Toolbox containers across projects and requires an explicit
- * selection: attach to the selected container's actual session, or replace that one from YAML.
+ * Every launch discovers running TI-Toolbox sessions (containers a launcher labelled, never a mere
+ * `docker run` of the image) across projects and requires an explicit selection: attach to the
+ * selected container's actual session, or replace that one from YAML.
  * Credentials remain inside Docker and process memory. Closing Electron stops its selected stack.
  *
  * X11 is gone (decision D3): no `DISPLAY`, no `xhost`, no XQuartz, nothing to revert on quit.
@@ -302,6 +303,12 @@ export class StackManager {
     const running = candidates.find((container) => container.Id === choice.containerId);
     if (!running) throw new StackStartError("unknown", "The selected container is no longer available.");
     if (choice.action === "replace") {
+      // A recreate the launch flags implied, with no container named, picked the only running session
+      // without asking anyone: it may replace this project's own session, never another project's.
+      const recorded = running.Labels?.[LABEL_HOST_DIR];
+      if (process.env.TIT_LAUNCH_EXISTING === "recreate" && !process.env.TIT_LAUNCH_CONTAINER && !sameHostDir(recorded, hostProjectDir)) {
+        throw new StackStartError("unknown", `The running TI-Toolbox session belongs to ${recorded || "another project"}. Name it with --container to replace it, or use --existing attach; nothing was changed.`);
+      }
       const { plan } = await this.prepareFresh(projectName, hostProjectDir, options);
       if (candidates.some((c) => c.Id !== running.Id && c.Names.some((name) => name.replace(/^\//, "") === plan.containerName))) {
         throw new StackStartError("unknown", "Another running container owns the requested YAML container name. Select that container to replace; nothing was changed.");
@@ -762,11 +769,13 @@ export function createStackManager(host: StackHost): StackManager {
   return new StackManager(host);
 }
 
-/** Identify current and legacy toolbox containers without matching unrelated Docker services. */
+/**
+ * A toolbox session: a container a TI-Toolbox launcher created, known by the labels every launcher
+ * stamps. Never by image or name — a scratch `docker run` of the image, a job's FreeSurfer
+ * sibling or a GPU probe would then be offered for Recreate, and stopped with its work.
+ */
 export function isToolboxContainer(container: ContainerSummary): boolean {
   const service = container.Labels?.[LABEL_SERVICE] || container.Labels?.["com.docker.compose.service"];
   if (service && !["tit", "ti-toolbox", "simnibs"].includes(service)) return false;
-  return Boolean(container.Labels?.[LABEL_STACK] === STACK_ID || container.Labels?.[LABEL_PROJECT] || container.Labels?.[LABEL_HOST_DIR]
-    || /^idossha\/ti-toolbox(?::|@|$)/.test(container.Image)
-    || container.Names.some((name) => /^\/?ti[-_]toolbox(?:[-_]|$)/i.test(name)));
+  return Boolean(container.Labels?.[LABEL_STACK] === STACK_ID || container.Labels?.[LABEL_PROJECT] || container.Labels?.[LABEL_HOST_DIR]);
 }

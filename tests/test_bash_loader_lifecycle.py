@@ -2,6 +2,8 @@
 
 Run: python3 -m pytest tests/test_bash_loader_lifecycle.py -q.
 Real Docker and Electron integration are deliberately outside these offline checks.
+The fake always also lists a scratch `docker run` of the image and a FreeSurfer job sibling,
+which must never be offered or stopped (2026-10-22).
 """
 
 import os
@@ -26,6 +28,7 @@ def run_loader(
     pull_ok=True,
     dev_repo="",
     gpu=False,
+    session_project=None,
 ):
     """Record subprocess side effects using an isolated command boundary."""
     bin_dir = tmp_path / "bin"
@@ -43,7 +46,9 @@ case "$1" in
      echo 'abc|ti-toolbox-other|idossha/ti-toolbox:test|tit.stack=ti-toolbox-v3'
      echo 'unrelated|not-ti-toolbox-backup|example/not-ti-toolbox-backup:test|'
      echo 'sibling|ti-toolbox-worker|idossha/ti-toolbox:test|tit.stack=ti-toolbox-v3,tit.service=worker'
-     if [ "$MULTIPLE" = 1 ]; then echo 'def|legacy|idossha/ti-toolbox:v2.5.0|'; fi
+     echo 'scratch|ti-toolbox-scratch|idossha/ti-toolbox:v3.1.1|'
+     echo 'fs|tit-freesurfer-0a1b|idossha/ti-toolbox:freesurfer-20260910|tit.kind=freesurfer'
+     if [ "$MULTIPLE" = 1 ]; then echo 'def|legacy|idossha/ti-toolbox:v2.5.0|tit.stack=ti-toolbox-v3'; fi
    elif [ -n "$PROJECT_CONTAINER" ]; then echo "$PROJECT_CONTAINER"; fi ;;
  inspect)
    case "$3" in
@@ -53,7 +58,7 @@ case "$1" in
      '{{.Name}}') if [ "$4" = unrelated ]; then echo '/not-ti-toolbox-backup'; elif [ "$4" = def ]; then echo '/legacy'; else echo '/ti-toolbox-other'; fi ;;
      '{{.State.Running}}') if [[ "$4" == ti-gpu-probe-* ]]; then echo false; else echo true; fi ;;
      '{{.State.Status}}:{{.State.ExitCode}}') echo exited:0 ;;
-     *host_project_dir*) echo "$TEST_PROJECT" ;;
+     *host_project_dir*) echo "${SESSION_PROJECT:-$TEST_PROJECT}" ;;
      *) echo 'abc /ti-toolbox-other (idossha/ti-toolbox:test)' ;;
    esac ;;
  stop|rm) exit 0 ;;
@@ -86,6 +91,7 @@ esac
         PULL_STATUS=str(int(not pull_ok)),
         TIT_DEV_REPO_DIR=dev_repo,
         XDG_CONFIG_HOME=str(tmp_path / "config"),
+        SESSION_PROJECT=session_project or "",
     )
     env.pop("TIT_COMPOSE_FILE", None)
     if compose_file is not None:
@@ -220,7 +226,9 @@ def test_recreate_refuses_project_collision_before_stopping_selected(tmp_path):
 
 
 def test_invalid_compose_preserves_running_container(tmp_path):
-    result, calls = run_loader(tmp_path, ["--existing", "recreate"], invalid_spec=True)
+    result, calls = run_loader(
+        tmp_path, ["--existing", "recreate"], invalid_spec=True, project_container="abc"
+    )
     assert result.returncode != 0
     assert "invalid container specification" in result.stderr
     assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
@@ -285,6 +293,7 @@ def test_terminal_prompt_lists_images_and_separate_actions(tmp_path):
     assert "project=" not in result.stdout
     assert "abc" not in result.stdout
     assert "worker" not in result.stdout
+    assert "  2. idossha/" not in result.stdout  # no scratch container or job sibling
     assert "not-ti-toolbox-backup" not in result.stdout
     assert "unrelated" not in calls
     assert "stop " not in calls
@@ -316,6 +325,33 @@ def test_terminal_invalid_selection_leaves_containers_unchanged(tmp_path):
     assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
+def test_flag_recreate_never_picks_another_projects_only_session(tmp_path):
+    result, calls = run_loader(
+        tmp_path, ["--existing", "recreate"], session_project="/projects/a"
+    )
+    assert result.returncode != 0
+    assert "belongs to /projects/a" in result.stderr and "--container" in result.stderr
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
+
+
+def test_flag_recreate_replaces_this_projects_own_session(tmp_path):
+    result, calls = run_loader(
+        tmp_path, ["--existing", "recreate"], project_container="abc"
+    )
+    assert result.returncode != 0  # Fake Compose refuses to launch.
+    assert calls.index("stop abc") < calls.index("rm abc")
+
+
+def test_containers_run_from_the_image_cannot_be_selected(tmp_path):
+    for name in ("scratch", "fs"):
+        (tmp_path / name).mkdir()
+        result, calls = run_loader(
+            tmp_path / name, ["--existing", "recreate", "--container", name]
+        )
+        assert "not a running TI-Toolbox container" in result.stderr
+        assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
+
+
 def test_unrelated_container_cannot_be_selected(tmp_path):
     result, calls = run_loader(
         tmp_path, ["--existing", "recreate", "--container", "unrelated"]
@@ -339,7 +375,11 @@ def test_explicit_yaml_is_used_for_recreate(tmp_path):
         (ROOT / "docker-compose.yml").read_text() + "\n# portable-yaml-fixture\n"
     )
     result, calls = run_loader(
-        tmp_path, ["--existing", "recreate"], compose_file=compose, invalid_spec=True
+        tmp_path,
+        ["--existing", "recreate"],
+        compose_file=compose,
+        invalid_spec=True,
+        project_container="abc",
     )
     assert "invalid container specification" in result.stderr
     assert "portable-yaml-fixture" in calls

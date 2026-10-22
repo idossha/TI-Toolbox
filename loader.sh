@@ -392,9 +392,11 @@ fi
 case "$image" in *[!a-zA-Z0-9_./:@-]*|'') die 'invalid image reference' ;; esac
 [[ "$image" == */* ]] || image="idossha/ti-toolbox:$image"
 read_env() { docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$ids" | sed -n "s/^$1=//p"; }
-# Discover by labels, current and legacy names, and image, including other projects.
-running_ids="$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Labels}}' | awk -F '|' '$4 ~ /(^|,)tit.service=/ && $4 !~ /(^|,)tit.service=tit(,|$)/ {next} tolower($2) ~ /^ti[-_]toolbox([-_]|$)/ || tolower($3) ~ /(^|\/)ti[-_]toolbox(:|@|$)/ || $4 ~ /(^|,)tit.stack=ti-toolbox(-v3)?(,|$)/ {print $1}')"
+# Sessions of every project, by the labels launchers stamp. Never by image or name: a scratch
+# `docker run` of the image, a FreeSurfer job sibling or a GPU probe must not be offered or stopped.
+running_ids="$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Labels}}' | awk -F '|' '$4 ~ /(^|,)tit.service=/ && $4 !~ /(^|,)tit.service=tit(,|$)/ {next} $4 ~ /(^|,)tit.stack=ti-toolbox(-v3)?(,|$)/ {print $1}')"
 if [ -n "$running_ids" ]; then
+    named="$container" flagged="$running_action"
     printf '\nRunning TI-Toolbox containers:\n'
     number=0
     while IFS= read -r candidate; do
@@ -436,6 +438,13 @@ case "$running_action" in
             [ -z "$attached_project" ] || [ "$attached_project" = '<no value>' ] || project="$attached_project"
             ;;
         recreate)
+            # --existing recreate without --container picked the only running session unasked:
+            # it may replace this project's own session, never another project's.
+            if [ -z "$named" ] && [ "$flagged" = recreate ] && [[ "$running_ids" != *$'\n'* ]] && [ "$selected" != "$ids" ]; then
+                owner="$(docker inspect --format '{{index .Config.Labels "tit.host_project_dir"}}' "$selected")"
+                { [ -n "$owner" ] && [ "$owner" != '<no value>' ]; } || owner='another project'
+                die "the running TI-Toolbox session belongs to $owner; name it with --container to replace it, or use --existing attach; nothing was changed"
+            fi
             if [ -n "$ids" ] && [ "$ids" != "$selected" ] && [ "$(docker inspect --format '{{.State.Running}}' "$ids")" = true ]; then
                 die 'requested project already has another running container; select that container to recreate'
             fi

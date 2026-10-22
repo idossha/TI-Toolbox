@@ -2,6 +2,8 @@
 
 Run python3 -m pytest tests/test_launch_image.py -q. These cases pin cross-project
 selection, explicit consent, and stop-before-remove ordering. UI is tested elsewhere.
+A session is a container carrying the labels launchers stamp (tit.stack, tit.service);
+containers merely run from the image must never be offered or stopped (2026-10-22).
 """
 
 import json
@@ -21,7 +23,11 @@ def docker(monkeypatch, tmp_path):
             "State": {"Running": True},
             "Config": {
                 "Image": "idossha/ti-toolbox:old",
-                "Labels": {"tit.host_project_dir": "/other"},
+                "Labels": {
+                    "tit.stack": "ti-toolbox-v3",
+                    "tit.service": "tit",
+                    "tit.host_project_dir": "/other",
+                },
                 "Env": ["TIT_SERVER_TOKEN=secret", "TIT_SERVER_PORT=8888"],
             },
         }
@@ -75,7 +81,10 @@ def test_explicit_attach_uses_running_session_despite_requested_image(docker):
 def test_recreate_stops_then_removes_selected_and_uses_requested_yaml_project(docker):
     _, commands, project = docker
     options = launch.LaunchOptions(
-        project=str(project), image="requested:new", existing="recreate"
+        project=str(project),
+        image="requested:new",
+        existing="recreate",
+        container="ti-toolbox-other",
     )
     launch.start(options)
     mutations = [cmd for cmd in commands if cmd[0] in ("stop", "rm", "run")]
@@ -101,7 +110,54 @@ def test_unrelated_container_does_not_trigger_prompt(docker):
     running, _, project = docker
     running[0]["Name"] = "/postgres"
     running[0]["Config"]["Image"] = "postgres:17"
+    running[0]["Config"]["Labels"] = {}
     launch.start(launch.LaunchOptions(project=str(project)))
+
+
+def test_flag_recreate_never_picks_another_projects_only_session(docker):
+    _, commands, project = docker
+    with pytest.raises(launch.LaunchError, match="belongs to /other"):
+        launch.start(launch.LaunchOptions(project=str(project), existing="recreate"))
+    assert not any(cmd[0] in ("stop", "rm", "run") for cmd in commands)
+
+
+def test_flag_recreate_replaces_this_projects_own_session(docker):
+    running, commands, project = docker
+    running[0]["Config"]["Labels"]["tit.host_project_dir"] = str(project)
+    launch.start(launch.LaunchOptions(project=str(project), existing="recreate"))
+    mutations = [cmd for cmd in commands if cmd[0] in ("stop", "rm", "run")]
+    assert mutations[:2] == [("stop", "other-id"), ("rm", "other-id")]
+
+
+def test_containers_run_from_the_image_are_never_sessions(docker):
+    """A scratch `docker run` of the image, a FreeSurfer job sibling, a GPU probe."""
+    running, commands, project = docker
+    running[:] = [
+        {
+            "Id": "scratch",
+            "Name": "/ti-toolbox-scratch",
+            "State": {"Running": True},
+            "Config": {"Image": "idossha/ti-toolbox:v3.1.1", "Labels": {}},
+        },
+        {
+            "Id": "freesurfer",
+            "Name": "/tit-freesurfer-0a1b",
+            "State": {"Running": True},
+            "Config": {
+                "Image": "idossha/ti-toolbox:freesurfer-20260910",
+                "Labels": {"tit.kind": "freesurfer"},
+            },
+        },
+        {
+            "Id": "probe",
+            "Name": "/ti-gpu-probe-0a1b",
+            "State": {"Running": True},
+            "Config": {"Image": "idossha/ti-toolbox:v3.1.1", "Labels": {}},
+        },
+    ]
+    assert launch.find_running_containers() == []
+    launch.start(launch.LaunchOptions(project=str(project), existing="recreate"))
+    assert not any(cmd[0] in ("stop", "rm") for cmd in commands)
 
 
 def test_interactive_attach_requires_answer(docker, monkeypatch):
@@ -159,7 +215,11 @@ def test_project_collision_refuses_before_stopping_selected(docker, monkeypatch)
     owner = {**running[0], "Id": "project-owner"}
     monkeypatch.setattr(launch, "find_container", lambda _: owner)
     with pytest.raises(launch.LaunchError, match="another running container owns"):
-        launch.start(launch.LaunchOptions(project=str(project), existing="recreate"))
+        launch.start(
+            launch.LaunchOptions(
+                project=str(project), existing="recreate", container="other-id"
+            )
+        )
     assert not any(cmd[0] in ("stop", "rm", "run") for cmd in commands)
 
 

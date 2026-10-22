@@ -68,8 +68,11 @@ If a TI-Toolbox container is already running, select it and choose:
   project. Any jobs in that container stop; project files are preserved.
 - **Attach:** open the existing container with its current project and version.
 
-Press Ctrl-C to cancel without changing anything. Legacy v2 containers cannot attach to
-the v3 interface.
+Press Ctrl-C to cancel without changing anything. Only sessions the v3 launchers or the desktop
+app started are listed; legacy v2 containers and containers you run yourself from the image
+(`docker run idossha/ti-toolbox:…`) are never offered or stopped. `--existing recreate` without
+`--container` replaces the running session only if it is this project's; to replace another
+project's session, name it with `--container`.
 
 ### Stop or check a session
 

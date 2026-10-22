@@ -3345,3 +3345,38 @@ already holds the tag: a separate behaviour change nobody asked for.
 
 **Revisit if.** Launchers are published as release assets with checksums in `SHA256SUMS`; then
 install that asset and verify it like the desktop app.
+
+## 2026-10-22 — Launchers offer and stop only labelled sessions; a flag-implied recreate stays in its project
+
+**Decision.** Narrows *Explicit container selection and browser-first terminal launch*
+(2026-09-09); its explicit Attach/Replace choice stands. (1) A running TI-Toolbox session is a
+container carrying the labels launchers stamp (`tit.stack`/`tit.project`/`tit.host_project_dir`,
+service `tit`): `isToolboxContainer` (desktop), `find_running_containers` (`tit/launch.py`) and
+`loader.sh`'s discovery no longer match the `idossha/ti-toolbox` image or a `ti-toolbox*` name.
+(2) `--existing recreate` / `TIT_LAUNCH_EXISTING=recreate` without `--container` /
+`TIT_LAUNCH_CONTAINER` replaces the only running session only if it is the requested project's own
+(`tit.host_project_dir`); otherwise the launch stops, names the owning project and changes nothing.
+Interactive choices (the Electron dialog that names the project, the terminal prompt) are
+unchanged. Tests: `stack-image-attach.test.ts`, `tests/test_launch_image.py`,
+`tests/test_bash_loader_lifecycle.py`.
+
+**Why.** An agent saw a desktop stack restart `docker stop` scratch `docker run` containers of the
+same image and kill a job in one. All three launchers listed any running container whose image or
+name looked like the toolbox's as a session; with one candidate it was selected without a prompt,
+and `--existing recreate` (or Enter on the Recreate default) stopped and removed it. That set also
+held a job's FreeSurfer sibling (`idossha/ti-toolbox:freesurfer-*`, labelled only `tit.kind`) and
+the launchers' own GPU probes. The project-scoped paths were already label-scoped and safe:
+`stack.stop()` stops only the container it created or adopted, `--stop` and `npm run dev:down`
+filter by project label and host directory, and nothing runs `docker compose down` or
+`--remove-orphans`. Separately, a flag-implied recreate auto-selected the only running session even
+when it was another project's, so relaunching project B with `--existing recreate` (agents do,
+non-interactively) stopped project A's session and its jobs without anyone choosing A.
+
+**Alternatives rejected.** Matching `com.docker.compose.project`: the desktop app creates
+containers through the Engine API, not Compose, and loader.sh's `compose run` carries the same tit
+labels, so the tit labels are the one identity every launcher shares. Refusing every flag-implied
+recreate: it would break the routine `--existing recreate` relaunch of one's own project.
+Listing project paths in the terminal prompt: the interactive choice already requires an answer.
+
+**Revisit if.** A launcher creates sessions without these labels, or launchers learn to run two
+projects' sessions side by side (then Replace needs no cross-project choice at all).

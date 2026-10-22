@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as discovery from "../../src/main/docker/discover";
 import { DockerEngineClient } from "../../src/main/docker/engine";
-import { StackApi, type ContainerState } from "../../src/main/docker/stackApi";
+import { StackApi, type ContainerState, type ContainerSummary } from "../../src/main/docker/stackApi";
 import { StackManager, isToolboxContainer, type StackHost } from "../../src/main/stack";
-import { LABEL_HOST_DIR } from "../../src/shared/compose";
+import { LABEL_HOST_DIR, LABEL_STACK, STACK_ID } from "../../src/shared/compose";
 
 let root: string;
 let state: ContainerState;
@@ -70,8 +70,8 @@ describe("explicit running-container selection", () => {
   it("only removes the explicitly selected candidate on replacement", async () => {
     host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "replace", containerId: "existing" });
     vi.mocked(StackApi.prototype.listContainers).mockResolvedValue([
-      { Id: "other", Names: ["/ti-toolbox-other"], Image: "idossha/ti-toolbox:dev", State: "running", Status: "Up", Labels: {} },
-      { Id: "existing", Names: ["/ti-toolbox-selected"], Image: "idossha/ti-toolbox:dev", State: "running", Status: "Up", Labels: {} },
+      { Id: "other", Names: ["/ti-toolbox-other"], Image: "idossha/ti-toolbox:dev", State: "running", Status: "Up", Labels: { [LABEL_STACK]: STACK_ID } },
+      { Id: "existing", Names: ["/ti-toolbox-selected"], Image: "idossha/ti-toolbox:dev", State: "running", Status: "Up", Labels: { [LABEL_STACK]: STACK_ID } },
     ]);
     writeFileSync(join(root, "docker-compose.yml"), readFileSync(join(__dirname, "../../../docker-compose.yml")));
     vi.spyOn(DockerEngineClient.prototype, "stopContainer").mockResolvedValue(undefined);
@@ -99,6 +99,52 @@ describe("explicit running-container selection", () => {
 
 it("does not offer sibling preprocessing services even when they carry project labels", () => {
   expect(isToolboxContainer({ Id: "sibling", Names: ["/ti-toolbox-qsiprep"], Image: "pennlinc/qsiprep", State: "running", Status: "Up", Labels: { [LABEL_HOST_DIR]: root, "tit.service": "qsiprep" } })).toBe(false);
+});
+
+// Containers no launcher created: a user's or agent's `docker run` of the image (with or without a
+// ti-toolbox-looking name), a FreeSurfer job sibling (`tit/pre/freesurfer.py`) and a GPU probe.
+const notSessions: ContainerSummary[] = [
+  { Id: "scratch", Names: ["/eager_turing"], Image: "idossha/ti-toolbox:v3.1.1", State: "running", Status: "Up", Labels: {} },
+  { Id: "named", Names: ["/ti-toolbox-scratch"], Image: "idossha/ti-toolbox:v3.1.1", State: "running", Status: "Up", Labels: {} },
+  { Id: "freesurfer", Names: ["/tit-freesurfer-0a1b"], Image: "idossha/ti-toolbox:freesurfer-20260910", State: "running", Status: "Up", Labels: { "tit.kind": "freesurfer", "tit.job_id": "j1" } },
+  { Id: "probe", Names: ["/ti-gpu-probe-0a1b"], Image: "idossha/ti-toolbox:v3.1.1", State: "running", Status: "Up", Labels: { "tit.gpu-probe": "true" } },
+];
+
+it.each(notSessions)("never treats $Id containers from the image as a toolbox session", (container) => {
+  expect(isToolboxContainer(container)).toBe(false);
+});
+
+it("starts without offering, stopping or removing containers it did not create", async () => {
+  vi.mocked(StackApi.prototype.listContainers).mockResolvedValue(notSessions);
+  host.chooseRunningContainer = vi.fn();
+  const stop = vi.spyOn(DockerEngineClient.prototype, "stopContainer").mockResolvedValue(undefined);
+  await new StackManager(host).start(root);
+  expect(host.chooseRunningContainer).not.toHaveBeenCalled();
+  expect(stop).not.toHaveBeenCalled();
+  expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
+});
+
+describe("a recreate implied by launch flags with no container named", () => {
+  beforeEach(() => {
+    vi.stubEnv("TIT_LAUNCH_EXISTING", "recreate");
+    vi.stubEnv("TIT_LAUNCH_CONTAINER", "");
+    host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "replace", containerId: "existing" });
+    writeFileSync(join(root, "docker-compose.yml"), readFileSync(join(__dirname, "../../../docker-compose.yml")));
+  });
+
+  it("leaves another project's only running session alone", async () => {
+    vi.mocked(StackApi.prototype.listContainers).mockResolvedValue([{ Id: "existing", Names: ["/ti-toolbox-a"], Image: "idossha/ti-toolbox:v3.1.1", State: "running", Status: "Up", Labels: { [LABEL_STACK]: STACK_ID, [LABEL_HOST_DIR]: "/projects/a" } }]);
+    const stop = vi.spyOn(DockerEngineClient.prototype, "stopContainer").mockResolvedValue(undefined);
+    expect(await new StackManager(host).start(root)).toMatchObject({ ok: false, error: expect.stringContaining("/projects/a") });
+    expect(stop).not.toHaveBeenCalled();
+    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
+  });
+
+  it("still replaces this project's own session", async () => {
+    const stop = vi.spyOn(DockerEngineClient.prototype, "stopContainer").mockResolvedValue(undefined);
+    await new StackManager(host).start(root);
+    expect(stop).toHaveBeenCalledExactlyOnceWith("existing", 10);
+  });
 });
 
 it("keeps container ownership when Docker cannot stop it", async () => {

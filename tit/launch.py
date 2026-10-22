@@ -613,23 +613,19 @@ def find_container(host_project_dir: str) -> dict | None:
 
 
 def find_running_containers() -> list[dict]:
-    """Discover current and legacy toolbox sessions, including other projects."""
+    """Running toolbox sessions of every project: containers a launcher labelled.
+
+    Never matched by image or name: a scratch ``docker run`` of the image, a job's
+    FreeSurfer sibling or a GPU probe would be offered for Recreate and stopped.
+    """
     result = _docker("ps", "--format", "{{.ID}}")
     containers = []
     for cid in result.stdout.split():
         info = json.loads(_docker("inspect", cid).stdout)[0]
-        config = info.get("Config", {})
-        labels = config.get("Labels") or {}
-        name = info.get("Name", "").lstrip("/").lower()
-        image = config.get("Image", "").lower()
+        labels = info.get("Config", {}).get("Labels") or {}
         if labels.get(LABEL_SERVICE) not in (None, "", SERVICE_NAME):
             continue
-        if (
-            labels.get(LABEL_STACK)
-            or labels.get(LABEL_PROJECT)
-            or re.match(r"^ti[-_]toolbox(?:[-_]|$)", name)
-            or re.search(r"(?:^|/)ti[-_]toolbox(?::|@|$)", image)
-        ):
+        if labels.get(LABEL_STACK) or labels.get(LABEL_PROJECT):
             containers.append(info)
     return containers
 
@@ -865,6 +861,20 @@ def start(options: LaunchOptions) -> tuple[str, str]:
             )
             wait_for_health(origin, timeout=60.0, echo=echo)
             return origin, token
+        # --existing recreate with no --container picked the only running session without
+        # asking: it may replace this project's own session, never another project's.
+        recorded = (selected["Config"].get("Labels") or {}).get(LABEL_HOST_DIR, "")
+        if (
+            options.existing == "recreate"
+            and not options.container
+            and len(running) == 1
+            and not (recorded and os.path.realpath(recorded) == host_project_dir)
+        ):
+            raise LaunchError(
+                f"the running TI-Toolbox session belongs to {recorded or 'another project'}. "
+                "Name it with --container to replace it, or use --existing attach; "
+                "nothing was changed."
+            )
         owner = find_container(host_project_dir)
         if (
             owner is not None

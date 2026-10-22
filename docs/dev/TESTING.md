@@ -70,6 +70,8 @@ pytest collections remain failures and their logs survive.
 `tests/test_launch_image.py`, `test_loader_interactive.py`, `test_bash_loader_lifecycle.py`
 and `test_electron_loader_handoff.py` use synthetic Docker records and recording executables.
 They pin explicit cross-project selection, cancellation without mutation, replacement preflight,
+that containers merely run from the image (scratch `docker run`, FreeSurfer siblings, GPU probes)
+are never sessions, that a flag-implied recreate never picks another project's only session,
 and CLI-to-Electron environment handoff. Desktop `stack-image-attach`, `dev-stack-start` and
 `quitPlan` unit suites cover the matching Engine API and shutdown rules, including explicit
 stop/quit confirmation when job status is unavailable and preservation after cancellation or stop failure. `launcher.test.ts`

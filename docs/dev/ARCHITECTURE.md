@@ -93,9 +93,14 @@ an adjacent YAML downloads that tag's copy. An invalid explicit path fails rathe
 different configuration.
 Explicit browser/headless modes and development wrappers use the same Compose service and
 container identity. All Docker launch paths require an explicit Attach or Replace decision when
-any TI-Toolbox container is running, including another project's session. Multiple sessions require
-selection; only that selected session may be replaced. Attach keeps its actual project and image;
-Replace uses the requested project and YAML. This prevents accidental reuse or job interruption.
+any TI-Toolbox session is running, including another project's session. A session is a container
+carrying the labels launchers stamp (`tit.stack`/`tit.project`, service `tit`); a container merely
+run from the image — a scratch `docker run`, a job's FreeSurfer sibling, a GPU probe — is never
+listed, selected or stopped. Multiple sessions require selection; only that selected session may be
+replaced. `--existing recreate` (`TIT_LAUNCH_EXISTING=recreate`) without `--container` replaces the
+only running session only when it is the requested project's own; another project's session must be
+named or picked. Attach keeps its actual project and image; Replace uses the requested project and
+YAML. This prevents accidental reuse or job interruption.
 
 Electron owns its started or explicitly adopted Docker session. Closing the window or choosing Quit stops/removes that session and exits Electron.
 Overview embeds the project path and folder picker when disconnected, served locally without
