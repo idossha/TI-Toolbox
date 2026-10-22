@@ -108,8 +108,35 @@ def leadfield_facts(log_text: str) -> dict:
         "dimensions": first(r"\ndimensions: \[([^\]]*)\]"),
         "thickness": first(r"\nthickness:\s*\[([^\]]*)\]"),
         "tensor": first(r"Using anisotropic .*? based on the file: (\S+)"),
+        "conductivity": (
+            "anisotropic"
+            if "Using anisotropic" in log_text
+            else "isotropic" if "Using isotropic conductivities" in log_text else None
+        ),
         "simnibs": first(r"simnibs (\d[\w.]*)"),
     }
+
+
+def leadfield_log(leadfield_dir: str | Path, cfg: dict) -> str | None:
+    """The text of the SimNIBS log that built this run's leadfield, or ``None``.
+
+    A subject's ``leadfields/`` keeps one log per attempt, for every net. A log whose
+    ``EEG Cap:`` line names another net is never used; among the rest, one that names the run's
+    HDF5 file (written when the leadfield finished) beats one that only names its net, which
+    beats one that names no net (an attempt that died first); the newest breaks ties.
+    """
+    hdf = Path(cfg.get("leadfield_hdf") or "").name
+    net = net_of(cfg)
+    best, best_key = None, None
+    for log in sorted(Path(leadfield_dir).glob("simnibs_simulation_*.log")):
+        text = log.read_text(errors="replace")
+        cap = re.search(r"EEG Cap:\s*(\S+)", text)
+        if cap and Path(cap.group(1)).stem != net:
+            continue
+        key = (bool(hdf) and hdf in text, cap is not None, log.name)
+        if best_key is None or key > best_key:
+            best, best_key = text, key
+    return best
 
 
 def collect(run_dir: str | Path, leadfield_dir: str | Path | None = None) -> dict:
@@ -117,10 +144,9 @@ def collect(run_dir: str | Path, leadfield_dir: str | Path | None = None) -> dic
     run_dir = Path(run_dir)
     cfg = json.loads((run_dir / "run_config.json").read_text())
     lf = {}
-    if leadfield_dir:
-        logs = sorted(Path(leadfield_dir).glob("simnibs_simulation_*.log"))
-        if logs:
-            lf = leadfield_facts(logs[-1].read_text(errors="replace"))
+    log = leadfield_log(leadfield_dir, cfg) if leadfield_dir else None
+    if log:
+        lf = leadfield_facts(log)
     rows, skipped = _read_rows(run_dir / "final_output.csv")
     return {
         "run": run_dir.name,
@@ -136,6 +162,35 @@ def net_of(cfg: dict) -> str:
     from tit.opt.ex.symmetry import net_name_from_leadfield
 
     return net_name_from_leadfield(cfg.get("leadfield_hdf", ""))
+
+
+def target_description(cfg: dict) -> str:
+    """The ROI as ``run_config.json`` defines it, for a run without a ROI plate.
+
+    Spheres around the centres in ``roi_names`` (or ``roi_name``), in subject or MNI
+    coordinates, joined with any ``roi_atlas`` labels or masks. A run written before these
+    fields were recorded is named, not described: its ``roi_name`` may be only a label.
+    """
+    name = cfg.get("roi_name") or "target ROI"
+    if not any(k in cfg for k in ("roi_names", "roi_atlas", "roi_coordinate_space")):
+        return f"{name} (shape not recorded in this run)"
+    radius = cfg.get("roi_radius")
+    names = cfg.get("roi_names")
+    names = [name] if names is None else names
+    mni = "MNI " if cfg.get("roi_coordinate_space") == "mni" else ""
+    parts = []
+    if len(names) == 1:
+        parts.append(f"sphere of {radius:g} mm around the {mni}centre in {names[0]}")
+    elif names:
+        parts.append(
+            f"union of {radius:g} mm spheres around the {mni}centres in {', '.join(names)}"
+        )
+    for atlas in cfg.get("roi_atlas") or []:
+        where = Path(str(atlas.get("atlas_path", ""))).name
+        where += " (MNI)" if atlas.get("atlas_space") == "mni" else ""
+        label = atlas.get("label")
+        parts.append(f"mask {where}" if label is None else f"label {label} of {where}")
+    return " + ".join(parts) or name
 
 
 def _montage_name(pairs: list[list[str]]) -> str:
@@ -243,11 +298,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     n = len(rows)
     pairs = best["pairs"]
     name = _montage_name(pairs)
-    radius = cfg.get("roi_radius")
-    roi_name = (
-        roi.get("name")
-        or f"sphere of {radius:g} mm around the centre in {cfg.get('roi_name')}"
-    )
+    roi_name = roi.get("name") or target_description(cfg)
     net = net_of(cfg)
     mA = [best["I1"], best["I2"]]
 
@@ -280,25 +331,30 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
 
     # ── 2. winner ──
     dims = (lf.get("dimensions") or "").replace(", ", "×").replace(",", "×")
-    cond = "anisotropic, from the DTI tensor" if lf.get("tensor") else "isotropic"
+    # Only what the leadfield's own log states; an attempt that died early states nothing.
+    cond = {
+        "anisotropic": "anisotropic, from the DTI tensor",
+        "isotropic": "isotropic",
+    }.get(lf.get("conductivity"))
+    electrodes = "as in the leadfield (not recorded)"
+    if lf.get("shape") and dims:
+        electrodes = esc(
+            f"{lf['shape']} {dims} mm"
+            + (f", gel {lf['thickness']} mm" if lf.get("thickness") else "")
+        )
+    total, step = cfg.get("total_current_mA", 0), cfg.get("current_step_mA", 0)
+    limit = cfg.get("channel_limit_mA")
+    if limit is None:  # ExConfig: None means total - step, as the search enumerated it
+        limit = round(total - step, 9)
     dose = [
-        (
-            "Electrodes",
-            (
-                esc(
-                    f"{lf.get('shape') or '?'} {dims} mm, gel {lf.get('thickness') or '?'} mm"
-                )
-                if lf
-                else "as in the leadfield (not recorded)"
-            ),
-        ),
+        ("Electrodes", electrodes),
         (
             "Currents",
             f"{common.per_channel(mA)} mA per channel, {fmt(sum(mA))} mA total",
         ),
         (
             "Current sweep",
-            f"{fmt(cfg.get('total_current_mA', 0))} mA total in {fmt(cfg.get('current_step_mA', 0))} mA steps, at most {fmt(cfg.get('channel_limit_mA') or 0)} mA per channel",
+            f"{fmt(total)} mA total in {fmt(step)} mA steps, at most {fmt(limit)} mA per channel",
         ),
         (
             "Carrier frequencies",
@@ -306,11 +362,8 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ),
         (
             "Leadfield",
-            (
-                f"<code>{esc(cfg.get('leadfield_hdf', ''))}</code>, {cond}"
-                if lf
-                else f"<code>{esc(cfg.get('leadfield_hdf', ''))}</code>"
-            ),
+            f"<code>{esc(cfg.get('leadfield_hdf', ''))}</code>"
+            + (f", {cond}" if cond else ""),
         ),
     ]
     d = RULES["opt"]["dose_record"]
@@ -450,7 +503,8 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         f"Electrode montages for temporal interference stimulation were ranked by exhaustive search in TI-Toolbox: {n:,} two-channel combinations and current splits on the {esc(Path(net).stem)} positions"
         + (f" {cite('jurcak2007_eeg_positions')}" if "10-" in net else "")
         + f", each evaluated from a SimNIBS {esc(lf.get('simnibs') or '')} {cite('saturnino2019_simnibs21')} leadfield of subject {esc(subject_id)}'s head model "
-        f"{cite('puonti2020_charm')} with {cond} conductivities.",
+        f"{cite('puonti2020_charm')}"
+        + (f" with {lf['conductivity']} conductivities." if cond else "."),
         f"For each montage the maximal TI modulation amplitude {cite('grossman2017_ti')} was averaged in the {esc(roi_name)} and in grey matter; montages were "
         f"ranked by the product of the ROI mean and focality (their ratio). The best, {esc(name)} at {common.per_channel(mA)} mA per channel, "
         f"gave a ROI mean of {best['TImean_ROI']:.3f} V/m and a focality of {best['Focality']:.2f}.",

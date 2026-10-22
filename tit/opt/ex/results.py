@@ -31,6 +31,7 @@ import csv
 import json
 import os
 import re
+from dataclasses import asdict, is_dataclass
 from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import Any
@@ -73,10 +74,20 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
             for f in dataclass_fields(config.electrodes)
         }
 
+    roi_atlas = getattr(config, "roi_atlas", None)
     run_info = {
         "subject_id": config.subject_id,
         "roi_name": config.roi_name,
         "roi_radius": config.roi_radius,
+        # The ROI as searched: roi_name alone is only a label for a combined, MNI or atlas
+        # target, and the report describes the target from these.
+        "roi_names": getattr(config, "roi_names", None),
+        "roi_atlas": (
+            None
+            if roi_atlas is None
+            else [asdict(a) if is_dataclass(a) else dict(a) for a in roi_atlas]
+        ),
+        "roi_coordinate_space": getattr(config, "roi_coordinate_space", "subject"),
         "leadfield_hdf": config.leadfield_hdf,
         "electrode_mode": electrode_mode,
         "electrodes": electrode_info,
