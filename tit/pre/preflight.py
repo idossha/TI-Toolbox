@@ -11,7 +11,13 @@ from typing import Iterable, Sequence
 from tit import constants as const
 from tit.paths import get_path_manager
 
-from .dicom2nifti import MODALITIES, bids_outputs, converted_nifti
+from .dicom2nifti import (
+    MODALITIES,
+    _iter_files,
+    _modality_source_dir,
+    bids_outputs,
+    converted_nifti,
+)
 from .fastsurfer import SEG_FILENAME
 from .qsi.qsirecon import existing_reconstructions
 from .qsi.utils import (
@@ -219,27 +225,45 @@ def missing_inputs_for_step(
     return []
 
 
-def _dicom_conversion_will_run(
+#: The source modalities whose conversion produces what each step's input check reads
+#: (QSIPrep: a converted fieldmap can be the usable one its distortion check wants).
+_CONVERTED_INPUTS = {
+    STEP_CHARM: ("T1w",),
+    STEP_FASTSURFER: ("T1w",),
+    STEP_FREESURFER: ("T1w",),
+    STEP_QSIPREP: ("T1w", "dwi", "fmap"),
+}
+
+
+def _modalities_dicom_conversion_will_produce(
     project_dir: str,
     subject_id: str,
     *,
     convert_dicom: bool,
     skip_existing_outputs: bool,
-) -> bool:
+) -> set[str]:
+    """The modalities this run's DICOM conversion can still write a NIfTI for.
+
+    Without "skip", or before anything was converted, the conversion runs whole. Under
+    "skip" it converts per modality, and only a modality whose source folder holds files
+    and whose NIfTI is absent: the rule ``run_dicom_to_nifti`` applies. The empty
+    ``dicom/`` folders the app scaffolds for every modality are not a source.
+    """
     if not convert_dicom:
-        return False
-    if not skip_existing_outputs:
-        return True
-    # "skip" skips per modality, so conversion still runs for every modality that has
-    # no NIfTI yet -- including the T1w and DWI the deferred checks are about.
+        return set()
+    if not skip_existing_outputs or not _dicom_outputs(project_dir, subject_id):
+        return {modality for modality, _datatype in MODALITIES}
     pm = get_path_manager(project_dir)
-    return any(
-        converted_nifti(
+    sourcedata = Path(pm.sourcedata_subject(subject_id))
+    return {
+        modality
+        for modality, datatype in MODALITIES
+        if converted_nifti(
             Path(pm.bids_datatype(subject_id, datatype)), subject_id, modality
         )
         is None
-        for modality, datatype in MODALITIES
-    )
+        and any(_iter_files(_modality_source_dir(sourcedata, modality)))
+    }
 
 
 def find_missing_preprocessing_inputs(
@@ -278,21 +302,19 @@ def find_missing_preprocessing_inputs(
 
     problems: list[PreprocessingInputProblem] = []
     for subject_id in subject_ids:
-        subject_steps = selected_steps
-        if _dicom_conversion_will_run(
+        produced = _modalities_dicom_conversion_will_produce(
             project_dir,
             subject_id,
             convert_dicom=convert_dicom,
             skip_existing_outputs=skip_existing_outputs,
-        ):
-            # Conversion can produce the T1w and DWI inputs these steps need,
-            # so don't flag them as missing yet.
-            subject_steps = [
-                step
-                for step in selected_steps
-                if step
-                not in (STEP_CHARM, STEP_FASTSURFER, STEP_FREESURFER, STEP_QSIPREP)
-            ]
+        )
+        # Conversion in this run can still produce these steps' T1w/DWI inputs,
+        # so don't flag them as missing yet.
+        subject_steps = [
+            step
+            for step in selected_steps
+            if not produced.intersection(_CONVERTED_INPUTS.get(step, ()))
+        ]
         if STEP_FREESURFER in selected_steps and (
             not skip_existing_outputs
             or not existing_outputs_for_step(project_dir, subject_id, STEP_FREESURFER)
@@ -545,7 +567,15 @@ def existing_outputs_for_step(
         )
         return [
             PreprocessingOutput(
-                subject_id, step, STEP_LABELS[step], tensor, (tensor, *extras)
+                subject_id,
+                step,
+                STEP_LABELS[step],
+                tensor,
+                (tensor, *extras),
+                # extract_dti_tensor copies the finished tensor into place: an empty
+                # file is a copy that was cut off. (A truncated non-empty one is not
+                # detected here.)
+                missing=() if tensor.stat().st_size else ("tensor data",),
             )
         ]
     raise ValueError(f"Unknown preprocessing step: {step}")
@@ -557,8 +587,9 @@ def step_output_complete(project_dir: str, subject_id: str, step: str) -> bool:
     A folder an interrupted run left behind is an existing output (replace can clear
     it) but not a complete one: FastSurfer without its segmentation, charm without its
     mesh and final segmentation, QSIPrep without a preprocessed DWI, tissue analysis
-    without every tissue's report. Callers that show whether a stage is done use this,
-    not the folder's existence.
+    without every tissue's report, a zero-byte DTI tensor. Callers that show whether a
+    stage is done use this, not the folder's existence. FreeSurfer recon-all and QSIRecon
+    have no completion marker, so any non-empty output of theirs counts as complete.
     """
     outputs = existing_outputs_for_step(project_dir, subject_id, step)
     return bool(outputs) and all(output.complete for output in outputs)

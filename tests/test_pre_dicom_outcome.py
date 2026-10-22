@@ -12,9 +12,17 @@ What this pins (2026-10-22):
 - ``skip_existing_outputs`` skips only the modalities already converted: an existing
   ``anat/sub-<id>_T1w.nii.gz`` no longer stops a newly added T2w from being converted
   (docs/wiki/pre-processing.md "Run and monitor": skip what exists, run the rest).
+- The pre-flight input check (``find_missing_preprocessing_inputs``, behind the job
+  sweep's "Missing inputs" 422) defers a stage's T1w/DWI check only while conversion can
+  still produce that input: under "skip", a modality is still to come only when its source
+  folder holds files and its BIDS NIfTI is absent (the converter's own rule). The empty
+  ``dicom/`` folders the app scaffolds for every modality are not a source.
 
 Where the expectations come from: the DICOM standard's preamble layout above; the BIDS
-names the stage documents (``sub-<id>_<suffix>.nii.gz``); bytes written by the test itself.
+names the stage documents (``sub-<id>_<suffix>.nii.gz``); bytes written by the test itself;
+for the input checks, what each stage reads (charm, FastSurfer and FreeSurfer a T1w; QSIPrep a
+T1w and a DWI with its gradient table) and the scaffold ``tit.pre.utils.ensure_subject_dirs``
+really creates.
 ``dcm2niix`` is replaced by a fake runner that writes the files dcm2niix's ``-f``/``-o``
 arguments name, so the test checks that the real folder and name reached the command.
 
@@ -97,6 +105,25 @@ def test_dicom_without_a_dcm_extension_is_converted(tmp_path, names):
         Path(cmd[-1]) == folder.parent
     )  # the T1w modality folder, searched recursively
     assert (project / f"sub-{SID}" / "anat" / f"sub-{SID}_T1w.nii.gz").is_file()
+
+
+def test_a_nifti_is_copied_even_when_its_header_reads_dicm_at_byte_128(tmp_path):
+    """A known image extension decides first; only other files are sniffed for the prefix.
+
+    Bytes 128-131 of a NIfTI-1 header are its ``cal_min`` float, which can hold anything.
+    """
+    project = _project(tmp_path)
+    folder = project / "sourcedata" / f"sub-{SID}" / "T1w"
+    folder.mkdir(parents=True)
+    source = folder / "t1.nii"
+    source.write_bytes(_dicom_bytes(b"rest of a NIfTI"))
+    runner = _fake_dcm2niix()
+
+    run_dicom_to_nifti(str(project), SID, logger=LOGGER, runner=runner)
+
+    runner.run.assert_not_called()  # not handed to dcm2niix as a DICOM
+    target = project / f"sub-{SID}" / "anat" / f"sub-{SID}_T1w.nii.gz"
+    assert gzip.decompress(target.read_bytes()) == source.read_bytes()
 
 
 def test_files_without_the_dicom_prefix_fail_the_stage_with_folder_and_count(tmp_path):
@@ -250,3 +277,168 @@ def test_without_a_policy_an_existing_modality_still_stops_the_stage(
         run_pipeline([SID], convert_dicom=True, runner=runner)
 
     runner.run.assert_not_called()
+
+
+# --------------------------------------------------------------------------- input checks
+
+
+def _converted(project: Path, datatype: str, name: str) -> Path:
+    """A BIDS NIfTI an earlier conversion left (``sub-<id>/<datatype>/<name>.nii.gz``)."""
+    folder = project / f"sub-{SID}" / datatype
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{name}.nii.gz"
+    path.write_bytes(b"converted")
+    return path
+
+
+def _skip_problems(project: Path, **steps) -> list:
+    from tit.pre.preflight import find_missing_preprocessing_inputs
+
+    return find_missing_preprocessing_inputs(
+        str(project), [SID], convert_dicom=True, skip_existing_outputs=True, **steps
+    )
+
+
+def test_skip_reports_a_missing_t1w_no_source_can_produce_at_job_submission(tmp_path):
+    """T2w converted, no T1w anywhere: the job sweep reports it before anything is queued."""
+    from tit.jobs.preflight import preflight
+    from tit.pre.utils import ensure_subject_dirs
+
+    project = _project(tmp_path)
+    ensure_subject_dirs(str(project), SID)  # an empty dicom/ folder for every modality
+    _converted(project, "anat", f"sub-{SID}_T2w")
+
+    found = preflight(
+        "pre",
+        {
+            "subject_ids": [SID],
+            "convert_dicom": True,
+            "create_m2m": True,
+            "skip_existing_outputs": True,
+        },
+        str(project),
+    )
+
+    assert [m.expected_path for m in found] == [str(project / f"sub-{SID}" / "anat")]
+    assert "requires a BIDS T1w image" in found[0].how_to_fix
+
+
+def test_skip_reports_missing_dwi_when_no_dwi_source_waits(tmp_path):
+    from tit.pre.preflight import STEP_QSIPREP
+
+    project = _project(tmp_path)
+    _converted(project, "anat", f"sub-{SID}_T1w")
+
+    problems = _skip_problems(project, run_qsiprep=True)
+
+    assert [p.step for p in problems] == [STEP_QSIPREP]
+    assert "requires BIDS DWI data" in problems[0].message
+    assert problems[0].path == project / f"sub-{SID}" / "dwi"
+
+
+@pytest.mark.parametrize(
+    "flag,step",
+    [
+        ("create_m2m", "charm"),
+        ("run_fastsurfer", "fastsurfer"),
+        ("run_freesurfer", "freesurfer"),
+        ("run_qsiprep", "qsiprep"),
+    ],
+)
+def test_skip_defers_the_t1w_check_while_t1w_dicoms_wait_in_sourcedata(
+    tmp_path, write_dwi, flag, step
+):
+    """The T2w and DWI were converted earlier; T1w DICOMs dropped in since convert now."""
+    project = _project(tmp_path)
+    _converted(project, "anat", f"sub-{SID}_T2w")
+    write_dwi(project / f"sub-{SID}" / "dwi", stem=f"sub-{SID}_dwi")
+
+    def t1w_problems() -> list[str]:
+        return [
+            p.step
+            for p in _skip_problems(project, **{flag: True})
+            if "T1w image" in p.message
+        ]
+
+    assert t1w_problems() == [step]  # nothing can produce it yet
+    (_source(project, "T1w") / "IM0001").write_bytes(_dicom_bytes())
+    assert t1w_problems() == []
+
+
+def test_skip_defers_the_dwi_check_while_dwi_dicoms_wait_in_sourcedata(tmp_path):
+    project = _project(tmp_path)
+    _converted(project, "anat", f"sub-{SID}_T1w")
+    (_source(project, "dwi") / "IM0001").write_bytes(_dicom_bytes())
+
+    assert _skip_problems(project, run_qsiprep=True) == []
+
+
+def test_skip_defers_the_fieldmap_check_while_fieldmap_dicoms_wait(tmp_path, write_dwi):
+    """A converted reverse-PE fieldmap can be the usable one QSIPrep's check asks for."""
+    import json
+
+    from tit.pre.preflight import STEP_QSIPREP
+
+    project = _project(tmp_path)
+    _converted(project, "anat", f"sub-{SID}_T1w")
+    write_dwi(project / f"sub-{SID}" / "dwi", stem=f"sub-{SID}_dwi")  # PE j-
+    # A hand-placed DWI fieldmap with the DWI's own PE direction cannot correct it.
+    fmap = _converted(project, "fmap", f"sub-{SID}_acq-dwi_dir-AP_epi")
+    fmap.with_name(f"sub-{SID}_acq-dwi_dir-AP_epi.json").write_text(
+        json.dumps({"PhaseEncodingDirection": "j-", "TotalReadoutTime": 0.05})
+    )
+
+    problems = _skip_problems(project, run_qsiprep=True)
+    assert [p.step for p in problems] == [STEP_QSIPREP]
+    assert "fieldmaps were found but none can be used" in problems[0].message
+
+    (_source(project, "fmap") / "IM0001").write_bytes(_dicom_bytes())
+    assert _skip_problems(project, run_qsiprep=True) == []
+
+
+def test_a_waiting_dwi_source_does_not_defer_the_t1w_check(tmp_path):
+    """Converting a DWI cannot produce the T1w charm reads, so its check runs now."""
+    from tit.pre.preflight import STEP_CHARM
+
+    project = _project(tmp_path)
+    _converted(project, "anat", f"sub-{SID}_T2w")
+    (_source(project, "dwi") / "IM0001").write_bytes(_dicom_bytes())
+
+    problems = _skip_problems(project, create_m2m=True)
+
+    assert [p.step for p in problems] == [STEP_CHARM]
+    assert "requires a BIDS T1w image" in problems[0].message
+
+
+def test_a_dwi_source_already_converted_is_not_waiting(tmp_path):
+    """Every modality converted: its sourcedata stays, but conversion produces nothing."""
+    from tit.pre.preflight import STEP_QSIPREP
+
+    project = _project(tmp_path)
+    for datatype, name in (
+        ("anat", f"sub-{SID}_T1w"),
+        ("anat", f"sub-{SID}_T2w"),
+        ("dwi", f"sub-{SID}_dwi"),  # no .bval/.bvec: QSIPrep cannot use it
+    ):
+        _converted(project, datatype, name)
+    for modality in ("T1w", "T2w", "dwi"):
+        (_source(project, modality) / "IM0001").write_bytes(_dicom_bytes())
+
+    problems = _skip_problems(project, run_qsiprep=True)
+
+    assert [p.step for p in problems] == [STEP_QSIPREP]
+    assert "requires BIDS DWI data" in problems[0].message
+
+
+def test_without_skip_the_whole_conversion_runs_so_the_checks_wait(tmp_path):
+    """No skip (no policy, or replace): conversion owns every input, as before."""
+    from tit.pre.preflight import find_missing_preprocessing_inputs
+
+    project = _project(tmp_path)
+    _converted(project, "anat", f"sub-{SID}_T2w")
+
+    problems = find_missing_preprocessing_inputs(
+        str(project), [SID], convert_dicom=True, create_m2m=True
+    )
+
+    assert problems == []

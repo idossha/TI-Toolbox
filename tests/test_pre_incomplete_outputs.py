@@ -306,6 +306,97 @@ def test_step_output_complete_is_false_when_nothing_exists(tmp_path):
         assert step_output_complete(str(project), SID, step) is False
 
 
+def test_step_output_complete_needs_every_output_of_the_step_complete(tmp_path):
+    """A step with several outputs (DICOM: one per modality) is done only when all are."""
+    from tit.pre import preflight
+
+    done = preflight.PreprocessingOutput(SID, "dicom", "T1w", tmp_path / "a")
+    cut_off = preflight.PreprocessingOutput(
+        SID, "dicom", "dwi", tmp_path / "b", missing=("b.bval",)
+    )
+
+    for outputs, expected in (
+        ([done, cut_off], False),
+        ([cut_off, done], False),
+        ([done, done], True),
+    ):
+        with patch.object(preflight, "existing_outputs_for_step", return_value=outputs):
+            assert (
+                preflight.step_output_complete(str(tmp_path), SID, "dicom") is expected
+            )
+
+
+# --------------------------------------------------------------------------- tissue analysis
+
+
+def _tissue_root(project: Path) -> Path:
+    return project / "derivatives" / "ti-toolbox" / "tissue_analysis" / f"sub-{SID}"
+
+
+# TissueAnalyzer writes <tissue>_analysis/<tissue>_analysis.txt for bone, CSF and skin.
+@pytest.mark.parametrize("missing", ["bone", "csf", "skin"])
+def test_tissue_analysis_needs_every_tissue_report(tmp_path, quiet_pipeline, missing):
+    from tit.pre.preflight import STEP_TISSUE, step_output_complete
+    from tit.pre.structural import run_pipeline
+
+    project = _project(tmp_path)
+    root = _tissue_root(project)
+    for tissue in {"bone", "csf", "skin"} - {missing}:
+        report = root / f"{tissue}_analysis" / f"{tissue}_analysis.txt"
+        report.parent.mkdir(parents=True)
+        report.write_text(f"{tissue} thickness")
+
+    assert step_output_complete(str(project), SID, STEP_TISSUE) is False
+    with (
+        patch("tit.pre.structural.run_tissue_analysis") as run_tissue,
+        pytest.raises(PreprocessError) as excinfo,
+    ):
+        run_pipeline(
+            [SID],
+            run_tissue_analysis=True,
+            skip_existing_outputs=True,
+            runner=_runner(),
+        )
+    run_tissue.assert_not_called()
+    assert f"{missing}_analysis/{missing}_analysis.txt" in str(excinfo.value)
+    assert "replace" in str(excinfo.value)
+
+    report = root / f"{missing}_analysis" / f"{missing}_analysis.txt"
+    report.parent.mkdir(parents=True)
+    report.write_text(f"{missing} thickness")
+    assert step_output_complete(str(project), SID, STEP_TISSUE) is True
+
+
+# --------------------------------------------------------------------------- DTI
+
+
+def test_a_zero_byte_dti_tensor_is_not_a_finished_tensor(tmp_path, quiet_pipeline):
+    """extract_dti_tensor copies the finished tensor into place; an empty file was cut off."""
+    from tit.pre.preflight import STEP_DTI, step_output_complete
+    from tit.pre.structural import run_pipeline
+
+    project = _project(tmp_path)
+    m2m = _m2m(project)
+    m2m.mkdir(parents=True)
+    tensor = m2m / "DTI_coregT1_tensor.nii.gz"
+    tensor.write_bytes(b"")
+
+    assert step_output_complete(str(project), SID, STEP_DTI) is False
+    with (
+        patch("tit.pre.structural.find_missing_preprocessing_inputs", return_value=[]),
+        patch("tit.pre.structural.extract_dti_tensor") as extract,
+        pytest.raises(PreprocessError, match="incomplete.*replace"),
+    ):
+        run_pipeline(
+            [SID], extract_dti=True, skip_existing_outputs=True, runner=_runner()
+        )
+    extract.assert_not_called()
+    assert tensor.is_file()  # skip never deletes
+
+    tensor.write_bytes(b"\x1f\x8b tensor")
+    assert step_output_complete(str(project), SID, STEP_DTI) is True
+
+
 # --------------------------------------------------------------------------- plan
 
 

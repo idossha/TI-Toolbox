@@ -23,6 +23,10 @@ the skip semantics in docs/wiki/pre-processing.md "Run and monitor" with the com
 in ``tests/test_pre_incomplete_outputs.py``. Each runner is called for real with only what
 happens after its guard replaced by a sentinel, so the test sees the guard itself.
 
+Known gaps, deliberately not covered by "partial": FreeSurfer recon-all and QSIRecon have no
+completion marker (any non-empty reconstruction counts as done), and a DTI tensor that is
+truncated but not empty is not detected (only a zero-byte one is).
+
 Reproduce: ``pytest tests/test_pre_existing_output_contract.py -q``.
 """
 
@@ -276,7 +280,10 @@ SKIP = {
     ("qsiprep", "complete"): "skip",
     ("qsirecon", "partial"): "run",  # logs only: no reconstruction exists
     ("qsirecon", "complete"): "skip",
-    ("dti", "empty"): "skip",  # the tensor file is the output; nothing marks it partial
+    (
+        "dti",
+        "empty",
+    ): "refuse",  # a zero-byte tensor: its copy into place never finished
     ("dti", "partial"): "run",  # a failed QC run left no tensor
     ("dti", "complete"): "skip",
 }
