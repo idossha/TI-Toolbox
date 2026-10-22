@@ -1,16 +1,19 @@
 """Nilearn figures label a weak field's display range legibly, not "0.01-0.01" (p35).
 
 What this pins, 2026-10-22: the multi-slice PDF's colourbar end ticks and title, and the
-glass-brain PDF's title, print the two cutoffs (V/m) so that each reads back within 5 % of
-the number it stands for and the two labels differ. The spec is relative precision, which
-does not depend on the field's scale. A low-current montage averages to a weak field
-(peak 0.012 V/m, p95 about 0.006, p99.9 about 0.011): with the former ``:.2f`` both ends
-printed "0.01", so the colourbar said the range was empty.
+glass-brain PDF's title, print the two cutoffs (V/m) with three significant figures: each
+label reads back within 0.5 % of the number it stands for (half a unit in the third
+figure), and the two labels differ. The spec is relative precision, which does not depend
+on the field's scale. A low-current montage averages to a weak field (peak 0.012 V/m, p95
+about 0.006, p99.9 about 0.011): with the former ``:.2f`` both ends printed "0.01", so the
+colourbar said the range was empty.
 
 Where the numbers come from: the synthetic field below is built by hand to that shape, and
 the cutoffs it should label are ``numpy.percentile`` of its non-zero voxels at 95 and 99.9
 -- the data-driven default the config documents -- computed here, not read from the code
-under test. nilearn and matplotlib are mocked on the host (tests/conftest.py); the figure
+under test. A second, explicit pair (0.00637 / 0.0114 V/m, typed by a user) has a value two
+significant figures would misreport by 3.5 % ("0.011"), so a label precision below three
+figures fails here even when the data-driven pair happens to round exactly. nilearn and matplotlib are mocked on the host (tests/conftest.py); the figure
 calls are captured, so the strings checked are exactly the ones handed to matplotlib.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_nilearn_colorbar_precision.py -q -p no:cacheprovider``.
@@ -38,6 +41,13 @@ WEAK = np.concatenate(
 )
 P95 = float(np.percentile(WEAK, 95.0))
 P999 = float(np.percentile(WEAK, 99.9))
+#: Relative precision of three significant figures: half a unit in the third figure.
+REL = 0.005
+#: cutoffs given -> the V/m pair the labels must stand for.
+CUTOFFS = {
+    "data-driven": ((None, None), (P95, P999)),
+    "explicit": ((0.00637, 0.0114), (0.00637, 0.0114)),
+}
 
 
 class _Field:
@@ -52,10 +62,10 @@ class _Field:
         return self._data
 
 
-def _assert_labels(lo_text: str, hi_text: str) -> None:
+def _assert_labels(lo_text: str, hi_text: str, expected: tuple[float, float]) -> None:
     assert lo_text != hi_text, f"both ends read {lo_text!r}"
-    assert float(lo_text) == pytest.approx(P95, rel=0.05), lo_text
-    assert float(hi_text) == pytest.approx(P999, rel=0.05), hi_text
+    assert float(lo_text) == pytest.approx(expected[0], rel=REL), lo_text
+    assert float(hi_text) == pytest.approx(expected[1], rel=REL), hi_text
 
 
 def test_the_synthetic_field_has_the_weak_shape_the_spec_names():
@@ -64,9 +74,11 @@ def test_the_synthetic_field_has_the_weak_shape_the_spec_names():
     assert P999 == pytest.approx(0.011, rel=0.05)
 
 
+@pytest.mark.parametrize("cutoffs", CUTOFFS)
 def test_slice_pdf_colourbar_ticks_and_title_tell_the_two_cutoffs_apart(
-    init_pm, tmp_path, monkeypatch
+    init_pm, tmp_path, monkeypatch, cutoffs
 ):
+    (min_cutoff, max_cutoff), expected = CUTOFFS[cutoffs]
     from tit.plotting.nilearn import visualizer
 
     fig = MagicMock(name="figure")
@@ -82,24 +94,34 @@ def test_slice_pdf_colourbar_ticks_and_title_tell_the_two_cutoffs_apart(
         monkeypatch.setitem(sys.modules, mod, MagicMock(name=mod))
 
     out = visualizer.NilearnVisualizer().create_pdf_visualization_group(
-        _Field(WEAK), "group", str(tmp_path), atlas_name="no_such_atlas"
+        _Field(WEAK),
+        "group",
+        str(tmp_path),
+        min_cutoff=min_cutoff,
+        max_cutoff=max_cutoff,
+        atlas_name="no_such_atlas",
     )
 
     assert out == str(tmp_path / "group_multiple_views.pdf")
     cbar = fig.colorbar.return_value
     ticks = cbar.set_ticks.call_args.args[0]
-    assert ticks == pytest.approx([P95, P999])
+    assert ticks == pytest.approx(list(expected))
     labels = cbar.set_ticklabels.call_args.args[0]
-    _assert_labels(*labels)
+    _assert_labels(*labels, expected)
 
     title = fig.suptitle.call_args.args[0]
     lo_text, hi_text = re.search(r"\n(\S+)-(\S+) V/m Range$", title).groups()
-    _assert_labels(lo_text, hi_text)
+    _assert_labels(lo_text, hi_text, expected)
 
 
+@pytest.mark.parametrize("cutoffs", CUTOFFS)
 @pytest.mark.parametrize("callback", [True, False], ids=["runner", "script"])
-def test_glass_brain_title_tells_the_two_cutoffs_apart(tmp_path, monkeypatch, callback):
+def test_glass_brain_title_tells_the_two_cutoffs_apart(
+    tmp_path, monkeypatch, callback, cutoffs
+):
     from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
+
+    (min_cutoff, max_cutoff), expected = CUTOFFS[cutoffs]
 
     plotting = MagicMock(name="nilearn.plotting")
     monkeypatch.setattr(sys.modules["nilearn"], "plotting", plotting)
@@ -109,11 +131,13 @@ def test_glass_brain_title_tells_the_two_cutoffs_apart(tmp_path, monkeypatch, ca
         _Field(WEAK),
         "group",
         str(tmp_path),
+        min_cutoff=min_cutoff,
+        max_cutoff=max_cutoff,
         output_callback=lines.append if callback else None,
     )
 
     assert out == str(tmp_path / "group_glass_brain.pdf")
     kwargs = plotting.plot_glass_brain.call_args.kwargs
-    assert (kwargs["threshold"], kwargs["vmax"]) == pytest.approx((P95, P999))
+    assert (kwargs["threshold"], kwargs["vmax"]) == pytest.approx(expected)
     lo_text, hi_text = re.search(r"\n(\S+)-(\S+) V/m$", kwargs["title"]).groups()
-    _assert_labels(lo_text, hi_text)
+    _assert_labels(lo_text, hi_text, expected)
