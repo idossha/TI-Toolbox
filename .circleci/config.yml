@@ -168,8 +168,12 @@ jobs:
             # Fails on 0 collected, any failure or error, and any skip not on the allowlist.
             python3 dev/check_junit.py --leg numerical-image /tmp/test-results/numerical.xml
 
+      # Every store step says `when: always` (tests/test_circleci_e2e_mock_job.py): a red
+      # run is the one whose reports are needed, and a step after a failed one is
+      # otherwise skipped. The e2e job #162 removed did the same.
       - store_test_results:
           path: /tmp/test-results
+          when: always
 
       - run:
           name: Stop and remove the container
@@ -211,9 +215,11 @@ jobs:
             python3 dev/check_junit.py --leg numerical-image /tmp/test-results/numerical.xml
       - store_test_results:
           path: /tmp/test-results
+          when: always
       - store_artifacts:
           path: /tmp/test-results
           destination: test-results
+          when: always
 
   build-and-run-tests:
     executor: vm-docker
@@ -342,14 +348,17 @@ jobs:
 
       - store_test_results:
           path: /tmp/test-results
+          when: always
 
       - store_artifacts:
           path: /tmp/test-results
           destination: test-results
+          when: always
 
       - store_artifacts:
           path: /tmp/coverage
           destination: coverage
+          when: always
 
   desktop-checks:
     executor: vm-docker
@@ -453,12 +462,20 @@ jobs:
             # allowlist (each entry states why it may skip).
             python3 ../dev/check_junit.py --leg e2e-mock /tmp/test-results/e2e-mock.xml
 
+      # Traces and screenshots of failed specs: stored on the red runs above all.
       - store_test_results:
           path: /tmp/test-results
+          when: always
+
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: test-results
+          when: always
 
       - store_artifacts:
           path: desktop/test-results
           destination: desktop-e2e-test-results
+          when: always
 
 
 workflows:
