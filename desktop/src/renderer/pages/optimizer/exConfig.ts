@@ -51,7 +51,8 @@ export const MTI_SYMMETRY_HELP =
   "derived from the selected leadfield's EEG net), instead of the full combination of all eight " +
   "buckets.\n\n" +
   "Within each pair: each pair's own +/- electrodes mirror across the midline.\n" +
-  "Cross pairs: additionally requires pair 1<->3 and pair 2<->4 to mirror each other.";
+  "Cross pairs: instead of the within-pair rule, pair 1 mirrors pair 3 and pair 2 mirrors pair 4 " +
+  "(each electrode of pair 3/4 is the mirror of the same pole in pair 1/2).";
 
 export interface ExFormState {
   electrodeMode: "bucketed" | "all";

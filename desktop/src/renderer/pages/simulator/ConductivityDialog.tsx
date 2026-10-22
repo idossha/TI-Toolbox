@@ -16,11 +16,9 @@ function seedRows(overrides: CustomConductivities): Record<number, number> {
 }
 
 /**
- * Editable table of tissue conductivities. Parity note (PARITY.md): the legacy dialog applies
- * overrides via `TISSUE_COND_<n>` environment variables read by `tit.sim.base`; `SimulationConfig`
- * has no `tissue_conductivities` field yet, so this is a real backend gap (reported) — the UI
- * collects and forwards the values under that name so nothing needs to change here once the field
- * lands.
+ * Editable table of tissue conductivities. The values travel as `SimulationConfig.tissue_conductivities`
+ * (`buildConfig.ts`); the sim runner (`tit/sim/__main__.py`) turns them into the
+ * `TISSUE_COND_<n>` environment variables `tit.sim.base` reads, as the legacy dialog did.
  */
 export function ConductivityDialog({
   open,

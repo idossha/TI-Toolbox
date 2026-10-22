@@ -171,15 +171,15 @@ export function navSlotOf(id: string, known: ReadonlySet<string> = DISCOVERED): 
 }
 
 /**
- * The ⌘-number for a slot: the rail counts **from ⌘0**, so the ten workflow rows are ⌘0 Overview
- * through ⌘9 Jobs, and nothing else has a number.
+ * The ⌘-number for a slot: the rail counts **from ⌘0**, so the nine workflow rows are ⌘0 Overview
+ * through ⌘7 Notebooks and ⌘8 Jobs, and nothing else has a number (⌘9 is free).
  *
- * A keyboard has ten digits and the rail has ten rows, so they match exactly — but only if the
- * count starts at zero (maintainer, 2026-09-06: *"start from 0 the rail digit and finish at 9"*).
- * Counting from 1 spends ⌘0 on Settings, which is not a rail row at all, and then leaves the tenth
- * row with no key: earlier revisions printed "⌘10", a chord no keyboard can send, and then dropped
- * it, which cost Jobs its shortcut. Settings keeps ⌘, (`SHORTCUT_ALIASES`) and Help the `?` sheet;
- * neither is in `NAV_ORDER`, so neither takes a digit from a workflow row.
+ * A keyboard has ten digits, so every row has one — but only because the count starts at zero
+ * (maintainer, 2026-09-06: *"start from 0 the rail digit and finish at 9"*, when the rail had ten
+ * rows). Counting from 1 spends ⌘0 on Settings, which is not a rail row at all, and then leaves a
+ * tenth row with no key: earlier revisions printed "⌘10", a chord no keyboard can send, and then
+ * dropped it, which cost Jobs its shortcut. Settings keeps ⌘, (`SHORTCUT_ALIASES`) and Help the `?`
+ * sheet; neither is in `NAV_ORDER`, so neither takes a digit from a workflow row.
  *
  * An eleventh row would again have no number. That is a real limit of ten digits, not of this
  * function, and it is `NAV_ORDER`'s job to stay within it.

@@ -99,7 +99,7 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
   });
 });
 
-describe("the shortcut map (DESIGN.md §9: ⌘0 Overview … ⌘9 Jobs; Settings is ⌘, only)", () => {
+describe("the shortcut map (DESIGN.md §9: ⌘0 Overview … ⌘7 Notebooks, ⌘8 Jobs; Settings is ⌘, only)", () => {
   const shortcutOf = (id: string) => pageById(id)?.shortcut;
 
   it("the ⌘-number IS the index in NAV_ORDER, so nav/palette/sheet cannot disagree", () => {

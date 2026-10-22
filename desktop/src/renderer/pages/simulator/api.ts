@@ -25,8 +25,8 @@ type PipelineConfig = components["schemas"]["PipelineConfig"];
 
 /**
  * The generated `PipelineConfig` union does not (and should not) know about the plan-only `name`
- * convenience field or the not-yet-shipped `tissue_conductivities` field (see `planSim` below) —
- * this is the one place that widens back to the real request shape.
+ * convenience field (see `planSim` below) — this is the one place that widens back to the real
+ * request shape.
  */
 function asPipelineConfig(config: Record<string, unknown>): PipelineConfig {
   return config as unknown as PipelineConfig;
