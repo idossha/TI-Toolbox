@@ -118,8 +118,8 @@ function DockerCard() {
           ]}
         />
         <p className="field-help" style={{ marginTop: "var(--space-3)" }}>
-          Quitting leaves this container running so the next launch reconnects instantly. Stop it to free its memory and CPU; your project data and cached
-          derivatives are untouched.
+          Quitting TI-Toolbox stops this container. Stopping it here closes the project and returns to Overview; if jobs are running or queued you are
+          asked first, and confirming cancels them. Your project data and cached derivatives are untouched.
         </p>
         <div style={{ marginTop: "var(--space-3)" }}>
           <Button variant="destructive" loading={stopping} onClick={handleStop} data-testid="stop-stack">

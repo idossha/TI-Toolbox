@@ -1117,14 +1117,12 @@ function registerIpc(): void {
   });
   ipcMain.handle("tit:stack:stop", async (e): Promise<TitStackStopResult> => {
     if (!fromMainWindow(e)) return { ok: false, error: "unknown sender" };
-    const fromLauncher = isLauncherUrl(e.senderFrame?.url ?? "");
+    // Stopping from Settings ends the session the page is connected to, so it closes the project
+    // exactly as Close project and quitting do: running and queued jobs are confirmed and
+    // cancelled first (quitPlan.ts), and the window returns to Overview rather than a dead UI.
+    if (!isLauncherUrl(e.senderFrame?.url ?? "")) return switchProject();
     await stopFastSurferWorker();
-    const result = await stack.stop();
-    // Stopping from Settings kills the server that served the page making the call, so the window
-    // is left showing a page whose backend no longer exists. Send it home rather than leaving the
-    // user staring at a dead UI; the launcher path already is home.
-    if (result.ok && !fromLauncher && mainWindow) showLauncher(mainWindow);
-    return result;
+    return stack.stop();
   });
   ipcMain.handle("tit:stack:status", async (e): Promise<TitStackStatus> => {
     if (!fromMainWindow(e)) return { running: false };
