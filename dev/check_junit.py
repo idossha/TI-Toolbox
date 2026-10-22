@@ -31,6 +31,7 @@ import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
+
 def _dataset_000(module: str, what: str) -> dict[str, str]:
     """A real-data test that may skip only because ``TIT_DATASET_000`` is unset."""
     return {
@@ -42,15 +43,17 @@ def _dataset_000(module: str, what: str) -> dict[str, str]:
 
 #: ``host_numerical`` tests gated on Dataset 000: they skip on both CI legs of tests/numerical.
 _HOST_NUMERICAL_DATASET_000 = [
+    _dataset_000("test_dicom_regeneration_realdata.*", "re-converts sub-101's DICOMs"),
     _dataset_000(
-        "test_dicom_regeneration_realdata.*", "re-converts sub-101's DICOMs"
-    ),
-    _dataset_000("test_ex_report_realdata.*", "rebuilds the dataset's ex-search reports"),
-    _dataset_000(
-        "test_flex_mapping_snap_realdata.*", "maps the dataset's flex runs onto its nets"
+        "test_ex_report_realdata.*", "rebuilds the dataset's ex-search reports"
     ),
     _dataset_000(
-        "test_pre_outputs_realdata.*", "reads the head models, FastSurfer and DTI outputs"
+        "test_flex_mapping_snap_realdata.*",
+        "maps the dataset's flex runs onto its nets",
+    ),
+    _dataset_000(
+        "test_pre_outputs_realdata.*",
+        "reads the head models, FastSurfer and DTI outputs",
     ),
     # Only the real-volume case: the module's synthetic cases must run.
     _dataset_000(
@@ -217,14 +220,19 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
         # among them), all of them on this list.
         *_HOST_NUMERICAL_DATASET_000,
         _dataset_000(
-            "test_analyzer_p06_real.*", "reads sub-101's Thalamus_example surface fields"
-        ),
-        _dataset_000("test_caps_warp_realdata.*", "warps the caps onto the dataset's MNI152"),
-        _dataset_000(
-            "test_net_on_scalp_realdata.*", "checks every subject's nets against its skin"
+            "test_analyzer_p06_real.*",
+            "reads sub-101's Thalamus_example surface fields",
         ),
         _dataset_000(
-            "test_nilearn_render_realdata.*", "renders sub-101 and sub-LA's MNI TI_max fields"
+            "test_caps_warp_realdata.*", "warps the caps onto the dataset's MNI152"
+        ),
+        _dataset_000(
+            "test_net_on_scalp_realdata.*",
+            "checks every subject's nets against its skin",
+        ),
+        _dataset_000(
+            "test_nilearn_render_realdata.*",
+            "renders sub-101 and sub-LA's MNI TI_max fields",
         ),
         {
             "test": "tests.numerical.test_nilearn_render_realdata.*",

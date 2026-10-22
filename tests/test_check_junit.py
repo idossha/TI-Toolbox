@@ -140,7 +140,9 @@ def test_the_host_numerical_leg_passes_its_dataset_skip(tmp_path):
     ],
     ids=["pillow-missing", "unlisted-module", "synthetic-case"],
 )
-def test_the_host_numerical_leg_fails_a_skip_it_does_not_list(tmp_path, capsys, planted):
+def test_the_host_numerical_leg_fails_a_skip_it_does_not_list(
+    tmp_path, capsys, planted
+):
     report = _report(tmp_path, PASS + DATASET_SKIP + planted)
     assert check_junit.main(["--leg", "host-numerical", report]) == 1
     out = capsys.readouterr().out
