@@ -10,6 +10,7 @@ that constructs a ``JobManager``, so ``tit/server/app.py`` never needs to know j
 from __future__ import annotations
 
 import os
+import threading
 from typing import Any
 
 from tit.jobs.manager import JobManager
@@ -18,6 +19,9 @@ ENV_RUNNER_CWD = "TIT_RUNNER_CWD"
 DEFAULT_RUNNER_CWD = "/ti-toolbox"
 
 _manager: JobManager | None = None
+#: Serialises the first build: two callers racing past ``_manager is None`` would each start a
+#: manager, and two scheduler loops on one project would admit the same queued job twice.
+_manager_lock = threading.Lock()
 
 
 def get_manager(app: Any | None = None) -> JobManager:
@@ -28,27 +32,36 @@ def get_manager(app: Any | None = None) -> JobManager:
     """
     global _manager
     if _manager is None:
-        from tit.paths import get_path_manager
-
-        pm = get_path_manager()
-        project_dir = pm.project_dir
-        if not project_dir:
-            raise RuntimeError(
-                "tit.jobs.bootstrap.get_manager(): no project directory — "
-                "initialise PathManager (get_path_manager(project_dir)) first"
-            )
-        runner_cwd = os.environ.get(ENV_RUNNER_CWD, DEFAULT_RUNNER_CWD)
-        if not os.path.isdir(runner_cwd):
-            # Host/dev fallback: /ti-toolbox only exists inside the container.
-            runner_cwd = project_dir
-        manager = JobManager(project_dir, runner_cwd=runner_cwd)
-        # Stored only once started: a start that raised (the server lifespan suppresses it)
-        # must be retried by the next caller, not cached as a manager with no loop.
-        manager.start()
-        _manager = manager
+        with _manager_lock:
+            if _manager is None:
+                _manager = _start_manager()
     if app is not None:
         app.state.job_manager = _manager
     return _manager
+
+
+def _start_manager() -> JobManager:
+    """Build and start the manager for the current project (caller holds the lock).
+
+    Returned only once started: a start that raised (the server lifespan suppresses it) must be
+    retried by the next caller, not cached as a manager with no loop.
+    """
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    project_dir = pm.project_dir
+    if not project_dir:
+        raise RuntimeError(
+            "tit.jobs.bootstrap.get_manager(): no project directory — "
+            "initialise PathManager (get_path_manager(project_dir)) first"
+        )
+    runner_cwd = os.environ.get(ENV_RUNNER_CWD, DEFAULT_RUNNER_CWD)
+    if not os.path.isdir(runner_cwd):
+        # Host/dev fallback: /ti-toolbox only exists inside the container.
+        runner_cwd = project_dir
+    manager = JobManager(project_dir, runner_cwd=runner_cwd)
+    manager.start()
+    return manager
 
 
 def reset_manager() -> None:

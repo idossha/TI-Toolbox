@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -236,4 +237,67 @@ def test_bootstrap_never_caches_a_manager_whose_start_failed(tmp_path, monkeypat
         assert manager._loop is not None
         assert bootstrap.get_manager() is manager
     finally:
+        bootstrap.reset_manager()
+
+
+def test_concurrent_first_callers_share_one_started_manager(tmp_path, monkeypatch):
+    """Two loops on one project would admit the same queued job twice.
+
+    The first caller is held inside ``start()`` until the others have had every chance to reach
+    ``get_manager``; one start, one instance, whoever asks.
+    """
+    from tit.paths import get_path_manager
+
+    get_path_manager(str(tmp_path))
+    monkeypatch.setenv(bootstrap.ENV_RUNNER_CWD, str(tmp_path))
+    bootstrap.reset_manager()
+    real_start = JobManager.start
+    started: list[JobManager] = []
+    first_in = threading.Event()
+    release = threading.Event()
+
+    def held_start(self):
+        started.append(self)
+        first_in.set()
+        release.wait(timeout=10.0)
+        return real_start(self)
+
+    monkeypatch.setattr(JobManager, "start", held_start)
+    callers = 3
+    barrier = threading.Barrier(callers)
+    results: list[JobManager] = []
+    errors: list[BaseException] = []
+
+    def call():
+        barrier.wait()
+        try:
+            results.append(bootstrap.get_manager())
+        except BaseException as exc:  # reported below, never swallowed
+            errors.append(exc)
+
+    threads = [threading.Thread(target=call) for _ in range(callers)]
+    try:
+        for thread in threads:
+            thread.start()
+        assert first_in.wait(10.0), "nobody started a manager"
+        # Give the other callers the window the bug needs: unguarded, each of them builds and
+        # starts its own manager while the first is still starting.
+        deadline = time.monotonic() + 1.0
+        while len(started) < callers and time.monotonic() < deadline:
+            time.sleep(0.01)
+        release.set()
+        for thread in threads:
+            thread.join(timeout=20.0)
+        assert errors == []
+        assert len(started) == 1
+        assert len(results) == callers
+        assert all(manager is started[0] for manager in results)
+        assert bootstrap.get_manager() is started[0]
+        assert started[0]._loop is not None
+    finally:
+        release.set()
+        for thread in threads:
+            thread.join(timeout=20.0)
+        for manager in started[1:]:
+            manager.shutdown()  # the leaked extra loops of the unguarded version
         bootstrap.reset_manager()
