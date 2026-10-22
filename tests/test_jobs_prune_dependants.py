@@ -197,3 +197,54 @@ def test_a_naive_finish_time_is_read_as_utc(chicago_clock):
     # 01:00 on Jan 2 UTC is after the cutoff and must stay.
     young = ("young", "2026-01-01T00:00:00Z", "2026-01-02T01:00:00")
     assert expired([old, young], keep_count=200, keep_days=30, now=now) == ["old"]
+
+
+# -- 4. unreadable timestamps: oldest for the count rule, never expired by age -----------------
+
+#: Two readable records (05:00Z and 06:00Z on Jan 1) and three whose created_at cannot be read,
+#: listed after them so that "unreadable sorts first" is not an accident of input order.
+READABLE_AND_UNREADABLE = [
+    ("a", "2026-01-01T05:00:00Z", "2026-01-01T05:00:00Z"),
+    ("b", "2026-01-01T06:00:00Z", "2026-01-01T06:00:00Z"),
+    ("garbage", "garbage", "2026-01-01T07:00:00Z"),
+    ("none", None, "2026-01-01T08:00:00Z"),
+    ("number", 12345, "2026-01-01T09:00:00Z"),
+]
+
+
+@pytest.mark.parametrize(
+    "keep_count, removed",
+    [
+        # The unreadable ones go first, in their input order (a stable sort keeps ties), then the
+        # readable ones oldest first: a < b.
+        (5, []),
+        (4, ["garbage"]),
+        (2, ["garbage", "none", "number"]),
+        (1, ["garbage", "none", "number", "a"]),
+        (0, ["garbage", "none", "number", "a", "b"]),
+    ],
+)
+def test_an_unreadable_created_at_is_the_first_to_go_by_count(keep_count, removed):
+    now = datetime(2026, 1, 2, tzinfo=timezone.utc).timestamp()
+    assert (
+        expired(READABLE_AND_UNREADABLE, keep_count=keep_count, keep_days=3650, now=now)
+        == removed
+    )
+
+
+def test_a_record_whose_finish_time_cannot_be_read_is_never_expired_by_age():
+    """Its age is unknown, so only the count rule may remove it."""
+    # Ten years after every readable stamp, with a one-day window: anything readable is old.
+    now = datetime(2036, 1, 1, tzinfo=timezone.utc).timestamp()
+    finished = [
+        ("readable", "2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z"),
+        ("bad_finish", "2026-01-01T00:00:00Z", "garbage"),
+        ("bad_created_no_finish", "garbage", None),
+        ("nothing", None, None),
+        ("readable_created_no_finish", "2026-01-01T00:00:00Z", None),
+    ]
+    # "readable_created_no_finish" falls back to its created_at, which is readable and old.
+    assert expired(finished, keep_count=200, keep_days=1, now=now) == [
+        "readable",
+        "readable_created_no_finish",
+    ]
