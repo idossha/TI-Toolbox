@@ -14,6 +14,7 @@
  */
 import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
+import type { Subject } from "../../api/client";
 import {
   getAnalyses,
   getExRuns,
@@ -45,13 +46,32 @@ interface SubjectQueries {
 }
 
 export interface OutputsState {
-  /** Keyed by subject id; `undefined` while that subject's queries are in flight or not requested. */
+  /** Keyed by subject id; `undefined` while that subject's queries are in flight, failed or not requested. */
   bySubject: Record<string, SubjectOutputs | undefined>;
+  /** The first failed list read of each subject whose tree could not be built. */
+  errors: Record<string, Error | undefined>;
   /** The `Group` pseudo-subject, or `undefined` until the group catalog lands. */
   group: SubjectOutputs | undefined;
+  /** The group catalog's failed read, or `null`. */
+  groupError: Error | null;
   /** True while any query this hook owns is still fetching for the first time. */
   pending: boolean;
 }
+
+/** The `/api/catalog/subjects` fields this hook reads. */
+export type SubjectRow = Pick<Subject, "id" | "has_raw" | "has_fastsurfer" | "has_freesurfer" | "has_m2m">;
+
+/**
+ * True when the per-subject catalog routes know *subject*. They answer only `tit.catalog.subject_ids`
+ * (raw BIDS, FastSurfer, legacy FreeSurfer or a head model) and 404 every other id, while
+ * `/api/catalog/subjects` also lists subjects known only from `sourcedata/` (DICOMs staged, nothing
+ * converted). Such a subject has no outputs by construction, so it is never asked for any.
+ */
+function inCatalog(s: SubjectRow): boolean {
+  return s.has_raw || s.has_fastsurfer || s.has_freesurfer || s.has_m2m;
+}
+
+const NO_OUTPUTS = { simulations: [], flexRuns: [], exRuns: [], mexRuns: [], analyses: {}, reports: [] };
 
 /**
  * Every subject's outputs plus the group catalog.
@@ -59,11 +79,12 @@ export interface OutputsState {
  * `selected` is always fetched, even past the cap — the page it feeds has to render *something*
  * for the row the user is looking at.
  */
-export function useSubjectOutputs(subjects: string[], selected: string | undefined): OutputsState {
-  const eager = subjects.length <= EAGER_SUBJECT_LIMIT;
+export function useSubjectOutputs(subjects: readonly SubjectRow[], selected: string | undefined): OutputsState {
+  const known = useMemo(() => subjects.filter(inCatalog).map((s) => s.id), [subjects]);
+  const eager = known.length <= EAGER_SUBJECT_LIMIT;
   const wanted = useMemo(
-    () => (eager ? subjects : subjects.filter((s) => s === selected)),
-    [eager, subjects, selected],
+    () => (eager ? known : known.filter((s) => s === selected)),
+    [eager, known, selected],
   );
 
   const simulations = useQueries({
@@ -83,6 +104,7 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
   });
 
   const perSubject: Record<string, SubjectQueries> = {};
+  const errors: Record<string, Error | undefined> = {};
   wanted.forEach((id, i) => {
     perSubject[id] = {
       simulations: simulations[i]?.data,
@@ -91,6 +113,8 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
       mexRuns: mex[i]?.data,
       reports: reports[i]?.data,
     };
+    const failed = [simulations[i], flex[i], ex[i], mex[i], reports[i]].find((q) => q?.error);
+    if (failed?.error) errors[id] = failed.error;
   });
 
   // Analyses hang off a simulation, so they can only be asked for once the simulation list is in.
@@ -111,7 +135,12 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
   const group = useQuery({ queryKey: ["results-group"], queryFn: () => getGroupCatalog() });
 
   const bySubject: Record<string, SubjectOutputs | undefined> = {};
-  for (const id of subjects) {
+  for (const row of subjects) {
+    const id = row.id;
+    if (!inCatalog(row)) {
+      bySubject[id] = outputsTreeFor(id, NO_OUTPUTS);
+      continue;
+    }
     const q = perSubject[id];
     // A subject is only reported once every one of its five list reads has landed: a partial tree
     // would print a count that shrinks as the rest arrives.
@@ -131,7 +160,13 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
   const pending =
     [...simulations, ...flex, ...ex, ...mex, ...reports, ...analyses].some((q) => q.isPending) || group.isPending;
 
-  return { bySubject, group: group.data ? groupOutputsFor(group.data) : undefined, pending };
+  return {
+    bySubject,
+    errors,
+    group: group.data ? groupOutputsFor(group.data) : undefined,
+    groupError: group.error,
+    pending,
+  };
 }
 
 /**

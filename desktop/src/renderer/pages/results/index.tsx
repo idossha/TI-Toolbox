@@ -33,7 +33,7 @@ import {
   FolderTree,
   Search,
 } from "lucide-react";
-import { getSubjects } from "../../api/client";
+import { getSubjects, type Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
 import { usePageActive } from "../../app/pageActivity";
@@ -631,6 +631,8 @@ function relative(iso: string | undefined): string {
   return `${Math.floor(days / 30)} mo`;
 }
 
+const NO_SUBJECTS: readonly Subject[] = [];
+
 function ResultsPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -643,10 +645,8 @@ function ResultsPage() {
   const setGlobalSubject = useSubjectContext((s) => s.setSubject);
   usePageScrollMemory();
 
-  const ids = useMemo(
-    () => (subjectsQuery.data ?? []).map((s) => s.id),
-    [subjectsQuery.data],
-  );
+  const subjectList = subjectsQuery.data ?? NO_SUBJECTS;
+  const ids = useMemo(() => subjectList.map((s) => s.id), [subjectList]);
   const [pickedSubject, setPickedSubject] = usePageSession<string | undefined>(
     "subject",
     undefined,
@@ -655,12 +655,20 @@ function ResultsPage() {
     pickedSubject ??
     (globalSubject && ids.includes(globalSubject) ? globalSubject : ids[0]);
 
-  const outputs = useSubjectOutputs(ids, subject);
+  const outputs = useSubjectOutputs(subjectList, subject);
   const current: SubjectOutputs | undefined =
     subject === GROUP_SUBJECT
       ? outputs.group
       : subject
         ? outputs.bySubject[subject]
+        : undefined;
+  // A failed read is said, never drawn as an empty tree with no message.
+  const loadError = current
+    ? undefined
+    : subject === GROUP_SUBJECT
+      ? outputs.groupError ?? undefined
+      : subject
+        ? outputs.errors[subject]
         : undefined;
 
   const [subjectQuery, setSubjectQuery] = usePageSession("subjectQuery", "");
@@ -817,7 +825,15 @@ function ResultsPage() {
           {subjectsQuery.error && (
             <Callout kind="danger">Could not load the subject list.</Callout>
           )}
-          {!current && outputs.pending && <Skeleton height={160} />}
+          {loadError && (
+            <Callout
+              kind="danger"
+              title={subject === GROUP_SUBJECT ? "Could not load the group outputs." : `Could not load ${subject}'s outputs.`}
+            >
+              {loadError.message}
+            </Callout>
+          )}
+          {!current && !loadError && outputs.pending && <Skeleton height={160} />}
           {current && current.total === 0 && (
             <EmptyState
               variant="inline"

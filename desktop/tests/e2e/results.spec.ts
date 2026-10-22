@@ -497,3 +497,43 @@ test("⌘⇧I collapses the preview, and a subject with no outputs does not swal
   await expect(page.getByTestId("pane-collapsed-rail")).toHaveCount(0);
   expect((await paneWidths(page)).work).toBe((await paneWidths(page)).content);
 });
+
+/**
+ * p32: the tree is never blank. The real server lists a subject known only from `sourcedata/`
+ * (DICOMs staged, nothing converted: Dataset 000's sub-102) in `/api/catalog/subjects`
+ * (`tit.catalog.list_subjects`) and answers every per-subject route 404 "Unknown subject". The
+ * mock's fixtures have no such subject, so the spec adds one to the subjects answer, in the real
+ * route's shape; the mock already 404s the per-subject routes for an id it does not know.
+ */
+test("a sourcedata-only subject says it has no outputs, and a failed read says so, never a blank tree", async () => {
+  const askedFor102: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith("/api/catalog/") && url.searchParams.get("subject") === "102") askedFor102.push(url.pathname);
+  });
+  await page.route("**/api/catalog/subjects", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as { subjects: Record<string, unknown>[] };
+    body.subjects.push({ id: "102", has_raw: false, has_fastsurfer: false, has_freesurfer: false, has_m2m: false, n_simulations: 0, has_sourcedata: true });
+    await route.fulfill({ response, json: body });
+  });
+  // One of 101's five list reads fails, as a corrupt flex manifest makes the real route fail.
+  await page.route("**/api/catalog/flex-runs?subject=101*", (route) =>
+    route.fulfill({ status: 500, json: { detail: "flex-search/run_a/flex_meta.json is not valid JSON" } }),
+  );
+
+  await connect();
+  await gotoPage(page, "results", "Results");
+  await expectPage(page, "results");
+
+  await page.getByTestId("results-subject-102").click();
+  await expect(page.getByTestId("results-tree")).toContainText("102 has no outputs yet.");
+  await expect(page.getByTestId("results-subject-102")).toHaveText("1020");
+  expect(askedFor102, "no per-subject read for a subject the catalog routes do not know").toEqual([]);
+
+  await page.getByTestId("results-subject-101").click();
+  const alert = page.getByTestId("results-tree").getByRole("alert");
+  await expect(alert).toContainText("Could not load 101's outputs.", { timeout: 20_000 });
+  await expect(alert).toContainText("flex-search/run_a/flex_meta.json is not valid JSON");
+  await expect(page.getByTestId("results-tree").getByRole("treeitem")).toHaveCount(0);
+});
