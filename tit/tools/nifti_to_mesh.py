@@ -20,7 +20,6 @@ import sys
 import nibabel as nib
 import numpy as np
 from pathlib import Path
-from skimage import measure
 from scipy import ndimage
 
 
@@ -75,6 +74,10 @@ def mask_to_surface(input_file, clean_components=False, clean_threshold=0.1):
         ``(verts_world, faces, removed_components)`` where ``verts_world`` is an
         ``(N, 3)`` array of RAS world coordinates.
     """
+    # Imported here, as in tit/scene/volume_surfaces.py, so importing this module (the tools
+    # job's argument jail, the subcortical exporter) never needs scikit-image.
+    from skimage.measure import marching_cubes
+
     img = nib.load(str(Path(input_file)))
     data = img.get_fdata()
     affine = img.affine
@@ -90,7 +93,7 @@ def mask_to_surface(input_file, clean_components=False, clean_threshold=0.1):
         )
 
     # Run marching cubes
-    verts, faces, _normals, _ = measure.marching_cubes(mask, level=0.5)
+    verts, faces, _normals, _ = marching_cubes(mask, level=0.5)
 
     # Transform vertices to world coordinates (RAS)
     verts_world = nib.affines.apply_affine(affine, verts)
@@ -174,9 +177,7 @@ def sample_field_at_points(field_file, points_world):
     voxels = nib.affines.apply_affine(inv_affine, points_world)
 
     # map_coordinates expects coordinates indexed by axis: shape (3, N).
-    values = map_coordinates(
-        data, voxels.T, order=1, mode="constant", cval=0.0
-    )
+    values = map_coordinates(data, voxels.T, order=1, mode="constant", cval=0.0)
     return values
 
 
@@ -242,9 +243,7 @@ def nifti_to_field_ply(
 
     colors = field_to_colormap(field_values, colormap, vmin, vmax)
     comment = f"Sub-cortical surface coloured by {field_name} field"
-    write_ply_with_colors(
-        str(output_path), verts_world, faces, colors, comment=comment
-    )
+    write_ply_with_colors(str(output_path), verts_world, faces, colors, comment=comment)
 
     return {
         "vertices": len(verts_world),
