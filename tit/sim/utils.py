@@ -278,9 +278,9 @@ def load_montages(
         inside ``montage_list.json["nets"]``; it is also stored on each
         returned :class:`Montage` as ``eeg_net``.
     include_flex : bool, optional
-        Ignored. It once appended montages from a ``FLEX_MONTAGES_FILE``
-        environment variable that nothing sets any more; it is still
-        accepted so scripts and notebooks that pass it keep running.
+        Ignored. It once appended flex montages named by an environment
+        variable that nothing sets any more; it is still accepted so
+        scripts and notebooks that pass it keep running.
 
     Returns
     -------
