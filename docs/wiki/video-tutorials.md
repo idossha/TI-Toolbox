@@ -6,7 +6,9 @@ permalink: /wiki/video-tutorials/
 
 These videos were recorded with v2 and retain useful workflow background, but their interface and launch steps differ from v3. For current setup use [Installation]({{ site.baseurl }}/installation/); for the current app start with [Overview]({{ site.baseurl }}/wiki/overview/).
 
-## Getting Started
+## Legacy (v2)
+
+This video shows the v2 steps (an X11 server, the PyQt interface). For current setup follow the [Quick Start]({{ site.baseurl }}/installation/).
 
 <div class="video-tutorial">
   <h3 class="video-title">Installation and Updates</h3>
@@ -14,7 +16,7 @@ These videos were recorded with v2 and retain useful workflow background, but th
     <iframe src="https://www.youtube.com/embed/jEhk5wpIAuA?vq=highres" title="Installation and Updates" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <p class="video-description">
-    Learn how to install and get started with TI-Toolbox through both desktop app and command line approaches. This tutorial covers prerequisites, project setup using BIDS data structure, and step-by-step launch procedures. You'll see how to organize your neuroimaging data (minimum requirement: T1-weighted scans) and perform initial DICOM-to-NIfTI conversion. The video demonstrates Docker image management, and both GUI and CLI workflows for remote machines or advanced users. Prerequisites: Docker installation. (Recorded on v2 — v3 needs no X11 server, and the interface shown has been replaced by the desktop application.)
+    Learn how to install and get started with TI-Toolbox through both desktop app and command line approaches. This tutorial covers prerequisites, project setup using BIDS data structure, and step-by-step launch procedures. You'll see how to organize your neuroimaging data (minimum requirement: T1-weighted scans) and perform initial DICOM-to-NIfTI conversion. The video demonstrates Docker image management, and both GUI and CLI workflows for remote machines or advanced users. Prerequisites: Docker installation.
   </p>
 </div>
 

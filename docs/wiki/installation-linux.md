@@ -17,8 +17,8 @@ sudo systemctl enable --now docker
 docker version
 ```
 
-The launcher needs access to the engine socket. On a workstation where your account is
-trusted to administer Docker, add it to the Docker group and log out and back in:
+TI-Toolbox (the app or the launcher) needs access to the engine socket. On a workstation where
+your account is trusted to administer Docker, add it to the Docker group and log out and back in:
 
 ```bash
 sudo usermod -aG docker "$USER"
@@ -38,7 +38,7 @@ TI-Toolbox needs no X11 forwarding into the container.
 Linux x86_64 matches the image's architecture. Choose the AppImage or DEB in
 [desktop downloads]({{ site.baseurl }}/installation/#download).
 
-- **AppImage:** in your file manager, open the downloaded file's properties, allow executing it as a program, then open it. Alternatively, in the download directory run `chmod +x TI-Toolbox-*.AppImage` and open the file.
+- **AppImage:** in your file manager, open the downloaded file's properties, allow executing it as a program, then open it. Alternatively, in the download directory run `chmod +x TI-Toolbox-*.AppImage` and open the file. The AppImage needs the legacy FUSE 2 library, which stock Ubuntu 22.04 and 24.04 do not install: run `sudo apt install libfuse2` (`libfuse2t64` on 24.04), use the DEB instead, or start it with `--appimage-extract-and-run`.
 - **Debian / Ubuntu:** open the downloaded DEB with your package installer, or run `sudo apt install ./ti-toolbox_*_amd64.deb` from its directory.
 
 With Docker running, open TI-Toolbox, choose your project folder and select **Open project**.

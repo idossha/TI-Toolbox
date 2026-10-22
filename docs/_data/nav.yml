@@ -13,7 +13,7 @@ installation:
     - group: Additional Guides
     - { title: Command-line launcher, url: /installation/bash-cli/ }
     - { title: HPC (Apptainer), url: /installation/hpc-apptainer/ }
-    - { title: Developer setup, url: /wiki/development/ }
+    - { title: Development & Testing, url: /wiki/development/ }
     - { title: Troubleshooting, url: /wiki/troubleshooting/ }
 
 wiki:
@@ -21,7 +21,7 @@ wiki:
   items:
     - { title: Wiki Home, url: /wiki/ }
     - { title: Video Tutorials, url: /wiki/video-tutorials/ }
-    - { title: Troubleshooting Archive, url: /wiki/troubleshooting/ }
+    - { title: Troubleshooting, url: /wiki/troubleshooting/ }
     - group: The Application
     - { title: Overview, url: /wiki/overview/ }
     - title: Pre-processing
@@ -57,7 +57,7 @@ wiki:
     - { title: NIfTI Group Averaging, url: /wiki/nifti-group-averaging/ }
     - { title: Nilearn Visuals, url: /wiki/nilearn-visuals/ }
     - { title: EEG Caps, url: /wiki/eeg-caps/ }
-    - group: Development & Testing (v3)
+    - group: Development & Testing
     - { title: Development & Testing, url: /wiki/development/ }
     - { title: Python Environment, url: /wiki/python_env/ }
     - { title: Desktop Application, url: /wiki/desktop-app/ }

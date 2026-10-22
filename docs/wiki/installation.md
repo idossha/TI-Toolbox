@@ -12,7 +12,7 @@ Get from download to your first project in three steps. Docker runs the scientif
   <a href="#project"><span>3</span> Open a project</a>
 </nav>
 
-<p class="install-requirements"><strong>Before you begin:</strong> 32 GB RAM, 4 CPU cores and 20 GB free disk space, plus room for your project. Recommended: 64 GB RAM and 8+ cores. <a href="{{ site.baseurl }}/installation/dependencies/">Full requirements →</a></p>
+<p class="install-requirements"><strong>Before you begin:</strong> 32 GB RAM (give Docker at least 20 GB of it), 4 CPU cores and 20 GB free disk space, plus room for your project. Recommended: 64 GB RAM and 8+ cores. The optional FreeSurfer and QSI images need more disk. <a href="{{ site.baseurl }}/installation/dependencies/">Full requirements →</a></p>
 
 <section class="install-step" aria-labelledby="docker" markdown="1">
 ## 1. Start Docker {#docker}
@@ -50,8 +50,8 @@ Choose the download for your computer.
   <summary>How do I install the downloaded file?</summary>
   <ul>
     <li><strong>macOS:</strong> open the DMG, drag TI-Toolbox to Applications, then open it.</li>
-    <li><strong>Windows:</strong> run the EXE installer, then open TI-Toolbox from the Start menu.</li>
-    <li><strong>Linux:</strong> install the DEB using your package manager, or mark the AppImage executable and run it.</li>
+    <li><strong>Windows:</strong> run the EXE installer, then open TI-Toolbox from the Start menu. The installer is unsigned, so SmartScreen warns: choose <strong>More info ▸ Run anyway</strong>.</li>
+    <li><strong>Linux:</strong> install the DEB using your package manager, or mark the AppImage executable and run it (Ubuntu needs <code>libfuse2</code> for the AppImage; see <a href="{{ site.baseurl }}/installation/linux/">Linux setup help</a>).</li>
   </ul>
 </details>
 </section>
@@ -61,11 +61,13 @@ Choose the download for your computer.
 
 <ol class="install-project">
   <li><strong>Open TI-Toolbox</strong><br>Keep Docker running.</li>
-  <li><strong>Choose your project folder</strong><br>Use Browse or enter its full path, then select <strong>Open project</strong>.</li>
+  <li><strong>Choose your project folder</strong><br>Use Browse or enter its full path, then select <strong>Open project</strong>. A new, empty folder is fine; the app offers to add example data the first time you open it.</li>
   <li><strong>Let the first launch finish</strong><br>The toolbox downloads its scientific environment. This needs internet access and may take a while.</li>
 </ol>
 
-Your project stays on your machine. Use **Switch project** in Overview to open another folder; closing the desktop app stops its container and preserves your files.
+Your project stays on your machine. Use **Switch project** in Overview to open another folder. Closing the desktop app stops its container and cancels any running or queued jobs (it asks first when there are any); your files are preserved.
+
+**Updating:** when a newer release exists the app shows “TI-Toolbox X is available”. Install the new download as in step 2; the matching image downloads the next time you start it.
 
 <a class="btn btn--primary" href="{{ site.baseurl }}/wiki/overview/">Explore your workspace →</a>
 <a class="btn btn--secondary" href="{{ site.baseurl }}/wiki/example-data/">Try example data →</a>
@@ -83,13 +85,13 @@ Download [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/main/l
 python3 loader.py
 ```
 
-Requires Python 3.11+ and Docker. The launcher downloads and opens the desktop app; add `--browser` to use your browser instead. A browser session keeps running after its tab closes. Inside WSL2 the launcher always uses your Windows browser; the desktop app on Windows is the installer above.
+Requires Python 3.11+ and Docker. The launcher downloads and opens the desktop app; add `--browser --project /path/to/project` to use your browser instead. A browser session keeps running after its tab closes. Inside WSL2 the launcher always uses your Windows browser; the desktop app on Windows is the installer above.
 
 The [command-line guide]({{ site.baseurl }}/installation/bash-cli/) covers the Bash launcher, project paths, existing sessions and stopping a container.
 </details>
 
 <a id="internal-colleague-testing"></a>
 
-- **Cluster without Docker:** follow the [HPC / Apptainer guide]({{ site.baseurl }}/installation/hpc-apptainer/).
+- **Remote or cluster machine:** see [HPC / remote use]({{ site.baseurl }}/installation/hpc-apptainer/). A host with Docker uses the SSH browser route; Apptainer is not validated for v3.
 - **Build from source:** follow the [developer setup]({{ site.baseurl }}/wiki/development/#source-setup).
 - **Something went wrong:** see [troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/).

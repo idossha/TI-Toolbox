@@ -18,8 +18,8 @@ attach to it or recreate it. See [launch options]({{ site.baseurl }}/installatio
 
 ## Add example data
 
-**Add example data** downloads public example heads (raw scans and ready-to-use head models)
-into the open project; new projects are offered this once. See
+**Add example data** opens **Help ▸ Example data**, where each part of the public example heads has
+its own **Download** button; new projects are also offered them once. See
 [Example Data]({{ site.baseurl }}/wiki/example-data/).
 
 ## Project information
@@ -31,23 +31,23 @@ submission date over the past year (UTC); job details live on the **Jobs** page.
 
 ## The presence matrix
 
-Each row is a subject, each column an artefact the rest of the toolbox depends on:
+Each row is a subject. Six columns of dots show the artefacts the rest of the toolbox depends on;
+a **Leadfield** column and three counts follow:
 
-| Column               | What it means                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| **RAW**              | A staged/converted anatomical image exists under `sourcedata/` or the BIDS root       |
-| **FAST**             | FastSurfer segmentation (`derivatives/fastsurfer/sub-<id>`)                           |
-| **FREE**             | FreeSurfer `recon-all` output from the optional preprocessing stage or an earlier run |
-| **M2M**              | A SimNIBS head model, `derivatives/SimNIBS/sub-<id>/m2m_<id>`                         |
-| **DWI** / **CT**     | Diffusion or CT data present                                                          |
-| **LF**               | A leadfield matrix, and which EEG net it was built for                                |
-| **NET**              | EEG net files registered for this subject                                             |
-| **SIM / OPT / ANLY** | How many simulations, optimizations and analyses the subject has                      |
+| Column               | What it means                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| **RAW**              | Raw MRI converted into the BIDS tree; data only in `sourcedata/` shows as _partial_       |
+| **FAST**             | FastSurfer segmentation (`derivatives/fastsurfer/sub-<id>`)                               |
+| **FREE**             | FreeSurfer `recon-all` output from the optional preprocessing stage or an earlier run     |
+| **M2M**              | A SimNIBS head model, `derivatives/SimNIBS/sub-<id>/m2m_<id>`                             |
+| **DWI** / **CT**     | Diffusion or CT data present                                                              |
+| **LEADFIELD**        | The EEG nets the subject has a leadfield for, as chips: the first net, then `+N` for more |
+| **SIM / OPT / ANLY** | How many simulations, optimizations and analyses the subject has                          |
 
 A dot has one of five **presence states**, and they are not opinions — what is on disk always wins:
 
 - **present** — the artefact is there
-- **partial** — some of it is there (e.g. a leadfield for one net but not the one you selected)
+- **partial** — some of it is there (e.g. raw scans staged in `sourcedata/` but not yet converted)
 - **running now** — a job is producing it at this moment
 - **last run failed** — the most recent job for it failed and it is still absent
 - **missing** — nothing on disk and no job
@@ -55,8 +55,17 @@ A dot has one of five **presence states**, and they are not opinions — what is
 `running now` and `last run failed` come from the job records and only ever describe an artefact
 that is _still absent_; they never override a file that exists.
 
+## Subject details
+
+Click a row to open its detail pane (click it again to close it). It lists what the subject has,
+including its EEG nets, and its simulation, optimization and analysis counts, each of which opens
+**Results**, as does **Open in Results**. Under it are the **Pre-process**, **Simulate**,
+**Optimize** and **Analyze** buttons and **Open in viewer** (needs a head model).
+
 ## Filtering and the readiness verdict
 
-The **All / Ready / Incomplete** control filters by whether a subject can be run through the next
-stage. "Ready" is per stage, and a subject that is not ready says why in one phrase — _"no head
+The **All / Ready / Incomplete** control filters the subject list. **Ready** is one fixed rule: the
+subject has a head model and its raw MRI is present. A head model without raw MRI, such as the
+example head-model part, therefore counts as Incomplete. Whether a subject can run a given stage is
+shown by the detail pane's stage buttons: a disabled button says why in its tooltip — _"no head
 model"_, _"no simulations"_ — rather than silently offering a run that will fail.

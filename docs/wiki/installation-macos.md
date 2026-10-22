@@ -19,10 +19,17 @@ The Bash launcher needs no Python; Docker Desktop includes Compose. The Python l
 ## Apple Silicon and Intel
 
 The image is `linux/amd64`. Intel Macs run that architecture directly; Apple Silicon Macs
-use Docker's amd64 emulation. Expect longer FEM solves and segmentation under emulation.
-The [pre-processing guide]({{ site.baseurl }}/wiki/pre-processing/) records measured runtime
-coverage. Select the desktop build for your Mac's host architecture independently of the
-container architecture.
+use Docker's amd64 emulation, roughly 3× slower than native; the app's time estimates account for
+it. Select the desktop build for your Mac's host architecture independently of the container
+architecture.
+
+**Apple Silicon limits:**
+
+- QSIPrep, the first DTI step, is refused on Apple Silicon. Run it on an x86-64 machine and copy
+  `derivatives/qsiprep/sub-<id>/` into your project; see the
+  [diffusion guide]({{ site.baseurl }}/wiki/diffusion-processing/).
+- FastSurfer can optionally use the native Apple GPU; see
+  [Enable Apple GPU]({{ site.baseurl }}/wiki/fastsurfer/#enable-apple-gpu).
 
 ## Packaged app
 

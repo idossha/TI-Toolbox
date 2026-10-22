@@ -6,11 +6,9 @@ permalink: /wiki/example-data/
 
 Two public example heads you can download into any open project, so you can learn TI-Toolbox and
 test every page before using your own data. They come from the
-[SimNIBS example dataset](https://github.com/simnibs/example-dataset) (**GPL-3.0**) and are re-hosted content-addressed: every file is an
-asset named by its own sha256 on the `v1` release of
-[`idossha/ti-toolbox-example-data`](https://github.com/idossha/ti-toolbox-example-data) — the data's
-own repository — and nothing is written into your project until the downloaded bytes hash to the
-catalogue entry.
+[SimNIBS example dataset](https://github.com/simnibs/example-dataset) (**GPL-3.0**) and are hosted in
+[`idossha/ti-toolbox-example-data`](https://github.com/idossha/ti-toolbox-example-data); every file is
+checksum-verified before it is written into your project.
 
 ## Datasets and parts
 
@@ -56,7 +54,6 @@ need that subject's raw MRIs for any of them.
   ```
 
 Every route runs the same `tit.examples.fetch` and is idempotent: a part already in place is
-skipped unless you pass `--force`. Downloading example data is **not** a job — it does not appear
-in the jobs rail — and it needs nothing from project initialization: any project directory, new or
-long-established, takes a part. In the app one download runs at a time and the page polls its
-progress; a part you start while one is running is queued behind it rather than competing.
+skipped unless you pass `--force`. Downloading example data is **not** a job, so it does not appear
+in the jobs rail, and any project directory, new or long-established, can take a part. In the app,
+parts download one at a time.
