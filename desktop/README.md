@@ -3,8 +3,9 @@
 Electron shell + React renderer for TI-Toolbox v3. The renderer bundle (`out/renderer`) is what
 `tit.server` serves at `/`; every request it makes is origin-relative (`/api/...`, `/ws/system`),
 so the same bundle works inside Electron, in the Vite dev server (proxied) and in browser mode.
-The Electron main process only does host things: a local launcher page, a health poll, a
-navigation guard and a settings file. Science and path rules stay in Python (`tit`).
+The Electron main process owns the host lifecycle: the Docker stack (Engine API), the native
+TetraVox, native FastSurfer, the assistant terminal, notifications and updates, plus the launcher
+page, health poll, navigation guard and settings file. Science and path rules stay in Python (`tit`).
 
 Development guide: [CONTRIBUTING](../CONTRIBUTING.md), design contract:
 [DESIGN](../docs/dev/ARCHITECTURE.md#11-interface-design), API contract: [OpenAPI](../contracts/openapi.yaml)
@@ -16,13 +17,14 @@ Development guide: [CONTRIBUTING](../CONTRIBUTING.md), design contract:
 electron.vite.config.ts   main / preload / renderer builds; dev proxy for /api /auth /ws
 scripts/dev*.ts           `npm run dev` / `dev:web` / `dev:down`: .env.dev, attach-or-start the
                           container through src/main/stack.ts, the bearer+Origin proxy factory
-src/main/                 app lifecycle, launcher page (app://launcher), connect + nav guard, log, settings
+src/main/                 app lifecycle, launcher page (app://launcher), connect + nav guard, log, settings,
+                          docker/ (Engine API), native TetraVox, FastSurfer, assistant, notifier, updates
 src/main/stack.ts         attach-or-start, electron-free (an injected StackHost); stackHost.ts binds
                           the Electron half, so scripts/dev.ts runs the same code under Node
 src/preload/              contextBridge `window.tit` (sandboxed, dependency-free)
 src/shared/tit-bridge.d.ts  the bridge's TypeScript surface (renderer + preload)
 src/renderer/
-  ui/          design system — tokens.css/base.css/components.css + every primitive (docs/dev/ARCHITECTURE.md §5);
+  ui/          design system — tokens.css/base.css/components.css + every primitive (docs/dev/ARCHITECTURE.md §11);
                pages import only from here, never a literal colour
   forms/       schema loader (/api/schema, cached), Ajv 2020-12 react-hook-form resolver, SchemaField,
                server-error -> field mapping (see forms/README.md)
@@ -83,8 +85,7 @@ If `node_modules/electron/dist` is missing after `npm install` (postinstall skip
 
 ## Dev loop
 
-`pnpm run dev` is the development entry point too: it runs the same script as `npm run dev`
-below. Run it from this `desktop/` directory; no separate frontend or renderer command is needed.
+Run `npm run dev` from this `desktop/` directory; no separate frontend or renderer command is needed.
 The run-page 3-D panes are this app's own WebGL2 renderer (`src/renderer/scene/`) and need nothing
 installed. Full 3-D *viewing* is the separate **Tetravox** desktop app on your host: the Viewer page
 writes a `*.tetravox.json` scene and hands it to that app, which TI-Toolbox installs and updates

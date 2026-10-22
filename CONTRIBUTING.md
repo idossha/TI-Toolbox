@@ -41,7 +41,7 @@ automatically connecting. Type a project path or use Browse, open a project, the
 to choose the next directory before confirming the switch. Closing the app stops its container and exits.
 This uses the built UI rather than Vite hot reload; rerun after source changes.
 
-`pnpm dev:web` / `pnpm dev` use the same scripts. Inspect locally available image tags with
+Inspect locally available image tags with
 `docker images idossha/ti-toolbox`; obtain or build a missing image first using
 [RELEASING](docs/dev/RELEASING.md). For one run, use
 `npm run dev:web -- --project /absolute/path/to/project`. For persistent browser-development
@@ -94,8 +94,8 @@ Host-only setup, from the repository root:
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -e '.[test]'
 cd desktop
-pnpm install
-pnpm dev:host --project /absolute/path/to/project
+npm ci
+npm run dev:host -- --project /absolute/path/to/project
 ```
 
 Host mode uses `.venv` when present, otherwise `python3`; `TIT_DEV_PYTHON` overrides the interpreter.

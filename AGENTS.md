@@ -24,7 +24,7 @@ tit/            the science core (paths, sim, opt, analyzer, stats, calc, fields
 tit/server/     FastAPI app + routes; tit/jobs/ is the job engine
 contracts/      openapi.yaml is the one hand-written contract; generated/ is build output (npm run gen)
 tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real ones
-dev/            scripts only: build_contracts (+build_schema/build_contract), contracts_check, documentation_policy, route_import_guard, smoke.sh
+dev/            scripts, guards, release helpers and upstream notes: build_contracts, contracts_check, documentation_policy, route_import_guard, check_cited_paths.sh, smoke.sh, verify_release.py, update/, upstream/
 container/      image blueprints and build.sh
 docs/dev/       how this software is built and why — current developer references
 docs/wiki/      the user-facing site (published); legacy v2 guidance is in docs/wiki/legacy-v2.md
@@ -80,7 +80,7 @@ an isolated pass does not waive a failed full suite (see `docs/dev/TESTING.md`).
 
 ## Working in a shared worktree
 
-Use `bash loader.sh --dev` (or `python3 loader.py --dev`) for manual developer testing of the current checkout; it behaves exactly like a user launch and opens the browser, so add `--desktop` when you need native Apple GPU setup. Verify the served renderer and Python come from the checkout, not the image, before reporting UI changes ready. See [CONTRIBUTING.md](CONTRIBUTING.md) for frontend rebuilds and live reload.
+Use `bash loader.sh --dev` (or `python3 loader.py --dev`) for manual developer testing of the current checkout; it bind-mounts this checkout and opens the same Electron window a user gets (add `--browser` for a browser tab). Verify the served renderer and Python come from the checkout, not the image, before reporting UI changes ready. See [CONTRIBUTING.md](CONTRIBUTING.md) for frontend rebuilds and live reload.
 
 Several agents may be in one worktree at once. Each of these cost a lane real work.
 
@@ -90,7 +90,7 @@ Several agents may be in one worktree at once. Each of these cost a lane real wo
 - **Never revert or discard someone else's working-tree changes.**
 - **One Playwright run at a time**, guarded by `/tmp/tit-e2e.lock` — runs share the mock server on
   8790 and one `out/`. Never `pkill -f "playwright test"`; it kills whoever else is mid-gate.
-- **`pnpm run pree2e` before any scene spec** (`VITE_SCENE_HOOKS=1`), and a plain `npm run build`
+- **`npm run pree2e` before any scene spec** (`VITE_SCENE_HOOKS=1`), and a plain `npm run build`
   **last**: the dev container serves `desktop/out/renderer` straight from the worktree, so a plain
   build dropped mid-session makes another lane's specs time out 30 s later with no hint why.
 - **Never recreate the maintainer's dev container.** It bind-mounts the worktree for both `tit` and
