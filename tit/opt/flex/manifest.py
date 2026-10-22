@@ -104,6 +104,10 @@ def write_manifest(
             else None
         ),
         "n_multistart": config.n_multistart,
+        # Flex-search places exactly two electrode pairs (one per TI channel).
+        "n_pairs": 2,
+        # The net the run's electrodes were mapped onto (electrode_mapping_<net>.json).
+        "eeg_net": config.eeg_net if config.enable_mapping else None,
         "min_electrode_distance": config.min_electrode_distance,
         "result": {
             "success": result.success,

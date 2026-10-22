@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "created": "2026-07-30T00:40:14",
+  "created": "2026-08-10T10:15:00",
   "subject_id": "ernie",
   "goal": "focality",
   "postproc": "max_TI",
@@ -15,16 +15,26 @@
   },
   "roi": {
     "type": "subcortical",
-    "atlas_path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/labeling.nii.gz",
-    "label": 17,
+    "atlas_path": [
+      "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/labeling.nii.gz"
+    ],
+    "label": [
+      17
+    ],
     "atlas_space": "subject",
     "tissues": "GM"
   },
   "non_roi": null,
   "non_roi_method": "everything_else",
   "thresholds": "0.1,0.2",
-  "n_pairs": 2,
+  "intensity_weight": 0.0,
+  "optimize_current_ratio": false,
+  "ratio_total_mA": null,
+  "ratio_levels": 21,
+  "current_split": null,
   "n_multistart": 2,
+  "n_pairs": 2,
+  "eeg_net": null,
   "min_electrode_distance": 5.0,
   "result": {
     "success": true,
@@ -36,5 +46,5 @@
     ]
   },
   "pareto": null,
-  "label": "focality_maxTI_subcortical-labeling-17"
+  "label": "label-subcortical_focality"
 }

@@ -89,11 +89,18 @@ export function exRunConfigPath(runPath: string): string {
   return `${runPath.replace(/\/+$/, "")}/run_config.json`;
 }
 
+/** `run_config.json`'s `electrodes` keys (`tit/opt/ex/results.py::save_run_config`): four bucket
+ * poles for Ex, eight for mEx, or one `electrodes` list for a pool run. */
 const BUCKET_LABELS: Record<string, string> = {
   e1_plus: "Channel 1 +",
   e1_minus: "Channel 1 −",
   e2_plus: "Channel 2 +",
   e2_minus: "Channel 2 −",
+  e3_plus: "Channel 3 +",
+  e3_minus: "Channel 3 −",
+  e4_plus: "Channel 4 +",
+  e4_minus: "Channel 4 −",
+  electrodes: "Pool",
 };
 
 export function parseExRunConfig(text: string): ExRunSummary | undefined {

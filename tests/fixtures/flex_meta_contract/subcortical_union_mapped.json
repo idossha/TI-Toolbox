@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "created": "2026-08-10T10:15:00",
+  "subject_id": "ernie",
+  "goal": "focality_tf",
+  "postproc": "max_TI",
+  "current_mA": 2.0,
+  "electrode": {
+    "shape": "ellipse",
+    "dimensions": [
+      8.0,
+      8.0
+    ],
+    "gel_thickness": 4.0
+  },
+  "roi": {
+    "type": "subcortical",
+    "atlas_path": [
+      "/ti-toolbox/resources/atlas/massp2021-parcellation_decade-18to40.nii.gz",
+      "/ti-toolbox/resources/atlas/massp2021-parcellation_decade-18to40.nii.gz"
+    ],
+    "label": [
+      13,
+      14
+    ],
+    "atlas_space": "mni",
+    "tissues": "GM"
+  },
+  "non_roi": null,
+  "non_roi_method": "everything_else",
+  "thresholds": null,
+  "intensity_weight": 0.0,
+  "optimize_current_ratio": false,
+  "ratio_total_mA": null,
+  "ratio_levels": 21,
+  "current_split": null,
+  "n_multistart": 2,
+  "n_pairs": 2,
+  "eeg_net": "GSN-HydroCel-185.csv",
+  "min_electrode_distance": 5.0,
+  "result": {
+    "success": true,
+    "best_value": -91.5566569075475,
+    "best_run_index": 0,
+    "all_values": [
+      -91.5566569075475,
+      -84.39278350962034
+    ]
+  },
+  "pareto": null,
+  "label": "label-subcortical_union_mapped"
+}
