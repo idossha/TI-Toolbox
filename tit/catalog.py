@@ -21,7 +21,9 @@ ignored, so a cancelled or in-progress run never appears as a result.
 from __future__ import annotations
 
 import csv
+import functools
 import glob
+import html
 import json
 import os
 import re
@@ -777,16 +779,43 @@ def _dir_meshes(
     ]
 
 
-def _report_ids_for_simulation(all_reports: list[dict], sim: str) -> list[str]:
-    """Best-effort match of report ids to a simulation.
+_TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
-    Report filenames (``<prefix>_report_<timestamp>.html``) do not embed the
-    simulation name today, so this only matches reports a future generator
-    tags by path; it returns ``[]`` harmlessly otherwise (see the module
-    docstring / this lane's final report for the gap).
+
+@functools.lru_cache(maxsize=512)
+def _report_title(path: str, mtime_ns: int, size: int) -> str | None:
+    """A report's ``<title>``, read from the head of the file (cached by path and stat)."""
+    try:
+        with open(path, "rb") as handle:
+            head = handle.read(16384).decode("utf-8", errors="replace")
+    except OSError:
+        return None
+    match = _TITLE_RE.search(head)
+    return html.unescape(match.group(1)).strip() if match else None
+
+
+def _report_ids_for_simulation(all_reports: list[dict], sim: str) -> list[str]:
+    """The simulation reports written for *sim*, newest first.
+
+    Report file names (``simulation_report_<timestamp>.html``) do not carry the
+    simulation, but the generator titles the page ``"<simulation> simulation"``
+    (``tit.reporting.generators.simulation.build_html``), so that title is the
+    link. Reports of other kinds, and simulation reports written before the
+    title named the run, are never linked.
     """
-    needle = sim.lower()
-    return [r["id"] for r in all_reports if needle in r["path"].lower()]
+    wanted = f"{sim} simulation"
+    linked = []
+    for report in all_reports:
+        if report["kind"] != "simulation_report":
+            continue
+        try:
+            stat = os.stat(report["path"])
+        except OSError:
+            continue
+        if _report_title(report["path"], stat.st_mtime_ns, stat.st_size) == wanted:
+            linked.append(report["id"])
+    # Ids end in <YYYYMMDD>_<HHMMSS>, so the newest report -- the one Results opens -- sorts last.
+    return sorted(linked, reverse=True)
 
 
 def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
