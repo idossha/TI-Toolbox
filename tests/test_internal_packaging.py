@@ -200,6 +200,29 @@ class InternalPackagingTests(unittest.TestCase):
             "Bootstrap: docker\nFrom: idossha/ti-toolbox:v3.1.0\n\n%post\n    true\n",
         )
 
+    def test_stable_version_moves_both_loaders_to_the_new_release_tag(self):
+        self.write("loader.py", 'HERE = 1\nRELEASE_TAG = "v3.0.0"\n')
+        self.write(
+            "loader.sh",
+            'curl "https://raw.githubusercontent.com/o/r/${TIT_SOURCE_REF:-refs/tags/v3.0.0}/docker-compose.yml"\n'
+            '[ "$image" = idossha/ti-toolbox:v3.0.0 ]\n',
+        )
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_version("3.1.0")
+        finally:
+            os.chdir(old)
+        self.assertEqual(
+            (self.root / "loader.py").read_text(),
+            'HERE = 1\nRELEASE_TAG = "v3.1.0"\n',
+        )
+        self.assertEqual(
+            (self.root / "loader.sh").read_text(),
+            'curl "https://raw.githubusercontent.com/o/r/${TIT_SOURCE_REF:-refs/tags/v3.1.0}/docker-compose.yml"\n'
+            '[ "$image" = idossha/ti-toolbox:v3.1.0 ]\n',
+        )
+
     def test_version_update_preserves_dated_freesurfer_image(self):
         self.write(
             "version.py",

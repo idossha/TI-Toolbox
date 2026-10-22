@@ -87,8 +87,10 @@ the browser, the session URL is opened on the Windows side (`wslview`, then Powe
 `cmd.exe`) and printed regardless, nothing is downloaded, and `--desktop` is refused with a reason
 naming the Windows installer. An adjacent YAML or explicit
 `TIT_COMPOSE_FILE` selects the launch specification. Python bootstraps its
-launcher in a cache from the matching release branch and forwards the adjacent YAML via
-`TIT_COMPOSE_FILE`; an invalid explicit path fails rather than selecting a different configuration.
+launcher in a cache from its own release tag (`RELEASE_TAG`, stamped per release; `TIT_SOURCE_REF`
+overrides it), never a branch, and forwards the adjacent YAML via `TIT_COMPOSE_FILE`; Bash without
+an adjacent YAML downloads that tag's copy. An invalid explicit path fails rather than selecting a
+different configuration.
 Explicit browser/headless modes and development wrappers use the same Compose service and
 container identity. All Docker launch paths require an explicit Attach or Replace decision when
 any TI-Toolbox container is running, including another project's session. Multiple sessions require

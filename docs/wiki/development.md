@@ -100,7 +100,9 @@ python3 loader.py --dev /absolute/path/to/TI-Toolbox --project /absolute/path/to
 `docker-compose.yml` together in any convenient folder and name the checkout explicitly, either
 with `--dev DIR` or with `TIT_DEV_REPO_DIR`. `TIT_DEV=1` (a bare `--dev`) means the launcher's own
 checkout for `loader.py`; for `loader.sh`, `TIT_DEV=1` means the current directory and a bare
-`--dev` the script's own directory.
+`--dev` the script's own directory. A `loader.py` outside the checkout runs the launcher of the
+release it belongs to while the container runs the checkout's code; `TIT_SOURCE_REF=main` (or any
+branch, tag or commit) selects another launcher revision.
 There is no second, developer-only script: `--dev` is the whole difference.
 
 `--dev` selects **source code**; `--project` selects **project data**. They are separate mounts.

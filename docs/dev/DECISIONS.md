@@ -3322,3 +3322,26 @@ its token and port, and the desktop app cannot manage a SIF.
 
 **Revisit if.** The image stops installing SimNIBS under `/root`, or Apptainer becomes a supported
 distribution (then validate the server route and the bind-mount layout).
+
+## 2026-10-22 — Standalone loaders download their own release, never `main`
+
+**Decision.** `loader.py` carries `RELEASE_TAG` and, without a checkout beside it, installs its
+launcher from `archive/refs/tags/<RELEASE_TAG>.zip`; `loader.sh` without an adjacent
+`docker-compose.yml` fetches `refs/tags/<tag>/docker-compose.yml`. `dev/update/update_version.py`
+stamps both on each stable release. `TIT_SOURCE_REF` still selects any branch, tag or commit; a
+checkout's `loader.py` still runs that checkout; `--stop`/`--status`/`--logs` still run offline
+from the cache. `tests/test_loader_bootstrap.py` pins both to the compose default image tag.
+
+**Why.** Both defaulted to `main`, so every standalone start ran whatever `main` held at that
+moment: an unreleased launcher or YAML can expect env keys, flags or endpoints the released desktop
+app and image lack. The release image is pinned already (compose default, `BUILTIN_SPEC`); the code
+that starts it now is too. ARCHITECTURE already said "the matching release branch"; the code did
+not do that.
+
+**Alternatives rejected.** A SHA-256 pin of the archive: the archive of tag `vX` contains
+`loader.py` itself, so the file cannot carry its own archive's hash, and GitHub does not promise
+byte-stable generated archives (a re-cut tag changes it too). Skipping the refresh when the cache
+already holds the tag: a separate behaviour change nobody asked for.
+
+**Revisit if.** Launchers are published as release assets with checksums in `SHA256SUMS`; then
+install that asset and verify it like the desktop app.

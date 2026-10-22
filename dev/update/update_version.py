@@ -99,6 +99,14 @@ def update_version(new_version):
                 r'(\[ "\$image" = idossha/ti-toolbox:)v[0-9][^ ]*( \])',
                 rf"\g<1>v{new_version}\g<2>",
             ),
+            # Standalone loaders fetch their release's files, never a moving branch.
+            (
+                r"(\$\{TIT_SOURCE_REF:-refs/tags/)v[^}]+(\})",
+                rf"\g<1>v{new_version}\g<2>",
+            ),
+        ],
+        "loader.py": [
+            (r'RELEASE_TAG = "v[^"]+"', f'RELEASE_TAG = "v{new_version}"'),
         ],
         # The SIF is built from the release image, never a separate environment.
         "container/blueprint/apptainer.def": [

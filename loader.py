@@ -2,7 +2,8 @@
 """Start TI-Toolbox from a checkout or a cached standalone installation.
 
 Requires Python 3.11+ and Docker. Run with --help for options.
-Standalone starts refresh the cache; management commands also work offline.
+Standalone starts refresh the cache from this loader's release tag (TIT_SOURCE_REF overrides it);
+management commands also work offline.
 """
 
 from __future__ import annotations
@@ -14,7 +15,9 @@ from pathlib import Path
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_SOURCE_REF = "main"
+# The release this file ships with; dev/update/update_version.py stamps it. Never a branch: an
+# unreleased launcher can disagree with the released desktop app and image.
+RELEASE_TAG = "v3.1.1"
 
 
 def bootstrap() -> bool:
@@ -59,8 +62,12 @@ def cached_management_available(python: Path, argv: list[str]) -> bool:
 
 def run_standalone(argv: list[str]) -> int:
     """Refresh and run the main launcher in an isolated environment, without science dependencies."""
-    source_ref = os.environ.get("TIT_SOURCE_REF") or DEFAULT_SOURCE_REF
-    archive = f"https://github.com/idossha/TI-toolbox/archive/{quote(source_ref, safe='')}.zip"
+    source_ref = os.environ.get("TIT_SOURCE_REF")
+    archive = "https://github.com/idossha/TI-toolbox/archive/" + (
+        f"{quote(source_ref, safe='')}.zip"
+        if source_ref
+        else f"refs/tags/{RELEASE_TAG}.zip"
+    )
     child_env = os.environ.copy()
     adjacent_compose = HERE / "docker-compose.yml"
     if not child_env.get("TIT_COMPOSE_FILE") and adjacent_compose.is_file():
@@ -87,7 +94,7 @@ def run_standalone(argv: list[str]) -> int:
             )
         if not use_cached:
             sys.stderr.write(
-                f"loader.py: refreshing launcher from TI-Toolbox {source_ref}\n"
+                f"loader.py: refreshing launcher from TI-Toolbox {source_ref or RELEASE_TAG}\n"
             )
             subprocess.run(
                 [

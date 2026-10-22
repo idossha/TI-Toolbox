@@ -1,7 +1,13 @@
-"""Standalone bootstrap boundaries; no network, Docker, Node or science imports needed."""
+"""Standalone bootstrap boundaries; no network, Docker, Node or science imports needed.
+
+The release tag a standalone loader downloads is read independently from docker-compose.yml's
+default image tag: both are stamped per release by dev/update/update_version.py, and a launcher
+from another revision than its image is the failure the pin prevents.
+"""
 
 import importlib.util
 from pathlib import Path
+import re
 import subprocess
 import sys
 from unittest.mock import patch
@@ -12,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("standalone_loader", ROOT / "loader.py")
 loader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(loader)
+RELEASE = re.search(
+    r"image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-(v[^}]+)\}",
+    (ROOT / "docker-compose.yml").read_text(),
+)[1]
 
 
 @pytest.fixture
@@ -51,7 +61,7 @@ def test_standalone_creates_isolated_environment_and_passes_argv_verbatim(standa
     assert "--force-reinstall" in install.args[0]
     assert (
         install.args[0][-1]
-        == "https://github.com/idossha/TI-toolbox/archive/main.zip"
+        == f"https://github.com/idossha/TI-toolbox/archive/refs/tags/{RELEASE}.zip"
     )
     assert launch.args[0][1:] == ["-I", "-m", "tit.cli", "launch", *args]
     assert all(call.kwargs.get("shell") is not True for call in run.call_args_list)
@@ -191,3 +201,10 @@ def test_standalone_preserves_explicit_source_and_compose(standalone, monkeypatc
         == "https://github.com/idossha/TI-toolbox/archive/v3.0.0.zip"
     )
     assert run.call_args.kwargs["env"]["TIT_COMPOSE_FILE"] == "/custom/compose.yml"
+
+
+def test_bash_loader_downloads_its_release_compose_file():
+    """loader.sh without an adjacent YAML fetches the one tagged with its release, not main's."""
+    source = (ROOT / "loader.sh").read_text()
+    refs = re.findall(r"\$\{TIT_SOURCE_REF:-([^}]+)\}", source)
+    assert refs == [f"refs/tags/{RELEASE}"]

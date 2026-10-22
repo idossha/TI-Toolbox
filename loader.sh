@@ -380,7 +380,8 @@ work="$(mktemp -d)"
 gpu_probe=''
 trap '[ -z "$gpu_probe" ] || docker rm --force "$gpu_probe" >/dev/null 2>&1; rm -rf "$work"' EXIT
 if [ ! -f "$spec" ]; then
-    curl -fsSL "https://raw.githubusercontent.com/idossha/TI-Toolbox/${TIT_SOURCE_REF:-main}/docker-compose.yml" -o "$work/source.yml" || die 'could not download the container specification'
+    # This loader's release tag (stamped by dev/update/update_version.py), never a branch.
+    curl -fsSL "https://raw.githubusercontent.com/idossha/TI-Toolbox/${TIT_SOURCE_REF:-refs/tags/v3.1.1}/docker-compose.yml" -o "$work/source.yml" || die 'could not download the container specification'
     spec="$work/source.yml"
 fi
 if [ -z "$image" ]; then
