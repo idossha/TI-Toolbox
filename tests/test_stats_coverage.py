@@ -1318,7 +1318,8 @@ class TestLoadGroupedSubjectsTiToolbox:
         """Subjects are organized by group."""
         data_shape = (3, 3, 3)
 
-        def mock_load_group(configs, pattern, dtype=np.float32):
+        # `reference`: the first group's grid, which every later group is held to.
+        def mock_load_group(configs, pattern, dtype=np.float32, reference=None):
             n = len(configs)
             data_4d = np.random.rand(*data_shape, n).astype(dtype)
             mock_img = MagicMock()

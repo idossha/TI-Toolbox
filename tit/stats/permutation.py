@@ -275,10 +275,17 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
         nifti_file_pattern=config.nifti_file_pattern,
         dtype=np.float32,
     )
+    # Group 2 must be on group 1's grid: the t-map compares voxel i across the
+    # groups and is saved with group 1's affine.
     non_responders, _, non_resp_ids = load_group_data_ti_toolbox(
         non_resp_configs,
         nifti_file_pattern=config.nifti_file_pattern,
         dtype=np.float32,
+        reference=(
+            responders.shape[:-1],
+            template_img.affine,
+            f"{config.group1_name} (subject {resp_ids[0]})",
+        ),
     )
 
     log.info(

@@ -25,12 +25,10 @@ hand-written three-group config for the default pairs. Input paths are spelled f
 documented simulation layout (``derivatives/SimNIBS/sub-<id>/Simulations/<sim>/TI/niftis``),
 not from ``PathManager``.
 
-Known gap, xfail(strict) (``tit/stats/nifti.py`` is owned elsewhere): two GROUPS on different
-grids are not compared with each other (``load_grouped_subjects_ti_toolbox`` checks the grid
-within a group only). Equal shapes with different affines give exit 0 and a difference map of
-voxels that are not the same points; unequal shapes fail on a numpy broadcast error that names
-no subject. When that loader checks every group against one reference grid, these XPASS and
-the marker goes.
+Two GROUPS on different grids (equal shapes with different affines, or unequal shapes) fail
+with exit 1 naming the later group's subject: ``load_grouped_subjects_ti_toolbox`` holds every
+group to the first group's grid (c1_5). Before, equal shapes gave exit 0 and a difference map
+of voxels that are not the same points, and unequal shapes a numpy broadcast error.
 
 Run (container): ``simnibs_python -m pytest tests/numerical/test_nifti_average_runner.py -q``.
 """
@@ -352,11 +350,6 @@ OTHER_GRIDS = {
 }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="load_grouped_subjects_ti_toolbox checks the grid within a group only; "
-    "tit/stats/nifti.py is owned elsewhere",
-)
 @pytest.mark.parametrize("grid", sorted(OTHER_GRIDS))
 def test_two_groups_on_different_grids_fail_naming_the_subject(project, tmp_path, grid):
     config = _fixture_config("subject-space")  # Group1: one subject, Group2: another
@@ -377,4 +370,6 @@ def test_two_groups_on_different_grids_fail_naming_the_subject(project, tmp_path
     assert proc.returncode == 1
     result = _result(events)
     assert result["success"] is False
-    assert f"Subject {second['subject_id']} " in result["error"]
+    assert result["error"].startswith(f"Subject {second['subject_id']} ")
+    # No average or difference map of non-corresponding voxels is written.
+    assert not list(project.glob("derivatives/ti-toolbox/nifti_average/**/*.nii*"))

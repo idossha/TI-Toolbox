@@ -180,6 +180,7 @@ def load_group_data_ti_toolbox(
     subject_configs: list[dict],
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     dtype=np.float32,
+    reference: tuple | None = None,
 ) -> tuple[np.ndarray, nib.Nifti1Image, list[str]]:
     """Load and stack multiple subjects into a 4-D array.
 
@@ -192,6 +193,10 @@ def load_group_data_ti_toolbox(
         Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.
     dtype : numpy dtype, optional
         Data type for the returned arrays.  Default is ``np.float32``.
+    reference : tuple or None, optional
+        ``(shape, affine, where)`` of a grid every subject must be on -- another
+        group's, when two groups are compared voxel by voxel; *where* names it in
+        the error. ``None`` (default) makes the first subject the reference.
 
     Returns
     -------
@@ -224,6 +229,9 @@ def load_group_data_ti_toolbox(
         data, img, filepath = load_subject_nifti_ti_toolbox(
             subject_id, simulation_name, nifti_file_pattern, dtype=dtype
         )
+
+        if reference is not None:
+            _check_same_grid(subject_id, filepath, data.shape, img.affine, *reference)
 
         if data_4d is None:
             template_affine = img.affine.copy()
@@ -296,21 +304,32 @@ def load_grouped_subjects_ti_toolbox(
             groups[group_name] = []
         groups[group_name].append(config)
 
-    # Load each group
+    # Load each group. Every group after the first is held to the first group's
+    # grid: averages and differences are taken voxel by voxel and saved with the
+    # first group's affine, so a group on another grid (even with an equal shape)
+    # would give a map of voxels that are not the same points.
     groups_data = {}
     groups_ids = {}
     template_img = None
+    reference = None
 
     for group_name, group_configs in groups.items():
-        data_4d, img, subject_ids = load_group_data_ti_toolbox(
-            group_configs, nifti_file_pattern, dtype=dtype
-        )
+        if reference is None:
+            data_4d, img, subject_ids = load_group_data_ti_toolbox(
+                group_configs, nifti_file_pattern, dtype=dtype
+            )
+            template_img = img
+            reference = (
+                data_4d.shape[:-1],
+                img.affine,
+                f"group {group_name!r} (subject {subject_ids[0]})",
+            )
+        else:
+            data_4d, img, subject_ids = load_group_data_ti_toolbox(
+                group_configs, nifti_file_pattern, dtype=dtype, reference=reference
+            )
 
         groups_data[group_name] = data_4d
         groups_ids[group_name] = subject_ids
-
-        # Use first group's image as template
-        if template_img is None:
-            template_img = img
 
     return groups_data, template_img, groups_ids
