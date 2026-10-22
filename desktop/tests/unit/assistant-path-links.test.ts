@@ -132,6 +132,23 @@ describe("findPaths in a project folder whose path contains spaces", () => {
     ]);
   });
 
+  it("reads the root's brackets, parentheses, plus signs and dots as the characters they are", () => {
+    // Synced folders are named like this ("Dropbox (Personal)", "OneDrive - UW (2)", "x [copy]").
+    // Read as a pattern, "(v2)" is a group that matches "v2", "[x]" a class that matches "x", "C++"
+    // no pattern at all (new RegExp throws), and a "." matches any character.
+    const brackets = "/Users/John Doe/Proj (v2) [x]";
+    expect(texts(`wrote ${brackets}/derivatives/a.nii.gz`, brackets)).toEqual([`${brackets}/derivatives/a.nii.gz`]);
+    expect(texts("wrote /Users/John Doe/Proj v2 x/derivatives/a.nii.gz", brackets)).toEqual([]);
+    const plus = "/Users/John Doe/C++ [a/proj";
+    expect(texts(`saved ${plus}/code/b.py`, plus)).toEqual([`${plus}/code/b.py`]);
+    const dotted = "/Users/john.doe/My Proj";
+    expect(texts("wrote /Users/john.doe/My Proj/x.nii.gz", dotted)).toEqual(["/Users/john.doe/My Proj/x.nii.gz"]);
+    expect(texts("wrote /Users/johnXdoe/My Proj/x.nii.gz", dotted)).toEqual([]);
+    const dropbox = "C:\\Users\\Jo\\Dropbox (Personal)\\proj";
+    expect(texts(`wrote ${dropbox}\\derivatives\\y.json`, dropbox, true)).toEqual([`${dropbox}\\derivatives\\y.json`]);
+    expect(texts("wrote C:\\Users\\Jo\\Dropbox Personal\\proj\\derivatives\\y.json", dropbox, true)).toEqual([]);
+  });
+
   it("does not link a relative-looking fragment inside the root's own text", () => {
     // After the space, "derivatives/proj/x.json" alone would read as a project-relative path.
     expect(texts("wrote /Users/John Doe/my derivatives/proj/x.json", "/Users/John Doe/my derivatives/proj")).toEqual([
