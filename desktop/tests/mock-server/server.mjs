@@ -20,7 +20,7 @@
 // by default; override with --port=NNNN, TIT_MOCK_PORT, or (for the renderer's own dev proxy)
 // TIT_MOCK_HOST.
 import { createServer } from "node:http";
-import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { appendFileSync, createReadStream, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { basename, dirname, extname, join, normalize, resolve as resolvePath, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -562,7 +562,7 @@ function montagesResponse() {
 }
 const MONTAGE_KIND_KEY = { uni_polar: "uni_polar_montages", multi_polar: "multi_polar_montages" };
 function electrodesFor(net) {
-  const n = NET_SIZES[net] ?? 128;
+  const n = NET_SIZES[String(net).replace(/\.csv$/, "")] ?? 128;
   return Array.from({ length: n }, (_, i) => `E${i + 1}`);
 }
 function regionsFor(atlasId, hemi) {
@@ -649,8 +649,12 @@ function outputDirFor(kind, subject, config) {
       return `${base}/leadfields/${cfg.eeg_net || "GSN-HydroCel-185"}`;
     case "analyzer":
       return `${base}/Simulations/${cfg.simulation || "Thalamus"}/Analyses/${analyzerAnalysisName(cfg)}`;
+    // The group kinds and the four export modes plan exactly where the real
+    // `tit/server/routes/plan.py` does: `tests/fixtures/plan_output_dirs.json` (written from the
+    // real route by `dev/gen_plan_output_dirs.py`) holds both to one table, through
+    // `tests/mock-server/plan-output-dirs.test.ts`.
     case "stats":
-      return `${PROJECT_ROOT}/derivatives/group/stats/${name}`;
+      return `${PROJECT_ROOT}/derivatives/ti-toolbox/stats/${statsTypeDir(cfg)}/${cfg.analysis_name}`;
     case "source":
       return `${base}/forward`;
     // The 3D visual exporter's four modes are all kind="blender", discriminated by the config's
@@ -658,20 +662,41 @@ function outputDirFor(kind, subject, config) {
     // (tit/blender/*_exporter.py). One "blender/NewRun" for all four would have made the Plan card
     // say the same wrong path for every mode.
     case "blender": {
+      // An `output_dir` already on the config always wins (`_blender_output_dir`); without a
+      // `_type` the server builds its default class, MontageConfig.
+      const explicit = String(cfg.output_dir ?? "").trim();
+      if (explicit) return explicit;
       const veBase = `${PROJECT_ROOT}/derivatives/ti-toolbox/visual_exports/sub-${subject}`;
-      if (cfg._type === "SubcorticalConfig") return `${veBase}/sub-cortical`;
-      if (cfg._type === "MontageConfig") return `${veBase}/montage_publication`;
-      return `${veBase}/${cfg.simulation_name || name}`;
+      const type = cfg._type || "MontageConfig";
+      if (type === "SubcorticalConfig") return `${veBase}/sub-cortical`;
+      if (type === "MontageConfig") return `${veBase}/montage_publication`;
+      if (type === "VectorConfig") return `${veBase}/${cfg.simulation_name}/vectors`;
+      return `${veBase}/${cfg.simulation_name}/${String(cfg.format ?? "stl").toLowerCase()}`;
     }
     case "nifti_average":
+      return `${PROJECT_ROOT}/derivatives/ti-toolbox/nifti_average/${cfg.output_name}`;
     case "nilearn":
-      return `${PROJECT_ROOT}/derivatives/group/${kind}/${name}`;
+      // NilearnConfig.subdir_name defaults to "nilearn_visuals" (tit/plotting/nilearn/config.py).
+      return `${PROJECT_ROOT}/derivatives/ti-toolbox/nilearn_visuals/${cfg.subdir_name ?? "nilearn_visuals"}`;
     default:
       return `${base}/${kind}/${name}`;
   }
 }
+/** `stats` is one kind for two classes; without a `_type` the server builds GroupComparisonConfig. */
+function statsTypeDir(cfg) {
+  return cfg._type === "CorrelationConfig" ? "correlation" : "group_comparison";
+}
+/** Kinds planned once for the whole project (`subject: ""`), like the real `_plan_stats`. */
+const PROJECT_LEVEL_KINDS = new Set(["stats", "nifti_average", "nilearn"]);
+/** Kinds whose real plan sets `will_overwrite = exists`: their runners replace the folder, so the
+ *  submit route answers 409 without an explicit overwrite (`tit/server/overwrite_policy.py`). */
+const REPLACES_WHEN_EXISTS_KINDS = new Set(["stats", "nifti_average", "nilearn", "blender"]);
 function existsForFixture(kind, subject, config) {
   const cfg = config && typeof config === "object" ? config : {};
+  // The group catalog fixture is this mock's project: a run exists when the catalog lists its name.
+  if (kind === "stats") return (groupCatalog.stats ?? []).some((s) => s.name === cfg.analysis_name && s.type === statsTypeDir(cfg));
+  if (kind === "nifti_average") return (groupCatalog.nifti_average ?? []).some((s) => s.name === cfg.output_name);
+  if (kind === "nilearn") return (groupCatalog.nilearn ?? []).some((s) => s.name === (cfg.subdir_name ?? "nilearn_visuals"));
   if (kind === "analyzer") {
     const list = analyses[subject]?.[cfg.simulation] ?? [];
     return list.some((a) => a.name === analyzerAnalysisName(cfg));
@@ -776,14 +801,67 @@ function resolvedFor(kind, config, montageSources, ids) {
   if (["flex", "flex_adaptive", "flex_pareto"].includes(kind)) {
     return { montages: Array.isArray(cfg.montages) && cfg.montages.length ? cfg.montages : [{ source: "flex", note: "resolved at run time from the flex-search DE result" }] };
   }
-  if (kind === "ex" || kind === "mex") {
-    const n = NET_SIZES[cfg.eeg_net] ?? 185;
-    const nPairs = kind === "mex" ? 2 : 1;
-    const nCurrentSplits = 7;
-    const nCombinations = Math.round((n * (n - 1)) / 2) * nCurrentSplits * nPairs;
-    return { search_space: { n_electrodes: n, n_current_splits: nCurrentSplits, n_pairs: nPairs, n_combinations: nCombinations } };
-  }
+  if (kind === "ex") return { search_space: exSearchSpace(cfg) };
+  if (kind === "mex") return { search_space: { n_combinations: distinctTuples(cfg.electrodes ?? {}, MEX_KEYS) } };
   return null;
+}
+// ---- the runner's search-space count, as `_plan_ex` / `_plan_mex` answer it -------------------
+// Ports of `tit.opt.ex.logic` (generate_current_ratios, count_combinations) and
+// `tit.opt.mex.logic.count_multipolar_combinations` (bucket mode). Held to the brute-force table
+// `tests/fixtures/ex_search_counts.json` by `tests/mock-server/plan-output-dirs.test.ts`, so a
+// mock e2e asserting a count asserts the real one. ExConfig defaults: 2.0 mA, 0.5 mA step.
+const EX_KEYS = ["e1_plus", "e1_minus", "e2_plus", "e2_minus"];
+const MEX_KEYS = [...EX_KEYS, "e3_plus", "e3_minus", "e4_plus", "e4_minus"];
+function exSearchSpace(cfg) {
+  const total = Number(cfg.total_current ?? 2.0);
+  const step = Number(cfg.current_step ?? 0.5);
+  const limit = cfg.channel_limit || total - step;
+  const splits = exCurrentSplits(total, step, limit);
+  const electrodes = cfg.electrodes ?? {};
+  let montages;
+  if (electrodes._type === "PoolElectrodes") {
+    // A physical montage: 4 distinct electrodes split into two pairs 3 ways (TI ignores channel
+    // polarity), in both channel orders only when the split list is not its own mirror.
+    const first = Math.min(limit, total - step);
+    const last = first - (splits - 1) * step;
+    const mirror = splits === 0 || Math.abs(last - (total - first)) <= 1e-9;
+    montages = choose(new Set(electrodes.electrodes ?? []).size, 4) * 3 * (mirror ? 1 : 2);
+  } else {
+    montages = distinctTuples(electrodes, EX_KEYS);
+  }
+  return { n_combinations: montages * splits, n_current_ratios: splits };
+}
+/** Splits of `generate_current_ratios`: channel 1 from the limit down by `step`, both in [step, limit]. */
+function exCurrentSplits(total, step, limit) {
+  if (!(total > 0) || !(step > 0) || !(limit > 0)) return 0;
+  const maximum = Math.min(limit, total - step);
+  const minimum = Math.max(total - limit, step);
+  return Math.max(0, Math.floor((maximum - minimum + step * 0.01) / step) + 1);
+}
+function choose(n, k) {
+  if (n < k) return 0;
+  let result = 1;
+  for (let i = 0; i < k; i++) result = (result * (n - i)) / (i + 1);
+  return Math.round(result);
+}
+/** One electrode per bucket, all different (`_distinct_product`); a repeated label is one electrode. */
+function distinctTuples(buckets, keys) {
+  const where = new Map();
+  keys.forEach((key, position) => {
+    for (const e of new Set(buckets[key] ?? [])) where.set(e, [...(where.get(e) ?? []), position]);
+  });
+  let ways = new Map([[0, 1]]);
+  for (const positions of where.values()) {
+    const next = new Map(ways);
+    for (const [mask, count] of ways) {
+      for (const position of positions) {
+        if (mask & (1 << position)) continue;
+        next.set(mask | (1 << position), (next.get(mask | (1 << position)) ?? 0) + count);
+      }
+    }
+    ways = next;
+  }
+  return ways.get((1 << keys.length) - 1) ?? 0;
 }
 /** Where each pre-processing stage writes, mirroring `tit/jobs/plans.py::_pre_stage_output_dir`. */
 function preStageOutputDir(tag, subject) {
@@ -863,10 +941,11 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
     if (jobsPre.some((j) => j.will_overwrite)) warningsPre.push("Existing output will be replaced.");
     return { jobs: jobsPre, lock_conflicts: conflictsPre, cost: costFor(kind, ids.length, cfg), warnings: warningsPre, resolved: { stages: tags } };
   }
-  const jobsPlan = ids.map((subject) => {
+  const planned = PROJECT_LEVEL_KINDS.has(kind) ? [""] : ids;
+  const jobsPlan = planned.map((subject) => {
     const output_dir = outputDirFor(kind, subject, cfg);
     const exists = existsForFixture(kind, subject, cfg);
-    return { kind, subject, output_dir, exists, will_overwrite: exists && !!overwrite };
+    return { kind, subject, output_dir, exists, will_overwrite: exists && (REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite) };
   });
   const lock_conflicts = [];
   for (const subject of ids) {
@@ -1277,8 +1356,9 @@ const LOGGER_FOR = {
   stats: "tit.stats",
   source: "tit.source",
   blender: "tit.blender",
-  nifti_average: "tit.tools.nifti_average",
-  nilearn: "tit.tools.nilearn_visuals",
+  // The loggers those runners stream (tit/stats/nifti_average.py, tit/plotting/nilearn/__main__.py).
+  nifti_average: "tit.stats.nifti_average",
+  nilearn: "tit.plotting.nilearn",
   project_init: "tit.project_init",
   // internal-only JobKind (tit/jobs/spec.py::JOB_KINDS): an arbitrary module run as a "tools" job.
   tools: "tit.jobs.runner",
@@ -2539,7 +2619,9 @@ route("GET", "/api/scene/electrodes", (ctx) => {
   const problem = sceneSubjectProblem(subject);
   if (problem) return json(ctx.res, 404, { detail: problem });
   const detail = subjectDetail(subject);
-  if (!(detail.eeg_nets ?? []).includes(net)) return json(ctx.res, 404, { detail: `${subject} has no EEG net file '${net}'` });
+  // The real route takes a net's file name (`net in pm.list_eeg_caps(subject)`), a warped cap's
+  // included; the fixture's stem spelling is still taken for the pages that send it.
+  if (!(detail.eeg_nets ?? []).includes(net) && !capsOnSubject(subject).has(net)) return json(ctx.res, 404, { detail: `${subject} has no EEG net file '${net}'` });
   const names = electrodesFor(net);
   json(ctx.res, 200, {
     net,
@@ -2577,11 +2659,15 @@ route("GET", "/api/scene/volume-legend", (ctx) => {
 // ----------------------------------------------------------------------------------- caps (v1)
 // `tit/server/routes/caps.py`. The subject's nets are its fixture `eeg_nets` plus whatever a warp
 // added here (kept apart so other specs never see a changed net list); `/api/__mock/reset` clears both.
-const CAP_SOURCES = ["EEG10-10_UI_Jurak_2007.csv", "GSN-HydroCel-185", "GSN-HydroCel-256.csv"];
+// Every cap is named by its FILE name, as the real routes name it (`PathManager.list_eeg_caps`,
+// `tit.caps.source_caps`): the real `/api/caps/warp` answers 404 for "GSN-HydroCel-185". The
+// subject fixtures still list net stems (other pages key on them), so they gain ".csv" here.
+const CAP_SOURCES = ["EEG10-10_UI_Jurak_2007.csv", "GSN-HydroCel-185.csv", "GSN-HydroCel-256.csv"];
 const capsWarped = new Map(); // subject -> Set(names)
 const capsProject = new Set();
+const capFileName = (net) => (net.endsWith(".csv") ? net : `${net}.csv`);
 function capsOnSubject(subject) {
-  return new Set([...(subjectDetail(subject)?.eeg_nets ?? []), ...(capsWarped.get(subject) ?? [])]);
+  return new Set([...(subjectDetail(subject)?.eeg_nets ?? []).map(capFileName), ...(capsWarped.get(subject) ?? [])]);
 }
 route("GET", "/api/caps/available", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
@@ -2637,7 +2723,7 @@ route("POST", "/api/caps/upload", async (ctx) => {
 function capsNetPoints(subject, net) {
   const points = sceneElectrodePositions(electrodesFor(net));
   // GSN-HydroCel-185 carries one planted collapsed pair (E1/E2 0.5 mm apart) so the warning renders.
-  if (net === "GSN-HydroCel-185" && points.length > 1) points[1] = { ...points[1], world: points[0].world.map((v, i) => v + (i === 0 ? 0.5 : 0)) };
+  if (capFileName(net) === "GSN-HydroCel-185.csv" && points.length > 1) points[1] = { ...points[1], world: points[0].world.map((v, i) => v + (i === 0 ? 0.5 : 0)) };
   return points;
 }
 route("GET", "/api/caps/inspect", (ctx) => {
@@ -3440,9 +3526,30 @@ route("POST", "/api/jobs", async (ctx) => {
   if (missing.length) {
     return json(ctx.res, 422, { detail: `config is not a valid ${SCHEMA_DEF_FOR_KIND[body.kind]} for kind ${JSON.stringify(body.kind)}: ${missing.join(", ")}` });
   }
+  // `check_overwrite_permission`: the kinds whose runner replaces an existing folder need an
+  // explicit overwrite. Other kinds' mock plans never set `will_overwrite` without one.
+  if (REPLACES_WHEN_EXISTS_KINDS.has(body.kind) && !body.overwrite) {
+    const conflicts = planFor(body.kind, body.config, body.subject_ids ?? [], false).jobs.filter((j) => j.will_overwrite);
+    if (conflicts.length) {
+      return json(ctx.res, 409, { detail: `Outputs of this ${body.kind} job already exist. Explicit overwrite confirmation is required: ${conflicts.map((j) => j.output_dir).join("; ")}` });
+    }
+  }
   const job = createJob({ kind: body.kind, config: body.config, subject_ids: body.subject_ids ?? [], after: body.after ?? [], tags: body.tags ?? [], overwrite: !!body.overwrite });
+  recordBody(body.kind, body.config);
   json(ctx.res, 201, job.status);
 });
+// TIT_E2E_BODIES_LOG=<file>: every config an accepted submission creates a job from is appended
+// as one JSON line {kind, config}, so `tests/test_e2e_recorded_bodies.py` can hand each to the
+// real Python dataclass validators after a mock e2e run. The mock checks only `required` fields;
+// a page that bypasses or post-edits its builder would otherwise stay green here and be refused
+// (or crash a runner) on the real server. The `__mock_*` jobs are this mock's own, never a page's.
+const BODIES_LOG = process.env.TIT_E2E_BODIES_LOG ?? "";
+function recordBody(kind, config) {
+  if (!BODIES_LOG) return;
+  const cfg = config && typeof config === "object" ? config : {};
+  if (Object.keys(cfg).some((k) => k.startsWith("__mock_"))) return;
+  appendFileSync(BODIES_LOG, JSON.stringify({ kind, config: cfg }) + "\n");
+}
 // Mirrors tit.jobs.plans.plan_preprocessing's G1..G6 stage DAG (own dependency comments there):
 // each stage is only planned when its PreprocessConfig flag is set, every stage job's config is
 // the group's config with every step flag but its own forced False. A report is never a job.
@@ -3514,6 +3621,7 @@ route("POST", "/api/jobs/groups", async (ctx) => {
         );
       }
     }
+    for (const job of created) recordBody(body.kind, job.spec.config);
     return json(ctx.res, 201, { group_id: groupId, jobs: created.map((j) => j.status) });
   }
 
@@ -3530,6 +3638,7 @@ route("POST", "/api/jobs/groups", async (ctx) => {
       created.push(job);
     }
   }
+  for (const job of created) recordBody("pre", job.spec.config);
   json(ctx.res, 201, { group_id: groupId, jobs: created.map((j) => j.status) });
 });
 route("GET", "/api/jobs/:id", (ctx) => {
@@ -3605,7 +3714,17 @@ route("POST", "/api/jobs/:id/force", (ctx) => {
 // runtime; viewing is the Tetravox embed at /tetravox/ (served above), fed by GET
 // /api/files/raw/{path} and this route's `view` (a real Tetravox ViewSpec v2 document). `scene` is
 // the same document with host paths -- what POST /api/view/open writes to disk for export.
-route("GET", "/api/view/:kind", (ctx) => json(ctx.res, 200, buildViewSpec(ctx.params.kind, ctx.url.searchParams)));
+/** `tit/viewspec.py::build_view` returns None -- the routes' 404 -- for an analysis view that does
+ *  not name its subject, simulation AND analysis; this mock used to draw one anyway, so a page
+ *  that sent no analysis name stayed green here and 404'd on the real server. */
+function viewUnresolvable(kind, q) {
+  return kind === "analysis" && !["subject", "simulation", "analysis"].every((key) => q.get(key));
+}
+const VIEW_NOT_FOUND = { detail: "Unknown subject/simulation/analysis" };
+route("GET", "/api/view/:kind", (ctx) => {
+  if (viewUnresolvable(ctx.params.kind, ctx.url.searchParams)) return json(ctx.res, 404, VIEW_NOT_FOUND);
+  json(ctx.res, 200, buildViewSpec(ctx.params.kind, ctx.url.searchParams));
+});
 // POST /api/view/open. The mock writes no file (it has no project on disk) but answers the same
 // shape, including the two path languages and a scene whose dataset paths are *host* paths --
 // which is what the e2e's "Open calls the launch bridge with the file the server just wrote"
@@ -3632,6 +3751,7 @@ route("POST", "/api/view/open", async (ctx) => {
   for (const key of ["subject", "simulation", "space", "field", "analysis", "atlas", "roi", "path"]) {
     if (body[key] !== undefined && body[key] !== null && body[key] !== "") params.set(key, String(body[key]));
   }
+  if (viewUnresolvable(kind, params)) return json(ctx.res, 404, VIEW_NOT_FOUND);
   const spec = buildViewSpec(kind, params);
   const localise = (u) =>
     typeof u === "string" && u.startsWith("/api/files/raw/") ? "/" + decodeURIComponent(u.slice("/api/files/raw/".length)) : u;

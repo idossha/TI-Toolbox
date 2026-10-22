@@ -85,7 +85,9 @@ test("lists caps, warns on collapsed electrodes, and confirms before replacing",
   await expect(page.getByTestId("existing-outputs-detail")).toBeVisible();
   expect(bodies).toEqual([]);
   await page.getByTestId("existing-outputs-replace").click();
-  await expect.poll(() => bodies).toEqual([{ subject: "ernie", caps: ["GSN-HydroCel-185"], overwrite: true }]);
+  // The wire carries the cap's FILE name -- the only name the real /api/caps/warp knows
+  // (`PathManager.list_eeg_caps`; `tests/test_caps_name_roundtrip.py`) -- though the table shows the stem.
+  await expect.poll(() => bodies).toEqual([{ subject: "ernie", caps: ["GSN-HydroCel-185.csv"], overwrite: true }]);
 
   await caps.getByRole("checkbox", { name: "Select EEG10-10_UI_Jurak_2007" }).click();
   await page.getByTestId("caps-apply").click();

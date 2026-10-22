@@ -1,0 +1,374 @@
+{
+ "generated_by": "dev/gen_plan_output_dirs.py",
+ "project_placeholder": "{project}",
+ "cases": [
+  {
+   "id": "stats_group_comparison",
+   "kind": "stats",
+   "subject_ids": [],
+   "config": {
+    "_type": "GroupComparisonConfig",
+    "analysis_name": "p38_compare",
+    "subjects": [
+     {
+      "subject_id": "001",
+      "simulation_name": "Thalamus",
+      "response": 1
+     },
+     {
+      "subject_id": "002",
+      "simulation_name": "Thalamus",
+      "response": 0
+     }
+    ]
+   },
+   "jobs": [
+    {
+     "subject": "",
+     "output_dir": "derivatives/ti-toolbox/stats/group_comparison/p38_compare"
+    }
+   ]
+  },
+  {
+   "id": "stats_correlation",
+   "kind": "stats",
+   "subject_ids": [],
+   "config": {
+    "_type": "CorrelationConfig",
+    "analysis_name": "p38_correlate",
+    "subjects": [
+     {
+      "subject_id": "001",
+      "simulation_name": "Thalamus",
+      "effect_size": 0.1
+     },
+     {
+      "subject_id": "002",
+      "simulation_name": "Thalamus",
+      "effect_size": 0.4
+     },
+     {
+      "subject_id": "003",
+      "simulation_name": "Thalamus",
+      "effect_size": 0.9
+     }
+    ]
+   },
+   "jobs": [
+    {
+     "subject": "",
+     "output_dir": "derivatives/ti-toolbox/stats/correlation/p38_correlate"
+    }
+   ]
+  },
+  {
+   "id": "stats_untyped",
+   "kind": "stats",
+   "subject_ids": [],
+   "config": {
+    "analysis_name": "p38_untyped",
+    "subjects": [
+     {
+      "subject_id": "001",
+      "simulation_name": "Thalamus",
+      "response": 1
+     },
+     {
+      "subject_id": "002",
+      "simulation_name": "Thalamus",
+      "response": 0
+     }
+    ]
+   },
+   "jobs": [
+    {
+     "subject": "",
+     "output_dir": "derivatives/ti-toolbox/stats/group_comparison/p38_untyped"
+    }
+   ]
+  },
+  {
+   "id": "nifti_average",
+   "kind": "nifti_average",
+   "subject_ids": [],
+   "config": {
+    "output_name": "p38_average",
+    "subjects": [
+     {
+      "subject_id": "001",
+      "simulation_name": "Thalamus",
+      "group": "A"
+     },
+     {
+      "subject_id": "002",
+      "simulation_name": "Thalamus",
+      "group": "B"
+     }
+    ]
+   },
+   "jobs": [
+    {
+     "subject": "",
+     "output_dir": "derivatives/ti-toolbox/nifti_average/p38_average"
+    }
+   ]
+  },
+  {
+   "id": "nilearn_named",
+   "kind": "nilearn",
+   "subject_ids": [],
+   "config": {
+    "subject_simulation_pairs": [
+     {
+      "subject_id": "001",
+      "simulation_name": "Thalamus"
+     }
+    ],
+    "subdir_name": "p38_glass"
+   },
+   "jobs": [
+    {
+     "subject": "",
+     "output_dir": "derivatives/ti-toolbox/nilearn_visuals/p38_glass"
+    }
+   ]
+  },
+  {
+   "id": "nilearn_default_subdir",
+   "kind": "nilearn",
+   "subject_ids": [],
+   "config": {
+    "subject_simulation_pairs": [
+     {
+      "subject_id": "001",
+      "simulation_name": "Thalamus"
+     }
+    ]
+   },
+   "jobs": [
+    {
+     "subject": "",
+     "output_dir": "derivatives/ti-toolbox/nilearn_visuals/nilearn_visuals"
+    }
+   ]
+  },
+  {
+   "id": "blender_region_stl",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "RegionConfig",
+    "simulation_name": "Thalamus",
+    "format": "stl"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/Thalamus/stl"
+    }
+   ]
+  },
+  {
+   "id": "blender_region_ply",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "RegionConfig",
+    "simulation_name": "Thalamus",
+    "format": "ply"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/Thalamus/ply"
+    }
+   ]
+  },
+  {
+   "id": "blender_vector",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "VectorConfig",
+    "simulation_name": "Thalamus"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/Thalamus/vectors"
+    }
+   ]
+  },
+  {
+   "id": "blender_montage",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "MontageConfig",
+    "simulation_name": "Thalamus"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/montage_publication"
+    }
+   ]
+  },
+  {
+   "id": "blender_subcortical",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "SubcorticalConfig"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/sub-cortical"
+    }
+   ]
+  },
+  {
+   "id": "blender_untyped",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "simulation_name": "Thalamus"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/montage_publication"
+    }
+   ]
+  },
+  {
+   "id": "blender_region_stl_explicit_output_dir",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "RegionConfig",
+    "simulation_name": "Thalamus",
+    "format": "stl",
+    "output_dir": "{project}/derivatives/ti-toolbox/visual_exports/custom/region_stl"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/custom/region_stl"
+    }
+   ]
+  },
+  {
+   "id": "blender_vector_explicit_output_dir",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "VectorConfig",
+    "simulation_name": "Thalamus",
+    "output_dir": "{project}/derivatives/ti-toolbox/visual_exports/custom/vector"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/custom/vector"
+    }
+   ]
+  },
+  {
+   "id": "blender_montage_explicit_output_dir",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "MontageConfig",
+    "simulation_name": "Thalamus",
+    "output_dir": "{project}/derivatives/ti-toolbox/visual_exports/custom/montage"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/custom/montage"
+    }
+   ]
+  },
+  {
+   "id": "blender_subcortical_explicit_output_dir",
+   "kind": "blender",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "_type": "SubcorticalConfig",
+    "output_dir": "{project}/derivatives/ti-toolbox/visual_exports/custom/subcortical"
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/ti-toolbox/visual_exports/custom/subcortical"
+    }
+   ]
+  }
+ ],
+ "module_for_kind": {
+  "analyzer": "tit.analyzer",
+  "blender": "tit.blender",
+  "ex": "tit.opt.ex",
+  "flex": "tit.opt.flex",
+  "flex_adaptive": "tit.opt.flex",
+  "flex_pareto": "tit.opt.flex",
+  "leadfield": "tit.opt.leadfield_runner",
+  "mex": "tit.opt.mex",
+  "nifti_average": "tit.stats.nifti_average",
+  "nilearn": "tit.plotting.nilearn",
+  "pre": "tit.pre",
+  "project_init": "tit.project_init",
+  "sim": "tit.sim",
+  "source": "tit.source",
+  "stats": "tit.stats"
+ },
+ "runner_package_for_kind": {
+  "analyzer": "tit.analyzer",
+  "blender": "tit.blender",
+  "ex": "tit.opt.ex",
+  "flex": "tit.opt.flex",
+  "flex_adaptive": "tit.opt.flex",
+  "flex_pareto": "tit.opt.flex",
+  "leadfield": "tit.opt",
+  "mex": "tit.opt.mex",
+  "nifti_average": "tit.stats",
+  "nilearn": "tit.plotting.nilearn",
+  "pre": "tit.pre",
+  "project_init": "tit.project_init",
+  "sim": "tit.sim",
+  "source": "tit.source",
+  "stats": "tit.stats"
+ }
+}
