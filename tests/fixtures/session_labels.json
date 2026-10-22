@@ -1,0 +1,100 @@
+{
+  "_comment": "groundTruth: authored from docs/dev/DECISIONS.md 2026-10-22 (launchers offer and stop only labelled sessions). A running container is a TI-Toolbox session when its service is tit (tit.service, else com.docker.compose.service; empty or absent counts as tit) and it carries tit.stack=ti-toolbox-v3, a non-empty tit.project or a non-empty tit.host_project_dir. No released launcher ever stamped another tit.stack value. Read by tests/test_launch_contract.py (tit.launch, loader.sh) and desktop/tests/unit/launch-contract.test.ts (isToolboxContainer).",
+  "rows": [
+    {
+      "label": "the four labels every launcher stamps",
+      "labels": {"tit.project": "ti-toolbox-87db4d88", "tit.stack": "ti-toolbox-v3", "tit.service": "tit", "tit.host_project_dir": "/Users/ido/datasets/000"},
+      "session": true
+    },
+    {
+      "label": "loader.sh compose run: launcher labels plus compose's own",
+      "labels": {"com.docker.compose.project": "ti-toolbox-87db4d88", "com.docker.compose.service": "tit", "com.docker.compose.oneoff": "True", "tit.project": "ti-toolbox-87db4d88", "tit.stack": "ti-toolbox-v3", "tit.service": "tit", "tit.host_project_dir": "/Users/ido/datasets/000"},
+      "session": true
+    },
+    {
+      "label": "host project dir only",
+      "labels": {"tit.host_project_dir": "/Users/ido/datasets/000"},
+      "session": true
+    },
+    {
+      "label": "project hash only",
+      "labels": {"tit.project": "ti-toolbox-87db4d88"},
+      "session": true
+    },
+    {
+      "label": "stack generation only",
+      "labels": {"tit.stack": "ti-toolbox-v3"},
+      "session": true
+    },
+    {
+      "label": "empty tit.service counts as absent",
+      "labels": {"tit.service": "", "tit.project": "ti-toolbox-87db4d88"},
+      "session": true
+    },
+    {
+      "label": "compose service tit without tit.service",
+      "labels": {"com.docker.compose.service": "tit", "tit.project": "ti-toolbox-87db4d88"},
+      "session": true
+    },
+    {
+      "label": "host dir with a comma and an equals sign",
+      "labels": {"tit.service": "tit", "tit.host_project_dir": "/Users/x/a,b=c"},
+      "session": true
+    },
+    {
+      "label": "a pipe in the host dir does not hide the service that follows it",
+      "labels": {"tit.host_project_dir": "/Users/x/a|b", "tit.service": "worker"},
+      "session": false
+    },
+    {
+      "label": "legacy tit.stack=ti-toolbox (never stamped by a release)",
+      "labels": {"tit.stack": "ti-toolbox"},
+      "session": false
+    },
+    {
+      "label": "another service in the stack",
+      "labels": {"tit.stack": "ti-toolbox-v3", "tit.service": "worker"},
+      "session": false
+    },
+    {
+      "label": "QSIPrep sibling with a host dir",
+      "labels": {"tit.service": "qsiprep", "tit.host_project_dir": "/Users/ido/datasets/000"},
+      "session": false
+    },
+    {
+      "label": "compose service simnibs with a project hash",
+      "labels": {"com.docker.compose.service": "simnibs", "tit.project": "ti-toolbox-87db4d88"},
+      "session": false
+    },
+    {
+      "label": "compose service ti-toolbox with a project hash",
+      "labels": {"com.docker.compose.service": "ti-toolbox", "tit.project": "ti-toolbox-87db4d88"},
+      "session": false
+    },
+    {
+      "label": "FreeSurfer job sibling",
+      "labels": {"tit.kind": "freesurfer", "tit.job_id": "job-123"},
+      "session": false
+    },
+    {
+      "label": "GPU probe",
+      "labels": {"tit.gpu-probe": "true"},
+      "session": false
+    },
+    {
+      "label": "service tit but no identity label",
+      "labels": {"tit.service": "tit"},
+      "session": false
+    },
+    {
+      "label": "empty identity labels",
+      "labels": {"tit.project": "", "tit.host_project_dir": ""},
+      "session": false
+    },
+    {
+      "label": "no labels (a scratch docker run of the image)",
+      "labels": {},
+      "session": false
+    }
+  ]
+}

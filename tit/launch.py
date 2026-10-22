@@ -19,9 +19,9 @@ import time
 import urllib.error
 import urllib.request
 import webbrowser
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from tit.host_path import project_dir_name
 
@@ -321,6 +321,9 @@ def hash8(text: str) -> str:
     container name and ``tit.project`` label for the same directory, which is
     what lets ``tit launch --status`` see a container the app started and the
     app attach to one this launcher started.
+
+    It runs over UTF-16 code units, as JavaScript's ``charCodeAt`` does: an emoji
+    is two units, not one code point (``tests/fixtures/project_hash.json``).
     """
     mask = 0xFFFFFFFF
 
@@ -328,10 +331,11 @@ def hash8(text: str) -> str:
         product = ((a & mask) * (b & mask)) & mask
         return product - 0x100000000 if product & 0x80000000 else product
 
-    h1 = 0xDEADBEEF ^ len(text)
-    h2 = 0x41C6CE57 ^ len(text)
-    for char in text:
-        code = ord(char)
+    data = text.encode("utf-16-be", "surrogatepass")
+    units = [int.from_bytes(data[i : i + 2], "big") for i in range(0, len(data), 2)]
+    h1 = 0xDEADBEEF ^ len(units)
+    h2 = 0x41C6CE57 ^ len(units)
+    for code in units:
         h1 = imul(h1 ^ code, 2654435761)
         h2 = imul(h2 ^ code, 1597334677)
     h1 = imul(h1 ^ ((h1 & mask) >> 16), 2246822507) ^ imul(
@@ -358,14 +362,71 @@ def default_image() -> str:
     """
     tag = os.environ.get("TIT_IMAGE_TAG", "").strip()
     if tag:
-        return tag if "/" in tag else f"{IMAGE_REPO}:{tag}"
+        return normalize_image(tag)
     return interpolate(load_spec().image, {})
 
 
+def normalize_image(reference: str) -> str:
+    """A bare tag (``v3.0.0``) names a release of the toolbox image; a reference with a
+    repository is kept. ``loader.sh``'s ``resolved_image`` applies the same rule, so every
+    launcher hands Docker and the desktop app a full reference, never ``library/v3.0.0``.
+    """
+    return reference if "/" in reference else f"{IMAGE_REPO}:{reference}"
+
+
+_PORT = re.compile(r"[0-9]+")
+_SECONDS = re.compile(r"[0-9]+(\.[0-9]+)?")
+
+
+def parse_port(value: object) -> int:
+    """A TCP port written in decimal digits, 1-65535; ``08765`` is 8765 (``loader.sh``'s rule)."""
+    text = str(value)
+    if not _PORT.fullmatch(text) or not 1 <= int(text) <= 65535:
+        raise LaunchError("port must be 1–65535")
+    return int(text)
+
+
+def parse_timeout(value: object) -> float:
+    """Positive seconds written as ``N`` or ``N.N`` (``loader.sh``'s rule)."""
+    text = str(value)
+    if not _SECONDS.fullmatch(text):
+        raise LaunchError("timeout must be positive seconds")
+    seconds = float(text)
+    if seconds <= 0:
+        raise LaunchError("timeout must be positive")
+    return seconds
+
+
+def user_config_path(
+    *,
+    host_platform: str | None = None,
+    env: Mapping[str, str] | None = None,
+    home: str | None = None,
+) -> str:
+    """The host directory mounted at ``/root/.config/ti-toolbox`` (telemetry consent, prefs).
+
+    The documented table (``docs/wiki/telemetry.md``, ``PathManager.user_config_dir``):
+    macOS ``<home>/.config/ti-toolbox`` always, since a Dock launch never sees a shell's
+    ``XDG_CONFIG_HOME``; Windows ``%APPDATA%\\ti-toolbox`` (else ``<home>\\AppData\\Roaming``);
+    Linux and the rest ``$XDG_CONFIG_HOME/ti-toolbox`` when it is set and non-empty, else
+    ``<home>/.config/ti-toolbox``. The desktop's ``userConfigDir`` and ``loader.sh``'s
+    ``user_config_dir`` apply the same rule (``tests/fixtures/user_config_dirs.json``), so
+    a telemetry opt-out made through one launcher is the one every launcher mounts.
+    """
+    host_platform = sys.platform if host_platform is None else host_platform
+    env = os.environ if env is None else env
+    home = str(Path.home()) if home is None else home
+    if host_platform == "win32":
+        base = env.get("APPDATA") or str(PureWindowsPath(home, "AppData", "Roaming"))
+        return str(PureWindowsPath(base, "ti-toolbox"))
+    xdg = "" if host_platform == "darwin" else env.get("XDG_CONFIG_HOME")
+    base = xdg or str(PurePosixPath(home, ".config"))
+    return str(PurePosixPath(base, "ti-toolbox"))
+
+
 def user_config_dir() -> Path:
-    """``~/.config/ti-toolbox``, created if absent — mounted at ``/root/.config/ti-toolbox``."""
-    root = Path(os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config"))
-    path = root / "ti-toolbox"
+    """:func:`user_config_path` for this host, created if absent."""
+    path = Path(user_config_path())
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -478,6 +539,7 @@ def session_url(origin: str, token: str) -> str:
 
 def find_free_port(preferred: int = DEFAULT_PORT, attempts: int = 64) -> int:
     """First free TCP port at or above ``preferred`` on the loopback interface."""
+    parse_port(preferred)  # 0 would bind "any port"; a negative one overflows bind()
     for offset in range(attempts):
         candidate = preferred + offset
         if candidate > 65535:
@@ -612,6 +674,24 @@ def find_container(host_project_dir: str) -> dict | None:
     return None
 
 
+def is_session(labels: dict[str, str]) -> bool:
+    """True for a container a TI-Toolbox launcher started, judged by its labels alone.
+
+    Service ``tit`` (``tit.service``, else the compose service; empty counts as absent) and
+    one of ``tit.stack=ti-toolbox-v3``, ``tit.project`` or ``tit.host_project_dir``. The
+    desktop's ``isToolboxContainer`` and ``loader.sh``'s ``session_ids`` apply the same rule
+    (``tests/fixtures/session_labels.json``).
+    """
+    service = labels.get(LABEL_SERVICE) or labels.get("com.docker.compose.service")
+    if service and service != SERVICE_NAME:
+        return False
+    return bool(
+        labels.get(LABEL_STACK) == STACK_ID
+        or labels.get(LABEL_PROJECT)
+        or labels.get(LABEL_HOST_DIR)
+    )
+
+
 def find_running_containers() -> list[dict]:
     """Running toolbox sessions of every project: containers a launcher labelled.
 
@@ -622,10 +702,7 @@ def find_running_containers() -> list[dict]:
     containers = []
     for cid in result.stdout.split():
         info = json.loads(_docker("inspect", cid).stdout)[0]
-        labels = info.get("Config", {}).get("Labels") or {}
-        if labels.get(LABEL_SERVICE) not in (None, "", SERVICE_NAME):
-            continue
-        if labels.get(LABEL_STACK) or labels.get(LABEL_PROJECT):
+        if is_session(info.get("Config", {}).get("Labels") or {}):
             containers.append(info)
     return containers
 
@@ -836,14 +913,36 @@ def resolve_project(raw: str | None) -> str:
     path = Path(translate_project_path(raw)).expanduser()
     if not path.is_dir():
         raise LaunchError(f"project directory does not exist: {path}")
-    return os.path.realpath(path)
+    resolved = os.path.realpath(path)
+    check_project_path(resolved)
+    return resolved
+
+
+_DRIVE_PREFIX = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def check_project_path(path: str) -> None:
+    """Refuse what ``loader.sh`` refuses: a colon or newline, or the filesystem root.
+
+    A Docker bind ``SOURCE:TARGET`` cannot carry a colon in its source (a Windows drive
+    prefix aside), and ``/`` has no name to mount at ``/mnt/<name>``.
+    """
+    rest = path[2:] if os.name == "nt" and _DRIVE_PREFIX.match(path) else path
+    if "\n" in path or ":" in rest:
+        raise LaunchError("project path cannot contain newlines or colons")
+    if os.path.dirname(path) == path:
+        raise LaunchError("choose a project directory, not the filesystem root")
 
 
 def start(options: LaunchOptions) -> tuple[str, str]:
     """Ask before reusing or replacing any running toolbox container; return ``(origin, token)``."""
     echo = options.echo
-    require_docker()
+    # Every input is checked before the first Docker call: a recreate stops the selected
+    # container long before the run argv is built.
     host_project_dir = resolve_project(options.project)
+    parse_port(options.port)
+    parse_timeout(options.timeout)
+    require_docker()
     image = options.image or default_image()
     image_ready = False
 

@@ -19,6 +19,7 @@ import { createUpdateChecker, RELEASE_FEED, updateChecksEnabled } from "./update
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
+import { portFromEnv } from "./port";
 import { notifyJobCompletions, setJobFinishedListener, showNativeNotification, stopNotifyingJobCompletions } from "./jobsNotifier";
 import type { NotifyResult } from "../shared/jobNotifications";
 import { renderPlatesForJob } from "./roiPlates";
@@ -266,7 +267,7 @@ async function tryDevAutoConnect(win: BrowserWindow): Promise<boolean> {
   const projectDir = process.env.TIT_LAUNCH_PROJECT_DIR;
   if (containerId || projectDir) {
     try {
-      const result = containerId ? await stack.adopt(containerId) : await stack.start(projectDir!, { ...desktopStartOptions(), ...(process.env.TIT_LAUNCH_IMAGE ? { image: process.env.TIT_LAUNCH_IMAGE } : {}), ...(process.env.TIT_LAUNCH_PORT ? { preferredPort: Number(process.env.TIT_LAUNCH_PORT) } : {}) });
+      const result = containerId ? await stack.adopt(containerId) : await stack.start(projectDir!, { ...desktopStartOptions(), ...(process.env.TIT_LAUNCH_IMAGE ? { image: process.env.TIT_LAUNCH_IMAGE } : {}), ...(process.env.TIT_LAUNCH_PORT?.trim() ? { preferredPort: portFromEnv("TIT_LAUNCH_PORT", 8765) } : {}) });
       if (!result.ok) throw new Error(result.error);
       const connected = await connect(win, { url: result.url, token: result.token });
       if (!connected.ok) throw new Error(connected.error);
@@ -519,11 +520,10 @@ async function handleQuitRequest(triggerWindow: BrowserWindow | null, proceed: (
 function desktopStartOptions() {
   if (process.env.TIT_DEV_REPO_DIR) return { repoDir: process.env.TIT_DEV_REPO_DIR, staticDir: "/ti-toolbox/desktop/out/renderer", serverReload: true };
   if (app.isPackaged || process.env.TIT_DEV_LAUNCHER !== "1") return {};
-  const port = Number(process.env.TIT_DEV_PORT || 8765);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("TIT_DEV_PORT must be a port number from 1 to 65535.");
+  const port = portFromEnv("TIT_DEV_PORT", 8765);
   return {
     ...(process.env.TIT_DEV_IMAGE_TAG ? { imageTag: process.env.TIT_DEV_IMAGE_TAG } : {}),
-    ...(process.env.TIT_DEV_PORT ? { preferredPort: Number(process.env.TIT_DEV_PORT) } : {}),
+    ...(process.env.TIT_DEV_PORT?.trim() ? { preferredPort: port } : {}),
     serverReload: true,
   };
 }

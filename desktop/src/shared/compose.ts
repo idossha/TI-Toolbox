@@ -76,6 +76,19 @@ export const LABEL_HOST_DIR = "tit.host_project_dir";
 /** Value of `tit.stack` on everything this app creates — one generation of the stack definition. */
 export const STACK_ID = "ti-toolbox-v3";
 
+/**
+ * The four labels every launcher stamps on the container it starts for `hostProjectDir`
+ * (`tit/launch.py#build_run_argv` and `loader.sh` stamp the same; `tests/fixtures/launch_contract.json`).
+ */
+export function stackLabels(hostProjectDir: string): Record<string, string> {
+  return {
+    [LABEL_PROJECT]: computeProjectName(hostProjectDir),
+    [LABEL_STACK]: STACK_ID,
+    [LABEL_SERVICE]: "tit",
+    [LABEL_HOST_DIR]: hostProjectDir,
+  };
+}
+
 export interface StackEnvInput {
   hostProjectDir: string;
   projectDirName: string;

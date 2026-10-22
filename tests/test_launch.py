@@ -549,8 +549,9 @@ def test_standalone_shell_management_needs_no_download_or_python(tmp_path, opera
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.parametrize("folder", ["project space", "projé"])
 @pytest.mark.parametrize("dev", [False, True])
-def test_shell_start_uses_shared_compose_and_project_identity(tmp_path, dev):
+def test_shell_start_uses_shared_compose_and_project_identity(tmp_path, dev, folder):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     trace = tmp_path / "args"
@@ -591,7 +592,9 @@ esac
         "bash",
     ):
         (bin_dir / name).symlink_to(shutil.which(name))
-    project = tmp_path / "project space"
+    # "projé": /bin/bash 3.2 used to hash the first UTF-8 byte of é, a name no other
+    # launcher derives (tests/fixtures/project_hash.json).
+    project = tmp_path / folder
     project.mkdir()
     env_trace = tmp_path / "dev-env"
     env = dict(
@@ -601,6 +604,9 @@ esac
         COPIED_SPEC=str(copied_spec),
         DEV_ENV_TRACE=str(env_trace),
         XDG_CONFIG_HOME=str(tmp_path / "config"),
+        # macOS ignores XDG_CONFIG_HOME (tests/fixtures/user_config_dirs.json): keep the
+        # real ~/.config/ti-toolbox/last-project.txt out of the test.
+        HOME=str(tmp_path / "home"),
     )
     env.pop("TIT_DEV_REPO_DIR", None)
     env.pop("TIT_IMAGE_TAG", None)
@@ -681,7 +687,9 @@ def test_nothing_is_translated_off_wsl(monkeypatch):
     """macOS and plain Linux never see a drive letter, and must not invent one."""
     monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
     monkeypatch.setattr(launch, "is_wsl", lambda: False)
-    assert launch.translate_project_path(r"C:\Users\me\project") == r"C:\Users\me\project"
+    assert (
+        launch.translate_project_path(r"C:\Users\me\project") == r"C:\Users\me\project"
+    )
 
 
 # ---------------------------------------------------------------------------------------
@@ -702,7 +710,10 @@ def test_both_loaders_document_exactly_the_same_flags():
     because a flag that only one of them knows is a flag a user will type at the wrong one.
     """
     shell = subprocess.run(
-        ["bash", str(LOADER_SH), "--help"], capture_output=True, text=True, cwd=REPO_ROOT
+        ["bash", str(LOADER_SH), "--help"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
     )
     python = subprocess.run(
         [sys.executable, str(LOADER), "--help"],

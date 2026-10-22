@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import math
 import os
 from pathlib import Path
 import platform
@@ -34,7 +35,10 @@ from tit.launch import (
     default_image,
     is_wsl,
     logs as launch_logs,
+    normalize_image,
     open_in_browser,
+    parse_port,
+    parse_timeout,
     resolve_project,
     session_url,
     start,
@@ -146,7 +150,9 @@ def resolve_desktop_executable() -> str:
 
 def _fetch(url: str, destination: Path, *, progress: bool = False) -> None:
     context = ssl_context() if url.startswith("https:") else None
-    with urllib.request.urlopen(url, timeout=120, context=context) as response:  # noqa: S310 - fixed https/file base
+    with urllib.request.urlopen(  # noqa: S310 - fixed https/file base
+        url, timeout=120, context=context
+    ) as response:
         total = int(response.headers.get("Content-Length") or 0)
         done = 0
         with destination.open("wb") as handle:
@@ -232,6 +238,18 @@ def install_desktop_executable() -> str:
     return str(managed_executable(root / version))
 
 
+def _lenient(parse):
+    """An argparse ``type`` that converts a valid value and keeps any other as text."""
+
+    def convert(text: str):
+        try:
+            return parse(text)
+        except LaunchError:
+            return text
+
+    return convert
+
+
 def launch_arguments() -> argparse.ArgumentParser:
     """The ``launch`` options, as a reusable parent parser.
 
@@ -253,9 +271,11 @@ def launch_arguments() -> argparse.ArgumentParser:
         metavar="DIR",
         help="the BIDS project directory to open (default: $TIT_PROJECT_DIR)",
     )
+    # A bad --port or --timeout is refused by _dispatch in loader.sh's words and exit status, not
+    # by argparse's usage screen, so the argparse types keep an invalid value as text.
     parent.add_argument(
         "--port",
-        type=int,
+        type=_lenient(parse_port),
         default=8765,
         help="first host port to try (default: 8765; the next free one is used if it is taken)",
     )
@@ -290,7 +310,7 @@ def launch_arguments() -> argparse.ArgumentParser:
     )
     parent.add_argument(
         "--timeout",
-        type=float,
+        type=_lenient(parse_timeout),
         default=180.0,
         metavar="SECONDS",
         help="how long to wait for the server to answer (default: 180)",
@@ -504,7 +524,9 @@ def run_dev_web(root: Path, args: argparse.Namespace) -> int:
             "custom repository or digest."
         )
     if not (desktop / "node_modules").is_dir():
-        raise LaunchError("--web needs the desktop dependencies: npm --prefix desktop install")
+        raise LaunchError(
+            "--web needs the desktop dependencies: npm --prefix desktop install"
+        )
     env = dict(os.environ)
     if args.project:
         env["TIT_DEV_PROJECT_DIR"] = str(Path(args.project).expanduser().resolve())
@@ -515,7 +537,9 @@ def run_dev_web(root: Path, args: argparse.Namespace) -> int:
     env["TIT_LAUNCH_CONTAINER"] = args.container or ""
     env["TIT_DEV_MOUNT_REPO"] = "0" if args.no_mount_repo else "1"
     print("[dev] npm run dev:web (desktop/scripts/dev.ts)")
-    return subprocess.run(["npm", "run", "dev:web"], cwd=str(desktop), env=env).returncode
+    return subprocess.run(
+        ["npm", "run", "dev:web"], cwd=str(desktop), env=env
+    ).returncode
 
 
 def ensure_dev_bundle(root: Path) -> None:
@@ -617,8 +641,9 @@ def _run_desktop(
     else:
         env.pop("TIT_LAUNCH_PROJECT_DIR", None)
     env["TIT_LAUNCH_PORT"] = str(args.port)
-    env["TIT_LAUNCH_TIMEOUT"] = str(args.timeout)
-    env["TIT_LAUNCH_IMAGE"] = args.image or default_image()
+    # Whole seconds rounded up, loader.sh's spelling: both loaders hand Electron the same string.
+    env["TIT_LAUNCH_TIMEOUT"] = str(math.ceil(args.timeout))
+    env["TIT_LAUNCH_IMAGE"] = launch_image(args)
     env.pop("TIT_IMAGE_TAG", None)
     env["TIT_LAUNCH_EXISTING"] = args.existing or ""
     env["TIT_LAUNCH_CONTAINER"] = args.container or ""
@@ -634,8 +659,15 @@ def _run_desktop(
     return returncode
 
 
+def launch_image(args: argparse.Namespace) -> str:
+    """``--image``, else ``TIT_IMAGE_TAG``, else the compose default, as a full reference."""
+    return normalize_image(args.image) if args.image else default_image()
+
 
 def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
+    # loader.sh refuses a bad port or timeout before anything else, --print-config included.
+    args.port = parse_port(args.port)
+    args.timeout = parse_timeout(args.timeout)
     repo_dir, static_dir, server_reload = dev_overrides(args)
     root = dev_repo(args)
     if args.build or args.web:
@@ -645,13 +677,11 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
     desktop = wants_desktop(args)
     if args.print_config:
         project = resolve_project(args.project) if args.project else ""
-        executable = (
-            resolve_desktop_executable() if desktop and root is None else ""
-        )
+        executable = resolve_desktop_executable() if desktop and root is None else ""
         print(f"mode      {'dev' if root else 'user'}")
         print(f"project   {project}")
         print(f"port      {args.port}")
-        print(f"image     {args.image or default_image()}")
+        print(f"image     {launch_image(args)}")
         print(f"container {container_name(project) if project else ''}")
         print(f"origin    http://127.0.0.1:{args.port}")
         print(f"ui        {'desktop' if desktop else 'browser'}")
@@ -700,14 +730,17 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
             if not executable:
                 if args.desktop:
                     raise LaunchError(reason)
-                print(f"{invocation}: {reason}; opening the browser instead.", file=sys.stderr)
+                print(
+                    f"{invocation}: {reason}; opening the browser instead.",
+                    file=sys.stderr,
+                )
         if executable or helper is not None:
             return _run_desktop(args, executable, helper, repo_dir)
 
     options = LaunchOptions(
         project=args.project,
         port=args.port,
-        image=args.image,
+        image=normalize_image(args.image) if args.image else None,
         open_browser=not args.no_open,
         timeout=args.timeout,
         repo_dir=repo_dir,

@@ -263,6 +263,7 @@ export function parsePort(value: string, key: string): StackPort {
   const hostPort = Number(hostPortRaw);
   const containerPort = Number(containerPortRaw);
   if (!Number.isInteger(hostPort) || !Number.isInteger(containerPort)) throw new StackError(`compose: ${key} has a non-numeric port: ${value}`, key);
+  if ([hostPort, containerPort].some((port) => port < 1 || port > 65535)) throw new StackError(`compose: ${key} has a port outside 1-65535: ${value}`, key);
   return { hostIp: hostIp === "localhost" ? "127.0.0.1" : hostIp, hostPort, containerPort, protocol };
 }
 

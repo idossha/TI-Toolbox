@@ -89,7 +89,18 @@ desktop_no_project=0
 if [ "$ui" = desktop ] && [ "$open_browser" = 1 ] && [ "$mode" = start ] && [ -z "$project" ]; then
     desktop_no_project=1; interactive=0
 fi
-config="${XDG_CONFIG_HOME:-$HOME/.config}/ti-toolbox"
+# The host directory mounted at /root/.config/ti-toolbox (telemetry consent, prefs): the rule of
+# tit/launch.py::user_config_path and desktop userConfig.ts (tests/fixtures/user_config_dirs.json).
+# macOS ignores XDG_CONFIG_HOME, which a Dock launch of the app never sees. This script never runs
+# on native Windows, where that rule is %APPDATA%. bash's own OSTYPE, not uname: --stop and
+# --status run on a minimal PATH.
+user_config_dir() {
+    case "${OSTYPE:-}" in
+        darwin*) printf '%s/.config/ti-toolbox' "$HOME" ;;
+        *) printf '%s/ti-toolbox' "${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+    esac
+}
+config="$(user_config_dir)"
 if [ "$interactive" = 1 ]; then
     [ -t 0 ] || { printf 'ti-toolbox: interactive setup needs a terminal; pass --project DIR\n' >&2; exit 2; }
     printf '\nWelcome to TI-Toolbox\n'
@@ -123,7 +134,10 @@ else
     case "$project" in *$'\n'*|*:*) die 'project path cannot contain newlines or colons' ;; esac
     [ "$project" != / ] || die 'choose a project directory, not the filesystem root'
 fi
-[[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -gt 0 ] && [ "$port" -le 65535 ] || die 'port must be 1–65535'
+[[ "$port" =~ ^[0-9]+$ ]] || die 'port must be 1–65535'
+# Decimal, as tit/launch.py::parse_port reads it: bash arithmetic would take 08765 for octal.
+port="${port#"${port%%[!0]*}"}"
+[ -n "$port" ] && [ "${#port}" -le 5 ] && [ "$port" -le 65535 ] || die 'port must be 1–65535'
 [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || die 'timeout must be positive seconds'
 timeout="$(awk -v t="$timeout" 'BEGIN {print int(t)+(t>int(t))}')"
 [ "$timeout" -gt 0 ] || die 'timeout must be positive'
@@ -247,17 +261,67 @@ compose_image() {
     # shellcheck disable=SC2016
     sed -n 's/^[[:space:]]*image: idossha\/ti-toolbox:${TIT_IMAGE_TAG:-\([^}]*\)}.*/idossha\/ti-toolbox:\1/p' "$spec" 2>/dev/null | head -1
 }
-# Match the Python/Electron project hash so all entry points can attach and stop.
+# --image, else TIT_IMAGE_TAG, else the compose default, as one full reference: a bare tag names a
+# release of idossha/ti-toolbox (tit/launch.py::normalize_image). Empty only without a compose file.
+resolved_image() {
+    local ref="${image:-$(compose_image)}"
+    case "$ref" in ''|*/*) printf '%s' "$ref" ;; *) printf 'idossha/ti-toolbox:%s' "$ref" ;; esac
+}
+# Match the Python/Electron project hash so all entry points can attach and stop. It runs over
+# UTF-16 code units (JavaScript's charCodeAt), decoded here from the path's UTF-8 bytes: a bash
+# character is a byte under LC_ALL=C, and bash 3.2 reads only a character's first byte even in a
+# UTF-8 locale (tests/fixtures/project_hash.json).
 project_stack() {
-    local text="$1" h1 h2 i code hash
-    h1=$((0xDEADBEEF ^ ${#text})); h2=$((0x41C6CE57 ^ ${#text}))
-    for ((i=0; i<${#text}; i++)); do
-        printf -v code '%d' "'${text:i:1}"
+    local bytes units=() n i=0 b cp need h1 h2 k code hash
+    # shellcheck disable=SC2207
+    bytes=($(printf '%s' "$1" | LC_ALL=C od -An -v -tu1))
+    n=${#bytes[@]}
+    while [ "$i" -lt "$n" ]; do
+        b=${bytes[i]}; i=$((i + 1))
+        if [ "$b" -lt 128 ]; then cp=$b; need=0
+        elif [ "$b" -ge 240 ]; then cp=$((b & 7)); need=3
+        elif [ "$b" -ge 224 ]; then cp=$((b & 15)); need=2
+        elif [ "$b" -ge 192 ]; then cp=$((b & 31)); need=1
+        else cp=65533; need=0; fi
+        while [ "$need" -gt 0 ] && [ "$i" -lt "$n" ]; do
+            cp=$(( (cp << 6) | (bytes[i] & 63) )); i=$((i + 1)); need=$((need - 1))
+        done
+        if [ "$cp" -gt 65535 ]; then
+            units+=($(( 0xD800 + ((cp - 65536) >> 10) )) $(( 0xDC00 + ((cp - 65536) & 1023) )))
+        else
+            units+=("$cp")
+        fi
+    done
+    h1=$((0xDEADBEEF ^ ${#units[@]})); h2=$((0x41C6CE57 ^ ${#units[@]}))
+    for ((k=0; k<${#units[@]}; k++)); do
+        code=${units[k]}
         h1=$(( ((h1 ^ code) * 2654435761) & 0xFFFFFFFF ))
         h2=$(( ((h2 ^ code) * 1597334677) & 0xFFFFFFFF ))
     done
     hash=$(( (((h1 ^ (h1 >> 16)) * 2246822507) ^ ((h2 ^ (h2 >> 13)) * 3266489909)) & 0xFFFFFFFF ))
     printf 'ti-toolbox-%08x' "$hash"
+}
+# Running TI-Toolbox sessions of every project, from `docker ps --format
+# '{{.ID}}|{{.Names}}|{{.Image}}|{{.Labels}}'` lines on stdin. By the labels launchers stamp, never
+# by image or name: a scratch `docker run` of the image, a FreeSurfer job sibling or a GPU probe
+# must not be offered or stopped. Service tit (tit.service, else the compose service; empty is
+# absent) and one of tit.stack=ti-toolbox-v3, tit.project or tit.host_project_dir: the rule of
+# tit/launch.py::is_session and desktop isToolboxContainer (tests/fixtures/session_labels.json).
+session_ids() {
+    awk -F '|' '{
+        labels = $4
+        for (f = 5; f <= NF; f++) labels = labels "|" $f
+        split("", lab)
+        count = split(labels, parts, ",")
+        for (p = 1; p <= count; p++) {
+            eq = index(parts[p], "=")
+            if (eq > 0) lab[substr(parts[p], 1, eq - 1)] = substr(parts[p], eq + 1)
+        }
+        service = lab["tit.service"]
+        if (service == "") service = lab["com.docker.compose.service"]
+        if (service != "" && service != "tit") next
+        if (lab["tit.stack"] == "ti-toolbox-v3" || lab["tit.project"] != "" || lab["tit.host_project_dir"] != "") print $1
+    }'
 }
 # --dev changes only the source of the server and renderer; everything else is identical.
 if [ -n "$repo" ]; then
@@ -314,11 +378,10 @@ if [ "$build" = 1 ] || [ "$web" = 1 ]; then
     cd "$repo/desktop" && exec npm run dev:web
 fi
 if [ "$print_config" = 1 ]; then
-    resolved_image="${image:-$(compose_image)}"
     printf 'mode      %s\n' "$([ -n "$repo" ] && printf dev || printf user)"
     printf 'project   %s\n' "$project"
     printf 'port      %s\n' "$port"
-    printf 'image     %s\n' "$resolved_image"
+    printf 'image     %s\n' "$(resolved_image)"
     printf 'container %s\n' "$([ -n "$project" ] && printf '%s-tit-1' "$(project_stack "$project")")"
     printf 'origin    http://127.0.0.1:%s\n' "$port"
     printf 'ui        %s\n' "$ui"
@@ -337,7 +400,10 @@ if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
     # No project means "show the app's project page"; an unset variable is what a Dock launch has.
     if [ -n "$project" ]; then export TIT_LAUNCH_PROJECT_DIR="$project"; else unset TIT_LAUNCH_PROJECT_DIR; fi
     export TIT_LAUNCH_PORT="$port" TIT_LAUNCH_TIMEOUT="$timeout"
-    export TIT_LAUNCH_IMAGE="$image"
+    # The reference --print-config shows; TIT_IMAGE_TAG would otherwise reach Electron's own
+    # compose interpolation as a second, bare spelling of it (tit/cli.py::_run_desktop drops it too).
+    TIT_LAUNCH_IMAGE="$(resolved_image)"; export TIT_LAUNCH_IMAGE
+    unset TIT_IMAGE_TAG
     # --dev is a bind mount, and Electron is what starts the container, so the checkout has to
     # travel with the handoff; tit/cli.py::_run_desktop sets the same variable.
     # A checkout keeps the developer path: Electron from desktop/node_modules.
@@ -392,9 +458,7 @@ fi
 case "$image" in *[!a-zA-Z0-9_./:@-]*|'') die 'invalid image reference' ;; esac
 [[ "$image" == */* ]] || image="idossha/ti-toolbox:$image"
 read_env() { docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$ids" | sed -n "s/^$1=//p"; }
-# Sessions of every project, by the labels launchers stamp. Never by image or name: a scratch
-# `docker run` of the image, a FreeSurfer job sibling or a GPU probe must not be offered or stopped.
-running_ids="$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Labels}}' | awk -F '|' '$4 ~ /(^|,)tit.service=/ && $4 !~ /(^|,)tit.service=tit(,|$)/ {next} $4 ~ /(^|,)tit.stack=ti-toolbox(-v3)?(,|$)/ {print $1}')"
+running_ids="$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Labels}}' | session_ids)"
 if [ -n "$running_ids" ]; then
     named="$container" flagged="$running_action"
     printf '\nRunning TI-Toolbox containers:\n'

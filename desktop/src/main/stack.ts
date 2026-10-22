@@ -40,6 +40,7 @@ import {
   computeProjectName,
   generateToken,
   stackErrorMessage,
+  stackLabels,
   type StackErrorKind,
 } from "../shared/compose";
 import { StackError, buildContainerPlan, parseComposeFile, type ContainerPlan } from "../shared/composeFile";
@@ -48,7 +49,7 @@ import { GPU_REQUEST, probeContainerGpu } from "./docker/gpu";
 import { discover } from "./docker/discover";
 import { DockerEngineClient, DockerEngineError, type DockerVersionInfo } from "./docker/engine";
 import { StackApi, type ContainerSummary } from "./docker/stackApi";
-import { findFreePort } from "./port";
+import { findFreePort, positiveFromEnv } from "./port";
 import { hostOsInfo, timezone } from "./hostInfo";
 import { ensureUserConfigDir } from "./userConfig";
 
@@ -56,8 +57,14 @@ const DEFAULT_PORT = 8765;
 const SERVICE_NAME = "tit";
 /** `POST /containers/create?platform=` — the whole reason an amd64 image runs on an arm64 host. */
 const MIN_API_VERSION = "1.41";
-/** How long a freshly started container has to answer `/api/health`; a cold amd64 start is slow. */
-const START_HEALTH_TIMEOUT_MS = Number(process.env.TIT_STACK_HEALTH_TIMEOUT_MS ?? (Number(process.env.TIT_LAUNCH_TIMEOUT || 120) * 1000));
+/**
+ * How long a freshly started container has to answer `/api/health`; a cold amd64 start is slow.
+ * `TIT_STACK_HEALTH_TIMEOUT_MS`, else the launcher's `TIT_LAUNCH_TIMEOUT` seconds, else 120 s.
+ */
+export function startHealthTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  if (env.TIT_STACK_HEALTH_TIMEOUT_MS?.trim()) return positiveFromEnv("TIT_STACK_HEALTH_TIMEOUT_MS", 0, env);
+  return positiveFromEnv("TIT_LAUNCH_TIMEOUT", 120, env) * 1000;
+}
 /**
  * How long an already-running container has to answer `/api/health` before `start()` gives up on
  * attaching to it. It used to be 10 s, on the premise that "a running stack answers immediately or
@@ -68,9 +75,11 @@ const START_HEALTH_TIMEOUT_MS = Number(process.env.TIT_STACK_HEALTH_TIMEOUT_MS ?
  * answered" against a container Docker itself reported healthy, while a scene cache was building;
  * seconds later the same endpoint answered in 4 ms. Declaring a live stack dead there costs the
  * developer their whole dev loop, so the probe now waits long enough to outlast a stall and says
- * what it saw when it does give up.
+ * what it saw when it does give up. `TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS`, else 45 s.
  */
-const ATTACH_HEALTH_TIMEOUT_MS = Number(process.env.TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS ?? 45_000);
+export function attachHealthTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  return positiveFromEnv("TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS", 45_000, env);
+}
 const EXIT_POLL_MS = 400;
 
 export type StackEvent =
@@ -268,6 +277,10 @@ export class StackManager {
     } catch {
       return { ok: false, error: `Project directory does not exist: ${hostProjectDir}` };
     }
+    // A bad timeout in the environment is refused before Docker is touched, not after a container
+    // exists and its health wait gives up at once ("within NaNs").
+    startHealthTimeoutMs();
+    attachHealthTimeoutMs();
 
     this.progress("Looking for Docker…");
     const found = await discover();
@@ -325,7 +338,7 @@ export class StackManager {
     if (!port || !token) throw new StackStartError("unknown", "the running container does not carry a server port and token");
     const origin = `http://127.0.0.1:${port}`;
     try {
-      await this.host.waitForHealth(origin, ATTACH_HEALTH_TIMEOUT_MS);
+      await this.host.waitForHealth(origin, attachHealthTimeoutMs());
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       throw new StackStartError(
@@ -351,7 +364,7 @@ export class StackManager {
     const token = state.env.TIT_SERVER_TOKEN;
     if (!state.running || !port || !token) return { ok: false, error: "Selected container has no running TI-Toolbox server." };
     const origin = `http://127.0.0.1:${port}`;
-    await this.host.waitForHealth(origin, ATTACH_HEALTH_TIMEOUT_MS);
+    await this.host.waitForHealth(origin, attachHealthTimeoutMs());
     const hostProjectDir = state.labels[LABEL_HOST_DIR] || state.env.LOCAL_PROJECT_DIR || "";
     this.current = { projectName: state.labels[LABEL_PROJECT] || "", hostProjectDir, containerId: state.Id, containerName: state.Name, image: state.image, origin, token, port };
     return { ok: true, url: origin, token, attached: true };
@@ -387,16 +400,7 @@ export class StackManager {
       if (!service) throw new StackStartError("compose-invalid", "services.tit is required.");
       service.image = options.image;
     }
-    const plan = buildContainerPlan(stack, {
-      serviceName: SERVICE_NAME,
-      projectName,
-      labels: {
-        [LABEL_PROJECT]: projectName,
-        [LABEL_STACK]: STACK_ID,
-        [LABEL_SERVICE]: SERVICE_NAME,
-        [LABEL_HOST_DIR]: hostProjectDir,
-      },
-    });
+    const plan = buildContainerPlan(stack, { serviceName: SERVICE_NAME, projectName, labels: stackLabels(hostProjectDir) });
     if (plan.hostPort !== port) {
       throw new StackStartError("compose-invalid", `services.${SERVICE_NAME}.ports must publish \${TIT_SERVER_PORT} (got ${plan.hostPort}, expected ${port})`);
     }
@@ -514,9 +518,10 @@ export class StackManager {
    */
   private async waitForServer(api: StackApi, origin: string, containerId: string, containerPort: number): Promise<void> {
     let settled = false;
-    const health = this.host.waitForHealth(origin, START_HEALTH_TIMEOUT_MS).then(() => "healthy" as const);
+    const timeoutMs = startHealthTimeoutMs();
+    const health = this.host.waitForHealth(origin, timeoutMs).then(() => "healthy" as const);
     const exited = (async () => {
-      const deadline = Date.now() + START_HEALTH_TIMEOUT_MS;
+      const deadline = Date.now() + timeoutMs;
       while (!settled && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, EXIT_POLL_MS));
         if (settled) break;
@@ -772,10 +777,14 @@ export function createStackManager(host: StackHost): StackManager {
 /**
  * A toolbox session: a container a TI-Toolbox launcher created, known by the labels every launcher
  * stamps. Never by image or name — a scratch `docker run` of the image, a job's FreeSurfer
- * sibling or a GPU probe would then be offered for Recreate, and stopped with its work.
+ * sibling or a GPU probe would then be offered for Recreate, and stopped with its work. Service
+ * `tit` (`tit.service`, else the compose service; empty is absent) and one of
+ * `tit.stack=ti-toolbox-v3`, `tit.project` or `tit.host_project_dir`: the rule of
+ * `tit/launch.py#is_session` and `loader.sh#session_ids` (`tests/fixtures/session_labels.json`).
  */
 export function isToolboxContainer(container: ContainerSummary): boolean {
-  const service = container.Labels?.[LABEL_SERVICE] || container.Labels?.["com.docker.compose.service"];
-  if (service && !["tit", "ti-toolbox", "simnibs"].includes(service)) return false;
-  return Boolean(container.Labels?.[LABEL_STACK] === STACK_ID || container.Labels?.[LABEL_PROJECT] || container.Labels?.[LABEL_HOST_DIR]);
+  const labels = container.Labels ?? {};
+  const service = labels[LABEL_SERVICE] || labels["com.docker.compose.service"];
+  if (service && service !== SERVICE_NAME) return false;
+  return Boolean(labels[LABEL_STACK] === STACK_ID || labels[LABEL_PROJECT] || labels[LABEL_HOST_DIR]);
 }

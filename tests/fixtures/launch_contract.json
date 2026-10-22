@@ -1,0 +1,148 @@
+{
+  "_comment": "groundTruth: authored by reading docker-compose.yml (services.tit volumes/environment/ports) with the inputs below substituted by hand; the tit.project label and container name are copied from tests/fixtures/project_hash.json (generated) and a test checks they still agree. Read by tests/test_launch_contract.py (tit.launch.build_run_argv; loader.sh's exported env and rewritten compose for the non-Windows cases) and desktop/tests/unit/launch-contract.test.ts (buildStackEnv + composeFile). A value given as {python, ts} is spelled differently by the two launchers on purpose: TIT_HOST_OS is platform.system().lower() in Python and os.platform() in Electron, and tit/telemetry.py canonicalises both to 'windows'.",
+  "cases": [
+    {
+      "label": "macOS user run",
+      "input": {
+        "host_project_dir": "/Users/x/My Data",
+        "port": 8799,
+        "token": "T",
+        "user_config": "/Users/x/.config/ti-toolbox",
+        "timezone": "Europe/Berlin",
+        "no_telemetry": "1",
+        "host_os": "darwin",
+        "host_os_version": "24.6.0",
+        "host_arch": "arm64",
+        "repo_dir": "",
+        "static_dir": "",
+        "server_reload": false
+      },
+      "expected": {
+        "container_name": "ti-toolbox-67935816-tit-1",
+        "labels": {
+          "tit.project": "ti-toolbox-67935816",
+          "tit.stack": "ti-toolbox-v3",
+          "tit.service": "tit",
+          "tit.host_project_dir": "/Users/x/My Data"
+        },
+        "environment": {
+          "PROJECT_DIR_NAME": "My Data",
+          "LOCAL_PROJECT_DIR": "/Users/x/My Data",
+          "TIT_SERVER_TOKEN": "T",
+          "TIT_SERVER_PORT": "8799",
+          "TIT_STATIC_DIR": "",
+          "PYTHONPATH": "/ti-toolbox",
+          "TIT_REPO_DIR": "",
+          "TIT_SERVER_RELOAD": "",
+          "TZ": "Europe/Berlin",
+          "TIT_HOST_OS": "darwin",
+          "TIT_HOST_OS_VERSION": "24.6.0",
+          "TIT_HOST_ARCH": "arm64",
+          "TIT_NO_TELEMETRY": "1"
+        },
+        "volumes": [
+          "/Users/x/My Data:/mnt/My Data",
+          "/Users/x/.config/ti-toolbox:/root/.config/ti-toolbox",
+          "/var/run/docker.sock:/var/run/docker.sock"
+        ],
+        "publish": "127.0.0.1:8799:8799"
+      }
+    },
+    {
+      "label": "macOS developer run (--dev)",
+      "input": {
+        "host_project_dir": "/Users/x/My Data",
+        "port": 8799,
+        "token": "T",
+        "user_config": "/Users/x/.config/ti-toolbox",
+        "timezone": "Europe/Berlin",
+        "no_telemetry": "1",
+        "host_os": "darwin",
+        "host_os_version": "24.6.0",
+        "host_arch": "arm64",
+        "repo_dir": "/Users/x/TI-toolbox",
+        "static_dir": "/ti-toolbox/desktop/out/renderer",
+        "server_reload": true
+      },
+      "expected": {
+        "container_name": "ti-toolbox-67935816-tit-1",
+        "labels": {
+          "tit.project": "ti-toolbox-67935816",
+          "tit.stack": "ti-toolbox-v3",
+          "tit.service": "tit",
+          "tit.host_project_dir": "/Users/x/My Data"
+        },
+        "environment": {
+          "PROJECT_DIR_NAME": "My Data",
+          "LOCAL_PROJECT_DIR": "/Users/x/My Data",
+          "TIT_SERVER_TOKEN": "T",
+          "TIT_SERVER_PORT": "8799",
+          "TIT_STATIC_DIR": "/ti-toolbox/desktop/out/renderer",
+          "PYTHONPATH": "/ti-toolbox",
+          "TIT_REPO_DIR": "/Users/x/TI-toolbox",
+          "TIT_SERVER_RELOAD": "1",
+          "TZ": "Europe/Berlin",
+          "TIT_HOST_OS": "darwin",
+          "TIT_HOST_OS_VERSION": "24.6.0",
+          "TIT_HOST_ARCH": "arm64",
+          "TIT_NO_TELEMETRY": "1"
+        },
+        "volumes": [
+          "/Users/x/My Data:/mnt/My Data",
+          "/Users/x/.config/ti-toolbox:/root/.config/ti-toolbox",
+          "/var/run/docker.sock:/var/run/docker.sock",
+          "/Users/x/TI-toolbox:/ti-toolbox"
+        ],
+        "publish": "127.0.0.1:8799:8799"
+      }
+    },
+    {
+      "label": "Windows host",
+      "windows": true,
+      "input": {
+        "host_project_dir": "C:\\Users\\me\\My Project",
+        "port": 8799,
+        "token": "T",
+        "user_config": "C:\\Users\\me\\AppData\\Roaming\\ti-toolbox",
+        "timezone": "Europe/Berlin",
+        "no_telemetry": "",
+        "host_os": {"python": "Windows", "ts": "win32"},
+        "host_os_version": "10.0.22631",
+        "host_arch": "AMD64",
+        "repo_dir": "",
+        "static_dir": "",
+        "server_reload": false
+      },
+      "expected": {
+        "container_name": "ti-toolbox-18b33f62-tit-1",
+        "labels": {
+          "tit.project": "ti-toolbox-18b33f62",
+          "tit.stack": "ti-toolbox-v3",
+          "tit.service": "tit",
+          "tit.host_project_dir": "C:\\Users\\me\\My Project"
+        },
+        "environment": {
+          "PROJECT_DIR_NAME": "My Project",
+          "LOCAL_PROJECT_DIR": "C:\\Users\\me\\My Project",
+          "TIT_SERVER_TOKEN": "T",
+          "TIT_SERVER_PORT": "8799",
+          "TIT_STATIC_DIR": "",
+          "PYTHONPATH": "/ti-toolbox",
+          "TIT_REPO_DIR": "",
+          "TIT_SERVER_RELOAD": "",
+          "TZ": "Europe/Berlin",
+          "TIT_HOST_OS": {"python": "windows", "ts": "win32"},
+          "TIT_HOST_OS_VERSION": "10.0.22631",
+          "TIT_HOST_ARCH": "AMD64",
+          "TIT_NO_TELEMETRY": ""
+        },
+        "volumes": [
+          "C:\\Users\\me\\My Project:/mnt/My Project",
+          "C:\\Users\\me\\AppData\\Roaming\\ti-toolbox:/root/.config/ti-toolbox",
+          "/var/run/docker.sock:/var/run/docker.sock"
+        ],
+        "publish": "127.0.0.1:8799:8799"
+      }
+    }
+  ]
+}

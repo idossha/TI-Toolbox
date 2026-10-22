@@ -222,9 +222,7 @@ def test_environment_override_wins_over_a_managed_install(tmp_path):
 def test_dev_checkout_keeps_the_electron_helper(tmp_path):
     """``--dev`` never downloads: developers run Electron from desktop/node_modules."""
     env = environment(tmp_path, TIT_RELEASE_BASE_URL="file:///nonexistent")
-    bash, python = run_loaders(
-        tmp_path, ["--print-config", "--dev", str(ROOT)], env
-    )
+    bash, python = run_loaders(tmp_path, ["--print-config", "--dev", str(ROOT)], env)
     assert bash.stdout == python.stdout
     assert resolved(bash) == ""
 
@@ -282,6 +280,15 @@ PARITY_CASES = {
     "project": ["--project", "{project}"],
     "dev-project": ["--dev", "{root}", "--project", "{project}"],
     "browser-project": ["--browser", "--project", "{project}"],
+    "image-tag-bare": ["--project", "{project}"],
+    "image-tag-full": ["--project", "{project}"],
+    "image-bare": ["--image", "v3.0.0", "--project", "{project}"],
+    "port-leading-zero": ["--port", "08765", "--project", "{project}"],
+}
+# The environment a case adds; the image-tag cases are the TIT_IMAGE_TAG override (2026-10-22).
+PARITY_ENV = {
+    "image-tag-bare": {"TIT_IMAGE_TAG": "v3.0.0"},
+    "image-tag-full": {"TIT_IMAGE_TAG": "example/custom:v9"},
 }
 
 
@@ -291,14 +298,17 @@ def test_both_loaders_print_the_same_config(tmp_path, case):
 
     ``--print-config`` is the whole resolved state — mode, project, port, image, container
     name, origin, UI, the three ``--dev`` overrides and the desktop executable — so a
-    byte-identical comparison over these six invocations is what keeps a hand-written bash
+    byte-identical comparison over these invocations is what keeps a hand-written bash
     parser and an argparse parser from drifting. No Docker and no network: the release base
-    URL points at nothing, so both resolve the same ``download``/``""``.
+    URL points at nothing, so both resolve the same ``download``/``""``. A bare tag, from
+    ``--image`` or ``TIT_IMAGE_TAG``, is a full ``idossha/ti-toolbox`` reference in both.
     """
     arguments = [
         part.format(root=ROOT, project=tmp_path) for part in PARITY_CASES[case]
     ]
-    env = environment(tmp_path, TIT_RELEASE_BASE_URL="file:///nonexistent")
+    env = environment(
+        tmp_path, TIT_RELEASE_BASE_URL="file:///nonexistent", **PARITY_ENV.get(case, {})
+    )
     results = [
         subprocess.run(
             command + [str(ROOT / script), "--print-config", *arguments],
@@ -307,7 +317,10 @@ def test_both_loaders_print_the_same_config(tmp_path, case):
             env=env,
             stdin=subprocess.DEVNULL,
         )
-        for command, script in ((["bash"], "loader.sh"), ([sys.executable], "loader.py"))
+        for command, script in (
+            (["bash"], "loader.sh"),
+            ([sys.executable], "loader.py"),
+        )
     ]
     for result in results:
         assert result.returncode == 0, result.stderr
@@ -315,6 +328,15 @@ def test_both_loaders_print_the_same_config(tmp_path, case):
         results[0].stdout,
         results[1].stdout,
     )
+    if case in PARITY_IMAGE:
+        assert f"image     {PARITY_IMAGE[case]}\n" in results[0].stdout
+
+
+PARITY_IMAGE = {
+    "image-tag-bare": "idossha/ti-toolbox:v3.0.0",
+    "image-tag-full": "example/custom:v9",
+    "image-bare": "idossha/ti-toolbox:v3.0.0",
+}
 
 
 def test_no_arguments_at_all_never_demands_a_project(tmp_path):
@@ -332,7 +354,10 @@ def test_no_arguments_at_all_never_demands_a_project(tmp_path):
             env=env,
             stdin=subprocess.DEVNULL,
         )
-        for command, script in ((["bash"], "loader.sh"), ([sys.executable], "loader.py"))
+        for command, script in (
+            (["bash"], "loader.sh"),
+            ([sys.executable], "loader.py"),
+        )
     ]
     for result in results:
         assert result.returncode == 0, result.stderr

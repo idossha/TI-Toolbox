@@ -1,0 +1,15 @@
+{
+  "_comment": "groundTruth: authored from the documented table (docs/wiki/telemetry.md 'telemetry.json' locations; tit/paths.py PathManager.user_config_dir). The host directory every launcher mounts at /root/.config/ti-toolbox (telemetry consent, prefs). Rule: macOS <home>/.config/ti-toolbox always (XDG_CONFIG_HOME ignored: a Dock launch never sees a shell's); Windows %APPDATA%\\ti-toolbox, else <home>\\AppData\\Roaming\\ti-toolbox (XDG ignored); Linux and anything else $XDG_CONFIG_HOME/ti-toolbox when XDG_CONFIG_HOME is set and non-empty, else <home>/.config/ti-toolbox. Paths are joined in the platform's own syntax. Absent keys are unset variables. Read by tests/test_launch_contract.py (tit.launch; loader.sh for the non-Windows rows) and desktop/tests/unit/launch-contract.test.ts (userConfigDir).",
+  "rows": [
+    {"label": "linux default", "platform": "linux", "home": "/home/me", "expected": "/home/me/.config/ti-toolbox"},
+    {"label": "linux XDG", "platform": "linux", "home": "/home/me", "XDG_CONFIG_HOME": "/home/me/cfg", "expected": "/home/me/cfg/ti-toolbox"},
+    {"label": "linux empty XDG is unset", "platform": "linux", "home": "/home/me", "XDG_CONFIG_HOME": "", "expected": "/home/me/.config/ti-toolbox"},
+    {"label": "linux ignores APPDATA", "platform": "linux", "home": "/home/me", "APPDATA": "/home/me/appdata", "expected": "/home/me/.config/ti-toolbox"},
+    {"label": "macOS default is not Library", "platform": "darwin", "home": "/Users/me", "expected": "/Users/me/.config/ti-toolbox"},
+    {"label": "macOS ignores XDG", "platform": "darwin", "home": "/Users/me", "XDG_CONFIG_HOME": "/Users/me/cfg", "expected": "/Users/me/.config/ti-toolbox"},
+    {"label": "macOS home with a space", "platform": "darwin", "home": "/Users/Jane Doe", "expected": "/Users/Jane Doe/.config/ti-toolbox"},
+    {"label": "windows APPDATA", "platform": "win32", "home": "C:\\Users\\me", "APPDATA": "C:\\Users\\me\\AppData\\Roaming", "expected": "C:\\Users\\me\\AppData\\Roaming\\ti-toolbox"},
+    {"label": "windows ignores XDG", "platform": "win32", "home": "C:\\Users\\me", "XDG_CONFIG_HOME": "D:\\xdg", "APPDATA": "C:\\Users\\me\\AppData\\Roaming", "expected": "C:\\Users\\me\\AppData\\Roaming\\ti-toolbox"},
+    {"label": "windows without APPDATA", "platform": "win32", "home": "C:\\Users\\me", "expected": "C:\\Users\\me\\AppData\\Roaming\\ti-toolbox"}
+  ]
+}

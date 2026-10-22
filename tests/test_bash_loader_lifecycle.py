@@ -91,6 +91,8 @@ esac
         PULL_STATUS=str(int(not pull_ok)),
         TIT_DEV_REPO_DIR=dev_repo,
         XDG_CONFIG_HOME=str(tmp_path / "config"),
+        # macOS ignores XDG_CONFIG_HOME: keep the real ~/.config/ti-toolbox out of the test.
+        HOME=str(tmp_path / "home"),
         SESSION_PROJECT=session_project or "",
     )
     env.pop("TIT_COMPOSE_FILE", None)
@@ -118,7 +120,11 @@ esac
     if master is not None:
         os.close(master)
         os.close(slave)
-    return result, "\n".join(line for line in log.read_text().splitlines() if not line.startswith("rm --force ti-gpu-probe-"))
+    return result, "\n".join(
+        line
+        for line in log.read_text().splitlines()
+        if not line.startswith("rm --force ti-gpu-probe-")
+    )
 
 
 def test_running_container_requires_explicit_decision(tmp_path):

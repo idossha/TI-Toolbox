@@ -16,6 +16,14 @@ from tit import cli
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def _isolated_home(monkeypatch, tmp_path):
+    """macOS ignores XDG_CONFIG_HOME (tests/fixtures/user_config_dirs.json): keep the real
+    ~/.config/ti-toolbox/last-project.txt out of every test here, subprocesses included.
+    """
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+
 def load_script(path):
     spec = importlib.util.spec_from_file_location("interactive_loader", ROOT / path)
     module = importlib.util.module_from_spec(spec)
