@@ -24,7 +24,9 @@ Deliberately elsewhere: payload shapes and consent prompts (``tests/test_telemet
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import threading
 from unittest.mock import patch
 
@@ -105,6 +107,32 @@ def test_explicit_consent_sends_the_start_and_success_events(config_dir):
     assert telemetry.is_enabled() is True
     statuses = sorted(p["events"][0]["params"]["status"] for p in sent)
     assert statuses == ["start", "success"]
+
+
+#: A uuid4().hex: what the module documents as the anonymous client id.
+UUID_HEX = re.compile(r"[0-9a-f]{32}")
+
+
+@pytest.mark.parametrize("client_id", [5, "", None, ["abc"], {"id": "abc"}, True])
+def test_a_client_id_that_is_not_a_non_empty_string_is_replaced_by_a_fresh_uuid(
+    config_dir, client_id
+):
+    """GA4 requires a string client id; a hand-edited or corrupt one must not go out raw."""
+    _write_config(config_dir, json.dumps({"enabled": True, "client_id": client_id}))
+    ran, sent = _run_tracked()
+    assert ran
+    assert len(sent) == 2
+    for payload in sent:
+        assert isinstance(payload["client_id"], str)
+        assert UUID_HEX.fullmatch(payload["client_id"]), payload["client_id"]
+
+
+def test_a_valid_client_id_is_sent_as_written(config_dir):
+    """Control: the replacement above is not unconditional."""
+    _write_config(config_dir, '{"enabled": true, "client_id": "my-stable-id"}')
+    ran, sent = _run_tracked()
+    assert ran
+    assert [p["client_id"] for p in sent] == ["my-stable-id", "my-stable-id"]
 
 
 def test_an_exception_in_the_body_is_reraised_unchanged_when_the_config_is_corrupt(
