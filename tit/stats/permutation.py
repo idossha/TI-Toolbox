@@ -12,6 +12,7 @@ cancellation.
 import gc
 import logging
 import os
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -85,8 +86,18 @@ def _log_failure(analysis_type: str, exc: BaseException) -> None:
 
 
 def _resolve_output_dir(analysis_type: str, analysis_name: str) -> str:
+    """The run's ``stats/<analysis_type>/<analysis_name>/`` folder, empty.
+
+    A re-run under an existing name replaces the earlier run (the app asks before it
+    submits one): its files are removed first, so a figure the new run does not draw
+    (``cluster_size_mass_correlation.pdf`` when no cluster formed) or the older run's
+    timestamped log never sits beside the new outputs and gets listed as one of them.
+    """
     pm = get_path_manager()
-    return pm.ensure(pm.stats_output(analysis_type, analysis_name))
+    output_dir = pm.stats_output(analysis_type, analysis_name)
+    if os.path.isdir(output_dir):
+        shutil.rmtree(output_dir)
+    return pm.ensure(output_dir)
 
 
 def _plot_null(log, output_dir, null_dist, threshold, observed, **plot_options):

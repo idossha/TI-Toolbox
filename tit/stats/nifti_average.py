@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import sys
 from contextlib import nullcontext
 
@@ -78,7 +79,12 @@ def main() -> None:
                 "nifti_average",
                 config.output_name,
             )
-            os.makedirs(output_dir, exist_ok=True)
+            # A re-run under an existing name replaces that run (the app asks first): an
+            # average or difference of a group the new run does not have must not stay
+            # beside its outputs and be listed as one of them.
+            if os.path.isdir(output_dir):
+                shutil.rmtree(output_dir)
+            os.makedirs(output_dir)
 
             subject_configs = [
                 {
