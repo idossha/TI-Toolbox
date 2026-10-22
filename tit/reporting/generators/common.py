@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from tit.reporting.html import components as c
@@ -157,6 +157,11 @@ def write_report(
 ) -> Path:
     """Write ``<reports>/sub-<id>/<prefix>_<timestamp>.html`` (or into *out_dir*), log its size and
     time, and record it as a ``report`` artifact of the running job (a no-op outside a job).
+
+    One file per run: when the second's name is taken (two ex-search jobs for one subject
+    finishing together), the next free second is used, so the name keeps the
+    ``<prefix>_<YYYYMMDD>_<HHMMSS>`` grammar :func:`tit.catalog.reports` parses. The file is
+    created exclusively, so a writer in another process can never overwrite it.
     """
     from tit.jobs import events
     from tit.paths import get_path_manager
@@ -167,8 +172,15 @@ def write_report(
         else Path(get_path_manager(str(project_dir)).reports()) / f"sub-{subject_id}"
     )
     out.mkdir(parents=True, exist_ok=True)
-    path = out / f"{prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-    path.write_text(html, encoding="utf-8")
+    stamp = datetime.now()
+    while True:
+        path = out / f"{prefix}_{stamp.strftime('%Y%m%d_%H%M%S')}.html"
+        try:
+            with path.open("x", encoding="utf-8") as f:
+                f.write(html)
+            break
+        except FileExistsError:
+            stamp += timedelta(seconds=1)
     size = path.stat().st_size
     took = f", {time.time() - t0:.1f} s" if t0 else ""
     logger.info(f"{label}: {path} ({size / 1e6:.2f} MB{took})")
