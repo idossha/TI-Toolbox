@@ -429,6 +429,53 @@ def test_resolve_prefers_the_exact_spelling_over_a_case_variant(tmp_path, monkey
     assert examples._resolve(tmp_path / "absent", "x") == tmp_path / "absent" / "x"
 
 
+def test_resolve_keeps_the_requested_spelling_where_the_parent_cannot_be_listed(
+    tmp_path, monkeypatch
+):
+    """A traversable but unlistable directory (mode 0o111) has no listing to consult.
+
+    The listing is made to fail as a 0o111 directory's does, so this holds for root and on every
+    filesystem. The requested spelling is the only one there is to give, and it is what the code
+    before 2026-10-22 returned; listing unconditionally raised :class:`PermissionError` instead.
+    """
+    (tmp_path / "m2m_ernie").mkdir()
+    real_iterdir = Path.iterdir
+
+    def iterdir(self):
+        if self == tmp_path:
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+
+    assert examples._resolve(tmp_path, "m2m_ernie") == tmp_path / "m2m_ernie"
+    assert examples._resolve(tmp_path, "m2m_MNI152") == tmp_path / "m2m_MNI152"
+
+
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0,
+    reason="skipping: root lists a 0o111 directory anyway, so the mode restricts nothing",
+)
+def test_status_sees_a_head_model_under_an_unlistable_subject_directory(
+    tmp_path, monkeypatch
+):
+    """The real filesystem case: ``sub-ernie`` is 0o111, its ``m2m_ernie`` is installed."""
+    _serve(monkeypatch, _good_tarball())
+    project = tmp_path / "project"
+    examples.fetch("ernie", "headmodel", project, log=lambda *a, **k: None)
+    subject = project / "derivatives" / "SimNIBS" / "sub-ernie"
+    subject.chmod(0o111)
+    try:
+        with pytest.raises(PermissionError):
+            list(subject.iterdir())
+        installed = {s["id"]: s["installed"] for s in examples.status(project)}
+        target = examples._target_dir(project, examples.parts()[0])
+    finally:
+        subject.chmod(0o755)
+    assert installed == {"ernie/headmodel": True}
+    assert target == subject / "m2m_ernie"
+
+
 # ------------------------------------------------------------------ Dataset 000 (read-only)
 
 DATASET = os.environ.get("TIT_DATASET_000", "")

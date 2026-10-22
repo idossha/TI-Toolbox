@@ -250,10 +250,14 @@ def _resolve(parent: Path, name: str) -> Path:
     The directory listing decides, not ``exists()``: on a case-insensitive filesystem (the macOS
     host, or a macOS project bind-mounted into the container) ``m2m_ernie`` "exists" when the
     entry is ``m2m_Ernie``, and returning the requested spelling then lost the on-disk case.
+    A traversable directory that cannot be listed (mode 0o111) keeps the requested spelling.
     """
     if not parent.is_dir():
         return parent / name
-    names = [entry.name for entry in parent.iterdir()]
+    try:
+        names = [entry.name for entry in parent.iterdir()]
+    except PermissionError:
+        return parent / name
     if name in names:
         return parent / name
     lowered = name.lower()
