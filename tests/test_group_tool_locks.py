@@ -116,6 +116,27 @@ def test_a_repeated_row_is_one_read_lock() -> None:
     assert len(resources) == len(set(resources)) == 4
 
 
+def test_a_row_without_a_subject_or_a_simulation_requests_no_simulation_lock() -> None:
+    # `keys_for` also sees rows the dataclass never validated (a raw agent or notebook config).
+    # A simulation job always names both halves of its key, so a half-empty key such as
+    # `subject:101:sim:` or `subject::sim:L_Insula` guards nothing a simulation writes.
+    config = {
+        "output_name": "partial",
+        "subjects": [
+            {"subject_id": "101", "simulation_name": ""},
+            {"subject_id": "", "simulation_name": "L_Insula"},
+            {"subject_id": "LA"},
+            {"simulation_name": "Thalamus"},
+            "not-a-row",
+            {"subject_id": "CHN", "simulation_name": "M1"},
+        ],
+    }
+    assert _pairs(locks.keys_for("nifti_average", [], config)) == [
+        ("project:nifti_average:partial", "write"),
+        (_sim_write_key("CHN", "M1"), "read"),
+    ]
+
+
 def _spec(job_id: str, kind: str, config: dict, subject_ids: list[str]) -> JobSpec:
     return JobSpec(
         id=job_id, kind=kind, config=config, subject_ids=subject_ids, cost=Cost(1, 1)
