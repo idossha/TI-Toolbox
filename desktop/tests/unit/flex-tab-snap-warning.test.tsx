@@ -57,7 +57,8 @@ vi.mock("../../src/renderer/ui/Select", () => ({
 import { PageIdContext, clearPageSession } from "../../src/renderer/app/pageSession";
 import { JobsTable } from "../../src/renderer/pages/simulator/MontageManager";
 import { FreehandDraftProvider } from "../../src/renderer/pages/simulator/freehandDraft";
-import { OPTIMIZED, SNAP_WARN_MM, placementsFor, snapWarning, type FlexPlacement } from "../../src/renderer/pages/simulator/FlexTab";
+import { FlexSnapWarning, OPTIMIZED, SNAP_WARN_MM, placementsFor, snapWarning, type FlexPlacement } from "../../src/renderer/pages/simulator/FlexTab";
+import { candidateRow, snapCandidateRow } from "../../src/renderer/pages/simulator/candidateHandoff";
 import type { FlexRun } from "../../src/renderer/pages/simulator/api";
 import type { SelectedRow } from "../../src/renderer/pages/simulator/types";
 
@@ -84,25 +85,31 @@ describe("snap distance on a mapped placement", () => {
       { eeg_net: NET, pairs: PAIRS, max_snap_mm: 52.04 },
       { eeg_net: "GSN-HydroCel-185.csv", pairs: PAIRS },
       { eeg_net: "EEG10-10_UI_Jurak_2007.csv", pairs: PAIRS, max_snap_mm: null },
+      { eeg_net: "EEG10-20_Okamoto_2004.csv", pairs: PAIRS, max_snap_mm: Number.NaN },
     ]);
     const options = placementsFor(run);
     expect(options.map((o) => [o.value, o.maxSnapMm])).toEqual([
       [NET, 52.04],
       ["GSN-HydroCel-185.csv", undefined],
       ["EEG10-10_UI_Jurak_2007.csv", undefined],
+      ["EEG10-20_Okamoto_2004.csv", undefined],
       [OPTIMIZED, undefined],
     ]);
   });
 
-  it("warns only above 20 mm, naming the net and the rounded distance", () => {
+  it("warns only above 20 mm at the 0.1 mm it prints, naming the net and the distance", () => {
     expect(snapWarning(mapped(20))).toBeNull();
     expect(snapWarning(mapped(19.99))).toBeNull();
+    // 20.04 mm prints as 20.0 mm, which is not more than 20 mm: no self-contradicting sentence.
+    expect(snapWarning(mapped(20.04))).toBeNull();
     expect(snapWarning(mapped(undefined))).toBeNull();
     expect(snapWarning(undefined)).toBeNull();
+    expect(snapWarning(mapped(20.06))).toMatch(/ moves an electrode 20\.1 mm .*\(more than 20 mm\)/);
     expect(snapWarning(mapped(20.4))).toBe(
-      "Mapping onto BioSemi-128-A1 moves an electrode 20 mm from where the optimiser put it (more than 20 mm), so this is not the optimised montage. Simulate the optimised positions, or map onto a denser net.",
+      "Mapping onto BioSemi-128-A1 moves an electrode 20.4 mm from where the optimiser put it (more than 20 mm), so this is not the optimised montage. Simulate the optimised positions, or map onto a denser net.",
     );
-    expect(snapWarning(mapped(63.6))).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 64 mm /);
+    expect(snapWarning(mapped(63.6))).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 63\.6 mm /);
+    expect(snapWarning(mapped(52.04))).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 52\.0 mm /);
     // The optimised placement moves nothing.
     expect(snapWarning({ value: OPTIMIZED, label: "Optimised positions (XYZ)", xyzPairs: OPTIMISED_XYZ, maxSnapMm: 99 })).toBeNull();
   });
@@ -151,7 +158,7 @@ describe("the Simulator's flex job shows the warning", () => {
     api.getFlexRuns.mockResolvedValue([flexRun([{ eeg_net: NET, pairs: PAIRS, max_snap_mm: 52.0 }])]);
     renderTable([flexRow({ eegNet: NET, pairs: PAIRS })]);
     await flush();
-    expect(warning()?.textContent).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 52 mm /);
+    expect(warning()?.textContent).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 52\.0 mm /);
 
     renderTable([flexRow({ eegNet: undefined, xyzPairs: OPTIMISED_XYZ })]);
     await flush();
@@ -162,6 +169,46 @@ describe("the Simulator's flex job shows the warning", () => {
     renderTable([flexRow({ eegNet: NET, pairs: PAIRS })]);
     await flush();
     expect(api.getFlexRuns).toHaveBeenCalled();
+    expect(warning()).toBeNull();
+  });
+
+  it("the warning finds the run's mapping whether the net is named with .csv or without, and no other net's", async () => {
+    const run = flexRun([{ eeg_net: NET, pairs: PAIRS, max_snap_mm: 52.0 }]);
+    const shown = (r: FlexRun, net: string) => {
+      act(() => root.render(<FlexSnapWarning run={r} net={net} />));
+      return warning()?.textContent ?? null;
+    };
+    expect(shown(run, "BioSemi-128-A1")).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 52\.0 mm /);
+    expect(shown(run, NET)).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 52\.0 mm /);
+    // A run whose mapping file named the net by its stem, a job naming the cap file.
+    const stemRun = flexRun([{ eeg_net: "BioSemi-128-A1", pairs: PAIRS, max_snap_mm: 52.0 }]);
+    expect(shown(stemRun, NET)).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 52\.0 mm /);
+    // Another net of the same run: its own mapping (12 mm), not the 52 mm one.
+    const two = flexRun([
+      { eeg_net: NET, pairs: PAIRS, max_snap_mm: 52.0 },
+      { eeg_net: "GSN-HydroCel-185.csv", pairs: PAIRS, max_snap_mm: 12.0 },
+    ]);
+    expect(shown(two, "GSN-HydroCel-185.csv")).toBeNull();
+    expect(shown(run, "BioSemi-64.csv")).toBeNull();
+  });
+
+  it("a snapped optimiser candidate gets no warning from its run's winner mapping", async () => {
+    // "Use in Simulator" on a flex candidate: a flex row carrying `candidate`, snapped to NET. Its
+    // montage is named after the run, so the job finds the run, whose NET mapping (the winner's,
+    // not this candidate's) moved an electrode 52 mm. That number says nothing about the candidate.
+    api.getFlexRuns.mockResolvedValue([flexRun([{ eeg_net: NET, pairs: PAIRS, max_snap_mm: 52.0 }])]);
+    const handoff = {
+      id: "3",
+      subject: "ernie",
+      run: "derivatives/SimNIBS/sub-ernie/flex-search/flexrun",
+      config: { subject_id: "ernie", montages: [{ name: "flexrun", electrode_pairs: OPTIMISED_XYZ }], intensities: [1, -1] },
+    };
+    const row = snapCandidateRow(candidateRow(handoff), NET, PAIRS);
+    expect([row.source, row.name, row.eegNet, row.pairs, !!row.candidate]).toEqual(["flex", "flexrun", NET, PAIRS, true]);
+    renderTable([row]);
+    await flush();
+    expect(api.getFlexRuns).toHaveBeenCalled();
+    expect(container.querySelector("[data-job-detail]")?.textContent).toContain("A1");
     expect(warning()).toBeNull();
   });
 
@@ -188,6 +235,6 @@ describe("the Simulator's flex job shows the warning", () => {
     await flush();
     expect(api.getFlexMapping).toHaveBeenCalledWith("ernie", "flexrun", NET);
     expect(latest[0]!.pairs).toEqual(PAIRS);
-    expect(warning()?.textContent).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 64 mm .*more than 20 mm/);
+    expect(warning()?.textContent).toMatch(/^Mapping onto BioSemi-128-A1 moves an electrode 63\.6 mm .*more than 20 mm/);
   });
 });

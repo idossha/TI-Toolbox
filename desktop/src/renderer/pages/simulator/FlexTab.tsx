@@ -90,12 +90,18 @@ export function flexCurrents(run: FlexRun | undefined, numPairs: number): string
   return mA > 0 ? Array(Math.max(2, numPairs)).fill(String(mA)).join(",") : defaultCurrents(numPairs);
 }
 
-/** The sentence a mapped placement shows when it moved an electrode more than `SNAP_WARN_MM`. */
+/**
+ * The sentence a mapped placement shows when it moved an electrode more than `SNAP_WARN_MM`.
+ * The distance is judged at the 0.1 mm the sentence prints, so it never reads "20.0 mm (more
+ * than 20 mm)".
+ */
 export function snapWarning(placement: FlexPlacement | undefined): string | null {
   const snap = placement?.maxSnapMm;
-  if (!placement || placement.value === OPTIMIZED || snap === undefined || !(snap > SNAP_WARN_MM)) return null;
+  if (!placement || placement.value === OPTIMIZED || snap === undefined) return null;
+  const shown = Math.round(snap * 10) / 10;
+  if (!(shown > SNAP_WARN_MM)) return null;
   return (
-    `Mapping onto ${placement.label} moves an electrode ${Math.round(snap)} mm from where the optimiser ` +
+    `Mapping onto ${placement.label} moves an electrode ${shown.toFixed(1)} mm from where the optimiser ` +
     `put it (more than ${SNAP_WARN_MM} mm), so this is not the optimised montage. ` +
     "Simulate the optimised positions, or map onto a denser net."
   );
