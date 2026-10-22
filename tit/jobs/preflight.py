@@ -388,6 +388,10 @@ def _check_analyzer(pm: PathManager, config: dict[str, Any]) -> list[MissingInpu
         missing.extend(_analyzer_field(pm, sid, sim, space, config))
         if analysis_type == "cortical":
             missing.extend(_analyzer_atlas(pm, sid, space, config))
+        elif analysis_type == "subcortical" and not _mni_atlas_space(config):
+            missing.extend(_analyzer_subject_volume_atlas(pm, sid, config))
+    if analysis_type == "subcortical" and _mni_atlas_space(config):
+        missing.extend(_analyzer_mni_atlas(config))
     if analysis_type == "mask":
         mask = config.get("mask_path")
         if isinstance(mask, str) and mask and not Path(mask).is_file():
@@ -509,14 +513,10 @@ def _analyzer_atlas(
         fs_mri = Path(pm.fastsurfer_mri(sid))
         legacy_mri = Path(pm.freesurfer_mri(sid))
         seg_dir = Path(pm.segmentation(sid))
+        if any(p.exists() for p in Analyzer.voxel_atlas_candidates(pm, sid, atlas)):
+            return []
         volumes = Analyzer._SURFACE_ATLAS_VOLUMES.get(atlas)
         if volumes is not None:
-            if any(
-                (mri / name).exists()
-                for name in volumes
-                for mri in (fs_mri, legacy_mri)
-            ):
-                return []
             return [
                 MissingInput(
                     f"volume parcellation for atlas {atlas!r} of sub-{sid}",
@@ -526,16 +526,6 @@ def _analyzer_atlas(
                     "volume parcellation.",
                 )
             ]
-        candidates = [
-            fs_mri / atlas,
-            legacy_mri / atlas,
-            seg_dir / atlas,
-            *(fs_mri / f"{atlas}{ext}" for ext in (".mgz", ".nii.gz", ".nii")),
-            *(legacy_mri / f"{atlas}{ext}" for ext in (".mgz", ".nii.gz", ".nii")),
-            *(seg_dir / f"{atlas}{ext}" for ext in (".nii.gz", ".nii")),
-        ]
-        if any(p.exists() for p in candidates):
-            return []
         return [
             MissingInput(
                 f"voxel atlas {atlas!r} for sub-{sid}",
@@ -561,6 +551,100 @@ def _analyzer_atlas(
             f"lh./rh.<name>.annot files in {pm.segmentation(sid)}.",
         )
     ]
+
+
+def _mni_atlas_space(config: dict[str, Any]) -> bool:
+    return str(config.get("coordinate_space") or "subject").lower() == "mni"
+
+
+def _region_names(config: dict[str, Any]) -> list[str]:
+    """The named (non-numeric) regions of the target; label numbers need the volume itself."""
+    return [
+        r.strip()
+        for r in _as_list(config.get("region"))
+        if isinstance(r, str) and r.strip() and not r.strip().isdigit()
+    ]
+
+
+def _unknown_regions(
+    atlas_path: Path, atlas: str, regions: list[str]
+) -> list[MissingInput]:
+    """Regions no name in the atlas's lookup table matches (the runner's own matching rule)."""
+    from tit.analyzer.analyzer import Analyzer
+    from tit.atlas.segstats import resolve_lut_for_atlas
+
+    lut = resolve_lut_for_atlas(str(atlas_path)) if regions else {}
+    if not lut:
+        return []  # no table to check against: the runner reads the volume itself
+    labels = sorted(lut.items())
+    return [
+        MissingInput(
+            f"region {name!r} in atlas {atlas!r}",
+            str(atlas_path),
+            f"No label of {atlas} is named {name!r}; pick a region from the atlas's own "
+            "list (the target picker), or give its label number.",
+        )
+        for name in regions
+        if Analyzer.match_region_label(name, labels) is None
+    ]
+
+
+def _analyzer_subject_volume_atlas(
+    pm: PathManager, sid: str, config: dict[str, Any]
+) -> list[MissingInput]:
+    """A subject-space subcortical atlas, found where Analyzer._resolve_voxel_atlas looks."""
+    from tit.analyzer.analyzer import Analyzer
+
+    atlas = config.get("atlas")
+    if not isinstance(atlas, str) or not atlas:
+        return []
+    if Path(atlas).is_file():
+        return _unknown_regions(Path(atlas), atlas, _region_names(config))
+    candidates = Analyzer.voxel_atlas_candidates(pm, sid, atlas)
+    found = next((p for p in candidates if p.exists()), None)
+    if found is not None:
+        return _unknown_regions(found, atlas, _region_names(config))
+    if atlas == Path(pm.tissue_labeling(sid)).name:
+        # charm's own segmentation output, not a FreeSurfer volume
+        return [
+            MissingInput(
+                f"atlas {atlas!r} (charm segmentation) for sub-{sid}",
+                pm.tissue_labeling(sid),
+                f"Re-run preprocessing (SimNIBS charm) for sub-{sid}: its segmentation "
+                f"writes {atlas}. Or pick a FreeSurfer/FastSurfer volume atlas, or an "
+                "MNI atlas.",
+            )
+        ]
+    return [
+        MissingInput(
+            f"volume atlas {atlas!r} for sub-{sid}",
+            str(candidates[0]),
+            f"Run FastSurfer (or recon-all) for sub-{sid} (Preprocess page), place "
+            f"{atlas} in {candidates[0].parent} or {pm.segmentation(sid)}, or pass the "
+            "atlas as a full path.",
+        )
+    ]
+
+
+def _analyzer_mni_atlas(config: dict[str, Any]) -> list[MissingInput]:
+    """A shipped MNI atlas id (or MNI atlas file), resolved by Analyzer._resolve_mni_atlas."""
+    from tit.analyzer.analyzer import Analyzer
+
+    atlas = config.get("atlas")
+    if not isinstance(atlas, str) or not atlas:
+        return []
+    try:
+        path = Analyzer._resolve_mni_atlas(atlas)
+    except (FileNotFoundError, ValueError) as exc:
+        return [
+            MissingInput(
+                f"MNI atlas {atlas!r}",
+                atlas,
+                f"{exc}. Pick one of the MNI atlases the target picker lists, or a file "
+                "path inside the project.",
+            )
+        ]
+    return _unknown_regions(path, atlas, _region_names(config))
 
 
 # -- source ----------------------------------------------------------------------------------

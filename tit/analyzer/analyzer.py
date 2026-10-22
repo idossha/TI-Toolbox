@@ -1640,27 +1640,23 @@ class Analyzer:
         "a2009s": ("aparc.a2009s+aseg.mgz",),
     }
 
-    def _resolve_voxel_atlas(self, atlas: str) -> Path:
-        """Find the atlas NIfTI/MGZ file for voxel-space analysis."""
-        if Path(atlas).is_file():
-            return Path(atlas)
+    @classmethod
+    def voxel_atlas_candidates(cls, pm, sid: str, atlas: str) -> list[Path]:
+        """Every path :meth:`_resolve_voxel_atlas` tries for *atlas* name, in search order.
 
-        fs_mri = Path(self._pm.fastsurfer_mri(self.subject_id))
-        legacy_mri = Path(self._pm.freesurfer_mri(self.subject_id))
-        seg_dir = Path(self._pm.segmentation(self.subject_id))
-        if atlas in self._SURFACE_ATLAS_VOLUMES:
-            for name in self._SURFACE_ATLAS_VOLUMES[atlas]:
-                for mri in (fs_mri, legacy_mri):
-                    if (mri / name).exists():
-                        return mri / name
-            raise FileNotFoundError(
-                f"Atlas {atlas!r} has no volume parcellation for subject "
-                f"{self.subject_id}: none of "
-                f"{', '.join(self._SURFACE_ATLAS_VOLUMES[atlas])} found in "
-                f"{fs_mri} or {legacy_mri}. Run FastSurfer/recon-all for this "
-                "subject or analyze in mesh space."
-            )
-        candidates = [
+        Shared with :mod:`tit.jobs.preflight`, so the submit-time check and the runner
+        cannot disagree about where a subject's volume atlas lives.
+        """
+        fs_mri = Path(pm.fastsurfer_mri(sid))
+        legacy_mri = Path(pm.freesurfer_mri(sid))
+        seg_dir = Path(pm.segmentation(sid))
+        if atlas in cls._SURFACE_ATLAS_VOLUMES:
+            return [
+                mri / name
+                for name in cls._SURFACE_ATLAS_VOLUMES[atlas]
+                for mri in (fs_mri, legacy_mri)
+            ]
+        return [
             fs_mri / atlas,
             legacy_mri / atlas,
             seg_dir / atlas,
@@ -1673,12 +1669,28 @@ class Analyzer:
             seg_dir / f"{atlas}.nii.gz",
             seg_dir / f"{atlas}.nii",
             # The catalog lists a custom label volume as "masks/<file>" (VoxelAtlasManager).
-            Path(self._pm.masks(self.subject_id)).parent / atlas,
+            Path(pm.masks(sid)).parent / atlas,
         ]
-        for path in candidates:
+
+    def _resolve_voxel_atlas(self, atlas: str) -> Path:
+        """Find the atlas NIfTI/MGZ file for voxel-space analysis."""
+        if Path(atlas).is_file():
+            return Path(atlas)
+
+        for path in self.voxel_atlas_candidates(self._pm, self.subject_id, atlas):
             if path.exists():
                 return path
-
+        fs_mri = Path(self._pm.fastsurfer_mri(self.subject_id))
+        legacy_mri = Path(self._pm.freesurfer_mri(self.subject_id))
+        seg_dir = Path(self._pm.segmentation(self.subject_id))
+        if atlas in self._SURFACE_ATLAS_VOLUMES:
+            raise FileNotFoundError(
+                f"Atlas {atlas!r} has no volume parcellation for subject "
+                f"{self.subject_id}: none of "
+                f"{', '.join(self._SURFACE_ATLAS_VOLUMES[atlas])} found in "
+                f"{fs_mri} or {legacy_mri}. Run FastSurfer/recon-all for this "
+                "subject or analyze in mesh space."
+            )
         raise FileNotFoundError(
             f"Atlas {atlas!r} not found in {fs_mri}, {legacy_mri}, or {seg_dir}"
         )
@@ -1879,26 +1891,39 @@ class Analyzer:
 
         lut = resolve_lut_for_atlas(str(atlas_path))
         stats = compute_segstats(str(atlas_path), lut)
+        rid = Analyzer.match_region_label(
+            region_stripped, [(stat.seg_id, stat.name) for stat in stats]
+        )
+        if rid is None:
+            raise ValueError(f"Region '{region}' not found in atlas {atlas_path}")
+        return rid
 
-        region_lower = region_stripped.lower()
+    @staticmethod
+    def match_region_label(region: str, labels) -> int | None:
+        """The label id whose name *region* names, or ``None``.
+
+        *labels* is ``(id, name)`` pairs in ascending id order. The exact name (any case)
+        wins, then a surface-style hemisphere name's volume spelling, then the first name
+        containing *region* -- the matching ``mri_segstats`` row order gave. Shared with
+        :mod:`tit.jobs.preflight`, which matches against the atlas's lookup table.
+        """
+        region_lower = region.strip().lower()
         # The exact name wins over a longer one containing it: hippocampal subfields list
         # "parasubiculum" (203) before "subiculum" (205).
-        for stat in stats:
-            if stat.name.lower() == region_lower:
-                return stat.seg_id
+        for rid, name in labels:
+            if name.lower() == region_lower:
+                return rid
         # A surface-style name ("lh.insula") is spelled "ctx-lh-insula" in the
         # DKT volume and "ctx_lh_G_insular_short" in the a2009s one; try the
         # exact volume spellings before falling back to substring matching.
         hemi_match = re.fullmatch(r"(lh|rh)[._-](.+)", region_lower)
         if hemi_match:
-            hemi, name = hemi_match.groups()
-            exact = {f"ctx-{hemi}-{name}", f"ctx_{hemi}_{name}"}
-            for stat in stats:
-                if stat.name.lower() in exact:
-                    return stat.seg_id
-
-        for stat in stats:
-            if region_lower in stat.name.lower():
-                return stat.seg_id
-
-        raise ValueError(f"Region '{region}' not found in atlas {atlas_path}")
+            hemi, hemi_name = hemi_match.groups()
+            exact = {f"ctx-{hemi}-{hemi_name}", f"ctx_{hemi}_{hemi_name}"}
+            for rid, name in labels:
+                if name.lower() in exact:
+                    return rid
+        for rid, name in labels:
+            if region_lower in name.lower():
+                return rid
+        return None
