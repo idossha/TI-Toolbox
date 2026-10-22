@@ -3865,8 +3865,7 @@ paths:
       tags: [notebooks]
       summary: List the project's notebooks, newest first
       description: >-
-        Everything under `<project>/code/ti-toolbox/notebooks`, which is also where the pipeline
-        canvas's exported notebooks land.
+        Everything under `<project>/code/ti-toolbox/notebooks`.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       responses:
         "200":
@@ -3882,8 +3881,7 @@ paths:
       description: >-
         With no `content` the notebook is the starter: a first code cell that already imports
         `tit` and prints this project's root, so the TI-Toolbox environment is loaded rather
-        than described. With `content`, this is the import path -- "Import .ipynb" and the
-        pipeline canvas saving its export are the same call.
+        than described. With `content`, this is the import path: "Import .ipynb".
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       requestBody:
         required: true
@@ -5237,7 +5235,7 @@ components:
             On-disk stim_configs semantics (unipolar/multipolar), not xyz/label -- see
             `tit/catalog.py::_read_freehand_file`, the source of truth for
             `m2m_<id>/stim_configs/*.json` written by
-            `tit/gui/extensions/electrode_placement.py`.
+            `tit/catalog.py::put_freehand_config` (PUT /api/catalog/freehand/{name}).
         electrode_positions:
           type: array
           items: { $ref: "#/components/schemas/ElectrodePosition" }
@@ -6036,7 +6034,7 @@ components:
           description: >-
             Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit
             cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity
-            distribution at launch time (GET /api/view/{kind} or POST /api/viewers/freeview),
+            distribution when the spec is built (GET /api/view/{kind} or POST /api/view/args),
             filling cal_min/cal_max with the resolved absolute values before responding -- a
             layer's cal_min/cal_max are always the final absolute thresholds a viewer applies,
             whether the caller supplied them directly or via percentile.
@@ -6064,9 +6062,10 @@ components:
         scene:
           type: [object, "null"]
           description: >-
-            The real Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) the
-            embedded viewer's Engine.load() accepts directly -- datasets addressed by
-            origin-relative /api/files/raw/... URLs (both DatasetRef.path and .absPath), layers
+            The real Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) --
+            datasets addressed by origin-relative /api/files/raw/... URLs (both DatasetRef.path
+            and .absPath, which POST /api/view/open rewrites to host paths for the native
+            TetraVox), layers
             in the engine's own vocabulary (VolumeLayer/MeshLayer). Derived from `layers` by a
             pure function, so the two always describe the same files. Untyped here (a generic
             object) because the full engine scene model is Tetravox-owned; the subset this

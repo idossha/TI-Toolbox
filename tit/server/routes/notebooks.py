@@ -2,9 +2,7 @@
 
 Thin HTTP over :mod:`tit.server.notebooks`; every path rule, every name check
 and the nbformat read/write live there. One directory,
-``<project>/code/ti-toolbox/notebooks``, which is also where the pipeline
-canvas's "Export notebook" can now land a notebook instead of only handing it
-to a download.
+``<project>/code/ti-toolbox/notebooks``.
 
 Import cost is deliberately small (``dev/route_import_guard.py``): ``nbformat``
 is imported inside :mod:`tit.server.notebooks`' own functions, never here.
@@ -41,7 +39,9 @@ _STATUS = {"bad-name": 422, "not-found": 404, "invalid": 422, "bad-notebook": 42
 def _project_root(request: Request) -> str:
     root = request.app.state.settings.project_dir
     if not root:
-        raise HTTPException(status_code=409, detail="This server is not bound to a project.")
+        raise HTTPException(
+            status_code=409, detail="This server is not bound to a project."
+        )
     return str(root)
 
 
@@ -75,7 +75,9 @@ def list_notebooks(request: Request) -> dict[str, Any]:
     responses={409: {"description": "a notebook of that name already exists"}},
     summary="Create a notebook, or store one that was uploaded",
 )
-def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+def create_notebook(
+    request: Request, body: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     """Create ``name``.
 
     With no ``content``, the new notebook is the starter: a markdown cell and
@@ -83,8 +85,8 @@ def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[
     root, so "the TI-Toolbox environment is automatically loaded" is something
     the author can see rather than be told.
 
-    With ``content``, this is the import path — "Import .ipynb" in the UI, and
-    the pipeline canvas saving its export. Same validation either way.
+    With ``content``, this is the import path — "Import .ipynb" in the UI. Same
+    validation either way.
     """
     root = _project_root(request)
     name = body.get("name")
@@ -92,7 +94,9 @@ def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[
         raise HTTPException(status_code=422, detail="'name' is required.")
     content = body.get("content")
     if content is not None and not isinstance(content, dict):
-        raise HTTPException(status_code=422, detail="'content' must be a notebook object.")
+        raise HTTPException(
+            status_code=422, detail="'content' must be a notebook object."
+        )
     try:
         file_name = nb.normalise_name(name)
         path = nb.notebook_path(root, file_name)
@@ -107,21 +111,34 @@ def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[
         raise _fail(error) from error
 
 
-@router.get("/api/notebooks/{name:path}", response_model=Notebook, summary="Read one notebook")
+@router.get(
+    "/api/notebooks/{name:path}", response_model=Notebook, summary="Read one notebook"
+)
 def read_notebook(request: Request, name: str) -> dict[str, Any]:
     root = _project_root(request)
     try:
-        return {"name": nb.normalise_name(name), "content": nb.read_notebook(root, name)}
+        return {
+            "name": nb.normalise_name(name),
+            "content": nb.read_notebook(root, name),
+        }
     except nb.NotebookError as error:
         raise _fail(error) from error
 
 
-@router.put("/api/notebooks/{name:path}", response_model=NotebookEntry, summary="Write one notebook")
-def write_notebook(request: Request, name: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+@router.put(
+    "/api/notebooks/{name:path}",
+    response_model=NotebookEntry,
+    summary="Write one notebook",
+)
+def write_notebook(
+    request: Request, name: str, body: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     root = _project_root(request)
     content = body.get("content")
     if not isinstance(content, dict):
-        raise HTTPException(status_code=422, detail="'content' must be a notebook object.")
+        raise HTTPException(
+            status_code=422, detail="'content' must be a notebook object."
+        )
     try:
         path = nb.write_notebook(root, name, content)
         info = path.stat()
@@ -131,7 +148,9 @@ def write_notebook(request: Request, name: str, body: dict[str, Any] = Body(...)
 
 
 @router.delete(
-    "/api/notebooks/{name:path}", response_model=NotebookDeleted, summary="Delete one notebook"
+    "/api/notebooks/{name:path}",
+    response_model=NotebookDeleted,
+    summary="Delete one notebook",
 )
 def delete_notebook(request: Request, name: str) -> dict[str, Any]:
     root = _project_root(request)

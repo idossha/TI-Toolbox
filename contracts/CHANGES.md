@@ -1216,3 +1216,13 @@ run's files as `Artifact`s (`average_<group>.nii.gz` and `difference_<a>_minus_<
 `nifti`, `config.json` as `json`). Before, these runs were never listed and Results showed
 nothing after a NIfTI Group Averaging job. Optional in the schema (the server always sends it,
 `[]` when there are none); the other three keys are unchanged.
+
+## 2026-10-22 — descriptions only: notebooks, freehand writer, percentile resolution, `ViewSpec.scene`
+
+No shape changes. `/api/notebooks` (GET, POST) no longer say the pipeline canvas exports notebooks
+there (the canvas was removed on 2026-09-13). `FreehandConfig.type` names its writer as
+`tit/catalog.py::put_freehand_config` (`PUT /api/catalog/freehand/{name}`) instead of the deleted
+PyQt `tit/gui/extensions/electrode_placement.py`. `ViewLayer.percentile` is resolved by
+`GET /api/view/{kind}` or `POST /api/view/args`, not by the removed `POST /api/viewers/freeview`.
+`ViewSpec.scene` no longer calls its reader the embedded viewer's `Engine.load()` (the embed was
+retired); `POST /api/view/open` re-roots its paths for the native TetraVox.

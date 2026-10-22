@@ -92,8 +92,8 @@ class ViewSpec(BaseModel):
     scene: dict[str, Any] | None = Field(
         default=None,
         description=(
-            "the Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) the "
-            "embedded viewer's Engine.load() accepts directly; the subset this server "
+            "the Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) that "
+            "POST /api/view/open hands to the native TetraVox; the subset this server "
             "emits is hand-schema'd in contracts/tetravox-viewspec-v2.schema.json "
             "(host-facing: also documents the Tetravox-owned engine type, not just this "
             "server's output). Untyped here (Any) because the full engine scene model is "

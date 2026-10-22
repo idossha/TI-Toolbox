@@ -5716,7 +5716,7 @@ export interface paths {
         };
         /**
          * List the project's notebooks, newest first
-         * @description Everything under `<project>/code/ti-toolbox/notebooks`, which is also where the pipeline canvas's exported notebooks land.
+         * @description Everything under `<project>/code/ti-toolbox/notebooks`.
          */
         get: {
             parameters: {
@@ -5741,7 +5741,7 @@ export interface paths {
         put?: never;
         /**
          * Create a notebook, or store one that was uploaded
-         * @description With no `content` the notebook is the starter: a first code cell that already imports `tit` and prints this project's root, so the TI-Toolbox environment is loaded rather than described. With `content`, this is the import path -- "Import .ipynb" and the pipeline canvas saving its export are the same call.
+         * @description With no `content` the notebook is the starter: a first code cell that already imports `tit` and prints this project's root, so the TI-Toolbox environment is loaded rather than described. With `content`, this is the import path: "Import .ipynb".
          */
         post: {
             parameters: {
@@ -6885,7 +6885,7 @@ export interface components {
         FreehandConfig: {
             name: string;
             /**
-             * @description On-disk stim_configs semantics (unipolar/multipolar), not xyz/label -- see `tit/catalog.py::_read_freehand_file`, the source of truth for `m2m_<id>/stim_configs/*.json` written by `tit/gui/extensions/electrode_placement.py`.
+             * @description On-disk stim_configs semantics (unipolar/multipolar), not xyz/label -- see `tit/catalog.py::_read_freehand_file`, the source of truth for `m2m_<id>/stim_configs/*.json` written by `tit/catalog.py::put_freehand_config` (PUT /api/catalog/freehand/{name}).
              * @enum {string}
              */
             type: "U" | "M";
@@ -7354,7 +7354,7 @@ export interface components {
             cal_min?: number | null;
             cal_max?: number | null;
             lut?: string | null;
-            /** @description Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution at launch time (GET /api/view/{kind} or POST /api/viewers/freeview), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile. */
+            /** @description Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind} or POST /api/view/args), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile. */
             percentile?: {
                 lo: number;
                 hi: number;
@@ -7367,7 +7367,7 @@ export interface components {
             layers: components["schemas"]["ViewLayer"][];
             /** @description DEPRECATED (D3, docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the exact argv tail an external Freeview process would need (to_freeview_args). Kept for one release; no route launches Freeview any more (there is no X11 in this runtime). */
             freeview_args: string[];
-            /** @description The real Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) the embedded viewer's Engine.load() accepts directly -- datasets addressed by origin-relative /api/files/raw/... URLs (both DatasetRef.path and .absPath), layers in the engine's own vocabulary (VolumeLayer/MeshLayer). Derived from `layers` by a pure function, so the two always describe the same files. Untyped here (a generic object) because the full engine scene model is Tetravox-owned; the subset this server emits is hand-schema'd in contracts/tetravox-viewspec-v2.schema.json (host-facing). Optional, so an older server still satisfies this contract. */
+            /** @description The real Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) -- datasets addressed by origin-relative /api/files/raw/... URLs (both DatasetRef.path and .absPath, which POST /api/view/open rewrites to host paths for the native TetraVox), layers in the engine's own vocabulary (VolumeLayer/MeshLayer). Derived from `layers` by a pure function, so the two always describe the same files. Untyped here (a generic object) because the full engine scene model is Tetravox-owned; the subset this server emits is hand-schema'd in contracts/tetravox-viewspec-v2.schema.json (host-facing). Optional, so an older server still satisfies this contract. */
             scene?: Record<string, never> | null;
         };
         Telemetry: {

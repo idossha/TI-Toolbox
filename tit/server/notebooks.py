@@ -8,9 +8,8 @@ TypeScript because its notebook model lives in the renderer; here the file
 never leaves the container, so ``nbformat`` itself does the reading and
 writing and the question does not arise.
 
-Everything lives in one directory, ``<project>/code/ti-toolbox/notebooks``,
-which is also where the pipeline's exported notebooks land. Names are a
-single path segment: there are no subdirectories, because a flat list is what
+Everything lives in one directory, ``<project>/code/ti-toolbox/notebooks``.
+Names are a single path segment: there are no subdirectories, because a flat list is what
 the UI shows and a traversal is the only thing a name could otherwise buy.
 
 The worked example
@@ -38,7 +37,7 @@ from typing import Any
 
 from tit.paths import resolve_leaf_within
 
-#: Relative to the project root. The pipeline exports here too.
+#: Relative to the project root.
 NOTEBOOK_SUBDIR = Path("code") / "ti-toolbox" / "notebooks"
 
 NOTEBOOK_SUFFIX = ".ipynb"
