@@ -77,6 +77,18 @@ def _write(path: Path, text: str | bytes) -> None:
         path.write_text(text, encoding="utf-8")
 
 
+def _head_model(pm, sid: str, mesh: bytes = b"\0") -> Path:
+    """A finished charm head model for *sid*: the mesh and the final segmentation.
+
+    ``tit.catalog`` shows a head model only when pre-processing's own completion rule
+    (:func:`tit.pre.preflight.step_output_complete`) holds, which needs both files.
+    """
+    m2m = Path(pm.m2m(sid))
+    _write(m2m / "final_tissues.nii.gz", b"\0")
+    _write(m2m / f"{sid}.msh", mesh)
+    return m2m / f"{sid}.msh"
+
+
 def _csv(header: list[str], rows: list[list]) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
@@ -274,7 +286,7 @@ def _overview_project(pm) -> tuple[dict[str, str], list[dict]]:
     for sid in ("full", "rawonly", "queued"):
         _write(Path(pm.bids_anat(sid)) / f"sub-{sid}_T1w.nii.gz", b"\0")
     for sid in ("full", "m2monly", "lffailed"):
-        _write(Path(pm.m2m(sid)) / f"{sid}.msh", b"\0")
+        _head_model(pm, sid)
     for sid in ("full", "lffailed"):
         _write(Path(pm.eeg_positions(sid)) / NET, cap)
     _write(Path(pm.leadfields("full")) / f"full_leadfield_{NET[:-4]}.hdf5", b"\0")
@@ -566,7 +578,7 @@ def _analyzer_fixtures(pm, root: Path) -> tuple[dict, dict]:
         for case_id, ids, cfg in PLANNED_ANALYSES
     ]
     for sid, cfg, files in HELD_ANALYSES:
-        _write(Path(pm.m2m(sid)) / f"{sid}.msh", b"\0")
+        _head_model(pm, sid)
         (job,) = plan([sid], single(sid, cfg))["jobs"]
         folder = Path(job["output_dir"])
         _write(folder / "analysis.json", json.dumps(_analysis_metadata(cfg), indent=2))
@@ -644,8 +656,7 @@ def build() -> dict[str, str]:
         root.mkdir()
         reset_path_manager()
         pm = get_path_manager(str(root))
-        mesh = Path(pm.m2m(SUBJECT)) / f"{SUBJECT}.msh"
-        _write(mesh, b"synthetic head mesh bytes\n")
+        mesh = _head_model(pm, SUBJECT, b"synthetic head mesh bytes\n")
         _flex_run(pm, mesh)
         _ex_run(pm, "ex")
         _ex_run(pm, "mex")
