@@ -12,11 +12,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import nibabel
 import numpy as np
-import pandas as pd
 from scipy.spatial import cKDTree
 
 from tit.opt.config import FlexConfig
 from tit.opt.flex.utils import eeg_net_csv_path
+from tit.tools.map_electrodes import read_csv_positions
 
 
 def create_valid_skin_region_visualization(
@@ -34,7 +34,9 @@ def create_valid_skin_region_visualization(
         )
         from tit.paths import get_path_manager
     except ImportError as exc:
-        logger.warning(f"Could not import SimNIBS skin visualization dependencies: {exc}")
+        logger.warning(
+            f"Could not import SimNIBS skin visualization dependencies: {exc}"
+        )
         return
 
     pm = get_path_manager()
@@ -132,15 +134,10 @@ def _skin_mask_from_mni_volume(skin_surface, mesh, fn_electrode_mask, transform_
         m2m_folder=os.path.split(mesh.fn)[0],
         transformation_type="nonl",
     )
-    skin_nodes_mni_voxel = (
-        np.floor(
-            np.linalg.inv(mask_img.affine)
-            @ np.hstack(
-                (skin_nodes_mni_ras, np.ones((skin_nodes_mni_ras.shape[0], 1)))
-            ).T
-        )[:3, :]
-        .T.astype(int)
-    )
+    skin_nodes_mni_voxel = np.floor(
+        np.linalg.inv(mask_img.affine)
+        @ np.hstack((skin_nodes_mni_ras, np.ones((skin_nodes_mni_ras.shape[0], 1)))).T
+    )[:3, :].T.astype(int)
     for axis in range(3):
         skin_nodes_mni_voxel[
             skin_nodes_mni_voxel[:, axis] >= mask_img.shape[axis], axis
@@ -289,27 +286,18 @@ def _load_electrodes(net_csv, points, plot_points, mask, frame, logger):
     if not net_csv or not os.path.exists(net_csv):
         return None
     try:
-        first = pd.read_csv(net_csv, header=None, sep=",", nrows=1)
-        skiprows = 0
-        try:
-            float(first.iloc[0, 1])
-            float(first.iloc[0, 2])
-            float(first.iloc[0, 3])
-        except (ValueError, TypeError):
-            skiprows = 1
-        df = pd.read_csv(net_csv, header=None, sep=",", skiprows=skiprows)
-        df.columns = ["type", "x", "y", "z", "label"]
-        electrodes = df[df["type"] == "Electrode"]
-        if electrodes.empty:
+        # The net reader the mapping uses, so the picture shows the electrodes a
+        # mapped result can land on (Electrode rows; labels stay strings).
+        raw_positions, labels = read_csv_positions(net_csv)
+        if not labels:
             return None
-        raw_positions = electrodes[["x", "y", "z"]].to_numpy(dtype=float)
         _, nearest_idx = cKDTree(points).query(raw_positions, k=1)
         positions = (
             _local_coords(raw_positions, *frame) if frame is not None else raw_positions
         )
         return {
             "positions": positions,
-            "labels": electrodes["label"].to_numpy(),
+            "labels": np.array(labels, dtype=object),
             "valid_mask": mask[nearest_idx],
         }
     except Exception as exc:

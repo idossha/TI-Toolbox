@@ -11,6 +11,7 @@ tit.opt.flex : Differential-evolution flex-search optimiser.
 tit.tools.montage_visualizer : Render montage placement as PNG.
 """
 
+import csv
 import json
 import logging
 
@@ -22,7 +23,15 @@ logger = logging.getLogger(__name__)
 
 def read_csv_positions(csv_path):
     """
-    Read electrode positions from a CSV file using SimNIBS utilities.
+    Read the stimulation electrodes of a SimNIBS EEG net CSV.
+
+    The rule every net reader in TI-Toolbox shares (the catalog's net
+    pickers, job preflight, simulation coordinates, the electrode overlay):
+    ``Electrode,x,y,z,label`` rows only. ``ReferenceElectrode`` (Cz in the
+    10-10 and SPM12 caps) and ``Fiducial`` rows are not offered as
+    stimulation electrodes anywhere else, so a mapping onto them would name
+    a label that preflight then refuses. Rows with fewer than five cells (a
+    blank line) are skipped rather than failing the whole net.
 
     Parameters
     ----------
@@ -40,21 +49,15 @@ def read_csv_positions(csv_path):
     --------
     load_electrode_positions_json : Load positions from optimiser output.
     """
-    from simnibs.utils.csv_reader import read_csv_positions as simnibs_read_csv
-
-    # Use SimNIBS's CSV reader
-    type_, coordinates, extra, name, extra_cols, header = simnibs_read_csv(csv_path)
-
-    # Extract positions and names for electrodes only
     positions = []
     labels = []
+    with open(csv_path, newline="") as handle:
+        for row in csv.reader(handle):
+            if len(row) >= 5 and row[0].strip().lower() == "electrode":
+                positions.append([float(row[1]), float(row[2]), float(row[3])])
+                labels.append(row[4].strip())
 
-    for t, coord, n in zip(type_, coordinates, name):
-        if t in ["Electrode", "ReferenceElectrode"]:
-            positions.append(coord)
-            labels.append(n if n else f"E{len(positions)}")
-
-    return np.array(positions), labels
+    return np.array(positions, dtype=float).reshape(-1, 3), labels
 
 
 def load_electrode_positions_json(json_path):

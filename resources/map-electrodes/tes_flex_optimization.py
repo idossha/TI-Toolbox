@@ -1503,7 +1503,11 @@ class TesFlexOptimization:
         net_positions = []
         net_labels = []
         for t, coord, n in zip(type_, coordinates, name):
-            if t in ['Electrode', 'ReferenceElectrode']:
+            # [TI-TOOLBOX] Electrode rows only: the ReferenceElectrode (Cz in the 10-10
+            # and SPM12 caps) is not a stimulation electrode anywhere else in
+            # TI-Toolbox (catalog, preflight, tit.tools.map_electrodes), so a result
+            # mapped onto it named a label every later step refused.
+            if t == 'Electrode':
                 net_positions.append(coord)
                 net_labels.append(n)
         
