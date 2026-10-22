@@ -12,10 +12,15 @@ MODULE = "tit.pre.tissue_analyzer"
 
 
 @pytest.fixture
-def mock_nib():
-    """Return the mocked nibabel module."""
+def mock_nib(monkeypatch):
+    """Return the mocked nibabel module, with the RAS reordering and the medial-surface
+    neighbourhood maximum passing arrays through (real behaviour: tests/numerical/
+    test_tissue_geometry.py)."""
     import nibabel as nib
+    from scipy import ndimage
 
+    monkeypatch.setattr(nib, "as_closest_canonical", lambda image: image)
+    monkeypatch.setattr(ndimage, "maximum_filter", lambda a, size: a)
     return nib
 
 

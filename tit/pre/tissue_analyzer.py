@@ -124,11 +124,14 @@ class TissueAnalyzer:
         self.tissue_color = config["tissue_color"]
         self.brain_labels = config["brain_labels"]
 
-        # Load NIfTI
+        # Load NIfTI in RAS+ voxel order (axis 0 left->right, 1 posterior->anterior,
+        # 2 inferior->superior): charm keeps its input's storage order (Dataset 000's
+        # sub-ernie is P, S, R), and the inferior cut and the figures' views and labels
+        # assume these axes. Reordering only transposes/flips; nothing is resampled.
         self.logger.info(f"Loading NIfTI: {nifti_path}")
-        self.nii = nib.load(str(nifti_path))
+        self.nii = nib.as_closest_canonical(nib.load(str(nifti_path)))
         self.data = self.nii.get_fdata()
-        self.voxel_dims = self.nii.header.get_zooms()[:3]
+        self.voxel_dims = tuple(float(z) for z in self.nii.header.get_zooms()[:3])
         self.voxel_volume = float(np.prod(self.voxel_dims))
 
         # Load label names
@@ -215,27 +218,65 @@ class TissueAnalyzer:
             min_coords[2] : max_coords[2],
         ] = 1
 
-        # Z-coordinate filter (exclude lower regions)
-        brain_center_z = (brain_coords[2].min() + brain_coords[2].max()) // 2
-        z_threshold = brain_center_z - self.padding
+        # Exclude lower regions: slices inferior to the cut-off (RAS axis 2)
+        _, z_threshold = self._inferior_cutoff(brain_coords[2])
         region_mask[:, :, :z_threshold] = 0
 
         return (tissue_mask * region_mask).astype(np.uint8)
 
-    def _calculate_thickness(self, mask: np.ndarray) -> dict:
-        """Calculate thickness statistics using a 3-D distance transform."""
-        if np.sum(mask) == 0:
+    def _inferior_cutoff(self, brain_z: np.ndarray) -> tuple[int, int]:
+        """Return the brain's centre slice and the first slice kept above it.
+
+        The cut-off is ``padding`` slices below the centre, clamped at 0: a negative
+        index would slice from the top of the volume instead.
+        """
+        centre = int(brain_z.min() + brain_z.max()) // 2
+        return centre, max(0, centre - self.padding)
+
+    def _calculate_thickness(
+        self, mask: np.ndarray, region: np.ndarray | None = None
+    ) -> dict:
+        """Measure the tissue's thickness on its medial surface.
+
+        The distance transform of *mask* gives each tissue voxel its distance ``d``
+        to the nearest non-tissue voxel. On the medial surface (voxels no
+        26-neighbour exceeds) ``d`` is the radius of the largest ball inscribed in
+        the tissue there, so ``2d`` is the local thickness (the maximal-sphere
+        definition of Hildebrand & Rüegsegger, 1997, J Microsc 185:67-75): a shell
+        ``T`` mm thick reads ``T`` within one voxel. Averaging ``2d`` over every
+        voxel instead reads about two thirds of ``T`` and a minimum of two voxels.
+
+        Args:
+            mask: Binary tissue mask; the distances are measured within it.
+            region: Where thickness is reported (the filtered analysis region);
+                defaults to *mask*.
+
+        Returns:
+            ``mean``/``std``/``min``/``max`` in mm over the medial voxels inside
+            *region*, and ``thickness_map``: ``2d`` on those voxels, NaN elsewhere
+            (``None`` when there are none).
+        """
+        region = mask if region is None else region
+        medial = np.zeros(mask.shape, dtype=bool)
+        if np.any(region):
+            distance = ndimage.distance_transform_edt(mask, sampling=self.voxel_dims)
+            medial = (
+                (mask > 0)
+                & (region > 0)
+                & (distance >= ndimage.maximum_filter(distance, size=3))
+            )
+        if not medial.any():
             return {"max": 0, "min": 0, "mean": 0, "std": 0, "thickness_map": None}
 
-        distance_map = ndimage.distance_transform_edt(mask, sampling=self.voxel_dims)
-        thickness_values = distance_map[mask > 0] * 2  # Thickness = 2 * distance
+        thickness_map = np.where(medial, 2 * distance, np.nan)
+        thickness_values = thickness_map[medial]
 
         return {
             "max": float(np.max(thickness_values)),
             "min": float(np.min(thickness_values)),
             "mean": float(np.mean(thickness_values)),
             "std": float(np.std(thickness_values)),
-            "thickness_map": distance_map * 2,
+            "thickness_map": thickness_map,
         }
 
     def _create_thickness_figure(
@@ -255,7 +296,10 @@ class TissueAnalyzer:
 
         vx, vy, vz = self.voxel_dims
         mid = [s // 2 for s in thickness_map.shape]
-        thickness_values = thickness_map[filtered_mask > 0]
+        # Thickness is measured on the medial surface only; the map is NaN elsewhere.
+        thickness_values = thickness_map[
+            (filtered_mask > 0) & np.isfinite(thickness_map)
+        ]
         vmin, vmax = np.nanmin(thickness_values), np.nanmax(thickness_values)
 
         # A. Axial view (top-left)
@@ -268,13 +312,13 @@ class TissueAnalyzer:
             cmap=self.color_scheme,
             origin="lower",
             aspect=vy / vx,
-            interpolation="bilinear",
+            interpolation="nearest",
             vmin=vmin,
             vmax=vmax,
         )
         ax1.set_title("A. Axial View", fontsize=12, fontweight="bold")
-        ax1.set_xlabel("X (Anterior-Posterior)")
-        ax1.set_ylabel("Y (Left-Right)")
+        ax1.set_xlabel("X (Left-Right)")
+        ax1.set_ylabel("Y (Posterior-Anterior)")
 
         # B. Coronal view (top-center)
         ax2 = fig.add_subplot(gs[0, 1])
@@ -286,12 +330,12 @@ class TissueAnalyzer:
             cmap=self.color_scheme,
             origin="lower",
             aspect=vz / vx,
-            interpolation="bilinear",
+            interpolation="nearest",
             vmin=vmin,
             vmax=vmax,
         )
         ax2.set_title("B. Coronal View", fontsize=12, fontweight="bold")
-        ax2.set_xlabel("X (Anterior-Posterior)")
+        ax2.set_xlabel("X (Left-Right)")
         ax2.set_ylabel("Z (Inferior-Superior)")
 
         # C. Sagittal view (top-right)
@@ -304,12 +348,12 @@ class TissueAnalyzer:
             cmap=self.color_scheme,
             origin="lower",
             aspect=vz / vy,
-            interpolation="bilinear",
+            interpolation="nearest",
             vmin=vmin,
             vmax=vmax,
         )
         ax3.set_title("C. Sagittal View", fontsize=12, fontweight="bold")
-        ax3.set_xlabel("Y (Left-Right)")
+        ax3.set_xlabel("Y (Posterior-Anterior)")
         ax3.set_ylabel("Z (Inferior-Superior)")
 
         # Colorbar for the 3 views
@@ -449,13 +493,10 @@ class TissueAnalyzer:
                 brainstem_mask = (self.data == label).astype(np.uint8)
 
         # Calculate Z-cutoff parameters
-        brain_coords = np.where(brain_mask > 0)
-        if len(brain_coords[0]) > 0:
-            brain_center_z = (brain_coords[2].min() + brain_coords[2].max()) // 2
-            z_threshold = brain_center_z - self.padding
-        else:
-            brain_center_z = mid[2]
-            z_threshold = mid[2] - self.padding
+        brain_z = np.where(brain_mask > 0)[2]
+        brain_center_z, z_threshold = self._inferior_cutoff(
+            brain_z if brain_z.size else np.array([mid[2]])
+        )
 
         kept_pct = np.sum(filtered_mask) / max(np.sum(tissue_mask), 1) * 100
         view_configs = [
@@ -630,7 +671,8 @@ class TissueAnalyzer:
             f.write(f"{self.tissue_name.upper()} ANALYSIS SUMMARY\n")
             f.write("=" * 40 + "\n\n")
             f.write(f"Input: {self.nifti_path}\n")
-            f.write(f"Voxel dimensions: {self.voxel_dims} mm\n\n")
+            dims = " x ".join(f"{d:g}" for d in self.voxel_dims)
+            f.write(f"Voxel dimensions: {dims} mm\n\n")
 
             f.write("VOLUME:\n")
             f.write(f"  Total voxels: {np.sum(tissue_mask):,}\n")
@@ -687,7 +729,7 @@ class TissueAnalyzer:
         )
 
         # Calculate thickness
-        thickness_stats = self._calculate_thickness(filtered_mask)
+        thickness_stats = self._calculate_thickness(tissue_mask, filtered_mask)
 
         # Calculate volume
         volume_mm3 = filtered_voxels * self.voxel_volume
