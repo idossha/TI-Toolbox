@@ -273,7 +273,6 @@ describe("the rendered page shows each figure exactly once", () => {
     await renderPage();
     // The rail is on every screen and `pages/jobs` is the full list. A third view of the same rows
     // was this page's largest redundancy, and it took its height from the process table.
-    expect(container.querySelector('[data-testid="system-jobs"]')).toBeNull();
     expect(container.textContent).not.toContain("Recently finished");
     expect(container.textContent).not.toContain("No jobs running");
   });

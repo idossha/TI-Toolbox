@@ -190,12 +190,28 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-/** Lets the fill controller settle before anything is measured (it works over rAF passes). */
+/**
+ * Lets the page load and the fill controller settle before anything is measured. Loaded: no
+ * skeleton left on the active page (bounded; a page that keeps one is measured as it stands).
+ * Settled: the fill controller works over rAF passes, so wait until the active page's box heights
+ * are identical on three consecutive frames instead of sleeping a guessed number of milliseconds.
+ */
 async function settle(target: Page): Promise<void> {
   await target
     .waitForFunction(() => document.querySelectorAll('[data-page-active="true"] .skeleton').length === 0, undefined, { timeout: 5_000 })
     .catch(() => undefined);
-  await target.waitForTimeout(350);
+  await target.waitForFunction(
+    () => {
+      const w = window as unknown as { __settle?: { last: string; same: number } };
+      const now = Array.from(document.querySelectorAll('[data-page-active="true"] *'), (el) => Math.round(el.getBoundingClientRect().height)).join(",");
+      const prev = w.__settle;
+      w.__settle = { last: now, same: prev && prev.last === now ? prev.same + 1 : 0 };
+      return w.__settle.same >= 2;
+    },
+    undefined,
+    { polling: "raf", timeout: 5_000 },
+  );
+  await target.evaluate(() => delete (window as unknown as { __settle?: unknown }).__settle);
 }
 
 for (const size of SIZES) {

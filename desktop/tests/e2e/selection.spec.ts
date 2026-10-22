@@ -166,7 +166,6 @@ test("the action-bar digest states the batch, with no receipt, and updates live"
   const jobRow = active.locator("tr[data-job-row]").first();
   await configureMontageJob(page, jobRow, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
 
-  await expect(active.getByTestId("run-receipt")).toHaveCount(0);
   await expect(active.locator(".action-bar-digest")).toHaveText(/^1 job/, { timeout: 20_000 });
 
   // Live: emptying the table empties the plan, and the disabled primary carries the reason.
@@ -183,7 +182,6 @@ test("Pre-processing states its batch in the digest", async () => {
   await openSubjects(page);
   await selectSubjects(page, ["ernie"]);
   const active = page.locator('[data-page-active="true"]');
-  await expect(active.getByTestId("run-receipt")).toHaveCount(0);
   await expect(active.locator(".action-bar-digest")).toHaveText(/job/, { timeout: 20_000 });
 });
 

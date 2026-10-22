@@ -92,8 +92,6 @@ test("editing the source never launches TetraVox", async () => {
 
 test("the builder footer only opens the selection; scene saving lives in Saved scenes", async () => {
   await expect(page.getByTestId("viewer-open")).toBeVisible();
-  await expect(page.getByTestId("viewer-save-preset")).toHaveCount(0);
-  await expect(page.getByTestId("viewer-recent")).toHaveCount(0);
   await expect(page.getByTestId("viewer-saved-scenes-section").getByTestId("viewer-scene-save-open")).toBeVisible();
 });
 

@@ -146,9 +146,8 @@ test("two subjects are selected on Pre-processing", async () => {
 });
 
 test("a batch goes to the server in ONE request, and never as client-side parallel POSTs", async () => {
-  // There is no `Subjects in parallel` setting any more (DECISIONS 2026-09-22).
-  await gotoPage(page, "settings", "Settings");
-  await expect(page.locator('[data-page-active="true"]').getByTestId("subjects-in-parallel")).toHaveCount(0);
+  // There is no `Subjects in parallel` setting any more (DECISIONS 2026-09-22): the scheduler runs
+  // a group's members one at a time, and this page sends the whole group in one request.
   await gotoPage(page, "preprocess", "Pre-processing");
   const active = page.locator('[data-page-active="true"]');
 

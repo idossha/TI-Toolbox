@@ -92,7 +92,6 @@ test("with no complete row the primary is disabled, with the reason as its toolt
   // reason names what is actually empty — the table — rather than the subject set the page no
   // longer has.
   await expect(page.locator(".action-bar-digest")).toHaveCount(0);
-  await expect(page.getByTestId("run-receipt")).toHaveCount(0);
   const run = page.getByTestId("run-button");
   await expect(run).toBeDisabled();
   await expect(run).toHaveAttribute("title", "Add a job with a subject and a montage.");

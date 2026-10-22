@@ -24,11 +24,6 @@ export async function showRunPaneTab(page: Page, tab: RunPaneTab): Promise<void>
   await expectRunPaneTab(page, tab);
 }
 
-/** The scene pane's own state machine: `no-subject | building | loading | ready | error`. */
-export async function scenePaneState(page: Page): Promise<string | null> {
-  return page.locator('[data-page-active="true"]').getByTestId("scene-pane-host").getAttribute("data-state");
-}
-
 /** Waits for the native scene pane to report its first loaded frame. */
 export async function waitForScene(page: Page, timeout = 30_000): Promise<void> {
   await showRunPaneTab(page, "scene");

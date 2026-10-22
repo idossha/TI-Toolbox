@@ -99,7 +99,6 @@ test("a click with nothing selected places nothing, and says why", async () => {
   // No instructional copy anywhere (maintainer, 2026-09-06): the selected row and its ringed dot
   // say which electrode a click moves; a sentence repeating it is read once and read past for ever.
   await expect(page.getByTestId("scene-pane-hint")).toHaveText("");
-  await expect(page.getByTestId("freehand-how")).toHaveCount(0);
 
   // The rows open already named — the plan, before anything is clicked (2.5.0's E1+/E1− naming).
   await expect(page.locator('[aria-label="Position 1 label"]')).toHaveValue("E1+");

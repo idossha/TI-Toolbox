@@ -103,13 +103,6 @@ test("is the coverage strip and the presence matrix — no readiness board, no p
   await expect(ernie.getByRole("img", { name: /^(leadfield|eeg_net) / })).toHaveCount(0);
   await expect(page.getByTestId("overview-row-101").getByRole("img", { name: "fastsurfer missing" })).toBeVisible();
 
-  // The readiness board of four stage cards is gone: it restated the matrix one chip at a time and
-  // its mostly-empty chip wells owned the lower half of the page.
-  await expect(page.getByTestId("overview-readiness")).toHaveCount(0);
-  for (const stage of ["preprocess", "simulator", "optimizer", "analyzer"]) {
-    await expect(page.getByTestId(`overview-stage-${stage}`)).toHaveCount(0);
-    await expect(page.getByTestId(`overview-run-${stage}`)).toHaveCount(0);
-  }
 
   // What the dot colours mean is said once, in one line under the matrix, not learned by hovering.
   const legend = (await page.getByTestId("overview-legend").innerText()).replace(/\s+/g, " ").toLowerCase();

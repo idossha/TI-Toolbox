@@ -264,7 +264,6 @@ test("every panel is populated from the live stream, in both themes", async () =
   await expect(host.getByText(/↓ .+\/s/)).toBeVisible({ timeout: 20_000 });
 
   // ── no jobs strip at all: the rail is on every screen and `pages/jobs` is the full list ──
-  await expect(page.getByTestId("system-jobs")).toHaveCount(0);
   await expect(page.getByTestId("system-page")).not.toContainText("No jobs running");
 
   // ── the two-column geometry (maintainer, 2026-09-07) ──

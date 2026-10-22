@@ -65,9 +65,9 @@ test.describe("browser mode (no Electron bridge)", () => {
     await openApp(page);
     await expect(page.locator(".nav-rail")).toBeVisible();
 
-    // The pages a browser-mode user actually works in. Viewer is included on purpose: it frames
-    // the server-served Tetravox embed (`/tetravox/`) rather than anything Electron provides,
-    // which is exactly why it works here at all.
+    // The pages a browser-mode user actually works in. Viewer is included on purpose: with no
+    // bridge it still builds a scene and offers the prepared file as a download, so it has to open
+    // over HTTP alone.
     for (const id of ["overview", "preprocess", "simulator", "optimizer", "analyzer", "results", "viewer", "settings"]) {
       const item = page.getByTestId(`nav-item-${id}`);
       if ((await item.count()) === 0) continue; // a page the server did not enable for this project

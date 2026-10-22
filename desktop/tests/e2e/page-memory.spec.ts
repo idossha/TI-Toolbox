@@ -300,8 +300,8 @@ test("a deliberate pointer click is not inverted by the fill controller", async 
 });
 
 test("changing another tab's subject preserves preprocessing and the live viewer session", async () => {
-  test.setTimeout(120_000); // Three populated tabs, each waiting for its API and embed handshake.
-  test.skip(TOKEN !== "mock-token", "the cursor and message counters use the deterministic fake embed");
+  test.setTimeout(120_000); // Three populated tabs, each waiting for its API.
+  test.skip(TOKEN !== "mock-token", "switches between the mock server's ernie and 101 fixtures");
   const errors: string[] = [];
   const recordError = (error: Error) => errors.push(error.message);
   page.on("pageerror", recordError);

@@ -104,11 +104,6 @@ export function jobPairs(row: Locator): Locator {
   return jobDetail(row).locator('[data-cell="pair"]');
 }
 
-/** The pairs as one string, the way the old single Pairs cell read: `E1–E2 · E3–E4`. */
-export async function jobPairsText(row: Locator): Promise<string> {
-  return (await jobPairs(row).allTextContents()).join(" · ");
-}
-
 /** The row's current (mA) inputs — the count follows its polarity. */
 export function jobCurrents(row: Locator): Locator {
   return jobDetail(row).getByRole("spinbutton");

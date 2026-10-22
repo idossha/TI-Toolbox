@@ -181,43 +181,6 @@ export async function gotoPage(page: Page, id: string, label?: string): Promise<
   throw new Error(`no nav item "${id}" in the rail (and no label fallback given)`);
 }
 
-/**
- * Puts a `FormSection` (by its visible title) into the state a test needs, **converging** instead
- * of checking once and acting.
- *
- * The failure it prevents, measured on 2026-09-04: `RunWork`'s fill controller opens sections over
- * rAF passes for a page nobody has touched yet, so a body that is absent when a spec counts it can
- * be present a frame later when the click actually lands — and the click then *closes* the section
- * the spec was trying to open. `segmented-idiom.spec.ts` failed that way deterministically on the
- * Simulator at 1280x900 (Electrodes: read closed, clicked, ended closed), and the same check-then-
- * act shape is in `simulator.spec.ts`. Reading `aria-expanded` immediately before each click and
- * letting the controller settle after it converges in two clicks at worst.
- *
- * It also insists the state is the **user's** (`data-fill-user`), not one the controller happens to
- * have produced: a section the controller opened is still the controller's to close on the next
- * content growth, and a spec that merely found it open has no promise it will still be open two
- * statements later. Measured: `segmented-idiom.spec.ts` read Pre-processing's "Existing outputs"
- * as open, and the controller had closed it again by the next assertion. Clicking twice when the
- * state is already right is deliberate — that is how a user makes a state stick, and the rule this
- * helper leans on is the product's, not the test's.
- */
-export async function setSectionOpen(page: Page, title: string, open: boolean): Promise<Locator> {
-  const section = page.locator('[data-page-active="true"] .form-section', { hasText: title }).first();
-  const trigger = section.locator(".form-section-header-trigger");
-  const want = open ? "open" : "closed";
-  await expect(trigger).toBeVisible();
-  for (let i = 0; i < 6; i += 1) {
-    const expanded = (await trigger.getAttribute("aria-expanded")) === String(open);
-    const mine = (await section.getAttribute("data-fill-user")) === want;
-    if (expanded && mine) break;
-    await trigger.click();
-    await page.waitForTimeout(150);
-  }
-  await expect(trigger).toHaveAttribute("aria-expanded", String(open));
-  await expect(section).toHaveAttribute("data-fill-user", want);
-  return section;
-}
-
 /** ⌘K / Ctrl+K, then wait for the palette to actually be on screen. */
 export async function openPalette(page: Page): Promise<void> {
   await page.keyboard.press(`${process.platform === "darwin" ? "Meta" : "Control"}+k`);

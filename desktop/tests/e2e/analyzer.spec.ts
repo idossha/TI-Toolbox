@@ -88,7 +88,6 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
   // the ROW's space and is a cell on line 1.
   await expect(sectionTitles).toHaveText(["Jobs"]);
   await expect(page.locator("#analyzer-tissue")).toHaveCount(0);
-  await expect(page.getByTestId("analyses-table")).toHaveCount(0);
   await expect(page.locator('[data-page-active="true"]').locator(".roi-picker")).toHaveCount(0);
   // Every row states its own target, and says so when it has none.
   await expect(analysisTargetText(analysisRows(page).first())).toHaveText("Choose a target…");
