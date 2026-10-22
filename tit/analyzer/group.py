@@ -194,10 +194,20 @@ def run_group_analysis(
         Analyzer._checked_spheres(spheres or [(*center, radius)])
 
     with track_operation(_const.TELEMETRY_OP_GROUP_ANALYSIS):
-        target = _target_label(
-            analysis_type, center, radius, coordinate_space, spheres, region, mask_path
+        run_name = group_run_name(
+            simulation,
+            space,
+            analysis_type,
+            center=center,
+            radius=radius,
+            coordinate_space=coordinate_space,
+            spheres=spheres,
+            region=region,
+            mask_path=mask_path,
+            field=field,
+            tissue_type=tissue_type,
         )
-        out = _resolve_output_dir(output_dir, f"{simulation}_{space}_{target}")
+        out = _resolve_output_dir(output_dir, run_name)
 
         # File handler so group analysis logs are persisted
         timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -291,6 +301,52 @@ def _target_label(
     return "+".join(str(r) for r in regions if r)
 
 
+def group_run_name(
+    simulation: str,
+    space: str,
+    analysis_type: str,
+    *,
+    center=None,
+    radius=None,
+    coordinate_space: str = "subject",
+    spheres=None,
+    region=None,
+    mask_path=None,
+    field: str | None = None,
+    tissue_type: str | None = None,
+) -> str:
+    """``<simulation>_<space>_<target>[_<field>][_<tissue>]``: what a group run is named by.
+
+    The target as :func:`_target_label` words it, then the field and tissue the way an
+    analysis folder carries them (:meth:`PathManager.analysis_variant_suffix`), so a
+    TI_max and an hf_peak run of one ROI are told apart by name too.
+    """
+    target = _target_label(
+        analysis_type, center, radius, coordinate_space, spheres, region, mask_path
+    )
+    variant = PathManager.analysis_variant_suffix(space, field, tissue_type)
+    return f"{simulation}_{space}_{target}{variant}"
+
+
+def group_output_dir(
+    output_dir: str | Path | None, run_name: str, stamp: str | None = None
+) -> str:
+    """The folder a group run writes its summary into (not created).
+
+    *output_dir* when given; otherwise
+    ``derivatives/ti-toolbox/group_analysis/<run_name>_<YYYYmmdd_HHMMSS>/``, *stamp*
+    being the second the run starts (now, when not given). Shared with the plan, which
+    previews the folder a run started now would name.
+    """
+    if output_dir:
+        return str(output_dir)
+    pm = get_path_manager()
+    stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
+    # A folder name is letters, digits, ".", "_", "-" and at most 128 characters.
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", run_name)[: 127 - len(stamp)]
+    return pm.group_analysis(f"{name.strip('._-')}_{stamp}")
+
+
 def _resolve_output_dir(output_dir: str | Path | None, run_name: str) -> Path:
     """Return (and create) the output directory.
 
@@ -299,13 +355,7 @@ def _resolve_output_dir(output_dir: str | Path | None, run_name: str) -> Path:
     folder let each run overwrite the last one's summary and plot, and one Run press in
     the Analyzer submits one group job per sphere or region.
     """
-    pm = get_path_manager()
-    if output_dir:
-        return Path(pm.ensure(str(output_dir)))
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    # A folder name is letters, digits, ".", "_", "-" and at most 128 characters.
-    name = re.sub(r"[^A-Za-z0-9._-]+", "_", run_name)[: 127 - len(stamp)]
-    return Path(pm.ensure(pm.group_analysis(f"{name.strip('._-')}_{stamp}")))
+    return Path(get_path_manager().ensure(group_output_dir(output_dir, run_name)))
 
 
 def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:

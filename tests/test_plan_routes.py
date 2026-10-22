@@ -823,7 +823,8 @@ def test_plan_analyzer_group_mode_plans_every_config_subject_id(
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert {j["subject"] for j in body["jobs"]} == {"001", "002"}
+    # One job per subject, plus the project-level group summary folder (subject "").
+    assert sorted(j["subject"] for j in body["jobs"]) == ["", "001", "002"]
     for job in body["jobs"]:
         assert job["kind"] == "analyzer"
         assert job["exists"] is False
@@ -1140,6 +1141,7 @@ def test_analyzer_subcortical_plan_matches_runtime_output_directory(client, proj
     analyzer.subject_id = "001"
     analyzer.simulation = "TestSim"
     analyzer.space = "voxel"
+    analyzer.field_name, analyzer.tissue_type = "TI_max", "GM"  # the config's defaults
     analyzer._pm = get_path_manager(str(project))
     runtime = analyzer._resolve_output_dir(
         analysis_type="subcortical",
@@ -1174,6 +1176,7 @@ def test_analyzer_mask_plan_matches_runtime_output_directory(client, project):
     analyzer.subject_id = "001"
     analyzer.simulation = "TestSim"
     analyzer.space = "mesh"
+    analyzer.field_name, analyzer.tissue_type = "TI_max", "GM"  # the config's defaults
     analyzer._pm = get_path_manager(str(project))
     runtime = analyzer._resolve_output_dir(
         analysis_type="mask", region_name=mask_region_name(str(mask), "mni")

@@ -39,7 +39,12 @@ Per-kind output-dir resolution
 ``leadfield``
     Existing leadfield lookup via ``LeadfieldGenerator.list_leadfields`` (no SimNIBS import).
 ``analyzer``
-    ``config.output_dir`` when set, else :meth:`PathManager.analysis_output_dir`.
+    ``config.output_dir`` when set, else :meth:`PathManager.analysis_output_dir` with the
+    same arguments the Analyzer passes (field and tissue included; an atlas analysis named
+    by its regions as requested). A ``group`` run plans each subject's own default folder
+    (output_dir never reaches them) plus one project-level job (``subject=""``) for the
+    group summary folder: ``output_dir``, or the timestamped
+    ``group_analysis/<name>_<YYYYmmdd_HHMMSS>`` a run started now would name.
 ``pre``
     :func:`tit.jobs.plans.plan_preprocessing`'s ``G1``-``G6``/``report`` DAG, flattened to one
     :class:`PlanJob` per *stage* per subject (not one per subject) -- exactly the granularity
@@ -53,7 +58,8 @@ Per-kind output-dir resolution
     one stage's.
 ``source``
     ``forward`` mode: :meth:`PathManager.forward` per subject. ``fsavg_map`` mode:
-    :meth:`PathManager.sim_fsaverage` per ``(subject, simulation)`` pair.
+    :meth:`PathManager.sim_fsaverage` per ``(subject, simulation)`` pair; it exists when
+    that spacing's projection does, and is overwritten only with ``fsavg_map.overwrite``.
 ``stats``
     Project-level (``PlanJob.subject`` is ``""``): :meth:`PathManager.stats_output` with the
     literal ``analysis_type`` ``tit.stats.permutation`` itself uses (``"group_comparison"`` /
@@ -534,59 +540,26 @@ def _plan_leadfield(
 def _plan_analyzer(
     kind: str, pm: PathManager, config: Any, subject_ids: list[str], warnings: list[str]
 ) -> tuple[list[PlanJob], None]:
-    from tit.analyzer.config import AnalysisMode, AnalysisType
+    from tit.analyzer.config import AnalysisMode
 
+    group = config.mode == AnalysisMode.GROUP
     if subject_ids:
         subjects = subject_ids
-    elif config.mode == AnalysisMode.GROUP:
+    elif group:
         subjects = list(config.subject_ids)
     else:
         subjects = [config.subject_id] if config.subject_id else []
 
     jobs: list[PlanJob] = []
     for sid in subjects:
-        if config.output_dir:
+        # A group run never hands output_dir to its per-subject analyses (they would all
+        # land in one folder): each writes its own default folder, and output_dir holds the
+        # group summary -- the project-level job below.
+        if config.output_dir and not group:
             output_dir = config.output_dir
         else:
             try:
-                if config.analysis_type == AnalysisType.SPHERICAL:
-                    output_dir = pm.analysis_output_dir(
-                        sid=sid,
-                        sim=config.simulation,
-                        space=config.space.value,
-                        analysis_type="spherical",
-                        coordinates=config.center,
-                        radius=config.radius,
-                        coordinate_space=config.coordinate_space.value,
-                    )
-                elif config.analysis_type == AnalysisType.MASK:
-                    from tit.analyzer.masks import mask_region_name
-
-                    output_dir = pm.analysis_output_dir(
-                        sid=sid,
-                        sim=config.simulation,
-                        space=config.space.value,
-                        analysis_type="mask",
-                        region=mask_region_name(
-                            config.mask_path, config.coordinate_space.value
-                        ),
-                    )
-                else:
-                    # Joined as the Analyzer joins them (its region_name), so a multi-region
-                    # plan names the directory the run writes.
-                    region = config.region
-                    region_str = (
-                        "+".join(region) if isinstance(region, list) else (region or "")
-                    )
-                    output_dir = pm.analysis_output_dir(
-                        sid=sid,
-                        sim=config.simulation,
-                        space=config.space.value,
-                        analysis_type=config.analysis_type.value,
-                        whole_head=not region_str,
-                        region=region_str or None,
-                        atlas_name=config.atlas,
-                    )
+                output_dir = _analysis_dir(pm, sid, config)
             except ValueError as exc:
                 warnings.append(f"{sid}: {exc}")
                 continue
@@ -601,7 +574,80 @@ def _plan_analyzer(
             )
         )
 
+    if group:
+        from tit.analyzer.group import group_output_dir, group_run_name
+
+        # Without output_dir the run names its folder by the second it starts; this is the
+        # name a run started now gets (a fresh folder, so it never overwrites).
+        output_dir = group_output_dir(
+            config.output_dir,
+            group_run_name(
+                config.simulation,
+                config.space.value,
+                config.analysis_type.value,
+                center=config.center,
+                radius=config.radius,
+                coordinate_space=config.coordinate_space.value,
+                region=config.region,
+                mask_path=config.mask_path,
+                field=config.field,
+                tissue_type=config.tissue_type,
+            ),
+        )
+        exists = _dir_exists(output_dir)
+        jobs.append(
+            PlanJob(
+                kind=kind,
+                subject="",
+                output_dir=output_dir,
+                exists=exists,
+                will_overwrite=exists,
+            )
+        )
+
     return jobs, None
+
+
+def _analysis_dir(pm: PathManager, sid: str, config: Any) -> str:
+    """The folder :class:`tit.analyzer.Analyzer` writes *sid*'s analysis of *config* into.
+
+    The same :meth:`PathManager.analysis_output_dir` call the Analyzer makes, from the
+    config alone: a sphere by its centre and radius, a mask by
+    :func:`~tit.analyzer.masks.mask_region_name`, an atlas analysis by the regions as
+    requested (:func:`~tit.analyzer.masks.analysis_region_key`), plus the field and tissue.
+    """
+    from tit.analyzer.config import AnalysisType
+    from tit.analyzer.masks import analysis_region_key, mask_region_name
+
+    common = {
+        "sid": sid,
+        "sim": config.simulation,
+        "space": config.space.value,
+        "field": config.field,
+        "tissue": config.tissue_type,
+    }
+    if config.analysis_type == AnalysisType.SPHERICAL:
+        return pm.analysis_output_dir(
+            **common,
+            analysis_type="spherical",
+            coordinates=config.center,
+            radius=config.radius,
+            coordinate_space=config.coordinate_space.value,
+        )
+    if config.analysis_type == AnalysisType.MASK:
+        return pm.analysis_output_dir(
+            **common,
+            analysis_type="mask",
+            region=mask_region_name(config.mask_path, config.coordinate_space.value),
+        )
+    region = analysis_region_key(config.region)
+    return pm.analysis_output_dir(
+        **common,
+        analysis_type=config.analysis_type.value,
+        whole_head=not region,
+        region=region or None,
+        atlas_name=config.atlas,
+    )
 
 
 #: Best-effort stage -> output-dir mapping for the `pre` DAG (see module docstring's `pre`
@@ -722,16 +768,21 @@ def _plan_source(
                 )
             )
     else:
+        spacing = config.fsavg_map.fsaverage_spacing
         for pair in config.pairs:
             output_dir = pm.sim_fsaverage(pair.subject_id, pair.simulation)
-            exists = _dir_exists(output_dir)
+            # The runner keeps an existing projection unless overwrite is set
+            # (tit.source.fsaverage.project_subject), so only then is it replaced.
+            exists = os.path.isfile(
+                pm.sim_fsaverage_fields(pair.subject_id, pair.simulation, spacing)
+            )
             jobs.append(
                 PlanJob(
                     kind=kind,
                     subject=pair.subject_id,
                     output_dir=output_dir,
                     exists=exists,
-                    will_overwrite=exists,
+                    will_overwrite=exists and config.fsavg_map.overwrite,
                 )
             )
     return jobs, None

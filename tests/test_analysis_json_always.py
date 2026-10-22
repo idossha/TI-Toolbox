@@ -151,18 +151,19 @@ def test_a_rerun_with_another_field_lists_the_new_field_not_the_stale_one(
     first = catalog.analyses(pm, SID, SIM)
     assert [a["field"] for a in first] == ["TI_max"]
 
-    _voxel_sphere("TI_avg")  # the same sphere, the same folder, another field
+    _voxel_sphere("TI_avg")  # the same sphere, another field
 
+    # The field is part of the folder's identity (2026-10-22): the TI_avg run is a second
+    # folder, and neither folder pairs one run's numbers with the other's metadata.
     dirs = _result_dirs(project)
-    assert (
-        len(dirs) == 1
-    ), "the same ROI writes the same folder (p21 owns adding the field)"
+    assert len(dirs) == 2, dirs
     listed = catalog.analyses(pm, SID, SIM)
-    assert [a["field"] for a in listed] == ["TI_avg"]
-    # The numbers and the metadata come from the same run.
-    assert _csv_metric(dirs[0] / "results.csv", "field_name") == "TI_avg"
-    meta = json.loads((dirs[0] / "analysis.json").read_text())
-    assert meta["field_name"] == "TI_avg"
+    assert sorted(a["field"] for a in listed) == ["TI_avg", "TI_max"]
+    for folder in dirs:
+        meta = json.loads((folder / "analysis.json").read_text())
+        assert _csv_metric(folder / "results.csv", "field_name") == meta["field_name"]
+    by_field = {a["field"]: Path(a["csv"]).parent for a in listed}
+    assert by_field["TI_avg"].name == f"{by_field['TI_max'].name}_TI_avg"
 
 
 def test_a_mesh_analysis_without_visualize_is_listed(project: Path) -> None:

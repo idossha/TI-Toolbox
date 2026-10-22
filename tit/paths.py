@@ -157,6 +157,9 @@ def is_within(root: str, path: str) -> bool:
 #: capped at 128 characters. New names created through the API are held to the
 #: stricter ``tit.catalog.is_safe_name``.
 NAME_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._ -]{0,127}$")
+#: A run of characters :data:`NAME_RE` never allows; an atlas label carrying them is
+#: rewritten before it becomes part of an analysis folder name.
+_NAME_UNSAFE = re.compile(r"[^A-Za-z0-9._ -]+")
 
 
 def is_valid_name(value: object) -> bool:
@@ -1244,7 +1247,10 @@ class PathManager:
         -------
         str
             Folder name, e.g. ``"cortical_precentral_DK40"`` or
-            ``"whole_head_DK40"``.
+            ``"whole_head_DK40"``. A label with characters a folder name may not
+            carry (``Left-MV(Re)``, ``...Gyrus,-pars-triangularis``) has them
+            replaced by ``_`` and the label's hash appended, so the Results page
+            can open it and two such labels never share a folder.
 
         Raises
         ------
@@ -1259,11 +1265,49 @@ class PathManager:
             raise ValueError(
                 "region is required for cortical analysis unless whole_head=True"
             )
+        h = hashlib.md5(region_val.encode()).hexdigest()[:8]
         if "+" in region_val:
             n = len(region_val.split("+"))
-            h = hashlib.md5(region_val.encode()).hexdigest()[:8]
             return f"cortical_{n}regions_{atlas_clean}_{h}"
+        safe = _NAME_UNSAFE.sub("_", region_val)
+        if safe != region_val:
+            return f"cortical_{safe}_{atlas_clean}_{h}"
         return f"cortical_{region_val}_{atlas_clean}"
+
+    @staticmethod
+    def analysis_variant_suffix(
+        space: str, field: str | None = None, tissue: str | None = None
+    ) -> str:
+        """The part of an analysis folder name that tells its field and tissue apart.
+
+        ``""`` for the default analysis -- the envelope (``TI_max``/``mTI_max``, or no
+        field given) on grey matter -- so every folder written before field and tissue
+        were part of the name keeps its name. Otherwise ``_<field>`` for another field
+        and, in voxel space, ``_WM`` or ``_both`` for another tissue (mesh analyses are
+        always grey-matter surface).
+
+        Parameters
+        ----------
+        space : str
+            ``"mesh"`` or ``"voxel"``.
+        field : str or None, optional
+            The analysed field (``constants.FIELD_REGISTRY`` name); ``None`` is the
+            envelope.
+        tissue : str or None, optional
+            ``"GM"``, ``"WM"`` or ``"both"`` (any case); ``None`` is ``"GM"``.
+
+        Returns
+        -------
+        str
+            ``""``, ``"_hf_peak"``, ``"_WM"``, ``"_hf_peak_both"``, ...
+        """
+        parts = []
+        if field and field not in (const.FIELD_TI_MAX, const.FIELD_MTI_MAX):
+            parts.append(str(field))
+        tissue_up = str(tissue or "GM").strip().upper()
+        if str(space).lower() == "voxel" and tissue_up != "GM":
+            parts.append("both" if tissue_up == "BOTH" else tissue_up)
+        return "".join(f"_{part}" for part in parts)
 
     def analysis_output_dir(
         self,
@@ -1280,11 +1324,15 @@ class PathManager:
         region: str | None = None,
         atlas_name: str | None = None,
         atlas_path: str | None = None,
+        field: str | None = None,
+        tissue: str | None = None,
     ) -> str:
         """Return the analysis output directory path (does not create it).
 
         Delegates to :meth:`spherical_analysis_name` or
-        :meth:`cortical_analysis_name` depending on *analysis_type*.
+        :meth:`cortical_analysis_name` depending on *analysis_type*, then
+        appends :meth:`analysis_variant_suffix`: the same ROI analysed for
+        another field or tissue is another folder, never a replacement.
 
         Parameters
         ----------
@@ -1316,6 +1364,10 @@ class PathManager:
             Atlas name for cortical analysis.
         atlas_path : str or None, optional
             Atlas file path for cortical analysis.
+        field : str or None, optional
+            The analysed field; ``None`` or the envelope adds nothing.
+        tissue : str or None, optional
+            The voxel tissue selection; ``None`` or ``"GM"`` adds nothing.
 
         Returns
         -------
@@ -1334,12 +1386,12 @@ class PathManager:
         cortical_analysis_name : Naming convention for cortical/atlas ROIs.
         """
         base = self.analysis_dir(sid, sim, space)
+        variant = self.analysis_variant_suffix(space, field, tissue)
         at = str(analysis_type).lower()
         if at == "spherical":
             if spheres:
-                return os.path.join(
-                    base, self.spherical_union_analysis_name(spheres, coordinate_space)
-                )
+                name = self.spherical_union_analysis_name(spheres, coordinate_space)
+                return os.path.join(base, name + variant)
             if not coordinates or len(coordinates) != 3 or radius is None:
                 raise ValueError(
                     "coordinates(3) and radius required for spherical analysis"
@@ -1360,7 +1412,7 @@ class PathManager:
             )
             if at == "subcortical":
                 name = "sub" + name  # "subcortical_<region>_<atlas>"
-        return os.path.join(base, name)
+        return os.path.join(base, name + variant)
 
 
 # ============================================================================

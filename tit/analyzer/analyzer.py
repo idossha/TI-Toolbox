@@ -30,6 +30,7 @@ import numpy as np
 
 from tit import constants as const
 from tit.analyzer.field_selector import select_field_file
+from tit.analyzer.masks import analysis_region_key
 from tit.atlas.segstats import compute_segstats, resolve_lut_for_atlas
 from tit.analyzer.visualizer import (
     save_analysis_metadata,
@@ -636,7 +637,7 @@ class Analyzer:
             one, _, _ = keep_main_components(labels == rid, what=name)
             self._require_label_voxels(one, name, rid, atlas_path)
             roi |= one
-        region_name = "+".join(regions)
+        region_name = analysis_region_key(regions)
         with tempfile.TemporaryDirectory() as scratch:
             mask_path = str(Path(scratch) / "subcortical_roi.nii")
             nib.save(nib.Nifti1Image(roi.astype(np.uint8), atlas_img.affine), mask_path)
@@ -848,6 +849,7 @@ class Analyzer:
             analysis_type="cortical",
             atlas=atlas,
             region_labels=region_labels,
+            region_key=analysis_region_key(regions),
             visualize=visualize,
         )
 
@@ -945,7 +947,7 @@ class Analyzer:
             self._require_label_voxels(one, name, rid, atlas_path)
             region_mask_raw = region_mask_raw | one
             region_values[one & (region_values == 0)] = index
-        region_name = "+".join(regions)
+        region_name = analysis_region_key(regions)
         region_labels = list(regions)
 
         positive_mask = field_arr > 0
@@ -1452,11 +1454,15 @@ class Analyzer:
             self._pm.ensure(self.output_dir)
             return self.output_dir
 
+        # The field and tissue are part of the folder's identity: TI_max and hf_peak (or GM
+        # and WM) of one ROI are two analyses, not one that the second run replaces.
         pm_kwargs: dict = {
             "sid": self.subject_id,
             "sim": self.simulation,
             "space": self.space,
             "analysis_type": analysis_type,
+            "field": self.field_name,
+            "tissue": self.tissue_type,
         }
 
         if analysis_type == "spherical":
@@ -1469,7 +1475,9 @@ class Analyzer:
             if len(spheres) > 1:
                 pm_kwargs["spheres"] = spheres
         else:
-            pm_kwargs["region"] = region_name
+            # A mesh atlas analysis names its folder by the request (``region_key``), not
+            # by the hemisphere keys a bare name resolved to: the plan cannot read the atlas.
+            pm_kwargs["region"] = kwargs.get("region_key") or region_name
             pm_kwargs["atlas_name"] = kwargs.get("atlas")
 
         out = self._pm.analysis_output_dir(**pm_kwargs)
