@@ -594,10 +594,6 @@ def classify_view_file(path: str) -> str | None:
     return None
 
 
-#: The kinds that are a *geometry* — something a scene draws directly, rather than something it
-#: hangs on a geometry.
-VIEW_GEOMETRY_KINDS = frozenset({"surface", "mesh"})
-
 #: The kinds that attach to a surface rather than standing alone. Matched to their surface by
 #: hemisphere (`lh.`/`rh.`), which is the only pairing FreeSurfer guarantees.
 VIEW_ATTACHMENT_KINDS = frozenset({"annotation", "morph", "surface-data"})

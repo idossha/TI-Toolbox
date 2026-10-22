@@ -48,11 +48,9 @@ from tit.sim.config import Montage
 __all__ = [
     "short_flex_run_id",
     "flex_montage_name",
-    "list_flex_run_options",
     "resolve_flex_montage",
     "flex_currents",
     "resolve_flex_simulation",
-    "list_freehand_configs",
     "resolve_freehand_montage",
 ]
 
@@ -103,55 +101,6 @@ def flex_montage_name(run_name: str, run_id: str, electrode_type: str) -> str:
     safe_type = re.sub(r"[^A-Za-z0-9_]+", "_", str(electrode_type)).strip("_")
     safe_type = safe_type or "mapped"
     return f"flex_{safe_run_name}_{run_id}_{safe_type}"
-
-
-def list_flex_run_options(pm: PathManager, subject_id: str) -> list[dict[str, Any]]:
-    """List resolvable flex-search montage sources for a subject.
-
-    Returns one entry per (run, electrode_type) combination that
-    :func:`resolve_flex_montage` can turn into a ``Montage`` -- every run
-    has a ``"mapped"`` option; a run also gets an ``"optimized"`` option
-    when its ``electrode_positions.json`` carries ``optimized_positions``.
-
-    Returns
-    -------
-    list of dict
-        Each dict has ``run_name``, ``electrode_type``
-        (``"mapped"``/``"optimized"``), and ``run_id`` (see
-        :func:`short_flex_run_id`).
-    """
-    options: list[dict[str, Any]] = []
-    try:
-        _source_path(pm, pm.flex_search(subject_id))
-    except ValueError:
-        return options
-    for run_name in pm.list_flex_search_runs(subject_id):
-        try:
-            _source_name(run_name, "run_name")
-            positions_file = _source_path(
-                pm, pm.flex_electrode_positions(subject_id, run_name)
-            )
-        except ValueError:
-            continue
-        run_id = short_flex_run_id(subject_id, run_name)
-        options.append(
-            {"run_name": run_name, "electrode_type": "mapped", "run_id": run_id}
-        )
-        if positions_file and os.path.isfile(positions_file):
-            try:
-                with open(positions_file, "r") as f:
-                    pos_data = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                continue
-            if pos_data.get("optimized_positions"):
-                options.append(
-                    {
-                        "run_name": run_name,
-                        "electrode_type": "optimized",
-                        "run_id": run_id,
-                    }
-                )
-    return options
 
 
 def resolve_flex_montage(
@@ -395,41 +344,6 @@ def resolve_flex_simulation(
             "eeg_net": net,
         },
     }
-
-
-def list_freehand_configs(pm: PathManager, subject_id: str) -> list[str]:
-    """List freehand stim-config names available for a subject.
-
-    Returns
-    -------
-    list of str
-        Names from each ``stim_configs/*.json``'s ``"name"`` field (falling
-        back to the filename stem), sorted by filename.
-    """
-    names: list[str] = []
-    m2m_dir = pm.m2m(subject_id)
-    if not m2m_dir or not os.path.isdir(m2m_dir):
-        return names
-    try:
-        stim_configs_dir = _source_path(pm, os.path.join(m2m_dir, "stim_configs"))
-    except ValueError:
-        return names
-    if not os.path.isdir(stim_configs_dir):
-        return names
-    for config_file in sorted(os.listdir(stim_configs_dir)):
-        if not config_file.endswith(".json"):
-            continue
-        try:
-            config_path = _source_path(pm, os.path.join(stim_configs_dir, config_file))
-        except ValueError:
-            continue
-        try:
-            with open(config_path, "r") as f:
-                config_data = json.load(f)
-            names.append(config_data.get("name", config_file[: -len(".json")]))
-        except (OSError, json.JSONDecodeError):
-            names.append(config_file[: -len(".json")])
-    return names
 
 
 def resolve_freehand_montage(pm: PathManager, subject_id: str, name: str) -> Montage:

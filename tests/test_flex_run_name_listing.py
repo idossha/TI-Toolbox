@@ -33,7 +33,6 @@ from tit import catalog  # noqa: E402
 from tit.paths import get_path_manager  # noqa: E402
 from tit.server.app import create_app  # noqa: E402
 from tit.server.settings import ServerSettings  # noqa: E402
-from tit.sim.montage_sources import list_flex_run_options  # noqa: E402
 
 TOKEN = "listing-token"
 GOOD = ("good_run", "run 2")
@@ -87,15 +86,3 @@ def test_the_flex_runs_route_answers_200_with_the_well_named_runs(tmp_path):
     )
     assert resp.status_code == 200, resp.text
     assert sorted(r["name"] for r in resp.json()) == sorted(GOOD)
-
-
-def test_simulator_flex_sources_list_only_the_well_named_runs(tmp_path):
-    """Guard (it passed before the listing fix too): with a badly named run present,
-    the Simulator's flex sources still offer each well-named run in both kinds."""
-    pm = get_path_manager(str(_project(tmp_path)))
-    options = list_flex_run_options(pm, "x")
-    assert sorted({o["run_name"] for o in options}) == sorted(GOOD)
-    # Each listed run offers its mapped montage and, with optimized positions, the optimized one.
-    assert sorted((o["run_name"], o["electrode_type"]) for o in options) == sorted(
-        (name, kind) for name in GOOD for kind in ("mapped", "optimized")
-    )

@@ -87,7 +87,6 @@ def test_freehand_resolution_and_listing_skip_outward_links(storage, level):
     else:
         directory.mkdir()
         (directory / "secret.json").symlink_to(outside / "secret.json")
-    assert sources.list_freehand_configs(pm, "001") == []
     with pytest.raises(ValueError):
         sources.resolve_freehand_montage(pm, "001", "authored")
 
@@ -157,21 +156,6 @@ def test_legacy_names_and_inside_aliases_resolve_and_map(storage, mapping):
     assert len(mapping) == 1
 
 
-@pytest.mark.parametrize("level", ["directory", "leaf"])
-def test_flex_discovery_skips_outward_links(storage, level):
-    pm, run, _, outside = storage
-    (outside / "electrode_positions.json").write_text(json.dumps(POSITION_DOCUMENT))
-    (run / "electrode_positions.json").unlink()
-    if level == "directory":
-        run.rmdir()
-        run.symlink_to(outside, target_is_directory=True)
-    else:
-        (run / "electrode_positions.json").symlink_to(
-            outside / "electrode_positions.json"
-        )
-    assert sources.list_flex_run_options(pm, "001") == []
-
-
 @pytest.mark.parametrize("alias_kind", ["run", "net", "mapping"])
 def test_mapping_inside_project_aliases_remain_supported(storage, mapping, alias_kind):
     pm, run, net, _ = storage
@@ -213,7 +197,6 @@ def test_freehand_inside_project_aliases_remain_supported(storage, level):
     else:
         directory.mkdir()
         (directory / "authored.json").symlink_to(actual / "authored.json")
-    assert sources.list_freehand_configs(pm, "001") == ["authored"]
     assert sources.resolve_freehand_montage(pm, "001", "authored").electrode_pairs == [
         (POSITIONS[0], POSITIONS[1]),
         (POSITIONS[2], POSITIONS[3]),

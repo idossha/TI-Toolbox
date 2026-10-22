@@ -44,9 +44,6 @@ from tit.paths import get_path_manager
 
 logger = logging.getLogger(__name__)
 
-#: Cache location, beside the other project-level toolbox state.
-CACHE_NAME = "storage.json"
-
 #: A cache older than this is refreshed in the background when the page opens.
 STALE_AFTER_S = 10 * 60
 

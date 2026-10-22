@@ -44,33 +44,6 @@ class TestFlexMontageName:
         assert name.endswith("_mapped")
 
 
-class TestListFlexRunOptions:
-    def test_lists_mapped_always_and_optimized_when_present(self, pm: PathManager):
-        run_dir = pm.flex_search_run("001", "runA")
-        _write_json(
-            os.path.join(run_dir, "electrode_positions.json"),
-            {
-                "optimized_positions": [[0, 0, 0]] * 4,
-                "channel_array_indices": [[0, 0]] * 4,
-            },
-        )
-        options = montage_sources.list_flex_run_options(pm, "001")
-        kinds = {(o["run_name"], o["electrode_type"]) for o in options}
-        assert ("runA", "mapped") in kinds
-        assert ("runA", "optimized") in kinds
-
-    def test_no_optimized_option_without_positions_key(self, pm: PathManager):
-        run_dir = pm.flex_search_run("001", "runB")
-        _write_json(
-            os.path.join(run_dir, "electrode_positions.json"),
-            {"optimized_positions": [], "channel_array_indices": []},
-        )
-        options = montage_sources.list_flex_run_options(pm, "001")
-        kinds = {(o["run_name"], o["electrode_type"]) for o in options}
-        assert ("runB", "optimized") not in kinds
-        assert ("runB", "mapped") in kinds
-
-
 class TestResolveFlexMontage:
     def test_optimized_uses_raw_xyz_positions(self, pm: PathManager):
         run_dir = pm.flex_search_run("001", "runA")
@@ -195,9 +168,6 @@ class TestFreehandConfigs:
                 },
             },
         )
-        names = montage_sources.list_freehand_configs(pm, "001")
-        assert names == ["my_stim"]
-
         montage = montage_sources.resolve_freehand_montage(pm, "001", "my_stim")
         assert montage.mode == Montage.Mode.FREEHAND
         assert montage.electrode_pairs == [
@@ -269,6 +239,3 @@ class TestFreehandConfigs:
         os.makedirs(os.path.join(m2m_dir, "stim_configs"), exist_ok=True)
         with pytest.raises(ValueError, match="not found"):
             montage_sources.resolve_freehand_montage(pm, "001", "missing")
-
-    def test_no_m2m_dir_returns_empty_list(self, pm: PathManager):
-        assert montage_sources.list_freehand_configs(pm, "999") == []
