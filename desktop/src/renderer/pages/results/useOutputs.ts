@@ -134,6 +134,13 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
   return { bySubject, group: group.data ? groupOutputsFor(group.data) : undefined, pending };
 }
 
+/**
+ * Navigation state that opens Results on one of its own rows, such as `Group`. `state.subject` is
+ * adopted by the shell's subject spine (`app/subjectSpine.ts`) as every page's subject and the
+ * project's remembered one, and `Group` is not a subject, so a link to it rides on this key.
+ */
+export const RESULTS_ROW_STATE = "resultsRow";
+
 /** The subject list the Results page shows: every subject, then `Group` pinned last. */
 export function subjectRows(subjects: string[]): string[] {
   return [...subjects, GROUP_SUBJECT];

@@ -92,7 +92,7 @@ import {
   type SubjectOutputs,
   type TreeRow,
 } from "./outputsTree";
-import { subjectRows, useSubjectOutputs } from "./useOutputs";
+import { RESULTS_ROW_STATE, subjectRows, useSubjectOutputs } from "./useOutputs";
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import "./results.css";
 
@@ -674,7 +674,8 @@ function ResultsPage() {
   useEffect(() => {
     if (!active || location.state?.[SUBJECT_SYNC_STATE]) return;
     const stateSubject = typeof location.state?.subject === "string" ? location.state.subject : null;
-    const linkedSubject = new URLSearchParams(location.search).get(SUBJECT_PARAM) ?? stateSubject;
+    const linkedRow = typeof location.state?.[RESULTS_ROW_STATE] === "string" ? location.state[RESULTS_ROW_STATE] : null;
+    const linkedSubject = linkedRow ?? new URLSearchParams(location.search).get(SUBJECT_PARAM) ?? stateSubject;
     if (!linkedSubject) return;
     // A subject's "View in Results" action intentionally changes this destination. A plain tab
     // visit has no subject instruction and leaves its filters, selection and preview intact.

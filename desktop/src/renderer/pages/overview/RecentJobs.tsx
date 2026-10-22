@@ -2,7 +2,8 @@
  * "Recent jobs" — the Overview's answer to "what have I run, and where is it?".
  *
  * Every row is a link: a finished job whose kind Results browses opens Results on that job's
- * subject; anything else opens the Jobs page with that job selected, on its log. The mapping is
+ * subject, or on its `Group` row for a group-level job; anything else opens the Jobs page with
+ * that job selected, on its log. The mapping is
  * `recentModel.ts::destinationFor`, tested without a DOM.
  *
  * It reads `useJobsModel()` — the one `/ws/jobs` store the rail, the panel and the Jobs page share
@@ -15,6 +16,8 @@ import { EmptyState } from "../../ui/Feedback";
 import { JobStateChip } from "../../ui/Status";
 import { useJobsModel } from "../../app/jobs-rail/model";
 import { useJobsUi } from "../../app/jobs-rail/store";
+import { GROUP_SUBJECT } from "../results/outputsTree";
+import { RESULTS_ROW_STATE } from "../results/useOutputs";
 import { recentJobRows, type RecentJobDestination } from "./recentModel";
 
 export function RecentJobs() {
@@ -28,8 +31,14 @@ export function RecentJobs() {
       if (destination.page === "results") {
         // The subject rides on the navigation itself, never set first: `app/subjectSpine.ts`
         // republishes the CURRENT route when the shell's subject changes, and a subject set one
-        // tick before a push is replaced straight back onto Overview.
-        navigate("/results", { state: { subject: destination.subject ?? undefined } });
+        // tick before a push is replaced straight back onto Overview. `Group` is a Results row,
+        // not a subject, so it rides on the key only Results reads.
+        navigate("/results", {
+          state:
+            destination.subject === GROUP_SUBJECT
+              ? { [RESULTS_ROW_STATE]: GROUP_SUBJECT }
+              : { subject: destination.subject ?? undefined },
+        });
         return;
       }
       select(destination.jobId);

@@ -33,9 +33,18 @@ function job(patch: Partial<JobStatus> = {}): JobStatus {
 }
 
 describe("destinationFor", () => {
-  it("sends a finished job of a browsable kind to Results, scoped to its subject", () => {
-    for (const kind of ["sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "analyzer", "stats"] as JobStatus["kind"][]) {
+  it("sends a finished job of a per-subject kind to Results, scoped to its subject", () => {
+    for (const kind of ["sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "analyzer"] as JobStatus["kind"][]) {
       expect(destinationFor(job({ kind })), kind).toEqual({ page: "results", subject: "ernie" });
+    }
+  });
+
+  // Results lists group statistics, nilearn visuals and NIfTI averages only under its `Group`
+  // pseudo-subject (`outputsTree.ts::groupOutputsFor`), never in a subject's tree.
+  it("sends a finished group-level job to Results' Group row, whatever subjects it covered", () => {
+    for (const kind of ["stats", "nilearn", "nifti_average"] as JobStatus["kind"][]) {
+      expect(destinationFor(job({ kind, subject_ids: ["101", "LA", "ernie"] })), kind).toEqual({ page: "results", subject: "Group" });
+      expect(destinationFor(job({ kind, subject_ids: [] })), `${kind} with no subjects`).toEqual({ page: "results", subject: "Group" });
     }
   });
 
@@ -43,6 +52,12 @@ describe("destinationFor", () => {
     for (const kind of ["leadfield", "project_init", "pre", "tools", "source", "blender"] as JobStatus["kind"][]) {
       expect(destinationFor(job({ kind })), kind).toEqual({ page: "jobs", jobId: "j1" });
     }
+  });
+
+  it("sends an unfinished or empty group-level job to the Jobs page, on its log", () => {
+    expect(destinationFor(job({ kind: "stats", state: "failed" }))).toEqual({ page: "jobs", jobId: "j1" });
+    expect(destinationFor(job({ kind: "nilearn", state: "running" }))).toEqual({ page: "jobs", jobId: "j1" });
+    expect(destinationFor(job({ kind: "nifti_average", artifacts: [] }))).toEqual({ page: "jobs", jobId: "j1" });
   });
 
   it("sends a running, queued or failed job to the Jobs page, on its log", () => {
@@ -55,8 +70,8 @@ describe("destinationFor", () => {
     expect(destinationFor(job({ artifacts: [] }))).toEqual({ page: "jobs", jobId: "j1" });
   });
 
-  it("carries a null subject for a project-level job", () => {
-    expect(destinationFor(job({ kind: "stats", subject_ids: [] }))).toEqual({ page: "results", subject: null });
+  it("carries a null subject for a per-subject kind recorded without one", () => {
+    expect(destinationFor(job({ kind: "sim", subject_ids: [] }))).toEqual({ page: "results", subject: null });
   });
 });
 

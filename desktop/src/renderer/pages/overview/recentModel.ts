@@ -7,26 +7,25 @@
  * store (`useJobsModel()`), so this file adds no fetch of its own.
  */
 import type { JobStatus } from "../../app/jobs-rail/api";
+import { GROUP_SUBJECT } from "../results/outputsTree";
 
 /** How many rows the Overview draws before "See all" takes over. */
 export const RECENT_JOBS_LIMIT = 8;
 
 /**
- * Job kinds `pages/results` actually browses. Everything else (`leadfield`, `project_init`,
- * `pre`, `tools`, `viewer`, `blender`, `source`, `nifti_average`, `nilearn`) produces inputs or
- * side effects rather than a result Results lists, so its row opens the Jobs page — a destination
- * that always has something to show — instead of a subject with no entry for it.
+ * Job kinds whose outputs `pages/results` lists in a subject's tree. Everything else except the
+ * group kinds below (`leadfield`, `project_init`, `pre`, `tools`, `blender`, `source`) produces
+ * inputs or side effects rather than a result Results lists, so its row opens the Jobs page — a
+ * destination that always has something to show — instead of a subject with no entry for it.
  */
-export const RESULTS_KINDS = new Set([
-  "sim",
-  "flex",
-  "flex_adaptive",
-  "flex_pareto",
-  "ex",
-  "mex",
-  "analyzer",
-  "stats",
-]);
+export const RESULTS_KINDS = new Set(["sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "analyzer"]);
+
+/**
+ * Job kinds whose outputs Results lists only under its `Group` pseudo-subject — the group catalog's
+ * stats, nilearn and NIfTI-average rows (`outputsTree.ts::groupOutputsFor`). Such a job's
+ * `subject_ids` are the subjects it read, and none of their trees lists the run.
+ */
+const GROUP_RESULTS_KINDS = new Set(["stats", "nilearn", "nifti_average"]);
 
 export type RecentJobDestination =
   | { page: "results"; subject: string | null }
@@ -55,12 +54,14 @@ export interface RecentJobRow {
  *   exact addressing Results already supports: `state.subject`, the same link the detail pane's
  *   "Open in Results" uses). Results has no per-job address, and inventing one would mean a new
  *   field on the record and a contract change for a link the page can already make.
+ * - a group-level job that succeeded → Results on its `Group` row, where its run is listed.
  * - anything else — running, queued, failed, cancelled, or a kind with no Results view → the Jobs
  *   page with that job selected, which is where its log is.
  */
 export function destinationFor(job: JobStatus): RecentJobDestination {
-  if (job.state === "succeeded" && RESULTS_KINDS.has(job.kind) && job.artifacts.length > 0) {
-    return { page: "results", subject: job.subject_ids[0] ?? null };
+  if (job.state === "succeeded" && job.artifacts.length > 0) {
+    if (GROUP_RESULTS_KINDS.has(job.kind)) return { page: "results", subject: GROUP_SUBJECT };
+    if (RESULTS_KINDS.has(job.kind)) return { page: "results", subject: job.subject_ids[0] ?? null };
   }
   return { page: "jobs", jobId: job.id };
 }

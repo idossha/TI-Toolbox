@@ -109,6 +109,67 @@ test("lists the jobs this project ran, newest first, and a click lands where tha
   await expect(page.getByTestId("results-subject-ernie")).toHaveAttribute("aria-selected", "true");
 });
 
+/** The group-comparison run the mock's group catalog lists (`fixtures/group_catalog.json`). */
+const GROUP_RUN = "group_comparison_Thalamus_TI_max_20260815";
+
+/** A re-run with Replace of that run: a GroupComparisonConfig over the fixture's three subjects. */
+async function submitStats(): Promise<{ id: string }> {
+  const res = await page.request.post(`${SERVER_URL}/api/jobs`, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: {
+      kind: "stats",
+      subject_ids: ["101", "ernie", "MNI152"],
+      overwrite: true,
+      tags: ["e2e-recent"],
+      config: {
+        analysis_name: GROUP_RUN,
+        subjects: [
+          { subject_id: "101", simulation_name: "Thalamus", response: 1 },
+          { subject_id: "MNI152", simulation_name: "Thalamus", response: 1 },
+          { subject_id: "ernie", simulation_name: "Thalamus", response: 0 },
+        ],
+        test_type: "unpaired",
+        alternative: "two-sided",
+        cluster_threshold: 0.05,
+        cluster_stat: "mass",
+        n_permutations: 100,
+        alpha: 0.05,
+        n_jobs: 2,
+        tissue_type: "grey",
+        nifti_file_pattern: null,
+        space: "mni",
+        group1_name: "Responders",
+        group2_name: "Non-Responders",
+        value_metric: "Current intensity",
+      },
+    },
+  });
+  expect(res.ok(), `POST /api/jobs -> ${res.status()}`).toBeTruthy();
+  return res.json();
+}
+
+test("a finished group-statistics job opens on Results' Group row, on the run it wrote", async () => {
+  test.setTimeout(120_000);
+  const job = await submitStats();
+  await expect.poll(() => jobState(job.id), { timeout: 60_000 }).toBe("succeeded");
+
+  await connect();
+  const row = page.getByTestId(`overview-recent-${job.id}`);
+  await expect(row).toBeVisible({ timeout: 20_000 });
+  await expect(row).toContainText("stats");
+  await expect(row).toHaveAttribute("data-destination", "results");
+  await row.click();
+  await expectPage(page, "results");
+
+  // Group statistics are listed only under `Group`, never in the first subject's tree.
+  await expect(page.getByTestId("results-subject-Group")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("results-subject-101")).toHaveAttribute("aria-selected", "false");
+  await expect(page.getByTestId(`results-node-analysis:Group:stats/group_comparison/${GROUP_RUN}`)).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".results-preview-title")).toHaveText(GROUP_RUN);
+  // `Group` is a Results row, not a subject: the shell never adopts it into the address.
+  await expect(page).not.toHaveURL(/[?&]subject=Group\b/);
+});
+
 test("a job that has not finished opens the Jobs page on that job, and the row takes the keyboard", async () => {
   test.setTimeout(120_000);
   const job = await submitSim("keyboard-recent");
