@@ -107,6 +107,29 @@ test("text typed just before Esc is saved, not lost with the closing drawer", as
   await expect(page.getByTestId("quick-notes-textarea")).toHaveValue(new RegExp(marker), { timeout: 20_000 });
 });
 
+test("text typed just before the window reloads is saved, drawer still open", async () => {
+  await connect();
+  await openNotes();
+  const textarea = page.getByTestId("quick-notes-textarea");
+  await expect(textarea).toHaveValue(/Mock project notes/, { timeout: 20_000 });
+
+  const marker = `reloaded-at-once-${Date.now()}`;
+  const put = page.waitForRequest(
+    (r) => r.url().endsWith("/api/catalog/notes") && r.method() === "PUT" && (r.postData() ?? "").includes(marker),
+    { timeout: 10_000 },
+  );
+  await textarea.click();
+  await textarea.press("End");
+  // No Esc: the drawer never unmounts, so only the window's beforeunload can send the text (as a
+  // keepalive request, which the unit test pins; against this local mock a plain one lands too).
+  await page.keyboard.insertText(`\n${marker}`);
+  await page.reload();
+  await put;
+  await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 45_000 });
+  await openNotes();
+  await expect(page.getByTestId("quick-notes-textarea")).toHaveValue(new RegExp(marker), { timeout: 20_000 });
+});
+
 test("the drawer is reachable from the command palette as well as the shortcut", async () => {
   await connect();
 

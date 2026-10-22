@@ -5,7 +5,8 @@
  *
  * The panel's behaviour is unchanged: the same `GET/PUT /api/catalog/notes`, the same 800 ms
  * debounced autosave, the same Insert timestamp / Copy / Clear actions, the same monospace field.
- * Closing the drawer (or the window) sends text still inside that 800 ms at once.
+ * Closing the drawer (or the window) sends text still inside that 800 ms at once; for the window,
+ * as a `keepalive` request so it is still delivered after the page is gone.
  * `ui/Overlay.tsx`'s `Drawer` is the Radix Dialog the shell hosts; it is 420px on the right.
  *
  * The shell (`app/Shell.tsx`, another lane) owns the open state and the ⌘⇧N binding — this file
@@ -19,10 +20,31 @@ import { Textarea } from "../../ui/Field";
 import { InlineError, Kbd, Skeleton } from "../../ui/Feedback";
 import { AlertDialog, Drawer } from "../../ui/Overlay";
 import { notify } from "../../ui/Toast";
-import { getNotes, putNotes } from "./api";
+import { api, unwrap } from "../../api/client";
+import { getNotes, putNotes, type Notes } from "./api";
 import "./quick-notes.css";
 
 const AUTOSAVE_DELAY_MS = 800;
+/** The Fetch standard's budget for a `keepalive` request body; a larger one is refused outright. */
+const KEEPALIVE_BYTES = 64 * 1024;
+
+/**
+ * The newest text typed in any drawer; only a PUT of exactly this text may read as "Saved" or
+ * update the cache. Module-wide, not per drawer: a closed drawer's PUT can answer after a reopened
+ * drawer has saved newer text.
+ */
+let newestText: string | null = null;
+
+/**
+ * The PUT for a window that is closing or reloading. Chromium cancels a plain request with the
+ * document and still delivers a `keepalive` one. Over the keepalive budget it goes plain, and
+ * arrives only if the page lives long enough.
+ */
+async function putNotesOnUnload(text: string): Promise<Notes> {
+  const body = { text };
+  const keepalive = new TextEncoder().encode(JSON.stringify(body)).length <= KEEPALIVE_BYTES;
+  return unwrap(await api.PUT("/api/catalog/notes", { body, keepalive }), "/api/catalog/notes");
+}
 
 function formatSavedAt(iso: string | null | undefined): string {
   if (!iso) return "Not saved yet";
@@ -49,8 +71,6 @@ export function QuickNotesDrawer({ open, onOpenChange }: QuickNotesDrawerProps) 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Text typed but not sent yet (the autosave delay is running), or null. */
   const pending = useRef<string | null>(null);
-  /** The newest text typed; only a PUT of exactly this text may read as "Saved". */
-  const newest = useRef<string | null>(null);
 
   useEffect(() => {
     if (loaded.current || !notesQuery.data) return;
@@ -60,11 +80,11 @@ export function QuickNotesDrawer({ open, onOpenChange }: QuickNotesDrawerProps) 
   }, [notesQuery.data]);
 
   const saveMutation = useMutation({
-    mutationFn: (value: string) => putNotes(value),
-    onSuccess: (saved, value) => {
+    mutationFn: ({ value, unloading }: { value: string; unloading: boolean }) => (unloading ? putNotesOnUnload(value) : putNotes(value)),
+    onSuccess: (saved, { value }) => {
       // An older PUT answering while newer text is unsaved or in flight says nothing about what is
       // on screen: it must not read as "Saved", nor put its older text back into the cache.
-      if (value !== newest.current) return;
+      if (value !== newestText) return;
       // Write the fresh value straight into the query cache — without this, a remount within the
       // global `staleTime` window (main.tsx, 60s) reads the pre-edit cached GET and the just-saved
       // text visibly reverts. Runs after the drawer closed too, so a reopen shows it.
@@ -77,28 +97,32 @@ export function QuickNotesDrawer({ open, onOpenChange }: QuickNotesDrawerProps) 
   const { mutate } = saveMutation;
 
   /** Send the pending text now. Closing the drawer unmounts it, so waiting out the delay loses the text. */
-  const flush = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    const value = pending.current;
-    if (value === null) return;
-    pending.current = null;
-    mutate(value);
-  }, [mutate]);
+  const flush = useCallback(
+    (unloading = false) => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      const value = pending.current;
+      if (value === null) return;
+      pending.current = null;
+      mutate({ value, unloading });
+    },
+    [mutate],
+  );
 
   function scheduleSave(next: string) {
     setText(next);
     setDirty(true);
     pending.current = next;
-    newest.current = next;
+    newestText = next;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flush, AUTOSAVE_DELAY_MS);
+    timer.current = setTimeout(() => flush(), AUTOSAVE_DELAY_MS);
   }
 
   useEffect(() => {
-    window.addEventListener("beforeunload", flush);
+    const onUnload = () => flush(true);
+    window.addEventListener("beforeunload", onUnload);
     return () => {
-      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("beforeunload", onUnload);
       flush();
     };
   }, [flush]);

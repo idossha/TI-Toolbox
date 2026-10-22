@@ -11,9 +11,16 @@
  *   so an older PUT finishing after newer typing read as "Saved", and one finishing after a newer
  *   PUT put the older text back into the cache a reopen reads.
  *
- * Expected values are the strings this test types; `putNotes` is the only stub (its promises are
- * resolved by hand so the order is the test's). Timers are faked so "100 ms after typing" is exact.
- * 2026-10-22.
+ * - The window-close/reload flush started an ordinary PUT, which Chromium cancels with the
+ *   document; only a `keepalive` request is delivered after the page is gone. The Fetch standard
+ *   refuses a keepalive body over 64 KiB (65,536 bytes, UTF-8), so a larger notepad goes plain.
+ * - "Only the newest text may read as saved" was per drawer, so a closed drawer's late answer
+ *   could put its older text back into the cache after a reopened drawer had saved newer text.
+ *
+ * Expected values are the strings this test types and the 64 KiB limit from the Fetch standard;
+ * `putNotes` and the client's `api.PUT` (the unload path) are the only stubs (their promises are
+ * resolved by hand so the order is the test's). Timers are faked so "100 ms after typing" is
+ * exact. 2026-10-22.
  */
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -27,26 +34,43 @@ interface Notes {
   updated_at: string | null;
 }
 
-const server = vi.hoisted(() => ({
-  stored: { text: "", updated_at: null } as { text: string; updated_at: string | null },
-  /** Each PUT the drawer sent, in order, with the hand to resolve it. */
-  puts: [] as { text: string; resolve: () => void }[],
-}));
+const server = vi.hoisted(() => {
+  const state = {
+    stored: { text: "", updated_at: null } as { text: string; updated_at: string | null },
+    /** Each PUT the drawer sent, in order: its text, its `keepalive` flag (`null`: sent through
+     * `putNotes`, which has none), and the hand to resolve it. */
+    puts: [] as { text: string; keepalive: boolean | null; resolve: () => void }[],
+    put(text: string, keepalive: boolean | null) {
+      return new Promise<{ text: string; updated_at: string | null }>((resolve) => {
+        state.puts.push({
+          text,
+          keepalive,
+          resolve: () => {
+            state.stored = { text, updated_at: "2026-10-22T09:00:00Z" };
+            resolve({ ...state.stored });
+          },
+        });
+      });
+    },
+  };
+  return state;
+});
 
 vi.mock("../../src/renderer/pages/panel-quick-notes/api", () => ({
   getNotes: vi.fn(async (): Promise<Notes> => ({ ...server.stored })),
-  putNotes: vi.fn(
-    (text: string) =>
-      new Promise<Notes>((resolve) => {
-        server.puts.push({
-          text,
-          resolve: () => {
-            server.stored = { text, updated_at: "2026-10-22T09:00:00Z" };
-            resolve({ ...server.stored });
-          },
-        });
-      }),
-  ),
+  putNotes: vi.fn((text: string) => server.put(text, null)),
+}));
+
+// The unload flush calls the typed client itself, to set `keepalive`; everything else stays real.
+vi.mock("../../src/renderer/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/renderer/api/client")>()),
+  api: {
+    PUT: vi.fn(async (path: string, init: { body: { text: string }; keepalive?: boolean }) => {
+      if (path !== "/api/catalog/notes") throw new Error(`unexpected PUT ${path}`);
+      const data = await server.put(init.body.text, init.keepalive ?? false);
+      return { data, response: new Response(JSON.stringify(data), { status: 200 }) };
+    }),
+  },
 }));
 
 const { QuickNotesHost } = await import("../../src/renderer/app/QuickNotesHost");
@@ -150,7 +174,7 @@ describe("Quick notes autosave", () => {
     expect(textarea().value).toBe("abc");
   });
 
-  it("sends the pending text when the window is about to unload", async () => {
+  it("sends the pending text as a keepalive request when the window is about to unload", async () => {
     render(true);
     await settle();
     type("before unload");
@@ -158,11 +182,35 @@ describe("Quick notes autosave", () => {
       window.dispatchEvent(new Event("beforeunload"));
     });
     await microtasks();
-    expect(server.puts.map((p) => p.text)).toEqual(["before unload"]);
+    // keepalive: Chromium still delivers it after the document is gone; a plain fetch is cancelled.
+    expect(server.puts.map((p) => [p.text, p.keepalive])).toEqual([["before unload", true]]);
     // Closing afterwards has nothing left to send.
     render(false);
     await microtasks();
     expect(server.puts).toHaveLength(1);
+    // The window stayed (another page's beforeunload can keep it): the answer still lands.
+    await resolvePut(0);
+    expect(queryClient.getQueryData<Notes>(["notes"])?.text).toBe("before unload");
+  });
+
+  it("sends a notepad over the 64 KiB keepalive budget as a plain request instead", async () => {
+    // The JSON body is {"text":"…"}: 11 bytes around the text, measured in UTF-8 bytes.
+    const cases: [string, boolean][] = [
+      ["x".repeat(65_536 - 11), true], // exactly 64 KiB
+      ["x".repeat(65_536 - 11 + 1), false], // one byte over
+      ["é".repeat(32_763), false], // 65,526 bytes of text (2 each), 32,763 characters
+    ];
+    render(true);
+    await settle();
+    for (const [index, [text]] of cases.entries()) {
+      type(text);
+      act(() => {
+        window.dispatchEvent(new Event("beforeunload"));
+      });
+      await microtasks();
+      expect(server.puts).toHaveLength(index + 1);
+    }
+    expect(server.puts.map((p) => [p.text.length, p.keepalive])).toEqual(cases.map(([text, keepalive]) => [text.length, keepalive]));
   });
 
   it("closing with nothing typed sends nothing", async () => {
@@ -215,5 +263,28 @@ describe("Quick notes autosave", () => {
     render(true);
     await settle();
     expect(textarea().value).toBe("one two");
+  });
+
+  it("a closed drawer's late answer does not undo newer text saved after reopening", async () => {
+    render(true);
+    await settle();
+    type("first");
+    render(false); // Esc: "first" goes out, and its answer is slow
+    await microtasks();
+    render(true); // reopened before that answer
+    await settle();
+    type("second");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(server.puts.map((p) => p.text)).toEqual(["first", "second"]);
+    await resolvePut(1);
+    expect(status()).toMatch(/^Saved /);
+    await resolvePut(0); // the first drawer's PUT answers last
+    expect(queryClient.getQueryData<Notes>(["notes"])?.text).toBe("second");
+    render(false);
+    render(true);
+    await settle();
+    expect(textarea().value).toBe("second");
   });
 });
