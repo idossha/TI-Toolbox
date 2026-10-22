@@ -5,7 +5,8 @@ What this pins
     test is allowed but whose reason changed, an error, a failure; the degraded modes (missing
     file, not XML, not JUnit) exit 2; a clean report exits 0. One report is written by pytest
     itself in a subprocess, so the reader is checked against the real format, not only
-    against XML typed here.
+    against XML typed here. The CI ``host-numerical`` leg passes its Dataset 000 skip and
+    fails a skip it does not list: a missing Pillow, an unlisted module, a synthetic test.
 
 Where the expectations come from
     The rules in the guard's docstring; the counts are the fixtures' own testcase elements.
@@ -101,6 +102,49 @@ def test_several_reports_are_checked_together(tmp_path):
     skipped = _report(tmp_path, ENV_SKIP, "b.xml")
     assert check_junit.main(["--leg", "numerical-image", clean, skipped]) == 0
     assert check_junit.main(["--leg", "no-skips", clean, skipped]) == 1
+
+
+#: Verbatim from the host leg's report (tests/numerical -m host_numerical, TIT_DATASET_000 unset).
+DATASET_MESSAGE = (
+    "skipping: TIT_DATASET_000 is unset or has no derivatives/SimNIBS "
+    "(export TIT_DATASET_000=/path/to/Dataset000, read-only)"
+)
+DATASET_SKIP = (
+    '<testcase classname="tests.numerical.test_reports_realdata" '
+    'name="test_every_flex_report_states_its_runs_currents_and_positions">'
+    f'<skipped type="pytest.skip" message="{DATASET_MESSAGE}"/></testcase>'
+)
+
+
+def test_the_host_numerical_leg_passes_its_dataset_skip(tmp_path):
+    report = _report(tmp_path, PASS + DATASET_SKIP)
+    assert check_junit.main(["--leg", "host-numerical", report]) == 0
+    assert check_junit.main(["--leg", "no-skips", report]) == 1
+
+
+@pytest.mark.parametrize(
+    "planted",
+    [
+        # The allowed real-data test, skipping because the venv lacks Pillow (CircleCI #1264).
+        DATASET_SKIP.replace(
+            DATASET_MESSAGE, "could not import 'PIL.Image': No module named 'PIL'"
+        ),
+        # A synthetic module, not on the list, skipping for want of the real stack.
+        '<testcase classname="tests.numerical.test_sci01_cluster_sign" name="test_sign">'
+        '<skipped type="pytest.skip" message="real scipy/nibabel not importable in this '
+        'environment"/></testcase>',
+        # A synthetic case of a module whose one real-data test is listed.
+        '<testcase classname="tests.numerical.test_region_resolution_matrix" '
+        'name="test_a_label_several_names_contain_is_refused">'
+        '<skipped type="pytest.skip" message="skipping: TIT_DATASET_000 unset"/></testcase>',
+    ],
+    ids=["pillow-missing", "unlisted-module", "synthetic-case"],
+)
+def test_the_host_numerical_leg_fails_a_skip_it_does_not_list(tmp_path, capsys, planted):
+    report = _report(tmp_path, PASS + DATASET_SKIP + planted)
+    assert check_junit.main(["--leg", "host-numerical", report]) == 1
+    out = capsys.readouterr().out
+    assert out.count("skip not on the allowlist") == 1, out
 
 
 @pytest.mark.parametrize(

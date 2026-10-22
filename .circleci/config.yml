@@ -289,10 +289,12 @@ jobs:
           command: |
             set -euo pipefail
             # These modules need only real numpy/scipy/nibabel, which the venv has; the
-            # numerical conftest skips every other module here, so the leg must skip nothing.
+            # numerical conftest skips every other module here. The only skips allowed are on
+            # check_junit's host-numerical list: Dataset 000 tests (CI has no TIT_DATASET_000)
+            # and the one figure test that needs matplotlib.
             /tmp/tit-ci-venv/bin/python -m pytest tests/numerical -m host_numerical -q \
               --junitxml=/tmp/test-results/numerical-host.xml || true
-            python3 dev/check_junit.py --leg no-skips /tmp/test-results/numerical-host.xml
+            python3 dev/check_junit.py --leg host-numerical /tmp/test-results/numerical-host.xml
 
       - run:
           name: Prepare coverage for Codecov

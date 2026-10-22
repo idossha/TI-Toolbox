@@ -52,12 +52,18 @@ in the local release gate.
 - **Host numerical leg** (`build-and-run-tests`): `pytest tests/numerical -m host_numerical`.
   Modules that need only real numpy, scipy and nibabel are marked `host_numerical` (listed in
   `tests/numerical/conftest.py`, or `pytestmark` in a new module); every other module skips on a
-  host without matplotlib. The leg must skip nothing.
+  host without matplotlib. Its JUnit goes through `check_junit.py --leg host-numerical`, whose
+  only allowed skips are the Dataset 000 tests (CI has no `TIT_DATASET_000`, and must not) and
+  the one figure test that needs matplotlib; any other skip, such as a missing Pillow, fails it.
+  The venv is `pip install -e '.[test]'`, so a library a host test imports for real belongs in
+  the `test` extra of `pyproject.toml`.
 - **Image leg**: the nightly `numerical_nightly` workflow (`numerical-image` job) runs the whole
   directory in `idossha/ti-toolbox:v<tit.__version__>` with the checkout mounted read-only, and
   `build-and-smoke-image` runs it in the image it just built. On `v3.1.1` it is red on
   `test_simnibs_vector_warp.py` (the shipped NumPy `nan_to_num` patch) until the image is
-  rebuilt; that red is the leg working.
+  rebuilt; that red is the leg working. Its allowlist (`--leg numerical-image`) carries the
+  Dataset 000 skips and two Nilearn entries for an image built before `/opt/nilearn_data`, which
+  go once the leg's image is rebuilt.
 - **Release gate**: the `numerical` stage of `dev/verify_release.py`.
 
 Every leg's JUnit XML goes through `dev/check_junit.py`: zero collected, any failure or error, or

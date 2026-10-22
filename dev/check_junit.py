@@ -18,7 +18,7 @@ instead of an unset variable) is not allowed.
 Usage::
 
     python3 dev/check_junit.py --leg numerical-image /out/numerical.xml
-    python3 dev/check_junit.py --leg no-skips /out/realdata.xml
+    python3 dev/check_junit.py --leg host-numerical /tmp/test-results/numerical-host.xml
 
 Self-tests: tests/test_check_junit.py.
 """
@@ -31,11 +31,59 @@ import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
-#: Skips the image's ``tests/numerical`` leg may report (measured on idossha/ti-toolbox:v3.1.1,
-#: 2026-10-22: 13 skips). Real-data tests are not on it for CI, which has no Dataset 000 --
-#: dev/run_realdata_tests.sh runs them with ``--leg no-skips``.
+def _dataset_000(module: str, what: str) -> dict[str, str]:
+    """A real-data test that may skip only because ``TIT_DATASET_000`` is unset."""
+    return {
+        "test": f"tests.numerical.{module}",
+        "message": "TIT_DATASET_000",
+        "why": f"{what}; CI has no Dataset 000 (dev/run_realdata_tests.sh runs it)",
+    }
+
+
+#: ``host_numerical`` tests gated on Dataset 000: they skip on both CI legs of tests/numerical.
+_HOST_NUMERICAL_DATASET_000 = [
+    _dataset_000(
+        "test_dicom_regeneration_realdata.*", "re-converts sub-101's DICOMs"
+    ),
+    _dataset_000("test_ex_report_realdata.*", "rebuilds the dataset's ex-search reports"),
+    _dataset_000(
+        "test_flex_mapping_snap_realdata.*", "maps the dataset's flex runs onto its nets"
+    ),
+    _dataset_000(
+        "test_pre_outputs_realdata.*", "reads the head models, FastSurfer and DTI outputs"
+    ),
+    # Only the real-volume case: the module's synthetic cases must run.
+    _dataset_000(
+        "test_region_resolution_matrix.test_dk40_names_resolve_in_the_real_dkt_volume*",
+        "reads sub-ernie's real DKT volume",
+    ),
+    _dataset_000(
+        "test_reports_realdata.*", "rebuilds the simulation, flex and ex reports"
+    ),
+    _dataset_000(
+        "test_ti_recompute_realdata.*", "reads the dataset's SimNIBS logs and meshes"
+    ),
+]
+
+#: Skips each leg may report. CI has no Dataset 000 (and must not), so the CI legs allow a
+#: real-data test to skip only for its unset variable; dev/run_realdata_tests.sh runs those
+#: tests with every gate set, under ``--leg realdata``.
 ALLOWLISTS: dict[str, list[dict[str, str]]] = {
     "no-skips": [],
+    # CircleCI build-and-run-tests: `pytest tests/numerical -m host_numerical` in the
+    # `pip install -e '.[test]'` venv (measured 2026-10-22 with TIT_DATASET_000 unset:
+    # 100 selected, 82 passed, 18 skipped, all of them these). Anything else that skips -- a
+    # missing Pillow or scipy, a synthetic test -- fails the leg.
+    "host-numerical": [
+        *_HOST_NUMERICAL_DATASET_000,
+        {
+            "test": "tests.numerical.test_tissue_geometry."
+            "test_figures_show_anatomical_views_whatever_the_storage_order",
+            "message": "needs real matplotlib",
+            "why": "the CI venv has no matplotlib by design (a host leg is numpy, scipy and "
+            "nibabel only, tests/numerical/conftest.py); the image leg runs this figure test",
+        },
+    ],
     # dev/run_realdata_tests.sh: every Dataset 000 gate is set, so only the variables Dataset 000
     # cannot satisfy may skip.
     "realdata": [
@@ -127,6 +175,46 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "test": "tests.numerical.test_roi_islands.*",
             "message": "TIT_ERNIE_LABELING",
             "why": "Dataset 000 is not in CI; dev/run_realdata_tests.sh runs it",
+        },
+        # Measured on idossha/ti-toolbox:v3.1.1, 2026-10-22, TIT_DATASET_000 unset: 466
+        # collected, 400 passed, 1 failed (test_simnibs_vector_warp, the shipped nan_to_num
+        # patch), 65 skipped, all of them on this list.
+        *_HOST_NUMERICAL_DATASET_000,
+        _dataset_000(
+            "test_analyzer_p06_real.*", "reads sub-101's Thalamus_example surface fields"
+        ),
+        _dataset_000("test_caps_warp_realdata.*", "warps the caps onto the dataset's MNI152"),
+        _dataset_000(
+            "test_net_on_scalp_realdata.*", "checks every subject's nets against its skin"
+        ),
+        _dataset_000(
+            "test_nilearn_render_realdata.*", "renders sub-101 and sub-LA's MNI TI_max fields"
+        ),
+        {
+            "test": "tests.numerical.test_nilearn_render_realdata.*",
+            "message": "predates the bundled nilearn atlases",
+            "why": "v3.1.1 was built before the Dockerfile bundled /opt/nilearn_data; remove "
+            "this entry once the leg's image is rebuilt",
+        },
+        {
+            "test": "tests.numerical.test_nilearn_offline_atlases.*",
+            "message": "predates the bundled nilearn atlases",
+            "why": "v3.1.1 was built before the Dockerfile bundled /opt/nilearn_data; remove "
+            "this entry once the leg's image is rebuilt",
+        },
+        {
+            "test": "tests.numerical.test_nilearn_offline_atlases."
+            "test_the_cache_is_read_only_for_a_non_root_user",
+            "message": "running as root",
+            "why": "the image runs the leg as root, which a directory mode cannot restrict; "
+            "the module's no-writes test covers the read-only cache",
+        },
+        {
+            "test": "tests.numerical.test_nifti_average_runner."
+            "test_two_groups_on_different_grids_fail_naming_the_subject*",
+            "message": "checks the grid within a group only",
+            "why": "a strict xfail, which JUnit records as a skip: the cross-group grid gap in "
+            "tit/stats/nifti.py stays pinned, and an XPASS is a failure",
         },
     ],
 }
