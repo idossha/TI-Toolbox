@@ -254,6 +254,7 @@ def tool_connect(args: Dict[str, Any]) -> Dict[str, Any]:
 # Regions
 # --------------------------------------------------------------------------
 
+
 def tool_find_regions(args: Dict[str, Any]) -> Dict[str, Any]:
     subject = _subject_id(args.get("subject_id"))
     # The server searches the subject's atlases and builds the ROIs (tit.catalog.find_regions,
@@ -326,11 +327,27 @@ def tool_get_config_schema(args: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+class InvalidConfig(ToolError):
+    """The server's validator refused a config; ``errors`` are its field errors."""
+
+    def __init__(self, errors: List[Dict[str, Any]]):
+        self.errors = errors
+        super().__init__(
+            "the config is invalid: "
+            + "; ".join(
+                f"{e.get('path') or 'config'}: {e.get('message')}" for e in errors
+            )
+        )
+
+
 def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
     """An absolute run folder, as the Optimizer page resolves one before submitting.
 
     A bare name goes under the subject's flex-search folder; none at all gets a timestamp
     name, so the run's folder is known before the job starts.
+
+    Raises:
+        InvalidConfig: The probe was refused because the config does not validate.
     """
     name = str(config.get("output_folder") or "").strip()
     if name.startswith("/"):
@@ -339,15 +356,28 @@ def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
         raise ToolError(
             "output_folder must be a run name without separators, or absolute"
         )
-    probe = _api(
-        "POST",
-        f"/api/plan/{kind}",
-        {
-            "config": {**config, "subject_id": subject, "output_folder": None},
-            "subject_ids": [subject],
-            "created_by": CREATED_BY,
-        },
-    )
+    probe_config = {**config, "subject_id": subject, "output_folder": None}
+    try:
+        probe = _api(
+            "POST",
+            f"/api/plan/{kind}",
+            {
+                "config": probe_config,
+                "subject_ids": [subject],
+                "created_by": CREATED_BY,
+            },
+        )
+    except ToolError:
+        # The probe deserializes the config, so an invalid one fails here first: answer with
+        # the validator's field errors rather than the probe's bare HTTP status.
+        check = _api(
+            "POST",
+            f"/api/validate/{kind}",
+            {"config": probe_config, "created_by": CREATED_BY},
+        )
+        if not check.get("ok"):
+            raise InvalidConfig(check.get("errors") or [])
+        raise
     parent = os.path.dirname(probe["jobs"][0]["output_dir"])
     return f"{parent}/{name or time.strftime('%Y%m%d_%H%M%S') + '_agent'}"
 
@@ -371,9 +401,12 @@ def _prepare(
 
 
 def _plan(
-    kind: str, entries: List[Tuple[str, Dict[str, Any]]], overwrite: bool
+    kind: str,
+    entries: List[Tuple[str, Dict[str, Any]]],
+    overwrite: bool,
+    errors: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    plans, errors, missing = [], [], []
+    plans, errors, missing = [], list(errors or []), []
     for sid, config in entries:
         subjects = [sid] if sid else config["subject_ids"]
         check = _api(
@@ -410,23 +443,34 @@ def _plan(
         )
     jobs = [j for p in plans for j in p.get("jobs", [])]
     eta = [p["cost"].get("eta_minutes") for p in plans if p.get("cost")]
-    return {
-        "ok": not errors and not missing,
+    warnings = [w for p in plans for w in p.get("warnings", [])]
+    result = {
+        "ok": not errors and not missing and bool(jobs),
         "errors": errors,
         "missing_inputs": missing,
         "jobs": jobs,
         "will_overwrite": [j["output_dir"] for j in jobs if j.get("will_overwrite")],
         "lock_conflicts": [c for p in plans for c in p.get("lock_conflicts", [])],
-        "eta_minutes": sum(e for e in eta if e) if any(eta) else None,
-        "warnings": [w for p in plans for w in p.get("warnings", [])],
+        "eta_minutes": sum(e for e in eta if e) if jobs and any(eta) else None,
+        "warnings": warnings,
         "resolved": [p.get("resolved") for p in plans if p.get("resolved")],
     }
+    if not errors and not jobs:
+        result["reason"] = "the plan has no jobs, so nothing would run" + (
+            f" ({'; '.join(warnings)})" if warnings else ""
+        )
+    return result
 
 
 def tool_plan_job(args: Dict[str, Any]) -> Dict[str, Any]:
     kind = str(args.get("kind", ""))
-    entries = _prepare(kind, args.get("config"), _subject_ids(args.get("subject_ids")))
-    result = _plan(kind, entries, bool(args.get("overwrite", False)))
+    subject_ids = _subject_ids(args.get("subject_ids"))
+    try:
+        entries = _prepare(kind, args.get("config"), subject_ids)
+        refused: List[Dict[str, Any]] = []
+    except InvalidConfig as exc:
+        entries, refused = [], exc.errors
+    result = _plan(kind, entries, bool(args.get("overwrite", False)), refused)
     if result["will_overwrite"] and not args.get("overwrite"):
         result["next"] = (
             "Existing output would be replaced: ask the user, then submit with overwrite=true, "
@@ -973,7 +1017,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "plan_job",
         "description": "Validate a config and show what submitting it would do: errors, missing "
         "inputs, output folders, which existing outputs would be replaced, lock waits and ETA. "
-        "Always call before submit_job. Same arguments as submit_job.",
+        "ok is true only with no errors, no missing inputs and at least one job; a plan with "
+        "no jobs says why in reason. Always call before submit_job. Same arguments as "
+        "submit_job.",
         "inputSchema": _schema(
             {
                 "kind": _KIND,
