@@ -1,0 +1,36 @@
+{
+  "subject_id": "001",
+  "roi_name": "L_Insula.csv",
+  "roi_radius": 3,
+  "roi_names": null,
+  "roi_atlas": null,
+  "roi_coordinate_space": "subject",
+  "leadfield_hdf": "/corpus/project/derivatives/SimNIBS/sub-001/leadfields/GSN-HydroCel-185_leadfield.hdf5",
+  "electrode_mode": "bucket",
+  "electrodes": {
+    "e1_plus": [
+      "E010",
+      "E012"
+    ],
+    "e1_minus": [
+      "E011",
+      "E013"
+    ],
+    "e2_plus": [
+      "E020",
+      "E022"
+    ],
+    "e2_minus": [
+      "E021",
+      "E023"
+    ]
+  },
+  "n_combinations": 112,
+  "run_name": null,
+  "total_current_mA": 2,
+  "current_step_mA": 0.2,
+  "channel_limit_mA": 1.6,
+  "symmetric_bucket": false,
+  "symmetry_pairing": null,
+  "symmetry_eeg_csv": null
+}
