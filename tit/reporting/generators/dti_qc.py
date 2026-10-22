@@ -21,6 +21,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from tit.reporting.generators import common
 from tit.reporting.html import components as c
 from tit.reporting.html.components import Check, esc
 from tit.reporting.qc_rules import RULES
@@ -659,7 +660,9 @@ def create_dti_qc_report(
     """Render the images from *vols* (:class:`~tit.pre.qsi.dti_advisories.DtiVolumes`) and write the report.
 
     Written to ``derivatives/ti-toolbox/reports/sub-<id>/dti_qc_<timestamp>.html`` unless *out_dir*
-    is given. Works for a failed gate too: *vols* holds the tensor that was computed but not written.
+    is given, and recorded as a ``report`` artifact of the running job (the G6 job's attachment),
+    like every other report. Works for a failed gate too: *vols* holds the tensor that was
+    computed but not written.
     """
     from tit import constants as const
     from tit.paths import get_path_manager
@@ -673,23 +676,16 @@ def create_dti_qc_report(
         if tensor.is_file():
             written = datetime.fromtimestamp(tensor.stat().st_mtime)
     html = build_html(qc, render_all(vols), subject_id, tensor_written=written)
-    out = (
-        Path(out_dir)
-        if out_dir
-        else Path(get_path_manager(str(project_dir)).reports()) / f"sub-{subject_id}"
+    return common.write_report(
+        html,
+        project_dir,
+        subject_id,
+        REPORT_PREFIX,
+        SIZE_BUDGET,
+        out_dir,
+        t0,
+        label="DTI QC report",
     )
-    out.mkdir(parents=True, exist_ok=True)
-    path = out / f"{REPORT_PREFIX}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-    path.write_text(html, encoding="utf-8")
-    size = path.stat().st_size
-    logger.info(
-        f"DTI QC report: {path} ({size / 1e6:.2f} MB, {time.time() - t0:.0f} s)"
-    )
-    if size > SIZE_BUDGET:
-        logger.warning(
-            f"DTI QC report is {size / 1e6:.2f} MB, over its {SIZE_BUDGET / 1e6:.1f} MB budget"
-        )
-    return path
 
 
 def main(argv: list[str] | None = None) -> int:
