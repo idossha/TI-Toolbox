@@ -1,6 +1,6 @@
 ---
 layout: wiki
-title: Troubleshooting Archive
+title: Troubleshooting
 permalink: /wiki/troubleshooting/
 ---
 
@@ -8,80 +8,48 @@ The **single source of truth** for known problems, their causes and their verifi
 
 **How it works**
 
-1. **Ask first on [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions/categories/q-a)** (Q&A). Use the form: OS, toolbox version, what you ran, the exact error, and the log from `<project>/derivatives/ti-toolbox/logs/`.
+1. **Ask first on [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions/categories/q-a)** (Q&A); a confirmed toolbox bug then goes to [GitHub Issues](https://github.com/idossha/TI-Toolbox/issues). Include the OS and version, the TI-Toolbox version (**Help ▸ About**), the exact command or interface action, the full error text, and the relevant log (see [Where are the logs](#where-are-the-logs)). Remove session tokens and private project data before sharing. [Discord](https://discord.gg/KKdjJk8f) is there for quick questions.
 2. **Verified solutions are promoted here** by a maintainer, with a link back to the discussion. Only entries that were reproduced or confirmed by the reporter land on this page.
 3. **AI assistants** using the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) read this page through `search_wiki` / `read_wiki_page("troubleshooting")` — so a fix recorded here is a fix your assistant knows about.
 
-For launcher or container problems, run these commands from the selected checkout so the
-container name is resolved from the project instead of guessed:
-
-```bash
-python3 loader.py --project /path/to/project --status
-python3 loader.py --project /path/to/project --logs
-```
-
-Before sharing output, remove session tokens and private project data. A useful report includes
-the OS and version, TI-Toolbox version, exact command or interface action, full error text, and
-the relevant log from `<project>/derivatives/ti-toolbox/logs/`.
-
-The page has two parts. **Part 1** covers things outside the toolbox's control — Docker, X11, your machine, upstream tools — and explains them fully. **Part 2** is a compact list of toolbox bugs that have already been fixed: if you hit one, the answer is *upgrade*. Search the page (Ctrl/Cmd-F) for your error text.
+The page has two parts. **Part 1** covers problems you resolve with a step of your own — Docker settings, your machine, your data, upstream tools, and toolbox fixes that need more than an upgrade — and explains them fully. **Part 2** is a compact list of toolbox bugs that have already been fixed: if you hit one, the answer is *upgrade*. Search the page (Ctrl/Cmd-F) for your error text.
 
 ---
 
-# Part 1 — Environment problems (Docker, display, machine, upstream tools)
+# Part 1 — Environment problems (Docker, machine, data, upstream tools)
 
 
-## Dev desktop shows the image's old UI
+## Where are the logs
 
-An early v3 Electron launcher handoff cleared the requested checkout before starting Docker.
-The container could therefore serve its baked UI despite starting through a dev loader.
+- **Per-run logs:** `<project>/derivatives/ti-toolbox/logs/sub-<id>/`.
+- **Job consoles:** `<project>/code/ti-toolbox/jobs/<job id>/stdout.log`. In the app, select the job
+  in **Jobs** and use **Raw log ▸ Reveal log file**. Finished job records older than 30 days, or
+  beyond the newest 200, are deleted when the server starts.
+- **Desktop app log (`main.log`):** macOS `~/Library/Logs/TI-Toolbox/main.log`; Windows
+  `%APPDATA%\ti-toolbox-desktop\logs\main.log`; Linux `~/.config/ti-toolbox-desktop/logs/main.log`.
+- **Container:** for launcher or container problems, run these commands from the selected checkout
+  so the container name is resolved from the project instead of guessed:
 
-Use the updated `bash loader.sh --dev --project /path/to/project`.
-Development launches now preserve the checkout mount and serve its built renderer.
-If an existing container was started with the old configuration, finish its jobs before stopping
-it and starting the corrected loader. Rebuild local frontend changes with
-`npm --prefix desktop run build`.
-
+  ```bash
+  python3 loader.py --project /path/to/project --status
+  python3 loader.py --project /path/to/project --logs
+  ```
 
 ## Desktop application
 
 ### What should happen when I close the app or switch projects?
 
-Closing the desktop app stops the project's container and exits Electron. To change projects
-without quitting, use Switch project in Overview, type a path or browse, and confirm the new project.
-A terminal loader that starts the desktop app waits until Electron exits, then prints
-“TI-Toolbox closed.” on success. A browser session (`--browser`, or a fallback) returns as soon as
-the page is opened and keeps running.
-
-### Quit warns about active jobs when none are running
-
-An early v3 development build counted historical `skipped` and `lost` jobs as active during
-shutdown. Both are terminal states. The quit check now counts only `running` and `queued` jobs,
-matching the job model; an idle session closes without a job warning. Rebuild/relaunch the updated
-desktop application. No job records need to be deleted or changed.
-
-### A `.nii.gz` mask is grayed out in the file picker
-
-Early development builds filtered only `.nii` and the compound `.nii.gz` extension, which macOS
-may not recognize in its native chooser. The picker now includes gzip files and validates that
-the selected file is a `.nii` or `.nii.gz` NIfTI mask before importing. Refresh the updated UI
-and reopen the picker. Unrelated gzip archives are rejected.
-
-### Switching tabs resets a draft or 3D camera
-
-**Applies to:** early 3.0.0 development builds.
-**Cause:** route navigation unmounted pages and their embedded renderers; a shared subject selection
-also changed hidden workflows. The September 4 polishing update retains visited pages and gives
-each tab its own subject context. Closing/switching projects intentionally starts a new session.
-**Fix:** restart the updated desktop client once. In development, use `npm run dev` from `desktop/`.
-Run-page surface panes now use the toolbox's own renderer; volume and target previews open native
-TetraVox explicitly.
+Closing the desktop app stops the project's container. If jobs are running or queued, it asks
+first; **Stop jobs and quit** cancels them. Project files are kept. To change projects without
+quitting, use **Switch project** in Overview.
 
 ### Native TetraVox is not installed or does not open
 
-Open **Settings → Viewer** and use **Retry setup**, then retry opening the scene. TI-Toolbox
-installs its own TetraVox from the official GitHub release and launches only that copy; a TetraVox
-you installed yourself is not used. A checksum mismatch means nothing was installed; retry the
+Open **Settings ▸ Viewer** and use **Retry setup**, then retry opening the scene. TI-Toolbox
+installs its own copy of the latest compatible TetraVox from the official GitHub release and
+launches only that copy; a TetraVox you installed yourself is not used. Updates go through
+TI-Toolbox too: **Settings ▸ Viewer** offers **Update to X**, and TetraVox's own update window
+hands the update to TI-Toolbox to install. A checksum mismatch means nothing was installed; retry the
 verified download instead of unpacking an archive into the runtime directory yourself. Platforms
 without an official package (for example Linux on arm64) report that TI-Toolbox has none.
 
@@ -89,197 +57,83 @@ Browser-only sessions cannot start native applications. Download the prepared sc
 manually in TetraVox on a machine where its dataset paths exist. A remote server's scene file does
 not copy the underlying volumes or meshes to your computer.
 
-Older development builds used an iframe and could loop forever after a missing bundle error.
-That integration is removed; installing an embed manifest is no longer a repair step.
-
-### TetraVox offers to update its managed copy
-
-The pinned official baseline release predates the new external-manager updater protection.
-Keep the TI-Toolbox-managed installation at the pinned version; do not replace it using TetraVox's
-own updater. A future compatible native release must include that protection before relying on it.
-
-### Analyzer stays at "Building … scene" with repeated atlas errors
-
-**Cause:** the atlas builder accessed `TvscPayload.triangles`, but decoded meshes expose `indices`.
-The frontend then retried the server's one-shot HTTP 500, starting another build; stale HTTP 202
-data kept the preview at "Building". This is not evidence of a corrupt subject or a slow mesh.
-**Fix:** the updated builder uses the decoded index array. Manifest/atlas failures now stop polling,
-show the server's message and offer **Retry 3D preview**. Do not delete head models or cached surfaces
-to work around this development defect.
-
-If a cold atlas preview shows duplicate skin/cortex surfaces, update the desktop as well: its first
-scene now waits for the required atlas instead of racing a temporary anatomy scene against it.
-
-### Simulator shows a guide instead of the selected subject's EEG net
-
-**Cause:** an early internal build failed to encode the tissue-label path in a subject scene
-manifest. The preview fell back to reference anatomy, whose packaged nets are limited.
-**Fix:** pull the rebuilt internal image and restart it, or refresh the updated development app.
-Subject nets are read from the existing head model; regenerating the model is unnecessary.
-
-### Optimizer refuses the skin-visualization EEG net (v3.1.0 and earlier)
-
-**Symptom:** with **Plot EEG net electrodes** ticked and a net such as `GSN-HydroCel-128.csv`
-chosen under **Visualization EEG net**, flex-search answers *"Could not queue the search. Missing
-inputs: Skin visualization EEG net … Pick an existing net CSV, or leave skin_visualization_net
-unset."* The net exists; the check looked for the bare file name in the server's working folder
-instead of the subject's `eeg_positions`. It happens on every operating system.
-**Fix:** update TI-Toolbox (app and image). Until then, untick **Plot EEG net electrodes**: the
-search and the valid-skin-region figure still run, only without the net's electrodes drawn on it.
-
-### Viewer fails only for some mixed mesh/volume selections
-
-**Cause:** a solid mesh's saved `field: null` value reached controls expecting an absent field.
-If that mesh loaded first, the controls crashed and cancelled the remaining scene load.
-**Fix:** use the updated TI-Toolbox scene exporter and its pinned native TetraVox release. New scenes omit the
-empty field and the viewer accepts older scenes containing it; source files need no repair.
-
 ## Docker
 
-### Docker image store is corrupted — `blob sha256:… not found` (historical recovery record)
+### Docker image store is corrupted — `blob sha256:… not found`
 
-**Historical v2 recovery record:** seen on Ubuntu / EC2. The image names, disk estimates
-and FreeSurfer volume below belong to that version. For the current image, follow the
-[installation guide]({{ site.baseurl }}/installation/).
-**Situation:** launching the toolbox (or any `docker images` call) after an interrupted pull, a full disk, or a reboot mid-download.
+**Situation:** launching the toolbox (or any `docker images` call) after an interrupted pull, a full disk, or a reboot mid-download. Seen on Ubuntu / EC2.
 **Error:**
 ```
 Error response from daemon: rpc error: code = NotFound desc = blob sha256:9e03764f… expected at /var/lib/containerd/io.containerd.content.v1.content/blobs/sha256/…: not found
-subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' returned non-zero exit status 1.
 ```
 **Cause:** containerd's image metadata references a layer blob that no longer exists on disk. Metadata and blobs are written separately, so an interrupted pull or an out-of-space write leaves a dangling reference; every command that lists images then aborts. Not a toolbox bug.
 **Fix:**
-1. Check disk space first: `df -h /var/lib/docker` — a full disk is the usual trigger; you need ~25 GB free for the images.
-2. Try `sudo docker system prune -af && docker pull idossha/simnibs:<version>`.
+1. Check disk space first: `df -h /var/lib/docker` — a full disk is the usual trigger.
+2. Try `sudo docker system prune -af && docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.1`.
 3. If prune fails with the same error, reset the store (destroys *all* local images/containers/volumes — project data is untouched, it lives outside Docker):
    ```bash
    sudo systemctl stop docker docker.socket containerd
    sudo rm -rf /var/lib/docker /var/lib/containerd
    sudo systemctl start containerd docker
    ```
-   then relaunch; images are re-pulled and the FreeSurfer volume is re-seeded.
+   then relaunch; the image is downloaded again.
 **Source:** maintainer-verified, 2026-08-26.
 
-### `Error: simnibs service is not running. Please check your docker-compose.yml and container logs.` (historical v2)
-
-**Applies to:** any OS, `python3 loader.py`.
-**Situation:** images pull fine, "Starting services…", then this line.
-**Cause:** `docker compose up` failed or the container exited immediately. The usual environmental reasons: port **8888** already in use (another Jupyter or toolbox instance); an **arm64 host** (Apple Silicon without Rosetta, AWS Graviton) running the `linux/amd64` image with no emulation → `exec format error`; the Docker daemon out of disk. (Loaders before 2026-08-26 hid compose's own message — update `loader.py` to see it.)
-**Fix:**
-1. `git pull` so `loader.py` prints compose's error, the container status and its last log lines.
-2. Or by hand: `docker ps -a --filter name=simnibs_container` and `docker logs --tail 50 simnibs_container`.
-3. Port clash: stop whatever holds 8888 (`docker ps`, `sudo lsof -i :8888`).
-4. `exec format error` / platform mismatch: use an x86-64 machine, or install emulation (`docker run --privileged --rm tonistiigi/binfmt --install amd64`) and expect it to be slow.
-**Source:** maintainer-verified, 2026-08-26.
-
-### `unknown shorthand flag: 'f'` / `docker: unknown command: docker compose` (Windows)
+### `unknown shorthand flag: 'f'` / `docker: unknown command: docker compose` / `ti-toolbox: install the Docker Compose plugin` (Windows)
 
 **Applies to:** Windows, running the loader from a shell.
-**Cause:** the `docker compose` v2 plugin is not available in that shell — Docker Desktop's WSL integration is off for the distro.
-**Fix:** Docker Desktop → Settings → Resources → WSL Integration → enable your distro → Apply & Restart; verify with `docker compose version`. The desktop app is unaffected.
+**Cause:** the `docker compose` v2 plugin is not available in that shell — Docker Desktop's WSL integration is off for the distro. `loader.sh` reports this as `ti-toolbox: install the Docker Compose plugin`.
+**Fix:** **Docker Desktop ▸ Settings ▸ Resources ▸ WSL Integration** → enable your distro → Apply & Restart; verify with `docker compose version`. The desktop app is unaffected.
 **Source:** [#65](https://github.com/idossha/TI-Toolbox/discussions/65).
 
-### FreeSurfer container stuck in a `Restarting` loop / `nu_correct: Command not found` (Windows) (historical v2)
+### Docker not running, or the app cannot start its container
 
-**Applies to:** Windows 11, WSL2, Docker Desktop.
-**Situation:** `simnibs_container` runs but `freesurfer_container` restarts forever; the desktop launcher times out after 300 s.
-**Cause:** Docker Desktop / WSL configuration edge case on that machine. The FreeSurfer image is only used as a data volume, so a restarting container is not by itself fatal to the SimNIBS side.
-**Fix:** launch with `python3 loader.py` (docker compose) instead of the desktop app; re-download the current `loader.py` and `docker-compose.yml`; then work from the GUI or CLI inside the container.
-**Source:** [#71](https://github.com/idossha/TI-Toolbox/discussions/71).
+The desktop app shows one of these messages when it cannot start the project's container. A
+first launch of a new version also downloads the image before the server starts, which can take
+a while on a slow connection or a nearly full disk.
 
-### Docker not running / images not downloading / first launch takes very long
+- **"Docker was not found on this machine…"** — install Docker Desktop (macOS/Windows) or Docker
+  Engine (Linux). On Windows with Docker Desktop installed, update TI-Toolbox (see Part 2, v3.0.1)
+  and check which `Docker endpoint` `main.log` names.
+- **"Docker is installed but not running…"** — start Docker Desktop (`sudo systemctl start docker`
+  on Linux), wait until it reports running, and try again.
+- **"Permission denied talking to the Docker socket…"** — on Linux run
+  `sudo usermod -aG docker $USER`, then log out and back in; on macOS restart Docker Desktop.
+- **"This container engine is not supported yet. … Podman is not supported."** — install Docker
+  Desktop or Docker Engine and make it the active engine.
+- **"The TI-Toolbox image could not be downloaded…"** — check the connection and free disk space,
+  or pull it by hand: `docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.1`.
+- **"The container started but its server never answered"** — read the container log
+  (`--logs`, see [Where are the logs](#where-are-the-logs)); low Docker memory is a common cause
+  (see the next entry).
+- **"…most likely busy rather than broken"** (attaching to a running container) — the server is
+  busy with a cold scene build or a heavy job; wait and try again, or raise
+  `TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS`.
+- **"The container exited while starting up"** — the text in brackets is the container's own
+  reason. `exec format error` means the host cannot run the linux/amd64 image: on an arm64 Linux
+  machine install emulation (`docker run --privileged --rm tonistiigi/binfmt --install amd64`, and
+  expect it to be slow) or use an x86-64 machine.
 
-**Applies to:** any OS, first run of a new version.
-**Cause:** a missing image must be loaded before the server starts. A Docker daemon that is not running, limited disk space or a slow image download can delay startup.
-**Fix:** start Docker Desktop (`sudo systemctl start docker` on Linux), confirm the daemon is ready, and check the launcher progress and Docker disk usage. Follow the [installation guide]({{ site.baseurl }}/installation/) for the matching image.
+Follow the [installation guide]({{ site.baseurl }}/installation/) for the matching image.
 
 ### CHARM killed / simulations slow — insufficient Docker memory
 
 **Applies to:** macOS and Windows (Docker Desktop VM).
-**Error:** `charm: line 2: … Killed` during meshing; or the Optimizer later reports `.msh file not found` because the mesh was never produced.
+**Error:** `charm: line 2: … Killed` during meshing.
 **Cause:** Docker Desktop's VM memory limit (not the machine's RAM) is too low; CHARM needs well over 8 GB.
-**Fix:** Docker Desktop → Settings → Resources → Memory: 32 GB recommended, 16 GB minimum; close other heavy apps; validate with the bundled `ernie` example. Then re-run the m2m step.
+**Fix:** **Docker Desktop ▸ Settings ▸ Resources ▸ Memory**: at least 20 GB, 32 GB recommended; close other heavy apps; then quit and reopen TI-Toolbox so it plans jobs with the new limit. Validate with `ernie`, downloaded from **Help ▸ Example data**. Then re-run the head-model (m2m) step.
+**How jobs use the memory:** a job that reserves more memory than the container has (a montage export reserves 16 GiB) does not wait forever: it runs alone, once nothing else is running, and can still run out of memory. FreeSurfer refuses to start below 16 GiB of container memory (`FreeSurfer requires at least 16 GiB of available container memory.`).
 **Source:** [#119](https://github.com/idossha/TI-Toolbox/discussions/119), [#121](https://github.com/idossha/TI-Toolbox/discussions/121), [Dependencies]({{ site.baseurl }}/installation/dependencies/).
-
-### FastSurfer fails at once with `Native FastSurfer host is disconnected`
-
-**Applies to:** v3 before 2026-09-18, Apple Silicon with Apple GPU enabled at some point.
-**Error:** `Native FastSurfer host is disconnected. Reconnect TI-Toolbox or disable native FastSurfer before retrying.` as the first line after `FastSurfer segmentation: Started`; nothing else runs.
-**Cause:** a desktop session with Apple GPU enabled was force-quit or crashed and left `code/ti-toolbox/native-fastsurfer/availability.json` in the project; its stale heartbeat was treated as a refusal. It has nothing to do with the FreeSurfer license — FastSurfer segmentation needs none.
-**Fix:** update; a stale heartbeat now means no host and FastSurfer runs in the container on CPU (the log says so). On an old build, delete that `availability.json` or open the desktop app with Apple GPU enabled before submitting.
-
-### FreeSurfer stage refused: `… run FreeSurfer and need your FreeSurfer license; none is stored`
-
-**Applies to:** development builds before the 2026-09-20 correction.
-**Cause:** the v3 license setup incorrectly required a personal license instead of supplying the toolbox's bundled license.
-**Fix:** the development version restores automatic license provisioning for FreeSurfer, QSIPrep and QSIRecon. No registration or personal license is required. If a current installation reports that the bundled license is missing, repair or reinstall the toolbox and report the packaging error. See [FreeSurfer license]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-license).
 
 ### Preprocessing appears frozen for many hours
 
-**Check progress:** open [Jobs]({{ site.baseurl }}/wiki/jobs/) to inspect the stage and live log. CHARM and FastSurfer can run for a long time, especially under emulation on Apple Silicon; a quiet interval alone does not establish that a job is stuck. The original discussion below concerns the historical FreeSurfer workflow.
+**Check progress:** open [Jobs]({{ site.baseurl }}/wiki/jobs/) to inspect the stage and live log. CHARM and FastSurfer can run for a long time, especially under emulation on Apple Silicon; a quiet interval alone does not establish that a job is stuck.
+**CHARM frozen on a many-core machine:** before v3.0.2, `charm` could hang forever partway through on machines with many CPU cores, with an OpenBLAS thread-metadata warning in the log. Update to v3.0.2 or later, cancel the job and run it again.
 **Source:** [#93](https://github.com/idossha/TI-Toolbox/discussions/93).
 
-## Command-line launchers
+## GUI display (X11, v2 only)
 
-### No-argument loader exits with "no project directory given"
-
-**Applies to:** earlier loader revisions, including the initial `release/3.0.0` candidate.
-**Cause:** the launcher required an explicit project and had no terminal project prompt.
-**Fix:** update the source checkout. Running `loader.py` or `loader.sh` without
-arguments now opens the desktop app's own project page, and `--browser` in a terminal
-prompts only for the project and remembers the last selected path. For scripts or other
-noninteractive sessions, pass `--project` and any
-other settings explicitly. See the [launcher reference]({{ site.baseurl }}/installation/bash-cli/#launch)
-for `--interactive`, reconnect behavior, and advanced command-line options.
-
-## Launching (historical v2)
-
-For the current launcher, use the [installation guide]({{ site.baseurl }}/installation/).
-The entry below records the old container layout.
-
-### Container cannot find the project / subject not listed in the GUI (Linux terminal)
-
-**Applies to:** Linux, launching the container by hand.
-**Cause:** the container was started without `loader.py`, so `PROJECT_DIR_NAME` and the `/mnt/<project>` bind mount were never set; or the toolbox was launched against a different project than the one holding the subject.
-**Fix:** always launch with `python3 loader.py` (repository root — `loader.sh` no longer exists) and point it at the project; verify inside the container with `echo $PROJECT_DIR_NAME` and `ls /mnt/`. One project per session — relaunch to switch. Jupyter: open `http://localhost:8888` in the host browser.
-**Source:** [#95](https://github.com/idossha/TI-Toolbox/discussions/95), [#84](https://github.com/idossha/TI-Toolbox/discussions/84).
-
-## GUI display (X11, historical v2)
-
-> **Historical v2 instructions.** The current desktop application and command-line launcher
-> use the same single-image server and browser UI, with no Qt or X11. This section records
-> fixes for the removed v2 GUI; it does not apply to the
-> [current command-line launcher]({{ site.baseurl }}/installation/bash-cli/).
-
-### No GUI on macOS — Qt XCB / `could not connect to display` / Qt5Agg error
-
-**Applies to:** macOS (Sequoia, Tahoe), XQuartz.
-**Cause:** X11 forwarding not configured on the host: XQuartz must allow network clients, Docker must be allowed by `xhost`, and `DISPLAY` inside the container must be `host.docker.internal:0`.
-**Fix:**
-1. Install **XQuartz 2.7.7** (not newer), log out and back in, launch XQuartz.
-2. XQuartz → Preferences → Security → *Allow connections from network clients*.
-3. Launch with `python3 loader.py` — it sets `DISPLAY` and runs `xhost` for you. Never `docker run` by hand.
-CLI tools work regardless of X11.
-**Source:** [#55](https://github.com/idossha/TI-Toolbox/discussions/55), [#70](https://github.com/idossha/TI-Toolbox/discussions/70).
-
-### No GUI on Linux
-
-**Fix:** `xhost +local:docker`; check `echo $DISPLAY` (set `export DISPLAY=:0` if empty); launch via `loader.py`. On a headless server (cloud VM) there is no display — use the CLI / JSON runners, or SSH with `-X`.
-
-### No GUI on Windows
-
-**Fix:** VcXsrv must be running (system tray) with *Multiple windows*, *Start no client*, and **Disable access control checked**; restart VcXsrv; check Windows Firewall is not blocking it. The first launch of a new version can take several minutes while images pull ([#118](https://github.com/idossha/TI-Toolbox/discussions/118)).
-
-### Gmsh / Freeview windows misbehave on macOS 26+
-
-**Cause:** X11 regressions on macOS 26 with these two viewers.
-**Fix:** use the NIfTI Visualizer tab for NIfTI outputs; open `.msh` files in a host-installed Gmsh if needed.
-
-### ROI looks incomplete in Gmsh
-
-**Cause:** Gmsh shows only surfaces by default; or the ROI is mostly white matter while only GM was enabled.
-**Fix:** Gmsh → Tools → Visibility → tick *Surfaces* and *Volumes* → Apply; or re-run with GM+WM.
-**Source:** [#117](https://github.com/idossha/TI-Toolbox/discussions/117).
+v3 needs no X11, XQuartz or VcXsrv; for display problems with the v2 GUI, see [Legacy v2 users]({{ site.baseurl }}/wiki/legacy-v2/).
 
 ## Your data
 
@@ -305,9 +159,17 @@ CLI tools work regardless of X11.
 **Cause:** the DICOM series was not a diffusion acquisition (e.g. a 2-volume clinical b=0 scan), or the gradient table did not travel with the NIfTI.
 **Fix:** the pre-flight checks that the table exists, parses, matches the NIfTI's volume count and has enough distinct b>100 directions. If it fails, QSIPrep cannot process the data either — verify the acquisition. Tip: in a QSIPrep log, count the `…_b0-NN.nii.gz` files listed by `gather_inputs` against `dim[4]` to see what the b-table actually contains.
 
+### EEG net has a hole / central electrodes on one point
+
+**Applies to:** head models built before v3.1.1 with GSN-HydroCel-128, BioSemi-64, BioSemi-128 or BioSemi-256.
+**Cause:** these four caps were in the wrong coordinate frame, so charm put their central electrodes on one point of the scalp (43 GSN-HydroCel-128 electrodes collapsed into a hole). v3.1.1 ships corrected caps.
+**Fix:** upgrading alone is not enough: the subject keeps the wrong positions in `m2m_<id>/eeg_positions/` until the cap is re-applied. Enable **Settings ▸ Extensions ▸ EEG caps**, open **EEG caps**, tick the affected cap and press **Apply selected** (choose **Replace and rerun** when asked), or **Re-apply all**, for each subject that uses it. Then re-run the simulations and optimizations that used those nets. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
+
 ### Bilateral target with a unipolar montage
 
-Not possible with two pairs. Use a large sphere covering both targets if focality is not critical, or an mTI montage.
+Flex-search and ex-search accept a union of regions or spheres picked as one target, for example
+the left and right hippocampus. A single TI pair still has one focal maximum, so a union target
+trades focality between the sites; an mTI montage is the alternative.
 **Source:** [#89](https://github.com/idossha/TI-Toolbox/discussions/89).
 
 ## Upstream tools (QSIPrep, QSIRecon, SimNIBS)
@@ -316,34 +178,23 @@ Not possible with two pairs. Use a large sphere covering both targets if focalit
 
 **Applies to:** QSIPrep 26.0.0 and every version since 2019; any DWI sidecar lacking `TotalReadoutTime`.
 **Cause:** upstream bug in `qsiprep/interfaces/epi_fmap.py` — the value is read with a bare `.get()` and formatted into an FSL `acqp` line; the code path runs under `--hmc-model eddy` even with no fieldmap. Reported four times upstream, never fixed.
-**Fix:** the toolbox pre-flight (main, → v2.4.1) derives `TotalReadoutTime` or writes a provably inert fallback before the container starts. Manually: add `"TotalReadoutTime"` and `"PhaseEncodingDirection"` to `sub-<id>/dwi/sub-<id>_dwi.json`.
+**Fix:** the toolbox pre-flight (since v2.5.0) derives `TotalReadoutTime` or writes a provably inert fallback before the container starts. Manually: add `"TotalReadoutTime"` and `"PhaseEncodingDirection"` to `sub-<id>/dwi/sub-<id>_dwi.json`.
 
 ### QSIPrep stops at `synthseg` on an Apple Silicon Mac ("TensorFlow library was compiled to use AVX instructions")
 
 **Applies to:** QSIPrep 26.0.0 on any arm64 Docker host (M-series Macs), under Rosetta or QEMU emulation.
 **Cause:** QSIPrep's anatomical workflow runs `mri_synthseg`, whose TensorFlow build requires AVX instructions; emulation does not provide them, so the node fails and the run stops.
-**Fix:** run QSIPrep on an x86-64 Linux or Windows machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs on the Mac. The toolbox now refuses to start QSIPrep on an arm64 Docker host with this explanation instead of failing mid-run.
+**Fix:** run QSIPrep on an x86-64 Linux or Windows machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs on the Mac. Since v3.0.2 the toolbox refuses to start QSIPrep on an arm64 Docker host with this explanation instead of failing mid-run.
 
 ### QSIRecon `dsi_studio_gqi` — `Cannot set the undefined 'plot_reports' attribute`
 
-**Cause:** upstream QSIRecon bug in the `dsi_studio_gqi` spec.
-**Fix:** v2.3.1+ uses QSIRecon 26.0.0 (`--input-type qsiprep`) with the toolbox's own recon YAML; the `dsi_studio_*` specs are not used.
+**Cause:** upstream QSIRecon bug in the connectivity node of its built-in `dsi_studio_gqi` spec.
+**Fix:** nothing to do in TI-Toolbox. `dsi_studio_gqi` is the default spec, and the toolbox runs it through its own scalar-only recon YAML, which has no connectivity node and so avoids the bug. Running QSIRecon's built-in spec yourself can still hit it.
 **Source:** [#81](https://github.com/idossha/TI-Toolbox/discussions/81).
-
-### Running QSIRecon yourself: `Path should point to a file (or symlink of file): .`
-
-**Cause:** the FreeSurfer license path handed to QSIRecon does not exist — with Docker-out-of-Docker the license must be given as a **host** path.
-**Fix:** TI-Toolbox stages and mounts its bundled license automatically. For a manually launched historical v2 worker, `LOCAL_FS_LICENSE` must point to an existing file on the Docker host; this is a mount-path correction, not a requirement to obtain a personal license.
 
 ### SimNIBS 4.6 quirks the image patches for you
 
-`np.nan_to_num(copy=None)` on numpy 1.x and `atlas2subject(split_labels=True)` label misalignment are patched into the image at build time (`resources/patches/`, `resources/atlas2subject/`). If you install SimNIBS 4.6 outside the container, you get them raw.
-
-### Flex-search fails with `Please define TESoptimize.threshold for focallity optimization!`
-
-**Applies to:** v3.0.0–v3.1.0, Optimizer goal **Threshold-based focality** with **Adaptive thresholds** or **Multi-threshold**.
-**Cause:** the job ran a single focality search instead of the adaptive or multi-threshold workflow, so SimNIBS received no `threshold` (the non-ROI and ROI field cutoffs, in V/m).
-**Fix:** update the image to the release after v3.1.0. Until then, choose **Fixed thresholds** and enter values such as `0.2,0.5`, or use **Threshold-free focality**.
+`atlas2subject(split_labels=True)` label misalignment and a `np.nan_to_num(copy=None)` call are patched into the image at build time (`resources/atlas2subject/`, `resources/patches/`). If you install SimNIBS 4.6 outside the container, you get them unpatched.
 
 ### Ex-search needs a leadfield
 
@@ -357,22 +208,28 @@ By design — `TI_normal` only exists on the cortical surface. Select *Space = m
 
 # Part 2 — Toolbox bugs already fixed: upgrade
 
-These entries record fixes to older versions. The historical *main* label means the fix
-was on the main branch when the entry was recorded. Older-version workarounds are retained
-for reference; use the [installation guide]({{ site.baseurl }}/installation/) for current setup.
+These entries record fixes to older versions. Older-version workarounds are retained for
+reference; use the [installation guide]({{ site.baseurl }}/installation/) for current setup.
 
 | Symptom | Fixed in | Note / workaround on older versions | Source |
 |---|---|---|---|
-| `dev/loader/loader_dev.py`: `ModuleNotFoundError: No module named 'tit'` (script removed 2026-09-17; use `--dev`) | main | `git pull` | 2026-08-26 |
-| `dev/loader/loader_dev.sh`: `unbound variable` on first run (script removed 2026-09-17; use `--dev`) | main | | |
-| Developer Flex: “installed SimNIBS Flex integration predates candidate recording” | v3 candidate-review branch (unreleased) | The mounted checkout now supplies its Flex integration directly. Retry the job with the updated checkout; no installed-package replacement is needed. | 2026-09-13 maintainer reproduction |
-| `loader.py` hides the real `docker compose` error behind "simnibs service is not running" | main | see Part 1 for the environmental causes | |
-| Analyzer "Field" dropdown had no effect; voxel analysis silently used `TI_avg` | main | re-run analyses made with `TI_avg` enabled | |
-| mTI outputs named `TI_Max` not found by the analyzer (field renamed `mTI_max`) | main | rename `*_TI_Max.*` → `*_mTI_max.*`, or re-run | |
-| Flex-search current-ratio search: final field at 1:1 while `flex_meta.json` claims the optimised split | main | re-run affected optimisations | |
-| Ex-search mTI + Atlas ROI "completed successfully" with zero runs | main | | |
-| Ex/mex config with `roi_names=[]` and no atlas scored every montage 0 (now a `ValueError`) | main | | |
-| QSIRecon refuses to rerun ("output already exists") although nothing was reconstructed | main | delete `<out>/sub-<id>/` (logs only) | |
+| Simulation report not written: `matmul: Input operand 1 has a mismatch in its core dimension 0` | v3.1.1 | simulation outputs are unchanged; after upgrading, re-run the simulation to get its report | [v3.1.1]({{ site.baseurl }}/releases/v3.1.1/) |
+| Flex-search refuses the skin-visualization net: *"Could not queue the search. Missing inputs: Skin visualization EEG net …"* | v3.1.0 (image of 2026-10-12) | untick **Optimizer ▸ Solver ▸ Skin visualization ▸ Plot EEG net electrodes**; the search still runs | [changelog]({{ site.baseurl }}/releases/changelog/) |
+| Flex-search fails with `Please define TESoptimize.threshold for focallity optimization!` (Threshold-based focality, Adaptive or Multi-threshold) | v3.1.0 (image of 2026-10-12) | choose **Fixed thresholds** (e.g. `0.2,0.5`) or **Threshold-free focality** | [changelog]({{ site.baseurl }}/releases/changelog/) |
+| Flex-/ex-search report fails with `Cannot work out file type of ".../lh.<atlas>.annot"` for a cortical-atlas target | v3.1.0 | rebuild with `simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run>` (`ex_search` for ex-search) | [v3.1.0]({{ site.baseurl }}/releases/v3.1.0/) |
+| FreeSurfer stops at once on Windows: "LOCAL_PROJECT_DIR must be an absolute host path." | v3.1.0 | | [v3.1.0]({{ site.baseurl }}/releases/v3.1.0/) |
+| Surface cluster permutation stops and names a missing fsaverage `.msh` | v3.1.0 (changed) | older `_fields.npz` projections are no longer read: re-run the fsaverage projection (Simulator **Map fields to fsaverage**) | [v3.1.0]({{ site.baseurl }}/releases/v3.1.0/) |
+| Apple Silicon: the app stops with "no matching manifest for linux/arm64/v8" instead of downloading the image | v3.0.1 | `docker pull --platform linux/amd64 idossha/ti-toolbox:<version>` | [v3.0.1]({{ site.baseurl }}/releases/v3.0.1/) |
+| Windows: "Docker was not found on this machine" while Docker Desktop runs with the `desktop-linux` context | v3.0.1 | | [v3.0.1]({{ site.baseurl }}/releases/v3.0.1/) |
+| "The bilateral CIT168 atlas was replaced by …" / "The bilateral Harvard-Oxford cortical atlas was replaced by …" for a config naming the old file | v3.0.1 (renamed) | use the named lateralized file and pick both sides when you want both | [Brain Atlases]({{ site.baseurl }}/wiki/atlases/) |
+| "The Morel atlas is no longer shipped (CC BY-NC-SA)" | v3.0.0 (removed) | pick another thalamic target, or import the atlas yourself as a custom mask | [Brain Atlases]({{ site.baseurl }}/wiki/atlases/) |
+| `loader.py` hides the real `docker compose` error behind "simnibs service is not running" | v2.5.0 | | |
+| Analyzer "Field" dropdown had no effect; voxel analysis silently used `TI_avg` | v2.5.0 | re-run analyses made with `TI_avg` enabled | |
+| mTI outputs named `TI_Max` not found by the analyzer (field renamed `mTI_max`; outputs from ≤ v2.4.0 are named `TI_Max`) | v2.5.0 | rename `*_TI_Max.*` → `*_mTI_max.*`, or re-run | |
+| Flex-search current-ratio search: final field at 1:1 while `flex_meta.json` claims the optimised split | v2.5.0 | re-run affected optimisations | |
+| Ex-search mTI + Atlas ROI "completed successfully" with zero runs | v2.5.0 | | |
+| Ex/mex config with `roi_names=[]` and no atlas scored every montage 0 (now a `ValueError`) | v2.5.0 | | |
+| QSIRecon refuses to rerun ("output already exists") although nothing was reconstructed | v2.5.0 | delete `<out>/sub-<id>/` (logs only) | |
 | Analyzer simulation list empty when the first subject has no simulations | v2.4.0 | switch subject and back | |
 | DICOM import crashes with `PermissionError: [Errno 1]` on `._*` files | v2.4.0 | delete the `._*` files (Part 1) | PR #133 |
 | DICOMs silently skipped when `CT/` and `ct/` both exist | v2.4.0 | keep one spelling | |
@@ -386,95 +243,3 @@ for reference; use the [installation guide]({{ site.baseurl }}/installation/) fo
 | Flex-search report missing EEG mapping / electrode configuration | v2.3.1 | the electrode CSVs feed the simulator regardless | [#94](https://github.com/idossha/TI-Toolbox/discussions/94) |
 | Focality step 2/2: `'FlexSearchTab' object has no attribute 'volume_atlas_display_map'` | v2.3.0 | | [#89](https://github.com/idossha/TI-Toolbox/discussions/89) |
 | Cortical atlas dropdown empty in flex-search (`.annot` files not generated) | v2.2.4 | inside the container: `subject_atlas -m /mnt/<project>/derivatives/SimNIBS/sub-X/m2m_X -a DK40 -o …/m2m_X/segmentation` | [#72](https://github.com/idossha/TI-Toolbox/discussions/72) |
-| `loader.sh` missing from the repository | v2.2.x | it became `loader.py` | [#84](https://github.com/idossha/TI-Toolbox/discussions/84) |
-
----
-
-# Developer gotchas
-
-For people scripting against `tit` or contributing code.
-
-| Symptom | Cause / Fix |
-|---|---|
-| Script works on the host, fails in the container (or vice-versa) | The v3 scientific runtime uses SimNIBS Python and NumPy 2.3.5 on a case-sensitive filesystem; the host may differ. Verify against the current runtime with the [testing guide]({{ site.baseurl }}/wiki/development/), including real numerical tests when relevant. |
-| `pytest` INTERNALERROR `Read-only file system: tests/logs/pytest.log` | `pytest.ini` writes a log; mount the repo **writable** (not `:ro`). |
-| `python: not found` in the test container | Use `simnibs_python`. |
-| Test container is very slow on Apple Silicon | It is amd64 under emulation; expect ~1 min for the suite, minutes for real SimNIBS scenarios. |
-| `nibabel` `save()` to `.nii.gz` fails on a Docker bind mount | Write the `.nii` then gzip with the stdlib `gzip` module. |
-| `ModuleNotFoundError: fsl / ants` | The SimNIBS container ships **no FSL and no ANTs** — only Python, nibabel, numpy, scipy (+ SimpleITK). |
-| `mne` missing in a v3 container | The current image installs `mne>=1.5,<2` and `h5io`. Verify you are using the selected v3 image and `simnibs_python`, not another interpreter or a legacy image. |
-| **V2 only:** `if some_combo and …` guard silently skips | PyQt5 `QComboBox.__len__` makes an empty combo falsy; use `is not None`. |
-| `dcm2niix` produced zero NIfTIs | `-r` means **rename**, not recurse; recursion depth is `-d 9`. |
-| Math does not render on the docs site | Kramdown only parses `$$…$$` (inline and display); single `$…$` is ignored. No bare `\|` inside math in a table cell. |
-| NiiVue label atlas renders grayscale / washes the slice | `colormapLabel` as a load option is ignored — call `vol.setColormapLabel(cm)` and set `vol.alphaThreshold = true`, then `updateGLVolume()`. |
-| **V2 only:** release script left `dev/loader/docker-compose.dev.yml` on the old tag | `dev/update/update_version.py` does not know that file; bump its `idossha/simnibs:vX` tag by hand. |
-
----
-
-## Reporting something new
-
-Open a [Q&A discussion](https://github.com/idossha/TI-Toolbox/discussions/new?category=q-a) and include: OS + version, TI-Toolbox version (Help → About, or `docker images`), the exact command or GUI action, the full error text, and the relevant file from `<project>/derivatives/ti-toolbox/logs/`. Once the fix is confirmed, a maintainer adds it here and links the thread. Also see [Discord](https://discord.gg/KKdjJk8f) for quick questions.
-
-### Montage PNG contains the cap but no electrode overlays
-
-Check the simulation log for `No such file or directory: convert`. Montage diagrams require
-ImageMagick and the DejaVu font; both are included in the toolbox Docker image. Older internal
-images omitted ImageMagick and could leave the copied blank template behind. Updated rendering
-publishes the PNG only after every overlay and legend succeeds.
-
-Existing affected diagrams can be regenerated without rerunning simulation, using the saved
-`documentation/config.json` electrode pairs with `tit.tools.montage_visualizer.visualize_montage`.
-The running local development container and its local internal image were repaired on 2026-09-09.
-
-### Simulation fails on existing results after confirming overwrite
-
-**Symptom:** `Found already existing simulation results in directory` names the montage's
-`high_Frequency` directory even after choosing **Replace and rerun**. The job's stored
-`overwrite` confirmation previously stopped at the scheduler and never reached SimNIBS.
-Updated runners pass that confirmation to SimNIBS's supported repeated-run option; there
-is no need to delete `simnibs_simulation*.mat` files manually.
-
-Run again and confirm **Replace and rerun**; it does not suppress subsequent confirmations.
-Choose **Skip** or **Cancel** to keep existing results instead. Use the current checkout
-with the development loader, or an image containing this fix.
-
-
-### A deleted job remains in the Jobs list
-
-Early v3 builds refreshed the REST list but retained the deleted job in the live UI store.
-Update and reload the desktop app. Confirmed deletion now clears both stores and the selection;
-older queued updates cannot restore the row. A filesystem deletion failure is reported so you
-can resolve access permissions and retry, rather than receiving a false success notification.
-
-### Flex says succeeded but the terminal keeps advancing
-
-In affected preview builds, a long historical event backlog could continue replaying after the
-worker had exited. Reopening log views or reconnecting could replay it again. The corrected
-client resumes by sequence and loads the final saved transcript when the job finishes; long
-server backfills also drain without blocking status updates. Update the app and server together.
-This UI symptom alone does not mean that an optimizer is still computing.
-
-### Saving a scene asks you to open it from TI-Toolbox first
-
-Earlier internal desktop builds required a previous **Open in viewer** from the same project, even
-when TetraVox already had a scene loaded. Current builds capture the active scene directly.
-Keep TetraVox open, choose the target BIDS project in TI-Toolbox, then use
-**Viewer → Saved scenes → Save scene**. Give it a name; the project destination is automatic and
-the saved scene appears in that list for reopening. A compatible native TetraVox installation is
-required; a closed viewer or an unsuccessful capture is reported without claiming a save.
-
-### Opening a saved native scene says "Path escapes the project jail"
-
-Earlier internal builds incorrectly re-exported native scenes, resolving their dataset paths against
-the project root instead of the saved scene directory. Current builds open the original native file
-and retain its relative dataset paths. Restart TI-Toolbox Desktop after updating, then click the
-existing saved scene again; no resave or migration is needed. Legacy server-URL scenes still get a
-localized copy, and the project jail remains enforced.
-
-### TetraVox Save reports "not on the write list"
-
-TetraVox 0.6.0's native scene API could open and attach a scene without admitting that scene as a
-native Save target. The file opens normally but **Save** fails; this is separate from project-path
-validation. Use **Save As** to preserve current edits. The native fix admits exactly the opened
-scene, without granting write access to datasets or unrelated files. It requires an updated
-TetraVox build; restarting TI-Toolbox alone cannot patch an already running native app.

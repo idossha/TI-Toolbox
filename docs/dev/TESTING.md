@@ -288,6 +288,23 @@ without source/UI mounts. A later source fix invalidates claims based only on an
 - [tests/README_TESTING.md](../../tests/README_TESTING.md) documents the two shell runners in that
   directory; it does not replace these desktop, numerical and artifact acceptance layers.
 
+## Gotchas
+
+- A script that works on the host can fail in the container, or the reverse: the image runs SimNIBS
+  Python with NumPy 2.3.5 on a case-sensitive filesystem. Verify in the container.
+- `pytest` INTERNALERROR `Read-only file system: tests/logs/pytest.log`: `pytest.ini` writes that
+  log, so mount the repository writable, not `:ro`.
+- `python: not found` in the container: use `simnibs_python`. `python3` there is the system
+  interpreter, without SimNIBS.
+- The image is amd64, so on Apple Silicon it runs under emulation: expect about a minute for the
+  pytest suite in the container and minutes for real SimNIBS scenarios.
+- `nibabel` `save()` to `.nii.gz` fails on a Docker bind mount: write the `.nii`, then gzip it with
+  the stdlib `gzip` module.
+- `ModuleNotFoundError: fsl` / `ants`: the image ships no FSL and no ANTs.
+- `mne` missing: the image installs `mne>=1.5,<2` and `h5io` into SimNIBS Python; check that you
+  run `simnibs_python` in the current image, not another interpreter or a legacy image.
+- `dcm2niix` produced zero NIfTIs: `-r` means **rename**, not recurse; recursion depth is `-d 9`.
+
 ## Current verification and remaining gaps — 2026-09-09
 
 Receipts live under ignored `dist/internal/` and `/tmp`; they may expire. The committed suites

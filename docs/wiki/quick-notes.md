@@ -6,7 +6,8 @@ permalink: /wiki/quick-notes/
 
 Quick notes is a project notepad that opens beside your work. Use **⌘⇧N** on macOS
 (**Ctrl⇧N** on Windows/Linux), or find **Quick notes** in the command palette. It opens a
-right-hand drawer, so you can keep the current workflow visible while writing.
+right-hand drawer, so you can keep the current workflow visible while writing. Quick notes is
+always available; there is no toggle for it in **Settings ▸ Extensions**.
 
 ## Write and save
 

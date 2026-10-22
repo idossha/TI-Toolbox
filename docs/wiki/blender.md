@@ -10,12 +10,16 @@ Enable **3D visual exporter** in **Settings ▸ Extensions** to add it to the na
 
 ## Preview and export
 
-Choose the subject, simulation and export settings on the left. The right pane shows the
-plan, an interactive Scene tab and the live Terminal. Starting an export follows its job log;
-STL and PLY jobs both remain available after they finish.
+Choose the subject, simulation, mode (**Cortical regions**, **Field vectors**, **Montage
+visualizer** or **Sub-cortical**) and its settings on the left, then press **Run export**. The
+right pane shows the plan, an interactive Scene tab and the live Terminal, which follows the
+export's job log. A cortical-regions export queues two jobs, one STL and one PLY; both logs remain
+available after they finish. To cancel an export, select its job in **Jobs** and choose **Stop**.
+Exports are written under `derivatives/ti-toolbox/visual_exports/sub-<id>/`.
 
 - **Cortical regions:** preview the selected subject's atlas and click regions to update the
-  same selection used by the export. An empty selection exports the whole grey matter surface.
+  same selection used by the export. The whole grey matter surface is always exported; with an
+  empty selection it is the only output.
 - **Sub-cortical:** preview the selected segmentation volume; clicking a labelled region toggles
   its export selection. Selected labels are outlined in the full atlas. This is the source
   segmentation, not a preview of final mesh cleanup.
@@ -36,14 +40,12 @@ follows the canonical project mesh location.
 
 ### Full-net montage memory
 
-A full-net montage can need **about 16 GiB of available container memory**. Increase Docker
-Desktop's memory allocation accordingly and leave headroom for other running workloads.
-The scheduler reserves 16 GiB for montage jobs; this is a conservative reservation and
-headroom recommendation, **not an uncapped measured peak**. Vector, region and subcortical
-exports retain their separate 2 GiB reservations.
-
-Full-net validation preserves the existing visual subdivision. Actual demand depends on the
-scene; the allocation guidance does not impose a fixed peak-memory guarantee.
+A montage export reserves **16 GiB of container memory**, whether it places the full net or
+only the montage electrodes; a full-net montage can need about that much. Give Docker at least
+20 GB (**Docker Desktop ▸ Settings ▸ Resources ▸ Memory**) and restart TI-Toolbox after changing
+it. With less, the job does not wait forever: it runs alone once nothing else is running, and can
+run out of memory. The 16 GiB is a conservative reservation, **not an uncapped measured peak**;
+actual demand depends on the scene. Vector, region and sub-cortical exports reserve 2 GiB.
 
 ## Overview
 
@@ -87,14 +89,14 @@ This mode exports cortical surface regions defined by anatomical atlases as 3D m
 - **PLY files**: PLY format with embedded color information. Each region is color-mapped according to the field values (e.g., `TI_max`) from the simulation mesh. These files preserve both geometry and field data for visualization in Blender or other 3D tools.
 
 **Atlas options:**
-- Choose from available atlases (DK40, DKTatlas40, HCP_MMP1, aparc.a2009s) based on your analysis needs.
-- Select individual cortical regions to export, or export the entire atlas.
-- Optionally include the whole gray matter (GM) surface as a single mesh file.
+- The app offers the DK40 and a2009s atlases; HCP_MMP1 is available from the Python API (`RegionConfig(atlas="HCP_MMP1")`).
+- Select individual cortical regions to export. With no selection the app exports only the whole gray matter (GM) surface; from the Python API, an empty `regions` list exports every region of the atlas.
+- The app always exports the whole GM surface as a single mesh file (`skip_whole_gm=True` skips it from the Python API).
 
-**Output structure:**
-- Individual region meshes are stored in `regions/` subdirectories.
-- Whole GM surface is exported as a separate file when enabled.
-- Optionally keep intermediate `.msh` files for audit trails and debugging.
+**Output structure** (under `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/`):
+- STL: `stl/cortical_stls/regions/<region>.stl` and `stl/cortical_stls/whole_gm.stl`.
+- PLY: `ply/cortical_plys/regions/<region>.ply` and `ply/cortical_plys/whole_gm.ply`.
+- The app always keeps the intermediate `.msh` files of the PLY export for audit trails and debugging: `ply/meshes/<region>_region.msh` and `ply/whole_gm.msh`.
 
 ### Field Vectors
 
@@ -144,14 +146,14 @@ This mode exports electric field vectors from TDCS simulations as arrow clouds i
 - **mTI mode**: Uses 4 TDCS meshes (CH1, CH2, CH3, CH4) to compute multi-channel TI vectors, enabling more complex stimulation patterns.
 
 **Sampling options:**
-- Configure the number of vectors to sample (default: 100,000) or use all nodes for maximum detail.
+- Configure the number of vectors to sample (default 10,000 in the app, 100,000 in the Python API) or use all nodes for maximum detail.
 - When using the maximum sample count, the script will produce a vector on every node of the given surface mesh. This is an expensive process that requires a large amount of memory and can take multiple hours for all vectors to be produced.
 - Random seed controls reproducibility of sampling patterns.
-- Vectors can be filtered to show only top percentile regions by magnitude.
+- From the Python API, `top_percent` keeps only the strongest vectors by magnitude (for example `top_percent=10`).
 
 ### Montage Visualizer
 
-This mode creates 3D electrode placements on the scalp surface using Blender for visualization. It automatically extracts the scalp surface from the subject's mesh file and places electrode objects according to EEG montage coordinates, with optional text labels.
+This mode creates 3D electrode placements on the scalp surface using Blender for visualization. It extracts the scalp and grey-matter surfaces from the subject's head model and places labelled electrode objects at the positions of the EEG net recorded in the simulation's `documentation/config.json`.
 
 <div class="carousel-container">
   <div class="carousel-wrapper">
@@ -181,23 +183,24 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
   <p class="glb-caption">Interactive 3D view of GSN-HydroCel-185 electrode placement on scalp surface (GLB format)</p>
 </div>
 
-**What is produced:**
-- **.blend file**: Blender scene file containing scalp surface, electrode objects, and text labels with sensible cameras, lighting conditions and material transparency. 
-- **.glb file**: GLTF binary format for web-based 3D viewers or other applications (e.g., `electrodes_GSN-HydroCel-185.glb`)
-- **scalp.stl**: Extracted scalp surface mesh for reference
+**What is produced** (under `derivatives/ti-toolbox/visual_exports/sub-<id>/montage_publication/`):
+- **`<id>_<simulation>_montage_publication.blend`**: the publication scene with scalp, grey matter, electrode objects and text labels, sensible cameras, lighting conditions and material transparency.
+- **`<id>_electrodes_<net>.blend`** and **`<id>_electrodes_<net>.glb`**: the electrode placement on the scalp; the GLB (GLTF binary) is for web-based 3D viewers or other applications.
+- **`scalp.stl`** and **`gm.stl`**: the extracted scalp and grey-matter surfaces, for reference.
 
 **Electrode configuration:**
-- Choose from available simulation montages (automatically detected from the subject's directory)
-- Adjust electrode size, offset distance from scalp surface, and text label positioning
-- Scale factor for coordinate system adjustments
+- The EEG net and the montage's electrode pairs come from the selected simulation.
+- **Show only montage electrodes** places only the montage's electrodes; otherwise the whole net is placed.
+- **Electrode diameter** and **Electrode height** size the electrode cylinders (defaults 10 mm and 6 mm).
 
 ### Sub-cortical Extraction
 
 This mode extracts sub-cortical structures from NIfTI segmentation files and converts them to 3D mesh formats. It can extract specific anatomical regions by label or export the entire segmentation volume.
 
-**What is produced:**
+**What is produced** (under `derivatives/ti-toolbox/visual_exports/sub-<id>/sub-cortical/`):
 - **STL files**: Binary STL format geometry files suitable for CAD software and 3D printing
 - **MSH files**: SimNIBS mesh format for compatibility with simulation workflows
+- **PLY files**: the same mesh coloured by a simulation field (`TI_max` by default), written when a simulation is selected and its subject-space field volume exists
 - **NIfTI files**: Copied segmentation files for reference
 
 **Segmentation options:**
@@ -206,7 +209,7 @@ This mode extracts sub-cortical structures from NIfTI segmentation files and con
 - Automatic label extraction from FreeSurfer or other segmentation atlases
 
 **Input sources:**
-- Default: `m2m_<subject>/segmentation/labeling.nii.gz` (FreeSurfer segmentation)
+- Default: `m2m_<subject>/segmentation/labeling.nii.gz` (the charm segmentation)
 - Custom: Any NIfTI file containing labeled anatomical regions
 
 This can be incoporated into other visualization to produce images and animations such as:
@@ -263,18 +266,6 @@ This can be incoporated into other visualization to produce images and animation
   </div>
 </div>
 
-## Running from the GUI
-
-1. Open your project and enable **3D visual exporter** in **Settings → Extensions**.
-2. Select **3D visual exporter** under **Extensions** in the sidebar.
-3. Pick a subject and simulation from the dropdowns. 
-4. Choose **Cortical Regions**, **Field Vectors**, **Montage Visualizer**, or **Sub-cortical** mode.
-5. Configure atlas, region filters, formats, and output directory options (for regions), sampling and styling parameters (for vectors), EEG montage and electrode settings (for electrode placement), or NIfTI file and label extraction settings (for sub-cortical structures).
-6. Click **Run Export**. The console panel shows the exact commands executed and live progress.
-7. Review artifacts in `derivatives/ti-toolbox/visual_exports/sub-<id>/` once the export completes.
-
-To cancel an export, select its job in **Jobs** and choose **Stop**. The job server handles cancellation.
-
 ## Python API
 
 The blender module exposes typed dataclass configs and runner functions for programmatic use:
@@ -306,11 +297,10 @@ run_regions(config)
 
 ## Tips and troubleshooting
 
-- **Environment**: Run the commands from within the TI-Toolbox environment. The scripts handle SimNIBS dependencies automatically.
-- **Large vector clouds**: Start with smaller `--count` values or enable `--top-percent` to reduce file sizes before ramping up density.
-- **Atlas updates**: If you add a new atlas, ensure the `m2m_*` directory contains the matching label files before opening the exporter.
+- **Environment**: Run Python API scripts with `simnibs_python` inside the TI-Toolbox container. A saved JSON config runs with `simnibs_python -m tit.blender config.json`.
+- **Large vector clouds**: Start with a smaller **Sample count** (`count` in the Python API), or set `top_percent` from the Python API, to reduce file sizes before ramping up density.
 - **Label extraction**: When extracting specific labels, use comma-separated values (e.g., "10,49" for left/right thalamus). Check FreeSurfer's label lookup table for anatomical region codes.
-- **Error logs**: The extension console mirrors stdout/stderr from the scripts. Copy the failing command and re-run in a terminal to investigate with additional flags (for example `--verbose`).
+- **Error logs**: The job's **Terminal** shows the export's output; see [Where are the logs]({{ site.baseurl }}/wiki/troubleshooting/#where-are-the-logs) for the saved log files.
 
 ---
 
@@ -324,7 +314,7 @@ This tutorial walks you through importing and visualizing PLY files exported fro
 
 1. Open Blender and start with the default scene (or create a new project).
 2. Go to **File** → **Import** → **Stanford (.ply)**.
-3. Navigate to your exported PLY file location (typically in `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/ply/`).
+3. Navigate to your exported PLY file location: cortical regions are in `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/ply/cortical_plys/` (`whole_gm.ply` and `regions/`), field vectors in `<simulation>/vectors/`, and sub-cortical meshes in `sub-<id>/sub-cortical/`.
 4. Select your PLY file and click **Import Stanford (.ply)**.
 
 The mesh will appear in your viewport. If the mesh appears very small or very large, you may need to adjust the view or scale the object.
@@ -352,14 +342,14 @@ To display the color attributes from your PLY file, you need to create and assig
 
 ![Adding a material]({{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_3.png)
 
-### Step 4: Setting Color to 'col' Attribute
+### Step 4: Setting Color to the 'Col' Attribute
 
-To use the color data embedded in your PLY file (stored in the `col` attribute), set it as the material's base color:
+To use the color data embedded in your PLY file, set it as the material's base color. Blender 4.4 imports the PLY's vertex colors as a color attribute named **`Col`** (case-sensitive), which is also the mesh's active color attribute:
 
 1. With your object still selected, in the **Material Properties** panel, locate the **Base Color** field (under the **Surface** section).
 2. Click on the **Base Color** field.
 3. Select **Color Attribute** from the dropdown menu.
-4. In the attribute name field that appears, enter `col` (this matches the color attribute name in your PLY file).
+4. In the attribute name field that appears, enter `Col` (capital C). Leaving the name blank also works, because it then uses the active color attribute.
 
 Your mesh should now display the color-mapped field data from your simulation. The colors represent the field values (e.g., `TI_max`) that were exported with the mesh.
 
@@ -368,7 +358,7 @@ Your mesh should now display the color-mapped field data from your simulation. T
     <div class="carousel-images">
       <div class="carousel-slide active">
         <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_4.png" alt="Setting color attribute - Attribute node">
-        <p>Adding the Attribute node and setting it to 'col'</p>
+        <p>Adding the Attribute node and setting it to 'Col'</p>
       </div>
       <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_5.png" alt="Setting color attribute - Connected shader">
@@ -384,7 +374,7 @@ Your mesh should now display the color-mapped field data from your simulation. T
   </div>
 </div>
 
-**Note**: If your PLY file uses a different attribute name for colors, replace `col` in step 4 with the appropriate attribute name. You can check available attributes by selecting the mesh and viewing the **Geometry Nodes** or **Mesh Data** properties.
+**Note**: If your PLY file uses a different attribute name for colors, replace `Col` in step 4 with the appropriate attribute name. You can check available attributes by selecting the mesh and viewing the **Geometry Nodes** or **Mesh Data** properties.
 
-<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+<script type="module" src="https://unpkg.com/@google/model-viewer@4.3.1/dist/model-viewer.min.js" integrity="sha384-cprcVQt7wbUl0xngF3PGP6yBB7n4/t+4AoAMG9biiMCGFiWOdzUH10Ie2COTqFNW" crossorigin="anonymous"></script>
 
