@@ -274,6 +274,18 @@ SINGLE_CASES = {
         "atlas": "DK40",
         "region": ["Left-Insula", "Right-Insula"],
     },
+    "cortical-voxel-repeated-name": {
+        "analysis_type": "cortical",
+        "space": "voxel",
+        "atlas": "DK40",
+        "region": ["Left-Insula", "Left-Insula", "Right-Insula"],
+    },
+    "subcortical-voxel-repeated-label": {
+        "analysis_type": "subcortical",
+        "space": "voxel",
+        "atlas": "labeling.nii.gz",
+        "region": ["Left-Thalamus", "Left-Thalamus"],
+    },
     "subcortical-voxel-parenthesis": {
         "analysis_type": "subcortical",
         "space": "voxel",

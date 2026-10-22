@@ -244,3 +244,35 @@ def test_mesh_folders_tell_fields_apart_but_not_tissues(project, client) -> None
     assert ti != hf and Path(hf).name == f"{Path(ti).name}_hf_peak"
     # A mesh analysis is always the grey-matter surface; the tissue setting is not used.
     assert _plan(client, "TI_max", "WM", space="mesh")["output_dir"] == ti
+    # mTI_max is the same envelope under its 4-pair spelling: the default analysis too.
+    assert _plan(client, "mTI_max", "GM", space="mesh")["output_dir"] == ti
+
+
+def test_voxel_folder_names_for_every_tissue_and_a_field(project, client) -> None:
+    base = Path(_plan(client, None, "GM")["output_dir"]).name
+    assert base == LEGACY_NAME
+    names = {
+        tissue: Path(_plan(client, "TI_avg", tissue)["output_dir"]).name
+        for tissue in ("GM", "WM", "both", "BOTH")
+    }
+    assert names == {
+        "GM": f"{LEGACY_NAME}_TI_avg",
+        "WM": f"{LEGACY_NAME}_TI_avg_WM",
+        "both": f"{LEGACY_NAME}_TI_avg_both",
+        "BOTH": f"{LEGACY_NAME}_TI_avg_both",
+    }
+
+
+def test_labels_differing_only_in_unsafe_characters_never_share_a_folder() -> None:
+    from tit.paths import NAME_RE, PathManager
+
+    names = {
+        label: PathManager.cortical_analysis_name(
+            whole_head=False, region=label, atlas_name="ThalamicNuclei"
+        )
+        for label in ("Left-MV(Re)", "Left-MV_Re_", "Left-MV,Re,")
+    }
+    assert len(set(names.values())) == 3
+    assert all(NAME_RE.fullmatch(name) for name in names.values()), names
+    # A label that is already a valid name keeps its readable folder name.
+    assert names["Left-MV_Re_"] == "cortical_Left-MV_Re__ThalamicNuclei"
