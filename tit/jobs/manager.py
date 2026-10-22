@@ -979,24 +979,49 @@ class JobManager:
             return
 
         with self._lock:
-            self._processes[spec.id] = proc
-            self._tailers[spec.id] = EventTailer(events_path(self.project_dir, spec.id))
-            status.state = "running"
-            status.started_at = utcnow_iso()
-            status.pid = proc.pid
-            try:
-                status.create_time = psutil.Process(proc.pid).create_time()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                status.create_time = None
-            status.waiting_on = []
-            status.budget_wait = None
-            status.liveness = "active"
-            self._samplers[spec.id] = ResourceSampler(proc.pid)
-            self._last_sample_ts.pop(spec.id, None)
-            self._persist_status(status)
+            # cancel()/force() may have finalized the job while spawn() was awaited (the lock
+            # is not held across it). A cancelled job never runs: stop what was just started
+            # instead of resurrecting the job as "running".
+            stopped = status.state != "queued"
+            if not stopped:
+                self._processes[spec.id] = proc
+                self._tailers[spec.id] = EventTailer(
+                    events_path(self.project_dir, spec.id)
+                )
+                status.state = "running"
+                status.started_at = utcnow_iso()
+                status.pid = proc.pid
+                try:
+                    status.create_time = psutil.Process(proc.pid).create_time()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    status.create_time = None
+                status.waiting_on = []
+                status.budget_wait = None
+                status.liveness = "active"
+                self._samplers[spec.id] = ResourceSampler(proc.pid)
+                self._last_sample_ts.pop(spec.id, None)
+                self._persist_status(status)
+        if stopped:
+            await self._stop_spawned_after_cancel(spec.id, proc)
+            return
         self._publish_status(status)
         assert self._loop is not None
         self._loop.create_task(self._await_exit(spec.id, proc))
+
+    async def _stop_spawned_after_cancel(
+        self, job_id: str, proc: asyncio.subprocess.Process
+    ) -> None:
+        """Kill a runner spawned for a job that was cancelled during its own admission.
+
+        The job record is already terminal; this only ends the process tree, reaps it, and
+        drops any lock the runner managed to take in the meantime.
+        """
+        logger.info("job %s: cancelled while starting; stopping its runner", job_id)
+        await terminate_tree(proc.pid)
+        with contextlib.suppress(Exception):
+            await proc.wait()
+        self._append_note(job_id, CANCEL_NOTE)
+        locks.release_job(self.project_dir, job_id)
 
     async def _await_exit(self, job_id: str, proc: asyncio.subprocess.Process) -> None:
         try:
