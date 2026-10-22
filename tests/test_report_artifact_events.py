@@ -8,7 +8,10 @@ Pins (2026-10-22):
   reads (``tit.catalog.reports``);
 * the artifact's ``label`` is the title the Reports list gives that file's kind, so the job's
   attachment and the Reports entry name one file the same way;
-* the job's ``result`` event lists the report among its artifacts (``tit.jobs.events.emit_result``).
+* the job's ``result`` event lists the report among its artifacts (``tit.jobs.events.emit_result``);
+* the documented DTI QC rebuild command (``python -m tit.reporting.generators.dti_qc``) on a QC
+  record without advisories measures them with a real :class:`logging.Logger`, renders them, and
+  records its report like the extractor does (it raised ``NameError`` for a while).
 
 Why it matters: the desktop treats the charm and DTI reports as attachments of the stage job that
 wrote them (``desktop/src/renderer/pages/preprocess/index.tsx``, ``plannedStageIds``: "a report is
@@ -259,3 +262,57 @@ def test_dti_report_logs_its_size_against_its_own_budget(tmp_path, caplog):
     assert path.read_text() == big
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert any(str(path) in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("to_folder", [False, True], ids=["into-project", "--out"])
+def test_dti_rebuild_command_measures_missing_advisories_and_records_its_report(
+    tmp_path, events_file, capsys, to_folder
+):
+    """``python -m tit.reporting.generators.dti_qc <project> <subject> [--out DIR]`` on a QC record
+    written before advisories existed (the main reason to rebuild): the advisories are measured
+    with a real logger, land in the report, and the report is the job's artifact. It raised
+    ``NameError: name 'logger' is not defined`` once the module logger was dropped."""
+    from tit.reporting.generators import dti_qc
+
+    pm = make_project(tmp_path / "project")
+    m2m = Path(pm.m2m(SUBJECT))
+    record = _record()
+    measured = record.pop("advisories")  # what a measurement would add
+    (m2m / "DTI_coregT1_qc.json").write_text(json.dumps(record))
+    vols = object()  # stands for the tensor, T1, labels and warp read from m2m
+    calls = []
+
+    def measure(qc, volumes, project_dir, subject_id, *, recorded_by, logger):
+        calls.append((volumes, project_dir, subject_id, recorded_by, logger))
+        qc["advisories"] = measured
+
+    out = tmp_path / "rebuilt"
+    argv = [pm.project_dir, SUBJECT] + (["--out", str(out)] if to_folder else [])
+    with (
+        patch("tit.pre.qsi.dti_advisories.load_volumes", return_value=vols) as load,
+        patch("tit.pre.qsi.dti_extractor.record_advisories", side_effect=measure),
+        patch("tit.plotting.dti_qc.render_all", return_value=_images()),
+    ):
+        assert dti_qc.main(argv) == 0
+
+    assert [Path(a) for a in load.call_args.args] == [m2m]
+    assert len(calls) == 1
+    volumes, project_dir, subject_id, recorded_by, logger = calls[0]
+    assert (volumes, project_dir, subject_id) == (vols, pm.project_dir, SUBJECT)
+    assert recorded_by == "report rebuild"
+    assert isinstance(logger, logging.Logger)
+
+    folder = out if to_folder else Path(pm.reports()) / f"sub-{SUBJECT}"
+    (path,) = folder.glob("*.html")
+    assert kind_of(path) == "dti_qc"
+    note = next(a["note"] for a in measured if a["id"] == "residual_shift_mm")
+    assert note and note in path.read_text()
+    assert [(e["kind"], e["path"], e["label"]) for e in artifacts(events_file)] == [
+        ("report", str(path), REPORT_TITLES["dti_qc"])
+    ]
+    assert capsys.readouterr().out.startswith(f"{path} ")
+    # The completed record goes beside an --out report; the project's own record is not rewritten.
+    assert json.loads((m2m / "DTI_coregT1_qc.json").read_text()) == record
+    if to_folder:
+        completed = json.loads((out / "DTI_coregT1_qc.json").read_text())
+        assert completed["advisories"] == measured
