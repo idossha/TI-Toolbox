@@ -3228,6 +3228,20 @@ Harvard-Oxford cortical and subcortical and Schaefer 2018 (100 parcels), 0.35 MB
 `atlas_name` outside that table, so a config naming `"aal"` fails at validate instead of drawing a
 PDF without outlines.
 
+**Amended 2026-10-23: the outline atlases come from `resources/atlas/`; the image build fetches
+nothing.** To keep the Dockerfile simple its fetch step (`ENV NILEARN_DATA`, `COPY`, `RUN
+atlases.py --prune`) is gone, and `atlas_path` returns a label volume the repository already ships
+for the ROI picker, found through `resources/atlas/manifest.json`, which records its source and
+licence. This reverses "committing the atlas files" above without adding a file. The keys stay:
+`harvard_oxford` is now the lateralized cortical map (96 regions), `harvard_oxford_sub` the
+subcortical one (21) and `schaefer_2018` the 400-parcel map, all 1 mm; the contour levels run to
+the largest label, so every parcel is outlined. Adding Schaefer 100 was rejected: it would be one
+more manifest atlas and so join the ROI picker, and 400 parcels read clearly on the slice grid. The
+cost is the PDF, whose stacked contour levels grow with the label count: 32.1 MB and 18.7 s with 400
+parcels against 8.0 MB and 13.7 s with 100 [measured, synthetic field, idossha/ti-toolbox:v3.1.1,
+2026-10-23]. Evidence: `tests/numerical/test_nilearn_shipped_atlases.py` and the outline check in
+`tests/numerical/test_nilearn_render_realdata.py`.
+
 ## 2026-10-21 — An odd electrode-pair count is refused when a simulation config is built
 
 **Decision.** `SimulationConfig.__post_init__` raises for a montage whose pair count

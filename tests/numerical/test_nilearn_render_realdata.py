@@ -24,11 +24,10 @@ blocked. Then:
 5. the glass-brain PDF is larger than a blank baseline: the same call with both cutoffs above
    the field's peak;
 6. a ``min_cutoff`` above the peak logs the blank-figure warning naming the peak;
-7. with the image's bundled atlases (``/opt/nilearn_data``) the outlines load offline; when
-   the image predates them (idossha/ti-toolbox:v3.1.1: no directory and no
-   ``NILEARN_DATA=/opt/nilearn_data``) that check skips with a reason, and the job is shown to
-   succeed without outlines instead. An image that declares the variable and lacks the
-   directory fails that check.
+7. the atlas outlines draw, offline, from the label volume TI-Toolbox ships
+   (``resources/atlas/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz``, the default atlas): the
+   log reports no skipped contours, and every panel whose slice -- and both neighbours --
+   holds atlas labels (read here with nibabel) carries contour lines.
 
 The dataset is never written: the mtimes of the files read are compared before and after.
 
@@ -86,14 +85,6 @@ pytestmark = pytest.mark.skipif(
     "MNI grey TI_max NIfTIs",
 )
 
-#: The image bakes the outline atlases here (container/blueprint/Dockerfile.ti-toolbox).
-_BUNDLED = Path("/opt/nilearn_data")
-#: The Dockerfile step that bakes them also declares ``NILEARN_DATA=/opt/nilearn_data``
-#: (17576be2): only an image without both predates them; one that declares it and lacks the
-#: directory lost its atlases, and the bundled-cache test fails there instead of skipping.
-_PREDATES_THE_BUNDLED_ATLASES = not (
-    _BUNDLED.is_dir() or os.environ.get("NILEARN_DATA") == str(_BUNDLED)
-)
 #: matplotlib's ``hot``: red reaches 1 at 0.365079, blue starts rising at 0.746032.
 _HOT_BAND = (0.35, 0.75)
 
@@ -155,14 +146,22 @@ if phase == "run":
         rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3].copy()
         np.save(str(facts_path.with_suffix(".npy")), rgb)
         for display in displays:
-            boxes = []
+            from matplotlib.contour import ContourSet
+            boxes, contour_vertices = [], 0
             for cut_axes in display.axes.values():
                 box = cut_axes.ax.get_window_extent()
                 boxes.append([float(box.x0), float(box.y0), float(box.x1), float(box.y1)])
+                contour_vertices += sum(
+                    len(path.vertices)
+                    for artist in cut_axes.ax.collections
+                    if isinstance(artist, ContourSet)
+                    for path in artist.get_paths()
+                )
             facts["panels"].append({
                 "slicer": type(display).__name__,
                 "cut_coords": [float(c) for c in display.cut_coords],
                 "boxes": boxes,
+                "contour_vertices": contour_vertices,
             })
 elif phase == "glass_blank":
     import nibabel as nib
@@ -187,13 +186,10 @@ facts_path.write_text(json.dumps(facts))
 """
 
 
-def _launch(
-    phase: str, facts: Path, *args: str, nilearn_data: Path
-) -> tuple[dict, str]:
+def _launch(phase: str, facts: Path, *args: str) -> tuple[dict, str]:
     """Run ``_SCRIPT``'s *phase* in a fresh interpreter; return its facts and its log."""
     env = {
         **os.environ,
-        "NILEARN_DATA": str(nilearn_data),
         "MPLBACKEND": "Agg",
         "PYTHONDONTWRITEBYTECODE": "1",
     }
@@ -281,14 +277,8 @@ def run(tmp_path_factory):
         "subdir_name": "insula_realdata",
         "create_glass_brain": True,
     }
-    nilearn_data = _BUNDLED if _BUNDLED.is_dir() else tmp / "nilearn_data_empty"
     before = _files(project)
-    facts, log = _launch(
-        "run",
-        tmp / "run.json",
-        _write_config(tmp, project, config),
-        nilearn_data=nilearn_data,
-    )
+    facts, log = _launch("run", tmp / "run.json", _write_config(tmp, project, config))
     written = _files(project) - before
     try:
         pm = get_path_manager(str(project))
@@ -306,7 +296,6 @@ def run(tmp_path_factory):
         "before_mtimes": before_mtimes,
         "tmp": tmp,
         "project": project,
-        "nilearn_data": nilearn_data,
     }
 
 
@@ -426,7 +415,6 @@ def test_the_glass_brain_shows_more_than_a_blank_render(run, mean):
         str(run["planned_dir"] / "group_averaged_2_subjects.nii.gz"),
         str(out_dir),
         repr(peak),
-        nilearn_data=run["nilearn_data"],
     )
     blank = Path(facts["path"])
     assert blank.parent == out_dir, log[-2000:]
@@ -447,7 +435,6 @@ def test_a_min_cutoff_above_the_peak_logs_the_blank_figure_warning(run, mean, tm
         "blank_warning",
         tmp_path / "blank_warning.json",
         _write_config(tmp_path, run["project"], config),
-        nilearn_data=run["nilearn_data"],
     )
     assert facts["code"] == 0, log[-2000:]
     warning = re.search(
@@ -458,19 +445,23 @@ def test_a_min_cutoff_above_the_peak_logs_the_blank_figure_warning(run, mean, tm
     assert float(warning.group(2)) == pytest.approx(peak, abs=5e-5)
 
 
-@pytest.mark.skipif(
-    _PREDATES_THE_BUNDLED_ATLASES,
-    reason="skipping: this image predates the bundled nilearn atlases (/opt/nilearn_data)",
-)
-def test_the_atlas_outlines_load_offline_from_the_bundled_cache(run):
+def test_the_shipped_atlas_outlines_draw_offline(run):
+    import nibabel as nib
+
+    from tit.plotting.nilearn.atlases import atlas_path
+
     assert "Atlas contours skipped" not in run["log"]
     assert "Loading Harvard-Oxford subcortical atlas" in run["log"]
-
-
-@pytest.mark.skipif(
-    _BUNDLED.is_dir(), reason="skipping: the bundled atlases exist, see the test above"
-)
-def test_without_the_bundled_atlases_the_job_still_draws_and_says_why(run):
-    assert run["code"] == 0
-    assert "Atlas contours skipped" in run["log"]
-    assert "drawn without region outlines" in run["log"]
+    atlas = nib.load(atlas_path("harvard_oxford_sub"))
+    labels = np.asanyarray(atlas.dataobj)
+    outlined = 0
+    for panel in run["panels"]:
+        mode = panel["slicer"][0].lower()
+        [coord] = panel["cut_coords"]
+        slab = _slab(labels, atlas.affine, mode, coord)
+        if len(slab) == 3 and all((s > 0).any() for s in slab):
+            outlined += 1
+            assert (
+                panel["contour_vertices"] > 0
+            ), f"{mode}={coord}: labels but no outline"
+    assert outlined, "no panel cuts the atlas: no outline was checked"

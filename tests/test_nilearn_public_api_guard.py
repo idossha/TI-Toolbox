@@ -132,12 +132,11 @@ def _is_script(path: Path) -> bool:
 
 
 def test_no_nilearn_module_is_a_script_of_its_own():
-    # The one way to run these figures is `python -m tit.plotting.nilearn config.json`;
-    # atlases.py is the exception, run by the Dockerfile to bundle the atlases.
+    # The one way to run these figures is `python -m tit.plotting.nilearn config.json`.
     modules = sorted((REPO / "tit/plotting/nilearn").glob("*.py"))
     scripts = [p.name for p in modules if _is_script(p)]
-    assert {"__main__.py", "atlases.py"} <= set(scripts), "the rule found no scripts"
-    assert sorted(set(scripts) - {"__main__.py", "atlases.py"}) == []
+    assert "__main__.py" in scripts, "the rule found no scripts"
+    assert sorted(set(scripts) - {"__main__.py"}) == []
 
 
 # ── the rule fires on a planted dead export ─────────────────────────────────

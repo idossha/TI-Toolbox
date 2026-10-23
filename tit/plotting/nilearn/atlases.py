@@ -1,86 +1,44 @@
-"""The nilearn atlases the Nilearn Visuals slice PDF outlines, and the step that bundles them.
+"""The atlases the Nilearn Visuals slice PDF outlines: label volumes TI-Toolbox ships.
 
-``container/blueprint/Dockerfile.ti-toolbox`` runs this file as a script with
-``NILEARN_DATA=/opt/nilearn_data``, so the image carries every atlas below and a job reads
-them from disk with no network (nilearn's fetchers download only what is missing). The
-script exits non-zero when a downloaded file's sha256 differs from the one recorded here, so
-an upstream change fails the build instead of changing figures silently. Run it the same
-way to pre-fetch the atlases outside the image.
-
-Imports nothing from ``tit``: the build runs it before the package is installed, in a
-layer that does not change with the rest of the source.
+Each key names a file in ``resources/atlas/``, the MNI atlases the repository already
+ships for ROI picking; ``resources/atlas/manifest.json`` (read through
+:mod:`tit.atlas.manifest`) records its source, licence and region count. A job reads the
+file from disk, so no atlas is downloaded at image build or at run time. The keys are what
+:class:`~tit.plotting.nilearn.config.NilearnConfig` accepts; saved configs name them.
 """
 
 from __future__ import annotations
 
-import hashlib
-import os
-import sys
-
-#: key -> (display name, nilearn fetcher, its arguments, the result field holding the label
-#: image's path, sha256 of that file). Checksums: nilearn 0.14.1's download on 2026-10-21,
-#: printed by ``python atlases.py``.
+#: key -> (display name, the label volume's manifest ``id`` in ``resources/atlas/``).
 ATLASES = {
     "harvard_oxford": (
         "Harvard-Oxford cortical atlas",
-        "fetch_atlas_harvard_oxford",
-        {"atlas_name": "cort-maxprob-thr25-2mm"},
-        "filename",
-        "586d76a7defd278fcea4d83d301994d7e096aa8272d26e3c7539b4f8ebd588c1",
+        "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
     ),
     "harvard_oxford_sub": (
         "Harvard-Oxford subcortical atlas",
-        "fetch_atlas_harvard_oxford",
-        {"atlas_name": "sub-maxprob-thr25-2mm"},
-        "filename",
-        "b7e0c54535885de6f3f04d17461a2959aa1df50bfbe9bd53b713925aabc6f330",
+        "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
     ),
     "schaefer_2018": (
-        "Schaefer 2018 atlas (100 parcels)",
-        "fetch_atlas_schaefer_2018",
-        {"n_rois": 100},
-        "maps",
-        "23d54226fc7fe5a1b20844a1c8f8d8e23b59888f6442d7590eb983dd8e682e9a",
+        "Schaefer 2018 atlas (400 parcels)",
+        "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
     ),
 }
 
 
 def atlas_path(key: str) -> str:
-    """Path to *key*'s label image, from nilearn's data directory (fetched if absent)."""
-    # Imported here so the table above reads without nilearn (NilearnConfig checks its keys).
-    from nilearn import datasets
+    """Path to *key*'s label volume in ``resources/atlas/``.
 
-    _, fetcher, kwargs, field, _ = ATLASES[key]
-    return str(getattr(datasets, fetcher)(**kwargs)[field])
+    Raises:
+        FileNotFoundError: If the manifest lists no such file on disk.
+    """
+    # Imported here so the table above reads without touching the filesystem
+    # (NilearnConfig checks its keys when the server imports it).
+    from tit.atlas.constants import mni_resources_dir
+    from tit.atlas.manifest import mni_atlas_entry
 
-
-def _sha256(path: str) -> str:
-    with open(path, "rb") as f:
-        return hashlib.sha256(f.read()).hexdigest()
-
-
-if __name__ == "__main__":
-    keep, mismatched = set(), []
-    for key, (*_, expected) in ATLASES.items():
-        path = os.path.realpath(atlas_path(key))
-        keep.add(path)
-        digest = _sha256(path)
-        print(f"{key}: {path} sha256={digest}")
-        if digest != expected:
-            mismatched.append(key)
-    if mismatched:
-        sys.exit(f"atlas checksum mismatch: {', '.join(mismatched)}")
-    if "--prune" in sys.argv[1:]:
-        # Image build only: drop every other NIfTI the archives unpacked under NILEARN_DATA
-        # (the Harvard-Oxford tarball alone brings ~28 MB of maps no figure reads). Label
-        # files are not NIfTIs, so the fetchers still find everything they check for. Also
-        # drop empty directories: a download that failed over to nilearn's backup URL leaves
-        # its empty sandbox behind, and the next fetch tries to delete it -- a write, which
-        # fails on a read-only cache.
-        for root, _, files in os.walk(os.environ["NILEARN_DATA"], topdown=False):
-            for name in files:
-                path = os.path.realpath(os.path.join(root, name))
-                if name.endswith((".nii", ".nii.gz")) and path not in keep:
-                    os.remove(path)
-            if not os.listdir(root):
-                os.rmdir(root)
+    file_id = ATLASES[key][1]
+    entry = mni_atlas_entry(file_id)
+    if entry is None:
+        raise FileNotFoundError(f"{file_id} is not in {mni_resources_dir()}")
+    return entry["path"]

@@ -1,18 +1,15 @@
 """The numerical and Dataset 000 legs are green on an old image and a rebuilt one, and nothing else.
 
 What this pins
-    Two tests depend on how the image was built, not on the numbers: the vector warp
+    One test depends on how the image was built, not on the numbers: the vector warp
     (``tests/numerical/test_simnibs_vector_warp.py``) fails on an image that still carries
-    the removed ``nan_to_num`` patch, and the Nilearn render module
-    (``tests/numerical/test_nilearn_render_realdata.py``) skips one of two tests depending on
-    whether the image bundles ``/opt/nilearn_data``. Before this, ``numerical_nightly`` on
-    idossha/ti-toolbox:v3.1.1 was red every night (1 failure) and the Dataset 000 leg red on an
-    unlisted skip, for no regression. Now:
+    the removed ``nan_to_num`` patch. Before this, ``numerical_nightly`` on
+    idossha/ti-toolbox:v3.1.1 was red every night (1 failure), for no regression. Now:
 
     * the warp test is a strict ``xfail`` for SimNIBS's ``ValueError`` exactly where the
       image's ``transformations.py`` has the patch's edit, and an ordinary test elsewhere;
-    * ``dev/check_junit.py`` allows, on the legs that run them, those outcomes by their exact
-      test id and their whole reason text -- an XPASS, another error, another reason, or the
+    * ``dev/check_junit.py`` allows, on the leg that runs it, that outcome by its exact
+      test id and its whole reason text -- an XPASS, another error, another reason, or the
       same reason on another test still fails the leg.
 
     The CI ``host-numerical`` leg (a venv without matplotlib) allows the tissue figure test's
@@ -22,12 +19,11 @@ What this pins
     real-data module does not turn the nightly red (82eb1dde's leadfield module did, on
     2026-10-22, while the leg listed modules); a skip naming another variable still fails,
     the Dataset 000 leg refuses every such skip, and ``dev/run_realdata_tests.sh`` is shown
-    to select every module whose skip names the variable. The old-image Nilearn skips happen
-    only on an image that neither has ``/opt/nilearn_data`` nor declares
-    ``NILEARN_DATA=/opt/nilearn_data`` (the Dockerfile step that bundles the atlases sets it),
-    so a rebuilt image that lost the atlases fails; their entries are each test's whole reason
-    and no part of another skip in the module. Every entry of the three legs must name a
-    skip text its module carries, so a stale entry (a fixed xfail, a renamed reason) fails.
+    to select every module whose skip names the variable. Every entry of the three legs must
+    name a skip text its module carries, so a stale entry (a fixed xfail, a renamed reason)
+    fails. (Up to v3.1.2 the Nilearn render module also skipped one of two tests depending on
+    whether the image bundled ``/opt/nilearn_data``; its atlases now ship in ``resources/``,
+    so it has no image-dependent outcome.)
 
 Where the expectations come from
     The patch's own rule (``resources/patches/patch_nan_to_num.py`` before 7403910d replaced
@@ -41,8 +37,7 @@ Where the expectations come from
     (``ast``), and every JUnit report is written by pytest itself, from modules that carry the
     real test ids, so ``check_junit`` is checked against the format the legs really produce.
     The runner's module list is its own output, run with a stub ``docker`` on an empty
-    dataset; the NILEARN_DATA cases import the two Nilearn modules afresh under each
-    environment and read their skip marks.
+    dataset.
 
 How to run it
     ``python -m pytest tests/test_ci_legs_image_expectations.py -q -p no:cacheprovider``
@@ -85,10 +80,7 @@ WARP_ID = (
     "test_vector_volume_is_mirrored_through_the_inverse_warp"
 )
 RENDER = ROOT / "tests" / "numerical" / "test_nilearn_render_realdata.py"
-OFFLINE = ROOT / "tests" / "numerical" / "test_nilearn_offline_atlases.py"
 RUNNER = ROOT / "dev" / "run_realdata_tests.sh"
-BUNDLED_TEST = "test_the_atlas_outlines_load_offline_from_the_bundled_cache"
-FALLBACK_TEST = "test_without_the_bundled_atlases_the_job_still_draws_and_says_why"
 TISSUE = ROOT / "tests" / "numerical" / "test_tissue_geometry.py"
 FIGURE_TEST = "test_figures_show_anatomical_views_whatever_the_storage_order"
 
@@ -99,20 +91,6 @@ PRISTINE = (
     "        im_data = np.nan_to_num(im_data, copy=None)\n"
     "        im_data = np.nan_to_num(im_data, copy=None)\n"
 )
-
-
-def _skipif_reason(path: Path, function: str) -> str:
-    """The ``reason=`` of *function*'s ``pytest.mark.skipif``, read from the source."""
-    for node in ast.parse(path.read_text(encoding="utf-8")).body:
-        if isinstance(node, ast.FunctionDef) and node.name == function:
-            for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Call) and ast.unparse(
-                    decorator.func
-                ).endswith("skipif"):
-                    for keyword in decorator.keywords:
-                        if keyword.arg == "reason":
-                            return ast.literal_eval(keyword.value)
-    raise AssertionError(f"{function} in {path} has no skipif reason")
 
 
 def _skip_call_text(path: Path, function: str) -> str:
@@ -126,20 +104,6 @@ def _skip_call_text(path: Path, function: str) -> str:
                 ):
                     return ast.literal_eval(call.args[0])
     raise AssertionError(f"{function} in {path} calls no pytest.skip")
-
-
-def _pytestmark_reason(path: Path) -> str:
-    """The ``reason=`` of *path*'s module-level ``pytestmark = pytest.mark.skipif(...)``."""
-    for node in ast.parse(path.read_text(encoding="utf-8")).body:
-        if (
-            isinstance(node, ast.Assign)
-            and [ast.unparse(t) for t in node.targets] == ["pytestmark"]
-            and isinstance(node.value, ast.Call)
-        ):
-            for keyword in node.value.keywords:
-                if keyword.arg == "reason":
-                    return ast.literal_eval(keyword.value)
-    raise AssertionError(f"{path} has no pytestmark skipif reason")
 
 
 #: The calls whose text pytest records as a skip (an xfail is recorded as one too).
@@ -342,151 +306,30 @@ def _case(report: str, test_id: str):
     return case
 
 
-def _skipping(name: str, reason: str) -> str:
-    return (
-        f"@pytest.mark.skipif(True, reason={reason!r})\n" f"def {name}():\n    pass\n\n"
-    )
-
-
-def _old_image_render() -> str:
-    return (
-        "import pytest\n\n"
-        + _skipping(BUNDLED_TEST, _skipif_reason(RENDER, BUNDLED_TEST))
-        + f"def {FALLBACK_TEST}():\n    pass\n"
-    )
-
-
-def _new_image_render() -> str:
-    return (
-        "import pytest\n\n"
-        + f"def {BUNDLED_TEST}():\n    pass\n\n"
-        + _skipping(FALLBACK_TEST, _skipif_reason(RENDER, FALLBACK_TEST))
-    )
-
-
 def test_the_reasons_are_the_ones_the_test_modules_carry():
-    """Guards the stubs: each reason read from source is the one the allowlists name."""
+    """Guards the stubs: the warp reason read from source is the one the allowlist names."""
     numerical = check_junit.ALLOWLISTS["numerical-image"]
-    realdata = check_junit.ALLOWLISTS["realdata"]
     warp_entries = [e for e in numerical if e["test"] == WARP_ID]
     assert [e["message"] for e in warp_entries] == [warp.PATCHED_IMAGE]
-    for leg in (numerical, realdata):
-        fallback = [e for e in leg if e["test"].endswith(f".{FALLBACK_TEST}")]
-        assert [e["message"] for e in fallback] == [
-            _skipif_reason(RENDER, FALLBACK_TEST)
-        ]
-    bundled = [e for e in realdata if e["test"].endswith(f".{BUNDLED_TEST}")]
-    assert [e["message"] for e in bundled] == [_skipif_reason(RENDER, BUNDLED_TEST)]
-
-
-def test_the_predates_entries_are_their_tests_whole_reasons_and_nothing_else():
-    """The old-image Nilearn entries name one test (or one module-wide mark) and its whole
-    reason, and that reason is no part of any other skip the module can report -- so they
-    cannot pass the module's Dataset 000 skip, its "real nilearn is not importable" skip or
-    the root skip beside them."""
-    render_bundled = f"{_module_id(RENDER)}.{BUNDLED_TEST}"
-    offline_all = f"{_module_id(OFFLINE)}.*"
-    expected = {
-        "numerical-image": {
-            (render_bundled, _skipif_reason(RENDER, BUNDLED_TEST)),
-            (offline_all, _pytestmark_reason(OFFLINE)),
-        },
-        "realdata": {(render_bundled, _skipif_reason(RENDER, BUNDLED_TEST))},
-    }
-    for leg, pairs in expected.items():
-        named = {
-            (e["test"], e["message"])
-            for e in check_junit.ALLOWLISTS[leg]
-            if "nilearn_render" in e["test"] or "nilearn_offline" in e["test"]
-            if "predates" in e["message"] or "nilearn" in e["message"]
-        }
-        assert named == pairs, leg
-    for module, reason in (
-        (RENDER, _skipif_reason(RENDER, BUNDLED_TEST)),
-        (OFFLINE, _pytestmark_reason(OFFLINE)),
-    ):
-        texts = _skip_texts(module)
-        assert len(texts) >= 2, f"{module.name} has other skips to compare with"
-        assert [t for t in texts if reason in t] == [reason], module.name
-
-
-def _fresh(path: Path, monkeypatch, *, declared: str | None, bundled: bool):
-    """*path* imported anew in an environment that does or does not declare NILEARN_DATA, on
-    a machine where /opt/nilearn_data does or does not exist."""
-    is_dir = Path.is_dir
-
-    def fake_is_dir(self: Path) -> bool:
-        return bundled if str(self) == "/opt/nilearn_data" else is_dir(self)
-
-    with monkeypatch.context() as patch:
-        if declared is None:
-            patch.delenv("NILEARN_DATA", raising=False)
-        else:
-            patch.setenv("NILEARN_DATA", declared)
-        patch.setattr(Path, "is_dir", fake_is_dir)
-        spec = importlib.util.spec_from_file_location(f"_fresh_{path.stem}", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-    return module
-
-
-def _skipif_condition(marks) -> bool:
-    marks = marks if isinstance(marks, list) else [marks]
-    (mark,) = [getattr(m, "mark", m) for m in marks if m.name == "skipif"]
-    return bool(mark.args[0])
 
 
 @pytest.mark.parametrize(
-    "declared, bundled, predates",
+    "patched, warp_outcome",
     [
-        # v3.1.1: built before the Dockerfile bundled the atlases and declared the variable.
-        (None, False, True),
-        # Built from this source but the atlas step lost the cache: a failure, not a skip.
-        ("/opt/nilearn_data", False, False),
-        # A host with its own nilearn cache is not an image that bundles one.
-        ("/home/someone/nilearn_data", False, True),
-        # Built from this source as intended.
-        ("/opt/nilearn_data", True, False),
-    ],
-    ids=["v3.1.1", "rebuilt-without-cache", "host-cache", "rebuilt"],
-)
-def test_only_an_image_that_never_declared_the_bundled_atlases_predates_them(
-    monkeypatch, declared, bundled, predates
-):
-    offline = _fresh(OFFLINE, monkeypatch, declared=declared, bundled=bundled)
-    render = _fresh(RENDER, monkeypatch, declared=declared, bundled=bundled)
-    assert _skipif_condition(offline.pytestmark) is predates
-    assert _skipif_condition(getattr(render, BUNDLED_TEST).pytestmark) is predates
-    # The fallback test runs exactly where the cache is missing, declared or not.
-    assert _skipif_condition(getattr(render, FALLBACK_TEST).pytestmark) is bundled
-
-
-@pytest.mark.parametrize(
-    "patched, render, warp_outcome, skipped",
-    [
-        # v3.1.1: the patch is in, SimNIBS raises the copy error, the bundled-cache test skips.
-        (True, _old_image_render(), "skipped", 2),
-        # Rebuilt: no patch, the field is mirrored, the fallback test skips.
-        (False, _new_image_render(), "passed", 1),
+        # v3.1.1: the patch is in, SimNIBS raises the copy error.
+        (True, "skipped"),
+        # Rebuilt: no patch, the field is mirrored.
+        (False, "passed"),
     ],
     ids=["v3.1.1", "rebuilt"],
 )
-def test_both_images_pass_the_numerical_leg(
-    tmp_path, capsys, patched, render, warp_outcome, skipped
-):
+def test_both_images_pass_the_numerical_leg(tmp_path, capsys, patched, warp_outcome):
     warp_module = _real_warp_module(
         tmp_path, patched=patched, outcome="copy-error" if patched else "mirrored"
     )
-    report = _report(
-        tmp_path,
-        {
-            "test_simnibs_vector_warp": warp_module,
-            "test_nilearn_render_realdata": render,
-        },
-    )
+    report = _report(tmp_path, {"test_simnibs_vector_warp": warp_module})
     cases = check_junit.read_cases(Path(report).read_text(encoding="utf-8"))
-    assert len(cases) == 3, cases
-    assert sum(c.outcome == "skipped" for c in cases) == skipped
+    assert len(cases) == 1, cases
     case = _case(report, WARP_ID)
     assert case.outcome == warp_outcome, case
     if patched:
@@ -494,7 +337,7 @@ def test_both_images_pass_the_numerical_leg(
     assert (
         check_junit.main(["--leg", "numerical-image", report]) == 0
     ), capsys.readouterr()
-    assert check_junit.main(["--leg", "no-skips", report]) == 1
+    assert check_junit.main(["--leg", "no-skips", report]) == (1 if patched else 0)
 
 
 @pytest.mark.parametrize(
@@ -520,13 +363,7 @@ def test_the_warp_tests_real_marker_fails_the_leg_on_anything_but_its_case(
     tmp_path, capsys, patched, outcome, says
 ):
     warp_module = _real_warp_module(tmp_path, patched=patched, outcome=outcome)
-    report = _report(
-        tmp_path,
-        {
-            "test_simnibs_vector_warp": warp_module,
-            "test_nilearn_render_realdata": _new_image_render(),
-        },
-    )
+    report = _report(tmp_path, {"test_simnibs_vector_warp": warp_module})
     case = _case(report, WARP_ID)
     assert case.outcome == "failed", case
     assert says in case.message, case
@@ -534,51 +371,10 @@ def test_the_warp_tests_real_marker_fails_the_leg_on_anything_but_its_case(
     assert f"failed: {WARP_ID}" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize(
-    "render", [_old_image_render(), _new_image_render()], ids=["v3.1.1", "rebuilt"]
-)
-def test_both_images_pass_the_dataset_000_leg(tmp_path, capsys, render):
-    report = _report(tmp_path, {"test_nilearn_render_realdata": render})
-    assert check_junit.main(["--leg", "realdata", report]) == 0, capsys.readouterr()
-
-
-@pytest.mark.parametrize(
-    "patched_warp, render",
-    [
-        # The warp xfail on the dataset leg, which never runs the warp test.
-        (True, _new_image_render()),
-        # The fallback's skip text on the bundled-cache test.
-        (
-            False,
-            "import pytest\n\n"
-            + _skipping(BUNDLED_TEST, _skipif_reason(RENDER, FALLBACK_TEST))
-            + f"def {FALLBACK_TEST}():\n    pass\n",
-        ),
-        # The fallback test skipping for another reason.
-        (
-            False,
-            "import pytest\n\n"
-            + f"def {BUNDLED_TEST}():\n    pass\n\n"
-            + _skipping(FALLBACK_TEST, "real nilearn is not importable here"),
-        ),
-    ],
-    ids=["xfail-on-realdata", "text-on-other-test", "other-reason"],
-)
-def test_nothing_broader_passes_the_dataset_000_leg(
-    tmp_path, capsys, patched_warp, render
-):
-    warp_module = _real_warp_module(
-        tmp_path,
-        patched=patched_warp,
-        outcome="copy-error" if patched_warp else "mirrored",
-    )
-    report = _report(
-        tmp_path,
-        {
-            "test_simnibs_vector_warp": warp_module,
-            "test_nilearn_render_realdata": render,
-        },
-    )
+def test_the_warp_xfail_does_not_pass_the_dataset_000_leg(tmp_path, capsys):
+    """The Dataset 000 leg never runs the warp test, so its xfail is not on that list."""
+    warp_module = _real_warp_module(tmp_path, patched=True, outcome="copy-error")
+    report = _report(tmp_path, {"test_simnibs_vector_warp": warp_module})
     assert check_junit.main(["--leg", "realdata", report]) == 1
     assert capsys.readouterr().out.count("skip not on the allowlist") == 1
 
@@ -593,13 +389,7 @@ def test_the_warp_reason_on_another_test_fails_the_numerical_leg(tmp_path, capsy
         "def test_scalar_volume_is_resampled():\n"
         "    raise ValueError('copy')\n"
     )
-    report = _report(
-        tmp_path,
-        {
-            "test_simnibs_vector_warp": body,
-            "test_nilearn_render_realdata": _new_image_render(),
-        },
-    )
+    report = _report(tmp_path, {"test_simnibs_vector_warp": body})
     assert check_junit.main(["--leg", "numerical-image", report]) == 1
     out = capsys.readouterr().out
     assert "test_simnibs_vector_warp.test_scalar_volume_is_resampled" in out

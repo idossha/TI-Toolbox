@@ -50,7 +50,7 @@ class NilearnVisualizer:
     def _load_atlas(
         self, atlas_name: str, selected_regions: list[int] | None = None
     ) -> tuple[nib.Nifti1Image | None, str]:
-        """Load a nilearn atlas, optionally filtered to *selected_regions*.
+        """Load one of :data:`ATLASES`, optionally filtered to *selected_regions*.
 
         Never raises: outlines are context, so a failure is reported in plain words and
         the caller draws the field without them.
@@ -65,41 +65,26 @@ class NilearnVisualizer:
         display_name = ATLASES[atlas_name][0]
         try:
             print(f"Loading {display_name}...")
-            atlas_img = atlas_path(atlas_name)
+            atlas_img = nib.load(atlas_path(atlas_name))
 
             if selected_regions:
-                # Create a filtered atlas with only selected regions
-                atlas_nii = nib.load(atlas_img)
-                atlas_array = atlas_nii.get_fdata()
-
-                # Create mask for selected regions (regions are 0-indexed in the data)
-                mask = np.zeros_like(atlas_array, dtype=bool)
-                for region_idx in selected_regions:
-                    mask = mask | (atlas_array == region_idx)
-
-                # Create new atlas with only selected regions
-                filtered_array = np.zeros_like(atlas_array)
-                filtered_array[mask] = atlas_array[mask]
-
-                # Create new nifti image
+                # Keep only the selected label values.
+                atlas_array = atlas_img.get_fdata()
+                mask = np.isin(atlas_array, selected_regions)
                 atlas_img = nib.Nifti1Image(
-                    filtered_array, atlas_nii.affine, atlas_nii.header
+                    np.where(mask, atlas_array, 0), atlas_img.affine, atlas_img.header
                 )
-
                 display_name = (
                     f"{display_name} (Selected regions: {len(selected_regions)})"
                 )
 
             return atlas_img, display_name
 
-        # No network, a read-only cache or a corrupt file costs only the outlines.
+        # A missing or corrupt file costs only the outlines.
         except Exception as e:  # noqa: BLE001
             print(
                 f"Atlas contours skipped: the {display_name} could not be loaded "
-                f"({type(e).__name__}: {e}). The figure is drawn without region outlines. "
-                f"The TI-Toolbox image ships this atlas in NILEARN_DATA "
-                f"({os.environ.get('NILEARN_DATA', 'not set here')}); anywhere else nilearn "
-                "downloads it on first use, which needs network access."
+                f"({type(e).__name__}: {e}). The figure is drawn without region outlines."
             )
             return None, ""
 
@@ -124,6 +109,10 @@ class NilearnVisualizer:
         sagittal_coords = [-60, -40, -20, 0, 20, 40, 60]  # x coordinates
         coronal_coords = [-80, -55, -30, -5, 20, 45, 70]  # y coordinates
         axial_coords = [-30, -15, 10, 25, 40, 55, 70]  # z coordinates
+
+        # One contour level per label value up to the largest, so every region is outlined.
+        if atlas_img is not None:
+            levels = list(range(1, int(np.asanyarray(atlas_img.dataobj).max()) + 1))
 
         all_coords = [sagittal_coords, coronal_coords, axial_coords]
         view_names = ["Sagittal", "Coronal", "Axial"]
@@ -157,7 +146,7 @@ class NilearnVisualizer:
                         colors=["blue", "green", "purple", "cyan", "navy", "teal"] * 20,
                         alpha=0.4,
                         linewidths=1,
-                        levels=list(range(1, 200)),
+                        levels=levels,
                     )
 
                 # Set view names only on first column for cleaner layout

@@ -90,24 +90,6 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
     # dev/run_realdata_tests.sh: every Dataset 000 gate is set, so only the variables Dataset 000
     # cannot satisfy may skip.
     "realdata": [
-        # Image-dependent: one of these two skips on every image, so an image built before
-        # /opt/nilearn_data (v3.1.1) and one built from this source are both green. Each entry
-        # names one test and its whole skip text.
-        {
-            "test": "tests.numerical.test_nilearn_render_realdata."
-            "test_the_atlas_outlines_load_offline_from_the_bundled_cache",
-            "message": "skipping: this image predates the bundled nilearn atlases "
-            "(/opt/nilearn_data)",
-            "why": "the image was built before the Dockerfile bundled /opt/nilearn_data; the "
-            "no-atlas fallback test beside it runs there instead",
-        },
-        {
-            "test": "tests.numerical.test_nilearn_render_realdata."
-            "test_without_the_bundled_atlases_the_job_still_draws_and_says_why",
-            "message": "skipping: the bundled atlases exist, see the test above",
-            "why": "an image that bundles /opt/nilearn_data has no fallback to take; the "
-            "bundled-cache test beside it runs there instead",
-        },
         {
             "test": "tests.numerical.test_roi_islands.*",
             "message": "TIT_ERNIE_LABELING",
@@ -152,8 +134,8 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
         },
     ],
     "numerical-image": [
-        # Image-dependent outcomes of an image built before 7403910d (v3.1.1) and of one built
-        # from this source; each entry names one test and its whole text.
+        # The image-dependent outcome of an image built before 7403910d (v3.1.1); the entry
+        # names one test and its whole text.
         {
             "test": "tests.numerical.test_simnibs_vector_warp."
             "test_vector_volume_is_mirrored_through_the_inverse_warp",
@@ -162,13 +144,6 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "why": "a strict xfail, which JUnit records as a skip, only where the image's "
             "transformations.py still has resources/patches/patch_nan_to_num.py's edit; an "
             "XPASS there fails the leg, and an image without the edit runs the test",
-        },
-        {
-            "test": "tests.numerical.test_nilearn_render_realdata."
-            "test_without_the_bundled_atlases_the_job_still_draws_and_says_why",
-            "message": "skipping: the bundled atlases exist, see the test above",
-            "why": "an image that bundles /opt/nilearn_data has no fallback to take; the "
-            "bundled-cache test beside it runs there instead",
         },
         {
             "test": "tests.numerical.test_bids_fieldmap_tools.*",
@@ -229,31 +204,6 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "message": "TIT_DATASET_000",
             "why": "CI has no Dataset 000; dev/run_realdata_tests.sh runs every module that "
             "reads TIT_DATASET_000 with it set, and its realdata leg refuses this skip",
-        },
-        # An image built before the Dockerfile bundled /opt/nilearn_data and declared
-        # NILEARN_DATA=/opt/nilearn_data (v3.1.1). The modules skip only on such an image, so one
-        # that declares the variable and lacks the atlases fails instead of matching these.
-        {
-            "test": "tests.numerical.test_nilearn_render_realdata."
-            "test_the_atlas_outlines_load_offline_from_the_bundled_cache",
-            "message": "skipping: this image predates the bundled nilearn atlases "
-            "(/opt/nilearn_data)",
-            "why": "the image was built before the Dockerfile bundled /opt/nilearn_data; the "
-            "no-atlas fallback test beside it runs there instead",
-        },
-        {
-            "test": "tests.numerical.test_nilearn_offline_atlases.*",
-            "message": "skipping: image predates the bundled nilearn atlases "
-            "(/opt/nilearn_data absent)",
-            "why": "the image was built before the Dockerfile bundled /opt/nilearn_data, so "
-            "there is no cache to check",
-        },
-        {
-            "test": "tests.numerical.test_nilearn_offline_atlases."
-            "test_the_cache_is_read_only_for_a_non_root_user",
-            "message": "running as root",
-            "why": "the image runs the leg as root, which a directory mode cannot restrict; "
-            "the module's no-writes test covers the read-only cache",
         },
     ],
 }

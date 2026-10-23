@@ -83,11 +83,9 @@ fixed and the rest of the suite run green on Linux at least twice. Then restore 
   there fails, and an ordinary test in every image built from this source. Its allowlist
   (`--leg numerical-image`) carries any skip that names `TIT_DATASET_000`, whatever its module
   (`dev/run_realdata_tests.sh` selects every module that reads the variable and refuses the
-  skip), that xfail by its exact reason, the two Nilearn skips of an image built before
-  `/opt/nilearn_data` (one that declares `NILEARN_DATA=/opt/nilearn_data` without the directory
-  fails them instead), and the no-atlas fallback test a rebuilt image skips.
-  `tests/test_ci_legs_image_expectations.py` runs pytest-written reports of both kinds of image
-  through it, and fails on an entry whose text no skip of its module carries.
+  skip) and that xfail by its exact reason. `tests/test_ci_legs_image_expectations.py` runs
+  pytest-written reports of both kinds of image through it, and fails on an entry whose text no
+  skip of its module carries.
 - **Release gate**: the `numerical` stage of `dev/verify_release.py`.
 
 Every leg's JUnit XML goes through `dev/check_junit.py`: zero collected, any failure or error, or
@@ -111,9 +109,7 @@ builds its scene cache in a symlinked copy under `tmp_path` and fails if a proje
 `dev/run_realdata_tests.sh --dataset /path/to/000` runs every module that reads one of those
 variables inside the image, with the dataset mounted read-only, and fails on any skip except the
 variables Dataset 000 cannot satisfy (`TIT_ERNIE_LABELING`: no `m2m_ernie/segmentation/
-labeling.nii.gz`; `TIT_DTI_PROTO`: the prototype tensor is not in the dataset) and the one
-Nilearn render test the image cannot run (the bundled-cache test on an image built before
-`/opt/nilearn_data`, the no-atlas fallback on one built after). Scene tests use
+labeling.nii.gz`; `TIT_DTI_PROTO`: the prototype tensor is not in the dataset). Scene tests use
 sub-101 there, because Dataset 000's `m2m_ernie` has no `segmentation/` atlases. It compares a
 size/mtime/SHA-256 listing of the dataset before and after the run. `dev/verify_release.py` runs
 it as the `realdata` stage (`--dataset-000`, default `$TIT_DATASET_000`).

@@ -103,13 +103,13 @@ The job works on the non-zero voxels of the averaged field. Below the minimum th
 
 ### Atlas Options
 
-The atlases ship in the image and are read from `NILEARN_DATA=/opt/nilearn_data`, so no download is needed. If an atlas cannot be loaded, the job log says why and the PDF is drawn without outlines.
+The atlases ship with TI-Toolbox: they are MNI atlases in `resources/atlas/`, the same files the ROI picker offers (see [Brain Atlases]({{ site.baseurl }}/wiki/atlases/) for their sources and licences), so nothing is downloaded and the outlines draw offline. If an atlas cannot be loaded, the job log says why and the PDF is drawn without outlines.
 
 | Panel label | Atlas | Regions | Notes |
 |---|---|---|---|
-| Harvard-Oxford (subcortical) (default) | `sub-maxprob-thr25-2mm` | 21 | Includes left and right cerebral cortex and white matter, the lateral ventricles and the brain stem |
-| Harvard-Oxford (cortical) | `cort-maxprob-thr25-2mm` | 48 | Cortical regions only; no subcortical structures |
-| Schaefer 2018 (100 parcels) | 7 networks, 1 mm | 100 | |
+| Harvard-Oxford (subcortical) (default) | `HarvardOxford-sub-maxprob-thr25-1mm` | 21 | Includes left and right cerebral cortex and white matter, the lateral ventricles and the brain stem |
+| Harvard-Oxford (cortical) | `HarvardOxford-cortl-maxprob-thr25-1mm` | 96 | 48 cortical regions, each split into left and right; no subcortical structures |
+| Schaefer 2018 (400 parcels) | `Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm` | 400 | 7 networks |
 
 ## Example Results
 

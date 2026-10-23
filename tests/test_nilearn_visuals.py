@@ -9,9 +9,9 @@ Pins, 2026-10-21:
    ``mTI/niftis/grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`` (``tit/sim/mTI.py`` names the mesh
    ``<sim>_mTI.msh`` and its field ``mTI_max``; ``tit/tools/mesh2nii.py`` adds ``_MNI``).
    The runner used to read ``TI/niftis`` only, so an mTI run could not be visualised.
-2. ``_load_atlas`` never raises: offline without the bundled atlases, the job log says in
+2. ``_load_atlas`` never raises: when an atlas file cannot be read, the job log says in
    plain words that the outlines were skipped and why, and the figure is drawn anyway.
-3. The panel offers exactly the atlases the image bundles (``atlases.ATLASES``), so no
+3. The panel offers exactly the atlases TI-Toolbox ships (``atlases.ATLASES``), so no
    choice in the UI needs the network.
 
 The real averaging over those files runs in ``tests/numerical/test_nilearn_group_average.py``.
@@ -57,17 +57,19 @@ class TestAtlasFallback:
     ):
         from tit.plotting.nilearn import visualizer
 
-        def offline(key):
-            raise ConnectionError("Failed to resolve 'www.nitrc.org'")
+        def missing(key):
+            raise FileNotFoundError(
+                "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz is not in /x"
+            )
 
-        monkeypatch.setattr(visualizer, "atlas_path", offline)
+        monkeypatch.setattr(visualizer, "atlas_path", missing)
         img, name = visualizer.NilearnVisualizer()._load_atlas("harvard_oxford_sub")
 
         assert (img, name) == (None, "")
         out = capsys.readouterr().out
         assert "Atlas contours skipped" in out
         assert "Harvard-Oxford subcortical atlas" in out
-        assert "www.nitrc.org" in out
+        assert "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz is not in /x" in out
         assert "drawn without region outlines" in out
 
     def test_an_unknown_atlas_is_skipped_not_raised(self, init_pm, capsys):
@@ -78,7 +80,7 @@ class TestAtlasFallback:
 
 
 @pytest.mark.unit
-def test_the_panel_offers_exactly_the_bundled_atlases():
+def test_the_panel_offers_exactly_the_shipped_atlases():
     from tit.plotting.nilearn.atlases import ATLASES
 
     src = (

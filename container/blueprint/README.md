@@ -12,11 +12,7 @@ recipe built from the image. Release publication belongs in
 - SimNIBS 4.6 and the `tit` package;
 - the FastAPI server and the built desktop renderer it serves;
 - FastSurfer 2.5.4 `--seg_only`, its verified checkpoints, and CUDA-enabled PyTorch;
-- `bpy` for the Blender-backed export job kinds;
-- the three atlases Nilearn Visuals outlines (Harvard-Oxford cortical and subcortical, Schaefer
-  2018 with 100 parcels) in `/opt/nilearn_data` (`NILEARN_DATA`), fetched, sha256-checked and
-  pruned at build time by `tit/plotting/nilearn/atlases.py` (about 0.4 MB), so those figures need
-  no network; and
+- `bpy` for the Blender-backed export job kinds; and
 - the Docker CLI used by the current QSIPrep/QSIRecon Docker-out-of-Docker integration.
 
 The final runtime is `linux/amd64`. It runs natively on x86-64 hosts and under Docker's amd64
