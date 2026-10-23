@@ -23,8 +23,9 @@ The page has two parts. **Part 1** covers problems you resolve with a step of yo
 
 - **Per-run logs:** `<project>/derivatives/ti-toolbox/logs/sub-<id>/`.
 - **Job consoles:** `<project>/code/ti-toolbox/jobs/<job id>/stdout.log`. In the app, select the job
-  in **Jobs** and use **Raw log ▸ Reveal log file**. Finished job records older than 30 days, or
-  beyond the newest 200, are deleted when the server starts.
+  in **Jobs** and open **Raw log**, which shows all of it; its folder button opens the job's results
+  folder, or the job's own folder (**Open job folder**) when it has none. Finished job records older
+  than 30 days, or beyond the newest 200, are deleted when the server starts.
 - **Desktop app log (`main.log`):** macOS `~/Library/Logs/TI-Toolbox/main.log`; Windows
   `%APPDATA%\ti-toolbox-desktop\logs\main.log`; Linux `~/.config/ti-toolbox-desktop/logs/main.log`.
 - **Container:** for launcher or container problems, run these commands from the selected checkout

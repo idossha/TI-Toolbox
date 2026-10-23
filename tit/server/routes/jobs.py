@@ -25,6 +25,7 @@ from tit.jobs.preflight import preflight
 from tit.jobs.spec import CREATED_BY_VALUES, JOB_KINDS, JOB_STATES
 from tit.paths import is_valid_subject_id
 from tit.server.app_defaults import with_app_defaults
+from tit.server.job_outputs import RUN_FOLDER_FIELD, job_output_dir
 from tit.server.overwrite_policy import (
     check_overwrite_permission,
     planned_outputs,
@@ -434,17 +435,6 @@ def plan_submission(
     return planned
 
 
-#: The config field naming an optimisation run's folder. Unset, the plan previews a timestamp
-#: and the run picks a fresh one when it starts, so two previews agreeing proves nothing.
-_RUN_FOLDER_FIELD = {
-    "ex": "run_name",
-    "mex": "run_name",
-    "flex": "output_folder",
-    "flex_adaptive": "output_folder",
-    "flex_pareto": "output_folder",
-}
-
-
 def _refuse_shared_output_dirs(receipts: list[tuple[Any, list[Any]]]) -> None:
     """HTTP 422 when two jobs of one submission would write one output folder.
 
@@ -455,7 +445,7 @@ def _refuse_shared_output_dirs(receipts: list[tuple[Any, list[Any]]]) -> None:
     """
     claims: dict[str, int] = {}
     for job, outputs in receipts:
-        field = _RUN_FOLDER_FIELD.get(job.kind)
+        field = RUN_FOLDER_FIELD.get(job.kind)
         if field and not job.config.get(field):
             continue
         for output in outputs:
@@ -566,7 +556,14 @@ def get_job(request: Request, job_id: str) -> dict[str, Any]:
     detail = _manager(request).get_detail(job_id)
     if detail is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
-    return detail
+    spec = detail["spec"]
+    # The folder the desktop's folder buttons open (see tit.server.job_outputs).
+    return {
+        **detail,
+        "output_dir": job_output_dir(
+            spec["kind"], spec["config"], spec["subject_ids"], detail["artifacts"]
+        ),
+    }
 
 
 @router.delete(

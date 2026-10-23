@@ -29,6 +29,7 @@ const STATIC_KEYS: Record<string, string> = {
   job: "one job's record: same source as `jobs`, removed when the job is deleted",
   "job-log": "a job's log: its key carries live/final and it polls every 3 s while the job runs",
   "job-outputs": "a job's folder listing: its key carries the job's state and artifact count, so a finished job is a new key",
+  "job-output-dir": "the folder a job's results live in: its key carries the job's state and artifact count, and it polls every 5 s while the job runs",
   "viewer-saved-scenes": "scenes the user saves in the Viewer, which invalidates it on every save and delete; no job writes them",
 };
 

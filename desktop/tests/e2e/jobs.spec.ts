@@ -717,10 +717,10 @@ test("hits its density numbers with the detail pane open, at 1280x800 and 1440x9
 
 /**
  * The Raw log tab (maintainer's screenshot, Sep 2026): it was a fixed-height `<pre>` of ~40 lines
- * in the top third of a tall pane, with "Load more · Reveal log file" under it and roughly 60% of
+ * in the top third of a tall pane, with "Load more · Open folder" under it and roughly 60% of
  * the pane empty below. It is now the SAME console the run pages host (`ui/Jobs.tsx`'s
  * `JobConsole`, via `app/jobs-rail/JobRawLog.tsx`): the whole transcript, virtualised, filling the
- * pane to its bottom edge, with Follow / filter / Clear / Reveal log file in its own toolbar and
+ * pane to its bottom edge, with Follow / filter / Clear / Open folder in its own toolbar and
  * no paging control anywhere.
  *
  * Every claim below is measured, not eyeballed: where the log's bottom edge is relative to the
@@ -780,7 +780,7 @@ for (const size of [
     await follow.click();
     await expect(follow).toHaveAttribute("data-state", "checked");
     await expect(console_.getByRole("button", { name: "Clear terminal" })).toBeVisible();
-    await expect(console_.getByRole("button", { name: "Reveal log file" })).toBeVisible();
+    await expect(console_.getByRole("button", { name: /^Open (output|job) folder$/ })).toBeVisible();
     await expect(detail.getByRole("button", { name: "Load more" })).toHaveCount(0);
 
     if (size.width === 1280) await page.screenshot({ path: join(ARTIFACTS, "jobs-rawlog.png") });

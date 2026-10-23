@@ -3,7 +3,7 @@
  * panel to find out what their own run is doing.
  *
  * Everything about *rendering* a log — virtualisation, the filter box, follow-tail, the level
- * colours, "Reveal log file" — is already `ui/Jobs.tsx`'s `JobConsole` and is reused unchanged.
+ * colours, the folder button — is already `ui/Jobs.tsx`'s `JobConsole` and is reused unchanged.
  * What this component adds is the two things a page-scoped terminal needs and the jobs panel does
  * not: the 24px identity header ("which log am I reading") and the pin.
  *
@@ -22,8 +22,8 @@ import { useJobLogEvents } from "../../../app/jobs/useJobLogEvents";
 import { useJobsModel } from "../../../app/jobs-rail/model";
 import { elapsedLabel } from "../../../app/jobs-rail/format";
 import { type JobStatus } from "../../../app/jobs-rail/api";
-import { reveal } from "../../../app/jobs-rail/reveal";
-import { jobFolder } from "../../../app/jobs-rail/artifacts";
+import { openFolder } from "../../../app/jobs-rail/reveal";
+import { useJobFolder } from "../../../app/jobs-rail/jobFolder";
 import "./run.css";
 
 function toFollowable(job: JobStatus, now: number): FollowableJob {
@@ -54,7 +54,6 @@ export interface JobTerminalProps {
    * away and back keeps it; a fresh app start starts empty.
    */
   startedJobIds?: readonly string[];
-  onRevealLogFile?: (jobId: string) => void;
   /**
    * Accepted and ignored since FXU2, when the pane's "What will run" preview was retired: showing
    * a plan in the log pane is the thing that made an idle tab look busy. Kept in the signature so
@@ -72,7 +71,6 @@ export function JobTerminal({
   pinnedJobId,
   startedJobIds,
   onPinJob,
-  onRevealLogFile,
   onSourceChange,
 }: JobTerminalProps) {
   const { all, now } = useJobsModel();
@@ -83,16 +81,12 @@ export function JobTerminal({
     [followable, kinds, subjects, pinnedJobId, startedJobIds],
   );
   const jobId = job?.id;
-  // `job` (from `resolveFollowedJob`) is a `FollowableJob`, which drops `artifacts` in
-  // `toFollowable` above — it only ever carried `logPath`, which is why this pane used to reveal
-  // `code/ti-toolbox/jobs/<id>/` (the job's bookkeeping record) instead of its real output folder.
-  // The full `JobStatus` `jobFolder()` needs is right there in `all`, so look it up by id rather
-  // than growing `FollowableJob` for one field only this pane uses.
+  // `job` (from `resolveFollowedJob`) is a `FollowableJob`, which drops `artifacts` and the other
+  // server fields, so the full `JobStatus` is looked up by id rather than growing `FollowableJob`
+  // for one pane's button. The folder button opens the job's OUTPUT folder (the server names it,
+  // from the very start of the run); only a job with none falls back to its own record folder.
   const rawJob = useMemo(() => all.find((j) => j.id === jobId), [all, jobId]);
-  const folder = useMemo(() => (rawJob ? jobFolder(rawJob) : null), [rawJob]);
-  // `jobFolder()` itself falls back to the log's directory when the job has written no artifacts
-  // yet, so `folder` alone can't say which folder it is. The label needs to.
-  const hasArtifact = !!rawJob?.artifacts.some((a) => a.path);
+  const folder = useJobFolder(rawJob);
 
   const { lines } = useJobLogEvents(jobId, job?.state);
 
@@ -144,15 +138,8 @@ export function JobTerminal({
           <JobConsole
             sourceKey={`job:${job.id}`}
             lines={lines}
-            onRevealLogFile={
-              folder || job.logPath || onRevealLogFile
-                ? () =>
-                    onRevealLogFile
-                      ? onRevealLogFile(job.id)
-                      : reveal((folder ?? job.logPath) as string)
-                : undefined
-            }
-            revealLabel={hasArtifact ? "Show the job's output folder" : "Reveal log file"}
+            onOpenFolder={folder ? () => openFolder(folder.path) : undefined}
+            folderLabel={folder?.label}
           />
         ) : (
           <div className="job-terminal-empty" data-testid="job-terminal-empty">

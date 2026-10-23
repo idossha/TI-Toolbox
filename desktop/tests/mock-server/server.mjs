@@ -1777,7 +1777,7 @@ function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite
       rss_avg: null,
       created_by,
       // The real server records where the runner's log file is written (`JobStatus.log_path` in
-      // contracts/openapi.yaml), and the UI's "Reveal log file" actions exist only when it is
+      // contracts/openapi.yaml), and the UI's "Open job folder" fallback exists only when it is
       // set -- so the mock sets it too, at the path `tit.jobs` uses.
       log_path: `${PROJECT_ROOT}/derivatives/ti-toolbox/logs/${(subject_ids ?? []).length === 1 ? `sub-${subject_ids[0]}` : "group"}/${kind}_${id}.log`,
     },
@@ -1829,8 +1829,30 @@ function forceJob(job) {
   tick();
   return job.status;
 }
+/**
+ * `tit/server/job_outputs.py::job_output_dir`: the folder the job's results live in, or null.
+ * The runner's own `dir` artifact first; else the folder the plan names for the job's spec
+ * (`outputDirFor`, held to the real plan route by `plan-output-dirs.test.ts`) for a kind whose
+ * folder the config fixes -- a flex search or an ex/mEx search left to name its own run is
+ * unknown until it reports -- else the directory of the first registered file. The mock has no
+ * filesystem, so a planned folder always "exists".
+ */
+const RUN_FOLDER_FIELD = { flex: "output_folder", flex_adaptive: "output_folder", flex_pareto: "output_folder", ex: "run_name", mex: "run_name" };
+function mockOutputDir(job) {
+  const { kind, config, subject_ids } = job.spec;
+  const registered = job.status.artifacts.filter((a) => a.path);
+  const dir = registered.find((a) => a.kind === "dir");
+  if (dir) return dir.path;
+  const named = !RUN_FOLDER_FIELD[kind] || (config && config[RUN_FOLDER_FIELD[kind]]);
+  // Several montages are several folders: no single one to open.
+  const several = kind === "sim" && Array.isArray(config?.montages) && config.montages.length > 1;
+  const planned = named && !several && kind !== "project_init" && kind !== "tools" ? outputDirFor(kind, subject_ids?.[0] ?? "", config) : "";
+  if (planned) return planned;
+  const first = registered[0]?.path;
+  return first ? first.slice(0, first.lastIndexOf("/")) : null;
+}
 function jobToDetail(job) {
-  return { spec: job.spec, status: job.status, artifacts: job.status.artifacts };
+  return { spec: job.spec, status: job.status, artifacts: job.status.artifacts, output_dir: mockOutputDir(job) };
 }
 
 // ------------------------------------------------------------------------------------- schema

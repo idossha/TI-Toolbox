@@ -44,18 +44,23 @@ export function viewableKind(path: string): "mesh" | "volume" | "surface" | "sce
 }
 
 /**
- * The job's actual output directory — e.g. `derivatives/SimNIBS/sub-<id>/Simulations/<montage>/`
- * for a simulation job, the analysis folder for an analyzer job, the flex/ex search folder for an
- * optimizer job — taken from the first artifact the job reported, never from `log_path`.
- * `log_path` always points at `code/ti-toolbox/jobs/<id>/`, the job's own bookkeeping record, not
- * where its science outputs live, so it is only a last resort for a job that has written nothing
- * yet (queued, or failed before its first artifact).
+ * The folder the job's registered artifacts point at, or null when it has registered none: the
+ * `dir` artifact itself (a simulation registers `Simulations/<montage>/`, a flex search its run
+ * folder — that path IS the folder, not a file inside it), else the directory of the first file.
+ * The same rule `JobManager.get_outputs` applies to build the Artifacts tab's list.
+ *
+ * It is never the folder of `log_path` (`code/ti-toolbox/jobs/<id>/`, the job's bookkeeping
+ * record), and it is empty until the runner reports something, so it is not what a folder button
+ * opens: that is `output_dir` from the server, via `useJobFolder`.
  */
 export function jobFolder(job: JobStatus): string | null {
-  const candidate = job.artifacts.find((a) => a.path)?.path ?? job.log_path ?? null;
-  if (!candidate) return null;
-  const cut = candidate.lastIndexOf("/");
-  return cut > 0 ? candidate.slice(0, cut) : null;
+  const registered = job.artifacts.filter((a) => a.path);
+  const dir = registered.find((a) => a.kind === "dir");
+  if (dir) return dir.path;
+  const first = registered[0]?.path;
+  if (!first) return null;
+  const cut = first.lastIndexOf("/");
+  return cut > 0 ? first.slice(0, cut) : null;
 }
 
 /**

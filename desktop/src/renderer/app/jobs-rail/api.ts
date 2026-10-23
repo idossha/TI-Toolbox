@@ -72,6 +72,18 @@ export async function getJobOutputs(id: string): Promise<JobOutputs> {
   return unwrap(await api.GET("/api/jobs/{id}/artifacts", { params: { path: { id } } }), `/api/jobs/${id}/artifacts`);
 }
 
+/**
+ * The one folder the job's results live in (`GET /api/jobs/{id}`'s `output_dir`), or `null` when
+ * the server names none: a pre-processing stage or a several-montage simulation with no folder of
+ * its own, a folder the run has not created yet, or a server older than the field. The server
+ * resolves it (`tit/server/job_outputs.py`) with the same resolver the run pages' plan uses, so
+ * the renderer never rebuilds a path convention.
+ */
+export async function getJobOutputDir(id: string): Promise<string | null> {
+  const detail = unwrap(await api.GET("/api/jobs/{id}", { params: { path: { id } } }), `/api/jobs/${id}`);
+  return detail.output_dir ?? null;
+}
+
 export async function getJobLog(id: string, tail?: number): Promise<string> {
   return unwrap(
     await api.GET("/api/jobs/{id}/log", { params: { path: { id }, query: tail ? { tail } : {} }, parseAs: "text" }),

@@ -1226,3 +1226,14 @@ PyQt `tit/gui/extensions/electrode_placement.py`. `ViewLayer.percentile` is reso
 `GET /api/view/{kind}` or `POST /api/view/args`, not by the removed `POST /api/viewers/freeview`.
 `ViewSpec.scene` no longer calls its reader the embedded viewer's `Engine.load()` (the embed was
 retired); `POST /api/view/open` re-roots its paths for the native TetraVox.
+
+## 2026-10-22 — `JobDetail.output_dir`: the one folder a job's results live in
+
+`GET /api/jobs/{id}` gains `output_dir` (string or null): the folder the desktop's folder buttons
+open. The `dir` artifact the runner registered, else the folder `POST /api/plan/{kind}` names for
+the job's own spec (so a queued or running job is answered too; a flex or ex/mEx search whose run
+name the runner picks has none until it reports), else the directory of the job's first registered
+file. null when there is no single folder, when it does not exist yet, or when it is outside the
+project. Resolved by `tit/server/job_outputs.py` over the plan route's own resolver
+(`tit.server.routes.plan.plan_jobs`). Additive and optional: `JobDetail.required` is unchanged, and
+the list route and `/ws/jobs` statuses do not carry it.

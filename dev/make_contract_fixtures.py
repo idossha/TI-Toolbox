@@ -19,6 +19,11 @@ hand-written guess of it:
   the analyses the mock project holds and for one config per remaining piece of the folder-name
   grammar. ``desktop/tests/mock-server/contract.test.ts`` posts every config to the mock and
   expects the same answer.
+* ``job_output_dirs.json`` -- the ``output_dir`` ``GET /api/jobs/{id}`` answers (the one folder
+  the desktop's folder buttons open) for a simulation, a flex search, an ex search, an analysis
+  and a pre-processing stage, each with the artifacts its runner had registered when asked, and
+  for the jobs that have no folder to open. Read by
+  ``desktop/tests/unit/run-jobTerminal-reveal.test.tsx``.
 * ``../analyses.json`` -- the mock server's analyses catalog: the real ``GET
   /api/catalog/analyses`` listing of the folders the plan route named for the held analyses, so
   the mock's plan and its catalog agree about where an analysis lives.
@@ -624,6 +629,212 @@ def _analyzer_fixtures(pm, root: Path) -> tuple[dict, dict]:
     return _rewrite_root(plans, root), _rewrite_root(catalog, root)
 
 
+def _job_output_fixture(pm, root: Path) -> dict:
+    """``output_dir`` from the real ``GET /api/jobs/{id}``, for each kind of job.
+
+    Each job is submitted to a real :class:`~tit.jobs.manager.JobManager` that is never started
+    (so it stays queued, as a job that has reported nothing yet) and given the artifact events
+    its runner emits (``tit/sim/__main__.py`` registers ``Simulations/<montage>`` as a ``dir``
+    and then the mesh; ``tit/opt/ex/__main__.py`` registers the two files of its run folder).
+    The run folders are created first where the runner would already have created them.
+    """
+    from fastapi.testclient import TestClient
+
+    from tit.config_io import serialize_config
+    from tit.jobs import bootstrap
+    from tit.jobs.manager import JobManager
+    from tit.jobs.plans import plan_preprocessing
+    from tit.jobs.spec import Cost
+    from tit.opt.config import FlexConfig
+    from tit.pre.config import PreprocessConfig
+    from tit.server.app import create_app
+    from tit.server.settings import ServerSettings
+
+    manager = JobManager(
+        str(root), runner_cwd=str(root), budget=Cost(cpus=8, mem_gb=64)
+    )
+    bootstrap.set_manager_for_testing(manager)
+    client = TestClient(
+        create_app(ServerSettings(project_dir=str(root), token=TOKEN)),
+        base_url="http://127.0.0.1:8765",
+    )
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    cases = []
+
+    def case(case_id: str, kind: str, config: dict, subject_ids: list, artifacts=()):
+        job_id = manager.submit(kind, config, subject_ids)["id"]
+        with manager._lock:
+            manager._apply_events(
+                job_id,
+                manager._status[job_id],
+                [{"type": "artifact", **a} for a in artifacts],
+            )
+        response = client.get(f"/api/jobs/{job_id}", headers=headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"{case_id}: HTTP {response.status_code} {response.text}"
+            )
+        detail = response.json()
+        cases.append(
+            {
+                "id": case_id,
+                "kind": kind,
+                "subject_ids": subject_ids,
+                "artifacts": detail["artifacts"],
+                "output_dir": detail["output_dir"],
+            }
+        )
+
+    def sim_config(*names: str) -> dict:
+        montages = [
+            {
+                "_type": "Montage",
+                "name": name,
+                "mode": "net",
+                "electrode_pairs": [["E020", "E074"], ["E101", "E133"]],
+                "eeg_net": NET,
+            }
+            for name in names
+        ]
+        return {
+            "subject_id": SUBJECT,
+            "montages": montages,
+            "output_fields": ["TI_max"],
+        }
+
+    def flex_config(**overrides) -> dict:
+        return serialize_config(
+            FlexConfig(
+                subject_id=SUBJECT,
+                goal="mean",
+                postproc="max_TI",
+                current_mA=1.0,
+                electrode=FlexConfig.ElectrodeConfig(),
+                roi=FlexConfig.SphericalROI(x=-38.0, y=44.0, z=26.0, radius=10.0),
+                **overrides,
+            )
+        )
+
+    ex_config = {
+        "subject_id": SUBJECT,
+        "leadfield_hdf": f"{SUBJECT}_leadfield_{NET[:-4]}.hdf5",
+        "roi_name": "L_Insula.csv",
+        "electrodes": {
+            "_type": "PoolElectrodes",
+            "electrodes": ["E020", "E074", "E101", "E133"],
+        },
+        "total_current": 2.0,
+        "current_step": 1.0,
+    }
+
+    try:
+        # Simulation: the montage's folder is created when the run starts, and registered as a
+        # ``dir`` when it ends.
+        case("sim_queued_folder_not_created", "sim", sim_config("Thalamus"), [SUBJECT])
+        sim = Path(pm.simulation(SUBJECT, "L_Insula"))
+        sim.mkdir(parents=True)
+        case("sim_running", "sim", sim_config("L_Insula"), [SUBJECT])
+        mesh = Path(pm.ti_mesh(SUBJECT, "L_Insula"))
+        _write(mesh, b"\0")
+        case(
+            "sim_finished",
+            "sim",
+            sim_config("L_Insula"),
+            [SUBJECT],
+            [
+                {"path": str(sim), "kind": "dir", "label": "L_Insula"},
+                {"path": str(mesh), "kind": "mesh", "label": "L_Insula"},
+            ],
+        )
+        Path(pm.simulation(SUBJECT, "R_Insula")).mkdir(parents=True)
+        case(
+            "sim_two_montages",
+            "sim",
+            sim_config("L_Insula", "R_Insula"),
+            [SUBJECT],
+        )
+
+        # Flex search: the Optimizer page always names the run folder.
+        flex_run = Path(pm.flex_search_run(SUBJECT, FLEX_RUN))
+        flex_run.mkdir(parents=True)
+        case(
+            "flex_running", "flex", flex_config(output_folder=str(flex_run)), [SUBJECT]
+        )
+        case(
+            "flex_finished",
+            "flex",
+            flex_config(output_folder=str(flex_run)),
+            [SUBJECT],
+            [{"path": str(flex_run), "kind": "dir", "label": "output_folder"}],
+        )
+
+        # Ex search with no run name: the runner stamps one, known only from its results.
+        _ex_run(pm, "ex")
+        ex_run = Path(pm.ex_search_run(SUBJECT, EX_RUN))
+        case("ex_running_unnamed", "ex", ex_config, [SUBJECT])
+        case(
+            "ex_finished",
+            "ex",
+            ex_config,
+            [SUBJECT],
+            [
+                {
+                    "path": str(ex_run / "final_output.csv"),
+                    "kind": "csv",
+                    "label": "results",
+                },
+                {
+                    "path": str(ex_run / "run_config.json"),
+                    "kind": "json",
+                    "label": "config",
+                },
+            ],
+        )
+
+        # Analysis: the plan route's folder, whichever file the runner registered first.
+        analysis = {
+            "subject_id": SUBJECT,
+            "simulation": "L_Insula",
+            "space": "mesh",
+            "analysis_type": "spherical",
+            "center": [-38.0, 44.0, 26.0],
+            "radius": 10.0,
+        }
+        planned = client.post(
+            "/api/plan/analyzer",
+            json={"config": analysis, "subject_ids": [SUBJECT]},
+            headers=headers,
+        ).json()["jobs"]
+        folder = Path(planned[0]["output_dir"])
+        _write(folder / "results.csv", "Metric,Value\n")
+        _write(folder / "figures" / "histogram.pdf", b"\0")
+        case(
+            "analyzer_finished",
+            "analyzer",
+            analysis,
+            [SUBJECT],
+            [
+                {"path": str(folder / "figures" / "histogram.pdf"), "kind": "pdf"},
+                {"path": str(folder / "results.csv"), "kind": "csv"},
+            ],
+        )
+
+        # Pre-processing: one job per stage per subject; charm's folder is m2m_<id>.
+        (charm,) = plan_preprocessing(
+            PreprocessConfig(subject_ids=[SUBJECT], create_m2m=True), [SUBJECT]
+        )
+        _head_model(pm, SUBJECT)
+        case("pre_charm", charm.kind, charm.config, charm.subject_ids)
+    finally:
+        bootstrap.reset_manager()
+    return {
+        "generated_by": "dev/make_contract_fixtures.py",
+        "note": "output_dir is GET /api/jobs/{id}'s answer for a job of this kind, holding "
+        "exactly these artifacts",
+        "cases": cases,
+    }
+
+
 def _rewrite_root(value, root: Path):
     """Replace the temporary project root by the mock's, in every string of *value*."""
     roots = sorted({str(root), os.path.realpath(root)}, key=len, reverse=True)
@@ -703,6 +914,16 @@ def build() -> dict[str, str]:
         plans, analyses = _analyzer_fixtures(pm, root)
         out["contracts/analyzer_plans.json"] = render(plans)
         out["analyses.json"] = render(analyses)
+        reset_path_manager()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "project"
+        root.mkdir()
+        (root / "dataset_description.json").write_text("{}")
+        pm = get_path_manager(str(root))
+        out["contracts/job_output_dirs.json"] = render(
+            _rewrite_root(_job_output_fixture(pm, root), root)
+        )
         reset_path_manager()
     return out
 

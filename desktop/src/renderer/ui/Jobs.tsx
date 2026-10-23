@@ -61,20 +61,19 @@ export type { JobLogLine } from "../app/jobs/logLines";
 export function JobConsole({
   sourceKey,
   lines,
-  onRevealLogFile,
-  revealLabel,
+  onOpenFolder,
+  folderLabel,
 }: {
   /** Stable identity of the job or file; changing it restores the complete new transcript. */
   sourceKey: string;
   lines: JobLogLine[];
-  onRevealLogFile?: () => void;
+  /** Shows the toolbar's folder button; the caller decides which folder it opens. */
+  onOpenFolder?: () => void;
   /**
-   * The folder button's aria-label/tooltip. Defaults to "Reveal log file" for a caller that never
-   * passed one, but every job terminal now reveals the job's own output folder (the artifact
-   * directory `jobFolder()` derives, not `code/ti-toolbox/jobs/<id>/`) and should say so — "Reveal
-   * log file" stays accurate only for the genuine fallback: a job with no artifacts yet.
+   * The folder button's aria-label and tooltip. It says which folder opens ("Open output folder",
+   * or "Open job folder" for the job's own record), because the icon alone cannot.
    */
-  revealLabel?: string;
+  folderLabel?: string;
 }) {
   const [follow, setFollow] = useState(true);
 
@@ -84,8 +83,8 @@ export function JobConsole({
       lines={lines}
       follow={follow}
       onFollowChange={setFollow}
-      onRevealLogFile={onRevealLogFile}
-      revealLabel={revealLabel}
+      onOpenFolder={onOpenFolder}
+      folderLabel={folderLabel}
     />
   );
 }
@@ -94,14 +93,14 @@ function JobConsoleSource({
   lines,
   follow,
   onFollowChange,
-  onRevealLogFile,
-  revealLabel,
+  onOpenFolder,
+  folderLabel,
 }: {
   lines: JobLogLine[];
   follow: boolean;
   onFollowChange: (follow: boolean) => void;
-  onRevealLogFile?: () => void;
-  revealLabel?: string;
+  onOpenFolder?: () => void;
+  folderLabel?: string;
 }) {
   const [filter, setFilter] = useState("");
   const [clearedThrough, setClearedThrough] = useState<number | null>(null);
@@ -138,11 +137,12 @@ function JobConsoleSource({
             disabled={afterClear.length === 0}
             onClick={clear}
           />
-          {onRevealLogFile && (
+          {onOpenFolder && (
             <IconButton
-              aria-label={revealLabel ?? "Reveal log file"}
+              aria-label={folderLabel ?? "Open folder"}
+              title={folderLabel ?? "Open folder"}
               icon={<FolderOpen size={14} />}
-              onClick={onRevealLogFile}
+              onClick={onOpenFolder}
             />
           )}
         </div>

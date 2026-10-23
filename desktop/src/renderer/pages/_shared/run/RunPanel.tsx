@@ -25,7 +25,6 @@ export interface RunPanelProps {
   subjects: string[];
   /** Extra kinds whose jobs this page's terminal may follow (Optimizer: ["flex","ex","mex"]). */
   jobKinds?: PlanKind[];
-  onRevealLogFile?: (jobId: string) => void;
   pinnedJobId?: string | null;
   onPinJob?: (jobId: string | null) => void;
   /** Ids of the jobs this page session started; they stay in the terminal after they finish. */
@@ -48,7 +47,6 @@ export function RunPanel({
   kind,
   subjects,
   jobKinds,
-  onRevealLogFile,
   pinnedJobId,
   onPinJob,
   startedJobIds,
@@ -64,7 +62,6 @@ export function RunPanel({
       pinnedJobId={pinnedJobId}
       startedJobIds={startedJobIds}
       onPinJob={onPinJob}
-      onRevealLogFile={onRevealLogFile}
       onSourceChange={onTerminalSourceChange}
     />
   );

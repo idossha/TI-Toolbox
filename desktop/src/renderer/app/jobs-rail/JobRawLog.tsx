@@ -6,7 +6,7 @@
  * under it, which on a tall detail pane left roughly two thirds of the pane empty (maintainer's
  * screenshot, Sep 2026). What a reader wants there is what the run page's terminal already gives
  * them: the whole transcript, virtualised, filling the pane to its bottom edge, with Follow / a
- * filter / Clear / Reveal log file in the console's own toolbar. So this component is a thin
+ * filter / Clear / Open folder in the console's own toolbar. So this component is a thin
  * source adapter around `ui/Jobs.tsx`'s `JobConsole`, exactly like `pages/_shared/run/JobTerminal`:
  *
  *   REST backlog (`getJobEvents`) ∪ the socket's ring-buffered tail  →  `jobEventsToLogLines`
@@ -22,8 +22,8 @@ import { JobConsole } from "../../ui/Jobs";
 import { splitLogText, type JobLogLine } from "../jobs/logLines";
 import { useJobLogEvents } from "../jobs/useJobLogEvents";
 import { getJobLog, TERMINAL_STATES, type JobStatus } from "./api";
-import { jobFolder } from "./artifacts";
-import { reveal } from "./reveal";
+import { useJobFolder } from "./jobFolder";
+import { openFolder } from "./reveal";
 
 function fileToLogLines(text: string): JobLogLine[] {
   // One row per VISUAL line, `\r` progress counters collapsed — the console's rows are a fixed
@@ -47,17 +47,17 @@ export function JobRawLog({ job }: { job: JobStatus }) {
   const fileLines = useMemo(() => (file.data ? fileToLogLines(file.data) : []), [file.data]);
 
   const lines = eventLines.length > 0 ? eventLines : fileLines;
-  // The toolbar's folder icon reveals the job's actual output directory (see `jobFolder`), not
-  // `job.log_path`'s `code/ti-toolbox/jobs/<id>/` bookkeeping record — falling back to that only
-  // when the job has written no artifacts yet.
-  const target = jobFolder(job) ?? job.log_path ?? undefined;
+  // The toolbar's folder icon opens the job's output folder, not `code/ti-toolbox/jobs/<id>/`
+  // (its bookkeeping record) unless the job has no output folder (see `useJobFolder`).
+  const folder = useJobFolder(job);
 
   return (
     <div className="job-detail-rawlog" data-testid="job-detail-rawlog">
       <JobConsole
         sourceKey={`job:${jobId}`}
         lines={lines}
-        onRevealLogFile={target ? () => reveal(target) : undefined}
+        onOpenFolder={folder ? () => openFolder(folder.path) : undefined}
+        folderLabel={folder?.label}
       />
     </div>
   );

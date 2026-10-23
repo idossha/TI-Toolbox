@@ -8,9 +8,11 @@ permalink: /wiki/logging/
 
 - **Per-run logs** — pre-processing and the optimizers write their own log files to
   `derivatives/ti-toolbox/logs/sub-<id>/` in your project.
-- **Job consoles** — each job's full console is `code/ti-toolbox/jobs/<id>/stdout.log`; open it
-  from the job's **Raw log** tab with **Reveal log file**. Finished job records older than 30 days,
-  or beyond the newest 200, are deleted when the server starts (see [Jobs]({{ site.baseurl }}/wiki/jobs/)).
+- **Job consoles** — each job's full console is `code/ti-toolbox/jobs/<id>/stdout.log`; the job's
+  **Raw log** tab shows all of it. The folder button beside a console opens the job's results
+  folder (**Open output folder**), or the job's own folder when it has no results folder
+  (**Open job folder**). Finished job records older than 30 days, or beyond the newest 200, are
+  deleted when the server starts (see [Jobs]({{ site.baseurl }}/wiki/jobs/)).
 - **The desktop app's own log** — `main.log`: on macOS `~/Library/Logs/TI-Toolbox/main.log`, on
   Windows `%APPDATA%\ti-toolbox-desktop\logs\main.log`, on Linux
   `${XDG_CONFIG_HOME:-~/.config}/ti-toolbox-desktop/logs/main.log`.

@@ -34,7 +34,8 @@ import { jobSummaryRows } from "./columns";
 import { errorLabel, failureReason } from "./format";
 
 import { JobRawLog } from "./JobRawLog";
-import { reveal } from "./reveal";
+import { openFolder } from "./reveal";
+import { useJobFolder } from "./jobFolder";
 import { FileList } from "../../pages/results/preview/views";
 import { useOpenInViewer } from "../openInViewer";
 import { forgetJob } from "../jobs/useJobsStream";
@@ -180,6 +181,8 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
   // One folder serves the whole tab: the server's answer, else derived from a path the job
   // reported rather than reconstructed from the `code/ti-toolbox/jobs/<id>/` convention.
   const folder = useMemo(() => outputs.data?.folder ?? (job ? jobFolder(job) : null), [outputs.data, job]);
+  // The header's folder button: the output folder the server names for the job, else its own folder.
+  const target = useJobFolder(job);
   const openInViewer = useOpenInViewer();
 
   if (!job) {
@@ -193,7 +196,6 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
   const isTerminal = TERMINAL_STATES.includes(job.state);
   const canStop = job.state === "queued" || job.state === "running";
   const canForce = !isTerminal;
-  const logPath = job.log_path ?? undefined;
 
   const summary = (
     <Stack gap={2} className="job-detail-tab job-detail-tab-scroll">
@@ -232,18 +234,18 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
         </span>
         {job.liveness && <LivenessBadge state={job.liveness} />}
         <span className="job-detail-id mono text-caption">id {job.id}</span>
-        {/* ONE folder for the whole pane, in its header — the job's actual output directory
-            (`folder`, from `jobFolder()`: derivatives/SimNIBS/.../Simulations/<montage>/ for a
-            sim, the analysis folder for an analyzer, the flex/ex search folder for an optimizer),
-            not `code/ti-toolbox/jobs/<id>/`, which is the job's own bookkeeping record and where
-            `logPath` always points. Falls back to `logPath` only for a job with no artifacts yet
-            (queued, or failed before writing anything). */}
-        {(folder ?? logPath) && (
+        {/* ONE folder for the whole pane, in its header — the job's output directory
+            (derivatives/SimNIBS/.../Simulations/<montage>/ for a sim, the analysis folder for an
+            analyzer, the search folder for an optimizer), as the server names it from the start of
+            the run (`useJobFolder`). Only a job with no output folder of its own opens
+            `code/ti-toolbox/jobs/<id>/`, its bookkeeping record, and the label says so. */}
+        {target && (
           <IconButton
-            aria-label="Show the job's output folder"
+            aria-label={target.label}
+            title={target.label}
             data-testid="job-detail-reveal"
             icon={<FolderOpen size={14} />}
-            onClick={() => reveal((folder ?? logPath) as string)}
+            onClick={() => openFolder(target.path)}
           />
         )}
         {headerControls}
@@ -341,7 +343,7 @@ export function JobDetailPane({ job, onOpenJob, density = "page", headerControls
                             size="sm"
                             icon={<FolderOpen size={14} />}
                             data-testid="job-artifacts-open-folder"
-                            onClick={() => reveal(folder)}
+                            onClick={() => openFolder(folder)}
                           >
                             Open folder
                           </Button>

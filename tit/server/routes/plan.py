@@ -953,13 +953,18 @@ def _require_outputs_inside_project(pm: PathManager, jobs: list[PlanJob]) -> Non
         )
 
 
-@router.post(
-    "/api/plan/{kind}",
-    response_model=PlanResult,
-    summary="Resolve what running this config would do (outputs, overwrite conflicts, "
-    "lock waits, cost)",
-)
-def plan(kind: str, body: PlanRequest) -> PlanResult:
+def plan_jobs(
+    kind: str, body: PlanRequest
+) -> tuple[list[PlanJob], dict[str, Any] | None, list[str]] | None:
+    """The per-kind planners' answer for *body*: ``(jobs, resolved, warnings)``.
+
+    ``None`` when the kind has no config schema to plan from. Raises :class:`HTTPException`
+    (404 unknown kind, 422 a config that does not deserialize or an output outside the
+    project) exactly as ``POST /api/plan/{kind}`` answers. This is the folder resolution alone;
+    :func:`plan` adds the cost estimate and the lock conflicts. The Jobs API reuses it to name a
+    job's output folder (:func:`tit.server.job_outputs.job_output_dir`), so the two cannot
+    disagree.
+    """
     from tit.config_io import deserialize_config
 
     if kind not in ALL_KINDS:
@@ -975,16 +980,7 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if cls is None:
-        warnings.append(
-            f"kind={kind!r} has no config schema yet; nothing can be planned"
-        )
-        return PlanResult(
-            jobs=[],
-            lock_conflicts=[],
-            cost=PlanCost(cpus=0.0, mem_gb=0.0, eta_minutes=None),
-            warnings=warnings,
-            resolved=None,
-        )
+        return None
 
     config_dict = body.config
     if kind == "pre":
@@ -1046,6 +1042,29 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
         jobs, resolved = [], None
 
     _require_outputs_inside_project(pm, jobs)
+    return jobs, resolved, warnings
+
+
+@router.post(
+    "/api/plan/{kind}",
+    response_model=PlanResult,
+    summary="Resolve what running this config would do (outputs, overwrite conflicts, "
+    "lock waits, cost)",
+)
+def plan(kind: str, body: PlanRequest) -> PlanResult:
+    planned = plan_jobs(kind, body)
+    if planned is None:
+        return PlanResult(
+            jobs=[],
+            lock_conflicts=[],
+            cost=PlanCost(cpus=0.0, mem_gb=0.0, eta_minutes=None),
+            warnings=[
+                f"kind={kind!r} has no config schema yet; nothing can be planned"
+            ],
+            resolved=None,
+        )
+    jobs, resolved, warnings = planned
+    subject_ids = list(body.subject_ids or [])
 
     # One job per product runs at a time, so the plan's jobs run one after another.
     cost = _plan_cost(kind, body.config, resolved=resolved, jobs=jobs)

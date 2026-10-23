@@ -1,0 +1,133 @@
+{
+  "generated_by": "dev/make_contract_fixtures.py",
+  "note": "output_dir is GET /api/jobs/{id}'s answer for a job of this kind, holding exactly these artifacts",
+  "cases": [
+    {
+      "id": "sim_queued_folder_not_created",
+      "kind": "sim",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [],
+      "output_dir": null
+    },
+    {
+      "id": "sim_running",
+      "kind": "sim",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [],
+      "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula"
+    },
+    {
+      "id": "sim_finished",
+      "kind": "sim",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula",
+          "kind": "dir",
+          "label": "L_Insula"
+        },
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/mesh/L_Insula_TI.msh",
+          "kind": "mesh",
+          "label": "L_Insula"
+        }
+      ],
+      "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula"
+    },
+    {
+      "id": "sim_two_montages",
+      "kind": "sim",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [],
+      "output_dir": null
+    },
+    {
+      "id": "flex_running",
+      "kind": "flex",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [],
+      "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500"
+    },
+    {
+      "id": "flex_finished",
+      "kind": "flex",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500",
+          "kind": "dir",
+          "label": "output_folder"
+        }
+      ],
+      "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500"
+    },
+    {
+      "id": "ex_running_unnamed",
+      "kind": "ex",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [],
+      "output_dir": null
+    },
+    {
+      "id": "ex_finished",
+      "kind": "ex",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000/final_output.csv",
+          "kind": "csv",
+          "label": "results"
+        },
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000/run_config.json",
+          "kind": "json",
+          "label": "config"
+        }
+      ],
+      "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000"
+    },
+    {
+      "id": "analyzer_finished",
+      "kind": "analyzer",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/sphere_x-38.00_y44.00_z26.00_r10.0_subject/figures/histogram.pdf",
+          "kind": "pdf"
+        },
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/sphere_x-38.00_y44.00_z26.00_r10.0_subject/results.csv",
+          "kind": "csv"
+        }
+      ],
+      "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/sphere_x-38.00_y44.00_z26.00_r10.0_subject"
+    },
+    {
+      "id": "pre_charm",
+      "kind": "pre",
+      "subject_ids": [
+        "ernie"
+      ],
+      "artifacts": [],
+      "output_dir": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie"
+    }
+  ]
+}

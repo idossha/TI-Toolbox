@@ -5,7 +5,8 @@ tests and the mock server read, from the real server code on synthetic projects:
 
 * ``dev/make_contract_fixtures.py`` -> ``desktop/tests/fixtures/contracts/`` (the real
   ``candidate_detail`` for a flex, an ex and an mEx run; the real ``build_overview``; the real
-  ``POST /api/plan/analyzer`` answers) and ``analyses.json`` (the real ``GET
+  ``POST /api/plan/analyzer`` answers), ``contracts/job_output_dirs.json`` (the real ``GET
+  /api/jobs/{id}`` ``output_dir`` for each kind of job) and ``analyses.json`` (the real ``GET
   /api/catalog/analyses`` listing of the analyses the mock project holds);
 * ``dev/regen_mock_reports.py`` -> ``desktop/tests/fixtures/reports/<sid>/*.html`` (the real
   simulation and ex-search report generators) and ``reports.json`` (the real
@@ -61,6 +62,7 @@ def test_contract_fixtures_are_fresh(contracts: dict[str, str]) -> None:
         "contracts/candidate_detail_ex.json",
         "contracts/candidate_detail_flex.json",
         "contracts/candidate_detail_mex.json",
+        "contracts/job_output_dirs.json",
         "contracts/overview.json",
     ]
     committed = sorted(

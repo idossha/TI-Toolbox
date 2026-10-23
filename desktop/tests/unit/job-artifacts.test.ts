@@ -64,18 +64,27 @@ describe("viewableKind", () => {
 });
 
 describe("jobFolder", () => {
-  it("is the job's actual output directory, taken from its first artifact — not the bookkeeping `jobs/<id>/` log path", () => {
-    const OUTPUT_DIR = "/mnt/project/derivatives/SimNIBS/sub-ernie/Simulations/montage_1";
+  const OUTPUT_DIR = "/mnt/project/derivatives/SimNIBS/sub-ernie/Simulations/montage_1";
+
+  it("is the directory of the first registered file — not the bookkeeping `jobs/<id>/` log path", () => {
     const j = job({ artifacts: [{ path: `${OUTPUT_DIR}/TI_max.nii.gz`, kind: "volume" }] });
     expect(jobFolder(j)).toBe(OUTPUT_DIR);
   });
 
-  it("falls back to the job's log path when it has written no artifacts yet", () => {
-    expect(jobFolder(job({ artifacts: [] }))).toBe(JOB_DIR);
+  it("is a registered `dir` itself, not its parent", () => {
+    // A simulation registers `Simulations/<montage>` as a `dir`, then its mesh; a flex search its
+    // run folder. The old rule took the directory of the first artifact whatever its kind.
+    const j = job({
+      artifacts: [
+        { path: OUTPUT_DIR, kind: "dir" },
+        { path: `${OUTPUT_DIR}/TI/mesh/montage_1_TI.msh`, kind: "mesh" },
+      ],
+    });
+    expect(jobFolder(j)).toBe(OUTPUT_DIR);
   });
 
-  it("is null for a job that has written nothing and has no log path either", () => {
-    expect(jobFolder(job({ log_path: null, artifacts: [] }))).toBeNull();
+  it("is null for a job that has registered nothing, never the job's own log folder", () => {
+    expect(jobFolder(job({ artifacts: [] }))).toBeNull();
   });
 });
 

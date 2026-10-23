@@ -11837,6 +11837,13 @@
             "items": {
               "$ref": "#/components/schemas/Artifact"
             }
+          },
+          "output_dir": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The one folder this job's results live in (container path), for the desktop's folder buttons: the `dir` artifact the runner registered, else the folder `POST /api/plan/{kind}` names for the job's own spec (so a queued or running job is answered too), else the directory of its first registered file. null when there is no single folder (a simulation of several montages, a pre-processing stage with no folder of its own, a search whose run name the runner picks and has not yet registered), when the folder does not exist yet, or when it is outside the project. Absent from a server older than this field."
           }
         }
       },

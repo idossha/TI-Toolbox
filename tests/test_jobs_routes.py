@@ -129,12 +129,15 @@ def test_job_detail_top_level_shape_is_exactly_the_contract(
     contract = yaml.safe_load(
         (Path(__file__).resolve().parents[1] / "contracts" / "openapi.yaml").read_text()
     )
-    required = contract["components"]["schemas"]["JobDetail"]["required"]
+    detail_schema = contract["components"]["schemas"]["JobDetail"]
+    required = detail_schema["required"]
     assert set(required) == {
         "spec",
         "status",
         "artifacts",
     }  # the contract itself, unchanged
+    # ...plus the one optional property, the output folder (tests/test_job_output_dir.py).
+    assert set(detail_schema["properties"]) - set(required) == {"output_dir"}
 
     job_id = client.post(
         "/api/jobs",
@@ -147,7 +150,7 @@ def test_job_detail_top_level_shape_is_exactly_the_contract(
     ).json()["id"]
     detail = client.get(f"/api/jobs/{job_id}", headers=BEARER).json()
 
-    assert set(detail) == set(required)
+    assert set(detail) == set(detail_schema["properties"])
     assert "state" not in detail and detail["status"]["state"] in (
         "queued",
         "running",
