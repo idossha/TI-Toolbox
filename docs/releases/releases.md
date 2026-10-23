@@ -9,10 +9,7 @@ User-facing highlights and upgrade guidance. For the detailed technical record, 
 
 ## Latest: v3.1.2 — October 22, 2026
 
-A patch release that fixes many edge cases and greatly extends the automated test suite: settings
-and inputs that used to fail only after a job had started are refused before it runs, outputs are
-checked for being right, and the image warps vector fields to MNI space again and ships the Nilearn
-atlases. Update the desktop app and the image together.
+A patch release that fixes many edge cases and greatly extends the automated test suite.
 
 #### Download Links
 
