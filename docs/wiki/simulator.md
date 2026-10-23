@@ -59,7 +59,7 @@ Pre-processing places every EEG net in the image on the head model, so no manual
 | TI-Toolbox | `GSN-HydroCel-128`, `GSN-HydroCel-185`, `GSN-HydroCel-256`, `BioSemi-64-10-10`, `BioSemi-128-A1`, `BioSemi-256-A1` |
 | SimNIBS    | `EEG10-10_UI_Jurak_2007`, `EEG10-10_Cutini_2011`, `EEG10-10_Neuroelectrics`, `EEG10-20_Okamoto_2004`, `EEG10-20_extended_SPM12`, `easycap_BC_TMS64_X21` |
 
-To add a net to a head model that already exists, such as a cap corrected in a later release or your own MNI cap, use the [EEG caps]({{ site.baseurl }}/wiki/eeg-caps/) panel instead of re-running pre-processing. The GSN-HydroCel-128 and BioSemi caps were corrected in v3.1.1; re-apply them to head models built earlier.
+To add a net to a head model that already exists, such as a cap corrected in a later release or your own MNI cap, use the [EEG caps]({{ site.baseurl }}/wiki/eeg-caps/) panel instead of re-running pre-processing.
 
 ---
 
@@ -93,7 +93,7 @@ Multipolar temporal interference (mTI) uses 8 or more electrodes: each two chann
 </div>
 
 - **Configuration**: Any even number of channels, 4 or more — i.e. 8+ electrodes (capped at 26 channels, labelled A–Z)
-- **Current Settings**: One current input per channel (see [Simulator Behavior for mTI](#simulator-behavior-for-mti) below)
+- **Current Settings**: One current input per channel
 - **Applications**: Distributed stimulation, field steering, and complex targeting
 - **Montage Compatibility**: Works with multipolar montage collections
 
@@ -119,21 +119,6 @@ Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels A & B share the first carrier and channels C & D the second — there is no wiring choice to make.
 
 The kHz-exposure safety metrics `hf_peak`/`hf_sar` include every channel field under the shipped positional wiring (one field per carrier). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
-
-#### Simulator Behavior for mTI
-
-Each channel is driven at its own current: an mTI row shows one current field per channel on line 2 of the job row.
-
-On disk, the mTI mesh spells the modulation-depth field `mTI_max`: the same quantity `TI_max` names on a standard TI mesh, under a different name for the multipolar case.
-
-**TI_normal is computed for mTI too**: the same multi-carrier envelope evaluated along the cortical surface normal, written as `{montage}_mTI_normal.msh` in `mTI/mesh/`. **fsaverage projection covers mTI as well**: it reads the modulation depth from the mTI central surface (`mTI_max`) and derives `hf_peak`/`hf_sar` from all channel meshes.
-
-An mTI simulation:
-
-1. Crops every channel's high-frequency mesh to brain tissue. The channel meshes are in `high_Frequency/mesh/`, named by channel letter (`TDCS_A`, `TDCS_B`, …).
-2. Writes an intermediate per-carrier envelope for each two consecutive channels (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, …). These are for inspection only and are **not** recombined into the final result: a recursive TI-of-TI recombination is not a valid envelope.
-3. Computes the final envelope over all channel fields jointly, written as `mTI_max`, plus `TI_avg`, `hf_peak` and `hf_sar` when selected.
-4. Extracts grey- and white-matter crops (`grey_{montage}_mTI.msh`, `white_{montage}_mTI.msh`) and a central cortical surface, and converts the meshes to NIfTI.
 
 **References:** Albantakis, L. & Tononi, G. (2026). Precision neuromodulation in psychiatry: focus on temporal interference stimulation. _American Journal of Psychiatry_. doi:10.1176/appi.ajp.20250873. Botzanowski, B. et al. (2025). Focal control of non-invasive deep brain stimulation using multipolar temporal interference. _Bioelectronic Medicine_ 11(1):7.
 
