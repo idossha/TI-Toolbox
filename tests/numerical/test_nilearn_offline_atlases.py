@@ -2,7 +2,7 @@
 
 Pins, 2026-10-22. ``container/blueprint/Dockerfile.ti-toolbox`` runs
 ``tit/plotting/nilearn/atlases.py --prune`` with ``NILEARN_DATA=/opt/nilearn_data``: it
-fetches the four outline atlases, checks their sha256 and deletes every other NIfTI the
+fetches the three outline atlases, checks their sha256 and deletes every other NIfTI the
 archives unpacked plus empty directories. This guards that step. With the network blocked,
 for every key of :data:`tit.plotting.nilearn.atlases.ATLASES`:
 
@@ -12,8 +12,7 @@ for every key of :data:`tit.plotting.nilearn.atlases.ATLASES`:
 3. the label image is integer-valued with its largest label below 200, the contour levels
    ``range(1, 200)`` that ``NilearnVisualizer._create_multi_slice_plot_with_atlas`` draws;
 4. it has the published number of regions: Harvard-Oxford cortical 48 and subcortical 21
-   (FSL's atlas XML), Schaefer 2018 100 parcels (the 100-parcel release), AAL3v2 at least
-   166 non-zero labels (Rolls et al. 2020: 170 labels, four of them empty);
+   (FSL's atlas XML), Schaefer 2018 100 parcels (the 100-parcel release);
 5. ``NilearnVisualizer._load_atlas(key)`` returns that same file and prints no "skipped".
 
 And the cache itself: no empty directory survived the prune (a fetch would try to delete
@@ -33,9 +32,9 @@ Skips with a reason only on an image that predates the bundled atlases -- no
 idossha/ti-toolbox:v3.1.1. An image that declares the variable but lacks the directory fails.
 Run in the image: ``docker run --rm -v <tree>:/ti-toolbox -w /ti-toolbox
 idossha/ti-toolbox:<tag> -lc 'simnibs_python -m pytest tests/numerical/test_nilearn_offline_atlases.py -q -p no:cacheprovider'``.
-Verified 2026-10-22 on v3.1.1 with the Dockerfile step reproduced in a throwaway container
-for the three atlases whose hosts answered (www.gin.cnrs.fr, AAL3's, refused connections),
-so the AAL3 lower bound (166) has not yet been measured against the bundled file.
+Verified 2026-10-23 on v3.1.1 with the Dockerfile step reproduced in a throwaway container.
+AAL3 was dropped from the table that day: its host, www.gin.cnrs.fr, refused connections often
+enough to fail the image build.
 """
 
 from __future__ import annotations
@@ -63,9 +62,8 @@ pytestmark = pytest.mark.skipif(
     reason="skipping: image predates the bundled nilearn atlases (/opt/nilearn_data absent)",
 )
 
-#: Published region counts (see the module docstring); AAL3v2 is a lower bound.
+#: Published region counts (see the module docstring).
 _REGIONS = {"harvard_oxford": 48, "harvard_oxford_sub": 21, "schaefer_2018": 100}
-_AAL3_MIN = 166
 
 #: Resolves and loads every atlas with real nilearn, network blocked; argv: facts.json.
 _SCRIPT = r"""
@@ -137,7 +135,7 @@ def _path(loaded: dict, key: str) -> Path:
 
 
 def test_every_atlas_key_is_checked():
-    assert set(_keys()) == {*_REGIONS, "aal"}
+    assert set(_keys()) == set(_REGIONS)
 
 
 @pytest.mark.parametrize("key", _keys())
@@ -156,11 +154,7 @@ def test_the_label_image_has_integer_labels_below_200_and_its_regions(loaded, ke
     data = np.asarray(nib.load(str(_path(loaded, key))).get_fdata())
     assert np.array_equal(data, np.round(data)), "labels are not integers"
     assert data.min() >= 0 and data.max() < 200
-    regions = np.unique(data[data > 0]).size
-    if key == "aal":
-        assert regions >= _AAL3_MIN
-    else:
-        assert regions == _REGIONS[key]
+    assert np.unique(data[data > 0]).size == _REGIONS[key]
 
 
 @pytest.mark.parametrize("key", _keys())

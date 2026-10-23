@@ -17,8 +17,6 @@ import hashlib
 import os
 import sys
 
-from nilearn import datasets
-
 #: key -> (display name, nilearn fetcher, its arguments, the result field holding the label
 #: image's path, sha256 of that file). Checksums: nilearn 0.14.1's download on 2026-10-21,
 #: printed by ``python atlases.py``.
@@ -37,13 +35,6 @@ ATLASES = {
         "filename",
         "b7e0c54535885de6f3f04d17461a2959aa1df50bfbe9bd53b713925aabc6f330",
     ),
-    "aal": (
-        "AAL3 atlas",
-        "fetch_atlas_aal",
-        {"version": "3v2"},
-        "maps",
-        "4a9f9c8c5fc0b93d1396295be6cf25075e21560917262476b8a312f6739039e8",
-    ),
     "schaefer_2018": (
         "Schaefer 2018 atlas (100 parcels)",
         "fetch_atlas_schaefer_2018",
@@ -56,6 +47,9 @@ ATLASES = {
 
 def atlas_path(key: str) -> str:
     """Path to *key*'s label image, from nilearn's data directory (fetched if absent)."""
+    # Imported here so the table above reads without nilearn (NilearnConfig checks its keys).
+    from nilearn import datasets
+
     _, fetcher, kwargs, field, _ = ATLASES[key]
     return str(getattr(datasets, fetcher)(**kwargs)[field])
 

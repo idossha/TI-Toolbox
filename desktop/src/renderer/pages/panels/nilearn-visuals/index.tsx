@@ -25,7 +25,6 @@ import { buildNilearnConfig, type NilearnPair } from "./config";
 const ATLAS_OPTIONS = [
   { value: "harvard_oxford_sub", label: "Harvard-Oxford (subcortical)" },
   { value: "harvard_oxford", label: "Harvard-Oxford (cortical)" },
-  { value: "aal", label: "AAL3" },
   { value: "schaefer_2018", label: "Schaefer 2018 (100 parcels)" },
 ];
 const REGION_OPTIONS = [{ value: "__all__", label: "All regions" }];

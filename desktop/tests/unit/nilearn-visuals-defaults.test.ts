@@ -56,7 +56,7 @@ describe("Nilearn visuals panel config validates against contracts/generated/con
       usePercentiles: true,
       minCutoff: 10,
       maxCutoff: 99.9,
-      atlasName: "aal",
+      atlasName: "schaefer_2018",
       selectedRegion: "__all__",
     });
     expect(validate("NilearnConfig", config)).toMatchObject({ valid: true, errors: [] });

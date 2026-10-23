@@ -9949,7 +9949,8 @@ export interface components {
          *         Maximum threshold; ``None`` (the default) uses the 99.9th
          *         percentile of the averaged data.
          *     atlas_name : str, optional
-         *         Atlas used for region contours on the slice PDF.
+         *         Atlas used for region contours on the slice PDF: a key of
+         *         :data:`tit.plotting.nilearn.atlases.ATLASES`, the atlases the image bundles.
          *     selected_regions : list of int or None, optional
          *         0-indexed region indices to include; ``None`` includes all.
          *     subdir_name : str, optional
@@ -9966,8 +9967,8 @@ export interface components {
          *     Raises
          *     ------
          *     ValueError
-         *         If *subject_simulation_pairs* is empty, or *use_percentiles* is set
-         *         with a cutoff outside ``[0, 100]``.
+         *         If *subject_simulation_pairs* is empty, *use_percentiles* is set
+         *         with a cutoff outside ``[0, 100]``, or *atlas_name* is not a bundled atlas.
          *
          *     See Also
          *     --------

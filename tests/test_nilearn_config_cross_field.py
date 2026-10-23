@@ -1,4 +1,5 @@
-"""NilearnConfig refuses a path-like folder, an empty display range and a repeated pair (p35).
+"""NilearnConfig refuses a path-like folder, an empty display range, a repeated pair and an
+atlas the image does not bundle (p35).
 
 What this pins, 2026-10-22: :class:`tit.plotting.nilearn.config.NilearnConfig` refuses, in
 ``__post_init__`` and so before any job runs,
@@ -17,6 +18,10 @@ What this pins, 2026-10-22: :class:`tit.plotting.nilearn.config.NilearnConfig` r
 3. the same (subject, simulation) pair twice. The runner's mean is ``sum / len(pairs)``
    (``tit/plotting/nilearn/__main__.py::_average_fields``), so a repeat weights that field
    2/(n+1) instead of 1/n -- arithmetic, no data needed.
+4. an ``atlas_name`` that is not a key of :data:`tit.plotting.nilearn.atlases.ATLASES`
+   (pinned 2026-10-23, when AAL3 left that table). ``"aal"`` was a panel choice up to
+   v3.1.1; the visualizer only skips an unknown atlas, so a saved config naming it would
+   draw a PDF without outlines. The refusal lists the atlases that are offered.
 
 ``POST /api/validate/nilearn`` answers each case ``ok: false`` with the field it is about,
 and ``POST /api/plan/nilearn`` refuses it (422) instead of planning an output folder. The
@@ -169,6 +174,28 @@ def test_the_same_simulation_name_for_two_subjects_and_two_runs_of_one_subject_a
     ] == [tuple(p.values()) for p in pairs]
 
 
+# ── 4. the atlas is one the image bundles ───────────────────────────────────
+
+
+def test_aal_is_refused_with_the_atlases_that_are_offered():
+    from tit.plotting.nilearn.atlases import ATLASES
+
+    assert "aal" not in ATLASES
+    with pytest.raises(ValueError) as err:
+        _build(atlas_name="aal")
+    assert str(err.value) == (
+        "atlas_name 'aal' is not an atlas Nilearn visuals offers; choose one of: "
+        "harvard_oxford, harvard_oxford_sub, schaefer_2018"
+    )
+
+
+@pytest.mark.parametrize(
+    "atlas", ["harvard_oxford", "harvard_oxford_sub", "schaefer_2018"]
+)
+def test_each_bundled_atlas_is_accepted(atlas):
+    assert _build(atlas_name=atlas).atlas_name == atlas
+
+
 # ── the server routes, and the sentences the panel test mocks ───────────────
 
 #: case -> the config change the panel would send for it.
@@ -181,6 +208,7 @@ CASES = {
             {"subject_id": "101", "simulation_name": "L_Insula"},
         ]
     },
+    "atlas": {"atlas_name": "aal"},
 }
 
 

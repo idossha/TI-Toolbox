@@ -3221,6 +3221,13 @@ fetching after `COPY /ti-toolbox` (re-downloads on every source change).
 offline runs (`docker run --network none`) of the runner on Dataset 000 sub-LA and sub-101 with the
 pruned cache, and in an image built with the Dockerfile step.
 
+**Amended 2026-10-23: three atlases, AAL3 dropped.** The maintainer does not need it, and its host,
+www.gin.cnrs.fr, refused connections often enough to fail the image build. The bundled cache is now
+Harvard-Oxford cortical and subcortical and Schaefer 2018 (100 parcels), 0.35 MB [measured,
+`atlases.py --prune` in idossha/ti-toolbox:v3.1.1, 2026-10-23]; `NilearnConfig` refuses any
+`atlas_name` outside that table, so a config naming `"aal"` fails at validate instead of drawing a
+PDF without outlines.
+
 ## 2026-10-21 — An odd electrode-pair count is refused when a simulation config is built
 
 **Decision.** `SimulationConfig.__post_init__` raises for a montage whose pair count

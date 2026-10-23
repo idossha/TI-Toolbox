@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from tit.paths import validate_name
+from tit.plotting.nilearn.atlases import ATLASES
 
 
 @dataclass
@@ -53,7 +54,8 @@ class NilearnConfig:
         Maximum threshold; ``None`` (the default) uses the 99.9th
         percentile of the averaged data.
     atlas_name : str, optional
-        Atlas used for region contours on the slice PDF.
+        Atlas used for region contours on the slice PDF: a key of
+        :data:`tit.plotting.nilearn.atlases.ATLASES`, the atlases the image bundles.
     selected_regions : list of int or None, optional
         0-indexed region indices to include; ``None`` includes all.
     subdir_name : str, optional
@@ -70,8 +72,8 @@ class NilearnConfig:
     Raises
     ------
     ValueError
-        If *subject_simulation_pairs* is empty, or *use_percentiles* is set
-        with a cutoff outside ``[0, 100]``.
+        If *subject_simulation_pairs* is empty, *use_percentiles* is set
+        with a cutoff outside ``[0, 100]``, or *atlas_name* is not a bundled atlas.
 
     See Also
     --------
@@ -107,6 +109,9 @@ class NilearnConfig:
           loading every field.
         - A repeated subject/simulation pair would count that field twice in the
           voxelwise mean.
+        - An *atlas_name* that is not a key of
+          :data:`~tit.plotting.nilearn.atlases.ATLASES` (such as ``"aal"``, offered up to
+          v3.1.1) has no bundled label image, so the slice PDF would lose its outlines.
 
         Raises:
             ValueError: Naming the field and the value it refused.
@@ -114,6 +119,11 @@ class NilearnConfig:
         if not self.subject_simulation_pairs:
             raise ValueError("at least one subject/simulation pair is required")
         validate_name(self.subdir_name, "subdir_name")
+        if self.atlas_name not in ATLASES:
+            raise ValueError(
+                f"atlas_name {self.atlas_name!r} is not an atlas Nilearn visuals offers; "
+                f"choose one of: {', '.join(ATLASES)}"
+            )
         if self.use_percentiles:
             for cutoff in (self.min_cutoff, self.max_cutoff):
                 if cutoff is not None and not (0 <= cutoff <= 100):

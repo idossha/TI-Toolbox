@@ -128,7 +128,7 @@ RUN simnibs_python -m pip install --no-cache-dir \
         fastapi "uvicorn[standard]" pyyaml "dipy>=1.12,<2"
 
 # Nilearn Visuals' atlas contours: fetched once, sha256-checked against the table in atlases.py
-# (the build fails if upstream changes them) and pruned to the four label images (~2.6 MB), so
+# (the build fails if upstream changes them) and pruned to the three label images (~0.4 MB), so
 # a job reads them from disk and never needs the network. Copied alone so this layer caches.
 ENV NILEARN_DATA=/opt/nilearn_data
 COPY --from=source /ti-toolbox/tit/plotting/nilearn/atlases.py /tmp/nilearn_atlases.py

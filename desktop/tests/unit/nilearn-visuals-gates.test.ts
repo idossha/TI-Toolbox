@@ -5,7 +5,8 @@
  * What it pins (2026-10-22): `NilearnConfig.__post_init__` (tit/plotting/nilearn/config.py)
  * refuses a sub-directory that is not one folder ("../stats" wrote the group average into
  * derivatives/ti-toolbox/stats/), an empty display range (min_cutoff >= max_cutoff) and a
- * subject/simulation pair listed twice (it would count double in the mean). The panel used to
+ * subject/simulation pair listed twice (it would count double in the mean), and since 2026-10-23
+ * an atlas the image does not bundle ("aal", offered up to v3.1.1). The panel used to
  * show those refusals in the plan pane but leave Run enabled, so a click queued a job the
  * server then refused. Now the server's verdict is a blocker like the page's own checks: Run is
  * disabled, its title is the server's sentence (prefixed with the field only when the sentence
@@ -56,6 +57,7 @@ const REFUSALS = {
   subdir: { path: "subdir_name", message: "invalid subdir_name '../stats': letters, digits, '.', '_', '-' and inner spaces only, not starting with '.', at most 128 characters" },
   cutoffs: { path: "min_cutoff", message: "min_cutoff 0.2 V/m must be below max_cutoff 0.1 V/m: nothing would be drawn" },
   duplicate: { path: "subject_simulation_pairs", message: "subject_simulation_pairs lists sub-101 / L_Insula twice: the group average would count that simulation double" },
+  atlas: { path: "atlas_name", message: "atlas_name 'aal' is not an atlas Nilearn visuals offers; choose one of: harvard_oxford, harvard_oxford_sub, schaefer_2018" },
 };
 
 /** A refusal whose sentence does not name its field: the title keeps the "path: " prefix. */
@@ -78,7 +80,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-type Form = { pairs?: unknown[]; subdir?: string; minCutoff?: number; maxCutoff?: number };
+type Form = { pairs?: unknown[]; subdir?: string; minCutoff?: number; maxCutoff?: number; atlas?: string };
 
 /** Render the panel with this form, let the debounced validation settle, run Run's handler once. */
 async function gate(form: Form) {
@@ -87,6 +89,7 @@ async function gate(form: Form) {
   writeSession(sessionSlot("", "subdir"), form.subdir ?? "insula_group");
   if (form.minCutoff !== undefined) writeSession(sessionSlot("", "minCutoff"), form.minCutoff);
   if (form.maxCutoff !== undefined) writeSession(sessionSlot("", "maxCutoff"), form.maxCutoff);
+  if (form.atlas !== undefined) writeSession(sessionSlot("", "atlas"), form.atlas);
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -161,6 +164,15 @@ describe("Nilearn visuals Run gate", () => {
       { subject_id: "101", simulation_name: "L_Insula" },
       { subject_id: "101", simulation_name: "L_Insula" },
     ]);
+    expect({ disabled, title }).toEqual({ disabled: true, title: reason });
+    expect(toasts).toEqual([reason]);
+    expect(submitted).toEqual([]);
+  });
+
+  it("an atlas the image does not bundle is blocked with the server's sentence, which lists the ones it does", async () => {
+    const reason = refusedWith("atlas");
+    const { disabled, title, judged, submitted, toasts } = await gate({ atlas: "aal" });
+    expect(judged).toMatchObject({ atlas_name: "aal" });
     expect({ disabled, title }).toEqual({ disabled: true, title: reason });
     expect(toasts).toEqual([reason]);
     expect(submitted).toEqual([]);

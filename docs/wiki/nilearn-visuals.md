@@ -109,7 +109,6 @@ The atlases ship in the image and are read from `NILEARN_DATA=/opt/nilearn_data`
 |---|---|---|---|
 | Harvard-Oxford (subcortical) (default) | `sub-maxprob-thr25-2mm` | 21 | Includes left and right cerebral cortex and white matter, the lateral ventricles and the brain stem |
 | Harvard-Oxford (cortical) | `cort-maxprob-thr25-2mm` | 48 | Cortical regions only; no subcortical structures |
-| AAL3 | AAL3v1 | 166 | |
 | Schaefer 2018 (100 parcels) | 7 networks, 1 mm | 100 | |
 
 ## Example Results
