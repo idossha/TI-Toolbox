@@ -4,11 +4,9 @@ title: Analyzer Module
 permalink: /wiki/analyzer/
 ---
 
-The Analyzer is the last step of the pipeline: after a montage has been optimized ([flex-search]({{ site.baseurl }}/wiki/flex-search/), [ex-search]({{ site.baseurl }}/wiki/ex-search/)) and [simulated]({{ site.baseurl }}/wiki/simulator/), it turns the finished simulation into numbers — descriptive statistics of the field inside a region of interest and across the whole brain, in mesh or voxel space. One `Analyzer` class handles both spaces, and `run_group_analysis()` runs the same analysis across subjects.
+The Analyzer is the last step of the pipeline. After a montage has been optimized ([flex-search]({{ site.baseurl }}/wiki/flex-search/), [ex-search]({{ site.baseurl }}/wiki/ex-search/)) and [simulated]({{ site.baseurl }}/wiki/simulator/), it reduces the field to numbers: statistics inside a target and across the whole grey matter, in mesh or voxel space. One `Analyzer` class handles both spaces, and `run_group_analysis()` runs the same analysis across subjects.
 
-This page is also where the toolbox's field quantities are defined once for everyone: the optimizer and simulator pages link here for what `TI_max`, `TI_normal`, `TI_avg`, `hf_peak` and `hf_sar` mean and how the envelope math works.
-
-## Overview
+This page also defines the toolbox's field quantities, `TI_max`, `TI_normal`, `TI_avg`, `hf_peak` and `hf_sar`. The optimizer and simulator pages link here for them.
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/v3/analyzer-page.png" alt="The Analyzer page: one row analysing subject 101's L_Insula simulation on the mesh, with a 10 mm MNI sphere as its target" style="width: 100%; max-width: 1000px;">
@@ -17,131 +15,121 @@ This page is also where the toolbox's field quantities are defined once for ever
 
 ---
 
-## Quantities of Interest
+## Field quantities {#quantities-of-interest}
 
-Two words carry all of the structure on this page. A **channel** is one pair of electrodes driven by one current source at one kHz frequency. Two channels at slightly offset frequencies **share a carrier** and produce one beat: standard TI is 4 electrodes forming 2 channels on one carrier (e.g. 2.000 and 2.010 kHz around a 2 kHz carrier), and mTI is 8 electrodes forming 4 channels on two carriers (e.g. 2 kHz and 4 kHz — each pair of channels shares one).
+A **channel** is one electrode pair driven by one current source at a kHz frequency. Two channels whose frequencies differ by a small $$\Delta f$$ **share a carrier** and beat at $$\Delta f$$. Standard TI uses two channels on one carrier (4 electrodes, for example 2.000 and 2.010 kHz). Multipolar TI (mTI) uses $$2K$$ channels on $$K$$ carriers (8 electrodes for $$K = 2$$, for example 2.000/2.010 and 4.000/4.010 kHz).
 
-Neither channel's kHz field modulates neurons on its own; the quantity the TI community cares about is the **amplitude of the low-frequency beat** that the two channels sharing a carrier produce where their fields overlap. Everything the analyzer reports is a spatial statistic of that one quantity, so it helps to see it once in the time domain and once in the spatial domain.
-
-### Time domain: what a single value of `TI_max` is
+A kHz field alone does not modulate neurons. What matters is the amplitude of the slow beat where the channels' fields overlap (Grossman et al. 2017). Every statistic the Analyzer reports summarises that amplitude, or one of the safety metrics, over space.
 
 <div class="image-container" style="max-width: 800px;">
   <video controls muted playsinline style="width: 100%; border-radius: 8px;" preload="metadata">
     <source src="{{ site.baseurl }}/assets/videos/TI_timeDomain.mp4" type="video/mp4">
   </video>
-  <em>The kHz fields of two channels sharing a carrier, each too fast to modulate neurons on its own, sum where they overlap into a field whose amplitude beats at the difference frequency. The peak-to-trough swing of that envelope is the modulation depth -- the single number <code>TI_max</code> stores at every mesh node or voxel.</em>
+  <em>Two channels sharing a carrier, each too fast to modulate neurons, sum into a field whose amplitude beats at the difference frequency. The peak-to-trough swing of that envelope is the envelope amplitude; its largest value over directions is what <code>TI_max</code> stores at every mesh element or voxel.</em>
 </div>
 
-- **`TI_max`** (V/m) -- the modulation depth of the beat envelope, maximised over direction at every mesh node or voxel. It is the default field of every simulation and of every analysis, and what "TImax" / "TInorm" mean in papers and in this toolbox's optimizers. For one carrier (two channels) it is the closed form $$2\min(\lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert)$$ when the fields are near-aligned, and smaller otherwise (Grossman et al. 2017; exact form under [Envelope Math and Critical Values](#envelope-math-and-critical-values) below).
-- **`TI_normal`** (V/m, mesh only) -- the same envelope measured along the local cortical surface normal, i.e. the component that runs along the apical dendrites of pyramidal cells. It is always $$\le$$ `TI_max`, can be much smaller where the field is tangential to the cortex (see below), and is written for both TI and mTI runs (for mTI via `get_TI_dir`, the same envelope evaluated along the surface normal).
-- **`TI_avg`, `hf_peak`, `hf_sar`** -- optional extra fields (direction-averaged envelope; carrier-exposure safety metrics). They are defined below ([Envelope Math](#envelope-math-and-critical-values) and [Safety Metrics](#safety-metrics)); the analyzer treats them as any other field, each in its own units.
+### Two channels: the envelope amplitude {#envelope-math-and-critical-values}
+
+Let $$\mathbf{E}_1$$ and $$\mathbf{E}_2$$ be the two channels' field amplitudes (V/m) at one point, and $$\hat{\mathbf{n}}$$ a unit direction. Along $$\hat{\mathbf{n}}$$ the channels are sinusoids of amplitude $$a = \mathbf{E}_1 \cdot \hat{\mathbf{n}}$$ and $$b = \mathbf{E}_2 \cdot \hat{\mathbf{n}}$$. Their sum swings between $$\lvert a \rvert + \lvert b \rvert$$ and $$\bigl\lvert \lvert a \rvert - \lvert b \rvert \bigr\rvert$$ once per beat, so the envelope amplitude along $$\hat{\mathbf{n}}$$ is
+
+$$
+E_{\mathrm{AM}}(\hat{\mathbf{n}})
+= \Bigl\lvert \, \lvert (\mathbf{E}_1 + \mathbf{E}_2) \cdot \hat{\mathbf{n}} \rvert - \lvert (\mathbf{E}_1 - \mathbf{E}_2) \cdot \hat{\mathbf{n}} \rvert \, \Bigr\rvert
+= 2 \min\bigl( \lvert a \rvert, \lvert b \rvert \bigr)
+$$
+
+Its maximum over all directions has a closed form. Label the channels so that $$\lVert \mathbf{E}_1 \rVert \ge \lVert \mathbf{E}_2 \rVert$$, and flip the sign of $$\mathbf{E}_2$$ if needed so that the angle $$\alpha$$ between the fields is at most 90°. Then
+
+$$
+E_{\mathrm{AM}}^{\max} =
+\begin{cases}
+2 \lVert \mathbf{E}_2 \rVert
+  & \text{if } \lVert \mathbf{E}_2 \rVert \le \lVert \mathbf{E}_1 \rVert \cos\alpha \\[8pt]
+\dfrac{2 \lVert \mathbf{E}_2 \times (\mathbf{E}_1 - \mathbf{E}_2) \rVert}{\lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert}
+  & \text{otherwise}
+\end{cases}
+$$
+
+The condition is easiest to read along $$\mathbf{E}_2$$ itself, where the projections are $$\lVert \mathbf{E}_1 \rVert \cos\alpha$$ and $$\lVert \mathbf{E}_2 \rVert$$: when the first is the larger, that direction reaches the full $$2 \lVert \mathbf{E}_2 \rVert$$. Otherwise the maximum lies in the plane of the two fields, perpendicular to $$\mathbf{E}_1 - \mathbf{E}_2$$, and is smaller.
+
+Both formulas are from Grossman et al. 2017 (_Cell_ 169:1029, STAR Methods), who call $$E_{\mathrm{AM}}$$ the envelope modulation amplitude. SimNIBS computes $$E_{\mathrm{AM}}^{\max}$$ as `TI.get_maxTI` ("TImax"), Hirata et al. 2024 call it the electric field envelope (EFE) amplitude, and this toolbox stores it as **`TI_max`** (V/m). The code and some figures call $$E_{\mathrm{AM}}$$ the modulation depth (MD). `tit.calc` evaluates an equivalent form that needs no relabelling or sign flip (Hirata et al. 2024, _Computers in Biology and Medicine_ 178:108697, Eq. 2).
+
+### Direction: `TI_max`, `TI_normal`, `TI_avg`
+
+The three envelope fields differ only in which direction $$\hat{\mathbf{n}}$$ they use:
+
+| Field | Direction | Meaning | `tit.calc` function |
+| --- | --- | --- | --- |
+| `TI_max` (`mTI_max` for mTI) | the maximum over $$\hat{\mathbf{n}}$$ | the strongest modulation a neuron at that point could see, whatever its orientation; the default output and the default score of every optimizer | `get_TI_vectors(fields, psi=None)` |
+| `TI_normal` (mesh only) | the normal of the central (mid-thickness) grey-matter surface at each node | the modulation along the axis of pyramidal-cell apical dendrites; written by every simulation that has a beat | `get_TI_dir(fields, directions, psi=None)` |
+| `TI_avg` (optional) | the mean over 192 directions spread over the sphere | what a randomly oriented neuron sees on average | `get_TI_avg(fields, psi=None)` |
+
+By definition neither `TI_normal` nor `TI_avg` exceeds `TI_max`, and `TI_normal` collapses where the field runs tangential to the cortex. For two channels, $$\mathrm{TI\_normal} = 2 \min\bigl( \lvert \mathbf{E}_1 \cdot \hat{\mathbf{n}} \rvert, \lvert \mathbf{E}_2 \cdot \hat{\mathbf{n}} \rvert \bigr)$$: each channel's field is reduced to its normal component first, and then the beat amplitude of those two components is taken. This is not the normal component of the `TI_max` vector, because the envelope is not linear in the fields. With $$\mathbf{E}_1 = \hat{\mathbf{x}}$$, $$\mathbf{E}_2 = \hat{\mathbf{y}}$$ and the normal along $$\hat{\mathbf{x}}$$, the `TI_max` vector $$(1, 1, 0)$$ projects to 1, but `TI_normal` is 0, because the second channel has no normal component to beat with. `tit.calc` exposes exactly these three functions. Each takes `fields = [E_1, E_2, ..., E_2K]`, one `(N, 3)` array per channel, with each two consecutive channels sharing a carrier. `get_TI_vectors` returns `(N, 3)` vectors whose norm is `TI_max`. The standard two-channel simulation and ex-search compute `TI_max` with SimNIBS's `TI.get_maxTI`, and the simulation computes `TI_normal` with `TI.get_dirTI`, the same formulas. The mTI simulation and mex-search use `tit.calc`.
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_fig4c_ti_normal.png" alt="TI_normal as the projection of TI_max onto the surface normal" style="width: 100%; max-width: 700px;">
-  <em>At each surface node, <code>TI_normal</code> is the component of the <code>TI_max</code> envelope along the local surface normal \(\hat{n}\): where the field runs along \(\hat{n}\) (left) the two are nearly equal, and where it runs tangential to the cortex (right) <code>TI_normal</code> collapses even though <code>TI_max</code> is unchanged. Figure 4C from <a href="https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext">Haber et al. 2026</a>.</em>
+  <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_fig4c_ti_normal.png" alt="Schematic of two cortical surface points with the TI_max arrow and the surface normal: TI_normal is large where TI_max runs along the normal and small where TI_max runs tangential" style="width: 100%; max-width: 700px;">
+  <em><code>TI_normal</code> is the envelope amplitude along the local surface normal \(\hat{\mathbf{n}}\). Where the strongest modulation runs along \(\hat{\mathbf{n}}\) (left) the two values are close; where it runs tangential to the cortex (right) <code>TI_normal</code> is small although <code>TI_max</code> is unchanged. The dashed drop lines are schematic: <code>TI_normal</code> is the envelope evaluated along \(\hat{\mathbf{n}}\), not the projection of the <code>TI_max</code> vector onto \(\hat{\mathbf{n}}\). Figure 4C from <a href="https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext">Haber et al. 2026</a>.</em>
 </div>
 
-### Multipolar (mTI): more carriers, same quantity
+### More carriers: multipolar TI (mTI) {#more-carriers-mti}
 
-With four channels on two carriers (8 electrodes) — or more — `mTI_max` is still the same beat-envelope modulation depth: each carrier's two channels beat exactly as in standard TI, and the carriers, being mutually incoherent, add **powers**, not amplitudes:
+With $$K$$ carriers, carrier $$k$$'s two channels are $$\mathbf{E}_{2k-1}$$ and $$\mathbf{E}_{2k}$$, the order `tit.calc` expects. Along $$\hat{\mathbf{n}}$$, write $$a_k = \mathbf{E}_{2k-1} \cdot \hat{\mathbf{n}}$$ and $$b_k = \mathbf{E}_{2k} \cdot \hat{\mathbf{n}}$$. Squaring the summed signal and low-pass filtering it removes every kHz term and leaves the power envelope
+
+$$
+p(t) = P + Q \cos(2\pi \Delta f \, t + \varphi),
+\qquad
+P = \frac{1}{2} \sum_{k=1}^{K} \left( a_k^2 + b_k^2 \right),
+\qquad
+Q = \left\lvert \sum_{k=1}^{K} a_k b_k \, e^{i \psi_k} \right\rvert
+$$
+
+$$P$$ is the mean carrier power along $$\hat{\mathbf{n}}$$, $$Q$$ the amplitude of the summed beats, $$\psi_k$$ the phase of carrier $$k$$'s beat, and $$\varphi$$ a common phase that does not affect the amplitude. The amplitude envelope $$A(t) = \sqrt{2 p(t)}$$ swings between $$\sqrt{2(P - Q)}$$ and $$\sqrt{2(P + Q)}$$, so
+
+$$
+E_{\mathrm{AM}}(\hat{\mathbf{n}}) = \sqrt{2(P + Q)} - \sqrt{2(P - Q)}
+$$
+
+At $$K = 1$$, $$P \pm Q = \tfrac{1}{2}(\lvert a \rvert \pm \lvert b \rvert)^2$$ and this is $$2\min(\lvert a \rvert, \lvert b \rvert)$$, the two-channel envelope above. Botzanowski et al. 2025 (_Bioelectronic Medicine_ 11:7) describe this square, low-pass, square-root envelope for mTI in prose; the formula makes it explicit. It assumes that every carrier beats at the same $$\Delta f$$, that the carrier bands are far enough apart for the low-pass to remove their cross terms, and that the beats are phase-aligned ($$\psi_k = 0$$, the default `psi=None`; the `tit.calc` functions accept other phases).
+
+`TI_max` for mTI is the maximum of $$E_{\mathrm{AM}}(\hat{\mathbf{n}})$$ over directions, as for two channels; mTI meshes name it `mTI_max`. For $$K \ge 2$$ there is no closed form, so `get_TI_vectors` evaluates 192 directions spread over the sphere and refines around the six best, well-separated ones. This is a numerical search and can land slightly below the true maximum. `TI_normal` and `TI_avg` use the same formula, at the surface normal and averaged over the 192 directions.
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_time.png" alt="mTI time domain: per-carrier envelopes vs the joint envelope" style="width: 100%; max-width: 900px;">
-  <em>Time domain of an mTI field (4 channels, 2 carriers) at one point, all projections colinear for clarity: carrier 1's two channels carry 0.5 + 0.5 V/m, carrier 2's an unequal 0.3 + 0.7 V/m (so its beat never reaches zero). Alone, each carrier's modulation depth is 1.00 and 0.60 V/m (top, middle; <code>get_TI_vectors</code>). With all four channels together (bottom), the two carriers are mutually incoherent, so the joint envelope adds their <strong>powers</strong>, not their amplitudes: <code>get_TI_vectors</code> gives MD = 1.01 V/m. Every larger quantity in the panel is a different thing: the dotted sum of per-carrier envelopes (peaking at 2.00 V/m) is not a physical envelope; a recursive TI-of-TI recombination would report an unphysical 1.20 V/m; and the worst-case instantaneous peak of the summed channel fields <code>hf_peak</code> = 2.00 V/m is a safety quantity, not a modulation depth. The dashed running-RMS magnitude is the power view of the same field (its square relates to <code>hf_sar</code> = 1.08 (V/m)²; see <a href="#safety-metrics">Safety Metrics</a>). All values verified against <code>tit.calc</code>/<code>tit.fields</code> for this exact scenario.</em>
+  <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_time.png" alt="mTI time domain: per-carrier envelopes and the joint envelope at one point" style="width: 100%; max-width: 900px;">
+  <em>One point of an mTI field (4 channels, 2 carriers), with every channel field along one axis for clarity. Carrier 1's channels carry 0.5 + 0.5 V/m, carrier 2's 0.3 + 0.7 V/m. On its own, each carrier's envelope amplitude is 1.00 and 0.60 V/m (top, middle). Together (bottom), the carriers add in power and the joint envelope amplitude is 1.01 V/m (<code>get_TI_vectors</code>). The larger numbers are other quantities: the dotted sum of per-carrier envelopes (2.00 V/m) is not a physical envelope, a TI-of-TI recombination would give 1.20 V/m, and <code>hf_peak</code> = 2.00 V/m is the instantaneous peak of the summed field. The dashed running RMS is the power view of the same field; its mean square is <code>hf_sar</code>/2 = 0.54 (V/m)² (see <a href="#safety-metrics">Safety metrics</a>).</em>
 </div>
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_3d.png" alt="mTI directional envelope surface in 3D vector space" style="width: 100%; max-width: 900px;">
-  <em>The same idea in vector space. At each mesh element the four channels' E-fields are vectors (A), and the modulation depth depends on the direction \(\hat{n}\) it is measured along: sweeping \(\hat{n}\) over the sphere and plotting \(r(\hat{n}) = \mathrm{MD}(\hat{n})\) from the \((P, Q)\) formulas gives the directional envelope surface (B). <code>mTI_max</code> is the radius of this surface's farthest point -- exactly what <code>get_TI_vectors</code> finds with its 192-direction Fibonacci sweep plus local refinement (0.89 V/m along \(\hat{n}^{*}\) here, verified against the toolbox for these vectors). <code>TI_avg</code> is the average radius of the same surface over all sampled directions.</em>
+  <em>The same idea in vector space. (A) The four channel fields at one point. (B) The envelope amplitude along each direction, drawn as the radius \(r(\hat{\mathbf{n}}) = E_{\mathrm{AM}}(\hat{\mathbf{n}})\) (MD in the figure). <code>mTI_max</code> is the radius of the farthest point, 0.89 V/m along \(\hat{\mathbf{n}}^{*}\) here, which <code>get_TI_vectors</code> finds by its direction search. <code>TI_avg</code> is the mean radius over the sampled directions.</em>
 </div>
 
-The two subsections below give the formulas behind these figures -- the $$(P, Q)$$ sufficient statistics, the exact one-carrier closed form, and the safety metrics. How montages are detected as TI vs. mTI is a simulation mechanic covered on the [Simulator page]({{ site.baseurl }}/wiki/simulator/).
+Two shortcuts give different and wrong numbers, and the toolbox offers neither: adding the per-carrier envelopes (carriers add in power, not amplitude), and feeding per-carrier envelopes back into the two-channel formula as if they were fields (TI-of-TI). How the toolbox tells a TI montage from an mTI montage is described on the [Simulator page]({{ site.baseurl }}/wiki/simulator/#how-the-toolbox-detects-mti).
 
-### Envelope Math and Critical Values
+### Safety metrics
 
-The envelope for any number of carriers $$K$$ reduces to two sufficient statistics of the channel fields' projections onto a candidate direction $$\mathbf{n}$$. For carrier $$k$$, the signed projections of its two channels' fields are
+`hf_peak` and `hf_sar` describe the kHz exposure itself rather than the envelope. They follow Cassarà et al. 2025 (_Bioelectromagnetics_, Part I 46(2):e22542, doi:10.1002/bem.22542; Part II 46(1):e22536, doi:10.1002/bem.22536) and are computed in `tit/fields.py` from all $$N$$ channel fields $$\mathbf{E}_1, \dots, \mathbf{E}_N$$. The two channels of a carrier differ by $$\Delta f$$, so no two channels share a frequency, and every channel field enters on its own.
 
-$$
-a_k = \mathbf{E}_{ka} \cdot \mathbf{n},
-\qquad
-b_k = \mathbf{E}_{kb} \cdot \mathbf{n}
-$$
-
-from which the carrier power $$P$$ and the coherent phasor sum $$Q$$ follow:
+**`hf_peak`** (V/m) is the largest instantaneous magnitude the summed field can reach:
 
 $$
-P = \frac{1}{2} \sum_k \left( a_k^2 + b_k^2 \right),
-\qquad
-Q = \left\lvert \sum_k a_k b_k \, e^{i \psi_k} \right\rvert
+\mathrm{hf\_peak} = \max_{s_j \in \{+1, -1\}} \left\lVert \sum_{j=1}^{N} s_j \mathbf{E}_j \right\rVert
 $$
 
-and the modulation depth is
+Each channel's field oscillates between $$+\mathbf{E}_j$$ and $$-\mathbf{E}_j$$, and the magnitude of the sum is largest when every channel is at a crest or a trough, so the maximum over sign choices is the maximum over all phase combinations. For two channels it is $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$, Cassarà Part I, Eq. 3 (p. 11). The field reaches this peak when every phase combination occurs over time. With harmonically related carriers, such as channels at 2.000, 2.010, 4.000 and 4.010 kHz, some combinations never occur, and `hf_peak` is then a conservative upper bound. Up to 8 channels, all $$2^{N-1}$$ sign patterns are evaluated. Above 8, sampled directions pick the patterns to evaluate; this can miss the maximum, so the value is slightly non-conservative, and `tit.fields.hf_peak_is_exact` reports which case applies.
+
+**`hf_sar`** ((V/m)²) sums the channels' powers, because fields at different frequencies add in power, not amplitude (Cassarà Part I, p. 11; Part II, p. 8):
 
 $$
-\mathrm{MD} = \sqrt{2} \left( \sqrt{P + Q} - \sqrt{P - Q} \right)
+\mathrm{hf\_sar} = \sum_{j=1}^{N} \lVert \mathbf{E}_j \rVert^2
 $$
 
-$$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). This is implemented in `tit/calc.py`, whose public API is exactly three functions:
+It is a heating proxy, not calibrated SAR. The time-averaged SAR is $$\tfrac{\sigma}{2\rho}\,\mathrm{hf\_sar}$$, with the tissue conductivity $$\sigma$$ and density $$\rho$$, which the toolbox does not apply, and $$\mathrm{hf\_sar}/2$$ is the time-averaged squared field.
 
-| Function                                    | Purpose                                                                                 |
-| ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `get_TI_vectors(fields, psi=None)`         | Modulation-amplitude vectors for $$K \ge 1$$ carriers ($$K = 1$$ exact closed form, $$K \ge 2$$ direction search) |
-| `get_TI_avg(fields, psi=None)`              | Direction-averaged modulation depth                                                     |
-| `get_TI_dir(fields, directions, psi=None)` | Envelope along a fixed per-element direction; backs `TI_normal` for mTI                 |
-
-**`get_TI_vectors`** is the one envelope function; standard TI simulation, mTI simulation and mex-search all call it. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]` -- one array of shape `(N, 3)` per channel, ordered so that consecutive fields are the two channels sharing a carrier -- and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$.
-
-- **$$K = 1$$** (one carrier: standard TI) is solved by an exact closed form (Hirata et al. 2024, _Computers in Biology and Medicine_ 178, 108697; sign-agnostic):
-
-  $$
-  \mathrm{MD} =
-  \begin{cases}
-  2 \min\!\left( \lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert \right)
-    & \text{if } \min\!\left( \lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert \right) \le \sqrt{\lvert \mathbf{E}_1 \cdot \mathbf{E}_2 \rvert} \\[8pt]
-  \dfrac{2 \lVert \mathbf{E}_1 \times \mathbf{E}_2 \rVert}
-        {\min\!\left( \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert \right)}
-    & \text{otherwise}
-  \end{cases}
-  $$
-
-  In the first case the envelope lies along the smaller field's own (sign-corrected) direction; in the second it is evaluated at the component of the smaller field perpendicular to whichever of $$\mathbf{E}_1 - \mathbf{E}_2$$ / $$\mathbf{E}_1 + \mathbf{E}_2$$ has the smaller norm. No direction search is needed at $$K = 1$$.
-
-- **$$K \ge 2$$** (multiple carriers: mTI) has no closed form and is solved by a direction search: a 192-direction Fibonacci-sphere sweep, then local refinement around the best few directions. `get_TI_avg` averages the envelope over the same 192 directions instead of taking the maximum (no refinement), so it is element-wise $$\le \mathrm{TI}_{\max}$$.
-
-The same modulation depth $$\mathrm{MD}(\mathbf{n}) = \sqrt{2}\left(\sqrt{P + Q} - \sqrt{P - Q}\right)$$ answers three different questions, and the three functions differ only in what they do with the direction $$\mathbf{n}$$:
-
-- **`get_TI_vectors`** — maximise over $$\mathbf{n}$$: the strongest modulation any neuron at that point could see, whatever its orientation. This is `TI_max` / `mTI_max`, and what the optimizers score.
-- **`get_TI_dir`** — evaluate at a *given* $$\mathbf{n}$$: the modulation seen along one specific orientation. With $$\mathbf{n}$$ set to the cortical surface normal this is `TI_normal`, the component along pyramidal-cell dendrites.
-- **`get_TI_avg`** — average over all $$\mathbf{n}$$: what a randomly-oriented neuron sees on average. This is `TI_avg`, and it is always $$\le$$ `TI_max`.
-
-Two tempting shortcuts are **not** valid and are deliberately not offered: summing the per-carrier envelopes (carriers are mutually incoherent, so their *powers* add, not their amplitudes — the dotted trace in the time-domain figure above overshoots the physical envelope) and recombining per-carrier envelopes recursively as TI-of-TI (an envelope is not a field; feeding one back into the one-carrier formula is physically invalid).
-
-### Safety Metrics
-
-Two carrier-exposure safety metrics (`tit/fields.py`, Cassarà et al. 2025, _Bioelectromagnetics_ 46(2), doi:10.1002/bem.22542) are computed directly from the N per-channel E-fields, independent of the modulation-depth envelope:
-
-**`hf_peak`** (Eq. 3) is the worst-case instantaneous peak of the summed kHz field: the channels run at mutually incommensurate frequencies, so every relative phase combination occurs over time, and the true worst case is the max over sign choices,
-
-$$
-\mathrm{hf\_peak} = \max_{\mathbf{s}} \left\lVert \sum_i s_i \mathbf{E}_i \right\rVert,
-\qquad s_i \in \{ +1, -1 \}
-$$
-
-At $$N = 2$$ this is exactly $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \; \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$. Up to 8 fields every one of the $$2^{N-1}$$ sign combinations is evaluated exactly. Above 8 fields a sweep over sampled directions picks the sign patterns to evaluate; that is a lower bound on the true maximum and therefore **slightly non-conservative**.
-
-**`hf_sar`** is the incoherent sum of the channel-field powers, in $$(\mathrm{V/m})^2$$ -- power adds rather than amplitude:
-
-$$
-\mathrm{hf\_sar} = \sum_i \lVert \mathbf{E}_i \rVert^2
-$$
-
-This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$, requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply.
-
-Under the shipped positional wiring, each field is one carrier, so both metrics include **every** channel field. Shared-frequency fields require coherent vector summation first; the one place the toolbox models that is the carrier-only control below. Both metrics are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+`TI_avg`, `hf_peak` and `hf_sar` are optional outputs. `SimulationConfig.output_fields` defaults to `["TI_max"]`, so a simulation writes them only when they are selected (see [Output Fields on the Simulator page]({{ site.baseurl }}/wiki/simulator/#output-fields)). The Analyzer treats each like any other field, in its own units.
 
 #### Carrier-only controls (ΔF = 0) {#carrier-only-controls}
 
-A carrier-only control drives both pairs of a 2-pair montage at the **same** frequency (e.g. 15,000 / 15,000 Hz), phase-locked and in phase, so there is no beat and no envelope. The two carriers then add into one fixed field $$\mathbf{E}_1 + \mathbf{E}_2$$ that oscillates at the carrier frequency, and the TI worst case above — which is only reached because two different frequencies sweep through every relative phase — never occurs. Following Cassarà et al. 2025 Part II (_Bioelectromagnetics_ 46(1), e22536, doi:10.1002/bem.22536; p. 8: "coherent field superposition was used for identical frequencies"), the carriers are summed coherently:
+A carrier-only control drives both channels of a two-channel montage at the **same** frequency (for example 15,000 / 15,000 Hz), phase-locked and in phase, so there is no beat and no envelope. The channels then add into one field $$\mathbf{E}_1 + \mathbf{E}_2$$ oscillating at the carrier frequency. Following Cassarà Part II (p. 8: "coherent field superposition was used for identical frequencies"), the fields are summed as vectors first:
 
 $$
 \mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert,
@@ -149,39 +137,24 @@ $$
 \mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2
 $$
 
-instead of $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$ and $$\lVert \mathbf{E}_1 \rVert^2 + \lVert \mathbf{E}_2 \rVert^2$$. For `hf_peak` the two agree where the carrier fields are within 90° of each other and differ where they are not; `hf_sar` gains the cross term $$2\,\mathbf{E}_1 \cdot \mathbf{E}_2$$ (up to twice the TI value for aligned carriers, down to zero for opposed equal ones). With $$\lVert \mathbf{E}_1 \rVert = 1$$ and $$\lVert \mathbf{E}_2 \rVert = 0.8$$ V/m at 120°, the TI worst case is 1.56 V/m while the carrier-only peak is 0.92 V/m. "In phase" means what the simulation's sign convention defines: each pair's first electrode is driven positive at the same instant.
+`hf_peak` keeps its TI value where the two fields are within 90° of each other and is smaller elsewhere. `hf_sar` gains the cross term $$2\,\mathbf{E}_1 \cdot \mathbf{E}_2$$, so it ranges from twice its TI value (equal, aligned fields) to zero (equal, opposed fields). For example, $$\lVert \mathbf{E}_1 \rVert = 1$$ and $$\lVert \mathbf{E}_2 \rVert = 0.8$$ V/m at 120° give `hf_peak` = 1.56 V/m in a TI run and 0.92 V/m in a carrier-only run. "In phase" follows the simulation's sign convention: each channel's first electrode is driven positive at the same instant.
 
-`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak` and/or `hf_sar`. How to set one up, in the app or from Python, is under [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control).
-
-### Spatial domain: how the analyzer summarises a field
-
-Once `TI_max` exists at every node or voxel, an analysis reduces it to a handful of spatial statistics -- intensity inside the target, intensity everywhere else, and how concentrated the hot spot is:
-
-| Quantity                      | `AnalysisResult` field                              | What it tells you                                                                                                                                                                                                                                     |
-| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Intensity in the ROI**      | `roi_mean` (also `roi_max`, `roi_min`)              | Area/volume-weighted mean `TI_max` inside the target. The number to compare against dose thresholds and between montages.                                                                                                                             |
-| **Intensity outside the ROI** | `gm_mean` (also `gm_max`)                           | Mean over the **entire grey matter** in mesh space, and over the selected **Tissue** in voxel space. This is the analyzer's fixed non-ROI; the optimizers additionally accept a user-defined avoidance region.                                       |
-| **Focality**                  | `roi_focality`                                      | `roi_mean / gm_mean`. 1 means the target is no hotter than the average cortex; higher is more selective. Same definition as ex-search's `Focality`.                                                                                                   |
-| **Normal component**          | `normal_mean`, `normal_max`, `normal_focality`      | The three statistics above recomputed on `TI_normal` (mesh only).                                                                                                                                                                                     |
-| **Hot-spot level**            | `percentile_95`, `percentile_99`, `percentile_99_9` | Field value below which 95 / 99 / 99.9 % of the grey-matter area (mesh) or of the selected tissue's volume (voxel) lies. `percentile_99_9` is a robust "peak" that ignores single outlier elements.                                                  |
-| **Hot-spot size**             | `focality_50_area` ... `focality_95_area`           | Grey-matter area in $$\mathrm{cm}^2$$ (mesh), or selected-tissue volume in $$\mathrm{cm}^3$$ (voxel), at or above 50 / 75 / 90 / 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot; a large one means the field is spread out, regardless of where the ROI is. |
-
-Two things trip people up: the percentile and area metrics describe the whole grey matter (or, in voxel space, the whole selected tissue) and do not depend on the ROI at all, and every statistic is computed on whichever field you selected, in that field's units -- selecting `hf_sar` gives you means of a power-like quantity in $$(\mathrm{V/m})^2$$, not a field strength.
+`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak` and/or `hf_sar`. To set one up, in the app or from Python, see [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control).
 
 ---
 
-## Defining the ROI
+## Targets {#defining-the-roi}
 
-An analysis needs a target. Open a row's **Job settings** and choose one of four target types: **Cortical**, **Subcortical**, **Spherical** or **NIfTI mask** (below, under [Custom NIfTI mask targets](#custom-nifti-mask-targets)). Each row owns its own target.
+An analysis needs a target. Open a row's **Job settings** and choose one of four target types: **Cortical**, **Subcortical**, **Spherical** or **NIfTI mask**. Each row owns its own target.
 
-**Spherical ROI Analysis**
+### Sphere
 
 - Each row of the **X / Y / Z / Radius** table is one sphere; **Add sphere** adds another, the bin icon removes one
 - Coordinates are in **Subject** or **MNI** space; MNI centres are transformed into each subject's anatomy automatically
 - Several spheres in one row run as **separate analyses**, one per sphere, never as a union; the row's target line ends in "(separate jobs)". In a group run, each sphere is its own group job
 - A union of spheres is Python-only: `analyzer.analyze_spheres([(x, y, z, r), ...])` measures them as one ROI (overlapping spheres are not double-counted). Its output folder is named `spheres<N>_...`, and long unions are shortened to the first sphere plus a hash
 
-**Cortical Analysis (Region Union)**
+### Cortical region
 
 - Analyze one or more atlas regions as a single combined ROI — passing more than one region name unions their masks into one target, and the result's region name is the selected names joined with `+`
 - **Combine regions into one ROI** (under the target, on by default): untick it to run one analysis per selected region instead of a union. In a group run, each region is then its own group job
@@ -189,7 +162,7 @@ An analysis needs a target. Open a row's **Job settings** and choose one of four
 - **Cortical** lists the subject's surface atlases: `DK40`, `a2009s`, `HCP_MMP1`. In **Voxel** space the same names read volume parcellations: `DK40` reads the DKT volume (FastSurfer's `aparc.DKTatlas+aseg.deep.mgz`, or FreeSurfer's `aparc.DKTatlas+aseg.mgz`), `a2009s` reads `aparc.a2009s+aseg.mgz`, which only a FreeSurfer `recon-all` run writes, and `HCP_MMP1` has no volume version, so a voxel analysis of it stops with an error — analyze it in **Mesh** space. See [FreeSurfer reconstruction and subregions]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-reconstruction-and-subregions) for which run writes which file
 - No surface atlas exists in MNI space; the shipped MNI atlases, the cortical ones included, are label volumes and are used through **Subcortical**
 
-**Subcortical Analysis**
+### Subcortical region
 
 - Choose a volume atlas and one or more of its regions. **Combine regions into one ROI** works as for cortical regions, in single and group runs
 - **Subject** space offers the subject's own label volumes: charm's `segmentation/labeling.nii.gz` (whole thalamus, hippocampus, amygdala, …), the FastSurfer and FreeSurfer volumes, including FreeSurfer's hippocampal-amygdala and thalamic-nuclei subfields, and any label volume placed in `m2m_<id>/masks/` (listed as `masks/<file>`)
@@ -198,74 +171,87 @@ An analysis needs a target. Open a row's **Job settings** and choose one of four
 - A region named exactly as an atlas label gets that label, before any longer label containing the name ("subiculum" is not "parasubiculum")
 - Results go to `Analyses/<Mesh|Voxel>/subcortical_<region>_<atlas>/`. Python: `analyzer.analyze_subcortical(atlas, region, coordinate_space="subject")`
 
-**Tissue Selection**
+### Custom NIfTI mask targets
+
+Choose **NIfTI mask** in a job's Target editor and import a `.nii` or `.nii.gz` file. All positive voxels belong to the target. Declare **Subject** or **MNI** explicitly: subject masks retain their coordinates, while MNI masks use the subject's nonlinear m2m registration and nearest-neighbor sampling. Group analysis requires an MNI mask, registered separately for each subject.
+
+Mesh analysis samples the mask at gray-matter surface nodes and reports surface-area statistics. Voxel analysis samples it onto the subject field grid and intersects it with the tissue selected in the job settings, retaining volume statistics. An empty overlap fails with a clear error. The script equivalent is `analyzer.analyze_mask(mask_path, coordinate_space="mni")`; job JSON uses `analysis_type="mask"`, `mask_path`, and `coordinate_space`.
+
+### Tissue
 
 - **Job settings ▸ Space options ▸ Tissue** (Gray matter / White matter / GM + WM) applies to **voxel space only** — it is disabled and fixed to gray matter whenever the row's Space is Mesh. The target itself has no tissue or volumetric-evaluation control in the Analyzer
 - In voxel mode, the tissue choice selects which field file is loaded by filename prefix (`grey_` for GM, `white_` for WM, no prefix for GM + WM) and builds the corresponding tissue mask
 
----
+### Target preview
 
-## Mesh-Based Analysis
-
-When `space="mesh"`, the `Analyzer` works with SimNIBS mesh files and provides high-resolution analysis of field data on brain surfaces.
-
-### Features
-
-- **Surface Mesh Generation**: Automatic creation of gray matter surface meshes via `msh2cortex` (cached per instance)
-- **Atlas Integration**: Support for SimNIBS native atlases (DK40, a2009s, HCP_MMP1)
-- **3D Visualization**: Generation of mesh files for 3D viewing
-
-### Cortical ROI Analysis
-
-<div class="image-row">
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_max.png" alt="TI Max Field in ROI">
-    <em>TInorm field distribution in ROI (Left Insula)</em>
-  </div>
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_normal.png" alt="TI Normal Field in ROI">
-    <em>TInormal field distribution in ROI (Left Insula)</em>
-  </div>
-</div>
-
-### Spherical ROI Analysis
-
-<div class="image-row">
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_max.png" alt="Spherical TI_max Analysis">
-    <em>Spherical ROI analysis showing TI_max field distribution within a 10mm radius sphere at coordinates (-31.3, 24.0, -37.0)</em>
-  </div>
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_normal.png" alt="Spherical TI_normal Analysis">
-    <em>Spherical ROI analysis showing TI_normal field distribution for the same target region, demonstrating directional field components</em>
-  </div>
-</div>
+The Scene pane follows the active job. Cortical atlas regions remain clickable. Masks, subcortical regions and spheres show a read-only target extent on subject anatomy; edit the target in its form. This previews the geometry, before the analysis applies its tissue and mesh settings. Incomplete targets or unavailable registration show an explanatory message.
 
 ---
 
-## Voxel-Based Analysis
+## Mesh and voxel space
 
-When `space="voxel"`, the `Analyzer` handles NIfTI format files and integrates with FreeSurfer atlases for detailed volumetric analysis.
+Each row analyses its field in one of two spaces:
 
-### Features
-
-- **NIfTI Support**: Direct analysis of .nii, .nii.gz, .mgz files
-- **FreeSurfer Integration**: Automatic atlas region extraction and resampling
-- **Visualization Overlays**: Generation of ROI-specific NIfTI overlays
+- **Mesh** (`space="mesh"`) reads the field on the subject's central grey-matter surface, which the simulation writes with SimNIBS `msh2cortex`. Each node is weighted by its surface area, so sizes come out in mm² and cm². `TI_normal` exists only here, and the tissue is fixed to grey matter.
+- **Voxel** (`space="voxel"`) reads the simulation's NIfTI on the subject grid and keeps the voxels of the selected tissue. Each voxel is weighted by its volume, so sizes come out in mm³ and cm³. Measure deep structures here.
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_1.png" alt="Spherical TI_max Analysis">
-    <em>Right Hippocampus ROI analysis showing TI_max field distribution given a 1mA:1mA stimualtion</em>
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_max.png" alt="TI_max on the left insula, drawn over a translucent cortex">
+    <em><code>TI_max</code> in a cortical target (left insula), mesh space.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_normal.png" alt="TI_normal on the left insula, drawn over a translucent cortex">
+    <em><code>TI_normal</code> in the same target.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_max.png" alt="TI_max in a 10 mm spherical target on the cortical surface">
+    <em><code>TI_max</code> in a 10 mm sphere at (−31.3, 24.0, −37.0), mesh space.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_normal.png" alt="TI_normal in the same 10 mm spherical target">
+    <em><code>TI_normal</code> in the same sphere.</em>
+  </div>
+</div>
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_1.png" alt="TI_max in the right hippocampus on sagittal and axial T1 slices">
+    <em><code>TI_max</code> in a right-hippocampus target, voxel space, 1 mA per channel.</em>
   </div>
 </div>
 
 ---
+
+## Statistics
+
+An analysis reduces the field to the statistics below. "Positive" elements are the nodes or voxels where the field is above zero; only they enter the statistics.
+
+| Statistic | `AnalysisResult` field | Definition |
+| --- | --- | --- |
+| **Target intensity** | `roi_mean`, `roi_max`, `roi_min` | Mean, maximum and minimum of the field over the target's positive nodes (mesh) or voxels (voxel). The mean is weighted by node area or voxel volume. Compare it against dose thresholds and between montages. |
+| **Reference intensity** | `gm_mean`, `gm_max` | The same over the whole grey-matter surface (mesh) or the whole selected tissue (voxel). The reference includes the target. It is fixed; only the optimizers accept a user-defined non-ROI. |
+| **Focality ratio** | `roi_focality` | `roi_mean / gm_mean`. 1 means the target is no stronger than the average of the reference; higher is more selective. Ex-search reports the same ratio as `Focality`, but averages over the leadfield's volume elements, so its values differ. |
+| **Normal component** | `normal_mean`, `normal_max`, `normal_focality` | `roi_mean`, `roi_max` and `roi_focality` recomputed on `TI_normal` (mesh only). |
+| **Peak** | `percentile_95`, `percentile_99`, `percentile_99_9` | Area- or volume-weighted percentiles of the field over the grey matter (mesh) or the selected tissue (voxel): the smallest value at or below which that fraction of the area or volume lies. `percentile_99_9` is a robust peak that ignores single outlier elements. |
+| **Hot-spot size** | `focality_50_area` … `focality_95_area` | Grey-matter area in $$\mathrm{cm}^2$$ (mesh), or selected-tissue volume in $$\mathrm{cm}^3$$ (voxel), where the field is at least 50, 75, 90 or 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot. |
+
+The 99.9th-percentile peak and the area above a fraction of it are the conventions of SimNIBS's field summary (`get_percentiles`, `get_focality`). The peak and hot-spot statistics describe the whole grey matter (or tissue) and do not depend on the target. There is no separate whole-head analysis: these statistics and the histogram come with every analysis. Every statistic is in the units of the analysed field, so selecting `hf_sar` gives means in (V/m)², not field strengths.
+
+> **Voxel-space `focality_*_area` values written by v2.3.0-v2.5.0 are 10x too large** --
+> they were computed in "cm^2" from a volume. v3.0.0 reports them in $$\mathrm{cm}^3$$;
+> see [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-03) for whether to re-run or rescale.
+
+---
+
+## Outputs
 
 ### What an analysis writes
 
-One folder per analysis, under `Analyses/<Mesh|Voxel>/<name>/`, holding the data, the
-field-distribution histogram and **exactly one scene**:
+One folder per analysis, under `Analyses/<Mesh|Voxel>/<name>/`, holding the data, the field-distribution histogram and **exactly one scene**:
 
 | File | What it is |
 |---|---|
@@ -279,30 +265,29 @@ field-distribution histogram and **exactly one scene**:
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_lh.insula_whole_head_roi_histogram.png" alt="Analyzer field-distribution histogram" style="width: 100%; max-width: 850px;">
-  <em>Example field-distribution histogram, including target statistics and whole-grey-matter focality thresholds (v2 example, which counted nodes; v3 weights each bar by area or volume).</em>
+  <em>Example field-distribution histogram with the target statistics and the grey-matter focality cutoffs. This example is from v2, which counted nodes; v3 weights each bar by area or volume.</em>
 </div>
 
-The scene is a few kilobytes and points at the overlay and the T1 — nothing is copied. Open it
-from the job's **Artifacts** tab (**Open in Tetravox**) or by double-clicking the file.
+The scene is a few kilobytes and points at the overlay and the T1 — nothing is copied.
 
-### AnalysisResult Fields
+### AnalysisResult fields
 
-Every analysis call returns an `AnalysisResult` dataclass. Its statistics are exactly the quantities in the [Quantities of Interest](#quantities-of-interest) table, under the same names (`roi_mean`, `gm_mean`, `roi_focality`, `normal_*`, `percentile_*`, `focality_*_area`). The remaining fields identify and size the analysis:
+Every analysis call returns an `AnalysisResult` dataclass. It holds the [statistics](#statistics) above under the same names, plus:
 
 - `field_name`, `region_name`, `space` ("mesh"/"voxel"), `analysis_type` ("spherical"/"cortical"/"subcortical"/"mask")
-- `n_elements`: mesh nodes or voxels in the ROI
-- `total_area_or_volume`: ROI area (mesh, $$\mathrm{mm}^2$$) or volume (voxel, $$\mathrm{mm}^3$$)
-- The `normal_*` fields are `None` in voxel space, and for runs that predate `TI_normal` support for their mode -- see [mTI Analyses](#mti-analyses)
+- `n_elements`: the target's positive nodes (mesh) or voxels (voxel)
+- `total_area_or_volume`: their area in $$\mathrm{mm}^2$$ (mesh) or volume in $$\mathrm{mm}^3$$ (voxel)
+- The `normal_*` fields are `None` in voxel space, and for runs that predate `TI_normal` support for their mode -- see [mTI analyses](#mti-analyses)
 
-> **Voxel-space `focality_*_area` values written by v2.3.0-v2.5.0 are 10x too large** --
-> they were computed in "cm^2" from a volume. v3.0.0 reports them in $$\mathrm{cm}^3$$;
-> see [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-03) for whether to re-run or rescale.
+### Viewing the results
+
+Open a finished analysis from [Results]({{ site.baseurl }}/wiki/results/), from the job's **Artifacts** tab (**Open in Tetravox**), or by double-clicking `scene.tetravox.json`. Mesh and NIfTI outputs both open in TetraVox, the separate desktop viewer the app installs and launches (see [Viewer]({{ site.baseurl }}/wiki/visualizers/)), and every target type writes the same overlay and scene. Version 2.x opened mesh results in Gmsh and NIfTI results in Freeview; v3 ships neither (see [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/)).
 
 ---
 
-## mTI Analyses
+## mTI analyses
 
-The analyzer handles multipolar (mTI) simulations with the same `Analyzer` class, the same `analyze_sphere` / `analyze_cortex` / `analyze_spheres` calls, and the same ROI types — there is no mTI mode to select. The only signal it uses is whether `{simulation}/mTI/mesh/` exists on disk.
+The Analyzer handles multipolar (mTI) simulations with the same `Analyzer` class, the same `analyze_sphere` / `analyze_cortex` / `analyze_spheres` calls, and the same target types; there is no mTI mode to select. The only signal it uses is whether `{simulation}/mTI/mesh/` exists on disk.
 
 ### What it reads
 
@@ -311,18 +296,13 @@ The analyzer handles multipolar (mTI) simulations with the same `Analyzer` class
 | Mesh  | `mTI/mesh/surfaces/{sim}_mTI_central.msh` (field values) | `TI/mesh/surfaces/{sim}_TI_central.msh` |
 | Voxel | `mTI/niftis/` (`grey_` / `white_` prefix per tissue)     | `TI/niftis/`                            |
 
-An mTI run also writes the intermediate per-carrier envelopes (`TI_AB`, `TI_CD`, ...) into `TI/mesh/`. Those are **not** what the analyzer reads and are not the mTI result — each is only the two-channel envelope of one carrier on its own.
+An mTI run also writes each carrier's own two-channel envelope (`TI_AB`, `TI_CD`, ...) into `TI/mesh/`. The Analyzer does not read them, and they are not the mTI result.
 
-### What `mTI_max` means for the statistics
+### Fields
 
-`mTI_max` is the joint modulation depth over **all** $$K$$ carriers at once, maximised over direction -- the same "beat envelope" quantity as `TI_max`, just with more carriers in the sum. The math and the safety metrics are documented under [Quantities of Interest](#envelope-math-and-critical-values) above. What matters for analysis is:
+`TI_max` and `mTI_max` are aliases for the [joint envelope amplitude](#more-carriers-mti). Whichever spelling is requested, the Analyzer resolves it to the name the detected simulation type wrote, so the Field selector lists it once. `TI_avg`, `hf_peak` and `hf_sar` can be selected when the run wrote them.
 
-- `TI_max` and `mTI_max` are aliases. Whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote, so the Field selector lists it once.
-- `TI_avg`, `hf_peak` and `hf_sar` can be selected when the run wrote them and go through the identical ROI machinery, each in its own units (see [Quantities of Interest](#quantities-of-interest)).
-
-### TI_normal
-
-`TI_normal` is computed for mTI: the simulator evaluates the $$K$$-carrier envelope along the cortical surface normal (`get_TI_dir`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The analyzer resolves that mesh when `TI_normal` is requested for an mTI run, and the `normal_*` statistics (`normal_mean`, `normal_max`, `normal_focality`) are populated the same way as for standard TI. For mTI simulations run before this support existed, the normal mesh is absent — requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`; re-run the simulation to get them.
+`TI_normal` is computed for mTI too: the simulator evaluates the $$K$$-carrier envelope along the cortical surface normal (`get_TI_dir`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The Analyzer reads it when `TI_normal` is requested, and fills the `normal_*` statistics as for standard TI. mTI simulations run before this support have no normal mesh: requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`. Re-run the simulation to get them.
 
 ---
 
@@ -346,47 +326,3 @@ derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<YYYYMMDD>_<
 Group runs are listed under **Results ▸ Group ▸ Group analyses**. Group analyses from earlier
 versions shared one folder, `derivatives/ti-toolbox/logs/group_analysis/`, where each run replaced
 the last; those files stay where they are.
-
----
-
-## Looking at a mesh analysis
-
-When an analysis finishes, open it from [Results]({{ site.baseurl }}/wiki/results/) — the mesh and
-the NIfTI outputs both open in TetraVox, the separate desktop viewer the app installs and launches
-(see [Viewer]({{ site.baseurl }}/wiki/visualizers/)). Every target type — sphere, atlas region or
-mask — writes the same overlay and scene.
-
-> **What's new in v3.** 2.x launched **Gmsh** as a separate X11 program to inspect a mesh result,
-> and **Freeview** for a NIfTI one. Both are gone — the container ships neither, and there is no
-> X11 anywhere. Viewing is TetraVox, a separate desktop viewer the app installs and launches.
->
-> Two more changes to the Analyzer itself: **each row of the jobs table owns its own target**, so
-> one submission can analyse different ROIs across subjects; and a **group** run is refused unless
-> every row agrees on simulation, space, field and target, with the disagreement named — it is
-> never silently resolved to the first row.
->
-> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
-
-There is no separate "whole head" analysis type — the Analyzer's `analysis_type` is `spherical`, `cortical`, `subcortical` or `mask`; the whole-GM statistics (`gm_mean`, `gm_max`, the percentiles and focality areas) and the ROI-vs-grey-matter `histogram.png` come with every analysis (mesh or voxel).
-
-
-## Custom NIfTI mask targets
-
-Choose **NIfTI mask** in a job's Target editor and import a `.nii` or `.nii.gz` file.
-All positive voxels belong to the target. Declare **Subject** or **MNI** explicitly:
-subject masks retain their coordinates, while MNI masks use the subject's nonlinear m2m
-registration and nearest-neighbor sampling. Group analysis requires an MNI mask, registered
-separately for each subject.
-
-Mesh analysis samples the mask at gray-matter surface nodes and reports surface-area statistics.
-Voxel analysis samples it onto the subject field grid and intersects it with the tissue selected
-in the job settings, retaining volume statistics. An empty overlap fails with a clear error.
-The script equivalent is `analyzer.analyze_mask(mask_path, coordinate_space="mni")`;
-job JSON uses `analysis_type="mask"`, `mask_path`, and `coordinate_space`.
-
-### Target preview
-
-The Scene pane follows the active job. Cortical atlas regions remain clickable. Masks,
-subcortical regions and spheres show a read-only target extent on subject anatomy; edit the
-target in its form. This previews the geometry, before the analysis applies its tissue and
-mesh settings. Incomplete targets or unavailable registration show an explanatory message.
