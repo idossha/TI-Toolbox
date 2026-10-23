@@ -19,7 +19,7 @@ needs Node.js 22.12+. Keep the source revision and Docker image paired.
 Choose the release tag paired with your image, or `main` once the change you need is merged:
 
 ```bash
-TIT_SOURCE_REF=v3.1.1
+TIT_SOURCE_REF=v3.1.2
 git clone --branch "$TIT_SOURCE_REF" git@github.com:idossha/TI-toolbox.git TI-Toolbox
 cd TI-Toolbox
 git rev-parse HEAD
@@ -33,7 +33,7 @@ its root `loader.py` uses the selected source without installing a different pac
 Set the image reference supplied with your selected source revision. For the current pairing:
 
 ```bash
-TIT_IMAGE=idossha/ti-toolbox:v3.1.1
+TIT_IMAGE=idossha/ti-toolbox:v3.1.2
 docker pull "$TIT_IMAGE"
 docker image inspect "$TIT_IMAGE" --format {% raw %}'{{json .RepoTags}}'{% endraw %}
 ```
@@ -130,7 +130,7 @@ container/blueprint/build.sh --tag idossha/ti-toolbox:dev
 ```
 
 Run this command from the repository root; `container/blueprint/build.sh --help` lists its
-options. The [release guide](https://github.com/idossha/TI-toolbox/blob/v3.1.1/docs/dev/RELEASING.md)
+options. The [release guide](https://github.com/idossha/TI-toolbox/blob/v3.1.2/docs/dev/RELEASING.md)
 explains the image-build requirements.
 
 Image builds are substantial and take longer under amd64 emulation on Apple Silicon. The

@@ -449,7 +449,7 @@ gpu_probe=''
 trap '[ -z "$gpu_probe" ] || docker rm --force "$gpu_probe" >/dev/null 2>&1; rm -rf "$work"' EXIT
 if [ ! -f "$spec" ]; then
     # This loader's release tag (stamped by dev/update/update_version.py), never a branch.
-    curl -fsSL "https://raw.githubusercontent.com/idossha/TI-Toolbox/${TIT_SOURCE_REF:-refs/tags/v3.1.1}/docker-compose.yml" -o "$work/source.yml" || die 'could not download the container specification'
+    curl -fsSL "https://raw.githubusercontent.com/idossha/TI-Toolbox/${TIT_SOURCE_REF:-refs/tags/v3.1.2}/docker-compose.yml" -o "$work/source.yml" || die 'could not download the container specification'
     spec="$work/source.yml"
 fi
 if [ -z "$image" ]; then
@@ -527,7 +527,7 @@ else
     docker compose version >/dev/null 2>&1 || die 'install the Docker Compose plugin'
     cached=0
     docker image inspect "$image" >/dev/null 2>&1 && cached=1
-    if [ "$cached" = 0 ] || { [ "$image" = idossha/ti-toolbox:v3.1.1 ] && [ -z "$repo" ]; }; then
+    if [ "$cached" = 0 ] || { [ "$image" = idossha/ti-toolbox:v3.1.2 ] && [ -z "$repo" ]; }; then
         if ! docker pull --platform "$IMAGE_PLATFORM" "$image"; then
             [ "$cached" = 1 ] || die "could not download $image"
             printf 'Warning: could not refresh %s; using the cached image.\n' "$image" >&2

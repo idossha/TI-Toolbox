@@ -17,7 +17,7 @@ from urllib.parse import quote
 HERE = Path(__file__).resolve().parent
 # The release this file ships with; dev/update/update_version.py stamps it. Never a branch: an
 # unreleased launcher can disagree with the released desktop app and image.
-RELEASE_TAG = "v3.1.1"
+RELEASE_TAG = "v3.1.2"
 
 
 def bootstrap() -> bool:

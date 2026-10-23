@@ -15,7 +15,7 @@ TI-Toolbox ships a small, free plugin that teaches AI coding assistants — **Cl
 | "How do I run a flex-search with an atlas ROI?" | Searches and reads the wiki, quotes the right section, gives a working `FlexConfig` |
 | "Write a script that simulates 3 montages for subjects 101–105" | Reads the real `SimulationConfig` fields from the source so the script matches your installed version |
 | "Why is my simulation not showing up in the Analyzer?" | Inspects `derivatives/SimNIBS/sub-101/Simulations/` and reports which outputs exist and what step failed |
-| "What changed in v3.1.1?" | Reads the changelog |
+| "What changed in v3.1.2?" | Reads the changelog |
 | "Which subjects still need a head model?" | Lists every subject with/without `m2m_<id>` |
 
 Under the hood it installs three things:
@@ -149,7 +149,7 @@ To let the assistant queue jobs directly, without a plan card, turn on **Setting
 - **Give it your project path.** `inspect_project` needs the absolute path of your BIDS project (the folder you point the desktop app at). On the host that is e.g. `/Users/you/Studies/my_project`; inside the container it is `/mnt/my_project`.
 - **Ask it to check, not assume.** Prompts like *"read the wiki page before answering"* or *"verify the config fields in the source"* make it use the tools.
 - **Scripts still run in the container.** The assistant writes code; you run it with `simnibs_python` inside the SimNIBS container, or paste it into the app's **Notebooks** page, whose kernel already runs there (see [Scripting]({{ site.baseurl }}/wiki/scripting/)). The assistant knows this and will remind you.
-- **Versions.** With a local checkout the plugin reads that checkout. Without one it reads `main` by default; set `TI_TOOLBOX_REF` to your installed release (for example `TI_TOOLBOX_REF=v3.1.1`) so it reads matching docs and source. The app's own **Assistant** page does this for you: it pins `TI_TOOLBOX_REF` to the installed app version.
+- **Versions.** With a local checkout the plugin reads that checkout. Without one it reads `main` by default; set `TI_TOOLBOX_REF` to your installed release (for example `TI_TOOLBOX_REF=v3.1.2`) so it reads matching docs and source. The app's own **Assistant** page does this for you: it pins `TI_TOOLBOX_REF` to the installed app version.
 
 ## Privacy and safety
 

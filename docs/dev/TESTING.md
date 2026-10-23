@@ -369,7 +369,7 @@ without source/UI mounts. A later source fix invalidates claims based only on an
 - `tests/numerical/test_simnibs_vector_warp.py` pins the image's SimNIBS + NumPy on a vector volume
   warped with an inverse deformation (an authored mirror field: (1, 2, 3) must come out (-1, 2, 3)),
   the path a `nan_to_num(copy=False)` build patch broke under NumPy 2. On an image that still has
-  the patch (v3.1.1 as first published) it is a strict xfail; with SimNIBS's own `copy=None` it
+  the patch (v3.1.1 and older) it is a strict xfail; with SimNIBS's own `copy=None` it
   runs, and passes.
 - `tests/numerical/test_dti_advisories.py` pins the DTI advisories on synthetic phantoms (flip test finds a
   planted x flip, tract orientation on pure L–R fibres, a planted 3 mm residual shift), slice orientation

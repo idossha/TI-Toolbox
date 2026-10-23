@@ -68,7 +68,7 @@ INFO level) and exposes ``get_path_manager`` for BIDS path resolution.
 No additional setup is required for typical usage.
 """
 
-__version__ = "3.1.1"
+__version__ = "3.1.2"
 __author__ = "TI-Toolbox Team"
 
 from . import paths, constants

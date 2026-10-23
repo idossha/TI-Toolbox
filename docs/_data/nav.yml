@@ -68,5 +68,5 @@ wiki:
 releases:
   title: Releases
   items:
-    - { title: Latest release (v3.1.1), url: /releases/ }
+    - { title: Latest release (v3.1.2), url: /releases/ }
     - { title: Changelog, url: /releases/changelog/ }

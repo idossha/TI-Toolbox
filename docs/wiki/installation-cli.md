@@ -45,7 +45,7 @@ refuses to fall back; `--browser` and `--no-open` use the browser instead and ne
 Python needs version 3.11+; Bash needs curl and Docker Compose.
 
 `loader.py` refreshes its launcher from GitHub on every start, always from the release it belongs
-to (the `v3.1.1` tag for this release, never the development branch), so it needs an internet
+to (the `v3.1.2` tag for this release, never the development branch), so it needs an internet
 connection, except for `--stop`, `--status` and `--logs`. `loader.sh` has no launcher to refresh
 (without a `docker-compose.yml` beside it, it downloads its own release's copy); when it cannot
 pull the image it warns and uses the cached one. To choose a project directly:

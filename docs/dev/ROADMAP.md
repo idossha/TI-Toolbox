@@ -4,8 +4,8 @@ Priorities and completion criteria live here; [RELEASING.md](RELEASING.md) owns 
 procedure and [TESTING.md](TESTING.md) owns validation strategy and gaps. Remove completed
 work; retain consequential rationale in [DECISIONS.md](DECISIONS.md).
 
-v3.1.1 (2026-10-20) is the current release; its application image is `idossha/ti-toolbox:v3.1.1`
-([release notes](../releases/v3.1.1.md)). The current checkout is available for manual testing
+v3.1.2 (2026-10-22) is the current release; its application image is `idossha/ti-toolbox:v3.1.2`
+([release notes](../releases/v3.1.2.md)). The current checkout is available for manual testing
 through the standard development loader. The table lists acceptance work still open for the next
 release.
 

@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: idossha/ti-toolbox:v3.1.1
+From: idossha/ti-toolbox:v3.1.2
 
 # The published release image, unchanged: the SIF runs the software the Docker app runs.
 # dev/update/update_version.py stamps the tag above on every release. Build (root or --fakeroot):

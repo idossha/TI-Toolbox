@@ -70,7 +70,7 @@ Error response from daemon: rpc error: code = NotFound desc = blob sha256:9e0376
 **Cause:** containerd's image metadata references a layer blob that no longer exists on disk. Metadata and blobs are written separately, so an interrupted pull or an out-of-space write leaves a dangling reference; every command that lists images then aborts. Not a toolbox bug.
 **Fix:**
 1. Check disk space first: `df -h /var/lib/docker` — a full disk is the usual trigger.
-2. Try `sudo docker system prune -af && docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.1`.
+2. Try `sudo docker system prune -af && docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.2`.
 3. If prune fails with the same error, reset the store (destroys *all* local images/containers/volumes — project data is untouched, it lives outside Docker):
    ```bash
    sudo systemctl stop docker docker.socket containerd
@@ -103,7 +103,7 @@ a while on a slow connection or a nearly full disk.
 - **"This container engine is not supported yet. … Podman is not supported."** — install Docker
   Desktop or Docker Engine and make it the active engine.
 - **"The TI-Toolbox image could not be downloaded…"** — check the connection and free disk space,
-  or pull it by hand: `docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.1`.
+  or pull it by hand: `docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.2`.
 - **"The container started but its server never answered"** — read the container log
   (`--logs`, see [Where are the logs](#where-are-the-logs)); low Docker memory is a common cause
   (see the next entry).
@@ -199,11 +199,11 @@ The `atlas2subject(split_labels=True)` label misalignment is patched into the im
 
 ### Warping E or J to MNI fails with `Unable to avoid copy while creating an array as requested`
 
-**Applies to:** images v3.0.0–v3.1.1 as first published, when you run `subject2mni` / `mni2subject` on a mesh with `E` or `J` or on a 3-component NIfTI, or `run_simnibs` with `map_to_MNI`.
+**Applies to:** images v3.0.0–v3.1.1, when you run `subject2mni` / `mni2subject` on a mesh with `E` or `J` or on a 3-component NIfTI, or `run_simnibs` with `map_to_MNI`.
 
 **Cause:** a build-time patch written for the old NumPy 1 environment turned SimNIBS's `nan_to_num(copy=None)` into `copy=False`, which NumPy 2 refuses whenever a copy is needed.
 
-**Fix:** update the image. TI-Toolbox's own simulation, analyzer, search and EEG-cap outputs only warp scalar fields and were never affected.
+**Fix:** update to v3.1.2 or later. TI-Toolbox's own simulation, analyzer, search and EEG-cap outputs only warp scalar fields and were never affected.
 
 ### Ex-search needs a leadfield
 
@@ -222,7 +222,7 @@ reference; use the [installation guide]({{ site.baseurl }}/installation/) for cu
 
 | Symptom | Fixed in | Note / workaround on older versions | Source |
 |---|---|---|---|
-| Flex-search report not written for a **Mean** or **Max** goal: `could not convert string to float: ''` | v3.1.1 (rebuilt image) | the search results are unchanged; after upgrading, rebuild the report with `simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run folder>` (for example from a **Notebooks** cell) | [Changelog]({{ site.baseurl }}/releases/changelog/) |
+| Flex-search report not written for a **Mean** or **Max** goal: `could not convert string to float: ''` | v3.1.2 | the search results are unchanged; after upgrading, rebuild the report with `simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run folder>` (for example from a **Notebooks** cell) | [Changelog]({{ site.baseurl }}/releases/changelog/) |
 | Simulation report not written: `matmul: Input operand 1 has a mismatch in its core dimension 0` | v3.1.1 | simulation outputs are unchanged; after upgrading, re-run the simulation to get its report | [v3.1.1]({{ site.baseurl }}/releases/v3.1.1/) |
 | Flex-search refuses the skin-visualization net: *"Could not queue the search. Missing inputs: Skin visualization EEG net …"* | v3.1.0 (image of 2026-10-12) | untick **Optimizer ▸ Solver ▸ Skin visualization ▸ Plot EEG net electrodes**; the search still runs | [changelog]({{ site.baseurl }}/releases/changelog/) |
 | Flex-search fails with `Please define TESoptimize.threshold for focallity optimization!` (Threshold-based focality, Adaptive or Multi-threshold) | v3.1.0 (image of 2026-10-12) | choose **Fixed thresholds** (e.g. `0.2,0.5`) or **Threshold-free focality** | [changelog]({{ site.baseurl }}/releases/changelog/) |
