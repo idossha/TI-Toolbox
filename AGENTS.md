@@ -53,6 +53,7 @@ This is the documentation map. Keep each topic in its designated file and link r
 Revise current-state references in place. Append significant decisions/milestones and release
 entries; mark reversals explicitly. Routine test runs and agent handoffs are not permanent work logs.
 Numerical migration guidance belongs in the relevant release page, linked from the changelog.
+Wiki pages (`docs/wiki/`) describe current behaviour only: fixes, corrections, "before vX" caveats and re-run advice go in CHANGELOG and `docs/releases/` only; version mentions a user still needs (requirements, image tags, example-figure provenance) are fine.
 Developer references are excluded from the site except CHANGELOG, which retains its public URL.
 Do not create `docs/requirements` or another intent store: put current behavior in ARCHITECTURE,
 rationale in DECISIONS, verification in TESTING, open work in ROADMAP and user-visible outcomes in
