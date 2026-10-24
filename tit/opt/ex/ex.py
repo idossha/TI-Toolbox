@@ -125,7 +125,7 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     ratios = generate_current_ratios(
         config.total_current,
         config.current_step,
-        config.channel_limit or config.total_current - config.current_step,
+        config.channel_limit,
     )
     logger.info(f"Generated {len(ratios)} current ratio combinations")
 

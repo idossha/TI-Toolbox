@@ -625,6 +625,11 @@ New Simulator jobs opt into MNI NIfTI export separately from fsaverage mapping, 
 controls. The MNI flag gates both anatomical and field conversion to avoid unwanted registration
 work. Ex previews count the engine’s electrode arrangements and valid current splits separately;
 total iterations are their product, including one split for fixed balanced currents.
+Ex runs one balanced split by default: `ExConfig.channel_limit=None` is `[(total/2, total/2)]`
+(`generate_current_ratios`), and the page and `APP_DEFAULTS["ex"]` start at a 1.0 mA limit for
+2.0 mA total; only an explicit limit above half the total sweeps. `run_config.json` records the
+limit enumerated (`total/2` when unset); a null there is a run from before 2026-10-24, which swept
+to `total - step`.
 Flex exposes Mean TImax, Max TImax (ROI 99.9th percentile), Threshold-free focality and
 Threshold-based focality. The latter retains fixed, adaptive and multi-threshold execution;
 “Multi-threshold” is a presentation label for the existing `pareto` strategy, not a new objective.

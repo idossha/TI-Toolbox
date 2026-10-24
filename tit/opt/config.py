@@ -1143,10 +1143,13 @@ class ExConfig:
         Total injected current in mA, split across the two channels.
         Default ``2.0``.
     current_step : float
-        Current amplitude step size in mA for the sweep.  Default ``0.5``.
+        Current amplitude step size in mA for the sweep (used only with
+        a *channel_limit*).  Default ``0.5``.
     channel_limit : float or None
-        Maximum current per channel in mA.  ``None`` (default) means
-        ``total_current - current_step``.
+        Maximum current per channel in mA.  ``None`` (default) runs the
+        single balanced split, ``total_current / 2`` on each channel;
+        set a limit above ``total_current / 2`` to sweep splits in
+        *current_step* increments.
     roi_radius : float
         Spherical ROI radius in mm for the target region.  Default ``3.0``.
     run_name : str or None

@@ -67,7 +67,7 @@ APP_DEFAULTS: dict[str, dict[str, Any]] = {
         "goal": "focality",
         "pareto": {"roi_pcts": [80], "nonroi_pcts": [20, 30, 40]},
     },
-    "ex": {"current_step": 0.2, "channel_limit": 1.6},
+    "ex": {"current_step": 0.2, "channel_limit": 1.0},
 }
 
 

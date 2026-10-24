@@ -25,11 +25,11 @@
       "E023"
     ]
   },
-  "n_combinations": 112,
+  "n_combinations": 16,
   "run_name": null,
   "total_current_mA": 2,
   "current_step_mA": 0.2,
-  "channel_limit_mA": 1.6,
+  "channel_limit_mA": 1,
   "symmetric_bucket": false,
   "symmetry_pairing": null,
   "symmetry_eeg_csv": null

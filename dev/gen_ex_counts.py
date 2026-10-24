@@ -9,7 +9,8 @@ line, the server plan and the runner must all equal ``expected_combinations``.
 Every number here is a brute force that imports nothing from ``tit``:
 
 * the current splits are hand-checked lists (short ones literal, long ones the arithmetic spec
-  ``c1 = total - k * step`` for ``k = 1..``, both channels within ``[step, limit]``);
+  ``c1 = total - k * step`` for ``k = 1..``, both channels within ``[step, limit]``); no limit is
+  the single balanced split ``(total / 2, total / 2)`` (``ExConfig.channel_limit=None``);
 * bucket mode counts ``itertools.product`` tuples whose electrodes are all distinct (a label
   listed twice in one bucket is one electrode);
 * pool mode counts distinct *physical* stimulations: each ``product(pool, repeat=4)`` tuple with
@@ -41,18 +42,20 @@ def _spec(total: float, step: float, count: int) -> list[list[float]]:
 
 # Hand-checked splits, (channel 1, channel 2) mA, in the sweep's order (channel 1 descending).
 SPLITS = {
-    # 2 mA, step 0.5, no limit (-> 1.5): 1.5/0.5, 1/1, 0.5/1.5.
-    "2_0.5_none": [[1.5, 0.5], [1.0, 1.0], [0.5, 1.5]],
+    # 2 mA, step 0.5, no limit: the balanced split only.
+    "2_0.5_none": [[1.0, 1.0]],
+    # 2 mA, step 0.5, limit 1.5: 1.5/0.5, 1/1, 0.5/1.5.
+    "2_0.5_1.5": [[1.5, 0.5], [1.0, 1.0], [0.5, 1.5]],
     # 2 mA, step 0.4, limit 1.6: both channels in [0.4, 1.6].
     "2_0.4_1.6": [[1.6, 0.4], [1.2, 0.8], [0.8, 1.2], [0.4, 1.6]],
-    # 2 mA, step 0.3, no limit (-> 1.7): 1.7 down to 0.5; 0.2 is below one step.
-    "2_0.3_none": [[1.7, 0.3], [1.4, 0.6], [1.1, 0.9], [0.8, 1.2], [0.5, 1.5]],
-    # 2 mA, step 0.2, no limit (-> 1.8): nine splits 1.8 ... 0.2.
-    "2_0.2_none": _spec(2.0, 0.2, 9),
-    # 2 mA, step 0.05, no limit: 39 splits 1.95 ... 0.05.
-    "2_0.05_none": _spec(2.0, 0.05, 39),
-    # 2 mA, step 0.01, no limit: 199 splits 1.99 ... 0.01.
-    "2_0.01_none": _spec(2.0, 0.01, 199),
+    # 2 mA, step 0.3, limit 1.7: 1.7 down to 0.5; 0.2 is below one step.
+    "2_0.3_1.7": [[1.7, 0.3], [1.4, 0.6], [1.1, 0.9], [0.8, 1.2], [0.5, 1.5]],
+    # 2 mA, step 0.2, limit 1.8: nine splits 1.8 ... 0.2.
+    "2_0.2_1.8": _spec(2.0, 0.2, 9),
+    # 2 mA, step 0.05, limit 1.95: 39 splits 1.95 ... 0.05.
+    "2_0.05_1.95": _spec(2.0, 0.05, 39),
+    # 2 mA, step 0.01, limit 1.99: 199 splits 1.99 ... 0.01.
+    "2_0.01_1.99": _spec(2.0, 0.01, 199),
     # Limit 0.8 < total/2: the partner channel would need 1.2 > 0.8 -> nothing.
     "2_0.2_0.8": [],
     # Limit = total/2: only the balanced split.
@@ -141,7 +144,10 @@ EIGHT = ["F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"]
 
 def cases() -> list[dict]:
     return [
-        ex_pool("pool4", ["F3", "F4", "P3", "P4"], "2_0.5_none", "smallest pool"),
+        ex_pool(
+            "pool4", ["F3", "F4", "P3", "P4"], "2_0.5_none", "smallest pool, no limit"
+        ),
+        ex_pool("pool4_sweep", ["F3", "F4", "P3", "P4"], "2_0.5_1.5", "a 3-split sweep"),
         ex_pool(
             "pool5_audit",
             ["AF7", "AFz", "CP6", "P10", "POz"],
@@ -151,13 +157,13 @@ def cases() -> list[dict]:
         ex_pool(
             "pool8_asymmetric",
             EIGHT,
-            "2_0.3_none",
+            "2_0.3_1.7",
             "split list not its own mirror: both channel orders count",
         ),
         ex_pool(
             "pool_duplicate_label",
             ["F3", "F4", "F3", "P3", "P4", "O1"],
-            "2_0.2_none",
+            "2_0.2_1.8",
             "an imported pool repeating a label",
         ),
         ex_pool("pool_balanced_only", EIGHT[:5], "2_0.2_1.0", "limit = total / 2"),
@@ -166,13 +172,13 @@ def cases() -> list[dict]:
         ex_bucket(
             "bucket_plain",
             [["F7", "F5"], ["P7"], ["F3"], ["P3", "P5"]],
-            "2_0.01_none",
+            "2_0.01_1.99",
             "finest step the Step input allows",
         ),
         ex_bucket(
             "bucket_shared_poles",
             [["A", "B"], ["A", "B"], ["C", "A"], ["D"]],
-            "2_0.05_none",
+            "2_0.05_1.95",
             "an electrode in both poles of a channel and in the other channel",
         ),
         ex_bucket(

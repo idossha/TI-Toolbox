@@ -79,15 +79,17 @@ Two-channel bucketed searches can be restricted to left/right-mirrored montages 
 
 ### Current ratios
 
-On top of the electrode combinations, the search systematically tests current splits between the two channels: the **Total current** divided in steps of **Step**, with neither channel above the **Channel limit**. The app starts at total 2.0 mA, step 0.2 mA and channel limit 1.6 mA; `ExConfig` defaults to total 2.0 mA, step 0.5 mA and no limit.
+By default each montage runs one balanced split: the **Total current** shared equally, 1.0 / 1.0 mA at the app's 2.0 mA. The app starts at total 2.0 mA, step 0.2 mA and channel limit 1.0 mA (half the total); in `ExConfig`, `channel_limit=None` (the default) means the same balanced split at any total.
+
+To test splits, raise the **Channel limit** above half the total: the search then steps channel 1 down from the limit in steps of **Step**, with neither channel above the limit.
 
 ```
-App defaults (total 2.0 mA, step 0.2 mA, limit 1.6 mA):
+Total 2.0 mA, step 0.2 mA, limit 1.6 mA:
   (1.6, 0.4), (1.4, 0.6), (1.2, 0.8), (1.0, 1.0),
   (0.8, 1.2), (0.6, 1.4), (0.4, 1.6)
 ```
 
-The line under **Electrodes** shows the montage count and the total iterations separately. For fixed balanced currents, set the channel limit to half the total current (with a step no larger than that half); there is one split and iterations equal montages.
+The balanced default is there because an exhaustive search over every 10-10 montage found the best montage almost always best at 1:1 (at most 0.8 % gain from another split for the mean goal): the weaker channel caps the envelope, and the best montages already balance the two channels at the target. See [Current-ratio search]({{ site.baseurl }}/wiki/flex-search/#current-ratio-search). The line under **Electrodes** shows the montage count, the current splits and the total iterations; with one split, iterations equal montages.
 
 **Total evaluations** = electrode combinations × current ratios. Each montage's two unit-current channel fields are computed once and rescaled per split — the FEM is linear, so a split costs almost nothing extra.
 

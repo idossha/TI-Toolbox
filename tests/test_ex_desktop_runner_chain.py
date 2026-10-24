@@ -3,7 +3,7 @@ and every reader of those files agrees with a hand calculation.
 
 What this pins (2026-10-22). The configs are the desktop-config corpus cases
 ``tests/fixtures/desktop_configs/optimizer-ex/bucketed-saved.json`` (Ex, four 2-electrode buckets,
-2 mA in 0.2 mA steps, 1.6 mA channel limit) and ``mex-saved.json`` (mEx, eight buckets, 2 mA per
+2 mA in 0.2 mA steps, 1.0 mA channel limit) and ``mex-saved.json`` (mEx, eight buckets, 2 mA per
 pair), written by the real ``buildExConfig``/``buildMExConfig`` (``desktop/tests/unit/
 desktop-config-corpus.test.ts``). Each one, unchanged, is
 
@@ -29,8 +29,9 @@ Where the expected numbers come from -- by hand, never from the engine:
 * ROI = the elements within 3 mm of ``L_Insula.csv``'s centre (0, 0, 0): elements 0, 1, 2. Grey
   matter = tag 2: elements 0, 1, 3, 4. Means are volume weighted (``VOLUMES``). Focality = ROI
   mean / GM mean, Composite = ROI mean * Focality.
-* Counts: Ex = 2^4 bucket montages (the buckets are disjoint) x 7 splits (0.4 ... 1.6 mA in
-  0.2 mA steps) = 112; mEx = 2^4 x 1^4 = 16.
+* Counts: Ex = 2^4 bucket montages (the buckets are disjoint) x 1 split (the page's default
+  limit is half the total: 1.0 / 1.0 mA only) = 16; mEx = 2^4 x 1^4 = 16. The sweep itself is
+  pinned against the brute-force table in ``tests/test_ex_search_counts.py``.
 
 Tolerances: the CSV writes 4 decimals (half a unit = 5e-5). The mEx envelope is a direction
 search that evaluates the exact envelope at sampled directions, so it never exceeds the true
@@ -326,7 +327,7 @@ def _row_key(kind: str, row: dict) -> tuple:
 
 def test_the_hand_ranking_has_one_clear_winner(chain):
     scores = sorted((m["Composite_Index"] for m in chain.hand.values()), reverse=True)
-    assert len(chain.hand) == {"ex": 2**4 * 7, "mex": 2**4}[chain.kind]
+    assert len(chain.hand) == {"ex": 2**4 * 1, "mex": 2**4}[chain.kind]
     # Far beyond the CSV rounding and the mEx search error: the winner is well defined.
     assert scores[0] - scores[1] > 1e-2
 

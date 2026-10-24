@@ -36,13 +36,16 @@ from .symmetry import (
 )
 
 
-def generate_current_ratios(total_current, current_step, channel_limit):
+def generate_current_ratios(total_current, current_step, channel_limit=None):
     """Generate valid two-channel current splits for TI stimulation.
 
-    Iterates from the maximum allowed channel-1 current down to the
-    minimum in decrements of *current_step*, keeping both channels
-    within ``[current_step, channel_limit]`` and summing to
-    *total_current*.
+    With no *channel_limit* the only split is the balanced one,
+    ``(total_current / 2, total_current / 2)``: an exhaustive leadfield
+    study found the best montage almost always best at 1:1, so a sweep
+    rarely pays for its cost. With a limit, iterates from the maximum
+    allowed channel-1 current down to the minimum in decrements of
+    *current_step*, keeping both channels within
+    ``[current_step, channel_limit]`` and summing to *total_current*.
 
     Parameters
     ----------
@@ -50,8 +53,9 @@ def generate_current_ratios(total_current, current_step, channel_limit):
         Total current budget in mA (split across two channels).
     current_step : float
         Step size in mA between successive ratio levels.
-    channel_limit : float
-        Maximum current allowed on a single channel in mA.
+    channel_limit : float or None
+        Maximum current allowed on a single channel in mA; ``None``
+        (default) means the single balanced split.
 
     Returns
     -------
@@ -59,6 +63,9 @@ def generate_current_ratios(total_current, current_step, channel_limit):
         Each element is ``(ch1_mA, ch2_mA)`` with
         ``ch1_mA + ch2_mA == total_current``.
     """
+    if channel_limit is None:
+        return [(total_current / 2, total_current / 2)]
+
     ratios = []
     epsilon = current_step * 0.01
 

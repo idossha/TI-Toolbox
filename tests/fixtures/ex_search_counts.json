@@ -3,7 +3,7 @@
   {
    "id": "pool4",
    "kind": "ex",
-   "why": "smallest pool",
+   "why": "smallest pool, no limit",
    "mode": "all",
    "pool": [
     "F3",
@@ -14,6 +14,29 @@
    "total_current": 2.0,
    "current_step": 0.5,
    "channel_limit": null,
+   "splits": [
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "expected_montages": 3,
+   "expected_combinations": 3
+  },
+  {
+   "id": "pool4_sweep",
+   "kind": "ex",
+   "why": "a 3-split sweep",
+   "mode": "all",
+   "pool": [
+    "F3",
+    "F4",
+    "P3",
+    "P4"
+   ],
+   "total_current": 2.0,
+   "current_step": 0.5,
+   "channel_limit": 1.5,
    "splits": [
     [
      1.5,
@@ -84,7 +107,7 @@
    ],
    "total_current": 2.0,
    "current_step": 0.3,
-   "channel_limit": null,
+   "channel_limit": 1.7,
    "splits": [
     [
      1.7,
@@ -125,7 +148,7 @@
    ],
    "total_current": 2.0,
    "current_step": 0.2,
-   "channel_limit": null,
+   "channel_limit": 1.8,
    "splits": [
     [
      1.8,
@@ -237,16 +260,8 @@
    "channel_limit": null,
    "splits": [
     [
-     1.5,
-     0.5
-    ],
-    [
      1.0,
      1.0
-    ],
-    [
-     0.5,
-     1.5
     ]
    ],
    "expected_montages": 0,
@@ -275,7 +290,7 @@
    },
    "total_current": 2.0,
    "current_step": 0.01,
-   "channel_limit": null,
+   "channel_limit": 1.99,
    "splits": [
     [
      1.99,
@@ -1101,7 +1116,7 @@
    },
    "total_current": 2.0,
    "current_step": 0.05,
-   "channel_limit": null,
+   "channel_limit": 1.95,
    "splits": [
     [
      1.95,
@@ -1287,16 +1302,8 @@
    "channel_limit": null,
    "splits": [
     [
-     1.5,
-     0.5
-    ],
-    [
      1.0,
      1.0
-    ],
-    [
-     0.5,
-     1.5
     ]
    ],
    "expected_montages": 0,

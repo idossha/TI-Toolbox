@@ -20,8 +20,10 @@ describe("currentSplits", () => {
     expect(currentSplits(2.0, 0.2, 1.0)).toBe(1);
   });
 
-  it("is unlimited when there is no channel limit", () => {
-    expect(currentSplits(2.0, 0.5, null)).toBe(3); // 0.5, 1.0, 1.5
+  it("is the single balanced split when there is no channel limit", () => {
+    // generate_current_ratios(total, step, None) == [(total / 2, total / 2)], whatever the step.
+    expect(currentSplits(2.0, 0.5, null)).toBe(1);
+    expect(currentSplits(0.4, 0.5, null)).toBe(1);
   });
 
   it("is zero for a non-positive step, rather than dividing by it", () => {
@@ -41,6 +43,7 @@ describe("exCost", () => {
     const form = {
       ...defaultExFormState(),
       buckets: { e1_plus: ["F7", "F5"], e1_minus: ["P7"], e2_plus: ["F3"], e2_minus: ["P3", "P5"] },
+      channelLimit: 1.6,
     };
     const cost = exCost(form);
     expect(cost.electrodes).toBe(6);
@@ -48,6 +51,18 @@ describe("exCost", () => {
     expect(cost.splits).toBe(7);
     expect(cost.combinations).toBe(28);
     expect(cost.line).toBe("6 electrodes · 4 montages · 7 current splits · 28 iterations");
+  });
+
+  it("runs one balanced split by default, so iterations equal montages", () => {
+    // The page starts at total 2.0 mA with a 1.0 mA limit (half the total): only 1.0 / 1.0.
+    const form = {
+      ...defaultExFormState(),
+      buckets: { e1_plus: ["F7", "F5"], e1_minus: ["P7"], e2_plus: ["F3"], e2_minus: ["P3", "P5"] },
+    };
+    const cost = exCost(form);
+    expect(cost.splits).toBe(1);
+    expect(cost.combinations).toBe(cost.montages);
+    expect(cost.line).toBe("6 electrodes · 4 montages · 1 current split · 4 iterations");
   });
 
   it("counts an electrode used in two buckets once", () => {

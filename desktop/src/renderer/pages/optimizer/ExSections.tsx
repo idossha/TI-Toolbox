@@ -269,7 +269,7 @@ export function ExElectrodesSection({
 export function ExCurrentSection({ form, onChange }: { form: ExFormState; onChange: (patch: Partial<ExFormState>) => void }) {
   const cost = exCost(form);
   return (
-    <FormSection title="Current" collapsible summary={`${form.totalCurrent} mA total · ${form.currentStep} mA step · ${cost.splits} splits`}>
+    <FormSection title="Current" collapsible summary={`${form.totalCurrent} mA total · ${form.currentStep} mA step · ${cost.splits} split${cost.splits === 1 ? "" : "s"}`}>
       {/* Three numbers about one thing, on one line (coordinator, 2026-09-06 — the two-up form grid
           put Total and Step side by side and wrapped Channel limit onto a third row of its own).
           `.field-row-inline` is the shared idiom the Simulator's Electrodes row uses: label-left

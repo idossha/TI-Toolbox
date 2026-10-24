@@ -7,6 +7,12 @@ toc_group: major
 
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
+### Unreleased
+
+#### Ex-search
+
+- **Changed: ex-search runs one balanced current split by default, so a search takes about a seventh of the time** — the Optimizer's Ex method now starts at total 2.0 mA, step 0.2 mA and channel limit 1.0 mA, so each montage runs at 1.0 / 1.0 mA and iterations equal montages (the old 1.6 mA limit ran 7 splits per montage). An exhaustive search over every 10-10 montage found the best montage almost always best at 1:1, at most 0.8 % better at another split for the mean goal. To test splits, raise **Optimizer ▸ Ex ▸ Current ▸ Channel limit** above half the total. From Python, `ExConfig(channel_limit=None)` (the default) now means the balanced split instead of a sweep up to total − step; set a limit to sweep as before. Configs and scripts with an explicit channel limit run exactly as before, and existing results and reports are unchanged. See [Current ratios]({{ site.baseurl }}/wiki/ex-search/#current-ratios).
+
 ---
 ### v3.1.2 — October 22, 2026 <span class="release-pill">Latest</span> {#v312--october-22-2026}
 

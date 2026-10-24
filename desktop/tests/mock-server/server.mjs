@@ -881,16 +881,17 @@ const MEX_KEYS = [...EX_KEYS, "e3_plus", "e3_minus", "e4_plus", "e4_minus"];
 function exSearchSpace(cfg) {
   const total = Number(cfg.total_current ?? 2.0);
   const step = Number(cfg.current_step ?? 0.5);
-  const limit = cfg.channel_limit || total - step;
-  const splits = exCurrentSplits(total, step, limit);
+  // No channel limit is the single balanced split (generate_current_ratios), its own mirror.
+  const limit = cfg.channel_limit ?? null;
+  const splits = limit === null ? (total > 0 && step > 0 ? 1 : 0) : exCurrentSplits(total, step, limit);
   const electrodes = cfg.electrodes ?? {};
   let montages;
   if (electrodes._type === "PoolElectrodes") {
     // A physical montage: 4 distinct electrodes split into two pairs 3 ways (TI ignores channel
     // polarity), in both channel orders only when the split list is not its own mirror.
-    const first = Math.min(limit, total - step);
+    const first = Math.min(limit ?? 0, total - step);
     const last = first - (splits - 1) * step;
-    const mirror = splits === 0 || Math.abs(last - (total - first)) <= 1e-9;
+    const mirror = splits === 0 || limit === null || Math.abs(last - (total - first)) <= 1e-9;
     montages = choose(new Set(electrodes.electrodes ?? []).size, 4) * 3 * (mirror ? 1 : 2);
   } else {
     montages = distinctTuples(electrodes, EX_KEYS);

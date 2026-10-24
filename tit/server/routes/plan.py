@@ -445,7 +445,7 @@ def _plan_ex(
     ratios = generate_current_ratios(
         config.total_current,
         config.current_step,
-        config.channel_limit or config.total_current - config.current_step,
+        config.channel_limit,
     )
     n_combinations = count_combinations(e1p, e1m, e2p, e2m, ratios, all_combinations)
     return jobs, {

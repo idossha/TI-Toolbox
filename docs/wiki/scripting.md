@@ -198,7 +198,7 @@ run_ex_search(cfg)
 | `electrodes` | **Electrodes ▸ Search space**: **Bucketed** = `BucketElectrodes` (four lists), **All combinations** = `PoolElectrodes` (one list) | required |
 | `total_current` | **Current ▸ Total current** (mA) | `2.0` |
 | `current_step` | **Current ▸ Step** (mA) | `0.5` (app: `0.2`) |
-| `channel_limit` | **Current ▸ Channel limit** (mA) | `None` (app: `1.6`) |
+| `channel_limit` | **Current ▸ Channel limit** (mA) | `None`: one balanced split, half the total per channel (app: `1.0`) |
 | `roi_radius` | **Target** (sphere radius, mm) | `3.0` |
 | `roi_coordinate_space` | **Target** (coordinate space, `subject`/`mni`) | `"subject"` |
 | `n_jobs` | — (the app always sends `-1`): parallel workers, `-1` = the global CPU limit, 70 % of the cores by default; larger values are capped at it | `-1` |

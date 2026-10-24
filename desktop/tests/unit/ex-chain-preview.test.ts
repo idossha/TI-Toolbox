@@ -58,7 +58,7 @@ describe("Ex run of the corpus case optimizer-ex/bucketed-saved", () => {
     const montages =
       ["e1_plus", "e1_minus", "e2_plus", "e2_minus"].reduce((n, key) => n * buckets[key]!.length, 1) *
       splitCount(config.total_current as number, config.current_step as number, config.channel_limit as number);
-    expect(montages).toBe(2 ** 4 * 7);
+    expect(montages).toBe(2 ** 4 * 1); // the page default: one balanced split
     expect(rows.Montages).toBe(String(montages));
     expect(csvRows(chain("ex", "final_output.csv"))).toBe(montages);
   });

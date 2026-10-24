@@ -108,7 +108,7 @@ describe("run-page defaults come from the server's table unchanged", () => {
       pool: [],
       totalCurrent: 2.0,
       currentStep: 0.2,
-      channelLimit: 1.6,
+      channelLimit: 1.0,
     });
     expect(defaultMExFormState()).toStrictEqual({
       buckets: { e1_plus: [], e1_minus: [], e2_plus: [], e2_minus: [], e3_plus: [], e3_minus: [], e4_plus: [], e4_minus: [] },

@@ -2,8 +2,9 @@
 
 Pins (2026-10-22), each a false statement the page used to make:
 
-* Channel limit. ``channel_limit=None`` (the Python default, and a cleared desktop field) means
-  ``total - step`` (``ExConfig`` docstring; ``ex.py`` passes that to ``generate_current_ratios``).
+* Channel limit. A ``run_config.json`` written before 2026-10-24 records ``channel_limit_mA: null``
+  for an unset limit, which then swept up to ``total - step``; later runs record the limit they
+  enumerated (``total / 2`` for the balanced default), so null comes only from those older runs.
   The dose record printed ``fmt(channel_limit_mA or 0)``: "at most 0 mA per channel". With total
   2 mA in 0.2 mA steps the largest channel current is 2.0 - 0.2 = 1.8 mA (hand arithmetic: the
   other channel keeps at least one step).

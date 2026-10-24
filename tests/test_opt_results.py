@@ -96,6 +96,22 @@ class TestProcessAndSave:
         assert output["summary_stats"]["focality_range"] is not None
         assert output["summary_stats"]["composite_range"] is not None
 
+    def test_run_config_records_the_limit_the_search_enumerated(self, tmp_path):
+        """No limit runs the balanced split, so the record says total / 2 (1.0 of
+        2.0 mA); an explicit limit is recorded as set."""
+        import json
+
+        from tit.opt.ex.results import save_run_config
+
+        unset = save_run_config(_make_config(), 1, str(tmp_path), MagicMock())
+        assert json.loads(open(unset).read())["channel_limit_mA"] == 1.0
+
+        config = _make_config()
+        config.channel_limit = 1.5
+        (tmp_path / "set").mkdir()
+        explicit = save_run_config(config, 1, str(tmp_path / "set"), MagicMock())
+        assert json.loads(open(explicit).read())["channel_limit_mA"] == 1.5
+
     @patch("tit.opt.ex.results.generate_plots")
     def test_empty_results(self, mock_plots, tmp_path):
         mock_plots.return_value = []

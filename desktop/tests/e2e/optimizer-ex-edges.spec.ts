@@ -13,8 +13,8 @@ import { addOptRow, clearOptRows, closeOptEditor, openOptEditor, setOptCell, set
  * same table by `tests/mock-server/plan-output-dirs.test.ts`. A count is invariant under renaming
  * electrodes, so the fixture's labels (A..D, F3..C4) are mapped one-to-one onto the mock net's
  * E1..E4.
- *   1. Step 0.05 with the Channel limit cleared: the cost line states the fixture's counts and the
- *      submitted config keeps current_step 0.05 and no limit.
+ *   1. Step 0.05 with a 1.95 mA channel limit: the cost line states the fixture's 39-split sweep
+ *      and the submitted config keeps current_step 0.05 and the limit.
  *   2. A channel limit below total / 2 leaves no current split: Run is disabled by a sentence that
  *      names the job, and the line says 0 iterations.
  *   3. mEx with all eight buckets holding the same four electrodes: 0 combinations, Run disabled.
@@ -117,16 +117,16 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("step 0.05 with no channel limit: the line states the runner's count and the config keeps the step", async () => {
+test("step 0.05 with a channel limit: the line states the runner's count and the config keeps the step", async () => {
   const c = countCase("bucket_shared_poles");
   expect(c.current_step).toBe(0.05);
-  expect(c.channel_limit).toBeNull();
+  expect(c.channel_limit).toBe(1.95);
   const row = await freshExRow();
   const dialog = await openOptEditor(page, row);
   await pickSavedTarget(dialog, "Thalamus_target");
   await fillCase(dialog, c);
   await setNumber(dialog, 1, String(c.current_step));
-  await setNumber(dialog, 2, "");
+  await setNumber(dialog, 2, String(c.channel_limit));
   const distinct = new Set(Object.values(c.buckets).flat()).size;
   await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText(
     `${distinct} electrodes · ${n(c.expected_montages)} montages · ${n(c.splits!.length)} current splits · ${n(c.expected_combinations)} iterations`,
@@ -148,7 +148,7 @@ test("step 0.05 with no channel limit: the line states the runner's count and th
   expect(body.kind).toBe("ex");
   const config = body.subject_configs[0]!.config;
   expect(config.current_step).toBe(c.current_step);
-  expect(config.channel_limit ?? null).toBeNull();
+  expect(config.channel_limit).toBe(c.channel_limit);
   expect(config.total_current).toBe(c.total_current);
 });
 

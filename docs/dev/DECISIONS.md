@@ -3401,3 +3401,26 @@ Listing project paths in the terminal prompt: the interactive choice already req
 
 **Revisit if.** A launcher creates sessions without these labels, or launchers learn to run two
 projects' sessions side by side (then Replace needs no cross-project choice at all).
+
+## 2026-10-24 — Ex-search runs one balanced current split by default
+
+**Decision.** `ExConfig.channel_limit=None` (the default) and `generate_current_ratios(total, step)`
+mean the single split `(total/2, total/2)`, replacing the sweep up to `total - step`; the desktop
+page and `APP_DEFAULTS["ex"]` start at total 2.0 mA, step 0.2 mA, limit 1.0 mA (was 1.6 mA, 7
+splits). An explicit limit sweeps exactly as before. `run_config.json` now records the enumerated
+limit, so reports keep reading a null as the old sweep. Tests: `tests/test_ex_logic.py`,
+`tests/test_opt_ex.py`, `tests/test_ex_search_counts.py` (fixture `dev/gen_ex_counts.py`),
+`desktop/tests/unit/optimizer-cost.test.ts`, `desktop/tests/unit/app-defaults.test.ts`.
+
+**Why.** An exhaustive leadfield study (2 heads x 4 targets, all 3.85 M 10-10 montages x 21 splits;
+[measured], reported by the user 2026-10-24) found the best montage best at 1:1 in 6/8 cells for the
+mean goal, the largest gain 0.8 %, and 1:1 always best under a per-channel cap: the weaker channel
+caps the envelope. The 1.6 mA default cost about 7x the runtime for that.
+
+**Alternatives rejected.** None = total/2 only through the sweep (`channel_limit = total/2`): a
+step above half the total would then leave no split, so changing the total alone could empty the
+search. Keeping None = no limit and changing only the page: Python scripts and agent configs that
+omit the limit would still pay the sweep.
+
+**Revisit if.** A goal or constraint is found where unequal splits win by more than a few percent.
+

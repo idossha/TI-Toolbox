@@ -97,7 +97,12 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
     if hasattr(config, "total_current"):
         run_info["total_current_mA"] = config.total_current
         run_info["current_step_mA"] = config.current_step
-        run_info["channel_limit_mA"] = config.channel_limit
+        # The limit the search enumerated: no limit runs the balanced split only.
+        run_info["channel_limit_mA"] = (
+            config.total_current / 2
+            if config.channel_limit is None
+            else config.channel_limit
+        )
     if hasattr(config, "current_mA"):
         run_info["current_mA"] = config.current_mA
     if hasattr(config, "symmetric_bucket"):

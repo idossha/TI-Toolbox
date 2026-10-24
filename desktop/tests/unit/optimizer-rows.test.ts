@@ -152,10 +152,10 @@ describe("what the row says about itself", () => {
 
     const row = emptyOptimizerRow({ method: "ex" });
     const filled = { ...row, ex: { ...row.ex, buckets: { e1_plus: ["E1"], e1_minus: ["E2"], e2_plus: ["E3"], e2_minus: ["E4"] } } };
-    expect(optimizerMethodSummary(filled)).toBe("4 electrodes (TI) · 2 mA · 1 montage · 7 current splits · 7 iterations");
+    expect(optimizerMethodSummary(filled)).toBe("4 electrodes (TI) · 2 mA · 1 montage · 1 current split · 1 iteration");
     // The electrode count is the MONTAGE's, fixed by the pairs — an unfilled row used to report
     // the distinct pool ("0 electrodes"), which said nothing about the search.
-    expect(optimizerMethodSummary(row)).toBe("4 electrodes (TI) · 2 mA · 0 montages · 7 current splits · 0 iterations");
+    expect(optimizerMethodSummary(row)).toBe("4 electrodes (TI) · 2 mA · 0 montages · 1 current split · 0 iterations");
     // mEx sweeps no amplitudes, so it reports no splits.
     expect(optimizerMethodSummary(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("8 electrodes (mTI) · 2 mA · 0 combinations");
   });

@@ -149,10 +149,35 @@ class TestRunExSearch:
         )
         run_ex_search(config)
 
-        # channel_limit=None means total_current - current_step (ExConfig's
-        # docstring): 3.5 mA here, so channel 1 runs 3.5 -> 0.5 mA in 0.5 mA
-        # steps, each split summing to 4 mA. A total/2 default would give only
-        # (2.0, 2.0).
+        # channel_limit=None is the single balanced split (ExConfig's docstring):
+        # half of 4 mA on each channel, whatever the step.
+        assert engine.run.call_args.args[4] == pytest.approx([(2.0, 2.0)])
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_explicit_channel_limit_sweeps(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        pm = MagicMock()
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.ex_search_run.return_value = str(tmp_path / "output")
+        pm.rois.return_value = str(tmp_path / "rois")
+        mock_gpm.return_value = pm
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.ex.ex import run_ex_search
+
+        run_ex_search(
+            _make_ex_config(total_current=4.0, current_step=0.5, channel_limit=3.5)
+        )
+
+        # Limit 3.5 mA: channel 1 runs 3.5 -> 0.5 mA in 0.5 mA steps (hand
+        # arithmetic), each split summing to 4 mA -- the sweep as before.
         ratios = engine.run.call_args.args[4]
         assert ratios == pytest.approx(
             [

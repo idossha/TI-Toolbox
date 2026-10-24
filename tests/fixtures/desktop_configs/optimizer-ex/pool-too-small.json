@@ -5,7 +5,7 @@
   "jobs": [
     {
       "config": {
-        "channel_limit": 1.6,
+        "channel_limit": 1,
         "current_step": 0.2,
         "electrodes": {
           "_type": "PoolElectrodes",

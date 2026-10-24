@@ -89,6 +89,17 @@ class TestGenerateCurrentRatios:
             assert ch1 >= step - step * 0.01
             assert ch2 >= step - step * 0.01
 
+    def test_no_limit_is_the_balanced_split(self):
+        """channel_limit=None (the default) is one split, half the total each."""
+        assert generate_current_ratios(2.0, 0.2) == [(1.0, 1.0)]
+        assert generate_current_ratios(2.0, 0.5, None) == [(1.0, 1.0)]
+        # Changing the total alone never empties the list, even below two steps.
+        assert generate_current_ratios(0.4, 0.5, None) == [(0.2, 0.2)]
+
+    def test_limit_of_half_the_total_matches_no_limit(self):
+        """The app's default limit (total / 2) gives the same single split."""
+        assert generate_current_ratios(2.0, 0.2, 1.0) == pytest.approx([(1.0, 1.0)])
+
     def test_ratios_descending_ch1(self):
         """ch1 values are generated in descending order."""
         ratios = generate_current_ratios(2.0, 0.25, 2.0)

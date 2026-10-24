@@ -481,10 +481,10 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await pickSavedTarget(dialog, "L_Insula_target");
   await fillExBuckets(dialog);
   // The cost is stated beside the buckets that change it — the same function line 2 reads.
-  await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 1 montage · 7 current splits · 7 iterations");
+  await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 1 montage · 1 current split · 1 iteration");
   await closeOptEditor(page);
   await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
-  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 1 montage · 7 current splits · 7 iterations");
+  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 1 montage · 1 current split · 1 iteration");
 
   // Moved to 101, the row cannot run: 101 has no leadfield, and the saved ROIs are ernie's CSVs,
   // so the move clears them (p19, `roiForSubject`) rather than optimising ernie's targets in 101.

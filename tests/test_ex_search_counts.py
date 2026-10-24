@@ -52,11 +52,8 @@ def test_fixture_has_cases_of_every_shape():
 
 
 def _ratios(case):
-    limit = case["channel_limit"]
     return generate_current_ratios(
-        case["total_current"],
-        case["current_step"],
-        limit if limit is not None else case["total_current"] - case["current_step"],
+        case["total_current"], case["current_step"], case["channel_limit"]
     )
 
 

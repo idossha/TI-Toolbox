@@ -25,10 +25,14 @@ function n(value: number): string {
   return value.toLocaleString("en-US");
 }
 
-/** Counts the descending sweep used by tit.opt.ex.logic.generate_current_ratios. */
+/**
+ * Counts the splits of tit.opt.ex.logic.generate_current_ratios: no channel limit is the single
+ * balanced split, a limit the descending sweep.
+ */
 export function currentSplits(totalCurrent: number, currentStep: number, channelLimit: number | null): number {
   if (!Number.isFinite(totalCurrent) || !Number.isFinite(currentStep) || !(currentStep > 0) || !(totalCurrent > 0)) return 0;
-  const limit = channelLimit ?? totalCurrent - currentStep;
+  if (channelLimit === null) return 1;
+  const limit = channelLimit;
   if (!Number.isFinite(limit) || limit <= 0) return 0;
   const epsilon = currentStep * 0.01;
   const maximum = Math.min(limit, totalCurrent - currentStep);
@@ -46,9 +50,8 @@ export function currentSplits(totalCurrent: number, currentStep: number, channel
  */
 export function splitsMirrorSymmetric(totalCurrent: number, currentStep: number, channelLimit: number | null): boolean {
   const count = currentSplits(totalCurrent, currentStep, channelLimit);
-  if (count === 0) return true;
-  const limit = channelLimit ?? totalCurrent - currentStep;
-  const first = Math.min(limit, totalCurrent - currentStep);
+  if (count === 0 || channelLimit === null) return true;
+  const first = Math.min(channelLimit, totalCurrent - currentStep);
   const last = first - (count - 1) * currentStep;
   return Math.abs(last - (totalCurrent - first)) <= 1e-9;
 }
