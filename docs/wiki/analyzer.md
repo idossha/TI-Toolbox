@@ -241,10 +241,6 @@ An analysis reduces the field to the statistics below. "Positive" elements are t
 
 The 99.9th-percentile peak and the area above a fraction of it are the conventions of SimNIBS's field summary (`get_percentiles`, `get_focality`). The peak and hot-spot statistics describe the whole grey matter (or tissue) and do not depend on the target. There is no separate whole-head analysis: these statistics and the histogram come with every analysis. Every statistic is in the units of the analysed field, so selecting `hf_sar` gives means in (V/m)², not field strengths.
 
-> **Voxel-space `focality_*_area` values written by v2.3.0-v2.5.0 are 10x too large** --
-> they were computed in "cm^2" from a volume. v3.0.0 reports them in $$\mathrm{cm}^3$$;
-> see [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-03) for whether to re-run or rescale.
-
 ---
 
 ## Outputs

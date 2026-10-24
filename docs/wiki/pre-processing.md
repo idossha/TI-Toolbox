@@ -112,7 +112,7 @@ the surfer guide explains the separate reconstruction and finer subregion option
 <div class="image-row">
   <div class="image-container">
     <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_co-registration.png" alt="Co-registered EEG nets on a subject head model">
-    <em>Supported EEG nets are co-registered while the subject's <code>m2m</code> head model is prepared. Head models built before v3.1.1 have wrong GSN-HydroCel-128 and BioSemi-64/128/256 positions until the cap is re-applied in the <a href="{{ site.baseurl }}/wiki/eeg-caps/"><strong>EEG caps</strong> panel</a>.</em>
+    <em>Supported EEG nets are co-registered while the subject's <code>m2m</code> head model is prepared. Caps can be added or re-applied later in the <a href="{{ site.baseurl }}/wiki/eeg-caps/"><strong>EEG caps</strong> panel</a>.</em>
   </div>
   <div class="image-container">
     <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_atlas.png" alt="DKT atlas aligned to subject anatomy">

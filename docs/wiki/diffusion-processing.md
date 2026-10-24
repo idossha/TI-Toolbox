@@ -134,8 +134,6 @@ run_pipeline(
 
 Then select an anisotropic conductivity model (`vn`, `dir` or `mc`) in the **Simulator**; it uses `DTI_coregT1_tensor.nii.gz`.
 
-Results from TI-Toolbox before v3.0.2 came from a translation-only alignment without tensor rotation and should be regenerated; see the [changelog]({{ site.baseurl }}/releases/changelog/).
-
 ## Docker and resources
 
 QSIPrep and QSIRecon run as sibling Docker containers spawned from the TI-Toolbox container (Docker-out-of-Docker). Expect QSIPrep to take one to several hours per subject on native x86-64 cores and to need 16 GB+ of RAM. The DTI step runs inside the TI-Toolbox container in a few minutes.

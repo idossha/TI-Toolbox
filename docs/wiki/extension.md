@@ -90,7 +90,7 @@ mesh = mesh_io.read_msh(path)
 ti_max = mesh.field["TI_max"].value  # one value per fsaverage vertex, lh then rh
 ```
 
-Two former extensions no longer exist as panels: **Electrode Placement** is now the Simulator's
-[free-hand mode]({{ site.baseurl }}/wiki/electrode-placement/), and **Subject Info** is the
-[Overview]({{ site.baseurl }}/wiki/overview/) page.
+Electrode placement is the Simulator's
+[free-hand mode]({{ site.baseurl }}/wiki/electrode-placement/), and subject information is the
+[Overview]({{ site.baseurl }}/wiki/overview/) page; neither is an extension panel.
 

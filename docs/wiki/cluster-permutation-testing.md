@@ -49,14 +49,6 @@ rows unchanged. Import checks table structure and values; dataset files are chec
 - **Parallel Processing**: Multi-core support for fast computation
 - **Comprehensive Output**: Statistical maps, cluster analysis, and detailed reports
 
-> **Results produced with v2.2.3 – v2.5.0 should be re-run.** Three defects in the cluster
-> machinery were fixed in v3.0.0: opposite-sign clusters that touch were merged into one, the
-> permutation null for two-sided and left-tailed tests was built with the *least* extreme
-> cluster instead of the most extreme one, and the sampled p-value could return exactly 0.
-> Right-tailed (`alternative="greater"`) analyses are unaffected. See the maintainer note
-> [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-01, SCI-04, SCI-06) for how to tell whether a
-> given result is affected and what changes.
-
 ## Theoretical Background
 
 ### Why Cluster-Based Permutation Testing?
@@ -228,8 +220,7 @@ Open `surface_stats.msh` in the Viewer (**Open in Tetravox** on the job) or Gmsh
 `cluster_subject_values.csv` to R or a spreadsheet for follow-up statistics and plots. To
 paint the effect and cluster maps on the inflated cortex as PDFs, run
 `tit.plotting.nilearn.render_surface_stats_result("…/surface_stats.msh", out_dir)` under
-`simnibs_python`. Surface runs from earlier versions have none of these files and are not
-converted; re-run the analysis to get them.
+`simnibs_python`.
 
 **Example classification findings (illustrative):**
 - Significant cluster in left hippocampus (p = 0.008, 1,245 voxels)

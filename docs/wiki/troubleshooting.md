@@ -12,11 +12,11 @@ The **single source of truth** for known problems, their causes and their verifi
 2. **Verified solutions are promoted here** by a maintainer, with a link back to the discussion. Only entries that were reproduced or confirmed by the reporter land on this page.
 3. **AI assistants** using the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) read this page through `search_wiki` / `read_wiki_page("troubleshooting")` — so a fix recorded here is a fix your assistant knows about.
 
-The page has two parts. **Part 1** covers problems you resolve with a step of your own — Docker settings, your machine, your data, upstream tools, and toolbox fixes that need more than an upgrade — and explains them fully. **Part 2** is a compact list of toolbox bugs that have already been fixed: if you hit one, the answer is *upgrade*. Search the page (Ctrl/Cmd-F) for your error text.
+The page covers problems you resolve with a step of your own — Docker settings, your machine, your data and upstream tools. Search the page (Ctrl/Cmd-F) for your error text.
 
 ---
 
-# Part 1 — Environment problems (Docker, machine, data, upstream tools)
+# Environment problems (Docker, machine, data, upstream tools)
 
 
 ## Where are the logs
@@ -94,7 +94,7 @@ first launch of a new version also downloads the image before the server starts,
 a while on a slow connection or a nearly full disk.
 
 - **"Docker was not found on this machine…"** — install Docker Desktop (macOS/Windows) or Docker
-  Engine (Linux). On Windows with Docker Desktop installed, update TI-Toolbox (see Part 2, v3.0.1)
+  Engine (Linux). On Windows with Docker Desktop installed, update TI-Toolbox
   and check which `Docker endpoint` `main.log` names.
 - **"Docker is installed but not running…"** — start Docker Desktop (`sudo systemctl start docker`
   on Linux), wait until it reports running, and try again.
@@ -129,7 +129,6 @@ Follow the [installation guide]({{ site.baseurl }}/installation/) for the matchi
 ### Preprocessing appears frozen for many hours
 
 **Check progress:** open [Jobs]({{ site.baseurl }}/wiki/jobs/) to inspect the stage and live log. CHARM and FastSurfer can run for a long time, especially under emulation on Apple Silicon; a quiet interval alone does not establish that a job is stuck.
-**CHARM frozen on a many-core machine:** before v3.0.2, `charm` could hang forever partway through on machines with many CPU cores, with an OpenBLAS thread-metadata warning in the log. Update to v3.0.2 or later, cancel the job and run it again.
 **Source:** [#93](https://github.com/idossha/TI-Toolbox/discussions/93).
 
 ## GUI display (X11, v2 only)
@@ -140,7 +139,7 @@ v3 needs no X11, XQuartz or VcXsrv; for display problems with the v2 GUI, see [L
 
 ### macOS `._*` (AppleDouble) files in `sourcedata/`
 
-**Cause:** macOS writes `._<name>` sidecars onto non-APFS media (USB drives, network shares). Inside the container they raise `Operation not permitted` on `stat`. The toolbox skips them since v2.4.0, but they still pollute directories and confuse other tools.
+**Cause:** macOS writes `._<name>` sidecars onto non-APFS media (USB drives, network shares). Inside the container they raise `Operation not permitted` on `stat`. The toolbox skips them, but they still pollute directories and confuse other tools.
 **Fix:** `dot_clean -m sourcedata/` on the Mac, or `find sourcedata -name '._*' -delete`.
 
 ### Folder-name case: `CT/` vs `ct/`, `T1w/` vs `t1w/`
@@ -160,12 +159,6 @@ v3 needs no X11, XQuartz or VcXsrv; for display problems with the v2 GUI, see [L
 **Cause:** the DICOM series was not a diffusion acquisition (e.g. a 2-volume clinical b=0 scan), or the gradient table did not travel with the NIfTI.
 **Fix:** the pre-flight checks that the table exists, parses, matches the NIfTI's volume count and has enough distinct b>100 directions. If it fails, QSIPrep cannot process the data either — verify the acquisition. Tip: in a QSIPrep log, count the `…_b0-NN.nii.gz` files listed by `gather_inputs` against `dim[4]` to see what the b-table actually contains.
 
-### EEG net has a hole / central electrodes on one point
-
-**Applies to:** head models built before v3.1.1 with GSN-HydroCel-128, BioSemi-64, BioSemi-128 or BioSemi-256.
-**Cause:** these four caps were in the wrong coordinate frame, so charm put their central electrodes on one point of the scalp (43 GSN-HydroCel-128 electrodes collapsed into a hole). v3.1.1 ships corrected caps.
-**Fix:** upgrading alone is not enough: the subject keeps the wrong positions in `m2m_<id>/eeg_positions/` until the cap is re-applied. Enable **Settings ▸ Extensions ▸ EEG caps**, open **EEG caps**, tick the affected cap and press **Apply selected** (choose **Replace and rerun** when asked), or **Re-apply all**, for each subject that uses it. Then re-run the simulations and optimizations that used those nets. See [EEG Caps]({{ site.baseurl }}/wiki/eeg-caps/).
-
 ### Bilateral target with a unipolar montage
 
 Flex-search and ex-search accept a union of regions or spheres picked as one target, for example
@@ -179,13 +172,13 @@ trades focality between the sites; an mTI montage is the alternative.
 
 **Applies to:** QSIPrep 26.0.0 and every version since 2019; any DWI sidecar lacking `TotalReadoutTime`.
 **Cause:** upstream bug in `qsiprep/interfaces/epi_fmap.py` — the value is read with a bare `.get()` and formatted into an FSL `acqp` line; the code path runs under `--hmc-model eddy` even with no fieldmap. Reported four times upstream, never fixed.
-**Fix:** the toolbox pre-flight (since v2.5.0) derives `TotalReadoutTime` or writes a provably inert fallback before the container starts. Manually: add `"TotalReadoutTime"` and `"PhaseEncodingDirection"` to `sub-<id>/dwi/sub-<id>_dwi.json`.
+**Fix:** the toolbox pre-flight derives `TotalReadoutTime` or writes a provably inert fallback before the container starts. Manually: add `"TotalReadoutTime"` and `"PhaseEncodingDirection"` to `sub-<id>/dwi/sub-<id>_dwi.json`.
 
 ### QSIPrep stops at `synthseg` on an Apple Silicon Mac ("TensorFlow library was compiled to use AVX instructions")
 
 **Applies to:** QSIPrep 26.0.0 on any arm64 Docker host (M-series Macs), under Rosetta or QEMU emulation.
 **Cause:** QSIPrep's anatomical workflow runs `mri_synthseg`, whose TensorFlow build requires AVX instructions; emulation does not provide them, so the node fails and the run stops.
-**Fix:** run QSIPrep on an x86-64 Linux or Windows machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs on the Mac. Since v3.0.2 the toolbox refuses to start QSIPrep on an arm64 Docker host with this explanation instead of failing mid-run.
+**Fix:** run QSIPrep on an x86-64 Linux or Windows machine and copy `derivatives/qsiprep/sub-<id>/` into the project; the DTI step then runs on the Mac. The toolbox refuses to start QSIPrep on an arm64 Docker host with this explanation instead of failing mid-run.
 
 ### QSIRecon `dsi_studio_gqi` — `Cannot set the undefined 'plot_reports' attribute`
 
@@ -197,14 +190,6 @@ trades focality between the sites; an mTI montage is the alternative.
 
 The `atlas2subject(split_labels=True)` label misalignment is patched into the image at build time (`resources/atlas2subject/`); if you install SimNIBS 4.6 outside the container you get it unpatched. SimNIBS 4.6's own `np.nan_to_num(..., copy=None)` needs NumPy 2: the image ships NumPy 2.3.5 and runs it unmodified. In a SimNIBS environment whose NumPy was pulled below 2 (for example by `pip install bpy`), every MNI-space NIfTI warp fails with `ValueError: NoneType copy mode not allowed`.
 
-### Warping E or J to MNI fails with `Unable to avoid copy while creating an array as requested`
-
-**Applies to:** images v3.0.0–v3.1.1, when you run `subject2mni` / `mni2subject` on a mesh with `E` or `J` or on a 3-component NIfTI, or `run_simnibs` with `map_to_MNI`.
-
-**Cause:** a build-time patch written for the old NumPy 1 environment turned SimNIBS's `nan_to_num(copy=None)` into `copy=False`, which NumPy 2 refuses whenever a copy is needed.
-
-**Fix:** update to v3.1.2 or later. TI-Toolbox's own simulation, analyzer, search and EEG-cap outputs only warp scalar fields and were never affected.
-
 ### Ex-search needs a leadfield
 
 Exhaustive search requires a pre-computed leadfield for the *same EEG net* as the montage (`derivatives/SimNIBS/sub-<id>/leadfields/`). Run that step first.
@@ -212,44 +197,3 @@ Exhaustive search requires a pre-computed leadfield for the *same EEG net* as th
 ### `TI_normal` cannot be analysed in voxel space
 
 By design — `TI_normal` only exists on the cortical surface. Select *Space = mesh* for it; use `TI_max` (or `mTI_max`) for voxel analyses.
-
----
-
-# Part 2 — Toolbox bugs already fixed: upgrade
-
-These entries record fixes to older versions. Older-version workarounds are retained for
-reference; use the [installation guide]({{ site.baseurl }}/installation/) for current setup.
-
-| Symptom | Fixed in | Note / workaround on older versions | Source |
-|---|---|---|---|
-| Flex-search report not written for a **Mean** or **Max** goal: `could not convert string to float: ''` | v3.1.2 | the search results are unchanged; after upgrading, rebuild the report with `simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run folder>` (for example from a **Notebooks** cell) | [Changelog]({{ site.baseurl }}/releases/changelog/) |
-| Simulation report not written: `matmul: Input operand 1 has a mismatch in its core dimension 0` | v3.1.1 | simulation outputs are unchanged; after upgrading, re-run the simulation to get its report | [v3.1.1]({{ site.baseurl }}/releases/v3.1.1/) |
-| Flex-search refuses the skin-visualization net: *"Could not queue the search. Missing inputs: Skin visualization EEG net …"* | v3.1.0 (image of 2026-10-12) | untick **Optimizer ▸ Solver ▸ Skin visualization ▸ Plot EEG net electrodes**; the search still runs | [changelog]({{ site.baseurl }}/releases/changelog/) |
-| Flex-search fails with `Please define TESoptimize.threshold for focallity optimization!` (Threshold-based focality, Adaptive or Multi-threshold) | v3.1.0 (image of 2026-10-12) | choose **Fixed thresholds** (e.g. `0.2,0.5`) or **Threshold-free focality** | [changelog]({{ site.baseurl }}/releases/changelog/) |
-| Flex-/ex-search report fails with `Cannot work out file type of ".../lh.<atlas>.annot"` for a cortical-atlas target | v3.1.0 | rebuild with `simnibs_python -m tit.reporting.generators.flex_search <project> <subject> <run>` (`ex_search` for ex-search) | [v3.1.0]({{ site.baseurl }}/releases/v3.1.0/) |
-| FreeSurfer stops at once on Windows: "LOCAL_PROJECT_DIR must be an absolute host path." | v3.1.0 | | [v3.1.0]({{ site.baseurl }}/releases/v3.1.0/) |
-| Surface cluster permutation stops and names a missing fsaverage `.msh` | v3.1.0 (changed) | older `_fields.npz` projections are no longer read: re-run the fsaverage projection (Simulator **Map fields to fsaverage**) | [v3.1.0]({{ site.baseurl }}/releases/v3.1.0/) |
-| Apple Silicon: the app stops with "no matching manifest for linux/arm64/v8" instead of downloading the image | v3.0.1 | `docker pull --platform linux/amd64 idossha/ti-toolbox:<version>` | [v3.0.1]({{ site.baseurl }}/releases/v3.0.1/) |
-| Windows: "Docker was not found on this machine" while Docker Desktop runs with the `desktop-linux` context | v3.0.1 | | [v3.0.1]({{ site.baseurl }}/releases/v3.0.1/) |
-| "The bilateral CIT168 atlas was replaced by …" / "The bilateral Harvard-Oxford cortical atlas was replaced by …" for a config naming the old file | v3.0.1 (renamed) | use the named lateralized file and pick both sides when you want both | [Brain Atlases]({{ site.baseurl }}/wiki/atlases/) |
-| "The Morel atlas is no longer shipped (CC BY-NC-SA)" | v3.0.0 (removed) | pick another thalamic target, or import the atlas yourself as a custom mask | [Brain Atlases]({{ site.baseurl }}/wiki/atlases/) |
-| `loader.py` hides the real `docker compose` error behind "simnibs service is not running" | v2.5.0 | | |
-| Analyzer "Field" dropdown had no effect; voxel analysis silently used `TI_avg` | v2.5.0 | re-run analyses made with `TI_avg` enabled | |
-| mTI outputs named `TI_Max` not found by the analyzer (field renamed `mTI_max`; outputs from ≤ v2.4.0 are named `TI_Max`) | v2.5.0 | rename `*_TI_Max.*` → `*_mTI_max.*`, or re-run | |
-| Flex-search current-ratio search: final field at 1:1 while `flex_meta.json` claims the optimised split | v2.5.0 | re-run affected optimisations | |
-| Ex-search mTI + Atlas ROI "completed successfully" with zero runs | v2.5.0 | | |
-| Ex/mex config with `roi_names=[]` and no atlas scored every montage 0 (now a `ValueError`) | v2.5.0 | | |
-| QSIRecon refuses to rerun ("output already exists") although nothing was reconstructed | v2.5.0 | delete `<out>/sub-<id>/` (logs only) | |
-| Analyzer simulation list empty when the first subject has no simulations | v2.4.0 | switch subject and back | |
-| DICOM import crashes with `PermissionError: [Errno 1]` on `._*` files | v2.4.0 | delete the `._*` files (Part 1) | PR #133 |
-| DICOMs silently skipped when `CT/` and `ct/` both exist | v2.4.0 | keep one spelling | |
-| QSIRecon: `Path should point to a file: .` (license mounted as `None`) | v2.4.0 | automatic license mount | [#81](https://github.com/idossha/TI-Toolbox/discussions/81) |
-| QSI preflight: `Host project directory does not exist: C:/…` on Windows | v2.3.2 | | [#122](https://github.com/idossha/TI-Toolbox/discussions/122) |
-| `recon-all output already exists` on a fresh project (empty dir pre-created) | v2.3.2 | delete the empty `derivatives/freesurfer/sub-<id>/` | [#122](https://github.com/idossha/TI-Toolbox/discussions/122) |
-| DWI DICOMs never converted (only T1w/T2w) | v2.3.2 | | [#122](https://github.com/idossha/TI-Toolbox/discussions/122) |
-| Zipped DICOM folder ignored; empty `T1w/dicom/` created | v2.3.1 | unpack into `sourcedata/sub-<id>/T1w/dicom/` | [#90](https://github.com/idossha/TI-Toolbox/discussions/90) |
-| `Labeling.nii.gz not found`, `simnibs_python` not in `$PATH`, `subject_atlas: unrecognized arguments: -m`, `NoneType copy mode not allowed` (SimNIBS 4.6 transition) | v2.3.1 | | [#80](https://github.com/idossha/TI-Toolbox/discussions/80) |
-| Linux desktop app: QSIPrep `failed to connect to the docker API at unix:///var/run/docker.sock` | v2.3.1 | reinstall the desktop app | [#80](https://github.com/idossha/TI-Toolbox/discussions/80) |
-| Flex-search report missing EEG mapping / electrode configuration | v2.3.1 | the electrode CSVs feed the simulator regardless | [#94](https://github.com/idossha/TI-Toolbox/discussions/94) |
-| Focality step 2/2: `'FlexSearchTab' object has no attribute 'volume_atlas_display_map'` | v2.3.0 | | [#89](https://github.com/idossha/TI-Toolbox/discussions/89) |
-| Cortical atlas dropdown empty in flex-search (`.annot` files not generated) | v2.2.4 | inside the container: `subject_atlas -m /mnt/<project>/derivatives/SimNIBS/sub-X/m2m_X -a DK40 -o …/m2m_X/segmentation` | [#72](https://github.com/idossha/TI-Toolbox/discussions/72) |

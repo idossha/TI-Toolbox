@@ -61,9 +61,7 @@ Reports are self-contained HTML: no sidecar files, no links between reports, no 
 
 ## Rebuilding a report
 
-A report can be rebuilt from a run's outputs without re-running it. Simulations run with v3.1.0 have
-no report ([fixed in v3.1.1]({{ site.baseurl }}/releases/v3.1.1/)); the first command below builds
-one. In the container:
+A report can be rebuilt from a run's outputs without re-running it. In the container:
 
 ```bash
 simnibs_python -m tit.reporting.generators.simulation  /mnt/project ernie AF3_PO10_and_AF4_Oz

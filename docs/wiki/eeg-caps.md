@@ -21,7 +21,7 @@ charm, and lets you check how a net sits on the subject's scalp. Turn it on in
    TI-Toolbox ships), **SimNIBS** (SimNIBS's own caps), **uploaded** (added to this project), or
    **subject only** (a net on the subject with no MNI file to re-apply from). Each cap has a
    status, **not on subject** or **on subject**, and the date a cap on the subject was
-   applied. After an image update that corrects a cap, re-apply it; the inspection below flags a
+   applied. The inspection below flags a
    cap whose electrodes collapsed.
 3. Tick the caps you want and press **Apply selected**, or **Re-apply all** to refresh every cap
    already on the subject.
@@ -31,8 +31,7 @@ this head and projected onto the scalp, and written to `m2m_<id>/eeg_positions/<
 `.geo` for Gmsh). It takes a few seconds per cap. If a cap is already on the subject, the panel asks
 first: **Skip** keeps the existing file, **Replace and rerun** overwrites it.
 
-Use this after updating TI-Toolbox when a release fixes a cap (for example the GSN-HydroCel-128
-and BioSemi caps in v3.1.1): re-apply the cap instead of rebuilding the head model.
+Re-apply a cap to refresh it on an existing head model instead of rebuilding the head model.
 
 ### Add your own cap
 
