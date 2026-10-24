@@ -120,13 +120,21 @@ By default both channels carry the same current. With **Current ratio ▸ Optimi
 
 The split is searched **jointly with placement**: every candidate is scored at its own best split, which costs a rescale of already-solved fields, not a new FEM solve. It works with every goal. The winning split is used in the final simulation and recorded as `current_split` in `flex_meta.json`.
 
-A better score is not a stronger field. On sub-101 L-hippocampus at a fixed 4 mA total and fixed positions, 1:3 gave 0.185 V/m on target (focality ratio 1.64), 2:2 gave 0.361 V/m (1.92) and 3:1 gave 0.196 V/m (1.16): extreme splits attenuate the whole field rather than sharpening it. The envelope is capped by the weaker channel, so the split both scales the envelope and steers where the channels balance; published TI optima are rarely exactly 1:1 (Lee et al. 2020; Inoue et al. 2025).
+**What it buys: usually little.** In an exhaustive leadfield search of every EEG 10-10 montage at every split (2 heads, 4 targets, 4 mA total), the best 1:1 montage was already optimal or within 0.8 % for **Mean TImax**, and within 4 % for **Threshold-free focality** at **Intensity preference** 1. Winning splits were always near 1:1 (1.9:2.1 to 2.2:1.8). With each channel capped at a fixed current, 1:1 at the cap always won.
+
+**Why.** The envelope is capped by the weaker channel, so the best split is the one that balances the two channels at the target. Placement already does that: the best montages are balanced at 1:1, so a split only rescues montages that start out unbalanced, and those rank lower to begin with.
+
+**Caution.** With **Threshold-free focality** at **Intensity preference** 0, the score ignores overall strength, so an extreme split can raise the score while the target field falls (by up to 70 % in the study). Use **Intensity preference** 1 with the ratio search, and check the target field of the result.
+
+**Cost.** It adds no FEM solves. Run time rises under 1 % with **Mean TImax** and about 20 % with **Threshold-free focality**, where every split is scored against the non-ROI. A matched-seed benchmark (ernie, left insula, 4-5 seeds) showed no worse placements, and the search is unchanged when the option is off.
+
+**When to use it:** when placement is constrained (few or fixed electrodes), or to confirm 1:1. Otherwise leave it off (the default).
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current ratio effect on the TI envelope" style="width: 80%; max-width: 700px;">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current split versus placement" style="width: 100%; max-width: 900px;">
 </div>
 
-**How the split scales and steers the TI envelope.** This montage was optimized at 1:1, so tuning the ratio afterwards gains only about 0.8 %; the benefit comes from searching it jointly with placement.
+**Current split versus placement.** (A) The best 1:1 montage peaks at 1:1, while a weaker montage peaks off 1:1. (B) The gain of searching the split together with placement, over the best 1:1 montage, at 4 mA total.
 
 ## Solver
 
