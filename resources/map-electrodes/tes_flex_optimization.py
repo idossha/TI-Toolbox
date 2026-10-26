@@ -3225,7 +3225,7 @@ def postprocess_e(e, e2=None, dirvec=None, type="magn"):
         - "max_TI": maximum envelope for TI fields
         - "dir_TI": directional sensitive maximum envelope for TI fields
         - "dir_TI_normal": directional TI field normal component (requires surface normals in dirvec)
-        - "dir_TI_tangential": directional TI field tangential component (requires surface normals in dirvec)
+        - "dir_TI_tangential": maximum TI envelope over the directions tangential to the surface, i.e. perpendicular to dirvec (requires surface normals in dirvec)
 
     Returns
     -------
@@ -3273,11 +3273,14 @@ def postprocess_e(e, e2=None, dirvec=None, type="magn"):
     elif type == "dir_TI_normal":
         e_pp = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
 
-    # [TI-TOOLBOX] directional TI field tangential component
+    # [TI-TOOLBOX] tangential TI: the maximum envelope over the directions in
+    # the surface plane (perpendicular to dirvec). Not sqrt(max_TI^2 -
+    # dir_TI^2): envelopes do not add like vector components. tit loads this
+    # module (tit.opt.flex.runtime) and is installed beside it in the image.
     elif type == "dir_TI_tangential":
-        max_ti = get_maxTI(E1_org=e, E2_org=e2)
-        normal_ti = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
-        e_pp = np.sqrt(np.maximum(0, max_ti**2 - normal_ti**2))
+        from tit.calc import envelope_max
+
+        e_pp = envelope_max([e, e2], perpendicular_to=dirvec)
 
     else:
         raise NotImplementedError(

@@ -535,88 +535,35 @@ class TestBuildOptimization:
 
 
 # ---------------------------------------------------------------------------
-# DIR_TI_TANGENTIAL deprecation warning
+# Field post-processing pass-through
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-class TestDirTiTangentialDeprecation:
+class TestPostprocPassThrough:
+    @pytest.mark.parametrize(
+        "postproc", ["max_TI", "dir_TI_normal", "dir_TI_tangential"]
+    )
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
-    def test_dir_ti_tangential_warns(
-        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    def test_postproc_reaches_simnibs_without_warning(
+        self, mock_gpm, mock_roi, mock_mkdirs, postproc, builder_env
     ):
-        """Selecting dir_TI_tangential emits exactly one DeprecationWarning."""
+        """Every post-processing option is a supported quantity: none is deprecated
+        (``dir_TI_tangential`` is the in-plane envelope maximum,
+        ``tests/numerical/test_flex_tangential.py``)."""
         _, pm, _ = builder_env
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        config = _make_config(postproc="dir_TI_tangential")
-        with pytest.warns(DeprecationWarning, match="DIR_TI_TANGENTIAL"):
+        config = _make_config(postproc=postproc)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             result = build_optimization(config)
 
-        # The option still runs end-to-end -- it is not blocked or removed.
-        assert result.e_postproc == "dir_TI_tangential"
-
-    @patch("tit.opt.flex.builder.os.makedirs")
-    @patch("tit.opt.flex.builder.utils.configure_roi")
-    @patch("tit.paths.get_path_manager")
-    def test_dir_ti_tangential_warns_exactly_once(
-        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
-    ):
-        _, pm, _ = builder_env
-        mock_gpm.return_value = pm
-        from tit.opt.flex.builder import build_optimization
-
-        config = _make_config(postproc="dir_TI_tangential")
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            build_optimization(config)
-
-        deprecation_warnings = [
-            w for w in caught if issubclass(w.category, DeprecationWarning)
-        ]
-        assert len(deprecation_warnings) == 1
-
-    @patch("tit.opt.flex.builder.os.makedirs")
-    @patch("tit.opt.flex.builder.utils.configure_roi")
-    @patch("tit.paths.get_path_manager")
-    def test_max_ti_does_not_warn(self, mock_gpm, mock_roi, mock_mkdirs, builder_env):
-        _, pm, _ = builder_env
-        mock_gpm.return_value = pm
-        from tit.opt.flex.builder import build_optimization
-
-        config = _make_config(postproc="max_TI")
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            build_optimization(config)
-
-        deprecation_warnings = [
-            w for w in caught if issubclass(w.category, DeprecationWarning)
-        ]
-        assert deprecation_warnings == []
-
-    @patch("tit.opt.flex.builder.os.makedirs")
-    @patch("tit.opt.flex.builder.utils.configure_roi")
-    @patch("tit.paths.get_path_manager")
-    def test_dir_ti_normal_does_not_warn(
-        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
-    ):
-        """dir_TI_normal is a correct, unrelated field -- not deprecated."""
-        _, pm, _ = builder_env
-        mock_gpm.return_value = pm
-        from tit.opt.flex.builder import build_optimization
-
-        config = _make_config(postproc="dir_TI_normal")
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            build_optimization(config)
-
-        deprecation_warnings = [
-            w for w in caught if issubclass(w.category, DeprecationWarning)
-        ]
-        assert deprecation_warnings == []
+        assert result.e_postproc == postproc
+        assert [w for w in caught if issubclass(w.category, DeprecationWarning)] == []
 
 
 # ---------------------------------------------------------------------------
