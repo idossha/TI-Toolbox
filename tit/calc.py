@@ -123,7 +123,14 @@ def _stack(fields: Sequence[ArrayLike], *, paired: bool) -> np.ndarray:
                 f"all fields must share one shape: field 0 has {shape}, "
                 f"field {i} has {a.shape}"
             )
-    return np.stack(arrs)
+    stack = np.stack(arrs)
+    bad = ~np.isfinite(stack).all(axis=(0, 2))
+    if bad.any():
+        raise ValueError(
+            f"fields contain non-finite values (NaN or inf) at {int(bad.sum())} of "
+            f"{len(bad)} elements, first at element {int(bad.argmax())}"
+        )
+    return stack
 
 
 def _unit_rows(v: ArrayLike, n: int, name: str) -> np.ndarray:
@@ -133,6 +140,8 @@ def _unit_rows(v: ArrayLike, n: int, name: str) -> np.ndarray:
         v = np.broadcast_to(v, (n, 3))
     elif v.shape != (n, 3):
         raise ValueError(f"{name} must have shape (3,) or ({n}, 3), got {v.shape}")
+    if not np.isfinite(v).all():
+        raise ValueError(f"{name} contains non-finite values (NaN or inf)")
     norm = np.linalg.norm(v, axis=1, keepdims=True)
     return np.divide(v, norm, out=np.zeros((n, 3)), where=norm > 0)
 
@@ -173,7 +182,8 @@ def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.fl
     ------
     ValueError
         Odd or fewer than two fields, fields not all ``(N, 3)`` of one shape,
-        or ``direction`` not ``(3,)``/``(N, 3)``.
+        a NaN or inf in ``fields``/``direction``, or ``direction`` not
+        ``(3,)``/``(N, 3)``.
 
     Examples
     --------
@@ -227,13 +237,18 @@ def envelope_max(
       grid of 16 uniform plus 16 log-spaced ``t``; each sign change of ``g`` is
       solved by Illinois regula falsi; the best stationary point, and safeguard
       candidates (the eigenvectors of ``C+``, ``C-`` and ``C+ - C-``, and each
-      pair's own K=1 optimum), then get a short local polish.  On 10^4 random
-      K=2/3/4 elements and 2x2x10^5 real grey-matter elements none is more
-      than 1e-6 below a dense reference (see ``tests/test_calc.py``).
+      pair's own K=1 optimum), then get a Newton polish.  Measured offline
+      (2026-10-26): of 10^4 random elements each for K = 2, 3, 4 and three
+      degenerate sets, and of 2 x 2x10^5 sub-101 grey-matter elements, none
+      falls more than 1e-6 below a dense 2x10^5-direction search (or the
+      previous sweep).  ``tests/test_calc.py`` re-checks 1000 random elements
+      per K, the degenerate sets and six real elements an earlier variant
+      missed, against a dense search.
     * **K >= 2, plane**: exact.  Stationary points in ``psi = 2 phi`` are roots
       of the degree-3 trigonometric polynomial ``u'^2 v - v'^2 u`` (a degree-6
       polynomial in ``e^{i psi}``, from a 7-point DFT, solved by companion
-      eigenvalues), plus the cusps ``u = 0``, ``v = 0``.
+      eigenvalues), plus the cusps ``u = 0``, ``v = 0`` (the minima of ``u``
+      and ``v``, which only touch zero).
 
     Parameters
     ----------
@@ -627,23 +642,18 @@ def _max_plane(E, m):
     comp[:, np.arange(1, 6), np.arange(5)] = 1.0
     cand = [np.angle(np.linalg.eigvals(comp))]
     for C in (A, B):
-        r = np.hypot(C[:, 1], C[:, 2])
-        delta = np.arctan2(C[:, 2], C[:, 1])
-        acos = np.arccos(np.clip(-C[:, 0] / np.where(r > 0, r, 1.0), -1, 1))
-        # zeros of u and v (the cusps of sqrt): double roots of F, found here exactly
-        cand.append(np.stack([delta + acos, delta - acos], 1))
-    psi = np.concatenate(cand, axis=1)
-    f = _SQRT2 * np.abs(
-        np.sqrt(np.maximum(val(A, psi), 0.0)) - np.sqrt(np.maximum(val(B, psi), 0.0))
-    )
+        # u, v >= 0 (sums of squares) only touch zero, at their minimum psi = delta + pi:
+        # the cusps of sqrt.  They are double roots of F, which the companion matrix
+        # resolves only to ~sqrt(eps); the minimum is exact.
+        cand.append((np.arctan2(C[:, 2], C[:, 1]) + np.pi)[:, None])
+    phi = np.concatenate(cand, axis=1)[..., None] / 2
+    dirs = np.cos(phi) * e1[:, None] + np.sin(phi) * e2[:, None]
+    # Pick the winner from the projections: sqrt(u) of the trig form keeps only
+    # ~sqrt(eps) next to a cusp, enough to rank a near-cusp root above the cusp.
+    f = _env_uvw(*_uvw(S, D, dirs))
     j = f.argmax(axis=1)
-    phi = psi[np.arange(len(j)), j] / 2
-    n = np.cos(phi)[:, None] * e1 + np.sin(phi)[:, None] * e2
-    # re-evaluate at the winner in the stable form
-    p = np.einsum("fnx,nx->fn", E, n)
-    a, b = p[0::2], p[1::2]
-    den = np.sqrt(np.sum((a + b) ** 2, 0)) + np.sqrt(np.sum((a - b) ** 2, 0))
-    return _ratio(4.0 * np.abs(np.sum(a * b, 0)), den), n
+    rows = np.arange(len(j))
+    return f[rows, j], dirs[rows, j]
 
 
 # ---------------------------------------------------------------------------
@@ -742,6 +752,11 @@ def hf_peak(
     (``E_c . n = 0``) take their sign from an in-plane direction inside the
     chosen quadrant, so coplanar and parallel fields stay exact.
 
+    Cost grows as ``N^3`` (``C(N, 2)`` vertices x 4 patterns x ``N`` fields).
+    Measured per element (NumPy, one core, 2026-10-26): N = 4: 1.5 us,
+    8: 11 us, 12: 36 us, 16: 82 us, 26: 0.39 ms, 52: 3.5 ms -- a 1.4 M-element
+    head at the 26-pair limit (52 fields) takes over an hour.
+
     Parameters
     ----------
     fields : sequence of array-like, each (N, 3)
@@ -758,7 +773,7 @@ def hf_peak(
     Raises
     ------
     ValueError
-        No fields, or fields not all ``(N, 3)`` of one shape.
+        No fields, fields not all ``(N, 3)`` of one shape, or a NaN or inf.
 
     Examples
     --------
