@@ -3441,8 +3441,9 @@ tensors are used in full for `dir`/`vn`/`mc`. Not projected to fsaverage. Tests:
 `tests/test_hf_power_density.py`, `tests/numerical/test_hf_power_density_simnibs.py`.
 
 **Why.** (1) Two implementations of one quantity can drift; calc agrees with SimNIBS to 6e-16
-relative on 1e6 random elements and costs the same (min 563 vs 536 ms per 1e6 elements on a loaded
-M2 host [measured, scratchpad bench_ex.py]). (2) The old `sqrt(max_TI^2 - dir_TI^2)` treats two
+relative on 1e6 random elements and costs the same (median 158 vs 169 ms for SimNIBS's code per
+1e6 elements, 31.5 vs 31.7 ms per 2e5, on the M2 host, NumPy 2.4 [measured, an untracked
+benchmark of the two functions on random fields]). (2) The old `sqrt(max_TI^2 - dir_TI^2)` treats two
 envelope maxima as orthogonal components: on 4000 random elements 35 % were off by more than 10 %
 against a dense in-plane sweep [measured, in image v3.1.2]. (3) `sigma * hf_power` is the absorbed
 power density, `/rho` SAR (IEEE C95.1-2019 p. 35); `hf_sar` alone needed the user to supply sigma.
