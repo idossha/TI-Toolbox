@@ -172,13 +172,6 @@ def _csv_layout(eeg_positions_csv: str) -> dict:
     }
 
 
-def _resolve_layout(eeg_positions_csv: str) -> dict:
-    """Return ``{"positions", "template_path" (or None), "eeg_net_name"}``."""
-    return _load_template_projection(eeg_positions_csv) or _csv_layout(
-        eeg_positions_csv
-    )
-
-
 def _plottable_montages(
     montage_scores: Sequence[dict], positions: dict | None, metric_key: str
 ) -> list[dict]:
