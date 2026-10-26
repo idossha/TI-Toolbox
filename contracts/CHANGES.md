@@ -1252,3 +1252,14 @@ loses its required `legend_url` (it named the removed volume-legend route). Conf
 loses `surface`, `msh2cortex_path` and `gm_mesh`, and the `Surface` enum `$def` goes with them —
 the region exporter never read them, so a config without them runs exactly as before; a submitted
 config that still carries one is refused as an unknown key.
+
+## 2026-10-26 — config descriptions follow the tit.calc envelope API
+
+Description text only; no field, type, default, enum value or route changes. Regenerated
+`contracts/generated/config.schema.json` and `contracts/generated/openapi.json`: the `FieldPostproc`
+docstring now says `DIR_TI_TANGENTIAL` is the maximum envelope over the directions in the surface
+plane (it was the component "tangential to the surface", computed as `sqrt(TI_max^2 - TI_normal^2)`);
+`MExConfig` names `tit.calc.envelope_max` as its scorer (it named `tit.calc.get_TI_vectors`, now
+removed); `SimulationConfig`'s docstring lists `hf_power_density` among the optional field outputs
+(W/m^3, from the run's own conductivities). `hf_power_density` is a new value in the free-text
+`fields` list, not a schema enum.

@@ -7,6 +7,22 @@ toc_group: major
 
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
+---
+### Unreleased
+
+#### tit.calc and simulation values
+
+- **Changed (breaking for scripts): `tit.calc` is five functions** — `envelope(fields, direction)`, `envelope_max(fields, *, perpendicular_to=None, return_direction=False)`, `envelope_mean(fields)`, `hf_peak(fields, *, coherent=False)` and `hf_power(fields, *, coherent=False)`. `get_TI_vectors`, `get_TI_avg`, `get_TI_dir`, `psi` and the `tit.fields` module are removed, with no aliases: use `envelope_max(..., return_direction=True)` for the vectors, `envelope_mean` for `TI_avg`, `envelope` for a fixed direction. `hf_power` is the time-averaged mean square `½Σ|E_c|²` (= E_rms²); the on-disk `hf_sar` field keeps its values (`Σ|E_c|²` = 2 × `hf_power`) until its planned rename. Field input that holds NaN or infinity now raises `ValueError`.
+- **Fixed: `mTI_max` and mEx-search scores no longer under-report the maximum** — the old direction search stopped short of the true maximum of the K-carrier envelope; `envelope_max` finds it exactly. On real sub-101 grey matter (K = 2 from four real pair fields) 6.5 % of elements were more than 0.1 % low, the worst by about 10–15 % and in isolated low-field elements; the grey-matter mean moves by +0.02 to +0.06 % and the 99.9th percentile by less than 0.006 %. Re-run mTI simulations and mEx-searches if exact element values matter; peak and mean figures barely move.
+- **Fixed: 2-channel `TI_avg` is exact** — it is now the closed form `|E1| + |E2| − ½(|E1+E2| + |E1−E2|)` instead of an average over 192 directions. Per element it moves by up to 4.6 % (99th percentile 1.8 %); the grey-matter mean moves by −0.09 % to +0.49 %. `TI_max` and `TI_normal` are unchanged to 1e-12: they are now computed by `tit.calc` (same values as SimNIBS, same speed), and so is the ex-search score.
+- **Fixed: flex-search `dir_TI_tangential` optimised the wrong quantity** — it maximised `√(TI_max² − TI_normal²)`, which is not the tangential envelope (more than 10 % off at about 35 % of elements). It is now the maximum envelope over the directions in the surface plane, `envelope_max(fields, perpendicular_to=normals)`. A flex-search run with the tangential goal before this change optimised the wrong quantity; re-run it. Takes effect once the Docker image is rebuilt with this version.
+- **Fixed: `hf_peak` with more than 8 channel fields is exact** — the old direction sweep could under-report it.
+- **Added: `hf_power_density` simulation output** — `½ Σ E_cᵀ σ E_c` in W/m³ using the simulation's own conductivities, anisotropic tensors included (SAR is this divided by the density, IEEE C95.1-2019). Opt in alongside `hf_peak` and `hf_sar`; it is not projected to fsaverage. `envelope_max(fields, perpendicular_to=normals)` gives the TI tangential envelope in scripts.
+- **Changed: mEx-search scoring is about 3.5× slower per candidate** — it now scores the exact mTI maximum with a numba kernel (about 0.7 s per 200,000 elements against 0.2 s); without numba the NumPy fallback is about 170× slower than before, and numba ships in the image.
+- **Convention** — all E-fields, `TI_max` and `hf_peak` are zero-to-peak for zero-to-peak channel currents; `hf_power` is a time average. Standards (ICNIRP 2010, IEEE C95.1-2019) limit the RMS in-situ E-field at 1–10 kHz: compare `√hf_power` with their tables, or `hf_peak` with √2 times the limit.
+
+**Remediation.** Affected: any `mTI_max` from a multipolar simulation, any mEx-search score, any 2-channel `TI_avg`, and flex-search runs with the `dir_TI_tangential` goal, from every earlier version. How to spot them: a script calling `get_TI_vectors`, `get_TI_avg`, `get_TI_dir` or `psi`, or importing `tit.fields`, fails with an import error; the rest has no marker. Re-run mTI simulations and mEx-searches if exact element values matter, rescale nothing, and re-run tangential flex-searches. `TI_max`, `TI_normal`, `hf_peak` (up to 8 fields) and `hf_sar` values are unchanged. The release page of the version that ships this takes this paragraph.
+
 ### v3.1.2 — October 22, 2026 <span class="release-pill">Latest</span> {#v312--october-22-2026}
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.2/">Release notes →</a>
