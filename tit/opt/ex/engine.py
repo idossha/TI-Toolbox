@@ -15,7 +15,6 @@ from .logic import (
     _electrode_combinations,
     count_combinations,
     format_current_mA,
-    generate_current_ratios,
     ratios_mirror_symmetric,
 )
 from .parallel import evaluate_ordered, resolve_n_jobs
