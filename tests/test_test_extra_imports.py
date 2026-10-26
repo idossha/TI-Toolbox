@@ -17,10 +17,6 @@ What this pins
         module the image provides and the host suite never imports for real
         (``_IMAGE_ONLY``, each with its reason).
 
-    The two scripts only Blender's interpreter runs (``_BLENDER_SCRIPTS``) may import Blender's
-    own ``bpy``/``mathutils`` at module level; nothing in tit or the tests imports them, which
-    is checked too.
-
 Where the expectations come from
     ``pyproject.toml`` read with ``tomllib``, ``tests/conftest.py`` and every ``tit/**/*.py``
     read with ``ast``; nothing is imported from tit or the conftest. The red cases plant a
@@ -79,13 +75,6 @@ _IMAGE_ONLY = {
     "seaborn": "statistics figures are drawn in the image; host tests stub the plot",
     "stl": "numpy-stl writes nifti_to_mesh's STL output in the image",
     "threadpoolctl": "caps BLAS threads in ex-search workers, under an import guard",
-}
-
-#: Scripts only Blender's interpreter runs (``blender --python``); they import Blender's own
-#: modules at module level, and nothing in tit or the tests imports them.
-_BLENDER_SCRIPTS = {
-    "tit/blender/helpers/extract_metadata.py",
-    "tit/blender/helpers/inspect_blend.py",
 }
 
 #: The ``test`` extra CircleCI #1265 (45f47171) installed, from ``git show
@@ -243,9 +232,7 @@ def violations(imports: list[Import], extra: set[str], mocks: set[str]) -> list[
     for imp in imports:
         if imp.module in mocks or _installed_by(imp.module, extra):
             continue
-        if imp.module in _IMAGE_ONLY and (
-            not imp.eager or imp.path in _BLENDER_SCRIPTS
-        ):
+        if imp.module in _IMAGE_ONLY and not imp.eager:
             continue
         where = "module-level" if imp.eager else "deferred"
         found.append(
@@ -308,23 +295,6 @@ def test_every_allowance_is_still_used() -> None:
     modules = {imp.module for imp in imports}
     for table in (_DISTRIBUTION_OF, _BROUGHT_BY, _IMAGE_ONLY):
         assert set(table) <= modules, set(table) - modules
-    paths = {imp.path for imp in imports}
-    assert _BLENDER_SCRIPTS <= paths
-
-
-def test_the_blender_scripts_are_imported_by_nothing() -> None:
-    """The exemption holds only while no Python module or test imports them."""
-    names = [Path(path).stem for path in _BLENDER_SCRIPTS]
-    for base in (ROOT / "tit", ROOT / "tests"):
-        for path in base.rglob("*.py"):
-            if path.relative_to(ROOT).as_posix() in _BLENDER_SCRIPTS:
-                continue
-            text = path.read_text(encoding="utf-8")
-            if path == Path(__file__).resolve():
-                continue
-            for name in names:
-                pattern = rf"^\s*(from|import)\s.*\b{name}\b"
-                assert not re.search(pattern, text, re.M), (path, name)
 
 
 # ── red cases ────────────────────────────────────────────────────────────────
