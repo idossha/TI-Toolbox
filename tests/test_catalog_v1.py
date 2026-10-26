@@ -607,16 +607,6 @@ def test_ex_runs_ignores_incomplete_and_derives_net(client: TestClient) -> None:
     assert body[0]["best"] == {"montage": "A_B <> C_D", "score": 0.40}
 
 
-def test_ex_run_results_table(client: TestClient) -> None:
-    body = client.get(
-        "/api/catalog/ex-runs/docs_ex_large/results",
-        params={"subject": "ernie", "kind": "ex"},
-        headers=BEARER,
-    ).json()
-    assert body["columns"][0] == "Montage"
-    assert len(body["rows"]) == 2
-
-
 def test_analyses_and_summary(client: TestClient) -> None:
     body = client.get(
         "/api/catalog/analyses",
@@ -809,27 +799,6 @@ def test_notes_roundtrip(client: TestClient) -> None:
     assert r.status_code == 200
     assert r.json()["text"] == "updated"
     assert client.get("/api/catalog/notes", headers=BEARER).json()["text"] == "updated"
-
-
-def test_subject_info_matrix(client: TestClient) -> None:
-    # "fastsurfer" alongside the legacy "freesurfer" column is W3b's addition
-    # (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)'s D2/FastSurfer-in row) --
-    # asserted by column *name* below rather than a fixed index, so this
-    # test does not re-break the next time that lane adds a column.
-    body = client.get("/api/catalog/subject-info", headers=BEARER).json()
-    columns = body["columns"]
-    assert columns[0] == "subject"
-    assert set(columns) >= {
-        "raw",
-        "fastsurfer",
-        "freesurfer",
-        "m2m",
-        "dwi",
-        "ct",
-        "simulations",
-    }
-    row = next(r for r in body["rows"] if r[0] == "ernie")
-    assert row[columns.index("m2m")] is True
 
 
 def test_group_catalog_shape(client: TestClient) -> None:
@@ -1070,25 +1039,20 @@ def test_nifti_labels_defaults_to_the_subject_labeling_volume(
     ]
 
 
-@pytest.mark.parametrize(
-    "operation", ["create_roi", "delete_roi", "freehand", "ex_results"]
-)
+@pytest.mark.parametrize("operation", ["create_roi", "delete_roi", "freehand"])
 @pytest.mark.parametrize("link_kind", ["parent", "leaf"])
 @pytest.mark.parametrize("outside", [False, True])
 def test_catalog_mutation_and_run_symlink_containment(
     client: TestClient, project: Path, operation: str, link_kind: str, outside: bool
 ) -> None:
-    """Catalog access rejects external links but retains project-local links and run names."""
+    """Catalog mutation rejects external links but retains project-local links."""
     pm = get_path_manager()
     sid = "linktest"
     Path(pm.m2m(sid)).mkdir(parents=True)
-    run = "legacy.run with spaces"
     if operation in ("create_roi", "delete_roi"):
         directory, filename = Path(pm.rois(sid)), "Boundary.csv"
-    elif operation == "freehand":
-        directory, filename = Path(pm.m2m(sid)) / "stim_configs", "Boundary.json"
     else:
-        directory, filename = Path(pm.ex_search_run(sid, run)), "final_output.csv"
+        directory, filename = Path(pm.m2m(sid)) / "stim_configs", "Boundary.json"
     target_dir = (project.parent if outside else project) / f"{project.name}-target"
     target_dir.mkdir()
     target = target_dir / filename
@@ -1116,7 +1080,7 @@ def test_catalog_mutation_and_run_symlink_containment(
             headers=BEARER,
         )
         expected = 404 if outside else 204
-    elif operation == "freehand":
+    else:
         response = client.put(
             "/api/catalog/freehand/Boundary",
             params={"subject": sid},
@@ -1124,18 +1088,9 @@ def test_catalog_mutation_and_run_symlink_containment(
             json={"type": "U", "electrode_positions": _FOUR_POSITIONS},
         )
         expected = 422 if outside else 200
-    else:
-        response = client.get(
-            f"/api/catalog/ex-runs/{run}/results",
-            params={"subject": sid, "kind": "ex"},
-            headers=BEARER,
-        )
-        expected = 404 if outside else 200
     assert response.status_code == expected
     if outside:
         assert target.read_text() == original
-    elif operation == "ex_results":
-        assert response.json() == {"columns": ["column"], "rows": [["private-value"]]}
 
 
 @pytest.mark.parametrize("operation", ["create", "delete"])
@@ -1493,45 +1448,11 @@ def test_ex_run_artifacts_lists_pngs_and_manifest(
     assert kinds["run_config.json"] == "manifest"
 
 
-def test_electrode_overlays_presence(client: TestClient, project: Path) -> None:
-    pm = get_path_manager()
-    overlay_dir = os.path.join(pm.simulation("ernie", "L_Insula"), "TI", "montage_imgs")
-    os.makedirs(overlay_dir, exist_ok=True)
-    Path(overlay_dir, "electrode_overlay_subject.nii.gz").write_bytes(b"x")
-
-    body = client.get(
-        "/api/catalog/electrode-overlays",
-        params={"subject": "ernie", "simulation": "L_Insula"},
-        headers=BEARER,
-    ).json()
-    by_mode = {e["mode"]: e for e in body}
-    assert by_mode["TI"]["exists"] is True
-    assert by_mode["mTI"]["exists"] is False
-
-    r = client.get(
-        "/api/catalog/electrode-overlays",
-        params={"subject": "ernie", "simulation": "nope"},
-        headers=BEARER,
-    )
-    assert r.status_code == 404
-
-
 def test_files_artifact_traversal_forbidden(client: TestClient, project: Path) -> None:
     outside = project.parent / "secret.txt"
     outside.write_text("nope")
     r = client.get("/api/files/artifact", params={"path": str(outside)}, headers=BEARER)
     assert r.status_code == 403
-
-
-def test_files_csv(client: TestClient, project: Path) -> None:
-    pm = get_path_manager()
-    csv_path = os.path.join(
-        pm.ex_search_run("ernie", "docs_ex_large"), "final_output.csv"
-    )
-    body = client.get(
-        "/api/files/csv", params={"path": csv_path}, headers=BEARER
-    ).json()
-    assert body["columns"][0] == "Montage"
 
 
 def test_settings_roundtrip(client: TestClient) -> None:
@@ -1912,12 +1833,9 @@ def test_capabilities_has_jupyter_bool(client: TestClient) -> None:
     assert isinstance(body["jupyter"], bool)
 
 
-def test_schema_routes(client: TestClient) -> None:
+def test_schema_route(client: TestClient) -> None:
     full = client.get("/api/schema", headers=BEARER).json()
     assert "$defs" in full
-    one = client.get("/api/schema/SimulationConfig", headers=BEARER).json()
-    assert isinstance(one, dict) and one
-    assert client.get("/api/schema/NoSuchThing", headers=BEARER).status_code == 404
 
 
 def test_view_returns_a_valid_scene_no_x11_needed(client: TestClient) -> None:
@@ -1934,48 +1852,6 @@ def test_view_returns_a_valid_scene_no_x11_needed(client: TestClient) -> None:
     assert scene["version"] == 2
     assert scene["datasets"], scene
     assert scene["layers"]
-
-
-def test_view_args_rejects_option_looking_layer_path(client: TestClient) -> None:
-    """A layer path that doesn't resolve to a real file (e.g. a bare
-    ``-ss``, an attempt to smuggle a Freeview flag) is rejected by the jail
-    before it ever reaches argument construction."""
-    spec = client.get(
-        "/api/view/subject",
-        params={"subject": "ernie", "space": "subject"},
-        headers=BEARER,
-    ).json()
-    spec["layers"].append({"path": "-ss", "kind": "volume"})
-    r = client.post("/api/view/args", json={"viewspec": spec}, headers=BEARER)
-    assert r.status_code == 403
-
-
-def test_view_args_matches_freeview_launch_args(
-    client: TestClient, monkeypatch
-) -> None:
-    """ra_13 finding 9: the Viewer page's command preview must be the exact
-    argv the launch route would use, from one shared code path."""
-    spec = client.get(
-        "/api/view/subject",
-        params={"subject": "ernie", "space": "subject"},
-        headers=BEARER,
-    ).json()
-    r = client.post("/api/view/args", json={"viewspec": spec}, headers=BEARER)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["freeview_args"] == spec["freeview_args"]
-    assert body["freeview_command"] == ["freeview"] + spec["freeview_args"]
-
-
-def test_view_args_also_jails_layer_paths(client: TestClient) -> None:
-    spec = client.get(
-        "/api/view/subject",
-        params={"subject": "ernie", "space": "subject"},
-        headers=BEARER,
-    ).json()
-    spec["layers"].append({"path": "/etc/passwd", "kind": "volume"})
-    r = client.post("/api/view/args", json={"viewspec": spec}, headers=BEARER)
-    assert r.status_code == 403
 
 
 def test_view_unknown_subject_404(client: TestClient) -> None:

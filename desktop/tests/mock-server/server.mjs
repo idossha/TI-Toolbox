@@ -434,10 +434,6 @@ function parseCsv(raw) {
   );
   return { columns, rows };
 }
-const exResultsCsv = {
-  ex: parseCsv(readFileSync(fixturePath("ex_results", "final_output_ex.csv"), "utf8")),
-  mex: parseCsv(readFileSync(fixturePath("ex_results", "final_output_mex.csv"), "utf8")),
-};
 const analysisSummaryCsv = parseCsv(readFileSync(fixturePath("analysis_summary.csv"), "utf8"));
 
 // ---------------------------------------------------------------------------- jailed file access
@@ -2113,24 +2109,6 @@ route("GET", "/api/catalog/subjects/:id", (ctx) => {
   if (!detail) return json(ctx.res, 404, { detail: "unknown subject" });
   json(ctx.res, 200, detail);
 });
-route("GET", "/api/catalog/electrode-overlays", (ctx) => {
-  const subject = ctx.url.searchParams.get("subject");
-  const simulation = ctx.url.searchParams.get("simulation");
-  if (!subject || !simulation) return json(ctx.res, 422, { detail: "subject and simulation are required" });
-  const sim = (simulations[subject] ?? []).find((s) => s.name === simulation);
-  if (!sim) return json(ctx.res, 404, { detail: "unknown subject or simulation" });
-  // Mirrors tit.catalog.electrode_overlays: one row per TI/mTI mode, "exists" false unless the
-  // tools job that builds the NIfTI has already run (none of the fixtures pre-seed it).
-  json(
-    ctx.res,
-    200,
-    ["mTI", "TI"].map((mode) => ({
-      mode,
-      path: `/mnt/example/derivatives/SimNIBS/sub-${subject}/Simulations/${simulation}/${mode}/montage_imgs/electrode_overlay_subject.nii.gz`,
-      exists: false,
-    })),
-  );
-});
 // --- run logs (FXU1) ---------------------------------------------------------------------------
 // A run page's Terminal shows, when no job of its kind is live, the LAST log file of that kind for
 // the current subject (DESIGN.md §4.6 rule 5). The real server has no catalog route for that yet —
@@ -2361,13 +2339,6 @@ route("GET", "/api/catalog/optimization-candidates/:candidate/mapping", (ctx) =>
   const positions = candidate.positions;
   json(ctx.res, 200, { eeg_net: ctx.url.searchParams.get("eeg_net"), pairs: [["E020", "E074"], ["E101", "E133"]], optimized_positions: positions, mapped_positions: positions, distances: [0, 0, 0, 0] });
 });
-route("GET", "/api/catalog/ex-runs/:run/results", (ctx) => {
-  const subject = ctx.url.searchParams.get("subject");
-  const kind = ctx.url.searchParams.get("kind");
-  const list = exRuns[subject]?.[kind];
-  if (!list || !list.some((r) => r.run_name === ctx.params.run)) return json(ctx.res, 404, { detail: "unknown run" });
-  json(ctx.res, 200, exResultsCsv[kind]);
-});
 // The pictures a simulation saved of itself (`tit/catalog.py::simulation_figures`): the montage
 // visualisation under `<sim>/<TI|mTI>/montage_imgs/<name>_highlighted_visualization.png`.
 route("GET", "/api/catalog/simulations/:name/figures", (ctx) => {
@@ -2445,8 +2416,6 @@ route("PUT", "/api/catalog/notes", async (ctx) => {
   notes = { text: body.text ?? "", updated_at: nowIso() };
   json(ctx.res, 200, notes);
 });
-// No `/api/catalog/subject-info`: the real route stays in the contract, but nothing in the desktop
-// has read it since the Subject Info page was deleted (R1); contract.test.ts holds that true.
 // R1: the Overview page's one aggregate read. Deliberately the ONLY route this page needs -- a
 // spec counting requests here is counting the whole page.
 route("GET", "/api/catalog/overview", (ctx) => json(ctx.res, 200, overview));
@@ -2660,7 +2629,6 @@ route("GET", "/api/scene/manifest", (ctx) => {
         {
           id: "labeling",
           url: `/api/files/raw${PROJECT_ROOT}/derivatives/SimNIBS/sub-${subject}/m2m_${subject}/segmentation/labeling.nii.gz`,
-          legend_url: `/api/scene/volume-legend?subject=${encodeURIComponent(subject)}&id=labeling`,
         },
       ],
       cache: { state: "ready", built_ms: 0 },
@@ -2760,16 +2728,6 @@ route("POST", "/api/scene/target-preview", async (ctx) => {
     { path: `/mock/${subject}/${roi.kind}-target.nii.gz`, colormap: "lut", visible: true, opacity: 0.7 },
   ], null);
   json(ctx.res, 200, { scene, note: "Target extent in subject space; analysis/search applies its tissue and mesh settings." });
-});
-
-route("GET", "/api/scene/volume-legend", (ctx) => {
-  const subject = ctx.url.searchParams.get("subject");
-  const id = ctx.url.searchParams.get("id") ?? "labeling";
-  const problem = sceneSubjectProblem(subject);
-  if (problem) return json(ctx.res, 404, { detail: problem });
-  if (id !== "labeling") return json(ctx.res, 404, { detail: `unknown scene volume '${id}'` });
-  const rows = regionsFor("labeling.nii.gz", "both") ?? [];
-  json(ctx.res, 200, { id, entries: rows.map((r, i) => ({ id: r.id, name: r.name, color: `#${((i + 1) * 0x2f6f3f & 0xffffff).toString(16).padStart(6, "0")}` })) });
 });
 
 // ----------------------------------------------------------------------------------- caps (v1)
@@ -3070,12 +3028,6 @@ route("GET", "/api/guide/electrodes", (ctx) => {
 
 // --- schema (v1) ---
 route("GET", "/api/schema", (ctx) => json(ctx.res, 200, loadSchemaJson()));
-route("GET", "/api/schema/:name", (ctx) => {
-  const def = loadSchemaJson().$defs?.[ctx.params.name];
-  if (!def) return json(ctx.res, 404, { detail: "unknown config class name" });
-  json(ctx.res, 200, def);
-});
-
 // --- validate / plan (v1) ---
 route("POST", "/api/validate/:kind", async (ctx) => {
   const body = await ctx.body();
@@ -3826,12 +3778,6 @@ route("POST", "/api/jobs/:id/cancel", (ctx) => {
   if (!job) return json(ctx.res, 404, { detail: "unknown job" });
   json(ctx.res, 200, cancelJob(job));
 });
-route("POST", "/api/jobs/:id/rerun", (ctx) => {
-  const job = jobRegistry.get(ctx.params.id);
-  if (!job) return json(ctx.res, 404, { detail: "unknown job" });
-  const rerun = createJob({ kind: job.spec.kind, config: job.spec.config, subject_ids: job.spec.subject_ids, tags: job.spec.tags, overwrite: job.spec.overwrite });
-  json(ctx.res, 201, rerun.status);
-});
 route("POST", "/api/jobs/:id/force", (ctx) => {
   const job = jobRegistry.get(ctx.params.id);
   if (!job) return json(ctx.res, 404, { detail: "unknown job" });
@@ -3997,23 +3943,7 @@ route("GET", "/api/viewer/candidates", (ctx) => {
   json(ctx.res, 200, { candidates });
 });
 
-// VM: saved Viewer compositions. In-memory here (the mock has no project on disk); the real
-// server writes <project>/code/ti-toolbox/viewer/presets/<slug>.json.
-const VIEWER_PRESETS = new Map();
-route("GET", "/api/viewer/presets", (ctx) => json(ctx.res, 200, { presets: [...VIEWER_PRESETS.values()] }));
-route("PUT", "/api/viewer/presets/:name", async (ctx) => {
-  const name = decodeURIComponent(ctx.params.name);
-  if (!name.trim()) return json(ctx.res, 422, { detail: `Unusable preset name: ${name}` });
-  const document = { ...((await ctx.body()) ?? {}), name };
-  VIEWER_PRESETS.set(name, document);
-  json(ctx.res, 200, document);
-});
-route("DELETE", "/api/viewer/presets/:name", (ctx) => {
-  const name = decodeURIComponent(ctx.params.name);
-  if (!VIEWER_PRESETS.delete(name)) return json(ctx.res, 404, { detail: `No preset named ${name}` });
-  json(ctx.res, 200, { name, deleted: true });
-});
-// ── the composition tree, saved compositions and saved scenes (2026-09-07) ────────────────────
+// ── the composition tree and saved scenes (2026-09-07) ─────────────────────────────────────────
 //
 // The tree is what the Menu draws instead of a row of dropdowns. Ported closely enough that a spec
 // asserting on tree shape reads the same against either server: the same three branches, the same
@@ -4119,21 +4049,6 @@ route("GET", "/api/viewer/tree", (ctx) => {
   json(ctx.res, 200, { subject, space, anatomy, simulations: simBranches, analyses, available: true, reason: null });
 });
 
-const VIEWER_COMPOSITIONS = new Map();
-route("GET", "/api/viewer/compositions", (ctx) => json(ctx.res, 200, { compositions: [...VIEWER_COMPOSITIONS.values()] }));
-route("PUT", "/api/viewer/compositions/:name", async (ctx) => {
-  const name = decodeURIComponent(ctx.params.name);
-  if (!name.trim() || name.includes("/")) return json(ctx.res, 422, { detail: `Unusable name: ${name}` });
-  const document = { version: 1, ...((await ctx.body()) ?? {}), name, saved_at: new Date().toISOString() };
-  VIEWER_COMPOSITIONS.set(name, document);
-  json(ctx.res, 200, document);
-});
-route("DELETE", "/api/viewer/compositions/:name", (ctx) => {
-  const name = decodeURIComponent(ctx.params.name);
-  if (!VIEWER_COMPOSITIONS.delete(name)) return json(ctx.res, 404, { detail: `No composition named ${name}` });
-  json(ctx.res, 200, { name, deleted: true });
-});
-
 // Saved scenes. The suffix is asserted here as well as on the server, because it is the one
 // property that fails *silently* at the far end: the Tetravox app routes anything else as a
 // dataset and reads the JSON as a volume.
@@ -4205,18 +4120,6 @@ route("DELETE", "/api/viewer/scenes/:name", (ctx) => {
   json(ctx.res, 200, { name, deleted: true });
 });
 
-route("POST", "/api/view/args", async (ctx) => {
-  const body = await ctx.body();
-  const spec = body.viewspec ?? {};
-  const layers = Array.isArray(spec.layers) ? spec.layers : [];
-  const freeview_args = layers.map((l) => `${l.path}:colormap=${l.colormap ?? "grayscale"}:opacity=${l.opacity ?? 1}:visible=${l.visible === false ? 0 : 1}`);
-  json(ctx.res, 200, {
-    freeview_args,
-    freeview_command: ["freeview", ...freeview_args],
-    scene: sceneFor(spec.space === "mni" ? "mni" : "subject", layers, null),
-  });
-});
-
 // --- files (v1) ---
 // `{report_id:path}` on the real route: the id `<sid>/<stem>` arrives with its slash encoded
 // (the renderer's `reportUrl`) or plain. The bytes on disk, under the real route's headers.
@@ -4252,12 +4155,6 @@ route("GET", "/api/files/text", (ctx) => {
   if (resolved.notFound || !existsSync(resolved.file)) return json(ctx.res, 404, { detail: "not found" });
   const tail = Number(ctx.url.searchParams.get("tail")) || undefined;
   text(ctx.res, 200, tailLines(readFileSync(resolved.file, "utf8"), tail));
-});
-route("GET", "/api/files/csv", (ctx) => {
-  const resolved = resolveJailed(ctx.url.searchParams.get("path"));
-  if (resolved.jailed) return json(ctx.res, 403, { detail: "path escapes the project jail" });
-  if (resolved.notFound || !existsSync(resolved.file)) return json(ctx.res, 404, { detail: "not found" });
-  json(ctx.res, 200, parseCsv(readFileSync(resolved.file, "utf8")));
 });
 function res_stream(res, file, contentType) {
   const stat = statSync(file);

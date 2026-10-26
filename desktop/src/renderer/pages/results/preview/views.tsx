@@ -246,8 +246,8 @@ export function FileList({
   );
 }
 
-/** The ranked `final_output.csv` rows, or a flex run's electrode positions — one table primitive.
- * `labels` renames a header without renaming the column (see `EX_COLUMN_LABELS`). */
+/** A cluster table, or a flex run's electrode positions — one table primitive.
+ * `labels` renames a header without renaming the column. */
 export function RankedTable({
   table,
   emptyMessage,

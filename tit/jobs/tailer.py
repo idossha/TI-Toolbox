@@ -39,15 +39,6 @@ def read_events(path: str, since: int = 0) -> list[dict[str, Any]]:
     return events
 
 
-def line_count(path: str) -> int:
-    """Number of non-blank lines currently in *path* (next event's ``seq``)."""
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            return sum(1 for line in fh if line.strip())
-    except OSError:
-        return 0
-
-
 class EventTailer:
     """Incrementally polls one ``events.jsonl`` for events appended since the last poll."""
 

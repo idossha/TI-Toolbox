@@ -148,8 +148,7 @@ def is_within(root: str, path: str) -> bool:
 
 
 #: The grammar of every other user-supplied name that becomes one path component:
-#: simulation, run, montage, ROI, atlas, EEG net, notebook, viewer preset and scene
-#: names. Wider than :data:`SUBJECT_ID_RE` -- a dot is allowed inside, so
+#: simulation, run, montage, ROI, atlas, EEG net, notebook and scene names. Wider than :data:`SUBJECT_ID_RE` -- a dot is allowed inside, so
 #: ``EEG10-10_Cutini_2011.csv`` and ``MNI_Glasser_HCP_v1.0`` pass, and so is an inner
 #: space, because v2 wrote flex runs and EEG nets with spaces in their names and those
 #: projects must keep opening -- but a name can never start with a dot or a space (no

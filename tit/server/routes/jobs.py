@@ -639,35 +639,6 @@ async def cancel_job(request: Request, job_id: str) -> dict[str, Any]:
 
 
 @router.post(
-    "/api/jobs/{job_id}/rerun",
-    status_code=201,
-    summary="Submit a new job with the same spec as a finished one",
-)
-def rerun_job(request: Request, job_id: str) -> dict[str, Any]:
-    """Admitted exactly like ``POST /api/jobs`` with the recorded spec: the project may have
-    changed since (inputs deleted), and a record from before a check existed must meet it.
-    """
-    manager = _manager(request)
-    detail = manager.get_detail(job_id)
-    if detail is None:
-        raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
-    spec = detail["spec"]
-    kind, config, subject_ids = spec["kind"], spec["config"], spec["subject_ids"]
-    _check_config(kind, config)
-    _check_freesurfer_inputs(kind, config, subject_ids)
-    refused = _missing_inputs(manager, [(kind, config, subject_ids)])
-    if refused is not None:
-        return refused
-    check_overwrite_permission(
-        kind, config, subject_ids, overwrite=bool(spec.get("overwrite", False))
-    )
-    status = manager.rerun(job_id)
-    if status is None:
-        raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
-    return status
-
-
-@router.post(
     "/api/jobs/{job_id}/force",
     summary="Force a stuck/lost job to a terminal state without waiting for the process",
 )

@@ -18,7 +18,6 @@ def test_unconfigured_project_has_no_subject_metadata(monkeypatch):
     pm = PathManager()
     assert catalog.subject_ids(pm) == []
     assert catalog.list_subjects(pm) == []
-    assert catalog.subject_info_matrix(pm)["rows"] == []
 
 
 @pytest.fixture
@@ -44,22 +43,20 @@ def test_atlas_directory_alias(tree, internal):
 
 
 @pytest.mark.parametrize("internal", [False, True])
-def test_simulation_overlay_leaf_alias(tree, internal):
+def test_simulation_figure_leaf_alias(tree, internal):
     pm, root, outside = tree
-    target = (root if internal else outside) / "overlay.nii.gz"
+    target = (root if internal else outside) / "montage.png"
     target.touch()
     leaf = Path(
         pm.simulation("001", "simA"),
         "TI",
         "montage_imgs",
-        "electrode_overlay_subject.nii.gz",
+        "simA_highlighted_visualization.png",
     )
     leaf.parent.mkdir(parents=True)
     leaf.symlink_to(target)
-    overlay = next(
-        x for x in catalog.electrode_overlays(pm, "001", "simA") if x["mode"] == "TI"
-    )
-    assert overlay["exists"] is internal
+    figures = catalog.simulation_figures(pm, "001", "simA")
+    assert bool(figures) is internal
 
 
 @pytest.mark.parametrize("internal", [False, True])

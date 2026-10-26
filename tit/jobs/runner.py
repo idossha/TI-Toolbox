@@ -33,9 +33,6 @@ ENV_JOB_KIND = "TIT_JOB_KIND"
 ENV_JOB_SUBJECT_IDS = "TIT_JOB_SUBJECT_IDS"
 ENV_EVENTS_FILE = "TIT_EVENTS_FILE"
 ENV_INTERFACE = "TIT_INTERFACE"
-ENV_LOCK_KEYS = (
-    "TIT_LOCK_KEYS"  # informational only; real runners derive keys via keys_for()
-)
 
 DEFAULT_GRACE_S = 10.0
 

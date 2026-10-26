@@ -12,7 +12,7 @@
 // checkout failed in the fixture write rather than on anything about the contract (audit TEST-01).
 // The tracked JSON copy is owned by `dev/build_contract.py` / `npm run gen:api`, not by a test.
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -208,7 +208,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
 
     // catalog (v1)
     await call("/api/catalog/subjects/{id}", "GET", "/api/catalog/subjects/ernie");
-    await call("/api/catalog/electrode-overlays", "GET", "/api/catalog/electrode-overlays?subject=ernie&simulation=Thalamus");
     await call("/api/catalog/montages", "GET", "/api/catalog/montages");
     await call("/api/catalog/montages/{net}/{kind}/{name}", "PUT", "/api/catalog/montages/GSN-HydroCel-185/uni_polar/contract_test", {
       body: { pairs: [["E1", "E2"]] },
@@ -233,7 +232,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/catalog/optimization-candidates/{candidate_id}", "GET", "/api/catalog/optimization-candidates/trial-2?subject=ernie&kind=flex&run=flex_Thalamus_20260810_101500");
     await call("/api/catalog/optimization-candidates/{candidate_id}/mapping", "GET", "/api/catalog/optimization-candidates/trial-2/mapping?subject=ernie&run=flex_Thalamus_20260810_101500&eeg_net=GSN-HydroCel-185");
     await call("/api/catalog/ex-runs", "GET", "/api/catalog/ex-runs?subject=ernie&kind=ex");
-    await call("/api/catalog/ex-runs/{run}/results", "GET", "/api/catalog/ex-runs/ex_L_Insula_20260812_090000/results?subject=ernie&kind=ex");
     await call("/api/catalog/analyses", "GET", "/api/catalog/analyses?subject=ernie&simulation=Thalamus");
     await call("/api/catalog/analyses/{name}/summary", "GET", "/api/catalog/analyses/cortical_2regions_DK40_71a9008a/summary?subject=ernie&simulation=Thalamus");
     await call("/api/catalog/reports", "GET", "/api/catalog/reports?subject=ernie");
@@ -248,7 +246,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/catalog/overview", "GET", "/api/catalog/overview");
     await call("/api/catalog/project-summary", "GET", "/api/catalog/project-summary");
 
-    // scene (v1) -- the six routes the run pages' 3D panes read (plan of record §2.1). `surface`
+    // scene (v1) -- the five routes the run pages' 3D panes read (plan of record §2.1). `surface`
     // and `labels` answer `application/octet-stream`, so `call` only checks their declared status;
     // the embedded Tetravox pane requests them as GIfTI (`format=gii`) at runtime.
     await call("/api/scene/manifest", "GET", "/api/scene/manifest?subject=ernie");
@@ -256,7 +254,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/scene/labels", "GET", "/api/scene/labels?subject=ernie&atlas=DK40");
     await call("/api/scene/regions", "GET", "/api/scene/regions?subject=ernie&atlas=DK40");
     await call("/api/scene/electrodes", "GET", "/api/scene/electrodes?subject=ernie&net=GSN-HydroCel-185");
-    await call("/api/scene/volume-legend", "GET", "/api/scene/volume-legend?subject=ernie&id=labeling");
 
     // caps (v1) -- the EEG caps panel.
     await call("/api/caps/available", "GET", "/api/caps/available?subject=ernie");
@@ -279,7 +276,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
 
     // schema (v1)
     await call("/api/schema", "GET", "/api/schema");
-    await call("/api/schema/{name}", "GET", "/api/schema/SimulationConfig");
 
     // validate / plan (v1)
     await call("/api/validate/{kind}", "POST", "/api/validate/sim", { body: { config: {} } });
@@ -330,40 +326,23 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/jobs/{id}/artifacts", "GET", `/api/jobs/${jobId}/artifacts`);
     await call("/api/jobs/{id}/cancel", "POST", `/api/jobs/${groupJobId}/cancel`);
     await waitForState(jobId, ["succeeded", "failed"]);
-    const { json: rerun } = await call("/api/jobs/{id}/rerun", "POST", `/api/jobs/${jobId}/rerun`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rerunId = (rerun as any).id as string;
-    await call("/api/jobs/{id}/force", "POST", `/api/jobs/${rerunId}/force`);
-    await call("/api/jobs/{id}", "DELETE", `/api/jobs/${rerunId}`);
+    await call("/api/jobs/{id}/force", "POST", `/api/jobs/${jobId}/force`);
+    await call("/api/jobs/{id}", "DELETE", `/api/jobs/${jobId}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await call("/api/jobs/{id}", "DELETE", `/api/jobs/${(projectInit as any).id}`);
 
     // viewers (v1) -- D3 (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): no more Freeview/Gmsh launch
     // routes to exercise here (removed from the contract along with the routes); GET
-    // /api/view/{kind} now returns a real Tetravox ViewSpec v2 `scene`, and POST /api/view/args
-    // (deliberately not declared in the contract -- see its yaml comment) is covered directly by
-    // its own vitest in server.test.ts / tit's own tests/test_catalog_v1.py.
+    // /api/view/{kind} now returns a real Tetravox ViewSpec v2 `scene`.
     await call("/api/view/{kind}", "GET", "/api/view/subject?subject=ernie");
     // V2 (docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)): the scene file the host-installed
     // Tetravox app opens.
     await call("/api/view/open", "POST", "/api/view/open", { body: { kind: "subject", subject: "ernie" } });
-    // VM: saved compositions. The path is /api/viewer/presets, not /api/view/presets, because the
-    // latter is shadowed by GET /api/view/{kind}.
-    await call("/api/viewer/presets/{name}", "PUT", "/api/viewer/presets/contract", {
-      body: { name: "contract", selection: { kind: "subject", subject: "ernie" }, extras: [], overrides: {} },
-    });
-    await call("/api/viewer/presets", "GET", "/api/viewer/presets");
     await call("/api/viewer/candidates", "GET", "/api/viewer/candidates?subject=ernie&simulation=Thalamus");
-    await call("/api/viewer/presets/{name}", "DELETE", "/api/viewer/presets/contract");
 
-    // The composition tree, and the two things a person can keep: what they chose (a composition)
-    // and what they were looking at (a scene, in Tetravox's own format).
+    // The composition tree, and what a person can keep: what they were looking at (a scene, in
+    // Tetravox's own format).
     await call("/api/viewer/tree", "GET", "/api/viewer/tree?subject=ernie&space=subject&simulations=Thalamus");
-    await call("/api/viewer/compositions/{name}", "PUT", "/api/viewer/compositions/contract", {
-      body: { subject: "ernie", space: "subject", inputs: ["/mnt/example/T1.nii.gz"], simulations: ["Thalamus"] },
-    });
-    await call("/api/viewer/compositions", "GET", "/api/viewer/compositions");
-    await call("/api/viewer/compositions/{name}", "DELETE", "/api/viewer/compositions/contract");
 
     await call("/api/viewer/scenes/suggest/name", "GET", "/api/viewer/scenes/suggest/name?subject=ernie&simulation=Thalamus&field=TI_max");
     await call("/api/viewer/scenes/{name}/native-destination", "POST", "/api/viewer/scenes/contract/native-destination");
@@ -379,7 +358,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     const artifactPath = encodeURIComponent("/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Mesh/cortical_2regions_DK40_71a9008a/results.csv");
     await call("/api/files/artifact", "GET", `/api/files/artifact?path=${artifactPath}`);
     await call("/api/files/text", "GET", `/api/files/text?path=${artifactPath}&tail=2`);
-    await call("/api/files/csv", "GET", `/api/files/csv?path=${artifactPath}`);
     const { json: uploadedMask } = await call("/api/files/mask", "POST", "/api/files/mask?subject=ernie&name=target.nii", {
       rawBody: new Uint8Array([1, 2, 3]), headers: { "content-type": "application/octet-stream" },
     });
@@ -467,22 +445,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     declared.delete("GET /ws/system");
     declared.delete("GET /ws/jobs");
     declared.delete("GET /ws/kernels/{kernel_id}");
-    // The real server keeps this route, but the desktop stopped reading it when R1 deleted the
-    // Subject Info page, so the mock does not serve it. Pinned below: no renderer source asks for it.
-    declared.delete("GET /api/catalog/subject-info");
     expect([...exercised].sort()).toEqual([...declared].sort());
   }, 20_000);
-
-  it("leaves out only routes the desktop never reads", () => {
-    const rendererDir = join(__dirname, "..", "..", "src", "renderer");
-    // The generated contract types name every route; a reader is any other renderer source.
-    const sources = (readdirSync(rendererDir, { recursive: true }) as string[]).filter(
-      (file) => /\.(ts|tsx)$/.test(file) && !file.endsWith("schema.d.ts"),
-    );
-    expect(sources.length).toBeGreaterThan(100);
-    const readers = sources.filter((file) => readFileSync(join(rendererDir, file), "utf8").includes("/api/catalog/subject-info"));
-    expect(readers).toEqual([]);
-  });
 });
 
 // --------------------------------------------------------------------- parity with the real server

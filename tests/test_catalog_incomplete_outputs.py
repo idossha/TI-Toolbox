@@ -1,8 +1,8 @@
 """The catalog does not call an interrupted FastSurfer or charm run "done".
 
 What this pins (package p24, audit_pre.md "incomplete output", 2026-10-22): the catalog's
-``has_fastsurfer`` and ``has_m2m`` flags (``subject_detail``, ``list_subjects``,
-``subject_info_matrix`` and, through ``subject_detail``, the Overview) were "the folder
+``has_fastsurfer`` and ``has_m2m`` flags (``subject_detail``, ``list_subjects`` and,
+through ``subject_detail``, the Overview) were "the folder
 exists". Dataset 000's ``derivatives/fastsurfer/sub-101`` holds only ``mri/orig.mgz``,
 ``mri/orig/001.mgz`` and ``scripts/deep-seg.log`` ending at "Run coronal prediction" -- an
 interrupted run -- and the Overview showed FastSurfer present for it. Pre-processing's skip
@@ -58,14 +58,10 @@ def _flags(pm) -> dict:
     """has_fastsurfer / has_m2m from every catalog surface that reports them."""
     detail = catalog.subject_detail(pm, SID)
     (row,) = [r for r in catalog.list_subjects(pm) if r["id"] == SID]
-    matrix = catalog.subject_info_matrix(pm)
-    (mrow,) = [r for r in matrix["rows"] if r[0] == SID]
-    col = {name: i for i, name in enumerate(matrix["columns"])}
     (orow,) = [s for s in build_overview(pm, []).subjects if s.id == SID]
     return {
         "detail": (detail["has_fastsurfer"], detail["has_m2m"]),
         "list": (row["has_fastsurfer"], row["has_m2m"]),
-        "matrix": (mrow[col["fastsurfer"]], mrow[col["m2m"]]),
         "overview": (orow.fastsurfer == "present", orow.m2m == "present"),
     }
 

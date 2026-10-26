@@ -16,7 +16,7 @@ from tit.scene import build, cache
 from tit.server.routes import scene
 
 
-@pytest.mark.parametrize("source", ["mesh", "net", "lut", "central", "annot"])
+@pytest.mark.parametrize("source", ["mesh", "net", "central", "annot"])
 @pytest.mark.parametrize("inside", [False, True])
 def test_scene_source_links_stay_in_project(tmp_path, monkeypatch, source, inside):
     project = tmp_path / "project"
@@ -28,7 +28,6 @@ def test_scene_source_links_stay_in_project(tmp_path, monkeypatch, source, insid
     relative, content = {
         "mesh": ("ernie.msh", "mesh"),
         "net": ("eeg_positions/net.csv", "Electrode,1,2,3,private\n"),
-        "lut": ("segmentation/labeling_LUT.txt", "1 private 1 2 3 0\n"),
         "central": ("surfaces/lh.central.gii", "surface"),
         "annot": ("segmentation/lh.ernie_DK40.annot", "annotation"),
     }[source]
@@ -39,11 +38,10 @@ def test_scene_source_links_stay_in_project(tmp_path, monkeypatch, source, insid
     alias.unlink(missing_ok=True)
     alias.symlink_to(target)
     monkeypatch.setattr(scene, "_pm", lambda: pm)
-    if source in ("net", "lut", "mesh"):
+    if source in ("net", "mesh"):
         call = {
             "mesh": lambda: scene._scene_subject(pm, "ernie"),
             "net": lambda: scene.electrodes("ernie", "net.csv"),
-            "lut": lambda: scene.volume_legend("ernie", "labeling"),
         }[source]
         if inside:
             assert call()

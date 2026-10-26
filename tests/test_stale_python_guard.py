@@ -3,8 +3,9 @@
 What this pins (2026-10-22, the p43 dead-code sweep):
 
 * The helpers that sweep deleted (each had no caller in tit, dev, desktop, agent-plugin,
-  docs/wiki, examples or loader.*) are not defined again in their modules, and their distinctive
-  names do not reappear in shipped code or user docs.
+  docs/wiki, examples or loader.*) -- and the uncalled server routes and helpers the 2026-10-26
+  pass deleted -- are not defined again in their modules, and their distinctive names do not
+  reappear in shipped code or user docs.
 * Every module under ``tit/jobs/`` is imported by another module in ``tit/`` -- the check that
   would have caught ``tit/jobs/client.py``, a notebook client nothing ever imported.
 * Every ``tit.<module>[.<name>]`` that a ``tit/stats`` docstring cites resolves to a module file
@@ -91,6 +92,41 @@ DELETED_DEFINITIONS: dict[str, tuple[str, ...]] = {
     ),
     "tit/pre/qsi/dti_extractor.py": ("check_dti_tensor_exists",),
     "tit/pre/qsi/qsirecon.py": ("list_available_recon_specs", "list_available_atlases"),
+    # 2026-10-26 server dead-code pass: routes no client called, and their only helpers.
+    "tit/server/routes/viewers.py": (
+        "view_args",
+        "_jail_viewspec_layers",
+        "_reject_option_like_args",
+        "viewer_preset_dir",
+        "_preset_slug",
+        "_PRESET_SUFFIX",
+        "viewer_presets",
+        "save_viewer_preset",
+        "delete_viewer_preset",
+    ),
+    "tit/server/routes/viewer_library.py": (
+        "composition_dir",
+        "_COMPOSITION_SUFFIX",
+        "list_compositions",
+        "save_composition",
+        "delete_composition",
+    ),
+    "tit/server/routes/catalog_v1.py": (
+        "electrode_overlays",
+        "ex_run_results",
+        "subject_info",
+    ),
+    "tit/catalog.py": ("electrode_overlays", "ex_run_results", "subject_info_matrix"),
+    "tit/server/routes/jobs.py": ("rerun_job",),
+    "tit/jobs/manager.py": ("JobManager.rerun",),
+    "tit/server/routes/scene.py": ("volume_legend",),
+    "tit/scene/build.py": ("volume_legend",),
+    "tit/server/routes/files.py": ("csv_file",),
+    "tit/server/routes/schema.py": ("schema_by_name",),
+    "tit/jobs/runner.py": ("ENV_LOCK_KEYS",),
+    "tit/jobs/tailer.py": ("line_count",),
+    "tit/scene/guide.py": ("part_ids", "atlas_ids", "net_names", "iter_assets"),
+    "tit/server/routes/kernels.py": ("_project_root",),
 }
 
 DELETED_FILES = (
@@ -121,6 +157,14 @@ DISTINCTIVE_NAMES = (
     "run_job_container",
     "JobClientError",
     "resume_session",
+    "subject_info_matrix",
+    "ex_run_results",
+    "viewer_preset_dir",
+    "_jail_viewspec_layers",
+    "_reject_option_like_args",
+    "msh2cortex_path",
+    "ENV_LOCK_KEYS",
+    "iter_assets",
 )
 
 #: Shipped code and user-facing docs (desktop is p46's; tests would self-match).

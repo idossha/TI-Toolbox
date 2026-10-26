@@ -37,8 +37,6 @@ def storage(tmp_path):
     "subdir,operation",
     [
         ("", viewers.viewer_scene_dir),
-        ("presets", viewers.viewer_preset_dir),
-        ("compositions", lib.composition_dir),
         ("scenes", lib.saved_scene_dir),
     ],
 )
@@ -54,30 +52,19 @@ def test_outward_storage_directory_is_refused(storage, subdir, operation):
     assert not list(outside.iterdir())
 
 
-@pytest.mark.parametrize("kind", ["presets", "compositions", "scenes"])
-def test_outward_leaf_is_not_read_or_overwritten(storage, kind):
+def test_outward_leaf_is_not_read_or_overwritten(storage):
     _, directory, outside = storage
-    (directory / kind).mkdir()
-    suffix = ".tetravox.json" if kind == "scenes" else ".json"
+    (directory / "scenes").mkdir()
     secret = outside / "secret.json"
     secret.write_text('{"name":"private","layers":[{"id":"private"}]}')
     original = secret.read_bytes()
-    target = directory / kind / ("test" + suffix)
+    target = directory / "scenes" / "test.tetravox.json"
     target.symlink_to(secret)
-    if kind == "presets":
-        assert viewers.viewer_presets() == {"presets": []}
-        save = lambda: viewers.save_viewer_preset("test", {})
-        delete = lambda: viewers.delete_viewer_preset("test")
-    elif kind == "compositions":
-        assert lib.list_compositions() == {"compositions": []}
-        save = lambda: lib.save_composition("test", {})
-        delete = lambda: lib.delete_composition("test")
-    else:
-        assert lib.list_scenes() == {"scenes": []}
-        with pytest.raises(HTTPException):
-            lib.read_scene("test")
-        save = lambda: lib.save_scene("test", {"scene": SCENE})
-        delete = lambda: lib.delete_scene("test")
+    assert lib.list_scenes() == {"scenes": []}
+    with pytest.raises(HTTPException):
+        lib.read_scene("test")
+    save = lambda: lib.save_scene("test", {"scene": SCENE})
+    delete = lambda: lib.delete_scene("test")
     for action in (save, delete):
         with pytest.raises(HTTPException):
             action()
@@ -85,67 +72,45 @@ def test_outward_leaf_is_not_read_or_overwritten(storage, kind):
         assert target.is_symlink()
 
 
-@pytest.mark.parametrize("kind", ["presets", "compositions", "scenes", "thumbnail"])
+@pytest.mark.parametrize("kind", ["scenes", "thumbnail"])
 def test_predictable_partial_symlink_cannot_overwrite_external_bytes(storage, kind):
     _, directory, outside = storage
-    subdir = "scenes" if kind == "thumbnail" else kind
-    (directory / subdir).mkdir()
-    suffix = (
-        ".png"
-        if kind == "thumbnail"
-        else ".tetravox.json" if kind == "scenes" else ".json"
-    )
-    target = directory / subdir / ("test" + suffix)
-    partial = Path(
-        str(target) + (".partial" if kind == "presets" else f".{os.getpid()}.partial")
-    )
+    (directory / "scenes").mkdir()
+    suffix = ".png" if kind == "thumbnail" else ".tetravox.json"
+    target = directory / "scenes" / ("test" + suffix)
+    partial = Path(f"{target}.{os.getpid()}.partial")
     sentinel = outside / "sentinel"
     sentinel.write_bytes(b"untouched")
     partial.symlink_to(sentinel)
-    if kind == "presets":
-        viewers.save_viewer_preset("test", {"subject": "ernie"})
-    elif kind == "compositions":
-        lib.save_composition("test", {"subject": "ernie"})
-    else:
-        lib.save_scene(
-            "test",
-            {
-                "scene": SCENE,
-                "thumbnail": "data:image/png;base64," + base64.b64encode(PNG).decode(),
-            },
-        )
+    lib.save_scene(
+        "test",
+        {
+            "scene": SCENE,
+            "thumbnail": "data:image/png;base64," + base64.b64encode(PNG).decode(),
+        },
+    )
     assert sentinel.read_bytes() == b"untouched"
     assert partial.is_symlink()
     assert target.is_file() and not target.is_symlink()
 
 
-@pytest.mark.parametrize("kind", ["presets", "compositions", "scenes"])
-def test_in_project_directory_links_preserve_save_read_delete(storage, kind):
+def test_in_project_directory_links_preserve_save_read_delete(storage):
     project, directory, _ = storage
-    actual = project / ("linked-" + kind)
+    actual = project / "linked-scenes"
     actual.mkdir()
-    (directory / kind).symlink_to(actual, target_is_directory=True)
-    if kind == "presets":
-        viewers.save_viewer_preset("test", {"subject": "ernie"})
-        assert viewers.viewer_presets()["presets"][0]["subject"] == "ernie"
-        viewers.delete_viewer_preset("test")
-    elif kind == "compositions":
-        lib.save_composition("test", {"subject": "ernie"})
-        assert lib.list_compositions()["compositions"][0]["subject"] == "ernie"
-        lib.delete_composition("test")
-    else:
-        lib.save_scene(
-            "test",
-            {
-                "scene": SCENE,
-                "thumbnail": "data:image/png;base64," + base64.b64encode(PNG).decode(),
-            },
-        )
-        assert lib.read_scene("test")["scene"] == SCENE
-        assert json.loads((actual / "test.tetravox.json").read_text()) == SCENE
-        assert (actual / "test.png").read_bytes() == PNG
-        assert lib.list_scenes()["scenes"][0]["has_thumbnail"]
-        lib.delete_scene("test")
+    (directory / "scenes").symlink_to(actual, target_is_directory=True)
+    lib.save_scene(
+        "test",
+        {
+            "scene": SCENE,
+            "thumbnail": "data:image/png;base64," + base64.b64encode(PNG).decode(),
+        },
+    )
+    assert lib.read_scene("test")["scene"] == SCENE
+    assert json.loads((actual / "test.tetravox.json").read_text()) == SCENE
+    assert (actual / "test.png").read_bytes() == PNG
+    assert lib.list_scenes()["scenes"][0]["has_thumbnail"]
+    lib.delete_scene("test")
     assert not list(actual.iterdir())
 
 
@@ -205,45 +170,25 @@ def test_atomic_failure_preserves_document_and_removes_random_temp(
     assert sorted(p.name for p in directory.iterdir()) == ["document.json"]
 
 
-@pytest.mark.parametrize("kind", ["presets", "compositions", "scenes"])
-def test_in_project_leaf_links_are_readable(storage, kind):
+def test_in_project_leaf_links_are_readable(storage):
     project, directory, _ = storage
-    (directory / kind).mkdir()
+    (directory / "scenes").mkdir()
     target = project / "valid.json"
     target.write_text(json.dumps({"name": "linked", **SCENE}))
-    suffix = ".tetravox.json" if kind == "scenes" else ".json"
-    (directory / kind / ("test" + suffix)).symlink_to(target)
-    if kind == "presets":
-        assert viewers.viewer_presets()["presets"][0]["name"] == "linked"
-    elif kind == "compositions":
-        assert lib.list_compositions()["compositions"][0]["name"] == "linked"
-    else:
-        assert lib.read_scene("test")["scene"]["name"] == "linked"
+    (directory / "scenes" / "test.tetravox.json").symlink_to(target)
+    assert lib.read_scene("test")["scene"]["name"] == "linked"
 
 
-@pytest.mark.parametrize("kind", ["presets", "compositions", "scenes"])
-def test_outward_parent_blocks_save_and_delete(storage, kind):
+def test_outward_parent_blocks_save_and_delete(storage):
     _, directory, outside = storage
-    (directory / kind).symlink_to(outside, target_is_directory=True)
-    suffix = ".tetravox.json" if kind == "scenes" else ".json"
-    sentinel = outside / ("test" + suffix)
+    (directory / "scenes").symlink_to(outside, target_is_directory=True)
+    sentinel = outside / "test.tetravox.json"
     sentinel.write_text(json.dumps(SCENE))
     original = sentinel.read_bytes()
-    if kind == "presets":
-        actions = (
-            lambda: viewers.save_viewer_preset("test", {}),
-            lambda: viewers.delete_viewer_preset("test"),
-        )
-    elif kind == "compositions":
-        actions = (
-            lambda: lib.save_composition("test", {}),
-            lambda: lib.delete_composition("test"),
-        )
-    else:
-        actions = (
-            lambda: lib.save_scene("test", {"scene": SCENE}),
-            lambda: lib.delete_scene("test"),
-        )
+    actions = (
+        lambda: lib.save_scene("test", {"scene": SCENE}),
+        lambda: lib.delete_scene("test"),
+    )
     for action in actions:
         with pytest.raises(HTTPException) as exc:
             action()

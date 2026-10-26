@@ -770,55 +770,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/catalog/electrode-overlays": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Electrode-overlay NIfTI presence for one simulation, per TI/mTI mode
-         * @description Listing-only: whether `tit.tools.electrode_overlay` (a `tools` job) has already produced `<simulation>/<mode>/montage_imgs/electrode_overlay_subject.nii.gz` for each mode, and its path. Building the overlay is out of scope here; see `tit/server/routes/viewers.py` and `tit/catalog.py::electrode_overlays`.
-         */
-        get: {
-            parameters: {
-                query: {
-                    subject: string;
-                    simulation: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ElectrodeOverlay"][];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description unknown subject or simulation */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/catalog/montages": {
         parameters: {
             query?: never;
@@ -1515,48 +1466,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/catalog/ex-runs/{run}/results": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Full results table (every montage/current-split scored) of one ex/mEx run */
-        get: {
-            parameters: {
-                query: {
-                    subject: string;
-                    kind: "ex" | "mex";
-                };
-                header?: never;
-                path: {
-                    run: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TableData"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/catalog/analyses": {
         parameters: {
             query?: never;
@@ -1909,42 +1818,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/catalog/subject-info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Presence matrix (subject x data-stage) across the whole project */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TableData"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/catalog/project-summary": {
         parameters: {
             query?: never;
@@ -2054,53 +1927,6 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/schema/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One resolved $def from schema.json, by config class name */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description unknown config class name */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
             };
         };
         put?: never;
@@ -2596,45 +2422,6 @@ export interface paths {
             requestBody?: never;
             responses: {
                 200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["JobStatus"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/jobs/{id}/rerun": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Submit a new job with the same spec as a finished one */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                201: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3414,128 +3201,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/viewer/compositions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Saved Viewer compositions
-         * @description A composition is *what a person chose* -- a subject, a space and the inputs ticked in the tree, by stable id (the container path). Small, diffable, and it survives a re-run of the pipeline: reloading it re-resolves today's choices against whatever is on disk then, and reports what has gone missing rather than failing. Distinct from a saved *scene*, which is what a person was looking at. One unreadable file is skipped, never fatal.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            compositions: components["schemas"]["ViewerComposition"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/viewer/compositions/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Save one Viewer composition */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ViewerComposition"];
-                };
-            };
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ViewerComposition"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description a name that cannot become a file (refused rather than silently renamed) */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        post?: never;
-        /** Forget one composition */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            name?: string;
-                            deleted?: boolean;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description no composition by that name */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/viewer/scenes": {
         parameters: {
             query?: never;
@@ -3803,122 +3468,6 @@ export interface paths {
                     };
                     content?: never;
                 };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/viewer/presets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Saved Viewer selections
-         * @description VM. Plain JSON documents under <project>/code/ti-toolbox/viewer/presets/. They live in the project, not in browser storage, because the project is the unit people copy, archive and share -- a preset kept in a browser would be lost exactly when the work it describes was passed on. The path is /api/viewer/presets and not /api/view/presets because the latter is shadowed by GET /api/view/{kind}. A preset that cannot be parsed is skipped, not fatal.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            presets: components["schemas"]["ViewerPreset"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/viewer/presets/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Save one Viewer selection */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ViewerPreset"];
-                };
-            };
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ViewerPreset"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description a name that cannot become a file (refused rather than silently renamed) */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        post?: never;
-        /** Forget one saved selection */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            name?: string;
-                            deleted?: boolean;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
             };
         };
         options?: never;
@@ -4216,52 +3765,6 @@ export interface paths {
                     };
                     content: {
                         "text/plain": string;
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description path escapes the project jail */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/files/csv": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A CSV file parsed into a table, jailed to the project directory */
-        get: {
-            parameters: {
-                query: {
-                    path: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TableData"];
                     };
                 };
                 401: components["responses"]["Unauthorized"];
@@ -4734,7 +4237,6 @@ export interface paths {
                             volumes: {
                                 id: string;
                                 url: string;
-                                legend_url: string;
                             }[];
                             cache: {
                                 /** @enum {string} */
@@ -5037,62 +4539,6 @@ export interface paths {
                 };
                 401: components["responses"]["Unauthorized"];
                 /** @description `detail` is one sentence a user can act on, never "unknown subject": a subject the project does not have is told which ids it does have; a subject whose head model has not been built yet (listed by `GET /api/catalog/subjects`, including one whose raw data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what to run. Every `/api/scene/*` route answers a subject-level question the same way. Also: a net file this subject does not have. */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/scene/volume-legend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The label volume's id -> name/colour legend
-         * @description Parsed from `m2m_<id>/segmentation/labeling_LUT.txt` with the same line parser the optimizer's ROI picker uses, so the scene legend and the ROI dropdown cannot disagree about what a label is called. `color` is `null` when the table carries no RGB columns.
-         */
-        get: {
-            parameters: {
-                query: {
-                    subject: string;
-                    id?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id: string;
-                            entries: {
-                                id: number;
-                                name: string;
-                                color: string;
-                            }[];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description `detail` is one sentence a user can act on, never "unknown subject": a subject the project does not have is told which ids it does have; a subject whose head model has not been built yet (listed by `GET /api/catalog/subjects`, including one whose raw data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what to run. Every `/api/scene/*` route answers a subject-level question the same way. Also: a volume id with no `labeling_LUT.txt` beside it. */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -6350,20 +5796,6 @@ export interface components {
             /** @description why the tree is empty -- "no subject chosen" and "no head model" are different problems and the Menu has to be able to say which */
             reason?: string | null;
         };
-        /** @description What a person chose, by stable id. Unknown keys are kept rather than rejected: the tree's vocabulary will grow, and a server that refused new keys would make every Menu change a two-repository change. */
-        ViewerComposition: {
-            name: string;
-            version?: number;
-            saved_at?: string;
-            subject?: string | null;
-            /** @enum {string|null} */
-            space?: "subject" | "mni" | null;
-            /** @description chosen input ids (container paths), in layer order */
-            inputs?: string[];
-            simulations?: string[];
-        } & {
-            [key: string]: unknown;
-        };
         SavedScene: {
             name: string;
             slug: string;
@@ -6390,20 +5822,6 @@ export interface components {
             health?: "valid" | "missing" | "invalid" | "unchecked";
             missing_count?: number;
             health_message?: string;
-        };
-        /** @description VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. `extras`/`overrides` are still accepted for a preset saved by the VM panel that briefly exposed them. */
-        ViewerPreset: {
-            name: string;
-            /** @description kind, subject, simulation, analysis, field, atlas, roi, path, space */
-            selection?: {
-                [key: string]: unknown;
-            };
-            /** @description the edited list, or null when the view type's own set was saved */
-            files?: string[] | null;
-            extras?: string[];
-            overrides?: {
-                [key: string]: unknown;
-            };
         };
         ViewerSceneFile: {
             id?: string | null;
@@ -6868,13 +6286,6 @@ export interface components {
             path: string;
             /** Format: date-time */
             created: string;
-        };
-        ElectrodeOverlay: {
-            /** @enum {string} */
-            mode: "TI" | "mTI";
-            /** @description container path (may not exist yet -- see `exists`) */
-            path: string;
-            exists: boolean;
         };
         ElectrodePosition: {
             label?: string;
@@ -7356,7 +6767,7 @@ export interface components {
             cal_min?: number | null;
             cal_max?: number | null;
             lut?: string | null;
-            /** @description Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind} or POST /api/view/args), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile. */
+            /** @description Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind}), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile. */
             percentile?: {
                 lo: number;
                 hi: number;
@@ -7365,7 +6776,7 @@ export interface components {
         ViewSpec: {
             /** @enum {string} */
             space: "subject" | "mni";
-            /** @description resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind} or is accepted by POST /api/view/args), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself. */
+            /** @description resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind}), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself. */
             layers: components["schemas"]["ViewLayer"][];
             /** @description DEPRECATED (D3, docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the exact argv tail an external Freeview process would need (to_freeview_args). Kept for one release; no route launches Freeview any more (there is no X11 in this runtime). */
             freeview_args: string[];
@@ -9692,8 +9103,6 @@ export interface components {
          *         Output mesh format (``"stl"`` or ``"ply"``).
          *     atlas : str
          *         Atlas name, e.g. ``"DK40"``.
-         *     surface : Surface
-         *         Cortical surface type (``"central"``, ``"pial"``, or ``"white"``).
          *     field_name : str
          *         Scalar field to map onto region meshes.
          *     skip_regions : bool
@@ -9730,23 +9139,11 @@ export interface components {
              * @default DK40
              */
             atlas: string;
-            /** @default central */
-            surface: components["schemas"]["Surface"];
             /**
              * Field Name
              * @default TI_max
              */
             field_name: string;
-            /**
-             * Msh2Cortex Path
-             * @default null
-             */
-            msh2cortex_path: string | null;
-            /**
-             * Gm Mesh
-             * @default null
-             */
-            gm_mesh: string | null;
             /**
              * Skip Regions
              * @default false
@@ -11136,12 +10533,6 @@ export interface components {
          * @enum {string}
          */
         Format: "stl" | "ply";
-        /**
-         * Surface
-         * @description Cortical surface type for msh2cortex extraction.
-         * @enum {string}
-         */
-        Surface: "central" | "pial" | "white";
         /**
          * NiftiAverageSpace
          * @description Which per-subject NIfTI space the group average is computed in.

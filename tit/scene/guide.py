@@ -177,18 +177,6 @@ def _asset(rel: str, meta: dict[str, Any], guide_id: str = DEFAULT_GUIDE) -> Gui
     return GuideAsset(path=path, meta=meta)
 
 
-def part_ids(guide_id: str = DEFAULT_GUIDE) -> list[str]:
-    return [str(part["id"]) for part in manifest(guide_id).get("parts", [])]
-
-
-def atlas_ids(guide_id: str = DEFAULT_GUIDE) -> list[str]:
-    return [str(atlas["id"]) for atlas in manifest(guide_id).get("atlases", [])]
-
-
-def net_names(guide_id: str = DEFAULT_GUIDE) -> list[str]:
-    return [str(net["name"]) for net in manifest(guide_id).get("nets", [])]
-
-
 def surface(part: str, fmt: str = "tvsc", guide_id: str = DEFAULT_GUIDE) -> GuideAsset:
     """The packaged surface bytes for *part* in *fmt* (``tvsc`` or ``gii``)."""
     entry = _entry("parts", "id", part, guide_id)
@@ -245,27 +233,3 @@ def installed_guide_ids() -> list[str]:
     is what stops the pane offering a space whose anatomy is not installed.
     """
     return [gid for gid in GUIDE_DIRS if (guide_dir(gid) / MANIFEST_NAME).is_file()]
-
-
-def iter_assets(guide_id: str = DEFAULT_GUIDE) -> list[tuple[str, GuideAsset]]:
-    """Every file the manifest references, as ``(relative path, asset)``.
-
-    The gate test walks this to prove nothing the manifest advertises is
-    missing from the package.
-    """
-    body = manifest(guide_id)
-    out: list[tuple[str, GuideAsset]] = []
-    for part in body.get("parts", []):
-        for fmt, rel in part.get("files", {}).items():
-            if fmt.endswith("_meta"):
-                continue
-            out.append((rel, _asset(rel, part, guide_id)))
-    for atlas in body.get("atlases", []):
-        for fmt, rel in atlas.get("files", {}).items():
-            if fmt.endswith("_meta"):
-                continue
-            out.append((rel, _asset(rel, atlas, guide_id)))
-        out.append((atlas["legend_file"], _asset(atlas["legend_file"], atlas, guide_id)))
-    for net in body.get("nets", []):
-        out.append((net["file"], _asset(net["file"], net, guide_id)))
-    return out

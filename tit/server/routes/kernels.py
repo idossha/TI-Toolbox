@@ -32,6 +32,7 @@ from fastapi import APIRouter, Body, HTTPException, Request, WebSocket, WebSocke
 
 from tit.server.auth import origin_allowed, websocket_authorized
 from tit.server.kernels import DEFAULT_KERNEL_NAME, KernelError, get_kernel_registry
+from tit.server.routes.notebooks import _project_root
 from tit.server.schemas import Kernel, KernelInterrupted, KernelList, KernelStopped
 
 logger = logging.getLogger(__name__)
@@ -66,13 +67,6 @@ def _fail(error: KernelError) -> HTTPException:
         status_code=_STATUS.get(error.code, 500),
         detail={"code": error.code, "message": error.message},
     )
-
-
-def _project_root(request: Request) -> str:
-    root = request.app.state.settings.project_dir
-    if not root:
-        raise HTTPException(status_code=409, detail="This server is not bound to a project.")
-    return str(root)
 
 
 @router.get(
