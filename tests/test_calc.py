@@ -533,6 +533,25 @@ class TestEnvelopeMaxPlane:
         np.testing.assert_allclose(n @ Z, 0.0, atol=1e-15)
         np.testing.assert_allclose(np.linalg.norm(n, axis=1), 1.0)
 
+    def test_cusp_maximum_with_collinear_difference_rows(self):
+        # In-plane, S rows along a and D rows along b (a perpendicular to b): along
+        # n = cos(p) a + sin(p) b the envelope is | |s| |cos p| - |d| |sin p| |, so the maximum
+        # max(|s|, |d|) sits on a cusp -- at n = a (v = |D n|^2 / 2 touches zero) or n = b
+        # (u touches zero). Out-of-plane parts are projected away.
+        rng = np.random.default_rng(110)
+        a, b = unit(np.array([1.0, 1.0, 0.0])), unit(np.array([1.0, -1.0, 0.0]))
+        s, d = rng.normal(size=(2, 2, 40))
+        fields = []
+        for k in range(2):
+            out = rng.normal(size=(2, 40, 1)) * Z
+            fields += [(s[k, :, None] * a + d[k, :, None] * b) / 2 + out[0]]
+            fields += [(s[k, :, None] * a - d[k, :, None] * b) / 2 + out[1]]
+        amp, n = envelope_max(fields, perpendicular_to=Z, return_direction=True)
+        ns, nd = np.hypot(s[0], s[1]), np.hypot(d[0], d[1])
+        np.testing.assert_allclose(amp, np.maximum(ns, nd), rtol=1e-12)
+        axis = np.where((ns > nd)[:, None], a, b)
+        np.testing.assert_allclose(np.abs(np.sum(n * axis, 1)), 1.0, atol=1e-12)
+
     def test_fields_collinear_after_projection(self):
         # u(psi) and v(psi) are then proportional, the stationarity polynomial vanishes
         # identically, and the maximum sits at the extremum of u: along the common axis w.
@@ -579,10 +598,13 @@ class TestEnvelopeMean:
         )
 
     @pytest.mark.parametrize("k", [2, 3])
-    def test_k2_quadrature_within_1e_3_of_a_fine_quadrature(self, k):
+    def test_k2_quadrature_within_7e_4_of_a_fine_quadrature(self, k):
+        # The documented worst case of the 2048-direction rule is ~7e-4 (measured 5.7e-4 / 5.3e-4
+        # on these seeds); a rule whose points are shifted off the cell midpoints exceeds it
+        # (8.4e-4 / 8.0e-4).
         fields = random_fields(111 + k, 60, 2 * k)
         rel = np.abs(envelope_mean(fields) / quadrature_mean(fields) - 1)
-        assert rel.max() < 1e-3, rel.max()
+        assert rel.max() < 7e-4, rel.max()
 
     @pytest.mark.parametrize(
         "e1, e2, expected",
@@ -817,6 +839,36 @@ def test_field_shape_errors(fields, match):
     for fn in (envelope_max, hf_peak):
         with pytest.raises(ValueError, match=match):
             fn(fields)
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda f: envelope(f, X),
+        envelope_max,
+        lambda f: envelope_max(f, perpendicular_to=Z),
+        envelope_mean,
+        hf_peak,
+        hf_power,
+    ],
+)
+@pytest.mark.parametrize("k", [1, 2])
+def test_non_finite_fields_are_rejected(fn, bad, k):
+    fields = random_fields(185, 6, 2 * k)
+    fields[-1][4, 1] = bad
+    with pytest.raises(
+        ValueError, match="non-finite.*1 of 6 elements, first at element 4"
+    ):
+        fn(fields)
+
+
+def test_non_finite_directions_are_rejected():
+    fields = random_fields(186, 3, 2)
+    with pytest.raises(ValueError, match="direction contains non-finite"):
+        envelope(fields, [np.nan, 0.0, 1.0])
+    with pytest.raises(ValueError, match="perpendicular_to contains non-finite"):
+        envelope_max(fields, perpendicular_to=[np.inf, 0.0, 1.0])
 
 
 def test_direction_and_normal_shape_errors():
