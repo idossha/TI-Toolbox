@@ -522,39 +522,39 @@ class TestVoxelAtlasManagerListAtlases:
     def test_discovers_voxel_atlas_files(self, tmp_path):
         """Discovers atlas files from VOXEL_ATLAS_FILES list."""
         from tit.atlas.voxel import VoxelAtlasManager
-        from tit.atlas.constants import LEGACY_FREESURFER_ATLAS_FILES
+        from tit.atlas.constants import LEGACY_FREESURFER_ATLASES
 
         mri_dir = tmp_path / "mri"
         mri_dir.mkdir()
 
         # Create two atlas files
-        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
-        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[1]).touch()
+        (mri_dir / list(LEGACY_FREESURFER_ATLASES)[0]).touch()
+        (mri_dir / list(LEGACY_FREESURFER_ATLASES)[1]).touch()
 
         mgr = VoxelAtlasManager(freesurfer_mri_dir=str(mri_dir))
         results = mgr.list_atlases()
 
         assert len(results) == 2
         names = [name for name, _ in results]
-        assert LEGACY_FREESURFER_ATLAS_FILES[0] in names
-        assert LEGACY_FREESURFER_ATLAS_FILES[1] in names
+        assert list(LEGACY_FREESURFER_ATLASES)[0] in names
+        assert list(LEGACY_FREESURFER_ATLASES)[1] in names
 
     def test_returns_tuples_of_name_and_path(self, tmp_path):
         """Each result is a (display_name, full_path) tuple."""
         from tit.atlas.voxel import VoxelAtlasManager
-        from tit.atlas.constants import LEGACY_FREESURFER_ATLAS_FILES
+        from tit.atlas.constants import LEGACY_FREESURFER_ATLASES
 
         mri_dir = tmp_path / "mri"
         mri_dir.mkdir()
-        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
+        (mri_dir / list(LEGACY_FREESURFER_ATLASES)[0]).touch()
 
         mgr = VoxelAtlasManager(freesurfer_mri_dir=str(mri_dir))
         results = mgr.list_atlases()
 
         assert len(results) == 1
         name, path = results[0]
-        assert name == LEGACY_FREESURFER_ATLAS_FILES[0]
-        assert path == os.path.join(str(mri_dir), LEGACY_FREESURFER_ATLAS_FILES[0])
+        assert name == list(LEGACY_FREESURFER_ATLASES)[0]
+        assert path == os.path.join(str(mri_dir), list(LEGACY_FREESURFER_ATLASES)[0])
 
     def test_discovers_labeling_file(self, tmp_path):
         """Discovers labeling.nii.gz in seg_dir."""
@@ -587,11 +587,11 @@ class TestVoxelAtlasManagerListAtlases:
     def test_both_dirs_combined(self, tmp_path):
         """Results combine legacy FreeSurfer and segmentation atlases."""
         from tit.atlas.voxel import VoxelAtlasManager
-        from tit.atlas.constants import LEGACY_FREESURFER_ATLAS_FILES
+        from tit.atlas.constants import LEGACY_FREESURFER_ATLASES
 
         mri_dir = tmp_path / "mri"
         mri_dir.mkdir()
-        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
+        (mri_dir / list(LEGACY_FREESURFER_ATLASES)[0]).touch()
 
         seg_dir = tmp_path / "seg"
         seg_dir.mkdir()
@@ -605,7 +605,7 @@ class TestVoxelAtlasManagerListAtlases:
 
         assert len(results) == 2
         names = [n for n, _ in results]
-        assert LEGACY_FREESURFER_ATLAS_FILES[0] in names
+        assert list(LEGACY_FREESURFER_ATLASES)[0] in names
         assert "labeling.nii.gz" in names
 
     def test_fastsurfer_dir_searched_before_freesurfer(self, tmp_path):
@@ -613,7 +613,7 @@ class TestVoxelAtlasManagerListAtlases:
         from tit.atlas.voxel import VoxelAtlasManager
         from tit.atlas.constants import (
             FASTSURFER_ATLAS_FILES,
-            LEGACY_FREESURFER_ATLAS_FILES,
+            LEGACY_FREESURFER_ATLASES,
         )
 
         fs_dir = tmp_path / "fastsurfer" / "mri"
@@ -622,7 +622,7 @@ class TestVoxelAtlasManagerListAtlases:
 
         legacy_dir = tmp_path / "freesurfer" / "mri"
         legacy_dir.mkdir(parents=True)
-        (legacy_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
+        (legacy_dir / list(LEGACY_FREESURFER_ATLASES)[0]).touch()
 
         mgr = VoxelAtlasManager(
             fastsurfer_mri_dir=str(fs_dir),
@@ -631,7 +631,7 @@ class TestVoxelAtlasManagerListAtlases:
         names = [n for n, _ in mgr.list_atlases()]
 
         assert names[0] == FASTSURFER_ATLAS_FILES[0]
-        assert LEGACY_FREESURFER_ATLAS_FILES[0] in names
+        assert list(LEGACY_FREESURFER_ATLASES)[0] in names
 
     def test_no_atlas_files_present(self, tmp_path):
         """Empty mri dir returns no FreeSurfer atlases."""
