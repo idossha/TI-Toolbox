@@ -1,6 +1,8 @@
 """Temporal-interference envelope and carrier-field metrics.
 
-Five functions, NumPy only, vectorised and chunked over elements:
+Five functions, NumPy, vectorised and chunked over elements (the K>=2 sphere
+maximum runs the same algorithm in a numba kernel, :mod:`tit._calc_kernel`,
+when numba is importable):
 
 ==================  ==========================================================
 :func:`envelope`      envelope modulation amplitude along a given direction
@@ -47,6 +49,7 @@ C95.1-2019 p. 35.
 
 from __future__ import annotations
 
+import functools
 import itertools
 from collections.abc import Sequence
 
@@ -410,8 +413,33 @@ def _keep_best(best, best_n, vals, dirs):
     best_n[better] = dirs[rows, j][better]
 
 
+@functools.cache
+def _sphere_kernel():
+    """The numba K>=2 sphere-maximum kernel, or ``None`` when numba is not importable."""
+    try:
+        from tit._calc_kernel import max_sphere
+    except Exception:  # noqa: BLE001
+        # Absent, or broken at import (numba raises AttributeError when a dependency
+        # it checks is unusable): either way NumPy runs.
+        return None
+    return max_sphere
+
+
+def _pair_optima(E):
+    """``(n, K, 3)``: each carrier pair's own K=1 optimal direction (0 where it is null)."""
+    return np.stack([_max_k1(E[k], E[k + 1])[1] for k in range(0, len(E), 2)], axis=1)
+
+
 def _max_sphere(E):
-    """K>=2 sphere maximum: eigen-branch root-find, safeguards, local polish."""
+    """K>=2 sphere maximum: eigen-branch root-find, safeguards, local polish.
+
+    Runs in :mod:`tit._calc_kernel` when numba imports (same algorithm, element-parallel);
+    the NumPy below is the reference it is tested against.
+    """
+    kernel = _sphere_kernel()
+    if kernel is not None:
+        E = np.ascontiguousarray(E)
+        return kernel(E, _THETA_GRID, _pair_optima(E), _ROOT_ITERS, _NEWTON_ITERS)
     S = E[0::2] + E[1::2]
     D = E[0::2] - E[1::2]
     Cp, Cm, Cw = _forms(E)
@@ -474,9 +502,7 @@ def _max_sphere(E):
     # Safeguards: the eigenvectors of C+, C- and C+ - C-, and each pair's own
     # K=1 optimum (exact when the other pairs vanish).
     safe = [np.linalg.eigh(C)[1].transpose(0, 2, 1) for C in (Cp, Cm, Cw)]
-    for k in range(E.shape[0] // 2):
-        safe.append(_max_k1(E[2 * k], E[2 * k + 1])[1][:, None, :])
-    safe = np.concatenate(safe, axis=1)
+    safe = np.concatenate(safe + [_pair_optima(E)], axis=1)
     _keep_best(best, best_n, _env_uvw(*_uvw(S, D, safe)), safe)
 
     # Local polish: Newton ascent from the best point and from each branch's

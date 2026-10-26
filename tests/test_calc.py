@@ -766,6 +766,49 @@ def test_chunking_does_not_change_results(monkeypatch):
     np.testing.assert_array_equal(hf_peak(sets[3]), peak)
 
 
+def test_without_numba_the_numpy_path_runs(monkeypatch):
+    """No numba: the K>=2 sphere maximum falls back to NumPy (numba is in the image only).
+
+    ``sys.modules["numba"] = None`` makes ``import numba`` raise ImportError, as on a host
+    without it; kernel/NumPy agreement is ``tests/numerical/test_calc_kernel.py`` (image).
+    """
+    import sys
+
+    fields = list(np.concatenate([REAL_GM_FIELDS, REAL_GM_ROOT_FIELDS], axis=1))
+    monkeypatch.setitem(sys.modules, "numba", None)
+    monkeypatch.delitem(sys.modules, "tit._calc_kernel", raising=False)
+    calc._sphere_kernel.cache_clear()
+    try:
+        with pytest.raises(ImportError, match="numba"):
+            import tit._calc_kernel  # noqa: F401
+        assert calc._sphere_kernel() is None
+        amp, n = envelope_max(fields, return_direction=True)
+    finally:
+        calc._sphere_kernel.cache_clear()
+    np.testing.assert_allclose(envelope(fields, n), amp, rtol=1e-13)
+    assert np.all(amp > 0)
+
+
+def test_a_numba_that_breaks_at_import_falls_back_too(monkeypatch):
+    """numba's ``__init__`` raises AttributeError, not ImportError, when a dependency it version-
+    checks is unusable (seen in the image with the host conftest's mocked scipy)."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def broken(name, *args, **kwargs):
+        if name == "tit._calc_kernel":
+            raise AttributeError("__version__")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", broken)
+    calc._sphere_kernel.cache_clear()
+    try:
+        assert calc._sphere_kernel() is None
+    finally:
+        calc._sphere_kernel.cache_clear()
+
+
 def test_empty_input_gives_empty_output():
     empty = [np.zeros((0, 3))] * 4
     for out in (
