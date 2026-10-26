@@ -118,7 +118,7 @@ Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 
 The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels A & B share the first carrier and channels C & D the second — there is no wiring choice to make.
 
-The kHz-exposure safety metrics `hf_peak`/`hf_sar` include every channel field under the shipped positional wiring (one field per carrier). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
+The kHz-exposure safety metrics `hf_peak`/`hf_sar`/`hf_power_density` include every channel field under the shipped positional wiring (one field per carrier). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 
 **References:** Albantakis, L. & Tononi, G. (2026). Precision neuromodulation in psychiatry: focus on temporal interference stimulation. _American Journal of Psychiatry_. doi:10.1176/appi.ajp.20250873. Botzanowski, B. et al. (2025). Focal control of non-invasive deep brain stimulation using multipolar temporal interference. _Bioelectronic Medicine_ 11(1):7.
 
@@ -126,17 +126,21 @@ The kHz-exposure safety metrics `hf_peak`/`hf_sar` include every channel field u
 
 ## Output Fields
 
-The **Output fields** in a job's settings choose which volume-mesh fields are computed and written, for TI and mTI alike: `TI_max` (ticked by default), `TI_avg`, `hf_peak` and `hf_sar`. At least one must be ticked ("Select at least one output field."). An unticked field is never computed, not merely left unwritten. From Python the same choice is `SimulationConfig.output_fields`, default `["TI_max"]`.
+The **Output fields** in a job's settings choose which volume-mesh fields are computed and written, for TI and mTI alike: `TI_max` (ticked by default), `TI_avg`, `hf_peak`, `hf_sar` and `hf_power_density`. At least one must be ticked ("Select at least one output field."). An unticked field is never computed, not merely left unwritten. From Python the same choice is `SimulationConfig.output_fields`, default `["TI_max"]`.
 
-What each field _means_ — the beat-envelope modulation depth, the direction-averaged envelope, and the carrier-exposure safety metrics — is documented once, under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest).
+What each field _means_ — the beat-envelope modulation depth, the direction-averaged envelope, and the carrier-exposure safety metrics — is documented once, under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest). `TI_max` and `TI_normal` are computed with `tit.calc` (`envelope_max`, and `envelope` along the cortical normals), `TI_avg` with `envelope_mean`.
+
+`hf_power_density` (W/m³) is the time-averaged carrier power absorbed per volume, $$\tfrac{1}{2}\sum_j \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j$$, with the conductivity this job solved with: the tissue values (including any overrides) for `scalar`, and each element's DTI tensor for the anisotropic models. Divide by tissue density for SAR. It is a volume field only and is not projected to fsaverage.
+
+All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_power` (= `hf_sar`/2) is the time-averaged mean square $$E_{\mathrm{rms}}^2$$. Compare $$\sqrt{\mathrm{hf\_power}}$$ with RMS standards tables (ICNIRP 2010 / IEEE C95.1-2019 limit the RMS in-situ E-field at 1–10 kHz, not SAR), or `hf_peak` with $$\sqrt{2}$$ times the limit.
 
 ## Carrier-only control (ΔF = 0) {#carrier-only-control}
 
 A carrier-only control delivers the same two kHz carriers as a TI montage but at the **same** frequency and in phase (e.g. 15,000 / 15,000 Hz instead of 15,000 / 15,010 Hz), so there is no interference beat. Use it for carrier-only or sham-style control conditions: the tissue receives kHz exposure without an envelope.
 
-Without a beat the two carriers add coherently into one fixed field, so the exposure metrics become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2$$ rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
+Without a beat the two carriers add coherently into one fixed field, so the exposure metrics become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2$$ (and `hf_power_density` is computed from $$\mathbf{E}_1 + \mathbf{E}_2$$) rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
 
-- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_sar` are selected, and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more pairs) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
+- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_sar` are selected (`hf_power_density` may be ticked too), and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more pairs) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
 - **From Python or a JSON config**:
 
 ```python
@@ -203,7 +207,7 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/
 │   ├── montage_imgs/{montage}_highlighted_visualization.png
 │   └── surface_overlays/
 └── mTI/                                  # multipolar TI (4+ channels)
-    ├── mesh/{montage}_mTI.msh            # mTI_max / TI_avg / hf_peak / hf_sar (selected)
+    ├── mesh/{montage}_mTI.msh            # mTI_max / TI_avg / hf_peak / hf_sar / hf_power_density (selected)
     ├── mesh/grey_{montage}_mTI.msh, white_{montage}_mTI.msh
     ├── mesh/surfaces/                    # central cortical surface (msh2cortex)
     ├── niftis/                           # mesh -> NIfTI conversion

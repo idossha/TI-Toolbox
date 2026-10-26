@@ -36,9 +36,9 @@ tit/__init__.py       setup_logging, add_file_handler, add_stream_handler,
   +-- tit.logger      no internal deps
 
 science core
-  tit.calc            the three envelope functions + the mTI direction search
-  tit.fields          hf_peak / hf_sar exposure metrics (positional wiring)
-  tit._mti_kernel     numba-accelerated sweep kernel
+  tit.calc            five functions: envelope / envelope_max / envelope_mean
+                      (TI_normal, TI_max/mTI_max + tangential, TI_avg) and the
+                      carrier metrics hf_peak / hf_power (positional wiring)
 
 tit.sim
   +-- tit.sim.config           SimulationConfig, Montage, SimulationMode, MontageMode
@@ -215,7 +215,7 @@ not evidence the new code loaded** — the pre-reload process can still answer.
 
 ## The science-integrity rule
 
-Any change to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim`
+Any change to `tit/stats`, `tit/analyzer`, `tit/calc` or `tit/sim`
 needs **both**:
 
 1. a test in `tests/numerical/` running against the **real** libraries that asserts

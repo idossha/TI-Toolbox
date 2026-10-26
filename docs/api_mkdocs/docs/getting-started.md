@@ -272,9 +272,10 @@ visualize_montage(
 All paths are managed by `PathManager`, which enforces a BIDS-compliant directory structure. You never construct paths manually.
 
 ### Field Types
-- **TI_max**: Maximum TI envelope magnitude (2-pair simulations)
-- **TI_normal**: TI field component normal to the cortical surface
-- **mTI_max**: Multi-channel TI maximum envelope (4+ even-pair mTI simulations, from binary-tree combination)
+- **TI_max**: Maximum TI envelope over all directions (2-pair simulations; `tit.calc.envelope_max`)
+- **TI_normal**: TI envelope along the cortical surface normal (`tit.calc.envelope`)
+- **mTI_max**: Maximum of the joint envelope of all channels (4+ even-pair mTI simulations; `tit.calc.envelope_max`)
+- **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density**: optional outputs (direction-averaged envelope, peak carrier field, carrier power sum, absorbed carrier power in W/m³)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

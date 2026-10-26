@@ -207,11 +207,7 @@ DISTINCTIVE_NAMES = (
     "iter_assets",
     "deduplicate_vertices",
     "LEGACY_FREESURFER_ATLAS_FILES",
-)
-
-#: The pre-2026-10-26 envelope API. Scanned outside docs/wiki and agent-plugin until their
-#: rewrite (feat/calc-envelope-callers) lands; that branch moves these into DISTINCTIVE_NAMES.
-REMOVED_CALC_NAMES = (
+    # the pre-2026-10-26 envelope API (tit.calc is five functions; tit.fields folded in)
     "get_TI_vectors",
     "get_TI_avg",
     "get_TI_dir",
@@ -220,6 +216,7 @@ REMOVED_CALC_NAMES = (
     "TIT_MTI_KERNEL",
     "_mti_kernel",
     "tit.fields",
+    "tit/fields",
 )
 
 #: Shipped code and user-facing docs (desktop is p46's; tests would self-match).
@@ -308,12 +305,6 @@ def test_deleted_names_are_not_mentioned_in_shipped_code_or_user_docs():
     scanned = [entry for entry in SCANNED if (REPO / entry).exists()]
     assert len(scanned) >= 6, scanned
     assert mentions(REPO, DISTINCTIVE_NAMES) == []
-
-
-def test_removed_calc_names_are_not_mentioned_in_shipped_code():
-    scanned = tuple(e for e in SCANNED if e not in ("docs/wiki", "agent-plugin"))
-    assert len(scanned) >= 4, scanned
-    assert mentions(REPO, REMOVED_CALC_NAMES, scanned) == []
 
 
 def test_the_checkers_find_a_planted_resurrection(tmp_path):

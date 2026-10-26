@@ -58,32 +58,37 @@ from tit.opt import (FlexConfig, run_flex_search,
 from tit.analyzer import Analyzer, run_group_analysis, select_field_file
 from tit.stats import run_group_comparison, GroupComparisonConfig, run_correlation
 from tit.pre import run_pipeline
-from tit.calc import get_TI_vectors, get_TI_avg, get_TI_dir
-from tit.fields import hf_peak, hf_sar
+from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 ```
 
-## The envelope API — exactly three functions
+## The envelope API — exactly five functions
 
-`tit.calc` was consolidated in v2.5.0 to **three** public functions. Each takes a
+`tit.calc` has **five** public functions. The three envelope functions take a
 **list** of `2K` arrays of shape `(N, 3)`, **paired positionally**: each two
-consecutive fields are the two channels sharing one carrier.
+consecutive fields are the two channels sharing one carrier. The two carrier
+functions take any number (>= 1) of fields, one per electrode pair.
 
 ```python
-get_TI_vectors(fields, psi=None)             # (N,3) modulation-amplitude vectors
-get_TI_avg(fields, psi=None)                 # (N,)  direction-averaged envelope
-get_TI_dir(fields, directions, psi=None)     # (N,)  envelope along given directions
+envelope(fields, direction)                    # (N,) envelope along direction ((3,) or (N, 3)) -> TI_normal
+envelope_max(fields)                           # (N,) max over all directions -> TI_max / mTI_max
+envelope_max(fields, perpendicular_to=normals) # (N,) max within the plane -> tangential TI
+envelope_max(fields, return_direction=True)    # (amp, unit direction): amp * dir is the TI vector
+envelope_mean(fields)                          # (N,) mean over all directions -> TI_avg
+hf_peak(fields)                                # (N,) peak carrier field max_s |sum s_c E_c|
+hf_power(fields)                               # (N,) (1/2) sum |E_c|^2 = E_rms^2, (V/m)^2
 
-get_TI_vectors([E1, E2])                     # K = 1: the exact closed form
-get_TI_vectors([E1a, E1b, E2a, E2b])         # K = 2 carriers (mTI)
+envelope_max([E1, E2])                         # K = 1: exact closed form
+envelope_max([E1a, E1b, E2a, E2b])             # K = 2 carriers (mTI)
 ```
-`psi` is a per-carrier envelope phase offset of shape `(K,)` in radians; `None`
-means phase-aligned, and it is ignored at `K = 1`.
+`coherent=True` on `hf_peak`/`hf_power` is the carrier-only (ΔF = 0) control. The
+on-disk field `hf_sar` stores `2 * hf_power`; `hf_power_density` stores
+`sigma * hf_power` in W/m^3 with the solve's own conductivity.
 
-**Removed — do not emit these.** `get_nTI_vectors`, `get_mTI_vectors`,
-`get_mTI_dir`, `get_magnitude_am`, the positional `get_TI_vectors(E1, E2)` form
-(pass a list), and the `channels=` carrier-regrouping parameter. There is no
-`montage.channels`: **wiring is positional — one field is one carrier**, which is
-also how `hf_peak(*fields)` and `hf_sar(*fields)` in `tit.fields` read their input.
+**Removed — do not emit these.** Any `tit.calc` name other than the five above
+(the older vector/average/direction functions, their `psi` argument, and the
+separate carrier-fields module with its `hf_sar` *function*), `get_nTI_vectors`, `get_mTI_vectors`, `get_mTI_dir`,
+`get_magnitude_am`, and the `channels=` carrier-regrouping parameter. There is no
+`montage.channels`: **wiring is positional — one field is one carrier**.
 
 **Pair count**: an even number of electrode pairs, at least two —
 2 = TI, 4 or more (even) = mTI (`tit.constants.is_valid_pair_count`).
@@ -112,14 +117,15 @@ cfg = SimulationConfig(
     gel_thickness=4.0, rubber_thickness=2.0,
     map_to_surf=True,                   # required — TI_normal needs surface overlays
     map_to_fsavg=True,
-    output_fields=["TI_max"])           # + "TI_avg", "hf_peak", "hf_sar"
+    output_fields=["TI_max"])           # + "TI_avg", "hf_peak", "hf_sar", "hf_power_density"
 run_simulation(cfg)
 # ΔF = 0 carrier-only control (2-pair TI; coherent carriers, no envelope fields):
 # SimulationConfig(..., carrier_only=True, output_fields=["hf_peak", "hf_sar"])
+# (hf_power_density is a carrier field too and may be added)
 ```
 2 pairs → TI, 4+ (even) → mTI, detected automatically. Outputs:
 `Simulations/<name>/TI/{mesh,niftis}` plus MNI-space NIfTIs. `TI_normal` is written
-to `<montage>_mTI_normal.msh` for mTI runs (via `get_TI_dir` along the cortical
+to `<montage>_mTI_normal.msh` for mTI runs (via `envelope` along the cortical
 normals) and is **mesh-only** — asking for it in voxel space is an error by design.
 
 Free-hand montages come from `m2m_<id>/stim_configs/*.json`
