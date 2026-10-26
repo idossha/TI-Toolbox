@@ -12,7 +12,7 @@ import { connectReal, expectPage, gotoPage, launchElectronApp } from "../_helper
  * claim the whole feature exists for: **simnibs and TI-Toolbox methods are
  * usable from a cell** — the kernel is the container's SimNIBS Python with
  * `tit` on its path, so `from tit import catalog, get_path_manager`,
- * `simnibs.__version__` and `tit.calc.get_TI_vectors` all work with nothing
+ * `simnibs.__version__` and `tit.calc.envelope_max` all work with nothing
  * installed and nothing configured.
  *
  * It runs the seeded worked example end to end and asserts its **rich**
@@ -152,7 +152,7 @@ test("the worked example runs every cell green, with a plot and tables", async (
   await expect(cellOutput(1).locator("th", { hasText: "simulations" })).toBeVisible();
 
   // 3 — a real TI-Toolbox computation. Orthogonal 1 V/m carriers give an
-  // envelope of magnitude 1; `tit.calc.get_TI_vectors` is what produced it.
+  // envelope of magnitude 1; `tit.calc.envelope_max` is what produced it.
   await expect(cellOutput(2).locator("table")).toHaveCount(1, { timeout: KERNEL_TIMEOUT });
   await expect(cellOutput(2).locator("th", { hasText: "TI envelope" })).toBeVisible();
 

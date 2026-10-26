@@ -3436,14 +3436,19 @@ beside SimNIBS). (3) New opt-in volume field `hf_power_density` = `(1/2) sum_c E
 in W/m^3, written by the TI and mTI simulators next to `hf_peak`/`hf_sar`; sigma is the solve's own
 conductivity, rebuilt by SimNIBS `TDCSLIST.cond2elmdata` from the session (tissue values with
 overrides, anisotropy model, DTI tensor file) on the solve's whole output mesh and cropped with it;
-tensors are used in full for `dir`/`vn`/`mc`. Not projected to fsaverage. Tests:
+tensors are used in full for `dir`/`vn`/`mc`. sigma is computed once, on channel 1's output mesh,
+and used for every channel: each channel's mesh differs only by its own electrodes, so after the
+brain crop sigma is identical across the lists for tit's default anisotropic tissues (it would
+differ only if the scalp were made anisotropic, which tit never sets). Not projected to fsaverage.
+Tests:
 `tests/numerical/test_calc_vs_simnibs.py`, `tests/numerical/test_flex_tangential.py`,
 `tests/test_hf_power_density.py`, `tests/numerical/test_hf_power_density_simnibs.py`.
 
 **Why.** (1) Two implementations of one quantity can drift; calc agrees with SimNIBS to 6e-16
-relative on 1e6 random elements and costs the same (median 158 vs 169 ms for SimNIBS's code per
-1e6 elements, 31.5 vs 31.7 ms per 2e5, on the M2 host, NumPy 2.4 [measured, an untracked
-benchmark of the two functions on random fields]). (2) The old `sqrt(max_TI^2 - dir_TI^2)` treats two
+relative on 1e6 random elements and costs the same: per 1e6 random elements, `envelope_max`
+158 ms and SimNIBS `get_maxTI` 169 ms (median; per 2e5, 31.5 vs 31.7 ms) on the M2 host with
+NumPy 2.4 [measured]; the review re-measured `get_maxTI` 161 ms vs `envelope_max` 155 ms per 1e6
+and 32.2 vs 30.1 ms per 2e5 [measured]. (2) The old `sqrt(max_TI^2 - dir_TI^2)` treats two
 envelope maxima as orthogonal components: on 4000 random elements 35 % were off by more than 10 %
 against a dense in-plane sweep [measured, in image v3.1.2]. (3) `sigma * hf_power` is the absorbed
 power density, `/rho` SAR (IEEE C95.1-2019 p. 35); `hf_sar` alone needed the user to supply sigma.
