@@ -7,7 +7,7 @@ Helpers shared by the 3D export modules:
 - ROI surface meshes (:func:`create_roi_mesh`, :func:`extract_roi_region_no_zeros`)
 - the scalp surface of a head mesh (:func:`extract_scalp_from_msh`)
 
-Low-level I/O (STL/PLY read/write, colormaps, vertex deduplication) lives
+Low-level I/O (STL/PLY read/write, colormaps) lives
 in :mod:`tit.blender.io`.
 """
 
