@@ -6,11 +6,13 @@ numba imports, and that kernel is the same algorithm as the NumPy path in ``tit/
 LAPACK), so the two agree to round-off:
 
 * on 10^4 seeded random elements each at K = 2, 3, 4 and on the degenerate sets of
-  ``tests/test_calc.py``, kernel and NumPy maxima agree to 1e-12 relative both ways (measured
-  1.7e-14), and every kernel value is attained at its returned direction (``envelope``);
+  ``tests/test_calc.py``, kernel and NumPy maxima agree to 1e-12 relative both ways (<=1e-13
+  measured), and every kernel value is attained at its returned direction (``envelope``);
 * on the six real grey-matter elements an earlier solver missed (``tests/test_calc.py``), the
   kernel is never below the dense sphere search there (an oracle independent of both paths);
-* null elements give 0 with the documented ``(1, 0, 0)`` direction, never NaN.
+* null elements give 0 with the documented ``(1, 0, 0)`` direction, never NaN;
+* NaN or inf in any field raises ValueError before the kernel runs (the kernel itself would
+  return finite garbage), and rows the kernel flags as not converged are recomputed by NumPy.
 
 Where the numbers come from: the NumPy reference (itself checked against dense searches in
 ``tests/test_calc.py``) and the dense search ``tests.test_calc.dense_max``; nothing is read back
@@ -92,3 +94,33 @@ def test_null_elements_give_zero_not_nan(monkeypatch):
     np.testing.assert_array_equal(amp[::2], 0.0)
     np.testing.assert_array_equal(n_hat[::2], np.tile([1.0, 0.0, 0.0], (3, 1)))
     assert np.all(amp[1::2] > 0)
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_non_finite_input_raises_before_the_kernel(bad):
+    pytest.importorskip("numba", reason="the image ships numba; the kernel needs it")
+    calc._sphere_kernel.cache_clear()
+    assert calc._sphere_kernel() is not None
+    fields = random_fields(960, 5, 4)
+    fields[2][3, 1] = bad
+    with pytest.raises(ValueError, match="non-finite"):
+        calc.envelope_max(fields)
+
+
+def test_rows_the_kernel_flags_are_recomputed_by_numpy(monkeypatch):
+    """A Jacobi solve that did not converge (unseen for finite input) marks its row not ok."""
+    pytest.importorskip("numba", reason="the image ships numba; the kernel needs it")
+    calc._sphere_kernel.cache_clear()
+    kernel = calc._sphere_kernel()
+    assert kernel is not None
+
+    def flagging(E, *args):
+        amp, n_hat, ok = kernel(E, *args)
+        amp[1::3], n_hat[1::3], ok[1::3] = -7.0, 0.0, False
+        return amp, n_hat, ok
+
+    fields = random_fields(970, 30, 6)
+    monkeypatch.setattr(calc, "_sphere_kernel", lambda: flagging)
+    got = calc.envelope_max(fields)
+    monkeypatch.setattr(calc, "_sphere_kernel", lambda: None)
+    np.testing.assert_allclose(got, calc.envelope_max(fields), rtol=1e-12)

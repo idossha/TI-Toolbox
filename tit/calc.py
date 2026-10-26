@@ -430,7 +430,10 @@ def _keep_best(best, best_n, vals, dirs):
 
 @functools.cache
 def _sphere_kernel():
-    """The numba K>=2 sphere-maximum kernel, or ``None`` when numba is not importable."""
+    """The numba K>=2 sphere-maximum kernel, or ``None`` when numba is not importable.
+
+    Catches import-time failures only; a numba compile error on the first call propagates.
+    """
     try:
         from tit._calc_kernel import max_sphere
     except Exception:  # noqa: BLE001
@@ -449,12 +452,21 @@ def _max_sphere(E):
     """K>=2 sphere maximum: eigen-branch root-find, safeguards, local polish.
 
     Runs in :mod:`tit._calc_kernel` when numba imports (same algorithm, element-parallel);
-    the NumPy below is the reference it is tested against.
+    :func:`_max_sphere_numpy` is the reference it is tested against, and recomputes any
+    element whose kernel eigen-solve did not converge.
     """
     kernel = _sphere_kernel()
-    if kernel is not None:
-        E = np.ascontiguousarray(E)
-        return kernel(E, _THETA_GRID, _pair_optima(E), _ROOT_ITERS, _NEWTON_ITERS)
+    if kernel is None:
+        return _max_sphere_numpy(E)
+    E = np.ascontiguousarray(E)
+    amp, n_hat, ok = kernel(E, _THETA_GRID, _pair_optima(E), _ROOT_ITERS, _NEWTON_ITERS)
+    if not ok.all():
+        amp[~ok], n_hat[~ok] = _max_sphere_numpy(E[:, ~ok])
+    return amp, n_hat
+
+
+def _max_sphere_numpy(E):
+    """The NumPy reference of :func:`_max_sphere`."""
     S = E[0::2] + E[1::2]
     D = E[0::2] - E[1::2]
     Cp, Cm, Cw = _forms(E)

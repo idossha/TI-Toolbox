@@ -3438,8 +3438,8 @@ ex nor mex calls them.
 element (batched LAPACK `eigh` on 3x3 matrices was 52–59 % of it), ~35× the old numba sweep;
 the kernel is ~24 µs single-threaded and 3.6 µs with all threads, ~4× the old sweep, which the
 eigen-solves the exact method needs account for [measured: BENCHMARKS.md, 2026-10-26 section].
-Kernel and NumPy agree to ≤ 4.8e-14 relative on 3 × 10^4 random and 4 × 10^5 real grey-matter
-elements [measured]; `tests/numerical/test_calc_kernel.py` pins 1e-12.
+Kernel and NumPy agree to ≤ 1e-13 relative on random, degenerate, float32 and 4 × 10^5 real
+grey-matter elements [measured]; `tests/numerical/test_calc_kernel.py` pins 1e-12.
 
 **Alternatives rejected.** A pure-NumPy restructure (a vectorised Jacobi in place of LAPACK) ran
 5.7× slower than LAPACK, not faster [measured, same process]: per-op NumPy overhead on (n, 3, 3)

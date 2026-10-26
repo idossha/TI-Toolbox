@@ -14,7 +14,9 @@ with the same first-maximum-wins tie-breaking.  The deliberate differences:
 * sums run in a different order.
 
 The two paths agree to round-off in the maximum (``tests/numerical/test_calc_kernel.py``:
-1e-12 relative bound, ~2e-14 measured).
+1e-12 relative bound, <=1e-13 measured).  An element whose Jacobi solve did not converge in 50
+sweeps (not seen for finite input) is flagged, and ``tit.calc`` recomputes it with NumPy.
+Non-finite input never gets here: ``tit.calc._stack`` rejects it.
 
 Importing this module raises ImportError when numba is absent; ``tit.calc`` then uses NumPy.
 """
@@ -46,6 +48,8 @@ def _qf(A, x0, x1, x2, y0, y1, y2):
 def _eigh(A, V, warm):
     """Eigenvectors of symmetric 3x3 ``A`` into the columns of ``V``, eigenvalues ascending.
 
+    Returns whether Jacobi converged (off-diagonals below ``tol``) within 50 sweeps.
+
     Cyclic Jacobi; ``A`` is overwritten (its diagonal ends up holding the eigenvalues).
     ``warm``: start from the orthonormal basis already in ``V`` (a nearby matrix's
     eigenvectors) instead of the identity, which leaves fewer rotations to do.
@@ -72,8 +76,10 @@ def _eigh(A, V, warm):
         for j in range(3):
             tol += A[i, j] * A[i, j]
     tol = 1e-16 * np.sqrt(tol)
+    converged = False
     for _ in range(50):
         if abs(A[0, 1]) <= tol and abs(A[0, 2]) <= tol and abs(A[1, 2]) <= tol:
+            converged = True
             break
         for p, q in _OFF:
             apq = A[p, q]
@@ -106,6 +112,7 @@ def _eigh(A, V, warm):
             for r in range(3):
                 V[r, j - 1], V[r, j] = V[r, j], V[r, j - 1]
             j -= 1
+    return converged
 
 
 @njit(cache=True, error_model="numpy")
@@ -223,6 +230,7 @@ def _element(
     branch_n[:] = 0.0
     bn[:] = 0.0
     best = -1.0
+    ok = True  # every eigen-solve converged
 
     # Track the three eigen-branches of cos(t) C+ - sin(t) C- over the grid.
     for j in range(G):
@@ -232,7 +240,7 @@ def _element(
                 M[x, y] = ct * Cp[x, y] - st * Cm[x, y]
         if j > 0:
             Vj[:] = Vs[j - 1]
-        _eigh(M, Vj, j > 0)
+        ok = _eigh(M, Vj, j > 0) and ok
         if j == 0:
             Vs[0] = Vj
         else:  # tit.calc._match_columns: best permutation by |overlap|, then signs
@@ -279,7 +287,7 @@ def _element(
                 for p in range(3):
                     for q in range(3):
                         M[p, q] = cx * Cp[p, q] - sx * Cm[p, q]
-                _eigh(M, Vj, True)
+                ok = _eigh(M, Vj, True) and ok
                 col, top = 0, -1.0
                 for i in range(3):
                     o = abs(
@@ -308,7 +316,7 @@ def _element(
     # Safeguards: the eigenvectors of C+, C- and C+ - C-, and each pair's own K=1 optimum.
     for C in (Cp, Cm, Cw):
         M[:] = C
-        _eigh(M, Vj, False)
+        ok = _eigh(M, Vj, False) and ok
         for i in range(3):
             u, v, f = _uvwf(S, D, Vj[0, i], Vj[1, i], Vj[2, i])
             if f > best:
@@ -334,12 +342,14 @@ def _element(
             best = f
             out_n[:] = seed
     out_n /= np.sqrt(out_n[0] ** 2 + out_n[1] ** 2 + out_n[2] ** 2)
-    return max(best, 0.0)
+    return max(best, 0.0), ok
 
 
 @njit(cache=True, error_model="numpy", parallel=True)
 def max_sphere(E, grid, extra, root_iters, newton_iters):
-    """K>=2 sphere maximum of ``E`` ``(2K, n, 3)``: ``(amp (n,), n_hat (n, 3))``.
+    """K>=2 sphere maximum of ``E`` ``(2K, n, 3)``: ``(amp (n,), n_hat (n, 3), ok (n,))``.
+
+    ``ok`` is False where an eigen-solve did not converge; those rows are not to be trusted.
 
     ``grid`` is ``tit.calc._THETA_GRID``, ``extra`` ``(n, K, 3)`` each pair's K=1 optimum,
     ``root_iters``/``newton_iters`` ``tit.calc._ROOT_ITERS``/``_NEWTON_ITERS``.
@@ -349,6 +359,7 @@ def max_sphere(E, grid, extra, root_iters, newton_iters):
     G = grid.shape[0]
     amp = np.empty(n_el)
     n_hat = np.empty((n_el, 3))
+    ok = np.empty(n_el, dtype=np.bool_)
     block = 64  # elements per scratch allocation
     cg, sg = np.cos(grid), np.sin(grid)
     for blk in prange((n_el + block - 1) // block):
@@ -387,7 +398,7 @@ def max_sphere(E, grid, extra, root_iters, newton_iters):
             for x in range(3):  # Cw + Cw^T
                 for y in range(x, 3):
                     Cw[x, y] = Cw[y, x] = Cw[x, y] + Cw[y, x]
-            amp[e] = _element(
+            amp[e], ok[e] = _element(
                 S,
                 D,
                 Cp,
@@ -402,4 +413,4 @@ def max_sphere(E, grid, extra, root_iters, newton_iters):
                 n_hat[e],
                 work,
             )
-    return amp, n_hat
+    return amp, n_hat, ok
