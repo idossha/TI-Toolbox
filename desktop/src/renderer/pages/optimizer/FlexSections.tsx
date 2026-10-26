@@ -43,7 +43,7 @@ export const POSTPROC_OPTIONS = [
   { value: "dir_TI_tangential", label: "dir_TI_tangential" },
 ];
 
-const POSTPROC_HELP = "max_TI: the maximum TI field. dir_TI_normal / dir_TI_tangential: its component normal or tangential to the surface.";
+const POSTPROC_HELP = "max_TI: the maximum TI envelope over all directions. dir_TI_normal: the envelope along the surface normal. dir_TI_tangential: the maximum envelope over directions within the surface plane.";
 
 // `FlexConfig.anisotropy_type` per contracts/generated/config.schema.json documents "scalar"/"vn" only; the v2.5.0
 // Qt tab also offered "dir"/"mc", left out pending confirmation `run_flex_search` takes them.
