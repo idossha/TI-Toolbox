@@ -16,7 +16,6 @@ from .logic import (
     count_combinations,
     format_current_mA,
     generate_current_ratios,
-    generate_montage_combinations,
     ratios_mirror_symmetric,
 )
 from .parallel import evaluate_ordered, resolve_n_jobs
@@ -328,10 +327,6 @@ class ExSearchEngine:
         )
         n_jobs = resolve_n_jobs(n_jobs)
         self._log_config_summary(
-            e1_plus,
-            e1_minus,
-            e2_plus,
-            e2_minus,
             current_ratios,
             all_combinations,
             total,
@@ -405,10 +400,6 @@ class ExSearchEngine:
 
     def _log_config_summary(
         self,
-        e1_plus,
-        e1_minus,
-        e2_plus,
-        e2_minus,
         current_ratios,
         all_combinations,
         total,

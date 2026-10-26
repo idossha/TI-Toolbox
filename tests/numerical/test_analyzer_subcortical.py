@@ -36,7 +36,7 @@ def _fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(
         analyzer,
         "_voxel_tissue_mask",
-        lambda img, shape, affine: np.ones(shape, dtype=bool),
+        lambda shape, affine: np.ones(shape, dtype=bool),
     )
     i, j, k = np.indices((4, 4, 4))
     field = (1 + i + 4 * j + 16 * k).astype(np.float32)

@@ -711,22 +711,22 @@ class TestFindVoxelRegionId:
         with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
              patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
             from tit.analyzer.analyzer import Analyzer
-            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "rh.insula") == 2035
-            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "lh.insula") == 1035
+            assert Analyzer._find_voxel_region_id(Path("a.mgz"), "rh.insula") == 2035
+            assert Analyzer._find_voxel_region_id(Path("a.mgz"), "lh.insula") == 1035
 
     def test_a2009s_underscore_spelling(self):
         stats = self._stats([(11118, "ctx_lh_G_insular_short")])
         with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
              patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
             from tit.analyzer.analyzer import Analyzer
-            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "lh.G_insular_short") == 11118
+            assert Analyzer._find_voxel_region_id(Path("a.mgz"), "lh.G_insular_short") == 11118
 
     def test_substring_fallback_still_works(self):
         stats = self._stats([(17, "Left-Hippocampus")])
         with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
              patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
             from tit.analyzer.analyzer import Analyzer
-            assert Analyzer._find_voxel_region_id(np.zeros(1), Path("a.mgz"), "hippocampus") == 17
+            assert Analyzer._find_voxel_region_id(Path("a.mgz"), "hippocampus") == 17
 
 
 class TestCombinedCortexMesh:

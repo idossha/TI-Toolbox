@@ -25,6 +25,7 @@ from tit.calc import (
     get_TI_avg,
     get_TI_vectors,
     _mti_modulation_depth,
+    _mti_modulation_depth_sweep,
 )
 
 RNG = np.random.default_rng(7)
@@ -122,31 +123,20 @@ class TestMTIVectorsValidation:
 
 
 # ---------------------------------------------------------------------------
-# K=1 exact-vs-sweep consistency (_mti_modulation_depth)
+# K=1 sweep vs the closed form (get_TI_vectors)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-class TestK1ExactVsSweep:
-    """The (P, Q) sweep form reduces exactly to the K=1 closed form."""
+class TestK1SweepVsClosedForm:
+    """The (P, Q) sweep form reduces to the K=1 closed form."""
 
-    def test_sweep_matches_exact_magnitude(self):
+    def test_dense_coarse_sweep_matches_closed_form_magnitude(self):
         E1, E2 = _random_fields(2, n_elements=300)
-        exact = _mti_modulation_depth([E1, E2], refine=True)
-        sweep = _mti_modulation_depth([E1, E2], refine=False, num_directions=2048)
+        sweep = _mti_modulation_depth_sweep([E1, E2], None, 2048, 16384, False)
         ti_mag = np.linalg.norm(get_TI_vectors([E1, E2]), axis=1)
-
-        np.testing.assert_allclose(exact["md"], ti_mag, atol=1e-9)
-        # A dense coarse sweep should closely approximate the exact value;
-        # generous tolerance since it is a finite direction search.
+        # Finite direction search, so a generous tolerance.
         np.testing.assert_allclose(sweep["md"], ti_mag, atol=5e-2)
-
-    def test_refine_false_is_coarse_sweep_only(self):
-        """refine=False at K=1 does not take the exact-closed-form path."""
-        E1, E2 = _random_fields(2, n_elements=50)
-        result = _mti_modulation_depth([E1, E2], refine=False, num_directions=192)
-        assert result["md"].shape == (50,)
-        assert np.all(result["md"] >= 0.0)
 
 
 # ---------------------------------------------------------------------------

@@ -1069,9 +1069,8 @@ dot-directory at the project root, `.ti-toolbox/`, created lazily by `tit.paths`
     cache/storage/storage.json the project disk-usage scan behind the Overview page
 ```
 
-`PathManager` is the single source: `dot_dir()`, `cache_root()`, `cache(*parts)`,
-`ensure_cache(*parts)`, `scene_cache(sid)`, `mask_cache(sid)`, `viewer_stats_cache()`,
-`storage_cache()`, plus the project-dir-taking `scene_cache_dir_for` / `mask_cache_dir_for` for
+`PathManager` is the single source: `dot_dir()`, `cache(*parts)`, `ensure_cache(*parts)`,
+`viewer_stats_cache()`, `storage_cache()`, plus the project-dir-taking `scene_cache_dir_for` for
 callers that hold a path rather than a manager. `tit.scene.cache`, `tit.viewspec`, `tit.storage`
 and `tit.opt.flex.utils` all resolve their directory through it; none of them joins a cache path by
 hand any more. `ensure_cache` is the only creator — it migrates legacy locations, writes the

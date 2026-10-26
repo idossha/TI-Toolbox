@@ -737,7 +737,6 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
         project=args.project,
         port=args.port,
         image=normalize_image(args.image) if args.image else None,
-        open_browser=not args.no_open,
         timeout=args.timeout,
         repo_dir=repo_dir,
         server_reload=server_reload,

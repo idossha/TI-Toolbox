@@ -44,7 +44,7 @@ def analyzer_fixture(tmp_path, monkeypatch, space):
     monkeypatch.setattr(
         analyzer,
         "_voxel_tissue_mask",
-        lambda img, shape, affine: np.ones(shape, dtype=bool),
+        lambda shape, affine: np.ones(shape, dtype=bool),
     )
     return analyzer, mask_path
 
@@ -141,7 +141,7 @@ def test_voxel_mask_rejects_no_overlap_with_selected_tissue(tmp_path, monkeypatc
     monkeypatch.setattr(
         analyzer,
         "_voxel_tissue_mask",
-        lambda img, shape, affine: np.zeros(shape, dtype=bool),
+        lambda shape, affine: np.zeros(shape, dtype=bool),
     )
     with pytest.raises(ValueError, match="selected tissue"):
         analyzer.analyze_mask(str(mask))

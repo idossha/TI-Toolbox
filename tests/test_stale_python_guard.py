@@ -65,7 +65,17 @@ DELETED_DEFINITIONS: dict[str, tuple[str, ...]] = {
         "get_fields_by_kind",
         "output_fields_help_text",
         "get_selectable_output_field_specs",
+        "GM_TISSUE_TAG",
+        "TELEMETRY_CONFIG_DIR",
     ),
+    "tit/paths.py": (
+        "mask_cache_dir_for",
+        "PathManager.stats_data",
+        "PathManager.cache_root",
+        "PathManager.scene_cache",
+        "PathManager.mask_cache",
+    ),
+    "tit/opt/ex/logic.py": ("generate_montage_combinations",),
     "tit/tools/electrode_overlay.py": (
         "simulation_config_has_xyz_electrodes",
         "_extract_xyz_positions",

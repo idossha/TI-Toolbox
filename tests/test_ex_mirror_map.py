@@ -38,7 +38,7 @@ import numpy as np
 import pytest
 
 from tit.opt.ex.buckets import _read_eeg_positions, build_electrode_mirror_map
-from tit.opt.ex.logic import generate_montage_combinations
+from tit.opt.ex.logic import _electrode_combinations
 from tit.opt.ex.symmetry import symmetric_pair_options
 
 REPO = Path(__file__).resolve().parents[1]
@@ -294,16 +294,15 @@ def test_symmetric_within_pairs_search_on_the_real_ernie_cap(tmp_path):
         ("F3", "F4"),
         ("F7", "F8"),
     }
-    rows = generate_montage_combinations(
+    quads = _electrode_combinations(
         ["F3", "F7", "Fz"],
         ["F4", "F8", "F1"],
         ["P3", "P7"],
         ["P4", "P8"],
-        [(1.0, 1.0)],
         False,
         symmetry_mirror_map=mirror,
     )
-    assert {row[:4] for row in rows} == {
+    assert set(quads) == {
         ("F3", "F4", "P3", "P4"),
         ("F3", "F4", "P7", "P8"),
         ("F7", "F8", "P3", "P4"),

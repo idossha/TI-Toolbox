@@ -123,7 +123,6 @@ class MExSearchEngine(ExSearchEngine):
         for data in evaluations:
             i += 1
             electrodes = pending.popleft()
-            sim_start = time.time()
 
             pair_names = [
                 f"{electrodes[idx]}_{electrodes[idx + 1]}" for idx in range(0, 8, 2)

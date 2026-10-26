@@ -18,8 +18,8 @@ pairs (4, 6, 8, ...):
 
 Example with 4 channels (A/B/C/D)::
 
-    TI_AB = TI(E_A, E_B)                       # intermediate, inspection only
-    TI_CD = TI(E_C, E_D)                       # intermediate, inspection only
+    TI_AB = get_TI_vectors([E_A, E_B])         # intermediate, inspection only
+    TI_CD = get_TI_vectors([E_C, E_D])         # intermediate, inspection only
     mTI   = get_TI_vectors([E_A, E_B, E_C, E_D])
 
 See Also
@@ -37,7 +37,6 @@ from copy import deepcopy
 
 import numpy as np
 from simnibs import mesh_io, sim_struct
-from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
 from tit.calc import get_TI_avg, get_TI_dir, get_TI_vectors

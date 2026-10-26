@@ -174,9 +174,7 @@ def fake_science(monkeypatch, project: Path):
     monkeypatch.setattr(
         Analyzer, "_resolve_mni_atlas", staticmethod(lambda atlas: project / ATLAS)
     )
-    monkeypatch.setattr(
-        Analyzer, "_find_voxel_region_id", lambda self, arr, path, name: 1
-    )
+    monkeypatch.setattr(Analyzer, "_find_voxel_region_id", lambda self, path, name: 1)
     monkeypatch.setattr(
         islands, "keep_main_components", lambda m, what=None: (m, None, None)
     )

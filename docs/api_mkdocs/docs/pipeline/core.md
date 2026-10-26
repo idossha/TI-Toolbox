@@ -51,7 +51,6 @@ These methods take no arguments and return top-level directories or files:
 | `pm.montage_config()` | `<project>/code/ti-toolbox/config/montage_list.json` |
 | `pm.project_status()` | `<project>/code/ti-toolbox/config/project_status.json` |
 | `pm.reports()` | `<project>/derivatives/ti-toolbox/reports` |
-| `pm.stats_data()` | `<project>/derivatives/ti-toolbox/stats/data` |
 | `pm.qsiprep()` | `<project>/derivatives/qsiprep` |
 | `pm.qsirecon()` | `<project>/derivatives/qsirecon` |
 

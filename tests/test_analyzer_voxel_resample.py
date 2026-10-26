@@ -181,9 +181,7 @@ class TestFindVoxelRegionId:
     def test_digit_string_short_circuits_lookup(self):
         """A bare integer region string is returned as-is, no atlas read."""
         with patch("tit.analyzer.analyzer.compute_segstats") as mock_compute:
-            result = Analyzer._find_voxel_region_id(
-                np.zeros((1, 1, 1)), Path("/unused.mgz"), "  17  "
-            )
+            result = Analyzer._find_voxel_region_id(Path("/unused.mgz"), "  17  ")
         assert result == 17
         mock_compute.assert_not_called()
 
@@ -197,7 +195,7 @@ class TestFindVoxelRegionId:
         with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}):
             with patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
                 result = Analyzer._find_voxel_region_id(
-                    np.zeros((1, 1, 1)), Path("/unused.mgz"), "hippocampus"
+                    Path("/unused.mgz"), "hippocampus"
                 )
         assert result == 17
 
@@ -216,9 +214,7 @@ class TestFindVoxelRegionId:
         with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}):
             with patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
                 with pytest.raises(ValueError, match="matches 2 labels") as err:
-                    Analyzer._find_voxel_region_id(
-                        np.zeros((1, 1, 1)), Path("/unused.mgz"), "Cortex-A"
-                    )
+                    Analyzer._find_voxel_region_id(Path("/unused.mgz"), "Cortex-A")
         assert "Left-Cortex-A (3)" in str(err.value)
         assert "Right-Cortex-A (9)" in str(err.value)
 
@@ -227,5 +223,5 @@ class TestFindVoxelRegionId:
             with patch("tit.analyzer.analyzer.compute_segstats", return_value=[]):
                 with pytest.raises(ValueError, match="not found"):
                     Analyzer._find_voxel_region_id(
-                        np.zeros((1, 1, 1)), Path("/some/atlas.mgz"), "NoSuchRegion"
+                        Path("/some/atlas.mgz"), "NoSuchRegion"
                     )

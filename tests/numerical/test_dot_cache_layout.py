@@ -83,7 +83,7 @@ def test_scene_build_and_prepared_mask_land_in_the_dot_directory(project):
     metas = build.build_surfaces(pm, SUBJECT)
     assert metas
     fp = build.surface_fingerprint(pm, SUBJECT)
-    scene_dir = pathlib.Path(pm.scene_cache(SUBJECT))
+    scene_dir = pathlib.Path(pm.cache("scene", f"sub-{SUBJECT}"))
     assert scene_dir.is_dir()
     for part in metas:
         found = cache.find_cached(project, SUBJECT, part, fp)

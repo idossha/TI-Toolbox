@@ -665,7 +665,7 @@ class Analyzer:
             raise ValueError("A subcortical analysis needs at least one region")
         roi = np.zeros(labels.shape, dtype=bool)
         for name in regions:
-            rid = self._find_voxel_region_id(labels, atlas_path, name)
+            rid = self._find_voxel_region_id(atlas_path, name)
             one, _, _ = keep_main_components(labels == rid, what=name)
             self._require_label_voxels(one, name, rid, atlas_path)
             roi |= one
@@ -753,7 +753,7 @@ class Analyzer:
                 > 0
             )
             analysis_mask = (field_arr > 0) & self._voxel_tissue_mask(
-                img, field_arr.shape[:3], img.affine
+                field_arr.shape[:3], img.affine
             )
             roi_mask = sampled & analysis_mask
             if not roi_mask.any():
@@ -921,7 +921,7 @@ class Analyzer:
             )
 
         positive_mask = field_arr > 0
-        tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
+        tissue_mask = self._voxel_tissue_mask(field_arr.shape[:3], affine)
         analysis_mask = positive_mask & tissue_mask
         roi_mask = sphere_mask & analysis_mask
 
@@ -966,7 +966,7 @@ class Analyzer:
         )
 
         regions = region if isinstance(region, list) else [region]
-        ids = [self._find_voxel_region_id(atlas_arr, atlas_path, r) for r in regions]
+        ids = [self._find_voxel_region_id(atlas_path, r) for r in regions]
         from tit.atlas.islands import keep_main_components
 
         region_mask_raw = np.zeros_like(atlas_arr, dtype=bool)
@@ -983,7 +983,7 @@ class Analyzer:
         region_labels = list(regions)
 
         positive_mask = field_arr > 0
-        tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
+        tissue_mask = self._voxel_tissue_mask(field_arr.shape[:3], affine)
         analysis_mask = positive_mask & tissue_mask
         roi_mask = region_mask_raw & analysis_mask
 
@@ -1631,7 +1631,6 @@ class Analyzer:
 
     def _voxel_tissue_mask(
         self,
-        field_img,
         target_shape: tuple[int, int, int],
         target_affine: np.ndarray,
     ) -> np.ndarray:
@@ -1965,7 +1964,6 @@ class Analyzer:
 
     @staticmethod
     def _find_voxel_region_id(
-        atlas_arr: np.ndarray,
         atlas_path: Path,
         region: str,
     ) -> int:

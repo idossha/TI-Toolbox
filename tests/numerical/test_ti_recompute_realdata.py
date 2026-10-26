@@ -102,6 +102,7 @@ def mesh_io():
 @real_data
 def test_the_stored_envelope_is_the_envelope_of_the_stored_carriers(mesh_io):
     from tit import constants as const
+    from tit import roi_confirmation
     from tit.calc import get_TI_vectors
     from tit.fields import hf_peak, hf_sar
 
@@ -143,7 +144,7 @@ def test_the_stored_envelope_is_the_envelope_of_the_stored_carriers(mesh_io):
     assert np.all(peak**2 <= 2 * sar * (1 + 1e-12) + ATOL)
     # Not a field of zeros: at 1 mA per pair the grey-matter (tag 2) envelope's 99.9th
     # percentile is 0.01-1 V/m (the scalp under the electrodes reaches several V/m).
-    grey = ti_stored[ti_tags == const.GM_TISSUE_TAG]
+    grey = ti_stored[ti_tags == roi_confirmation.GM_TISSUE_LABEL]
     assert grey.size > 100_000
     assert 0.01 <= float(np.percentile(grey, 99.9)) <= 1.0
     assert _mtimes([*carriers, stored]) == before
