@@ -12,7 +12,8 @@ Pins (2026-10-26):
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_hf_power_density.py -q``.
 Deliberately elsewhere: that ``_element_conductivity`` returns SimNIBS's solve conductivity needs
-real SimNIBS (``tests/numerical``); ``hf_power`` itself is ``tests/test_calc.py``.
+real SimNIBS (``tests/numerical``); ``hf_power`` itself is ``tests/test_calc.py``. The writers'
+``hf_sar`` (``sum_c |E_c|^2``, unchanged on disk) is checked on the same runs.
 """
 
 from __future__ import annotations
@@ -58,9 +59,7 @@ def test_scalar_conductivity_is_the_time_averaged_joule_heating(n_fields):
 @pytest.mark.parametrize("n_fields", [2, 4])
 def test_tensor_conductivity_uses_the_full_tensor(n_fields):
     fields = _fields(n_fields, seed=1)
-    rng = np.random.default_rng(2)
-    A = rng.normal(size=(4, 3, 3))
-    tensors = np.einsum("nij,nkj->nik", A, A) + 0.1 * np.eye(3)  # SPD, anisotropic
+    tensors = _spd_tensors()
     expected = _time_average(fields, tensors)
     got = hf_power_density(fields, tensors.reshape(4, 9))
     np.testing.assert_allclose(got, expected, rtol=2e-3)
@@ -69,10 +68,21 @@ def test_tensor_conductivity_uses_the_full_tensor(n_fields):
     assert np.max(np.abs(iso - expected) / expected) > 0.05
 
 
-def test_coherent_is_one_sinusoid_of_the_summed_field():
+def _spd_tensors(seed=2):
+    A = np.random.default_rng(seed).normal(size=(4, 3, 3))
+    return np.einsum("nij,nkj->nik", A, A) + 0.1 * np.eye(3)  # SPD, anisotropic
+
+
+@pytest.mark.parametrize("kind", ["scalar", "tensor"])
+def test_coherent_is_one_sinusoid_of_the_summed_field(kind):
     fields = _fields(2, seed=3)
-    sigma = np.full(4, 0.3)
-    expected = _time_average(fields, sigma[:, None, None] * np.eye(3), coherent=True)
+    if kind == "scalar":
+        sigma = np.full(4, 0.3)
+        tensors = sigma[:, None, None] * np.eye(3)
+    else:
+        tensors = _spd_tensors()
+        sigma = tensors.reshape(4, 9)
+    expected = _time_average(fields, tensors, coherent=True)
     got = hf_power_density(fields, sigma, coherent=True)
     np.testing.assert_allclose(got, expected, rtol=2e-3)
 
@@ -141,7 +151,7 @@ def _run_post_process(sim_cls, n_carriers, carrier_only=False):
             )
         ],
         intensities=[1.0] * n_carriers,
-        output_fields=[const.FIELD_HF_POWER_DENSITY],
+        output_fields=[const.FIELD_HF_SAR, const.FIELD_HF_POWER_DENSITY],
         carrier_only=carrier_only,
     )
     module = __import__(sim_cls.__module__, fromlist=["mesh_io"])
@@ -155,7 +165,14 @@ def _run_post_process(sim_cls, n_carriers, carrier_only=False):
         with pytest.raises(_Written) as written:
             sim._post_process(dirs)
     mout = written.value.args[0]
-    return mout.field[const.FIELD_HF_POWER_DENSITY].value, [c[_KEEP] for c in carriers]
+    kept = [c[_KEEP] for c in carriers]
+    # hf_sar on disk is sum_c |E_c|^2 (= 2 * hf_power), coherent: |sum_c E_c|^2
+    summed = [sum(kept)] if carrier_only else kept
+    expected_sar = sum(np.sum(e * e, axis=1) for e in summed)
+    np.testing.assert_allclose(
+        mout.field[const.FIELD_HF_SAR].value, expected_sar, rtol=1e-12
+    )
+    return mout.field[const.FIELD_HF_POWER_DENSITY].value, kept
 
 
 def test_ti_writes_power_density_with_the_cropped_conductivity():

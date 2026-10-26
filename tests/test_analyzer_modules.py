@@ -707,6 +707,22 @@ class TestRunGroupAnalysis:
 # ===========================================================================
 
 
+class TestFieldUnit:
+    """Display units come from FIELD_REGISTRY, with ^2/^3 rendered as superscripts."""
+
+    @pytest.mark.parametrize(
+        "field, unit",
+        [
+            ("TI_max", "V/m"),
+            ("hf_sar", "(V/m)²"),
+            ("hf_power_density", "W/m³"),
+            ("magnE", "V/m"),
+        ],
+    )
+    def test_field_unit(self, field, unit):
+        assert visualizer.field_unit(field) == unit
+
+
 class TestSaveMeshRoiOverlay:
     """save_mesh_roi_overlay writes mesh and opt file."""
 
@@ -828,7 +844,9 @@ class TestSaveHistogram:
 
         with (
             patch("tit.plotting._common.savefig_close", side_effect=fake_save),
-            patch("matplotlib.pyplot.subplots", return_value=(MagicMock(), MagicMock())),
+            patch(
+                "matplotlib.pyplot.subplots", return_value=(MagicMock(), MagicMock())
+            ),
         ):
             result = visualizer.save_histogram(
                 whole_head_values=np.array([1.0, 2.0, 3.0, np.nan]),
