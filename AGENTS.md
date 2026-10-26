@@ -20,7 +20,7 @@ X11 and no FreeSurfer. Wire contract: `contracts/openapi.yaml`.
 
 ```
 desktop/        Electron main/preload + React renderer; the UI bundle tit.server serves
-tit/            the science core (paths, sim, opt, analyzer, stats, calc, fields, pre, reporting)
+tit/            the science core (paths, sim, opt, analyzer, stats, calc, pre, reporting)
 tit/server/     FastAPI app + routes; tit/jobs/ is the job engine
 contracts/      openapi.yaml is the one hand-written contract; generated/ is build output (npm run gen)
 tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real ones
@@ -100,7 +100,7 @@ Several agents may be in one worktree at once. Each of these cost a lane real wo
 
 ## Science integrity
 
-A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` needs:
+A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc` or `tit/sim` needs:
 
 1. a test in `tests/numerical/` running against the **real** libraries (the host `tests/conftest.py`
    mocks scipy/nibabel/…), asserting the claim independently rather than retyping the

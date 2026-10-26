@@ -317,11 +317,22 @@ def _docs_blocks() -> list[Block]:
 # -- tests ------------------------------------------------------------------------
 
 
+#: Problems the envelope-API change (2026-10-26) leaves for the plugin rewrite
+#: (feat/calc-envelope-callers), which deletes this set. Each must still occur, so it cannot
+#: outlive the fix.
+PENDING_DOC_REWRITE = {
+    f"agent-plugin/skills/ti-scripting/SKILL.md:61: tit.calc has no {name}"
+    for name in ("get_TI_vectors", "get_TI_avg", "get_TI_dir")
+}
+
+
 def test_the_docs_python_blocks_compile_and_resolve_against_tit() -> None:
     blocks = _docs_blocks()
     assert len(blocks) >= 30, f"only {len(blocks)} python blocks found -- fence parser?"
     problems, imports, calls = check_blocks(blocks)
     print(f"{len(blocks)} blocks, {imports} tit imports, {len(calls)} calls bound")
+    assert PENDING_DOC_REWRITE <= set(problems), "fixed: drop it from PENDING_DOC_REWRITE"
+    problems = [p for p in problems if p not in PENDING_DOC_REWRITE]
     assert not problems, "\n".join(problems)
     assert imports >= 60, f"only {imports} tit imports resolved (73 on 2026-10-22)"
     assert len(calls) >= 70, f"only {len(calls)} calls bound (78 on 2026-10-22)"

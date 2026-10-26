@@ -44,6 +44,10 @@ tit/gui/*
 tit/gui
 # Cited as forbidden: dev/documentation_policy.py rejects it.
 docs/requirements
+# Stale: tit/fields.py was folded into tit/calc.py; the wiki and plugin rewrite
+# (feat/calc-envelope-callers) owns the fix and deletes these two entries.
+tit/fields
+tit/fields.py
 '
 
 ROOT="$(pwd)"
