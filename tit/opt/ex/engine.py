@@ -16,7 +16,6 @@ from .logic import (
     count_combinations,
     format_current_mA,
     generate_current_ratios,
-    generate_montage_combinations,
     ratios_mirror_symmetric,
 )
 from .parallel import evaluate_ordered, resolve_n_jobs
