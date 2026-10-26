@@ -7023,7 +7023,7 @@ export interface components {
          *     carrier_only : bool
          *         Carrier-only control: both pairs run at the same frequency, in phase
          *         (ΔF = 0), so there is no beat.  ``hf_peak``/``hf_sar`` then add the
-         *         carriers coherently (``|E1+E2|``, see :mod:`tit.fields`) and no
+         *         carriers coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no
          *         envelope field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.
          *         Requires a 2-pair TI montage and ``output_fields`` from ``hf_peak``/
          *         ``hf_sar``.  Default ``False``.
@@ -7834,8 +7834,8 @@ export interface components {
          *
          *     Evaluates every valid combination of four bipolar electrode pairs from
          *     a user-defined pool or bucket set, at one fixed current per pair, and
-         *     scores each candidate with the verified N>2 mTI envelope
-         *     (:func:`tit.calc.get_TI_vectors`).
+         *     scores each candidate with the joint K-carrier envelope maximum
+         *     (:func:`tit.calc.envelope_max`).
          *
          *     Attributes
          *     ----------
@@ -7922,7 +7922,7 @@ export interface components {
          *     --------
          *     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
          *     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
-         *     tit.calc.get_TI_vectors : Modulation-amplitude envelope.
+         *     tit.calc.envelope_max : Maximum of the TI/mTI envelope over direction.
          */
         MExConfig: {
             /** Subject Id */
