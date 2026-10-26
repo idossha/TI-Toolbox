@@ -14,7 +14,8 @@
  * adds falls through to `extras` rather than being silently dropped.
  *
  * Units. Field values carry the unit `tit.constants.FIELD_REGISTRY` gives the analysed field
- * (`field_name`): V/m for the envelopes and `hf_peak`, (V/m)² for `hf_sar`. `focality_*_area` is
+ * (`field_name`): V/m for the envelopes and `hf_peak`, (V/m)² for `hf_sar`, W/m³ for
+ * `hf_power_density`. `focality_*_area` is
  * cm² in **mesh** space and cm³ in **voxel** space — the field name says "area" for both, which is
  * the naming SCI-03 deliberately kept when it fixed the voxel divisor; the label here says which
  * one this run is, because that is the only place the reader can learn it.

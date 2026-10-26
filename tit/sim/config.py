@@ -437,10 +437,12 @@ class SimulationConfig:
     output_fields : list[str]
         Which volume-mesh fields to compute and write. Logical names from
         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
-        ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``. ``"TI_max"`` maps to
-        ``mTI_max`` on disk for mTI meshes. Defaults to
+        ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``, ``"hf_power_density"``.
+        ``"TI_max"`` maps to ``mTI_max`` on disk for mTI meshes. Defaults to
         ``["TI_max"]`` only -- ``TI_avg`` and the safety fields
-        (``hf_peak``, ``hf_sar``) must be opted into.
+        (``hf_peak``, ``hf_sar``, ``hf_power_density``) must be opted into.
+        ``hf_power_density`` (W/m^3) uses the conductivity of this run's own
+        solve, the full tensor under the anisotropic models.
     tissue_conductivities : dict[int, float] or None
         Per-tissue conductivity overrides (S/m), keyed by SimNIBS tissue
         number (1-based, matching ``tdcs.cond`` index + 1). ``None`` (the
@@ -457,11 +459,12 @@ class SimulationConfig:
         invisible process-environment side channel.
     carrier_only : bool
         Carrier-only control: both pairs run at the same frequency, in phase
-        (ΔF = 0), so there is no beat.  ``hf_peak``/``hf_sar`` then add the
-        carriers coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no
-        envelope field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.
-        Requires a 2-pair TI montage and ``output_fields`` from ``hf_peak``/
-        ``hf_sar``.  Default ``False``.
+        (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
+        ``hf_sar`` and ``hf_power_density`` then add the carriers coherently
+        (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no envelope field
+        (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.  Requires a
+        2-pair TI montage and ``output_fields`` from those carrier fields.
+        Default ``False``.
 
     Raises
     ------
@@ -608,12 +611,13 @@ class SimulationConfig:
 
         if self.carrier_only:
             envelope = sorted(
-                set(self.output_fields) - {const.FIELD_HF_PEAK, const.FIELD_HF_SAR}
+                set(self.output_fields) - set(const.CARRIER_OUTPUT_FIELDS)
             )
             if envelope:
                 raise ValueError(
                     f"carrier_only has no envelope (ΔF = 0); output_fields {envelope} "
-                    "are undefined -- select hf_peak and/or hf_sar."
+                    "are undefined -- select from "
+                    f"{', '.join(const.CARRIER_OUTPUT_FIELDS)}."
                 )
             if any(m.num_pairs != 2 for m in self.montages):
                 raise ValueError("carrier_only requires 2-pair TI montages.")

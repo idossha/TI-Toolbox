@@ -3423,3 +3423,36 @@ omit the limit would still pay the sweep.
 
 **Revisit if.** A goal or constraint is found where unequal splits win by more than a few percent.
 
+
+## 2026-10-26 — One K=1 envelope implementation; tangential flex TI and hf_power_density
+
+**Decision.** (1) `tit/sim/TI.py` writes `TI_max`/`TI_normal` and `tit/opt/ex/engine.py` scores
+splits with `tit.calc.envelope_max`/`envelope`, not SimNIBS `TI_utils.get_maxTI`/`get_dirTI`; the
+ex engine keeps SimNIBS only for `load_leadfield`/`get_field`. (2) Flex `dir_TI_tangential` is the
+maximum envelope over directions in the surface plane, `envelope_max(fields,
+perpendicular_to=normals)`, in `resources/map-electrodes/tes_flex_optimization.py` (a lazy
+`tit.calc` import: tit loads that module through `tit.opt.flex.runtime`, and the image installs tit
+beside SimNIBS). (3) New opt-in volume field `hf_power_density` = `(1/2) sum_c E_c^T sigma E_c`
+in W/m^3, written by the TI and mTI simulators next to `hf_peak`/`hf_sar`; sigma is the solve's own
+conductivity, rebuilt by SimNIBS `TDCSLIST.cond2elmdata` from the session (tissue values with
+overrides, anisotropy model, DTI tensor file) on the solve's whole output mesh and cropped with it;
+tensors are used in full for `dir`/`vn`/`mc`. Not projected to fsaverage. Tests:
+`tests/numerical/test_calc_vs_simnibs.py`, `tests/numerical/test_flex_tangential.py`,
+`tests/test_hf_power_density.py`, `tests/numerical/test_hf_power_density_simnibs.py`.
+
+**Why.** (1) Two implementations of one quantity can drift; calc agrees with SimNIBS to 6e-16
+relative on 1e6 random elements and costs the same (min 563 vs 536 ms per 1e6 elements on a loaded
+M2 host [measured, scratchpad bench_ex.py]). (2) The old `sqrt(max_TI^2 - dir_TI^2)` treats two
+envelope maxima as orthogonal components: on 4000 random elements 35 % were off by more than 10 %
+against a dense in-plane sweep [measured, in image v3.1.2]. (3) `sigma * hf_power` is the absorbed
+power density, `/rho` SAR (IEEE C95.1-2019 p. 35); `hf_sar` alone needed the user to supply sigma.
+
+**Alternatives rejected.** For sigma: asking SimNIBS to write `J` on the carrier meshes (exact
+`J . E` for any model) would add three doubles per element to every carrier mesh (about 100 MB per
+Ernie-sized mesh) to serve an opt-in field; computing sigma on the cropped brain mesh: the `dir`
+model's intensity fit runs over the mesh it is given, so it could differ from the solve; a scalar
+sigma under DTI models: wrong by >10 % at median on an anisotropic test tensor. For tangential TI:
+keeping the formula behind the DeprecationWarning: it is not the quantity its name states.
+
+**Revisit if.** `hf_sar` is renamed to `hf_power` (then `hf_power_density = sigma * hf_power` reads
+directly), or the fsaverage projection learns to interpolate conductivity.

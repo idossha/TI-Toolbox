@@ -40,7 +40,7 @@ from simnibs import mesh_io, sim_struct
 
 from tit import constants as const
 from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
-from tit.sim.base import BaseSimulation
+from tit.sim.base import _SIGMA, BaseSimulation, hf_power_density
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
     extract_fields,
@@ -73,7 +73,8 @@ class mTISimulation(BaseSimulation):
     5. Compute final ``mTI_max`` from the verified multi-carrier
        modulation-depth envelope over all N channel fields jointly, plus
        its orientation-averaged companion ``TI_avg`` and the ``hf_peak``/
-       ``hf_sar`` kHz-exposure safety maps (always over all N fields).
+       ``hf_sar``/``hf_power_density`` kHz-exposure safety maps (always over
+       all N fields).
     6. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also
@@ -155,12 +156,18 @@ class mTISimulation(BaseSimulation):
             )
         letters = list(string.ascii_uppercase[:n_pairs])
 
+        selected = set(self.config.output_fields)
+
         # Load and crop all N HF meshes
         meshes = []
         for i in range(1, n_pairs + 1):
             m = mesh_io.read_msh(
                 os.path.join(dirs["hf_dir"], f"{sid}_TDCS_{i}_{cond}.msh")
             )
+            if i == 1 and const.FIELD_HF_POWER_DENSITY in selected:
+                # on the solve's whole mesh, so it is the conductivity SimNIBS
+                # used; cropped with the mesh
+                m.add_element_field(self._element_conductivity(m), _SIGMA)
             meshes.append(m.crop_mesh(tags=_TAGS_KEEP))
 
         # Extract E-field arrays
@@ -183,7 +190,6 @@ class mTISimulation(BaseSimulation):
         # fields saved above (that approximation is physically invalid).
         # Channels are paired positionally: each two consecutive channels
         # share a carrier.
-        selected = set(self.config.output_fields)
 
         mout = deepcopy(meshes[0])
         mout.elmdata = []
@@ -204,6 +210,11 @@ class mTISimulation(BaseSimulation):
             # sum across the N carriers -- Cassarà 2025 Part II, p. 8.
             # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
             mout.add_element_field(2.0 * hf_power(e_fields), const.FIELD_HF_SAR)
+        if const.FIELD_HF_POWER_DENSITY in selected:
+            mout.add_element_field(
+                hf_power_density(e_fields, meshes[0].field[_SIGMA].value),
+                const.FIELD_HF_POWER_DENSITY,
+            )
 
         view_field = (
             const.FIELD_MTI_MAX

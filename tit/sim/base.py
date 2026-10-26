@@ -30,8 +30,10 @@ import os
 import subprocess
 from abc import ABC, abstractmethod
 
+import numpy as np
 from simnibs import run_simnibs, sim_struct
 
+from tit.calc import hf_power
 from tit.paths import get_path_manager
 from tit.sim.config import Montage, SimulationConfig
 from tit.sim.utils import (
@@ -41,6 +43,28 @@ from tit.sim.utils import (
     run_montage_visualization,
     setup_montage_directories,
 )
+
+# Transient element field carrying the conductivity through the crop; never written.
+_SIGMA = "_conductivity"
+
+
+def hf_power_density(fields, sigma, *, coherent: bool = False) -> np.ndarray:
+    """Time-averaged carrier power absorbed per volume, W/m^3.
+
+    ``(1/2) sum_c E_c^T sigma E_c`` for zero-to-peak carrier fields ``E_c``
+    (V/m) at distinct frequencies: ``sigma * hf_power`` for isotropic
+    ``sigma`` ``(N,)`` S/m, the full tensor form for ``(N, 9)`` anisotropic
+    conductivities (``J . E`` averaged over time).  ``SAR = this / rho``
+    (IEEE C95.1-2019, p. 35).  *coherent* is the carrier-only control: one
+    sinusoid of amplitude ``sum_c E_c``.
+    """
+    sigma = np.asarray(sigma, dtype=np.float64)
+    if sigma.ndim == 1:
+        return sigma * hf_power(fields, coherent=coherent)
+    E = np.stack([np.asarray(f, dtype=np.float64) for f in fields])
+    if coherent:
+        E = E.sum(axis=0, keepdims=True)
+    return 0.5 * np.einsum("fni,nij,fnj->n", E, sigma.reshape(-1, 3, 3), E)
 
 
 class BaseSimulation(ABC):
@@ -174,6 +198,7 @@ class BaseSimulation(ABC):
 
         self.logger.info("SimNIBS simulation: Started")
         session = self._build_session(dirs["hf_dir"])
+        self._session = session  # its conductivity settings feed hf_power_density
         if overwrite:
             # run_simnibs does not expose this supported SESSION option. Keep the
             # native existence guard for ordinary runs; never delete marker files.
@@ -288,6 +313,20 @@ class BaseSimulation(ABC):
             el.thickness = [cfg.gel_thickness, cfg.rubber_thickness]
 
         return tdcs
+
+    def _element_conductivity(self, mesh) -> np.ndarray:
+        """Per-element conductivity of this run's FEM solve, on its output *mesh*.
+
+        SimNIBS rebuilds it from the session's own settings -- tissue values
+        with any overrides, the anisotropy model and the DTI tensor file --
+        exactly as the solve did (``TDCSLIST.cond2elmdata``), on the same
+        mesh, and triangles take their tetrahedron's value as they do for
+        ``E``.  Returns ``(N,)`` S/m for ``"scalar"``, ``(N, 9)`` row-major
+        tensors for ``"dir"``/``"vn"``/``"mc"``.
+        """
+        cond = self._session.poslists[0].cond2elmdata(mesh, logger_level=10)
+        cond.assign_triangle_values()
+        return cond.value
 
     def _generate_central_surface(self, mesh_path: str, surfaces_dir: str) -> None:
         """Generate the central cortical surface mesh via ``msh2cortex``.

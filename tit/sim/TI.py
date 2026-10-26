@@ -11,7 +11,8 @@ official SimNIBS TI example:
 * ``TI_normal`` computed with :func:`tit.calc.envelope` along the normals of
   the cortical surface overlays
 
-Output mesh includes ``TI_max``, ``TI_avg``, ``hf_peak`` and ``hf_sar``.
+Output mesh includes the selected ``TI_max``, ``TI_avg``, ``hf_peak``,
+``hf_sar`` and ``hf_power_density``.
 Per-pair E-field magnitudes are not retained on it; those live on the
 ``high_Frequency/`` carrier meshes.
 
@@ -32,7 +33,7 @@ from simnibs import mesh_io, sim_struct
 
 from tit import constants as const
 from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
-from tit.sim.base import BaseSimulation
+from tit.sim.base import _SIGMA, BaseSimulation, hf_power_density
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
     extract_fields,
@@ -55,7 +56,8 @@ class TISimulation(BaseSimulation):
     1. Set up BIDS output directory structure.
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION, run FEM.
-    4. Compute ``TI_max``/``TI_avg``/``hf_peak``/``hf_sar`` (volume) and
+    4. Compute ``TI_max``/``TI_avg``/``hf_peak``/``hf_sar``/
+       ``hf_power_density`` (volume) and
        ``TI_normal`` (surface).
     5. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
@@ -138,12 +140,16 @@ class TISimulation(BaseSimulation):
         # Load and crop HF meshes
         m1 = mesh_io.read_msh(os.path.join(dirs["hf_dir"], f"{sid}_TDCS_1_{cond}.msh"))
         m2 = mesh_io.read_msh(os.path.join(dirs["hf_dir"], f"{sid}_TDCS_2_{cond}.msh"))
+        selected = set(self.config.output_fields)
+        if const.FIELD_HF_POWER_DENSITY in selected:
+            # on the solve's whole mesh, so it is the conductivity SimNIBS used;
+            # cropped with the mesh below
+            m1.add_element_field(self._element_conductivity(m1), _SIGMA)
         m1 = m1.crop_mesh(tags=_TAGS_KEEP)
         m2 = m2.crop_mesh(tags=_TAGS_KEEP)
 
         ef1 = m1.field["E"]
         ef2 = m2.field["E"]
-        selected = set(self.config.output_fields)
 
         mout = deepcopy(m1)
         mout.elmdata = []
@@ -169,6 +175,15 @@ class TISimulation(BaseSimulation):
                 2.0
                 * hf_power([ef1.value, ef2.value], coherent=self.config.carrier_only),
                 const.FIELD_HF_SAR,
+            )
+        if const.FIELD_HF_POWER_DENSITY in selected:
+            mout.add_element_field(
+                hf_power_density(
+                    [ef1.value, ef2.value],
+                    m1.field[_SIGMA].value,
+                    coherent=self.config.carrier_only,
+                ),
+                const.FIELD_HF_POWER_DENSITY,
             )
 
         view_field = (

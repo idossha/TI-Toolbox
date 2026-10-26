@@ -50,6 +50,13 @@ export const FIELD_REGISTRY: FieldSpec[] = [
     description:
       "Sum of carrier power, sum_i |E_i|². Proportional to SAR but not calibrated: SAR = (σ/2ρ)·hf_sar (Cassarà et al. 2025).",
   },
+  {
+    name: "hf_power_density",
+    kind: "safety",
+    units: "W/m³",
+    description:
+      "Time-averaged carrier power absorbed per volume, (1/2) sum_i E_i·σ·E_i with the simulation's own conductivity; SAR = hf_power_density/ρ (IEEE C95.1-2019).",
+  },
 ];
 
 export function fieldSpec(name: string): FieldSpec | undefined {

@@ -36,8 +36,8 @@ function options(available: string[], { value = AUTO_FIELD, space = "voxel" as S
 }
 
 describe("AnalysisFieldSelect", () => {
-  it("reads six analyzer fields from the Python registry", () => {
-    expect(ACCEPTED).toEqual(["TI_max", "mTI_max", "TI_normal", "TI_avg", "hf_peak", "hf_sar"]);
+  it("reads seven analyzer fields from the Python registry", () => {
+    expect(ACCEPTED).toEqual(["TI_max", "mTI_max", "TI_normal", "TI_avg", "hf_peak", "hf_sar", "hf_power_density"]);
   });
 
   it("drops catalog fields the analyzer would reject", () => {
@@ -66,7 +66,7 @@ describe("AnalysisFieldSelect", () => {
 
   it("falls back to the registry when the catalog names no analysable field", () => {
     const fallback = options(["magnE"], { space: "mesh" }).map((o) => o.value);
-    expect(fallback.slice(1).sort()).toEqual(["TI_avg", "TI_max", "TI_normal", "hf_peak", "hf_sar"]);
+    expect(fallback.slice(1).sort()).toEqual(["TI_avg", "TI_max", "TI_normal", "hf_peak", "hf_power_density", "hf_sar"]);
     expect(fallback.slice(1).every((name) => ACCEPTED.includes(name))).toBe(true);
   });
 

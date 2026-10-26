@@ -22,6 +22,7 @@ class TestFieldRegistryCompleteness:
         "FIELD_TI_AVG",
         "FIELD_HF_PEAK",
         "FIELD_HF_SAR",
+        "FIELD_HF_POWER_DENSITY",
     )
 
     def test_field_constants_are_in_registry(self):
@@ -32,8 +33,8 @@ class TestFieldRegistryCompleteness:
                 value in registry_names
             ), f"{attr} ({value!r}) missing from FIELD_REGISTRY"
 
-    def test_registry_has_exactly_six_fields(self):
-        assert len(const.FIELD_REGISTRY) == 6
+    def test_registry_has_exactly_seven_fields(self):
+        assert len(const.FIELD_REGISTRY) == 7
 
     def test_registry_names_match_constants_exactly(self):
         """No drift: the registry's name set equals the FIELD_* constant set."""
@@ -101,6 +102,7 @@ class TestFieldSpecNamingPreserved:
         assert const.FIELD_TI_AVG == "TI_avg"
         assert const.FIELD_HF_PEAK == "hf_peak"
         assert const.FIELD_HF_SAR == "hf_sar"
+        assert const.FIELD_HF_POWER_DENSITY == "hf_power_density"
 
 
 @pytest.mark.unit
@@ -115,13 +117,14 @@ class TestFieldRegistryLookupHelpers:
             "TI_avg",
             "hf_peak",
             "hf_sar",
+            "hf_power_density",
         )
 
     def test_get_field_names_filters_by_kind(self):
         functional = const.get_field_names(kind=const.FIELD_KIND_FUNCTIONAL)
         safety = const.get_field_names(kind=const.FIELD_KIND_SAFETY)
         assert set(functional) == {"TI_max", "mTI_max", "TI_normal", "TI_avg"}
-        assert set(safety) == {"hf_peak", "hf_sar"}
+        assert set(safety) == {"hf_peak", "hf_sar", "hf_power_density"}
         # Partition: every field is exactly one kind.
         assert set(functional) | set(safety) == set(const.get_field_names())
         assert set(functional) & set(safety) == set()
@@ -144,14 +147,16 @@ class TestFieldRegistryLookupHelpers:
 class TestSafetyFieldsGuard:
     """Load-bearing guard: safety fields must never silently gain/lose members.
 
-    A later phase must be able to rely on "safety fields == {hf_peak, hf_sar}"
+    A later phase must be able to rely on "safety fields == {hf_peak, hf_sar,
+    hf_power_density}"
     to make sure carrier-exposure safety metrics are never made optional by
     accident when new fields are added to the registry.
     """
 
-    def test_safety_fields_are_exactly_hf_peak_and_hf_sar(self):
+    def test_safety_fields_are_exactly_the_carrier_fields(self):
         safety_names = set(const.get_field_names(kind=const.FIELD_KIND_SAFETY))
-        assert safety_names == {"hf_peak", "hf_sar"}
+        assert safety_names == {"hf_peak", "hf_sar", "hf_power_density"}
+        assert set(const.CARRIER_OUTPUT_FIELDS) == safety_names
 
     def test_functional_fields_are_exactly_the_ti_fields(self):
         functional_names = set(const.get_field_names(kind=const.FIELD_KIND_FUNCTIONAL))
@@ -160,7 +165,7 @@ class TestSafetyFieldsGuard:
 
 @pytest.mark.unit
 class TestFieldRegistryTIAvg:
-    """TI_avg (tit.calc.get_TI_avg) registry entry."""
+    """TI_avg (tit.calc.envelope_mean) registry entry."""
 
     def test_ti_avg_present_and_functional(self):
         assert const.FIELD_TI_AVG == "TI_avg"
@@ -191,6 +196,11 @@ class TestValidFsavgFieldsConsumer:
         """TI_avg has no central-surface overlay to project (tit.source.fsaverage
         does not handle it); it must stay out of the fsaverage field list."""
         assert const.FIELD_TI_AVG not in VALID_FSAVG_FIELDS
+
+    def test_valid_fsavg_fields_excludes_hf_power_density(self):
+        """tit.source.fsaverage interpolates E only, not the conductivity the
+        power density needs."""
+        assert const.FIELD_HF_POWER_DENSITY not in VALID_FSAVG_FIELDS
 
     def test_valid_fsavg_fields_all_come_from_registry(self):
         registry_names = set(const.get_field_names())
