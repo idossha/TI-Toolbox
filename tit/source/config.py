@@ -26,7 +26,7 @@ from tit.constants import FSAVG_FIELD_NAMES
 #: knows how to compute on the subject central surface before morphing.
 #:
 #: ``hf_peak`` = ``max(|E1+E2|, |E1-E2|)`` is the peak carrier field and ``hf_sar``
-#: = ``|E1|^2 + |E2|^2`` the heating driver (Cassarà 2025); see :mod:`tit.fields`.
+#: = ``|E1|^2 + |E2|^2`` the heating driver (Cassarà 2025); see :mod:`tit.calc`.
 #:
 #: Sourced from :data:`tit.constants.FSAVG_FIELD_NAMES` (the single source of
 #: truth, shared with :mod:`tit.stats.config`), which is the field registry

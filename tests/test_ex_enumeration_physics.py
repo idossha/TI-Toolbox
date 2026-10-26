@@ -4,7 +4,7 @@ What this pins (2026-10-22, package p05 "ex-pool-polarity-duplicates" and "ex-bu
 
 * The physics the pool enumeration relies on: the two-channel TI envelope amplitude is
   unchanged when either channel's polarity flips, or when the two channels swap. Checked with
-  ``tit.calc.get_TI_vectors`` (K=1 closed form, real numpy) on random fields -- independent of
+  ``tit.calc.envelope_max`` (K=1 closed form, real numpy) on random fields -- independent of
   the SimNIBS ``get_maxTI`` the engine calls.
 * Pool mode ("any electrode in any position") therefore yields each physical
   ``{pair1 @ I1, pair2 @ I2}`` exactly once: 3 pairings per 4-electrode set, each in one channel
@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.ex.logic import (
     count_combinations,
@@ -61,7 +61,7 @@ ASYMMETRIC_SPLITS = [
 
 
 def _ti(e1, e2):
-    return np.linalg.norm(get_TI_vectors([e1, e2]), axis=1)
+    return envelope_max([e1, e2])
 
 
 def test_ti_envelope_ignores_channel_polarity_and_order():

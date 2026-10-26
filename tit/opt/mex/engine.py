@@ -7,7 +7,7 @@ from collections import deque
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.ex.logic import format_current_mA
 from tit.opt.ex.parallel import evaluate_ordered, resolve_n_jobs
@@ -18,10 +18,9 @@ from .logic import count_multipolar_combinations, generate_multipolar_combinatio
 class MExSearchEngine(ExSearchEngine):
     """Exhaustive search engine for four-pair (eight-electrode) mTI montages.
 
-    Scores each candidate with the verified N>2 mTI envelope
-    (:func:`tit.calc.get_TI_vectors`), not a recursive envelope-of-envelopes
-    dispatch -- that path is not the TI envelope for N>2 fields (see the
-    ``get_TI_vectors`` docstring in ``tit/calc.py``).
+    Scores each candidate with the joint K-carrier envelope maximum
+    (:func:`tit.calc.envelope_max`), not a recursive envelope-of-envelopes
+    dispatch -- that is not the TI envelope for more than two fields.
     """
 
     def __init__(
@@ -40,8 +39,8 @@ class MExSearchEngine(ExSearchEngine):
     ) -> dict[str, float]:
         """Compute one four-pair mTI candidate and return ROI metrics.
 
-        The K>=2 envelope (:func:`tit.calc.get_TI_vectors`) is a per-element
-        direction search -- far costlier than the 2-pair closed form -- so it
+        The K>=2 envelope maximum (:func:`tit.calc.envelope_max`) is a
+        per-element root-find -- far costlier than the 2-pair closed form -- so it
         is evaluated only on ``ROI | GM`` (:meth:`_evaluation_subset`).
         """
         subset, roi_pos, gm_pos = self._evaluation_subset()
@@ -54,8 +53,7 @@ class MExSearchEngine(ExSearchEngine):
             for idx in range(0, 8, 2)
         ]
 
-        vectors = get_TI_vectors(fields)
-        metric = np.linalg.norm(vectors, axis=1)
+        metric = envelope_max(fields)
 
         data = self._roi_metrics(metric[roi_pos], metric[gm_pos])
         for ch in range(1, 5):

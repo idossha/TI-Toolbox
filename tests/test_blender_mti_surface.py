@@ -11,7 +11,7 @@ mTI export failed reading a file the run never writes.
 
 Where the expected values come from: the paths are spelled out here from that simulator layout,
 never asked of ``PathManager`` or the exporters; the mTI envelope over N channels is
-``tit.calc.get_TI_vectors`` over all N fields (the same call ``tit/sim/mTI.py`` makes for
+``tit.calc.envelope_max`` over all N fields (the same call ``tit/sim/mTI.py`` makes for
 ``mTI_max``), a second implementation the exporter must agree with.
 
 Host leg (SimNIBS is mocked; only path resolution and the field arithmetic run).
@@ -31,7 +31,7 @@ import pytest
 
 from tit.blender import montage_publication, region_exporter, vector_field_exporter
 from tit.blender.config import RegionConfig, VectorConfig
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 
 pytestmark = pytest.mark.unit
 
@@ -154,7 +154,7 @@ class TestVectorExport:
         assert not cfg.is_mti
 
     def test_the_envelope_is_computed_over_all_n_channels(self, monkeypatch):
-        """Six channel fields in -> get_TI_vectors over all six, not over the first four."""
+        """Six channel fields in -> the envelope maximum over all six, not over the first four."""
         rng = np.random.default_rng(7)
         fields = [rng.normal(size=(5, 3)) for _ in range(6)]
         meshes = [object() for _ in fields]
@@ -167,8 +167,9 @@ class TestVectorExport:
         cfg = VectorConfig(subject_id=SID, simulation_name=SIM, export_sum=True)
         out = vector_field_exporter._compute_fields(cfg, meshes, np.zeros((5, 3)))
 
-        np.testing.assert_allclose(out["TI"], get_TI_vectors(fields))
-        four = np.linalg.norm(get_TI_vectors(fields[:4]), axis=1)
+        amp, direction = envelope_max(fields, return_direction=True)
+        np.testing.assert_allclose(out["TI"], amp[:, None] * direction)
+        four = envelope_max(fields[:4])
         assert not np.allclose(np.linalg.norm(out["TI"], axis=1), four)
         np.testing.assert_allclose(out["E_sum"], np.sum(fields, axis=0))
         np.testing.assert_allclose(out["E1"], fields[0])

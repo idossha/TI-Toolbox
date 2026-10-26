@@ -31,8 +31,7 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import get_TI_avg
-from tit.fields import hf_peak, hf_sar
+from tit.calc import envelope_mean, hf_peak, hf_power
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
@@ -154,20 +153,22 @@ class TISimulation(BaseSimulation):
         if const.FIELD_TI_AVG in selected:
             # TI_avg: orientation-averaged companion to TI_max (tit.calc, not
             # SimNIBS's TI.get_maxTI -- there is no direction-averaged form there).
-            TIavg = get_TI_avg([ef1.value, ef2.value])
+            TIavg = envelope_mean([ef1.value, ef2.value])
             mout.add_element_field(TIavg, const.FIELD_TI_AVG)
         if const.FIELD_HF_PEAK in selected:
             # Carrier-exposure safety map (Cassarà 2025): peak carrier field.
             # Written as a volume field so it flows to subject-/MNI-space
             # NIfTIs alongside TI_max.
             mout.add_element_field(
-                hf_peak(ef1.value, ef2.value, coherent=self.config.carrier_only),
+                hf_peak([ef1.value, ef2.value], coherent=self.config.carrier_only),
                 const.FIELD_HF_PEAK,
             )
         if const.FIELD_HF_SAR in selected:
             # Carrier-exposure safety map (Cassarà 2025): heating driver.
+            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
             mout.add_element_field(
-                hf_sar(ef1.value, ef2.value, coherent=self.config.carrier_only),
+                2.0
+                * hf_power([ef1.value, ef2.value], coherent=self.config.carrier_only),
                 const.FIELD_HF_SAR,
             )
 

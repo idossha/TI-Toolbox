@@ -26,7 +26,8 @@ over all N carriers, not a hardcoded two.
 ``TI_max`` / ``TI_normal`` are read from the pipeline's central-surface overlays;
 ``hf_peak`` / ``hf_sar`` are interpolated from the carrier **volume** meshes (the
 surface overlays only reliably carry ``E_normal`` on some SimNIBS builds) using
-the same formulas as the volume output (:mod:`tit.fields`).
+the same formulas as the volume output (:func:`tit.calc.hf_peak`,
+:func:`tit.calc.hf_power`).
 
 Unlike SimNIBS's native ``map_to_fsavg`` (which only runs at simulation time and
 only emits ``TI_max``), this works *post-hoc* on any finished simulation and on
@@ -58,7 +59,7 @@ from pathlib import Path
 import numpy as np
 
 from tit.constants import FSAVG_NODES as _FSAVG_NODES
-from tit.fields import hf_peak, hf_sar
+from tit.calc import hf_peak, hf_power
 from tit.paths import get_path_manager
 from tit.source.config import FsavgMapConfig
 
@@ -267,8 +268,9 @@ def _compute_fields(
         else:
             # Cassarà 2025 safety metrics (same formulas as the volume output).
             coherent = _recorded_carrier_only(pm, subject_id, sim)
-            _project("hf_peak", lambda: hf_peak(*e_fields, coherent=coherent))
-            _project("hf_sar", lambda: hf_sar(*e_fields, coherent=coherent))
+            _project("hf_peak", lambda: hf_peak(e_fields, coherent=coherent))
+            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
+            _project("hf_sar", lambda: 2.0 * hf_power(e_fields, coherent=coherent))
 
     if not out:
         raise ValueError(

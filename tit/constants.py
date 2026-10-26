@@ -98,10 +98,10 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "mTI_max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
-FIELD_TI_AVG = "TI_avg"  # Modulation depth averaged over direction (get_TI_avg)
+FIELD_TI_AVG = "TI_avg"  # envelope averaged over direction (calc.envelope_mean)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
 # vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
-FIELD_HF_SAR = "hf_sar"  # carrier heating driver, sum_i |E_i|^2 (∝ SAR)
+FIELD_HF_SAR = "hf_sar"  # sum_i |E_i|^2 = 2 * calc.hf_power (rename pending)
 
 # Field "kind" classification used by FieldSpec below. This groups fields by
 # what they are computed from -- the low-frequency envelope versus the carrier
@@ -218,7 +218,7 @@ def get_field_names(kind: str | None = None) -> tuple[str, ...]:
 
 #: Definition of each selectable output field, as
 #: ``(name, units, definition, equation, reference)``. Equations match the
-#: implementations in :mod:`tit.calc` and :mod:`tit.fields`; ``E_i`` is the
+#: implementations in :mod:`tit.calc`; ``E_i`` is the
 #: field from electrode pair *i* and ``n`` a unit direction. No route serves
 #: it and the desktop app writes its own help text; it is the cited statement
 #: of each equation that the test suite checks against the registry.
@@ -229,9 +229,10 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "Depth of the low-frequency envelope modulation (peak-to-trough), "
         "maximised over direction.",
         "Two pairs: 2*min(|E1.n|, |E2.n|) at the optimal n, evaluated via a "
-        "closed form. K channels: sqrt(2)*(sqrt(P+Q) - sqrt(P-Q)), where "
-        "P = 0.5*sum_k(a_k^2 + b_k^2), Q = |sum_k a_k*b_k*exp(i*psi_k)|, "
-        "a_k = E_ka.n and b_k = E_kb.n; maximised over n.",
+        "closed form. K channels: | |S n| - |D n| | = 4|sum_k a_k*b_k| / "
+        "(|S n| + |D n|), where a_k = E_ka.n, b_k = E_kb.n and S, D have rows "
+        "E_ka + E_kb, E_ka - E_kb; maximised over n by an eigen-branch "
+        "root-find.",
         "Grossman et al. 2017, Cell 169(6):1029-1041; "
         "Hirata et al. 2024, Comput Biol Med 178:108697.",
     ),
@@ -240,8 +241,9 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "V/m",
         "The same envelope depth averaged over sampled directions instead of "
         "maximised, i.e. what an arbitrarily oriented element sees on average.",
-        "Mean over a Fibonacci-sphere direction sweep of the expression above "
-        "(no local refinement, which only sharpens a single best direction).",
+        "Mean over all directions of the expression above: exact closed form "
+        "|E1| + |E2| - (|E1+E2| + |E1-E2|)/2 for two pairs, a 4096-direction "
+        "sphere quadrature for K channels.",
         "Direction-averaged form of Grossman et al. 2017.",
     ),
     (
@@ -249,9 +251,8 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "V/m",
         "Largest instantaneous magnitude the summed carrier fields can reach "
         "(peak-to-zero, not peak-to-trough).",
-        "max over s_i in {-1,+1} of |sum_i s_i*E_i| -- exact sign enumeration "
-        "up to 8 fields, otherwise a direction sweep whose implied sign "
-        "pattern is evaluated exactly.",
+        "max over s_i in {-1,+1} of |sum_i s_i*E_i|, exact for any number of "
+        "fields (zonotope vertices).",
         "Cassara et al. 2025, Eq. 3.",
     ),
     (

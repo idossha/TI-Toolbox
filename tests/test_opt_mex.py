@@ -91,8 +91,8 @@ class TestGenerateMultipolarCombinations:
         """No two enumerated montages are equivalent, and every class is hit.
 
         The symmetry group is built independently here from the envelope
-        math in ``tit.calc`` (``Q = |sum_k a_k*b_k|`` over beating channels,
-        ``psi=0``): slot automorphisms of the channel structure, and
+        math in ``tit.calc`` (``4|sum_k a_k*b_k| / (|S n| + |D n|)`` over
+        phase-aligned beating channels): slot automorphisms of the channel structure, and
         group-wise polarity flips whose per-channel product sign agrees.
         """
         from itertools import permutations, product
@@ -516,7 +516,7 @@ class TestMExSearchEngineInit:
 
 @pytest.mark.unit
 class TestComputeMtiField:
-    def test_computes_expected_roi_metric_keys(self):
+    def test_computes_expected_roi_metric_keys(self, monkeypatch):
         import tit.opt.mex.engine as engine_mod
 
         engine = _make_mex_engine()
@@ -525,16 +525,8 @@ class TestComputeMtiField:
         engine_mod.TI.get_field = MagicMock(
             side_effect=[np.zeros((5, 3)) for _ in range(4)]
         )
-        metric_vectors = np.array(
-            [
-                [0.1, 0.0, 0.0],
-                [0.2, 0.0, 0.0],
-                [0.3, 0.0, 0.0],
-                [0.15, 0.0, 0.0],
-                [0.25, 0.0, 0.0],
-            ]
-        )
-        engine_mod.get_TI_vectors = MagicMock(return_value=metric_vectors)
+        metric = np.array([0.1, 0.2, 0.3, 0.15, 0.25])
+        monkeypatch.setattr(engine_mod, "envelope_max", MagicMock(return_value=metric))
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=2.0)
@@ -551,7 +543,7 @@ class TestComputeMtiField:
             "current_ch4_mA",
         }
         assert set(result) == expected_keys
-        # roi_indices=[0,1,2] -> field_roi norms=[0.1,0.2,0.3]
+        # roi_indices=[0,1,2] -> field_roi values=[0.1,0.2,0.3]
         assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
         assert result["TestROI_TImean_ROI"] == pytest.approx(0.2)
         assert result["TestROI_n_elements"] == 3
@@ -566,10 +558,10 @@ class TestComputeMtiField:
             ["D1", "D2", 0.002], engine.leadfield, engine.idx_lf
         )
 
-        call = engine_mod.get_TI_vectors.call_args
+        call = engine_mod.envelope_max.call_args
         assert len(call.args[0]) == 4  # four channel fields, paired positionally
 
-    def test_zero_roi_elements_returns_zeros(self):
+    def test_zero_roi_elements_returns_zeros(self, monkeypatch):
         import tit.opt.mex.engine as engine_mod
 
         engine = _make_mex_engine()
@@ -580,7 +572,9 @@ class TestComputeMtiField:
         engine_mod.TI.get_field = MagicMock(
             side_effect=[np.zeros((5, 3)) for _ in range(4)]
         )
-        engine_mod.get_TI_vectors = MagicMock(return_value=np.zeros((5, 3)))
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(return_value=np.zeros(5))
+        )
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=1.0)

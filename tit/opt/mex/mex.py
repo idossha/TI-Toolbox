@@ -32,8 +32,8 @@ def run_m_ex_search(config: MExConfig) -> MExResult:
 
     Enumerates every four-pair combination allowed by
     ``config.electrodes`` at one fixed ``current_mA`` per pair, scores each
-    candidate with the N>2 mTI envelope
-    (:func:`tit.calc.get_TI_vectors`), and writes a ranked CSV plus a
+    candidate with the joint K-carrier envelope maximum
+    (:func:`tit.calc.envelope_max`), and writes a ranked CSV plus a
     config JSON under the subject's ``m-ex-search/`` folder.
 
     Parameters

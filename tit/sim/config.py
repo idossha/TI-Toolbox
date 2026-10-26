@@ -458,7 +458,7 @@ class SimulationConfig:
     carrier_only : bool
         Carrier-only control: both pairs run at the same frequency, in phase
         (ΔF = 0), so there is no beat.  ``hf_peak``/``hf_sar`` then add the
-        carriers coherently (``|E1+E2|``, see :mod:`tit.fields`) and no
+        carriers coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no
         envelope field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.
         Requires a 2-pair TI montage and ``output_fields`` from ``hf_peak``/
         ``hf_sar``.  Default ``False``.

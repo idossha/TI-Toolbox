@@ -104,7 +104,7 @@ ti_metrics.plot_intensity_vs_focality = lambda **kw: kw["output_file"]
 if kind == "mex":
     import tit.opt.mex.engine as mex_engine
 
-    mex_engine.get_TI_vectors = lambda fields: sum(fields)
+    mex_engine.envelope_max = lambda fields: np.linalg.norm(sum(fields), axis=1)
     from tit.opt.mex.__main__ import main
 else:
     from tit.opt.ex.__main__ import main

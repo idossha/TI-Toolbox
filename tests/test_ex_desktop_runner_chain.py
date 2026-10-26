@@ -63,7 +63,7 @@ pytest.importorskip("httpx")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from tests.test_desktop_config_corpus import load_case, make_project  # noqa: E402
-from tit.calc import get_TI_vectors  # noqa: E402
+from tit.calc import envelope_max  # noqa: E402
 from tit.paths import get_path_manager  # noqa: E402
 from tit.server.app import create_app  # noqa: E402
 from tit.server.settings import ServerSettings  # noqa: E402
@@ -123,7 +123,7 @@ def _fake_ti():
         load_leadfield=lambda path: (leadfield, mesh, names),
         get_field=lambda pair, lf, idx: pair[2]
         * (lf[idx.index(pair[0])] - lf[idx.index(pair[1])]),
-        get_maxTI=lambda e1, e2: np.linalg.norm(get_TI_vectors([e1, e2]), axis=1),
+        get_maxTI=lambda e1, e2: envelope_max([e1, e2]),
     )
 
 
@@ -246,7 +246,7 @@ def chain(request, tmp_path_factory):
         mp.setattr(ex_engine, "TI", fake)
         mp.setattr(mex_engine, "TI", fake)
         # The real envelope, whatever an earlier test module left bound in the engine module.
-        mp.setattr(mex_engine, "get_TI_vectors", get_TI_vectors)
+        mp.setattr(mex_engine, "envelope_max", envelope_max)
         # matplotlib is mocked on the host; the PNGs are not a reader of the results.
         for figure in (
             "plot_montage_distributions",

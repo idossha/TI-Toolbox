@@ -144,14 +144,14 @@ def _bucket_electrode_combinations(
 #
 # A montage is four ordered electrode pairs in four slots. The field of pair
 # ``k`` is negated by swapping its two electrodes, and ``tit.calc``'s mTI
-# envelope (``P = 0.5*sum(a_k^2 + b_k^2)``, ``Q = |sum_k a_k*b_k|`` over
-# beating channels, with ``psi=0``) is invariant under exactly:
+# envelope (``4|sum_k a_k*b_k| / (|S n| + |D n|)`` over beating channels,
+# phase-aligned) is invariant under exactly:
 #
 # * permuting pairs inside one carrier group (their fields are summed),
 # * swapping a channel's two groups (``a_k*b_k`` is symmetric),
-# * swapping channels of identical shape (``psi=None`` -> all phase-aligned),
+# * swapping channels of identical shape (all envelopes are phase-aligned),
 # * flipping the polarity of whole groups, provided every beating channel
-#   ends up with the same product sign ``s_ka*s_kb`` (``Q`` is an absolute
+#   ends up with the same product sign ``s_ka*s_kb`` (the sum is in an absolute
 #   value; a lone flip inside a beating channel is a real ``pi`` envelope
 #   phase shift and is NOT a symmetry).
 #
@@ -276,7 +276,7 @@ def generate_multipolar_combinations(
 
     Bucket mode is the Cartesian product of the eight buckets. Pool mode
     (``all_combinations=True``) yields one montage per class of montages
-    that ``tit.calc.get_TI_vectors`` scores identically under the given
+    that ``tit.calc.envelope_max`` scores identically under the given
     carrier ``channels`` (``None`` = two independent TI channels).
     """
     if all_combinations:

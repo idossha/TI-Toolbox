@@ -21,7 +21,7 @@ from tit.blender.config import (
     carrier_mesh_paths,
     central_surface_path,
 )
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 
 logger = logging.getLogger(__name__)
 
@@ -372,7 +372,7 @@ def _load_meshes(config: VectorConfig, carrier_paths: list[str]):
 def _compute_fields(config, meshes, positions):
     """Interpolate every channel's E field and compute the TI / mTI vectors.
 
-    The envelope is :func:`tit.calc.get_TI_vectors` over ALL channels (paired
+    The envelope is :func:`tit.calc.envelope_max` over ALL channels (paired
     positionally, as ``tit/sim/mTI.py`` computes ``mTI_max``); ``E1``/``E2`` are
     the first two channels and ``E_sum`` the sum of every channel.
 
@@ -389,7 +389,8 @@ def _compute_fields(config, meshes, positions):
     positions = positions[:min_len]
     channels = [E[:min_len] for E in channels]
 
-    TI = get_TI_vectors(channels)
+    amp, direction = envelope_max(channels, return_direction=True)
+    TI = amp[:, None] * direction
     E_sum = np.sum(channels, axis=0) if config.export_sum else None
 
     logger.info("Interpolated E fields to %d face barycenters", len(positions))

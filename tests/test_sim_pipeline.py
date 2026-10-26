@@ -38,7 +38,7 @@ import tit.sim.utils as _utils_mod
 def _mock_mesh_efields(mock_mesh_io, n_elements=8):
     """Give a mocked ``mesh_io`` realistic ``(N, 3)`` E-field values.
 
-    The field metrics in :mod:`tit.fields` validate input shape, so a bare
+    The field metrics in :mod:`tit.calc` validate input shape, so a bare
     ``MagicMock`` (which ``np.asarray`` flattens to an empty array) is not a
     usable stand-in for an E-field.
     """
@@ -163,7 +163,7 @@ class TestTISimulation:
             assert "output_mesh" in result
 
     def test_run_writes_ti_avg_field(self):
-        """TI_avg (tit.calc.get_TI_avg) must be written as a volume field
+        """TI_avg (tit.calc.envelope_mean) must be written as a volume field
         on the TI output mesh alongside TI_max, hf_peak, and hf_sar."""
         with (
             patch.object(_base_mod, "get_path_manager") as mock_pm,
@@ -315,8 +315,10 @@ class TestMTISimulation:
             patch.object(_mti_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
-            patch.object(_mti_mod, "get_TI_dir"),
+            patch.object(
+                _mti_mod, "envelope_max", wraps=_mti_mod.envelope_max
+            ) as mock_get_ti,
+            patch.object(_mti_mod, "envelope"),
             patch.object(_mti_mod, "glob"),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -347,10 +349,6 @@ class TestMTISimulation:
                 "documentation": "/fake/sim/test_mti/documentation",
             }
             mock_setup_dirs.return_value = dirs
-
-            import numpy as np
-
-            mock_get_ti.return_value = np.zeros((e_field_value.shape[0], 3))
 
             config = _make_sim_config(
                 map_to_mni=map_to_mni,
@@ -394,12 +392,12 @@ class TestMTISimulation:
             assert const.FIELD_HF_PEAK in written_field_names
             assert const.FIELD_HF_SAR in written_field_names
 
-            # TI_avg (tit.calc.get_TI_avg): orientation-averaged companion
+            # TI_avg (tit.calc.envelope_mean): orientation-averaged companion
             # to mTI_max, must also be written when selected.
             assert const.FIELD_TI_AVG in written_field_names
 
     def test_envelope_uses_positional_channel_pairing(self):
-        """get_TI_vectors/get_TI_avg are called with the channel fields
+        """envelope_max/envelope_mean are called with the channel fields
         alone -- pairing is positional (each two consecutive channels share
         a carrier); there is no per-montage carrier override."""
         with (
@@ -415,9 +413,11 @@ class TestMTISimulation:
             patch.object(_mti_mod, "finish_t1_to_mni"),
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
-            patch.object(_mti_mod, "get_TI_dir"),
-            patch.object(_mti_mod, "get_TI_avg") as mock_get_avg,
+            patch.object(
+                _mti_mod, "envelope_max", wraps=_mti_mod.envelope_max
+            ) as mock_get_ti,
+            patch.object(_mti_mod, "envelope"),
+            patch.object(_mti_mod, "envelope_mean") as mock_get_avg,
             patch.object(_mti_mod, "glob"),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -445,7 +445,6 @@ class TestMTISimulation:
                 "documentation": "/fake/sim/test_mti/documentation",
             }
 
-            mock_get_ti.return_value = np.zeros((e_field_value.shape[0], 3))
             mock_get_avg.return_value = np.zeros(e_field_value.shape[0])
 
             # opt into TI_avg so both envelope calls are exercised.
@@ -709,9 +708,9 @@ class TestOutputFieldSelection:
             patch.object(_ti_mod, "TI"),
             patch.object(_ti_mod, "glob"),
             patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
-            patch.object(_ti_mod, "get_TI_avg") as mock_ti_avg,
+            patch.object(_ti_mod, "envelope_mean") as mock_ti_avg,
             patch.object(_ti_mod, "hf_peak") as mock_hf_peak,
-            patch.object(_ti_mod, "hf_sar") as mock_hf_sar,
+            patch.object(_ti_mod, "hf_power") as mock_hf_sar,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"

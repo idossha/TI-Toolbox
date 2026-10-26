@@ -8,8 +8,8 @@ pairs (4, 6, 8, ...):
 * Each pair produces one HF E-field via SimNIBS TDCS.
 * Adjacent pairs are combined into intermediate 2-pair TI vector fields,
   saved for inspection only.
-* The final mTI envelope is the verified multi-carrier modulation-depth
-  envelope (:func:`tit.calc.get_TI_vectors`) over all N channel fields
+* The final mTI envelope is the multi-carrier envelope maximum
+  (:func:`tit.calc.envelope_max`) over all N channel fields
   jointly -- *not* a recursive TI-of-TI combination of the intermediate
   fields above (that approximation is physically invalid).
 * Channels are paired positionally: each two consecutive channels share
@@ -18,9 +18,9 @@ pairs (4, 6, 8, ...):
 
 Example with 4 channels (A/B/C/D)::
 
-    TI_AB = get_TI_vectors([E_A, E_B])         # intermediate, inspection only
-    TI_CD = get_TI_vectors([E_C, E_D])         # intermediate, inspection only
-    mTI   = get_TI_vectors([E_A, E_B, E_C, E_D])
+    TI_AB = _ti_vectors([E_A, E_B])            # intermediate, inspection only
+    TI_CD = _ti_vectors([E_C, E_D])            # intermediate, inspection only
+    mTI   = envelope_max([E_A, E_B, E_C, E_D])
 
 See Also
 --------
@@ -39,8 +39,7 @@ import numpy as np
 from simnibs import mesh_io, sim_struct
 
 from tit import constants as const
-from tit.calc import get_TI_avg, get_TI_dir, get_TI_vectors
-from tit.fields import hf_peak, hf_sar
+from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
@@ -53,6 +52,12 @@ from tit.sim.utils import (
 
 # Brain tissue crop mask — ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
 _TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
+
+
+def _ti_vectors(fields):
+    """TI vectors: the envelope maximum times its (oriented) maximising direction."""
+    amp, direction = envelope_max(fields, return_direction=True)
+    return amp[:, None] * direction
 
 
 class mTISimulation(BaseSimulation):
@@ -167,13 +172,13 @@ class mTISimulation(BaseSimulation):
             ltr1, ltr2 = letters[i], letters[i + 1]
             suffix = f"TI_{ltr1}{ltr2}"
             ti_pair_suffixes.append(suffix)
-            ti_vecs = get_TI_vectors([e_fields[i], e_fields[i + 1]])
+            ti_vecs = _ti_vectors([e_fields[i], e_fields[i + 1]])
             self._save_ti_vectors(
                 meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
             )
 
         # Final mTI: verified multi-carrier modulation-depth envelope over
-        # all N channel fields jointly (tit.calc.get_TI_vectors) -- not a
+        # all N channel fields jointly (tit.calc.envelope_max) -- not a
         # recursive TI-of-TI combination of the intermediate pairwise
         # fields saved above (that approximation is physically invalid).
         # Channels are paired positionally: each two consecutive channels
@@ -183,23 +188,22 @@ class mTISimulation(BaseSimulation):
         mout = deepcopy(meshes[0])
         mout.elmdata = []
         if const.FIELD_TI_MAX in selected:
-            mti_vectors = get_TI_vectors(e_fields)
-            mti_field = np.linalg.norm(mti_vectors, axis=1)
-            mout.add_element_field(mti_field, const.FIELD_MTI_MAX)
+            mout.add_element_field(envelope_max(e_fields), const.FIELD_MTI_MAX)
         if const.FIELD_TI_AVG in selected:
             # TI_avg: orientation-averaged companion to mTI_max, over all N
-            # channel fields jointly (tit.calc.get_TI_avg).
-            mti_avg = get_TI_avg(e_fields)
+            # channel fields jointly (tit.calc.envelope_mean).
+            mti_avg = envelope_mean(e_fields)
             mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
         if const.FIELD_HF_PEAK in selected:
             # Carrier-exposure safety map (Cassarà 2025 Part I, Eq. 3): peak
             # carrier field. Wiring is positional, so one channel field is one
-            # carrier; the worst-case sign enumeration runs over all N of them.
-            mout.add_element_field(hf_peak(*e_fields), const.FIELD_HF_PEAK)
+            # carrier; the worst case over sign choices runs over all N of them.
+            mout.add_element_field(hf_peak(e_fields), const.FIELD_HF_PEAK)
         if const.FIELD_HF_SAR in selected:
             # Carrier-exposure safety map: heating driver. Power (incoherent)
             # sum across the N carriers -- Cassarà 2025 Part II, p. 8.
-            mout.add_element_field(hf_sar(*e_fields), const.FIELD_HF_SAR)
+            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
+            mout.add_element_field(2.0 * hf_power(e_fields), const.FIELD_HF_SAR)
 
         view_field = (
             const.FIELD_MTI_MAX
@@ -270,7 +274,7 @@ class mTISimulation(BaseSimulation):
         Mirrors ``TISimulation._calculate_ti_normal``: reads the N
         per-channel SimNIBS central-surface overlays and evaluates the
         multi-carrier envelope along the node normals
-        (:func:`tit.calc.get_TI_dir`) instead of maximizing over
+        (:func:`tit.calc.envelope`) instead of maximizing over
         direction.
         """
         sid = self.config.subject_id
@@ -292,7 +296,7 @@ class mTISimulation(BaseSimulation):
                 cm.field["E_normal"].value.reshape(-1, 1) * normals for cm in cms
             ]
 
-        ti_normal = get_TI_dir(e_fields, normals)
+        ti_normal = envelope(e_fields, normals)
 
         mout = deepcopy(cms[0])
         mout.nodedata = []
