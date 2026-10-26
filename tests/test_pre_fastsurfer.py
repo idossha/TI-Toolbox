@@ -15,6 +15,7 @@ import pytest
 from tit.paths import get_path_manager, reset_path_manager
 from tit.pre import fastsurfer as fs
 from tit.pre.utils import PreprocessError
+from tit.surfer_settings import ENV_FASTSURFER_THREADS
 
 
 @pytest.fixture
@@ -69,21 +70,21 @@ class TestAvailability:
 
 class TestThreadResolution:
     def test_explicit_argument_wins(self, monkeypatch, roomy_cpus):
-        monkeypatch.setenv(fs.ENV_FASTSURFER_THREADS, "9")
+        monkeypatch.setenv(ENV_FASTSURFER_THREADS, "9")
         assert fs.resolve_threads(4) == 4
 
     def test_env_is_read_when_no_argument(self, monkeypatch, roomy_cpus):
-        monkeypatch.setenv(fs.ENV_FASTSURFER_THREADS, "7")
+        monkeypatch.setenv(ENV_FASTSURFER_THREADS, "7")
         assert fs.resolve_threads() == 7
 
     def test_garbage_env_falls_back_to_the_default(self, monkeypatch):
-        monkeypatch.setenv(fs.ENV_FASTSURFER_THREADS, "many")
+        monkeypatch.setenv(ENV_FASTSURFER_THREADS, "many")
         from tit.surfer_settings import effective_threads
 
         assert fs.resolve_threads() == effective_threads("fastsurfer")
 
     def test_zero_is_clamped_to_one(self, monkeypatch):
-        monkeypatch.delenv(fs.ENV_FASTSURFER_THREADS, raising=False)
+        monkeypatch.delenv(ENV_FASTSURFER_THREADS, raising=False)
         assert fs.resolve_threads(0) == 1
 
 
@@ -297,7 +298,7 @@ def test_unavailable_explicit_device_explains_access(monkeypatch):
         ),
     )
     with pytest.raises(PreprocessError, match="Docker GPU permissions"):
-        fs._validate_device("cuda", fs.inference_environment())
+        fs._probe_device("cuda", fs.inference_environment())
 
 
 def test_probe_uses_selected_interpreter_and_device(monkeypatch):
@@ -310,7 +311,7 @@ def test_probe_uses_selected_interpreter_and_device(monkeypatch):
     )
     monkeypatch.setattr(fs.subprocess, "run", run)
     env = fs.inference_environment()
-    fs._validate_device("mps", env)
+    fs._probe_device("mps", env)
     assert run.call_args.args[0][0] == "/native/fastsurfer/python"
     assert run.call_args.args[0][-1] == "mps"
     assert run.call_args.kwargs["env"] is env

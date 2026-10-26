@@ -65,8 +65,6 @@ ENV_FASTSURFER_PYTHON = "TIT_FASTSURFER_PYTHON"
 #: dependency), so there is no second venv to point at.
 DEFAULT_FASTSURFER_PYTHON = "simnibs_python"
 
-#: Environment override for the thread count (see :func:`resolve_threads`).
-ENV_FASTSURFER_THREADS = "TIT_FASTSURFER_THREADS"
 ENV_FASTSURFER_DEVICE = "TIT_FASTSURFER_DEVICE"
 
 RUN_SCRIPT = "run_fastsurfer.sh"
@@ -203,11 +201,6 @@ def _probe_device(device: str, env: dict[str, str]) -> tuple[str, str]:
             "Apple Metal requires native macOS execution."
         )
     return selected, reason
-
-
-def _validate_device(device: str, env: dict[str, str]) -> None:
-    """Validate an explicitly selected accelerator before science starts."""
-    _probe_device(device, env)
 
 
 def _missing_fastsurfer_error() -> PreprocessError:
