@@ -118,9 +118,10 @@ After simulation, TI-Toolbox produces several derived field types:
 
 | Field | Description |
 |-------|-------------|
-| **TI_max** | Maximum TI envelope magnitude — scalar field on volume elements (TI mode) |
-| **TI_normal** | TI field component normal to cortical surface — node field on surface overlay (TI mode) |
-| **mTI_max** | Maximum mTI envelope magnitude — scalar field on volume elements (mTI mode) |
+| **TI_max** | Maximum TI envelope over all directions — scalar field on volume elements (TI mode) |
+| **TI_normal** | TI envelope along the cortical surface normal — node field on surface overlay |
+| **mTI_max** | Maximum joint envelope of all channels — scalar field on volume elements (mTI mode) |
+| **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density** | Optional volume fields (`output_fields`): direction-averaged envelope, peak carrier field (V/m), carrier power sum ((V/m)²), absorbed carrier power with the run's conductivity (W/m³) |
 | **TI_vectors** | Intermediate pairwise TI vector fields for each adjacent pair (mTI mode) |
 
 Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (for voxel analysis).

@@ -43,9 +43,9 @@ Understanding these field quantities is critical because they are the primary ou
 
 - **TI_normal field**: The envelope component projected along a specific direction vector — typically the cortical surface normal. It answers: "How strongly would TI stimulate neurons oriented perpendicular to the cortical surface at this point?" This is more physiologically relevant for cortical targets because pyramidal neurons are approximately normal to the cortical sheet. It is always ≤ `TI_max`.
 
-  **`TI_normal` is mesh-only, by design** — it only exists on the cortical surface, so a voxel-space analysis of it is an error, not a bug. It is written for both TI and mTI runs; for mTI, `tit/sim/mTI.py::_calculate_mti_normal` reads the per-channel central-surface overlays, takes the node normals, and evaluates `get_TI_dir(e_fields, normals)`, writing `<montage>_mTI_normal.msh`. An mTI simulation run *before* that support existed has no normal mesh: requesting `TI_normal` raises `FileNotFoundError` and the `normal_*` statistics are `None` — the fix is to re-run the simulation.
+  **`TI_normal` is mesh-only, by design** — it only exists on the cortical surface, so a voxel-space analysis of it is an error, not a bug. It is written for both TI and mTI runs; for mTI, `tit/sim/mTI.py::_calculate_mti_normal` reads the per-channel central-surface overlays, takes the node normals, and evaluates `tit.calc.envelope(e_fields, normals)`, writing `<montage>_mTI_normal.msh`. An mTI simulation run *before* that support existed has no normal mesh: requesting `TI_normal` raises `FileNotFoundError` and the `normal_*` statistics are `None` — the fix is to re-run the simulation.
 
-- **fsaverage projection**: `tit/source/fsaverage.py` projects finished simulations onto the fsaverage surface *post hoc* (spacings 5/6/7 = 10242/40962/163842 nodes per hemisphere), covering `TI_max`, `TI_normal`, `hf_peak` and `hf_sar`, and writing `sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.msh` (fsaverage central surfaces, lh then rh, one node field per quantity; opens in the Viewer and Gmsh). This is what makes surface-space group statistics possible. Unlike SimNIBS's native `map_to_fsavg` (simulation time, `TI_max` only) it can be run after the fact. Confirm mTI coverage against the module before promising it — the source and `docs/wiki/simulator.md` disagree today.
+- **fsaverage projection**: `tit/source/fsaverage.py` projects finished simulations onto the fsaverage surface *post hoc* (spacings 5/6/7 = 10242/40962/163842 nodes per hemisphere), covering `TI_max`, `TI_normal`, `hf_peak` and `hf_sar` (not `TI_avg` or `hf_power_density`), and writing `sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.msh` (fsaverage central surfaces, lh then rh, one node field per quantity; opens in the Viewer and Gmsh). This is what makes surface-space group statistics possible. Unlike SimNIBS's native `map_to_fsavg` (simulation time, `TI_max` only) it can be run after the fact. Confirm mTI coverage against the module before promising it — the source and `docs/wiki/simulator.md` disagree today.
 
 - **Modulation depth**: A dimensionless ratio between 0 and 1 that indicates how effectively the two fields interfere at a given point:
 
@@ -134,26 +134,37 @@ case-sensitive.
 
 ### The envelope API — and what was removed
 
-`tit.calc` exposes exactly **three** public functions, each taking a *list* of `2K`
-field arrays paired **positionally** (each two consecutive fields share one carrier):
+`tit.calc` exposes exactly **five** public functions. The envelope functions take a
+*list* of `2K` field arrays paired **positionally** (each two consecutive fields
+share one carrier); the carrier functions take any number of fields, one per pair:
 
 ```python
-get_TI_vectors(fields, psi=None)           # (N,3) modulation-amplitude vectors
-get_TI_avg(fields, psi=None)               # (N,)  direction-averaged envelope
-get_TI_dir(fields, directions, psi=None)   # (N,)  envelope along given directions
+envelope(fields, direction)                     # (N,) envelope along a direction -> TI_normal
+envelope_max(fields)                            # (N,) max over directions -> TI_max / mTI_max
+envelope_max(fields, perpendicular_to=normals)  # (N,) max within the surface plane -> tangential TI
+envelope_max(fields, return_direction=True)     # (amp, unit direction)
+envelope_mean(fields)                           # (N,) mean over directions -> TI_avg
+hf_peak(fields, coherent=False)                 # (N,) peak carrier field
+hf_power(fields, coherent=False)                # (N,) (1/2) sum |E_c|^2 = E_rms^2
 ```
 
-`psi` is a per-carrier envelope phase offset, shape `(K,)`, radians; `None` means
-phase-aligned. `K = 1` uses an exact closed form; `K >= 2` runs the modulation-depth
-direction search.
+Methods: `envelope` is exact for every K. `envelope_max` is an exact closed form at
+`K = 1` (also in a plane); at `K >= 2` the sphere maximum is an eigen-branch
+root-find with a Newton polish (none of 1e4 random elements per K = 2, 3, 4 and
+4e5 real grey-matter elements more than 1e-6 below a dense reference), and the
+in-plane maximum is exact (degree-6 polynomial roots). `envelope_mean` is exact at
+`K = 1` (`|E1| + |E2| - (|E1+E2| + |E1-E2|)/2`) and a 4096-direction quadrature
+(~7e-4) at `K >= 2`. `hf_peak` is exact for any number of fields.
 
-**Removed in v2.5.0 — never emit or describe these:** `get_nTI_vectors` (the old
-recursive `TI(TI(E1,E2), TI(E3,E4))` algorithm, which is simply wrong for `N >= 4`),
-`get_mTI_vectors` / `get_mTI_dir` (renamed), `get_magnitude_am`, the positional
-`get_TI_vectors(E1, E2)` form, and the `channels=` carrier-regrouping parameter.
-There is no `montage.channels` and no separate "carrier wiring" control:
-**wiring is positional — one field is one carrier**, which is also how
-`tit.fields.hf_peak(*fields)` and `hf_sar(*fields)` read their input.
+**Removed — never emit or describe these:** any `tit.calc` name other than the
+five above (the older vector/average/direction functions and their `psi` phase
+argument are gone, as is the separate carrier-fields module with its `hf_sar`
+*function* — `hf_sar` survives only as an on-disk field name), `get_nTI_vectors` (the old
+recursive `TI(TI(E1,E2), TI(E3,E4))` algorithm, which is simply wrong for
+`N >= 4`), `get_mTI_vectors` / `get_mTI_dir`, `get_magnitude_am`, and the
+`channels=` carrier-regrouping parameter. There is no `montage.channels` and no
+separate "carrier wiring" control: **wiring is positional — one field is one
+carrier**.
 
 ---
 
@@ -618,24 +629,25 @@ For 3D vector fields E1(x) and E2(x), find the orientation unit vector **n** tha
 TI_max(x) = max_n [ |n · (E1 + E2)| - |n · (E1 - E2)| ]
 ```
 
-For `K = 1` carrier pair this has an exact closed form. For `K >= 2` (mTI) the
-implementation reduces the problem, per direction, to two quadratic forms `P` and
-`Q` built from the fields, and searches directions over a Fibonacci sphere with a
-local refinement pass.
-
-**Numerical conditioning.** The envelope is *not* evaluated as
-`sqrt(2(P+Q)) - sqrt(2(P-Q))`. At `Q << P` — which is every off-target voxel, and
-therefore the denominator of every focality ratio — that subtraction of two nearly
-equal square roots loses all leading digits and returns exactly 0 once
-`Q/P < ~1e-16`. The algebraically identical rationalised form is used instead:
+For `K = 1` carrier pair this has an exact closed form. For `K >= 2` (mTI), with
+`a_k = E_ka . n`, `b_k = E_kb . n` and `S`, `D` the `K x 3` matrices with rows
+`E_ka + E_kb` and `E_ka - E_kb`, the envelope along `n` is
 
 ```
-MD = 2*sqrt(2) * Q / ( sqrt(P + Q) + sqrt(P - Q) )
+E_AM(n) = | |S n| - |D n| | = 4 |sum_k a_k b_k| / (|S n| + |D n|)
 ```
 
-a quotient of *additions*, accurate to ~1e-14 relative down to `Q/P = 1e-20`
-(`P = Q = 0` yields 0). If you touch this expression, the conditioning is the point.
-The implementation is in `tit/calc.py`.
+and `TI_max` is its maximum over unit `n`, found by an eigen-branch root-find (the
+maximiser is an eigenvector of `cos(t) C+ - sin(t) C-`, `C+ = S^T S / 2`,
+`C- = D^T D / 2`) plus a local Newton polish. At `K = 1` it reduces to Grossman's
+`||(E1+E2).n| - |(E1-E2).n|| = 2 min(|a|, |b|)`.
+
+**Numerical conditioning.** The envelope is *not* evaluated as `|S n| - |D n|`. At
+small modulation — every off-target voxel, and therefore the denominator of every
+focality ratio — that subtraction of two nearly equal norms loses all leading
+digits. The algebraically identical quotient of *additions* on the right is used
+instead (`S n = D n = 0` yields 0). If you touch this expression, the conditioning
+is the point. The implementation is in `tit/calc.py`.
 
 ### Modulation Depth
 
@@ -686,18 +698,24 @@ These safety parameters are embedded in the codebase's validation and constraint
 - Most significant at the electrode-skin interface where impedance is highest
 - Electrode gel/sponge must maintain good electrical contact to prevent hot spots
 
-### Exposure metrics: `hf_peak` and `hf_sar`
+### Exposure metrics: `hf_peak`, `hf_sar`, `hf_power_density`
 
-These are the toolbox's two carrier-exposure outputs, and their definitions are
+These are the toolbox's carrier-exposure outputs, and their definitions are
 precise. Follow Cassarà et al. 2025 (Parts I and II), which the implementation is
 written to.
 
 **The engine is quasi-static.** An FEM field `E` is a **phasor amplitude** vector
 in V/m — a **peak**, not an RMS — and there is no time axis anywhere in the
-toolbox. Every exposure quantity is therefore a **worst case over the unknown
+toolbox. Every peak quantity is therefore a **worst case over the unknown
 relative phases** of the carriers: equal to the time-domain definition when that
 worst phase is actually attained (which it is, for incommensurate carriers), and an
-upper bound otherwise. This is the same convention that gives the modulation depth.
+upper bound otherwise.
+
+**Peak vs RMS.** All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes
+for zero-to-peak channel currents; `hf_power` is the time-averaged mean square
+`E_rms^2`. Compare `sqrt(hf_power)` with RMS standards tables (ICNIRP 2010 /
+IEEE C95.1-2019 limit the RMS in-situ E-field at 1–10 kHz, not SAR; their SAR
+limits start at 100 kHz), or `hf_peak` with `sqrt(2)` times the limit.
 
 **How carriers combine** (Cassarà Part II, p. 8, verbatim): *"coherent field
 superposition was used for identical frequencies, and incoherent superposition
@@ -708,17 +726,18 @@ same frequency sum **as vectors** first, and distinct carriers then combine
 carrier, so with `E_c` the field of carrier `c`:
 
 ```
-hf_peak = max over signs s_c in {+1,-1} of  | sum_c  s_c * E_c |      (V/m)
-hf_sar  = sum_c |E_c|^2                                              ((V/m)^2)
+hf_peak  = max over signs s_c in {+1,-1} of  | sum_c  s_c * E_c |    (V/m)
+hf_power = (1/2) sum_c |E_c|^2  = E_rms^2                           ((V/m)^2)
+hf_sar   = sum_c |E_c|^2 = 2 * hf_power        (on-disk field name)  ((V/m)^2)
+hf_power_density = (1/2) sum_c E_c^T sigma E_c                       (W/m^3)
 ```
 
-- `hf_sar` carries **no** time-averaging factor. The factor of ½ appears exactly
-  once, in the calibration: `SAR = (σ / 2ρ) · hf_sar` in W/kg, and the RMS carrier
-  field is `sqrt(hf_sar / 2)`.
-- `hf_peak` is **exact** by enumerating all `2^(N-1)` sign combinations up to
-  `EXACT_SIGN_ENUM_MAX_FIELDS = 8` carriers; above that a direction sweep returns a
-  **lower bound**, which is slightly non-conservative. `hf_peak_is_exact(n)` says
-  which regime you are in.
+- `hf_power_density` uses the conductivity the simulation solved with (tissue
+  values with overrides; each element's DTI tensor under `vn`/`dir`/`mc`), so
+  `SAR = hf_power_density / rho` in W/kg (IEEE C95.1-2019 p. 35). It is a volume
+  field only (not projected to fsaverage). `rho` is not applied.
+- `hf_peak` is **exact** for any number of carriers (zonotope vertices: the sign
+  patterns around the directions `E_i x E_j`).
 - Cassarà's Table 3 (p. 15) limits are **peak** values, not RMS: brain 16 mA /
   30 V/m below 2.5 kHz, scaling as `f / 2.5 kHz` above; skin 7 mA / 200 V/m. The
   temperature-derived route gives 14 mA for the FDA's 0.1 °C brain limit and
@@ -728,18 +747,20 @@ hf_sar  = sum_c |E_c|^2                                              ((V/m)^2)
 - **Carrier-only control (ΔF = 0).** `SimulationConfig(carrier_only=True)` models
   both pairs at the *same* frequency and in phase (each pair's first electrode +I
   at the same instant): one fixed field, no beat, no envelope. The carriers then add
-  coherently — `hf_peak = |E1+E2|`, `hf_sar = |E1+E2|^2` (`coherent=True`) — rather
-  than the TI worst case. Only `hf_peak`/`hf_sar` may be requested; `TI_max`,
+  coherently — `hf_peak = |E1+E2|`, `hf_sar = |E1+E2|^2`, `hf_power_density` from
+  `E1+E2` (`coherent=True`) — rather than the TI worst case. Only `hf_peak`/`hf_sar`/
+  `hf_power_density` may be requested; `TI_max`,
   `TI_avg`, `TI_normal` are undefined and not computed; 2-pair TI only. Example
   |E1| = 1, |E2| = 0.8 at 120°: TI worst case 1.56, carrier-only 0.92.
 
 **Deliberately not computed** (do not claim the toolbox reports them): current
-density `J = σE` (needs the 2 mm ICNIRP averaging kernel and per-tissue σ),
+density `J = σE` (needs the 2 mm ICNIRP averaging kernel), SAR itself (`rho` is not
+applied to `hf_power_density`), spatially averaged in-situ fields,
 temperature rise (Pennes bioheat), charge per phase and the Shannon limit, exposure
 duration / CEM43, and the activating function.
 
 ### General SAR context
-- SAR = σ|E|² / ρ (W/kg), where ρ is tissue density; regulatory limits are
+- SAR = σ|E_rms|² / ρ = hf_power_density / ρ (W/kg), where ρ is tissue density; regulatory limits are
   typically 2 W/kg averaged over 10 g of tissue.
 
 ### Impedance Monitoring

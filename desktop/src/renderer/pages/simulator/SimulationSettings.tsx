@@ -7,7 +7,7 @@ import { Select } from "../../ui/Select";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Checkbox } from "../../ui/Toggle";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
-import { CARRIER_FIELDS, CARRIER_ONLY_HELP, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, type JobSettings } from "./types";
+import { CARRIER_FIELDS, CARRIER_ONLY_HELP, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, type JobSettings } from "./types";
 
 /**
  * Shared per-job simulation controls, used by the Simulator. `carrierOnlyAllowed` is false for an
@@ -29,7 +29,7 @@ export function SimulationSettings({
   // envelope fields are undefined without a beat.
   const setCarrierOnly = (on: boolean) => {
     const kept = draft.outputFields.filter((n) => CARRIER_FIELDS.includes(n));
-    setDraft({ ...draft, carrierOnly: on, outputFields: on ? (kept.length ? kept : [...CARRIER_FIELDS]) : draft.outputFields });
+    setDraft({ ...draft, carrierOnly: on, outputFields: on ? (kept.length ? kept : [...DEFAULT_CARRIER_FIELDS]) : draft.outputFields });
   };
   return <>
         <div className="job-settings-form" data-testid="job-settings-form">

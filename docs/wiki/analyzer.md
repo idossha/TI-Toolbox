@@ -52,19 +52,28 @@ $$
 
 The condition is easiest to read along $$\mathbf{E}_2$$ itself, where the projections are $$\lVert \mathbf{E}_1 \rVert \cos\alpha$$ and $$\lVert \mathbf{E}_2 \rVert$$: when the first is the larger, that direction reaches the full $$2 \lVert \mathbf{E}_2 \rVert$$. Otherwise the maximum lies in the plane of the two fields, perpendicular to $$\mathbf{E}_1 - \mathbf{E}_2$$, and is smaller.
 
-Both formulas are from Grossman et al. 2017 (_Cell_ 169:1029, STAR Methods), who call $$E_{\mathrm{AM}}$$ the envelope modulation amplitude. SimNIBS computes $$E_{\mathrm{AM}}^{\max}$$ as `TI.get_maxTI` ("TImax"), Hirata et al. 2024 call it the electric field envelope (EFE) amplitude, and this toolbox stores it as **`TI_max`** (V/m). The code and some figures call $$E_{\mathrm{AM}}$$ the modulation depth (MD). `tit.calc` evaluates an equivalent form that needs no relabelling or sign flip (Hirata et al. 2024, _Computers in Biology and Medicine_ 178:108697, Eq. 2).
+Both formulas are from Grossman et al. 2017 (_Cell_ 169:1029, STAR Methods), who call $$E_{\mathrm{AM}}$$ the envelope modulation amplitude. SimNIBS calls $$E_{\mathrm{AM}}^{\max}$$ "TImax", Hirata et al. 2024 call it the electric field envelope (EFE) amplitude, and this toolbox stores it as **`TI_max`** (V/m). The code and some figures call $$E_{\mathrm{AM}}$$ the modulation depth (MD). `tit.calc.envelope_max` evaluates an equivalent form that needs no relabelling or sign flip (Hirata et al. 2024, _Computers in Biology and Medicine_ 178:108697, Eq. 2); it agrees with SimNIBS's `TI_utils.get_maxTI` to rounding.
 
-### Direction: `TI_max`, `TI_normal`, `TI_avg`
+### Direction: `TI_max`, `TI_normal`, `TI_avg`, tangential
 
-The three envelope fields differ only in which direction $$\hat{\mathbf{n}}$$ they use:
+The envelope fields differ only in which directions $$\hat{\mathbf{n}}$$ they use:
 
 | Field | Direction | Meaning | `tit.calc` function |
 | --- | --- | --- | --- |
-| `TI_max` (`mTI_max` for mTI) | the maximum over $$\hat{\mathbf{n}}$$ | the strongest modulation a neuron at that point could see, whatever its orientation; the default output and the default score of every optimizer | `get_TI_vectors(fields, psi=None)` |
-| `TI_normal` (mesh only) | the normal of the central (mid-thickness) grey-matter surface at each node | the modulation along the axis of pyramidal-cell apical dendrites; written by every simulation that has a beat | `get_TI_dir(fields, directions, psi=None)` |
-| `TI_avg` (optional) | the mean over 192 directions spread over the sphere | what a randomly oriented neuron sees on average | `get_TI_avg(fields, psi=None)` |
+| `TI_max` (`mTI_max` for mTI) | the maximum over all $$\hat{\mathbf{n}}$$ | the strongest modulation a neuron at that point could see, whatever its orientation; the default output and the default score of every optimizer | `envelope_max(fields)` |
+| `TI_normal` (mesh only) | the normal of the central (mid-thickness) grey-matter surface at each node | the modulation along the axis of pyramidal-cell apical dendrites; written by every simulation that has a beat | `envelope(fields, normals)` |
+| `TI_avg` (optional) | the mean over all $$\hat{\mathbf{n}}$$ | what a randomly oriented neuron sees on average | `envelope_mean(fields)` |
+| tangential TI (flex-search `dir_TI_tangential`) | the maximum over the $$\hat{\mathbf{n}}$$ in the surface plane, perpendicular to the normal | the strongest modulation along the cortical sheet | `envelope_max(fields, perpendicular_to=normals)` |
 
-By definition neither `TI_normal` nor `TI_avg` exceeds `TI_max`, and `TI_normal` collapses where the field runs tangential to the cortex. For two channels, $$\mathrm{TI\_normal} = 2 \min\bigl( \lvert \mathbf{E}_1 \cdot \hat{\mathbf{n}} \rvert, \lvert \mathbf{E}_2 \cdot \hat{\mathbf{n}} \rvert \bigr)$$: each channel's field is reduced to its normal component first, and then the beat amplitude of those two components is taken. This is not the normal component of the `TI_max` vector, because the envelope is not linear in the fields. With $$\mathbf{E}_1 = \hat{\mathbf{x}}$$, $$\mathbf{E}_2 = \hat{\mathbf{y}}$$ and the normal along $$\hat{\mathbf{x}}$$, the `TI_max` vector $$(1, 1, 0)$$ projects to 1, but `TI_normal` is 0, because the second channel has no normal component to beat with. `tit.calc` exposes exactly these three functions. Each takes `fields = [E_1, E_2, ..., E_2K]`, one `(N, 3)` array per channel, with each two consecutive channels sharing a carrier. `get_TI_vectors` returns `(N, 3)` vectors whose norm is `TI_max`. The standard two-channel simulation and ex-search compute `TI_max` with SimNIBS's `TI.get_maxTI`, and the simulation computes `TI_normal` with `TI.get_dirTI`, the same formulas. The mTI simulation and mex-search use `tit.calc`.
+By definition none of `TI_normal`, `TI_avg` and the tangential maximum exceeds `TI_max`, and `TI_normal` collapses where the field runs tangential to the cortex. For two channels, $$\mathrm{TI\_normal} = 2 \min\bigl( \lvert \mathbf{E}_1 \cdot \hat{\mathbf{n}} \rvert, \lvert \mathbf{E}_2 \cdot \hat{\mathbf{n}} \rvert \bigr)$$: each channel's field is reduced to its normal component first, and then the beat amplitude of those two components is taken. This is not the normal component of the `TI_max` vector, because the envelope is not linear in the fields. With $$\mathbf{E}_1 = \hat{\mathbf{x}}$$, $$\mathbf{E}_2 = \hat{\mathbf{y}}$$ and the normal along $$\hat{\mathbf{x}}$$, the `TI_max` vector $$(1, 1, 0)$$ projects to 1, but `TI_normal` is 0, because the second channel has no normal component to beat with. For the same reason the tangential maximum is not $$\sqrt{\mathrm{TI\_max}^2 - \mathrm{TI\_normal}^2}$$: it is the envelope maximised over the in-plane directions, which equals `TI_max` of the two fields projected onto the surface plane.
+
+For two channels the mean over directions has a closed form. Because $$E_{\mathrm{AM}} = 2\lvert a \rvert + 2\lvert b \rvert - \lvert a + b \rvert - \lvert a - b \rvert$$ and the mean of $$\lvert \mathbf{v} \cdot \hat{\mathbf{n}} \rvert$$ over the sphere is $$\lVert \mathbf{v} \rVert / 2$$,
+
+$$
+\mathrm{TI\_avg} = \lVert \mathbf{E}_1 \rVert + \lVert \mathbf{E}_2 \rVert - \tfrac{1}{2}\bigl( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert + \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \bigr)
+$$
+
+`tit.calc` has five functions: `envelope`, `envelope_max` and `envelope_mean` for the envelope, and `hf_peak` and `hf_power` for the carriers ([Safety metrics](#safety-metrics)). The envelope functions take `fields = [E_1, E_2, ..., E_2K]`, one `(N, 3)` array per channel, with each two consecutive channels sharing a carrier. `envelope_max(fields, return_direction=True)` also returns the unit direction of the maximum; `TI_max` times that direction is the TI vector the [Blender export]({{ site.baseurl }}/wiki/blender/) draws. Every simulation, ex-search and mex-search computes its envelope fields with these functions.
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_fig4c_ti_normal.png" alt="Schematic of two cortical surface points with the TI_max arrow and the surface normal: TI_normal is large where TI_max runs along the normal and small where TI_max runs tangential" style="width: 100%; max-width: 700px;">
@@ -76,38 +85,53 @@ By definition neither `TI_normal` nor `TI_avg` exceeds `TI_max`, and `TI_normal`
 With $$K$$ carriers, carrier $$k$$'s two channels are $$\mathbf{E}_{2k-1}$$ and $$\mathbf{E}_{2k}$$, the order `tit.calc` expects. Along $$\hat{\mathbf{n}}$$, write $$a_k = \mathbf{E}_{2k-1} \cdot \hat{\mathbf{n}}$$ and $$b_k = \mathbf{E}_{2k} \cdot \hat{\mathbf{n}}$$. Squaring the summed signal and low-pass filtering it removes every kHz term and leaves the power envelope
 
 $$
-p(t) = P + Q \cos(2\pi \Delta f \, t + \varphi),
+p(t) = P + Q \cos(2\pi \Delta f \, t),
 \qquad
 P = \frac{1}{2} \sum_{k=1}^{K} \left( a_k^2 + b_k^2 \right),
 \qquad
-Q = \left\lvert \sum_{k=1}^{K} a_k b_k \, e^{i \psi_k} \right\rvert
+Q = \sum_{k=1}^{K} a_k b_k
 $$
 
-$$P$$ is the mean carrier power along $$\hat{\mathbf{n}}$$, $$Q$$ the amplitude of the summed beats, $$\psi_k$$ the phase of carrier $$k$$'s beat, and $$\varphi$$ a common phase that does not affect the amplitude. The amplitude envelope $$A(t) = \sqrt{2 p(t)}$$ swings between $$\sqrt{2(P - Q)}$$ and $$\sqrt{2(P + Q)}$$, so
+$$P$$ is the mean carrier power along $$\hat{\mathbf{n}}$$ and $$Q$$ the amplitude of the summed beats. The amplitude envelope $$A(t) = \sqrt{2 p(t)}$$ swings between $$\sqrt{2(P - \lvert Q \rvert)}$$ and $$\sqrt{2(P + \lvert Q \rvert)}$$. With $$\mathbf{S}$$ and $$\mathbf{D}$$ the $$K \times 3$$ matrices whose rows are $$\mathbf{E}_{2k-1} + \mathbf{E}_{2k}$$ and $$\mathbf{E}_{2k-1} - \mathbf{E}_{2k}$$, $$2(P + Q) = \lVert \mathbf{S} \hat{\mathbf{n}} \rVert^2$$ and $$2(P - Q) = \lVert \mathbf{D} \hat{\mathbf{n}} \rVert^2$$, so
 
 $$
-E_{\mathrm{AM}}(\hat{\mathbf{n}}) = \sqrt{2(P + Q)} - \sqrt{2(P - Q)}
+E_{\mathrm{AM}}(\hat{\mathbf{n}})
+= \Bigl\lvert \, \lVert \mathbf{S} \hat{\mathbf{n}} \rVert - \lVert \mathbf{D} \hat{\mathbf{n}} \rVert \, \Bigr\rvert
+= \frac{4 \, \bigl\lvert \sum_{k} a_k b_k \bigr\rvert}{\lVert \mathbf{S} \hat{\mathbf{n}} \rVert + \lVert \mathbf{D} \hat{\mathbf{n}} \rVert}
 $$
 
-At $$K = 1$$, $$P \pm Q = \tfrac{1}{2}(\lvert a \rvert \pm \lvert b \rvert)^2$$ and this is $$2\min(\lvert a \rvert, \lvert b \rvert)$$, the two-channel envelope above. Botzanowski et al. 2025 (_Bioelectronic Medicine_ 11:7) describe this square, low-pass, square-root envelope for mTI in prose; the formula makes it explicit. It assumes that every carrier beats at the same $$\Delta f$$, that the carrier bands are far enough apart for the low-pass to remove their cross terms, and that the beats are phase-aligned ($$\psi_k = 0$$, the default `psi=None`; the `tit.calc` functions accept other phases).
+The right-hand form subtracts no near-equal numbers and is the one the code evaluates. At $$K = 1$$ it is the two-channel envelope above, $$\bigl\lvert \lvert (\mathbf{E}_1 + \mathbf{E}_2) \cdot \hat{\mathbf{n}} \rvert - \lvert (\mathbf{E}_1 - \mathbf{E}_2) \cdot \hat{\mathbf{n}} \rvert \bigr\rvert = 2\min(\lvert a \rvert, \lvert b \rvert)$$. Botzanowski et al. 2025 (_Bioelectronic Medicine_ 11:7) describe this square, low-pass, square-root envelope for mTI in prose; the formula makes it explicit. It assumes that every carrier beats at the same $$\Delta f$$, that the carrier bands are far enough apart for the low-pass to remove their cross terms, and that the beats are phase-aligned.
 
-`TI_max` for mTI is the maximum of $$E_{\mathrm{AM}}(\hat{\mathbf{n}})$$ over directions, as for two channels; mTI meshes name it `mTI_max`. For $$K \ge 2$$ there is no closed form, so `get_TI_vectors` evaluates 192 directions spread over the sphere and refines around the six best, well-separated ones. This is a numerical search and can land slightly below the true maximum. `TI_normal` and `TI_avg` use the same formula, at the surface normal and averaged over the 192 directions.
+`TI_max` for mTI is the maximum of $$E_{\mathrm{AM}}(\hat{\mathbf{n}})$$ over directions, as for two channels; mTI meshes name it `mTI_max`. `TI_normal` is the same expression at the surface normal, and `TI_avg` its mean over the sphere.
+
+### How each quantity is computed {#method-and-accuracy}
+
+| Quantity | `tit.calc` | Two channels ($$K = 1$$) | More carriers ($$K \ge 2$$) |
+| --- | --- | --- | --- |
+| `TI_normal` | `envelope` | exact (the expression above) | exact |
+| `TI_max` / `mTI_max` | `envelope_max` | exact closed form | the maximiser is an eigenvector of $$\cos\theta\,\mathbf{C}_+ - \sin\theta\,\mathbf{C}_-$$ with $$\mathbf{C}_+ = \tfrac{1}{2}\mathbf{S}^\top\mathbf{S}$$ and $$\mathbf{C}_- = \tfrac{1}{2}\mathbf{D}^\top\mathbf{D}$$: a root-find along its three eigen-branches, then a local Newton polish. On $$10^4$$ random elements per $$K = 2, 3, 4$$ and $$4 \times 10^5$$ real grey-matter elements, none came out more than $$10^{-6}$$ (relative) below a dense reference search |
+| tangential maximum | `envelope_max(..., perpendicular_to=)` | exact (closed form on the in-plane fields) | exact (roots of a degree-6 polynomial) |
+| `TI_avg` | `envelope_mean` | exact closed form | 4096-direction sphere quadrature (2048 on a hemisphere, since $$E_{\mathrm{AM}}(\hat{\mathbf{n}}) = E_{\mathrm{AM}}(-\hat{\mathbf{n}})$$), about $$7 \times 10^{-4}$$ relative error at worst |
+| `hf_peak` | `hf_peak` | exact, $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ | exact for any number of channels (zonotope vertices) |
+| `hf_sar`, `hf_power_density` | `hf_power` | exact | exact |
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_time.png" alt="mTI time domain: per-carrier envelopes and the joint envelope at one point" style="width: 100%; max-width: 900px;">
-  <em>One point of an mTI field (4 channels, 2 carriers), with every channel field along one axis for clarity. Carrier 1's channels carry 0.5 + 0.5 V/m, carrier 2's 0.3 + 0.7 V/m. On its own, each carrier's envelope amplitude is 1.00 and 0.60 V/m (top, middle). Together (bottom), the carriers add in power and the joint envelope amplitude is 1.01 V/m (<code>get_TI_vectors</code>). The larger numbers are other quantities: the dotted sum of per-carrier envelopes (2.00 V/m) is not a physical envelope, a TI-of-TI recombination would give 1.20 V/m, and <code>hf_peak</code> = 2.00 V/m is the instantaneous peak of the summed field. The dashed running RMS is the power view of the same field; its mean square is <code>hf_sar</code>/2 = 0.54 (V/m)² (see <a href="#safety-metrics">Safety metrics</a>).</em>
+  <em>One point of an mTI field (4 channels, 2 carriers), with every channel field along one axis for clarity. Carrier 1's channels carry 0.5 + 0.5 V/m, carrier 2's 0.3 + 0.7 V/m. On its own, each carrier's envelope amplitude is 1.00 and 0.60 V/m (top, middle). Together (bottom), the carriers add in power and the joint envelope amplitude is 1.01 V/m (<code>envelope_max</code>). The larger numbers are other quantities: the dotted sum of per-carrier envelopes (2.00 V/m) is not a physical envelope, a TI-of-TI recombination would give 1.20 V/m, and <code>hf_peak</code> = 2.00 V/m is the instantaneous peak of the summed field. The dashed running RMS is the power view of the same field; its mean square is <code>hf_power</code> = <code>hf_sar</code>/2 = 0.54 (V/m)² (see <a href="#safety-metrics">Safety metrics</a>).</em>
 </div>
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_3d.png" alt="mTI directional envelope surface in 3D vector space" style="width: 100%; max-width: 900px;">
-  <em>The same idea in vector space. (A) The four channel fields at one point. (B) The envelope amplitude along each direction, drawn as the radius \(r(\hat{\mathbf{n}}) = E_{\mathrm{AM}}(\hat{\mathbf{n}})\) (MD in the figure). <code>mTI_max</code> is the radius of the farthest point, 0.89 V/m along \(\hat{\mathbf{n}}^{*}\) here, which <code>get_TI_vectors</code> finds by its direction search. <code>TI_avg</code> is the mean radius over the sampled directions.</em>
+  <em>The same idea in vector space. (A) The four channel fields at one point. (B) The envelope amplitude along each direction, drawn as the radius \(r(\hat{\mathbf{n}}) = E_{\mathrm{AM}}(\hat{\mathbf{n}})\) (MD in the figure). <code>mTI_max</code> is the radius of the farthest point, 0.89 V/m along \(\hat{\mathbf{n}}^{*}\) here, which <code>envelope_max</code> finds. <code>TI_avg</code> is the mean radius over all directions.</em>
 </div>
 
 Two shortcuts give different and wrong numbers, and the toolbox offers neither: adding the per-carrier envelopes (carriers add in power, not amplitude), and feeding per-carrier envelopes back into the two-channel formula as if they were fields (TI-of-TI). How the toolbox tells a TI montage from an mTI montage is described on the [Simulator page]({{ site.baseurl }}/wiki/simulator/#how-the-toolbox-detects-mti).
 
 ### Safety metrics
 
-`hf_peak` and `hf_sar` describe the kHz exposure itself rather than the envelope. They follow Cassarà et al. 2025 (_Bioelectromagnetics_, Part I 46(2):e22542, doi:10.1002/bem.22542; Part II 46(1):e22536, doi:10.1002/bem.22536) and are computed in `tit/fields.py` from all $$N$$ channel fields $$\mathbf{E}_1, \dots, \mathbf{E}_N$$. The two channels of a carrier differ by $$\Delta f$$, so no two channels share a frequency, and every channel field enters on its own.
+`hf_peak`, `hf_sar` and `hf_power_density` describe the kHz exposure itself rather than the envelope. They follow Cassarà et al. 2025 (_Bioelectromagnetics_, Part I 46(2):e22542, doi:10.1002/bem.22542; Part II 46(1):e22536, doi:10.1002/bem.22536) and are computed by `tit.calc.hf_peak` and `tit.calc.hf_power` from all $$N$$ channel fields $$\mathbf{E}_1, \dots, \mathbf{E}_N$$. The two channels of a carrier differ by $$\Delta f$$, so no two channels share a frequency, and every channel field enters on its own.
+
+**Peak and RMS.** All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_power` is the time-averaged mean square $$E_{\mathrm{rms}}^2$$. Compare $$\sqrt{\mathrm{hf\_power}}$$ with RMS standards tables, or `hf_peak` with $$\sqrt{2}$$ times the limit. At 1–10 kHz ICNIRP 2010 and IEEE C95.1-2019 limit the RMS in-situ electric field ("All values are rms", ICNIRP 2010 Table 2), not SAR: their SAR limits start at 100 kHz.
 
 **`hf_peak`** (V/m) is the largest instantaneous magnitude the summed field can reach:
 
@@ -115,17 +139,25 @@ $$
 \mathrm{hf\_peak} = \max_{s_j \in \{+1, -1\}} \left\lVert \sum_{j=1}^{N} s_j \mathbf{E}_j \right\rVert
 $$
 
-Each channel's field oscillates between $$+\mathbf{E}_j$$ and $$-\mathbf{E}_j$$, and the magnitude of the sum is largest when every channel is at a crest or a trough, so the maximum over sign choices is the maximum over all phase combinations. For two channels it is $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$, Cassarà Part I, Eq. 3 (p. 11). The field reaches this peak when every phase combination occurs over time. With harmonically related carriers, such as channels at 2.000, 2.010, 4.000 and 4.010 kHz, some combinations never occur, and `hf_peak` is then a conservative upper bound. Up to 8 channels, all $$2^{N-1}$$ sign patterns are evaluated. Above 8, sampled directions pick the patterns to evaluate; this can miss the maximum, so the value is slightly non-conservative, and `tit.fields.hf_peak_is_exact` reports which case applies.
+Each channel's field oscillates between $$+\mathbf{E}_j$$ and $$-\mathbf{E}_j$$, and the magnitude of the sum is largest when every channel is at a crest or a trough, so the maximum over sign choices is the maximum over all phase combinations. For two channels it is $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$, Cassarà Part I, Eq. 3 (p. 11). The field reaches this peak when every phase combination occurs over time. With harmonically related carriers, such as channels at 2.000, 2.010, 4.000 and 4.010 kHz, some combinations never occur, and `hf_peak` is then a conservative upper bound. The maximum is exact for any number of channels: it lies at a vertex of the zonotope spanned by the $$\pm\mathbf{E}_j$$, and the candidate sign patterns are those around the directions $$\mathbf{E}_i \times \mathbf{E}_j$$.
 
-**`hf_sar`** ((V/m)²) sums the channels' powers, because fields at different frequencies add in power, not amplitude (Cassarà Part I, p. 11; Part II, p. 8):
+**`hf_power`** ((V/m)²) is the time-averaged mean-square carrier field. Fields at different frequencies add in power, not amplitude (Cassarà Part I, p. 11; Part II, p. 8), so
 
 $$
-\mathrm{hf\_sar} = \sum_{j=1}^{N} \lVert \mathbf{E}_j \rVert^2
+\mathrm{hf\_power} = \frac{1}{2} \sum_{j=1}^{N} \lVert \mathbf{E}_j \rVert^2 = \bigl\langle \lVert \mathbf{E}(t) \rVert^2 \bigr\rangle = E_{\mathrm{rms}}^2
 $$
 
-It is a heating proxy, not calibrated SAR. The time-averaged SAR is $$\tfrac{\sigma}{2\rho}\,\mathrm{hf\_sar}$$, with the tissue conductivity $$\sigma$$ and density $$\rho$$, which the toolbox does not apply, and $$\mathrm{hf\_sar}/2$$ is the time-averaged squared field.
+The on-disk field **`hf_sar`** stores $$\sum_j \lVert \mathbf{E}_j \rVert^2 = 2\,\mathrm{hf\_power}$$. It is a heating proxy, not calibrated SAR.
 
-`TI_avg`, `hf_peak` and `hf_sar` are optional outputs. `SimulationConfig.output_fields` defaults to `["TI_max"]`, so a simulation writes them only when they are selected (see [Output Fields on the Simulator page]({{ site.baseurl }}/wiki/simulator/#output-fields)). The Analyzer treats each like any other field, in its own units.
+**`hf_power_density`** (W/m³) is the time-averaged carrier power absorbed per volume, with the conductivity $$\boldsymbol{\sigma}$$ the simulation solved with:
+
+$$
+\mathrm{hf\_power\_density} = \frac{1}{2} \sum_{j=1}^{N} \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j
+$$
+
+For isotropic (`scalar`) conductivity this is $$\sigma \cdot \mathrm{hf\_power}$$, with each tissue's value including any overrides; for the anisotropic models (`vn`, `dir`, `mc`) each element's full DTI conductivity tensor is used. Divided by the tissue density it is SAR, $$\mathrm{SAR} = \mathrm{hf\_power\_density} / \rho$$ (IEEE C95.1-2019, p. 35; Cassarà Part II, Eq. 1); the toolbox does not apply $$\rho$$. It is written on the volume mesh and its NIfTIs only, not projected to fsaverage: that projection interpolates the fields onto the cortical surface, not the conductivity.
+
+`TI_avg`, `hf_peak`, `hf_sar` and `hf_power_density` are optional outputs. `SimulationConfig.output_fields` defaults to `["TI_max"]`, so a simulation writes them only when they are selected (see [Output Fields on the Simulator page]({{ site.baseurl }}/wiki/simulator/#output-fields)). The Analyzer treats each like any other field, in its own units.
 
 #### Carrier-only controls (ΔF = 0) {#carrier-only-controls}
 
@@ -134,12 +166,14 @@ A carrier-only control drives both channels of a two-channel montage at the **sa
 $$
 \mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert,
 \qquad
-\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2
+\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2,
+\qquad
+\mathrm{hf\_power\_density} = \tfrac{1}{2} (\mathbf{E}_1 + \mathbf{E}_2)^{\top} \boldsymbol{\sigma} \, (\mathbf{E}_1 + \mathbf{E}_2)
 $$
 
 `hf_peak` keeps its TI value where the two fields are within 90° of each other and is smaller elsewhere. `hf_sar` gains the cross term $$2\,\mathbf{E}_1 \cdot \mathbf{E}_2$$, so it ranges from twice its TI value (equal, aligned fields) to zero (equal, opposed fields). For example, $$\lVert \mathbf{E}_1 \rVert = 1$$ and $$\lVert \mathbf{E}_2 \rVert = 0.8$$ V/m at 120° give `hf_peak` = 1.56 V/m in a TI run and 0.92 V/m in a carrier-only run. "In phase" follows the simulation's sign convention: each channel's first electrode is driven positive at the same instant.
 
-`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak` and/or `hf_sar`. To set one up, in the app or from Python, see [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control).
+`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak`, `hf_sar` and/or `hf_power_density`. To set one up, in the app or from Python, see [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control).
 
 ---
 
@@ -296,9 +330,9 @@ An mTI run also writes each carrier's own two-channel envelope (`TI_AB`, `TI_CD`
 
 ### Fields
 
-`TI_max` and `mTI_max` are aliases for the [joint envelope amplitude](#more-carriers-mti). Whichever spelling is requested, the Analyzer resolves it to the name the detected simulation type wrote, so the Field selector lists it once. `TI_avg`, `hf_peak` and `hf_sar` can be selected when the run wrote them.
+`TI_max` and `mTI_max` are aliases for the [joint envelope amplitude](#more-carriers-mti). Whichever spelling is requested, the Analyzer resolves it to the name the detected simulation type wrote, so the Field selector lists it once. `TI_avg`, `hf_peak`, `hf_sar` and `hf_power_density` can be selected when the run wrote them.
 
-`TI_normal` is computed for mTI too: the simulator evaluates the $$K$$-carrier envelope along the cortical surface normal (`get_TI_dir`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The Analyzer reads it when `TI_normal` is requested, and fills the `normal_*` statistics as for standard TI. mTI simulations run before this support have no normal mesh: requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`. Re-run the simulation to get them.
+`TI_normal` is computed for mTI too: the simulator evaluates the $$K$$-carrier envelope along the cortical surface normal (`envelope`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The Analyzer reads it when `TI_normal` is requested, and fills the `normal_*` statistics as for standard TI. mTI simulations run before this support have no normal mesh: requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`. Re-run the simulation to get them.
 
 ---
 

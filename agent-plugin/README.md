@@ -124,9 +124,10 @@ these are the facts that changed:
   `docs/wiki/`, whose pages were restructured — the `mti` page is gone (mTI is now
   a section of `simulator`) and `overview`, `jobs`, `notebooks` and `results` are
   new.
-- **The science API consolidated.** `tit.calc` exposes exactly three functions —
-  `get_TI_vectors(fields, psi=None)`, `get_TI_avg(fields, psi=None)`,
-  `get_TI_dir(fields, directions, psi=None)` — each taking a *list* of fields
+- **The science API.** `tit.calc` exposes exactly five functions —
+  `envelope(fields, direction)`, `envelope_max(fields, *, perpendicular_to=None,
+  return_direction=False)`, `envelope_mean(fields)`, `hf_peak(fields, *, coherent=False)`
+  and `hf_power(fields, *, coherent=False)` — each taking a *list* of fields
   paired positionally. `get_nTI_vectors`, `get_mTI_vectors`/`get_mTI_dir`,
   `get_magnitude_am` and the `channels=` carrier-regrouping parameter are gone;
   carrier wiring is always positional, one field per carrier.

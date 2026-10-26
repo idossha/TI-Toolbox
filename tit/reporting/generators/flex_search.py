@@ -43,7 +43,7 @@ _RUN_FIGURES = {"roi.png": 1200, "valid_skin_region.png": 1000}
 _POSTPROC = {
     "max_TI": "the TI envelope in its strongest direction",
     "dir_TI_normal": "the TI envelope normal to the cortex",
-    "dir_TI_tangential": "the TI envelope tangential to the cortex",
+    "dir_TI_tangential": "the strongest TI envelope within the cortical surface plane",
 }
 
 

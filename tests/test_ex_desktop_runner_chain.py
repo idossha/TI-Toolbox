@@ -10,7 +10,7 @@ desktop-config-corpus.test.ts``). Each one, unchanged, is
 1. accepted by ``POST /api/validate/{kind}`` and planned by ``POST /api/plan/{kind}``;
 2. run by ``tit.opt.ex.__main__.main`` / ``tit.opt.mex.__main__.main`` in-process, on a tmp project
    whose leadfield is synthetic (SimNIBS is absent on the host: ``TI_utils`` is replaced by a fake
-   ``load_leadfield``/``get_field``/``get_maxTI``, the last being ``tit.calc``'s K=1 TI envelope);
+   ``load_leadfield``/``get_field``; the engine scores with ``tit.calc.envelope_max`` itself);
 3. read back by everything that reads a run: ``final_output.csv`` and ``run_config.json``, the
    job's events (``result``), ``tit.catalog.ex_runs`` (``best``), ``tit.opt.candidate_catalog``
    (``list_candidates`` and the ``candidate_detail`` simulator replay), the HTML report the runner
@@ -123,7 +123,6 @@ def _fake_ti():
         load_leadfield=lambda path: (leadfield, mesh, names),
         get_field=lambda pair, lf, idx: pair[2]
         * (lf[idx.index(pair[0])] - lf[idx.index(pair[1])]),
-        get_maxTI=lambda e1, e2: envelope_max([e1, e2]),
     )
 
 
@@ -246,6 +245,7 @@ def chain(request, tmp_path_factory):
         mp.setattr(ex_engine, "TI", fake)
         mp.setattr(mex_engine, "TI", fake)
         # The real envelope, whatever an earlier test module left bound in the engine module.
+        mp.setattr(ex_engine, "envelope_max", envelope_max)
         mp.setattr(mex_engine, "envelope_max", envelope_max)
         # matplotlib is mocked on the host; the PNGs are not a reader of the results.
         for figure in (

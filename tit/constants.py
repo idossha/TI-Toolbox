@@ -102,6 +102,7 @@ FIELD_TI_AVG = "TI_avg"  # envelope averaged over direction (calc.envelope_mean)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
 # vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
 FIELD_HF_SAR = "hf_sar"  # sum_i |E_i|^2 = 2 * calc.hf_power (rename pending)
+FIELD_HF_POWER_DENSITY = "hf_power_density"  # sigma * calc.hf_power, W/m^3
 
 # Field "kind" classification used by FieldSpec below. This groups fields by
 # what they are computed from -- the low-frequency envelope versus the carrier
@@ -138,7 +139,7 @@ class FieldSpec:
     description: str
 
 
-#: Single source of truth for the six output field quantities. Order here
+#: Single source of truth for the seven output field quantities. Order here
 #: is the canonical display order (``get_field_names()`` preserves it; the
 #: desktop app's field lists mirror it).
 FIELD_REGISTRY: tuple[FieldSpec, ...] = (
@@ -198,6 +199,17 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         description=(
             "Sum of carrier power, sum_i |E_i|^2. Proportional to SAR but not "
             "calibrated: SAR = (sigma/2*rho)*hf_sar (Cassarà et al. 2025)."
+        ),
+    ),
+    FieldSpec(
+        name=FIELD_HF_POWER_DENSITY,
+        label=FIELD_HF_POWER_DENSITY,
+        kind=FIELD_KIND_SAFETY,
+        units="W/m^3",
+        description=(
+            "Time-averaged carrier power absorbed per volume, "
+            "(1/2) sum_i E_i.sigma.E_i with the simulation's own conductivity; "
+            "SAR = hf_power_density/rho (IEEE C95.1-2019)."
         ),
     ),
 )
@@ -265,6 +277,17 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "sum_i |E_i|^2",
         "Cassara et al. 2025.",
     ),
+    (
+        FIELD_HF_POWER_DENSITY,
+        "W/m^3",
+        "Time-averaged carrier power absorbed per unit volume (Joule heating), "
+        "with the per-element conductivity the simulation solved with. Divided "
+        "by tissue density it is SAR; at 1-10 kHz, though, the exposure "
+        "standards limit the RMS in-situ field, not SAR.",
+        "(1/2) sum_i E_i^T sigma E_i: sigma*hf_power for isotropic conductivity, "
+        "the conductivity tensor for anisotropic (DTI) models.",
+        "IEEE C95.1-2019, p. 35; Cassara et al. 2025, Part II Eq. 1.",
+    ),
 )
 
 
@@ -282,7 +305,7 @@ def get_field_spec(name: str) -> FieldSpec:
     raise KeyError(f"Unknown field name: {name!r}")
 
 
-#: The four volume-mesh output fields a simulation may selectively compute
+#: The five volume-mesh output fields a simulation may selectively compute
 #: and write (``SimulationConfig.output_fields``). Excludes ``FIELD_MTI_MAX``
 #: (the mTI on-disk spelling of ``FIELD_TI_MAX``, not a distinct user choice)
 #: and ``FIELD_TI_NORMAL`` (a node field on a separate surface mesh, not a
@@ -294,13 +317,26 @@ SELECTABLE_OUTPUT_FIELDS: tuple[str, ...] = tuple(
 )
 
 
+#: The selectable fields defined without an envelope: what a carrier-only
+#: (ΔF = 0) simulation may compute (``SimulationConfig.carrier_only``).
+CARRIER_OUTPUT_FIELDS: tuple[str, ...] = (
+    FIELD_HF_PEAK,
+    FIELD_HF_SAR,
+    FIELD_HF_POWER_DENSITY,
+)
+
+
 #: Field names valid on the fsaverage surface: every registered field except
-#: ``FIELD_MTI_MAX`` ("mTI_max") and ``FIELD_TI_AVG`` ("TI_avg"). The
+#: ``FIELD_MTI_MAX`` ("mTI_max"), ``FIELD_TI_AVG`` ("TI_avg") and
+#: ``FIELD_HF_POWER_DENSITY`` ("hf_power_density"). The
 #: central-surface pipeline always emits ``TI_max`` regardless of whether the
 #: simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
 #: field; ``TI_avg`` has no central-surface overlay to project (it is only
 #: written as a volume field), so it is excluded too rather than added to
-#: :mod:`tit.source.fsaverage` sight-unseen. Derived here (rather than in
+#: :mod:`tit.source.fsaverage` sight-unseen. ``hf_power_density`` is excluded
+#: because that module interpolates only the carrier E-fields onto the central
+#: surface; the conductivity (a tensor field under DTI models) would have to be
+#: interpolated with them, which it does not do. Derived here (rather than in
 #: each consumer) so :mod:`tit.source.config` and :mod:`tit.stats.config`
 #: cannot drift apart. Lives in this leaf module because importing
 #: ``tit.source.config`` would execute ``tit/source/__init__.py`` and pull in
@@ -308,7 +344,7 @@ SELECTABLE_OUTPUT_FIELDS: tuple[str, ...] = tuple(
 FSAVG_FIELD_NAMES: tuple[str, ...] = tuple(
     spec.name
     for spec in FIELD_REGISTRY
-    if spec.name not in (FIELD_MTI_MAX, FIELD_TI_AVG)
+    if spec.name not in (FIELD_MTI_MAX, FIELD_TI_AVG, FIELD_HF_POWER_DENSITY)
 )
 
 

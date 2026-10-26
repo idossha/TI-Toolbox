@@ -446,11 +446,12 @@ class FlexConfig:
         Attributes
         ----------
         MAX_TI : str
-            Maximum TI amplitude (direction-independent).
+            Maximum TI envelope over all directions.
         DIR_TI_NORMAL : str
-            TI component normal to the cortical surface.
+            TI envelope along the cortical surface normal.
         DIR_TI_TANGENTIAL : str
-            TI component tangential to the cortical surface.
+            Maximum TI envelope over the directions tangential to the
+            cortical surface (within its plane).
         """
 
         MAX_TI = "max_TI"

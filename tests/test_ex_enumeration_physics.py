@@ -4,8 +4,8 @@ What this pins (2026-10-22, package p05 "ex-pool-polarity-duplicates" and "ex-bu
 
 * The physics the pool enumeration relies on: the two-channel TI envelope amplitude is
   unchanged when either channel's polarity flips, or when the two channels swap. Checked with
-  ``tit.calc.envelope_max`` (K=1 closed form, real numpy) on random fields -- independent of
-  the SimNIBS ``get_maxTI`` the engine calls.
+  ``tit.calc.envelope_max`` (K=1 closed form, real numpy) on random fields, the function the
+  engine scores with.
 * Pool mode ("any electrode in any position") therefore yields each physical
   ``{pair1 @ I1, pair2 @ I2}`` exactly once: 3 pairings per 4-electrode set, each in one channel
   order when the split list is its own mirror (it contains ``(b, a)`` for every ``(a, b)``) and in
@@ -162,10 +162,6 @@ class _FakeTI:
     def get_field(spec, leadfield, idx):
         plus, minus, current = spec
         return current * (leadfield[idx.index(plus)] - leadfield[idx.index(minus)])
-
-    @staticmethod
-    def get_maxTI(e1, e2):
-        return _ti(e1, e2)
 
 
 def test_engine_pool_rows_are_distinct_physical_montages(monkeypatch, tmp_path):

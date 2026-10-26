@@ -46,7 +46,7 @@ function registryUnits(): Map<string, string> {
   for (const m of source.matchAll(/^(FIELD_[A-Z_]+) = "([^"]+)"/gm)) names.set(m[1]!, m[2]!);
   const out = new Map<string, string>();
   for (const m of source.matchAll(/FieldSpec\(\s*name=(FIELD_[A-Z_]+),[\s\S]*?units="([^"]+)"/g)) {
-    out.set(names.get(m[1]!)!, m[2]!.replace("^2", "²"));
+    out.set(names.get(m[1]!)!, m[2]!.replace("^2", "²").replace("^3", "³"));
   }
   return out;
 }
@@ -74,8 +74,8 @@ const ERNIE_BOTH = fixture("analysis_results_voxel_mask_both.csv");
 describe("field units come from FIELD_REGISTRY", () => {
   const units = registryUnits();
 
-  it("reads the six registry fields from tit/constants.py", () => {
-    expect([...units.keys()].sort()).toEqual(["TI_avg", "TI_max", "TI_normal", "hf_peak", "hf_sar", "mTI_max"]);
+  it("reads the seven registry fields from tit/constants.py", () => {
+    expect([...units.keys()].sort()).toEqual(["TI_avg", "TI_max", "TI_normal", "hf_peak", "hf_power_density", "hf_sar", "mTI_max"]);
   });
 
   it.each([...registryUnits()])("labels %s values in %s", (field, unit) => {

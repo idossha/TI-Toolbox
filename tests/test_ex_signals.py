@@ -59,10 +59,7 @@ def _fake_ti(fail_on_call: int | None = None):
             raise RuntimeError("leadfield read failed mid-search")
         return np.ones((5, 3)) * channel[2]
 
-    return SimpleNamespace(
-        get_field=get_field,
-        get_maxTI=lambda e1, e2: np.linalg.norm(e1 + e2, axis=1),
-    )
+    return SimpleNamespace(get_field=get_field)
 
 
 def _ready(engine):

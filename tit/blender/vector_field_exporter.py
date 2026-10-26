@@ -408,8 +408,8 @@ def _compute_ti_normal(config, central_mesh, m1, TI):
     """Project the direction-maximized TI vector onto the surface normals.
 
     Visualization only. This is **not** the ``TI_normal`` field written by
-    :mod:`tit.sim.TI`, which recomputes the envelope along the normal from
-    the raw carrier fields (SimNIBS ``TI.get_dirTI``). Projecting an
+    :mod:`tit.sim.TI`, which evaluates the envelope along the normal from
+    the raw carrier fields (:func:`tit.calc.envelope`). Projecting an
     already-maximized vector is a different quantity and the two will not
     agree numerically.
 

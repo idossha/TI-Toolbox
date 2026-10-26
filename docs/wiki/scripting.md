@@ -239,8 +239,8 @@ run_simulation(cfg)
 | `electrode_dimensions` | **Electrodes ▸ Dimensions** (mm) | `[8.0, 8.0]` |
 | `gel_thickness` | **Electrodes ▸ Gel thickness** (mm) | `4.0` |
 | `rubber_thickness` | — | `2.0` |
-| `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`) | `["TI_max"]` |
-| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`, no envelope fields; 2-pair TI with `output_fields` from `hf_peak`/`hf_sar` ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
+| `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`, `hf_power_density`) | `["TI_max"]` |
+| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`/`hf_power_density`, no envelope fields; 2-pair TI with `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
 | `map_to_surf` / `map_to_vol` | — | `True` / `False` |
 | `map_to_mni` | **Generate MNI NIfTI outputs** | `False` |
 | `map_to_fsavg` | **Map fields to fsaverage** | `True` (app: `False`) |
@@ -281,6 +281,39 @@ simulation name shared by every subject, and `analysis_type` is `"spherical"`, `
 `derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<YYYYMMDD>_<HHMMSS>/`
 (`PathManager.group_analysis(name)`; `PathManager.logs_group()` is gone), unless you pass
 `output_dir`.
+
+## Field metrics (`tit.calc`)
+
+The simulator's field outputs come from five functions in `tit.calc`, which you can call on
+any carrier fields. The envelope functions take a list of `(N, 3)` arrays in V/m, two per
+carrier, in montage order (`[E1, E2]` for TI, `[E1, E2, E3, E4, ...]` for mTI); the carrier
+functions take one array per electrode pair. The definitions, and how exact each one is, are
+under [Field quantities on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#method-and-accuracy).
+
+```python
+from simnibs import mesh_io
+
+from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
+
+hf = "derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/high_Frequency/mesh"
+E1 = mesh_io.read_msh(f"{hf}/ernie_TDCS_1_scalar.msh").field["E"].value
+E2 = mesh_io.read_msh(f"{hf}/ernie_TDCS_2_scalar.msh").field["E"].value
+
+ti_max = envelope_max([E1, E2])                       # TI_max, V/m
+ti_max, direction = envelope_max([E1, E2], return_direction=True)  # + unit direction
+ti_z = envelope([E1, E2], [0.0, 0.0, 1.0])            # envelope along one direction
+ti_avg = envelope_mean([E1, E2])                      # TI_avg
+peak = hf_peak([E1, E2])                              # hf_peak, V/m (zero-to-peak)
+power = hf_power([E1, E2])                            # E_rms^2, (V/m)^2; hf_sar = 2 * power
+```
+
+`envelope(fields, normals)` with one unit normal per row is `TI_normal`, and
+`envelope_max(fields, perpendicular_to=normals)` is the strongest envelope within the surface
+plane (flex-search's `dir_TI_tangential`). `hf_peak(fields, coherent=True)` and
+`hf_power(fields, coherent=True)` are the carrier-only (ΔF = 0) forms. The simulator's
+`hf_power_density` is `hf_power` weighted by the conductivity the run solved with; for
+isotropic conductivity that is `power` times each element's conductivity in S/m (the simulator
+uses the full tensor under the anisotropic models).
 
 ## Group statistics
 
