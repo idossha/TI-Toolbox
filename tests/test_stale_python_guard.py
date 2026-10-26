@@ -147,6 +147,20 @@ DELETED_DEFINITIONS: dict[str, tuple[str, ...]] = {
     ),
     "tit/figures/roi_plate.py": ("Region.span_mm",),
     "tit/atlas/constants.py": ("LEGACY_FREESURFER_ATLAS_FILES",),
+    # 2026-10-26 envelope API: tit.calc is exactly five functions; tit.fields folded in.
+    "tit/calc.py": (
+        "get_TI_vectors",
+        "get_TI_avg",
+        "get_TI_dir",
+        "hf_sar",
+        "hf_peak_is_exact",
+        "EXACT_SIGN_ENUM_MAX_FIELDS",
+        "_mti_modulation_depth",
+        "_fibonacci_sphere",
+        "_pairwise_products",
+        "_envelope_from_PQ",
+        "_fused_sweep_kernel",
+    ),
 }
 
 DELETED_FILES = (
@@ -159,6 +173,8 @@ DELETED_FILES = (
     "tit/blender/helpers/inspect_blend.py",
     "tit/blender/helpers/render_blend.sh",
     "tit/blender/helpers/install_blender_docker.sh",
+    "tit/fields.py",
+    "tit/_mti_kernel.py",
 )
 
 #: Names distinctive enough to grep for anywhere in shipped code and user docs.
@@ -191,6 +207,19 @@ DISTINCTIVE_NAMES = (
     "iter_assets",
     "deduplicate_vertices",
     "LEGACY_FREESURFER_ATLAS_FILES",
+)
+
+#: The pre-2026-10-26 envelope API. Scanned outside docs/wiki and agent-plugin until their
+#: rewrite (feat/calc-envelope-callers) lands; that branch moves these into DISTINCTIVE_NAMES.
+REMOVED_CALC_NAMES = (
+    "get_TI_vectors",
+    "get_TI_avg",
+    "get_TI_dir",
+    "hf_peak_is_exact",
+    "EXACT_SIGN_ENUM_MAX_FIELDS",
+    "TIT_MTI_KERNEL",
+    "_mti_kernel",
+    "tit.fields",
 )
 
 #: Shipped code and user-facing docs (desktop is p46's; tests would self-match).
@@ -279,6 +308,12 @@ def test_deleted_names_are_not_mentioned_in_shipped_code_or_user_docs():
     scanned = [entry for entry in SCANNED if (REPO / entry).exists()]
     assert len(scanned) >= 6, scanned
     assert mentions(REPO, DISTINCTIVE_NAMES) == []
+
+
+def test_removed_calc_names_are_not_mentioned_in_shipped_code():
+    scanned = tuple(e for e in SCANNED if e not in ("docs/wiki", "agent-plugin"))
+    assert len(scanned) >= 4, scanned
+    assert mentions(REPO, REMOVED_CALC_NAMES, scanned) == []
 
 
 def test_the_checkers_find_a_planted_resurrection(tmp_path):

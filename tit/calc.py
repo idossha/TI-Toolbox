@@ -1,30 +1,53 @@
-#!/usr/bin/env simnibs_python
-"""Temporal interference field calculation utilities.
+"""Temporal-interference envelope and carrier-field metrics.
 
-Vectorised NumPy implementations of the TI/mTI modulation-amplitude
-envelope from Grossman et al. (2017), extended to an arbitrary even
-number of electrode pairs (mTI).
+Five functions, NumPy only, vectorised and chunked over elements:
 
-Public API
-----------
-get_TI_vectors
-    Modulation-amplitude vectors for K >= 1 carriers (K=1 exact closed
-    form; K>=2 direction search).
-get_TI_avg
-    Direction-averaged modulation depth for K >= 1 carriers.
-get_TI_dir
-    Modulation depth evaluated along a fixed per-element direction
-    (e.g. the cortical surface normal); backs ``TI_normal`` for mTI.
+==================  ==========================================================
+:func:`envelope`      envelope modulation amplitude along a given direction
+                      (``TI_normal`` along the cortical normal)
+:func:`envelope_max`  its maximum over all directions (``TI_max``/``mTI_max``),
+                      or over the directions in a plane (tangential maximum)
+:func:`envelope_mean` its mean over all directions (``TI_avg``)
+:func:`hf_peak`       peak instantaneous carrier field (``hf_peak``)
+:func:`hf_power`      time-averaged mean-square carrier field, E_rms^2
+==================  ==========================================================
 
-Attribution
------------
-The K >= 2 envelope and the ``_fibonacci_sphere`` /
-``_validate_field_list`` helpers originate from collaborator Larissa
-Albantakis's branch ``alba/mTI_testing`` and are ported here with
-attribution, not reimplemented.
+Field layout
+------------
+The envelope functions take ``fields = [E1a, E1b, E2a, E2b, ...]``: ``2K``
+arrays of shape ``(N, 3)`` in V/m, paired positionally.  Each pair ``k`` is
+one carrier pair beating at the common difference frequency, and all ``K``
+envelopes are phase-aligned.  ``K = 1`` is standard TI; ``K >= 2`` is
+multi-channel TI (mTI).  The carrier metrics take any number ``>= 1`` of
+carrier fields (one field per electrode pair).
+
+The envelope along a unit direction ``n``
+-----------------------------------------
+With ``a_k = E_ka . n`` and ``b_k = E_kb . n``, and ``S``/``D`` the ``K x 3``
+matrices with rows ``E_ka + E_kb`` / ``E_ka - E_kb``::
+
+    E_AM(n) = | |S n| - |D n| |  =  4 |sum_k a_k b_k| / (|S n| + |D n|)
+
+The right-hand form has no subtraction of near-equal terms and is the one
+evaluated everywhere here.  At ``K = 1`` it is exactly Grossman et al. 2017
+(Cell 169(6):1029-1041, STAR Methods): ``||(E1+E2).n| - |(E1-E2).n|| =
+2 min(|E1.n|, |E2.n|)``.  ``E_AM(n) = E_AM(-n)``.
+
+Citations by function: :func:`envelope` is Grossman's "envelope modulation
+amplitude along the direction n" (SimNIBS ``TI_utils.get_dirTI``);
+:func:`envelope_max` is Grossman's "maximal modulation amplitude along any
+orientation" (SimNIBS ``get_maxTI``), with the K=1 closed form in the
+sign-agnostic shape of Hirata et al. 2024 (Comput Biol Med 178:108697, Eq. 2);
+:func:`envelope_mean` (``TI_avg``) is defined by this toolbox, there is no
+literature definition; :func:`hf_peak` is Cassarà et al. 2025 Part I
+(Bioelectromagnetics 46(2):e22542) Eq. 3; :func:`hf_power` is Cassarà 2025
+Part I p. 11 and Part II (Bioelectromagnetics 46(1):e22536) Eq. 1 with IEEE
+C95.1-2019 p. 35.
 """
 
-import os
+from __future__ import annotations
+
+import itertools
 from collections.abc import Sequence
 
 import numpy as np
@@ -32,856 +55,783 @@ from numpy.typing import ArrayLike, NDArray
 
 from tit.constants import is_valid_pair_count
 
-__all__ = ["get_TI_vectors", "get_TI_avg", "get_TI_dir"]
+__all__ = ["envelope", "envelope_max", "envelope_mean", "hf_peak", "hf_power"]
+
+# Elements per chunk: bounds peak memory independently of the mesh size.
+_CHUNK = 16384
+# The K>=2 mean holds (chunk, 2048) arrays, so it uses a smaller chunk.
+_MEAN_CHUNK = 1024
+
+_SQRT2 = np.sqrt(2.0)
+_X_AXIS = np.array([1.0, 0.0, 0.0])
+
+# --- K>=2 sphere maximum: eigen-branch root-find --------------------------
+# theta grid: 16 uniform intervals on (0, pi/2) plus 16 log-spaced in tan(theta)
+# (tan theta = sqrt(u/v) spans many decades when one carrier pair is weak).
+_THETA_EPS = 1e-7
+_THETA_GRID = np.unique(
+    np.concatenate(
+        [
+            np.linspace(_THETA_EPS, np.pi / 2 - _THETA_EPS, 17),
+            np.arctan(np.exp(np.linspace(-14.0, 14.0, 17))),
+        ]
+    )
+)
+_ROOT_ITERS = 14
+_PERMS = np.array(list(itertools.permutations(range(3))))
+# Local polish: Newton iterations from each seed.
+_NEWTON_ITERS = 12
+
+# --- K>=2 sphere mean: 2048 equal-area directions on the upper hemisphere ---
+_MEAN_DIRECTIONS = 2048
 
 
-def _get_TI_vectors_k1(E1_org, E2_org):
-    """Compute the TI modulation-amplitude vectors for two electric fields.
+def _hemisphere_directions(n: int) -> np.ndarray:
+    """``n`` equal-area (Fibonacci) unit directions with ``z > 0``."""
+    i = np.arange(n) + 0.5
+    z = 1.0 - i / n
+    r = np.sqrt(1.0 - z * z)
+    t = np.pi * (3.0 - np.sqrt(5.0)) * i
+    return np.stack([r * np.cos(t), r * np.sin(t), z], axis=-1)
 
-    Sign-agnostic closed form (Hirata et al. 2024), equivalent to the
-    original Grossman et al. (2017) preprocess-then-branch formulation but
-    needs no magnitude-ordering swap or acute-angle sign flip of the
-    inputs: ``TI = 2*min(|E1|,|E2|)`` (as a vector, sign-corrected) when
-    ``min(|E1|,|E2|) <= sqrt(|E1.E2|)``, else ``TI = 2 *`` that same
-    sign-corrected vector's component perpendicular to ``h``, whichever of
-    ``E1-E2``/``E1+E2`` has the smaller norm.
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+
+def _stack(fields: Sequence[ArrayLike], *, paired: bool) -> np.ndarray:
+    """Validate a field list and stack it as ``(F, N, 3)`` float64."""
+    arrs = [np.asarray(f, dtype=np.float64) for f in fields]
+    n = len(arrs)
+    if paired and not is_valid_pair_count(n):
+        raise ValueError(
+            f"fields must be an even number (>= 2) of arrays, two per carrier "
+            f"pair: [E1a, E1b, E2a, E2b, ...]; got {n}"
+        )
+    if not paired and n < 1:
+        raise ValueError("fields must contain at least one carrier field")
+    shape = arrs[0].shape
+    if len(shape) != 2 or shape[1] != 3:
+        raise ValueError(f"each field must have shape (N, 3), got {shape}")
+    for i, a in enumerate(arrs[1:], start=1):
+        if a.shape != shape:
+            raise ValueError(
+                f"all fields must share one shape: field 0 has {shape}, "
+                f"field {i} has {a.shape}"
+            )
+    return np.stack(arrs)
+
+
+def _unit_rows(v: ArrayLike, n: int, name: str) -> np.ndarray:
+    """``(3,)`` or ``(N, 3)`` -> ``(N, 3)`` unit rows; zero rows stay zero."""
+    v = np.asarray(v, dtype=np.float64)
+    if v.shape == (3,):
+        v = np.broadcast_to(v, (n, 3))
+    elif v.shape != (n, 3):
+        raise ValueError(f"{name} must have shape (3,) or ({n}, 3), got {v.shape}")
+    norm = np.linalg.norm(v, axis=1, keepdims=True)
+    return np.divide(v, norm, out=np.zeros((n, 3)), where=norm > 0)
+
+
+def _ratio(num, den):
+    """``num / den`` with 0 where ``den`` is 0 (a null field)."""
+    return np.divide(num, den, out=np.zeros(np.shape(den)), where=den > 0)
+
+
+# ---------------------------------------------------------------------------
+# envelope
+# ---------------------------------------------------------------------------
+
+
+def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.float64]:
+    """Envelope modulation amplitude along a direction, any K.
+
+    ``E_AM(n) = 4 |sum_k a_k b_k| / (|S n| + |D n|)`` with ``a_k = E_ka.n``,
+    ``b_k = E_kb.n`` (module docstring) -- Grossman et al. 2017 STAR Methods
+    "envelope modulation amplitude along the direction n", the quantity SimNIBS
+    ``TI_utils.get_dirTI`` computes for K=1.  Exact (a closed expression, no
+    search) for every K.  Along the cortical normal it is ``TI_normal``.
 
     Parameters
     ----------
-    E1_org, E2_org : np.ndarray, shape (N, 3)
-        Electric field vectors [V/m] from the two electrode pairs.
+    fields : sequence of array-like, each (N, 3)
+        ``[E1a, E1b, E2a, E2b, ...]``, 2K fields in V/m, paired positionally.
+    direction : array-like, (3,) or (N, 3)
+        One direction for every element, or one per element.  Normalised
+        internally; a zero vector gives 0.
 
     Returns
     -------
-    np.ndarray, shape (N, 3)
-        TI vectors [V/m]: direction/magnitude of max envelope modulation.
-
-    References
-    ----------
-    Grossman, N. et al. (2017). Cell, 169(6), 1029-1041.
-    Hirata, A. et al. (2024). Computers in Biology and Medicine, 178, 108697.
-    """
-    assert E1_org.shape == E2_org.shape, "E1 and E2 must have same shape"
-    assert E1_org.shape[1] == 3, "Vectors must be 3D"
-
-    E1 = E1_org
-    E2 = E2_org
-
-    normE1 = np.linalg.norm(E1, axis=1)
-    normE2 = np.linalg.norm(E2, axis=1)
-    dot = np.sum(E1 * E2, axis=1)
-
-    min_norm = np.minimum(normE1, normE2)
-    regime1_mask = min_norm <= np.sqrt(np.abs(dot))
-
-    # The smaller-magnitude field, sign-corrected for an acute angle; ties
-    # go to E2, matching the strict '>' swap convention of the original
-    # preprocess-then-branch form.
-    use_E1_as_small = normE1 < normE2
-    Es_raw = np.where(use_E1_as_small[:, None], E1, E2)
-    sign = np.where(dot < 0, -1.0, 1.0)
-    Es = sign[:, None] * Es_raw
-
-    TI_vectors = np.zeros_like(E1)
-    TI_vectors[regime1_mask] = 2.0 * Es[regime1_mask]
-
-    # Regime 2 (oblique): TI = 2 * (Es perpendicular to h), h = whichever
-    # of (E1-E2), (E1+E2) has the smaller norm.
-    regime2_mask = ~regime1_mask
-    if np.any(regime2_mask):
-        a2 = E1[regime2_mask]
-        b2 = E2[regime2_mask]
-        dot2 = dot[regime2_mask]
-        h_minus = a2 - b2
-        h_plus = a2 + b2
-        # Decide from sign(dot) directly rather than comparing the two
-        # norms: |E1-E2|^2 - |E1+E2|^2 == -4*dot, so the sign is exact,
-        # while for near-orthogonal fields (dot tiny relative to |E1|,
-        # |E2|) the two norms round to the same float64 and the
-        # comparison loses the sign to cancellation.
-        use_minus = dot2 >= 0
-        h = np.where(use_minus[:, None], h_minus, h_plus)
-        h_norm = np.linalg.norm(h, axis=1)
-        h_norm_safe = np.where(h_norm == 0, 1.0, h_norm)
-        e_h = h / h_norm_safe[:, None]
-
-        Es_r2 = Es[regime2_mask]
-        Es_parallel_component = np.sum(Es_r2 * e_h, axis=1)[:, None] * e_h
-        Es_perp = Es_r2 - Es_parallel_component
-        TI_vectors[regime2_mask] = 2.0 * Es_perp
-
-    return TI_vectors
-
-
-def get_TI_vectors(
-    fields: Sequence[ArrayLike], psi: ArrayLike | None = None
-) -> NDArray[np.float64]:
-    """Compute TI modulation-amplitude vectors for K >= 1 carriers.
-
-    ``fields`` is ``[E_1a, E_1b, ..., E_Ka, E_Kb]``, 2K arrays of shape
-    ``(N, 3)`` -- one per channel, paired positionally: each two
-    consecutive fields are the two channels sharing one carrier. K=1
-    (standard TI) is solved by an exact closed form (Grossman et al.
-    2017; Hirata et al. 2024) with no direction search; K>=2 (mTI)
-    returns ``best_direction * md`` from the verified
-    :func:`_mti_modulation_depth` envelope.
-
-    Parameters
-    ----------
-    fields : list of np.ndarray, each shape (N, 3)
-        Channel field vectors in V/m, consecutive fields sharing a
-        carrier: ``[E1, E2]`` for TI, ``[E1a, E1b, E2a, E2b]`` for
-        two-carrier mTI.  The list length must be even and >= 2; all
-        arrays must have the same shape.
-    psi : array-like, shape (K,), or None
-        Per-carrier envelope phase offset (radians); ``None`` means
-        phase-aligned carriers (``psi_k=0``), the standard case. Ignored
-        at K=1 (phase-invariant there).
-
-    Returns
-    -------
-    np.ndarray, shape (N, 3)
-        Modulation-amplitude vectors [V/m]; norm is the modulation depth
-        (``TI_max``).
+    numpy.ndarray, (N,)
+        Peak-to-trough envelope amplitude in V/m.
 
     Raises
     ------
     ValueError
-        If ``fields`` has an odd length or fewer than two entries, the
-        arrays are not all ``(N, 3)`` of one shape, or ``psi`` is not
-        ``None``/shape ``(K,)``.
-
-    Examples
-    --------
-    Two collinear unit fields interfere fully: the envelope equals
-    ``2 * min(|E1|, |E2|)`` along the common axis.
-
-    >>> import numpy as np
-    >>> from tit.calc import get_TI_vectors
-    >>> E1 = np.array([[1.0, 0.0, 0.0]])
-    >>> E2 = np.array([[0.5, 0.0, 0.0]])
-    >>> get_TI_vectors([E1, E2])
-    array([[1., 0., 0.]])
-    >>> np.linalg.norm(get_TI_vectors([E1, E2, E1, E2]), axis=1).shape   # mTI, K=2
-    (1,)
-
-    References
-    ----------
-    Grossman, N. et al. (2017). Cell, 169(6), 1029-1041 (K=1 closed form).
-    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7 --
-    multipolar TI (K carrier bands, phase-aligned envelopes); describes the
-    square/low-pass/sqrt envelope procedure in prose (no published
-    equation), which the (P, Q) form here formalizes.
-    """
-    arrs = _validate_field_list(fields)
-    n_pairs = len(arrs) // 2
-    _validate_psi(psi, n_pairs)
-
-    if n_pairs == 1:
-        return _get_TI_vectors_k1(arrs[0], arrs[1])
-
-    result = _mti_modulation_depth(arrs, psi=psi)
-    return result["best_direction"] * result["md"][:, None]
-
-
-def get_TI_avg(
-    fields: Sequence[ArrayLike], psi: ArrayLike | None = None
-) -> NDArray[np.float64]:
-    """Direction-averaged modulation depth for K >= 1 electrode pairs.
-
-    ``TI_max`` (:func:`get_TI_vectors`) maximizes the envelope over
-    direction -- a best case for a neuron aligned with the optimal axis.
-    ``TI_avg`` instead averages the same coarse Fibonacci-sphere sweep
-    over all sampled directions, giving what a randomly-oriented neuron
-    sees on average. Local refinement (accurate for a single best
-    direction only) is skipped as irrelevant to an average.
-
-    Parameters
-    ----------
-    fields : list of np.ndarray, each shape (N, 3)
-        Channel field vectors, consecutive fields sharing a carrier.
-    psi : array-like, shape (K,), or None
-        Per-carrier envelope phase offset (radians); see
-        :func:`get_TI_vectors`.
-
-    Returns
-    -------
-    np.ndarray, shape (N,)
-        Modulation depth [V/m], averaged over sampled directions
-        (``TI_avg``).  Never exceeds ``|get_TI_vectors(...)|``.
-
-    Raises
-    ------
-    ValueError
-        Same conditions as :func:`get_TI_vectors`.
+        Odd or fewer than two fields, fields not all ``(N, 3)`` of one shape,
+        or ``direction`` not ``(3,)``/``(N, 3)``.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from tit.calc import get_TI_avg, get_TI_vectors
-    >>> E1 = np.array([[1.0, 0.0, 0.0]])
-    >>> E2 = np.array([[0.5, 0.0, 0.0]])
-    >>> avg = get_TI_avg([E1, E2])
-    >>> avg.shape, bool(avg[0] <= np.linalg.norm(get_TI_vectors([E1, E2])))
-    ((1,), True)
-    """
-    arrs = _validate_field_list(fields)
-    n_pairs = len(arrs) // 2
-    psi_arr = _validate_psi(psi, n_pairs)
-    return _mti_modulation_depth_avg(arrs, psi_arr)
-
-
-def get_TI_dir(
-    fields: Sequence[ArrayLike],
-    directions: ArrayLike,
-    psi: ArrayLike | None = None,
-) -> NDArray[np.float64]:
-    """Modulation depth along a fixed per-element direction, K >= 1.
-
-    The multi-carrier analogue of SimNIBS's 2-field ``TI.get_dirTI``:
-    instead of maximizing the envelope over direction
-    (:func:`get_TI_vectors`), evaluate it at a given direction per
-    element -- typically the cortical surface normal, which yields the
-    ``TI_normal`` quantity. Exact (no direction search) for any K.
-
-    Parameters
-    ----------
-    fields : list of np.ndarray, each shape (N, 3)
-        Field vectors ordered ``[E_1a, E_1b, E_2a, E_2b, ...]``, one per
-        channel; consecutive fields are the two channels of one carrier.
-    directions : np.ndarray, shape (N, 3)
-        Per-element direction to evaluate the envelope along. Need not be
-        unit length; zero vectors yield 0.
-    psi : array-like, shape (K,), or None
-        Per-carrier envelope phase offset (radians); see
-        :func:`get_TI_vectors`.
-
-    Returns
-    -------
-    np.ndarray, shape (N,)
-        Modulation depth [V/m] along ``directions`` (``TI_normal`` when
-        they are the cortical normals).
-
-    Raises
-    ------
-    ValueError
-        Same conditions as :func:`get_TI_vectors`, or if ``directions`` is
-        not shape ``(N, 3)``.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from tit.calc import get_TI_dir
-    >>> E1 = np.array([[1.0, 0.0, 0.0]])
-    >>> E2 = np.array([[0.5, 0.0, 0.0]])
-    >>> get_TI_dir([E1, E2], directions=np.array([[1.0, 0.0, 0.0]]))
+    >>> E1, E2 = np.array([[1.0, 0, 0]]), np.array([[0.5, 0, 0]])
+    >>> envelope([E1, E2], [1.0, 0, 0])
     array([1.])
-    >>> get_TI_dir([E1, E2], directions=np.array([[0.0, 1.0, 0.0]]))
+    >>> envelope([E1, E2], [0, 1.0, 0])
     array([0.])
     """
-    result = _mti_modulation_depth(fields, psi=psi, directions=directions)
-    return result["md"]
+    E = _stack(fields, paired=True)
+    n = _unit_rows(direction, E.shape[1], "direction")
+    p = np.einsum("fnx,nx->fn", E, n)
+    a, b = p[0::2], p[1::2]
+    s = np.sqrt(np.sum((a + b) ** 2, axis=0))
+    d = np.sqrt(np.sum((a - b) ** 2, axis=0))
+    return _ratio(4.0 * np.abs(np.sum(a * b, axis=0)), s + d)
 
 
-def _mti_modulation_depth(
-    fields,
-    psi=None,
-    directions=None,
-    refine=True,
-):
-    r"""Compute the coherent multi-pair TI modulation-depth envelope.
+# ---------------------------------------------------------------------------
+# envelope_max
+# ---------------------------------------------------------------------------
 
-    For K electrode pairs sharing a beat frequency, projected onto unit
-    direction ``n``: ``MD = sqrt(2)*(sqrt(P+Q) - sqrt(P-Q))``, where
-    ``P = 0.5*sum_k(a_k^2 + b_k^2)`` is total carrier power and
-    ``Q = |sum_k a_k*b_k*exp(i*psi_k)|`` is the coherent phasor sum of the
-    signed projections ``a_k = E_ka . n``, ``b_k = E_kb . n``. With
-    ``psi=None`` every pair is assumed phase-aligned (``psi_k=0``). For
-    K=1 this reduces to ``2*min(|a|,|b|)`` (Grossman et al. 2017). With
-    ``directions=None``, the best direction per element is found by a
-    coarse Fibonacci-sphere sweep, refined locally by default
-    (``refine=True``) to control sampling error. Verified against a
-    time-domain ground truth.
+
+def envelope_max(
+    fields: Sequence[ArrayLike],
+    *,
+    perpendicular_to: ArrayLike | None = None,
+    return_direction: bool = False,
+) -> NDArray[np.float64] | tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Maximum of the envelope over all directions, or over a plane.
+
+    ``max_n E_AM(n)`` over unit ``n`` -- Grossman et al. 2017's "maximal
+    modulation amplitude along any orientation", SimNIBS ``get_maxTI``, the
+    ``TI_max``/``mTI_max`` output.  With ``perpendicular_to`` the maximum runs
+    over the unit ``n`` perpendicular to it (the tangential maximum, e.g. in the
+    cortical surface plane); this equals the sphere maximum of the fields
+    projected onto that plane.
+
+    Method and accuracy
+    -------------------
+    * **K = 1, sphere**: the exact closed form of Grossman 2017 in the
+      sign-agnostic shape of Hirata et al. 2024 Eq. 2.  Matches SimNIBS
+      ``get_maxTI`` to ~1e-15 relative and is 0 (not NaN) on null fields.
+    * **K = 1, plane**: the same closed form on the fields projected onto the
+      plane.  Exact.
+    * **K >= 2, sphere**: the optimum is an eigenvector of
+      ``cos(t) C+ - sin(t) C-`` (``C+ = S^T S / 2``, ``C- = D^T D / 2``) at a
+      ``t`` where ``g = cos^2(t) u - sin^2(t) v = 0`` (``u = n^T C+ n``,
+      ``v = n^T C- n``).  All three eigen-branches are tracked by overlap on a
+      grid of 16 uniform plus 16 log-spaced ``t``; each sign change of ``g`` is
+      solved by Illinois regula falsi; the best stationary point, and safeguard
+      candidates (the eigenvectors of ``C+``, ``C-`` and ``C+ - C-``, and each
+      pair's own K=1 optimum), then get a short local polish.  On 10^4 random
+      K=2/3/4 elements and 2x2x10^5 real grey-matter elements none is more
+      than 1e-6 below a dense reference (see ``tests/test_calc.py``).
+    * **K >= 2, plane**: exact.  Stationary points in ``psi = 2 phi`` are roots
+      of the degree-3 trigonometric polynomial ``u'^2 v - v'^2 u`` (a degree-6
+      polynomial in ``e^{i psi}``, from a 7-point DFT, solved by companion
+      eigenvalues), plus the cusps ``u = 0``, ``v = 0``.
 
     Parameters
     ----------
-    fields : list of np.ndarray, each shape (N, 3)
-        Field vectors ordered ``[E_1a, E_1b, E_2a, E_2b, ...]``, 2K arrays.
-    psi : array-like, shape (K,), or None
-        Per-pair envelope phase offset in radians.
-    directions : np.ndarray, shape (N, 3), or None
-        Fixed per-element direction to evaluate at, instead of searching.
-    refine : bool, default True
-        Locally refine the coarse-sweep result (recommended);
-        ``False`` reproduces the raw coarse sweep only.
+    fields : sequence of array-like, each (N, 3)
+        ``[E1a, E1b, E2a, E2b, ...]``, 2K fields in V/m, paired positionally.
+    perpendicular_to : array-like, (3,) or (N, 3), optional
+        Plane normal(s).  ``None`` (default) maximises over the whole sphere.
+        Normalised internally; a zero row gives 0.
+    return_direction : bool
+        Also return the maximising unit direction.
 
     Returns
     -------
-    dict
-        ``"md"`` (N,): modulation depth. ``"carrier_power"`` (N,): ``P``
-        at the direction ``md`` was evaluated at. ``"best_direction"``
-        (N, 3): unit vector the envelope was evaluated at.
+    amp : numpy.ndarray, (N,)
+        Maximum envelope amplitude in V/m.
+    n_hat : numpy.ndarray, (N, 3)
+        Only with ``return_direction=True``: a unit maximiser (``-n_hat`` is
+        equally one).  K=1 keeps the Grossman/Hirata TI-vector orientation --
+        ``amp * n_hat`` is the classic TI vector, the sign-corrected smaller
+        field (or its part perpendicular to ``E1 -/+ E2``).  That orientation
+        satisfies ``n_hat . E_L >= 0`` for ``E_L`` the field of largest
+        magnitude, which is the rule applied for K >= 2 (projected fields for
+        a plane).  Where ``amp == 0`` every direction is a maximiser and
+        ``n_hat`` is ``(1, 0, 0)`` (an in-plane unit vector for a plane).
 
     Raises
     ------
     ValueError
-        If ``fields`` is not an even-length list of identically-shaped
-        ``(N, 3)`` arrays, or ``psi``/``directions`` have the wrong shape.
+        As :func:`envelope`, or ``perpendicular_to`` not ``(3,)``/``(N, 3)``.
 
-    References
-    ----------
-    Grossman, N. et al. (2017). Cell, 169(6), 1029-1041.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> E1, E2 = np.array([[1.0, 0, 0]]), np.array([[0.5, 0, 0]])
+    >>> envelope_max([E1, E2])
+    array([1.])
+    >>> envelope_max([E1, E2], perpendicular_to=[1.0, 0, 0])
+    array([0.])
     """
-    arrs = _validate_field_list(fields)
-    n_pairs = len(arrs) // 2
-    psi_arr = _validate_psi(psi, n_pairs)
+    E = _stack(fields, paired=True)
+    n_el = E.shape[1]
+    plane = perpendicular_to is not None
+    if plane:
+        m = _unit_rows(perpendicular_to, n_el, "perpendicular_to")
+        E = E - np.einsum("fnx,nx->fn", E, m)[..., None] * m
+        E[:, ~m.any(axis=1)] = 0.0  # undefined plane -> 0, like a zero direction
+    k = E.shape[0] // 2
 
-    if directions is not None:
-        return _mti_modulation_depth_at_directions(arrs, psi_arr, directions)
+    amp = np.empty(n_el)
+    n_hat = np.empty((n_el, 3))
+    for lo in range(0, n_el, _CHUNK):
+        sl = slice(lo, min(lo + _CHUNK, n_el))
+        if k == 1:
+            amp[sl], n_hat[sl] = _max_k1(E[0, sl], E[1, sl])
+        elif plane:
+            amp[sl], n_hat[sl] = _max_plane(E[:, sl], m[sl])
+        else:
+            amp[sl], n_hat[sl] = _max_sphere(E[:, sl])
+    if not return_direction:
+        return amp
 
-    return _mti_modulation_depth_sweep(arrs, psi_arr, 192, 16384, refine)
+    if k >= 2:
+        norms = np.linalg.norm(E, axis=2)
+        e_big = E[norms.argmax(axis=0), np.arange(n_el)]
+        n_hat[np.einsum("nx,nx->n", n_hat, e_big) < 0] *= -1.0
+    null = amp <= 0.0
+    if null.any():
+        n_hat[null] = _frame(m[null])[1] if plane else _X_AXIS
+    return amp, n_hat
 
 
-def _validate_field_list(fields):
-    """Validate a field list: even length >= 2, identical (N, 3) shapes.
+def _ti_vector_k1(E1: np.ndarray, E2: np.ndarray) -> np.ndarray:
+    """K=1 TI vectors (Grossman 2017; sign-agnostic form of Hirata 2024 Eq. 2).
 
-    One field per electrode pair (one current channel), and the allowed
-    counts are exactly `tit.constants.is_valid_pair_count`'s -- the same rule
-    the montage config validates (2 = TI, 4+ even = mTI).
-
-    Ported from ``alba/ex-search-multipolar`` (see module docstring
-    "Attribution").
+    ``2 * Es`` when ``min(|E1|, |E2|) <= sqrt(|E1.E2|)``, else twice the part
+    of ``Es`` perpendicular to ``h``; ``Es`` is the smaller field flipped into
+    the acute angle with the larger (ties go to ``E2``), ``h`` is whichever of
+    ``E1 - E2``/``E1 + E2`` is shorter.  No magnitude-ordering swap or sign
+    flip of the inputs is needed.
     """
-    arrs = [np.asarray(field, dtype=np.float64) for field in fields]
-    n = len(arrs)
-    if not is_valid_pair_count(n):
-        raise ValueError(f"mTI requires an even number of fields >= 2, got {n}")
-    ref_shape = arrs[0].shape
-    if len(ref_shape) != 2 or ref_shape[1] != 3:
-        raise ValueError(f"Fields must have shape (N, 3), got {ref_shape}")
-    for i, arr in enumerate(arrs[1:], start=2):
-        if arr.shape != ref_shape:
-            raise ValueError(
-                "All fields must have identical shape; "
-                f"field 1 has {ref_shape}, field {i} has {arr.shape}"
-            )
-    return arrs
+    norm1 = np.linalg.norm(E1, axis=1)
+    norm2 = np.linalg.norm(E2, axis=1)
+    dot = np.sum(E1 * E2, axis=1)
 
+    regime1 = np.minimum(norm1, norm2) <= np.sqrt(np.abs(dot))
+    sign = np.where(dot < 0, -1.0, 1.0)
+    Es = sign[:, None] * np.where((norm1 < norm2)[:, None], E1, E2)
 
-def _validate_psi(psi, n_pairs):
-    """Normalise/validate the per-pair envelope phase array."""
-    if psi is None:
-        return None
-    psi_arr = np.asarray(psi, dtype=np.float64)
-    if psi_arr.shape != (n_pairs,):
-        raise ValueError(
-            "psi must be None or have shape "
-            f"({n_pairs},) -- one phase offset per electrode pair; got "
-            f"shape {psi_arr.shape}"
-        )
-    return psi_arr
-
-
-def _pairwise_products(proj_fields, psi):
-    """Return (P, Q): carrier power and coherent phasor magnitude.
-
-    ``proj_fields`` is a list of 2K arrays of identical shape (signed
-    projections onto one or more candidate directions). When ``psi`` is
-    ``None`` or all-zero, ``Q`` reduces to a real-only sum, ``|sum_k
-    a_k*b_k|`` (equivalent to evaluating the general phasor form at
-    ``psi=0``).
-    """
-    n_pairs = len(proj_fields) // 2
-
-    P = np.zeros_like(proj_fields[0], dtype=np.float64)
-    tmp = np.empty_like(P)  # reused scratch: same arithmetic, no temporaries
-    for p in proj_fields:
-        np.multiply(p, p, out=tmp)
-        P += tmp
-    P *= 0.5
-
-    use_phase = psi is not None and np.any(psi != 0.0)
-    if use_phase:
-        z = np.zeros_like(P, dtype=np.complex128)
-        for k in range(n_pairs):
-            a = proj_fields[2 * k]
-            b = proj_fields[2 * k + 1]
-            z += (a * b) * np.exp(1j * psi[k])
-        Q = np.abs(z)
-    else:
-        b_sum = np.zeros_like(P)
-        for k in range(n_pairs):
-            np.multiply(proj_fields[2 * k], proj_fields[2 * k + 1], out=tmp)
-            b_sum += tmp
-        Q = np.abs(b_sum, out=b_sum)
-
-    return P, Q
-
-
-def _quadratic_forms(arrs, psi):
-    """Per-element symmetric 3x3 matrices behind the (P, Q) envelope terms.
-
-    For a unit direction ``n``, ``P = 0.5*sum_f (E_f . n)^2 = n^T M_P n`` and
-    the coherent sum ``sum_k (E_ka . n)(E_kb . n) exp(i psi_k) = n^T M_Q n``
-    with ``M_P = 0.5*sum_f E_f E_f^T`` and ``M_Q = sum_k exp(i psi_k) *
-    sym(E_ka E_kb^T)``. Both are direction-independent, so a direction
-    sweep is two small matmuls over their packed 6-vectors
-    (:func:`_pack_symmetric`) instead of 2K projection arrays.
-
-    Returns
-    -------
-    M_P : np.ndarray, shape (N, 3, 3), float64
-    M_Q : np.ndarray, shape (N, 3, 3), float64 (``psi`` None/zero) or
-        complex128 (a phasor-weighted sum).
-    """
-    n_pairs = len(arrs) // 2
-    stacked = np.stack(arrs, axis=1)  # (N, 2K, 3)
-    M_P = np.einsum("nfa,nfb->nab", stacked, stacked)
-    M_P *= 0.5
-
-    a = stacked[:, 0::2]  # (N, K, 3)
-    b = stacked[:, 1::2]
-    use_phase = psi is not None and np.any(psi != 0.0)
-    if use_phase:
-        phasor = np.exp(1j * np.asarray(psi, dtype=np.float64))
-        M_Q = np.einsum("k,nka,nkb->nab", phasor, a, b)
-    else:
-        M_Q = np.einsum("nka,nkb->nab", a, b)
-    M_Q = 0.5 * (M_Q + M_Q.transpose(0, 2, 1))
-    return M_P, M_Q
-
-
-def _pack_symmetric(M):
-    """Pack symmetric ``(..., 3, 3)`` matrices as ``(..., 6)`` so that
-    ``n^T M n == _pack_symmetric(M) @ _direction_quadratics(n)``."""
-    return np.stack(
-        (
-            M[..., 0, 0],
-            M[..., 1, 1],
-            M[..., 2, 2],
-            M[..., 0, 1],
-            M[..., 0, 2],
-            M[..., 1, 2],
-        ),
-        axis=-1,
-    )
-
-
-def _pack_frame_form(basis, M):
-    """``_pack_symmetric(basis @ M @ basis^T)`` for frames ``basis``
-    ``(..., 3, 3)`` and symmetric ``M`` broadcastable to it, as explicit
-    broadcast arithmetic: entry ``(i, j)`` is ``(basis_i M) . basis_j``.
-    Batched 3x3 matmuls are per-batch loops in NumPy and lose to this.
-    """
-    T = [
-        [
-            basis[..., i, 0] * M[..., 0, c]
-            + basis[..., i, 1] * M[..., 1, c]
-            + basis[..., i, 2] * M[..., 2, c]
-            for c in range(3)
-        ]
-        for i in range(3)
-    ]
-    out = np.empty(
-        np.broadcast_shapes(basis.shape[:-2], M.shape[:-2]) + (6,), dtype=T[0][0].dtype
-    )
-    for k, (i, j) in enumerate(((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))):
-        out[..., k] = (
-            T[i][0] * basis[..., j, 0]
-            + T[i][1] * basis[..., j, 1]
-            + T[i][2] * basis[..., j, 2]
-        )
+    out = np.zeros_like(E1)
+    out[regime1] = 2.0 * Es[regime1]
+    r2 = ~regime1
+    if np.any(r2):
+        # |E1-E2|^2 - |E1+E2|^2 == -4 dot, so sign(dot) picks the shorter of
+        # the two exactly; comparing the rounded norms would not.
+        h = np.where((dot[r2] >= 0)[:, None], E1[r2] - E2[r2], E1[r2] + E2[r2])
+        h_norm = np.linalg.norm(h, axis=1)
+        e_h = h / np.where(h_norm == 0, 1.0, h_norm)[:, None]
+        Es2 = Es[r2]
+        out[r2] = 2.0 * (Es2 - np.sum(Es2 * e_h, axis=1)[:, None] * e_h)
     return out
 
 
-def _direction_quadratics(directions):
-    """``(..., 6)`` quadratic monomials ``[x^2, y^2, z^2, 2xy, 2xz, 2yz]`` of
-    ``(..., 3)`` directions; pairs with :func:`_pack_symmetric`."""
-    x, y, z = directions[..., 0], directions[..., 1], directions[..., 2]
-    return np.stack(
-        (x * x, y * y, z * z, 2.0 * x * y, 2.0 * x * z, 2.0 * y * z), axis=-1
+def _max_k1(E1, E2):
+    vec = _ti_vector_k1(E1, E2)
+    amp = np.linalg.norm(vec, axis=1)
+    return amp, vec / np.where(amp > 0, amp, 1.0)[:, None]
+
+
+def _frame(m: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Orthonormal ``(m, e1, e2)`` for unit rows ``m``; zero rows get x/y."""
+    ref = np.where(np.abs(m[:, :1]) > 0.9, [[0.0, 1.0, 0.0]], [[1.0, 0.0, 0.0]])
+    e1 = np.cross(m, ref)
+    norm = np.linalg.norm(e1, axis=1, keepdims=True)
+    zero = norm[:, 0] == 0
+    e1 = e1 / np.where(norm > 0, norm, 1.0)
+    e2 = np.cross(m, e1)
+    e1[zero] = [1.0, 0.0, 0.0]
+    e2[zero] = [0.0, 1.0, 0.0]
+    return m, e1, e2
+
+
+def _forms(E):
+    """``C+ = S^T S / 2``, ``C- = D^T D / 2`` and ``Cw = C+ - C-`` per element.
+
+    ``Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T)`` is built directly rather than as
+    a difference.
+    """
+    S = E[0::2] + E[1::2]
+    D = E[0::2] - E[1::2]
+    Cp = 0.5 * np.einsum("knx,kny->nxy", S, S)
+    Cm = 0.5 * np.einsum("knx,kny->nxy", D, D)
+    Cw = np.einsum("knx,kny->nxy", E[0::2], E[1::2])
+    Cw = Cw + Cw.transpose(0, 2, 1)
+    return Cp, Cm, Cw
+
+
+def _env_uvw(u, v, w):
+    """``E_AM = sqrt(2) |w| / (sqrt(u) + sqrt(v))``, ``w = u - v``."""
+    den = np.sqrt(np.maximum(u, 0.0)) + np.sqrt(np.maximum(v, 0.0))
+    return _ratio(_SQRT2 * np.abs(w), den)
+
+
+def _uvw(S, D, dirs):
+    """``u = |S n|^2/2``, ``v = |D n|^2/2``, ``w = u - v`` at ``dirs`` (n, c, 3).
+
+    From the projections, not from ``n^T C n``: next to a cusp (``v -> 0``) the
+    quadratic form loses ``v`` to round-off (``sqrt(eps)`` relative in the
+    envelope), while ``sum (D_k . n)^2`` keeps it.
+    """
+    s = np.einsum("knx,ncx->knc", S, dirs)
+    d = np.einsum("knx,ncx->knc", D, dirs)
+    return (
+        0.5 * np.sum(s * s, axis=0),
+        0.5 * np.sum(d * d, axis=0),
+        0.5 * np.sum((s + d) * (s - d), axis=0),
     )
 
 
-def _envelope_at_quadratics(P6, Q6, D6):
-    """(amp, P) at every direction in ``D6`` (``(D, 6)``) for packed forms
-    ``P6``/``Q6`` (``(..., 6)``); both outputs are ``(..., D)``."""
-    lead = P6.shape[:-1]
-    n_dirs = D6.shape[0]
-    # One 2-D GEMM over the flattened leading axes: NumPy would otherwise
-    # dispatch a stack of small matmuls, one per leading index.
-    P = (P6.reshape(-1, 6) @ D6.T).reshape(lead + (n_dirs,))
-    Q = (Q6.reshape(-1, 6) @ D6.T).reshape(lead + (n_dirs,))
-    Q = np.abs(Q, out=Q) if np.isrealobj(Q) else np.abs(Q)
-    return _envelope_from_PQ(P, Q), P
+def _match_columns(Vprev, V):
+    """Reorder (and sign-fix) the eigenvector columns of ``V`` to follow ``Vprev``."""
+    overlap = np.abs(np.einsum("nji,njk->nik", Vprev, V))
+    score = overlap[:, np.arange(3)[None, :], _PERMS].sum(-1)
+    perm = _PERMS[score.argmax(axis=1)]
+    Vm = np.take_along_axis(V, perm[:, None, :], axis=2)
+    sgn = np.sign(np.einsum("nji,nji->ni", Vprev, Vm))
+    sgn[sgn == 0] = 1.0
+    return Vm * sgn[:, None, :]
 
 
-def _envelope_from_PQ(P, Q):
-    r"""Modulation depth from the direction's quadratic forms ``P``, ``Q``.
-
-    Mathematically ``MD = sqrt(2(P+Q)) - sqrt(2(P-Q))``.  Evaluated that way
-    it cancels catastrophically in the **weak-modulation** regime ``Q << P``,
-    where the two square roots converge: the subtraction leaves an absolute
-    error of order ``eps * sqrt(P)`` however small the true depth is, so the
-    relative error grows without bound and the result is exactly ``0`` once
-    ``Q / P`` drops below ~1e-16.  That regime is not exotic -- it is every
-    off-target voxel, which is where a focality ratio has its denominator.
-    Multiplying by the conjugate gives the algebraically identical but
-    well-conditioned form used here:
-
-    .. math::
-
-        \mathrm{MD} = \frac{2\sqrt{2}\,Q}{\sqrt{P+Q} + \sqrt{P-Q}}
-
-    -- a quotient of two additions, with no subtraction of near-equal terms.
-    Both roots are still clamped against negative round-off, and a zero
-    denominator (``P = Q = 0``, a null field) yields ``0``.  The opposite
-    extreme ``Q -> P`` is benign in either form (``sqrt(P-Q)`` just goes to
-    zero) and is pinned as unchanged.
-    """
-    smin = P - Q
-    np.maximum(smin, 0.0, out=smin)
-    np.sqrt(smin, out=smin)
-    smax = P + Q
-    np.maximum(smax, 0.0, out=smax)
-    np.sqrt(smax, out=smax)
-    denom = smax
-    denom += smin
-    num = 2.0 * np.sqrt(2.0) * Q
-    return np.divide(num, denom, out=np.zeros_like(denom), where=denom > 0.0)
+def _keep_best(best, best_n, vals, dirs):
+    """Fold candidates ``vals`` (n, c) / ``dirs`` (n, c, 3) into the running best."""
+    j = vals.argmax(axis=1)
+    rows = np.arange(len(best))
+    cand = vals[rows, j]
+    better = cand > best
+    best[better] = cand[better]
+    best_n[better] = dirs[rows, j][better]
 
 
-# Local refinement (K>=2), pure NumPy -- no scipy dependency, so this stays
-# testable under the project's mocked-scipy test environment. A single-seed
-# local search (refine only around the coarse sweep's argmax) is not robust:
-# the K>=2 envelope surface can have multiple close local maxima, and the
-# coarse sweep occasionally ranks a decoy peak above the true global one.
-# Diverse, angularly-spaced seeds (`_diverse_top_m_directions`) fix this at
-# a modest, bounded extra cost.
+def _max_sphere(E):
+    """K>=2 sphere maximum: eigen-branch root-find, safeguards, local polish."""
+    S = E[0::2] + E[1::2]
+    D = E[0::2] - E[1::2]
+    Cp, Cm, Cw = _forms(E)
+    n_el = Cp.shape[0]
+    best = np.full(n_el, -1.0)
+    best_n = np.zeros((n_el, 3))
 
-_REFINE_N_ROUNDS = 3
-_REFINE_PATCH_SIZE = 16
-_REFINE_SHRINK = 0.4
-_REFINE_N_SEEDS = 6
-_REFINE_MIN_SEED_ANGLE_DEG = 25.0
+    # Track the three eigen-branches of cos(t) C+ - sin(t) C- over the grid.
+    grid = _THETA_GRID
+    Vs = np.empty((n_el, len(grid), 3, 3))
+    g = np.empty((n_el, len(grid), 3))
+    branch_f = np.full((n_el, 3), -1.0)  # best grid point of each branch
+    branch_n = np.zeros((n_el, 3, 3))
+    V = None
+    for j, t in enumerate(grid):
+        Vj = np.linalg.eigh(np.cos(t) * Cp - np.sin(t) * Cm)[1]
+        V = Vj if V is None else _match_columns(V, Vj)
+        cols = V.transpose(0, 2, 1)
+        u, v, w = _uvw(S, D, cols)
+        Vs[:, j] = V
+        g[:, j] = np.cos(t) ** 2 * u - np.sin(t) ** 2 * v
+        f = _env_uvw(u, v, w)
+        up = f > branch_f
+        branch_f[up] = f[up]
+        branch_n[up] = cols[up]
+        _keep_best(best, best_n, f, cols)
 
-
-def _local_patch_basis(centers):
-    """Orthonormal frame ``[c, u, v]`` around each unit vector in ``centers``
-    (arbitrary leading batch shape ``(..., 3)``): the center itself plus a
-    deterministic tangent basis ``(u, v)`` perpendicular to it. Output has
-    shape ``(..., 3, 3)`` with the three frame vectors as rows.
-    """
-    batch_shape = centers.shape[:-1]
-    c = np.ascontiguousarray(centers.reshape(-1, 3))
-    m = c.shape[0]
-    cx, cy, cz = c[:, 0], c[:, 1], c[:, 2]
-
-    # Reference axis: x, or y where the center is (nearly) parallel to x.
-    ref = np.zeros((m, 3), dtype=np.float64)
-    ref[:, 0] = 1.0
-    parallel = np.abs(cx) > 0.99
-    if np.any(parallel):
-        ref[parallel] = np.array([0.0, 1.0, 0.0])
-    rx, ry, rz = ref[:, 0], ref[:, 1], ref[:, 2]
-
-    basis = np.empty((m, 3, 3), dtype=np.float64)
-    basis[:, 0, :] = c
-    u = basis[:, 1, :]
-    v = basis[:, 2, :]
-    # Component-wise cross products (the multiply/subtract sequence of
-    # ``np.cross``, without its temporaries): u = c x ref, v = c x u.
-    u[:, 0] = cy * rz - cz * ry
-    u[:, 1] = cz * rx - cx * rz
-    u[:, 2] = cx * ry - cy * rx
-    u_norm = np.sqrt(u[:, 0] * u[:, 0] + u[:, 1] * u[:, 1] + u[:, 2] * u[:, 2])
-    u_norm[u_norm == 0.0] = 1.0
-    u /= u_norm[:, None]
-    ux, uy, uz = u[:, 0], u[:, 1], u[:, 2]
-    v[:, 0] = cy * uz - cz * uy
-    v[:, 1] = cz * ux - cx * uz
-    v[:, 2] = cx * uy - cy * ux
-    return basis.reshape(*batch_shape, 3, 3)
-
-
-def _patch_weights(half_angle, n_patch):
-    """Frame weights ``(n_patch, 3)`` of a Fibonacci-spiral spherical cap of
-    angular radius ``half_angle`` (radians): direction ``p`` of the patch
-    around a center with frame ``[c, u, v]`` is ``w[p] @ [c, u, v]``.
-    """
-    j = np.arange(n_patch, dtype=np.float64)
-    golden_angle = np.pi * (3.0 - np.sqrt(5.0))
-    r = half_angle * np.sqrt((j + 0.5) / n_patch)
-    phi = golden_angle * j
-    return np.stack(
-        (np.cos(r), np.sin(r) * np.cos(phi), np.sin(r) * np.sin(phi)), axis=1
-    )
-
-
-def _diverse_top_m_directions(amp, directions, n_seeds, min_angle_deg):
-    """Greedily select ``n_seeds`` coarse-sweep directions per element,
-    spread across the sphere rather than just the top-M by raw amplitude
-    (which tends to cluster around a single decoy peak).
-
-    Parameters
-    ----------
-    amp : np.ndarray, shape (n, num_directions)
-        Coarse-sweep envelope amplitude at every direction, per element.
-    directions : np.ndarray, shape (num_directions, 3)
-        The coarse Fibonacci-sweep direction grid (shared across elements).
-    n_seeds : int
-        Number of seeds to select.
-    min_angle_deg : float
-        Minimum angular separation enforced between chosen seeds.
-
-    Returns
-    -------
-    np.ndarray, shape (n, n_seeds)
-        Column indices into ``directions``/``amp`` for the chosen seeds.
-    """
-    n = amp.shape[0]
-    min_cos = np.cos(np.radians(min_angle_deg))
-    remaining = amp.copy()
-    chosen_idx = np.zeros((n, n_seeds), dtype=np.int64)
-
-    # Pairwise cosines between grid directions are candidate-independent:
-    # look them up per chosen seed instead of re-multiplying per element.
-    grid_cos = directions @ directions.T  # (num_directions, num_directions)
-    too_close = grid_cos > min_cos
-
-    for s in range(n_seeds):
-        idx = np.argmax(remaining, axis=1)
-        chosen_idx[:, s] = idx
-        if s == n_seeds - 1:
-            break
-        np.copyto(remaining, -np.inf, where=too_close[idx])
-
-    return chosen_idx
-
-
-def _refine_local_directions(M_P, M_Q, directions, amp, P, num_directions):
-    """Multi-seed local-patch refinement of a coarse Fibonacci-sweep result.
-
-    Refines around ``_REFINE_N_SEEDS`` diverse coarse-sweep candidates per
-    element (see :func:`_diverse_top_m_directions`), then keeps the best
-    result across seeds and rounds. The seed axis is a vectorised batch
-    dimension throughout, so this costs a bounded multiple of a
-    single-seed refinement, not a per-seed Python loop.
-
-    Each round expresses the envelope forms in the local frame of every
-    seed (``B M B^T``, :func:`_local_patch_basis`) and evaluates the patch
-    through :func:`_patch_weights` -- the patch directions are never
-    materialised, only the winning one is reconstructed.
-
-    Parameters
-    ----------
-    M_P, M_Q : np.ndarray, shape (n, 3, 3)
-        Per-element envelope forms from :func:`_quadratic_forms`.
-    directions : np.ndarray, shape (num_directions, 3)
-        Coarse sweep grid.
-    amp, P : np.ndarray, shape (n, num_directions)
-        Coarse sweep envelope and carrier power at every grid direction.
-
-    Returns
-    -------
-    best_md, best_P, best_dir : the refined per-element results (never
-        worse than the coarse sweep's own per-element best).
-    """
-    n = amp.shape[0]
-    n_seeds = min(_REFINE_N_SEEDS, directions.shape[0])
-
-    top_idx = _diverse_top_m_directions(
-        amp, directions, n_seeds, _REFINE_MIN_SEED_ANGLE_DEG
-    )  # (n, S)
-
-    best_dir = directions[top_idx]  # (n, S, 3)
-    best_md = np.take_along_axis(amp, top_idx, axis=1)  # (n, S)
-    best_P = np.take_along_axis(P, top_idx, axis=1)  # (n, S)
-
-    half_angle = 2.0 / np.sqrt(num_directions)
-    seed_rows = np.arange(n)[:, None]
-    seed_cols = np.arange(n_seeds)[None, :]
-    M_P = M_P[:, None]  # (n, 1, 3, 3), broadcast over seeds
-    M_Q = M_Q[:, None]
-
-    for _ in range(_REFINE_N_ROUNDS):
-        basis = _local_patch_basis(best_dir)  # (n, S, 3, 3)
-        weights = _patch_weights(half_angle, _REFINE_PATCH_SIZE)  # (patch, 3)
-        W6 = _direction_quadratics(weights)  # (patch, 6)
-        P6 = _pack_frame_form(basis, M_P)  # (n, S, 6)
-        Q6 = _pack_frame_form(basis, M_Q)
-        ampc, Pc = _envelope_at_quadratics(P6, Q6, W6)  # (n, S, patch)
-
-        idx = np.argmax(ampc, axis=2)  # (n, S)
-        cand_md = ampc[seed_rows, seed_cols, idx]
-        cand_P = Pc[seed_rows, seed_cols, idx]
-        cand_dir = np.einsum("nsk,nskd->nsd", weights[idx], basis)
-
-        improved = cand_md > best_md
-        best_md = np.where(improved, cand_md, best_md)
-        best_P = np.where(improved, cand_P, best_P)
-        best_dir = np.where(improved[:, :, None], cand_dir, best_dir)
-
-        half_angle *= _REFINE_SHRINK
-
-    best_seed = np.argmax(best_md, axis=1)  # (n,)
-    final_md = np.take_along_axis(best_md, best_seed[:, None], axis=1)[:, 0]
-    final_P = np.take_along_axis(best_P, best_seed[:, None], axis=1)[:, 0]
-    final_dir = best_dir[np.arange(n), best_seed]
-    return final_md, final_P, final_dir
-
-
-def _sweep_envelope_chunk(arrs_chunk, psi, directions):
-    """Coarse-sweep envelope amplitude/carrier-power at every candidate
-    direction, for one chunk of elements. Shared by the max-seeking sweep
-    (:func:`_mti_modulation_depth_sweep`) and the direction-averaged
-    envelope (:func:`_mti_modulation_depth_avg`) -- the mean over
-    directions is a by-product of the same (P, Q) computation the max
-    search already does, not a second sweep.
-
-    Returns
-    -------
-    amp, P : np.ndarray, each shape (n_chunk, num_directions)
-    M_P, M_Q : np.ndarray, each shape (n_chunk, 3, 3)
-        The per-element forms (:func:`_quadratic_forms`) the sweep was
-        evaluated from, for reuse by the local refinement.
-    """
-    M_P, M_Q = _quadratic_forms(arrs_chunk, psi)
-    amp, P = _envelope_at_quadratics(
-        _pack_symmetric(M_P), _pack_symmetric(M_Q), _direction_quadratics(directions)
-    )
-    return amp, P, M_P, M_Q
-
-
-def _mti_modulation_depth_avg(arrs, psi):
-    """Mean coarse-sweep envelope amplitude over sampled directions.
-
-    Backs :func:`get_TI_avg`. Unlike :func:`_mti_modulation_depth_sweep`,
-    there is no per-element argmax or local refinement -- refinement only
-    sharpens a single best direction, which an average over directions
-    does not need.
-    """
-    directions = _fibonacci_sphere(192)
-    n_vox = arrs[0].shape[0]
-    avg_md = np.zeros(n_vox, dtype=np.float64)
-
-    for start in range(0, n_vox, 16384):
-        stop = min(start + 16384, n_vox)
-        arrs_chunk = [field[start:stop] for field in arrs]
-        amp, _, _, _ = _sweep_envelope_chunk(arrs_chunk, psi, directions)
-        avg_md[start:stop] = np.mean(amp, axis=1)
-
-    return avg_md
-
-
-def _fused_sweep_kernel():
-    """The numba sweep+refine kernel (:mod:`tit._mti_kernel`), or ``None``.
-
-    ``None`` -- meaning "use the chunked NumPy path" -- when numba is not
-    importable or the environment variable ``TIT_MTI_KERNEL`` is set to
-    ``"numpy"`` (any other value, or unset, prefers numba). The kernel
-    reproduces the NumPy algorithm step for step, so the two paths agree
-    to round-off; the override exists for A/B testing and as an escape
-    hatch.
-    """
-    if os.environ.get("TIT_MTI_KERNEL", "").strip().lower() == "numpy":
-        return None
-    try:
-        from tit import _mti_kernel
-    except Exception:  # noqa: BLE001 - any failure means "no kernel"
-        return None
-    if not _mti_kernel.HAVE_NUMBA:
-        return None
-    return _mti_kernel.sweep_refine
-
-
-def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
-    """Chunked Fibonacci-sphere direction sweep -- returns best-direction
-    md/carrier_power/best_direction per element. When ``refine`` is True,
-    each chunk's coarse-sweep result is locally refined (see
-    :func:`_refine_local_directions`); when False, this returns the raw
-    coarse-sweep-only result."""
-    directions = _fibonacci_sphere(num_directions)
-    n_vox = arrs[0].shape[0]
-
-    kernel = _fused_sweep_kernel()
-    if kernel is not None and n_vox > 0:
-        n_seeds = min(_REFINE_N_SEEDS, directions.shape[0])
-        min_cos = np.cos(np.radians(_REFINE_MIN_SEED_ANGLE_DEG))
-        too_close = (directions @ directions.T) > min_cos
-        half_angle = 2.0 / np.sqrt(num_directions)
-        patch_weights = np.stack(
-            [
-                _patch_weights(half_angle * _REFINE_SHRINK**r, _REFINE_PATCH_SIZE)
-                for r in range(_REFINE_N_ROUNDS)
-            ]
-        )
-        md, carrier_power, best_direction = kernel(
-            arrs, psi, directions, too_close, patch_weights, n_seeds, refine
-        )
-        return {
-            "md": md,
-            "carrier_power": carrier_power,
-            "best_direction": best_direction,
-        }
-
-    md = np.zeros(n_vox, dtype=np.float64)
-    carrier_power = np.zeros(n_vox, dtype=np.float64)
-    best_direction = np.zeros((n_vox, 3), dtype=np.float64)
-
-    for start in range(0, n_vox, chunk_size):
-        stop = min(start + chunk_size, n_vox)
-        arrs_chunk = [field[start:stop] for field in arrs]
-        amp, P, M_P, M_Q = _sweep_envelope_chunk(arrs_chunk, psi, directions)
-
-        if refine:
-            chunk_md, chunk_P, chunk_dir = _refine_local_directions(
-                M_P, M_Q, directions, amp, P, num_directions
+    # Illinois regula falsi on every bracketed sign change of g along a branch.
+    el, jc, br = np.nonzero(np.signbit(g[:, :-1]) != np.signbit(g[:, 1:]))
+    if len(el):
+        a, b = grid[jc], grid[jc + 1]
+        ga, gb = g[el, jc, br], g[el, jc + 1, br]
+        ref = Vs[el, jc, :, br]
+        Cpe, Cme, Se, De = Cp[el], Cm[el], S[:, el], D[:, el]
+        idx = np.arange(len(el))
+        side = np.zeros(len(el))
+        for _ in range(_ROOT_ITERS):
+            x = (a * gb - b * ga) / (gb - ga)
+            Vx = np.linalg.eigh(
+                np.cos(x)[:, None, None] * Cpe - np.sin(x)[:, None, None] * Cme
+            )[1]
+            nx = Vx[idx, :, np.abs(np.einsum("mj,mjk->mk", ref, Vx)).argmax(axis=1)]
+            u, v, w = (q[:, 0] for q in _uvw(Se, De, nx[:, None, :]))
+            gx = np.cos(x) ** 2 * u - np.sin(x) ** 2 * v
+            left = np.signbit(gx) == np.signbit(ga)
+            ga, gb = (
+                np.where(left, gx, np.where(side == -1, ga / 2, ga)),
+                np.where(left, np.where(side == 1, gb / 2, gb), gx),
             )
-        else:
-            idx = np.argmax(amp, axis=1)
-            rows = np.arange(stop - start)
-            chunk_md = amp[rows, idx]
-            chunk_P = P[rows, idx]
-            chunk_dir = directions[idx]
+            a, b = np.where(left, x, a), np.where(left, b, x)
+            side = np.where(left, 1.0, -1.0)
+            # several brackets per element: keep each element's best iterate
+            fx = _env_uvw(u, v, w)
+            top = np.full(n_el, -1.0)
+            np.maximum.at(top, el, fx)
+            win = (fx >= top[el]) & (fx > best[el])
+            best_n[el[win]] = nx[win]
+            np.maximum(best, top, out=best)
 
-        md[start:stop] = chunk_md
-        carrier_power[start:stop] = chunk_P
-        best_direction[start:stop] = chunk_dir
+    # Safeguards: the eigenvectors of C+, C- and C+ - C-, and each pair's own
+    # K=1 optimum (exact when the other pairs vanish).
+    safe = [np.linalg.eigh(C)[1].transpose(0, 2, 1) for C in (Cp, Cm, Cw)]
+    for k in range(E.shape[0] // 2):
+        safe.append(_max_k1(E[2 * k], E[2 * k + 1])[1][:, None, :])
+    safe = np.concatenate(safe, axis=1)
+    _keep_best(best, best_n, _env_uvw(*_uvw(S, D, safe)), safe)
 
-    return {"md": md, "carrier_power": carrier_power, "best_direction": best_direction}
+    # Local polish: Newton ascent from the best point and from each branch's
+    # best grid point -- the root-find can miss a pair of close roots inside
+    # one grid interval, and a narrow ridge defeats a pattern search.
+    seeds = np.concatenate([best_n[:, None], branch_n], axis=1)
+    c = seeds.shape[1]
+    f, n = _newton_ascent(
+        np.repeat(S, c, axis=1), np.repeat(D, c, axis=1), seeds.reshape(-1, 3)
+    )
+    _keep_best(best, best_n, f.reshape(n_el, c), n.reshape(n_el, c, 3))
 
-
-def _mti_modulation_depth_at_directions(arrs, psi, directions):
-    """Evaluate the envelope at an explicit per-element direction (no search)."""
-    directions = np.asarray(directions, dtype=np.float64)
-    if directions.shape != arrs[0].shape:
-        raise ValueError(
-            "directions must have the same shape as each field array; got "
-            f"{directions.shape}, expected {arrs[0].shape}"
-        )
-    norms = np.linalg.norm(directions, axis=1, keepdims=True)
-    norms[norms == 0.0] = 1.0
-    unit_dirs = directions / norms
-
-    proj = [np.sum(field * unit_dirs, axis=1) for field in arrs]
-    P, Q = _pairwise_products(proj, psi)
-    md = _envelope_from_PQ(P, Q)
-
-    return {"md": md, "carrier_power": P, "best_direction": unit_dirs}
+    best_n /= np.linalg.norm(best_n, axis=1, keepdims=True)
+    return np.maximum(best, 0.0), best_n
 
 
-def _fibonacci_sphere(num_dirs: int) -> np.ndarray:
-    """Return approximately uniform unit vectors on the sphere.
+def _newton_ascent(S, D, n):
+    """Riemannian Newton ascent of ``E_AM`` on the sphere from unit rows ``n``.
 
-    Ported from ``alba/ex-search-multipolar`` (see module docstring
-    "Attribution").
+    ``S``, ``D`` are ``(K, m, 3)``; returns ``(f, n)`` per row.  On the side
+    ``u >= v``, ``E_AM = sqrt(2u) - sqrt(2v)`` (else its negative), smooth
+    away from the cusps ``u = 0``, ``v = 0``.  A step is taken only if it
+    raises ``E_AM`` (halved up to 6 times), so the result never gets worse;
+    where the tangent Hessian is not negative definite the step is a 0.1 rad
+    gradient step instead.  Cusp maxima are covered by the safeguard
+    candidates, not by this.
     """
-    i = np.arange(num_dirs, dtype=np.float64)
-    phi = np.pi * (3.0 - np.sqrt(5.0))
-    y = 1.0 - 2.0 * i / (num_dirs - 1)
-    radius = np.sqrt(np.maximum(0.0, 1.0 - y * y))
-    theta = phi * i
-    x = np.cos(theta) * radius
-    z = np.sin(theta) * radius
-    return np.stack((x, y, z), axis=1)
+    Cp = 0.5 * np.einsum("kmx,kmy->mxy", S, S)
+    Cm = 0.5 * np.einsum("kmx,kmy->mxy", D, D)
+
+    def at(n):
+        u, v, w = (q[:, 0] for q in _uvw(S, D, n[:, None]))
+        return _env_uvw(u, v, w), u, v
+
+    f, u, v = at(n)
+    with np.errstate(all="ignore"):
+        for _ in range(_NEWTON_ITERS):
+            up = (u >= v)[:, None, None]
+            A, B = np.where(up, Cp, Cm), np.where(up, Cm, Cp)
+            ua, vb = np.where(up[:, 0, 0], u, v), np.where(up[:, 0, 0], v, u)
+            ra, rb = np.sqrt(ua), np.sqrt(vb)
+            An = np.einsum("mxy,my->mx", A, n)
+            Bn = np.einsum("mxy,my->mx", B, n)
+            grad = _SQRT2 * (An / ra[:, None] - Bn / rb[:, None])
+            hess = _SQRT2 * (
+                A / ra[:, None, None]
+                - B / rb[:, None, None]
+                - An[:, :, None] * An[:, None, :] / (ua * ra)[:, None, None]
+                + Bn[:, :, None] * Bn[:, None, :] / (vb * rb)[:, None, None]
+            )
+            _, e1, e2 = _frame(n)
+            T = np.stack([e1, e2], axis=1)
+            gt = np.einsum("mix,mx->mi", T, grad)
+            Ht = np.einsum("mix,mxy,mjy->mij", T, hess, T)
+            Ht -= np.einsum("mx,mx->m", grad, n)[:, None, None] * np.eye(2)
+            det = Ht[:, 0, 0] * Ht[:, 1, 1] - Ht[:, 0, 1] ** 2
+            concave = (Ht[:, 0, 0] < 0) & (det > 0)
+            newton = (
+                -np.stack(
+                    [
+                        Ht[:, 1, 1] * gt[:, 0] - Ht[:, 0, 1] * gt[:, 1],
+                        Ht[:, 0, 0] * gt[:, 1] - Ht[:, 0, 1] * gt[:, 0],
+                    ],
+                    axis=1,
+                )
+                / det[:, None]
+            )
+            gnorm = np.linalg.norm(gt, axis=1, keepdims=True)
+            step = np.where(concave[:, None], newton, 0.1 * gt / gnorm)
+            step = np.nan_to_num(step, nan=0.0, posinf=0.0, neginf=0.0)
+            length = np.linalg.norm(step, axis=1, keepdims=True)
+            step *= np.minimum(1.0, 0.3 / np.where(length > 0, length, 1.0))
+            for _ in range(6):
+                cand = n + np.einsum("mi,mix->mx", step, T)
+                cand /= np.linalg.norm(cand, axis=1, keepdims=True)
+                fc, uc, vc = at(cand)
+                ok = fc > f
+                n[ok], f[ok], u[ok], v[ok] = cand[ok], fc[ok], uc[ok], vc[ok]
+                step[ok] = 0.0
+                step *= 0.5
+                if ok.all():
+                    break
+    return f, n
+
+
+def _max_plane(E, m):
+    """K>=2 maximum over the plane perpendicular to unit rows ``m`` (exact)."""
+    _, e1, e2 = _frame(m)
+    S = E[0::2] + E[1::2]
+    D = E[0::2] - E[1::2]
+
+    def trig(X):
+        """``u(psi) = c0 + c1 cos(psi) + c2 sin(psi)`` with ``psi = 2 phi``."""
+        x1 = np.einsum("knx,nx->kn", X, e1)
+        x2 = np.einsum("knx,nx->kn", X, e2)
+        c11 = 0.5 * np.sum(x1 * x1, 0)
+        c22 = 0.5 * np.sum(x2 * x2, 0)
+        c12 = 0.5 * np.sum(x1 * x2, 0)
+        return np.stack([(c11 + c22) / 2, (c11 - c22) / 2, c12], axis=-1)
+
+    A, B = trig(S), trig(D)
+
+    def val(C, psi):
+        return C[:, :1] + C[:, 1:2] * np.cos(psi) + C[:, 2:3] * np.sin(psi)
+
+    def der(C, psi):
+        return -C[:, 1:2] * np.sin(psi) + C[:, 2:3] * np.cos(psi)
+
+    # F = u'^2 v - v'^2 u is a degree-3 trig polynomial: 7 samples fix it.
+    ps = 2 * np.pi * np.arange(7)[None, :] / 7
+    F = der(A, ps) ** 2 * val(B, ps) - der(B, ps) ** 2 * val(A, ps)
+    c = np.fft.fft(F, axis=1) / 7
+    # z^3 F(z) = sum_{m=-3}^{3} c_m z^(m+3), highest degree first
+    P = np.stack([c[:, mm % 7] for mm in range(3, -4, -1)], axis=1)
+    scale = np.abs(P).max(axis=1)
+    scale = np.where(scale > 0, scale, 1.0)
+    lead = P[:, 0]
+    tiny = np.abs(lead) < 1e-14 * scale
+    P[tiny, 0] = 1e-14 * scale[tiny]  # degree drop: push the lost roots to infinity
+    comp = np.zeros((len(P), 6, 6), dtype=complex)
+    comp[:, 0, :] = -P[:, 1:] / P[:, :1]
+    comp[:, np.arange(1, 6), np.arange(5)] = 1.0
+    cand = [np.angle(np.linalg.eigvals(comp))]
+    for C in (A, B):
+        r = np.hypot(C[:, 1], C[:, 2])
+        delta = np.arctan2(C[:, 2], C[:, 1])
+        acos = np.arccos(np.clip(-C[:, 0] / np.where(r > 0, r, 1.0), -1, 1))
+        # zeros of u and v (the cusps of sqrt): double roots of F, found here exactly
+        cand.append(np.stack([delta + acos, delta - acos], 1))
+    psi = np.concatenate(cand, axis=1)
+    f = _SQRT2 * np.abs(
+        np.sqrt(np.maximum(val(A, psi), 0.0)) - np.sqrt(np.maximum(val(B, psi), 0.0))
+    )
+    j = f.argmax(axis=1)
+    phi = psi[np.arange(len(j)), j] / 2
+    n = np.cos(phi)[:, None] * e1 + np.sin(phi)[:, None] * e2
+    # re-evaluate at the winner in the stable form
+    p = np.einsum("fnx,nx->fn", E, n)
+    a, b = p[0::2], p[1::2]
+    den = np.sqrt(np.sum((a + b) ** 2, 0)) + np.sqrt(np.sum((a - b) ** 2, 0))
+    return _ratio(4.0 * np.abs(np.sum(a * b, 0)), den), n
+
+
+# ---------------------------------------------------------------------------
+# envelope_mean
+# ---------------------------------------------------------------------------
+
+
+def envelope_mean(fields: Sequence[ArrayLike]) -> NDArray[np.float64]:
+    """Mean of the envelope over all directions (``TI_avg``), any K.
+
+    The average of ``E_AM(n)`` over the unit sphere: what an arbitrarily
+    oriented element sees on average.  Defined by this toolbox (no literature
+    definition); never exceeds :func:`envelope_max`.
+
+    Method and accuracy
+    -------------------
+    * **K = 1**: exact closed form.  ``E_AM(n) = 2 min(|a|, |b|) = 2|a| + 2|b|
+      - |a + b| - |a - b|`` and the sphere mean of ``|v . n|`` is ``|v| / 2``,
+      so the mean is ``|E1| + |E2| - (|E1 + E2| + |E1 - E2|) / 2``.
+    * **K >= 2**: equal-weight quadrature on 2048 equal-area directions of one
+      hemisphere (``E_AM(n) = E_AM(-n)``, so this is the 4096-point full-sphere
+      rule): about 7e-4 worst-case relative error on random fields.
+
+    Parameters
+    ----------
+    fields : sequence of array-like, each (N, 3)
+        ``[E1a, E1b, E2a, E2b, ...]``, 2K fields in V/m, paired positionally.
+
+    Returns
+    -------
+    numpy.ndarray, (N,)
+        Direction-averaged envelope amplitude in V/m.
+
+    Raises
+    ------
+    ValueError
+        As :func:`envelope`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> E1, E2 = np.array([[1.0, 0, 0]]), np.array([[0.5, 0, 0]])
+    >>> envelope_mean([E1, E2])  # 2 * 0.5 * mean|cos| = 0.5
+    array([0.5])
+    """
+    E = _stack(fields, paired=True)
+    if E.shape[0] == 2:
+
+        def norm(x):
+            return np.linalg.norm(x, axis=1)
+
+        E1, E2 = E
+        return norm(E1) + norm(E2) - 0.5 * (norm(E1 + E2) + norm(E1 - E2))
+
+    dirs = _hemisphere_directions(_MEAN_DIRECTIONS)
+    x, y, z = dirs.T
+    monomials = np.stack([x * x, y * y, z * z, 2 * x * y, 2 * x * z, 2 * y * z])
+
+    def pack(C):
+        return np.stack(
+            [C[:, 0, 0], C[:, 1, 1], C[:, 2, 2], C[:, 0, 1], C[:, 0, 2], C[:, 1, 2]], 1
+        )
+
+    n_el = E.shape[1]
+    out = np.empty(n_el)
+    for lo in range(0, n_el, _MEAN_CHUNK):
+        sl = slice(lo, min(lo + _MEAN_CHUNK, n_el))
+        u, v, w = (pack(C) @ monomials for C in _forms(E[:, sl]))
+        out[sl] = _env_uvw(u, v, w).mean(axis=1)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Carrier metrics
+# ---------------------------------------------------------------------------
+
+
+def hf_peak(
+    fields: Sequence[ArrayLike], *, coherent: bool = False
+) -> NDArray[np.float64]:
+    """Peak instantaneous carrier field: ``max_s |sum_c s_c E_c|``.
+
+    Each field is one carrier (one electrode pair).  Carriers at mutually
+    incommensurate frequencies pass through every relative phase, so the worst
+    case is the maximum over sign choices ``s_c = +-1`` -- equivalently the
+    support of the zonotope ``max_n sum_c |E_c . n|``.  At two carriers it is
+    ``max(|E1 + E2|, |E1 - E2|)``, Cassarà et al. 2025 Part I Eq. 3 (p. 11:
+    the worst case is in-phase, spatially aligned fields).
+
+    Method: exact for every carrier count.  One carrier is ``|E1|``; two is
+    Eq. 3.  From three on, the maximum is a zonotope vertex, and every vertex
+    is a cell of the arrangement of planes ``E_c . n = 0``, adjacent to one of
+    its vertices ``n = E_i x E_j``: the ``4 C(N, 2)`` sign patterns around
+    those vertices (plus ``n`` along the largest field, for all-collinear
+    fields) contain the maximum.  Fields lying in the plane of ``E_i, E_j``
+    (``E_c . n = 0``) take their sign from an in-plane direction inside the
+    chosen quadrant, so coplanar and parallel fields stay exact.
+
+    Parameters
+    ----------
+    fields : sequence of array-like, each (N, 3)
+        One or more carrier fields in V/m, all the same shape.
+    coherent : bool
+        Carrier-only control (every pair at one frequency, in phase, ΔF = 0):
+        the fields add as vectors, ``|sum_c E_c|`` (Cassarà 2025 Part II p. 8).
+
+    Returns
+    -------
+    numpy.ndarray, (N,)
+        Peak carrier field magnitude in V/m.
+
+    Raises
+    ------
+    ValueError
+        No fields, or fields not all ``(N, 3)`` of one shape.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> hf_peak([np.array([[1.0, 0, 0]]), np.array([[0, 1.0, 0]])])
+    array([1.41421356])
+    """
+    E = _stack(fields, paired=False)
+    if coherent or len(E) == 1:
+        return np.linalg.norm(E.sum(axis=0), axis=-1)
+    if len(E) == 2:
+        return np.maximum(
+            np.linalg.norm(E[0] + E[1], axis=-1), np.linalg.norm(E[0] - E[1], axis=-1)
+        )
+    n_el = E.shape[1]
+    out = np.empty(n_el)
+    for lo in range(0, n_el, _CHUNK):
+        sl = slice(lo, min(lo + _CHUNK, n_el))
+        out[sl] = _hf_peak_vertices(E[:, sl])
+    return out
+
+
+def _hf_peak_vertices(E):
+    """Exact ``max_s |sum s_c E_c|`` for ``(F >= 3, n, 3)`` by arrangement vertices."""
+    F, n_el, _ = E.shape
+    rows = np.arange(n_el)
+    norms = np.linalg.norm(E, axis=2)
+
+    def total(signs):
+        return np.linalg.norm(np.einsum("fm,fmx->mx", signs, E), axis=1)
+
+    def sign(x):
+        return np.where(x < 0, -1.0, 1.0)
+
+    e_big = E[norms.argmax(axis=0), rows]
+    best = total(sign(np.einsum("fmx,mx->fm", E, e_big)))
+    for i, j in itertools.combinations(range(F), 2):
+        n = np.cross(E[i], E[j])
+        d = np.einsum("fmx,mx->fm", E, n)
+        # in the plane of E_i, E_j: sign from m = si (E_j x n) + sj (n x E_i)
+        coplanar = np.abs(d) <= 1e-12 * norms * np.linalg.norm(n, axis=1)
+        t_i = np.einsum("fmx,mx->fm", E, np.cross(E[j], n))
+        t_j = np.einsum("fmx,mx->fm", E, np.cross(n, E[i]))
+        base = sign(d)
+        for si in (1.0, -1.0):
+            for sj in (1.0, -1.0):
+                s = np.where(coplanar, sign(si * t_i + sj * t_j), base)
+                s[i] = si
+                s[j] = sj
+                np.maximum(best, total(s), out=best)
+    return best
+
+
+def hf_power(
+    fields: Sequence[ArrayLike], *, coherent: bool = False
+) -> NDArray[np.float64]:
+    """Time-averaged mean-square carrier field ``(1/2) sum_c |E_c|^2`` = ``E_rms^2``.
+
+    Each ``E_c`` is a zero-to-peak carrier amplitude at its own frequency, so
+    over time the cross terms average out and the carriers' powers add:
+    Cassarà et al. 2025 Part I p. 11 ("the SAR distributions from the two
+    channels, rather than the E-fields themselves, must be summed") and Part II
+    p. 8 (incoherent superposition for distinct frequencies).  ``sigma *
+    hf_power`` is the absorbed power density (W/m^3) and ``sigma * hf_power /
+    rho`` the SAR (IEEE C95.1-2019 p. 35, ``SAR = sigma |E_rms|^2 / rho``;
+    Cassarà 2025 Part II Eq. 1).  At 1-10 kHz, however, ICNIRP 2010 and IEEE
+    C95.1 limit the RMS in-situ field -- ``sqrt(hf_power)``, spatially averaged
+    -- not SAR (SAR limits start at 100 kHz).
+
+    Units convention: every other field here (``E_c``, ``TI_max``/
+    :func:`envelope_max`, :func:`hf_peak`) is zero-to-peak for zero-to-peak
+    channel currents; this one is a time average.  Compare ``sqrt(hf_power)``
+    with RMS limits, or ``hf_peak`` with ``sqrt(2)`` times them.
+
+    Parameters
+    ----------
+    fields : sequence of array-like, each (N, 3)
+        One or more zero-to-peak carrier fields in V/m, all the same shape.
+    coherent : bool
+        Carrier-only control (every pair at one frequency, in phase, ΔF = 0):
+        one sinusoid of amplitude ``sum_c E_c``, so ``(1/2) |sum_c E_c|^2``.
+
+    Returns
+    -------
+    numpy.ndarray, (N,)
+        Mean-square carrier field in (V/m)^2.
+
+    Raises
+    ------
+    ValueError
+        As :func:`hf_peak`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> hf_power([np.array([[1.0, 0, 0]]), np.array([[0, 2.0, 0]])])
+    array([2.5])
+    """
+    E = _stack(fields, paired=False)
+    if coherent:
+        E = E.sum(axis=0, keepdims=True)
+    return 0.5 * np.einsum("fnx,fnx->n", E, E)
