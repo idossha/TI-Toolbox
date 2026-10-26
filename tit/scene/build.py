@@ -1,4 +1,4 @@
-"""Building the four scene payloads from a subject's real files (plan §2).
+"""Building the scene payloads from a subject's real files (plan §2).
 
 What this module extracts, and from where:
 
@@ -10,7 +10,6 @@ part / payload   source
 electrodes       ``m2m_<id>/eeg_positions/<net>.csv`` (``Electrode,x,y,z,name``)
 region labels    ``m2m_<id>/segmentation/{lh,rh}.<id>_<atlas>.annot``
                  + ``m2m_<id>/surfaces/{lh,rh}.central.gii``
-volume legend    ``m2m_<id>/segmentation/labeling_LUT.txt``
 ===============  ==========================================================
 
 **The alignment problem, and how it is solved.** A ``.annot`` file has one
@@ -76,7 +75,6 @@ __all__ = [
     "build_surfaces",
     "build_labels",
     "read_net",
-    "volume_legend",
     "atlas_region_count",
     "parse_electrode_csv",
     "parse_lut_text",
@@ -954,16 +952,3 @@ def read_net(
         if pairs:
             raise SceneUnavailable(caps.collapsed_message(net, sid, pairs))
     return {"net": net, "space": "subject-ras", **parsed}
-
-
-def volume_legend(pm: PathManager, sid: str, volume_id: str = "labeling") -> dict:
-    """``{entries:[{id,name,color}]}`` for the subject's label volume."""
-    if volume_id != "labeling":
-        raise SceneUnavailable(f"unknown scene volume {volume_id!r}")
-    lut = source_path(pm, Path(pm.m2m(sid)) / "segmentation" / "labeling_LUT.txt")
-    if lut is None or not lut.is_file():
-        raise SceneUnavailable(f"{sid} has no segmentation/labeling_LUT.txt")
-    return {
-        "id": volume_id,
-        "entries": parse_lut_text(lut.read_text(encoding="utf-8", errors="replace")),
-    }

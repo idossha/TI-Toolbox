@@ -105,10 +105,6 @@ REQUESTS: dict[str, tuple[str, Callable[[Any], list] | None]] = {
         f"/api/catalog/simulations/{SIM}?subject={SID}",
         _items("niftis"),
     ),
-    "/api/catalog/electrode-overlays": (
-        f"/api/catalog/electrode-overlays?subject={SID}&simulation={SIM}",
-        None,
-    ),
     "/api/catalog/montages": ("/api/catalog/montages", None),
     "/api/catalog/eeg-nets": (f"/api/catalog/eeg-nets?subject={SID}", _items()),
     "/api/catalog/atlases": (f"/api/catalog/atlases?subject={SID}", _items()),
@@ -124,10 +120,6 @@ REQUESTS: dict[str, tuple[str, Callable[[Any], list] | None]] = {
         None,
     ),
     "/api/catalog/ex-runs": (f"/api/catalog/ex-runs?subject={SID}", _items()),
-    "/api/catalog/ex-runs/{run}/results": (
-        f"/api/catalog/ex-runs/{P.ex_run}/results?subject={SID}&kind=ex",
-        _items("rows"),
-    ),
     "/api/catalog/optimization-candidates": (
         f"/api/catalog/optimization-candidates?subject={SID}&kind=ex&run={P.ex_run}",
         _items("candidates"),
@@ -149,11 +141,9 @@ REQUESTS: dict[str, tuple[str, Callable[[Any], list] | None]] = {
     "/api/catalog/freehand": (f"/api/catalog/freehand?subject={SID}", _items()),
     "/api/catalog/group": ("/api/catalog/group", _items("stats")),
     "/api/catalog/notes": ("/api/catalog/notes", None),
-    "/api/catalog/subject-info": ("/api/catalog/subject-info", None),
     "/api/catalog/project-summary": ("/api/catalog/project-summary", None),
     "/api/catalog/overview": ("/api/catalog/overview", None),
     "/api/schema": ("/api/schema", None),
-    "/api/schema/{name}": ("/api/schema/SimulationConfig", None),
     "/api/jobs": ("/api/jobs", _items()),
     "/api/jobs/{id}": ("/api/jobs/{sim_job}", None),
     "/api/jobs/{id}/events": ("/api/jobs/{tools_job}/events", _items()),
@@ -170,17 +160,10 @@ REQUESTS: dict[str, tuple[str, Callable[[Any], list] | None]] = {
         None,
     ),
     "/api/viewer/tree": (f"/api/viewer/tree?subject={SID}", None),
-    "/api/viewer/compositions": ("/api/viewer/compositions", None),
     "/api/viewer/scenes": ("/api/viewer/scenes", None),
     "/api/viewer/scenes/suggest/name": (
         f"/api/viewer/scenes/suggest/name?subject={SID}&simulation={SIM}&field=TI_max",
         None,
-    ),
-    "/api/viewer/presets": ("/api/viewer/presets", None),
-    "/api/files/csv": (
-        "/api/files/csv?path={root}/derivatives/SimNIBS/sub-101/Simulations/L_Insula"
-        f"/Analyses/Mesh/{P.mesh_analysis}/results.csv",
-        _items("rows"),
     ),
     "/api/cpu-limit": ("/api/cpu-limit", None),
     "/api/surfer-settings": ("/api/surfer-settings", None),
@@ -202,7 +185,6 @@ EXEMPT: dict[str, str] = {
     "/api/scene/manifest": "needs published surfaces; tests/test_scene_routes.py validates it",
     "/api/scene/regions": "needs published labels; tests/test_scene_routes.py validates it",
     "/api/scene/electrodes": "tests/test_scene_routes.py validates it against the contract",
-    "/api/scene/volume-legend": "tests/test_scene_routes.py validates it against the contract",
     "/api/catalog/regions": (
         "reads the voxel atlases' label values with nibabel, a MagicMock on the host"
     ),

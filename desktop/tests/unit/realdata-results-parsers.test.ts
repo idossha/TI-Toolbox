@@ -26,15 +26,12 @@
  *
  * Deliberately not here: the analysis figures-vs-catalog check, which needs the Python catalog
  * (tests/test_catalog_analysis_figures.py).
- *
- * `rankExRows` and `shortMontage` are read here (the ranked-table check); no page calls them, so
- * the package that deletes them must drop that check with them.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { analysisView, focalityUnit, metricMap, type TableLike } from "../../src/renderer/pages/results/preview/analysis";
-import { parseExRunConfig, rankExRows, shortMontage, type ExTable } from "../../src/renderer/pages/results/preview/ex";
+import { parseExRunConfig, type ExTable } from "../../src/renderer/pages/results/preview/ex";
 import { flexManifestSummary, parseFlexPositions } from "../../src/renderer/pages/results/preview/flex";
 import { parseSimulationConfig } from "../../src/renderer/pages/results/preview/simulation";
 
@@ -187,9 +184,6 @@ describe.skipIf(!HAVE)("Dataset 000 through the Results parsers", () => {
         if (config.channel_limit_mA) expect(Math.max(c1, c2), run).toBeLessThanOrEqual(config.channel_limit_mA + 1e-9);
         expect(row[col("TImean_ROI")] as number, run).toBeLessThanOrEqual(row[col("TImax_ROI")] as number);
       }
-      const rank = col("Composite_Index");
-      const best = table.rows.reduce((a, b) => ((b[rank] as number) > (a[rank] as number) ? b : a));
-      expect(rankExRows(table).rows[0]![0], run).toBe(shortMontage(String(best[0])));
     }
   });
 

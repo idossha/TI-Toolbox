@@ -751,11 +751,6 @@ def test_force_marks_terminal_without_waiting(manager):
     assert pid_val is None  # cleared by force()
 
 
-# ---------------------------------------------------------------------------------------------
-# rerun
-# ---------------------------------------------------------------------------------------------
-
-
 def test_a_product_group_runs_one_job_at_a_time(tmp_path):
     """One job per product: a four-subject Simulator group with no ``after`` edges and a roomy
     budget still runs its jobs one after another, end to end through the real scheduler."""
@@ -792,26 +787,6 @@ def test_a_product_group_runs_one_job_at_a_time(tmp_path):
         assert all(manager.get(i)["state"] == "succeeded" for i in ids)
     finally:
         manager.shutdown()
-
-
-def test_rerun_submits_new_job_with_same_config(manager):
-    original = manager.submit(
-        "tools", {"__fake": {"duration_s": 0.05}}, ["001"], tags=["batch"]
-    )
-    wait_until(
-        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
-            manager.get(original["id"])
-        )
-    )
-    rerun = manager.rerun(original["id"])
-    assert rerun["id"] != original["id"]
-    assert rerun["subject_ids"] == ["001"]
-    wait_until(
-        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
-            manager.get(rerun["id"])
-        )
-    )
-    assert manager.rerun("nope") is None
 
 
 # ---------------------------------------------------------------------------------------------

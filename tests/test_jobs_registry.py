@@ -17,7 +17,7 @@ from tit.jobs.registry import (
     jobs_root,
 )
 from tit.jobs.spec import Cost, JobSpec, JobStatus
-from tit.jobs.tailer import EventTailer, line_count, read_events
+from tit.jobs.tailer import EventTailer, read_events
 
 
 def _spec(job_id: str, **overrides) -> JobSpec:
@@ -376,12 +376,6 @@ def test_read_events_missing_file(tmp_path):
     assert read_events(str(tmp_path / "nope.jsonl")) == []
 
 
-def test_line_count(tmp_path):
-    path = tmp_path / "events.jsonl"
-    path.write_text("a\nb\n\nc\n")
-    assert line_count(str(path)) == 3
-
-
 def test_event_tailer_incremental_poll(tmp_path):
     path = tmp_path / "events.jsonl"
     path.write_text("")
@@ -406,7 +400,8 @@ def test_event_tailer_start_seq_for_reattach(tmp_path):
     path.write_text(
         "\n".join(json.dumps({"type": "log", "msg": str(i)}) for i in range(3)) + "\n"
     )
-    tailer = EventTailer(str(path), start_seq=line_count(str(path)))
+    # Reattach past the three events already in the file: only what is appended is new.
+    tailer = EventTailer(str(path), start_seq=3)
     assert tailer.poll() == []
     with open(path, "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"type": "log", "msg": "new"}) + "\n")

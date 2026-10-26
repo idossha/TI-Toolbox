@@ -288,7 +288,6 @@ config = RegionConfig(
     simulation_name="HIPP_L",
     format=RegionConfig.Format.PLY,
     atlas="DK40",
-    surface="central",        # central | pial | white
     field_name="TI_max",
 )
 run_regions(config)

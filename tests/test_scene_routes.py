@@ -8,7 +8,7 @@ What this pins
     way every other v1 route module asserts it.
 
     Added in the 2026-09-04 fix round (lane FIX-B,
-    ``docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)``): all six routes give *one*
+    ``docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)``): every subject route gives *one*
     subject-level answer, and it names what is missing and what to run rather
     than "unknown subject" (which was what a subject staged under
     ``sourcedata/`` -- and listed by the app's own picker -- used to get); and
@@ -60,11 +60,6 @@ NET_CSV = (
     "ReferenceElectrode,0.0,0.0,90.0,Cz\n"
     "Fiducial,2.08,114.04,-12.88,Nz\n"
 )
-LUT_TXT = (
-    "#No.\t  Label Name:\t\t\t   R   G   B   A\n"
-    "2\t  Left-Cerebral-White-Matter       245 245 245 255 \n"
-    "3\t  Left-Cerebral-Cortex     \t   205 62 78 255 \n"
-)
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +76,7 @@ def _reset_route_state():
 def project(tmp_path: Path) -> Path:
     """The four states a subject can be in when a pane asks for its scene.
 
-    ``ernie``  head model + net + LUT: everything works.
+    ``ernie``  head model + net: everything works.
     ``bare``   ``m2m_bare/`` exists but the mesh does not (charm interrupted).
     ``raw``    raw BIDS only, no ``m2m_raw/`` at all (charm never run).
     ``102``    staged under ``sourcedata/`` and nothing else -- the state
@@ -99,7 +94,6 @@ def project(tmp_path: Path) -> Path:
     (Path(pm.sourcedata_subject("102")) / "T1w" / "0001.dcm").write_bytes(b"\x00")
     (Path(pm.m2m("ernie")) / "ernie.msh").write_bytes(b"not really a mesh")
     (Path(pm.eeg_positions("ernie")) / "EEG10-10.csv").write_text(NET_CSV)
-    (Path(pm.segmentation("ernie")) / "labeling_LUT.txt").write_text(LUT_TXT)
     (tmp_path / "dataset_description.json").write_text("{}")
     return tmp_path
 
@@ -221,7 +215,6 @@ def _publish_fake_labels(project: Path, sid: str = "ernie", atlas: str = "DK40")
         "/api/scene/electrodes?subject=ernie&net=EEG10-10.csv",
         "/api/scene/regions?subject=ernie&atlas=DK40",
         "/api/scene/labels?subject=ernie&atlas=DK40",
-        "/api/scene/volume-legend?subject=ernie",
     ],
 )
 def test_every_scene_route_needs_auth(client: TestClient, path: str) -> None:
@@ -237,7 +230,6 @@ def test_every_scene_route_needs_auth(client: TestClient, path: str) -> None:
         "/api/scene/manifest?subject=nope",
         "/api/scene/surface?subject=nope&part=gm",
         "/api/scene/electrodes?subject=nope&net=EEG10-10.csv",
-        "/api/scene/volume-legend?subject=nope",
     ],
 )
 def test_unknown_subject_is_404(client: TestClient, path: str) -> None:
@@ -247,15 +239,14 @@ def test_unknown_subject_is_404(client: TestClient, path: str) -> None:
 
 
 #: Every route of §2.1, addressed by subject id. A subject-level answer has to
-#: be the same sentence on all six: the pane calls the manifest first, but the
-#: form's own controls (net, atlas, volume legend) call the others directly.
+#: be the same sentence on all five: the pane calls the manifest first, but the
+#: form's own controls (net, atlas) call the others directly.
 SUBJECT_ROUTES = [
     "/api/scene/manifest?subject={sid}",
     "/api/scene/surface?subject={sid}&part=gm",
     "/api/scene/labels?subject={sid}&atlas=DK40",
     "/api/scene/regions?subject={sid}&atlas=DK40",
     "/api/scene/electrodes?subject={sid}&net=EEG10-10.csv",
-    "/api/scene/volume-legend?subject={sid}",
 ]
 
 
@@ -284,13 +275,13 @@ def test_a_staged_subject_is_told_what_to_run_not_that_it_is_unknown(
 def test_a_subject_with_raw_data_but_no_head_model_names_the_directory(
     client: TestClient, route: str
 ) -> None:
-    """The onboarded-but-not-reconstructed case, on all six routes.
+    """The onboarded-but-not-reconstructed case, on all five routes.
 
     ``catalog.subject_ids`` *does* list ``raw``, so this one never said
     "unknown" -- but only ``manifest`` and ``surface`` looked for the head
-    mesh. ``electrodes`` blamed the net file, ``regions``/``labels`` blamed the
-    atlas and ``volume-legend`` blamed the LUT, each naming a file that is
-    missing only because the whole head model is.
+    mesh. ``electrodes`` blamed the net file and ``regions``/``labels`` blamed
+    the atlas, each naming a file that is missing only because the whole head
+    model is.
     """
     response = client.get(route.format(sid="raw"), headers=BEARER)
     assert response.status_code == 404
@@ -365,7 +356,6 @@ def test_every_scene_json_response_matches_the_contract_schema(
         "/api/scene/manifest": "/api/scene/manifest?subject=ernie",
         "/api/scene/regions": "/api/scene/regions?subject=ernie&atlas=DK40",
         "/api/scene/electrodes": "/api/scene/electrodes?subject=ernie&net=EEG10-10.csv",
-        "/api/scene/volume-legend": "/api/scene/volume-legend?subject=ernie",
     }
     assert cases, "has responses to check"
     for operation, url in cases.items():
@@ -440,7 +430,7 @@ def test_a_path_shaped_net_is_422_and_an_unknown_net_is_404(client: TestClient) 
     assert response.status_code == 404
 
 
-# ── electrodes and the volume legend (no build needed) ───────────────────────
+# ── electrodes (no build needed) ─────────────────────────────────────────────
 
 
 def test_electrodes_are_split_by_row_type_and_carry_world_mm(
@@ -455,24 +445,6 @@ def test_electrodes_are_split_by_row_type_and_carry_world_mm(
     assert body["electrodes"][0]["world"] == [-26.08, 113.65, 19.07]
     assert [e["name"] for e in body["reference"]] == ["Cz"]
     assert [e["name"] for e in body["fiducials"]] == ["Nz"]
-
-
-def test_volume_legend_parses_the_freesurfer_style_table(client: TestClient) -> None:
-    body = client.get("/api/scene/volume-legend?subject=ernie", headers=BEARER).json()
-    assert body["id"] == "labeling"
-    assert body["entries"][0] == {
-        "id": 2,
-        "name": "Left-Cerebral-White-Matter",
-        "color": "#f5f5f5",
-    }
-    assert body["entries"][1]["color"] == "#cd3e4e"
-
-
-def test_an_unknown_volume_id_is_404(client: TestClient) -> None:
-    response = client.get(
-        "/api/scene/volume-legend?subject=ernie&id=whatever", headers=BEARER
-    )
-    assert response.status_code == 404
 
 
 # ── the cache contract: 202 while building, 200 + ETag once ready ────────────

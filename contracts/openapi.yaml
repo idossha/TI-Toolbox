@@ -474,36 +474,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
-  /api/catalog/electrode-overlays:
-    get:
-      tags: [catalog]
-      summary: Electrode-overlay NIfTI presence for one simulation, per TI/mTI mode
-      description: >-
-        Listing-only: whether `tit.tools.electrode_overlay` (a `tools` job) has already produced
-        `<simulation>/<mode>/montage_imgs/electrode_overlay_subject.nii.gz` for each mode, and its
-        path. Building the overlay is out of scope here; see `tit/server/routes/viewers.py` and
-        `tit/catalog.py::electrode_overlays`.
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: subject
-          required: true
-          schema: { type: string }
-        - in: query
-          name: simulation
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/ElectrodeOverlay" }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: unknown subject or simulation
   /api/catalog/montages:
     get:
       tags: [catalog]
@@ -952,34 +922,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: unknown subject
-  /api/catalog/ex-runs/{run}/results:
-    get:
-      tags: [catalog]
-      summary: Full results table (every montage/current-split scored) of one ex/mEx run
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: run
-          required: true
-          schema: { type: string }
-        - in: query
-          name: subject
-          required: true
-          schema: { type: string }
-        - in: query
-          name: kind
-          required: true
-          schema: { type: string, enum: [ex, mex] }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TableData"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
   /api/catalog/analyses:
     get:
       tags: [catalog]
@@ -1170,19 +1112,6 @@ paths:
                 $ref: "#/components/schemas/Notes"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/catalog/subject-info:
-    get:
-      tags: [catalog]
-      summary: Presence matrix (subject x data-stage) across the whole project
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TableData"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /api/catalog/project-summary:
     get:
       tags:
@@ -1249,27 +1178,6 @@ paths:
                 additionalProperties: true
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/schema/{name}:
-    get:
-      tags: [schema]
-      summary: One resolved $def from schema.json, by config class name
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: unknown config class name
 
   # --------------------------------------------------------------------------- validate / plan (v1)
   /api/validate/{kind}:
@@ -1596,26 +1504,6 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobStatus"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /api/jobs/{id}/rerun:
-    post:
-      tags: [jobs]
-      summary: Submit a new job with the same spec as a finished one
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-      responses:
-        "201":
           content:
             application/json:
               schema:
@@ -2081,12 +1969,6 @@ paths:
         "404":
           description: unknown subject/simulation/analysis
 
-      # POST /api/view/args (freeview_args/freeview_command preview + scene) and the removed D3
-      # /api/viewers/{freeview,gmsh} launch routes are deliberately not declared here, matching
-      # this contract's existing practice of documenting only a subset of the live API (see
-      # contracts/CHANGES.md) -- /api/view/args's request/response shape is exercised by
-      # tests/test_catalog_v1.py and desktop/tests/mock-server/server.mjs instead.
-
   /api/viewer/candidates:
     get:
       tags: [viewers]
@@ -2146,76 +2028,6 @@ paths:
               schema: { $ref: "#/components/schemas/ViewerTree" }
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/viewer/compositions:
-    get:
-      tags: [viewers]
-      summary: Saved Viewer compositions
-      description: >-
-        A composition is *what a person chose* -- a subject, a space and the inputs ticked in the
-        tree, by stable id (the container path). Small, diffable, and it survives a re-run of the
-        pipeline: reloading it re-resolves today's choices against whatever is on disk then, and
-        reports what has gone missing rather than failing. Distinct from a saved *scene*, which is
-        what a person was looking at. One unreadable file is skipped, never fatal.
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [compositions]
-                properties:
-                  compositions:
-                    type: array
-                    items: { $ref: "#/components/schemas/ViewerComposition" }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /api/viewer/compositions/{name}:
-    put:
-      tags: [viewers]
-      summary: Save one Viewer composition
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ViewerComposition" }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ViewerComposition" }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          description: a name that cannot become a file (refused rather than silently renamed)
-    delete:
-      tags: [viewers]
-      summary: Forget one composition
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  name: { type: string }
-                  deleted: { type: boolean }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: no composition by that name
   /api/viewer/scenes:
     get:
       tags: [viewers]
@@ -2391,76 +2203,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: no saved scene by that name
-  /api/viewer/presets:
-    get:
-      tags: [viewers]
-      summary: Saved Viewer selections
-      description: >-
-        VM. Plain JSON documents under <project>/code/ti-toolbox/viewer/presets/. They live in the
-        project, not in browser storage, because the project is the unit people copy, archive and
-        share -- a preset kept in a browser would be lost exactly when the work it describes was
-        passed on. The path is /api/viewer/presets and not /api/view/presets because the latter is
-        shadowed by GET /api/view/{kind}. A preset that cannot be parsed is skipped, not fatal.
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [presets]
-                properties:
-                  presets:
-                    type: array
-                    items: { $ref: "#/components/schemas/ViewerPreset" }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /api/viewer/presets/{name}:
-    put:
-      tags: [viewers]
-      summary: Save one Viewer selection
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ViewerPreset" }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ViewerPreset" }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          description: a name that cannot become a file (refused rather than silently renamed)
-    delete:
-      tags: [viewers]
-      summary: Forget one saved selection
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  name: { type: string }
-                  deleted: { type: boolean }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
 
   # ------------------------------------------------------------------------------------- files (v1)
   /api/files/mask:
@@ -2633,28 +2375,6 @@ paths:
           content:
             text/plain:
               schema: { type: string }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: path escapes the project jail
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /api/files/csv:
-    get:
-      tags: [files]
-      summary: A CSV file parsed into a table, jailed to the project directory
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: path
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TableData"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3062,11 +2782,10 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, url, legend_url]
+                      required: [id, url]
                       properties:
                         id: { type: string }
                         url: { type: string }
-                        legend_url: { type: string }
                   cache:
                     type: object
                     required: [state]
@@ -3350,52 +3069,6 @@ paths:
             data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what
             to run. Every `/api/scene/*` route answers a subject-level question the same way.
             Also: a net file this subject does not have.
-  /api/scene/volume-legend:
-    get:
-      tags: [scene]
-      summary: The label volume's id -> name/colour legend
-      description: >-
-        Parsed from `m2m_<id>/segmentation/labeling_LUT.txt` with the same line parser the
-        optimizer's ROI picker uses, so the scene legend and the ROI dropdown cannot disagree
-        about what a label is called. `color` is `null` when the table carries no RGB columns.
-      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: subject
-          required: true
-          schema: { type: string }
-        - in: query
-          name: id
-          required: false
-          schema: { type: string, default: labeling }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [id, entries]
-                properties:
-                  id: { type: string }
-                  entries:
-                    type: array
-                    items:
-                      type: object
-                      required: [id, name, color]
-                      properties:
-                        id: { type: integer }
-                        name: { type: string }
-                        color: { type: string }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: >-
-            `detail` is one sentence a user can act on, never "unknown subject": a subject the
-            project does not have is told which ids it does have; a subject whose head model has
-            not been built yet (listed by `GET /api/catalog/subjects`, including one whose raw
-            data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what
-            to run. Every `/api/scene/*` route answers a subject-level question the same way.
-            Also: a volume id with no `labeling_LUT.txt` beside it.
 
   # --------------------------------------------------------------------------------------- caps (v1)
   # Synchronous, not a job: one warp is seconds (docs/dev/DECISIONS.md § 2026-10-16).
@@ -4461,27 +4134,6 @@ components:
           description: >-
             why the tree is empty -- "no subject chosen" and "no head model" are different
             problems and the Menu has to be able to say which
-    ViewerComposition:
-      type: object
-      required: [name]
-      description: >-
-        What a person chose, by stable id. Unknown keys are kept rather than rejected: the tree's
-        vocabulary will grow, and a server that refused new keys would make every Menu change a
-        two-repository change.
-      additionalProperties: true
-      properties:
-        name: { type: string }
-        version: { type: integer }
-        saved_at: { type: string }
-        subject: { type: [string, "null"] }
-        space: { type: [string, "null"], enum: [subject, mni, null] }
-        inputs:
-          type: array
-          items: { type: string }
-          description: chosen input ids (container paths), in layer order
-        simulations:
-          type: array
-          items: { type: string }
     SavedScene:
       type: object
       required: [name, slug, path]
@@ -4507,30 +4159,6 @@ components:
           description: Project file availability; external references are never probed.
         missing_count: { type: integer, minimum: 0 }
         health_message: { type: string }
-    ViewerPreset:
-      type: object
-      required: [name]
-      description: >-
-        VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file
-        list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a
-        request rather than reconstructing one. `extras`/`overrides` are still accepted for a
-        preset saved by the VM panel that briefly exposed them.
-      properties:
-        name: { type: string }
-        selection:
-          type: object
-          additionalProperties: true
-          description: kind, subject, simulation, analysis, field, atlas, roi, path, space
-        files:
-          type: [array, "null"]
-          items: { type: string }
-          description: the edited list, or null when the view type's own set was saved
-        extras:
-          type: array
-          items: { type: string }
-        overrides:
-          type: object
-          additionalProperties: true
     ViewerSceneFile:
       type: object
       required: [name, path]
@@ -5208,13 +4836,6 @@ components:
         title: { type: string }
         path: { type: string }
         created: { type: string, format: date-time }
-    ElectrodeOverlay:
-      type: object
-      required: [mode, path, exists]
-      properties:
-        mode: { type: string, enum: [TI, mTI] }
-        path: { type: string, description: container path (may not exist yet -- see `exists`) }
-        exists: { type: boolean }
     ElectrodePosition:
       type: object
       required: [x, y, z]
@@ -6045,7 +5666,7 @@ components:
           description: >-
             Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit
             cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity
-            distribution when the spec is built (GET /api/view/{kind} or POST /api/view/args),
+            distribution when the spec is built (GET /api/view/{kind}),
             filling cal_min/cal_max with the resolved absolute values before responding -- a
             layer's cal_min/cal_max are always the final absolute thresholds a viewer applies,
             whether the caller supplied them directly or via percentile.
@@ -6058,8 +5679,8 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ViewLayer" }
           description: >-
-            resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind}
-            or is accepted by POST /api/view/args), every layer's cal_min/cal_max is already
+            resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind}),
+            every layer's cal_min/cal_max is already
             resolved to concrete numbers -- percentile is carried for the client's display
             only (e.g. to preselect a threshold-mode control), never something the client must
             resolve itself.

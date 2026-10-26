@@ -412,8 +412,6 @@ class RegionConfig:
         Output mesh format (``"stl"`` or ``"ply"``).
     atlas : str
         Atlas name, e.g. ``"DK40"``.
-    surface : Surface
-        Cortical surface type (``"central"``, ``"pial"``, or ``"white"``).
     field_name : str
         Scalar field to map onto region meshes.
     skip_regions : bool
@@ -445,13 +443,6 @@ class RegionConfig:
         STL = "stl"
         PLY = "ply"
 
-    class Surface(StrEnum):
-        """Cortical surface type for msh2cortex extraction."""
-
-        CENTRAL = "central"
-        PIAL = "pial"
-        WHITE = "white"
-
     # ── Required ──
     subject_id: str
     simulation_name: str
@@ -459,14 +450,9 @@ class RegionConfig:
     # ── Format ──
     format: Format = Format.PLY
 
-    # ── Atlas and surface ──
+    # ── Atlas and field ──
     atlas: str = "DK40"
-    surface: Surface = Surface.CENTRAL
     field_name: str = "TI_max"
-    msh2cortex_path: str | None = None
-
-    # ── Alternative mesh input (bypasses auto-resolved central surface) ──
-    gm_mesh: str | None = None
 
     # ── Output scope ──
     skip_regions: bool = False
@@ -494,8 +480,6 @@ class RegionConfig:
         # Coerce string enums
         if isinstance(self.format, str):
             self.format = RegionConfig.Format(self.format)
-        if isinstance(self.surface, str):
-            self.surface = RegionConfig.Surface(self.surface)
 
         # field_range validation
         if self.field_range is not None:

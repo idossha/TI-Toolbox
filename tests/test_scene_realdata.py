@@ -743,22 +743,6 @@ def test_the_reference_and_fiducials_are_in_the_same_space(
     assert distance.max() <= ELECTRODE_TO_SKIN_MM
 
 
-# ── the volume legend ────────────────────────────────────────────────────────
-
-
-def test_the_volume_legend_names_the_tissue_labels(pm, subject: str) -> None:
-    from tit.scene import build
-
-    legend = build.volume_legend(pm, subject)["entries"]
-    assert len(legend) > 10
-    by_id = {entry["id"]: entry for entry in legend}
-    # Every SimNIBS charm labelling carries these two.
-    assert 2 in by_id and "White-Matter" in by_id[2]["name"]
-    assert all(
-        entry["color"] is None or entry["color"].startswith("#") for entry in legend
-    )
-
-
 def test_every_served_gm_vertex_is_an_untouched_mesh_vertex(
     pm, subject: str, surfaces: dict
 ) -> None:

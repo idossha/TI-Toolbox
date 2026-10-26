@@ -63,19 +63,6 @@ def simulation_figures(
     )
 
 
-@router.get(
-    "/api/catalog/electrode-overlays",
-    summary="Electrode overlay NIfTI presence for one simulation, per TI/mTI mode",
-)
-def electrode_overlays(
-    subject: Annotated[SubjectId, Query()], simulation: Annotated[EntityName, Query()]
-) -> list[dict]:
-    return _or_404(
-        catalog.electrode_overlays(_pm(), subject, simulation),
-        f"Unknown subject or simulation: {subject}/{simulation}",
-    )
-
-
 # ── montages ─────────────────────────────────────────────────────────────────
 
 
@@ -283,20 +270,6 @@ def ex_runs(
     return _or_404(catalog.ex_runs(_pm(), subject, kind), f"Unknown subject: {subject}")
 
 
-@router.get(
-    "/api/catalog/ex-runs/{run}/results", summary="Full results table of one ex/mEx run"
-)
-def ex_run_results(
-    run: EntityName, subject: Annotated[SubjectId, Query()], kind: str = Query(...)
-) -> dict:
-    if kind not in ("ex", "mex"):
-        raise HTTPException(status_code=422, detail="kind must be ex or mex")
-    return _or_404(
-        catalog.ex_run_results(_pm(), subject, kind, run),
-        f"Unknown run: {subject}/{kind}/{run}",
-    )
-
-
 # ── analyses ─────────────────────────────────────────────────────────────────
 
 
@@ -379,7 +352,7 @@ def delete_freehand(name: EntityName, subject: Annotated[SubjectId, Query()]) ->
         raise HTTPException(status_code=404, detail=f"Unknown placement: {name}")
 
 
-# ── project-level: group, notes, subject-info ────────────────────────────────
+# ── project-level: group, notes ───────────────────────────────────────────────
 
 
 @router.get("/api/catalog/group", summary="Project-level group catalog")
@@ -416,13 +389,6 @@ def put_notes(body: dict = Body(...)) -> dict:
         return catalog.write_notes(_pm(), str(body.get("text", "")))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.get(
-    "/api/catalog/subject-info", summary="Presence matrix across the whole project"
-)
-def subject_info() -> dict:
-    return catalog.subject_info_matrix(_pm())
 
 
 @router.get(

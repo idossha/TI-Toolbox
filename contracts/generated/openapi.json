@@ -755,61 +755,6 @@
         }
       }
     },
-    "/api/catalog/electrode-overlays": {
-      "get": {
-        "tags": [
-          "catalog"
-        ],
-        "summary": "Electrode-overlay NIfTI presence for one simulation, per TI/mTI mode",
-        "description": "Listing-only: whether `tit.tools.electrode_overlay` (a `tools` job) has already produced `<simulation>/<mode>/montage_imgs/electrode_overlay_subject.nii.gz` for each mode, and its path. Building the overlay is out of scope here; see `tit/server/routes/viewers.py` and `tit/catalog.py::electrode_overlays`.",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "subject",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "simulation",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ElectrodeOverlay"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "description": "unknown subject or simulation"
-          }
-        }
-      }
-    },
     "/api/catalog/montages": {
       "get": {
         "tags": [
@@ -1892,69 +1837,6 @@
         }
       }
     },
-    "/api/catalog/ex-runs/{run}/results": {
-      "get": {
-        "tags": [
-          "catalog"
-        ],
-        "summary": "Full results table (every montage/current-split scored) of one ex/mEx run",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "run",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "subject",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "kind",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "ex",
-                "mex"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TableData"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
     "/api/catalog/analyses": {
       "get": {
         "tags": [
@@ -2363,36 +2245,6 @@
         }
       }
     },
-    "/api/catalog/subject-info": {
-      "get": {
-        "tags": [
-          "catalog"
-        ],
-        "summary": "Presence matrix (subject x data-stage) across the whole project",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TableData"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
     "/api/catalog/project-summary": {
       "get": {
         "tags": [
@@ -2483,50 +2335,6 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/schema/{name}": {
-      "get": {
-        "tags": [
-          "schema"
-        ],
-        "summary": "One resolved $def from schema.json, by config class name",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "description": "unknown config class name"
           }
         }
       }
@@ -3148,49 +2956,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobStatus"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/jobs/{id}/rerun": {
-      "post": {
-        "tags": [
-          "jobs"
-        ],
-        "summary": "Submit a new job with the same spec as a finished one",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4215,150 +3980,6 @@
         }
       }
     },
-    "/api/viewer/compositions": {
-      "get": {
-        "tags": [
-          "viewers"
-        ],
-        "summary": "Saved Viewer compositions",
-        "description": "A composition is *what a person chose* -- a subject, a space and the inputs ticked in the tree, by stable id (the container path). Small, diffable, and it survives a re-run of the pipeline: reloading it re-resolves today's choices against whatever is on disk then, and reports what has gone missing rather than failing. Distinct from a saved *scene*, which is what a person was looking at. One unreadable file is skipped, never fatal.",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "compositions"
-                  ],
-                  "properties": {
-                    "compositions": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/ViewerComposition"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/viewer/compositions/{name}": {
-      "put": {
-        "tags": [
-          "viewers"
-        ],
-        "summary": "Save one Viewer composition",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ViewerComposition"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ViewerComposition"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "422": {
-            "description": "a name that cannot become a file (refused rather than silently renamed)"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "viewers"
-        ],
-        "summary": "Forget one composition",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "name": {
-                      "type": "string"
-                    },
-                    "deleted": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "description": "no composition by that name"
-          }
-        }
-      }
-    },
     "/api/viewer/scenes": {
       "get": {
         "tags": [
@@ -4721,150 +4342,6 @@
         }
       }
     },
-    "/api/viewer/presets": {
-      "get": {
-        "tags": [
-          "viewers"
-        ],
-        "summary": "Saved Viewer selections",
-        "description": "VM. Plain JSON documents under <project>/code/ti-toolbox/viewer/presets/. They live in the project, not in browser storage, because the project is the unit people copy, archive and share -- a preset kept in a browser would be lost exactly when the work it describes was passed on. The path is /api/viewer/presets and not /api/view/presets because the latter is shadowed by GET /api/view/{kind}. A preset that cannot be parsed is skipped, not fatal.",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "presets"
-                  ],
-                  "properties": {
-                    "presets": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/ViewerPreset"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/viewer/presets/{name}": {
-      "put": {
-        "tags": [
-          "viewers"
-        ],
-        "summary": "Save one Viewer selection",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ViewerPreset"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ViewerPreset"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "422": {
-            "description": "a name that cannot become a file (refused rather than silently renamed)"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "viewers"
-        ],
-        "summary": "Forget one saved selection",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "name": {
-                      "type": "string"
-                    },
-                    "deleted": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
     "/api/files/mask": {
       "post": {
         "tags": [
@@ -5201,52 +4678,6 @@
               "text/plain": {
                 "schema": {
                   "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "path escapes the project jail"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/files/csv": {
-      "get": {
-        "tags": [
-          "files"
-        ],
-        "summary": "A CSV file parsed into a table, jailed to the project directory",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TableData"
                 }
               }
             }
@@ -5975,17 +5406,13 @@
                         "type": "object",
                         "required": [
                           "id",
-                          "url",
-                          "legend_url"
+                          "url"
                         ],
                         "properties": {
                           "id": {
                             "type": "string"
                           },
                           "url": {
-                            "type": "string"
-                          },
-                          "legend_url": {
                             "type": "string"
                           }
                         }
@@ -6489,90 +5916,6 @@
           },
           "404": {
             "description": "`detail` is one sentence a user can act on, never \"unknown subject\": a subject the project does not have is told which ids it does have; a subject whose head model has not been built yet (listed by `GET /api/catalog/subjects`, including one whose raw data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what to run. Every `/api/scene/*` route answers a subject-level question the same way. Also: a net file this subject does not have."
-          }
-        }
-      }
-    },
-    "/api/scene/volume-legend": {
-      "get": {
-        "tags": [
-          "scene"
-        ],
-        "summary": "The label volume's id -> name/colour legend",
-        "description": "Parsed from `m2m_<id>/segmentation/labeling_LUT.txt` with the same line parser the optimizer's ROI picker uses, so the scene legend and the ROI dropdown cannot disagree about what a label is called. `color` is `null` when the table carries no RGB columns.",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "subject",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "id",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "labeling"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "entries"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "entries": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "name",
-                          "color"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "color": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "description": "`detail` is one sentence a user can act on, never \"unknown subject\": a subject the project does not have is told which ids it does have; a subject whose head model has not been built yet (listed by `GET /api/catalog/subjects`, including one whose raw data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what to run. Every `/api/scene/*` route answers a subject-level question the same way. Also: a volume id with no `labeling_LUT.txt` beside it."
           }
         }
       }
@@ -8960,55 +8303,6 @@
           }
         }
       },
-      "ViewerComposition": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "description": "What a person chose, by stable id. Unknown keys are kept rather than rejected: the tree's vocabulary will grow, and a server that refused new keys would make every Menu change a two-repository change.",
-        "additionalProperties": true,
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          },
-          "saved_at": {
-            "type": "string"
-          },
-          "subject": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "space": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "subject",
-              "mni",
-              null
-            ]
-          },
-          "inputs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "chosen input ids (container paths), in layer order"
-          },
-          "simulations": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "SavedScene": {
         "type": "object",
         "required": [
@@ -9110,43 +8404,6 @@
           },
           "health_message": {
             "type": "string"
-          }
-        }
-      },
-      "ViewerPreset": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "description": "VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. `extras`/`overrides` are still accepted for a preset saved by the VM panel that briefly exposed them.",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "selection": {
-            "type": "object",
-            "additionalProperties": true,
-            "description": "kind, subject, simulation, analysis, field, atlas, roi, path, space"
-          },
-          "files": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "description": "the edited list, or null when the view type's own set was saved"
-          },
-          "extras": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "overrides": {
-            "type": "object",
-            "additionalProperties": true
           }
         }
       },
@@ -10792,30 +10049,6 @@
           "created": {
             "type": "string",
             "format": "date-time"
-          }
-        }
-      },
-      "ElectrodeOverlay": {
-        "type": "object",
-        "required": [
-          "mode",
-          "path",
-          "exists"
-        ],
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": [
-              "TI",
-              "mTI"
-            ]
-          },
-          "path": {
-            "type": "string",
-            "description": "container path (may not exist yet -- see `exists`)"
-          },
-          "exists": {
-            "type": "boolean"
           }
         }
       },
@@ -12667,7 +11900,7 @@
                 "type": "null"
               }
             ],
-            "description": "Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind} or POST /api/view/args), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile."
+            "description": "Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind}), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile."
           }
         }
       },
@@ -12691,7 +11924,7 @@
             "items": {
               "$ref": "#/components/schemas/ViewLayer"
             },
-            "description": "resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind} or is accepted by POST /api/view/args), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself."
+            "description": "resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind}), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself."
           },
           "freeview_args": {
             "type": "array",
@@ -15050,7 +14283,7 @@
         "additionalProperties": false
       },
       "RegionConfig": {
-        "description": "Configuration for cortical region mesh export (STL or PLY).\n\nExtracts atlas-labelled cortical regions and optionally the whole GM\nsurface from a SimNIBS surface mesh.\n\nAll paths are resolved automatically from ``subject_id`` +\n``simulation_name`` via PathManager.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier.\nsimulation_name : str\n    Name of the simulation directory.\nformat : Format\n    Output mesh format (``\"stl\"`` or ``\"ply\"``).\natlas : str\n    Atlas name, e.g. ``\"DK40\"``.\nsurface : Surface\n    Cortical surface type (``\"central\"``, ``\"pial\"``, or ``\"white\"``).\nfield_name : str\n    Scalar field to map onto region meshes.\nskip_regions : bool\n    Skip per-region export (export only whole GM).\nskip_whole_gm : bool\n    Skip whole-GM export.\nregions : list of str\n    Region names to export.  Empty means all regions.\nkeep_meshes : bool\n    Also save intermediate ``.msh`` files alongside PLY/STL.\nscalars : bool\n    PLY-only: embed raw scalar values instead of vertex colours.\ncolormap : str\n    Matplotlib colormap name for PLY vertex colours.\nfield_range : tuple of float or None\n    ``(vmin, vmax)`` for colour normalisation.\nglobal_from_nifti : str or None\n    Path to a NIfTI for computing a global colour range.\n\nSee Also\n--------\ntit.blender.region_exporter.run_regions : Entry point that\n    consumes this config.",
+        "description": "Configuration for cortical region mesh export (STL or PLY).\n\nExtracts atlas-labelled cortical regions and optionally the whole GM\nsurface from a SimNIBS surface mesh.\n\nAll paths are resolved automatically from ``subject_id`` +\n``simulation_name`` via PathManager.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier.\nsimulation_name : str\n    Name of the simulation directory.\nformat : Format\n    Output mesh format (``\"stl\"`` or ``\"ply\"``).\natlas : str\n    Atlas name, e.g. ``\"DK40\"``.\nfield_name : str\n    Scalar field to map onto region meshes.\nskip_regions : bool\n    Skip per-region export (export only whole GM).\nskip_whole_gm : bool\n    Skip whole-GM export.\nregions : list of str\n    Region names to export.  Empty means all regions.\nkeep_meshes : bool\n    Also save intermediate ``.msh`` files alongside PLY/STL.\nscalars : bool\n    PLY-only: embed raw scalar values instead of vertex colours.\ncolormap : str\n    Matplotlib colormap name for PLY vertex colours.\nfield_range : tuple of float or None\n    ``(vmin, vmax)`` for colour normalisation.\nglobal_from_nifti : str or None\n    Path to a NIfTI for computing a global colour range.\n\nSee Also\n--------\ntit.blender.region_exporter.run_regions : Entry point that\n    consumes this config.",
         "properties": {
           "subject_id": {
             "title": "Subject Id",
@@ -15069,38 +14302,10 @@
             "title": "Atlas",
             "type": "string"
           },
-          "surface": {
-            "$ref": "#/components/schemas/Surface",
-            "default": "central"
-          },
           "field_name": {
             "default": "TI_max",
             "title": "Field Name",
             "type": "string"
-          },
-          "msh2cortex_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Msh2Cortex Path"
-          },
-          "gm_mesh": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Gm Mesh"
           },
           "skip_regions": {
             "default": false,
@@ -16717,16 +15922,6 @@
           "ply"
         ],
         "title": "Format",
-        "type": "string"
-      },
-      "Surface": {
-        "description": "Cortical surface type for msh2cortex extraction.",
-        "enum": [
-          "central",
-          "pial",
-          "white"
-        ],
-        "title": "Surface",
         "type": "string"
       },
       "NiftiAverageSpace": {

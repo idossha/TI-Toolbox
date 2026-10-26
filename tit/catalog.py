@@ -11,8 +11,8 @@ re-implemented outside ``tit``.
 v1 additions (this module is extended, not replaced, for Stage 1 / lane B2 —
 see ``docs/dev/DECISIONS.md § 2026-08-27 (Electron and the job server)`` §3 "Catalog"): subject/simulation detail,
 montage CRUD, EEG nets, atlases + regions, ROI CRUD, leadfields, flex/ex/mex
-runs, analyses, reports, freehand configs, the project-level group catalog,
-Quick Notes, and the subject-info presence matrix. A run/analysis directory
+runs, analyses, reports, freehand configs, the project-level group catalog
+and Quick Notes. A run/analysis directory
 without the manifest file that marks it complete (``flex_meta.json``,
 ``run_config.json``, or the ``analysis.json``+``results.csv`` pair) is
 ignored, so a cancelled or in-progress run never appears as a result.
@@ -939,8 +939,7 @@ def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None
 
     Not folded into ``SimulationDetail``: that response has a Pydantic ``response_model``
     generated from the frozen v1 contract, so a new field there is a contract change. This is
-    the same shape as :func:`electrode_overlays` above -- a small presence query beside the
-    main read.
+    a small presence query beside the main read.
     """
     if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
@@ -961,37 +960,6 @@ def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None
                     "label": f"{mode} montage",
                 }
             )
-    return out
-
-
-def electrode_overlays(pm: PathManager, sid: str, sim: str) -> list[dict] | None:
-    """Electrode-overlay NIfTI presence for one simulation, per TI/mTI mode.
-
-    ``None`` if the subject/simulation is unknown. This is the listing half
-    of the electrode-overlay v1 gap documented in
-    ``tit/server/routes/viewers.py`` and ``pages/viewer/PARITY.md`` #1:
-    creating the overlay is a ``tools`` job
-    (``tit.tools.electrode_overlay``), and once it exists on disk,
-    :func:`tit.viewspec._electrode_overlay_layer` already picks it up for
-    ``kind=simulation`` ViewSpecs -- this endpoint just tells the Viewer page
-    whether that file is there yet (and its path), without a separate job
-    kind or catalog change for the overlay-*building* side.
-    """
-    if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
-        return None
-    sim_dir = pm.simulation(sid, sim)
-    out = []
-    for mode in _MODE_DIRS:
-        path = os.path.join(
-            sim_dir, mode, "montage_imgs", "electrode_overlay_subject.nii.gz"
-        )
-        out.append(
-            {
-                "mode": mode,
-                "path": path,
-                "exists": (_project_paths_safe(pm, path) and os.path.isfile(path)),
-            }
-        )
     return out
 
 
@@ -2029,19 +1997,6 @@ def ex_runs(pm: PathManager, sid: str, kind: str = "ex") -> list[dict] | None:
     return out
 
 
-def ex_run_results(pm: PathManager, sid: str, kind: str, run: str) -> dict | None:
-    """Full ``final_output.csv`` of one ex/mEx run, as ``TableData``."""
-    if sid not in subject_ids(pm):
-        return None
-    root = pm.ex_search_run(sid, run) if kind == "ex" else pm.m_ex_search_run(sid, run)
-    csv_path = os.path.join(root, "final_output.csv")
-    if not _project_paths_safe(pm, csv_path):
-        return None
-    if not os.path.isfile(csv_path):
-        return None
-    return _read_csv_table(csv_path)
-
-
 # ── analyses ─────────────────────────────────────────────────────────────────
 
 
@@ -2495,7 +2450,7 @@ def delete_freehand_config(pm: PathManager, sid: str, name: str) -> bool:
     return True
 
 
-# ── project-level: group catalog, notes, subject-info ──────────────────────
+# ── project-level: group catalog, notes ─────────────────────────────────────
 
 
 def group_catalog(pm: PathManager) -> dict:
@@ -2940,32 +2895,3 @@ def write_notes(pm: PathManager, text: str) -> dict:
         f.write(text)
     os.replace(tmp, path)
     return {"text": text, "updated_at": _mtime_iso(path)}
-
-
-def subject_info_matrix(pm: PathManager) -> dict:
-    """Presence matrix (subject x data-stage) across the whole project."""
-    columns = [
-        "subject",
-        "raw",
-        "fastsurfer",
-        "freesurfer",
-        "m2m",
-        "dwi",
-        "ct",
-        "simulations",
-    ]
-    rows = []
-    for sid in subject_ids(pm):
-        rows.append(
-            [
-                sid,
-                _project_isdir(pm, pm.bids_subject(sid)),
-                _has_fastsurfer(pm, sid),
-                _project_isdir(pm, pm.freesurfer_subject(sid)),
-                _has_m2m(pm, sid),
-                _project_isdir(pm, pm.bids_dwi(sid)),
-                _has_ct(pm, sid),
-                len(_simulation_names(pm, sid)),
-            ]
-        )
-    return {"columns": columns, "rows": rows}

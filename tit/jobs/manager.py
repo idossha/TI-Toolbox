@@ -600,7 +600,7 @@ class JobManager:
             )
         return out
 
-    # -- cancel / rerun / force / delete ---------------------------------------------------------
+    # -- cancel / force / delete -----------------------------------------------------------------
 
     def cancel(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:
@@ -705,20 +705,6 @@ class JobManager:
                 fh.write(f"{note}\n")
         except OSError as exc:
             logger.debug("job %s: could not append the cancel note: %s", job_id, exc)
-
-    def rerun(self, job_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            spec = self._specs.get(job_id)
-        if spec is None:
-            return None
-        return self.submit(
-            spec.kind,
-            spec.config,
-            spec.subject_ids,
-            tags=spec.tags,
-            created_by=spec.created_by,
-            overwrite=spec.overwrite,
-        )
 
     def force(self, job_id: str) -> dict[str, Any] | None:
         """Force a stuck/lost job straight to a terminal state without waiting on its process

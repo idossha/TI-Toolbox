@@ -121,11 +121,9 @@ class TestRegionConfigSerialization:
             subject_id="ernie",
             simulation_name="L_Insula",
             format=RegionConfig.Format.STL,
-            surface=RegionConfig.Surface.PIAL,
         )
         data = serialize_config(cfg)
         assert data["format"] == "stl"
-        assert data["surface"] == "pial"
 
     def test_list_fields_serialized(self):
         cfg = RegionConfig(

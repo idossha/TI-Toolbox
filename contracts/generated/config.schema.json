@@ -2518,7 +2518,7 @@
       "additionalProperties": false
     },
     "RegionConfig": {
-      "description": "Configuration for cortical region mesh export (STL or PLY).\n\nExtracts atlas-labelled cortical regions and optionally the whole GM\nsurface from a SimNIBS surface mesh.\n\nAll paths are resolved automatically from ``subject_id`` +\n``simulation_name`` via PathManager.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier.\nsimulation_name : str\n    Name of the simulation directory.\nformat : Format\n    Output mesh format (``\"stl\"`` or ``\"ply\"``).\natlas : str\n    Atlas name, e.g. ``\"DK40\"``.\nsurface : Surface\n    Cortical surface type (``\"central\"``, ``\"pial\"``, or ``\"white\"``).\nfield_name : str\n    Scalar field to map onto region meshes.\nskip_regions : bool\n    Skip per-region export (export only whole GM).\nskip_whole_gm : bool\n    Skip whole-GM export.\nregions : list of str\n    Region names to export.  Empty means all regions.\nkeep_meshes : bool\n    Also save intermediate ``.msh`` files alongside PLY/STL.\nscalars : bool\n    PLY-only: embed raw scalar values instead of vertex colours.\ncolormap : str\n    Matplotlib colormap name for PLY vertex colours.\nfield_range : tuple of float or None\n    ``(vmin, vmax)`` for colour normalisation.\nglobal_from_nifti : str or None\n    Path to a NIfTI for computing a global colour range.\n\nSee Also\n--------\ntit.blender.region_exporter.run_regions : Entry point that\n    consumes this config.",
+      "description": "Configuration for cortical region mesh export (STL or PLY).\n\nExtracts atlas-labelled cortical regions and optionally the whole GM\nsurface from a SimNIBS surface mesh.\n\nAll paths are resolved automatically from ``subject_id`` +\n``simulation_name`` via PathManager.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier.\nsimulation_name : str\n    Name of the simulation directory.\nformat : Format\n    Output mesh format (``\"stl\"`` or ``\"ply\"``).\natlas : str\n    Atlas name, e.g. ``\"DK40\"``.\nfield_name : str\n    Scalar field to map onto region meshes.\nskip_regions : bool\n    Skip per-region export (export only whole GM).\nskip_whole_gm : bool\n    Skip whole-GM export.\nregions : list of str\n    Region names to export.  Empty means all regions.\nkeep_meshes : bool\n    Also save intermediate ``.msh`` files alongside PLY/STL.\nscalars : bool\n    PLY-only: embed raw scalar values instead of vertex colours.\ncolormap : str\n    Matplotlib colormap name for PLY vertex colours.\nfield_range : tuple of float or None\n    ``(vmin, vmax)`` for colour normalisation.\nglobal_from_nifti : str or None\n    Path to a NIfTI for computing a global colour range.\n\nSee Also\n--------\ntit.blender.region_exporter.run_regions : Entry point that\n    consumes this config.",
       "properties": {
         "subject_id": {
           "title": "Subject Id",
@@ -2537,38 +2537,10 @@
           "title": "Atlas",
           "type": "string"
         },
-        "surface": {
-          "$ref": "#/$defs/Surface",
-          "default": "central"
-        },
         "field_name": {
           "default": "TI_max",
           "title": "Field Name",
           "type": "string"
-        },
-        "msh2cortex_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Msh2Cortex Path"
-        },
-        "gm_mesh": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Gm Mesh"
         },
         "skip_regions": {
           "default": false,
@@ -2678,16 +2650,6 @@
         "ply"
       ],
       "title": "Format",
-      "type": "string"
-    },
-    "Surface": {
-      "description": "Cortical surface type for msh2cortex extraction.",
-      "enum": [
-        "central",
-        "pial",
-        "white"
-      ],
-      "title": "Surface",
       "type": "string"
     },
     "SimulationConfig": {
