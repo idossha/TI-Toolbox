@@ -359,9 +359,6 @@ PAIR_COUNT_RULE = (
 # Mesh tissue tag ranges for brain cropping
 BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))
 
-# Tissue tag values
-GM_TISSUE_TAG = 2  # Grey matter element tag in SimNIBS meshes
-
 
 # ============================================================================
 # NUMERICAL CONSTANTS
@@ -473,8 +470,7 @@ FS_LICENSE_PATH = "/usr/local/freesurfer/license.txt"
 # Environment variable to disable telemetry (any truthy value)
 ENV_NO_TELEMETRY = "TIT_NO_TELEMETRY"
 
-# Config directory and file
-TELEMETRY_CONFIG_DIR = "ti-toolbox"
+# Config file
 TELEMETRY_CONFIG_FILE = "telemetry.json"
 
 # User-level config directory inside Docker container

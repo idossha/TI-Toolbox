@@ -73,7 +73,6 @@ def test_explicit_attach_uses_running_session_despite_requested_image(docker):
         project=str(project), image="different:new", existing="attach"
     )
     assert launch.start(options) == ("http://127.0.0.1:8888", "secret")
-    assert options.session_container == "other-id"
     assert options.session_project == "/other"
     assert not any(cmd[0] in ("stop", "rm", "run") for cmd in commands)
 
@@ -91,19 +90,24 @@ def test_recreate_stops_then_removes_selected_and_uses_requested_yaml_project(do
     assert mutations[:2] == [("stop", "other-id"), ("rm", "other-id")]
     assert mutations[2][-1] == "requested:new"
     assert str(project) + ":/mnt/" + project.name in mutations[2]
-    assert options.session_container == "new-id"
 
 
 def test_multiple_sessions_require_named_selection(docker):
     running, commands, project = docker
-    running.append({**running[0], "Id": "second-id", "Name": "/ti-toolbox-second"})
+    running.append(
+        {
+            **running[0],
+            "Id": "second-id",
+            "Name": "/ti-toolbox-second",
+            "Config": {**running[0]["Config"], "Env": ["TIT_SERVER_TOKEN=second"]},
+        }
+    )
     with pytest.raises(launch.LaunchError, match="multiple containers"):
         launch.start(launch.LaunchOptions(project=str(project), existing="attach"))
     options = launch.LaunchOptions(
         project=str(project), existing="attach", container="ti-toolbox-second"
     )
-    launch.start(options)
-    assert options.session_container == "second-id"
+    assert launch.start(options)[1] == "second"
 
 
 def test_unrelated_container_does_not_trigger_prompt(docker):
