@@ -91,7 +91,6 @@ def get_field(channel, leadfield, idx):
 ti = types.ModuleType("simnibs.utils.TI_utils")
 ti.load_leadfield = lambda path: (np.zeros(1), mesh, None)
 ti.get_field = get_field
-ti.get_maxTI = lambda e1, e2: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1)
 sys.modules["simnibs.utils"].TI_utils = ti
 sys.modules["simnibs.utils.TI_utils"] = ti
 

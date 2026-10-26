@@ -7,8 +7,9 @@ official SimNIBS TI example:
 
 * SESSION with two TDCS lists (one per electrode pair)
 * ``deepcopy`` pattern for the second pair
-* ``TI_max`` computed with ``TI.get_maxTI`` on cropped meshes
-* ``TI_normal`` computed on cortical surface overlays
+* ``TI_max`` computed with :func:`tit.calc.envelope_max` on cropped meshes
+* ``TI_normal`` computed with :func:`tit.calc.envelope` along the normals of
+  the cortical surface overlays
 
 Output mesh includes ``TI_max``, ``TI_avg``, ``hf_peak`` and ``hf_sar``.
 Per-pair E-field magnitudes are not retained on it; those live on the
@@ -28,10 +29,9 @@ from copy import deepcopy
 
 import numpy as np
 from simnibs import mesh_io, sim_struct
-from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import envelope_mean, hf_peak, hf_power
+from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
@@ -148,11 +148,10 @@ class TISimulation(BaseSimulation):
         mout = deepcopy(m1)
         mout.elmdata = []
         if const.FIELD_TI_MAX in selected:
-            TImax = TI.get_maxTI(ef1.value, ef2.value)
+            TImax = envelope_max([ef1.value, ef2.value])
             mout.add_element_field(TImax, const.FIELD_TI_MAX)
         if const.FIELD_TI_AVG in selected:
-            # TI_avg: orientation-averaged companion to TI_max (tit.calc, not
-            # SimNIBS's TI.get_maxTI -- there is no direction-averaged form there).
+            # TI_avg: orientation-averaged companion to TI_max.
             TIavg = envelope_mean([ef1.value, ef2.value])
             mout.add_element_field(TIavg, const.FIELD_TI_AVG)
         if const.FIELD_HF_PEAK in selected:
@@ -229,8 +228,8 @@ class TISimulation(BaseSimulation):
     ) -> None:
         """Compute TI_normal on the cortical surface.
 
-        Uses SimNIBS surface overlays to compute the directional TI
-        component normal to the cortical surface.
+        The envelope along the node normals of the SimNIBS central-surface
+        overlays (:func:`tit.calc.envelope`).
 
         Parameters
         ----------
@@ -258,7 +257,7 @@ class TISimulation(BaseSimulation):
             ef1_v = cm1.field["E_normal"].value.reshape(-1, 1) * normals
             ef2_v = cm2.field["E_normal"].value.reshape(-1, 1) * normals
 
-        TI_normal = TI.get_dirTI(ef1_v, ef2_v, cm1.nodes_normals().value)
+        TI_normal = envelope([ef1_v, ef2_v], cm1.nodes_normals().value)
 
         mout = deepcopy(cm1)
         mout.nodedata = []

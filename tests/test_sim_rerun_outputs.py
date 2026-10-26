@@ -153,7 +153,8 @@ def _fake_simnibs(sessions: list):
         patch.object(base_mod, "subprocess"),
         patch.object(base_mod.BaseSimulation, "_write_report"),
         patch.object(ti_mod, "mesh_io", mesh_io),
-        patch.object(ti_mod, "TI"),
+        patch.object(ti_mod, "envelope_max"),
+        patch.object(ti_mod, "envelope"),
         patch.object(ti_mod, "extract_fields"),
         patch.object(ti_mod, "transform_dirs_to_nifti"),
     ):

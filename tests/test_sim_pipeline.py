@@ -127,7 +127,8 @@ class TestTISimulation:
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "TI"),
+            patch.object(_ti_mod, "envelope_max"),
+            patch.object(_ti_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -178,7 +179,8 @@ class TestTISimulation:
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "TI"),
+            patch.object(_ti_mod, "envelope_max"),
+            patch.object(_ti_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
             patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -240,7 +242,8 @@ class TestTISimulation:
             patch.object(_ti_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_ti_mod, "safe_move"),
             patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "TI"),
+            patch.object(_ti_mod, "envelope_max"),
+            patch.object(_ti_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -705,7 +708,8 @@ class TestOutputFieldSelection:
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "TI"),
+            patch.object(_ti_mod, "envelope_max"),
+            patch.object(_ti_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
             patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
             patch.object(_ti_mod, "envelope_mean") as mock_ti_avg,

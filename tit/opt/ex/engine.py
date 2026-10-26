@@ -10,6 +10,8 @@ import time
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
+from tit.calc import envelope_max
+
 from .roi import read_roi_center
 from .logic import (
     _electrode_combinations,
@@ -278,7 +280,7 @@ class ExSearchEngine:
         for current_ch1_mA, current_ch2_mA in current_ratios:
             ef1 = (current_ch1_mA / 1000) * unit1
             ef2 = (current_ch2_mA / 1000) * unit2
-            ti_max = TI.get_maxTI(ef1, ef2)
+            ti_max = envelope_max([ef1, ef2])
             data = self._roi_metrics(ti_max[roi_pos], ti_max[gm_pos])
             data["current_ch1_mA"] = current_ch1_mA
             data["current_ch2_mA"] = current_ch2_mA
