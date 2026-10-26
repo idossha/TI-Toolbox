@@ -171,10 +171,6 @@ class Region:
     #: need neither the array nor the affine they came from.  Not serialised.
     world: object = dataclass_field(default=None, repr=False, compare=False)
 
-    @property
-    def span_mm(self) -> list[float]:
-        return [hi - lo for lo, hi in zip(self.bbox_min_ras, self.bbox_max_ras)]
-
     def as_dict(self) -> dict:
         return {
             "name": self.name,
