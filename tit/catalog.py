@@ -1933,9 +1933,7 @@ def flex_runs(pm: PathManager, sid: str) -> list[dict] | None:
         return out
     for name in pm.list_flex_search_runs(sid):
         run_dir = pm.flex_search_run(sid, name)
-        if not _project_paths_safe(
-            pm, run_dir, os.path.join(run_dir, "flex_meta.json")
-        ):
+        if not _project_paths_safe(pm, run_dir, pm.flex_manifest(sid, name)):
             continue
         manifest = read_manifest(run_dir)
         if manifest is None:  # no flex_meta.json: ignore, per the plan

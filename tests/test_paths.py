@@ -164,12 +164,6 @@ class TestProjectLevelPaths:
         p, root = pm
         assert p.reports() == os.path.join(root, "derivatives", "ti-toolbox", "reports")
 
-    def test_stats_data(self, pm):
-        p, root = pm
-        assert p.stats_data() == os.path.join(
-            root, "derivatives", "ti-toolbox", "stats", "data"
-        )
-
     def test_stats_output(self, pm):
         p, root = pm
         result = p.stats_output("permutation", "run1")
@@ -1113,29 +1107,31 @@ class TestDotDirectory:
         pm = PathManager(root)
         dot = os.path.join(root, ".ti-toolbox")
         assert pm.dot_dir() == dot
-        assert pm.cache_root() == os.path.join(dot, "cache")
         assert pm.cache("scene") == os.path.join(dot, "cache", "scene")
-        assert pm.scene_cache("101") == os.path.join(dot, "cache", "scene", "sub-101")
-        assert pm.mask_cache("101") == os.path.join(dot, "cache", "masks", "sub-101")
+        assert pm.cache() == os.path.join(dot, "cache")
         assert pm.viewer_stats_cache() == os.path.join(dot, "cache", "stats")
         assert pm.storage_cache() == os.path.join(
             dot, "cache", "storage", "storage.json"
         )
-        assert paths.scene_cache_dir_for(root, "101") == pm.scene_cache("101")
-        assert paths.mask_cache_dir_for(root, "101") == pm.mask_cache("101")
+        assert paths.scene_cache_dir_for(root, "101") == pm.cache(
+            "scene", "sub-101"
+        )
 
     def test_cache_paths_reject_traversal(self, tmp_path):
-        pm = PathManager(_make_project(tmp_path))
+        import tit.paths as paths
+
+        root = _make_project(tmp_path)
+        pm = PathManager(root)
         for bad in ("..", "", "a/b"):
             with pytest.raises(ValueError):
                 pm.cache(bad)
         with pytest.raises(ValueError):
-            pm.scene_cache("../../etc")
+            paths.scene_cache_dir_for(root, "../../etc")
 
     def test_nothing_is_created_until_ensure(self, tmp_path):
         root = _make_project(tmp_path)
         pm = PathManager(root)
-        pm.scene_cache("101")
+        pm.cache("scene", "sub-101")
         assert not os.path.exists(pm.dot_dir())
 
     def test_ensure_creates_readme_and_bidsignore(self, tmp_path):
@@ -1185,12 +1181,15 @@ class TestDotDirectory:
         pm.ensure_cache("scene")
 
         assert (
-            pathlib.Path(pm.scene_cache("101"), "gm.abc.tvsc").read_bytes()
+            pathlib.Path(pm.cache("scene", "sub-101"), "gm.abc.tvsc").read_bytes()
             == b"payload"
         )
         assert pathlib.Path(pm.viewer_stats_cache(), "deadbeef.stats.json").is_file()
         assert pathlib.Path(pm.storage_cache()).is_file()
-        assert pathlib.Path(pm.mask_cache("101"), "roi.nii.gz").read_bytes() == b"mask"
+        assert (
+            pathlib.Path(pm.cache("masks", "sub-101"), "roi.nii.gz").read_bytes()
+            == b"mask"
+        )
         assert not old_scene.exists()
         assert not prepared.exists()
 
