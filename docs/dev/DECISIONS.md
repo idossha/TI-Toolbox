@@ -3423,3 +3423,30 @@ omit the limit would still pay the sweep.
 
 **Revisit if.** A goal or constraint is found where unequal splits win by more than a few percent.
 
+
+## 2026-10-26 — The K≥2 envelope maximum runs in a numba kernel when numba imports
+
+**Decision.** `tit.calc.envelope_max` without `perpendicular_to`, at K ≥ 2, calls
+`tit/_calc_kernel.py` (element-parallel numba) when `import numba` succeeds, and the NumPy code in
+`tit.calc._max_sphere` otherwise. Both run one algorithm (eigen-branch tracking, Illinois root-find,
+safeguards, Newton polish); the kernel's 3x3 eigensolver is warm-started Jacobi instead of LAPACK.
+No environment switch: tests turn the kernel off by patching `tit.calc._sphere_kernel`. The plane
+maximum and `envelope_mean` stay NumPy only — sim/mTI calls them once per simulation, and neither
+ex nor mex calls them.
+
+**Why.** mex scores every candidate with this maximum over ROI ∪ GM. The NumPy path is ~200 µs per
+element (batched LAPACK `eigh` on 3x3 matrices was 52–59 % of it), ~35× the old numba sweep;
+the kernel is ~24 µs single-threaded and 3.6 µs with all threads, ~4× the old sweep, which the
+eigen-solves the exact method needs account for [measured: BENCHMARKS.md, 2026-10-26 section].
+Kernel and NumPy agree to ≤ 4.8e-14 relative on 3 × 10^4 random and 4 × 10^5 real grey-matter
+elements [measured]; `tests/numerical/test_calc_kernel.py` pins 1e-12.
+
+**Alternatives rejected.** A pure-NumPy restructure (a vectorised Jacobi in place of LAPACK) ran
+5.7× slower than LAPACK, not faster [measured, same process]: per-op NumPy overhead on (n, 3, 3)
+arrays dominates, and the Newton polish alone stays far above the old sweep's whole cost. Keeping
+the old 192-direction sweep: it undershot real grey-matter `mTI_max` by up to 15 %. A
+`TIT_*` environment switch like the deleted `TIT_MTI_KERNEL`: nothing outside the tests needs it.
+
+**Revisit if.** mex candidate throughput matters more than the ~4× over the old sweep (the grid's
+34 eigen-solves per element are the floor; a closed-form 3x3 eigensolver is the next lever), or
+the image drops numba.
