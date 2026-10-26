@@ -12,7 +12,7 @@ import os
 import shutil
 import uuid
 from dataclasses import dataclass
-from pathlib import Path, PurePath
+from pathlib import Path
 
 from tit import constants as const
 
@@ -424,19 +424,3 @@ class DockerCommandBuilder:
             cmd.append("--skip-odf-reports")
 
         return cmd
-
-    def get_output_dir(self, pipeline: str) -> PurePath:
-        """
-        Get the output directory path for a pipeline.
-
-        Parameters
-        ----------
-        pipeline : str
-            Pipeline name ('qsiprep' or 'qsirecon').
-
-        Returns
-        -------
-        Path
-            Path to the output directory.
-        """
-        return self._host_project_dir / "derivatives" / pipeline
