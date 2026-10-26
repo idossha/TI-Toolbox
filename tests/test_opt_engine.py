@@ -715,13 +715,5 @@ class TestLogConfigSummary:
     def test_logs_summary(self):
         logger = MagicMock()
         engine = _make_engine(logger=logger)
-        engine._log_config_summary(
-            ["E1"],
-            ["E2"],
-            ["E3"],
-            ["E4"],
-            [(1.0, 1.0)],
-            False,
-            1,
-        )
+        engine._log_config_summary([(1.0, 1.0)], False, 1)
         assert logger.info.call_count >= 3

@@ -99,14 +99,7 @@ def create_valid_skin_region_visualization(
         net_csv = config.skin_visualization_net and eeg_net_csv_path(
             pm.eeg_positions(config.subject_id), config.skin_visualization_net
         )
-        electrodes = _load_electrodes(
-            net_csv,
-            points,
-            plot_points,
-            mask,
-            fiducial_frame,
-            logger,
-        )
+        electrodes = _load_electrodes(net_csv, points, mask, fiducial_frame, logger)
 
         output_path = Path(output_folder)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -282,7 +275,7 @@ def _landmark_guard_mask(points, fiducials, frame):
     return guard
 
 
-def _load_electrodes(net_csv, points, plot_points, mask, frame, logger):
+def _load_electrodes(net_csv, points, mask, frame, logger):
     if not net_csv or not os.path.exists(net_csv):
         return None
     try:

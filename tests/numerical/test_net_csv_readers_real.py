@@ -81,7 +81,7 @@ for path in nets:
     pos, labels = read_csv_positions(str(path))
     mapper = {l: [float(v) for v in p] for p, l in zip(pos, labels)}
     cloud = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
-    skin = _load_electrodes(str(path), cloud, cloud, np.array([True, True]), None, log)
+    skin = _load_electrodes(str(path), cloud, np.array([True, True]), None, log)
     picture = {} if skin is None else {
         str(l): [float(v) for v in p] for p, l in zip(skin["positions"], skin["labels"])
     }
