@@ -17,19 +17,15 @@ class TestReconSpec:
     def test_str(self):
         assert str(ReconSpec.DIPY_DKI) == "dipy_dki"
 
-    def test_from_string_valid(self):
-        spec = ReconSpec.from_string("dipy_dki")
-        assert spec == ReconSpec.DIPY_DKI
+    def test_constructed_from_its_value(self):
+        assert ReconSpec("dipy_dki") == ReconSpec.DIPY_DKI
 
-    def test_from_string_invalid(self):
-        with pytest.raises(ValueError, match="Unknown recon spec"):
-            ReconSpec.from_string("invalid")
+    def test_unknown_value_raises(self):
+        with pytest.raises(ValueError):
+            ReconSpec("invalid")
 
-    def test_list_all(self):
-        result = ReconSpec.list_all()
-        assert isinstance(result, list)
-        assert "dipy_dki" in result
-        assert len(result) > 0
+    def test_values_listed(self):
+        assert "dipy_dki" in [spec.value for spec in ReconSpec]
 
 
 class TestQSIAtlas:
@@ -38,18 +34,15 @@ class TestQSIAtlas:
     def test_str(self):
         assert str(QSIAtlas.AAL116) == "AAL116"
 
-    def test_from_string_valid(self):
-        atlas = QSIAtlas.from_string("AAL116")
-        assert atlas == QSIAtlas.AAL116
+    def test_constructed_from_its_value(self):
+        assert QSIAtlas("AAL116") == QSIAtlas.AAL116
 
-    def test_from_string_invalid(self):
-        with pytest.raises(ValueError, match="Unknown atlas"):
-            QSIAtlas.from_string("invalid")
+    def test_unknown_value_raises(self):
+        with pytest.raises(ValueError):
+            QSIAtlas("invalid")
 
-    def test_list_all(self):
-        result = QSIAtlas.list_all()
-        assert isinstance(result, list)
-        assert "AAL116" in result
+    def test_values_listed(self):
+        assert "AAL116" in [atlas.value for atlas in QSIAtlas]
 
 
 class TestResourceConfig:
