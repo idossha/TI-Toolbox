@@ -137,6 +137,16 @@ DELETED_DEFINITIONS: dict[str, tuple[str, ...]] = {
     "tit/jobs/tailer.py": ("line_count",),
     "tit/scene/guide.py": ("part_ids", "atlas_ids", "net_names", "iter_assets"),
     "tit/server/routes/kernels.py": ("_project_root",),
+    "tit/blender/io.py": ("deduplicate_vertices",),
+    "tit/pre/qsi/docker_builder.py": ("DockerCommandBuilder.get_output_dir",),
+    "tit/pre/qsi/config.py": (
+        "ReconSpec.from_string",
+        "ReconSpec.list_all",
+        "QSIAtlas.from_string",
+        "QSIAtlas.list_all",
+    ),
+    "tit/figures/roi_plate.py": ("Region.span_mm",),
+    "tit/atlas/constants.py": ("LEGACY_FREESURFER_ATLAS_FILES",),
 }
 
 DELETED_FILES = (
@@ -145,6 +155,10 @@ DELETED_FILES = (
     "tit/stats/visualization.py",
     "tit/stats/example_subjects.csv",
     "tit/stats/example_subjects_continuous.csv",
+    "tit/blender/helpers/extract_metadata.py",
+    "tit/blender/helpers/inspect_blend.py",
+    "tit/blender/helpers/render_blend.sh",
+    "tit/blender/helpers/install_blender_docker.sh",
 )
 
 #: Names distinctive enough to grep for anywhere in shipped code and user docs.
@@ -175,6 +189,8 @@ DISTINCTIVE_NAMES = (
     "msh2cortex_path",
     "ENV_LOCK_KEYS",
     "iter_assets",
+    "deduplicate_vertices",
+    "LEGACY_FREESURFER_ATLAS_FILES",
 )
 
 #: Shipped code and user-facing docs (desktop is p46's; tests would self-match).

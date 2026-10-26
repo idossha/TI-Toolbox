@@ -606,16 +606,17 @@ class TestElectrodeMapPlots:
         fig.savefig.assert_called_once()
 
     def test_template_layout_for_known_net(self, tmp_path):
-        from tit.plotting.ti_metrics import _resolve_layout
+        from tit.plotting.ti_metrics import _load_template_projection
 
-        layout = _resolve_layout("/anything/EEG10-10_UI_Jurak_2007.csv")
+        layout = _load_template_projection("/anything/EEG10-10_UI_Jurak_2007.csv")
         assert layout["template_path"] is not None
         assert "F7" in layout["positions"] and "F8" in layout["positions"]
 
     def test_raw_layout_for_unknown_net(self, tmp_path):
-        from tit.plotting.ti_metrics import _resolve_layout
+        from tit.plotting.ti_metrics import _csv_layout, _load_template_projection
 
         csv = _write_symmetric_csv(tmp_path / "net.csv")
-        layout = _resolve_layout(str(csv))
+        assert _load_template_projection(str(csv)) is None
+        layout = _csv_layout(str(csv))
         assert layout["template_path"] is None
         assert layout["positions"]["L1"] == (-50.0, 60.0)

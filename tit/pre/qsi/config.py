@@ -10,7 +10,6 @@ Docker runs, including resource allocation and pipeline specifications.
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Self
 
 from tit import constants as const
 
@@ -50,19 +49,6 @@ class ReconSpec(StrEnum):
     def __str__(self) -> str:
         return self.value
 
-    @classmethod
-    def from_string(cls, value: str) -> Self:
-        """Convert string to ReconSpec enum."""
-        for spec in cls:
-            if spec.value == value:
-                return spec
-        raise ValueError(f"Unknown recon spec: {value}")
-
-    @classmethod
-    def list_all(cls) -> list[str]:
-        """Return list of all spec values."""
-        return [spec.value for spec in cls]
-
 
 class QSIAtlas(StrEnum):
     """
@@ -89,19 +75,6 @@ class QSIAtlas(StrEnum):
 
     def __str__(self) -> str:
         return self.value
-
-    @classmethod
-    def from_string(cls, value: str) -> Self:
-        """Convert string to QSIAtlas enum."""
-        for atlas in cls:
-            if atlas.value == value:
-                return atlas
-        raise ValueError(f"Unknown atlas: {value}")
-
-    @classmethod
-    def list_all(cls) -> list[str]:
-        """Return list of all atlas values."""
-        return [atlas.value for atlas in cls]
 
 
 @dataclass

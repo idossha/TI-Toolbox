@@ -104,9 +104,6 @@ def main() -> None:
                 else None
             )
 
-            def _logger_callback(msg: str, level: str) -> None:
-                logger.log(getattr(logging, level.upper(), logging.INFO), msg)
-
             exit_code = run_pipeline(
                 subject_ids=config.subject_ids,
                 convert_dicom=config.convert_dicom,
@@ -127,7 +124,6 @@ def main() -> None:
                 extract_dti=config.extract_dti,
                 skip_existing_outputs=config.skip_existing_outputs,
                 replace_existing_outputs=config.replace_existing_outputs,
-                logger_callback=_logger_callback,
             )
             events.emit_result({"exit_code": exit_code})
     except PreprocessError as exc:
