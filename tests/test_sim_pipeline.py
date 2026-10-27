@@ -321,9 +321,7 @@ class TestMTISimulation:
             patch.object(
                 _base_mod, "envelope_max", wraps=_base_mod.envelope_max
             ) as mock_get_ti,
-            patch.object(
-                _mti_mod, "envelope_max", wraps=_mti_mod.envelope_max
-            ) as mock_pair_ti,
+            patch.object(_mti_mod, "envelope_max", wraps=_mti_mod.envelope_max),
             patch.object(_base_mod, "envelope"),
             patch.object(_mti_mod, "glob"),
             patch.object(_base_mod, "deepcopy", side_effect=lambda obj: obj),
@@ -332,7 +330,7 @@ class TestMTISimulation:
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
-            e_field_value = _mock_mesh_efields(mock_mesh_io)
+            _mock_mesh_efields(mock_mesh_io)
             # Identity deepcopy so the mesh mocks written to (mout) are the
             # same tracked objects read from mesh_io.read_msh, letting the
             # add_element_field assertions below see every field written.

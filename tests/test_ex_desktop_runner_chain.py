@@ -366,7 +366,9 @@ def test_the_csv_holds_every_enumerated_montage_with_its_hand_metrics(chain):
     for key, row in got.items():
         hand = chain.hand[key]
         for metric, value in hand.items():
-            assert abs(float(row[metric]) - value) <= HALF + 1e-12 * abs(value) + 1e-12, (
+            assert (
+                abs(float(row[metric]) - value) <= HALF + 1e-12 * abs(value) + 1e-12
+            ), (
                 row["Montage"],
                 metric,
                 row[metric],
