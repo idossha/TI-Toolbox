@@ -127,7 +127,7 @@ def _uvwf(S, D, n0, n1, n2):
 
 @njit(cache=True, error_model="numpy")
 def _newton(S, D, Cp, Cm, n, iters):
-    """Riemannian Newton ascent of ``E_AM`` from the unit seed ``n`` (updated in place); returns ``f``.
+    """Riemannian Newton ascent of ``E_AM`` from unit seed ``n`` (updated in place); returns ``f``.
 
     The polish that closes the gap a grid interval leaves: the root-find can miss two close
     roots inside one interval, and a narrow ridge defeats a pattern search.  On the side

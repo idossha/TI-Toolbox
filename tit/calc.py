@@ -340,7 +340,7 @@ def _env_uvw(u, v, w):
 
 
 def _uvw(S, D, dirs):
-    """``u = |S n|^2/2``, ``v = |D n|^2/2``, ``w = u - v`` at ``dirs`` (n, c, 3), to rank candidates.
+    """``u = |S n|^2/2``, ``v = |D n|^2/2``, ``w = u - v`` at ``dirs`` (n, c, 3): ranks candidates.
 
     From the projections, not from ``n^T C n``: next to a cusp (``v -> 0``) the
     quadratic form loses ``v`` to round-off (``sqrt(eps)`` relative in the
