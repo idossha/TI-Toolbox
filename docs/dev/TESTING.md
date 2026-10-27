@@ -65,7 +65,7 @@ fixed and the rest of the suite run green on Linux at least twice. Then restore 
 `tests/numerical` makes claims only real libraries can check, and runs in three places:
 
 - **Host numerical leg** (`build-and-run-tests`): `pytest tests/numerical -m host_numerical`.
-  Modules that need only real numpy, scipy and nibabel are marked `host_numerical` (listed in
+  Modules that need only real numpy, numba, scipy and nibabel are marked `host_numerical` (listed in
   `tests/numerical/conftest.py`, or `pytestmark` in a new module); every other module skips on a
   host without matplotlib. Its JUnit goes through `check_junit.py --leg host-numerical`, whose
   only allowed skips are the Dataset 000 tests (CI has no `TIT_DATASET_000`, and must not) and
@@ -186,7 +186,10 @@ Never print the license contents in test failures or verification logs.
 
 Run from the repository root unless a command says otherwise. Use the host environment installed
 by CONTRIBUTING. `tests/conftest.py` mocks SimNIBS, Blender and several scientific/plotting packages;
-NumPy is real and some tests restore SciPy. Never infer real-library success from a host run.
+NumPy and numba are real (numba is a hard dependency of `tit.calc`; `tests/conftest.py` imports it
+before the SciPy mock, whose missing `__version__` its import would trip on, so the host suite runs
+the compiled K≥2 envelope kernel) and some tests restore SciPy. Never infer real-library success
+from a host run.
 
 The combined container runner `tests/run_tests.sh` adds PETSc's `-no_signal_handler` option before
 Python starts, preserving other options. Otherwise real-library imports can replace Python's
@@ -219,7 +222,7 @@ Repository guards:
 python3 -m unittest tests.test_documentation_policy -v
 python3 dev/documentation_policy.py
 python3 dev/route_import_guard.py
-python3 dev/contracts_check.py
+.venv/bin/python dev/contracts_check.py   # builds the live app, which imports tit.calc: needs numba
 ```
 
 The documentation-policy self-test drives absent, empty-directory, file, symlink and nested-content

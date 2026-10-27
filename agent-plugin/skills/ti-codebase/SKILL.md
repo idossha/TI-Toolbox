@@ -179,7 +179,8 @@ Tests: `reset_path_manager()`; the `_reset_path_manager` fixture is `autouse`.
   the repo root. `conftest.py` installs mocks into `sys.modules` before any `tit` import: `simnibs` (+
   `simulation.sim_struct`, `mesh_tools.mesh_io`, `utils.transformations`), `bpy`,
   `scipy`, `nibabel`, `h5py`, `matplotlib`, `pandas`, `joblib`, `nilearn`.
-  **numpy is real** — `tit/calc.py` tests do actual vector math.
+  **numpy and numba are real** — `tit/calc.py` tests do actual vector math and run the
+  compiled K≥2 kernel; numba is a hard dependency of `tit.calc`, with no NumPy fallback.
 - **Numerical suite** — `tests/numerical/`, whose conftest restores real libraries, is a
   separate container leg: `docker exec -w /ti-toolbox <c> simnibs_python -m pytest
   tests/numerical -q`. This is where a scientific claim is proved.
