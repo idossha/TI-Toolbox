@@ -31,7 +31,8 @@ References:
     Cassarà et al. 2025, Bioelectromagnetics, Part I 46(2):e22542 and Part II
     46(1):e22536 (carrier metrics); IEEE C95.1-2019 p. 35 (SAR).
 
-The K >= 2 envelope model is ported from Larissa Albantakis's branch
+The K >= 2 envelope model and the Fibonacci direction grid behind
+``_hemisphere_directions`` are ported from Larissa Albantakis's branch
 ``alba/mTI_testing`` (the solvers here are new); the unpaired-carrier
 convention follows Michael Sutherland's ``feature/uni_HF`` work.
 """
@@ -194,11 +195,11 @@ def envelope_max(
     perpendicular to ``perpendicular_to``, which equals the sphere maximum of
     the fields projected onto that plane.
 
-    Method: K = 1 is an exact closed form on the sphere and in a plane (equal
-    to SimNIBS ``get_maxTI`` to ~1e-15, 0 on null fields).  K >= 2 in a plane is
-    exact (polynomial roots); on the sphere an eigen-branch root-find with a
-    Newton polish, measured never more than 1e-6 relative below a dense
-    direction search.  Literature: Grossman 2017's "maximal modulation
+    Method: K = 1, sphere or plane, is an exact closed form (SimNIBS
+    ``get_maxTI`` to ~1e-15; 0 on null fields).  K >= 2 is exact in a plane
+    (polynomial roots); on the sphere, an eigen-branch root-find plus Newton
+    polish, never measured more than 1e-6 relative below a dense direction
+    search.  Literature: Grossman 2017's "maximal modulation
     amplitude along any orientation" (SimNIBS ``TImax``), K = 1 in the form of
     Hirata 2024 Eq. 2.  Outputs ``TI_max``/``mTI_max``; the plane form is the
     tangential maximum.
@@ -217,7 +218,8 @@ def envelope_max(
         or an in-plane unit vector for a plane.
 
     Raises:
-        ValueError: as :func:`envelope`, for ``perpendicular_to``.
+        ValueError: the :func:`envelope` errors for ``fields``, or
+            ``perpendicular_to`` not (3,) or (N, 3) or containing NaN or inf.
     """
     E = _stack(fields, paired=True)
     n_el = E.shape[1]
@@ -669,7 +671,7 @@ def hf_peak(
     gives ``|sum_c E_c|``, the phase-aligned sum some scripts call "peak HF".
 
     Method: exact for any number of carriers; closed form up to two, zonotope
-    vertices from three (cost ~N^3 per element, 3.5 ms at 52 fields).
+    vertices from three (cost ~F^3 per element for F fields, 3.5 ms at 52).
     Literature: Cassarà et al. 2025 Part I Eq. 3.
 
     Args:
