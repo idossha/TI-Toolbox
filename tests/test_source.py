@@ -133,6 +133,40 @@ class TestFsavgHelpers:
         with pytest.raises(error):
             fsaverage._recorded_carrier_only(pm, "001", "s")
 
+    def test_a_corrupt_config_fails_only_its_subject_in_a_batch(
+        self, monkeypatch, tmp_path
+    ):
+        """Even with only TI_max requested (no carrier read), the subject whose config.json is
+        corrupt gets a "failed" row and the batch goes on (2026-10-27)."""
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        from tit.source import fsaverage
+        from tit.source.config import FsavgMapConfig
+
+        for sid, content in (("001", "{not json"), ("002", "{}")):
+            (tmp_path / sid / "documentation").mkdir(parents=True)
+            (tmp_path / sid / "documentation" / "config.json").write_text(content)
+        pm = SimpleNamespace(
+            simulation=lambda sid, sim: str(tmp_path / sid),
+            sim_fsaverage_fields=lambda sid, sim, sp: str(tmp_path / sid / "out.msh"),
+        )
+        monkeypatch.setattr(fsaverage, "get_path_manager", lambda: pm)
+        monkeypatch.setattr(
+            fsaverage, "_compute_fields", lambda *a: {"TI_max": np.zeros(1)}
+        )
+        monkeypatch.setattr(fsaverage, "write_fsaverage_msh", lambda *a: None)
+        cfg = FsavgMapConfig(fields=("TI_max",), overwrite=True)
+        results = fsaverage.project_fields_to_fsaverage(
+            [("001", "s"), ("002", "s")], cfg
+        )
+        assert [(sid, status) for sid, status, _ in results] == [
+            ("001", "failed"),
+            ("002", "ok"),
+        ]
+        assert "config.json" not in results[1][2]
+
     def test_morph_split_node_mismatch_raises(self):
         import numpy as np
 
@@ -208,28 +242,17 @@ class TestFsavgHelpers:
         self._mock_simnibs_core(monkeypatch)
         from types import SimpleNamespace
 
-        # A run that predates carrier-only mode has no key: an ordinary TI run.
-        doc = tmp_path / "documentation"
-        doc.mkdir()
-        (doc / "config.json").write_text("{}")
         pm = SimpleNamespace(
             simulation=lambda sid, sim: str(tmp_path), m2m=lambda sid: str(tmp_path)
         )
-        out = fsaverage._compute_fields(
-            pm,
-            "001",
-            "TI_sim",
-            FsavgMapConfig(fields=("hf_peak", "hf_sar")),
-        )
+        cfg = FsavgMapConfig(fields=("hf_peak", "hf_sar"))
+        out = fsaverage._compute_fields(pm, "001", "TI_sim", cfg, False)
         assert out["hf_peak"][0] == pytest.approx(2.0)
         assert out["hf_sar"][0] == pytest.approx(2.0)
 
-        # ΔF = 0 carrier-only, as the run recorded it in documentation/config.json:
-        # the same anti-parallel carriers cancel coherently.
-        (doc / "config.json").write_text('{"carrier_only": true}')
-        out = fsaverage._compute_fields(
-            pm, "001", "TI_sim", FsavgMapConfig(fields=("hf_peak", "hf_sar"))
-        )
+        # ΔF = 0 carrier-only, as the run recorded it: the same anti-parallel carriers
+        # cancel coherently.
+        out = fsaverage._compute_fields(pm, "001", "TI_sim", cfg, True)
         assert out["hf_peak"][0] == pytest.approx(0.0)
         assert out["hf_sar"][0] == pytest.approx(0.0)
 
@@ -257,7 +280,9 @@ class TestFsavgHelpers:
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
         self._mock_simnibs_core(monkeypatch)
-        out = fsaverage._compute_fields(_MagicMock(), "001", "TI_sim", FsavgMapConfig())
+        out = fsaverage._compute_fields(
+            _MagicMock(), "001", "TI_sim", FsavgMapConfig(), False
+        )
         assert "TI_max" in out and "TI_normal" in out
         assert "hf_peak" not in out and "hf_sar" not in out
 
@@ -281,7 +306,9 @@ class TestFsavgHelpers:
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
         self._mock_simnibs_core(monkeypatch)
-        out = fsaverage._compute_fields(_MagicMock(), "001", "TI_sim", FsavgMapConfig())
+        out = fsaverage._compute_fields(
+            _MagicMock(), "001", "TI_sim", FsavgMapConfig(), False
+        )
         assert "TI_max" in out and "TI_normal" in out
         assert "hf_peak" not in out and "hf_sar" not in out
 
