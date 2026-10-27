@@ -214,5 +214,7 @@ real grey matter. On W0's 2 × 200,000 real sub-101 grey-matter elements the ker
 
 Repeat: run `envelope_max` (and, from a copy of 4778c014's `tit/`, `get_TI_vectors`) on the same
 seeded fields in separate `simnibs_python` processes with `NUMBA_NUM_THREADS=1`, alternating old
-and new; switch the kernel off with `tit.calc._sphere_kernel = lambda: None`. Parity is pinned by
-`tests/numerical/test_calc_kernel.py`, not by this page.
+and new. The NumPy path was deleted on 2026-10-27 (numba is a hard dependency); its rows are
+reproduced from `feat/calc-envelope-api` at 1b2f629c with `tit.calc._sphere_kernel = lambda: None`.
+Accuracy is pinned by `tests/test_calc.py` and `tests/numerical/test_calc_kernel.py`, not by this
+page.

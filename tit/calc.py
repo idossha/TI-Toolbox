@@ -20,8 +20,8 @@ power but not to the beat, so it lowers the envelope.  :func:`hf_peak` and
 * :func:`hf_power` -- time-averaged mean-square carrier field, ``E_rms^2``
 
 The math and the accuracy table are in ``docs/wiki/analyzer.md``.  The K >= 2
-sphere maximum runs in the numba kernel :mod:`tit._calc_kernel` when numba
-imports, else in NumPy.
+sphere maximum runs in the numba kernel :mod:`tit._calc_kernel`; numba is a
+hard dependency (the image ships it).
 
 References:
     Grossman et al. 2017, Cell 169(6):1029-1041, STAR Methods (K = 1 envelope).
@@ -39,13 +39,13 @@ convention follows Michael Sutherland's ``feature/uni_HF`` work.
 
 from __future__ import annotations
 
-import functools
 import itertools
 from collections.abc import Sequence
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from tit._calc_kernel import max_sphere as _sphere_kernel
 from tit.constants import is_valid_pair_count
 
 __all__ = ["envelope", "envelope_max", "envelope_mean", "hf_peak", "hf_power"]
@@ -56,31 +56,30 @@ _CHUNK = 16384
 _MEAN_CHUNK = 1024
 
 _SQRT2 = np.sqrt(2.0)
-_X_AXIS = np.array([1.0, 0.0, 0.0])
 
-# --- K>=2 sphere maximum: eigen-branch root-find --------------------------
+# --- K>=2 sphere maximum (tit._calc_kernel) ---------------------------------
 # theta grid: 16 uniform intervals on (0, pi/2) plus 16 log-spaced in tan(theta)
 # (tan theta = sqrt(u/v) spans many decades when one carrier pair is weak).
-_THETA_EPS = 1e-7
 _THETA_GRID = np.unique(
     np.concatenate(
         [
-            np.linspace(_THETA_EPS, np.pi / 2 - _THETA_EPS, 17),
+            np.linspace(1e-7, np.pi / 2 - 1e-7, 17),
             np.arctan(np.exp(np.linspace(-14.0, 14.0, 17))),
         ]
     )
 )
+# Illinois iterations per bracketed root and Newton iterations per polish seed; fewer of
+# either fails the dense-search tests in tests/test_calc.py.
 _ROOT_ITERS = 14
-_PERMS = np.array(list(itertools.permutations(range(3))))
-# Local polish: Newton iterations from each seed.
 _NEWTON_ITERS = 12
-
-# --- K>=2 sphere mean: 2048 equal-area directions on the upper hemisphere ---
-_MEAN_DIRECTIONS = 2048
 
 
 def _hemisphere_directions(n: int) -> np.ndarray:
-    """``n`` equal-area (Fibonacci) unit directions with ``z > 0``."""
+    """``n`` equal-area (Fibonacci) unit directions with ``z > 0``: the K>=2 mean's quadrature.
+
+    Equal area makes the plain average a sphere integral; the upper hemisphere is enough
+    because ``E_AM(n) = E_AM(-n)``.
+    """
     i = np.arange(n) + 0.5
     z = 1.0 - i / n
     r = np.sqrt(1.0 - z * z)
@@ -94,7 +93,11 @@ def _hemisphere_directions(n: int) -> np.ndarray:
 
 
 def _stack(fields: Sequence[ArrayLike], *, paired: bool) -> np.ndarray:
-    """Validate a field list and stack it as ``(F, N, 3)`` float64."""
+    """Validate a field list and stack it as ``(F, N, 3)`` float64: the one input gate.
+
+    Every public function goes through it, so a bad count, a shape mismatch or a NaN/inf is
+    a ValueError here instead of finite garbage from the solvers (the kernel included).
+    """
     arrs = [np.asarray(f, dtype=np.float64) for f in fields]
     n = len(arrs)
     if paired and not is_valid_pair_count(n):
@@ -124,7 +127,10 @@ def _stack(fields: Sequence[ArrayLike], *, paired: bool) -> np.ndarray:
 
 
 def _unit_rows(v: ArrayLike, n: int, name: str) -> np.ndarray:
-    """``(3,)`` or ``(N, 3)`` -> ``(N, 3)`` unit rows; zero rows stay zero."""
+    """``(3,)`` or ``(N, 3)`` -> ``(N, 3)`` validated unit rows; zero rows stay zero.
+
+    A zero direction or plane normal is defined input (the result there is 0), not an error.
+    """
     v = np.asarray(v, dtype=np.float64)
     if v.shape == (3,):
         v = np.broadcast_to(v, (n, 3))
@@ -137,7 +143,7 @@ def _unit_rows(v: ArrayLike, n: int, name: str) -> np.ndarray:
 
 
 def _ratio(num, den):
-    """``num / den`` with 0 where ``den`` is 0 (a null field)."""
+    """``num / den`` with 0 where ``den`` is 0: a null field's envelope is 0, not NaN."""
     return np.divide(num, den, out=np.zeros(np.shape(den)), where=den > 0)
 
 
@@ -158,6 +164,9 @@ def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.fl
     "envelope modulation amplitude along the direction n" (SimNIBS
     ``get_dirTI``); along the cortical normal it is ``TI_normal``.
 
+    Defined edge cases: a zero ``direction`` row and a null field (every
+    projection 0) give 0.
+
     Args:
         fields: ``[E1a, E1b, E2a, E2b, ...]``, 2K arrays (N, 3) in V/m.
         direction: (3,) or (N, 3); normalised internally, a zero row gives 0.
@@ -173,9 +182,11 @@ def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.fl
     n = _unit_rows(direction, E.shape[1], "direction")
     p = np.einsum("fnx,nx->fn", E, n)
     a, b = p[0::2], p[1::2]
-    s = np.sqrt(np.sum((a + b) ** 2, axis=0))
-    d = np.sqrt(np.sum((a - b) ** 2, axis=0))
-    return _ratio(4.0 * np.abs(np.sum(a * b, axis=0)), s + d)
+    # w = u - v = 2 sum a b straight from the projections: _uvw's (s + d)(s - d) would lose
+    # the weaker field of a pair to cancellation when the other dominates.
+    u = 0.5 * np.sum((a + b) ** 2, axis=0)
+    v = 0.5 * np.sum((a - b) ** 2, axis=0)
+    return _env_uvw(u, v, 2.0 * np.sum(a * b, axis=0))
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +231,8 @@ def envelope_max(
     Raises:
         ValueError: the :func:`envelope` errors for ``fields``, or
             ``perpendicular_to`` not (3,) or (N, 3) or containing NaN or inf.
+        RuntimeError: K >= 2 on the sphere, a 3x3 eigen-solve in the kernel did
+            not converge (seen only for fields that overflow float64 once squared).
     """
     E = _stack(fields, paired=True)
     n_el = E.shape[1]
@@ -249,16 +262,17 @@ def envelope_max(
         n_hat[np.einsum("nx,nx->n", n_hat, e_big) < 0] *= -1.0
     null = amp <= 0.0
     if null.any():
-        n_hat[null] = _frame(m[null])[1] if plane else _X_AXIS
+        n_hat[null] = _frame(m[null])[1] if plane else (1.0, 0.0, 0.0)
     return amp, n_hat
 
 
-def _ti_vector_k1(E1: np.ndarray, E2: np.ndarray) -> np.ndarray:
-    """K=1 TI vectors (Grossman 2017 in the sign-agnostic form of Hirata 2024 Eq. 2).
+def _max_k1(E1: np.ndarray, E2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """K=1 maximum and unit direction: the exact closed form behind every K = 1 ``TI_max``.
 
-    ``2 Es`` where ``min(|E1|, |E2|) <= sqrt(|E1.E2|)``, else twice the part of
-    ``Es`` perpendicular to ``h``: ``Es`` is the smaller field flipped into the
-    acute angle (ties go to ``E2``), ``h`` the shorter of ``E1 -/+ E2``.
+    The TI vector (Grossman 2017 in the sign-agnostic form of Hirata 2024 Eq. 2) is ``2 Es``
+    where ``min(|E1|, |E2|) <= sqrt(|E1.E2|)``, else twice the part of ``Es`` perpendicular to
+    ``h``: ``Es`` is the smaller field flipped into the acute angle (ties go to ``E2``), ``h``
+    the shorter of ``E1 -/+ E2``.  Where the maximum is 0 the direction is a zero row.
     """
     norm1 = np.linalg.norm(E1, axis=1)
     norm2 = np.linalg.norm(E2, axis=1)
@@ -268,29 +282,27 @@ def _ti_vector_k1(E1: np.ndarray, E2: np.ndarray) -> np.ndarray:
     sign = np.where(dot < 0, -1.0, 1.0)
     Es = sign[:, None] * np.where((norm1 < norm2)[:, None], E1, E2)
 
-    out = np.zeros_like(E1)
-    out[regime1] = 2.0 * Es[regime1]
+    vec = np.zeros_like(E1)
+    vec[regime1] = 2.0 * Es[regime1]
     r2 = ~regime1
     if np.any(r2):
         # |E1-E2|^2 - |E1+E2|^2 == -4 dot, so sign(dot) picks the shorter of
         # the two exactly; comparing the rounded norms would not.
         h = np.where((dot[r2] >= 0)[:, None], E1[r2] - E2[r2], E1[r2] + E2[r2])
         h_norm = np.linalg.norm(h, axis=1)
+        # h = 0 here only when rounding put E1 = +-E2 in this regime, where 2 Es is exact.
         e_h = h / np.where(h_norm == 0, 1.0, h_norm)[:, None]
         Es2 = Es[r2]
-        out[r2] = 2.0 * (Es2 - np.sum(Es2 * e_h, axis=1)[:, None] * e_h)
-    return out
-
-
-def _max_k1(E1, E2):
-    """K=1 maximum and its unit direction (a zero row where the maximum is 0)."""
-    vec = _ti_vector_k1(E1, E2)
+        vec[r2] = 2.0 * (Es2 - np.sum(Es2 * e_h, axis=1)[:, None] * e_h)
     amp = np.linalg.norm(vec, axis=1)
     return amp, vec / np.where(amp > 0, amp, 1.0)[:, None]
 
 
 def _frame(m: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Orthonormal ``(m, e1, e2)`` for unit rows ``m``; zero rows get x/y."""
+    """Orthonormal ``(m, e1, e2)`` for unit rows ``m``: the in-plane basis of the plane maximum.
+
+    Zero rows (an undefined plane) get x/y, the defined in-plane direction where ``amp == 0``.
+    """
     ref = np.where(np.abs(m[:, :1]) > 0.9, [[0.0, 1.0, 0.0]], [[1.0, 0.0, 0.0]])
     e1 = np.cross(m, ref)
     norm = np.linalg.norm(e1, axis=1, keepdims=True)
@@ -303,9 +315,10 @@ def _frame(m: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def _forms(E):
-    """``C+ = S^T S / 2``, ``C- = D^T D / 2`` and ``Cw = C+ - C-`` per element.
+    """``C+ = S^T S / 2``, ``C- = D^T D / 2``, ``Cw = C+ - C-`` per element, for the K>=2 mean.
 
-    ``Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T)`` is built directly, not as a difference.
+    ``n^T C n`` at all 2048 quadrature directions then costs 6 multiplies per form.
+    ``Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T)`` is built directly, not as a lossy difference.
     """
     S = E[0::2] + E[1::2]
     D = E[0::2] - E[1::2]
@@ -317,13 +330,17 @@ def _forms(E):
 
 
 def _env_uvw(u, v, w):
-    """``E_AM = sqrt(2) |w| / (sqrt(u) + sqrt(v))``, ``w = u - v``."""
+    """``E_AM = sqrt(2) |w| / (sqrt(u) + sqrt(v))``, ``w = u - v``: the cancellation-free envelope.
+
+    ``sqrt(2u) - sqrt(2v)`` would lose a small envelope to round-off next to strong carriers;
+    a null field (``u = v = 0``) gives 0.
+    """
     den = np.sqrt(np.maximum(u, 0.0)) + np.sqrt(np.maximum(v, 0.0))
     return _ratio(_SQRT2 * np.abs(w), den)
 
 
 def _uvw(S, D, dirs):
-    """``u = |S n|^2/2``, ``v = |D n|^2/2``, ``w = u - v`` at ``dirs`` (n, c, 3).
+    """``u = |S n|^2/2``, ``v = |D n|^2/2``, ``w = u - v`` at ``dirs`` (n, c, 3), to rank candidates.
 
     From the projections, not from ``n^T C n``: next to a cusp (``v -> 0``) the
     quadratic form loses ``v`` to round-off (``sqrt(eps)`` relative in the
@@ -338,214 +355,35 @@ def _uvw(S, D, dirs):
     )
 
 
-def _match_columns(Vprev, V):
-    """Reorder (and sign-fix) the eigenvector columns of ``V`` to follow ``Vprev``."""
-    overlap = np.abs(np.einsum("nji,njk->nik", Vprev, V))
-    score = overlap[:, np.arange(3)[None, :], _PERMS].sum(-1)
-    perm = _PERMS[score.argmax(axis=1)]
-    Vm = np.take_along_axis(V, perm[:, None, :], axis=2)
-    sgn = np.sign(np.einsum("nji,nji->ni", Vprev, Vm))
-    sgn[sgn == 0] = 1.0
-    return Vm * sgn[:, None, :]
-
-
-def _keep_best(best, best_n, vals, dirs):
-    """Fold candidates ``vals`` (n, c) / ``dirs`` (n, c, 3) into the running best."""
-    j = vals.argmax(axis=1)
-    rows = np.arange(len(best))
-    cand = vals[rows, j]
-    better = cand > best
-    best[better] = cand[better]
-    best_n[better] = dirs[rows, j][better]
-
-
-@functools.cache
-def _sphere_kernel():
-    """The numba K>=2 sphere-maximum kernel, or ``None`` when it does not import.
-
-    Only import-time failures fall back; a compile error on the first call propagates.
-    """
-    try:
-        from tit._calc_kernel import max_sphere
-    except Exception:  # noqa: BLE001
-        # numba raises AttributeError, not ImportError, when a dependency it checks is unusable.
-        return None
-    return max_sphere
-
-
 def _pair_optima(E):
-    """``(n, K, 3)``: each carrier pair's own K=1 optimal direction (0 where it is null)."""
+    """``(n, K, 3)``: each pair's own K=1 optimum, a kernel safeguard candidate.
+
+    Exact when the other pairs vanish, where the root-find may have no sign change to bracket.
+    """
     return np.stack([_max_k1(E[k], E[k + 1])[1] for k in range(0, len(E), 2)], axis=1)
 
 
 def _max_sphere(E):
-    """K>=2 sphere maximum: eigen-branch root-find, safeguards, local polish.
+    """K>=2 sphere maximum and direction, from :mod:`tit._calc_kernel`; raises on a failed solve.
 
     The maximiser is an eigenvector of ``cos(t) C+ - sin(t) C-`` at a ``t`` where
-    ``g = cos^2(t) u - sin^2(t) v = 0`` (``u = n^T C+ n``, ``v = n^T C- n``).  Runs in
-    :mod:`tit._calc_kernel` when numba imports; :func:`_max_sphere_numpy` is its reference
-    and recomputes any element whose kernel eigen-solve did not converge.
+    ``g = cos^2(t) u - sin^2(t) v = 0`` (``u = n^T C+ n``, ``v = n^T C- n``).  A row whose
+    eigen-solve did not converge has no trustworthy value, so it is an error.
     """
-    kernel = _sphere_kernel()
-    if kernel is None:
-        return _max_sphere_numpy(E)
     E = np.ascontiguousarray(E)
-    amp, n_hat, ok = kernel(E, _THETA_GRID, _pair_optima(E), _ROOT_ITERS, _NEWTON_ITERS)
+    amp, n_hat, ok = _sphere_kernel(
+        E, _THETA_GRID, _pair_optima(E), _ROOT_ITERS, _NEWTON_ITERS
+    )
     if not ok.all():
-        amp[~ok], n_hat[~ok] = _max_sphere_numpy(E[:, ~ok])
+        raise RuntimeError(
+            f"envelope_max: the K>=2 eigen-solve did not converge at {int((~ok).sum())} "
+            f"elements; fields above ~1e150 V/m overflow float64 once squared"
+        )
     return amp, n_hat
 
 
-def _max_sphere_numpy(E):
-    """The NumPy reference of :func:`_max_sphere`."""
-    S = E[0::2] + E[1::2]
-    D = E[0::2] - E[1::2]
-    Cp, Cm, Cw = _forms(E)
-    n_el = Cp.shape[0]
-    best = np.full(n_el, -1.0)
-    best_n = np.zeros((n_el, 3))
-
-    # Track the three eigen-branches of cos(t) C+ - sin(t) C- over the grid.
-    grid = _THETA_GRID
-    Vs = np.empty((n_el, len(grid), 3, 3))
-    g = np.empty((n_el, len(grid), 3))
-    branch_f = np.full((n_el, 3), -1.0)  # best grid point of each branch
-    branch_n = np.zeros((n_el, 3, 3))
-    V = None
-    for j, t in enumerate(grid):
-        Vj = np.linalg.eigh(np.cos(t) * Cp - np.sin(t) * Cm)[1]
-        V = Vj if V is None else _match_columns(V, Vj)
-        cols = V.transpose(0, 2, 1)
-        u, v, w = _uvw(S, D, cols)
-        Vs[:, j] = V
-        g[:, j] = np.cos(t) ** 2 * u - np.sin(t) ** 2 * v
-        f = _env_uvw(u, v, w)
-        up = f > branch_f
-        branch_f[up] = f[up]
-        branch_n[up] = cols[up]
-        _keep_best(best, best_n, f, cols)
-
-    # Illinois regula falsi on every bracketed sign change of g along a branch.
-    el, jc, br = np.nonzero(np.signbit(g[:, :-1]) != np.signbit(g[:, 1:]))
-    if len(el):
-        a, b = grid[jc], grid[jc + 1]
-        ga, gb = g[el, jc, br], g[el, jc + 1, br]
-        ref = Vs[el, jc, :, br]
-        Cpe, Cme, Se, De = Cp[el], Cm[el], S[:, el], D[:, el]
-        idx = np.arange(len(el))
-        side = np.zeros(len(el))
-        for _ in range(_ROOT_ITERS):
-            x = (a * gb - b * ga) / (gb - ga)
-            Vx = np.linalg.eigh(
-                np.cos(x)[:, None, None] * Cpe - np.sin(x)[:, None, None] * Cme
-            )[1]
-            nx = Vx[idx, :, np.abs(np.einsum("mj,mjk->mk", ref, Vx)).argmax(axis=1)]
-            u, v, w = (q[:, 0] for q in _uvw(Se, De, nx[:, None, :]))
-            gx = np.cos(x) ** 2 * u - np.sin(x) ** 2 * v
-            left = np.signbit(gx) == np.signbit(ga)
-            ga, gb = (
-                np.where(left, gx, np.where(side == -1, ga / 2, ga)),
-                np.where(left, np.where(side == 1, gb / 2, gb), gx),
-            )
-            a, b = np.where(left, x, a), np.where(left, b, x)
-            side = np.where(left, 1.0, -1.0)
-            # several brackets per element: keep each element's best iterate
-            fx = _env_uvw(u, v, w)
-            top = np.full(n_el, -1.0)
-            np.maximum.at(top, el, fx)
-            win = (fx >= top[el]) & (fx > best[el])
-            best_n[el[win]] = nx[win]
-            np.maximum(best, top, out=best)
-
-    # Safeguards: the eigenvectors of C+, C- and C+ - C-, and each pair's own
-    # K=1 optimum (exact when the other pairs vanish).
-    safe = [np.linalg.eigh(C)[1].transpose(0, 2, 1) for C in (Cp, Cm, Cw)]
-    safe = np.concatenate(safe + [_pair_optima(E)], axis=1)
-    _keep_best(best, best_n, _env_uvw(*_uvw(S, D, safe)), safe)
-
-    # Local polish: Newton ascent from the best point and from each branch's
-    # best grid point -- the root-find can miss a pair of close roots inside
-    # one grid interval, and a narrow ridge defeats a pattern search.
-    seeds = np.concatenate([best_n[:, None], branch_n], axis=1)
-    c = seeds.shape[1]
-    f, n = _newton_ascent(
-        np.repeat(S, c, axis=1), np.repeat(D, c, axis=1), seeds.reshape(-1, 3)
-    )
-    _keep_best(best, best_n, f.reshape(n_el, c), n.reshape(n_el, c, 3))
-
-    best_n /= np.linalg.norm(best_n, axis=1, keepdims=True)
-    return np.maximum(best, 0.0), best_n
-
-
-def _newton_ascent(S, D, n):
-    """Riemannian Newton ascent of ``E_AM`` on the sphere from unit rows ``n``.
-
-    ``S``, ``D`` are ``(K, m, 3)``; returns ``(f, n)`` per row.  On the side ``u >= v``,
-    ``E_AM = sqrt(2u) - sqrt(2v)`` (else its negative), smooth away from the cusps
-    ``u = 0``, ``v = 0`` (those are the safeguards' job).  A step is kept only if it
-    raises ``E_AM`` (halved up to 6 times); where the tangent Hessian is not negative
-    definite it is a 0.1 rad gradient step.
-    """
-    Cp = 0.5 * np.einsum("kmx,kmy->mxy", S, S)
-    Cm = 0.5 * np.einsum("kmx,kmy->mxy", D, D)
-
-    def at(n):
-        u, v, w = (q[:, 0] for q in _uvw(S, D, n[:, None]))
-        return _env_uvw(u, v, w), u, v
-
-    f, u, v = at(n)
-    with np.errstate(all="ignore"):
-        for _ in range(_NEWTON_ITERS):
-            up = (u >= v)[:, None, None]
-            A, B = np.where(up, Cp, Cm), np.where(up, Cm, Cp)
-            ua, vb = np.where(up[:, 0, 0], u, v), np.where(up[:, 0, 0], v, u)
-            ra, rb = np.sqrt(ua), np.sqrt(vb)
-            An = np.einsum("mxy,my->mx", A, n)
-            Bn = np.einsum("mxy,my->mx", B, n)
-            grad = _SQRT2 * (An / ra[:, None] - Bn / rb[:, None])
-            hess = _SQRT2 * (
-                A / ra[:, None, None]
-                - B / rb[:, None, None]
-                - An[:, :, None] * An[:, None, :] / (ua * ra)[:, None, None]
-                + Bn[:, :, None] * Bn[:, None, :] / (vb * rb)[:, None, None]
-            )
-            _, e1, e2 = _frame(n)
-            T = np.stack([e1, e2], axis=1)
-            gt = np.einsum("mix,mx->mi", T, grad)
-            Ht = np.einsum("mix,mxy,mjy->mij", T, hess, T)
-            Ht -= np.einsum("mx,mx->m", grad, n)[:, None, None] * np.eye(2)
-            det = Ht[:, 0, 0] * Ht[:, 1, 1] - Ht[:, 0, 1] ** 2
-            concave = (Ht[:, 0, 0] < 0) & (det > 0)
-            newton = (
-                -np.stack(
-                    [
-                        Ht[:, 1, 1] * gt[:, 0] - Ht[:, 0, 1] * gt[:, 1],
-                        Ht[:, 0, 0] * gt[:, 1] - Ht[:, 0, 1] * gt[:, 0],
-                    ],
-                    axis=1,
-                )
-                / det[:, None]
-            )
-            gnorm = np.linalg.norm(gt, axis=1, keepdims=True)
-            step = np.where(concave[:, None], newton, 0.1 * gt / gnorm)
-            step = np.nan_to_num(step, nan=0.0, posinf=0.0, neginf=0.0)
-            length = np.linalg.norm(step, axis=1, keepdims=True)
-            step *= np.minimum(1.0, 0.3 / np.where(length > 0, length, 1.0))
-            for _ in range(6):
-                cand = n + np.einsum("mi,mix->mx", step, T)
-                cand /= np.linalg.norm(cand, axis=1, keepdims=True)
-                fc, uc, vc = at(cand)
-                ok = fc > f
-                n[ok], f[ok], u[ok], v[ok] = cand[ok], fc[ok], uc[ok], vc[ok]
-                step[ok] = 0.0
-                step *= 0.5
-                if ok.all():
-                    break
-    return f, n
-
-
 def _max_plane(E, m):
-    """K>=2 maximum over the plane perpendicular to unit rows ``m`` (exact).
+    """K>=2 maximum over the plane perpendicular to unit rows ``m``, exact by polynomial roots.
 
     With ``n = cos(phi) e1 + sin(phi) e2`` and ``psi = 2 phi``, ``u`` and ``v`` are
     first-order trig polynomials in ``psi``; the stationary points are the roots of
@@ -556,7 +394,7 @@ def _max_plane(E, m):
     D = E[0::2] - E[1::2]
 
     def trig(X):
-        """``u(psi) = c0 + c1 cos(psi) + c2 sin(psi)`` with ``psi = 2 phi``."""
+        """``u(psi) = c0 + c1 cos(psi) + c2 sin(psi)``, ``psi = 2 phi``: makes F a polynomial."""
         x1 = np.einsum("knx,nx->kn", X, e1)
         x2 = np.einsum("knx,nx->kn", X, e2)
         c11 = 0.5 * np.sum(x1 * x1, 0)
@@ -567,9 +405,11 @@ def _max_plane(E, m):
     A, B = trig(S), trig(D)
 
     def val(C, psi):
+        """The trig form ``C`` at ``psi``."""
         return C[:, :1] + C[:, 1:2] * np.cos(psi) + C[:, 2:3] * np.sin(psi)
 
     def der(C, psi):
+        """Its ``psi`` derivative, for the stationarity condition ``F = 0``."""
         return -C[:, 1:2] * np.sin(psi) + C[:, 2:3] * np.cos(psi)
 
     # F = u'^2 v - v'^2 u is a degree-3 trig polynomial: 7 samples fix it.
@@ -632,16 +472,18 @@ def envelope_mean(fields: Sequence[ArrayLike]) -> NDArray[np.float64]:
     if E.shape[0] == 2:
 
         def norm(x):
+            """Row norms."""
             return np.linalg.norm(x, axis=1)
 
         E1, E2 = E
         return norm(E1) + norm(E2) - 0.5 * (norm(E1 + E2) + norm(E1 - E2))
 
-    dirs = _hemisphere_directions(_MEAN_DIRECTIONS)
+    dirs = _hemisphere_directions(2048)  # the ~7e-4 rule of the docstring
     x, y, z = dirs.T
     monomials = np.stack([x * x, y * y, z * z, 2 * x * y, 2 * x * z, 2 * y * z])
 
     def pack(C):
+        """The 6 unique entries of each symmetric ``C``, in the order of ``monomials``."""
         return np.stack(
             [C[:, 0, 0], C[:, 1, 1], C[:, 2, 2], C[:, 0, 1], C[:, 0, 2], C[:, 1, 2]], 1
         )
@@ -701,7 +543,7 @@ def hf_peak(
 
 
 def _hf_peak_vertices(E):
-    """Exact ``max_s |sum s_c E_c|`` for ``(F >= 3, n, 3)`` by arrangement vertices.
+    """Exact ``max_s |sum s_c E_c|`` for ``(F >= 3, n, 3)`` from zonotope vertices, no grid.
 
     The maximum is a zonotope vertex: a cell of the plane arrangement ``E_c . n = 0``
     next to one of its vertices ``n = E_i x E_j``.  The 4 sign patterns around each
@@ -714,9 +556,11 @@ def _hf_peak_vertices(E):
     norms = np.linalg.norm(E, axis=2)
 
     def total(signs):
+        """``|sum_c s_c E_c|`` for one sign pattern per element."""
         return np.linalg.norm(np.einsum("fm,fmx->mx", signs, E), axis=1)
 
     def sign(x):
+        """``sign`` with 0 -> +1, so a field on a cell boundary still gets a carrier sign."""
         return np.where(x < 0, -1.0, 1.0)
 
     e_big = E[norms.argmax(axis=0), rows]

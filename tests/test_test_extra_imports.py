@@ -71,7 +71,6 @@ _IMAGE_ONLY = {
     "mathutils": "Blender's own module; the Blender exporters run inside Blender's Python",
     "dipy": "QSIRecon's DTI extraction (tit/pre/qsi) runs in the image",
     "jupyter_client": "notebook kernels are started by the server in the image",
-    "numba": "optional JIT kernel; tit falls back to NumPy when it is not importable",
     "seaborn": "statistics figures are drawn in the image; host tests stub the plot",
     "stl": "numpy-stl writes nifti_to_mesh's STL output in the image",
     "threadpoolctl": "caps BLAS threads in ex-search workers, under an import guard",
@@ -317,10 +316,12 @@ def test_the_extra_ci_1265_installed_names_the_lines_that_failed_there() -> None
         and "'PIL'" in line
         for line in found
     ), found
-    # Only those two modules are missing from that extra.
+    # Only those two modules are missing from that extra, plus numba, which tit.calc has
+    # imported unconditionally since 2026-10-27.
     assert {re.search(r"import of '(\w+)'", line).group(1) for line in found} == {
         "PIL",
         "skimage",
+        "numba",
     }
 
 
@@ -366,7 +367,7 @@ def test_an_image_only_module_is_allowed_deferred_and_refused_at_module_level(
     extra, mocks = _real_lists()
     deferred = (
         "def kernel():\n"
-        "    import numba\n"
+        "    import dipy\n"
         "\n"
         "try:\n"
         "    import threadpoolctl\n"
@@ -377,9 +378,9 @@ def test_an_image_only_module_is_allowed_deferred_and_refused_at_module_level(
     assert [imp.eager for imp in imports] == [False, False]
     assert violations(imports, extra, mocks) == []
 
-    _, imports = scan(_tree(tmp_path / "b", "import numba\n"))
+    _, imports = scan(_tree(tmp_path / "b", "import dipy\n"))
     assert violations(imports, extra, mocks) == [
-        "tit/planted.py:1: module-level import of 'numba' is not in the test extra, "
+        "tit/planted.py:1: module-level import of 'dipy' is not in the test extra, "
         "not mocked by tests/conftest.py, and image-only modules must be deferred"
     ]
 
