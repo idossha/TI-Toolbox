@@ -36,14 +36,12 @@ def _qf(A, x0, x1, x2, y0, y1, y2):
 
 @njit(cache=True, error_model="numpy")
 def _eigh(A, V, warm):
-    """Cyclic-Jacobi eigenvectors of symmetric 3x3 ``A`` into ``V``'s columns, ascending.
+    """Eigenvectors of symmetric 3x3 ``A`` into ``V``'s columns, ascending; returns converged.
 
-    Replaces LAPACK, whose per-call overhead dominated.  ``A`` is overwritten (its diagonal
-    ends up holding the eigenvalues).  ``warm`` starts from the basis already in ``V`` (a
-    nearby matrix's eigenvectors) instead of the identity.  Returns whether it converged
-    within ``_SWEEPS`` sweeps; for finite ``A`` it always does.
+    Cyclic Jacobi: LAPACK's per-call overhead was most of a NumPy solver's cost.
     """
-    if warm:
+    # A is overwritten; its diagonal ends up holding the eigenvalues.
+    if warm:  # start from V's basis (a nearby matrix's eigenvectors), not the identity
         t00 = _qf(A, V[0, 0], V[1, 0], V[2, 0], V[0, 0], V[1, 0], V[2, 0])
         t11 = _qf(A, V[0, 1], V[1, 1], V[2, 1], V[0, 1], V[1, 1], V[2, 1])
         t22 = _qf(A, V[0, 2], V[1, 2], V[2, 2], V[0, 2], V[1, 2], V[2, 2])
@@ -65,7 +63,7 @@ def _eigh(A, V, warm):
         for j in range(3):
             tol += A[i, j] * A[i, j]
     tol = 1e-16 * np.sqrt(tol)
-    converged = False
+    converged = False  # finite A always converges well inside _SWEEPS
     for _ in range(_SWEEPS):
         if abs(A[0, 1]) <= tol and abs(A[0, 2]) <= tol and abs(A[1, 2]) <= tol:
             converged = True
@@ -106,12 +104,11 @@ def _eigh(A, V, warm):
 
 @njit(cache=True, error_model="numpy")
 def _uvwf(S, D, n0, n1, n2):
-    """``u, v`` and ``E_AM`` at ``n`` from the projections, the kernel's one envelope evaluation.
+    """``u = |S n|^2/2``, ``v = |D n|^2/2`` and ``E_AM`` at ``n``: the kernel's one evaluation.
 
-    ``u = |S n|^2 / 2``, ``v = |D n|^2 / 2``, ``E_AM = sqrt(2) |u - v| / (sqrt(u) + sqrt(v))``
-    (``tit.calc._uvw``/``_env_uvw``): from the projections, not ``n^T C n``, which loses ``v``
-    to round-off next to a cusp.  A null field gives 0.
+    From the projections, not ``n^T C n``, which loses ``v`` to round-off next to a cusp.
     """
+    # E_AM = sqrt(2) |u - v| / (sqrt(u) + sqrt(v)), as tit.calc._env_uvw; a null field gives 0.
     u = v = w = 0.0
     for k in range(S.shape[0]):
         s = S[k, 0] * n0 + S[k, 1] * n1 + S[k, 2] * n2
@@ -127,19 +124,15 @@ def _uvwf(S, D, n0, n1, n2):
 
 @njit(cache=True, error_model="numpy")
 def _newton(S, D, Cp, Cm, n, iters):
-    """Riemannian Newton ascent of ``E_AM`` from unit seed ``n`` (updated in place); returns ``f``.
+    """Newton ascent of ``E_AM`` on the sphere from unit seed ``n`` (in place); returns ``f``.
 
-    The polish that closes the gap a grid interval leaves: the root-find can miss two close
-    roots inside one interval, and a narrow ridge defeats a pattern search.  On the side
-    ``u >= v``, ``E_AM = sqrt(2u) - sqrt(2v)`` (else its negative), smooth away from the cusps
-    ``u = 0``, ``v = 0`` (the safeguards cover those).  Gradient and Hessian are formed in the
-    tangent frame ``(e1, e2)``; where the tangent Hessian is not negative definite the step is
-    a 0.1 rad gradient step.  A step is kept only if it raises ``E_AM`` (halved up to 6
-    times), so the result is never below the seed; a zero gradient or a cusp gives no step.
+    Closes the gap the grid leaves: two close roots in one interval, or a narrow ridge.
     """
     n0, n1, n2 = n[0], n[1], n[2]
     u, v, f = _uvwf(S, D, n0, n1, n2)
     for _ in range(iters):
+        # On the side u >= v, E_AM = sqrt(2u) - sqrt(2v) (else its negative): smooth away from
+        # the cusps u = 0, v = 0, which the safeguards cover.
         up = u >= v
         A, B = (Cp, Cm) if up else (Cm, Cp)
         ua, vb = (u, v) if up else (v, u)
@@ -182,6 +175,7 @@ def _newton(S, D, Cp, Cm, n, iters):
         h00 -= gn
         h11 -= gn
         det = h00 * h11 - h01 * h01
+        # Newton where the tangent Hessian is negative definite, else a 0.1 rad gradient step.
         if h00 < 0.0 and det > 0.0:
             s0 = -(h11 * g0 - h01 * g1) / det
             s1 = -(h00 * g1 - h01 * g0) / det
@@ -195,7 +189,7 @@ def _newton(S, D, Cp, Cm, n, iters):
         scale = min(1.0, 0.3 / (length if length > 0.0 else 1.0))
         s0 *= scale
         s1 *= scale
-        for _ in range(6):  # halve until E_AM rises (never worse)
+        for _ in range(6):  # halve until E_AM rises: never below the seed
             c0 = n0 + s0 * a0 + s1 * b0
             c1 = n1 + s0 * a1 + s1 * b1
             c2 = n2 + s0 * a2 + s1 * b2
@@ -220,14 +214,12 @@ def _newton(S, D, Cp, Cm, n, iters):
 def _element(
     S, D, Cp, Cm, Cw, grid, cg, sg, extra, root_iters, newton_iters, out_n, work
 ):
-    """The sphere maximum of one element, direction into ``out_n``; returns ``(amp, ok)``.
+    """One element's sphere maximum, direction into ``out_n``; returns ``(amp, ok)``.
 
-    Branches, root-find, safeguards and polish as in the module docstring; ``ok`` is False if
-    any eigen-solve did not converge.  ``work`` is scratch reused across elements:
-    ``(Vs, g, branch_f, branch_n, Vj, M, bn, seed)``.
+    The four steps of the module docstring; ``ok`` is False if any eigen-solve did not converge.
     """
     G = grid.shape[0]
-    Vs, g, branch_f, branch_n, Vj, M, bn, seed = work
+    Vs, g, branch_f, branch_n, Vj, M, bn, seed = work  # scratch reused across elements
     branch_f[:] = -1.0
     branch_n[:] = 0.0
     bn[:] = 0.0
@@ -352,13 +344,13 @@ def _element(
 
 @njit(cache=True, error_model="numpy", parallel=True)
 def max_sphere(E, grid, extra, root_iters, newton_iters):
-    """K>=2 sphere maximum of ``E`` ``(2K, n, 3)``: ``(amp (n,), n_hat (n, 3), ok (n,))``.
+    """K>=2 sphere maximum of ``E`` ``(2K, n, 3)``: ``(amp, n_hat, ok)``, parallel over elements.
 
     ``ok`` is False where an eigen-solve did not converge; ``tit.calc`` raises on any such row.
-    ``grid`` is ``tit.calc._THETA_GRID``, ``extra`` ``(n, K, 3)`` each pair's K=1 optimum,
-    ``root_iters``/``newton_iters`` ``tit.calc._ROOT_ITERS``/``_NEWTON_ITERS``.  A null element
-    gives 0 (its direction is set by ``tit.calc``).
     """
+    # grid, extra (n, K, 3: each pair's K=1 optimum), root_iters, newton_iters come from
+    # tit.calc (_THETA_GRID, _pair_optima, _ROOT_ITERS, _NEWTON_ITERS). A null element gives 0;
+    # tit.calc sets its direction.
     K = E.shape[0] // 2
     n_el = E.shape[1]
     G = grid.shape[0]

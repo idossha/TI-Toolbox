@@ -77,8 +77,7 @@ _NEWTON_ITERS = 12
 def _hemisphere_directions(n: int) -> np.ndarray:
     """``n`` equal-area (Fibonacci) unit directions with ``z > 0``: the K>=2 mean's quadrature.
 
-    Equal area makes the plain average a sphere integral; the upper hemisphere is enough
-    because ``E_AM(n) = E_AM(-n)``.
+    Equal area makes the plain average a sphere integral; ``E_AM(n) = E_AM(-n)``.
     """
     i = np.arange(n) + 0.5
     z = 1.0 - i / n
@@ -93,10 +92,9 @@ def _hemisphere_directions(n: int) -> np.ndarray:
 
 
 def _stack(fields: Sequence[ArrayLike], *, paired: bool) -> np.ndarray:
-    """Validate a field list and stack it as ``(F, N, 3)`` float64: the one input gate.
+    """Validate a field list and stack it as ``(F, N, 3)`` float64: every public function's gate.
 
-    Every public function goes through it, so a bad count, a shape mismatch or a NaN/inf is
-    a ValueError here instead of finite garbage from the solvers (the kernel included).
+    Bad input is a ValueError here, not finite garbage from the solvers (the kernel included).
     """
     arrs = [np.asarray(f, dtype=np.float64) for f in fields]
     n = len(arrs)
@@ -267,13 +265,13 @@ def envelope_max(
 
 
 def _max_k1(E1: np.ndarray, E2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """K=1 maximum and unit direction: the exact closed form behind every K = 1 ``TI_max``.
+    """K=1 maximum and unit direction (a zero row where it is 0): every K = 1 ``TI_max``.
 
-    The TI vector (Grossman 2017 in the sign-agnostic form of Hirata 2024 Eq. 2) is ``2 Es``
-    where ``min(|E1|, |E2|) <= sqrt(|E1.E2|)``, else twice the part of ``Es`` perpendicular to
-    ``h``: ``Es`` is the smaller field flipped into the acute angle (ties go to ``E2``), ``h``
-    the shorter of ``E1 -/+ E2``.  Where the maximum is 0 the direction is a zero row.
+    The TI vector of Grossman 2017, in the sign-agnostic form of Hirata 2024 Eq. 2.
     """
+    # 2 Es where min(|E1|, |E2|) <= sqrt(|E1.E2|), else twice Es's part perpendicular to h:
+    # Es is the smaller field flipped into the acute angle (ties go to E2), h the shorter
+    # of E1 -/+ E2.
     norm1 = np.linalg.norm(E1, axis=1)
     norm2 = np.linalg.norm(E2, axis=1)
     dot = np.sum(E1 * E2, axis=1)
@@ -318,8 +316,8 @@ def _forms(E):
     """``C+ = S^T S / 2``, ``C- = D^T D / 2``, ``Cw = C+ - C-`` per element, for the K>=2 mean.
 
     ``n^T C n`` at all 2048 quadrature directions then costs 6 multiplies per form.
-    ``Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T)`` is built directly, not as a lossy difference.
     """
+    # Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T), built directly, not as a lossy difference.
     S = E[0::2] + E[1::2]
     D = E[0::2] - E[1::2]
     Cp = 0.5 * np.einsum("knx,kny->nxy", S, S)
@@ -330,10 +328,9 @@ def _forms(E):
 
 
 def _env_uvw(u, v, w):
-    """``E_AM = sqrt(2) |w| / (sqrt(u) + sqrt(v))``, ``w = u - v``: the cancellation-free envelope.
+    """``E_AM = sqrt(2) |w| / (sqrt(u) + sqrt(v))``, ``w = u - v``; a null field gives 0.
 
-    ``sqrt(2u) - sqrt(2v)`` would lose a small envelope to round-off next to strong carriers;
-    a null field (``u = v = 0``) gives 0.
+    ``sqrt(2u) - sqrt(2v)`` would lose a small envelope to round-off next to strong carriers.
     """
     den = np.sqrt(np.maximum(u, 0.0)) + np.sqrt(np.maximum(v, 0.0))
     return _ratio(_SQRT2 * np.abs(w), den)
@@ -342,9 +339,7 @@ def _env_uvw(u, v, w):
 def _uvw(S, D, dirs):
     """``u = |S n|^2/2``, ``v = |D n|^2/2``, ``w = u - v`` at ``dirs`` (n, c, 3): ranks candidates.
 
-    From the projections, not from ``n^T C n``: next to a cusp (``v -> 0``) the
-    quadratic form loses ``v`` to round-off (``sqrt(eps)`` relative in the
-    envelope), while ``sum (D_k . n)^2`` keeps it.
+    From the projections: ``n^T C n`` loses ``v`` near a cusp (``sqrt(eps)`` in the envelope).
     """
     s = np.einsum("knx,ncx->knc", S, dirs)
     d = np.einsum("knx,ncx->knc", D, dirs)
@@ -366,10 +361,10 @@ def _pair_optima(E):
 def _max_sphere(E):
     """K>=2 sphere maximum and direction, from :mod:`tit._calc_kernel`; raises on a failed solve.
 
-    The maximiser is an eigenvector of ``cos(t) C+ - sin(t) C-`` at a ``t`` where
-    ``g = cos^2(t) u - sin^2(t) v = 0`` (``u = n^T C+ n``, ``v = n^T C- n``).  A row whose
-    eigen-solve did not converge has no trustworthy value, so it is an error.
+    A row whose eigen-solve did not converge has no trustworthy value, so it is an error.
     """
+    # The maximiser is an eigenvector of cos(t) C+ - sin(t) C- at a t where
+    # g = cos^2(t) u - sin^2(t) v = 0 (u = n^T C+ n, v = n^T C- n).
     E = np.ascontiguousarray(E)
     amp, n_hat, ok = _sphere_kernel(
         E, _THETA_GRID, _pair_optima(E), _ROOT_ITERS, _NEWTON_ITERS
@@ -383,12 +378,10 @@ def _max_sphere(E):
 
 
 def _max_plane(E, m):
-    """K>=2 maximum over the plane perpendicular to unit rows ``m``, exact by polynomial roots.
-
-    With ``n = cos(phi) e1 + sin(phi) e2`` and ``psi = 2 phi``, ``u`` and ``v`` are
-    first-order trig polynomials in ``psi``; the stationary points are the roots of
-    ``u'^2 v - v'^2 u`` (degree 3 in ``psi``) plus the cusps ``u = 0``, ``v = 0``.
-    """
+    """K>=2 maximum over the plane perpendicular to unit rows ``m``, exact by polynomial roots."""
+    # With n = cos(phi) e1 + sin(phi) e2 and psi = 2 phi, u and v are first-order trig
+    # polynomials in psi; the stationary points are the roots of u'^2 v - v'^2 u (degree 3 in
+    # psi) plus the cusps u = 0, v = 0.
     _, e1, e2 = _frame(m)
     S = E[0::2] + E[1::2]
     D = E[0::2] - E[1::2]
@@ -543,14 +536,12 @@ def hf_peak(
 
 
 def _hf_peak_vertices(E):
-    """Exact ``max_s |sum s_c E_c|`` for ``(F >= 3, n, 3)`` from zonotope vertices, no grid.
-
-    The maximum is a zonotope vertex: a cell of the plane arrangement ``E_c . n = 0``
-    next to one of its vertices ``n = E_i x E_j``.  The 4 sign patterns around each
-    such vertex (plus ``n`` along the largest field, for collinear sets) contain it;
-    fields in the plane of ``E_i, E_j`` take their sign from an in-plane direction in
-    the chosen quadrant, so coplanar and parallel fields stay exact.
-    """
+    """Exact ``max_s |sum s_c E_c|`` for ``(F >= 3, n, 3)`` from zonotope vertices, no grid."""
+    # The maximum is a zonotope vertex: a cell of the plane arrangement E_c . n = 0 next to
+    # one of its vertices n = E_i x E_j. The 4 sign patterns around each such vertex (plus n
+    # along the largest field, for collinear sets) contain it; fields in the plane of E_i, E_j
+    # take their sign from an in-plane direction in the chosen quadrant, so coplanar and
+    # parallel fields stay exact.
     F, n_el, _ = E.shape
     rows = np.arange(n_el)
     norms = np.linalg.norm(E, axis=2)
