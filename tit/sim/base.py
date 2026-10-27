@@ -400,8 +400,13 @@ class BaseSimulation(ABC):
         """Write ``TI_normal`` on the cortical surface to *path*.
 
         The envelope of all channel fields along the node normals of the
-        SimNIBS central-surface overlays (:func:`tit.calc.envelope`).  An
-        overlay holding only ``E_normal`` gives the field ``E_normal * n``.
+        SimNIBS central-surface overlays (:func:`tit.calc.envelope`).  SimNIBS
+        4.6 writes ``E_magn``, ``E_normal``, ``E_tangent`` and ``E_angle`` there,
+        not the ``E`` vector; the envelope along ``n`` needs only ``E . n``, so
+        the field ``E_normal * n`` gives it exactly.
+
+        Raises:
+            KeyError: an overlay has no ``E_normal`` node field.
         """
         sid = self.config.subject_id
         cond = self.config.conductivity
@@ -414,10 +419,14 @@ class BaseSimulation(ABC):
         ]
 
         normals = cms[0].nodes_normals().value
-        if "E" in cms[0].field:
-            fields = [cm.field["E"].value for cm in cms]
-        else:
-            fields = [cm.field["E_normal"].value.reshape(-1, 1) * normals for cm in cms]
+        fields = []
+        for i, cm in enumerate(cms, start=1):
+            if "E_normal" not in cm.field:
+                raise KeyError(
+                    f"central-surface overlay of channel {i} has no 'E_normal' node field "
+                    f"(fields: {sorted(cm.field)})"
+                )
+            fields.append(cm.field["E_normal"].value.reshape(-1, 1) * normals)
 
         mout = deepcopy(cms[0])
         mout.nodedata = []

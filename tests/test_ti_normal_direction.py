@@ -3,8 +3,8 @@
 Pins (2026-10-26): ``BaseSimulation._write_ti_normal``, which ``TISimulation`` (two channels) and
 ``mTISimulation`` (all N channels) call from ``_post_process``, evaluates the envelope along
 ``nodes_normals()`` of the first central-surface overlay -- not along
-element normals, not along a fixed axis -- on both overlay layouts SimNIBS writes: a full ``E``
-vector per node, and an ``E_normal`` scalar per node (the field is then ``E_normal * n``).
+element normals, not along a fixed axis -- on the overlay layout SimNIBS 4.6 writes, an
+``E_normal`` scalar per node (the field is then ``E_normal * n``); an overlay without it raises.
 
 Where the expected numbers come from: written here from the definitions, not from ``tit.calc``.
 Two channels: Grossman 2017's ``2 min(|E1.n|, |E2.n|)``. Two carriers (four channels): the
@@ -93,7 +93,7 @@ def _written_ti_normal(sim_cls, n, layout):
     return written["mesh"].field["TI_normal"].value, proj
 
 
-@pytest.mark.parametrize("layout", ["E", "E_normal"])
+@pytest.mark.parametrize("layout", ["E_normal"])
 def test_ti_normal_is_grossman_along_the_node_normals(layout):
     from tit.sim.TI import TISimulation
 
@@ -103,7 +103,7 @@ def test_ti_normal_is_grossman_along_the_node_normals(layout):
     np.testing.assert_allclose(got, expected, rtol=1e-12)
 
 
-@pytest.mark.parametrize("layout", ["E", "E_normal"])
+@pytest.mark.parametrize("layout", ["E_normal"])
 def test_mti_normal_is_the_joint_envelope_along_the_node_normals(layout):
     from tit.sim.mTI import mTISimulation
 
@@ -113,3 +113,14 @@ def test_mti_normal_is_the_joint_envelope_along_the_node_normals(layout):
     expected = np.sqrt(2 * (P + Q)) - np.sqrt(2 * (P - Q))
     assert np.all(expected > 1e-3)
     np.testing.assert_allclose(got, expected, rtol=1e-10)
+
+
+def test_an_overlay_without_e_normal_raises_naming_it():
+    """SimNIBS 4.6 central-surface overlays carry ``E_magn``, ``E_normal``, ``E_tangent`` and
+    ``E_angle``, never the ``E`` vector (read from the 2026-10 Ernie e2e TI and mTI runs); an
+    overlay without ``E_normal`` is not one SimNIBS wrote, so it is an error, not a second
+    code path (2026-10-27)."""
+    from tit.sim.TI import TISimulation
+
+    with pytest.raises(KeyError, match="E_normal"):
+        _written_ti_normal(TISimulation, 2, "E")
