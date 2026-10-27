@@ -3,9 +3,9 @@
 
 Usage::
 
-    python3 dev/contracts_check.py                   # the gate
-    python3 dev/contracts_check.py --no-schema-d-ts  # a CI job where another step diffs schema.d.ts
-    python3 dev/contracts_check.py --write-baseline  # after fixing (or knowingly adding) warnings
+    .venv/bin/python dev/contracts_check.py                   # the gate
+    .venv/bin/python dev/contracts_check.py --no-schema-d-ts  # a CI job where another step diffs schema.d.ts
+    .venv/bin/python dev/contracts_check.py --write-baseline  # after fixing (or knowingly adding) warnings
 
 Exit 0 when everything was checked and holds, 1 on drift / a contract mismatch / a warning
 count that moved off ``dev/contracts_check_baseline.json``, 2 when something could not be
@@ -539,7 +539,7 @@ def write_baseline(path: Path, warnings: list[str]) -> None:
             "Every contracts_check warning (an untyped dict/list response or body, or a "
             "contract schema with no server model). dev/contracts_check.py fails when a "
             "warning appears that is not listed, and when a listed one stops occurring; "
-            "rewrite with `python3 dev/contracts_check.py --write-baseline` after "
+            "rewrite with `.venv/bin/python dev/contracts_check.py --write-baseline` after "
             "removing one."
         ),
         "warnings": sorted(warnings),
@@ -685,7 +685,7 @@ def main(argv: list[str]) -> int:
             print(f"  - {line}")
         print(
             "\nA new warning means a route or schema the gate cannot check: give it a "
-            "response/body model. A gone one: run `python3 dev/contracts_check.py "
+            "response/body model. A gone one: run `.venv/bin/python dev/contracts_check.py "
             "--write-baseline` and commit the lower baseline."
         )
         return 1

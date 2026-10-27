@@ -1,5 +1,5 @@
 {
-  "_comment": "Every contracts_check warning (an untyped dict/list response or body, or a contract schema with no server model). dev/contracts_check.py fails when a warning appears that is not listed, and when a listed one stops occurring; rewrite with `python3 dev/contracts_check.py --write-baseline` after removing one.",
+  "_comment": "Every contracts_check warning (an untyped dict/list response or body, or a contract schema with no server model). dev/contracts_check.py fails when a warning appears that is not listed, and when a listed one stops occurring; rewrite with `.venv/bin/python dev/contracts_check.py --write-baseline` after removing one.",
   "warnings": [
     "GET /api/caps/available 200: required property 'caps' missing (dump response has no declared schema -- dict/list response)",
     "GET /api/caps/available 200: required property 'subject' missing (dump response has no declared schema -- dict/list response)",

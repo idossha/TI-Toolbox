@@ -238,7 +238,7 @@ bodies are compared in both directions where the server declares the body's prop
 warnings (untyped `dict`/`list` responses and bodies, schemas with no server model) are ratcheted
 against `dev/contracts_check_baseline.json` as a multiset: a new one (or a second copy of a listed
 one) fails, and a fixed one fails until
-`python3 dev/contracts_check.py --write-baseline` lowers the baseline in the same commit
+`.venv/bin/python dev/contracts_check.py --write-baseline` lowers the baseline in the same commit
 (`tests/test_contracts_check_unit.py` drives each case red). The responses themselves are checked
 by `tests/test_contract_response_conformance.py`: every contract JSON GET is called on the real app
 over the synthetic project in `tests/contract_project.py` (jobs and proposals from a real
