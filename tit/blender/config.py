@@ -231,7 +231,7 @@ class VectorConfig:
     export_sum : bool
         Export E-field sum arrows.
     export_ti_normal : bool
-        Export surface-normal projected TI arrows.
+        Export ``TI_normal`` arrows: the envelope along the surface normal.
     export_combined : bool
         Export all channels merged into one PLY.
     top_percent : float or None

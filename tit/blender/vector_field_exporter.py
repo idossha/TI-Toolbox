@@ -21,7 +21,7 @@ from tit.blender.config import (
     carrier_mesh_paths,
     central_surface_path,
 )
-from tit.calc import envelope_max
+from tit.calc import envelope, envelope_max
 
 logger = logging.getLogger(__name__)
 
@@ -377,7 +377,8 @@ def _compute_fields(config, meshes, positions):
     the first two channels and ``E_sum`` the sum of every channel.
 
     Returns:
-        Dict with keys: positions, E1, E2, TI, E_sum (or None).
+        Dict with keys: positions, channels (every channel's E), E1, E2, TI,
+        E_sum (or None).
     """
     logger.info(
         "Interpolating E fields to %d surface face barycenters...", len(positions)
@@ -397,6 +398,7 @@ def _compute_fields(config, meshes, positions):
 
     return {
         "positions": positions,
+        "channels": channels,
         "E1": channels[0],
         "E2": channels[1],
         "TI": TI,
@@ -404,17 +406,16 @@ def _compute_fields(config, meshes, positions):
     }
 
 
-def _compute_ti_normal(config, central_mesh, m1, TI):
-    """Project the direction-maximized TI vector onto the surface normals.
+def _compute_ti_normal(config, central_mesh, m1, channels):
+    """``TI_normal`` arrows: the envelope along each face normal, along that normal.
 
-    Visualization only. This is **not** the ``TI_normal`` field written by
-    :mod:`tit.sim.TI`, which evaluates the envelope along the normal from
-    the raw carrier fields (:func:`tit.calc.envelope`). Projecting an
-    already-maximized vector is a different quantity and the two will not
-    agree numerically.
+    The quantity the simulation writes as ``TI_normal``
+    (:func:`tit.calc.envelope` of every channel field along the normal), not
+    the projection of the ``TI`` vector: the envelope is not linear in the
+    fields, so the two differ wherever the fields are oblique to the surface.
 
     Returns:
-        Normal-component array or None.
+        ``(N, 3)`` arrows or None.
     """
     if not config.export_ti_normal:
         return None
@@ -429,25 +430,25 @@ def _compute_ti_normal(config, central_mesh, m1, TI):
         triangle_normals = surf_normals[triangular_elements]
 
         # Align normals with TI count
-        if len(triangle_normals) > len(TI):
-            surf_normals = triangle_normals[: len(TI)]
-        elif len(triangle_normals) < len(TI):
+        if len(triangle_normals) > len(channels[0]):
+            surf_normals = triangle_normals[: len(channels[0])]
+        elif len(triangle_normals) < len(channels[0]):
             default_normal = np.array([0.0, 0.0, 1.0])
-            pad = np.tile(default_normal, (len(TI) - len(triangle_normals), 1))
+            pad = np.tile(default_normal, (len(channels[0]) - len(triangle_normals), 1))
             surf_normals = np.vstack([triangle_normals, pad])
         else:
             surf_normals = triangle_normals
     except Exception:
         # Fallback to TDCS mesh normals
         surf_normals = _surface_normals_for_mesh(m1)
-        if len(surf_normals) > len(TI):
-            surf_normals = surf_normals[: len(TI)]
-        elif len(surf_normals) < len(TI):
+        if len(surf_normals) > len(channels[0]):
+            surf_normals = surf_normals[: len(channels[0])]
+        elif len(surf_normals) < len(channels[0]):
             default_normal = np.array([0.0, 0.0, 1.0])
-            pad = np.tile(default_normal, (len(TI) - len(surf_normals), 1))
+            pad = np.tile(default_normal, (len(channels[0]) - len(surf_normals), 1))
             surf_normals = np.vstack([surf_normals, pad])
 
-    return np.sum(TI * surf_normals, axis=1, keepdims=True) * surf_normals
+    return envelope(channels, surf_normals)[:, None] * surf_normals
 
 
 def _filter_and_sample(config, fields):
@@ -825,7 +826,7 @@ def run_vectors(config: VectorConfig) -> None:
         fields = _compute_fields(config, meshes, positions)
 
         # 3 -- TI_normal (optional)
-        TI_normal = _compute_ti_normal(config, central, meshes[0], fields["TI"])
+        TI_normal = _compute_ti_normal(config, central, meshes[0], fields["channels"])
         fields["TI_normal"] = TI_normal
 
         # Pre-filter full magnitudes for color normalization (magscale mode)
