@@ -90,6 +90,49 @@ class TestForwardPaths:
 
 
 class TestFsavgHelpers:
+    @pytest.mark.parametrize(
+        ("content", "expected"),
+        [
+            ("{}", False),
+            ('{"carrier_only": false}', False),
+            ('{"carrier_only": true}', True),
+        ],
+    )
+    def test_carrier_only_is_read_from_the_runs_config(
+        self, tmp_path, content, expected
+    ):
+        """A missing key is an ordinary TI run (older runs are real input)."""
+        from types import SimpleNamespace
+
+        from tit.source import fsaverage
+
+        (tmp_path / "documentation").mkdir()
+        (tmp_path / "documentation" / "config.json").write_text(content)
+        pm = SimpleNamespace(simulation=lambda sid, sim: str(tmp_path))
+        assert fsaverage._recorded_carrier_only(pm, "001", "s") is expected
+
+    @pytest.mark.parametrize(
+        ("content", "error"),
+        [
+            (None, FileNotFoundError),
+            ("{not json", ValueError),
+            ('{"carrier_only": "false"}', ValueError),
+        ],
+    )
+    def test_an_unreadable_or_corrupt_config_raises(self, tmp_path, content, error):
+        """Treating it as an ordinary TI run would silently give a carrier-only run's
+        hf_peak/hf_sar the incoherent sum (2026-10-27)."""
+        from types import SimpleNamespace
+
+        from tit.source import fsaverage
+
+        (tmp_path / "documentation").mkdir()
+        if content is not None:
+            (tmp_path / "documentation" / "config.json").write_text(content)
+        pm = SimpleNamespace(simulation=lambda sid, sim: str(tmp_path))
+        with pytest.raises(error):
+            fsaverage._recorded_carrier_only(pm, "001", "s")
+
     def test_morph_split_node_mismatch_raises(self):
         import numpy as np
 
@@ -163,8 +206,17 @@ class TestFsavgHelpers:
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
         self._mock_simnibs_core(monkeypatch)
+        from types import SimpleNamespace
+
+        # A run that predates carrier-only mode has no key: an ordinary TI run.
+        doc = tmp_path / "documentation"
+        doc.mkdir()
+        (doc / "config.json").write_text("{}")
+        pm = SimpleNamespace(
+            simulation=lambda sid, sim: str(tmp_path), m2m=lambda sid: str(tmp_path)
+        )
         out = fsaverage._compute_fields(
-            _MagicMock(),
+            pm,
             "001",
             "TI_sim",
             FsavgMapConfig(fields=("hf_peak", "hf_sar")),
@@ -174,14 +226,7 @@ class TestFsavgHelpers:
 
         # ΔF = 0 carrier-only, as the run recorded it in documentation/config.json:
         # the same anti-parallel carriers cancel coherently.
-        from types import SimpleNamespace
-
-        doc = tmp_path / "documentation"
-        doc.mkdir()
         (doc / "config.json").write_text('{"carrier_only": true}')
-        pm = SimpleNamespace(
-            simulation=lambda sid, sim: str(tmp_path), m2m=lambda sid: str(tmp_path)
-        )
         out = fsaverage._compute_fields(
             pm, "001", "TI_sim", FsavgMapConfig(fields=("hf_peak", "hf_sar"))
         )
@@ -650,7 +695,9 @@ class TestLeadfieldChannelOrder:
 
         attrs = {"electrode_names": _MagicMock(tolist=lambda: ["Cz", "Fp1"])}
         handle = _MagicMock()
-        handle.__getitem__.return_value.__getitem__.return_value.__getitem__.return_value.attrs = attrs
+        handle.__getitem__.return_value.__getitem__.return_value.__getitem__.return_value.attrs = (
+            attrs
+        )
         h5file = _MagicMock()
         h5file.return_value.__enter__.return_value = handle
         monkeypatch.setattr(sys.modules["h5py"], "File", h5file)
