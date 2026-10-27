@@ -1,22 +1,12 @@
-"""numba kernel for the K>=2 sphere maximum of the TI envelope (:func:`tit.calc.envelope_max`).
+"""numba kernel for the K>=2 sphere maximum of :func:`tit.calc.envelope_max`.
 
-The same algorithm as the NumPy reference ``tit.calc._max_sphere``, one element at a time and
-parallel over elements (``prange``): eigen-branch tracking over the theta grid, Illinois regula
-falsi on every bracketed sign change of ``g``, the safeguard candidates and the Newton polish,
-with the same first-maximum-wins tie-breaking.  The deliberate differences:
-
-* the 3x3 symmetric eigensolver is cyclic Jacobi, warm-started from the previous grid point's
-  (or root iterate's) eigenvectors, instead of LAPACK -- LAPACK's per-call overhead on a 3x3
-  matrix is most of the NumPy path's cost.  Eigenvectors agree to round-off except where
-  eigenvalues coincide;
-* the Newton polish stops once no step-halving raises the envelope: every later iteration would
-  repeat that one from the same point, so the result is the same;
-* sums run in a different order.
-
-The two paths agree to round-off in the maximum (``tests/numerical/test_calc_kernel.py``:
-1e-12 relative bound, <=1e-13 measured).  An element whose Jacobi solve did not converge in 50
-sweeps (not seen for finite input) is flagged, and ``tit.calc`` recomputes it with NumPy.
-Non-finite input never gets here: ``tit.calc._stack`` rejects it.
+The algorithm of the NumPy reference ``tit.calc._max_sphere_numpy``, one element at a time and
+parallel over elements, with the same tie-breaking.  It differs in three ways: the 3x3 eigensolver
+is cyclic Jacobi warm-started from the previous eigenvectors (LAPACK's per-call overhead is most
+of the NumPy cost); the Newton polish stops once no step-halving helps (later iterations would
+repeat it); sums run in another order.  The maxima agree to round-off
+(``tests/numerical/test_calc_kernel.py``).  An element whose Jacobi solve did not converge is
+flagged and ``tit.calc`` recomputes it with NumPy.
 
 Importing this module raises ImportError when numba is absent; ``tit.calc`` then uses NumPy.
 """
@@ -46,13 +36,11 @@ def _qf(A, x0, x1, x2, y0, y1, y2):
 
 @njit(cache=True, error_model="numpy")
 def _eigh(A, V, warm):
-    """Eigenvectors of symmetric 3x3 ``A`` into the columns of ``V``, eigenvalues ascending.
+    """Cyclic-Jacobi eigenvectors of symmetric 3x3 ``A`` into ``V``'s columns, ascending.
 
-    Returns whether Jacobi converged (off-diagonals below ``tol``) within 50 sweeps.
-
-    Cyclic Jacobi; ``A`` is overwritten (its diagonal ends up holding the eigenvalues).
-    ``warm``: start from the orthonormal basis already in ``V`` (a nearby matrix's
-    eigenvectors) instead of the identity, which leaves fewer rotations to do.
+    ``A`` is overwritten (its diagonal ends up holding the eigenvalues).  ``warm`` starts
+    from the basis already in ``V`` (a nearby matrix's eigenvectors) instead of the
+    identity.  Returns whether it converged within 50 sweeps.
     """
     if warm:
         t00 = _qf(A, V[0, 0], V[1, 0], V[2, 0], V[0, 0], V[1, 0], V[2, 0])
@@ -220,7 +208,7 @@ def _newton(S, D, Cp, Cm, n, iters):
 def _element(
     S, D, Cp, Cm, Cw, grid, cg, sg, extra, root_iters, newton_iters, out_n, work
 ):
-    """``tit.calc._max_sphere`` for one element; the direction goes to ``out_n``.
+    """``tit.calc._max_sphere_numpy`` for one element; the direction goes to ``out_n``.
 
     ``work`` is scratch reused across elements: ``(Vs, g, branch_f, branch_n, Vj, M, bn, seed)``.
     """

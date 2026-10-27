@@ -310,7 +310,9 @@ power = hf_power([E1, E2])                            # E_rms^2, (V/m)^2; hf_sar
 `envelope(fields, normals)` with one unit normal per row is `TI_normal`, and
 `envelope_max(fields, perpendicular_to=normals)` is the strongest envelope within the surface
 plane (flex-search's `dir_TI_tangential`). `hf_peak(fields, coherent=True)` and
-`hf_power(fields, coherent=True)` are the carrier-only (ΔF = 0) forms. The simulator's
+`hf_power(fields, coherent=True)` are the carrier-only (ΔF = 0) forms. A carrier with no beating
+partner goes into the envelope functions as a pair with a zero field,
+`[E1, E2, Eu, np.zeros_like(Eu)]`, and into `hf_peak`/`hf_power` as one more field. The simulator's
 `hf_power_density` is `hf_power` weighted by the conductivity the run solved with; for
 isotropic conductivity that is `power` times each element's conductivity in S/m (the simulator
 uses the full tensor under the anisotropic models).

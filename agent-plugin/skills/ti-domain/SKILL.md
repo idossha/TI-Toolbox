@@ -113,13 +113,14 @@ The mTI field computation is more complex than standard TI:
 
 Check attributions against `read_wiki_page("simulator")` before repeating them —
 several were corrected after a full-text audit, and Botzanowski 2025 in particular
-contains **no equations** to cite.
+contains **no equations** to cite: it describes the mTI envelope (square, low-pass,
+square root) in prose, pp. 4–5, which is what `tit.calc` cites it for.
 
 ### Codebase Detection
 
 mTI vs standard TI is auto-detected from the montage's pair count. The rule is
 stated once, in `tit.constants.is_valid_pair_count`, and enforced in
-`Montage.simulation_mode` and `tit.calc._validate_field_list`:
+`Montage.simulation_mode` and `tit.calc` (every envelope function):
 
 > an **even** number of electrode pairs, **at least two** — 2 = TI, 4 or more = mTI.
 
@@ -626,7 +627,7 @@ E_TI(x) = |E1(x) + E2(x)| - |E1(x) - E2(x)| = 2 · min(|E1(x)|, |E2(x)|)
 
 For 3D vector fields E1(x) and E2(x), find the orientation unit vector **n** that maximizes the envelope:
 ```
-TI_max(x) = max_n [ |n · (E1 + E2)| - |n · (E1 - E2)| ]
+TI_max(x) = max_n | |n · (E1 + E2)| - |n · (E1 - E2)| |
 ```
 
 For `K = 1` carrier pair this has an exact closed form. For `K >= 2` (mTI), with

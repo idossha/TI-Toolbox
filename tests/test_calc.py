@@ -8,7 +8,8 @@ What this pins (2026-10-26, the five-function envelope API):
 * ``envelope_max`` -- K=1 against Grossman et al. 2017's published preprocess-then-branch formula
   (re-implemented below, vector and magnitude) and a dense sphere search; K>=2 against a dense
   sphere search (a lower bound: every value it reports is attained), on random K=2/3/4 fields,
-  degenerate sets and four real grey-matter elements an earlier solver missed; the plane maximum
+  an unpaired carrier (a pair with a zero field), degenerate sets and six real grey-matter
+  elements an earlier solver missed; the plane maximum
   against a dense in-plane angle scan and against the sphere maximum of the projected fields.
 * ``envelope_mean`` -- 2x10^5-point equal-area sphere quadrature of the definition.
 * ``hf_peak`` -- full ``2**N`` sign enumeration (itertools), Cassarà 2025 Part I Eq. 3 at N=2,
@@ -18,8 +19,8 @@ What this pins (2026-10-26, the five-function envelope API):
 * invariances (pair order, swap within a pair, sign flips, rotation, scale), the direction
   convention, chunking, shapes and validation errors.
 
-Where the numbers come from: closed forms written out in each test, derivations in the
-docstrings, and the oracles above; no value is read back from ``tit.calc``. The six real
+Where the numbers come from: closed forms written out in each test, derivations in
+``docs/wiki/analyzer.md``, and the oracles above; no value is read back from ``tit.calc``. The six real
 elements (``REAL_GM_FIELDS``, ``REAL_GM_ROOT_FIELDS``) are sub-101 grey-matter E fields (V/m) at which the reference
 eigen-branch solver without the Newton polish fell 0.13-0.65 % below the old sweep; their
 expected values are a dense search run here.
@@ -51,7 +52,7 @@ import itertools
 import numpy as np
 import pytest
 
-import tit.calc as calc
+from tit import calc
 from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 
 # ---------------------------------------------------------------------------
@@ -375,6 +376,23 @@ class TestEnvelopeMaxSphere:
         dense = dense_max(fields)
         np.testing.assert_allclose(envelope(fields, n), amp, rtol=1e-12, atol=1e-15)
         assert np.all(amp >= dense * (1 - 1e-12) - 1e-15)
+
+    def test_unpaired_carrier_never_below_a_dense_sphere_search(self):
+        # A carrier with no beating partner is a pair with a zero field: it adds to |S n| and
+        # |D n| alike and to no beat term, so the envelope can only drop along every n.
+        e1, e2, eu = random_fields(62, 1000, 3)
+        eu = eu * np.random.default_rng(63).uniform(0.0, 2.0, (1000, 1))
+        fields = [e1, e2, eu, np.zeros_like(eu)]
+        amp, n = envelope_max(fields, return_direction=True)
+        dense = dense_max(fields)
+        np.testing.assert_allclose(envelope(fields, n), amp, rtol=1e-13)
+        rel = (amp - dense) / amp
+        assert rel.min() >= -1e-12, rel.min()
+        # Oracle tightness: the extra carrier flattens the envelope into more local peaks, so the
+        # grid's best point sits on a lower one more often (1.4 % of these elements > 1e-6 below
+        # the solver, measured 2026-10-26) -- looseness of the oracle, in the solver's favour.
+        assert np.median(rel) < 1e-8 and np.mean(rel > 1e-6) < 0.03
+        assert np.all(amp <= envelope_max([e1, e2]) * (1 + 1e-12))
 
     def test_a_silent_pair_reduces_to_grossman(self):
         e1, e2 = random_fields(60, 500, 2)
