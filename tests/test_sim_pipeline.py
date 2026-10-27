@@ -697,9 +697,9 @@ class TestRunSimulation:
 class TestOutputFieldSelection:
     """Only the selected output fields are computed and written.
 
-    The point of gating is cost, not tidiness: TI_avg runs a direction sweep
-    (~0.5s per 200k elements), while hf_peak/hf_sar are nearly free. Skipping
-    the write but still computing would save nothing.
+    The point of gating is cost, not tidiness: the mTI TI_avg is a
+    2048-direction hemisphere quadrature, while hf_peak/hf_sar are nearly
+    free. Skipping the write but still computing would save nothing.
     """
 
     def _run_ti(self, output_fields):

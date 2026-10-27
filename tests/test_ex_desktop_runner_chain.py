@@ -33,10 +33,9 @@ Where the expected numbers come from -- by hand, never from the engine:
   limit is half the total: 1.0 / 1.0 mA only) = 16; mEx = 2^4 x 1^4 = 16. The sweep itself is
   pinned against the brute-force table in ``tests/test_ex_search_counts.py``.
 
-Tolerances: the CSV writes 4 decimals (half a unit = 5e-5). The mEx envelope is a direction
-search that evaluates the exact envelope at sampled directions, so it never exceeds the true
-maximum and misses it by <= 1.6e-5 relative (measured; ``tests/test_mex_symmetry_numeric.py``):
-bounded here at 1e-4 relative.
+Tolerances: the CSV writes 4 decimals (half a unit = 5e-5), plus 1e-12 of round-off. The mEx
+envelope maximum is a per-element root-find that reaches the closed form above to round-off on
+these collinear fields, so Ex and mEx share the bound.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_ex_desktop_runner_chain.py -q -p no:cacheprovider``.
 Refresh the desktop copies: ``UPDATE_EX_CHAIN_FIXTURES=1`` with the same command.
@@ -328,7 +327,7 @@ def _row_key(kind: str, row: dict) -> tuple:
 def test_the_hand_ranking_has_one_clear_winner(chain):
     scores = sorted((m["Composite_Index"] for m in chain.hand.values()), reverse=True)
     assert len(chain.hand) == {"ex": 2**4 * 1, "mex": 2**4}[chain.kind]
-    # Far beyond the CSV rounding and the mEx search error: the winner is well defined.
+    # Far beyond the CSV rounding: the winner is well defined.
     assert scores[0] - scores[1] > 1e-2
 
 
@@ -357,7 +356,6 @@ def test_the_server_validates_and_plans_what_the_runner_then_writes(chain):
 
 
 def test_the_csv_holds_every_enumerated_montage_with_its_hand_metrics(chain):
-    tol = 1e-12 if chain.kind == "ex" else 1e-4
     got = {}
     for row in chain.rows:
         key = _row_key(chain.kind, row)
@@ -368,8 +366,7 @@ def test_the_csv_holds_every_enumerated_montage_with_its_hand_metrics(chain):
     for key, row in got.items():
         hand = chain.hand[key]
         for metric, value in hand.items():
-            # The mEx search reaches the true maximum from below (relative error <= tol).
-            assert abs(float(row[metric]) - value) <= HALF + tol * abs(value) + 1e-12, (
+            assert abs(float(row[metric]) - value) <= HALF + 1e-12 * abs(value) + 1e-12, (
                 row["Montage"],
                 metric,
                 row[metric],
@@ -408,9 +405,8 @@ def test_the_catalog_names_the_hand_winner_best(chain):
     assert run["run_name"] == chain.run_dir.name
     assert run["eeg_net"] == f"{NET}.csv"
     assert run["best"]["montage"] == _montage_name(*chain.winner)
-    tol = 0 if chain.kind == "ex" else 1e-4
     hand = chain.hand[chain.winner]["Composite_Index"]
-    assert abs(run["best"]["score"] - hand) <= HALF + tol * hand
+    assert abs(run["best"]["score"] - hand) <= HALF
 
 
 def test_the_candidate_browser_and_replay_rebuild_the_winner(chain):
