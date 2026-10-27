@@ -423,30 +423,18 @@ def _compute_ti_normal(config, central_mesh, m1, channels):
     try:
         surf_normals = _surface_normals_for_mesh(central_mesh)
         triangular_elements = central_mesh.elm.elm_type == 2
-        if not np.any(triangular_elements):
-            triangular_elements = np.ones(
-                len(central_mesh.elm.node_number_list), dtype=bool
-            )
-        triangle_normals = surf_normals[triangular_elements]
-
-        # Align normals with TI count
-        if len(triangle_normals) > len(channels[0]):
-            surf_normals = triangle_normals[: len(channels[0])]
-        elif len(triangle_normals) < len(channels[0]):
-            default_normal = np.array([0.0, 0.0, 1.0])
-            pad = np.tile(default_normal, (len(channels[0]) - len(triangle_normals), 1))
-            surf_normals = np.vstack([triangle_normals, pad])
-        else:
-            surf_normals = triangle_normals
+        if np.any(triangular_elements):
+            surf_normals = surf_normals[triangular_elements]
     except Exception:
         # Fallback to TDCS mesh normals
         surf_normals = _surface_normals_for_mesh(m1)
-        if len(surf_normals) > len(channels[0]):
-            surf_normals = surf_normals[: len(channels[0])]
-        elif len(surf_normals) < len(channels[0]):
-            default_normal = np.array([0.0, 0.0, 1.0])
-            pad = np.tile(default_normal, (len(channels[0]) - len(surf_normals), 1))
-            surf_normals = np.vstack([surf_normals, pad])
+
+    # One normal per arrow: truncate, or pad with +z
+    n = len(channels[0])
+    surf_normals = surf_normals[:n]
+    if len(surf_normals) < n:
+        pad = np.tile([0.0, 0.0, 1.0], (n - len(surf_normals), 1))
+        surf_normals = np.vstack([surf_normals, pad])
 
     return envelope(channels, surf_normals)[:, None] * surf_normals
 
