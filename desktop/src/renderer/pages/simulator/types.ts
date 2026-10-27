@@ -296,7 +296,7 @@ export interface OutputFieldSpec {
 /** Selectable output fields in registry order (tit/constants.py FIELD_REGISTRY, minus mTI_max/TI_normal). */
 export const OUTPUT_FIELDS: OutputFieldSpec[] = [
   { name: "TI_max", description: "Envelope modulation depth (peak-to-trough), maximised over direction (Grossman et al. 2017; Hirata et al. 2024)." },
-  { name: "TI_avg", description: "Envelope modulation depth (peak-to-trough), averaged over sampled directions rather than maximised." },
+  { name: "TI_avg", description: "Envelope modulation depth (peak-to-trough), averaged over all directions rather than maximised." },
   { name: "hf_peak", description: "Largest instantaneous magnitude of the summed carrier fields (peak-to-zero): max over sign choices of |sum_i s_i*E_i| (Cassarà et al. 2025, Eq. 3)." },
   { name: "hf_sar", description: "Sum of carrier power, sum_i |E_i|^2. Proportional to SAR but not calibrated: SAR = (sigma/2*rho)*hf_sar (Cassarà et al. 2025)." },
   { name: "hf_power_density", description: "Time-averaged carrier power absorbed per volume, (1/2) sum_i E_i.sigma.E_i with the simulation's own conductivity; SAR = hf_power_density/rho (IEEE C95.1-2019)." },
