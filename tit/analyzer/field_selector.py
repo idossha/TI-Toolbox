@@ -187,8 +187,8 @@ def _select_mesh(
     )
     field_name = _canonical_field_name(field_name, is_mti)
 
-    # TI_normal lives in a separate mesh (written by _calculate_ti_normal /
-    # _calculate_mti_normal), not the main TI/mTI output mesh.
+    # TI_normal lives in a separate mesh (written by
+    # BaseSimulation._write_ti_normal), not the main TI/mTI output mesh.
     if field_name == const.FIELD_TI_NORMAL:
         if is_mti:
             normal_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI_normal.msh"
