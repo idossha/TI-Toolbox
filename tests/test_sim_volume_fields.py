@@ -67,6 +67,7 @@ class _Mesh:
         )
 
     def view(self, **kwargs):
+        self.viewed = kwargs
         return SimpleNamespace(write_opt=lambda path: None)
 
 
@@ -279,3 +280,19 @@ def test_ti_carrier_only_writes_no_ti_normal():
     )
     assert "m_TI.msh" in written
     assert not any(name.endswith("_normal.msh") for name in written)
+
+
+@pytest.mark.parametrize("shift", range(4))
+def test_without_ti_max_the_view_opens_on_the_first_selected_field(shift):
+    """Each rotation of the selection opens on its own first field, whatever the set order."""
+    fields = [
+        const.FIELD_TI_AVG,
+        const.FIELD_HF_PEAK,
+        const.FIELD_HF_SAR,
+        const.FIELD_HF_POWER_DENSITY,
+    ]
+    selection = fields[shift:] + fields[:shift]
+    written, _, _ = _post_process(
+        tit.sim.TI.TISimulation, 2, selection, through_normal=True
+    )
+    assert written["m_TI.msh"].viewed["visible_fields"] == selection[0]

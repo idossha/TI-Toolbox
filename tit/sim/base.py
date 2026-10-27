@@ -390,7 +390,7 @@ class BaseSimulation(ABC):
             )
 
         view_field = (
-            max_name if const.FIELD_TI_MAX in selected else next(iter(selected))
+            max_name if const.FIELD_TI_MAX in selected else self.config.output_fields[0]
         )
         mesh_io.write_msh(mout, path)
         mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(path)
