@@ -23,6 +23,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from tit.blender import vector_field_exporter
 from tit.blender.vector_field_exporter import _compute_ti_normal
 
 pytestmark = pytest.mark.unit
@@ -97,3 +98,55 @@ def test_an_arrow_count_other_than_the_face_count_raises(n_arrows):
     fields = [np.ones((n_arrows, 3)), np.ones((n_arrows, 3))]
     with pytest.raises(ValueError, match=f"3 central-surface faces for {n_arrows}"):
         _arrows(fields)
+
+
+def test_a_zero_area_face_gets_a_zero_normal_and_a_zero_arrow():
+    """A degenerate triangle has no normal: a zero normal, so its TI_normal arrow is an honest 0
+    (``envelope`` along a zero direction is 0), not the envelope along an invented +z
+    (2026-10-27)."""
+    nodes = np.array(
+        [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    )
+    surface = SimpleNamespace(
+        nodes=SimpleNamespace(node_coord=nodes),
+        elm=SimpleNamespace(
+            node_number_list=np.array([[1, 2, 3], [1, 2, 4]]), elm_type=np.full(2, 2)
+        ),
+    )
+    normals = vector_field_exporter._surface_normals_for_mesh(surface)
+    np.testing.assert_array_equal(normals[0], [0.0, 0.0, 0.0])
+    np.testing.assert_allclose(normals[1], [0.0, 0.0, 1.0])
+    z = np.tile([0.0, 0.0, 1.0], (2, 1))
+    arrows = _compute_ti_normal(_ON, surface, [z, 2 * z])
+    np.testing.assert_array_equal(arrows[0], [0.0, 0.0, 0.0])
+    np.testing.assert_allclose(arrows[1], [0.0, 0.0, 2.0])  # 2 min(1, 2) along +z
+
+
+def test_a_failing_node_interpolation_propagates():
+    """The node-based interpolation is the one path; an Msh that cannot give its elm-to-node
+    matrix is an error, not a silent switch to nearest-element values (2026-10-27)."""
+
+    def broken():
+        raise RuntimeError("elm2node_matrix failed")
+
+    mesh = SimpleNamespace(
+        field={"E": SimpleNamespace(value=np.ones((2, 3)))}, elm2node_matrix=broken
+    )
+    with pytest.raises(RuntimeError, match="elm2node_matrix failed"):
+        vector_field_exporter._interpolate_field_to_surface(mesh, np.zeros((3, 3)))
+
+
+def test_channel_fields_of_another_length_than_the_positions_raise(monkeypatch):
+    """Every channel is interpolated to the arrow positions, so the lengths are equal by
+    construction; a mismatch raises instead of truncating every array (2026-10-27)."""
+    lengths = iter([4, 3])
+    monkeypatch.setattr(
+        vector_field_exporter,
+        "_interpolate_field_to_surface",
+        lambda mesh, positions, field_name="E": np.ones((next(lengths), 3)),
+    )
+    cfg = SimpleNamespace(export_sum=False)
+    with pytest.raises(ValueError, match="4 arrow positions"):
+        vector_field_exporter._compute_fields(
+            cfg, [object(), object()], np.zeros((4, 3))
+        )
