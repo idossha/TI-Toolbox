@@ -1,7 +1,7 @@
 """mEx pool mode keeps one montage per class of montages the mTI envelope scores identically.
 
 What this pins (2026-10-22): ``tit.opt.mex.logic._pool_electrode_combinations`` claims (module
-comment above ``_DEFAULT_CHANNELS``) that the envelope of ``tit.calc.envelope_max`` -- with the
+comment above ``_CHANNELS``) that the envelope of ``tit.calc.envelope_max`` -- with the
 fields ``[pair1, pair2, pair3, pair4]``, carrier 1 = pairs 1+2, carrier 2 = pairs 3+4 -- is
 unchanged by exactly 64 operations on a montage, so ``permutations(pool, 8)`` (40 320 orderings of
 8 electrodes) collapses to 40 320 / 64 = 630 canonical montages. The existing tests check that

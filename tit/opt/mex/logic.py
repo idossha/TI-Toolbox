@@ -156,45 +156,33 @@ def _bucket_electrode_combinations(
 #   phase shift and is NOT a symmetry).
 #
 # ``permutations(pool, 8)`` visits each class ``|H| * |S|`` times (64x for
-# the default two independent channels), so pool mode instead builds one
+# the engine's two channels, slots 0+1 and 2+3), so pool mode instead builds one
 # canonical representative per class: choose 8 electrodes, partition them
 # into 4 unordered pairs, place the (sorted) pairs into slots via one fixed
 # slot map per coset of the slot-automorphism group ``H``, then fix the
 # orientation of one representative pair per group (minus the constraint
 # above) and enumerate the remaining polarities.
 
-_DEFAULT_CHANNELS = (((0,), (1,)), ((2,), (3,)))
+# The engine's carrier structure: (group_a, group_b) pair slots per channel;
+# it always beats adjacent pairs (slots 0+1, 2+3).
+_CHANNELS = (((0,), (1,)), ((2,), (3,)))
 
 
-def _normalize_channels(channels):
-    """Return ``channels`` as a tuple of ``(group_a, group_b)`` index tuples."""
-    if channels is None:
-        return _DEFAULT_CHANNELS
-    norm = tuple((tuple(a), tuple(b)) for a, b in channels)
-    used = sorted(i for a, b in norm for i in a + b)
-    if used != [0, 1, 2, 3]:
-        raise ValueError(
-            "channels must reference each of the four pair slots 0-3 exactly "
-            f"once (got {used})"
-        )
-    return norm
-
-
-def _slot_automorphisms(channels):
+def _slot_automorphisms():
     """Permutations of the four pair slots that preserve the channel structure."""
-    shape = {frozenset((frozenset(a), frozenset(b))) for a, b in channels}
+    shape = {frozenset((frozenset(a), frozenset(b))) for a, b in _CHANNELS}
     autos = []
     for perm in permutations(range(4)):
         image = {
             frozenset((frozenset(perm[i] for i in a), frozenset(perm[i] for i in b)))
-            for a, b in channels
+            for a, b in _CHANNELS
         }
         if image == shape:
             autos.append(perm)
     return autos
 
 
-def _canonical_slot_maps(channels):
+def _canonical_slot_maps():
     """One ``slot -> pair rank`` map per coset of the slot automorphisms.
 
     With the four pairs of a montage sorted (ranks 0-3), every placement of
@@ -202,7 +190,7 @@ def _canonical_slot_maps(channels):
     yield equivalent montages, so only the lexicographically smallest of
     each orbit is kept. Independent of the electrodes involved.
     """
-    autos = _slot_automorphisms(channels)
+    autos = _slot_automorphisms()
     keep = []
     for ranks in permutations(range(4)):
         orbit_min = min(tuple(ranks[perm[slot]] for slot in range(4)) for perm in autos)
@@ -211,11 +199,11 @@ def _canonical_slot_maps(channels):
     return keep
 
 
-def _free_polarity_slots(channels):
+def _free_polarity_slots():
     """Slots whose pair orientation is NOT fixed by group-flip symmetry."""
     fixed = set()
     beating_seen = False
-    for group_a, group_b in channels:
+    for group_a, group_b in _CHANNELS:
         beating = bool(group_a) and bool(group_b)
         if group_a:
             fixed.add(group_a[0])
@@ -237,11 +225,10 @@ def _pair_partitions(items):
             yield ((first, other),) + tail
 
 
-def _pool_electrode_combinations(pool, channels=None):
+def _pool_electrode_combinations(pool):
     pool = list(dict.fromkeys(pool))
-    channels = _normalize_channels(channels)
-    slot_maps = _canonical_slot_maps(channels)
-    free_slots = _free_polarity_slots(channels)
+    slot_maps = _canonical_slot_maps()
+    free_slots = _free_polarity_slots()
     flip_patterns = list(product((False, True), repeat=len(free_slots)))
     for chosen in combinations(range(len(pool)), 8):
         for pairs in _pair_partitions(list(chosen)):
@@ -256,12 +243,11 @@ def _pool_electrode_combinations(pool, channels=None):
                     yield tuple(pool[i] for pair in montage for i in pair)
 
 
-def count_pool_combinations(pool, channels=None):
+def count_pool_combinations(pool):
     """Closed-form count of :func:`_pool_electrode_combinations`."""
     n = len(dict.fromkeys(pool))
-    channels = _normalize_channels(channels)
-    per_set = 105 * len(_canonical_slot_maps(channels))
-    per_set *= 2 ** len(_free_polarity_slots(channels))
+    per_set = 105 * len(_canonical_slot_maps())
+    per_set *= 2 ** len(_free_polarity_slots())
     return comb(n, 8) * per_set
 
 
@@ -270,17 +256,16 @@ def generate_multipolar_combinations(
     all_combinations=False,
     symmetry_mirror_map=None,
     symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
-    channels=None,
 ):
     """Yield valid eight-electrode candidates for four bipolar pairs.
 
     Bucket mode is the Cartesian product of the eight buckets. Pool mode
     (``all_combinations=True``) yields one montage per class of montages
-    that ``tit.calc.envelope_max`` scores identically under the given
-    carrier ``channels`` (``None`` = two independent TI channels).
+    that ``tit.calc.envelope_max`` scores identically, pairs 1+2 and 3+4
+    beating as the two channels.
     """
     if all_combinations:
-        yield from _pool_electrode_combinations(buckets_or_pool, channels=channels)
+        yield from _pool_electrode_combinations(buckets_or_pool)
     else:
         yield from _bucket_electrode_combinations(
             buckets_or_pool,
@@ -294,11 +279,10 @@ def count_multipolar_combinations(
     all_combinations=False,
     symmetry_mirror_map=None,
     symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
-    channels=None,
 ):
     """Count multipolar candidates without materializing them as a list."""
     if all_combinations:
-        return count_pool_combinations(buckets_or_pool, channels=channels)
+        return count_pool_combinations(buckets_or_pool)
     return sum(
         1
         for _ in generate_multipolar_combinations(
