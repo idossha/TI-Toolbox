@@ -86,3 +86,18 @@ def test_off_by_default():
         _compute_ti_normal(SimpleNamespace(export_ti_normal=False), _SURFACE, None, [])
         is None
     )
+
+
+def test_more_arrows_than_triangles_point_along_z():
+    fields = [np.tile([0.0, 0.0, 1.0], (4, 1)), np.tile([0.0, 0.0, 2.0], (4, 1))]
+    arrows = _arrows(fields)
+    assert arrows.shape == (4, 3)
+    np.testing.assert_allclose(arrows[3], [0.0, 0.0, 2.0])  # 2 min(1, 2) along +z
+
+
+def test_fewer_arrows_than_triangles_use_the_first_normals():
+    rng = np.random.default_rng(6)
+    e1, e2 = rng.normal(size=(2, 2, 3))
+    np.testing.assert_allclose(
+        _arrows([e1, e2]), _arrows([*np.pad([e1, e2], ((0, 0), (0, 1), (0, 0)))])[:2]
+    )
