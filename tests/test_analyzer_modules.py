@@ -346,7 +346,7 @@ class TestSelectFieldFileExplicitField:
     @pytest.mark.unit
     def test_mti_normal_resolves_mti_mesh(self, tmp_path):
         """For an mTI simulation, TI_normal resolves to the mTI normal mesh
-        written by _calculate_mti_normal."""
+        written by BaseSimulation._write_ti_normal."""
         sim_dir = tmp_path / "Simulations" / "montage1"
         mti_mesh_dir = sim_dir / "mTI" / "mesh"
         mti_mesh_dir.mkdir(parents=True)

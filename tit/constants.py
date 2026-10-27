@@ -177,7 +177,7 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         units="V/m",
         description=(
             "Envelope modulation depth (peak-to-trough), averaged over "
-            "sampled directions rather than maximised."
+            "all directions rather than maximised."
         ),
     ),
     FieldSpec(
@@ -251,7 +251,7 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
     (
         FIELD_TI_AVG,
         "V/m",
-        "The same envelope depth averaged over sampled directions instead of "
+        "The same envelope depth averaged over all directions instead of "
         "maximised, i.e. what an arbitrarily oriented element sees on average.",
         "Mean over all directions of the expression above: exact closed form "
         "|E1| + |E2| - (|E1+E2| + |E1-E2|)/2 for two pairs, a 4096-direction "

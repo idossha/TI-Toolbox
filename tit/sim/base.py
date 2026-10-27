@@ -9,6 +9,8 @@
 * ``run`` -- template method (setup dirs, viz, build session, post-process)
 * ``_init_session`` -- common SESSION setup (subpath, tensor, eeg_cap, flags)
 * ``_add_electrode_pair`` -- electrode creation on a TDCS list
+* ``_cropped_carriers`` / ``_write_volume_mesh`` / ``_write_ti_normal`` -- the
+  field outputs (:mod:`tit.calc` over all channel fields, any even count)
 
 Subclasses implement the following abstract interface:
 
@@ -29,11 +31,13 @@ run_simulation : Top-level orchestration entry point.
 import os
 import subprocess
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 import numpy as np
-from simnibs import run_simnibs, sim_struct
+from simnibs import mesh_io, run_simnibs, sim_struct
 
-from tit.calc import hf_power
+from tit import constants as const
+from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 from tit.paths import get_path_manager
 from tit.sim.config import Montage, SimulationConfig
 from tit.sim.utils import (
@@ -46,6 +50,10 @@ from tit.sim.utils import (
 
 # Transient element field carrying the conductivity through the crop; never written.
 _SIGMA = "_conductivity"
+
+# Brain tissue crop mask: tissue volume elements and their surfaces
+# (constants.BRAIN_TISSUE_TAG_RANGES); electrodes and gel are dropped.
+_TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
 
 
 def hf_power_density(fields, sigma, *, coherent: bool = False) -> np.ndarray:
@@ -327,6 +335,96 @@ class BaseSimulation(ABC):
         cond = self._session.poslists[0].cond2elmdata(mesh, logger_level=10)
         cond.assign_triangle_values()
         return cond.value
+
+    def _cropped_carriers(self, hf_dir: str, n_channels: int) -> list:
+        """The channels' FEM output meshes ``TDCS_1..N``, cropped to brain tissue.
+
+        With ``hf_power_density`` selected, channel 1 carries the solve's
+        conductivity through the crop (:data:`_SIGMA`): added on the whole
+        mesh, so it is the conductivity SimNIBS used, and cropped with it.
+        """
+        sid = self.config.subject_id
+        cond = self.config.conductivity
+        meshes = []
+        for i in range(1, n_channels + 1):
+            m = mesh_io.read_msh(os.path.join(hf_dir, f"{sid}_TDCS_{i}_{cond}.msh"))
+            if i == 1 and const.FIELD_HF_POWER_DENSITY in self.config.output_fields:
+                m.add_element_field(self._element_conductivity(m), _SIGMA)
+            meshes.append(m.crop_mesh(tags=_TAGS_KEEP))
+        return meshes
+
+    def _write_volume_mesh(self, meshes: list, max_name: str, path: str) -> None:
+        """Write the selected volume fields of the channels' ``E`` to *path*.
+
+        Every field runs over all channel fields jointly, paired positionally
+        (each two consecutive channels beat on one carrier pair).  The
+        envelope maximum is written as *max_name* (``TI_max``; ``mTI_max``
+        for mTI); carrier-only runs add the carriers coherently.
+        """
+        selected = set(self.config.output_fields)
+        coherent = self.config.carrier_only
+        fields = [m.field["E"].value for m in meshes]
+
+        mout = deepcopy(meshes[0])
+        mout.elmdata = []
+        if const.FIELD_TI_MAX in selected:
+            mout.add_element_field(envelope_max(fields), max_name)
+        if const.FIELD_TI_AVG in selected:
+            mout.add_element_field(envelope_mean(fields), const.FIELD_TI_AVG)
+        if const.FIELD_HF_PEAK in selected:
+            # Peak carrier field (Cassarà 2025 Part I, Eq. 3); one channel field is one carrier.
+            mout.add_element_field(
+                hf_peak(fields, coherent=coherent), const.FIELD_HF_PEAK
+            )
+        if const.FIELD_HF_SAR in selected:
+            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
+            mout.add_element_field(
+                2.0 * hf_power(fields, coherent=coherent), const.FIELD_HF_SAR
+            )
+        if const.FIELD_HF_POWER_DENSITY in selected:
+            mout.add_element_field(
+                hf_power_density(
+                    fields, meshes[0].field[_SIGMA].value, coherent=coherent
+                ),
+                const.FIELD_HF_POWER_DENSITY,
+            )
+
+        view_field = (
+            max_name if const.FIELD_TI_MAX in selected else next(iter(selected))
+        )
+        mesh_io.write_msh(mout, path)
+        mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(path)
+        self.logger.info(f"{self._montage_type_label} mesh saved: {path}")
+
+    def _write_ti_normal(self, hf_dir: str, n_channels: int, path: str) -> None:
+        """Write ``TI_normal`` on the cortical surface to *path*.
+
+        The envelope of all channel fields along the node normals of the
+        SimNIBS central-surface overlays (:func:`tit.calc.envelope`).  An
+        overlay holding only ``E_normal`` gives the field ``E_normal * n``.
+        """
+        sid = self.config.subject_id
+        cond = self.config.conductivity
+        overlays = os.path.join(hf_dir, "subject_overlays")
+        cms = [
+            mesh_io.read_msh(
+                os.path.join(overlays, f"{sid}_TDCS_{i}_{cond}_central.msh")
+            )
+            for i in range(1, n_channels + 1)
+        ]
+
+        normals = cms[0].nodes_normals().value
+        if "E" in cms[0].field:
+            fields = [cm.field["E"].value for cm in cms]
+        else:
+            fields = [cm.field["E_normal"].value.reshape(-1, 1) * normals for cm in cms]
+
+        mout = deepcopy(cms[0])
+        mout.nodedata = []
+        mout.add_node_field(envelope(fields, normals), const.FIELD_TI_NORMAL)
+        mesh_io.write_msh(mout, path)
+        mout.view(visible_fields=[const.FIELD_TI_NORMAL]).write_opt(path)
+        self.logger.debug(f"TI_normal saved: {path}")
 
     def _generate_central_surface(self, mesh_path: str, surfaces_dir: str) -> None:
         """Generate the central cortical surface mesh via ``msh2cortex``.

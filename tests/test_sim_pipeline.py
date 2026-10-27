@@ -126,9 +126,9 @@ class TestTISimulation:
             patch.object(_ti_mod, "start_t1_to_mni"),
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "envelope_max"),
-            patch.object(_ti_mod, "envelope"),
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_base_mod, "envelope_max"),
+            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -178,11 +178,11 @@ class TestTISimulation:
             patch.object(_ti_mod, "start_t1_to_mni"),
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "envelope_max"),
-            patch.object(_ti_mod, "envelope"),
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_base_mod, "envelope_max"),
+            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
-            patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
+            patch.object(_base_mod, "deepcopy") as mock_deepcopy,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
@@ -241,9 +241,9 @@ class TestTISimulation:
             patch.object(_ti_mod, "start_t1_to_mni") as mock_start,
             patch.object(_ti_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "envelope_max"),
-            patch.object(_ti_mod, "envelope"),
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_base_mod, "envelope_max"),
+            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -317,12 +317,16 @@ class TestMTISimulation:
             patch.object(_mti_mod, "start_t1_to_mni") as mock_start,
             patch.object(_mti_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_mti_mod, "safe_move"),
-            patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(
+                _base_mod, "envelope_max", wraps=_base_mod.envelope_max
+            ) as mock_get_ti,
             patch.object(
                 _mti_mod, "envelope_max", wraps=_mti_mod.envelope_max
-            ) as mock_get_ti,
-            patch.object(_mti_mod, "envelope"),
+            ) as mock_pair_ti,
+            patch.object(_base_mod, "envelope"),
             patch.object(_mti_mod, "glob"),
+            patch.object(_base_mod, "deepcopy", side_effect=lambda obj: obj),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -415,13 +419,17 @@ class TestMTISimulation:
             patch.object(_mti_mod, "start_t1_to_mni"),
             patch.object(_mti_mod, "finish_t1_to_mni"),
             patch.object(_mti_mod, "safe_move"),
-            patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(
+                _base_mod, "envelope_max", wraps=_base_mod.envelope_max
+            ) as mock_get_ti,
             patch.object(
                 _mti_mod, "envelope_max", wraps=_mti_mod.envelope_max
-            ) as mock_get_ti,
-            patch.object(_mti_mod, "envelope"),
-            patch.object(_mti_mod, "envelope_mean") as mock_get_avg,
+            ) as mock_pair_ti,
+            patch.object(_base_mod, "envelope"),
+            patch.object(_base_mod, "envelope_mean") as mock_get_avg,
             patch.object(_mti_mod, "glob"),
+            patch.object(_base_mod, "deepcopy", side_effect=lambda obj: obj),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -462,8 +470,8 @@ class TestMTISimulation:
 
             # Once per carrier for the intermediate TI_AB/TI_CD meshes (two
             # channel fields each) plus once for the final joint envelope.
-            assert mock_get_ti.call_count == 3
-            assert len(mock_get_ti.call_args.args[0]) == 4
+            assert [len(c.args[0]) for c in mock_pair_ti.call_args_list] == [2, 2]
+            assert [len(c.args[0]) for c in mock_get_ti.call_args_list] == [4]
             mock_get_avg.assert_called_once()
 
 
@@ -689,9 +697,9 @@ class TestRunSimulation:
 class TestOutputFieldSelection:
     """Only the selected output fields are computed and written.
 
-    The point of gating is cost, not tidiness: TI_avg runs a direction sweep
-    (~0.5s per 200k elements), while hf_peak/hf_sar are nearly free. Skipping
-    the write but still computing would save nothing.
+    The point of gating is cost, not tidiness: the mTI TI_avg is a
+    2048-direction hemisphere quadrature, while hf_peak/hf_sar are nearly
+    free. Skipping the write but still computing would save nothing.
     """
 
     def _run_ti(self, output_fields):
@@ -707,14 +715,14 @@ class TestOutputFieldSelection:
             patch.object(_ti_mod, "start_t1_to_mni"),
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_ti_mod, "envelope_max"),
-            patch.object(_ti_mod, "envelope"),
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_base_mod, "envelope_max"),
+            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
-            patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
-            patch.object(_ti_mod, "envelope_mean") as mock_ti_avg,
-            patch.object(_ti_mod, "hf_peak") as mock_hf_peak,
-            patch.object(_ti_mod, "hf_power") as mock_hf_sar,
+            patch.object(_base_mod, "deepcopy") as mock_deepcopy,
+            patch.object(_base_mod, "envelope_mean") as mock_ti_avg,
+            patch.object(_base_mod, "hf_peak") as mock_hf_peak,
+            patch.object(_base_mod, "hf_power") as mock_hf_sar,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"

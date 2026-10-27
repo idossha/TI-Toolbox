@@ -34,7 +34,7 @@ export const FIELD_REGISTRY: FieldSpec[] = [
     kind: "functional",
     units: "V/m",
     description:
-      "Envelope modulation depth (peak-to-trough), averaged over sampled directions rather than maximised.",
+      "Envelope modulation depth (peak-to-trough), averaged over all directions rather than maximised.",
   },
   {
     name: "hf_peak",

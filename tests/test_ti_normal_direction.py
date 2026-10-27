@@ -1,7 +1,8 @@
 """``TI_normal`` is the envelope along each node's cortical-surface normal, for TI and mTI.
 
-Pins (2026-10-26): ``TISimulation._calculate_ti_normal`` and ``mTISimulation._calculate_mti_normal``
-evaluate the envelope along ``nodes_normals()`` of the first central-surface overlay -- not along
+Pins (2026-10-26): ``BaseSimulation._write_ti_normal``, which ``TISimulation`` (two channels) and
+``mTISimulation`` (all N channels) call from ``_post_process``, evaluates the envelope along
+``nodes_normals()`` of the first central-surface overlay -- not along
 element normals, not along a fixed axis -- on both overlay layouts SimNIBS writes: a full ``E``
 vector per node, and an ``E_normal`` scalar per node (the field is then ``E_normal * n``).
 
@@ -83,16 +84,12 @@ def _written_ti_normal(sim_cls, n, layout):
         ],
         intensities=[1.0] * n,
     )
-    module = __import__(sim_cls.__module__, fromlist=["mesh_io"])
     with (
         patch("tit.sim.base.get_path_manager"),
-        patch.object(module, "mesh_io", mesh_io),
+        patch("tit.sim.base.mesh_io", mesh_io),
     ):
         sim = sim_cls(config, config.montages[0], MagicMock())
-        if n == 2:
-            sim._calculate_ti_normal("/hf", "/out", "m")
-        else:
-            sim._calculate_mti_normal("/hf", "/out", "m", n)
+        sim._write_ti_normal("/hf", n, "/out/m_normal.msh")
     return written["mesh"].field["TI_normal"].value, proj
 
 

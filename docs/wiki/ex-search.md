@@ -263,7 +263,7 @@ _`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–f
 
 _Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry. `symmetry_pairing: "cross_pairs"` instead mirrors pair 1 onto pair 3 and pair 2 onto pair 4._
 
-**Cost.** Scoring one four-channel candidate with the verified multi-carrier envelope is a per-element direction search, not a closed form like two-channel ex-search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit: on a 12-core machine this is ~1–2 s per candidate, i.e. a few hundred candidates in ~10 min. The first run pays ~10 s of compilation, cached afterwards. There is no current-ratio sweep in mEx; every pair carries the same **Pair current**.
+**Cost.** Scoring one four-channel candidate with the multi-carrier envelope maximum is a per-element root-find (`tit.calc.envelope_max`), not a closed form like two-channel ex-search, so a candidate costs more than in the two-channel search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit. The first run compiles the envelope kernel, cached afterwards. There is no current-ratio sweep in mEx; every pair carries the same **Pair current**.
 
 ### Running it
 

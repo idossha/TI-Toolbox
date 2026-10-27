@@ -28,12 +28,10 @@ import glob
 import os
 from copy import deepcopy
 
-import numpy as np
-from simnibs import mesh_io, sim_struct
+from simnibs import sim_struct
 
 from tit import constants as const
-from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
-from tit.sim.base import _SIGMA, BaseSimulation, hf_power_density
+from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
     extract_fields,
@@ -42,10 +40,6 @@ from tit.sim.utils import (
     start_t1_to_mni,
     transform_dirs_to_nifti,
 )
-
-# Brain tissue crop mask — keeps tissue volume elements and surface elements
-# Ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
-_TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
 
 
 class TISimulation(BaseSimulation):
@@ -134,72 +128,16 @@ class TISimulation(BaseSimulation):
             Path to the output TI mesh file.
         """
         sid = self.config.subject_id
-        cond = self.config.conductivity
         name = self.montage.name
 
-        # Load and crop HF meshes
-        m1 = mesh_io.read_msh(os.path.join(dirs["hf_dir"], f"{sid}_TDCS_1_{cond}.msh"))
-        m2 = mesh_io.read_msh(os.path.join(dirs["hf_dir"], f"{sid}_TDCS_2_{cond}.msh"))
-        selected = set(self.config.output_fields)
-        if const.FIELD_HF_POWER_DENSITY in selected:
-            # on the solve's whole mesh, so it is the conductivity SimNIBS used;
-            # cropped with the mesh below
-            m1.add_element_field(self._element_conductivity(m1), _SIGMA)
-        m1 = m1.crop_mesh(tags=_TAGS_KEEP)
-        m2 = m2.crop_mesh(tags=_TAGS_KEEP)
-
-        ef1 = m1.field["E"]
-        ef2 = m2.field["E"]
-
-        mout = deepcopy(m1)
-        mout.elmdata = []
-        if const.FIELD_TI_MAX in selected:
-            TImax = envelope_max([ef1.value, ef2.value])
-            mout.add_element_field(TImax, const.FIELD_TI_MAX)
-        if const.FIELD_TI_AVG in selected:
-            # TI_avg: orientation-averaged companion to TI_max.
-            TIavg = envelope_mean([ef1.value, ef2.value])
-            mout.add_element_field(TIavg, const.FIELD_TI_AVG)
-        if const.FIELD_HF_PEAK in selected:
-            # Carrier-exposure safety map (Cassarà 2025): peak carrier field.
-            # Written as a volume field so it flows to subject-/MNI-space
-            # NIfTIs alongside TI_max.
-            mout.add_element_field(
-                hf_peak([ef1.value, ef2.value], coherent=self.config.carrier_only),
-                const.FIELD_HF_PEAK,
-            )
-        if const.FIELD_HF_SAR in selected:
-            # Carrier-exposure safety map (Cassarà 2025): heating driver.
-            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
-            mout.add_element_field(
-                2.0
-                * hf_power([ef1.value, ef2.value], coherent=self.config.carrier_only),
-                const.FIELD_HF_SAR,
-            )
-        if const.FIELD_HF_POWER_DENSITY in selected:
-            mout.add_element_field(
-                hf_power_density(
-                    [ef1.value, ef2.value],
-                    m1.field[_SIGMA].value,
-                    coherent=self.config.carrier_only,
-                ),
-                const.FIELD_HF_POWER_DENSITY,
-            )
-
-        view_field = (
-            const.FIELD_TI_MAX
-            if const.FIELD_TI_MAX in selected
-            else next(iter(selected))
-        )
+        meshes = self._cropped_carriers(dirs["hf_dir"], 2)
         ti_path = os.path.join(dirs["ti_mesh"], f"{name}_TI.msh")
-        mesh_io.write_msh(mout, ti_path)
-        mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(
-            ti_path
-        )
-        self.logger.info(f"TI mesh saved: {ti_path}")
+        self._write_volume_mesh(meshes, const.FIELD_TI_MAX, ti_path)
 
         if not self.config.carrier_only:  # ΔF = 0: no envelope to project
-            self._calculate_ti_normal(dirs["hf_dir"], dirs["ti_mesh"], name)
+            self._write_ti_normal(
+                dirs["hf_dir"], 2, os.path.join(dirs["ti_mesh"], f"{name}_normal.msh")
+            )
 
         self.logger.info("Field extraction: Started")
         extract_fields(
@@ -237,51 +175,6 @@ class TISimulation(BaseSimulation):
             finish_t1_to_mni(t1_proc, self.logger)
 
         return ti_path
-
-    def _calculate_ti_normal(
-        self, hf_dir: str, output_dir: str, montage_name: str
-    ) -> None:
-        """Compute TI_normal on the cortical surface.
-
-        The envelope along the node normals of the SimNIBS central-surface
-        overlays (:func:`tit.calc.envelope`).
-
-        Parameters
-        ----------
-        hf_dir : str
-            High-frequency output directory containing ``subject_overlays/``.
-        output_dir : str
-            Directory to write the TI_normal mesh into.
-        montage_name : str
-            Montage name used for the output filename.
-        """
-        sid = self.config.subject_id
-        cond = self.config.conductivity
-        overlays = os.path.join(hf_dir, "subject_overlays")
-        c1 = os.path.join(overlays, f"{sid}_TDCS_1_{cond}_central.msh")
-        c2 = os.path.join(overlays, f"{sid}_TDCS_2_{cond}_central.msh")
-
-        cm1 = mesh_io.read_msh(c1)
-        cm2 = mesh_io.read_msh(c2)
-
-        if "E" in cm1.field:
-            ef1_v = cm1.field["E"].value
-            ef2_v = cm2.field["E"].value
-        else:
-            normals = cm1.nodes_normals().value
-            ef1_v = cm1.field["E_normal"].value.reshape(-1, 1) * normals
-            ef2_v = cm2.field["E_normal"].value.reshape(-1, 1) * normals
-
-        TI_normal = envelope([ef1_v, ef2_v], cm1.nodes_normals().value)
-
-        mout = deepcopy(cm1)
-        mout.nodedata = []
-        mout.add_node_field(TI_normal, "TI_normal")
-
-        normal_path = os.path.join(output_dir, f"{montage_name}_normal.msh")
-        mesh_io.write_msh(mout, normal_path)
-        mout.view(visible_fields=["TI_normal"]).write_opt(normal_path)
-        self.logger.debug(f"TI_normal saved: {normal_path}")
 
     def _organize_files(self, dirs: dict) -> None:
         """Move SimNIBS output files into the BIDS directory structure."""

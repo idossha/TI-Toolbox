@@ -154,10 +154,9 @@ def _run_post_process(sim_cls, n_carriers, carrier_only=False):
         output_fields=[const.FIELD_HF_SAR, const.FIELD_HF_POWER_DENSITY],
         carrier_only=carrier_only,
     )
-    module = __import__(sim_cls.__module__, fromlist=["mesh_io"])
     with (
         patch("tit.sim.base.get_path_manager"),
-        patch.object(module, "mesh_io", mesh_io),
+        patch("tit.sim.base.mesh_io", mesh_io),
         patch.object(sim_cls, "_element_conductivity", lambda self, m: _SIGMA_FULL),
     ):
         sim = sim_cls(config, config.montages[0], MagicMock())

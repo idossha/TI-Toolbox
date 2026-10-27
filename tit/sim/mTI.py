@@ -35,12 +35,11 @@ import os
 import string
 from copy import deepcopy
 
-import numpy as np
 from simnibs import mesh_io, sim_struct
 
 from tit import constants as const
-from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
-from tit.sim.base import _SIGMA, BaseSimulation, hf_power_density
+from tit.calc import envelope_max
+from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
     extract_fields,
@@ -49,9 +48,6 @@ from tit.sim.utils import (
     start_t1_to_mni,
     transform_dirs_to_nifti,
 )
-
-# Brain tissue crop mask — ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
-_TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
 
 
 def _ti_vectors(fields):
@@ -147,7 +143,6 @@ class mTISimulation(BaseSimulation):
             If the montage has more than 26 electrode pairs (A-Z limit).
         """
         sid = self.config.subject_id
-        cond = self.config.conductivity
         name = self.montage.name
         n_pairs = self.montage.num_pairs
         if n_pairs > 26:
@@ -156,79 +151,28 @@ class mTISimulation(BaseSimulation):
             )
         letters = list(string.ascii_uppercase[:n_pairs])
 
-        selected = set(self.config.output_fields)
-
-        # Load and crop all N HF meshes
-        meshes = []
-        for i in range(1, n_pairs + 1):
-            m = mesh_io.read_msh(
-                os.path.join(dirs["hf_dir"], f"{sid}_TDCS_{i}_{cond}.msh")
-            )
-            if i == 1 and const.FIELD_HF_POWER_DENSITY in selected:
-                # on the solve's whole mesh, so it is the conductivity SimNIBS
-                # used; cropped with the mesh
-                m.add_element_field(self._element_conductivity(m), _SIGMA)
-            meshes.append(m.crop_mesh(tags=_TAGS_KEEP))
-
-        # Extract E-field arrays
+        meshes = self._cropped_carriers(dirs["hf_dir"], n_pairs)
         e_fields = [m.field["E"].value for m in meshes]
 
         # Save intermediate pairwise TI fields (adjacent pairs)
         ti_pair_suffixes = []
         for i in range(0, n_pairs, 2):
-            ltr1, ltr2 = letters[i], letters[i + 1]
-            suffix = f"TI_{ltr1}{ltr2}"
+            suffix = f"TI_{letters[i]}{letters[i + 1]}"
             ti_pair_suffixes.append(suffix)
             ti_vecs = _ti_vectors([e_fields[i], e_fields[i + 1]])
             self._save_ti_vectors(
                 meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
             )
 
-        # Final mTI: verified multi-carrier modulation-depth envelope over
-        # all N channel fields jointly (tit.calc.envelope_max) -- not a
-        # recursive TI-of-TI combination of the intermediate pairwise
-        # fields saved above (that approximation is physically invalid).
-        # Channels are paired positionally: each two consecutive channels
-        # share a carrier.
-
-        mout = deepcopy(meshes[0])
-        mout.elmdata = []
-        if const.FIELD_TI_MAX in selected:
-            mout.add_element_field(envelope_max(e_fields), const.FIELD_MTI_MAX)
-        if const.FIELD_TI_AVG in selected:
-            # TI_avg: orientation-averaged companion to mTI_max, over all N
-            # channel fields jointly (tit.calc.envelope_mean).
-            mti_avg = envelope_mean(e_fields)
-            mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
-        if const.FIELD_HF_PEAK in selected:
-            # Carrier-exposure safety map (Cassarà 2025 Part I, Eq. 3): peak
-            # carrier field. Wiring is positional, so one channel field is one
-            # carrier; the worst case over sign choices runs over all N of them.
-            mout.add_element_field(hf_peak(e_fields), const.FIELD_HF_PEAK)
-        if const.FIELD_HF_SAR in selected:
-            # Carrier-exposure safety map: heating driver. Power (incoherent)
-            # sum across the N carriers -- Cassarà 2025 Part II, p. 8.
-            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
-            mout.add_element_field(2.0 * hf_power(e_fields), const.FIELD_HF_SAR)
-        if const.FIELD_HF_POWER_DENSITY in selected:
-            mout.add_element_field(
-                hf_power_density(e_fields, meshes[0].field[_SIGMA].value),
-                const.FIELD_HF_POWER_DENSITY,
-            )
-
-        view_field = (
-            const.FIELD_MTI_MAX
-            if const.FIELD_TI_MAX in selected
-            else next(iter(selected))
-        )
+        # Final mTI: the envelope of all N channel fields jointly -- not a
+        # recursive TI-of-TI combination of the pairwise fields saved above.
         mti_path = os.path.join(dirs["mti_mesh"], f"{name}_mTI.msh")
-        mesh_io.write_msh(mout, mti_path)
-        mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(
-            mti_path
+        self._write_volume_mesh(meshes, const.FIELD_MTI_MAX, mti_path)
+        self._write_ti_normal(
+            dirs["hf_dir"],
+            n_pairs,
+            os.path.join(dirs["mti_mesh"], f"{name}_mTI_normal.msh"),
         )
-        self.logger.info(f"mTI mesh saved: {mti_path}")
-
-        self._calculate_mti_normal(dirs["hf_dir"], dirs["mti_mesh"], name, n_pairs)
 
         # Field extraction — mTI mesh and all intermediate TI meshes
         self.logger.info("Field extraction: Started")
@@ -276,47 +220,6 @@ class mTISimulation(BaseSimulation):
             finish_t1_to_mni(t1_proc, self.logger)
 
         return mti_path
-
-    def _calculate_mti_normal(
-        self, hf_dir: str, output_dir: str, montage_name: str, n_pairs: int
-    ) -> None:
-        """Compute ``TI_normal`` on the cortical surface for mTI.
-
-        Mirrors ``TISimulation._calculate_ti_normal``: reads the N
-        per-channel SimNIBS central-surface overlays and evaluates the
-        multi-carrier envelope along the node normals
-        (:func:`tit.calc.envelope`) instead of maximizing over
-        direction.
-        """
-        sid = self.config.subject_id
-        cond = self.config.conductivity
-        overlays = os.path.join(hf_dir, "subject_overlays")
-
-        cms = [
-            mesh_io.read_msh(
-                os.path.join(overlays, f"{sid}_TDCS_{i}_{cond}_central.msh")
-            )
-            for i in range(1, n_pairs + 1)
-        ]
-
-        normals = cms[0].nodes_normals().value
-        if "E" in cms[0].field:
-            e_fields = [cm.field["E"].value for cm in cms]
-        else:
-            e_fields = [
-                cm.field["E_normal"].value.reshape(-1, 1) * normals for cm in cms
-            ]
-
-        ti_normal = envelope(e_fields, normals)
-
-        mout = deepcopy(cms[0])
-        mout.nodedata = []
-        mout.add_node_field(ti_normal, "TI_normal")
-
-        normal_path = os.path.join(output_dir, f"{montage_name}_mTI_normal.msh")
-        mesh_io.write_msh(mout, normal_path)
-        mout.view(visible_fields=["TI_normal"]).write_opt(normal_path)
-        self.logger.debug(f"TI_normal saved: {normal_path}")
 
     def _save_ti_vectors(
         self, base_mesh, ti_vectors, output_dir: str, filename: str
