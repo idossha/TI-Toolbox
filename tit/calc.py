@@ -1,50 +1,39 @@
 """Temporal-interference envelope and carrier-field metrics.
 
-Five functions, NumPy, vectorised and chunked over elements (the K>=2 sphere
-maximum runs the same algorithm in a numba kernel, :mod:`tit._calc_kernel`,
-when numba is importable):
+Fields are zero-to-peak amplitudes, ``(N, 3)`` arrays in V/m for zero-to-peak
+channel currents.  The envelope functions take ``fields = [E1a, E1b, E2a, E2b,
+...]``, 2K arrays paired positionally: pair ``k`` is one carrier pair beating
+at the common difference frequency, all K envelopes phase-aligned (K = 1 is TI,
+K >= 2 is mTI).  The carrier metrics take any number >= 1 of carrier fields,
+one per electrode pair.
 
-==================  ==========================================================
-:func:`envelope`      envelope modulation amplitude along a given direction
-                      (``TI_normal`` along the cortical normal)
-:func:`envelope_max`  its maximum over all directions (``TI_max``/``mTI_max``),
-                      or over the directions in a plane (tangential maximum)
-:func:`envelope_mean` its mean over all directions (``TI_avg``)
-:func:`hf_peak`       peak instantaneous carrier field (``hf_peak``)
-:func:`hf_power`      time-averaged mean-square carrier field, E_rms^2
-==================  ==========================================================
+A carrier with no beating partner enters the envelope functions as a pair with
+a zero field, ``[E1a, E1b, Eu, np.zeros_like(Eu)]``: it adds to the carrier
+power but not to the beat, so it lowers the envelope.  :func:`hf_peak` and
+:func:`hf_power` take it as one more carrier in the list.
 
-Field layout
-------------
-The envelope functions take ``fields = [E1a, E1b, E2a, E2b, ...]``: ``2K``
-arrays of shape ``(N, 3)`` in V/m, paired positionally.  Each pair ``k`` is
-one carrier pair beating at the common difference frequency, and all ``K``
-envelopes are phase-aligned.  ``K = 1`` is standard TI; ``K >= 2`` is
-multi-channel TI (mTI).  The carrier metrics take any number ``>= 1`` of
-carrier fields (one field per electrode pair).
+* :func:`envelope` -- envelope amplitude along a direction (``TI_normal``)
+* :func:`envelope_max` -- its maximum over all directions (``TI_max``,
+  ``mTI_max``) or within a plane (tangential maximum)
+* :func:`envelope_mean` -- its mean over all directions (``TI_avg``)
+* :func:`hf_peak` -- peak instantaneous carrier field
+* :func:`hf_power` -- time-averaged mean-square carrier field, ``E_rms^2``
 
-The envelope along a unit direction ``n``
------------------------------------------
-With ``a_k = E_ka . n`` and ``b_k = E_kb . n``, and ``S``/``D`` the ``K x 3``
-matrices with rows ``E_ka + E_kb`` / ``E_ka - E_kb``::
+The math and the accuracy table are in ``docs/wiki/analyzer.md``.  The K >= 2
+sphere maximum runs in the numba kernel :mod:`tit._calc_kernel` when numba
+imports, else in NumPy.
 
-    E_AM(n) = | |S n| - |D n| |  =  4 |sum_k a_k b_k| / (|S n| + |D n|)
+References:
+    Grossman et al. 2017, Cell 169(6):1029-1041, STAR Methods (K = 1 envelope).
+    Botzanowski et al. 2025, Bioelectron Med 11:7, doi:10.1186/s42234-025-00169-6,
+    pp. 4-5 (K >= 2 envelope, extending Grossman's: square, low-pass, square root).
+    Hirata et al. 2024, Comput Biol Med 178:108697, Eq. 2 (K = 1 maximum).
+    Cassarà et al. 2025, Bioelectromagnetics, Part I 46(2):e22542 and Part II
+    46(1):e22536 (carrier metrics); IEEE C95.1-2019 p. 35 (SAR).
 
-The right-hand form has no subtraction of near-equal terms and is the one
-evaluated everywhere here.  At ``K = 1`` it is exactly Grossman et al. 2017
-(Cell 169(6):1029-1041, STAR Methods): ``||(E1+E2).n| - |(E1-E2).n|| =
-2 min(|E1.n|, |E2.n|)``.  ``E_AM(n) = E_AM(-n)``.
-
-Citations by function: :func:`envelope` is Grossman's "envelope modulation
-amplitude along the direction n" (SimNIBS ``TI_utils.get_dirTI``);
-:func:`envelope_max` is Grossman's "maximal modulation amplitude along any
-orientation" (SimNIBS ``get_maxTI``), with the K=1 closed form in the
-sign-agnostic shape of Hirata et al. 2024 (Comput Biol Med 178:108697, Eq. 2);
-:func:`envelope_mean` (``TI_avg``) is defined by this toolbox, there is no
-literature definition; :func:`hf_peak` is Cassarà et al. 2025 Part I
-(Bioelectromagnetics 46(2):e22542) Eq. 3; :func:`hf_power` is Cassarà 2025
-Part I p. 11 and Part II (Bioelectromagnetics 46(1):e22536) Eq. 1 with IEEE
-C95.1-2019 p. 35.
+The K >= 2 envelope model is ported from Larissa Albantakis's branch
+``alba/mTI_testing`` (the solvers here are new); the unpaired-carrier
+convention follows Michael Sutherland's ``feature/uni_HF`` work.
 """
 
 from __future__ import annotations
@@ -157,42 +146,27 @@ def _ratio(num, den):
 
 
 def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.float64]:
-    """Envelope modulation amplitude along a direction, any K.
+    """Envelope modulation amplitude along a direction.
 
-    ``E_AM(n) = 4 |sum_k a_k b_k| / (|S n| + |D n|)`` with ``a_k = E_ka.n``,
-    ``b_k = E_kb.n`` (module docstring) -- Grossman et al. 2017 STAR Methods
-    "envelope modulation amplitude along the direction n", the quantity SimNIBS
-    ``TI_utils.get_dirTI`` computes for K=1.  Exact (a closed expression, no
-    search) for every K.  Along the cortical normal it is ``TI_normal``.
+    ``E_AM(n) = | |S n| - |D n| | = 4 |sum_k a_k b_k| / (|S n| + |D n|)``, with
+    ``a_k = E_ka . n``, ``b_k = E_kb . n`` and ``S``, ``D`` the K x 3 matrices
+    of rows ``E_ka + E_kb``, ``E_ka - E_kb``; the right-hand form (no
+    cancellation) is evaluated.  K = 1 gives ``2 min(|a|, |b|)``.
 
-    Parameters
-    ----------
-    fields : sequence of array-like, each (N, 3)
-        ``[E1a, E1b, E2a, E2b, ...]``, 2K fields in V/m, paired positionally.
-    direction : array-like, (3,) or (N, 3)
-        One direction for every element, or one per element.  Normalised
-        internally; a zero vector gives 0.
+    Method: closed form, exact for every K.  Literature: Grossman 2017's
+    "envelope modulation amplitude along the direction n" (SimNIBS
+    ``get_dirTI``); along the cortical normal it is ``TI_normal``.
 
-    Returns
-    -------
-    numpy.ndarray, (N,)
-        Peak-to-trough envelope amplitude in V/m.
+    Args:
+        fields: ``[E1a, E1b, E2a, E2b, ...]``, 2K arrays (N, 3) in V/m.
+        direction: (3,) or (N, 3); normalised internally, a zero row gives 0.
 
-    Raises
-    ------
-    ValueError
-        Odd or fewer than two fields, fields not all ``(N, 3)`` of one shape,
-        a NaN or inf in ``fields``/``direction``, or ``direction`` not
-        ``(3,)``/``(N, 3)``.
+    Returns:
+        (N,) peak-to-trough envelope amplitude in V/m.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> E1, E2 = np.array([[1.0, 0, 0]]), np.array([[0.5, 0, 0]])
-    >>> envelope([E1, E2], [1.0, 0, 0])
-    array([1.])
-    >>> envelope([E1, E2], [0, 1.0, 0])
-    array([0.])
+    Raises:
+        ValueError: odd or fewer than two fields, shapes not all one (N, 3),
+            NaN or inf, or ``direction`` not (3,) or (N, 3).
     """
     E = _stack(fields, paired=True)
     n = _unit_rows(direction, E.shape[1], "direction")
@@ -214,79 +188,36 @@ def envelope_max(
     perpendicular_to: ArrayLike | None = None,
     return_direction: bool = False,
 ) -> NDArray[np.float64] | tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Maximum of the envelope over all directions, or over a plane.
+    """Maximum of the envelope over all directions, or within a plane.
 
-    ``max_n E_AM(n)`` over unit ``n`` -- Grossman et al. 2017's "maximal
-    modulation amplitude along any orientation", SimNIBS ``get_maxTI``, the
-    ``TI_max``/``mTI_max`` output.  With ``perpendicular_to`` the maximum runs
-    over the unit ``n`` perpendicular to it (the tangential maximum, e.g. in the
-    cortical surface plane); this equals the sphere maximum of the fields
-    projected onto that plane.
+    ``max_n E_AM(n)`` over unit ``n`` (:func:`envelope`), or over the unit ``n``
+    perpendicular to ``perpendicular_to``, which equals the sphere maximum of
+    the fields projected onto that plane.
 
-    Method and accuracy
-    -------------------
-    * **K = 1, sphere**: the exact closed form of Grossman 2017 in the
-      sign-agnostic shape of Hirata et al. 2024 Eq. 2.  Matches SimNIBS
-      ``get_maxTI`` to ~1e-15 relative and is 0 (not NaN) on null fields.
-    * **K = 1, plane**: the same closed form on the fields projected onto the
-      plane.  Exact.
-    * **K >= 2, sphere**: the optimum is an eigenvector of
-      ``cos(t) C+ - sin(t) C-`` (``C+ = S^T S / 2``, ``C- = D^T D / 2``) at a
-      ``t`` where ``g = cos^2(t) u - sin^2(t) v = 0`` (``u = n^T C+ n``,
-      ``v = n^T C- n``).  All three eigen-branches are tracked by overlap on a
-      grid of 16 uniform plus 16 log-spaced ``t``; each sign change of ``g`` is
-      solved by Illinois regula falsi; the best stationary point, and safeguard
-      candidates (the eigenvectors of ``C+``, ``C-`` and ``C+ - C-``, and each
-      pair's own K=1 optimum), then get a Newton polish.  Measured offline
-      (2026-10-26): of 10^4 random elements each for K = 2, 3, 4 and three
-      degenerate sets, and of 2 x 2x10^5 sub-101 grey-matter elements, none
-      falls more than 1e-6 below a dense 2x10^5-direction search (or the
-      previous sweep).  ``tests/test_calc.py`` re-checks 1000 random elements
-      per K, the degenerate sets and six real elements an earlier variant
-      missed, against a dense search.
-    * **K >= 2, plane**: exact.  Stationary points in ``psi = 2 phi`` are roots
-      of the degree-3 trigonometric polynomial ``u'^2 v - v'^2 u`` (a degree-6
-      polynomial in ``e^{i psi}``, from a 7-point DFT, solved by companion
-      eigenvalues), plus the cusps ``u = 0``, ``v = 0`` (the minima of ``u``
-      and ``v``, which only touch zero).
+    Method: K = 1 is an exact closed form on the sphere and in a plane (equal
+    to SimNIBS ``get_maxTI`` to ~1e-15, 0 on null fields).  K >= 2 in a plane is
+    exact (polynomial roots); on the sphere an eigen-branch root-find with a
+    Newton polish, measured never more than 1e-6 relative below a dense
+    direction search.  Literature: Grossman 2017's "maximal modulation
+    amplitude along any orientation" (SimNIBS ``TImax``), K = 1 in the form of
+    Hirata 2024 Eq. 2.  Outputs ``TI_max``/``mTI_max``; the plane form is the
+    tangential maximum.
 
-    Parameters
-    ----------
-    fields : sequence of array-like, each (N, 3)
-        ``[E1a, E1b, E2a, E2b, ...]``, 2K fields in V/m, paired positionally.
-    perpendicular_to : array-like, (3,) or (N, 3), optional
-        Plane normal(s).  ``None`` (default) maximises over the whole sphere.
-        Normalised internally; a zero row gives 0.
-    return_direction : bool
-        Also return the maximising unit direction.
+    Args:
+        fields: ``[E1a, E1b, E2a, E2b, ...]``, 2K arrays (N, 3) in V/m.
+        perpendicular_to: plane normal(s), (3,) or (N, 3); ``None`` maximises
+            over the sphere.  Normalised internally; a zero row gives 0.
+        return_direction: also return the maximising unit direction.
 
-    Returns
-    -------
-    amp : numpy.ndarray, (N,)
-        Maximum envelope amplitude in V/m.
-    n_hat : numpy.ndarray, (N, 3)
-        Only with ``return_direction=True``: a unit maximiser (``-n_hat`` is
-        equally one).  K=1 keeps the Grossman/Hirata TI-vector orientation --
-        ``amp * n_hat`` is the classic TI vector, the sign-corrected smaller
-        field (or its part perpendicular to ``E1 -/+ E2``).  That orientation
-        satisfies ``n_hat . E_L >= 0`` for ``E_L`` the field of largest
-        magnitude, which is the rule applied for K >= 2 (projected fields for
-        a plane).  Where ``amp == 0`` every direction is a maximiser and
-        ``n_hat`` is ``(1, 0, 0)`` (an in-plane unit vector for a plane).
+    Returns:
+        ``amp`` (N,) in V/m, or ``(amp, n_hat)`` with ``n_hat`` (N, 3) unit.
+        ``-n_hat`` is equally a maximiser; the sign gives ``n_hat . E_L >= 0``
+        for ``E_L`` the largest (projected) field, so at K = 1 ``amp * n_hat``
+        is the Grossman TI vector.  Where ``amp == 0``, ``n_hat`` is (1, 0, 0),
+        or an in-plane unit vector for a plane.
 
-    Raises
-    ------
-    ValueError
-        As :func:`envelope`, or ``perpendicular_to`` not ``(3,)``/``(N, 3)``.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> E1, E2 = np.array([[1.0, 0, 0]]), np.array([[0.5, 0, 0]])
-    >>> envelope_max([E1, E2])
-    array([1.])
-    >>> envelope_max([E1, E2], perpendicular_to=[1.0, 0, 0])
-    array([0.])
+    Raises:
+        ValueError: as :func:`envelope`, for ``perpendicular_to``.
     """
     E = _stack(fields, paired=True)
     n_el = E.shape[1]
@@ -321,13 +252,11 @@ def envelope_max(
 
 
 def _ti_vector_k1(E1: np.ndarray, E2: np.ndarray) -> np.ndarray:
-    """K=1 TI vectors (Grossman 2017; sign-agnostic form of Hirata 2024 Eq. 2).
+    """K=1 TI vectors (Grossman 2017 in the sign-agnostic form of Hirata 2024 Eq. 2).
 
-    ``2 * Es`` when ``min(|E1|, |E2|) <= sqrt(|E1.E2|)``, else twice the part
-    of ``Es`` perpendicular to ``h``; ``Es`` is the smaller field flipped into
-    the acute angle with the larger (ties go to ``E2``), ``h`` is whichever of
-    ``E1 - E2``/``E1 + E2`` is shorter.  No magnitude-ordering swap or sign
-    flip of the inputs is needed.
+    ``2 Es`` where ``min(|E1|, |E2|) <= sqrt(|E1.E2|)``, else twice the part of
+    ``Es`` perpendicular to ``h``: ``Es`` is the smaller field flipped into the
+    acute angle (ties go to ``E2``), ``h`` the shorter of ``E1 -/+ E2``.
     """
     norm1 = np.linalg.norm(E1, axis=1)
     norm2 = np.linalg.norm(E2, axis=1)
@@ -352,6 +281,7 @@ def _ti_vector_k1(E1: np.ndarray, E2: np.ndarray) -> np.ndarray:
 
 
 def _max_k1(E1, E2):
+    """K=1 maximum and its unit direction (a zero row where the maximum is 0)."""
     vec = _ti_vector_k1(E1, E2)
     amp = np.linalg.norm(vec, axis=1)
     return amp, vec / np.where(amp > 0, amp, 1.0)[:, None]
@@ -373,8 +303,7 @@ def _frame(m: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 def _forms(E):
     """``C+ = S^T S / 2``, ``C- = D^T D / 2`` and ``Cw = C+ - C-`` per element.
 
-    ``Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T)`` is built directly rather than as
-    a difference.
+    ``Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T)`` is built directly, not as a difference.
     """
     S = E[0::2] + E[1::2]
     D = E[0::2] - E[1::2]
@@ -430,15 +359,14 @@ def _keep_best(best, best_n, vals, dirs):
 
 @functools.cache
 def _sphere_kernel():
-    """The numba K>=2 sphere-maximum kernel, or ``None`` when numba is not importable.
+    """The numba K>=2 sphere-maximum kernel, or ``None`` when it does not import.
 
-    Catches import-time failures only; a numba compile error on the first call propagates.
+    Only import-time failures fall back; a compile error on the first call propagates.
     """
     try:
         from tit._calc_kernel import max_sphere
     except Exception:  # noqa: BLE001
-        # Absent, or broken at import (numba raises AttributeError when a dependency
-        # it checks is unusable): either way NumPy runs.
+        # numba raises AttributeError, not ImportError, when a dependency it checks is unusable.
         return None
     return max_sphere
 
@@ -451,9 +379,10 @@ def _pair_optima(E):
 def _max_sphere(E):
     """K>=2 sphere maximum: eigen-branch root-find, safeguards, local polish.
 
-    Runs in :mod:`tit._calc_kernel` when numba imports (same algorithm, element-parallel);
-    :func:`_max_sphere_numpy` is the reference it is tested against, and recomputes any
-    element whose kernel eigen-solve did not converge.
+    The maximiser is an eigenvector of ``cos(t) C+ - sin(t) C-`` at a ``t`` where
+    ``g = cos^2(t) u - sin^2(t) v = 0`` (``u = n^T C+ n``, ``v = n^T C- n``).  Runs in
+    :mod:`tit._calc_kernel` when numba imports; :func:`_max_sphere_numpy` is its reference
+    and recomputes any element whose kernel eigen-solve did not converge.
     """
     kernel = _sphere_kernel()
     if kernel is None:
@@ -549,13 +478,11 @@ def _max_sphere_numpy(E):
 def _newton_ascent(S, D, n):
     """Riemannian Newton ascent of ``E_AM`` on the sphere from unit rows ``n``.
 
-    ``S``, ``D`` are ``(K, m, 3)``; returns ``(f, n)`` per row.  On the side
-    ``u >= v``, ``E_AM = sqrt(2u) - sqrt(2v)`` (else its negative), smooth
-    away from the cusps ``u = 0``, ``v = 0``.  A step is taken only if it
-    raises ``E_AM`` (halved up to 6 times), so the result never gets worse;
-    where the tangent Hessian is not negative definite the step is a 0.1 rad
-    gradient step instead.  Cusp maxima are covered by the safeguard
-    candidates, not by this.
+    ``S``, ``D`` are ``(K, m, 3)``; returns ``(f, n)`` per row.  On the side ``u >= v``,
+    ``E_AM = sqrt(2u) - sqrt(2v)`` (else its negative), smooth away from the cusps
+    ``u = 0``, ``v = 0`` (those are the safeguards' job).  A step is kept only if it
+    raises ``E_AM`` (halved up to 6 times); where the tangent Hessian is not negative
+    definite it is a 0.1 rad gradient step.
     """
     Cp = 0.5 * np.einsum("kmx,kmy->mxy", S, S)
     Cm = 0.5 * np.einsum("kmx,kmy->mxy", D, D)
@@ -616,7 +543,12 @@ def _newton_ascent(S, D, n):
 
 
 def _max_plane(E, m):
-    """K>=2 maximum over the plane perpendicular to unit rows ``m`` (exact)."""
+    """K>=2 maximum over the plane perpendicular to unit rows ``m`` (exact).
+
+    With ``n = cos(phi) e1 + sin(phi) e2`` and ``psi = 2 phi``, ``u`` and ``v`` are
+    first-order trig polynomials in ``psi``; the stationary points are the roots of
+    ``u'^2 v - v'^2 u`` (degree 3 in ``psi``) plus the cusps ``u = 0``, ``v = 0``.
+    """
     _, e1, e2 = _frame(m)
     S = E[0::2] + E[1::2]
     D = E[0::2] - E[1::2]
@@ -674,42 +606,25 @@ def _max_plane(E, m):
 
 
 def envelope_mean(fields: Sequence[ArrayLike]) -> NDArray[np.float64]:
-    """Mean of the envelope over all directions (``TI_avg``), any K.
+    """Mean of the envelope over all directions (``TI_avg``).
 
-    The average of ``E_AM(n)`` over the unit sphere: what an arbitrarily
-    oriented element sees on average.  Defined by this toolbox (no literature
-    definition); never exceeds :func:`envelope_max`.
+    The mean of ``E_AM(n)`` over the unit sphere; at K = 1 exactly
+    ``|E1| + |E2| - (|E1 + E2| + |E1 - E2|) / 2``.  Never exceeds
+    :func:`envelope_max`.
 
-    Method and accuracy
-    -------------------
-    * **K = 1**: exact closed form.  ``E_AM(n) = 2 min(|a|, |b|) = 2|a| + 2|b|
-      - |a + b| - |a - b|`` and the sphere mean of ``|v . n|`` is ``|v| / 2``,
-      so the mean is ``|E1| + |E2| - (|E1 + E2| + |E1 - E2|) / 2``.
-    * **K >= 2**: equal-weight quadrature on 2048 equal-area directions of one
-      hemisphere (``E_AM(n) = E_AM(-n)``, so this is the 4096-point full-sphere
-      rule): about 7e-4 worst-case relative error on random fields.
+    Method: K = 1 closed form, exact.  K >= 2: equal-area quadrature on 2048
+    hemisphere directions (``E_AM(n) = E_AM(-n)``, so a 4096-point sphere
+    rule), ~7e-4 relative error at worst.  Literature: none, ``TI_avg`` is
+    defined by this toolbox.
 
-    Parameters
-    ----------
-    fields : sequence of array-like, each (N, 3)
-        ``[E1a, E1b, E2a, E2b, ...]``, 2K fields in V/m, paired positionally.
+    Args:
+        fields: ``[E1a, E1b, E2a, E2b, ...]``, 2K arrays (N, 3) in V/m.
 
-    Returns
-    -------
-    numpy.ndarray, (N,)
-        Direction-averaged envelope amplitude in V/m.
+    Returns:
+        (N,) direction-averaged envelope amplitude in V/m.
 
-    Raises
-    ------
-    ValueError
-        As :func:`envelope`.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> E1, E2 = np.array([[1.0, 0, 0]]), np.array([[0.5, 0, 0]])
-    >>> envelope_mean([E1, E2])  # 2 * 0.5 * mean|cos| = 0.5
-    array([0.5])
+    Raises:
+        ValueError: as :func:`envelope`.
     """
     E = _stack(fields, paired=True)
     if E.shape[0] == 2:
@@ -746,52 +661,27 @@ def envelope_mean(fields: Sequence[ArrayLike]) -> NDArray[np.float64]:
 def hf_peak(
     fields: Sequence[ArrayLike], *, coherent: bool = False
 ) -> NDArray[np.float64]:
-    """Peak instantaneous carrier field: ``max_s |sum_c s_c E_c|``.
+    """Peak instantaneous carrier field, ``max_s |sum_c s_c E_c|`` over ``s_c = +-1``.
 
-    Each field is one carrier (one electrode pair).  Carriers at mutually
-    incommensurate frequencies pass through every relative phase, so the worst
-    case is the maximum over sign choices ``s_c = +-1`` -- equivalently the
-    support of the zonotope ``max_n sum_c |E_c . n|``.  At two carriers it is
-    ``max(|E1 + E2|, |E1 - E2|)``, Cassarà et al. 2025 Part I Eq. 3 (p. 11:
-    the worst case is in-phase, spatially aligned fields).
+    Equal to ``max_n sum_c |E_c . n|``; two carriers give ``max(|E1 + E2|,
+    |E1 - E2|)``.  The default is the worst case over carrier phases (reached
+    by incommensurate carriers), the safety-relevant value.  ``coherent=True``
+    gives ``|sum_c E_c|``, the phase-aligned sum some scripts call "peak HF".
 
-    Method: exact for every carrier count.  One carrier is ``|E1|``; two is
-    Eq. 3.  From three on, the maximum is a zonotope vertex, and every vertex
-    is a cell of the arrangement of planes ``E_c . n = 0``, adjacent to one of
-    its vertices ``n = E_i x E_j``: the ``4 C(N, 2)`` sign patterns around
-    those vertices (plus ``n`` along the largest field, for all-collinear
-    fields) contain the maximum.  Fields lying in the plane of ``E_i, E_j``
-    (``E_c . n = 0``) take their sign from an in-plane direction inside the
-    chosen quadrant, so coplanar and parallel fields stay exact.
+    Method: exact for any number of carriers; closed form up to two, zonotope
+    vertices from three (cost ~N^3 per element, 3.5 ms at 52 fields).
+    Literature: Cassarà et al. 2025 Part I Eq. 3.
 
-    Cost grows as ``N^3`` (``C(N, 2)`` vertices x 4 patterns x ``N`` fields).
-    Measured per element (NumPy, one core, 2026-10-26): N = 4: 1.5 us,
-    8: 11 us, 12: 36 us, 16: 82 us, 26: 0.39 ms, 52: 3.5 ms -- a 1.4 M-element
-    head at the 26-pair limit (52 fields) takes over an hour.
+    Args:
+        fields: one or more carrier fields (N, 3) in V/m, one per electrode pair.
+        coherent: carrier-only control (all pairs at one frequency, in phase,
+            ΔF = 0): the fields add as vectors (Cassarà 2025 Part II p. 8).
 
-    Parameters
-    ----------
-    fields : sequence of array-like, each (N, 3)
-        One or more carrier fields in V/m, all the same shape.
-    coherent : bool
-        Carrier-only control (every pair at one frequency, in phase, ΔF = 0):
-        the fields add as vectors, ``|sum_c E_c|`` (Cassarà 2025 Part II p. 8).
+    Returns:
+        (N,) peak carrier field magnitude in V/m (zero-to-peak).
 
-    Returns
-    -------
-    numpy.ndarray, (N,)
-        Peak carrier field magnitude in V/m.
-
-    Raises
-    ------
-    ValueError
-        No fields, fields not all ``(N, 3)`` of one shape, or a NaN or inf.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> hf_peak([np.array([[1.0, 0, 0]]), np.array([[0, 1.0, 0]])])
-    array([1.41421356])
+    Raises:
+        ValueError: no fields, shapes not all one (N, 3), or NaN or inf.
     """
     E = _stack(fields, paired=False)
     if coherent or len(E) == 1:
@@ -809,7 +699,14 @@ def hf_peak(
 
 
 def _hf_peak_vertices(E):
-    """Exact ``max_s |sum s_c E_c|`` for ``(F >= 3, n, 3)`` by arrangement vertices."""
+    """Exact ``max_s |sum s_c E_c|`` for ``(F >= 3, n, 3)`` by arrangement vertices.
+
+    The maximum is a zonotope vertex: a cell of the plane arrangement ``E_c . n = 0``
+    next to one of its vertices ``n = E_i x E_j``.  The 4 sign patterns around each
+    such vertex (plus ``n`` along the largest field, for collinear sets) contain it;
+    fields in the plane of ``E_i, E_j`` take their sign from an in-plane direction in
+    the chosen quadrant, so coplanar and parallel fields stay exact.
+    """
     F, n_el, _ = E.shape
     rows = np.arange(n_el)
     norms = np.linalg.norm(E, axis=2)
@@ -842,47 +739,29 @@ def _hf_peak_vertices(E):
 def hf_power(
     fields: Sequence[ArrayLike], *, coherent: bool = False
 ) -> NDArray[np.float64]:
-    """Time-averaged mean-square carrier field ``(1/2) sum_c |E_c|^2`` = ``E_rms^2``.
+    """Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2 = E_rms^2``.
 
-    Each ``E_c`` is a zero-to-peak carrier amplitude at its own frequency, so
-    over time the cross terms average out and the carriers' powers add:
-    Cassarà et al. 2025 Part I p. 11 ("the SAR distributions from the two
-    channels, rather than the E-fields themselves, must be summed") and Part II
-    p. 8 (incoherent superposition for distinct frequencies).  ``sigma *
-    hf_power`` is the absorbed power density (W/m^3) and ``sigma * hf_power /
-    rho`` the SAR (IEEE C95.1-2019 p. 35, ``SAR = sigma |E_rms|^2 / rho``;
-    Cassarà 2025 Part II Eq. 1).  At 1-10 kHz, however, ICNIRP 2010 and IEEE
-    C95.1 limit the RMS in-situ field -- ``sqrt(hf_power)``, spatially averaged
-    -- not SAR (SAR limits start at 100 kHz).
+    Carriers at distinct frequencies add in power (their cross terms average
+    out).  ``sigma * hf_power`` is the absorbed power density (W/m^3), and over
+    the tissue density the SAR.  Unlike every other output this is a time
+    average: compare ``sqrt(hf_power)`` with RMS limits (at 1-10 kHz ICNIRP 2010
+    and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:`hf_peak`
+    with ``sqrt(2)`` times them.
 
-    Units convention: every other field here (``E_c``, ``TI_max``/
-    :func:`envelope_max`, :func:`hf_peak`) is zero-to-peak for zero-to-peak
-    channel currents; this one is a time average.  Compare ``sqrt(hf_power)``
-    with RMS limits, or ``hf_peak`` with ``sqrt(2)`` times them.
+    Method: closed form, exact for any number of carriers.  Literature:
+    Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.
 
-    Parameters
-    ----------
-    fields : sequence of array-like, each (N, 3)
-        One or more zero-to-peak carrier fields in V/m, all the same shape.
-    coherent : bool
-        Carrier-only control (every pair at one frequency, in phase, ΔF = 0):
-        one sinusoid of amplitude ``sum_c E_c``, so ``(1/2) |sum_c E_c|^2``.
+    Args:
+        fields: one or more zero-to-peak carrier fields (N, 3) in V/m.
+        coherent: carrier-only control (all pairs at one frequency, in phase,
+            ΔF = 0): one sinusoid of amplitude ``sum_c E_c``, so
+            ``(1/2) |sum_c E_c|^2``.
 
-    Returns
-    -------
-    numpy.ndarray, (N,)
-        Mean-square carrier field in (V/m)^2.
+    Returns:
+        (N,) mean-square carrier field in (V/m)^2.
 
-    Raises
-    ------
-    ValueError
-        As :func:`hf_peak`.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> hf_power([np.array([[1.0, 0, 0]]), np.array([[0, 2.0, 0]])])
-    array([2.5])
+    Raises:
+        ValueError: as :func:`hf_peak`.
     """
     E = _stack(fields, paired=False)
     if coherent:
