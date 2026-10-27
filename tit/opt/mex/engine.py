@@ -1,10 +1,8 @@
 """Multipolar exhaustive-search engine."""
 
-import logging
 import time
 from collections import deque
 
-import numpy as np
 from simnibs.utils import TI_utils as TI
 
 from tit.calc import envelope_max
@@ -22,15 +20,6 @@ class MExSearchEngine(ExSearchEngine):
     (:func:`tit.calc.envelope_max`), not a recursive envelope-of-envelopes
     dispatch -- that is not the TI envelope for more than two fields.
     """
-
-    def __init__(
-        self,
-        leadfield_hdf: str,
-        roi_file: str | tuple[str, int] | list[str | tuple[str, int]],
-        roi_name: str,
-        logger: logging.Logger,
-    ):
-        super().__init__(leadfield_hdf, roi_file, roi_name, logger)
 
     def compute_mti_field(
         self,
