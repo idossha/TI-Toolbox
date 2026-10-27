@@ -220,25 +220,25 @@ def _barycenters_for_mesh(m):
 
 
 def _surface_normals_for_mesh(m):
-    """Approximate per-element surface normals for triangular elements."""
-    try:
-        node_coords = m.nodes.node_coord
-        element_nodes = m.elm.node_number_list - 1
-        normals = []
-        for element in element_nodes:
-            nodes = node_coords[element[:3]]
-            edge1 = nodes[1] - nodes[0]
-            edge2 = nodes[2] - nodes[0]
-            normal = np.cross(edge1, edge2)
-            norm = np.linalg.norm(normal)
-            if norm > 1e-12:
-                normal = normal / norm
-            else:
-                normal = np.array([0.0, 0.0, 1.0])
-            normals.append(normal)
-        return np.array(normals)
-    except Exception:
-        return np.tile(np.array([0.0, 0.0, 1.0]), (len(m.elm.node_number_list), 1))
+    """Per-element unit normals from each element's first three nodes (the triangle winding).
+
+    A degenerate (zero-area) triangle gets +z.
+    """
+    node_coords = m.nodes.node_coord
+    element_nodes = m.elm.node_number_list - 1
+    normals = []
+    for element in element_nodes:
+        nodes = node_coords[element[:3]]
+        edge1 = nodes[1] - nodes[0]
+        edge2 = nodes[2] - nodes[0]
+        normal = np.cross(edge1, edge2)
+        norm = np.linalg.norm(normal)
+        if norm > 1e-12:
+            normal = normal / norm
+        else:
+            normal = np.array([0.0, 0.0, 1.0])
+        normals.append(normal)
+    return np.array(normals)
 
 
 def _get_surface_face_barycenters(surface_mesh):
@@ -406,36 +406,34 @@ def _compute_fields(config, meshes, positions):
     }
 
 
-def _compute_ti_normal(config, central_mesh, m1, channels):
+def _compute_ti_normal(config, central_mesh, channels):
     """``TI_normal`` arrows: the envelope along each face normal, along that normal.
 
     The quantity the simulation writes as ``TI_normal``
     (:func:`tit.calc.envelope` of every channel field along the normal), not
     the projection of the ``TI`` vector: the envelope is not linear in the
     fields, so the two differ wherever the fields are oblique to the surface.
+    The faces are the ones :func:`_get_surface_face_barycenters` places the
+    arrows on, so there is one normal per arrow.
 
     Returns:
         ``(N, 3)`` arrows or None.
+
+    Raises:
+        ValueError: the channel fields are not one per central-surface face.
     """
     if not config.export_ti_normal:
         return None
 
-    try:
-        surf_normals = _surface_normals_for_mesh(central_mesh)
-        triangular_elements = central_mesh.elm.elm_type == 2
-        if np.any(triangular_elements):
-            surf_normals = surf_normals[triangular_elements]
-    except Exception:
-        # Fallback to TDCS mesh normals
-        surf_normals = _surface_normals_for_mesh(m1)
-
-    # One normal per arrow: truncate, or pad with +z
-    n = len(channels[0])
-    surf_normals = surf_normals[:n]
-    if len(surf_normals) < n:
-        pad = np.tile([0.0, 0.0, 1.0], (n - len(surf_normals), 1))
-        surf_normals = np.vstack([surf_normals, pad])
-
+    surf_normals = _surface_normals_for_mesh(central_mesh)
+    triangular_elements = central_mesh.elm.elm_type == 2
+    if np.any(triangular_elements):
+        surf_normals = surf_normals[triangular_elements]
+    if len(surf_normals) != len(channels[0]):
+        raise ValueError(
+            f"TI_normal: {len(surf_normals)} central-surface faces for "
+            f"{len(channels[0])} arrows; expected one arrow per face"
+        )
     return envelope(channels, surf_normals)[:, None] * surf_normals
 
 
@@ -814,7 +812,7 @@ def run_vectors(config: VectorConfig) -> None:
         fields = _compute_fields(config, meshes, positions)
 
         # 3 -- TI_normal (optional)
-        TI_normal = _compute_ti_normal(config, central, meshes[0], fields["channels"])
+        TI_normal = _compute_ti_normal(config, central, fields["channels"])
         fields["TI_normal"] = TI_normal
 
         # Pre-filter full magnitudes for color normalization (magscale mode)
