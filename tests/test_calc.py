@@ -357,6 +357,11 @@ def degenerate_sets(n=400):
         "all fields in one plane": [f * np.array([1.0, 1.0, 0.0]) for f in e],
         "second pair 1e-2 weaker": [e[0], e[1], 1e-2 * e[2], 1e-2 * e[3]],
         "all fields collinear": [f[:, :1] * X for f in e],
+        # D2 = 0: C- has a null plane, where the maximum can be a cusp (v = 0)
+        "second pair two equal fields": [e[0], e[1], e[2], e[2]],
+        "integer fields": list(
+            np.random.default_rng(42).integers(-2, 3, (4, n, 3)).astype(float)
+        ),
     }
 
 
@@ -380,6 +385,43 @@ class TestEnvelopeMaxSphere:
         dense = dense_max(fields)
         np.testing.assert_allclose(envelope(fields, n), amp, rtol=1e-12, atol=1e-15)
         assert np.all(amp >= dense * (1 - 1e-12) - 1e-15)
+
+    @pytest.mark.parametrize(
+        ("fields", "expected"),
+        [
+            # Equal second pair (D2 = 0): C- has rank 1, and the maximum is the cusp v = 0 on
+            # the plane perpendicular to D1 = (2,-1,-1), where E_AM = |S n|. In that plane
+            # S1 = (0,-1,1) and S2's projection (-4/3,-4/3,-4/3) are orthogonal with
+            # |.|^2 = 2 and 16/3, so the maximum is sqrt(16/3) = 4/sqrt(3) at n ~ (1,1,1).
+            # The review's integer element, 2.2e-8 low before 2026-10-27.
+            (
+                [(1, -1, 0), (-1, 0, 1), (0, -1, -1), (0, -1, -1)],
+                4 / np.sqrt(3),
+            ),
+            # The same element times 3 with its axes permuted (y, z, x): 3 * 4/sqrt(3).
+            (
+                [(-3, 0, 3), (0, 3, -3), (-3, -3, 0), (-3, -3, 0)],
+                4 * np.sqrt(3),
+            ),
+            # Commuting forms, fields on the axes: S1 = 3x, D1 = x, S2 = 2y, D2 = 0, so on
+            # n = (c, s, 0) E_AM = sqrt(4 + 5 c^2) - |c|, which is 2 at c = 0 and c = 1 and
+            # lower in between (4/sqrt(5) at c^2 = 1/5).
+            ([(2, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0)], 2.0),
+            # Commuting, K = 3: |S n|^2 = 4(x^2 + y^2), |D n|^2 = 4(y^2 + z^2), so
+            # E_AM = 2 |sqrt(x^2 + y^2) - sqrt(y^2 + z^2)| <= 2, reached at n = x and n = z.
+            (
+                [(1, 0, 0), (1, 0, 0), (0, 2, 0), (0, 0, 0), (0, 0, 1), (0, 0, -1)],
+                2.0,
+            ),
+        ],
+    )
+    def test_integer_and_commuting_cases_match_their_closed_forms(
+        self, fields, expected
+    ):
+        fields = [np.array([f], dtype=float) for f in fields]
+        amp, n = envelope_max(fields, return_direction=True)
+        assert amp[0] == pytest.approx(expected, rel=1e-12)
+        assert envelope(fields, n)[0] == pytest.approx(expected, rel=1e-12)
 
     def test_unpaired_carrier_never_below_a_dense_sphere_search(self):
         # A carrier with no beating partner is a pair with a zero field: it adds to |S n| and

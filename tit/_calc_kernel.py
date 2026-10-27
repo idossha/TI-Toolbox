@@ -298,7 +298,8 @@ def _element(
 
     # Safeguards: the eigenvectors of C+, C- and C+ - C- (the cusps and the grid's ends), and
     # each pair's own K=1 optimum (exact when the other pairs vanish).
-    for C in (Cp, Cm, Cw):
+    for s in range(3):
+        C = Cp if s == 0 else (Cm if s == 1 else Cw)
         M[:] = C
         ok = _eigh(M, Vj, False) and ok
         for i in range(3):
@@ -306,6 +307,26 @@ def _element(
             if f > best:
                 best = f
                 bn[:] = Vj[:, i]
+        if s == 2:
+            continue
+        # A cusp on a null plane: where C- (or C+) has a 2-D null space (a pair of equal
+        # fields, D_k = 0), v = 0 on the whole plane and the maximum there is the top direction
+        # of the other form within it -- a non-smooth peak the grid only approaches (2e-8 low)
+        # and Newton cannot climb. The plane is C's two lowest eigenvectors; the 2x2 top
+        # eigenvector is closed form. Harmless where the plane is not null: one more candidate.
+        O = Cm if s == 0 else Cp
+        a = _qf(O, Vj[0, 0], Vj[1, 0], Vj[2, 0], Vj[0, 0], Vj[1, 0], Vj[2, 0])
+        b = _qf(O, Vj[0, 0], Vj[1, 0], Vj[2, 0], Vj[0, 1], Vj[1, 1], Vj[2, 1])
+        c = _qf(O, Vj[0, 1], Vj[1, 1], Vj[2, 1], Vj[0, 1], Vj[1, 1], Vj[2, 1])
+        phi = 0.5 * np.arctan2(2.0 * b, a - c)
+        cp, sp = np.cos(phi), np.sin(phi)
+        n0 = cp * Vj[0, 0] + sp * Vj[0, 1]
+        n1 = cp * Vj[1, 0] + sp * Vj[1, 1]
+        n2 = cp * Vj[2, 0] + sp * Vj[2, 1]
+        u, v, f = _uvwf(S, D, n0, n1, n2)
+        if f > best:
+            best = f
+            bn[0], bn[1], bn[2] = n0, n1, n2
     for k in range(extra.shape[0]):
         u, v, f = _uvwf(S, D, extra[k, 0], extra[k, 1], extra[k, 2])
         if f > best:
