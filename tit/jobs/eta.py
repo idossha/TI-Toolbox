@@ -41,6 +41,9 @@ sim              one TI montage (2 pairs): 00:50:33 -> 00:56:10 =      0.8 + 1.7
                  5.6 min (2 solves at ~5.8 s; meshing the pads and
                  the post-processing dominate)
 ex               ``docs_ex_large``, 16 807 combinations: ~14 min       2.0 min + 7.1e-4/eval
+mex              no measured run; ex's constants with the per-candidate 2.0 min + 2.6e-3/eval
+                 cost scaled by the measured 3.6x slowdown of the
+                 exact mTI maximum (BENCHMARKS.md)
 flex             ``VAL_rthal_flex_focality``, n_multistart=2: ~25 min  1.0 + 12.0/multistart
                                                                        at the default budget
 pre              the per-stage figures the renderer's step table       charm 15, FastSurfer 30,
@@ -193,7 +196,10 @@ PER_UNIT_MIN: dict[str, float] = {
     "sim": 1.7 / EMULATION_FACTOR,
     #: per candidate evaluation of the exhaustive sweep.
     "ex": 7.1e-4 / EMULATION_FACTOR,
-    "mex": 7.1e-4 / EMULATION_FACTOR,
+    #: ex's cost times the exact mTI maximum's slowdown: 0.71-0.74 s against 0.18-0.22 s per
+    #: 200,000-element mex candidate, all numba threads (docs/dev/BENCHMARKS.md, "K>=2 envelope
+    #: maximum", 2026-10-26), i.e. 0.725 / 0.20 = 3.6x.
+    "mex": 7.1e-4 * (0.725 / 0.20) / EMULATION_FACTOR,
     #: per multistart run at the default DE budget (see FLEX_REFERENCE_EVALS).
     "flex": 12.0 / EMULATION_FACTOR,
     "flex_adaptive": 12.0 / EMULATION_FACTOR,
