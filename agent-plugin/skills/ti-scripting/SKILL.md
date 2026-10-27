@@ -80,7 +80,11 @@ hf_power(fields)                               # (N,) (1/2) sum |E_c|^2 = E_rms^
 envelope_max([E1, E2])                         # K = 1: exact closed form
 envelope_max([E1a, E1b, E2a, E2b])             # K = 2 carriers (mTI)
 ```
-`coherent=True` on `hf_peak`/`hf_power` is the carrier-only (ΔF = 0) control. The
+`coherent=True` on `hf_peak`/`hf_power` is the carrier-only (ΔF = 0) control. A carrier with no
+beating partner is a pair with a zero field in the envelope functions,
+`[E1a, E1b, Eu, np.zeros_like(Eu)]` (it lowers the envelope), and one more field
+in `hf_peak`/`hf_power`. `hf_peak(coherent=True)` is `|sum E_c|`, the phase-aligned
+"peak HF"; the default worst case over carrier signs is the safety value. The
 on-disk field `hf_sar` stores `2 * hf_power`; `hf_power_density` stores
 `sigma * hf_power` in W/m^3 with the solve's own conductivity.
 
