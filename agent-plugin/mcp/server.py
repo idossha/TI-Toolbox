@@ -1157,7 +1157,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "cd desktop && npm run typecheck && npm run lint && npx vitest run",
             ".venv/bin/python -m pytest tests/ -q --ignore=tests/numerical  # mocked host leg",
             "docker exec -w /ti-toolbox <container> simnibs_python -m pytest tests/numerical -q  # real-library leg",
-            "python3 dev/route_import_guard.py && python3 dev/contracts_check.py",
+            "python3 dev/route_import_guard.py && .venv/bin/python dev/contracts_check.py",
             "cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet",
             "cd desktop && npm run build        # LAST, always",
         ],

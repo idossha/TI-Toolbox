@@ -1,32 +1,32 @@
 """numba kernel for the K>=2 sphere maximum of :func:`tit.calc.envelope_max`.
 
-The algorithm of the NumPy reference ``tit.calc._max_sphere_numpy``, one element at a time and
-parallel over elements, with the same tie-breaking.  It differs in three ways: the 3x3 eigensolver
-is cyclic Jacobi warm-started from the previous eigenvectors (LAPACK's per-call overhead is most
-of the NumPy cost); the Newton polish stops once no step-halving helps (later iterations would
-repeat it); sums run in another order.  The maxima agree to round-off
-(``tests/numerical/test_calc_kernel.py``).  An element whose Jacobi solve did not converge is
-flagged and ``tit.calc`` recomputes it with NumPy.
+One element at a time, parallel over elements: track the three eigen-branches of
+``cos(t) C+ - sin(t) C-`` over ``tit.calc._THETA_GRID``, root-find every sign change of
+``g = cos^2(t) u - sin^2(t) v`` along a branch, add safeguard candidates, then polish the best
+candidates with Newton ascent.  Each step is load-bearing: removing any of them, or lowering
+``tit.calc._ROOT_ITERS`` / ``_NEWTON_ITERS``, fails the dense-search tests in
+``tests/test_calc.py``.  The 3x3 eigensolver is cyclic Jacobi warm-started from the previous
+eigenvectors (LAPACK's per-call overhead was most of the cost of a NumPy version).
 
-Importing this module raises ImportError when numba is absent; ``tit.calc`` then uses NumPy.
+numba is a hard dependency: the image ships it and ``container/blueprint/verify_runtime.py``
+fails the build without it.  Accuracy is pinned against independent oracles in
+``tests/test_calc.py`` (host) and ``tests/numerical/test_calc_kernel.py`` (image).
 """
 
 import numpy as np
-
-try:
-    from numba import njit, prange
-except ImportError as exc:  # host without numba: tit.calc falls back to NumPy
-    raise ImportError("tit._calc_kernel needs numba") from exc
+from numba import njit, prange
 
 _SQRT2 = np.sqrt(2.0)
-# itertools.permutations(range(3)), the order tit.calc._PERMS scores them in.
-_PERMS = ((0, 1, 2), (0, 2, 1), (1, 0, 2), (1, 2, 0), (2, 0, 1), (2, 1, 0))
 _OFF = ((0, 1), (0, 2), (1, 2))
+# Cyclic-Jacobi sweep cap.  10.8 million grid and safeguard solves on random and degenerate
+# K = 2-4 fields needed at most 5 sweeps, the final check included (measured 2026-10-27);
+# a row that still has not converged is flagged and tit.calc raises.
+_SWEEPS = 50
 
 
 @njit(cache=True, error_model="numpy")
 def _qf(A, x0, x1, x2, y0, y1, y2):
-    """``x^T A y`` for symmetric 3x3 ``A``."""
+    """``x^T A y`` for symmetric 3x3 ``A``, unrolled: the kernel's only matrix product."""
     return (
         x0 * (A[0, 0] * y0 + A[0, 1] * y1 + A[0, 2] * y2)
         + x1 * (A[1, 0] * y0 + A[1, 1] * y1 + A[1, 2] * y2)
@@ -36,13 +36,12 @@ def _qf(A, x0, x1, x2, y0, y1, y2):
 
 @njit(cache=True, error_model="numpy")
 def _eigh(A, V, warm):
-    """Cyclic-Jacobi eigenvectors of symmetric 3x3 ``A`` into ``V``'s columns, ascending.
+    """Eigenvectors of symmetric 3x3 ``A`` into ``V``'s columns, ascending; returns converged.
 
-    ``A`` is overwritten (its diagonal ends up holding the eigenvalues).  ``warm`` starts
-    from the basis already in ``V`` (a nearby matrix's eigenvectors) instead of the
-    identity.  Returns whether it converged within 50 sweeps.
+    Cyclic Jacobi: LAPACK's per-call overhead was most of a NumPy solver's cost.
     """
-    if warm:
+    # A is overwritten; its diagonal ends up holding the eigenvalues.
+    if warm:  # start from V's basis (a nearby matrix's eigenvectors), not the identity
         t00 = _qf(A, V[0, 0], V[1, 0], V[2, 0], V[0, 0], V[1, 0], V[2, 0])
         t11 = _qf(A, V[0, 1], V[1, 1], V[2, 1], V[0, 1], V[1, 1], V[2, 1])
         t22 = _qf(A, V[0, 2], V[1, 2], V[2, 2], V[0, 2], V[1, 2], V[2, 2])
@@ -64,8 +63,8 @@ def _eigh(A, V, warm):
         for j in range(3):
             tol += A[i, j] * A[i, j]
     tol = 1e-16 * np.sqrt(tol)
-    converged = False
-    for _ in range(50):
+    converged = False  # finite A always converges well inside _SWEEPS
+    for _ in range(_SWEEPS):
         if abs(A[0, 1]) <= tol and abs(A[0, 2]) <= tol and abs(A[1, 2]) <= tol:
             converged = True
             break
@@ -74,7 +73,7 @@ def _eigh(A, V, warm):
             if abs(apq) <= tol:
                 continue
             theta = (A[q, q] - A[p, p]) / (2.0 * apq)
-            if abs(theta) > 1e150:
+            if abs(theta) > 1e150:  # theta^2 would overflow; t -> 1/(2 theta)
                 t = 0.5 / theta
             else:
                 t = 1.0 / (abs(theta) + np.sqrt(theta * theta + 1.0))
@@ -105,7 +104,11 @@ def _eigh(A, V, warm):
 
 @njit(cache=True, error_model="numpy")
 def _uvwf(S, D, n0, n1, n2):
-    """``u, v`` and ``E_AM`` at ``n`` from the projections (``tit.calc._uvw``/``_env_uvw``)."""
+    """``u = |S n|^2/2``, ``v = |D n|^2/2`` and ``E_AM`` at ``n``: the kernel's one evaluation.
+
+    From the projections, not ``n^T C n``, which loses ``v`` to round-off next to a cusp.
+    """
+    # E_AM = sqrt(2) |u - v| / (sqrt(u) + sqrt(v)), as tit.calc._env_uvw; a null field gives 0.
     u = v = w = 0.0
     for k in range(S.shape[0]):
         s = S[k, 0] * n0 + S[k, 1] * n1 + S[k, 2] * n2
@@ -121,25 +124,26 @@ def _uvwf(S, D, n0, n1, n2):
 
 @njit(cache=True, error_model="numpy")
 def _newton(S, D, Cp, Cm, n, iters):
-    """``tit.calc._newton_ascent`` for one seed ``n`` (updated in place); returns ``f``.
+    """Newton ascent of ``E_AM`` on the sphere from unit seed ``n`` (in place); returns ``f``.
 
-    The gradient and Hessian are formed directly in the tangent frame ``(e1, e2)``
-    (``T grad``, ``T hess T^T``) -- the same quantities, summed in another order.
+    Closes the gap the grid leaves: two close roots in one interval, or a narrow ridge.
     """
     n0, n1, n2 = n[0], n[1], n[2]
     u, v, f = _uvwf(S, D, n0, n1, n2)
     for _ in range(iters):
+        # On the side u >= v, E_AM = sqrt(2u) - sqrt(2v) (else its negative): smooth away from
+        # the cusps u = 0, v = 0, which the safeguards cover.
         up = u >= v
         A, B = (Cp, Cm) if up else (Cm, Cp)
         ua, vb = (u, v) if up else (v, u)
         ra, rb = np.sqrt(ua), np.sqrt(vb)
-        # tit.calc._frame
+        # tangent frame: e1 = n x (unit axis least parallel to n), e2 = n x e1; for unit n
+        # the cross product has norm >= 0.43, so the division is safe.
         if abs(n0) > 0.9:
             a0, a1, a2 = -n2, 0.0, n0  # n x (0, 1, 0)
         else:
             a0, a1, a2 = 0.0, n2, -n1  # n x (1, 0, 0)
         nrm = np.sqrt(a0 * a0 + a1 * a1 + a2 * a2)
-        nrm = nrm if nrm > 0.0 else 1.0
         a0, a1, a2 = a0 / nrm, a1 / nrm, a2 / nrm
         b0, b1, b2 = n1 * a2 - n2 * a1, n2 * a0 - n0 * a2, n0 * a1 - n1 * a0
         # projections of A n, B n on (e1, e2, n)
@@ -171,19 +175,21 @@ def _newton(S, D, Cp, Cm, n, iters):
         h00 -= gn
         h11 -= gn
         det = h00 * h11 - h01 * h01
+        # Newton where the tangent Hessian is negative definite, else a 0.1 rad gradient step.
         if h00 < 0.0 and det > 0.0:
             s0 = -(h11 * g0 - h01 * g1) / det
             s1 = -(h00 * g1 - h01 * g0) / det
         else:
             gnorm = np.sqrt(g0 * g0 + g1 * g1)
             s0, s1 = 0.1 * g0 / gnorm, 0.1 * g1 / gnorm
+        # A cusp (ra or rb = 0) or a zero gradient makes the step non-finite: take none.
         s0 = s0 if np.isfinite(s0) else 0.0
         s1 = s1 if np.isfinite(s1) else 0.0
         length = np.sqrt(s0 * s0 + s1 * s1)
         scale = min(1.0, 0.3 / (length if length > 0.0 else 1.0))
         s0 *= scale
         s1 *= scale
-        for _ in range(6):  # halve until E_AM rises (never worse)
+        for _ in range(6):  # halve until E_AM rises: never below the seed
             c0 = n0 + s0 * a0 + s1 * b0
             c1 = n1 + s0 * a1 + s1 * b1
             c2 = n2 + s0 * a2 + s1 * b2
@@ -208,48 +214,28 @@ def _newton(S, D, Cp, Cm, n, iters):
 def _element(
     S, D, Cp, Cm, Cw, grid, cg, sg, extra, root_iters, newton_iters, out_n, work
 ):
-    """``tit.calc._max_sphere_numpy`` for one element; the direction goes to ``out_n``.
+    """One element's sphere maximum, direction into ``out_n``; returns ``(amp, ok)``.
 
-    ``work`` is scratch reused across elements: ``(Vs, g, branch_f, branch_n, Vj, M, bn, seed)``.
+    The four steps of the module docstring; ``ok`` is False if any eigen-solve did not converge.
     """
     G = grid.shape[0]
-    Vs, g, branch_f, branch_n, Vj, M, bn, seed = work
+    Vs, g, branch_f, branch_n, Vj, M, bn, seed = work  # scratch reused across elements
     branch_f[:] = -1.0
     branch_n[:] = 0.0
     bn[:] = 0.0
     best = -1.0
     ok = True  # every eigen-solve converged
 
-    # Track the three eigen-branches of cos(t) C+ - sin(t) C- over the grid.
+    # The three eigen-branches of cos(t) C+ - sin(t) C- over the grid, in eigenvalue order,
+    # each solve warm-started from the previous grid point.
     for j in range(G):
         ct, st = cg[j], sg[j]
         for x in range(3):
             for y in range(3):
                 M[x, y] = ct * Cp[x, y] - st * Cm[x, y]
         if j > 0:
-            Vj[:] = Vs[j - 1]
-        ok = _eigh(M, Vj, j > 0) and ok
-        if j == 0:
-            Vs[0] = Vj
-        else:  # tit.calc._match_columns: best permutation by |overlap|, then signs
-            top = -1.0
-            perm = _PERMS[0]
-            for p in _PERMS:
-                score = 0.0
-                for i in range(3):
-                    o = 0.0
-                    for r in range(3):
-                        o += Vs[j - 1, r, i] * Vj[r, p[i]]
-                    score += abs(o)
-                if score > top:
-                    top, perm = score, p
-            for i in range(3):
-                o = 0.0
-                for r in range(3):
-                    o += Vs[j - 1, r, i] * Vj[r, perm[i]]
-                sgn = -1.0 if o < 0.0 else 1.0
-                for r in range(3):
-                    Vs[j, r, i] = sgn * Vj[r, perm[i]]
+            Vs[j] = Vs[j - 1]
+        ok = _eigh(M, Vs[j], j > 0) and ok
         for c in range(3):
             u, v, f = _uvwf(S, D, Vs[j, 0, c], Vs[j, 1, c], Vs[j, 2, c])
             g[j, c] = ct * ct * u - st * st * v
@@ -260,7 +246,8 @@ def _element(
                 best = f
                 bn[:] = Vs[j, :, c]
 
-    # Illinois regula falsi on every bracketed sign change of g along a branch.
+    # Illinois regula falsi on every bracketed sign change of g along a branch: the maximiser
+    # is the eigenvector at a root of g.
     for j in range(G - 1):
         for c in range(3):
             if np.signbit(g[j, c]) == np.signbit(g[j + 1, c]):
@@ -276,7 +263,7 @@ def _element(
                     for q in range(3):
                         M[p, q] = cx * Cp[p, q] - sx * Cm[p, q]
                 ok = _eigh(M, Vj, True) and ok
-                col, top = 0, -1.0
+                col, top = 0, -1.0  # the column that continues branch c
                 for i in range(3):
                     o = abs(
                         Vs[j, 0, c] * Vj[0, i]
@@ -301,8 +288,10 @@ def _element(
                     best = f
                     bn[:] = Vj[:, col]
 
-    # Safeguards: the eigenvectors of C+, C- and C+ - C-, and each pair's own K=1 optimum.
-    for C in (Cp, Cm, Cw):
+    # Safeguards: the eigenvectors of C+, C- and C+ - C- (the cusps and the grid's ends), and
+    # each pair's own K=1 optimum (exact when the other pairs vanish).
+    for s in range(3):
+        C = Cp if s == 0 else (Cm if s == 1 else Cw)
         M[:] = C
         ok = _eigh(M, Vj, False) and ok
         for i in range(3):
@@ -310,6 +299,26 @@ def _element(
             if f > best:
                 best = f
                 bn[:] = Vj[:, i]
+        if s == 2:
+            continue
+        # A cusp on a null plane: where C- (or C+) has a 2-D null space (a pair of equal
+        # fields, D_k = 0), v = 0 on the whole plane and the maximum there is the top direction
+        # of the other form within it -- a non-smooth peak the grid only approaches (2e-8 low)
+        # and Newton cannot climb. The plane is C's two lowest eigenvectors; the 2x2 top
+        # eigenvector is closed form. Harmless where the plane is not null: one more candidate.
+        O = Cm if s == 0 else Cp
+        a = _qf(O, Vj[0, 0], Vj[1, 0], Vj[2, 0], Vj[0, 0], Vj[1, 0], Vj[2, 0])
+        b = _qf(O, Vj[0, 0], Vj[1, 0], Vj[2, 0], Vj[0, 1], Vj[1, 1], Vj[2, 1])
+        c = _qf(O, Vj[0, 1], Vj[1, 1], Vj[2, 1], Vj[0, 1], Vj[1, 1], Vj[2, 1])
+        phi = 0.5 * np.arctan2(2.0 * b, a - c)
+        cp, sp = np.cos(phi), np.sin(phi)
+        n0 = cp * Vj[0, 0] + sp * Vj[0, 1]
+        n1 = cp * Vj[1, 0] + sp * Vj[1, 1]
+        n2 = cp * Vj[2, 0] + sp * Vj[2, 1]
+        u, v, f = _uvwf(S, D, n0, n1, n2)
+        if f > best:
+            best = f
+            bn[0], bn[1], bn[2] = n0, n1, n2
     for k in range(extra.shape[0]):
         u, v, f = _uvwf(S, D, extra[k, 0], extra[k, 1], extra[k, 2])
         if f > best:
@@ -330,18 +339,18 @@ def _element(
             best = f
             out_n[:] = seed
     out_n /= np.sqrt(out_n[0] ** 2 + out_n[1] ** 2 + out_n[2] ** 2)
-    return max(best, 0.0), ok
+    return best, ok
 
 
 @njit(cache=True, error_model="numpy", parallel=True)
 def max_sphere(E, grid, extra, root_iters, newton_iters):
-    """K>=2 sphere maximum of ``E`` ``(2K, n, 3)``: ``(amp (n,), n_hat (n, 3), ok (n,))``.
+    """K>=2 sphere maximum of ``E`` ``(2K, n, 3)``: ``(amp, n_hat, ok)``, parallel over elements.
 
-    ``ok`` is False where an eigen-solve did not converge; those rows are not to be trusted.
-
-    ``grid`` is ``tit.calc._THETA_GRID``, ``extra`` ``(n, K, 3)`` each pair's K=1 optimum,
-    ``root_iters``/``newton_iters`` ``tit.calc._ROOT_ITERS``/``_NEWTON_ITERS``.
+    ``ok`` is False where an eigen-solve did not converge; ``tit.calc`` raises on any such row.
     """
+    # grid, extra (n, K, 3: each pair's K=1 optimum), root_iters, newton_iters come from
+    # tit.calc (_THETA_GRID, _pair_optima, _ROOT_ITERS, _NEWTON_ITERS). A null element gives 0;
+    # tit.calc sets its direction.
     K = E.shape[0] // 2
     n_el = E.shape[1]
     G = grid.shape[0]
@@ -371,7 +380,7 @@ def max_sphere(E, grid, extra, root_iters, newton_iters):
                 for x in range(3):
                     S[k, x] = E[2 * k, e, x] + E[2 * k + 1, e, x]
                     D[k, x] = E[2 * k, e, x] - E[2 * k + 1, e, x]
-            # tit.calc._forms
+            # C+ = S^T S / 2, C- = D^T D / 2, Cw = sum_k (E_ka E_kb^T + E_kb E_ka^T) = C+ - C-
             Cp[:] = 0.0
             Cm[:] = 0.0
             Cw[:] = 0.0

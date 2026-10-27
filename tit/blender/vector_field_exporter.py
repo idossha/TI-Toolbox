@@ -209,36 +209,23 @@ def write_ply_arrows(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _barycenters_for_mesh(m):
-    """Compute element barycenters for a SimNIBS mesh."""
-    try:
-        return m.elements_baricenters().value
-    except Exception:
-        node_coords = m.nodes.node_coord
-        element_nodes = m.elm.node_number_list - 1
-        return np.mean(node_coords[element_nodes], axis=1)
-
-
 def _surface_normals_for_mesh(m):
-    """Approximate per-element surface normals for triangular elements."""
-    try:
-        node_coords = m.nodes.node_coord
-        element_nodes = m.elm.node_number_list - 1
-        normals = []
-        for element in element_nodes:
-            nodes = node_coords[element[:3]]
-            edge1 = nodes[1] - nodes[0]
-            edge2 = nodes[2] - nodes[0]
-            normal = np.cross(edge1, edge2)
-            norm = np.linalg.norm(normal)
-            if norm > 1e-12:
-                normal = normal / norm
-            else:
-                normal = np.array([0.0, 0.0, 1.0])
-            normals.append(normal)
-        return np.array(normals)
-    except Exception:
-        return np.tile(np.array([0.0, 0.0, 1.0]), (len(m.elm.node_number_list), 1))
+    """Per-element unit normals from each element's first three nodes (the triangle winding).
+
+    A degenerate (zero-area) triangle has no normal and gets a zero row, so its ``TI_normal``
+    arrow is 0.
+    """
+    node_coords = m.nodes.node_coord
+    element_nodes = m.elm.node_number_list - 1
+    normals = []
+    for element in element_nodes:
+        nodes = node_coords[element[:3]]
+        edge1 = nodes[1] - nodes[0]
+        edge2 = nodes[2] - nodes[0]
+        normal = np.cross(edge1, edge2)
+        norm = np.linalg.norm(normal)
+        normals.append(normal / norm if norm > 1e-12 else np.zeros(3))
+    return np.array(normals)
 
 
 def _get_surface_face_barycenters(surface_mesh):
@@ -256,39 +243,25 @@ def _get_surface_face_barycenters(surface_mesh):
 
 
 def _interpolate_field_to_surface(volumetric_mesh, target_positions, field_name="E"):
-    """Interpolate a field from a volumetric mesh to target positions.
+    """Interpolate an element field of a volumetric mesh to target positions.
 
-    Uses node-based interpolation via elm2node_matrix when available,
-    falls back to nearest-element interpolation.
+    The field is averaged to the nodes with SimNIBS ``Msh.elm2node_matrix`` and each target
+    takes its nearest node's value.
     """
+    from scipy.spatial import cKDTree
+
     if field_name not in volumetric_mesh.field:
         raise ValueError(f"Field '{field_name}' not found in volumetric mesh")
 
     field_elm = volumetric_mesh.field[field_name].value
+    M = volumetric_mesh.elm2node_matrix()
+    vol_field_nodes = np.zeros((M.shape[0], 3))
+    for i in range(3):
+        vol_field_nodes[:, i] = M.dot(field_elm[:, i])
 
-    try:
-        from scipy.spatial import cKDTree
-
-        M = volumetric_mesh.elm2node_matrix()
-        vol_field_nodes = np.zeros((M.shape[0], 3))
-        for i in range(3):
-            vol_field_nodes[:, i] = M.dot(field_elm[:, i])
-
-        vol_node_positions = volumetric_mesh.nodes.node_coord
-        tree = cKDTree(vol_node_positions)
-        _, indices = tree.query(target_positions)
-        return vol_field_nodes[indices]
-    except Exception:
-        from scipy.spatial import cKDTree
-
-        elm_positions = _barycenters_for_mesh(volumetric_mesh)
-        tree = cKDTree(elm_positions)
-        _, indices = tree.query(target_positions)
-
-        field_values = np.zeros((len(target_positions), 3))
-        for i in range(len(target_positions)):
-            field_values[i] = field_elm[indices[i]]
-        return field_values
+    tree = cKDTree(volumetric_mesh.nodes.node_coord)
+    _, indices = tree.query(target_positions)
+    return vol_field_nodes[indices]
 
 
 def _map_magnitude_to_colors_magscale(
@@ -385,10 +358,12 @@ def _compute_fields(config, meshes, positions):
     )
     channels = [_interpolate_field_to_surface(m, positions, "E") for m in meshes]
 
-    # Align sizes
-    min_len = min(len(a) for a in [positions, *channels])
-    positions = positions[:min_len]
-    channels = [E[:min_len] for E in channels]
+    lengths = [len(E) for E in channels]
+    if any(n != len(positions) for n in lengths):
+        raise ValueError(
+            f"interpolated channel fields have {lengths} rows for "
+            f"{len(positions)} arrow positions; expected one per position"
+        )
 
     amp, direction = envelope_max(channels, return_direction=True)
     TI = amp[:, None] * direction
@@ -406,36 +381,34 @@ def _compute_fields(config, meshes, positions):
     }
 
 
-def _compute_ti_normal(config, central_mesh, m1, channels):
+def _compute_ti_normal(config, central_mesh, channels):
     """``TI_normal`` arrows: the envelope along each face normal, along that normal.
 
     The quantity the simulation writes as ``TI_normal``
     (:func:`tit.calc.envelope` of every channel field along the normal), not
     the projection of the ``TI`` vector: the envelope is not linear in the
     fields, so the two differ wherever the fields are oblique to the surface.
+    The faces are the ones :func:`_get_surface_face_barycenters` places the
+    arrows on, so there is one normal per arrow.
 
     Returns:
         ``(N, 3)`` arrows or None.
+
+    Raises:
+        ValueError: the channel fields are not one per central-surface face.
     """
     if not config.export_ti_normal:
         return None
 
-    try:
-        surf_normals = _surface_normals_for_mesh(central_mesh)
-        triangular_elements = central_mesh.elm.elm_type == 2
-        if np.any(triangular_elements):
-            surf_normals = surf_normals[triangular_elements]
-    except Exception:
-        # Fallback to TDCS mesh normals
-        surf_normals = _surface_normals_for_mesh(m1)
-
-    # One normal per arrow: truncate, or pad with +z
-    n = len(channels[0])
-    surf_normals = surf_normals[:n]
-    if len(surf_normals) < n:
-        pad = np.tile([0.0, 0.0, 1.0], (n - len(surf_normals), 1))
-        surf_normals = np.vstack([surf_normals, pad])
-
+    surf_normals = _surface_normals_for_mesh(central_mesh)
+    triangular_elements = central_mesh.elm.elm_type == 2
+    if np.any(triangular_elements):
+        surf_normals = surf_normals[triangular_elements]
+    if len(surf_normals) != len(channels[0]):
+        raise ValueError(
+            f"TI_normal: {len(surf_normals)} central-surface faces for "
+            f"{len(channels[0])} arrows; expected one arrow per face"
+        )
     return envelope(channels, surf_normals)[:, None] * surf_normals
 
 
@@ -814,7 +787,7 @@ def run_vectors(config: VectorConfig) -> None:
         fields = _compute_fields(config, meshes, positions)
 
         # 3 -- TI_normal (optional)
-        TI_normal = _compute_ti_normal(config, central, meshes[0], fields["channels"])
+        TI_normal = _compute_ti_normal(config, central, fields["channels"])
         fields["TI_normal"] = TI_normal
 
         # Pre-filter full magnitudes for color normalization (magscale mode)

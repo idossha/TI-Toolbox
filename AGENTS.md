@@ -68,7 +68,7 @@ Run checks appropriate to the change, and the full gate for a release candidate.
 cd desktop && npm run typecheck && npm run lint && npx vitest run
 .venv/bin/python -m pytest tests/ -q --ignore=tests/numerical          # host, heavy libs mocked
 docker exec -w /ti-toolbox <c> simnibs_python -m pytest tests/numerical -q   # separate real-library leg
-python3 dev/documentation_policy.py && python3 dev/route_import_guard.py && python3 dev/contracts_check.py
+python3 dev/documentation_policy.py && python3 dev/route_import_guard.py && .venv/bin/python dev/contracts_check.py  # needs numba
 cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet          # full mock suite, under the lock
 cd desktop && npx playwright test --project=real …           # against the dev container
 actionlint                      # if you touched .github/workflows

@@ -782,7 +782,7 @@ def _fsavg_run(
 
     computed: list[str] = []
 
-    def compute(pm, sid, sim, cfg):
+    def compute(pm, sid, sim, cfg, carrier_only):
         computed.append(sid)
         return {}
 

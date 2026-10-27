@@ -81,6 +81,39 @@ def test_workers_times_numba_threads_never_exceed_the_admitted_cpus(
 
 
 @pytest.mark.unit
+def test_a_numba_share_numba_cannot_give_raises_in_the_parent(monkeypatch):
+    """numba caps its threads at NUMBA_NUM_THREADS. A per-worker share above it would fail in
+    every forked worker's initializer (Pool respawns them forever), so the parent refuses before
+    forking instead of each worker silently keeping all of numba's threads (2026-10-27).
+    """
+    import numba
+
+    monkeypatch.setenv("TIT_JOB_CPUS", "8")
+    monkeypatch.setattr(numba.config, "NUMBA_NUM_THREADS", 2)
+
+    class _Ctx:
+        def Pool(self, *_a, **_k):
+            pytest.fail("the pool must not fork")
+
+    monkeypatch.setattr(parallel.multiprocessing, "get_context", lambda _m: _Ctx())
+    with pytest.raises(
+        RuntimeError, match="4 numba threads per worker.*NUMBA_NUM_THREADS=2"
+    ):
+        list(evaluate_ordered(_Engine("x"), "score", [(1, 1)] * 4, 2))
+
+
+@pytest.mark.unit
+def test_a_worker_that_cannot_take_its_numba_share_fails_loudly(monkeypatch):
+    """The worker initializer propagates a numba threading failure; it never passes silently."""
+    import numba
+
+    monkeypatch.setattr(parallel.signal, "signal", lambda *_a: None)
+    monkeypatch.setattr(numba.config, "THREADING_LAYER", numba.config.THREADING_LAYER)
+    with pytest.raises(ValueError):
+        parallel._worker_init(numba.config.NUMBA_NUM_THREADS + 1)
+
+
+@pytest.mark.unit
 class TestEvaluateOrdered:
     def test_serial_path_runs_in_process(self):
         engine = _Engine("s")

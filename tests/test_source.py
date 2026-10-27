@@ -90,6 +90,83 @@ class TestForwardPaths:
 
 
 class TestFsavgHelpers:
+    @pytest.mark.parametrize(
+        ("content", "expected"),
+        [
+            ("{}", False),
+            ('{"carrier_only": false}', False),
+            ('{"carrier_only": true}', True),
+        ],
+    )
+    def test_carrier_only_is_read_from_the_runs_config(
+        self, tmp_path, content, expected
+    ):
+        """A missing key is an ordinary TI run (older runs are real input)."""
+        from types import SimpleNamespace
+
+        from tit.source import fsaverage
+
+        (tmp_path / "documentation").mkdir()
+        (tmp_path / "documentation" / "config.json").write_text(content)
+        pm = SimpleNamespace(simulation=lambda sid, sim: str(tmp_path))
+        assert fsaverage._recorded_carrier_only(pm, "001", "s") is expected
+
+    @pytest.mark.parametrize(
+        ("content", "error"),
+        [
+            (None, FileNotFoundError),
+            ("{not json", ValueError),
+            ('{"carrier_only": "false"}', ValueError),
+        ],
+    )
+    def test_an_unreadable_or_corrupt_config_raises(self, tmp_path, content, error):
+        """Treating it as an ordinary TI run would silently give a carrier-only run's
+        hf_peak/hf_sar the incoherent sum (2026-10-27)."""
+        from types import SimpleNamespace
+
+        from tit.source import fsaverage
+
+        (tmp_path / "documentation").mkdir()
+        if content is not None:
+            (tmp_path / "documentation" / "config.json").write_text(content)
+        pm = SimpleNamespace(simulation=lambda sid, sim: str(tmp_path))
+        with pytest.raises(error):
+            fsaverage._recorded_carrier_only(pm, "001", "s")
+
+    def test_a_corrupt_config_fails_only_its_subject_in_a_batch(
+        self, monkeypatch, tmp_path
+    ):
+        """Even with only TI_max requested (no carrier read), the subject whose config.json is
+        corrupt gets a "failed" row and the batch goes on (2026-10-27)."""
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        from tit.source import fsaverage
+        from tit.source.config import FsavgMapConfig
+
+        for sid, content in (("001", "{not json"), ("002", "{}")):
+            (tmp_path / sid / "documentation").mkdir(parents=True)
+            (tmp_path / sid / "documentation" / "config.json").write_text(content)
+        pm = SimpleNamespace(
+            simulation=lambda sid, sim: str(tmp_path / sid),
+            sim_fsaverage_fields=lambda sid, sim, sp: str(tmp_path / sid / "out.msh"),
+        )
+        monkeypatch.setattr(fsaverage, "get_path_manager", lambda: pm)
+        monkeypatch.setattr(
+            fsaverage, "_compute_fields", lambda *a: {"TI_max": np.zeros(1)}
+        )
+        monkeypatch.setattr(fsaverage, "write_fsaverage_msh", lambda *a: None)
+        cfg = FsavgMapConfig(fields=("TI_max",), overwrite=True)
+        results = fsaverage.project_fields_to_fsaverage(
+            [("001", "s"), ("002", "s")], cfg
+        )
+        assert [(sid, status) for sid, status, _ in results] == [
+            ("001", "failed"),
+            ("002", "ok"),
+        ]
+        assert "config.json" not in results[1][2]
+
     def test_morph_split_node_mismatch_raises(self):
         import numpy as np
 
@@ -163,28 +240,19 @@ class TestFsavgHelpers:
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
         self._mock_simnibs_core(monkeypatch)
-        out = fsaverage._compute_fields(
-            _MagicMock(),
-            "001",
-            "TI_sim",
-            FsavgMapConfig(fields=("hf_peak", "hf_sar")),
-        )
-        assert out["hf_peak"][0] == pytest.approx(2.0)
-        assert out["hf_sar"][0] == pytest.approx(2.0)
-
-        # ΔF = 0 carrier-only, as the run recorded it in documentation/config.json:
-        # the same anti-parallel carriers cancel coherently.
         from types import SimpleNamespace
 
-        doc = tmp_path / "documentation"
-        doc.mkdir()
-        (doc / "config.json").write_text('{"carrier_only": true}')
         pm = SimpleNamespace(
             simulation=lambda sid, sim: str(tmp_path), m2m=lambda sid: str(tmp_path)
         )
-        out = fsaverage._compute_fields(
-            pm, "001", "TI_sim", FsavgMapConfig(fields=("hf_peak", "hf_sar"))
-        )
+        cfg = FsavgMapConfig(fields=("hf_peak", "hf_sar"))
+        out = fsaverage._compute_fields(pm, "001", "TI_sim", cfg, False)
+        assert out["hf_peak"][0] == pytest.approx(2.0)
+        assert out["hf_sar"][0] == pytest.approx(2.0)
+
+        # ΔF = 0 carrier-only, as the run recorded it: the same anti-parallel carriers
+        # cancel coherently.
+        out = fsaverage._compute_fields(pm, "001", "TI_sim", cfg, True)
         assert out["hf_peak"][0] == pytest.approx(0.0)
         assert out["hf_sar"][0] == pytest.approx(0.0)
 
@@ -212,7 +280,9 @@ class TestFsavgHelpers:
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
         self._mock_simnibs_core(monkeypatch)
-        out = fsaverage._compute_fields(_MagicMock(), "001", "TI_sim", FsavgMapConfig())
+        out = fsaverage._compute_fields(
+            _MagicMock(), "001", "TI_sim", FsavgMapConfig(), False
+        )
         assert "TI_max" in out and "TI_normal" in out
         assert "hf_peak" not in out and "hf_sar" not in out
 
@@ -236,7 +306,9 @@ class TestFsavgHelpers:
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
         self._mock_simnibs_core(monkeypatch)
-        out = fsaverage._compute_fields(_MagicMock(), "001", "TI_sim", FsavgMapConfig())
+        out = fsaverage._compute_fields(
+            _MagicMock(), "001", "TI_sim", FsavgMapConfig(), False
+        )
         assert "TI_max" in out and "TI_normal" in out
         assert "hf_peak" not in out and "hf_sar" not in out
 
@@ -650,7 +722,9 @@ class TestLeadfieldChannelOrder:
 
         attrs = {"electrode_names": _MagicMock(tolist=lambda: ["Cz", "Fp1"])}
         handle = _MagicMock()
-        handle.__getitem__.return_value.__getitem__.return_value.__getitem__.return_value.attrs = attrs
+        handle.__getitem__.return_value.__getitem__.return_value.__getitem__.return_value.attrs = (
+            attrs
+        )
         h5file = _MagicMock()
         h5file.return_value.__enter__.return_value = handle
         monkeypatch.setattr(sys.modules["h5py"], "File", h5file)

@@ -18,6 +18,9 @@ What this pins (2026-10-26, the five-function envelope API):
   (and of one shared carrier for ``coherent``), and ``sum |E_c|^2 / 2`` written out longhand.
 * invariances (pair order, swap within a pair, sign flips, rotation, scale), the direction
   convention, chunking, shapes and validation errors.
+* the K>=2 sphere maximum is the compiled numba kernel (``tit/_calc_kernel.py``; numba is real
+  here, see ``tests/conftest.py``), so every sphere test above checks the kernel, and a failed
+  eigen-solve raises instead of returning a number (2026-10-27).
 
 Where the numbers come from: closed forms written out in each test, derivations in
 ``docs/wiki/analyzer.md``, and the oracles above; no value is read back from ``tit.calc``. The six real
@@ -39,7 +42,8 @@ mean -0.09 % / +0.49 % for the two pairs); ``mTI_max`` rises where the old sweep
 (K=1) and ``TI_normal`` are unchanged to round-off.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_calc.py -q -p no:cacheprovider``.
-Deliberately elsewhere: SimNIBS ``get_maxTI``/``get_dirTI`` agreement
+Deliberately elsewhere: the kernel under the image's own numba
+(``tests/numerical/test_calc_kernel.py``); SimNIBS ``get_maxTI``/``get_dirTI`` agreement
 (``tests/numerical/test_calc_vs_simnibs.py``, image only); time-domain carrier checks of
 ``hf_peak``/``hf_power`` (``tests/numerical/test_sci07_exposure_channels.py``); the envelope vs
 carrier-metric inequalities (``tests/test_field_physics_invariants.py``).
@@ -353,6 +357,11 @@ def degenerate_sets(n=400):
         "all fields in one plane": [f * np.array([1.0, 1.0, 0.0]) for f in e],
         "second pair 1e-2 weaker": [e[0], e[1], 1e-2 * e[2], 1e-2 * e[3]],
         "all fields collinear": [f[:, :1] * X for f in e],
+        # D2 = 0: C- has a null plane, where the maximum can be a cusp (v = 0)
+        "second pair two equal fields": [e[0], e[1], e[2], e[2]],
+        "integer fields": list(
+            np.random.default_rng(42).integers(-2, 3, (4, n, 3)).astype(float)
+        ),
     }
 
 
@@ -376,6 +385,43 @@ class TestEnvelopeMaxSphere:
         dense = dense_max(fields)
         np.testing.assert_allclose(envelope(fields, n), amp, rtol=1e-12, atol=1e-15)
         assert np.all(amp >= dense * (1 - 1e-12) - 1e-15)
+
+    @pytest.mark.parametrize(
+        ("fields", "expected"),
+        [
+            # Equal second pair (D2 = 0): C- has rank 1, and the maximum is the cusp v = 0 on
+            # the plane perpendicular to D1 = (2,-1,-1), where E_AM = |S n|. In that plane
+            # S1 = (0,-1,1) and S2's projection (-4/3,-4/3,-4/3) are orthogonal with
+            # |.|^2 = 2 and 16/3, so the maximum is sqrt(16/3) = 4/sqrt(3) at n ~ (1,1,1).
+            # The review's integer element, 2.2e-8 low before 2026-10-27.
+            (
+                [(1, -1, 0), (-1, 0, 1), (0, -1, -1), (0, -1, -1)],
+                4 / np.sqrt(3),
+            ),
+            # The same element times 3 with its axes permuted (y, z, x): 3 * 4/sqrt(3).
+            (
+                [(-3, 0, 3), (0, 3, -3), (-3, -3, 0), (-3, -3, 0)],
+                4 * np.sqrt(3),
+            ),
+            # Commuting forms, fields on the axes: S1 = 3x, D1 = x, S2 = 2y, D2 = 0, so on
+            # n = (c, s, 0) E_AM = sqrt(4 + 5 c^2) - |c|, which is 2 at c = 0 and c = 1 and
+            # lower in between (4/sqrt(5) at c^2 = 1/5).
+            ([(2, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0)], 2.0),
+            # Commuting, K = 3: |S n|^2 = 4(x^2 + y^2), |D n|^2 = 4(y^2 + z^2), so
+            # E_AM = 2 |sqrt(x^2 + y^2) - sqrt(y^2 + z^2)| <= 2, reached at n = x and n = z.
+            (
+                [(1, 0, 0), (1, 0, 0), (0, 2, 0), (0, 0, 0), (0, 0, 1), (0, 0, -1)],
+                2.0,
+            ),
+        ],
+    )
+    def test_integer_and_commuting_cases_match_their_closed_forms(
+        self, fields, expected
+    ):
+        fields = [np.array([f], dtype=float) for f in fields]
+        amp, n = envelope_max(fields, return_direction=True)
+        assert amp[0] == pytest.approx(expected, rel=1e-12)
+        assert envelope(fields, n)[0] == pytest.approx(expected, rel=1e-12)
 
     def test_unpaired_carrier_never_below_a_dense_sphere_search(self):
         # A carrier with no beating partner is a pair with a zero field: it adds to |S n| and
@@ -806,47 +852,44 @@ def test_chunking_does_not_change_results(monkeypatch):
     np.testing.assert_array_equal(hf_peak(sets[3]), peak)
 
 
-def test_without_numba_the_numpy_path_runs(monkeypatch):
-    """No numba: the K>=2 sphere maximum falls back to NumPy (numba is in the image only).
-
-    ``sys.modules["numba"] = None`` makes ``import numba`` raise ImportError, as on a host
-    without it; kernel/NumPy agreement is ``tests/numerical/test_calc_kernel.py`` (image).
+def test_the_k2_sphere_maximum_runs_the_compiled_numba_kernel():
+    """numba is a hard dependency, real in the host suite too (tests/conftest.py imports it
+    before the scipy mock): ``envelope_max`` at K>=2 calls the compiled dispatcher itself.
     """
-    import sys
+    from numba.core.registry import CPUDispatcher
 
-    fields = list(np.concatenate([REAL_GM_FIELDS, REAL_GM_ROOT_FIELDS], axis=1))
-    monkeypatch.setitem(sys.modules, "numba", None)
-    monkeypatch.delitem(sys.modules, "tit._calc_kernel", raising=False)
-    calc._sphere_kernel.cache_clear()
-    try:
-        with pytest.raises(ImportError, match="numba"):
-            import tit._calc_kernel  # noqa: F401
-        assert calc._sphere_kernel() is None
-        amp, n = envelope_max(fields, return_direction=True)
-    finally:
-        calc._sphere_kernel.cache_clear()
-    np.testing.assert_allclose(envelope(fields, n), amp, rtol=1e-13)
-    assert np.all(amp > 0)
+    from tit import _calc_kernel
+
+    assert calc._sphere_kernel is _calc_kernel.max_sphere
+    assert isinstance(_calc_kernel.max_sphere, CPUDispatcher)
+    envelope_max(random_fields(1, 3, 4))
+    assert _calc_kernel.max_sphere.signatures, "the kernel was never compiled and run"
 
 
-def test_a_numba_that_breaks_at_import_falls_back_too(monkeypatch):
-    """numba's ``__init__`` raises AttributeError, not ImportError, when a dependency it version-
-    checks is unusable (seen in the image with the host conftest's mocked scipy)."""
-    import builtins
+def test_an_unconverged_eigen_solve_raises_instead_of_returning_a_value(monkeypatch):
+    """A row the kernel flags (``ok`` False) has no trustworthy value: RuntimeError naming the
+    count, never a silently recomputed or returned number."""
+    kernel = calc._sphere_kernel
 
-    real_import = builtins.__import__
+    def flagging(E, *args):
+        amp, n_hat, ok = kernel(E, *args)
+        ok[1::3] = False
+        return amp, n_hat, ok
 
-    def broken(name, *args, **kwargs):
-        if name == "tit._calc_kernel":
-            raise AttributeError("__version__")
-        return real_import(name, *args, **kwargs)
+    monkeypatch.setattr(calc, "_sphere_kernel", flagging)
+    with pytest.raises(RuntimeError, match="did not converge at 10 elements"):
+        envelope_max(random_fields(970, 30, 4))
 
-    monkeypatch.setattr(builtins, "__import__", broken)
-    calc._sphere_kernel.cache_clear()
-    try:
-        assert calc._sphere_kernel() is None
-    finally:
-        calc._sphere_kernel.cache_clear()
+
+def test_fields_that_overflow_once_squared_raise():
+    """Finite fields of 1e155 V/m pass the NaN/inf gate, but their 3x3 forms overflow to inf:
+    the Jacobi solve cannot converge on them, so the result is an error, not garbage."""
+    fields = [f * 1e155 for f in random_fields(971, 4, 4)]
+    with (
+        np.errstate(over="ignore", invalid="ignore"),
+        pytest.raises(RuntimeError, match="did not converge at 4 elements"),
+    ):
+        envelope_max(fields)
 
 
 def test_empty_input_gives_empty_output():

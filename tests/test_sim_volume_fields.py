@@ -72,10 +72,13 @@ class _Mesh:
 
 
 class _Surface:
-    """The slice of a SimNIBS central-surface overlay ``_write_ti_normal`` touches."""
+    """The slice of a SimNIBS central-surface overlay ``_write_ti_normal`` touches.
+
+    SimNIBS 4.6 overlays hold ``E_normal`` (``E . n``), not the ``E`` vector.
+    """
 
     def __init__(self, e, normals):
-        self.field = {"E": SimpleNamespace(value=e)}
+        self.field = {"E_normal": SimpleNamespace(value=np.sum(e * normals, axis=1))}
         self.normals = normals
         self.nodedata = []
 

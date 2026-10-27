@@ -46,6 +46,8 @@ def _mock_mesh_efields(mock_mesh_io, n_elements=8):
     mesh = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
     mesh.field.__getitem__.return_value.value = value
     mock_mesh_io.read_msh.return_value.field.__getitem__.return_value.value = value
+    # Every named field is present, the central overlays' E_normal included.
+    mock_mesh_io.read_msh.return_value.field.__contains__.return_value = True
     return value
 
 

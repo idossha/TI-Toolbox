@@ -1,23 +1,22 @@
-"""The numba K>=2 sphere-maximum kernel (``tit/_calc_kernel.py``) agrees with the NumPy reference.
+"""The numba K>=2 sphere-maximum kernel (``tit/_calc_kernel.py``) under the image's own numba.
 
-Pins (2026-10-26): ``tit.calc.envelope_max`` runs the K>=2 sphere maximum in a numba kernel when
-numba imports, and that kernel is the same algorithm as the NumPy path in ``tit/calc.py``
-(``_max_sphere`` with the kernel switched off) -- only its 3x3 eigensolver differs (Jacobi vs
-LAPACK), so the two agree to round-off:
+Pins (2026-10-27): ``tit.calc.envelope_max`` runs the K>=2 sphere maximum in a numba kernel and
+nothing else (numba is a hard dependency; there is no NumPy solver). ``tests/test_calc.py`` checks
+the kernel's accuracy under the host's numba; this file re-checks it under the image's numba and
+NumPy (0.64.0 / 2.3.5 in v3.1.2), where a numba upgrade could change compilation or rounding:
 
-* on 10^4 seeded random elements each at K = 2, 3, 4 and on the degenerate sets of
-  ``tests/test_calc.py``, kernel and NumPy maxima agree to 1e-12 relative both ways (<=1e-13
-  measured), and every kernel value is attained at its returned direction (``envelope``);
-* on the six real grey-matter elements an earlier solver missed (``tests/test_calc.py``), the
-  kernel is never below the dense sphere search there (an oracle independent of both paths);
+* the kernel is the compiled numba dispatcher, not a mock or a Python fallback;
+* on 2,000 seeded random elements each at K = 2, 3, 4, on the degenerate sets and on the six real
+  grey-matter elements of ``tests/test_calc.py``, every value is attained at its returned
+  direction (``envelope``, 1e-12) and never below a dense sphere search (an oracle independent of
+  the kernel) by more than round-off, with the dense search tight (median 1e-8);
 * null elements give 0 with the documented ``(1, 0, 0)`` direction, never NaN;
-* NaN or inf in any field raises ValueError before the kernel runs (the kernel itself would
-  return finite garbage), and rows the kernel flags as not converged are recomputed by NumPy.
+* NaN or inf in any field raises ValueError before the kernel runs, and fields that overflow
+  float64 once squared raise RuntimeError (the Jacobi solve cannot converge on inf).
 
-Where the numbers come from: the NumPy reference (itself checked against dense searches in
-``tests/test_calc.py``) and the dense search ``tests.test_calc.dense_max``; nothing is read back
-from the kernel's own output. Runs in the image, the only place numba is installed; the host
-suite pins the fallback (``tests/test_calc.py::test_without_numba_the_numpy_path_runs``).
+Where the numbers come from: the dense search ``tests.test_calc.dense_max`` and the closed form
+``tit.calc.envelope`` at the returned direction; nothing is read back from the kernel's own output.
+Also runs on the host (``host_numerical``): it needs only numpy and numba.
 
 Reproduce, one docker run at a time::
 
@@ -25,8 +24,8 @@ Reproduce, one docker run at a time::
       -w /ti-toolbox idossha/ti-toolbox:v3.1.2 \\
       -m pytest tests/numerical/test_calc_kernel.py -q -p no:cacheprovider
 
-Deliberately elsewhere: the algorithm's accuracy against dense searches (``tests/test_calc.py``,
-NumPy path, host) and timing (``docs/dev/BENCHMARKS.md``).
+Deliberately elsewhere: the full accuracy suite (``tests/test_calc.py``) and timing
+(``docs/dev/BENCHMARKS.md``).
 """
 
 from __future__ import annotations
@@ -34,7 +33,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import tit.calc as calc
 from tests.test_calc import (
     REAL_GM_FIELDS,
     REAL_GM_ROOT_FIELDS,
@@ -42,54 +40,52 @@ from tests.test_calc import (
     dense_max,
     random_fields,
 )
+from tit import calc
+
+pytestmark = pytest.mark.host_numerical
 
 
-def both(fields, monkeypatch):
-    """``(amp, n_hat)`` from the kernel, then from the NumPy reference."""
-    # Per test, not per module: a module-level skip would land in the host_numerical leg's
-    # report, where these tests are deselected. In the image this skip is not allowlisted
-    # (dev/check_junit.py), so an image without numba goes red.
-    pytest.importorskip("numba", reason="the image ships numba; the kernel needs it")
-    calc._sphere_kernel.cache_clear()  # a host test may have cached None under mocked scipy
-    assert (
-        calc._sphere_kernel() is not None
-    ), "numba imports but the kernel did not load"
-    kernel = calc.envelope_max(fields, return_direction=True)
-    with monkeypatch.context() as m:
-        m.setattr(calc, "_sphere_kernel", lambda: None)
-        numpy = calc.envelope_max(fields, return_direction=True)
-    return kernel, numpy
+def assert_never_below_dense(fields, m=40_000):
+    """Attained at ``n_hat`` and never below the dense search; returns the relative gap."""
+    amp, n_hat = calc.envelope_max(fields, return_direction=True)
+    np.testing.assert_allclose(
+        calc.envelope(fields, n_hat), amp, rtol=1e-12, atol=1e-15
+    )
+    dense = dense_max(fields, m=m)
+    assert np.all(amp >= dense * (1 - 1e-9) - 1e-15), (amp - dense) / dense
+    return (amp - dense) / np.where(amp > 0, amp, 1.0)
 
 
-def assert_parity(fields, monkeypatch):
-    (a_k, n_k), (a_n, _) = both(fields, monkeypatch)
-    np.testing.assert_allclose(a_k, a_n, rtol=1e-12, atol=1e-300)
-    np.testing.assert_allclose(calc.envelope(fields, n_k), a_k, rtol=1e-12, atol=1e-15)
+def test_the_kernel_is_the_compiled_numba_dispatcher():
+    from numba.core.registry import CPUDispatcher
+
+    from tit import _calc_kernel
+
+    assert calc._sphere_kernel is _calc_kernel.max_sphere
+    assert isinstance(calc._sphere_kernel, CPUDispatcher)
 
 
 @pytest.mark.parametrize("k", [2, 3, 4])
-def test_kernel_matches_numpy_on_random_elements(k, monkeypatch):
-    assert_parity(random_fields(900 + k, 10_000, 2 * k), monkeypatch)
+def test_random_elements_never_below_a_dense_search(k):
+    rel = assert_never_below_dense(random_fields(900 + k, 2_000, 2 * k))
+    assert np.median(rel) < 1e-8 and np.mean(rel > 1e-6) < 0.01
 
 
 @pytest.mark.parametrize("name", list(degenerate_sets()))
-def test_kernel_matches_numpy_on_degenerate_sets(name, monkeypatch):
-    assert_parity(degenerate_sets()[name], monkeypatch)
+def test_degenerate_sets_never_below_a_dense_search(name):
+    assert_never_below_dense(degenerate_sets()[name])
 
 
-def test_kernel_on_real_grey_matter_is_never_below_a_dense_search(monkeypatch):
+def test_real_grey_matter_never_below_a_dense_search():
     fields = list(np.concatenate([REAL_GM_FIELDS, REAL_GM_ROOT_FIELDS], axis=1))
-    assert_parity(fields, monkeypatch)
-    amp = calc.envelope_max(fields)
-    dense = dense_max(fields, m=200_000)
-    assert np.all(amp >= dense * (1 - 1e-9)), (amp - dense) / dense
+    assert_never_below_dense(fields, m=200_000)
 
 
-def test_null_elements_give_zero_not_nan(monkeypatch):
+def test_null_elements_give_zero_not_nan():
     fields = random_fields(950, 6, 4)
     for f in fields:
         f[::2] = 0.0
-    (amp, n_hat), _ = both(fields, monkeypatch)
+    amp, n_hat = calc.envelope_max(fields, return_direction=True)
     assert np.isfinite(amp).all() and np.isfinite(n_hat).all()
     np.testing.assert_array_equal(amp[::2], 0.0)
     np.testing.assert_array_equal(n_hat[::2], np.tile([1.0, 0.0, 0.0], (3, 1)))
@@ -98,29 +94,16 @@ def test_null_elements_give_zero_not_nan(monkeypatch):
 
 @pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
 def test_non_finite_input_raises_before_the_kernel(bad):
-    pytest.importorskip("numba", reason="the image ships numba; the kernel needs it")
-    calc._sphere_kernel.cache_clear()
-    assert calc._sphere_kernel() is not None
     fields = random_fields(960, 5, 4)
     fields[2][3, 1] = bad
     with pytest.raises(ValueError, match="non-finite"):
         calc.envelope_max(fields)
 
 
-def test_rows_the_kernel_flags_are_recomputed_by_numpy(monkeypatch):
-    """A Jacobi solve that did not converge (unseen for finite input) marks its row not ok."""
-    pytest.importorskip("numba", reason="the image ships numba; the kernel needs it")
-    calc._sphere_kernel.cache_clear()
-    kernel = calc._sphere_kernel()
-    assert kernel is not None
-
-    def flagging(E, *args):
-        amp, n_hat, ok = kernel(E, *args)
-        amp[1::3], n_hat[1::3], ok[1::3] = -7.0, 0.0, False
-        return amp, n_hat, ok
-
-    fields = random_fields(970, 30, 6)
-    monkeypatch.setattr(calc, "_sphere_kernel", lambda: flagging)
-    got = calc.envelope_max(fields)
-    monkeypatch.setattr(calc, "_sphere_kernel", lambda: None)
-    np.testing.assert_allclose(got, calc.envelope_max(fields), rtol=1e-12)
+def test_fields_that_overflow_once_squared_raise():
+    fields = [f * 1e155 for f in random_fields(971, 4, 4)]
+    with (
+        np.errstate(over="ignore", invalid="ignore"),
+        pytest.raises(RuntimeError, match="did not converge at 4 elements"),
+    ):
+        calc.envelope_max(fields)

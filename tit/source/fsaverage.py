@@ -109,12 +109,17 @@ def _recorded_carrier_only(pm, subject_id: str, sim: str) -> bool:
     :func:`tit.sim.utils.create_simulation_config_file`), so a post-hoc
     projection adds the carriers the way the simulation did.  A run without
     the key predates carrier-only mode and is an ordinary TI run.
+
+    Raises:
+        OSError: the config cannot be read (every tit simulation writes one).
+        ValueError: it is not JSON, or ``carrier_only`` is not a boolean --
+            guessing would add a carrier-only run's carriers the wrong way.
     """
     path = Path(pm.simulation(subject_id, sim)) / "documentation" / "config.json"
-    try:
-        return bool(json.loads(path.read_text()).get("carrier_only", False))
-    except (OSError, ValueError):
-        return False
+    value = json.loads(path.read_text()).get("carrier_only", False)
+    if not isinstance(value, bool):
+        raise ValueError(f"{path}: carrier_only must be true or false, got {value!r}")
+    return value
 
 
 def _load_carrier_mesh(vol_path: Path):
@@ -204,9 +209,13 @@ def _morph_split(
 
 
 def _compute_fields(
-    pm, subject_id: str, sim: str, cfg: FsavgMapConfig
+    pm, subject_id: str, sim: str, cfg: FsavgMapConfig, carrier_only: bool
 ) -> dict[str, np.ndarray]:
-    """Project the requested fields for one (subject, simulation) to fsaverage."""
+    """Project the requested fields for one (subject, simulation) to fsaverage.
+
+    *carrier_only* is the run's recorded mode (:func:`_recorded_carrier_only`): the
+    carriers add coherently in ``hf_peak``/``hf_sar``.
+    """
     from simnibs.mesh_tools import mesh_io
     from simnibs.utils.file_finder import SubjectFiles
     from simnibs.utils.transformations import cross_subject_map
@@ -267,10 +276,9 @@ def _compute_fields(
             errors.append(f"carriers: {exc!r}")
         else:
             # Cassarà 2025 safety metrics (same formulas as the volume output).
-            coherent = _recorded_carrier_only(pm, subject_id, sim)
-            _project("hf_peak", lambda: hf_peak(e_fields, coherent=coherent))
+            _project("hf_peak", lambda: hf_peak(e_fields, coherent=carrier_only))
             # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
-            _project("hf_sar", lambda: 2.0 * hf_power(e_fields, coherent=coherent))
+            _project("hf_sar", lambda: 2.0 * hf_power(e_fields, coherent=carrier_only))
 
     if not out:
         raise ValueError(
@@ -353,18 +361,15 @@ def project_subject(
     if out_path.exists() and not cfg.overwrite:
         return subject_id, "cached", out_path.name
     try:
-        maps = _compute_fields(pm, subject_id, sim, cfg)
+        carrier_only = _recorded_carrier_only(pm, subject_id, sim)
+        maps = _compute_fields(pm, subject_id, sim, cfg, carrier_only)
     except Exception as exc:  # noqa: BLE001 - record per-subject and continue
         return subject_id, "failed", repr(exc)
     write_fsaverage_msh(
         out_path,
         maps,
         cfg.fsaverage_spacing,
-        {
-            "subject_id": subject_id,
-            "simulation": sim,
-            "carrier_only": _recorded_carrier_only(pm, subject_id, sim),
-        },
+        {"subject_id": subject_id, "simulation": sim, "carrier_only": carrier_only},
     )
     medians = ", ".join(f"{k} med={np.median(v):.3f}" for k, v in maps.items())
     return subject_id, "ok", f"{medians} -> {out_path.name}"

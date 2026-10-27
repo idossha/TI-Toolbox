@@ -3426,6 +3426,9 @@ omit the limit would still pay the sweep.
 
 ## 2026-10-26 — The K≥2 envelope maximum runs in a numba kernel when numba imports
 
+**Superseded 2026-10-27:** numba is a hard dependency and the NumPy path is deleted; see "numba is
+a hard dependency of `tit.calc`" below. The algorithm and its measurements stand.
+
 **Decision.** `tit.calc.envelope_max` without `perpendicular_to`, at K ≥ 2, calls
 `tit/_calc_kernel.py` (element-parallel numba) when `import numba` succeeds, and the NumPy code in
 `tit.calc._max_sphere` otherwise. Both run one algorithm (eigen-branch tracking, Illinois root-find,
@@ -3489,3 +3492,35 @@ keeping the formula behind the DeprecationWarning: it is not the quantity its na
 
 **Revisit if.** `hf_sar` is renamed to `hf_power` (then `hf_power_density = sigma * hf_power` reads
 directly), or the fsaverage projection learns to interpolate conductivity.
+
+## 2026-10-27 — numba is a hard dependency of `tit.calc`; no silent fallbacks
+
+Supersedes the 2026-10-26 "when numba imports" entry.
+
+**Decision.** `tit/calc.py` imports `tit._calc_kernel.max_sphere` unconditionally, so a missing
+numba is an ImportError at `import tit.calc`. The NumPy K≥2 sphere solver (`_max_sphere_numpy`,
+its `_newton_ascent`, `_match_columns`, `_keep_best`) and the `_sphere_kernel()` dispatch are
+deleted. A kernel row whose Jacobi eigen-solve did not converge within 50 sweeps raises
+`RuntimeError` naming the count instead of being recomputed in NumPy. The eigenvector column
+matching between grid points is dropped from the kernel: columns stay in eigenvalue order. numba
+(`>=0.64`, the image's version) is in the `test` extra and real in the host suite.
+
+**Why.** The image is a closed system: numba ships with the SimNIBS environment and
+`container/blueprint/verify_runtime.py` fails the build without it, so the fallback ran only on
+hosts, where it was ~8.5× slower per core (an mTI simulation on ~6 M elements: 15–20 min instead
+of ~25 s) [measured: BENCHMARKS.md 2026-10-26 section, and the 2026-10-27 assessment] and hid a
+broken install behind slow, plausible numbers. A non-converged row has no trustworthy value; for
+finite fields Jacobi on a symmetric 3x3 needed at most 5 sweeps over 10.8 × 10^6 grid and safeguard
+solves of random and degenerate K = 2–4 fields [measured 2026-10-27], so the 50-sweep cap is a 10×
+margin and the only observed failure is fields above ~1e150 V/m, whose squares overflow. Dropping
+the column matching moved results by at most 4e-15 on random, degenerate and real data [measured
+2026-10-27] and every dense-search test in `tests/test_calc.py` still passes on the kernel.
+
+**Alternatives rejected.** Keeping the NumPy solver as a parity reference: the accuracy tests
+already use independent oracles (dense direction searches, closed forms, brute force), and a second
+implementation of one algorithm only proves self-consistency. A lazy kernel import inside
+`_max_sphere`: it would keep `import tit.calc` working without numba, deferring the failure to the
+first mTI call. Recomputing non-converged rows another way: there is no input for which it is
+needed and correct.
+
+**Revisit if.** The image stops shipping numba, or a target platform lacks numba wheels.

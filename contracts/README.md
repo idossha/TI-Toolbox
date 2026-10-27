@@ -63,7 +63,7 @@ Regeneration is idempotent: running it twice produces byte-identical output.
 ## The gate
 
 ```bash
-python3 dev/contracts_check.py
+.venv/bin/python dev/contracts_check.py   # builds the live app, which imports tit.calc: needs numba
 ```
 
 Two checks, in order:
