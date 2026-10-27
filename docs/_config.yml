@@ -40,7 +40,7 @@ include:
   - CHANGELOG.md
   - _mkdocstrings.css
   - _common
-  - _mti_kernel
+  - _calc_kernel
   - _prepare_forward
   - _simnibs_compat
 

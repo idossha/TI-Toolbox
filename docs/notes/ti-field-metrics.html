@@ -400,7 +400,7 @@ th:last-child, td:last-child { padding-right: 0; }
   the spatial focality of the MD in a predefined direction, while ignoring the
   specificity of the modulation in different directions.&rdquo; This is the argument for
   <code>TI_avg</code>. A maximum says nothing about how sharply peaked it is; the mean
-  over directions does, and it costs nothing extra because the sweep is already running.</p>
+  over directions does, and for one pair it is a closed form.</p>
 </section>
 
 <section>
@@ -430,7 +430,7 @@ th:last-child, td:last-child { padding-right: 0; }
     <p><span class="lbl">Open gap.</span> Our API takes a list of fields and pairs them
     positionally, which assumes architecture B. Carrier-frequency assignment is never an
     input, so a Lee-style montage &mdash; where the correct computation is
-    <code>get_TI_vectors</code>\(\left( \mathbf{E}_1 + \mathbf{E}_3, \; \mathbf{E}_2 + \mathbf{E}_4 \right)\)
+    <code>envelope_max</code>\(\left( \mathbf{E}_1 + \mathbf{E}_3, \; \mathbf{E}_2 + \mathbf{E}_4 \right)\)
     &mdash; would be computed as if it were four independent channels. This is a
     correctness hazard, not a documentation gap, and it is the same missing input needed
     to express a carrier-only field.</p>
@@ -499,8 +499,8 @@ th:last-child, td:last-child { padding-right: 0; }
 
   <p>At a well-targeted ROI the fields are near-collinear and the distinction vanishes.
   Off target they are not, and the two diverge &mdash; which is precisely the regime in
-  which the metrics are supposed to be told apart. Both are implemented:
-  <code>get_TI_vectors</code> and the (since removed) magnitude form.</p>
+  which the metrics are supposed to be told apart. The directional envelope is the one
+  implemented (<code>envelope_max</code>); the magnitude form is not.</p>
 </section>
 
 <section>
