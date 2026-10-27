@@ -14,6 +14,8 @@ import multiprocessing
 import signal
 from typing import Any, Callable, Iterable, Iterator
 
+import numba
+
 from tit.cpu import job_cpus, resolve_n_jobs  # noqa: F401 - re-exported for the engines
 
 # The engine the forked workers evaluate with. Set by the parent right
@@ -37,15 +39,11 @@ def _worker_init(numba_threads: int) -> None:
     """
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    try:
-        import numba
-
-        # The default OpenMP/TBB layers are not safe to start inside a
-        # forked child (Intel OpenMP aborts on affinity init); workqueue is.
-        numba.config.THREADING_LAYER = "workqueue"
-        numba.set_num_threads(max(1, numba_threads))
-    except Exception:  # noqa: BLE001 - numba optional / not parallel-capable
-        pass
+    # numba is a hard dependency (tit.calc's kernel). The default OpenMP/TBB layers are not
+    # safe to start inside a forked child (Intel OpenMP aborts on affinity init); workqueue is.
+    # The share was checked against NUMBA_NUM_THREADS in the parent, so this cannot fail on it.
+    numba.config.THREADING_LAYER = "workqueue"
+    numba.set_num_threads(numba_threads)
 
 
 def _worker_call(task: tuple[str, tuple]) -> Any:
@@ -88,6 +86,13 @@ def evaluate_ordered(
 
     # workers x threads <= the job's budget, never the container's full core count.
     numba_threads = max(1, job_cpus() // n_jobs)
+    if numba_threads > numba.config.NUMBA_NUM_THREADS:
+        # Refused here: a failing Pool initializer makes Pool respawn workers forever.
+        raise RuntimeError(
+            f"{n_jobs} workers x {numba_threads} numba threads per worker exceeds "
+            f"NUMBA_NUM_THREADS={numba.config.NUMBA_NUM_THREADS}; the job's CPU budget "
+            f"({job_cpus()}, TIT_JOB_CPUS) is larger than numba's thread pool"
+        )
     _ENGINE = engine
     # One BLAS/OpenMP thread per worker: limit in the parent (safe, the
     # runtimes are already initialised here) so the forked workers inherit
