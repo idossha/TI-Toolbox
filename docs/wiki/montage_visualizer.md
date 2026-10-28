@@ -12,13 +12,13 @@ Unipolar (standard TI) montages use **4 electrodes** arranged in **2 channels**.
 
 ![Unipolar Montage Example]({{ site.baseurl }}/assets/imgs/simulator/unipolar.png)
 
-_`E034–E020` (channel 1A) and `E095–E070` (channel 1B) on the GSN-HydroCel-185 net._
+_Channel 1 (E1+ `E034`, E1- `E020`) and channel 2 (E2+ `E095`, E2- `E070`) on the GSN-HydroCel-185 net._
 
 Multipolar (mTI) montages use **8 or more electrodes** arranged in **4 or more channels** and are drawn as a single combined image:
 
 ![Multipolar Montage Example]({{ site.baseurl }}/assets/imgs/simulator/multipolar.png)
 
-_Two TI pairs: channels 1A/1B (blue/red) and 2A/2B (green/purple)._
+_Four channels: channels 1 and 2 (blue/red) beat together, as do channels 3 and 4 (green/purple)._
 
 ## Output Location
 
@@ -41,9 +41,9 @@ Any other net has no map, so its simulations get no PNG: the log records a warni
 
 ## Reading the image
 
-Each channel has its own colour: a ring on each of its two electrodes and an arc between them. The arc bows toward the channel's partner (1A toward 1B, 2A toward 2B), so the two channels that beat together face each other.
+Channel k is made of electrodes Ek+ and Ek-. Each channel has its own colour: a ring on each of its two electrodes and an arc between them. The arc bows toward the channel's partner (channel 1 toward channel 2, channel 3 toward channel 4), so the two channels that beat together face each other.
 
-The legend in the bottom-left corner names the channels by TI pair: `Ch 1A` / `Ch 1B` are the two channels of the first temporal-interference pair, `Ch 2A` / `Ch 2B` the second, and so on.
+The legend in the bottom-left corner names the channels in montage order: `Channel 1`, `Channel 2`, and so on. The [simulation report]({{ site.baseurl }}/wiki/reports/) lists the same channels in the same colours.
 
 ## Calling It Directly
 

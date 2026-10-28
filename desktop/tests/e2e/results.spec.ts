@@ -106,8 +106,8 @@ test("a simulation previews its configuration, its files and its report — not 
   await expect(summary).toContainText("surface, fsaverage");
   // The electrode pairs are chips, one per stimulation channel.
   const chips = page.getByTestId("results-pair-chips");
-  await expect(chips.getByText("F7 → P7")).toBeVisible();
-  await expect(chips.getByText("F8 → P8")).toBeVisible();
+  await expect(chips.getByText("E1+ F7 · E1- P7")).toBeVisible();
+  await expect(chips.getByText("E2+ F8 · E2- P8")).toBeVisible();
 
   // The field files, from the catalog, with their kind badges.
   const fields = page.getByTestId("results-files");

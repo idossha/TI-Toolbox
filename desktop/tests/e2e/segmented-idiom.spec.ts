@@ -128,9 +128,9 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
   const searchSpace = field("Search space", exEditor).locator(".segmented");
   expect(await searchSpace.getByRole("radio").allTextContents()).toEqual(["Bucketed", "All combinations"]);
   // The electrode count that decides ex from mEx is the same idiom too.
-  expect(await field("Electrodes", exEditor).locator(".segmented").getByRole("radio").allTextContents()).toEqual([
-    "4 electrodes (TI)",
-    "8 electrodes (mTI)",
+  expect(await exEditor.locator('.segmented[aria-label="Electrode count"]').getByRole("radio").allTextContents()).toEqual([
+    "2 channels (TI)",
+    "4 channels (mTI)",
   ]);
   await noRadioGroup(exEditor);
 

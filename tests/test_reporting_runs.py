@@ -388,7 +388,7 @@ class TestExSearch:
         assert html.count('fill="none" stroke="var(--s2)"') == ex.TOP_N - 1  # rings for 2..25
         assert "ellipse 10×10 mm, gel 4 mm" in html and "4.5 / 0.5 mA per channel, 5 mA total" in html
         assert "Montage on the EEG cap" not in html and "<img" not in html  # no cap overlay
-        assert "F3 → PO10, 4.5 mA" in html and "AF4 → Oz, 0.5 mA" in html  # the winner's electrodes
+        assert "E1+ F3 · E1- PO10, 4.5 mA" in html and "E2+ AF4 · E2- Oz, 0.5 mA" in html  # the winner's electrodes
 
     def test_a_full_size_search_stays_under_budget(self, tmp_path):
         from tit.reporting.generators import ex_search as ex

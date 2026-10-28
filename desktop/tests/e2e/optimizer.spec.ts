@@ -314,7 +314,7 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   // Line 2 is an efficient summary: the target first, then only the essentials — no repetition of
   // the method (line 1 says it), no bucket bookkeeping, no solve estimate.
   await expect(optRowSummary(row)).toHaveText("lh.bankssts · DK40");
-  await expect(optRowDetail(row)).toHaveText("goal mean · 2 pairs · 1 mA · ratio 1:1");
+  await expect(optRowDetail(row)).toHaveText("goal mean · 2 channels · 1 mA · ratio 1:1");
 
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run search");
@@ -512,7 +512,7 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 1 montage · 1 current split · 1 iteration");
   await closeOptEditor(page);
   await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
-  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 1 montage · 1 current split · 1 iteration");
+  await expect(optRowDetail(row)).toHaveText("2 channels (TI) · 2 mA · 1 montage · 1 current split · 1 iteration");
 
   // Moved to 101, the row cannot run: 101 has no leadfield, and the saved ROIs are ernie's CSVs,
   // so the move clears them (p19, `roiForSubject`) rather than optimising ernie's targets in 101.
@@ -561,10 +561,10 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
   await expect(row.locator('td[data-cell="goal"]')).toHaveText("—");
 
   let dialog = await openOptEditor(page, row);
-  await field("Count", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
+  await field("Count", dialog).getByRole("radio", { name: "4 channels (mTI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "mex");
-  await expect(optRowDetail(row)).toHaveText(/^8 electrodes \(mTI\) · 2 mA · /);
+  await expect(optRowDetail(row)).toHaveText(/^4 channels \(mTI\) · 2 mA · /);
 
   dialog = await openOptEditor(page, row);
   // The mTI run path has no combined mode, so the control does not exist rather than existing dead.
@@ -573,7 +573,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
     await expect(field(bucket, dialog)).toBeVisible();
   }
   await expectAlignedElectrodePairs(dialog, 4);
-  await expect(dialog.getByTestId("optimizer-cost-mex")).toHaveText(/0 electrodes · 4 pairs · 0 combinations/);
+  await expect(dialog.getByTestId("optimizer-cost-mex")).toHaveText(/0 electrodes · 4 channels · 0 combinations/);
   await expect(dialog.locator(".form-section-title", { hasText: "Carriers" })).toBeVisible();
   await closeOptEditor(page);
 
@@ -584,7 +584,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
 
   // Back to four electrodes, and the row is an `ex` search again — with the buckets it already had.
   dialog = await openOptEditor(page, row);
-  await field("Count", dialog).getByRole("radio", { name: "4 electrodes (TI)", exact: true }).click();
+  await field("Count", dialog).getByRole("radio", { name: "2 channels (TI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "ex");
 });

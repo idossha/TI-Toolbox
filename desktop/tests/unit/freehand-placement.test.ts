@@ -90,7 +90,7 @@ describe("placeAt", () => {
     expect(rows[1]).toMatchObject({ label: "E1-", x: 9, y: 9, z: 9 });
   });
 
-  it("never grows the table — rows come from Add electrode pair", () => {
+  it("never grows the table — rows come from Add channel", () => {
     const rows = clicks(blank(), [
       [1, 0, 0],
       [2, 0, 0],

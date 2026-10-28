@@ -15,8 +15,9 @@
  * space, not skin.
  *
  * The second test is the **Actual size** switch: off, an electrode in a pair is the small cap
- * marker in its channel colour and the rest of the net is drawn; on, only the montage is drawn and
- * each of its electrodes at the job's electrode width, following the Simulator's **Job settings ▸
+ * marker in its channel colour and the rest of the net is drawn; on, each montage electrode is drawn
+ * at the job's electrode width (the rest of the net stays as cap markers while the montage is being
+ * written, as it is here), following the Simulator's **Job settings ▸
  * Electrode width** live — measured against the CPU projection of the configured millimetres, and
  * as a ratio between two widths.
  *
@@ -172,7 +173,7 @@ test("Actual size draws only the montage, each electrode at the configured width
   if (!bystander) throw new Error("no second electrode to watch");
   const box = await page.locator('[data-page-active="true"]').getByTestId("scene-canvas").boundingBox();
   if (!box) throw new Error("no scene canvas");
-  // A click with no montage open starts one with this electrode in pair 1: channel 0, a pad.
+  // A click with no montage open starts one with this electrode as E1+: channel 0, a pad.
   await page.mouse.click(box.x + target.q.x, box.y + target.q.y);
   await expect
     .poll(() => page.evaluate((id) => window.__scenePane?.markerChannels[id], target.m.id))
@@ -218,7 +219,10 @@ test("Actual size draws only the montage, each electrode at the configured width
   await sizeSwitch.click();
   await page.mouse.move(0, 0);
   await expect(sizeSwitch).toHaveAttribute("data-state", "checked");
-  await expect.poll(bystanderDrawn, { timeout: 5000 }).toBe(false);
+  // The click opened a montage draft, and a montage being written is still picked off the whole
+  // net: the unassigned electrodes stay as small cap markers (DECISIONS 2026-10-28). Only a shown
+  // montage — a job row's — hides them (`markersFromElectrodes`, unit-tested).
+  expect(await bystanderDrawn(), "while a montage is being written the rest of the net stays pickable").toBe(true);
   const atDefault = await padWidthPx(); // the toolbox default, 8 mm
   await page.locator("tr[data-montage-row]").first().locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
   const dialog = page.getByRole("dialog");

@@ -80,7 +80,7 @@ export function SimulationSettings({
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
               <label
                 className="checkbox-label-row"
-                title={carrierOnlyAllowed ? undefined : "Carrier-only controls are defined for 2-pair TI montages only."}
+                title={carrierOnlyAllowed ? undefined : "Carrier-only controls are defined for 2-channel TI montages only."}
               >
                 <Checkbox
                   checked={carrierOnly}

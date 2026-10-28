@@ -178,7 +178,7 @@
 }
 
 .job-channel .number-input {
-  width: 46px;
+  width: 42px;
   min-width: 0;
   max-width: none;
 }
@@ -208,6 +208,7 @@
 }
 
 .job-polarity {
+  flex: none;
   color: var(--text-secondary);
   font-size: 11px;
   text-transform: none;

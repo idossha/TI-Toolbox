@@ -1918,12 +1918,12 @@ def _scene_display_name(name: str, *, role: str, field_name: str | None) -> str:
         else:
             region = None
 
-        # A high-frequency simulation writes one output *per electrode pair*
-        # (`101_TDCS_1_scalar_subject_magnE`, `..._TDCS_2_...`), so without the pair number two
+        # A high-frequency simulation writes one output *per channel* (electrode pair)
+        # (`101_TDCS_1_scalar_subject_magnE`, `..._TDCS_2_...`), so without the channel number two
         # rows come out identically named -- "magnE (volume)" twice, and "Mesh mesh · magnE" twice
         # at 412 MB each, with nothing to choose between them (screenshot, 2026-09-07).
         pair = re.search(r"_tdcs_(\d+)_", lowered)
-        suffix = f" · pair {pair.group(1)}" if pair else ""
+        suffix = f" · channel {pair.group(1)}" if pair else ""
 
         if role == "mesh":
             # "Head", not "Mesh": `region_label` is already followed by the word "mesh", and

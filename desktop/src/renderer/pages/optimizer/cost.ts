@@ -138,7 +138,7 @@ export function mexCost(form: MExFormState): SearchCost {
     combinations: montages,
     // Symmetry search prunes this set by a factor the client cannot compute (it depends on the
     // net's mirror map), so the number is stated as the unpruned ceiling and said to be one.
-    line: `${n(electrodes)} electrodes · 4 pairs · ${n(montages)} combinations${form.symmetricBucket ? " before symmetry" : ""}`,
+    line: `${n(electrodes)} electrodes · 4 channels · ${n(montages)} combinations${form.symmetricBucket ? " before symmetry" : ""}`,
   };
 }
 
@@ -158,7 +158,7 @@ export const EX_BOUNDS = {
 } as const satisfies Record<string, Bound>;
 
 export const MEX_BOUNDS = {
-  currentMa: { label: "Pair current", min: 0.1, max: 10 },
+  currentMa: { label: "Channel current", min: 0.1, max: 10 },
 } as const satisfies Record<string, Bound>;
 
 /** True when *value* is set and outside *bound* (a cleared optional field is in bounds). */
@@ -200,7 +200,7 @@ export function mexFormReason(form: MExFormState): string | null {
   const bounds = boundsReason({ currentMa: form.currentMa }, MEX_BOUNDS);
   if (bounds) return bounds;
   if (mexCost(form).montages === 0) {
-    return "No montage has eight different electrodes: each of the four pairs needs its own two electrodes.";
+    return "No montage has eight different electrodes: each of the four channels needs its own two electrodes (Ek+ and Ek-).";
   }
   return null;
 }

@@ -22,6 +22,7 @@
 import { categoricalColor, SCENE_CATEGORICAL, rgbToHex, type Rgb, type SceneMarker } from "../../scene";
 import type { ElectrodePosition } from "./api";
 import { isValidPairCount } from "./types";
+import { electrodeSlotName } from "../_shared/scene/model";
 
 /** Millimetres, to the same 0.1 mm step the editor's `NumberInput`s use. A pick carries float
  *  noise from the depth buffer that no user typed and no user can reproduce. */
@@ -29,11 +30,9 @@ export function roundMm(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-/** `E1+`, `E1-`, `E2+`, … from a row index. The `-` is ASCII, not a minus sign: it goes into a
- *  JSON key that SimNIBS reads back. */
-export function autoLabel(index: number): string {
-  return `E${Math.floor(index / 2) + 1}${index % 2 === 0 ? "+" : "-"}`;
-}
+/** `E1+`, `E1-`, `E2+`, … from a row index — the app's one electrode naming (`electrodeSlotName`).
+ *  The `-` is ASCII, not a minus sign: it goes into a JSON key that SimNIBS reads back. */
+export const autoLabel = electrodeSlotName;
 
 /** A label this module owns, and may therefore renumber. A name the user typed is left alone. */
 const AUTO_LABEL = /^E\d+[+-]$/;
@@ -96,7 +95,7 @@ export function positionSwatch(index: number): string {
  *    that is in the wrong place instead of needing it deleted and everything after it re-placed.
  *  - **The selection does not move afterwards.** Placing and then adjusting is one row's worth of
  *    work; a selection that jumped on would make the second click land on a different electrode.
- *  - **Nothing is appended.** Rows come from "Add electrode pair", because a montage's position
+ *  - **Nothing is appended.** Rows come from "Add channel", because a montage's position
  *    count is 4, 8, 12, … (`isValidPositionCount`) and a click that grew the table past a valid count
  *    would leave Save disabled with nothing saying why.
  */

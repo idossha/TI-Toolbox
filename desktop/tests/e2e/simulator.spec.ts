@@ -123,7 +123,7 @@ test("a multi-polar montage row takes one current per pair", async () => {
   await expect(jobDetail(row).locator(".job-polarity")).toHaveText("mTI");
   // 4 pairs -> 4 currents, derived from the montage, not from a control the user has to set.
   await expect(jobCurrents(row)).toHaveCount(4);
-  await expect(jobPairs(row)).toHaveText(["E24–E124", "E67–E77", "E36–E104", "E12–E62"]);
+  await expect(jobPairs(row)).toHaveText(["E1+ E24 · E1- E124", "E2+ E67 · E2- E77", "E3+ E36 · E3- E104", "E4+ E12 · E4- E62"]);
 
   // One uni-polar and one multi-polar row side by side.
   await configureMontageJob(page, await addJobRow(page), {
@@ -267,7 +267,7 @@ test("a row on the Flex result source becomes a planned job, in either placement
   await setJobSource(page, row, "Flex result");
   await setJobMontage(page, row, "flex_Thalamus_20260810_101500");
   await expect(row).toHaveAttribute("data-runnable", "true");
-  await expect(jobPairs(row)).toHaveText(["E020–E074", "E101–E133"]);
+  await expect(jobPairs(row)).toHaveText(["E1+ E020 · E1- E074", "E2+ E101 · E2- E133"]);
 
   // One job, not two: the plan is built from the resolved config alone. Sending `montage_sources`
   // alongside it made the server resolve the same run a second time.
@@ -285,7 +285,7 @@ test("a row on the Flex result source becomes a planned job, in either placement
   // Back to a net — and not only the net the run happens to carry a mapping file for: every net
   // the subject has is offered, and the server maps the optimised positions onto it on demand.
   await setJobMappedNet(page, row, "EGI_template");
-  await expect(jobPairs(row).first()).toHaveText(/–/, { timeout: 15_000 });
+  await expect(jobPairs(row).first()).toHaveText(/^E1\+ \S+ · E1- \S+$/, { timeout: 15_000 });
   await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
 });

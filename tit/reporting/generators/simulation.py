@@ -490,7 +490,11 @@ def build_html(
                 [
                     [
                         esc(cr["name"]),
-                        esc(" → ".join(pairs[i])) if i < len(pairs) else "",
+                        (
+                            esc(common.channel_electrodes(pairs[i], i))
+                            if i < len(pairs)
+                            else ""
+                        ),
                     ]
                     + [f"{cr[k]:.3f}" for k in pct]
                     for i, cr in enumerate(rec["carriers"])

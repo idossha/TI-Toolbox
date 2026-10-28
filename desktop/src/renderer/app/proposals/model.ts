@@ -5,6 +5,7 @@
  */
 import type { JobStatus } from "../jobs/types";
 import type { Proposal } from "../jobs/types";
+import { channelElectrodes } from "../../pages/_shared/scene/model";
 
 export type { Proposal };
 export type ProposalStep = Proposal["steps"][number];
@@ -79,7 +80,7 @@ export function stepFacts(step: ProposalStep, steps: readonly ProposalStep[]): [
     if (c.enable_mapping) add("Map to net", c.eeg_net);
   } else if (step.kind === "sim") {
     for (const m of list(c.montages) as Config[]) {
-      const pairs = (list(m.electrode_pairs) as unknown[][]).map((p) => p.map((x) => (Array.isArray(x) ? "xyz" : x)).join("–")).join(", ");
+      const pairs = (list(m.electrode_pairs) as unknown[][]).map((p, k) => channelElectrodes(p.map((x) => (Array.isArray(x) ? "xyz" : String(x))), k)).join(", ");
       add("Montage", `${m.name} · ${pairs}${m.eeg_net ? ` · ${m.eeg_net}` : ""}`);
     }
     add("Currents", mA(c.intensities));
