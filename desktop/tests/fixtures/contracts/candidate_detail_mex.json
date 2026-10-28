@@ -100,7 +100,7 @@
         8.0,
         8.0
       ],
-      "gel_thickness": 4.0,
+      "gel_thickness": 1.0,
       "rubber_thickness": 2.0,
       "map_to_surf": true,
       "map_to_vol": false,
