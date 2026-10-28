@@ -115,9 +115,9 @@ function SimulatorPage() {
    * The draft's slot the next electrode click sets (E1+, E1-, E2+, … flattened). One cursor for the
    * form and the pane: opening a slot's picker aims the next scene click at it, and a pick in
    * either moves it on to the next empty slot. A new draft, or one whose channel count changed,
-   * starts on its first empty slot.
+   * starts on its first empty slot — and so does a draft the page session kept across navigation.
    */
-  const [draftSlot, setDraftSlot] = useState(0);
+  const [draftSlot, setDraftSlot] = useState(() => (montageDraft ? firstEmptySlot(montageDraft.pairs) : 0));
   const draftShape = montageDraft ? montageDraft.pairs.length : -1;
   const [seenDraftShape, setSeenDraftShape] = useState(draftShape);
   if (draftShape !== seenDraftShape) {
