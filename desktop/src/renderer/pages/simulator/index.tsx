@@ -22,6 +22,7 @@ import {
   defaultJobSettings,
   emptyRow,
   isRunnableRow,
+  settingsFor,
   type JobSettings,
   type MontagePreview,
   type MontageSource,
@@ -35,6 +36,8 @@ import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
 import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
 import { PlanStepBanner, usePlanStepActions, usePlanStepEdit } from "../../app/proposals/stepForm";
 import { simStepEdit, simStepRows } from "./planStep";
+import { appDefaults } from "../../forms/appDefaults";
+import { electrodePad } from "../../scene/electrodePose";
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -135,6 +138,8 @@ function SimulatorPage() {
   }, [candidateState?.optimizationCandidate, handledCandidate, location.key, location.pathname, location.search, navigate]);
   /** The row whose own settings are being edited (`null` = the dialog is closed). */
   const [settingsRowId, setSettingsRowId] = useState<string | null>(null);
+  /** The open settings dialog's unsaved edits, so the scene's electrodes follow them live. */
+  const [liveSettings, setLiveSettings] = useState<JobSettings | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
   const freehand = useFreehandDraft();
 
@@ -246,6 +251,26 @@ function SimulatorPage() {
     />
   );
 
+  /**
+   * The electrode size the scene draws a montage's electrodes at: the settings being edited right
+   * now, else the previewed row's own, else — for a montage being drawn in the pane, which belongs
+   * to no row yet — the settings the user last configured (what a new job starts from), else the
+   * page defaults. Rubber thickness has no control on
+   * this page, so it is `SimulationConfig`'s default, as in the job it builds.
+   */
+  const previewRow = rows.find((r) => r.id === montagePreview?.rowId);
+  const padSettings = (settingsRowId ? liveSettings : null) ?? (previewRow ? settingsFor(previewRow, params) : (seedSettings ?? params));
+  const scenePad = useMemo(
+    () =>
+      electrodePad({
+        electrode_shape: padSettings.electrodeShape,
+        electrode_dimensions: padSettings.dimensions,
+        gel_thickness: padSettings.gelThickness,
+        rubber_thickness: appDefaults("sim", "SimulationConfig").rubber_thickness,
+      }),
+    [padSettings.electrodeShape, padSettings.dimensions, padSettings.gelThickness],
+  );
+
   const previewIsMontage = activeSource === null || activeSource === "montage" || (activeSource === "flex" && !!montagePreview?.net);
 
   return (
@@ -281,6 +306,7 @@ function SimulatorPage() {
                 originalPositions={!montageDraft && !freehand.open ? montagePreview?.originalPositions : undefined}
                 net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
                 pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}
+                electrodePad={scenePad}
                 showing={
                   !montageDraft && montagePreview
                     ? montagePreview.positions
@@ -377,12 +403,17 @@ function SimulatorPage() {
       <JobSettingsDialog
         row={rows.find((r) => r.id === settingsRowId) ?? null}
         defaults={params}
-        onClose={() => setSettingsRowId(null)}
+        onClose={() => {
+          setSettingsRowId(null);
+          setLiveSettings(null);
+        }}
+        onDraftChange={setLiveSettings}
         onSave={(settings: JobSettings | undefined) => {
           setRows((prev) => prev.map((r) => (r.id === settingsRowId ? { ...r, settings } : r)));
           // The last row the user configured is what the next one starts from.
           setSeedSettings(settings ?? null);
           setSettingsRowId(null);
+          setLiveSettings(null);
         }}
       />
     </>

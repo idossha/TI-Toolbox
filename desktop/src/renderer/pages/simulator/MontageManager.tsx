@@ -806,6 +806,7 @@ export function JobsTable({
   /* ------------------------------------------------------------------ Preview */
 
   const activeRow = rows.find((r) => r.id === activeId) ?? null;
+  const activeRowId = activeRow?.id;
   const activeNet = activeRow?.eegNet;
   const activeName = activeRow?.name;
   const activePairs = activeRow?.pairs;
@@ -822,15 +823,16 @@ export function JobsTable({
     if (activeXyz && activeName && activeSubject) {
       const pairs = JSON.parse(activeXyz) as [[number, number, number], [number, number, number]][];
       return onPreviewChange?.({
+        rowId: activeRowId,
         name: activeName,
         subject: activeSubject,
         positions: pairs.flat().map(([x, y, z]) => ({ x, y, z })),
       });
     }
     onPreviewChange?.(
-      activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) } : null,
+      activeNet && activeName && activePairs?.length ? { rowId: activeRowId, net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) } : null,
     );
-  }, [activeNet, activeName, activePairs, activeSubject, activeXyz, originalXyz, onPreviewChange]);
+  }, [activeRowId, activeNet, activeName, activePairs, activeSubject, activeXyz, originalXyz, onPreviewChange]);
   useEffect(() => {
     onActiveSourceChange?.(activeSource);
   }, [activeSource, onActiveSourceChange]);

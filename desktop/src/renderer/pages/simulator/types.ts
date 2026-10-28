@@ -380,6 +380,8 @@ export const CONDUCTIVITY_OPTIONS = [
  * from.
  */
 export interface MontagePreview {
+  /** The job row this preview draws, when it is one — its settings size the scene's electrodes. */
+  rowId?: string;
   /** Optimized origins, in the same pair order as the snapped cap names. */
   originalPositions?: { x: number; y: number; z: number }[];
   name: string;

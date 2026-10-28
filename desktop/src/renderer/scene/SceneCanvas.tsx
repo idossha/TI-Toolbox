@@ -193,6 +193,13 @@ export interface SceneCanvasProps {
    * turns them on. The switch still works afterwards — this seeds it, it does not lock it.
    */
   namesOn?: boolean;
+  /**
+   * The "Actual size" switch, beside "Electrode names": shown only when `onActualSizeChange` is
+   * given, controlled by `actualSize`. The page owns what it means (`ScenePane`: draw only the
+   * montage's electrodes, at their configured size, with their gel).
+   */
+  actualSize?: boolean;
+  onActualSizeChange?: (on: boolean) => void;
   /** Controlled selection. Omit for an uncontrolled pane. */
   selection?: SceneSelection;
   onSelectionChange?: (next: SceneSelection) => void;
@@ -284,6 +291,8 @@ export function SceneCanvas({
   pickAnySurface,
   highlight,
   namesOn,
+  actualSize,
+  onActualSizeChange,
   selection,
   onSelectionChange,
   onPick,
@@ -457,7 +466,7 @@ export function SceneCanvas({
   const connectionsRef = useRef<SVGSVGElement | null>(null);
   const connectionDataRef = useRef(connections);
   const namesRef = useRef<HTMLDivElement | null>(null);
-  const nameDataRef = useRef<{ world: Vec3[]; center: Vec3 }>({ world: [], center: [0, 0, 0] });
+  const nameDataRef = useRef<{ world: Vec3[]; center: Vec3; hidden: boolean[] }>({ world: [], center: [0, 0, 0], hidden: [] });
   const positionNames = useCallback((camera: OrbitCamera) => {
     const overlay = connectionsRef.current;
     const annotations = connectionDataRef.current ?? [];
@@ -481,7 +490,7 @@ export function SceneCanvas({
     });
     const host = namesRef.current;
     if (!host) return;
-    const { world, center } = nameDataRef.current;
+    const { world, center, hidden } = nameDataRef.current;
     // An electrode's name sits on the top of the model the renderer drew; a dot's on the dot.
     const tops = sceneRef.current?.electrodeTops() ?? null;
     const size = sizeRef.current;
@@ -495,7 +504,7 @@ export function SceneCanvas({
         (point[0] - center[0]) * (eye[0] - point[0]) +
         (point[1] - center[1]) * (eye[1] - point[1]) +
         (point[2] - center[2]) * (eye[2] - point[2]);
-      if (!p.inFront || facing <= 0) {
+      if (!p.inFront || facing <= 0 || hidden[i]) {
         el.hidden = true;
         continue;
       }
@@ -567,7 +576,7 @@ export function SceneCanvas({
       (sceneBounds[2] + sceneBounds[5]) / 2,
     ];
     connectionDataRef.current = connections;
-    nameDataRef.current = { world: markers.map((m) => m.world), center };
+    nameDataRef.current = { world: markers.map((m) => m.world), center, hidden: markers.map((m) => !!m.hidden) };
     const camera = cameraRef.current;
     if (camera) positionNames(camera);
   }, [markers, sceneBounds, showNames, positionNames, connections]);
@@ -1261,6 +1270,12 @@ export function SceneCanvas({
                 aria-label="Electrode names"
               />
               <span>Electrode names</span>
+            </label>
+          )}
+          {markers.length > 0 && onActualSizeChange && (
+            <label className="scene-names-toggle" data-testid="scene-actual-size-toggle">
+              <Switch checked={!!actualSize} onCheckedChange={onActualSizeChange} aria-label="Actual size" />
+              <span>Actual size</span>
             </label>
           )}
         </div>

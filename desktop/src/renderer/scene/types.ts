@@ -3,6 +3,7 @@
  * and never knows a subject id (plan S1: it is a form control, not a viewer).
  */
 import type { Bounds, OrbitCamera, Ray, Vec3 } from "./camera";
+import type { ElectrodePad } from "./electrodePose";
 import type { PickTarget } from "./pickId";
 
 /** 0..1 per channel, sRGB. Shaders want numbers, so the palette is numeric (`palette.ts`) and the
@@ -57,6 +58,15 @@ export interface SceneMarker {
    * are one claim rather than two that can disagree.
    */
   color?: Rgb;
+  /**
+   * The electrode's physical size, when it is part of a montage: drawn as a pad of that shape and
+   * size on a gel layer of that thickness, bent onto the scalp. Absent, an occluded marker is the
+   * small cap electrode (`ELECTRODE_RADIUS_MM`).
+   */
+  pad?: ElectrodePad;
+  /** Not drawn, not pickable, no name label — the Actual size view keeps only the montage. The
+   *  marker keeps its index, so a selection or a hover elsewhere is not renumbered. */
+  hidden?: boolean;
 }
 
 /** One row of the legend. The legend is DOM, not painted into the canvas: a painted legend cannot

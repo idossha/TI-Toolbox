@@ -14,7 +14,7 @@
  * `NumberInput`, `Select`, the output-field checkboxes and `ConductivityDialog`), so per-job and
  * default are the same form in two places rather than two forms that can drift.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { Dialog } from "../../ui/Overlay";
 import { Button } from "../../ui/Button";
@@ -29,9 +29,11 @@ export interface JobSettingsDialogProps {
   onClose: () => void;
   /** `undefined` puts the row back on the defaults. */
   onSave: (settings: JobSettings | undefined) => void;
+  /** Every edit while open, before Done — what the scene draws the electrodes with, live. */
+  onDraftChange?: (draft: JobSettings) => void;
 }
 
-export function JobSettingsDialog({ row, defaults, onClose, onSave }: JobSettingsDialogProps) {
+export function JobSettingsDialog({ row, defaults, onClose, onSave, onDraftChange }: JobSettingsDialogProps) {
   const open = !!row;
   const [draft, setDraft] = useState<JobSettings>(defaults);
   // Re-seed when the dialog opens on a row, without an effect (the pattern `ConductivityDialog`
@@ -43,6 +45,10 @@ export function JobSettingsDialog({ row, defaults, onClose, onSave }: JobSetting
     setDraft(row.settings ?? defaults);
   }
   if (!row && seededFor !== null) setSeededFor(null);
+
+  useEffect(() => {
+    if (open) onDraftChange?.(draft);
+  }, [open, draft, onDraftChange]);
 
   const invalid = draft.outputFields.length === 0;
 

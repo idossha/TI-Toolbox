@@ -9,6 +9,7 @@
  */
 import type { SceneElectrode, SceneLegendRow } from "./api";
 import type { Rgb, SceneMarker } from "../../../scene/types";
+import type { ElectrodePad } from "../../../scene/electrodePose";
 import { SCENE_PALETTE } from "../../../scene/palette";
 
 /** World millimetres. The renderer's `Rgb` and this are the same three-number tuple; naming both
@@ -180,6 +181,10 @@ export function channelByElectrode(pairs: Pair[]): Record<string, number> {
 export function markersFromElectrodes(
   electrodes: SceneElectrode[],
   channels: Record<string, number> = {},
+  /** The montage's electrode size, for the Actual size view: the electrodes in a channel are drawn
+   *  at that size with their gel, and the rest of the net is hidden. Absent, every electrode is the
+   *  small cap marker. */
+  pad?: ElectrodePad,
 ): SceneMarker[] {
   return electrodes.map((electrode) => {
     const channel = channels[electrode.name];
@@ -188,6 +193,7 @@ export function markersFromElectrodes(
       label: electrode.name,
       world: electrode.world as Vec3,
       ...(channel === undefined ? {} : { channel }),
+      ...(pad ? (channel === undefined ? { hidden: true } : { pad }) : {}),
     };
   });
 }

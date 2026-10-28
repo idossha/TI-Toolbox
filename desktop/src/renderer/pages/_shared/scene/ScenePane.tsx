@@ -53,6 +53,7 @@ import {
   type Vec3,
 } from "../../../scene";
 import { regionOffsets } from "../../../scene/explode";
+import { DEFAULT_ELECTRODE_PAD, type ElectrodePad } from "../../../scene/electrodePose";
 import { usePageActive } from "../../../app/pageActivity";
 import { Skeleton } from "../../../ui/Feedback";
 import { Button } from "../../../ui/Button";
@@ -182,6 +183,14 @@ export interface ScenePaneProps {
   onAtlasChange?: (atlas: string, kind?: string) => void;
   /** `montage`: the pairs being edited. */
   pairs?: Pair[];
+  /**
+   * The montage's electrode size, shape and gel (`electrodePad` from the simulation config), for
+   * the pane's **Actual size** switch: on, only the electrodes in a pair are drawn, each at that
+   * size on its gel, bent onto the scalp; off (the default), every electrode of the net is the small
+   * cap marker. Absent, the toolbox defaults. Only `montage` mode offers the switch — the
+   * Optimizer's buckets are candidate pools, not electrodes.
+   */
+  electrodePad?: ElectrodePad;
   onPairsChange?: (pairs: Pair[]) => void;
   /** Called when a pick arrives and the page has no montage draft open yet; the page opens one. */
   onRequestPairs?: (firstElectrode: string) => void;
@@ -287,6 +296,7 @@ export function ScenePane({
   atlas = null,
   onAtlasChange,
   pairs,
+  electrodePad,
   onPairsChange,
   onRequestPairs,
   regions,
@@ -518,9 +528,17 @@ export function ScenePane({
   // reduced to the same "name -> channel" shape by the page that owns them.
   const pairChannels = useMemo(() => channelByElectrode(activePairs), [activePairs]);
   const channels = mode === "montage" ? pairChannels : (electrodeChannels ?? {});
+  /** The Actual size switch (not persisted, like Electrode names). Only a montage of a net's
+   *  electrodes has sizes to show; a placement or a sphere centre is not an electrode pad. */
+  const [actualSize, setActualSize] = useState(false);
+  const actualSizeOffered = mode === "montage" && gesture === "electrode" && !placedMarkers;
+  const actualSizeOn = actualSizeOffered && actualSize;
   const electrodeMarkers = useMemo(
-    () => (electrodes.data ? markersFromElectrodes(electrodes.data.electrodes, channels) : NO_MARKERS),
-    [electrodes.data, channels],
+    () =>
+      electrodes.data
+        ? markersFromElectrodes(electrodes.data.electrodes, channels, actualSizeOn ? (electrodePad ?? DEFAULT_ELECTRODE_PAD) : undefined)
+        : NO_MARKERS,
+    [electrodes.data, channels, actualSizeOn, electrodePad],
   );
 
   /**
@@ -884,6 +902,8 @@ export function ScenePane({
              * dots are four to eight, not 185.
              */
             markersOccluded={!placedMarkers}
+            actualSize={actualSizeOn}
+            onActualSizeChange={actualSizeOffered ? setActualSize : undefined}
             /* A placement dot is one of four to eight, carries a name and has to be aimed at; an
                EEG net's is one of 185. */
             markerScale={placedMarkers ? 1.5 : undefined}
