@@ -753,6 +753,13 @@ export function SceneCanvas({
     requestFrame();
   }, [parts, requestFrame, webgl2]);
 
+  // Before the markers effect: a marker set that is not occluded (placement dots, sphere centres)
+  // is never posed on the skin, so the first upload must already know which kind it is.
+  useEffect(() => {
+    sceneRef.current?.setMarkerOcclusion(markersOccluded);
+    requestFrame();
+  }, [markersOccluded, requestFrame, webgl2]);
+
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -764,11 +771,6 @@ export function SceneCanvas({
     scene.setMarkers(markers);
     requestFrame();
   }, [markers, markerScale, requestFrame, webgl2]);
-
-  useEffect(() => {
-    sceneRef.current?.setMarkerOcclusion(markersOccluded);
-    requestFrame();
-  }, [markersOccluded, requestFrame, webgl2]);
 
   /**
    * What the resize handler refits against, kept current every render. Assigned here rather than in

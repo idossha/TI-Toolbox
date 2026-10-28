@@ -918,6 +918,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let poses: ElectrodePoses | null = null;
   /** The positions and skin `poses` were computed for (`uploadMarkers`). */
   let posedFor: { worlds: Float32Array; skin: Float32Array | null } | null = null;
+  /** `electrodeAnchors()`, kept until the markers, their pose, the scale or the shape change. */
+  let anchors: { top: Vec3; axis: Vec3 }[] | null = null;
   /** The per-instance buffers an in-place marker update writes. */
   let instance: {
     state: WebGLBuffer;
@@ -1085,6 +1087,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
    * `bufferSubData`, no re-pose, no skin search, no VAO.
    */
   function uploadMarkers(): void {
+    anchors = null;
     const worlds = new Float32Array(markers.length * 3);
     markers.forEach((marker, i) => worlds.set(marker.world, i * 3));
     const skinPositions = outerSkin()?.part.positions ?? null;
@@ -1092,6 +1095,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       markerVao &&
       instance &&
       posedFor &&
+      // Only occluded markers are posed on the skin; a switch between the kinds rebuilds.
+      (poses !== null) === markerOcclusion &&
       posedFor.skin === skinPositions &&
       posedFor.worlds.length === worlds.length &&
       posedFor.worlds.every((v, i) => v === worlds[i])
@@ -1122,12 +1127,15 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     const skin = outerSkin();
     const positions = skin?.part.positions ?? new Float32Array(0);
     // Once per net and skin: every electrode's pose and both of its bends (`electrodePose.ts`).
-    poses = electrodePoses(
-      markers.map((m) => m.world),
-      positions,
-      skin?.normals ?? new Float32Array(0),
-      boundsCentre(computeBounds(positions)),
-    );
+    // Dots (placement, sphere centres) never use one.
+    poses = markerOcclusion
+      ? electrodePoses(
+          markers.map((m) => m.world),
+          positions,
+          skin?.normals ?? new Float32Array(0),
+          boundsCentre(computeBounds(positions)),
+        )
+      : null;
     posedFor = { worlds, skin: skinPositions };
     const indices = new Uint32Array(markers.length);
     markers.forEach((_, i) => {
@@ -1163,6 +1171,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     gl.vertexAttribDivisor(4, 1);
     gl.bindVertexArray(null);
     markerVao = vao;
+    if (!poses) return;
 
     // The electrode-model VAO: the model's vertices, each marker's pose, and the SAME state, index
     // and colour buffers as the dot VAO, so a hover or a selection repaints both.
@@ -1525,6 +1534,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
 
     setMarkerScale(scale) {
       markerScale = Math.max(0.1, scale);
+      anchors = null;
     },
 
     setMarkers(next) {
@@ -1591,18 +1601,22 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     },
 
     setMarkerOcclusion(occluded) {
+      if (occluded === markerOcclusion) return;
       markerOcclusion = occluded;
+      if (markers.length > 0) uploadMarkers();
     },
 
     electrodeAnchors() {
       if (!poses || markerShape() !== "electrode") return null;
+      if (anchors) return anchors;
       const p = poses;
-      return markers.map((m, i) => ({
+      anchors = markers.map((m, i) => ({
         top: m.pad
           ? placeOnScalp(p, i, 0, 0, m.pad.gel + m.pad.rubber, true)
           : placeOnScalp(p, i, 0, 0, ELECTRODE_MODEL.height * ELECTRODE_RADIUS_MM * markerScale),
         axis: [p.axis[i * 3] as number, p.axis[i * 3 + 1] as number, p.axis[i * 3 + 2] as number] as Vec3,
       }));
+      return anchors;
     },
 
     resize(nextCssWidth, nextCssHeight, dpr) {
