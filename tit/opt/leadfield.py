@@ -74,8 +74,25 @@ def leadfield_sidecar(hdf5_path: str | Path) -> Path:
     return Path(hdf5_path).with_suffix(".json")
 
 
+def write_leadfield_sidecar(hdf5_path: str | Path, electrode: dict[str, Any]) -> None:
+    """Record *electrode* beside *hdf5_path*, with the HDF5's size and mtime as its identity.
+
+    Written to a temp file and renamed, so a reader never sees half a record.
+    """
+    sidecar = leadfield_sidecar(hdf5_path)
+    st = os.stat(hdf5_path)
+    record = {**electrode, "hdf5_size": st.st_size, "hdf5_mtime_ns": st.st_mtime_ns}
+    tmp = sidecar.with_name(sidecar.name + ".tmp")
+    tmp.write_text(json.dumps(record, indent=2) + "\n")
+    os.replace(tmp, sidecar)
+
+
 def read_leadfield_electrode(sidecar: str | Path) -> dict[str, Any] | None:
     """The electrode a leadfield sidecar records, or ``None`` if it is missing or malformed.
+
+    ``None`` too when the HDF5 beside it is not the file the sidecar was written for
+    (different size or mtime): a regenerated or replaced leadfield must not inherit the
+    electrode of the one before it.
 
     The keys are :class:`~tit.sim.config.SimulationConfig`'s: ``electrode_shape``,
     ``electrode_dimensions`` (``[width, height]`` mm), ``gel_thickness`` and
@@ -97,6 +114,15 @@ def read_leadfield_electrode(sidecar: str | Path) -> dict[str, Any] | None:
         )
 
     if not isinstance(data, dict):
+        return None
+    try:
+        st = os.stat(Path(sidecar).with_suffix(".hdf5"))
+    except OSError:
+        return None
+    if (data.get("hdf5_size"), data.get("hdf5_mtime_ns")) != (
+        st.st_size,
+        st.st_mtime_ns,
+    ):
         return None
     dims = data.get("electrode_dimensions")
     if (
@@ -263,7 +289,7 @@ class LeadfieldGenerator:
         # ``*.hdf5`` the folder lists first, which can be another net's.
         if not hdf5_path.is_file():
             raise FileNotFoundError(f"SimNIBS wrote no leadfield {hdf5_path}")
-        leadfield_sidecar(hdf5_path).write_text(json.dumps(electrode, indent=2) + "\n")
+        write_leadfield_sidecar(hdf5_path, electrode)
         self._log(f"Leadfield ready: {hdf5_path}")
         return hdf5_path
 

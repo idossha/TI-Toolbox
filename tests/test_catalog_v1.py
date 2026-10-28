@@ -21,6 +21,7 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from tit.opt.leadfield import write_leadfield_sidecar  # noqa: E402
 from tit.paths import get_path_manager  # noqa: E402
 from tit.server.app import create_app  # noqa: E402
 from tit.server.settings import ServerSettings  # noqa: E402
@@ -401,8 +402,8 @@ def test_leadfields_report_the_electrode_their_sidecar_records(
         "gel_thickness": 2.5,
         "rubber_thickness": 2.0,
     }
-    Path(pm.leadfields("ernie"), "ernie_leadfield_GSN-HydroCel-185.json").write_text(
-        json.dumps(recorded)
+    write_leadfield_sidecar(
+        Path(pm.leadfields("ernie"), "ernie_leadfield_GSN-HydroCel-185.hdf5"), recorded
     )
     body = client.get(
         "/api/catalog/leadfields", params={"subject": "ernie"}, headers=BEARER

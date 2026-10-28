@@ -273,6 +273,38 @@ class TestLeadfieldGeneratorGenerate:
         assert read_leadfield_electrode(path) is None
         assert read_leadfield_electrode(tmp_path / "missing.json") is None
 
+    def test_a_sidecar_of_another_hdf5_is_unknown(self, tmp_path):
+        """A leadfield regenerated (or replaced) after its sidecar was written is not described by it."""
+        import os
+
+        from tit.opt.leadfield import (
+            leadfield_sidecar,
+            read_leadfield_electrode,
+            write_leadfield_sidecar,
+        )
+
+        electrode = {
+            "electrode_shape": "ellipse",
+            "electrode_dimensions": [8.0, 8.0],
+            "gel_thickness": 1.0,
+            "rubber_thickness": 2.0,
+        }
+        hdf5 = tmp_path / "001_leadfield_EEG10-10.hdf5"
+        hdf5.write_bytes(b"one")
+        write_leadfield_sidecar(hdf5, electrode)
+        sidecar = leadfield_sidecar(hdf5)
+        assert read_leadfield_electrode(sidecar) == electrode
+        assert not list(tmp_path.glob("*.tmp"))
+
+        st = hdf5.stat()
+        os.utime(hdf5, ns=(st.st_atime_ns, st.st_mtime_ns + 1))
+        assert read_leadfield_electrode(sidecar) is None  # same size, new mtime
+        write_leadfield_sidecar(hdf5, electrode)
+        hdf5.write_bytes(b"three")
+        assert read_leadfield_electrode(sidecar) is None  # new size
+        hdf5.unlink()
+        assert read_leadfield_electrode(sidecar) is None  # no leadfield at all
+
     @patch("tit.opt.leadfield.get_path_manager")
     def test_generate_cancelled_before_start(self, mock_gpm, tmp_path):
         pm = _make_pm_mock(tmp_path)
