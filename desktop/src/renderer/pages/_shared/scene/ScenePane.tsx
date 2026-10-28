@@ -8,7 +8,7 @@
  *
  * | mode      | page      | a pick means                                      | the form writes back |
  * |-----------|-----------|---------------------------------------------------|----------------------|
- * | `montage` | Simulator | toggle that electrode into the active pair slot   | editing a pair re-colours its dots |
+ * | `montage` | Simulator | toggle that electrode into the active slot (Ek±)  | editing a channel re-colours its dots |
  * | `target`  | Optimizer | add/remove that atlas region from the ROI         | the ROI picker's region list IS the pane's selection |
  * | `target`  | Optimizer (Ex/mEx, **Electrodes** gesture) | toggle that electrode into the active bucket | editing a bucket re-colours its dots |
  * | `inspect` | Analyzer  | add/remove that atlas region from the analysis ROI | the analysis ROI is drawn where it will be measured |
@@ -185,13 +185,21 @@ export interface ScenePaneProps {
   pairs?: Pair[];
   /**
    * The montage's electrode size, shape and gel (`electrodePad` from the simulation config), for
-   * the pane's **Actual size** switch: on, only the electrodes in a pair are drawn, each at that
-   * size on its gel, bent onto the scalp; off (the default), every electrode of the net is the small
-   * cap marker. Absent, the toolbox defaults. Only `montage` mode offers the switch — the
+   * the pane's **Actual size** switch: on, the electrodes in a channel are drawn at that size on
+   * their gel, bent onto the scalp, and the rest of the net is hidden — except while a montage is
+   * being written (`onPairsChange`), when it stays as small cap markers to pick from; off (the
+   * default), every electrode of the net is the small cap marker. Absent, the toolbox defaults. Only `montage` mode offers the switch — the
    * Optimizer's buckets are candidate pools, not electrodes.
    */
   electrodePad?: ElectrodePad;
   onPairsChange?: (pairs: Pair[]) => void;
+  /**
+   * The flattened slot (`channel * 2 + pole`: E1+, E1-, E2+, …) the next electrode click sets,
+   * when the page owns it — the Simulator does, so focusing a slot in the montage form and a click
+   * in the pane address the same slot. Absent, the pane keeps its own cursor.
+   */
+  slot?: number;
+  onSlotChange?: (slot: number) => void;
   /** Called when a pick arrives and the page has no montage draft open yet; the page opens one. */
   onRequestPairs?: (firstElectrode: string) => void;
   /** `target`/`inspect`: the form's region list. The same array `<RoiPicker>` holds. */
@@ -298,6 +306,8 @@ export function ScenePane({
   pairs,
   electrodePad,
   onPairsChange,
+  slot,
+  onSlotChange,
   onRequestPairs,
   regions,
   onRegionsChange,
@@ -529,39 +539,45 @@ export function ScenePane({
   const pairChannels = useMemo(() => channelByElectrode(activePairs), [activePairs]);
   const channels = mode === "montage" ? pairChannels : (electrodeChannels ?? {});
   /** The Actual size switch (not persisted, like Electrode names). Only a montage of a net's
-   *  electrodes has sizes to show; a placement or a sphere centre is not an electrode pad. */
+   *  electrodes has sizes to show; a placement or a sphere centre is not an electrode pad. While a
+   *  montage is being written (`onPairsChange`) the unassigned electrodes stay as small cap markers:
+   *  the assigned ones show at their real size, and the rest of the net is still there to pick. */
   const [actualSize, setActualSize] = useState(false);
   const actualSizeOffered = mode === "montage" && gesture === "electrode" && !placedMarkers;
   const actualSizeOn = actualSizeOffered && actualSize;
+  const editingMontage = mode === "montage" && !!onPairsChange;
   const electrodeMarkers = useMemo(
     () =>
       electrodes.data
-        ? markersFromElectrodes(electrodes.data.electrodes, channels, actualSizeOn ? (electrodePad ?? DEFAULT_ELECTRODE_PAD) : undefined)
+        ? markersFromElectrodes(electrodes.data.electrodes, channels, actualSizeOn ? (electrodePad ?? DEFAULT_ELECTRODE_PAD) : undefined, editingMontage)
         : NO_MARKERS,
-    [electrodes.data, channels, actualSizeOn, electrodePad],
+    [electrodes.data, channels, actualSizeOn, electrodePad, editingMontage],
   );
 
   /**
-   * The slot the next electrode click fills. Re-seeded to the first EMPTY slot whenever the montage
-   * gains or loses a pair — not to 0: a first click with no draft open creates one with that
-   * electrode already in pair 1 A, and a reset to 0 would send the very next click back over it.
+   * The slot the next electrode click fills — the page's when it owns one (`slot`), else the pane's
+   * own. The pane's own is re-seeded to the first EMPTY slot whenever the montage gains or loses a
+   * channel — not to 0: a first click with no draft open creates one with that electrode already
+   * in E1+, and a reset to 0 would send the very next click back over it.
    */
-  const [cursor, setCursor] = useState(0);
+  const [ownCursor, setOwnCursor] = useState(0);
+  const cursor = slot ?? ownCursor;
+  const setCursor = onSlotChange ?? setOwnCursor;
   const activeChannel = activePairs.length === 0 ? null : Math.floor((cursor % (activePairs.length * 2)) / 2);
-  /** A legend chip click parks the cursor on that pair's first empty slot, or on its A slot when
-   *  the pair is full — "make this the pair I am editing", not "clear it". */
+  /** A legend chip click parks the cursor on that channel's first empty slot, or on its Ek+ slot
+   *  when the channel is full — "make this the channel I am editing", not "clear it". */
   const activateChannel = useCallback(
     (channel: number) => {
       const base = channel * 2;
       setCursor(activePairs[channel]?.[0] === "" ? base : activePairs[channel]?.[1] === "" ? base + 1 : base);
     },
-    [activePairs],
+    [activePairs, setCursor],
   );
   const pairCount = activePairs.length;
   const [lastPairCount, setLastPairCount] = useState(pairCount);
   if (pairCount !== lastPairCount) {
     setLastPairCount(pairCount);
-    setCursor(firstEmptySlot(activePairs));
+    setOwnCursor(firstEmptySlot(activePairs));
   }
 
   /** When the page supplies markers they ARE the markers — the positions it is collecting, or the
@@ -621,7 +637,7 @@ export function ScenePane({
       // Deliberately nothing else. A pick on the guide names an electrode or a region; it can never
       // produce a coordinate, because these millimetres are `guide-ras`.
     },
-    [mode, gesture, electrodeMarkers, onElectrodePick, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange, onPlacedPick, effectiveAtlas],
+    [mode, gesture, electrodeMarkers, onElectrodePick, onPairsChange, onRequestPairs, activePairs, cursor, setCursor, legend, formRegions, onRegionsChange, onPlacedPick, effectiveAtlas],
   );
 
   /**
@@ -751,7 +767,7 @@ export function ScenePane({
     if (gesture === "electrode") {
       return activePairs.length === 0
         ? "Click an electrode to start a montage."
-        : `Click an electrode to fill ${slotLabel(activePairs, cursor)}.`;
+        : `Click an electrode to set ${slotLabel(activePairs, cursor)}.`;
     }
     if (gesture === "region") return "Click a region to add or remove it from the ROI.";
     // Deliberately nothing (maintainer, 2026-09-06: *"remove that 'E1 is selected place blah blah

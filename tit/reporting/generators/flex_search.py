@@ -436,13 +436,13 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             )
             pos_rows.append(
                 [
-                    f"Ch {ch + 1}",
-                    "+" if arr == 0 else "−",
+                    f"Channel {ch + 1}",
+                    f"E{ch + 1}{'+' if arr == 0 else '-'}",
                     "({:.1f}, {:.1f}, {:.1f})".format(*p),
                 ]
             )
         body += c.table(
-            ["Channel", "Pole", "Position (mm, subject)"],
+            ["Channel", "Electrode", "Position (mm, subject)"],
             pos_rows,
             caption="Optimised electrode centres on the scalp.",
             right={2},
@@ -536,7 +536,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             c.table(
                 ["Channel"] + [f"{k[1:]} %" for k in pct],
                 [
-                    [f"Ch {i + 1}"] + [f"{cr[k]:.3f}" for k in pct]
+                    [f"Channel {i + 1}"] + [f"{cr[k]:.3f}" for k in pct]
                     for i, cr in enumerate(rec["carriers"])
                 ],
                 caption="Each channel alone at its current, grey-matter |E| percentiles (V/m) from SimNIBS's field summary.",

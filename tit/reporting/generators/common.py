@@ -50,15 +50,27 @@ def electrode_name(electrode: str | list[float]) -> str:
     return str(electrode)
 
 
+def channel_electrodes(pair: list[str], channel: int) -> str:
+    """``"E1+ AF3 · E1- PO10"`` for channel index 0: channel k is electrodes Ek+ and Ek-, the one
+    naming the app and every report use (never "A"/"B")."""
+    k = channel + 1
+    return f"E{k}+ {pair[0]} · E{k}- {pair[1]}"
+
+
 def channel_rows(
     pairs: list[list[str]], currents_mA: list[float]
 ) -> list[tuple[str, str]]:
-    """``(Ch 1A, "AF3 → PO10, 1 mA")`` per pair, named as the cap image's legend names them."""
+    """``("Channel 1 (blue)", "E1+ AF3 · E1- PO10, 1 mA")`` per channel, named and coloured as the
+    cap image's legend names them."""
     rows = []
     for i, (pair, mA) in enumerate(zip(pairs, currents_mA)):
-        name = f"Ch {i // 2 + 1}{'AB'[i % 2]}"
         colour = CAP_COLOURS[i % len(CAP_COLOURS)]
-        rows.append((f"{name} ({colour})", f"{esc(' → '.join(pair))}, {fmt(mA)} mA"))
+        rows.append(
+            (
+                f"Channel {i + 1} ({colour})",
+                f"{esc(channel_electrodes(pair, i))}, {fmt(mA)} mA",
+            )
+        )
     return rows
 
 

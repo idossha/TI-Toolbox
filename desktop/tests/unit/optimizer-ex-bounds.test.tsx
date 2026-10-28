@@ -84,8 +84,8 @@ describe("ExCurrentSection inputs read EX_BOUNDS", () => {
   );
 });
 
-describe("MExCarrierSection's pair current reads MEX_BOUNDS", () => {
-  it("gives Pair current the table's min and max", () => {
+describe("MExCarrierSection's channel current reads MEX_BOUNDS", () => {
+  it("gives Channel current the table's min and max", () => {
     renderMex({ currentMa: 2 });
     expectRange(inputFor(MEX_BOUNDS.currentMa.label), MEX_BOUNDS.currentMa);
   });

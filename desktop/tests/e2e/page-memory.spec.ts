@@ -458,7 +458,7 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   await current.getByLabel("Position 1 X", { exact: true }).fill("12.5");
   // Positions come in pairs (2026-09-06): the editor's button adds two, because an odd count
   // cannot describe a montage.
-  await current.getByRole("button", { name: "Add electrode pair", exact: true }).click();
+  await current.getByRole("button", { name: "Add channel", exact: true }).click();
   await waitForScene(page);
   // The native canvas carries its own opacity chrome: the skin slider alone, no number input (the
   // embed's spinbuttons went with the embed). The grey matter is always opaque and has no control.
@@ -573,7 +573,7 @@ test("the free-hand draft survives a navigation away and back", async () => {
   while ((await current.getByRole("button", { name: /^Remove position / }).count()) > 4) {
     await current.getByRole("button", { name: /^Remove position / }).last().click();
   }
-  await current.getByRole("button", { name: "Add electrode pair", exact: true }).click();
+  await current.getByRole("button", { name: "Add channel", exact: true }).click();
   await expect(current.getByRole("button", { name: /^Remove position / })).toHaveCount(6);
   // The count rule is muted guidance, not a red error: it is wrong for as long as the user is
   // still building the table, and the blocking reason is carried by the disabled Save button

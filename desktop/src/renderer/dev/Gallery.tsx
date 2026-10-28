@@ -502,7 +502,7 @@ export function Gallery() {
           </Popover>
         </Swatch>
         <Swatch label="Tooltip (nav/overflow labels only — never help; help is HelpIcon)">
-          <Tooltip label="Runs a two-pair TI simulation">
+          <Tooltip label="Runs a two-channel TI simulation">
             <span>
               <IconButton aria-label="Participants" icon={<Users size={16} />} />
             </span>

@@ -187,6 +187,6 @@ test("a hand-written 3-pair montage is shown as not runnable, with the reason on
   await setJobNet(page, row, "GSN-HydroCel-185");
   await setJobMontage(page, row, "three_pair · mTI");
   await expect(row).toHaveAttribute("data-runnable", "false");
-  await expect(jobDetail(row).getByTestId("job-row-problem")).toHaveText("3 electrode pairs: a montage needs 2 pairs (TI) or an even number from 4 (mTI).");
+  await expect(jobDetail(row).getByTestId("job-row-problem")).toHaveText("3 channels: a montage needs 2 channels (TI) or an even number from 4 (mTI).");
   await expect(page.getByTestId("run-button")).toBeDisabled();
 });

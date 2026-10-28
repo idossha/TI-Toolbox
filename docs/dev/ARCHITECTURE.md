@@ -166,6 +166,15 @@ usable inside their pane and viewport. Every interactive node has an accessible 
 Computations return jobs rather than blocking the interface. Output paths and eligibility come from
 server planning and validation. A client preview is not authority to bypass server admission checks.
 
+A montage's electrodes have one name wherever a user reads them — the app, the reports, the cap
+image and the docs: channel k (1-based) is electrodes **Ek+** and **Ek-**, and "Channel k" names the
+pair (`electrodeSlotName` / `channelElectrodes` in `pages/_shared/scene/model.ts`,
+`channel_electrodes` in `tit/reporting/generators/common.py`). Never "Pair k" or "A"/"B": those
+read as two channels of one carrier. The rule is display text only — `electrode_pairs`, API fields
+and on-disk names (mTI's lettered `TDCS_A…` files and `TI_AB` fields) are unchanged. Tests:
+`desktop/tests/unit/scene-pane-model.test.ts` ("channel k is electrodes Ek+ and Ek-"),
+`tests/test_overlay_colour_legend.py`.
+
 ## 5. Verification and frozen interfaces
 
 Generated configuration schemas omit machine-dependent default values. QSI OpenMP thread fields
@@ -528,9 +537,11 @@ revolved, 192 triangles, plus a 72-triangle gel slab, from `dev/export_electrode
 and its axis along the outward scalp normal (`scene/electrodePose.ts`: skin vertex normals within
 5 mm, base on their plane) and is bent onto the scalp by a least-squares quadric of the skin around
 it; poses and quadrics are computed once per net and skin. By default every electrode is the 6 mm
-cap marker. The montage pane's **Actual size** switch shows only the electrodes in a pair, each at
+cap marker. The montage pane's **Actual size** switch draws the electrodes in a channel at
 the job's `electrode_shape`, `electrode_dimensions`, `rubber_thickness` and `gel_thickness`
-(`SceneMarker.pad`), the rest hidden (`SceneMarker.hidden`, kept in place so indices do not move);
+(`SceneMarker.pad`), the rest hidden (`SceneMarker.hidden`, kept in place so indices do not move) —
+except while a montage is being written (the page passes `onPairsChange`), when the rest stay cap
+markers, because the net is what the next click picks from;
 a size, gel or switch change only rewrites per-instance buffers. The two switches share one
 wrapping row under the legend. Depth-tested against the skin, so
 electrodes touch the scalp at every view angle and are hidden on the far side. Names sit on the
@@ -542,7 +553,11 @@ side of the net shows through the head), lifting a screen-facing dot off the sca
 silhouette), and drawing every net electrode at the configured size (a 185-electrode net at 25 mm
 is a solid carpet).
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
-chips edit the same region list. Coordinate picking remains constrained by §3.
+chips edit the same region list. While the Simulator's **New montage** form is open the pane draws
+the net its EEG net select names, and the form and the pane share one slot cursor (E1+, E1-, E2+, …,
+owned by the page): opening a slot's picker aims the next click at it, a pick in either fills it and
+moves on to the next empty slot, a click on a set electrode clears it, and an electrode set in one
+slot is listed but not pickable in another. Coordinate picking remains constrained by §3.
 
 Optimizer and Analyzer select cortical and subcortical atlas regions on precomputed, packaged
 Ernie reference anatomy, including translucent skin. The scene atlas selector and target form share

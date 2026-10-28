@@ -517,14 +517,14 @@ function RowEditor({
   const method = OPT_METHODS.find((m) => m.value === row.method);
 
   const electrodeCountControl = (
-    <Field label="Count" help="Four electrodes are two pairs (TI); eight are four pairs (mTI).">
+    <Field label="Count" help="TI is two channels, E1± and E2± (four electrodes); mTI is four channels, E1± to E4± (eight electrodes).">
       <SegmentedControl
         aria-label="Electrode count"
         value={String(row.exPairs)}
         onValueChange={(v) => onChange({ ...row, exPairs: Number(v) === 4 ? 4 : 2 })}
         options={[
-          { value: "2", label: "4 electrodes (TI)" },
-          { value: "4", label: "8 electrodes (mTI)" },
+          { value: "2", label: "2 channels (TI)" },
+          { value: "4", label: "4 channels (mTI)" },
         ]}
       />
     </Field>

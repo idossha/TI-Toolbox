@@ -269,7 +269,7 @@ test("a simulation shows channel labels and a single montage figure", async () =
   await page.getByTestId("results-node-simulation:ernie:Thalamus").click();
 
   const channels = page.getByTestId("results-pair-chips");
-  await expect(channels.getByText("F7 → P7")).toBeVisible();
+  await expect(channels.getByText("E1+ F7 · E1- P7")).toBeVisible();
   await expect(channels.locator("img")).toHaveCount(0);
   const montage = page.getByTestId("results-figure-Thalamus_highlighted_visualization.png");
   await expect(montage).toHaveCount(1);

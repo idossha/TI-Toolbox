@@ -271,7 +271,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             have made a mistake when they have simply not finished; the blocking reason is carried
             by the disabled Save button directly above it (DESIGN.md §6.3). */}
         <span className="field-help">
-          Use 4 positions (2 pairs, standard TI) or 8, 12, 16 … (an even number of pairs from 4, multi-channel mTI).
+          Use 4 positions (2 channels, standard TI) or 8, 12, 16 … (an even number of channels from 4, multi-channel mTI).
         </span>
         {/* Unlike the count, a repeated label is a mistake, not an unfinished table: saving would
             keep only one of the positions that share it. */}
@@ -294,7 +294,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
           {/* A pair at a time: `isValidPositionCount` accepts 4, 8, 12, …, so an odd count is never
               a configuration anyone can save and offering it is offering a dead end. */}
           <Button variant="ghost" size="sm" icon={<Plus size={14} />} onClick={add}>
-            Add electrode{POSITIONS_PER_STEP > 1 ? " pair" : ""}
+            {POSITIONS_PER_STEP > 1 ? "Add channel" : "Add electrode"}
           </Button>
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <Button variant="secondary" onClick={onClose}>

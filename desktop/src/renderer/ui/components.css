@@ -1043,10 +1043,32 @@
   gap: var(--space-2);
 }
 .electrode-pair-index {
-  width: 20px;
+  flex: none;
+  min-width: 68px;
+  white-space: nowrap;
   color: var(--ink-2);
   font-size: 12px;
+  font-weight: 600;
+}
+/* One electrode slot (Ek+ or Ek-). The active one is the slot the scene's next click sets, ringed
+   the same way the scene pane's active channel chip is. */
+.electrode-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.electrode-slot-role {
+  flex: none;
+  min-width: 2.6em;
   font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.electrode-slot[data-active-slot="true"] .selection-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 /* ---------- Layout: Stack / Cluster / KeyValue (ra_12 #28) ---------- */

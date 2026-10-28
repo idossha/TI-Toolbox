@@ -194,9 +194,17 @@ def carrier_rows(page: str) -> list[list[str]]:
 
 
 def channel_rows(page: str) -> list[tuple[str, str]]:
-    """``(Ch 1A (blue), "AF3 → PO10, 1 mA")`` rows of the montage section's channel list."""
+    """``(Channel 1 (blue), "E1+ AF3 · E1- PO10, 1 mA")`` rows of the montage section's channel list."""
     montage = page.split('id="montage"', 1)[1].split('id="field"', 1)[0]
-    return re.findall(r"<dt>(Ch \d+[AB] \([a-z]+\))</dt><dd>(.*?)</dd>", montage)
+    return re.findall(r"<dt>(Channel \d+ \([a-z]+\))</dt><dd>(.*?)</dd>", montage)
+
+
+def by_role(names: list[str]) -> list[str]:
+    """``"AF3 → PO10"`` (plus electrode first) as the reports name channel k: ``"Ek+ AF3 · Ek- PO10"``."""
+    return [
+        "E{0}+ {1} · E{0}- {2}".format(k, *name.split(" → "))
+        for k, name in enumerate(names, start=1)
+    ]
 
 
 @pytest.mark.parametrize("case", list(CASES))
@@ -215,10 +223,11 @@ def test_every_montage_mode_reports(tmp_path, case):
     )
     assert f"{kind} with {phrase} at 1 mA per channel ({len(pairs)} mA total)" in page
     # one channel row per pair, each naming its own electrodes and current
-    assert [dd for _, dd in channel_rows(page)] == [f"{n}, 1 mA" for n in names]
+    assert [dt for dt, _ in channel_rows(page)][:2] == ["Channel 1 (blue)", "Channel 2 (red)"]
+    assert [dd for _, dd in channel_rows(page)] == [f"{n}, 1 mA" for n in by_role(names)]
     # one carrier row per carrier, carrier i on pair i
     assert [(r[0], r[1]) for r in carrier_rows(page)] == [
-        (f"X_TDCS_{i}", n) for i, n in enumerate(names, start=1)
+        (f"X_TDCS_{i}", n) for i, n in enumerate(by_role(names), start=1)
     ]
 
 

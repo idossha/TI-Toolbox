@@ -30,7 +30,7 @@ import {
 } from "./types";
 import { RunPanel, RunWork, jobCountLabel, stepsFor } from "../_shared/run";
 import { candidateMetricsChanged, candidateRow } from "./candidateHandoff";
-import { ScenePane, withSlot } from "../_shared/scene";
+import { ScenePane, firstEmptySlot, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
 import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
@@ -111,6 +111,19 @@ function SimulatorPage() {
   // same act rather than two states that can disagree (plan decision S6).
   const [montageDraft, setMontageDraft] = usePageSession<MontageDraft | null>("montageDraft", null);
   const [montageNet, setMontageNet] = usePageSession<string | undefined>("montageNet", undefined);
+  /**
+   * The draft's slot the next electrode click sets (E1+, E1-, E2+, … flattened). One cursor for the
+   * form and the pane: opening a slot's picker aims the next scene click at it, and a pick in
+   * either moves it on to the next empty slot. A new draft, or one whose channel count changed,
+   * starts on its first empty slot.
+   */
+  const [draftSlot, setDraftSlot] = useState(0);
+  const draftShape = montageDraft ? montageDraft.pairs.length : -1;
+  const [seenDraftShape, setSeenDraftShape] = useState(draftShape);
+  if (draftShape !== seenDraftShape) {
+    setSeenDraftShape(draftShape);
+    setDraftSlot(montageDraft ? firstEmptySlot(montageDraft.pairs) : 0);
+  }
   // Click-to-visualise: the job row the user clicked, drawn on the guide pane as its net's
   // electrodes plus its own pairs — read-only (no `onPairsChange`), so looking at a chosen montage
   // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
@@ -202,7 +215,7 @@ function SimulatorPage() {
   function setDraftPairs(pairs: [string, string][]): void {
     setMontageDraft((draft) => (draft ? { ...draft, pairs } : { ...emptyDraft(), pairs }));
   }
-  /** A pick with no montage open starts one, with that electrode already in pair 1 slot A —
+  /** A pick with no montage open starts one, with that electrode already in E1+ —
    *  otherwise the first click on the pane would do nothing and the gesture would be undiscoverable. */
   function startDraftFromScene(electrode: string): void {
     const fresh = emptyDraft();
@@ -319,6 +332,8 @@ function SimulatorPage() {
                     : null
                 }
                 onPairsChange={montageDraft ? setDraftPairs : undefined}
+                slot={montageDraft ? draftSlot : undefined}
+                onSlotChange={montageDraft ? setDraftSlot : undefined}
                 onRequestPairs={startDraftFromScene}
                 note={
                   freehand.open || previewIsMontage || montagePreview?.positions
@@ -390,6 +405,8 @@ function SimulatorPage() {
                     onRowsChange={setRows}
                     draft={montageDraft}
                     onDraftChange={setMontageDraft}
+                    draftSlot={draftSlot}
+                    onDraftSlotChange={setDraftSlot}
                     onNetChange={setMontageNet}
                     onPreviewChange={setMontagePreview}
                     onActiveSourceChange={setActiveSource}

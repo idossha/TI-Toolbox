@@ -9,7 +9,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ChannelLegend, channelLabel } from "../../src/renderer/ui/ChannelLegend";
+import { ChannelLegend } from "../../src/renderer/ui/ChannelLegend";
 import { channelCss } from "../../src/renderer/pages/_shared/scene/model";
 import { SCENE_PALETTE } from "../../src/renderer/scene/palette";
 
@@ -27,13 +27,6 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
-});
-
-describe("channelLabel", () => {
-  it("reads as the channel it is, with a placeholder for the slot nobody filled yet", () => {
-    expect(channelLabel(["E1", "E2"])).toBe("E1 → E2");
-    expect(channelLabel(["E1", ""])).toBe("E1 → —");
-  });
 });
 
 describe("ChannelLegend", () => {
@@ -54,7 +47,9 @@ describe("ChannelLegend", () => {
       ),
     );
     const chips = [...host.querySelectorAll<HTMLButtonElement>(".channel-chip")];
-    expect(chips.map((c) => c.textContent)).toEqual(["Fp1 → Fp2", "C3 → C4", "P3 → P4", "O1 → O2"]);
+    // Channel k is Ek+ and Ek- (the user's convention, 2026-10-28) — never "A"/"B", never an arrow.
+    expect(chips.map((c) => c.textContent)).toEqual(["E1+ Fp1 · E1- Fp2", "E2+ C3 · E2- C4", "E3+ P3 · E3- P4", "E4+ O1 · E4- O2"]);
+    expect(chips[1]?.title).toBe("Channel 2: E2+ C3 · E2- C4");
     expect(chips.map((c) => c.dataset.active)).toEqual(["false", "false", "true", "false"]);
     // The active pair is stated by more than its own hue: the hues already mean "which pair".
     expect(chips[2]?.getAttribute("aria-pressed")).toBe("true");

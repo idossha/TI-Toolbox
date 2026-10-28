@@ -19,7 +19,6 @@ import { defaultJobSettings, isCustomised, settingsFor, type JobSettings } from 
 import { removeGroup } from "../../src/renderer/ui/ElectrodePairsEditor";
 import {
   currentValues,
-  formatPairs,
   montageOptionValue,
   parseMontageOptionValue,
   resolveColumnWidths,
@@ -352,10 +351,6 @@ describe("montage table derivations", () => {
     expect(currentValues("1.0,2.0", 4)).toEqual([1, 2, 1, 1]);
     expect(currentValues("1,2,3,4", 2)).toEqual([1, 2]);
     expect(currentValues("", 2)).toEqual([1, 1]);
-  });
-
-  it("renders the pairs cell read-only, in the maintainer's notation", () => {
-    expect(formatPairs([["E1", "E2"], ["E3", "E4"]])).toBe("E1\u2013E2 \u00b7 E3\u2013E4");
   });
 
   it("round-trips a montage option value, so one name can exist in both buckets of a net", () => {

@@ -39,19 +39,18 @@ export const BUCKET_TOOLTIPS: Record<string, string> = {
   e1_minus: "Electrodes for channel 1 negative pole (cathodes)",
   e2_plus: "Electrodes for channel 2 positive pole (anodes)",
   e2_minus: "Electrodes for channel 2 negative pole (cathodes)",
-  e3_plus: "Electrodes for pair 3 positive pole (anodes)",
-  e3_minus: "Electrodes for pair 3 negative pole (cathodes)",
-  e4_plus: "Electrodes for pair 4 positive pole (anodes)",
-  e4_minus: "Electrodes for pair 4 negative pole (cathodes)",
+  e3_plus: "Electrodes for channel 3 positive pole (anodes)",
+  e3_minus: "Electrodes for channel 3 negative pole (cathodes)",
+  e4_plus: "Electrodes for channel 4 positive pole (anodes)",
+  e4_minus: "Electrodes for channel 4 negative pole (cathodes)",
 };
 
 export const MTI_SYMMETRY_HELP =
-  "When checked, only left/right mirrored electrode-pair candidates are evaluated (mirroring " +
-  "derived from the selected leadfield's EEG net), instead of the full combination of all eight " +
-  "buckets.\n\n" +
-  "Within each pair: each pair's own +/- electrodes mirror across the midline.\n" +
-  "Cross pairs: instead of the within-pair rule, pair 1 mirrors pair 3 and pair 2 mirrors pair 4 " +
-  "(each electrode of pair 3/4 is the mirror of the same pole in pair 1/2).";
+  "When checked, only left/right mirrored candidates are evaluated (mirroring derived from the " +
+  "selected leadfield's EEG net), instead of the full combination of all eight buckets.\n\n" +
+  "Within each channel: each channel's own Ek+ and Ek- mirror each other across the midline.\n" +
+  "Across channels: instead of the within-channel rule, channel 1 mirrors channel 3 and channel 2 " +
+  "mirrors channel 4 (E3+ is the mirror of E1+, E3- of E1-, E4+ of E2+, E4- of E2-).";
 
 export interface ExFormState {
   electrodeMode: "bucketed" | "all";

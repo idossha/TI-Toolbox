@@ -3478,6 +3478,10 @@ guide, 0 after [measured, offscreen Electron, 2026-10-28; pinned by
 names** and **Actual size** switches share one wrapping row. Rejected: reading the depth buffer
 under every name each frame (a synchronous readback per label, every frame of an orbit).
 
+**Narrowed 2026-10-28** by "Channel k is electrodes Ek+ and Ek-; the New montage form picks them
+on the head" below: while a montage is being written, Actual size keeps the unassigned electrodes as
+cap markers instead of hiding them.
+
 ## 2026-10-28 — The toolbox's default gel (saline) layer is 1 mm
 
 **Decision.** `SimulationConfig.gel_thickness`, `FlexConfig.ElectrodeConfig.gel_thickness`, the new
@@ -3541,3 +3545,53 @@ asked for; the Simulator's defaults still apply there (§13).
 
 **Revisit if.** Users need two electrode sizes of one net side by side, or Ex candidates should
 replay with their leadfield's electrode.
+
+## 2026-10-28 — Channel k is electrodes Ek+ and Ek-; the New montage form picks them on the head
+
+**Decision.** Every user-facing name of a montage's electrodes follows one convention: channel k
+(1-based, k = 1, 2, … for mTI too) is the k-th electrode pair, made of electrodes **Ek+** and
+**Ek-** (ASCII `-`, which the free-hand labels already used and a JSON key keeps). "Channel k" names
+a pair; "Pair k", "electrode A/B", "Ch 1A/1B" and "A → B" are gone from the app (montage form,
+scene chips and status line, job rows, Results chips, Optimizer Count/Carriers labels, proposal
+cards, run-step labels), the reports (simulation, flex, ex/mEx channel lists and tables), the
+montage cap image's legend, the Viewer's per-carrier layer names, the wiki and the agent plugin's
+domain skill. One helper per side writes it: `electrodeSlotName` / `channelName` /
+`channelElectrodes` (`desktop/src/renderer/pages/_shared/scene/model.ts`; the free-hand editor's
+`autoLabel` is the same function) and `channel_electrodes` (`tit/reporting/generators/common.py`).
+Display text only: `electrode_pairs`, `symmetry_pairing` values, API fields, saved montages and
+on-disk names (mTI's `TDCS_A…` and `TI_AB`) are unchanged (ARCHITECTURE §4).
+
+The Simulator's **New montage** form now picks on the head the way Ex-search's buckets do: the
+scene pane draws the net the form's EEG net names (already wired) and the form and the pane share
+one slot cursor owned by the page (`ScenePane` `slot`/`onSlotChange`; `ElectrodePairsEditor`
+`activeSlot`/`onActiveSlotChange`). A click fills the cursor's slot and moves to the next empty slot
+in E1+, E1-, E2+, E2- order; opening a slot's picker aims the next click there; clicking a set
+electrode clears it; an electrode set in one slot is listed as "Already Ek±" and not pickable in
+another; every slot shows its role beside its picker. **Actual size** in that mode draws the set
+electrodes at the job's size and keeps the rest of the net as cap markers
+(`markersFromElectrodes(…, keepUnassigned)`); a shown montage (a job row) still hides them
+(ARCHITECTURE §7.2). Tests: `desktop/tests/unit/scene-pane-model.test.ts`,
+`desktop/tests/unit/scene-pane-legend.test.tsx`, `desktop/tests/e2e/simulator-new-montage.spec.ts`
+(net drawn, four clicks fill E1+ … E2- in order, a second click clears, a focused slot is aimed,
+switching net redraws, Cancel restores), `tests/test_overlay_colour_legend.py`,
+`tests/test_report_simulation_modes.py`.
+
+**Why.** The maintainer (2026-10-28): "Channel 1 is comprised from E1+ and E1-, channel 2 from E2+
+and E2-. this is important. not, 'A' and 'B'". The app used three vocabularies at once —
+"Pair 1 · A", the montage image's "Ch 1A / Ch 1B" (A/B meaning the two channels of one carrier) and
+Ex-search's E1+/E1- buckets — so "1A" in a report and "Pair 1 · A" in the pane named different
+things. Ex-search's labels were already right and are the pattern. The New-montage pane drew no net
+when **Actual size** was on, because that view hid every electrode outside a channel and a fresh
+draft has none (the likeliest cause of the reported "head + GM, no net"; the guide draws every net
+it packages). The job row's channel line names both electrodes by role, so its detail cell now
+spans the Source to Montage columns to keep a TI job's two channels on one line at 1280 px.
+
+**Alternatives rejected.** A typographic minus (`−`): the same label is a free-hand position's
+JSON key that SimNIBS reads back, and two spellings of one name invite a mismatch. Renaming config
+keys or mTI's lettered files: frozen on-disk/API names, and nothing the user reads. Hiding the
+Actual size switch while writing a montage: the user then cannot see the pads they are placing.
+Keeping "E24–E124" in the job row: it names no channel; compact enough, but it was a fourth
+vocabulary.
+
+**Revisit if.** A montage needs more than 26 channels (mTI's lettered files cap there), or a reader
+needs the role in a place too narrow for "Ek+ name · Ek- name".

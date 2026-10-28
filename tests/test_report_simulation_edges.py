@@ -99,10 +99,10 @@ def test_mti_reads_its_own_volume_not_a_stale_ti_one(tmp_path):
         in page
     )
     assert [r[:2] for r in carrier_rows(page)] == [
-        ["X_TDCS_1", "AF3 → PO10"],
-        ["X_TDCS_2", "AF4 → Oz"],
-        ["X_TDCS_3", "F3 → P4"],
-        ["X_TDCS_4", "F4 → P3"],
+        ["X_TDCS_1", "E1+ AF3 · E1- PO10"],
+        ["X_TDCS_2", "E2+ AF4 · E2- Oz"],
+        ["X_TDCS_3", "E3+ F3 · E3- P4"],
+        ["X_TDCS_4", "E4+ F4 · E4- P3"],
     ]
 
 
