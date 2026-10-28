@@ -19,6 +19,10 @@
  * each of its electrodes at the job's electrode width, following the Simulator's **Job settings ▸
  * Electrode width** live — measured against the CPU projection of the configured millimetres, and
  * as a ratio between two widths.
+ *
+ * The third: with **Electrode names** on, every name shown sits on an electrode the frame drew,
+ * with Actual size off and on (a name follows the scalp normal at its electrode, which is what the
+ * depth test hides it by), and the two switches share one wrapping row.
  */
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -243,4 +247,45 @@ test("Actual size draws only the montage, each electrode at the configured width
   await page.mouse.move(0, 0);
   await expect.poll(bystanderDrawn, { timeout: 5000 }).toBe(true);
   await expect.poll(padWidthPx, { timeout: 5000 }).toBe(asCap);
+});
+
+test("a name shows only on an electrode the frame drew, and the two switches share one row", async () => {
+  const active = page.locator('[data-page-active="true"]');
+  // Side by side in one box: the same row, Actual size to the right of Electrode names.
+  const toggles = active.getByTestId("scene-toggles");
+  const [names, size] = await toggles.locator("label").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as DOMRect));
+  expect(Math.abs(names!.top - size!.top), "the switches are on one row").toBeLessThan(2);
+  expect(size!.left).toBeGreaterThan(names!.right);
+  expect(await toggles.evaluate((el) => getComputedStyle(el).flexWrap), "a narrow pane wraps them, never overflows").toBe("wrap");
+
+  const namesSwitch = active.getByTestId("scene-names-toggle").getByRole("switch", { name: "Electrode names" });
+  if ((await namesSwitch.getAttribute("data-state")) !== "checked") await namesSwitch.click();
+  const sizeSwitch = active.getByTestId("scene-actual-size-toggle").getByRole("switch", { name: "Actual size" });
+  /** Every shown name's electrode: does the marker pass change its own pixel (a hidden one draws
+   *  nothing)? The
+   *  maintainer saw names on electrodes the head hid (2026-10-28); the mock's ellipsoid head hides
+   *  some beyond the silhouette that the old centre-direction test called facing. */
+  const shownNames = async () => {
+    await page.mouse.move(0, 0);
+    await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+    const shown = await active.locator(".scene-name:not([hidden])").evaluateAll((els) => els.map((e) => e.getAttribute("data-name")!));
+    const drawn = await page.evaluate((ids) => {
+      const s = window.__scene!;
+      return ids.map((id) => {
+        const m = s.markers.find((k) => k.id === id)!;
+        const q = s.project(m.world as [number, number, number]);
+        const a = s.samplePixels([[q.x, q.y]], true)![0]!;
+        const b = s.samplePixels([[q.x, q.y]], false)![0]!;
+        return { id, drawn: [0, 1, 2].some((c) => a[c] !== b[c]) };
+      });
+    }, shown);
+    return { shown, wrong: drawn.filter((d) => !d.drawn).map((d) => d.id) };
+  };
+  for (const on of [false, true]) {
+    if ((await sizeSwitch.getAttribute("data-state")) !== (on ? "checked" : "unchecked")) await sizeSwitch.click();
+    const { shown, wrong } = await shownNames();
+    console.log(`SCENE-NAMES actualSize=${on} shown=${shown.length} wrong=${JSON.stringify(wrong)}`);
+    expect(shown.length, "names are shown at all").toBeGreaterThan(0);
+    expect(wrong, `names on electrodes not drawn (Actual size ${on ? "on" : "off"})`).toEqual([]);
+  }
 });

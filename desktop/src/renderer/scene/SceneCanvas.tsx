@@ -492,18 +492,21 @@ export function SceneCanvas({
     if (!host) return;
     const { world, center, hidden } = nameDataRef.current;
     // An electrode's name sits on the top of the model the renderer drew; a dot's on the dot.
-    const tops = sceneRef.current?.electrodeTops() ?? null;
+    const anchors = sceneRef.current?.electrodeAnchors() ?? null;
     const size = sizeRef.current;
     const { eye } = cameraBasis(camera);
     const children = host.children;
     for (let i = 0; i < children.length && i < world.length; i += 1) {
       const el = children[i] as HTMLElement;
-      const point = world[i] as Vec3;
-      const p = projectToCanvas(camera, tops?.[i] ?? point, size.widthCss, size.heightCss);
-      const facing =
-        (point[0] - center[0]) * (eye[0] - point[0]) +
-        (point[1] - center[1]) * (eye[1] - point[1]) +
-        (point[2] - center[2]) * (eye[2] - point[2]);
+      const anchor = anchors?.[i];
+      const point = anchor?.top ?? (world[i] as Vec3);
+      const p = projectToCanvas(camera, point, size.widthCss, size.heightCss);
+      // An electrode's name shows only while its top faces the viewer: along the scalp's own normal
+      // there, which is what the depth test hides it by. The direction from the head's centre is
+      // only a stand-in for a dot — near the silhouette of a long head it disagrees with the scalp,
+      // and a hidden electrode kept its name.
+      const out = anchor ? anchor.axis : ([point[0] - center[0], point[1] - center[1], point[2] - center[2]] as Vec3);
+      const facing = out[0] * (eye[0] - point[0]) + out[1] * (eye[1] - point[1]) + out[2] * (eye[2] - point[2]);
       if (!p.inFront || facing <= 0 || hidden[i]) {
         el.hidden = true;
         continue;
@@ -1263,20 +1266,23 @@ export function SceneCanvas({
             ))}
           </ul>
           {markers.length > 0 && (
-            <label className="scene-names-toggle" data-testid="scene-names-toggle">
-              <Switch
-                checked={showNames}
-                onCheckedChange={setShowNames}
-                aria-label="Electrode names"
-              />
-              <span>Electrode names</span>
-            </label>
-          )}
-          {markers.length > 0 && onActualSizeChange && (
-            <label className="scene-names-toggle" data-testid="scene-actual-size-toggle">
-              <Switch checked={!!actualSize} onCheckedChange={onActualSizeChange} aria-label="Actual size" />
-              <span>Actual size</span>
-            </label>
+            /* One box, the switches side by side; it wraps onto a second line in a narrow pane. */
+            <div className="scene-toggles" data-testid="scene-toggles">
+              <label className="scene-names-toggle" data-testid="scene-names-toggle">
+                <Switch
+                  checked={showNames}
+                  onCheckedChange={setShowNames}
+                  aria-label="Electrode names"
+                />
+                <span>Electrode names</span>
+              </label>
+              {onActualSizeChange && (
+                <label className="scene-names-toggle" data-testid="scene-actual-size-toggle">
+                  <Switch checked={!!actualSize} onCheckedChange={onActualSizeChange} aria-label="Actual size" />
+                  <span>Actual size</span>
+                </label>
+              )}
+            </div>
           )}
         </div>
         <div className="scene-opacity" data-testid="scene-opacity">

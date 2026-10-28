@@ -694,9 +694,10 @@ export interface GlScene {
    * (`ScenePane.tsx` draws either a net or a single sphere centre, never both).
    */
   setMarkerOcclusion(occluded: boolean): void;
-  /** The top centre of every electrode model, where its name label is anchored; `null` while the
-   *  markers are dots (not occluded) or there are none. */
-  electrodeTops(): Vec3[] | null;
+  /** Per electrode model: its top centre, where its name label is anchored, and its axis (the
+   *  outward scalp normal), which says whether that top faces the viewer. `null` while the markers
+   *  are dots (not occluded) or there are none. */
+  electrodeAnchors(): { top: Vec3; axis: Vec3 }[] | null;
   /** Backing-store size in device pixels; `cssWidth`/`cssHeight` set the projection's aspect. */
   resize(cssWidth: number, cssHeight: number, dpr: number): void;
   render(camera: OrbitCamera): void;
@@ -1593,14 +1594,15 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       markerOcclusion = occluded;
     },
 
-    electrodeTops() {
+    electrodeAnchors() {
       if (!poses || markerShape() !== "electrode") return null;
       const p = poses;
-      return markers.map((m, i) =>
-        m.pad
+      return markers.map((m, i) => ({
+        top: m.pad
           ? placeOnScalp(p, i, 0, 0, m.pad.gel + m.pad.rubber, true)
           : placeOnScalp(p, i, 0, 0, ELECTRODE_MODEL.height * ELECTRODE_RADIUS_MM * markerScale),
-      );
+        axis: [p.axis[i * 3] as number, p.axis[i * 3 + 1] as number, p.axis[i * 3 + 2] as number] as Vec3,
+      }));
     },
 
     resize(nextCssWidth, nextCssHeight, dpr) {
