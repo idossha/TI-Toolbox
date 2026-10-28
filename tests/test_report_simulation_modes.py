@@ -223,8 +223,13 @@ def test_every_montage_mode_reports(tmp_path, case):
     )
     assert f"{kind} with {phrase} at 1 mA per channel ({len(pairs)} mA total)" in page
     # one channel row per pair, each naming its own electrodes and current
-    assert [dt for dt, _ in channel_rows(page)][:2] == ["Channel 1 (blue)", "Channel 2 (red)"]
-    assert [dd for _, dd in channel_rows(page)] == [f"{n}, 1 mA" for n in by_role(names)]
+    assert [dt for dt, _ in channel_rows(page)][:2] == [
+        "Channel 1 (blue)",
+        "Channel 2 (red)",
+    ]
+    assert [dd for _, dd in channel_rows(page)] == [
+        f"{n}, 1 mA" for n in by_role(names)
+    ]
     # one carrier row per carrier, carrier i on pair i
     assert [(r[0], r[1]) for r in carrier_rows(page)] == [
         (f"X_TDCS_{i}", n) for i, n in enumerate(by_role(names), start=1)

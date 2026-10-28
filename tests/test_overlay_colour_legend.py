@@ -131,7 +131,9 @@ def test_image_rings_legend_and_report_name_each_channel_alike(tmp_path):
         assert colours[i] == colour
         assert texts[i] == NAMES[i]
         assert report[i][0] == f"{NAMES[i]} ({colour})"
-        assert report[i][1].startswith(f"E{i + 1}+ {pairs[i][0]} · E{i + 1}- {pairs[i][1]}")
+        assert report[i][1].startswith(
+            f"E{i + 1}+ {pairs[i][0]} · E{i + 1}- {pairs[i][1]}"
+        )
 
 
 def _png_size(path: Path) -> tuple[int, int]:
