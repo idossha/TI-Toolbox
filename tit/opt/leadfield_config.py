@@ -104,7 +104,10 @@ class LeadfieldConfig:
             raise ValueError(
                 f"electrode_shape must be 'ellipse' or 'rect' (was {self.electrode_shape!r})"
             )
-        if len(self.electrode_dimensions) != 2:
+        if (
+            not isinstance(self.electrode_dimensions, (list, tuple))
+            or len(self.electrode_dimensions) != 2
+        ):
             raise ValueError("electrode_dimensions must be [width, height] in mm")
         self.electrode_dimensions = [
             _positive(d, "electrode_dimensions (mm)") for d in self.electrode_dimensions

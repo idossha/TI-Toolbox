@@ -155,6 +155,7 @@ def test_the_spec_electrode_reaches_the_generator(tmp_path, monkeypatch):
     [
         {"electrode_shape": "custom"},
         {"electrode_dimensions": [8]},
+        {"electrode_dimensions": None},
         {"electrode_dimensions": [8, 0]},
         {"gel_thickness": 0},
         {"rubber_thickness": float("nan")},
