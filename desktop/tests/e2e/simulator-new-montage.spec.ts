@@ -11,6 +11,9 @@
  *  - clicking a set electrode again clears its slot, and the next click refills that slot;
  *  - opening a slot's picker aims the next click at that slot, and lists electrodes set in other
  *    slots as taken;
+ *  - "Add 2 channels" moves the cursor to E3+, and the next click on the head fills it;
+ *  - switching the net keeps the electrodes both nets have, blanks the rest and moves the cursor
+ *    to the first empty slot;
  *  - Cancel returns the pane to the job-row state (no channel legend, no draft).
  *
  * The aiming is arithmetic (the same projection `scene-pane.spec.ts` uses), so a click that lands
@@ -24,6 +27,7 @@ import { expect, test, type ElectronApplication, type Page } from "@playwright/t
 import { connectLauncher, expectPage, gotoPage, launchElectronApp } from "./_helpers";
 import { waitForScene } from "./_runPane";
 import { cameraPosition, type OrbitCamera } from "../../src/renderer/scene/camera";
+import { electrodeSlotName } from "../../src/renderer/pages/_shared/scene/model";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -31,7 +35,7 @@ const SHOTS = process.env.TIT_E2E_SHOTS;
 
 let app: ElectronApplication;
 let page: Page;
-/** The four electrodes the second test set as E1+, E1-, E2+, E2-. */
+/** The electrodes the tests set, slot by slot: E1+, E1-, E2+, E2-, then E3+. */
 let picked: string[] = [];
 
 test.describe.configure({ mode: "serial" });
@@ -139,9 +143,31 @@ test("opening a slot's picker aims the next click at that slot, and lists the ot
   await expect(editor().locator('.electrode-slot[data-slot="2"]')).toHaveAttribute("data-active-slot", "true");
 });
 
-test("switching the form's EEG net redraws the head's net", async () => {
+test("Add 2 channels opens E3+ and E3- … E4-, and the next click on the head fills E3+", async () => {
+  await editor().getByRole("button", { name: "Add 2 channels", exact: true }).click();
+  await expect(editor().locator(".electrode-slot-role")).toHaveText(["E1+", "E1-", "E2+", "E2-", "E3+", "E3-", "E4+", "E4-"]);
+  await expect(hint()).toHaveText("Click an electrode to set E3+ (Channel 3).");
+  const next = (await frontMarkers(5)).find((m) => !picked.includes(m.id))!;
+  await clickMarker(next);
+  await expect(slot(4)).toHaveText(next.id, { timeout: 10_000 });
+  picked.push(next.id);
+});
+
+test("switching the form's EEG net redraws the head's net, keeps the electrodes both nets have and blanks the rest", async () => {
   const netSelect = editor().locator(".field", { hasText: "EEG net" }).getByRole("combobox");
   const before = (await netSelect.innerText()).trim();
+  // The mock's nets (`electrodesFor` in tests/mock-server/server.mjs): EGI_template is E1-E256 and
+  // GSN-HydroCel-185 is E1-E185, so an electrode above E185 is on the first net only.
+  expect(before, "the form starts on the mock's larger net (the first, sorted)").toBe("EGI_template");
+  // E3- from the form: an electrode the other net lacks, so the switch has a slot to blank.
+  const onlyHere = ["E256", "E255", "E254"].find((n) => !picked.includes(n))!;
+  await slot(5).click();
+  await page.getByRole("dialog").getByPlaceholder("Filter electrodes…").fill(onlyHere);
+  await page.getByTestId(`pair-2-b-row-${onlyHere}`).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
+  await expect(slot(5)).toHaveText(onlyHere);
+  const draft = [...picked, onlyHere];
+
   const markersBefore = await page.evaluate(() => window.__scenePane?.markers ?? 0);
   await netSelect.click();
   const names = (await page.getByRole("option").allInnerTexts()).map((n) => n.trim());
@@ -150,6 +176,16 @@ test("switching the form's EEG net redraws the head's net", async () => {
   await page.getByRole("option", { name: other!, exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__scenePane?.net ?? null), { timeout: 20_000 }).toBe(other);
   await expect.poll(() => page.evaluate(() => window.__scenePane?.markers ?? 0), { timeout: 20_000 }).not.toBe(markersBefore);
+
+  // Each slot keeps its electrode if the new net has it and is emptied if not; the cursor moves to
+  // the first empty slot.
+  const onNew = new Set(await page.evaluate(() => (window.__scene?.markers ?? []).map((m: { id: string }) => m.id)));
+  const expected = draft.map((n) => (onNew.has(n) ? n : "Choose…"));
+  expect(expected[5], `${onlyHere} is not on ${other}`).toBe("Choose…");
+  for (const [i, text] of expected.entries()) await expect(slot(i)).toHaveText(text, { timeout: 10_000 });
+  const firstEmpty = expected.indexOf("Choose…");
+  await expect(hint()).toHaveText(`Click an electrode to set ${electrodeSlotName(firstEmpty)} (Channel ${Math.floor(firstEmpty / 2) + 1}).`);
+  await expect(editor().locator(`.electrode-slot[data-slot="${firstEmpty}"]`)).toHaveAttribute("data-active-slot", "true");
 });
 
 test("Cancel returns the pane to the job-row state", async () => {
