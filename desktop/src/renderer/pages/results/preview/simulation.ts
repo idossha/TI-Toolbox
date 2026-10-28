@@ -58,7 +58,7 @@ export function electrodePairs(value: unknown): string[] {
   return out;
 }
 
-/** "ellipse · 8 × 8 mm · gel 4 mm · rubber 2 mm", from whichever of those four the file has. */
+/** "ellipse · 8 × 8 mm · gel 1 mm · rubber 2 mm", from whichever of those four the file has. */
 export function electrodeGeometry(value: unknown): string | undefined {
   if (!value || typeof value !== "object") return undefined;
   const g = value as Record<string, unknown>;
