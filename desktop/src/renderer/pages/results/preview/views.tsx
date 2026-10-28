@@ -28,7 +28,7 @@ export function SummaryRows({ rows, testid }: { rows: SummaryRow[]; testid?: str
   );
 }
 
-/** Electrode pairs as chips — "F7 → P7", one per stimulation channel. */
+/** One chip per stimulation channel — "E1+ F7 · E1- P7". */
 export function PairChips({ pairs, testid }: { pairs: string[]; testid?: string }) {
   if (pairs.length === 0) return null;
   return (

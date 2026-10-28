@@ -112,6 +112,35 @@ class TestProcessAndSave:
         explicit = save_run_config(config, 1, str(tmp_path / "set"), MagicMock())
         assert json.loads(open(explicit).read())["channel_limit_mA"] == 1.5
 
+    def test_run_config_copies_the_leadfields_recorded_electrode(self, tmp_path):
+        """The run keeps the electrode its leadfield was computed with, or null when the
+        leadfield records none, so a later regeneration of the leadfield cannot change it.
+        """
+        import json
+
+        from tit.opt.ex.results import save_run_config
+        from tit.opt.leadfield import write_leadfield_sidecar
+
+        hdf5 = tmp_path / "001_leadfield_EEG10-10.hdf5"
+        hdf5.write_bytes(b"lf")
+        config = _make_config()
+        config.leadfield_hdf = str(hdf5)
+
+        def saved():
+            return json.loads(
+                open(save_run_config(config, 1, str(tmp_path), MagicMock())).read()
+            )
+
+        assert saved()["leadfield_electrode"] is None
+        electrode = {
+            "electrode_shape": "rect",
+            "electrode_dimensions": [12.0, 6.0],
+            "gel_thickness": 2.5,
+            "rubber_thickness": 3.0,
+        }
+        write_leadfield_sidecar(hdf5, electrode)
+        assert saved()["leadfield_electrode"] == electrode
+
     @patch("tit.opt.ex.results.generate_plots")
     def test_empty_results(self, mock_plots, tmp_path):
         mock_plots.return_value = []

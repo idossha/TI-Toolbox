@@ -9,6 +9,7 @@
  * a preview that invents a value is worse than one that is short. Shapes are read from a real run:
  * `derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/documentation/config.json`.
  */
+import { channelElectrodes } from "../../_shared/scene/model";
 
 /** One label/value row of the summary. `mono` for paths and ids. */
 export interface SummaryRow {
@@ -21,7 +22,7 @@ export interface SimulationSummary {
   /** "TI" / "mTI" — the simulation's own mode string, uppercased as the chip vocabulary spells it. */
   mode?: string;
   eegNet?: string;
-  /** One entry per stimulation channel, already formatted as "F7 → P7". */
+  /** One entry per stimulation channel, already formatted as "E1+ F7 · E1- P7". */
   pairs: string[];
   rows: SummaryRow[];
   createdAt?: string;
@@ -46,19 +47,20 @@ function numberList(value: unknown): number[] | undefined {
   return out.length === value.length && out.length > 0 ? out : undefined;
 }
 
-/** `[["F7","P7"],["F8","P8"]]` → `["F7 → P7", "F8 → P8"]`; an XYZ montage has no pairs to name. */
+/** `[["F7","P7"],["F8","P8"]]` → `["E1+ F7 · E1- P7", "E2+ F8 · E2- P8"]` (channel k is Ek+ and
+ *  Ek-); an XYZ montage has no electrode names to show. */
 export function electrodePairs(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const out: string[] = [];
   for (const pair of value) {
     if (!Array.isArray(pair)) continue;
     const names = pair.map(str).filter((s): s is string => s !== undefined);
-    if (names.length >= 2) out.push(`${names[0]} → ${names[1]}`);
+    if (names.length >= 2) out.push(channelElectrodes(names, out.length));
   }
   return out;
 }
 
-/** "ellipse · 8 × 8 mm · gel 4 mm · rubber 2 mm", from whichever of those four the file has. */
+/** "ellipse · 8 × 8 mm · gel 1 mm · rubber 2 mm", from whichever of those four the file has. */
 export function electrodeGeometry(value: unknown): string | undefined {
   if (!value || typeof value !== "object") return undefined;
   const g = value as Record<string, unknown>;

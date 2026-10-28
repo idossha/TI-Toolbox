@@ -336,7 +336,9 @@ class TestBuildOptimization:
             )
 
         ratios = install.call_args.kwargs["ratios"]
-        assert ratios == pytest.approx([(2.0, 6.0), (4.0, 4.0), (6.0, 2.0)])
+        assert np.asarray(ratios) == pytest.approx(
+            np.array([(2.0, 6.0), (4.0, 4.0), (6.0, 2.0)])
+        )
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")

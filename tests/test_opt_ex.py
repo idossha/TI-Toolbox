@@ -151,7 +151,9 @@ class TestRunExSearch:
 
         # channel_limit=None is the single balanced split (ExConfig's docstring):
         # half of 4 mA on each channel, whatever the step.
-        assert engine.run.call_args.args[4] == pytest.approx([(2.0, 2.0)])
+        assert np.asarray(engine.run.call_args.args[4]) == pytest.approx(
+            np.array([(2.0, 2.0)])
+        )
 
     @patch("tit.opt.ex.ex.process_and_save")
     @patch("tit.opt.ex.ex.ExSearchEngine")
@@ -179,16 +181,18 @@ class TestRunExSearch:
         # Limit 3.5 mA: channel 1 runs 3.5 -> 0.5 mA in 0.5 mA steps (hand
         # arithmetic), each split summing to 4 mA -- the sweep as before.
         ratios = engine.run.call_args.args[4]
-        assert ratios == pytest.approx(
-            [
-                (3.5, 0.5),
-                (3.0, 1.0),
-                (2.5, 1.5),
-                (2.0, 2.0),
-                (1.5, 2.5),
-                (1.0, 3.0),
-                (0.5, 3.5),
-            ]
+        assert np.asarray(ratios) == pytest.approx(
+            np.array(
+                [
+                    (3.5, 0.5),
+                    (3.0, 1.0),
+                    (2.5, 1.5),
+                    (2.0, 2.0),
+                    (1.5, 2.5),
+                    (1.0, 3.0),
+                    (0.5, 3.5),
+                ]
+            )
         )
 
     @patch("tit.opt.ex.ex.process_and_save")

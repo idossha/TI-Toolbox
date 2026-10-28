@@ -6,6 +6,7 @@
   "roi_atlas": null,
   "roi_coordinate_space": "subject",
   "leadfield_hdf": "/corpus/project/derivatives/SimNIBS/sub-001/leadfields/GSN-HydroCel-185_leadfield.hdf5",
+  "leadfield_electrode": null,
   "electrode_mode": "bucket",
   "electrodes": {
     "e1_plus": [

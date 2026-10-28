@@ -40,7 +40,7 @@ import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePairsEditor";
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
-import { channelCss } from "../_shared/scene/model";
+import { channelCss, channelElectrodes, firstEmptySlot, pairsOnNet } from "../_shared/scene/model";
 import { isSafeName, safeNameProblem } from "../_shared/entityNames";
 import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { flexCurrents, FlexSnapWarning, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
@@ -93,11 +93,6 @@ export function montageOptionValue(kind: MontageKind, name: string): string {
 export function parseMontageOptionValue(value: string): { kind: MontageKind; name: string } {
   const cut = value.indexOf(":");
   return { kind: value.slice(0, cut) as MontageKind, name: value.slice(cut + 1) };
-}
-
-/** `E1–E2 · E3–E4` — the read-only pairs cell for a label-based montage. */
-export function formatPairs(pairs: [string, string][]): string {
-  return pairs.map(([a, b]) => `${a}–${b}`).join(" · ");
 }
 
 /* The currents a row shows are the currents its job sends: both are `rowCurrents` (types.ts), which
@@ -302,7 +297,7 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
       {values.map((v, i) => (
         <span className="job-channel" key={i} data-channel={i}>
           <span className="job-channel-dot" style={{ background: row.xyzPairs ? positionSwatch(i * 2) : channelCss(i) }} aria-hidden />
-          <span className="job-channel-pair mono text-dense" data-cell="pair">
+          <span className="job-channel-pair text-dense" data-cell="pair" title={`Channel ${i + 1}: ${labels[i]}`}>
             {labels[i]}
           </span>
           <NumberInput
@@ -321,11 +316,11 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
   );
 }
 
-/** What each channel of a row is, in words: its electrode pair, or its coordinate count. */
+/** What each channel of a row is, in words: its two electrodes by role, or `XYZ`. */
 export function channelLabels(row: SelectedRow, count: number): string[] {
   return Array.from({ length: count }, (_, i) => {
     const pair = row.pairs?.[i];
-    if (pair) return `${pair[0]}–${pair[1]}`;
+    if (pair) return channelElectrodes(pair, i);
     if (row.xyzPairs?.[i]) return "XYZ";
     return "—";
   });
@@ -362,8 +357,8 @@ export function montageDraftProblem(draft: MontageDraft): string | null {
   if (!name) return "Name the montage.";
   const badName = safeNameProblem(name, "montage");
   if (badName) return badName;
-  if (draft.pairs.some((p) => !p[0] || !p[1])) return "Pick both electrodes of every pair.";
-  if (!isValidPairCount(draft.pairs.length)) return "Use exactly 2 pairs (standard TI) or an even number of pairs from 4.";
+  if (draft.pairs.some((p) => !p[0] || !p[1])) return "Pick both electrodes (Ek+ and Ek-) of every channel.";
+  if (!isValidPairCount(draft.pairs.length)) return "Use exactly 2 channels (standard TI) or an even number of channels from 4.";
   const repeated = repeatedElectrodes(draft.pairs);
   if (repeated.length > 0) return repeatedElectrodesSentence(repeated);
   return null;
@@ -387,6 +382,10 @@ export interface JobsTableProps {
   /** The montage being written, owned by the page and shared with the scene pane. */
   draft: MontageDraft | null;
   onDraftChange: (draft: MontageDraft | null) => void;
+  /** The draft's slot (E1+, E1-, E2+, … flattened) the scene's next electrode click sets — the
+   *  page's, shared with the scene pane, so focusing a slot here aims the next click at it. */
+  draftSlot?: number;
+  onDraftSlotChange?: (slot: number) => void;
   /** The resolved net, reported upward so the scene pane draws the same one's electrodes. */
   onNetChange?: (net: string | undefined) => void;
   /**
@@ -412,6 +411,8 @@ export function JobsTable({
   onRowsChange,
   draft,
   onDraftChange,
+  draftSlot,
+  onDraftSlotChange,
   onNetChange,
   onPreviewChange,
   onActiveSourceChange,
@@ -504,6 +505,26 @@ export function JobsTable({
     },
     enabled: !!editorNet && usable.length > 0,
   });
+
+  /*
+   * Switching the form's EEG net keeps the draft's electrodes that the new net also has and blanks
+   * the rest, then aims the cursor at the first empty slot. Waits for the new net's electrode list;
+   * the draft is the page's state, so the edit runs in an effect, not during render.
+   */
+  // A ref, not state: it only marks that the next settled electrode list follows a user's switch.
+  const switchedNet = useRef<string | null>(null);
+  function chooseNet(net: string) {
+    setNetChoice(net);
+    if (editing && net !== editorNet) switchedNet.current = net;
+  }
+  useEffect(() => {
+    if (!switchedNet.current || switchedNet.current !== editorNet || !netElectrodes.isSuccess || netElectrodes.isFetching) return;
+    switchedNet.current = null;
+    if (!editing) return;
+    const pairs = pairsOnNet(editing.pairs, netElectrodes.data);
+    if (pairs !== editing.pairs) setEditing({ ...editing, pairs });
+    onDraftSlotChange?.(firstEmptySlot(pairs));
+  }, [editorNet, netElectrodes.isSuccess, netElectrodes.isFetching, netElectrodes.data, editing, setEditing, onDraftSlotChange]);
 
   /** Every montage of one net, both buckets, in one list — the Montage cell's options. */
   const montagesOf = useMemo(() => {
@@ -794,6 +815,7 @@ export function JobsTable({
   function startNewMontage() {
     setFreehandOpen(false);
     setEditing(emptyDraft());
+    onDraftSlotChange?.(0);
   }
 
   function startNewFreehand() {
@@ -806,6 +828,7 @@ export function JobsTable({
   /* ------------------------------------------------------------------ Preview */
 
   const activeRow = rows.find((r) => r.id === activeId) ?? null;
+  const activeRowId = activeRow?.id;
   const activeNet = activeRow?.eegNet;
   const activeName = activeRow?.name;
   const activePairs = activeRow?.pairs;
@@ -822,15 +845,16 @@ export function JobsTable({
     if (activeXyz && activeName && activeSubject) {
       const pairs = JSON.parse(activeXyz) as [[number, number, number], [number, number, number]][];
       return onPreviewChange?.({
+        rowId: activeRowId,
         name: activeName,
         subject: activeSubject,
         positions: pairs.flat().map(([x, y, z]) => ({ x, y, z })),
       });
     }
     onPreviewChange?.(
-      activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) } : null,
+      activeNet && activeName && activePairs?.length ? { rowId: activeRowId, net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) } : null,
     );
-  }, [activeNet, activeName, activePairs, activeSubject, activeXyz, originalXyz, onPreviewChange]);
+  }, [activeRowId, activeNet, activeName, activePairs, activeSubject, activeXyz, originalXyz, onPreviewChange]);
   useEffect(() => {
     onActiveSourceChange?.(activeSource);
   }, [activeSource, onActiveSourceChange]);
@@ -1154,6 +1178,7 @@ export function JobsTable({
                               setNetChoice(montage.net);
                               setFreehandOpen(false);
                               setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
+                              onDraftSlotChange?.(0);
                             }}
                           />
                         )}
@@ -1172,13 +1197,14 @@ export function JobsTable({
                       {row.name ? (
                         <>
                           <td data-cell="detail-pad" />
-                          <td data-cell="polarity">
-                            {/* Polarity is implied by the channel count; kept as a quiet label, not
-                                a chip competing with the per-channel colours. */}
-                            <span className="job-polarity">{polarityLabel(row.kind ?? inferMontageKind(rowPairCount(row)))}</span>
-                          </td>
-                          <td colSpan={2} data-cell="detail">
+                          {/* From the Source column to the Montage column's right edge: a channel
+                              names both its electrodes by role ("E1+ E24 · E1- E124"), and a TI
+                              job's two channels have to stay on one line. */}
+                          <td colSpan={3} data-cell="detail">
                             <div className="job-line2" data-cell="pairs" data-channels={rowPairCount(row)}>
+                              {/* Polarity is implied by the channel count; kept as a quiet label, not
+                                  a chip competing with the per-channel colours. */}
+                              <span className="job-polarity" data-cell="polarity">{polarityLabel(row.kind ?? inferMontageKind(rowPairCount(row)))}</span>
                               <ChannelList row={row} onChange={(currents) => patch(row.id, { currents })} />
                             </div>
                             {rowProblem(row) && (
@@ -1192,7 +1218,7 @@ export function JobsTable({
                       ) : (
                         <td colSpan={4} data-cell="detail">
                           <div className="job-line2">
-                            <span className="job-line2-empty">Pairs and currents appear once a montage is chosen</span>
+                            <span className="job-line2-empty">Channels and currents appear once a montage is chosen</span>
                           </div>
                         </td>
                       )}
@@ -1228,7 +1254,7 @@ export function JobsTable({
               <Field label="EEG net">
                 <Select
                   value={editorNet}
-                  onValueChange={setNetChoice}
+                  onValueChange={chooseNet}
                   options={availableNets.map((n) => ({ value: n, label: n }))}
                   placeholder="Choose a net"
                 />
@@ -1246,11 +1272,14 @@ export function JobsTable({
                     <span className="chip chip-neutral">{polarityLabel(draftKind)}</span>
                   </span>
                   <span className="field-help">
-                    {editing.pairs.length} pairs · {draftKind === "uni_polar" ? "uni-polar" : "multi-polar"}
+                    {editing.pairs.length} channels · {draftKind === "uni_polar" ? "uni-polar" : "multi-polar"}
                   </span>
                 </div>
               </Field>
-              <Field label="Electrode pairs" help="Selected from the net's electrode labels.">
+              <Field
+                label="Channels"
+                help="Channel k runs from electrode Ek+ to Ek-. Pick each from the net's labels, or click electrodes on the head in the Scene pane: a click sets the highlighted slot, and clicking a set electrode again clears it."
+              >
                 {netElectrodes.isFetching && <Skeleton height={32} />}
                 {!netElectrodes.isFetching && (
                   <ElectrodePairsEditor
@@ -1258,13 +1287,15 @@ export function JobsTable({
                     electrodes={netElectrodes.data ?? []}
                     pairs={editing.pairs}
                     onPairsChange={(pairs) => setEditing({ ...editing, pairs })}
+                    activeSlot={draftSlot}
+                    onActiveSlotChange={onDraftSlotChange}
                     pairStep={2}
                     freehandPairs={[]}
                     onFreehandPairsChange={() => {}}
                   />
                 )}
                 {!isValidPairCount(editing.pairs.length) && (
-                  <span className="field-error">Use exactly 2 pairs (standard TI) or an even number of pairs from 4: 4, 6, 8 … (multi-channel mTI).</span>
+                  <span className="field-error">Use exactly 2 channels (standard TI) or an even number of channels from 4: 4, 6, 8 … (multi-channel mTI).</span>
                 )}
                 {repeatedElectrodes(editing.pairs).length > 0 && (
                   <span className="field-error" role="alert" data-testid="montage-repeated-electrodes">

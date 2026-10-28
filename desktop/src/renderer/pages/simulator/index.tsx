@@ -22,6 +22,7 @@ import {
   defaultJobSettings,
   emptyRow,
   isRunnableRow,
+  settingsFor,
   type JobSettings,
   type MontagePreview,
   type MontageSource,
@@ -29,12 +30,14 @@ import {
 } from "./types";
 import { RunPanel, RunWork, jobCountLabel, stepsFor } from "../_shared/run";
 import { candidateMetricsChanged, candidateRow } from "./candidateHandoff";
-import { ScenePane, withSlot } from "../_shared/scene";
+import { ScenePane, firstEmptySlot, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
 import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
 import { PlanStepBanner, usePlanStepActions, usePlanStepEdit } from "../../app/proposals/stepForm";
 import { simStepEdit, simStepRows } from "./planStep";
+import { appDefaults } from "../../forms/appDefaults";
+import { electrodePad } from "../../scene/electrodePose";
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -108,6 +111,19 @@ function SimulatorPage() {
   // same act rather than two states that can disagree (plan decision S6).
   const [montageDraft, setMontageDraft] = usePageSession<MontageDraft | null>("montageDraft", null);
   const [montageNet, setMontageNet] = usePageSession<string | undefined>("montageNet", undefined);
+  /**
+   * The draft's slot the next electrode click sets (E1+, E1-, E2+, … flattened). One cursor for the
+   * form and the pane: opening a slot's picker aims the next scene click at it, and a pick in
+   * either moves it on to the next empty slot. A new draft, or one whose channel count changed,
+   * starts on its first empty slot — and so does a draft the page session kept across navigation.
+   */
+  const [draftSlot, setDraftSlot] = useState(() => (montageDraft ? firstEmptySlot(montageDraft.pairs) : 0));
+  const draftShape = montageDraft ? montageDraft.pairs.length : -1;
+  const [seenDraftShape, setSeenDraftShape] = useState(draftShape);
+  if (draftShape !== seenDraftShape) {
+    setSeenDraftShape(draftShape);
+    setDraftSlot(montageDraft ? firstEmptySlot(montageDraft.pairs) : 0);
+  }
   // Click-to-visualise: the job row the user clicked, drawn on the guide pane as its net's
   // electrodes plus its own pairs — read-only (no `onPairsChange`), so looking at a chosen montage
   // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
@@ -135,6 +151,8 @@ function SimulatorPage() {
   }, [candidateState?.optimizationCandidate, handledCandidate, location.key, location.pathname, location.search, navigate]);
   /** The row whose own settings are being edited (`null` = the dialog is closed). */
   const [settingsRowId, setSettingsRowId] = useState<string | null>(null);
+  /** The open settings dialog's unsaved edits, so the scene's electrodes follow them live. */
+  const [liveSettings, setLiveSettings] = useState<JobSettings | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
   const freehand = useFreehandDraft();
 
@@ -197,7 +215,7 @@ function SimulatorPage() {
   function setDraftPairs(pairs: [string, string][]): void {
     setMontageDraft((draft) => (draft ? { ...draft, pairs } : { ...emptyDraft(), pairs }));
   }
-  /** A pick with no montage open starts one, with that electrode already in pair 1 slot A —
+  /** A pick with no montage open starts one, with that electrode already in E1+ —
    *  otherwise the first click on the pane would do nothing and the gesture would be undiscoverable. */
   function startDraftFromScene(electrode: string): void {
     const fresh = emptyDraft();
@@ -246,6 +264,26 @@ function SimulatorPage() {
     />
   );
 
+  /**
+   * The electrode size the scene draws a montage's electrodes at: the settings being edited right
+   * now, else the previewed row's own, else — for a montage being drawn in the pane, which belongs
+   * to no row yet — the settings the user last configured (what a new job starts from), else the
+   * page defaults. Rubber thickness has no control on
+   * this page, so it is `SimulationConfig`'s default, as in the job it builds.
+   */
+  const previewRow = rows.find((r) => r.id === montagePreview?.rowId);
+  const padSettings = (settingsRowId ? liveSettings : null) ?? (previewRow ? settingsFor(previewRow, params) : (seedSettings ?? params));
+  const scenePad = useMemo(
+    () =>
+      electrodePad({
+        electrode_shape: padSettings.electrodeShape,
+        electrode_dimensions: padSettings.dimensions,
+        gel_thickness: padSettings.gelThickness,
+        rubber_thickness: appDefaults("sim", "SimulationConfig").rubber_thickness,
+      }),
+    [padSettings.electrodeShape, padSettings.dimensions, padSettings.gelThickness],
+  );
+
   const previewIsMontage = activeSource === null || activeSource === "montage" || (activeSource === "flex" && !!montagePreview?.net);
 
   return (
@@ -281,6 +319,7 @@ function SimulatorPage() {
                 originalPositions={!montageDraft && !freehand.open ? montagePreview?.originalPositions : undefined}
                 net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
                 pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}
+                electrodePad={scenePad}
                 showing={
                   !montageDraft && montagePreview
                     ? montagePreview.positions
@@ -293,6 +332,8 @@ function SimulatorPage() {
                     : null
                 }
                 onPairsChange={montageDraft ? setDraftPairs : undefined}
+                slot={montageDraft ? draftSlot : undefined}
+                onSlotChange={montageDraft ? setDraftSlot : undefined}
                 onRequestPairs={startDraftFromScene}
                 note={
                   freehand.open || previewIsMontage || montagePreview?.positions
@@ -364,6 +405,8 @@ function SimulatorPage() {
                     onRowsChange={setRows}
                     draft={montageDraft}
                     onDraftChange={setMontageDraft}
+                    draftSlot={draftSlot}
+                    onDraftSlotChange={setDraftSlot}
                     onNetChange={setMontageNet}
                     onPreviewChange={setMontagePreview}
                     onActiveSourceChange={setActiveSource}
@@ -377,12 +420,17 @@ function SimulatorPage() {
       <JobSettingsDialog
         row={rows.find((r) => r.id === settingsRowId) ?? null}
         defaults={params}
-        onClose={() => setSettingsRowId(null)}
+        onClose={() => {
+          setSettingsRowId(null);
+          setLiveSettings(null);
+        }}
+        onDraftChange={setLiveSettings}
         onSave={(settings: JobSettings | undefined) => {
           setRows((prev) => prev.map((r) => (r.id === settingsRowId ? { ...r, settings } : r)));
           // The last row the user configured is what the next one starts from.
           setSeedSettings(settings ?? null);
           setSettingsRowId(null);
+          setLiveSettings(null);
         }}
       />
     </>

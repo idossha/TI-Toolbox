@@ -223,8 +223,30 @@ class TestSimulationConfig:
         assert config.conductivity == "scalar"
         assert config.electrode_shape == "ellipse"
         assert config.electrode_dimensions == [8.0, 8.0]
-        assert config.gel_thickness == 4.0
+        assert config.gel_thickness == 1.0
         assert config.rubber_thickness == 2.0
+
+    def test_every_published_gel_default_is_one_millimetre(self):
+        """The served schema is what the app's forms start from (DECISIONS 2026-10-28, gel 1 mm):
+        the Simulator's, the flex electrode's and the leadfield's gel, and the Flex page's table.
+        """
+        import json
+
+        schema = json.loads(
+            (
+                Path(__file__).resolve().parent.parent
+                / "contracts"
+                / "generated"
+                / "config.schema.json"
+            ).read_text()
+        )
+        defs = schema["$defs"]
+        for cls in ("SimulationConfig", "ElectrodeConfig", "LeadfieldConfig"):
+            assert defs[cls]["properties"]["gel_thickness"]["default"] == 1.0, cls
+        for kind in ("flex", "flex_adaptive", "flex_pareto"):
+            assert (
+                schema["x-app-defaults"][kind]["electrode"]["gel_thickness"] == 1
+            ), kind
 
     def test_default_mapping_options(self):
         config = SimulationConfig(

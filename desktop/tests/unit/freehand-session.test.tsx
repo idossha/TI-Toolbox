@@ -66,9 +66,9 @@ describe("Free-hand source draft", () => {
     fill('[aria-label="Position 1 label"]', "custom-A");
     fill('[aria-label="Position 1 X"]', "12.5");
     fill('[aria-label="Position 1 Y"]', "-23.5");
-    // "Add electrode pair" adds TWO rows: an odd position count is never a valid montage
+    // "Add channel" adds TWO rows: an odd position count is never a valid montage
     // (`isValidPositionCount`), so six is still invalid and the error line still shows.
-    const add = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.startsWith("Add electrode"))!;
+    const add = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Add channel")!;
     act(() => add.click());
     expect(container.querySelectorAll("tbody tr")).toHaveLength(6);
     expect(container.textContent).toContain("Use 4 positions");

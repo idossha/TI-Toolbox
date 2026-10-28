@@ -36,6 +36,8 @@ from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import Any
 
+from tit.opt.leadfield import leadfield_sidecar, read_leadfield_electrode
+
 from .logic import format_current_mA
 
 MONTAGE_MAP_TOP_N = 150
@@ -89,6 +91,11 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
         ),
         "roi_coordinate_space": getattr(config, "roi_coordinate_space", "subject"),
         "leadfield_hdf": config.leadfield_hdf,
+        # The electrode the leadfield was computed with (``None`` = not recorded), copied here
+        # so the run keeps it after the leadfield is regenerated.
+        "leadfield_electrode": read_leadfield_electrode(
+            leadfield_sidecar(config.leadfield_hdf)
+        ),
         "electrode_mode": electrode_mode,
         "electrodes": electrode_info,
         "n_combinations": n_combinations,

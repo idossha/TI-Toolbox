@@ -131,7 +131,7 @@ describe("a row the server would refuse is not runnable, and says why", () => {
       const free: SelectedRow = { ...base, source: "freehand", xyzPairs: xyz(n), currents: "" };
       for (const row of [label, free]) {
         expect(isRunnableRow(row), `${row.source} ${n}`).toBe(false);
-        expect(rowProblem(row)).toContain(`${n} electrode pair`);
+        expect(rowProblem(row)).toContain(`${n} channel`);
       }
     }
   });
@@ -141,7 +141,7 @@ describe("a row the server would refuse is not runnable, and says why", () => {
     expect(shown(row)).toHaveLength(2);
     expect(serverRequired(4)).toBe(4);
     expect(isRunnableRow(row)).toBe(false);
-    expect(rowProblem(row)).toBe("Saved as TI with 4 pairs, which run with 4 currents, not 2: open it in the montage editor and save it again.");
+    expect(rowProblem(row)).toBe("Saved as TI with 4 channels, which run with 4 currents, not 2: open it in the montage editor and save it again.");
     // The same pairs in the mTI bucket are a job.
     expect(isRunnableRow({ ...row, kind: "multi_polar", currents: "" })).toBe(true);
   });

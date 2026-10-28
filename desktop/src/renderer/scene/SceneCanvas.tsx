@@ -193,6 +193,13 @@ export interface SceneCanvasProps {
    * turns them on. The switch still works afterwards — this seeds it, it does not lock it.
    */
   namesOn?: boolean;
+  /**
+   * The "Actual size" switch, beside "Electrode names": shown only when `onActualSizeChange` is
+   * given, controlled by `actualSize`. The page owns what it means (`ScenePane`: draw only the
+   * montage's electrodes, at their configured size, with their gel).
+   */
+  actualSize?: boolean;
+  onActualSizeChange?: (on: boolean) => void;
   /** Controlled selection. Omit for an uncontrolled pane. */
   selection?: SceneSelection;
   onSelectionChange?: (next: SceneSelection) => void;
@@ -284,6 +291,8 @@ export function SceneCanvas({
   pickAnySurface,
   highlight,
   namesOn,
+  actualSize,
+  onActualSizeChange,
   selection,
   onSelectionChange,
   onPick,
@@ -457,7 +466,7 @@ export function SceneCanvas({
   const connectionsRef = useRef<SVGSVGElement | null>(null);
   const connectionDataRef = useRef(connections);
   const namesRef = useRef<HTMLDivElement | null>(null);
-  const nameDataRef = useRef<{ world: Vec3[]; center: Vec3 }>({ world: [], center: [0, 0, 0] });
+  const nameDataRef = useRef<{ world: Vec3[]; center: Vec3; hidden: boolean[] }>({ world: [], center: [0, 0, 0], hidden: [] });
   const positionNames = useCallback((camera: OrbitCamera) => {
     const overlay = connectionsRef.current;
     const annotations = connectionDataRef.current ?? [];
@@ -481,19 +490,24 @@ export function SceneCanvas({
     });
     const host = namesRef.current;
     if (!host) return;
-    const { world, center } = nameDataRef.current;
+    const { world, center, hidden } = nameDataRef.current;
+    // An electrode's name sits on the top of the model the renderer drew; a dot's on the dot.
+    const anchors = sceneRef.current?.electrodeAnchors() ?? null;
     const size = sizeRef.current;
     const { eye } = cameraBasis(camera);
     const children = host.children;
     for (let i = 0; i < children.length && i < world.length; i += 1) {
       const el = children[i] as HTMLElement;
-      const point = world[i] as Vec3;
+      const anchor = anchors?.[i];
+      const point = anchor?.top ?? (world[i] as Vec3);
       const p = projectToCanvas(camera, point, size.widthCss, size.heightCss);
-      const facing =
-        (point[0] - center[0]) * (eye[0] - point[0]) +
-        (point[1] - center[1]) * (eye[1] - point[1]) +
-        (point[2] - center[2]) * (eye[2] - point[2]);
-      if (!p.inFront || facing <= 0) {
+      // An electrode's name shows only while its top faces the viewer: along the scalp's own normal
+      // there, which is what the depth test hides it by. The direction from the head's centre is
+      // only a stand-in for a dot — near the silhouette of a long head it disagrees with the scalp,
+      // and a hidden electrode kept its name.
+      const out = anchor ? anchor.axis : ([point[0] - center[0], point[1] - center[1], point[2] - center[2]] as Vec3);
+      const facing = out[0] * (eye[0] - point[0]) + out[1] * (eye[1] - point[1]) + out[2] * (eye[2] - point[2]);
+      if (!p.inFront || facing <= 0 || hidden[i]) {
         el.hidden = true;
         continue;
       }
@@ -565,7 +579,7 @@ export function SceneCanvas({
       (sceneBounds[2] + sceneBounds[5]) / 2,
     ];
     connectionDataRef.current = connections;
-    nameDataRef.current = { world: markers.map((m) => m.world), center };
+    nameDataRef.current = { world: markers.map((m) => m.world), center, hidden: markers.map((m) => !!m.hidden) };
     const camera = cameraRef.current;
     if (camera) positionNames(camera);
   }, [markers, sceneBounds, showNames, positionNames, connections]);
@@ -739,6 +753,13 @@ export function SceneCanvas({
     requestFrame();
   }, [parts, requestFrame, webgl2]);
 
+  // Before the markers effect: a marker set that is not occluded (placement dots, sphere centres)
+  // is never posed on the skin, so the first upload must already know which kind it is.
+  useEffect(() => {
+    sceneRef.current?.setMarkerOcclusion(markersOccluded);
+    requestFrame();
+  }, [markersOccluded, requestFrame, webgl2]);
+
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -750,11 +771,6 @@ export function SceneCanvas({
     scene.setMarkers(markers);
     requestFrame();
   }, [markers, markerScale, requestFrame, webgl2]);
-
-  useEffect(() => {
-    sceneRef.current?.setMarkerOcclusion(markersOccluded);
-    requestFrame();
-  }, [markersOccluded, requestFrame, webgl2]);
 
   /**
    * What the resize handler refits against, kept current every render. Assigned here rather than in
@@ -1252,14 +1268,23 @@ export function SceneCanvas({
             ))}
           </ul>
           {markers.length > 0 && (
-            <label className="scene-names-toggle" data-testid="scene-names-toggle">
-              <Switch
-                checked={showNames}
-                onCheckedChange={setShowNames}
-                aria-label="Electrode names"
-              />
-              <span>Electrode names</span>
-            </label>
+            /* One box, the switches side by side; it wraps onto a second line in a narrow pane. */
+            <div className="scene-toggles" data-testid="scene-toggles">
+              <label className="scene-names-toggle" data-testid="scene-names-toggle">
+                <Switch
+                  checked={showNames}
+                  onCheckedChange={setShowNames}
+                  aria-label="Electrode names"
+                />
+                <span>Electrode names</span>
+              </label>
+              {onActualSizeChange && (
+                <label className="scene-names-toggle" data-testid="scene-actual-size-toggle">
+                  <Switch checked={!!actualSize} onCheckedChange={onActualSizeChange} aria-label="Actual size" />
+                  <span>Actual size</span>
+                </label>
+              )}
+            </div>
           )}
         </div>
         <div className="scene-opacity" data-testid="scene-opacity">

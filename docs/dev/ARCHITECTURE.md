@@ -166,6 +166,15 @@ usable inside their pane and viewport. Every interactive node has an accessible 
 Computations return jobs rather than blocking the interface. Output paths and eligibility come from
 server planning and validation. A client preview is not authority to bypass server admission checks.
 
+A montage's electrodes have one name wherever a user reads them — the app, the reports, the cap
+image and the docs: channel k (1-based) is electrodes **Ek+** and **Ek-**, and "Channel k" names the
+pair (`electrodeSlotName` / `channelElectrodes` in `pages/_shared/scene/model.ts`,
+`channel_electrodes` in `tit/reporting/generators/common.py`). Never "Pair k" or "A"/"B": those
+read as two channels of one carrier. The rule is display text only — `electrode_pairs`, API fields
+and on-disk names (mTI's lettered `TDCS_A…` files and `TI_AB` fields) are unchanged. Tests:
+`desktop/tests/unit/scene-pane-model.test.ts` ("channel k is electrodes Ek+ and Ek-"),
+`tests/test_overlay_colour_legend.py`.
+
 ## 5. Verification and frozen interfaces
 
 Generated configuration schemas omit machine-dependent default values. QSI OpenMP thread fields
@@ -522,8 +531,33 @@ winding and prevents the provoking vertex from assigning a minority label. Tripl
 their original ordering.
 
 Electrode color expresses availability and channel membership, with no additional selection ring.
+EEG electrodes (occluded markers) are drawn as the Blender exporter's electrode model — its profile,
+revolved, 192 triangles, plus a 72-triangle gel slab, from `dev/export_electrode_model.py` into
+`scene/electrodeModel.ts` — in one instanced draw per pass. Each stands with its base on the skin
+and its axis along the outward scalp normal (`scene/electrodePose.ts`: skin vertex normals within
+5 mm, base on their plane) and is bent onto the scalp by a least-squares quadric of the skin around
+it; poses and quadrics are computed once per net and skin. By default every electrode is the 6 mm
+cap marker. The montage pane's **Actual size** switch draws the electrodes in a channel at
+the job's `electrode_shape`, `electrode_dimensions`, `rubber_thickness` and `gel_thickness`
+(`SceneMarker.pad`), the rest hidden (`SceneMarker.hidden`, kept in place so indices do not move) —
+except while a montage is being written (the page passes `onPairsChange`), when the rest stay cap
+markers, because the net is what the next click picks from;
+a size, gel or switch change only rewrites per-instance buffers. The two switches share one
+wrapping row under the legend. Depth-tested against the skin, so
+electrodes touch the scalp at every view angle and are hidden on the far side. Names sit on the
+model's top and show only while that top faces the viewer along the electrode's scalp normal (the
+direction the depth test hides it by; the direction from the head's centre left names on hidden
+electrodes near the silhouette); picking draws the same instances. Markers drawn over everything (placement dots, sphere
+centres) stay screen-facing dots. Excluded alternatives: turning the marker depth test off (the far
+side of the net shows through the head), lifting a screen-facing dot off the scalp (it floats at the
+silhouette), and drawing every net electrode at the configured size (a 185-electrode net at 25 mm
+is a solid carpet).
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
-chips edit the same region list. Coordinate picking remains constrained by §3.
+chips edit the same region list. While the Simulator's **New montage** form is open the pane draws
+the net its EEG net select names, and the form and the pane share one slot cursor (E1+, E1-, E2+, …,
+owned by the page): opening a slot's picker aims the next click at it, a pick in either fills it and
+moves on to the next empty slot, a click on a set electrode clears it, and an electrode set in one
+slot is listed but not pickable in another. Coordinate picking remains constrained by §3.
 
 Optimizer and Analyzer select cortical and subcortical atlas regions on precomputed, packaged
 Ernie reference anatomy, including translucent skin. The scene atlas selector and target form share
@@ -630,6 +664,21 @@ Ex runs one balanced split by default: `ExConfig.channel_limit=None` is `[(total
 2.0 mA total; only an explicit limit above half the total sweeps. `run_config.json` records the
 limit enumerated (`total/2` when unset); a null there is a run from before 2026-10-24, which swept
 to `total - step`.
+A leadfield is the field of one electrode placed at every position of its net, so that electrode
+is part of what the leadfield is. `LeadfieldConfig` carries `SimulationConfig`'s
+`electrode_shape`, `electrode_dimensions`, `gel_thickness` and `rubber_thickness` (defaults: ellipse
+8 × 8 mm, 1 mm gel, 2 mm rubber); `LeadfieldGenerator.generate` sets them on SimNIBS's
+`TDCSLEADFIELD.electrode` (thickness `[gel, rubber]`, as the Simulator does) and, once SimNIBS has
+written `<sid>_leadfield_<net>.hdf5`, records them in `<sid>_leadfield_<net>.json` beside it (a
+sidecar from an earlier run is removed before SimNIBS starts). `GET /api/catalog/leadfields`
+reports the sidecar as `electrode`, `null` when it is missing or malformed; the Optimizer shows the
+electrode beside each leadfield and a `null` as "electrode not recorded", never as today's
+defaults, because a leadfield without a sidecar may have been computed with any electrode. There
+is one leadfield per subject and net (SimNIBS names the file), so another electrode for the same
+net replaces it (`overwrite`). The Optimizer's **Generate leadfield** opens a step with the shared
+Electrodes section, at those defaults, and queues the job only when it is confirmed. Excluded: the
+electrode in the file name (SimNIBS names the file and every reader takes the net from it) and
+SimNIBS's own HDF5 attributes (names, centres, cap and tissues; no geometry).
 Flex exposes Mean TImax, Max TImax (ROI 99.9th percentile), Threshold-free focality and
 Threshold-based focality. The latter retains fixed, adaptive and multi-threshold execution;
 “Multi-threshold” is a presentation label for the existing `pareto` strategy, not a new objective.

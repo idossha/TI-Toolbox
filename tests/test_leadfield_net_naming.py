@@ -46,6 +46,11 @@ CASES = [
 ]
 
 
+def _tdcs_leadfield() -> SimpleNamespace:
+    """``TDCSLEADFIELD()``: SimNIBS 4.6's comes with a default ``ELECTRODE`` to reshape."""
+    return SimpleNamespace(electrode=SimpleNamespace())
+
+
 def _simnibs_name(fnamehead: str, eeg_cap: str) -> str:
     """SimNIBS 4.6 ``TDCSLEADFIELD._lf_name``, re-stated from its source."""
     subid = os.path.splitext(os.path.basename(fnamehead))[0] + "_"
@@ -86,7 +91,15 @@ def test_catalog_listing_reads_the_net_from_the_simnibs_filename(tmp_path, sid, 
     pm = _project(tmp_path, sid)
     path = _leadfield(pm, sid, net, size=4096)
     listed = catalog.list_leadfields(pm, sid)
-    assert listed == [{"net": net, "path": path, "exists": True, "size_bytes": 4096}]
+    assert listed == [
+        {
+            "net": net,
+            "path": path,
+            "exists": True,
+            "size_bytes": 4096,
+            "electrode": None,
+        }
+    ]
     # subject_detail's has_leadfields is the same net, spelled as the cap file.
     detail = catalog.subject_detail(pm, sid)
     assert detail["has_leadfields"] == [f"{net}.csv"]
@@ -140,7 +153,7 @@ def test_generate_returns_the_file_simnibs_wrote_for_this_cap(
     simnibs = sys.modules["simnibs"]
     monkeypatch.setattr(simnibs, "run_simnibs", run_simnibs)
     monkeypatch.setattr(
-        simnibs, "sim_struct", SimpleNamespace(TDCSLEADFIELD=SimpleNamespace)
+        simnibs, "sim_struct", SimpleNamespace(TDCSLEADFIELD=_tdcs_leadfield)
     )
     real_glob = Path.glob
 
@@ -175,7 +188,7 @@ def test_generate_returns_the_simnibs_file_even_for_a_cap_given_with_csv(
     simnibs = sys.modules["simnibs"]
     monkeypatch.setattr(simnibs, "run_simnibs", run_simnibs)
     monkeypatch.setattr(
-        simnibs, "sim_struct", SimpleNamespace(TDCSLEADFIELD=SimpleNamespace)
+        simnibs, "sim_struct", SimpleNamespace(TDCSLEADFIELD=_tdcs_leadfield)
     )
     result = LeadfieldGenerator("E", electrode_cap=cap).generate()
     assert result.name == "E_leadfield_EEG10-10_UI_Jurak_2007.csv.hdf5"
@@ -190,7 +203,7 @@ def test_generate_raises_when_simnibs_wrote_no_leadfield_for_the_cap(
     simnibs = sys.modules["simnibs"]
     monkeypatch.setattr(simnibs, "run_simnibs", lambda lf: None)
     monkeypatch.setattr(
-        simnibs, "sim_struct", SimpleNamespace(TDCSLEADFIELD=SimpleNamespace)
+        simnibs, "sim_struct", SimpleNamespace(TDCSLEADFIELD=_tdcs_leadfield)
     )
     with pytest.raises(FileNotFoundError, match="E_leadfield_EEG10-10_UI_Jurak_2007"):
         LeadfieldGenerator("E", electrode_cap="EEG10-10_UI_Jurak_2007").generate()

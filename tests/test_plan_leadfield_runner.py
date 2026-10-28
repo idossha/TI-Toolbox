@@ -58,7 +58,16 @@ def test_generates_and_prints_expected_hdf5_path(tmp_path, monkeypatch, capsys):
     assert exc.value.code == 0
 
     fake_cls.assert_called_once_with("001", electrode_cap="GSN-HydroCel-185")
-    fake_generator.generate.assert_called_once_with(tissues=[1, 2])
+    # No electrode in the spec: LeadfieldConfig's defaults, the Simulator's (1 mm gel).
+    fake_generator.generate.assert_called_once_with(
+        tissues=[1, 2],
+        electrode={
+            "electrode_shape": "ellipse",
+            "electrode_dimensions": [8.0, 8.0],
+            "gel_thickness": 1.0,
+            "rubber_thickness": 2.0,
+        },
+    )
     assert get_path_manager().project_dir == project_dir
     assert expected in capsys.readouterr().out
     emitted.assert_called_once_with({"leadfield_hdf": expected})
@@ -109,4 +118,51 @@ def test_regenerates_when_overwrite_true_even_if_existing(tmp_path, monkeypatch)
     with pytest.raises(SystemExit) as exc:
         leadfield_runner.main()
     assert exc.value.code == 0
-    fake_generator.generate.assert_called_once_with(tissues=[1, 2])
+    assert fake_generator.generate.call_args.kwargs["tissues"] == [1, 2]
+
+
+def test_the_spec_electrode_reaches_the_generator(tmp_path, monkeypatch):
+    """The Optimizer's Generate-leadfield step sends the electrode the user chose; the runner
+    hands exactly that to ``generate`` (which places it on every cap position)."""
+    fake_generator = MagicMock()
+    fake_generator.list_leadfields.return_value = []
+    fake_generator.generate.return_value = str(tmp_path / "lf.hdf5")
+    monkeypatch.setattr(
+        leadfield_runner, "LeadfieldGenerator", MagicMock(return_value=fake_generator)
+    )
+    chosen = {
+        "electrode_shape": "rect",
+        "electrode_dimensions": [12, 6],
+        "gel_thickness": 2.5,
+        "rubber_thickness": 3,
+    }
+    spec_path = _write_spec(tmp_path, str(tmp_path), **chosen)
+    monkeypatch.setattr(sys, "argv", ["leadfield_runner.py", spec_path])
+
+    with pytest.raises(SystemExit) as exc:
+        leadfield_runner.main()
+    assert exc.value.code == 0
+    assert fake_generator.generate.call_args.kwargs["electrode"] == {
+        "electrode_shape": "rect",
+        "electrode_dimensions": [12.0, 6.0],
+        "gel_thickness": 2.5,
+        "rubber_thickness": 3.0,
+    }
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"electrode_shape": "custom"},
+        {"electrode_dimensions": [8]},
+        {"electrode_dimensions": None},
+        {"electrode_dimensions": [8, 0]},
+        {"gel_thickness": 0},
+        {"rubber_thickness": float("nan")},
+    ],
+)
+def test_an_unusable_electrode_is_refused_by_the_config(bad):
+    from tit.opt.leadfield_config import LeadfieldConfig
+
+    with pytest.raises(ValueError):
+        LeadfieldConfig("001", **bad)

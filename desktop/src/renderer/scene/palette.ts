@@ -38,6 +38,10 @@ export interface ScenePalette {
   selected: Rgb;
   /** Hover feedback: brighter than `selected` so hovering a selected item is still visible. */
   hover: Rgb;
+  /** The gel layer under a montage electrode's pad: a pale, cool blue-white, lighter than every
+   *  channel hue and cooler than the skin, so it reads as its own layer on the scalp and never as
+   *  a channel. The pane's canvas is dark in both app themes, so one value serves both. */
+  gel: Rgb;
   /** Non-ROI regions when a region set is highlighted (plan §2.4, `target` mode). */
   dim: Rgb;
   /**
@@ -59,6 +63,7 @@ export const SCENE_PALETTE: ScenePalette = {
   marker: rgb("#d8dee6"), // --line, light theme
   selected: rgb("#7fa6ff"), // --accent, dark theme
   hover: rgb("#ffffff"),
+  gel: rgb("#dcebf5"),
   dim: rgb("#4b5865"), // --ink-2, light theme
   idle: rgb("#9ea6b3"),
   disabled: rgb("#595959"),
@@ -122,3 +127,8 @@ export const DEFAULT_OPACITY: Record<string, number> = { skin: 0.22 };
  *  is 24 px including spacing, and electrodes on a 10-10 net are ~20 px apart at the default
  *  framing) without covering the anatomy underneath. */
 export const MARKER_SIZE_PX = 11;
+
+/** Radius of the electrode model, mm: a 6 mm-wide, 3 mm-tall electrode, about the size of the old
+ *  11 px dot at the Simulator's default framing (~0.45 mm per px), and it scales with zoom like the
+ *  head it stands on. */
+export const ELECTRODE_RADIUS_MM = 3;

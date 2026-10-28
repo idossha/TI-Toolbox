@@ -433,10 +433,10 @@ test("clicking an existing dot selects its row instead of adding another", async
   await expect(page.getByTestId("freehand-row-0")).toHaveAttribute("data-active", "true");
 });
 
-test("Add electrode pair adds two rows and selects the first; the trash icon removes one and its dot", async () => {
+test("Add channel adds two rows and selects the first; the trash icon removes one and its dot", async () => {
   const rows = () => page.locator('[data-testid^="freehand-row-"]');
   const before = await rows().count();
-  await page.getByRole("button", { name: /^Add electrode/ }).click();
+  await page.getByRole("button", { name: "Add channel", exact: true }).click();
   // A pair at a time: an odd position count is never a valid montage.
   await expect(rows()).toHaveCount(before + 2);
   await expect(page.locator(`[data-testid="freehand-row-${before}"]`)).toHaveAttribute("data-active", "true");

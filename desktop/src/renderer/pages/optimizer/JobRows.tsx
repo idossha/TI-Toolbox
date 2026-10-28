@@ -35,7 +35,7 @@ import type { EegNet, Leadfield } from "./api";
 import { GOAL_OPTIONS, ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
 import { formatBytes } from "./exConfig";
-import { electrodesForNet, leadfieldPathFor, netKey, netOptions } from "./nets";
+import { electrodesForNet, leadfieldElectrodeLabel, leadfieldPathFor, netKey, netOptions } from "./nets";
 import { isFlexMethod, OPT_METHODS, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
 import type { OptGoal } from "./flexConfig";
 import "./optimizer.css";
@@ -211,7 +211,7 @@ export function OptimizerJobRows({
     const ready = (lfs ?? []).filter((lf) => lf.exists);
     const readyKeys = new Set(ready.map((lf) => netKey(lf.net)));
     return [
-      ...ready.map((lf) => ({ value: netKey(lf.net), label: `${netKey(lf.net)} · ${formatBytes(lf.size_bytes)}` })),
+      ...ready.map((lf) => ({ value: netKey(lf.net), label: `${netKey(lf.net)} · ${formatBytes(lf.size_bytes)} · ${leadfieldElectrodeLabel(lf)}` })),
       ...netOptions(lfs, nets)
         .filter((o) => !readyKeys.has(o.value))
         .map((o) => ({ value: o.value, label: `${o.label} — no leadfield` })),
@@ -517,14 +517,14 @@ function RowEditor({
   const method = OPT_METHODS.find((m) => m.value === row.method);
 
   const electrodeCountControl = (
-    <Field label="Count" help="Four electrodes are two pairs (TI); eight are four pairs (mTI).">
+    <Field label="Count" help="TI is two channels, E1± and E2± (four electrodes); mTI is four channels, E1± to E4± (eight electrodes).">
       <SegmentedControl
         aria-label="Electrode count"
         value={String(row.exPairs)}
         onValueChange={(v) => onChange({ ...row, exPairs: Number(v) === 4 ? 4 : 2 })}
         options={[
-          { value: "2", label: "4 electrodes (TI)" },
-          { value: "4", label: "8 electrodes (mTI)" },
+          { value: "2", label: "2 channels (TI)" },
+          { value: "4", label: "4 channels (mTI)" },
         ]}
       />
     </Field>

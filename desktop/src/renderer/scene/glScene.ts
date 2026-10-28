@@ -15,9 +15,13 @@
  *  2. The **second-nearest sheet** of every translucent surface, outermost first, depth test on
  *     (against 1), write OFF.
  *  3. The **nearest sheet** of every translucent surface, innermost first, depth test on, write OFF.
- *  4. A **depth-only pre-pass** of every surface, both faces, colour writes off and depth writes
- *     on, pushed `MARKER_OCCLUSION_BIAS_MM` away from the eye.
- *  5. **Markers**, depth-tested against that, depth write on.
+ *  4. The depth buffer **cleared**, then a **depth-only pre-pass** of every surface, both faces,
+ *     colour writes off and depth writes on, pushed `MARKER_OCCLUSION_BIAS_MM` away from the eye.
+ *     Cleared first because step 1 left the opaque surfaces' unpushed depth there, which would win
+ *     the test and make an opaque skin occlude differently from a translucent one.
+ *  5. **Markers**, depth-tested against that, depth write on: one instanced draw of the electrode
+ *     model (`electrodeModel.ts`) standing on the scalp at each electrode's pose
+ *     (`electrodePose.ts`), or of screen-facing dots for markers that are not occluded.
  *
  * Step 1 exists because opacity 1 was not enough on its own: the sheet path weights alpha by a
  * fresnel term (`alpha * (0.42 + 0.58 * fresnel)`), so a face-on fragment of a surface asked to be
@@ -95,30 +99,43 @@
  * a second time writing the packed window depth instead of the id, and `camera.ts`'s
  * `unprojectDepth` turns that one number into the world point under the cursor.
  */
-import { multiply, perspective, viewMatrix, type Mat4, type OrbitCamera } from "./camera";
+import {
+  boundsCentre,
+  multiply,
+  perspective,
+  viewMatrix,
+  type Mat4,
+  type OrbitCamera,
+  type Vec3,
+} from "./camera";
 import { orientFacesToMajorityLabel } from "./labelFaces";
-import { computeVertexNormals } from "./normals";
+import { computeBounds, computeVertexNormals } from "./normals";
 import { decodePickPixel, PICK_KIND_MARKER, PICK_KIND_REGION, type PickTarget } from "./pickId";
-import { MARKER_SIZE_PX, SCENE_PALETTE, type ScenePalette } from "./palette";
+import { ELECTRODE_MODEL } from "./electrodeModel";
+import { electrodePoses, placeOnScalp, type ElectrodePoses } from "./electrodePose";
+import { ELECTRODE_RADIUS_MM, MARKER_SIZE_PX, SCENE_PALETTE, type ScenePalette } from "./palette";
 import type { ScenePart, SceneMarker, SceneStats } from "./types";
 
 /**
  * How far the depth-only pre-pass pushes the surfaces away from the eye before a marker is tested
- * against them, in world millimetres (§"Draw order" step 3).
+ * against them, in world millimetres (§"Draw order" step 4).
  *
- * Without it an electrode would have to be strictly in front of the scalp to survive, and it is
- * not: the served skin is a *simplified* surface, so an electrode projected onto the original mesh
- * lands within 1.81 mm of it on either side (lane SCA's measurement over every net of every
- * subject). At a bias of 0 roughly half of every net would be culled by a fraction of a millimetre
- * of decimation error — a far worse defect than the one this fix is for.
- *
- * 4 mm is therefore more than twice the worst measured error, and two orders of magnitude below the
- * ~190 mm an electrode on the far hemisphere sits behind the near scalp, so it separates "sitting
- * on the surface" from "behind the head" with a wide margin at both ends. It is applied as a
+ * An electrode is drawn as a model standing on the served skin (`electrodePose.ts` puts its base
+ * on the plane of the skin under it, so the decimated surface's 1.81 mm error against the net's
+ * positions no longer matters). What is left is the contact itself: the model's base ring meets the
+ * skin, and a fraction of a millimetre keeps that ring from z-fighting it — while an electrode on
+ * the far hemisphere, ~190 mm behind the near scalp, stays hidden by orders of magnitude. It is a
  * translation along the view axis, so it is the same number of millimetres everywhere in the frame
  * rather than a `polygonOffset` in unresolvable depth units nobody can state in mm.
  */
-export const MARKER_OCCLUSION_BIAS_MM = 4;
+export const MARKER_OCCLUSION_BIAS_MM = 0.5;
+
+interface Matrices {
+  vp: Mat4;
+  view: Mat4;
+  vpPushed: Mat4;
+  viewPushed: Mat4;
+}
 
 /** Label-state texture: 256x256 R8UI covers every `uint16` label id in 64 KB. */
 const LABEL_TEX_SIDE = 256;
@@ -364,10 +381,43 @@ void main() {
   outColor = vec4(float(id & 255u), float((id >> 8u) & 255u), float((id >> 16u) & 255u), 255.0) / 255.0;
 }`;
 
-const MARKER_VS = `#version 300 es
+/**
+ * The marker vertex shader, in two variants sharing every attribute but the geometry and all of the
+ * colour logic:
+ *
+ *  - `"dot"`: a screen-facing disc of constant pixel size (`aCorner`), for markers drawn over
+ *    everything — a free-hand placement, a sphere centre inside the brain;
+ *  - `"electrode"`: the exporter's electrode model (`electrodeModel.ts`), one instance per marker,
+ *    standing on the scalp — base at `aCenter` (the pose's contact point), axis along `aAxis` (the
+ *    scalp's outward normal), `uRadiusMm` wide. Real geometry, so it touches the skin at every view
+ *    angle and is depth-tested against it like the anatomy.
+ *
+ * Both write `vCorner`, so the three marker fragment shaders serve both: the electrode writes the
+ * disc's centre (0, 0), which no round cut-out discards, and its lighting is in `vColor`.
+ */
+const markerVs = (shape: "dot" | "electrode"): string => `#version 300 es
 precision highp float;
 precision highp int;
-layout(location=0) in vec2 aCorner;
+${
+  shape === "dot"
+    ? "layout(location=0) in vec2 aCorner;"
+    : `layout(location=0) in vec3 aPos;
+layout(location=5) in vec3 aNormal;
+layout(location=7) in float aLayer;
+layout(location=6) in vec3 aAxis;
+layout(location=8) in vec3 aTangent;
+// Half-width, half-height, rubber and gel thickness, mm (a pad's; unused for a cap marker).
+layout(location=9) in vec4 aSize;
+// The skin under the footprint, h = c0 + c1 x + c2 y + c3 x^2 + c4 xy + c5 y^2 (electrodePose.ts).
+layout(location=10) in vec3 aFitA;
+layout(location=11) in vec3 aFitB;
+// -1 = hidden, 0 = a cap marker (the small electrode), 1 = an ellipse pad, 2 = a rect pad.
+layout(location=12) in float aShape;
+uniform mat4 uView;
+uniform float uRadiusMm;
+uniform float uModelHeight;
+uniform vec3 uGelColor;`
+}
 layout(location=1) in vec3 aCenter;
 layout(location=2) in uint aState;
 layout(location=3) in uint aIndex;
@@ -393,24 +443,79 @@ flat out highp uint vState;
 /** 1 when the marker carries a colour of its own — the only markers that get a contour. */
 flat out highp uint vTinted;
 void main() {
-  vec4 clip = uViewProj * vec4(aCenter, 1.0);
-  // Hover grows the dot; SELECTION does not. Selection is said in hue alone (the pane's whole
-  // electrode contract): a selected marker keeps
-  // the idle one's footprint exactly, which is what makes "no ring, no second glyph" a pixel test
-  // — the changed pixels are one solid disc with the same bounding box, not a disc plus a band.
-  // Hover grows every marker. SELECTION grows only a marker that carries its own colour: an EEG
-  // net's selection is said in hue alone (the pane's electrode contract, and a pixel test that
-  // measures the disc's bounding box), while a free-hand placement's has to be unmistakable at a
-  // glance — it is the one the next click will move.
+  // Hover grows the marker; SELECTION does not. Selection is said in hue alone (the pane's whole
+  // electrode contract): a selected marker keeps the idle one's footprint exactly, which is what
+  // makes "no ring, no second glyph" a pixel test. SELECTION grows only a marker that carries its
+  // own colour: a free-hand placement's has to be unmistakable at a glance — it is the one the next
+  // click will move.
   bool tinted = aColor.r >= 0.0;
   bool selected = (aState & 1u) != 0u;
   float scale = ((aState & 2u) != 0u) ? 1.25 : ((tinted && selected) ? 1.2 : 1.0);
+${
+  shape === "dot"
+    ? `  vec4 clip = uViewProj * vec4(aCenter, 1.0);
   // Screen-constant size without gl_PointSize: offsetting clip.xy by (ndc offset * w) survives the
   // perspective divide exactly, and an instanced quad has none of the driver-dependent point-sprite
   // behaviour (clamped sizes, missing gl_PointCoord) that would make a marker unpickable on one GPU.
   clip.xy += (aCorner * (uSizePx * scale) / uViewportPx * 2.0) * clip.w;
   gl_Position = clip;
   vCorner = aCorner * 2.0;
+  float shade = 1.0;`
+    : `  // Hidden (the Actual size view shows only the montage): no area, so nothing to see or pick.
+  if (aShape < -0.5) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    vCorner = vec2(0.0);
+    vColor = vec3(0.0);
+    vIndex = aIndex;
+    vState = aState;
+    vTinted = 0u;
+    return;
+  }
+  // The model's +Z onto the scalp normal; a rect pad's width along the tangent.
+  vec3 n = normalize(aAxis);
+  vec3 t = normalize(aTangent);
+  vec3 b = cross(n, t);
+  bool pad = aShape > 0.5;
+  bool isGel = aLayer < 0.5;
+  // A pad is its configured size; a cap marker is the small electrode, and grows on hover.
+  vec2 extent = pad ? aSize.xy : vec2(uRadiusMm * scale);
+  float rubber = pad ? aSize.z : uRadiusMm * uModelHeight * scale;
+  float gel = pad ? aSize.w : 0.0;
+  vec2 q = aPos.xy;
+  vec2 qn = aNormal.xy;
+  if (aShape > 1.5) {
+    // Rect: the round outline pushed out to the unit square along each direction, so the pad keeps
+    // the electrode's rim profile with straight sides (and a corner chamfer where the decimated
+    // ring has no vertex at 45 degrees).
+    float m = max(abs(q.x), abs(q.y));
+    if (m > 0.0) q *= length(q) / m;
+    qn = abs(qn.x) > abs(qn.y) ? vec2(sign(qn.x) * length(qn), 0.0) : vec2(0.0, sign(qn.y) * length(qn));
+  }
+  vec2 xy = q * extent;
+  float zScale = isGel ? gel : rubber / uModelHeight;
+  float z = isGel ? aPos.z * gel : gel + aPos.z * zScale;
+  // No gel: its slab collapses to a point under the pad and rasterises nothing.
+  if (isGel && gel <= 0.0) xy = vec2(0.0);
+  // Bend onto the scalp: every vertex rides the fitted skin height at its footprint position, so
+  // the gel touches the skin across the whole footprint however wide the pad is.
+  float h = aFitA.x + aFitA.y * xy.x + aFitA.z * xy.y + aFitB.x * xy.x * xy.x + aFitB.y * xy.x * xy.y + aFitB.z * xy.y * xy.y;
+  vec3 world = aCenter + t * xy.x + b * xy.y + n * (h + z);
+  gl_Position = uViewProj * vec4(world, 1.0);
+  vCorner = vec2(0.0);
+  // Normal: the model's, through the non-uniform scale (inverse) and the bent frame.
+  float hx = aFitA.y + 2.0 * aFitB.x * xy.x + aFitB.y * xy.y;
+  float hy = aFitA.z + aFitB.y * xy.x + 2.0 * aFitB.z * xy.y;
+  vec3 T = normalize(t + n * hx);
+  vec3 B = normalize(b + n * hy);
+  vec3 Nb = normalize(cross(T, B));
+  vec3 nl = vec3(qn.x / max(extent.x, 1e-3), qn.y / max(extent.y, 1e-3), aNormal.z / max(zScale, 1e-3));
+  vec3 N = normalize(mat3(uView) * normalize(T * nl.x + B * nl.y + Nb * nl.z));
+  // The surfaces' head light (fixed in view space), per vertex: a pad is a few hundred triangles.
+  float shade = 0.35 + 0.65 * max(dot(N, normalize(vec3(0.32, 0.38, 1.0))), 0.0);
+  // The gel is mostly seen edge-on, as a thin band under the pad; a higher floor keeps it pale
+  // (its own layer) instead of shading it into a dark seam that reads as a shadow.
+  if (isGel) shade = 0.7 + 0.3 * shade;`
+}
   uint ch = aState >> 8u;
   vec3 c = uMarkerColor;
   if (ch == 1u) c = uChannel0;
@@ -427,7 +532,9 @@ void main() {
   if (tinted) c = aColor;
   else if (selected && ch == 0u) c = uSelectedColor;
   if (!tinted && (aState & 2u) != 0u) c = uHoverColor;
-  vColor = c;
+  // The gel is gel-coloured whatever the pad's state: the channel, hover and selection live on the pad.
+${shape === "electrode" ? "  if (isGel) c = uGelColor;" : ""}
+  vColor = c * shade;
   // 1 = its own colour, 2 = its own colour AND selected: the ring the fragment shader draws.
   vTinted = tinted ? (selected ? 2u : 1u) : 0u;
   vIndex = aIndex;
@@ -587,6 +694,10 @@ export interface GlScene {
    * (`ScenePane.tsx` draws either a net or a single sphere centre, never both).
    */
   setMarkerOcclusion(occluded: boolean): void;
+  /** Per electrode model: its top centre, where its name label is anchored, and its axis (the
+   *  outward scalp normal), which says whether that top faces the viewer. `null` while the markers
+   *  are dots (not occluded) or there are none. */
+  electrodeAnchors(): { top: Vec3; axis: Vec3 }[] | null;
   /** Backing-store size in device pixels; `cssWidth`/`cssHeight` set the projection's aspect. */
   resize(cssWidth: number, cssHeight: number, dpr: number): void;
   render(camera: OrbitCamera): void;
@@ -628,6 +739,7 @@ interface UploadedPart {
   indexCount: number;
   hasLabels: boolean;
   hasOffsets: boolean;
+  normals: Float32Array;
 }
 
 interface Program {
@@ -694,10 +806,33 @@ const SURFACE_UNIFORMS = [
   "uSheetPeel",
 ];
 const SURFACE_PICK_UNIFORMS = ["uViewProj", "uView", "uKind"];
+/** The pad's indices come first in `ELECTRODE_MODEL` (the generator writes the pad, then the gel). */
+const PAD_INDEX_COUNT = (() => {
+  const { indices, layers } = ELECTRODE_MODEL;
+  const first = indices.findIndex((v) => layers[v] === 0);
+  return first < 0 ? indices.length : first;
+})();
+
+/** What `markerVs` needs to place a marker — shared by the visible, pick and depth programs so a
+ *  pick lands on the marker exactly where it is drawn. */
+const MARKER_GEOMETRY_UNIFORMS = ["uViewProj", "uViewportPx", "uSizePx", "uView", "uRadiusMm", "uModelHeight"];
+
+/** The visible, pick and depth marker programs, per shape (`markerVs`). */
+function linkMarkerPrograms(gl: WebGL2RenderingContext) {
+  const both = (fs: string, names: string[]) => ({
+    dot: link(gl, markerVs("dot"), fs, names),
+    electrode: link(gl, markerVs("electrode"), fs, names),
+  });
+  return {
+    visible: both(MARKER_FS, MARKER_UNIFORMS),
+    pick: both(MARKER_PICK_FS, MARKER_GEOMETRY_UNIFORMS),
+    depth: both(MARKER_DEPTH_FS, MARKER_GEOMETRY_UNIFORMS),
+  };
+}
+
 const MARKER_UNIFORMS = [
-  "uViewProj",
-  "uViewportPx",
-  "uSizePx",
+  ...MARKER_GEOMETRY_UNIFORMS,
+  "uGelColor",
   "uMarkerColor",
   "uSelectedColor",
   "uHoverColor",
@@ -769,16 +904,34 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   ]);
   let surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
   let surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
-  let markerProgram = link(gl, MARKER_VS, MARKER_FS, MARKER_UNIFORMS);
-  let markerPickProgram = link(gl, MARKER_VS, MARKER_PICK_FS, ["uViewProj", "uViewportPx", "uSizePx"]);
-  let markerDepthProgram = link(gl, MARKER_VS, MARKER_DEPTH_FS, ["uViewProj", "uViewportPx", "uSizePx"]);
+  let markerPrograms = linkMarkerPrograms(gl);
 
   let labelTexture = createLabelTexture(gl);
   let labelColorTexture = createLabelColorTexture(gl);
   let sheets = createSheetTargets(gl, drawWidth, drawHeight);
   let quad = createQuadBuffer(gl);
   let markerVao: WebGLVertexArrayObject | null = null;
+  /** The same markers as electrode models standing on the scalp (`markerVs("electrode")`). */
+  let electrodeVao: WebGLVertexArrayObject | null = null;
   let markerBuffers: WebGLBuffer[] = [];
+  /** Where each electrode stands; recomputed when the net or the skin changes, never per edit. */
+  let poses: ElectrodePoses | null = null;
+  /** The positions and skin `poses` were computed for (`uploadMarkers`). */
+  let posedFor: { worlds: Float32Array; skin: Float32Array | null } | null = null;
+  /** `electrodeAnchors()`, kept until the markers, their pose, the scale or the shape change. */
+  let anchors: { top: Vec3; axis: Vec3 }[] | null = null;
+  /** The hover/selection state buffer both marker VAOs read; dots have no `instance`, so it is
+   *  kept on its own for `setMarkerStates`. */
+  let markerStateBuffer: WebGLBuffer | null = null;
+  /** The per-instance buffers an in-place marker update writes (electrodes only). */
+  let instance: {
+    state: WebGLBuffer;
+    color: WebGLBuffer;
+    size: WebGLBuffer;
+    shape: WebGLBuffer;
+    fitA: WebGLBuffer;
+    fitB: WebGLBuffer;
+  } | null = null;
   let pick = createPickTarget(gl, drawWidth, drawHeight);
 
   const stats: SceneStats = { triangles: 0, vertices: 0, markers: 0, drawCalls: 0, lastFrameMs: 0 };
@@ -919,35 +1072,87 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
     buffers.push(buffer(indices, gl.ELEMENT_ARRAY_BUFFER));
     gl.bindVertexArray(null);
-    return { part, vao, buffers, indexCount: indices.length, hasLabels: labels !== null, hasOffsets: offsets !== null };
+    return { part, vao, buffers, indexCount: indices.length, hasLabels: labels !== null, hasOffsets: offsets !== null, normals };
   }
 
+  /** The outermost part (largest `order`) — the skin the markers sit on (§"Draw order"). */
+  function outerSkin(): UploadedPart | null {
+    return parts.reduce<UploadedPart | null>(
+      (outer, p) => (outer === null || (p.part.order ?? 0) > (outer.part.order ?? 0) ? p : outer),
+      null,
+    );
+  }
+
+  /**
+   * Uploads the markers — or, when only their colours, channels, pads or visibility changed (the
+   * same positions on the same skin), rewrites the per-instance buffers in place. That is the
+   * whole of a size, shape or gel edit and of the **Actual size** switch: a few hundred floats of
+   * `bufferSubData`, no re-pose, no skin search, no VAO.
+   */
   function uploadMarkers(): void {
+    anchors = null;
+    const worlds = new Float32Array(markers.length * 3);
+    markers.forEach((marker, i) => worlds.set(marker.world, i * 3));
+    const skinPositions = outerSkin()?.part.positions ?? null;
+    if (
+      markerVao &&
+      instance &&
+      posedFor &&
+      // Only occluded markers are posed on the skin; a switch between the kinds rebuilds.
+      (poses !== null) === markerOcclusion &&
+      posedFor.skin === skinPositions &&
+      posedFor.worlds.length === worlds.length &&
+      posedFor.worlds.every((v, i) => v === worlds[i])
+    ) {
+      const data = instanceData();
+      const write = (buf: WebGLBuffer, values: ArrayBufferView) => {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, asBufferSource(values));
+      };
+      write(instance.state, resizedStates());
+      write(instance.color, data.colors);
+      write(instance.size, data.size);
+      write(instance.shape, data.shape);
+      write(instance.fitA, data.fitA);
+      write(instance.fitB, data.fitB);
+      return;
+    }
     if (markerVao) gl.deleteVertexArray(markerVao);
+    if (electrodeVao) gl.deleteVertexArray(electrodeVao);
     for (const buf of markerBuffers) gl.deleteBuffer(buf);
     markerBuffers = [];
     markerVao = null;
+    electrodeVao = null;
+    instance = null;
+    markerStateBuffer = null;
+    poses = null;
+    posedFor = null;
     if (markers.length === 0) return;
-    const centres = new Float32Array(markers.length * 3);
+    const skin = outerSkin();
+    const positions = skin?.part.positions ?? new Float32Array(0);
+    // Once per net and skin: every electrode's pose and both of its bends (`electrodePose.ts`).
+    // Dots (placement, sphere centres) never use one.
+    poses = markerOcclusion
+      ? electrodePoses(
+          markers.map((m) => m.world),
+          positions,
+          skin?.normals ?? new Float32Array(0),
+          boundsCentre(computeBounds(positions)),
+        )
+      : null;
+    posedFor = { worlds, skin: skinPositions };
     const indices = new Uint32Array(markers.length);
-    const colors = new Float32Array(markers.length * 3);
-    markers.forEach((marker, i) => {
-      centres[i * 3] = marker.world[0];
-      centres[i * 3 + 1] = marker.world[1];
-      centres[i * 3 + 2] = marker.world[2];
+    markers.forEach((_, i) => {
       indices[i] = i;
-      // -1 is the "no colour of my own" sentinel the vertex shader tests; see `SceneMarker.color`.
-      colors[i * 3] = marker.color ? marker.color[0] : -1;
-      colors[i * 3 + 1] = marker.color ? marker.color[1] : -1;
-      colors[i * 3 + 2] = marker.color ? marker.color[2] : -1;
     });
+    const data = instanceData();
     const vao = gl.createVertexArray();
     if (!vao) throw new Error("scene: gl.createVertexArray returned null");
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    markerBuffers.push(buffer(centres, gl.ARRAY_BUFFER));
+    markerBuffers.push(buffer(worlds, gl.ARRAY_BUFFER));
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
     gl.vertexAttribDivisor(1, 1);
@@ -959,18 +1164,107 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     gl.vertexAttribIPointer(2, 1, gl.UNSIGNED_INT, 0, 0);
     gl.vertexAttribDivisor(2, 1);
     markerBuffers.push(stateBuffer);
-    markerBuffers.push(buffer(indices, gl.ARRAY_BUFFER));
+    markerStateBuffer = stateBuffer;
+    const indexBuffer = buffer(indices, gl.ARRAY_BUFFER);
+    markerBuffers.push(indexBuffer);
     gl.enableVertexAttribArray(3);
     gl.vertexAttribIPointer(3, 1, gl.UNSIGNED_INT, 0, 0);
     gl.vertexAttribDivisor(3, 1);
-    // Appended LAST on purpose: `setMarkerStates` writes `markerBuffers[1]` by index, so a buffer
-    // inserted before it would silently make every hover repaint the colours instead.
-    markerBuffers.push(buffer(colors, gl.ARRAY_BUFFER));
+    const colorBuffer = dynamicBuffer(data.colors);
     gl.enableVertexAttribArray(4);
     gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
     gl.vertexAttribDivisor(4, 1);
     gl.bindVertexArray(null);
     markerVao = vao;
+    if (!poses) return;
+
+    // The electrode-model VAO: the model's vertices, each marker's pose, and the SAME state, index
+    // and colour buffers as the dot VAO, so a hover or a selection repaints both.
+    const evao = gl.createVertexArray();
+    if (!evao) throw new Error("scene: gl.createVertexArray returned null");
+    gl.bindVertexArray(evao);
+    const attribute = (buf: WebGLBuffer, location: number, components: number, type: number, perInstance: boolean) => {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(location);
+      gl.vertexAttribPointer(location, components, type, false, 0, 0);
+      if (perInstance) gl.vertexAttribDivisor(location, 1);
+    };
+    const fixed = (values: Float32Array | Uint8Array) => {
+      const buf = buffer(values, gl.ARRAY_BUFFER);
+      markerBuffers.push(buf);
+      return buf;
+    };
+    attribute(fixed(ELECTRODE_MODEL.positions), 0, 3, gl.FLOAT, false);
+    attribute(fixed(ELECTRODE_MODEL.normals), 5, 3, gl.FLOAT, false);
+    attribute(fixed(ELECTRODE_MODEL.layers), 7, 1, gl.UNSIGNED_BYTE, false);
+    attribute(fixed(poses.base), 1, 3, gl.FLOAT, true);
+    attribute(fixed(poses.axis), 6, 3, gl.FLOAT, true);
+    attribute(fixed(poses.tangent), 8, 3, gl.FLOAT, true);
+    instance = {
+      state: stateBuffer,
+      color: colorBuffer,
+      size: dynamicBuffer(data.size),
+      shape: dynamicBuffer(data.shape),
+      fitA: dynamicBuffer(data.fitA),
+      fitB: dynamicBuffer(data.fitB),
+    };
+    attribute(instance.size, 9, 4, gl.FLOAT, true);
+    attribute(instance.fitA, 10, 3, gl.FLOAT, true);
+    attribute(instance.fitB, 11, 3, gl.FLOAT, true);
+    attribute(instance.shape, 12, 1, gl.FLOAT, true);
+    gl.bindBuffer(gl.ARRAY_BUFFER, stateBuffer);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribIPointer(2, 1, gl.UNSIGNED_INT, 0, 0);
+    gl.vertexAttribDivisor(2, 1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, indexBuffer);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribIPointer(3, 1, gl.UNSIGNED_INT, 0, 0);
+    gl.vertexAttribDivisor(3, 1);
+    attribute(colorBuffer, 4, 3, gl.FLOAT, true);
+    markerBuffers.push(buffer(ELECTRODE_MODEL.indices, gl.ELEMENT_ARRAY_BUFFER));
+    gl.bindVertexArray(null);
+    electrodeVao = evao;
+  }
+
+  function dynamicBuffer(values: Float32Array): WebGLBuffer {
+    const buf = gl.createBuffer();
+    if (!buf) throw new Error("scene: gl.createBuffer returned null");
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, asBufferSource(values), gl.DYNAMIC_DRAW);
+    markerBuffers.push(buf);
+    return buf;
+  }
+
+  /**
+   * The per-instance values a marker's colour, pad and visibility decide. Shape: -1 hidden, 0 the
+   * cap marker (sized by the `uRadiusMm` uniform, so a marker-scale change needs no write), 1 an
+   * ellipse pad, 2 a rect pad. A pad bends with the wide fit, a cap with its own.
+   */
+  function instanceData(): { colors: Float32Array; size: Float32Array; shape: Float32Array; fitA: Float32Array; fitB: Float32Array } {
+    const n = markers.length;
+    const colors = new Float32Array(n * 3);
+    const size = new Float32Array(n * 4);
+    const shape = new Float32Array(n);
+    const fitA = new Float32Array(n * 3);
+    const fitB = new Float32Array(n * 3);
+    markers.forEach((m, i) => {
+      // -1 is the "no colour of my own" sentinel the vertex shader tests; see `SceneMarker.color`.
+      colors.set(m.color ?? [-1, -1, -1], i * 3);
+      if (m.pad) size.set([m.pad.width / 2, m.pad.height / 2, m.pad.rubber, m.pad.gel], i * 4);
+      shape[i] = m.hidden ? -1 : m.pad ? (m.pad.shape === "rect" ? 2 : 1) : 0;
+      const fit = poses ? (m.pad ? poses.fitWide : poses.fit) : null;
+      if (fit) {
+        fitA.set(fit.subarray(i * 6, i * 6 + 3), i * 3);
+        fitB.set(fit.subarray(i * 6 + 3, i * 6 + 6), i * 3);
+      }
+    });
+    return { colors, size, shape, fitA, fitB };
+  }
+
+  /** Occluded markers are electrodes on the scalp; the others (a placement, a sphere centre inside
+   *  the brain) stay screen-facing dots drawn over everything. */
+  function markerShape(): "dot" | "electrode" {
+    return markerOcclusion && electrodeVao ? "electrode" : "dot";
   }
 
   /** The state array padded or trimmed to the marker count, so a stale selection from the previous
@@ -1003,7 +1297,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     if (location) gl.uniform1i(location, value);
   }
 
-  function projection(camera: OrbitCamera): { vp: Mat4; view: Mat4; vpPushed: Mat4; viewPushed: Mat4 } {
+  function projection(camera: OrbitCamera): Matrices {
     const aspect = cssWidth / Math.max(1, cssHeight);
     const near = Math.max(camera.distance * 0.01, 0.1);
     const far = camera.distance * 10 + 1000;
@@ -1114,12 +1408,15 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     drawSurface(uploaded, null);
   }
 
-  function bindMarkerCommon(program: Program, vp: Mat4): void {
+  function bindMarkerCommon(program: Program, vp: Mat4, view: Mat4): void {
     gl.useProgram(program.program);
     setUniformMatrix(program, "uViewProj", vp);
+    setUniformMatrix(program, "uView", view);
     const viewport = program.uniforms.uViewportPx;
     if (viewport) gl.uniform2f(viewport, drawWidth, drawHeight);
     setUniform1f(program, "uSizePx", MARKER_SIZE_PX * markerScale * devicePixelRatioValue);
+    setUniform1f(program, "uRadiusMm", ELECTRODE_RADIUS_MM * markerScale);
+    setUniform1f(program, "uModelHeight", ELECTRODE_MODEL.height);
   }
 
   /** The caller has already bound the program and its uniforms through `bindMarkerCommon`; this is
@@ -1127,8 +1424,16 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   function drawMarkers(): void {
     if (suppressMarkers) return;
     if (!markerVao || markers.length === 0) return;
-    gl.bindVertexArray(markerVao);
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, markers.length);
+    if (markerShape() === "electrode") {
+      gl.bindVertexArray(electrodeVao);
+      // The gel triangles follow the pad's in the index buffer; with no pad anywhere (Actual size
+      // off) every gel slab would collapse to a point, so they are not even submitted.
+      const count = markers.some((m) => m.pad) ? ELECTRODE_MODEL.indices.length : PAD_INDEX_COUNT;
+      gl.drawElementsInstanced(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, 0, markers.length);
+    } else {
+      gl.bindVertexArray(markerVao);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, markers.length);
+    }
     stats.drawCalls += 1;
   }
 
@@ -1145,10 +1450,10 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
    * so. A pick may only ever name something the eye can see.
    */
   function drawPickSequence(
-    matrices: { vp: Mat4; view: Mat4; vpPushed: Mat4; viewPushed: Mat4 },
+    matrices: Matrices,
     options: PickOptions,
     surface: Program,
-    marker: Program,
+    marker: { dot: Program; electrode: Program },
     /**
      * This is the **depth** run of the sequence, not the id run.
      *
@@ -1207,7 +1512,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         gl.colorMask(true, true, true, true);
       }
       gl.disable(gl.CULL_FACE);
-      bindMarkerCommon(marker, vp);
+      bindMarkerCommon(marker[markerShape()], vp, view);
       drawMarkers();
     }
   }
@@ -1225,6 +1530,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         for (const buf of uploaded.buffers) gl.deleteBuffer(buf);
       }
       parts = next.map((part, i) => uploadPart({ ...part, order: part.order ?? i }));
+      // The electrodes stand on the skin, so a new skin re-poses them.
+      if (markers.length > 0) uploadMarkers();
       stats.triangles = parts.reduce((sum, p) => sum + p.indexCount / 3, 0);
       stats.vertices = parts.reduce((sum, p) => sum + p.part.positions.length / 3, 0);
       for (const part of next) if (!opacity.has(part.id)) opacity.set(part.id, part.opacity);
@@ -1232,6 +1539,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
 
     setMarkerScale(scale) {
       markerScale = Math.max(0.1, scale);
+      anchors = null;
     },
 
     setMarkers(next) {
@@ -1246,7 +1554,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
 
     setMarkerStates(states) {
       markerStates = states;
-      const buf = markerBuffers[1];
+      const buf = markerStateBuffer;
       if (buf && states.length === markers.length) {
         gl.bindBuffer(gl.ARRAY_BUFFER, buf);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, asBufferSource(states));
@@ -1298,7 +1606,22 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     },
 
     setMarkerOcclusion(occluded) {
+      if (occluded === markerOcclusion) return;
       markerOcclusion = occluded;
+      if (markers.length > 0) uploadMarkers();
+    },
+
+    electrodeAnchors() {
+      if (!poses || markerShape() !== "electrode") return null;
+      if (anchors) return anchors;
+      const p = poses;
+      anchors = markers.map((m, i) => ({
+        top: m.pad
+          ? placeOnScalp(p, i, 0, 0, m.pad.gel + m.pad.rubber, true)
+          : placeOnScalp(p, i, 0, 0, ELECTRODE_MODEL.height * ELECTRODE_RADIUS_MM * markerScale),
+        axis: [p.axis[i * 3] as number, p.axis[i * 3 + 1] as number, p.axis[i * 3 + 2] as number] as Vec3,
+      }));
+      return anchors;
     },
 
     resize(nextCssWidth, nextCssHeight, dpr) {
@@ -1410,6 +1733,12 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       //    leaves the depth buffer empty and every marker in front of everything, as before.
       gl.depthMask(true);
       if (markerOcclusion) {
+        // Cleared first: step 1 left every OPAQUE surface's unpushed depth here, which wins the
+        // LEQUAL test against the pushed copy, so at full skin opacity the markers met a bias of
+        // 0 mm and every one was cut to a crescent (maintainer, 2026-10-28). The head is already
+        // composited; this buffer now only decides what the markers may cover, exactly as it does
+        // when every surface is translucent and as `drawPickSequence` already does.
+        gl.clear(gl.DEPTH_BUFFER_BIT);
         gl.colorMask(false, false, false, false);
         bindSurfaceCommon(surfaceDepthProgram, vpPushed, viewPushed);
         for (const uploaded of list) drawSurface(uploaded, null);
@@ -1424,7 +1753,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       // relying on that: a marker the caller asked not to occlude is drawn, full stop. The failure
       // it prevents: a placement dot half-buried in the scalp it sits on (maintainer, 2026-09-06).
       if (!markerOcclusion) gl.depthFunc(gl.ALWAYS);
-      bindMarkerCommon(markerProgram, vp);
+      const markerProgram = markerPrograms.visible[markerShape()];
+      bindMarkerCommon(markerProgram, vp, view);
       // Channel 0 means "in no channel": neutral grey, never the accent — see `palette.idle`.
       setUniform3f(markerProgram, "uMarkerColor", palette.idle);
       setUniform3f(markerProgram, "uSelectedColor", palette.selected);
@@ -1435,6 +1765,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       setUniform3f(markerProgram, "uChannel3", palette.channels[3]);
       setUniform3f(markerProgram, "uChannel4", palette.channels[4]);
       setUniform3f(markerProgram, "uChannel5", palette.channels[5]);
+      setUniform3f(markerProgram, "uGelColor", palette.gel);
       drawMarkers();
       if (!markerOcclusion) gl.depthFunc(gl.LESS);
 
@@ -1468,7 +1799,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       // left in the same texels. That would resolve as "you clicked the electrode you clicked last
       // time it was in front of the head".
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      drawPickSequence(matrices, options, surfacePickProgram, markerPickProgram);
+      drawPickSequence(matrices, options, surfacePickProgram, markerPrograms.pick);
       gl.readPixels(devX, readY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
       const target = decodePickPixel(pixel);
       const hit = target?.kind === "marker" && target.index >= markers.length ? null : target;
@@ -1487,7 +1818,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         gl.clearColor(1, 1, 1, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.clearColor(0, 0, 0, 0);
-        drawPickSequence(matrices, options, surfaceDepthProgram, markerDepthProgram, true);
+        drawPickSequence(matrices, options, surfaceDepthProgram, markerPrograms.depth, true);
         gl.readPixels(devX, readY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
         const packed = decodePackedDepth(pixel);
         ndcDepth = packed >= 1 - 1e-6 ? null : packed * 2 - 1;
@@ -1540,9 +1871,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       ]);
       surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
       surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
-      markerProgram = link(gl, MARKER_VS, MARKER_FS, MARKER_UNIFORMS);
-      markerPickProgram = link(gl, MARKER_VS, MARKER_PICK_FS, ["uViewProj", "uViewportPx", "uSizePx"]);
-      markerDepthProgram = link(gl, MARKER_VS, MARKER_DEPTH_FS, ["uViewProj", "uViewportPx", "uSizePx"]);
+      markerPrograms = linkMarkerPrograms(gl);
       labelTexture = createLabelTexture(gl);
       labelColorTexture = createLabelColorTexture(gl);
       sheets = createSheetTargets(gl, drawWidth, drawHeight);
@@ -1551,6 +1880,10 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       const sourceParts = parts.map((uploaded) => uploaded.part);
       parts = [];
       markerVao = null;
+      electrodeVao = null;
+      instance = null;
+      markerStateBuffer = null;
+      posedFor = null;
       markerBuffers = [];
       scene.setParts(sourceParts);
       const savedStates = markerStates;
@@ -1569,6 +1902,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       }
       parts = [];
       if (markerVao) gl.deleteVertexArray(markerVao);
+      if (electrodeVao) gl.deleteVertexArray(electrodeVao);
       for (const buf of markerBuffers) gl.deleteBuffer(buf);
       gl.deleteBuffer(quad);
       gl.deleteTexture(labelTexture);
@@ -1587,9 +1921,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         sheetPeelProgram,
         surfacePickProgram,
         surfaceDepthProgram,
-        markerProgram,
-        markerPickProgram,
-        markerDepthProgram,
+        ...Object.values(markerPrograms).flatMap((pair) => [pair.dot, pair.electrode]),
       ]) {
         gl.deleteProgram(program.program);
       }

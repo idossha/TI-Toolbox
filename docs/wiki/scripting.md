@@ -237,7 +237,7 @@ run_simulation(cfg)
 | `intensities` | **Currents (mA)** column | `[1.0, 1.0]` |
 | `electrode_shape` | **Electrodes ▸ Shape** | `"ellipse"` |
 | `electrode_dimensions` | **Electrodes ▸ Dimensions** (mm) | `[8.0, 8.0]` |
-| `gel_thickness` | **Electrodes ▸ Gel thickness** (mm) | `4.0` |
+| `gel_thickness` | **Electrodes ▸ Gel thickness** (mm) | `1.0` |
 | `rubber_thickness` | — | `2.0` |
 | `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`) | `["TI_max"]` |
 | `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`, no envelope fields; 2-pair TI with `output_fields` from `hf_peak`/`hf_sar` ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |

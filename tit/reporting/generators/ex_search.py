@@ -408,8 +408,11 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     winner = (
         c.kv(
             [
-                (f"Channel {i}", f"{esc(' → '.join(p))}, {fmt(m)} mA")
-                for i, (p, m) in enumerate(zip(pairs, mA), 1)
+                (
+                    f"Channel {i + 1}",
+                    f"{esc(common.channel_electrodes(p, i))}, {fmt(m)} mA",
+                )
+                for i, (p, m) in enumerate(zip(pairs, mA))
             ]
         )
         + '<h3 class="sub">Dose record</h3>'

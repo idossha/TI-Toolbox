@@ -178,7 +178,7 @@
 }
 
 .job-channel .number-input {
-  width: 46px;
+  width: 42px;
   min-width: 0;
   max-width: none;
 }
@@ -208,6 +208,7 @@
 }
 
 .job-polarity {
+  flex: none;
   color: var(--text-secondary);
   font-size: 11px;
   text-transform: none;
@@ -308,12 +309,6 @@
 .montage-table tbody tr[data-montage-row]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-}
-
-/* Gel thickness carries a "mm" suffix inside the control, so it needs a little more room than the
-   72px the bare w/h boxes take (`--control-w`, ui/components.css `.field-row-inline`). */
-.sim-gel-field {
-  --control-w: 88px;
 }
 
 /* The unit in a header that is otherwise uppercased: "CURRENTS (MA)" is not a unit, "mA" is. */

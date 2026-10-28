@@ -192,7 +192,7 @@ export function DensityGallery() {
               title="Electrodes"
               collapsible
               changed
-              summary="ellipse · 8×8 mm · gel 4 mm"
+              summary="ellipse · 8×8 mm · gel 1 mm"
               onReset={() => {}}
               advanced={
                 <>

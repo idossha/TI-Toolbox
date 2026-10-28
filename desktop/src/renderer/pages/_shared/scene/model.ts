@@ -9,6 +9,7 @@
  */
 import type { SceneElectrode, SceneLegendRow } from "./api";
 import type { Rgb, SceneMarker } from "../../../scene/types";
+import type { ElectrodePad } from "../../../scene/electrodePose";
 import { SCENE_PALETTE } from "../../../scene/palette";
 
 /** World millimetres. The renderer's `Rgb` and this are the same three-number tuple; naming both
@@ -129,6 +130,15 @@ export function firstEmptySlot(pairs: Pair[]): number {
   return 0;
 }
 
+/** `pairs` after switching to a net with `electrodes`: a name the new net lacks is blanked, a
+ *  name both nets have is kept. The same array when nothing changes. */
+export function pairsOnNet(pairs: Pair[], electrodes: readonly string[]): Pair[] {
+  const onNet = new Set(electrodes);
+  const keep = (name: string) => (name && onNet.has(name) ? name : "");
+  const next = pairs.map(([a, b]) => [keep(a), keep(b)] as Pair);
+  return next.every((p, i) => p[0] === pairs[i]![0] && p[1] === pairs[i]![1]) ? pairs : next;
+}
+
 export interface PickResult {
   pairs: Pair[];
   cursor: number;
@@ -155,11 +165,31 @@ export function applyElectrodePick(pairs: Pair[], cursor: number, name: string):
   return { pairs: next, cursor: advanceSlot(next, slot) };
 }
 
-/** "Pair 2 · B" — what the pane's status line says the next click will fill. */
+/**
+ * The one naming convention for a montage's electrodes (DECISIONS 2026-10-28, "Channel k is Ek+
+ * and Ek-"): channel k (1-based) is made of electrodes **Ek+** and **Ek-**, so flattened slot
+ * `2(k-1)` is `Ek+` and `2(k-1)+1` is `Ek-`. Never "pair", never "A"/"B". The `-` is ASCII because
+ * the same string is a free-hand position's label, which goes into a JSON file SimNIBS reads back.
+ */
+export function electrodeSlotName(slot: number): string {
+  return `E${Math.floor(slot / 2) + 1}${slot % 2 === 0 ? "+" : "-"}`;
+}
+
+/** `"Channel 2"` for channel index 1 — the user-facing name of one electrode pair. */
+export function channelName(channel: number): string {
+  return `Channel ${channel + 1}`;
+}
+
+/** `"E1+ F3 · E1- F4"` — one channel's two electrodes by role, `—` for a slot nobody filled. */
+export function channelElectrodes(pair: readonly string[], channel: number): string {
+  return `${electrodeSlotName(channel * 2)} ${pair[0] || "—"} · ${electrodeSlotName(channel * 2 + 1)} ${pair[1] || "—"}`;
+}
+
+/** "E2- (Channel 2)" — what the pane's status line says the next click will set. */
 export function slotLabel(pairs: Pair[], cursor: number): string {
-  if (slotCount(pairs) === 0) return "no pairs";
+  if (slotCount(pairs) === 0) return "no channels";
   const slot = cursor % slotCount(pairs);
-  return `Pair ${Math.floor(slot / 2) + 1} · ${slot % 2 === 0 ? "A" : "B"}`;
+  return `${electrodeSlotName(slot)} (${channelName(Math.floor(slot / 2))})`;
 }
 
 /** Electrode name -> the pair (channel) index it belongs to. Later pairs win a duplicate. */
@@ -180,6 +210,13 @@ export function channelByElectrode(pairs: Pair[]): Record<string, number> {
 export function markersFromElectrodes(
   electrodes: SceneElectrode[],
   channels: Record<string, number> = {},
+  /** The montage's electrode size, for the Actual size view: the electrodes in a channel are drawn
+   *  at that size with their gel, and the rest of the net is hidden. Absent, every electrode is the
+   *  small cap marker. */
+  pad?: ElectrodePad,
+  /** Keep the unassigned electrodes as small cap markers in the Actual size view instead of hiding
+   *  them: a montage being written still has to be picked off the whole net. */
+  keepUnassigned = false,
 ): SceneMarker[] {
   return electrodes.map((electrode) => {
     const channel = channels[electrode.name];
@@ -188,6 +225,7 @@ export function markersFromElectrodes(
       label: electrode.name,
       world: electrode.world as Vec3,
       ...(channel === undefined ? {} : { channel }),
+      ...(pad ? (channel === undefined ? (keepUnassigned ? {} : { hidden: true }) : { pad }) : {}),
     };
   });
 }

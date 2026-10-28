@@ -288,7 +288,7 @@ test("line 2 is unclipped, on line 1's grid, and every job is the same height", 
     const px = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
     return {
       source: px(line1.querySelector('td[data-cell="source"]'))!.x,
-      chip: px(line2.querySelector('td[data-cell="polarity"] .job-polarity'))!.x,
+      chip: px(line2.querySelector('.job-polarity'))!.x,
       montageRight: px(line1.querySelector('td[data-cell="montage"]'))!.right,
       line2Bottom: px(line2)!.bottom,
       detailBottom: px(line2.querySelector(".job-line2"))!.bottom,
@@ -323,7 +323,7 @@ test("line 2 is unclipped, on line 1's grid, and every job is the same height", 
 
   // An empty job says so on line 2, at the same height as a configured one.
   const empty = await addJobRow(page);
-  await expect(jobDetail(empty).locator(".job-line2-empty")).toHaveText(/Pairs and currents appear/);
+  await expect(jobDetail(empty).locator(".job-line2-empty")).toHaveText(/Channels and currents appear/);
   const withEmpty = await page.evaluate(() => {
     const out: number[] = [];
     for (const line1 of document.querySelectorAll("tr[data-job-row]")) {

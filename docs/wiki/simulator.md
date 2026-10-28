@@ -11,8 +11,8 @@ The Simulator computes the full FEM temporal interference field. It sits between
 <img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: one row per simulation job, with the selected montage drawn on the packaged guide head in the Scene pane" style="width: 100%; max-width: 1000px;">
 <em>The Simulator (⌘3). One row is one job. The pane draws the active row's montage: a named montage on the packaged guide head, a free-hand or optimised (XYZ) placement on the subject's own head.</em>
 
-- **Jobs**: one row per simulation, each with its own **Subject** and **Source**: `Montage`, `Flex result` or `Free-hand` (see [Montage Sources](#montage-sources)). Line 2 of a row lists its channels (electrode pairs), each with its own current field in mA. **Add job** adds a row; the copy button duplicates one.
-- **TI or mTI**: not a control. It is read off the number of pairs: 2 pairs run standard TI, 4, 6, 8 … run mTI (see [How the Toolbox Detects mTI](#how-the-toolbox-detects-mti)).
+- **Jobs**: one row per simulation, each with its own **Subject** and **Source**: `Montage`, `Flex result` or `Free-hand` (see [Montage Sources](#montage-sources)). Line 2 of a row lists its channels, each named by its two electrodes (`E1+ F3 · E1- F4`: channel k runs from electrode Ek+ to Ek-) with its own current field in mA. **Add job** adds a row; the copy button duplicates one.
+- **TI or mTI**: not a control. It is read off the number of channels: 2 channels run standard TI, 4, 6, 8 … run mTI (see [How the Toolbox Detects mTI](#how-the-toolbox-detects-mti)).
 - **Montages**: **New montage**, the pencil **Edit** on a Montage row, and **Manage montages**, which deletes saved montages and free-hand placements (see [Montage Sources](#montage-sources)). **New placement** opens the [free-hand placement editor]({{ site.baseurl }}/wiki/electrode-placement/).
 - **Job settings**: electrodes, conductivity, output fields, the carrier-only control and standard-space outputs, per job (see [Job settings](#job-settings)).
 - **Real-time Logging**: Simulation progress and status updates
@@ -27,9 +27,9 @@ A job row's **Source** says where its electrodes come from:
 
 Named montages saved per EEG net. Pick the row's **EEG net**, then a **Montage**; the list shows only that net's montages.
 
-- **Standard TI**: 2 pairs (4 electrodes, 2 channels)
-- **mTI**: an even number of 4 or more pairs (8, 12, … electrodes)
-- **New montage**: choose a net, name the montage and pick its electrode pairs from the net's labels, or click electrodes in the pane to fill the pairs. Its polarity (TI or mTI) is shown, not chosen.
+- **Standard TI**: 2 channels (4 electrodes: E1+, E1-, E2+, E2-)
+- **mTI**: an even number of 4 or more channels (8, 12, … electrodes)
+- **New montage**: choose a net, name the montage and fill its **Channels**: channel k is electrodes **Ek+** and **Ek-**. While the form is open the Scene pane draws the chosen net on the head; clicking an electrode sets the highlighted slot, in the order E1+, E1-, E2+, E2- …, or the slot whose picker you last opened. Clicking a set electrode again clears it, an electrode already in one slot cannot be picked for another, and **Add 2 channels** extends the montage to mTI. With **Actual size** on, the set electrodes are drawn at the job's electrode size and the rest of the net stays pickable. Its polarity (TI or mTI) is shown, not chosen.
 - **Edit**: the pencil on a Montage row opens that montage in the same editor, which can also delete it.
 - **Manage montages**: delete saved montages (per net) and [free-hand placements]({{ site.baseurl }}/wiki/electrode-placement/) (per subject), one at a time or several at once. Existing simulation results are kept.
 
@@ -67,7 +67,7 @@ To add a net to a head model that already exists, such as your own MNI cap, use 
 
 Open a job's settings with the row's settings button, or double-click the row. A new row starts from the settings you configured last.
 
-- **Electrodes**: **Shape** (Ellipse or Rectangle), **Dimensions** (width × height, mm) and **Gel thickness**. Defaults: ellipse, 8 × 8 mm, 4 mm gel.
+- **Electrodes**: **Shape** (Ellipse or Rectangle), **Dimensions** (width × height, mm) and **Gel thickness** (the saline layer between skin and the 2 mm rubber). Defaults: ellipse, 8 × 8 mm, 1 mm gel. The **?** beside **Electrodes** explains each, with a diagram and links to the SimNIBS electrode reference and Saturnino et al. 2015.
 - **Conductivity**: the **Model** and, for the anisotropic models, its bounds (see [Conductivity and Anisotropy](#conductivity-and-anisotropy)). **Edit values…** overrides the per-tissue conductivities for this job only.
 - **Output fields**: see [Output Fields](#output-fields) and [Carrier-only control](#carrier-only-control).
 - **Standard-space outputs**: **Generate MNI NIfTI outputs** (off by default) also writes the fields and the T1 in MNI space. The MNI-space group tools read these files: [cluster permutation testing]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group averaging]({{ site.baseurl }}/wiki/nifti-group-averaging/) and [Nilearn visuals]({{ site.baseurl }}/wiki/nilearn-visuals/). **Map fields to fsaverage** (off by default in the app; `map_to_fsavg` defaults to `True` in Python) projects the fields to fsaverage5 after simulation, for TI and mTI alike. The result is `fsaverage/sub-<id>_sim-<sim>_space-fsaverage5_fields.msh` in the simulation folder, a surface mesh you can open in the Viewer or Gmsh (see [Extensions]({{ site.baseurl }}/wiki/extension/)).
@@ -78,7 +78,7 @@ Open a job's settings with the row's settings button, or double-click the row. A
 
 ### Unipolar Mode
 
-- **Configuration**: Two electrode pairs (four electrodes), forming two channels whose slightly different frequencies produce the TI envelope
+- **Configuration**: Two channels (four electrodes: E1+ and E1-, E2+ and E2-) whose slightly different frequencies produce the TI envelope
 - **Current Settings**: One current magnitude per channel; each channel has an active and return electrode
 - **Applications**: Standard two-channel temporal interference stimulation
 - **Montage Compatibility**: Works with unipolar montage collections
@@ -92,7 +92,7 @@ Multipolar temporal interference (mTI) uses 8 or more electrodes: each two chann
   <em>Unipolar (top, A–C) vs. multipolar (bottom, D–F) TI targeting the same deep ROI. Left: electrode montage — two channels at 8 mA each vs. four channels at 5 mA each. Middle: peak high-frequency field. Right: the amplitude-modulated (AM) envelope field that actually drives neurons. The multipolar montage trades some ROI intensity (mean 1.00 vs. 1.45 V/m) for a more focal envelope (focality 1.40 vs. 1.17) and a lower per-channel current. Adapted from <a href="https://doi.org/10.1176/appi.ajp.20250873">Albantakis &amp; Tononi 2026</a>, <i>American Journal of Psychiatry</i>.</em>
 </div>
 
-- **Configuration**: Any even number of channels, 4 or more — i.e. 8+ electrodes (capped at 26 channels, labelled A–Z)
+- **Configuration**: Any even number of channels, 4 or more — i.e. 8+ electrodes (capped at 26 channels)
 - **Current Settings**: One current input per channel
 - **Applications**: Distributed stimulation, field steering, and complex targeting
 - **Montage Compatibility**: Works with multipolar montage collections
@@ -104,8 +104,8 @@ For the envelope field math behind these quantities see [Envelope Math and Criti
 TI vs. mTI is not a setting: it is read off how many channels (electrode pairs) a montage has.
 
 - **2 channels**: standard TI
-- **4, 6, 8 … channels**: mTI, up to 26 channels (labelled A–Z)
-- **A single pair or an odd number of pairs** is rejected: every carrier needs two channels. The error reads "Expected an even number of electrode pairs, at least 2 (2 = TI, 4 or more = mTI)".
+- **4, 6, 8 … channels**: mTI, up to 26 channels
+- **A single channel or an odd number of channels** is rejected: every carrier needs two channels. The error reads "Expected an even number of electrode pairs, at least 2 (2 = TI, 4 or more = mTI)".
 
 Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 
@@ -116,7 +116,7 @@ Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 
 #### Channels and Carriers
 
-The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels A & B share the first carrier and channels C & D the second — there is no wiring choice to make.
+The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels 1 & 2 (E1±, E2±) share the first carrier and channels 3 & 4 (E3±, E4±) the second — there is no wiring choice to make. On disk the mTI channel files are lettered (`TDCS_A` is channel 1, `TDCS_B` channel 2, …) and the first carrier's field is `TI_AB`.
 
 The kHz-exposure safety metrics `hf_peak`/`hf_sar` include every channel field under the shipped positional wiring (one field per carrier). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 
@@ -136,7 +136,7 @@ A carrier-only control delivers the same two kHz carriers as a TI montage but at
 
 Without a beat the two carriers add coherently into one fixed field, so the exposure metrics become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2$$ rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
 
-- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_sar` are selected, and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more pairs) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
+- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_sar` are selected, and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more channels) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
 - **From Python or a JSON config**:
 
 ```python

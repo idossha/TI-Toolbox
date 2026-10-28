@@ -39,6 +39,18 @@ export function leadfieldPathFor(leadfields: Leadfield[] | undefined, net: strin
   return lf?.exists ? lf.path : null;
 }
 
+/**
+ * The electrode a leadfield was computed with, in a few words: "ellipse 8×8 mm, gel 1 mm". A
+ * leadfield with no sidecar (`electrode: null`) says so rather than borrowing today's defaults — it
+ * may have been computed with any electrode.
+ */
+export function leadfieldElectrodeLabel(lf: Pick<Leadfield, "electrode"> | undefined): string {
+  const e = lf?.electrode;
+  if (!e) return "electrode not recorded";
+  const [w, h] = e.electrode_dimensions;
+  return `${e.electrode_shape} ${w}×${h} mm, gel ${e.gel_thickness} mm`;
+}
+
 /** The net's electrode labels — the options every Ex/mEx bucket and the Ex pool are filled from. */
 export function electrodesForNet(nets: EegNet[] | undefined, net: string | null): string[] {
   if (!net) return [];

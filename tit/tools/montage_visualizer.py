@@ -163,16 +163,16 @@ def _draw_arc(
 
 
 def _pair_label(idx: int) -> str:
-    """Return the TI-pair label for pair *idx* (0->"1A", 1->"1B", 2->"2A")."""
-    return f"{idx // 2 + 1}{'A' if idx % 2 == 0 else 'B'}"
+    """The legend name of electrode pair *idx*: channel ``idx + 1`` (made of electrodes
+    E<k>+ and E<k>-), the naming the app and the reports use -- never "A"/"B"."""
+    return f"Channel {idx + 1}"
 
 
 def _draw_legend(image: str, n_pairs: int) -> None:
     """Draw a channel colour key in the bottom-left corner of *image*.
 
-    One row per pair, labelled by TI unit: ``1A``/``1B`` are the two
-    channels of the first temporal-interference pair, ``2A``/``2B`` the
-    second, and so on.  Positioned low-left so it clears the cap layout.
+    One row per electrode pair, ``Channel 1``, ``Channel 2``, ... in the
+    montage's own order.  Positioned low-left so it clears the cap layout.
     """
     if n_pairs < 1:
         return
@@ -180,7 +180,7 @@ def _draw_legend(image: str, n_pairs: int) -> None:
     swatch = 30
     pad = 18
     text_dx = swatch + 14
-    panel_w = 200
+    panel_w = 270
     panel_h = pad * 2 + n_pairs * row_h
     x0 = 30
     # Anchor to the bottom edge (GSN-256 template is 1816x1536).
@@ -218,7 +218,7 @@ def _draw_legend(image: str, n_pairs: int) -> None:
             "NorthWest",
             "-annotate",
             f"+{sx + text_dx}+{ry + 6}",
-            f"Ch {_pair_label(i)}",
+            _pair_label(i),
         ]
     subprocess.run(["convert", image, *draw, image], check=True)
 
@@ -284,9 +284,10 @@ def visualize_montage(
         sum(y for _, y in coords.values()) / len(coords),
     )
 
-    # Consecutive pairs form one TI unit: (0,1) work together, (2,3) work
-    # together, ... so each pair's arc bulges toward its *partner* pair --
-    # 1A faces 1B, 2A faces 2B -- rather than the whole montage.
+    # Consecutive channels beat together: (0,1) work together, (2,3) work
+    # together, ... so each channel's arc bulges toward its *partner* channel --
+    # channel 1 faces channel 2, channel 3 faces channel 4 -- rather than the
+    # whole montage.
     def _partner_target(idx: int) -> tuple[float, float]:
         partner = idx + 1 if idx % 2 == 0 else idx - 1
         pts = (

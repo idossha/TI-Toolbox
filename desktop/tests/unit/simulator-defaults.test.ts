@@ -19,7 +19,6 @@ import { defaultJobSettings, isCustomised, settingsFor, type JobSettings } from 
 import { removeGroup } from "../../src/renderer/ui/ElectrodePairsEditor";
 import {
   currentValues,
-  formatPairs,
   montageOptionValue,
   parseMontageOptionValue,
   resolveColumnWidths,
@@ -354,10 +353,6 @@ describe("montage table derivations", () => {
     expect(currentValues("", 2)).toEqual([1, 1]);
   });
 
-  it("renders the pairs cell read-only, in the maintainer's notation", () => {
-    expect(formatPairs([["E1", "E2"], ["E3", "E4"]])).toBe("E1\u2013E2 \u00b7 E3\u2013E4");
-  });
-
   it("round-trips a montage option value, so one name can exist in both buckets of a net", () => {
     expect(montageOptionValue("multi_polar", "mTI:odd")).toBe("multi_polar:mTI:odd");
     expect(parseMontageOptionValue("multi_polar:mTI:odd")).toEqual({ kind: "multi_polar", name: "mTI:odd" });
@@ -518,7 +513,7 @@ describe("per-job settings", () => {
 
   it("a changed default reaches a row that follows it, and not one that does not", () => {
     const following = row();
-    const custom = row({ settings: { ...defaults, electrodeShape: "rect", dimensions: [10, 10] } });
+    const custom = row({ settings: { ...defaults, electrodeShape: "rect", dimensions: [10, 10], gelThickness: 4 } });
     const changed: JobSettings = { ...defaults, gelThickness: 6 };
 
     expect(settingsFor(following, changed).gelThickness).toBe(6);

@@ -23,7 +23,7 @@ Temporal interference is a non-invasive brain stimulation technique that can rea
 
 ### How It Works
 
-1. **Two pairs of electrodes** are placed on the scalp. Each pair delivers a sinusoidal (AC) current at a slightly different high frequency. For example, Pair 1 operates at 2000 Hz and Pair 2 at 2010 Hz.
+1. **Two channels** — two electrode pairs — are placed on the scalp. TI-Toolbox names channel k's electrodes **Ek+** and **Ek-** (channel 1 is E1+ and E1-, channel 2 is E2+ and E2-; never "A"/"B" or "Pair k"). Each channel delivers a sinusoidal (AC) current at a slightly different high frequency. For example, channel 1 operates at 2000 Hz and channel 2 at 2010 Hz.
 
 2. **High-frequency currents pass through superficial tissue without stimulating neurons.** Neurons have a biophysical low-pass filtering property — they cannot follow electrical oscillations above roughly 1 kHz. The 2000 Hz and 2010 Hz signals individually do nothing to neural tissue.
 
@@ -86,17 +86,17 @@ This equals `2 · min(|E1|, |E2|)` when the fields point in the same direction. 
 
 ### Extension to N Electrode Pairs
 
-Standard TI uses 2 electrode pairs. Multi-polar TI (mTI) extends this to N pairs — in the current TI-Toolbox implementation, typically **4 pairs**.
+Standard TI uses 2 channels. Multi-polar TI (mTI) extends this to N channels — in the current TI-Toolbox implementation, typically **4 channels** (E1± to E4±).
 
 ### How mTI Works
 
-1. Each pair operates at a distinct carrier frequency. For example:
-   - Pair 1: 2000 Hz
-   - Pair 2: 2010 Hz
-   - Pair 3: 2020 Hz
-   - Pair 4: 2030 Hz
+1. Each channel operates at a distinct carrier frequency. For example:
+   - Channel 1: 2000 Hz
+   - Channel 2: 2010 Hz
+   - Channel 3: 2020 Hz
+   - Channel 4: 2030 Hz
 
-2. Multiple interference patterns form simultaneously. With 4 pairs, there are C(4,2) = 6 pairwise interference terms, each producing a different beat frequency (10, 20, 30 Hz, etc.).
+2. Multiple interference patterns form simultaneously. With 4 channels, there are C(4,2) = 6 pairwise interference terms, each producing a different beat frequency (10, 20, 30 Hz, etc.).
 
 3. **Phase optimization** is a key additional degree of freedom. By adjusting the relative starting phases between pairs, the spatiotemporal field pattern can be controlled more precisely. This is not available in standard 2-pair TI.
 

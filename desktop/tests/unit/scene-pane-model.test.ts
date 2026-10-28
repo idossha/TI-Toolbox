@@ -12,9 +12,13 @@ import {
   advanceSlot,
   applyElectrodePick,
   channelByElectrode,
+  channelElectrodes,
+  channelName,
+  electrodeSlotName,
   firstEmptySlot,
   markerIndicesFor,
   markersFromElectrodes,
+  pairsOnNet,
   placedElectrodes,
   DEFAULT_OPACITY,
   regionKey,
@@ -26,6 +30,7 @@ import {
   withSlot,
   type Pair,
 } from "../../src/renderer/pages/_shared/scene/model";
+import { autoLabel } from "../../src/renderer/pages/simulator/freehandPlacement";
 import { hasActiveJob, resolveTab } from "../../src/renderer/pages/_shared/run/RunPaneTabs";
 import type { SceneLegendRow } from "../../src/renderer/pages/_shared/scene/api";
 
@@ -78,7 +83,7 @@ describe("montage mode: a click toggles the electrode into the current pair slot
     ["", ""],
   ];
 
-  it("addresses slots as pair-major, A then B", () => {
+  it("addresses slots channel-major, Ek+ then Ek-", () => {
     const pairs: Pair[] = [
       ["F3", "F4"],
       ["P3", "P4"],
@@ -86,8 +91,8 @@ describe("montage mode: a click toggles the electrode into the current pair slot
     expect([0, 1, 2, 3].map((i) => slotAt(pairs, i))).toEqual(["F3", "F4", "P3", "P4"]);
     expect(slotOf(pairs, "P3")).toBe(2);
     expect(slotOf(pairs, "Cz")).toBe(-1);
-    expect(slotLabel(pairs, 2)).toBe("Pair 2 · A");
-    expect(slotLabel(pairs, 3)).toBe("Pair 2 · B");
+    expect(slotLabel(pairs, 2)).toBe("E2+ (Channel 2)");
+    expect(slotLabel(pairs, 3)).toBe("E2- (Channel 2)");
   });
 
   it("fills the slots in order and advances the cursor", () => {
@@ -146,6 +151,21 @@ describe("montage mode: a click toggles the electrode into the current pair slot
     expect(advanceSlot(withSlot(pairs, 0, "F3"), 7)).toBe(0);
   });
 
+  it("switching nets keeps the electrodes both nets have and blanks the rest", () => {
+    const pairs: Pair[] = [
+      ["F3", "E31"],
+      ["", "P4"],
+    ];
+    const next = pairsOnNet(pairs, ["F3", "P4", "Cz"]);
+    expect(next).toEqual([
+      ["F3", ""],
+      ["", "P4"],
+    ]);
+    expect(firstEmptySlot(next)).toBe(1);
+    // Every name on the new net: the draft is left as it was (same array, no re-render).
+    expect(pairsOnNet(next, ["F3", "P4"])).toBe(next);
+  });
+
   it("colours a marker by the pair it belongs to and selects exactly the placed electrodes", () => {
     const pairs: Pair[] = [
       ["F3", "F4"],
@@ -166,9 +186,46 @@ describe("montage mode: a click toggles the electrode into the current pair slot
     expect(markerIndicesFor(markers, placedElectrodes(pairs))).toEqual([0, 2]);
   });
 
+  it("Actual size hides the unassigned electrodes of a shown montage, but keeps them while one is being written", () => {
+    const net = [
+      { name: "F3", world: [-40, 30, 50] as [number, number, number] },
+      { name: "Cz", world: [0, 0, 90] as [number, number, number] },
+    ];
+    const pad = { shape: "ellipse" as const, width: 8, height: 8, gel: 1, rubber: 2 };
+    const shown = markersFromElectrodes(net, { F3: 0 }, pad);
+    expect(shown.map((m) => [m.id, !!m.pad, !!m.hidden])).toEqual([["F3", true, false], ["Cz", false, true]]);
+    // Writing a montage: the pad on the assigned one, the rest still a pickable cap marker.
+    const editing = markersFromElectrodes(net, { F3: 0 }, pad, true);
+    expect(editing.map((m) => [m.id, !!m.pad, !!m.hidden])).toEqual([["F3", true, false], ["Cz", false, false]]);
+  });
+
   it("does nothing at all when there are no pairs to fill", () => {
     expect(applyElectrodePick([], 0, "F3")).toEqual({ pairs: [], cursor: 0 });
-    expect(slotLabel([], 0)).toBe("no pairs");
+    expect(slotLabel([], 0)).toBe("no channels");
+  });
+});
+
+/*
+ * The naming convention, written out by hand from the maintainer's sentence (2026-10-28): "Channel
+ * 1 is comprised from E1+ and E1-, channel 2 from E2+ and E2-" — and so on for mTI's channels 3, 4.
+ * Never "A"/"B", never "Pair k".
+ */
+describe("channel k is electrodes Ek+ and Ek-", () => {
+  it("names the eight slots of a four-channel mTI montage in order", () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map(electrodeSlotName)).toEqual(["E1+", "E1-", "E2+", "E2-", "E3+", "E3-", "E4+", "E4-"]);
+  });
+
+  it("names a channel by its 1-based number", () => {
+    expect([0, 1, 3].map(channelName)).toEqual(["Channel 1", "Channel 2", "Channel 4"]);
+  });
+
+  it("states a channel's two electrodes by role, with a placeholder for an empty slot", () => {
+    expect(channelElectrodes(["F3", "F4"], 0)).toBe("E1+ F3 · E1- F4");
+    expect(channelElectrodes(["", "P4"], 1)).toBe("E2+ — · E2- P4");
+  });
+
+  it("is the free-hand editor's row naming too, so the two editors cannot disagree", () => {
+    expect([0, 1, 2, 3].map(autoLabel)).toEqual(["E1+", "E1-", "E2+", "E2-"]);
   });
 });
 
