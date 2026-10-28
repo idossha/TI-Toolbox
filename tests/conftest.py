@@ -91,6 +91,26 @@ _MOCK_PACKAGES = [
 ]
 
 
+class _ModuleMock(MagicMock):
+    """A MagicMock module whose auto-created attributes live in its instance ``__dict__``.
+
+    pytest 9.2 undoes ``monkeypatch.setattr(target, name, value)`` from the target's
+    instance ``__dict__`` (pytest #10644). A plain MagicMock keeps its auto-created
+    attributes elsewhere, so the undo became ``delattr`` and the mock marked that attribute
+    deleted for the rest of the session: one test patching ``nibabel.load`` broke every
+    later test touching it. Caching each child in ``__dict__`` makes the undo put the
+    original child back, as before; ``mock.patch`` restores it the same way.
+    """
+
+    def __getattr__(self, name):
+        child = super().__getattr__(name)
+        object.__setattr__(self, name, child)
+        return child
+
+    def _get_child_mock(self, /, **kw):
+        return _ModuleMock(**kw)
+
+
 def pytest_configure(config):
     """Mock heavy third-party packages that are unavailable outside Docker.
 
@@ -107,7 +127,7 @@ def pytest_configure(config):
         for i in range(len(parts)):
             partial = ".".join(parts[: i + 1])
             if partial not in sys.modules and partial not in _mocks:
-                _mocks[partial] = MagicMock()
+                _mocks[partial] = _ModuleMock()
                 sys.modules[partial] = _mocks[partial]
             elif partial in sys.modules:
                 _mocks[partial] = sys.modules[partial]
