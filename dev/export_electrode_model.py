@@ -92,7 +92,12 @@ def main(out_path: str) -> None:
     raw = [(math.hypot(v.co.x, v.co.y), v.co.z) for v in mesh.vertices]
     radius = max(r for r, _ in raw)
     zmin = min(z for _, z in raw)
-    prof = simplify(profile([(round(r / radius, 5), round((z - zmin) / radius, 5)) for r, z in raw]), PROFILE_TOLERANCE)
+    prof = simplify(
+        profile(
+            [(round(r / radius, 5), round((z - zmin) / radius, 5)) for r, z in raw]
+        ),
+        PROFILE_TOLERANCE,
+    )
     height = max(z for _, z in prof)
 
     out_pos: list[float] = []
@@ -125,7 +130,10 @@ def main(out_path: str) -> None:
 
         def end_normal(j, other):
             n = en[j]
-            if 0 <= other < len(en) and en[other][0] * n[0] + en[other][1] * n[1] >= cos_sharp:
+            if (
+                0 <= other < len(en)
+                and en[other][0] * n[0] + en[other][1] * n[1] >= cos_sharp
+            ):
                 s = (n[0] + en[other][0], n[1] + en[other][1])
                 length = math.hypot(*s) or 1.0
                 return (s[0] / length, s[1] / length)
@@ -135,7 +143,12 @@ def main(out_path: str) -> None:
             n0, n1 = end_normal(j, j - 1), end_normal(j, j + 1)
             for k in range(SEGMENTS):
                 corners = []
-                for r, z, n, step in ((r0, z0, n0, k), (r0, z0, n0, k + 1), (r1, z1, n1, k + 1), (r1, z1, n1, k)):
+                for r, z, n, step in (
+                    (r0, z0, n0, k),
+                    (r0, z0, n0, k + 1),
+                    (r1, z1, n1, k + 1),
+                    (r1, z1, n1, k),
+                ):
                     t = 2 * math.pi * step / SEGMENTS
                     c, s = math.cos(t), math.sin(t)
                     corners.append(((r * c, r * s, z), (n[0] * c, n[0] * s, n[1])))
@@ -165,11 +178,15 @@ export const ELECTRODE_MODEL = {{
 """
     with open(out_path, "w", encoding="utf-8") as fh:
         fh.write(text)
-    print(f"electrode model: {len(out_idx) // 3} triangles (pad {pad_triangles}), {len(out_layer)} vertices, profile {prof}, height {height:.4f} -> {out_path}")
+    print(
+        f"electrode model: {len(out_idx) // 3} triangles (pad {pad_triangles}), {len(out_layer)} vertices, profile {prof}, height {height:.4f} -> {out_path}"
+    )
 
 
 if __name__ == "__main__":
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     if len(argv) != 1:
-        raise SystemExit("usage: blender --background Electrode.blend --python export_electrode_model.py -- OUT.ts")
+        raise SystemExit(
+            "usage: blender --background Electrode.blend --python export_electrode_model.py -- OUT.ts"
+        )
     main(argv[0])
