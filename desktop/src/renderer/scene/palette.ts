@@ -122,3 +122,8 @@ export const DEFAULT_OPACITY: Record<string, number> = { skin: 0.22 };
  *  is 24 px including spacing, and electrodes on a 10-10 net are ~20 px apart at the default
  *  framing) without covering the anatomy underneath. */
 export const MARKER_SIZE_PX = 11;
+
+/** Radius of the electrode model, mm: a 6 mm-wide, 3 mm-tall electrode, about the size of the old
+ *  11 px dot at the Simulator's default framing (~0.45 mm per px), and it scales with zoom like the
+ *  head it stands on. */
+export const ELECTRODE_RADIUS_MM = 3;

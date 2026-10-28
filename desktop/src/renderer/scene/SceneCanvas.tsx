@@ -482,13 +482,15 @@ export function SceneCanvas({
     const host = namesRef.current;
     if (!host) return;
     const { world, center } = nameDataRef.current;
+    // An electrode's name sits on the top of the model the renderer drew; a dot's on the dot.
+    const tops = sceneRef.current?.electrodeTops() ?? null;
     const size = sizeRef.current;
     const { eye } = cameraBasis(camera);
     const children = host.children;
     for (let i = 0; i < children.length && i < world.length; i += 1) {
       const el = children[i] as HTMLElement;
       const point = world[i] as Vec3;
-      const p = projectToCanvas(camera, point, size.widthCss, size.heightCss);
+      const p = projectToCanvas(camera, tops?.[i] ?? point, size.widthCss, size.heightCss);
       const facing =
         (point[0] - center[0]) * (eye[0] - point[0]) +
         (point[1] - center[1]) * (eye[1] - point[1]) +
