@@ -34,7 +34,7 @@ export function candidateRow(value: unknown): SelectedRow {
   if (!Array.isArray(pairs) || pairs.length < 2 || !numbers(config.intensities) || config.intensities.length !== pairs.length) throw new Error("Candidate geometry or currents are incomplete.");
   const named = pairs.every((pair) => Array.isArray(pair) && pair.length === 2 && pair.every((v) => typeof v === "string"));
   const placed = pairs.every((pair) => Array.isArray(pair) && pair.length === 2 && pair.every(xyz));
-  if (!named && !placed) throw new Error("Candidate electrode pairs are invalid.");
+  if (!named && !placed) throw new Error("The candidate's channels are invalid: each needs two electrode names or two positions.");
   const settings = settingsFromConfig(config);
   const currents = config.intensities.join(",");
   return {

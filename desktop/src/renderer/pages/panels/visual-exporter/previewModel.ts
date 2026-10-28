@@ -37,7 +37,7 @@ export function readExportMontage(text: string): {
         pair.some((name) => typeof name !== "string" || !name.trim()),
     )
   ) {
-    throw new Error("This simulation has no valid recorded electrode pairs.");
+    throw new Error("This simulation has no valid recorded channels.");
   }
   return { net: config.eeg_net, pairs: raw as Pair[] };
 }

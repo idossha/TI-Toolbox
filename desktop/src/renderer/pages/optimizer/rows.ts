@@ -47,7 +47,7 @@ export type OptJobKind = "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex"
 
 export const OPT_METHODS: { value: OptMethod; label: string; title: string }[] = [
   { value: "flex", label: "Flex", title: "Differential-evolution search over free electrode positions" },
-  { value: "ex", label: "Ex", title: "Exhaustive search over a precomputed leadfield — two pairs (TI) or four (mTI)" },
+  { value: "ex", label: "Ex", title: "Exhaustive search over a precomputed leadfield — two channels (TI) or four (mTI)" },
 ];
 
 export const OPT_METHOD_LABEL: Record<OptMethod, string> = { flex: "Flex", ex: "Ex" };
