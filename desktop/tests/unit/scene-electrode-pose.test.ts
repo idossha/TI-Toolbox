@@ -185,6 +185,14 @@ describe("electrodePad — the configured electrode", () => {
   });
 });
 
+describe("electrodePoses with nothing to stand on", () => {
+  it("stands a marker at the head centre up +Z instead of giving it a zero axis", () => {
+    const poses = electrodePoses([[0, 0, 0]], new Float32Array(0), new Float32Array(0), [0, 0, 0]);
+    expect(Array.from(poses.axis)).toEqual([0, 0, 1]);
+    expect(Array.from(poses.tangent).every(Number.isFinite)).toBe(true);
+  });
+});
+
 describe("ELECTRODE_MODEL", () => {
   const { positions, normals, layers, indices, height } = ELECTRODE_MODEL;
   it("is light enough to draw once per electrode", () => {

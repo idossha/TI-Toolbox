@@ -147,9 +147,10 @@ export function electrodePoses(
     let len = Math.hypot(n[0], n[1], n[2]);
     if (len === 0) {
       n = [p[0] - centre[0], p[1] - centre[1], p[2] - centre[2]];
-      len = Math.hypot(n[0], n[1], n[2]) || 1;
+      len = Math.hypot(n[0], n[1], n[2]);
     }
-    const a: Vec3 = [n[0] / len, n[1] / len, n[2] / len];
+    // A marker at the head centre with no skin to read has no outward: stand it up (+Z).
+    const a: Vec3 = len > 0 ? [n[0] / len, n[1] / len, n[2] / len] : [0, 0, 1];
     const plane: Vec3 = inPatch > 0 ? [c[0] / inPatch, c[1] / inPatch, c[2] / inPatch] : [p[0], p[1], p[2]];
     const off = (p[0] - plane[0]) * a[0] + (p[1] - plane[1]) * a[1] + (p[2] - plane[2]) * a[2];
     const b0: Vec3 = [p[0] - a[0] * off, p[1] - a[1] * off, p[2] - a[2] * off];
