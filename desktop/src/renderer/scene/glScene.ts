@@ -920,7 +920,10 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let posedFor: { worlds: Float32Array; skin: Float32Array | null } | null = null;
   /** `electrodeAnchors()`, kept until the markers, their pose, the scale or the shape change. */
   let anchors: { top: Vec3; axis: Vec3 }[] | null = null;
-  /** The per-instance buffers an in-place marker update writes. */
+  /** The hover/selection state buffer both marker VAOs read; dots have no `instance`, so it is
+   *  kept on its own for `setMarkerStates`. */
+  let markerStateBuffer: WebGLBuffer | null = null;
+  /** The per-instance buffers an in-place marker update writes (electrodes only). */
   let instance: {
     state: WebGLBuffer;
     color: WebGLBuffer;
@@ -1121,6 +1124,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     markerVao = null;
     electrodeVao = null;
     instance = null;
+    markerStateBuffer = null;
     poses = null;
     posedFor = null;
     if (markers.length === 0) return;
@@ -1160,6 +1164,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     gl.vertexAttribIPointer(2, 1, gl.UNSIGNED_INT, 0, 0);
     gl.vertexAttribDivisor(2, 1);
     markerBuffers.push(stateBuffer);
+    markerStateBuffer = stateBuffer;
     const indexBuffer = buffer(indices, gl.ARRAY_BUFFER);
     markerBuffers.push(indexBuffer);
     gl.enableVertexAttribArray(3);
@@ -1549,7 +1554,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
 
     setMarkerStates(states) {
       markerStates = states;
-      const buf = instance?.state;
+      const buf = markerStateBuffer;
       if (buf && states.length === markers.length) {
         gl.bindBuffer(gl.ARRAY_BUFFER, buf);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, asBufferSource(states));
@@ -1877,6 +1882,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       markerVao = null;
       electrodeVao = null;
       instance = null;
+      markerStateBuffer = null;
       posedFor = null;
       markerBuffers = [];
       scene.setParts(sourceParts);
