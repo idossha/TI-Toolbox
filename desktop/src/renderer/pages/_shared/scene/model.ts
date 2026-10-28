@@ -130,6 +130,15 @@ export function firstEmptySlot(pairs: Pair[]): number {
   return 0;
 }
 
+/** `pairs` after switching to a net with `electrodes`: a name the new net lacks is blanked, a
+ *  name both nets have is kept. The same array when nothing changes. */
+export function pairsOnNet(pairs: Pair[], electrodes: readonly string[]): Pair[] {
+  const onNet = new Set(electrodes);
+  const keep = (name: string) => (name && onNet.has(name) ? name : "");
+  const next = pairs.map(([a, b]) => [keep(a), keep(b)] as Pair);
+  return next.every((p, i) => p[0] === pairs[i]![0] && p[1] === pairs[i]![1]) ? pairs : next;
+}
+
 export interface PickResult {
   pairs: Pair[];
   cursor: number;

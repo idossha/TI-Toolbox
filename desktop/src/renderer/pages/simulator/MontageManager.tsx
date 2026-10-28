@@ -40,7 +40,7 @@ import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePairsEditor";
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
-import { channelCss, channelElectrodes } from "../_shared/scene/model";
+import { channelCss, channelElectrodes, firstEmptySlot, pairsOnNet } from "../_shared/scene/model";
 import { isSafeName, safeNameProblem } from "../_shared/entityNames";
 import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { flexCurrents, FlexSnapWarning, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
@@ -505,6 +505,26 @@ export function JobsTable({
     },
     enabled: !!editorNet && usable.length > 0,
   });
+
+  /*
+   * Switching the form's EEG net keeps the draft's electrodes that the new net also has and blanks
+   * the rest, then aims the cursor at the first empty slot. Waits for the new net's electrode list;
+   * the draft is the page's state, so the edit runs in an effect, not during render.
+   */
+  // A ref, not state: it only marks that the next settled electrode list follows a user's switch.
+  const switchedNet = useRef<string | null>(null);
+  function chooseNet(net: string) {
+    setNetChoice(net);
+    if (editing && net !== editorNet) switchedNet.current = net;
+  }
+  useEffect(() => {
+    if (!switchedNet.current || switchedNet.current !== editorNet || !netElectrodes.isSuccess || netElectrodes.isFetching) return;
+    switchedNet.current = null;
+    if (!editing) return;
+    const pairs = pairsOnNet(editing.pairs, netElectrodes.data);
+    if (pairs !== editing.pairs) setEditing({ ...editing, pairs });
+    onDraftSlotChange?.(firstEmptySlot(pairs));
+  }, [editorNet, netElectrodes.isSuccess, netElectrodes.isFetching, netElectrodes.data, editing, setEditing, onDraftSlotChange]);
 
   /** Every montage of one net, both buckets, in one list — the Montage cell's options. */
   const montagesOf = useMemo(() => {
@@ -1234,7 +1254,7 @@ export function JobsTable({
               <Field label="EEG net">
                 <Select
                   value={editorNet}
-                  onValueChange={setNetChoice}
+                  onValueChange={chooseNet}
                   options={availableNets.map((n) => ({ value: n, label: n }))}
                   placeholder="Choose a net"
                 />

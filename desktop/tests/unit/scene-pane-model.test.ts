@@ -18,6 +18,7 @@ import {
   firstEmptySlot,
   markerIndicesFor,
   markersFromElectrodes,
+  pairsOnNet,
   placedElectrodes,
   DEFAULT_OPACITY,
   regionKey,
@@ -148,6 +149,21 @@ describe("montage mode: a click toggles the electrode into the current pair slot
     expect(firstEmptySlot(pairs)).toBe(0);
     // Nothing empty: plain next, wrapped.
     expect(advanceSlot(withSlot(pairs, 0, "F3"), 7)).toBe(0);
+  });
+
+  it("switching nets keeps the electrodes both nets have and blanks the rest", () => {
+    const pairs: Pair[] = [
+      ["F3", "E31"],
+      ["", "P4"],
+    ];
+    const next = pairsOnNet(pairs, ["F3", "P4", "Cz"]);
+    expect(next).toEqual([
+      ["F3", ""],
+      ["", "P4"],
+    ]);
+    expect(firstEmptySlot(next)).toBe(1);
+    // Every name on the new net: the draft is left as it was (same array, no re-render).
+    expect(pairsOnNet(next, ["F3", "P4"])).toBe(next);
   });
 
   it("colours a marker by the pair it belongs to and selects exactly the placed electrodes", () => {
