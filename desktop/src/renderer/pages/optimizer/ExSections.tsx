@@ -33,7 +33,8 @@ import {
   type ExFormState,
   type MExFormState,
 } from "./exConfig";
-import { leadfieldFor, netOptions } from "./nets";
+import { leadfieldElectrodeLabel, leadfieldFor, netOptions } from "./nets";
+import { ElectrodeHelp } from "../_shared/electrodes/ElectrodeSettings";
 import { POOL_KEY } from "./buckets";
 import { EX_BOUNDS, MEX_BOUNDS, exCost, mexCost, outOfBounds } from "./cost";
 
@@ -100,7 +101,12 @@ export function LeadfieldStrip({
       <span className="text-eyebrow">Leadfield</span>
       <Select value={selectedNet ?? undefined} onValueChange={onSelectNet} options={options} placeholder="Select an EEG net…" aria-label="EEG net" />
       {ready ? (
-        <Chip kind="success">{formatBytes(current?.size_bytes ?? 0)}</Chip>
+        <>
+          <Chip kind="success">{formatBytes(current?.size_bytes ?? 0)}</Chip>
+          {/* A leadfield is one electrode model at every position: which one is part of its identity. */}
+          <span className="field-help" data-testid="leadfield-electrode">{leadfieldElectrodeLabel(current)}</span>
+          <ElectrodeHelp />
+        </>
       ) : (
         <>
           {/* No "required" chip (maintainer, 2026-09-06): the sentence beside it already says the

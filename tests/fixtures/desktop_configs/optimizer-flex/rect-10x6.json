@@ -18,7 +18,7 @@
             10,
             6
           ],
-          "gel_thickness": 4,
+          "gel_thickness": 1,
           "shape": "rect"
         },
         "enable_mapping": false,

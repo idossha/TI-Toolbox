@@ -4,8 +4,8 @@ import { HelpIcon } from "../../ui/HelpPopover";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
-import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Checkbox } from "../../ui/Toggle";
+import { ElectrodeSettings } from "../_shared/electrodes/ElectrodeSettings";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
 import { CARRIER_FIELDS, CARRIER_ONLY_HELP, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, type JobSettings } from "./types";
 
@@ -33,52 +33,7 @@ export function SimulationSettings({
   };
   return <>
         <div className="job-settings-form" data-testid="job-settings-form">
-          <section>
-            <h4>Electrodes</h4>
-            <div className="field-row-inline">
-              <Field label="Shape">
-                <SegmentedControl
-                  value={draft.electrodeShape}
-                  onValueChange={(v) => setDraft({ ...draft, electrodeShape: v as "ellipse" | "rect" })}
-                  options={[
-                    { value: "ellipse", label: "Ellipse" },
-                    { value: "rect", label: "Rectangle" },
-                  ]}
-                  aria-label="Electrode shape"
-                />
-              </Field>
-              <Field label="Dimensions">
-                <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                  <NumberInput
-                    value={draft.dimensions[0]}
-                    onValueChange={(v) => setDraft({ ...draft, dimensions: [v ?? 8, draft.dimensions[1]] })}
-                    unit="w"
-                    step={0.5}
-                    min={0}
-                    aria-label="Electrode width"
-                  />
-                  <NumberInput
-                    value={draft.dimensions[1]}
-                    onValueChange={(v) => setDraft({ ...draft, dimensions: [draft.dimensions[0], v ?? 8] })}
-                    unit="h"
-                    step={0.5}
-                    min={0}
-                    aria-label="Electrode height"
-                  />
-                </div>
-              </Field>
-              <Field label="Gel thickness" className="sim-gel-field">
-                <NumberInput
-                  value={draft.gelThickness}
-                  onValueChange={(v) => setDraft({ ...draft, gelThickness: v ?? 4 })}
-                  step={0.5}
-                  min={0}
-                  unit="mm"
-                  aria-label="Gel thickness"
-                />
-              </Field>
-            </div>
-          </section>
+          <ElectrodeSettings value={draft} onChange={(g) => setDraft({ ...draft, ...g })} />
 
           <section>
             <h4>Conductivity</h4>

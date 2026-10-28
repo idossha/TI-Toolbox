@@ -13,6 +13,7 @@ import {
   type ExTarget,
 } from "../../src/renderer/pages/optimizer/exConfig";
 import type { ExConfigBody, LeadfieldConfigBody, MExConfigBody } from "../../src/renderer/pages/optimizer/api";
+import { leadfieldJobConfig } from "../../src/renderer/pages/optimizer/api";
 
 /** `exTargets` for a saved-ROI selection, the page's own expansion with the names given directly. */
 function savedTargets(names: string[], combine: boolean, radius = 3.0, space: "subject" | "mni" = "subject"): ExTarget[] {
@@ -107,9 +108,11 @@ describe("Optimizer Ex/mEx defaults validate against contracts/generated/config.
     expect(validate("MExConfig", config as unknown as Record<string, unknown>)).toEqual([]);
   });
 
-  it("a LeadfieldConfig built for the 'Generate leadfield' action validates", () => {
-    const config: LeadfieldConfigBody = { subject_id: "ernie", eeg_net: "GSN-HydroCel-185", tissues: [1, 2], interpolation: null, overwrite: false };
+  it("a LeadfieldConfig built for the 'Generate leadfield' step validates and carries the chosen electrode", () => {
+    const electrode = { electrode_shape: "rect" as const, electrode_dimensions: [12, 6], gel_thickness: 2.5, rubber_thickness: 2 };
+    const config: LeadfieldConfigBody = leadfieldJobConfig("ernie", "GSN-HydroCel-185", electrode);
     expect(validate("LeadfieldConfig", config as unknown as Record<string, unknown>)).toEqual([]);
+    expect(config).toMatchObject({ subject_id: "ernie", eeg_net: "GSN-HydroCel-185", ...electrode });
   });
 });
 

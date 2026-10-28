@@ -199,7 +199,7 @@ test("switching the net drops or names an electrode the new net does not have", 
   await fillBucket(dialog, "E2+", ["E3"]);
   await fillBucket(dialog, "E2-", ["E4"]);
   await closeOptEditor(page);
-  await setOptCell(page, row, "net", "GSN-HydroCel-185 · 2.0 GB");
+  await setOptCell(page, row, "net", "GSN-HydroCel-185 · 2.0 GB · ellipse 8×8 mm, gel 1 mm");
   await expect(row).toHaveAttribute("data-net", "GSN-HydroCel-185");
 
   const again = await openOptEditor(page, row);

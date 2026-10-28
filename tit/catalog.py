@@ -1739,13 +1739,21 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
     """Precomputed leadfields for *sid*; ``None`` if the subject is unknown."""
     if sid not in subject_ids(pm):
         return None
-    from tit.opt.leadfield import leadfield_net
+    from tit.opt.leadfield import leadfield_net, read_leadfield_electrode
 
     root = pm.leadfields(sid)
     out = []
-    for name in _metadata_names(root, pm.project_dir):
+    names = _metadata_names(root, pm.project_dir)
+    for name in names:
         if not name.endswith(".hdf5"):
             continue
+        # The electrode it was computed with, from its jailed sidecar; ``None`` = not recorded.
+        sidecar = name.removesuffix(".hdf5") + ".json"
+        electrode = (
+            read_leadfield_electrode(os.path.join(root, sidecar))
+            if sidecar in names
+            else None
+        )
         path = os.path.join(root, name)
         # LeadfieldGenerator's net naming, without its unjailed stat.
         net = leadfield_net(name, sid)
@@ -1759,6 +1767,7 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
                 "path": path,
                 "exists": os.path.isfile(path),
                 "size_bytes": size,
+                "electrode": electrode,
             }
         )
     return sorted(out, key=lambda item: (item["net"], item["path"]))

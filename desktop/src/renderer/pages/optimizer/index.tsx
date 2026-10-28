@@ -77,7 +77,8 @@ import {
   toggleBucketElectrode,
 } from "./buckets";
 import { useOpenInViewer } from "../../app/openInViewer";
-import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
+import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield, type LeadfieldElectrode } from "./api";
+import { LeadfieldStepDialog, type LeadfieldRequest } from "./LeadfieldStepDialog";
 import { electrodesForNet, keepElectrodesOnNet, leadfieldPathFor, defaultNet } from "./nets";
 import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
 import { automaticRunName, flexOutputFolder, jobsForRow, optimizerOutputClaims, rowFormReason, validateJobs, type OptimizerJobSpec } from "./plan";
@@ -413,8 +414,10 @@ function OptimizerPage() {
   const counts = planCounts(plan);
   const digest = plan ? (jobCountLabel(plan) ?? "Resolving the plan…") : (blockedReason ?? "Resolving the plan…");
 
+  /** The (subject, net) whose Generate-leadfield step is open: the user picks its electrode first. */
+  const [leadfieldStep, setLeadfieldStep] = useState<LeadfieldRequest | null>(null);
   const generateLeadfield = useMutation({
-    mutationFn: ({ subject, net }: { subject: string; net: string }) => submitLeadfieldJob(subject, net),
+    mutationFn: ({ subject, net, electrode }: LeadfieldRequest & { electrode: LeadfieldElectrode }) => submitLeadfieldJob(subject, net, electrode),
     onSuccess: (job, { subject, net }) => {
       setLeadfieldJobs((previous) => ({ ...previous, [JSON.stringify([subject, net])]: job.id }));
       notify.success(`Queued: leadfield generation for ${net}`);
@@ -692,7 +695,7 @@ function OptimizerPage() {
                   onRowsChange={setRows}
                   activeRowId={activeRowId}
                   onActiveRowChange={setActiveRowId}
-                  onGenerateLeadfield={(subject, net) => generateLeadfield.mutate({ subject, net })}
+                  onGenerateLeadfield={(subject, net) => setLeadfieldStep({ subject, net })}
                   leadfieldGenerationState={leadfieldGenerationState}
                   activeBucket={activeBucket}
                   onActiveBucketChange={setActiveBucket}
@@ -713,6 +716,15 @@ function OptimizerPage() {
           </Callout>
         )}
       </RunWork>
+
+      <LeadfieldStepDialog
+        request={leadfieldStep}
+        onCancel={() => setLeadfieldStep(null)}
+        onConfirm={(request, electrode) => {
+          setLeadfieldStep(null);
+          generateLeadfield.mutate({ ...request, electrode });
+        }}
+      />
 
       <ExistingOutputsDialog
         open={confirmExisting !== null}

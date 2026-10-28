@@ -183,6 +183,97 @@ class TestLeadfieldGeneratorGenerate:
         simnibs.run_simnibs.assert_called_once()
 
     @patch("tit.opt.leadfield.get_path_manager")
+    def test_generate_places_the_chosen_electrode_and_records_it(
+        self, mock_gpm, tmp_path
+    ):
+        """SimNIBS gets the electrode as the Simulator builds one (shape, [w, h], thickness
+        [gel, rubber]), and the sidecar beside the HDF5 reads back as that electrode."""
+        import json
+
+        pm = _make_pm_mock(tmp_path)
+        mock_gpm.return_value = pm
+        from tit.opt.leadfield import (
+            LeadfieldGenerator,
+            leadfield_sidecar,
+            read_leadfield_electrode,
+        )
+
+        output_dir = tmp_path / "leadfields"
+        hdf5 = output_dir / "001_leadfield_EEG10-10.hdf5"
+        hdf5.write_text("fake")
+        # A sidecar left by an earlier leadfield of this net is gone before SimNIBS runs.
+        leadfield_sidecar(hdf5).write_text(json.dumps({"stale": True}))
+        stale_at_run = []
+
+        import simnibs
+
+        lf = MagicMock()
+        simnibs.run_simnibs = MagicMock(
+            side_effect=lambda _: stale_at_run.append(leadfield_sidecar(hdf5).exists())
+        )
+        simnibs.sim_struct.TDCSLEADFIELD.return_value = lf
+        chosen = {
+            "electrode_shape": "rect",
+            "electrode_dimensions": [12.0, 6.0],
+            "gel_thickness": 2.5,
+            "rubber_thickness": 3.0,
+        }
+        LeadfieldGenerator("001").generate(output_dir=str(output_dir), electrode=chosen)
+
+        assert stale_at_run == [False]
+        assert lf.electrode.shape == "rect"
+        assert lf.electrode.dimensions == [12.0, 6.0]
+        assert lf.electrode.thickness == [2.5, 3.0]
+        assert read_leadfield_electrode(leadfield_sidecar(hdf5)) == chosen
+
+    @patch("tit.opt.leadfield.get_path_manager")
+    def test_generate_without_an_electrode_uses_the_toolbox_default(
+        self, mock_gpm, tmp_path
+    ):
+        """Not SimNIBS's own leadfield electrode (10 mm, one 4 mm layer): the Simulator's."""
+        pm = _make_pm_mock(tmp_path)
+        mock_gpm.return_value = pm
+        from tit.opt.leadfield import (
+            LeadfieldGenerator,
+            leadfield_sidecar,
+            read_leadfield_electrode,
+        )
+
+        output_dir = tmp_path / "leadfields"
+        hdf5 = output_dir / "001_leadfield_EEG10-10.hdf5"
+        hdf5.write_text("fake")
+        import simnibs
+
+        lf = MagicMock()
+        simnibs.run_simnibs = MagicMock()
+        simnibs.sim_struct.TDCSLEADFIELD.return_value = lf
+        LeadfieldGenerator("001").generate(output_dir=str(output_dir))
+
+        geometry = (lf.electrode.shape, lf.electrode.dimensions, lf.electrode.thickness)
+        assert geometry == ("ellipse", [8.0, 8.0], [1.0, 2.0])
+        assert read_leadfield_electrode(leadfield_sidecar(hdf5))["gel_thickness"] == 1.0
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "not json",
+            "[]",
+            '{"electrode_shape": "ellipse"}',
+            '{"electrode_shape": "disc", "electrode_dimensions": [8, 8],'
+            ' "gel_thickness": 1, "rubber_thickness": 2}',
+            '{"electrode_shape": "ellipse", "electrode_dimensions": [8, 8],'
+            ' "gel_thickness": true, "rubber_thickness": 2}',
+        ],
+    )
+    def test_a_malformed_sidecar_is_unknown_not_guessed(self, tmp_path, text):
+        from tit.opt.leadfield import read_leadfield_electrode
+
+        path = tmp_path / "x.json"
+        path.write_text(text)
+        assert read_leadfield_electrode(path) is None
+        assert read_leadfield_electrode(tmp_path / "missing.json") is None
+
+    @patch("tit.opt.leadfield.get_path_manager")
     def test_generate_cancelled_before_start(self, mock_gpm, tmp_path):
         pm = _make_pm_mock(tmp_path)
         mock_gpm.return_value = pm

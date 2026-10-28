@@ -1,0 +1,89 @@
+/* The shared ELECTRODES section (ElectrodeSettings.tsx): the Simulator's job settings and the
+   Optimizer's Generate-leadfield step. */
+.electrode-settings .field-row-inline {
+  flex-wrap: wrap;
+}
+
+.electrode-settings-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+/* Gel thickness carries a "mm" suffix inside the control, so it needs a little more room than the
+   72px the bare w/h boxes take (`--control-w`, ui/components.css `.field-row-inline`). */
+.electrode-gel-field {
+  --control-w: 88px;
+}
+
+/* The "?" beside the heading: the bare glyph, like the Optimizer's other "?" buttons. */
+.electrode-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  text-transform: none;
+  cursor: pointer;
+}
+.electrode-help-trigger:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.electrode-help {
+  max-width: 44ch;
+}
+/* Diagram, four terms and two links: taller than the shared 340px popover, so it is raised here,
+   still ceilinged by what Radix says fits on screen. */
+.popover-content:has(.electrode-help) {
+  max-height: min(560px, var(--radix-popover-content-available-height, 560px));
+}
+
+.electrode-diagram {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  margin: 2px 0 8px;
+}
+.electrode-diagram-skin {
+  fill: #e7c3a6;
+}
+.electrode-diagram-gel {
+  fill: #a9d4f0;
+}
+.electrode-diagram-rubber {
+  fill: #4b5563;
+}
+.electrode-diagram-ink line {
+  stroke: currentColor;
+  stroke-width: 1;
+}
+.electrode-diagram-ink text {
+  fill: currentColor;
+  font-size: 10px;
+}
+
+.electrode-help-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 6px;
+}
+.electrode-help-links .help-more {
+  margin-left: 0;
+  text-align: left;
+}

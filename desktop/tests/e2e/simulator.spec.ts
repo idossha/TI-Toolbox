@@ -352,13 +352,13 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   expect(custom.electrode_shape).toBe("rect");
   expect(custom.electrode_dimensions).toEqual([10, 10]);
   expect(custom.output_fields).toEqual(["TI_max", "TI_avg"]);
-  expect(custom.gel_thickness).toBe(4);
+  expect(custom.gel_thickness).toBe(1);
   expect(custom.map_to_fsavg).toBe(true);
   expect(plain.map_to_fsavg).toBe(false);
   // ...and the untouched job carries the built-in defaults, untouched by its neighbour's editing.
   expect(plain.electrode_shape).toBe("ellipse");
   expect(plain.electrode_dimensions).toEqual([8, 8]);
-  expect(plain.gel_thickness).toBe(4);
+  expect(plain.gel_thickness).toBe(1);
   expect(plain.output_fields).toEqual(["TI_max"]);
 
   // Reset puts the row back on the defaults — including the one that changed meanwhile.

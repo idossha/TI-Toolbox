@@ -133,7 +133,7 @@ class TestManifestIO:
         assert data["current_mA"] == 2.0
         assert data["electrode"]["shape"] == "ellipse"
         assert data["electrode"]["dimensions"] == [8.0, 8.0]
-        assert data["electrode"]["gel_thickness"] == 4.0
+        assert data["electrode"]["gel_thickness"] == 1.0
         assert data["roi"]["type"] == "spherical"
         assert data["roi"]["x"] == -42.0
         assert data["non_roi"] is None

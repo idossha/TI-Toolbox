@@ -107,7 +107,7 @@ Flex-search optimizes exactly **two electrode pairs**, one per TI channel.
 
 - **Current**: per channel, mA (app default 1 mA). Each pair injects +/− this current.
 - **Shape**: **Ellipse** or **Rectangle**. SimNIBS supports circular electrodes here, so an ellipse must have equal dimensions; for unequal sides use a rectangle.
-- **Dimensions (x, y)** and **Gel thickness**: default 8 × 8 mm, gel 4 mm.
+- **Dimensions (x, y)** and **Gel thickness**: default 8 × 8 mm, gel 1 mm (on 2 mm of rubber). The **?** beside **Electrodes** explains each parameter, with links to the SimNIBS electrode reference.
 - **Min distance**: minimum distance between electrodes, default 5 mm.
 
 ## Current-ratio search

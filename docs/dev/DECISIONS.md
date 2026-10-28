@@ -3468,3 +3468,76 @@ a 185-electrode net at 25 mm is a solid carpet, and the electrodes not in the mo
 **Revisit if.** A net lies far (> 5 mm) from the served skin, where the patch is empty and the pose
 falls back to the nearest vertex; or a pad larger than ~60 mm is common, where the quadric
 extrapolates past its fit; or rect pads need the montage's own orientation.
+
+Names on electrodes the head hides (same day): a name label shows only while its electrode's top
+faces the viewer along the electrode's own scalp normal (`glScene.electrodeAnchors`), not along the
+direction from the head's bounding-box centre, which near the silhouette of a long head called
+hidden electrodes facing — 5 of 94 shown names sat on electrodes the frame did not draw on the mock
+guide, 0 after [measured, offscreen Electron, 2026-10-28; pinned by
+`desktop/tests/e2e/scene-electrodes-opaque.spec.ts`, Actual size off and on]. The **Electrode
+names** and **Actual size** switches share one wrapping row. Rejected: reading the depth buffer
+under every name each frame (a synchronous readback per label, every frame of an orbit).
+
+## 2026-10-28 — The toolbox's default gel (saline) layer is 1 mm
+
+**Decision.** `SimulationConfig.gel_thickness`, `FlexConfig.ElectrodeConfig.gel_thickness`, the new
+`LeadfieldConfig.gel_thickness` and `APP_DEFAULTS` `flex*` `electrode.gel_thickness` default to
+1 mm (was 4 mm; a leadfield had no gel setting). Rubber stays 2 mm, shape ellipse, 8 × 8 mm.
+Desktop fallbacks (`DEFAULT_ELECTRODE_PAD`, a cleared Gel thickness field) follow. Values recorded
+in an existing run (`config.json`, a flex manifest) are read as written; the readers' fallbacks for
+a record that lacks the field stay 4 mm, which is what such a record was made with. Tests:
+`tests/test_sim_config.py::TestSimulationConfig::test_every_published_gel_default_is_one_millimetre`
+(the generated schema), `desktop/tests/unit/scene-electrode-pose.test.ts` (the scene's default pad
+equals the schema).
+
+**Why.** The maintainer asked for it (2026-10-28: "make the default saline thickness 1mm"). The
+4 mm default had no recorded rationale: it entered with the `SimulationConfig` field
+(46eb319f, 2026-03-08, "correct naming of electrode thickness"), was copied into `FlexConfig` and
+into the run pages' defaults table (03171c7f), and this log has no entry for it. 1 mm gel on 2 mm
+rubber is SimNIBS 4.6's own default for a flex-search electrode (`thickness = [1, 2]`,
+`simnibs/optimization/tes_flex_optimization/electrode_layout.py`) [read, SimNIBS 4.6.0]. The field
+under and around an electrode depends on its gel (Saturnino, Antunes & Thielscher 2015, NeuroImage
+120:25-35), so a simulation that relied on the default moves; one that set `gel_thickness` does not.
+
+**Alternatives rejected.** Changing only the desktop's starting value: a script and an agent config
+would still run 4 mm while the app showed 1 mm. Rewriting stored records' fallbacks to 1 mm: a
+record without the field was made at 4 mm.
+
+**Revisit if.** A study shows a different gel default matches the electrodes TI users actually
+mount.
+
+## 2026-10-28 — A leadfield records the electrode it was computed with
+
+**Decision.** `LeadfieldConfig` gains `SimulationConfig`'s `electrode_shape`, `electrode_dimensions`,
+`gel_thickness` and `rubber_thickness`, with its defaults. `LeadfieldGenerator.generate` sets them on
+SimNIBS's `TDCSLEADFIELD.electrode` (thickness `[gel, rubber]`) and writes them, after SimNIBS has
+written the HDF5, to a `<sid>_leadfield_<net>.json` sidecar (removed before the run).
+`GET /api/catalog/leadfields` adds `electrode` (additive and nullable: `null` or absent is "not
+recorded"). The Optimizer's **Generate leadfield** opens a step with the shared Electrodes section
+and its "?" before it queues the job, and shows each leadfield's electrode in the Net / leadfield
+cell and the leadfield strip. ARCHITECTURE §8. Tests: `tests/test_opt_leadfield.py` (the electrode
+reaches `TDCSLEADFIELD.electrode`; the sidecar round-trips; a stale one is gone before SimNIBS runs;
+a malformed one is unknown), `tests/test_plan_leadfield_runner.py` (the spec's electrode reaches
+`generate`), `tests/test_catalog_v1.py`, `desktop/tests/unit/optimizer-ex.test.ts`,
+`desktop/tests/e2e/optimizer.spec.ts` (the step's choice is the queued job's config).
+
+**Why.** The maintainer asked for an electrode step before generation (2026-10-28), and a leadfield
+computed with one electrode is a different leadfield from another's. Until now the generator never
+set an electrode, so every toolbox leadfield used SimNIBS's `TDCSLEADFIELD` default — a 10 mm
+ellipse of one 4 mm layer (`sim_struct.py`, `TDCSLEADFIELD.__init__`) [read, SimNIBS 4.6.0] — not
+the Simulator's electrode, and nothing recorded it: SimNIBS writes electrode names, centres, the cap
+and the tissues into the HDF5, no geometry. A leadfield without a sidecar is therefore shown as
+"electrode not recorded" rather than as either default: it may also come from another SimNIBS
+version or a script. A leadfield config without the new fields now computes the toolbox's
+electrode, not SimNIBS's: the one place where absent does not reproduce the previous behaviour, by
+request.
+
+**Alternatives rejected.** The electrode in the file name: SimNIBS names the file, and the catalog,
+the plan route, preflight and the Ex report read the net from it. Writing HDF5 attributes: the
+catalog lists leadfields with no h5py, and a 2 GB file is not rewritten for metadata. Several
+leadfields per net with different electrodes: one file per (subject, net) is SimNIBS's naming and
+nothing asks for more yet. Copying the leadfield's electrode into an Ex candidate's simulation: not
+asked for; the Simulator's defaults still apply there (§13).
+
+**Revisit if.** Users need two electrode sizes of one net side by side, or Ex candidates should
+replay with their leadfield's electrode.

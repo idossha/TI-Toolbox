@@ -310,12 +310,6 @@
   outline-offset: -2px;
 }
 
-/* Gel thickness carries a "mm" suffix inside the control, so it needs a little more room than the
-   72px the bare w/h boxes take (`--control-w`, ui/components.css `.field-row-inline`). */
-.sim-gel-field {
-  --control-w: 88px;
-}
-
 /* The unit in a header that is otherwise uppercased: "CURRENTS (MA)" is not a unit, "mA" is. */
 .montage-unit {
   text-transform: none;

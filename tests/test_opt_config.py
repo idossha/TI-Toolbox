@@ -890,7 +890,7 @@ class TestROIDefaults:
         elec = FlexElectrodeConfig()
         assert elec.shape == "ellipse"
         assert elec.dimensions == [8.0, 8.0]
-        assert elec.gel_thickness == 4.0
+        assert elec.gel_thickness == 1.0
 
 
 # ---------------------------------------------------------------------------

@@ -35,7 +35,7 @@ import type { EegNet, Leadfield } from "./api";
 import { GOAL_OPTIONS, ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
 import { formatBytes } from "./exConfig";
-import { electrodesForNet, leadfieldPathFor, netKey, netOptions } from "./nets";
+import { electrodesForNet, leadfieldElectrodeLabel, leadfieldPathFor, netKey, netOptions } from "./nets";
 import { isFlexMethod, OPT_METHODS, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
 import type { OptGoal } from "./flexConfig";
 import "./optimizer.css";
@@ -211,7 +211,7 @@ export function OptimizerJobRows({
     const ready = (lfs ?? []).filter((lf) => lf.exists);
     const readyKeys = new Set(ready.map((lf) => netKey(lf.net)));
     return [
-      ...ready.map((lf) => ({ value: netKey(lf.net), label: `${netKey(lf.net)} · ${formatBytes(lf.size_bytes)}` })),
+      ...ready.map((lf) => ({ value: netKey(lf.net), label: `${netKey(lf.net)} · ${formatBytes(lf.size_bytes)} · ${leadfieldElectrodeLabel(lf)}` })),
       ...netOptions(lfs, nets)
         .filter((o) => !readyKeys.has(o.value))
         .map((o) => ({ value: o.value, label: `${o.label} — no leadfield` })),

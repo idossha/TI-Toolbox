@@ -8,7 +8,7 @@ Ex-Search is the toolbox's **exhaustive** montage optimizer: it evaluates every 
 
 ## Prerequisites: Leadfield and EEG Net
 
-Every ex-search runs against a leadfield matrix for one subject and one EEG net. An Ex job's settings dialog opens with a **Leadfield** strip: choose an **EEG net**, and the strip shows the leadfield's size if it exists, or "No leadfield for this net yet" and **Generate (≈ N min)**, which queues a leadfield job (the estimate is for that net on this machine, one FEM solve per electrode). A row with no net yet takes the subject's first computed leadfield, or the first net when none is computed. Leadfields are 2–20 GB depending on the number of electrodes. The nets are the ones pre-processing placed on the head model (see [Available EEG Nets]({{ site.baseurl }}/wiki/simulator/#available-eeg-nets)).
+Every ex-search runs against a leadfield matrix for one subject and one EEG net. An Ex job's settings dialog opens with a **Leadfield** strip: choose an **EEG net**, and the strip shows the leadfield's size and the electrode it was computed with if it exists, or "No leadfield for this net yet" and **Generate (≈ N min)** (the estimate is for that net on this machine, one FEM solve per electrode). **Generate**, here or as **Generate leadfield** in the job's row, first asks for the electrode — **Shape**, **Dimensions** (width × height, mm) and **Gel thickness**, starting at the Simulator's defaults (ellipse, 8 × 8 mm, 1 mm gel, 2 mm rubber); the **?** beside **Electrodes** explains each — and queues the leadfield job when you click **Generate**. A row with no net yet takes the subject's first computed leadfield, or the first net when none is computed. Leadfields are 2–20 GB depending on the number of electrodes. The nets are the ones pre-processing placed on the head model (see [Available EEG Nets]({{ site.baseurl }}/wiki/simulator/#available-eeg-nets)).
 
 <div class="image-row">
   <div class="image-container">
@@ -22,6 +22,8 @@ Every ex-search runs against a leadfield matrix for one subject and one EEG net.
 </div>
 
 Leadfields are generated with `tissues=[1, 2]` (white + grey matter).
+
+A leadfield is the field of one electrode placed at every position of the net, so its electrode is part of what it is: the search scores montages with that electrode's size and gel. The electrode is recorded beside the leadfield in `<subject>_leadfield_<net>.json` and shown with it in the **Net / leadfield** cell (for example "GSN-HydroCel-185 · 2.0 GB · ellipse 8×8 mm, gel 1 mm"). A leadfield with no such record shows "electrode not recorded"; it loads and runs, but its electrode is unknown. There is one leadfield per subject and net, so a leadfield with another electrode for the same net replaces it: from Python, `LeadfieldConfig(subject_id, eeg_net, electrode_shape=…, electrode_dimensions=[w, h], gel_thickness=…, rubber_thickness=…, overwrite=True)`.
 
 ## In the application
 

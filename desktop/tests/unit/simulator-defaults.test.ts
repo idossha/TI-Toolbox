@@ -518,7 +518,7 @@ describe("per-job settings", () => {
 
   it("a changed default reaches a row that follows it, and not one that does not", () => {
     const following = row();
-    const custom = row({ settings: { ...defaults, electrodeShape: "rect", dimensions: [10, 10] } });
+    const custom = row({ settings: { ...defaults, electrodeShape: "rect", dimensions: [10, 10], gelThickness: 4 } });
     const changed: JobSettings = { ...defaults, gelThickness: 6 };
 
     expect(settingsFor(following, changed).gelThickness).toBe(6);

@@ -33,7 +33,7 @@ _FLEX: dict[str, Any] = {
     "goal": "mean",
     "postproc": "max_TI",
     "current_mA": 1.0,
-    "electrode": {"shape": "ellipse", "dimensions": [8, 8], "gel_thickness": 4},
+    "electrode": {"shape": "ellipse", "dimensions": [8, 8], "gel_thickness": 1},
     "max_iterations": 500,
     "population_size": 13,
     "tolerance": 0.1,
@@ -68,6 +68,9 @@ APP_DEFAULTS: dict[str, dict[str, Any]] = {
         "pareto": {"roi_pcts": [80], "nonroi_pcts": [20, 30, 40]},
     },
     "ex": {"current_step": 0.2, "channel_limit": 1.0},
+    # The Optimizer's Generate-leadfield step starts from the Simulator's electrode; the
+    # dataclass's default_factory value, which the generated schema cannot carry.
+    "leadfield": {"electrode_dimensions": [8, 8]},
 }
 
 

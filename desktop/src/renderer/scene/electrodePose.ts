@@ -44,7 +44,7 @@ export interface ElectrodePad {
 }
 
 /** The toolbox's own defaults (`tit/sim/config.py` `SimulationConfig`). */
-export const DEFAULT_ELECTRODE_PAD: ElectrodePad = { shape: "ellipse", width: 8, height: 8, gel: 4, rubber: 2 };
+export const DEFAULT_ELECTRODE_PAD: ElectrodePad = { shape: "ellipse", width: 8, height: 8, gel: 1, rubber: 2 };
 
 /**
  * A pad from the config's own field values, falling back field by field to the defaults for a

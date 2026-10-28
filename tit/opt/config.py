@@ -784,12 +784,12 @@ class FlexConfig:
             Electrode dimensions in mm (``[width, height]``).  Default
             ``[8.0, 8.0]``.
         gel_thickness : float
-            Conductive gel thickness in mm.  Default ``4.0``.
+            Conductive gel (saline) thickness in mm.  Default ``1.0``.
         """
 
         shape: str = "ellipse"  # "ellipse" or "rect"
         dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
-        gel_thickness: float = 4.0
+        gel_thickness: float = 1.0
 
         def __post_init__(self):
             if self.shape not in ("ellipse", "rect"):

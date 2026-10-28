@@ -13,7 +13,7 @@
           8
         ],
         "electrode_shape": "ellipse",
-        "gel_thickness": 4,
+        "gel_thickness": 1,
         "intensities": [
           1,
           1
