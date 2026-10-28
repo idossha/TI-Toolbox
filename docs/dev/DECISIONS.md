@@ -3424,3 +3424,47 @@ omit the limit would still pay the sweep.
 
 **Revisit if.** A goal or constraint is found where unequal splits win by more than a few percent.
 
+## 2026-10-28 — EEG electrodes are an instanced 3-D electrode model standing on the scalp, at actual size on request
+
+**Decision.** Occluded scene markers are drawn as the exporter's electrode model
+(`tit/blender/Electrode.blend`'s profile — the convex hull of its vertices about its axis, simplified
+to 2 % and revolved in 24 steps, 192 triangles — plus a 72-triangle gel slab, written by
+`dev/export_electrode_model.py`, Blender 5.1.0, into `desktop/src/renderer/scene/electrodeModel.ts`)
+with one `drawElementsInstanced` per pass. Each instance's base is on the skin, its axis along the
+outward scalp normal, and every vertex rides a least-squares quadric of the skin around it
+(`desktop/src/renderer/scene/electrodePose.ts`; an 8 mm fit for the cap marker, a 32 mm fit for a
+pad), all computed once per net and skin. Cap marker radius `ELECTRODE_RADIUS_MM` = 3 mm. The montage
+pane's **Actual size** switch (off by default, not persisted, like **Electrode names**) shows only the
+electrodes in a pair, at the job's shape, dimensions, rubber and gel thickness; a rect pad's width
+runs along the horizontal tangent. A size, gel or switch change rewrites per-instance buffers only.
+The marker-occlusion pre-pass starts from a cleared depth buffer (an opaque skin occludes exactly
+like a translucent one) and is pushed `MARKER_OCCLUSION_BIAS_MM` = 0.5 mm, only to keep the contact
+ring from z-fighting (ARCHITECTURE §7.2). Tests: `desktop/tests/unit/scene-electrode-pose.test.ts`,
+`desktop/tests/e2e/scene-electrodes-opaque.spec.ts`.
+
+**Why.** With the skin at full opacity every electrode was a crescent (maintainer, 2026-10-28): the
+opaque pass's unpushed depth beat the pushed pre-pass, and a screen-facing disc centred on the
+scalp has its inner half behind it. A disc lifted off the scalp cleared it but floated visibly at
+the silhouette; only geometry standing on the skin touches it from every angle. The offscreen spec
+found no empty pixel between scalp and electrode along the axis of 11 silhouette electrodes and
+every one of 62 face-on electrodes drawn [measured, mock guide, 2026-10-28]; the lifted-dot build
+fails the same check. A configured pad is up to ~50 mm across, whose flat rim would float ~4.7 mm
+off a 90 mm head [derived: sagitta]; the quadric keeps a 50 x 30 mm footprint within 0.1 mm of a
+sphere and 0.3 mm of an ellipsoid [measured, unit test]. On the real Ernie guide (183 electrodes,
+222 k skin and GM triangles), a full frame with synchronous readback took 3.1-3.3 ms on main and
+2.8-3.3 ms on this branch with Actual size off, on, or at 50 x 30 mm, draw calls unchanged at 5, and
+an electrode edit reached the screen in 13-15 ms (one frame at the offscreen 100 fps cap; 28-35 ms
+for the first edit after the dialog opens) [measured, offscreen Electron, 2026-10-28].
+
+**Alternatives rejected.** Disabling the marker depth test: the far side of the net shows through
+the head again. Lifting the screen-facing dot one radius: floats at the silhouette. A larger fixed
+bias: cannot fix the silhouette and lets far-side electrodes through on small heads. The direction
+from the head centre as the axis: tilts electrodes on the face and neck; the patch normal is the
+scalp's own. Blender's collapse decimation of the full model: folded 9 of 238 triangles, which a
+25x stretch turns into black creases. A fit sized to each pad: every size edit would re-search the
+skin; one 32 mm fit serves every pad up to ~50 x 30 mm. Every net electrode at the configured size:
+a 185-electrode net at 25 mm is a solid carpet, and the electrodes not in the montage carry no size.
+
+**Revisit if.** A net lies far (> 5 mm) from the served skin, where the patch is empty and the pose
+falls back to the nearest vertex; or a pad larger than ~60 mm is common, where the quadric
+extrapolates past its fit; or rect pads need the montage's own orientation.

@@ -7,6 +7,14 @@ toc_group: major
 
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
+### Unreleased
+
+#### 3-D scene
+
+- **Fixed: EEG electrodes stand on the scalp at every skin opacity** — with the **Skin** slider at full opacity (the Simulator's default), every EEG electrode in the 3-D view was drawn as a half-disc and those at the edge of the head nearly disappeared. Each electrode is now a small 3-D electrode (the model the Blender montage export uses, 6 mm wide) standing on the scalp at its position, upright along the scalp, touching the skin from every viewing angle including the edge of the head, and its name label sits on top of it. Electrodes on the far side of the head are still hidden by it, clicking an electrode still selects it, channel colours and hover are unchanged, and placement dots and sphere centres are still drawn as dots exactly where they were placed. Montages, simulations and results are unchanged.
+- **Added: see a montage's electrodes at their actual size** — the Simulator's 3-D view has an **Actual size** switch beside **Electrode names**. On, the view shows only the electrodes in the montage's pairs, each at the job's electrode shape and width × height with its rubber layer on a pale gel layer of the job's gel thickness (no gel layer at 0 mm), bent to follow the scalp so the gel touches the skin across the whole electrode; editing **Job settings ▸ Electrodes** redraws them at once, before **Done**. Off (the default) shows the whole net as before. A rectangular electrode's width runs around the head (horizontally), as the 3-D view has no orientation for it. The switch is not remembered between sessions, and simulations are unchanged.
+
+---
 ### v3.1.2 — October 22, 2026 <span class="release-pill">Latest</span> {#v312--october-22-2026}
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.2/">Release notes →</a>

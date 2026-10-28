@@ -522,6 +522,22 @@ winding and prevents the provoking vertex from assigning a minority label. Tripl
 their original ordering.
 
 Electrode color expresses availability and channel membership, with no additional selection ring.
+EEG electrodes (occluded markers) are drawn as the Blender exporter's electrode model — its profile,
+revolved, 192 triangles, plus a 72-triangle gel slab, from `dev/export_electrode_model.py` into
+`scene/electrodeModel.ts` — in one instanced draw per pass. Each stands with its base on the skin
+and its axis along the outward scalp normal (`scene/electrodePose.ts`: skin vertex normals within
+5 mm, base on their plane) and is bent onto the scalp by a least-squares quadric of the skin around
+it; poses and quadrics are computed once per net and skin. By default every electrode is the 6 mm
+cap marker. The montage pane's **Actual size** switch shows only the electrodes in a pair, each at
+the job's `electrode_shape`, `electrode_dimensions`, `rubber_thickness` and `gel_thickness`
+(`SceneMarker.pad`), the rest hidden (`SceneMarker.hidden`, kept in place so indices do not move);
+a size, gel or switch change only rewrites per-instance buffers. Depth-tested against the skin, so
+electrodes touch the scalp at every view angle and are hidden on the far side. Names sit on the
+model's top; picking draws the same instances. Markers drawn over everything (placement dots, sphere
+centres) stay screen-facing dots. Excluded alternatives: turning the marker depth test off (the far
+side of the net shows through the head), lifting a screen-facing dot off the scalp (it floats at the
+silhouette), and drawing every net electrode at the configured size (a 185-electrode net at 25 mm
+is a solid carpet).
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
 chips edit the same region list. Coordinate picking remains constrained by §3.
 
