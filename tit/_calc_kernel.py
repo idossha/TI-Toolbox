@@ -289,7 +289,7 @@ def _element(
                     bn[:] = Vj[:, col]
 
     # Safeguards: the eigenvectors of C+, C- and C+ - C- (the cusps and the grid's ends), and
-    # each pair's own K=1 optimum (exact when the other pairs vanish).
+    # each carrier's own K=1 optimum (exact when the other carriers vanish).
     for s in range(3):
         C = Cp if s == 0 else (Cm if s == 1 else Cw)
         M[:] = C
@@ -348,7 +348,7 @@ def max_sphere(E, grid, extra, root_iters, newton_iters):
 
     ``ok`` is False where an eigen-solve did not converge; ``tit.calc`` raises on any such row.
     """
-    # grid, extra (n, K, 3: each pair's K=1 optimum), root_iters, newton_iters come from
+    # grid, extra (n, K, 3: each carrier's K=1 optimum), root_iters, newton_iters come from
     # tit.calc (_THETA_GRID, _pair_optima, _ROOT_ITERS, _NEWTON_ITERS). A null element gives 0;
     # tit.calc sets its direction.
     K = E.shape[0] // 2

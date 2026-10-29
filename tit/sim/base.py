@@ -17,13 +17,13 @@ Subclasses implement the following abstract interface:
 * ``_simulation_mode`` -- property returning ``SimulationMode.TI`` or ``.MTI``
 * ``_montage_type_label`` -- property returning ``"TI"`` or ``"mTI"``
 * ``_montage_imgs_key`` -- property returning dirs key for montage images
-* ``_build_session`` -- electrode-pair-specific session construction
+* ``_build_session`` -- mode-specific (TI or mTI) session construction
 * ``_post_process`` -- field computation and file organization
 
 See Also
 --------
-TISimulation : 2-pair TI implementation.
-mTISimulation : N-pair mTI implementation.
+TISimulation : Two-channel TI implementation.
+mTISimulation : N-channel mTI implementation.
 SimulationConfig : Configuration consumed by simulations.
 run_simulation : Top-level orchestration entry point.
 """
@@ -105,8 +105,8 @@ class BaseSimulation(ABC):
 
     See Also
     --------
-    TISimulation : Concrete 2-pair TI subclass.
-    mTISimulation : Concrete N-pair mTI subclass.
+    TISimulation : Concrete two-channel TI subclass.
+    mTISimulation : Concrete N-channel mTI subclass.
     run_simulation : Orchestrates ``BaseSimulation.run`` across montages.
     """
 
@@ -255,7 +255,7 @@ class BaseSimulation(ABC):
         Returns
         -------
         sim_struct.SESSION
-            A SESSION ready for electrode pair configuration.
+            A SESSION ready for its channels' electrodes.
         """
         cfg = self.config
         S = sim_struct.SESSION()
@@ -284,12 +284,12 @@ class BaseSimulation(ABC):
         current_mA: float,
         pair_index: int = 0,
     ):
-        """Add one electrode pair as a TDCS list on *session*.
+        """Add one channel (electrode pair) as a TDCS list on *session*.
 
         Parameters
         ----------
         session : sim_struct.SESSION
-            The SimNIBS session to add the pair to.
+            The SimNIBS session to add the channel to.
         pair_positions : sequence
             Two-element sequence of electrode positions (labels or XYZ).
         current_mA : float
@@ -357,9 +357,9 @@ class BaseSimulation(ABC):
         """Write the selected volume fields of the channels' ``E`` to *path*.
 
         Every field runs over all channel fields jointly, paired positionally
-        (each two consecutive channels beat on one carrier pair).  The
+        (each two consecutive channels share one carrier and beat).  The
         envelope maximum is written as *max_name* (``TI_max``; ``mTI_max``
-        for mTI); carrier-only runs add the carriers coherently.
+        for mTI); carrier-only runs add the channel fields coherently.
         """
         selected = set(self.config.output_fields)
         coherent = self.config.carrier_only
@@ -372,7 +372,7 @@ class BaseSimulation(ABC):
         if const.FIELD_TI_AVG in selected:
             mout.add_element_field(envelope_mean(fields), const.FIELD_TI_AVG)
         if const.FIELD_HF_PEAK in selected:
-            # Peak carrier field (Cassarà 2025 Part I, Eq. 3); one channel field is one carrier.
+            # Peak carrier field (Cassarà 2025 Part I, Eq. 3); each channel field enters on its own.
             mout.add_element_field(
                 hf_peak(fields, coherent=coherent), const.FIELD_HF_PEAK
             )

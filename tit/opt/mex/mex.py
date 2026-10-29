@@ -1,4 +1,4 @@
-"""Multipolar (4-pair) exhaustive search optimization.
+"""Multipolar (four-channel) exhaustive search optimization.
 
 Public API: ``run_m_ex_search(config) -> MExResult``
 """
@@ -28,10 +28,10 @@ from .logic import count_multipolar_combinations, explain_zero_multipolar_combin
 
 
 def run_m_ex_search(config: MExConfig) -> MExResult:
-    """Run an exhaustive four-pair (eight-electrode) mTI search over a leadfield.
+    """Run an exhaustive four-channel (eight-electrode) mTI search over a leadfield.
 
-    Enumerates every four-pair combination allowed by
-    ``config.electrodes`` at one fixed ``current_mA`` per pair, scores each
+    Enumerates every four-channel combination allowed by
+    ``config.electrodes`` at one fixed ``current_mA`` per channel, scores each
     candidate with the joint K-carrier envelope maximum
     (:func:`tit.calc.envelope_max`), and writes a ranked CSV plus a
     config JSON under the subject's ``m-ex-search/`` folder.
@@ -77,7 +77,7 @@ def run_m_ex_search(config: MExConfig) -> MExResult:
     --------
     MExConfig : Configuration dataclass for this search.
     MExResult : Returned container.
-    tit.opt.ex.ex.run_ex_search : Two-pair (TI) variant.
+    tit.opt.ex.ex.run_ex_search : Two-channel (TI) variant.
     """
     return _run_m_ex_search_inner(config)
 

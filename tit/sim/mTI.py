@@ -1,22 +1,23 @@
 #!/usr/bin/env simnibs_python
-"""N-pair Multi-channel Temporal Interference (mTI) simulation.
+"""N-channel Multi-channel Temporal Interference (mTI) simulation.
 
 Implements :class:`mTISimulation`, the concrete ``BaseSimulation`` subclass
-for multi-channel TI stimulation with an arbitrary even number of electrode
-pairs (4, 6, 8, ...):
+for multi-channel TI stimulation with an arbitrary even number of channels
+(4, 6, 8, ...):
 
-* Each pair produces one HF E-field via SimNIBS TDCS.
-* Adjacent pairs are combined into intermediate 2-pair TI vector fields,
-  saved for inspection only.
+* Each channel produces one HF E-field via SimNIBS TDCS.
+* Each carrier's two channels are combined into an intermediate TI vector
+  field, saved for inspection only.
 * The final mTI envelope is the multi-carrier envelope maximum
   (:func:`tit.calc.envelope_max`) over all N channel fields
   jointly -- *not* a recursive TI-of-TI combination of the intermediate
   fields above (that approximation is physically invalid).
 * Channels are paired positionally: each two consecutive channels share
-  a carrier and beat against each other (A&B on the first carrier, C&D
-  on the second, and so on).
+  a carrier and beat against each other (channels 1 and 2 on the first
+  carrier, 3 and 4 on the second, and so on; on disk the channels are
+  lettered ``A``, ``B``, ``C``, ``D`` ...).
 
-Example with 4 channels (A/B/C/D)::
+Example with 4 channels (on disk A/B/C/D)::
 
     TI_AB = _ti_vectors([E_A, E_B])            # intermediate, inspection only
     TI_CD = _ti_vectors([E_C, E_D])            # intermediate, inspection only
@@ -25,7 +26,7 @@ Example with 4 channels (A/B/C/D)::
 See Also
 --------
 BaseSimulation : Abstract base class providing the ``run`` template.
-TISimulation : Standard 2-pair TI variant.
+TISimulation : Standard two-channel TI variant.
 SimulationConfig : Configuration consumed by the simulation.
 run_simulation : Top-level orchestration that dispatches to this class.
 """
@@ -57,15 +58,15 @@ def _ti_vectors(fields):
 
 
 class mTISimulation(BaseSimulation):
-    """Run a single N-pair mTI simulation (N >= 4, even).
+    """Run a single N-channel mTI simulation (N >= 4, even).
 
     Pipeline
     --------
     1. Set up BIDS output directory structure.
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION (N TDCS lists), run FEM.
-    4. Compute intermediate 2-pair TI vector fields (adjacent pairings,
-       saved for inspection only).
+    4. Compute each carrier's intermediate TI vector field (adjacent
+       channels, saved for inspection only).
     5. Compute final ``mTI_max`` from the verified multi-carrier
        modulation-depth envelope over all N channel fields jointly, plus
        its orientation-averaged companion ``TI_avg`` and the ``hf_peak``/
@@ -76,7 +77,7 @@ class mTISimulation(BaseSimulation):
     See Also
     --------
     BaseSimulation : Parent class with shared setup and template ``run``.
-    TISimulation : Standard 2-pair variant.
+    TISimulation : Standard two-channel variant.
     """
 
     @property
@@ -97,7 +98,7 @@ class mTISimulation(BaseSimulation):
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
-        """Build SimNIBS SESSION for N-pair mTI.
+        """Build SimNIBS SESSION for N-channel mTI.
 
         Parameters
         ----------
@@ -107,7 +108,7 @@ class mTISimulation(BaseSimulation):
         Returns
         -------
         sim_struct.SESSION
-            Configured session with N TDCS lists (one per pair).
+            Configured session with N TDCS lists (one per channel).
         """
         S = self._init_session(output_dir)
         n_pairs = self.montage.num_pairs
@@ -140,7 +141,7 @@ class mTISimulation(BaseSimulation):
         Raises
         ------
         ValueError
-            If the montage has more than 26 electrode pairs (A-Z limit).
+            If the montage has more than 26 channels (A-Z limit).
         """
         sid = self.config.subject_id
         name = self.montage.name
@@ -236,7 +237,7 @@ class mTISimulation(BaseSimulation):
         self.logger.debug(f"Saved: {path}")
 
     def _organize_files(self, dirs: dict) -> None:
-        """Move HF files, renaming pairs ``1..N`` to ``A..Z`` for mTI convention."""
+        """Move HF files, renaming channels ``1..N`` to ``A..Z`` for mTI convention."""
         hf = dirs["hf_dir"]
         n_pairs = self.montage.num_pairs
         letters = string.ascii_uppercase

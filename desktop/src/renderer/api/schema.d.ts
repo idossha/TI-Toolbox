@@ -6950,8 +6950,8 @@ export interface components {
          *         Subject identifier without the ``sub-`` prefix (e.g. ``"ernie"``,
          *         ``"101"``); must match an existing ``m2m_<subject_id>`` directory.
          *     montages : list[Montage]
-         *         One or more :class:`Montage` definitions to simulate.  Two pairs
-         *         per montage is TI, four or more (even) pairs is mTI -- detected
+         *         One or more :class:`Montage` definitions to simulate.  Two channels
+         *         (electrode pairs) is TI, four or more (even) is mTI -- detected
          *         per montage, so a list may mix both.
          *     conductivity : str
          *         Tissue conductivity model.  One of:
@@ -6964,10 +6964,10 @@ export interface components {
          *         The anisotropic modes (``"vn"``, ``"dir"``, ``"mc"``) require
          *         DTI tensors registered to the head mesh.
          *     intensities : list[float]
-         *         Current per electrode pair in mA, in ``electrode_pairs`` order.
-         *         A TI montage reads the first two values; an mTI montage needs one
-         *         value per pair (``len(intensities) >= num_pairs``).  A single
-         *         value is **not** broadcast -- a 4-pair montage with the default
+         *         Current per channel in mA, in ``electrode_pairs`` order (one value
+         *         per channel).  A TI montage reads the first two values; an mTI montage
+         *         needs one value per channel (``len(intensities) >= num_pairs``).  A
+         *         single value is **not** broadcast -- a 4-channel montage with the default
          *         two values is rejected.  Default ``[1.0, 1.0]``.
          *     electrode_shape : str
          *         Electrode shape, ``"ellipse"`` or ``"rect"``.  Default
@@ -7035,12 +7035,12 @@ export interface components {
          *         visible in the job's config and its manifest instead of being an
          *         invisible process-environment side channel.
          *     carrier_only : bool
-         *         Carrier-only control: both pairs run at the same frequency, in phase
-         *         (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
-         *         ``hf_sar`` and ``hf_power_density`` then add the carriers coherently
-         *         (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no envelope field
-         *         (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.  Requires a
-         *         2-pair TI montage and ``output_fields`` from those carrier fields.
+         *         Carrier-only control: both channels run at the same frequency, in
+         *         phase (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
+         *         ``hf_sar`` and ``hf_power_density`` then add the two channel fields
+         *         coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no envelope
+         *         field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.  Requires a
+         *         two-channel TI montage and ``output_fields`` from those carrier fields.
          *         Default ``False``.
          *
          *     Raises
@@ -7048,11 +7048,11 @@ export interface components {
          *     ValueError
          *         If *conductivity* is not one of the valid model names, if
          *         *output_fields* contains an unknown name or is empty, if any
-         *         montage has a pair that is not exactly two electrodes, if
+         *         montage has a channel that is not exactly two electrodes, if
          *         *intensities* is shorter than a montage needs (2 for TI, one per
-         *         pair for mTI), if *tissue_conductivities* contains a
+         *         channel for mTI), if *tissue_conductivities* contains a
          *         non-positive value, or if *carrier_only* is set with an envelope
-         *         output field or a montage that is not 2-pair TI.  Filesystem checks (the m2m directory, the
+         *         output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
          *         EEG-net CSV) happen later, in :func:`run_simulation`.
          *
          *     Examples
@@ -7075,7 +7075,7 @@ export interface components {
          *     >>> cfg.map_to_surf, cfg.output_fields
          *     (True, ['TI_max', 'hf_peak'])
          *
-         *     A carrier-only control of the same montage (both pairs at one
+         *     A carrier-only control of the same montage (both channels at one
          *     frequency, in phase; no envelope, so only carrier fields):
          *
          *     >>> sham = SimulationConfig(
@@ -7182,12 +7182,13 @@ export interface components {
          * Montage
          * @description A named electrode montage used in a TI/mTI simulation.
          *
-         *     Wraps the electrode pair definitions for a single montage.  Electrodes
+         *     Wraps the channel definitions of a single montage: one electrode pair
+         *     per channel, channel k being electrodes Ek+ and Ek-.  Electrodes
          *     may be referenced by EEG-cap label names (``NET`` / ``FLEX_MAPPED``
          *     modes) or by 3-D XYZ coordinates (``FLEX_FREE`` / ``FREEHAND`` modes).
          *
-         *     The simulation type is auto-detected from the number of electrode
-         *     pairs: 2 pairs = standard TI, 4+ pairs = multi-channel mTI.
+         *     The simulation type is auto-detected from the number of channels:
+         *     2 channels = standard TI, 4 or more (even) = multi-channel mTI.
          *
          *     Attributes
          *     ----------
@@ -7196,8 +7197,9 @@ export interface components {
          *     mode : MontageMode
          *         How electrode positions are specified.  See :class:`MontageMode`.
          *     electrode_pairs : list[tuple]
-         *         List of electrode pairs.  Each element is a tuple of two electrode
-         *         identifiers (label strings or XYZ coordinate lists).
+         *         One entry per channel, in channel order.  Each element is a tuple of
+         *         two electrode identifiers (label strings or XYZ coordinate lists),
+         *         ``(Ek+, Ek-)``.
          *     eeg_net : str or None
          *         Filename of the EEG-net CSV (e.g. ``"GSN-HydroCel-185.csv"``).
          *         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
@@ -7301,7 +7303,7 @@ export interface components {
          *         Field post-processing method (``"max_TI"``, ``"dir_TI_normal"``,
          *         or ``"dir_TI_tangential"``).
          *     current_mA : float
-         *         Current per channel in mA -- each of the two electrode pairs
+         *         Current per channel in mA -- each of the two channels
          *         injects ``+current_mA`` / ``-current_mA`` (a 1:1 split), so the
          *         total injected current is ``2 * current_mA``.
          *     electrode : ElectrodeConfig
@@ -7731,9 +7733,9 @@ export interface components {
          *         unset, it is inferred from the leadfield's net name.
          *     symmetry_pairing : str
          *         Symmetry interpretation when *symmetric_bucket* is True.
-         *         ``"within_pairs"``: each pair's minus electrode is the mirror of
-         *         its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: pair 2 is the
-         *         mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
+         *         ``"within_pairs"``: each channel's minus electrode is the mirror of
+         *         its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: channel 2 is the
+         *         mirror image of channel 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
          *
          *     Raises
          *     ------
@@ -7845,11 +7847,11 @@ export interface components {
         };
         /**
          * MExConfig
-         * @description Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.
+         * @description Full configuration for multipolar (four-channel) exhaustive search.
          *
-         *     Evaluates every valid combination of four bipolar electrode pairs from
-         *     a user-defined pool or bucket set, at one fixed current per pair, and
-         *     scores each candidate with the joint K-carrier envelope maximum
+         *     Evaluates every valid combination of four channels (eight electrodes)
+         *     from a user-defined pool or bucket set, at one fixed current per channel,
+         *     and scores each candidate with the joint K-carrier envelope maximum
          *     (:func:`tit.calc.envelope_max`).
          *
          *     Attributes
@@ -7865,11 +7867,11 @@ export interface components {
          *         missing.
          *     electrodes : BucketElectrodes or PoolElectrodes
          *         Electrode specification, either a single shared pool
-         *         (:class:`PoolElectrodes`) or four separate per-pair buckets
+         *         (:class:`PoolElectrodes`) or separate per-channel buckets
          *         (:class:`BucketElectrodes`).  A plain dict is auto-converted in
          *         ``__post_init__``.
          *     current_mA : float
-         *         Current in mA delivered by each of the four pairs.  Default ``2.0``.
+         *         Current in mA delivered by each of the four channels.  Default ``2.0``.
          *     roi_radius : float
          *         Spherical ROI radius in mm for the target region.  Default ``3.0``.
          *     roi_names : list of str or None
@@ -7899,15 +7901,16 @@ export interface components {
          *         on it.
          *     symmetric_bucket : bool
          *         When True in bucket mode, evaluate only left/right mirrored
-         *         electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
+         *         montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
          *     symmetry_eeg_csv : str or None
          *         EEG-position CSV used to derive mirrored electrode pairs.  If
          *         unset, it is inferred from the leadfield's net name.
          *     symmetry_pairing : str
          *         Symmetry interpretation for bucket mode when *symmetric_bucket*
-         *         is True.  ``"within_pairs"`` mirrors each pair's plus/minus
-         *         electrodes independently; ``"cross_pairs"`` additionally mirrors
-         *         pair 1<->3 and pair 2<->4.
+         *         is True.  ``"within_pairs"``: each channel's minus electrode is the
+         *         mirror of its plus electrode.  ``"cross_pairs"`` instead (not in
+         *         addition): channel 3 mirrors channel 1 and channel 4 mirrors
+         *         channel 2 (``e3+ = mirror(e1+)``, ``e3- = mirror(e1-)``, and so on).
          *
          *     Raises
          *     ------
@@ -10040,12 +10043,12 @@ export interface components {
         };
         /**
          * BucketElectrodes
-         * @description Separate electrode lists for each of the four bipolar pairs.
+         * @description Separate electrode lists for each of the four channels' electrodes.
          *
          *     Attributes
          *     ----------
          *     e1_plus, e1_minus, e2_plus, e2_minus, e3_plus, e3_minus, e4_plus, e4_minus : list of str
-         *         Candidate electrodes for each pair's anode/cathode position.
+         *         Candidate electrodes for each channel's Ek+ / Ek- position.
          */
         MExConfigBucketElectrodes: {
             /** E1 Plus */
@@ -10077,7 +10080,7 @@ export interface components {
          *     Attributes
          *     ----------
          *     electrodes : list of str
-         *         List of electrode names available for any pair position.
+         *         List of electrode names available for any of the eight positions.
          */
         MExConfigPoolElectrodes: {
             /** Electrodes */

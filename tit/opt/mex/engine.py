@@ -14,7 +14,7 @@ from .logic import count_multipolar_combinations, generate_multipolar_combinatio
 
 
 class MExSearchEngine(ExSearchEngine):
-    """Exhaustive search engine for four-pair (eight-electrode) mTI montages.
+    """Exhaustive search engine for four-channel (eight-electrode) mTI montages.
 
     Scores each candidate with the joint K-carrier envelope maximum
     (:func:`tit.calc.envelope_max`), not a recursive envelope-of-envelopes
@@ -26,10 +26,10 @@ class MExSearchEngine(ExSearchEngine):
         electrodes: tuple[str, str, str, str, str, str, str, str],
         current_mA: float,
     ) -> dict[str, float]:
-        """Compute one four-pair mTI candidate and return ROI metrics.
+        """Compute one four-channel mTI candidate and return ROI metrics.
 
         The K>=2 envelope maximum (:func:`tit.calc.envelope_max`) is a
-        per-element root-find -- far costlier than the 2-pair closed form -- so it
+        per-element root-find -- far costlier than the two-channel closed form -- so it
         is evaluated only on ``ROI | GM`` (:meth:`_evaluation_subset`).
         """
         subset, roi_pos, gm_pos = self._evaluation_subset()
@@ -78,7 +78,7 @@ class MExSearchEngine(ExSearchEngine):
         if symmetry_mirror_map is not None:
             mode += f", left/right symmetric ({symmetry_pairing})"
         self.logger.info("Multipolar Exhaustive Search (%s)", mode)
-        self.logger.info("Current per pair: %.3f mA", current_mA)
+        self.logger.info("Current per channel: %.3f mA", current_mA)
         self.logger.info("Total combinations: %d", total)
         n_jobs = resolve_n_jobs(n_jobs)
         self.logger.info("Workers: %d", n_jobs)

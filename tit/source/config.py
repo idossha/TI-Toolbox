@@ -32,9 +32,9 @@ from tit.constants import FSAVG_FIELD_NAMES
 #:
 #: Sourced from :data:`tit.constants.FSAVG_FIELD_NAMES` (the single source of
 #: truth, shared with :mod:`tit.stats.config`), which is the field registry
-#: minus ``FIELD_MTI_MAX`` ("mTI_max", the 4-pair/mTI mesh spelling): the
+#: minus ``FIELD_MTI_MAX`` ("mTI_max", the mTI mesh spelling): the
 #: central-surface pipeline only ever emits ``TI_max``, regardless of whether
-#: the simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
+#: the simulation was TI or mTI, so there is no separate mTI fsaverage
 #: field to project. Reproduces the exact historical tuple
 #: ``("TI_max", "TI_normal", "hf_peak", "hf_sar")``.
 VALID_FSAVG_FIELDS: tuple[str, ...] = FSAVG_FIELD_NAMES

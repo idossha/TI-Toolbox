@@ -1,16 +1,17 @@
 """Temporal-interference envelope and carrier-field metrics.
 
 Fields are zero-to-peak amplitudes, ``(N, 3)`` arrays in V/m for zero-to-peak
-channel currents.  The envelope functions take ``fields = [E1a, E1b, E2a, E2b,
-...]``, 2K arrays paired positionally: pair ``k`` is one carrier pair beating
-at the common difference frequency, all K envelopes phase-aligned (K = 1 is TI,
-K >= 2 is mTI).  The carrier metrics take any number >= 1 of carrier fields,
-one per electrode pair.
+channel currents, one array per channel (electrodes Ek+ and Ek-).  The
+envelope functions take ``fields = [E1, E2, ..., E2K]`` in channel order, paired
+positionally: channels ``2k-1`` and ``2k`` share carrier ``k`` and beat at the
+common difference frequency, all K beats phase-aligned (K = 1 is TI, K >= 2 is
+mTI).  In the formulas ``E_ka`` and ``E_kb`` are carrier ``k``'s two channel
+fields.  The carrier metrics take the fields of any number >= 1 of channels.
 
-A carrier with no beating partner enters the envelope functions as a pair with
-a zero field, ``[E1a, E1b, Eu, np.zeros_like(Eu)]``: it adds to the carrier
-power but not to the beat, so it lowers the envelope.  :func:`hf_peak` and
-:func:`hf_power` take it as one more carrier in the list.
+A channel with no beating partner enters the envelope functions with a zero
+field as its partner, ``[E1, E2, Eu, np.zeros_like(Eu)]``: it adds to the
+carrier power but not to the beat, so it lowers the envelope.  :func:`hf_peak`
+and :func:`hf_power` take it as one more channel field in the list.
 
 * :func:`envelope` -- envelope amplitude along a direction (``TI_normal``)
 * :func:`envelope_max` -- its maximum over all directions (``TI_max``,
@@ -33,7 +34,7 @@ References:
 
 The K >= 2 envelope model and the Fibonacci direction grid behind
 ``_hemisphere_directions`` are ported from Larissa Albantakis's branch
-``alba/mTI_testing`` (the solvers here are new); the unpaired-carrier
+``alba/mTI_testing`` (the solvers here are new); the unpaired-channel
 convention follows Michael Sutherland's ``feature/uni_HF`` work.
 """
 
@@ -59,7 +60,7 @@ _SQRT2 = np.sqrt(2.0)
 
 # --- K>=2 sphere maximum (tit._calc_kernel) ---------------------------------
 # theta grid: 16 uniform intervals on (0, pi/2) plus 16 log-spaced in tan(theta)
-# (tan theta = sqrt(u/v) spans many decades when one carrier pair is weak).
+# (tan theta = sqrt(u/v) spans many decades when one carrier is weak).
 _THETA_GRID = np.unique(
     np.concatenate(
         [
@@ -100,11 +101,11 @@ def _stack(fields: Sequence[ArrayLike], *, paired: bool) -> np.ndarray:
     n = len(arrs)
     if paired and not is_valid_pair_count(n):
         raise ValueError(
-            f"fields must be an even number (>= 2) of arrays, two per carrier "
-            f"pair: [E1a, E1b, E2a, E2b, ...]; got {n}"
+            f"fields must be an even number (>= 2) of arrays, one per channel "
+            f"and two channels per carrier: [E1, E2, E3, E4, ...]; got {n}"
         )
     if not paired and n < 1:
-        raise ValueError("fields must contain at least one carrier field")
+        raise ValueError("fields must contain at least one channel field")
     shape = arrs[0].shape
     if len(shape) != 2 or shape[1] != 3:
         raise ValueError(f"each field must have shape (N, 3), got {shape}")
@@ -166,7 +167,7 @@ def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.fl
     projection 0) give 0.
 
     Args:
-        fields: ``[E1a, E1b, E2a, E2b, ...]``, 2K arrays (N, 3) in V/m.
+        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.
         direction: (3,) or (N, 3); normalised internally, a zero row gives 0.
 
     Returns:
@@ -181,7 +182,7 @@ def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.fl
     p = np.einsum("fnx,nx->fn", E, n)
     a, b = p[0::2], p[1::2]
     # w = u - v = 2 sum a b straight from the projections: _uvw's (s + d)(s - d) would lose
-    # the weaker field of a pair to cancellation when the other dominates.
+    # the weaker field of a carrier to cancellation when the other dominates.
     u = 0.5 * np.sum((a + b) ** 2, axis=0)
     v = 0.5 * np.sum((a - b) ** 2, axis=0)
     return _env_uvw(u, v, 2.0 * np.sum(a * b, axis=0))
@@ -214,7 +215,7 @@ def envelope_max(
     tangential maximum.
 
     Args:
-        fields: ``[E1a, E1b, E2a, E2b, ...]``, 2K arrays (N, 3) in V/m.
+        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.
         perpendicular_to: plane normal(s), (3,) or (N, 3); ``None`` maximises
             over the sphere.  Normalised internally; a zero row gives 0.
         return_direction: also return the maximising unit direction.
@@ -351,9 +352,9 @@ def _uvw(S, D, dirs):
 
 
 def _pair_optima(E):
-    """``(n, K, 3)``: each pair's own K=1 optimum, a kernel safeguard candidate.
+    """``(n, K, 3)``: each carrier's own K=1 optimum, a kernel safeguard candidate.
 
-    Exact when the other pairs vanish, where the root-find may have no sign change to bracket.
+    Exact when the other carriers vanish, where the root-find may have no sign change to bracket.
     """
     return np.stack([_max_k1(E[k], E[k + 1])[1] for k in range(0, len(E), 2)], axis=1)
 
@@ -453,7 +454,7 @@ def envelope_mean(fields: Sequence[ArrayLike]) -> NDArray[np.float64]:
     defined by this toolbox.
 
     Args:
-        fields: ``[E1a, E1b, E2a, E2b, ...]``, 2K arrays (N, 3) in V/m.
+        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.
 
     Returns:
         (N,) direction-averaged envelope amplitude in V/m.
@@ -500,18 +501,18 @@ def hf_peak(
 ) -> NDArray[np.float64]:
     """Peak instantaneous carrier field, ``max_s |sum_c s_c E_c|`` over ``s_c = +-1``.
 
-    Equal to ``max_n sum_c |E_c . n|``; two carriers give ``max(|E1 + E2|,
-    |E1 - E2|)``.  The default is the worst case over carrier phases (reached
-    by incommensurate carriers), the safety-relevant value.  ``coherent=True``
+    Equal to ``max_n sum_c |E_c . n|``; two channels give ``max(|E1 + E2|,
+    |E1 - E2|)``.  The default is the worst case over channel phases (reached
+    by incommensurate frequencies), the safety-relevant value.  ``coherent=True``
     gives ``|sum_c E_c|``, the phase-aligned sum some scripts call "peak HF".
 
-    Method: exact for any number of carriers; closed form up to two, zonotope
+    Method: exact for any number of channels; closed form up to two, zonotope
     vertices from three (cost ~F^3 per element for F fields, 3.5 ms at 52).
     Literature: Cassarà et al. 2025 Part I Eq. 3.
 
     Args:
-        fields: one or more carrier fields (N, 3) in V/m, one per electrode pair.
-        coherent: carrier-only control (all pairs at one frequency, in phase,
+        fields: one or more channel fields (N, 3) in V/m, one per channel.
+        coherent: carrier-only control (all channels at one frequency, in phase,
             ΔF = 0): the fields add as vectors (Cassarà 2025 Part II p. 8).
 
     Returns:
@@ -578,19 +579,19 @@ def hf_power(
 ) -> NDArray[np.float64]:
     """Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2 = E_rms^2``.
 
-    Carriers at distinct frequencies add in power (their cross terms average
-    out).  ``sigma * hf_power`` is the absorbed power density (W/m^3), and over
-    the tissue density the SAR.  Unlike every other output this is a time
+    Channel fields at distinct frequencies add in power (their cross terms
+    average out).  ``sigma * hf_power`` (isotropic ``sigma``) is the absorbed
+    power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time
     average: compare ``sqrt(hf_power)`` with RMS limits (at 1-10 kHz ICNIRP 2010
     and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:`hf_peak`
     with ``sqrt(2)`` times them.
 
-    Method: closed form, exact for any number of carriers.  Literature:
+    Method: closed form, exact for any number of channels.  Literature:
     Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.
 
     Args:
-        fields: one or more zero-to-peak carrier fields (N, 3) in V/m.
-        coherent: carrier-only control (all pairs at one frequency, in phase,
+        fields: one or more zero-to-peak channel fields (N, 3) in V/m.
+        coherent: carrier-only control (all channels at one frequency, in phase,
             ΔF = 0): one sinusoid of amplitude ``sum_c E_c``, so
             ``(1/2) |sum_c E_c|^2``.
 

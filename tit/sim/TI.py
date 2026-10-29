@@ -1,25 +1,25 @@
 #!/usr/bin/env simnibs_python
-"""2-pair Temporal Interference (TI) simulation.
+"""Two-channel Temporal Interference (TI) simulation.
 
 Implements :class:`TISimulation`, the concrete ``BaseSimulation`` subclass
-for standard 2-pair TI stimulation.  The session structure mirrors the
+for standard two-channel TI stimulation.  The session structure mirrors the
 official SimNIBS TI example:
 
-* SESSION with two TDCS lists (one per electrode pair)
-* ``deepcopy`` pattern for the second pair
+* SESSION with two TDCS lists (one per channel)
+* ``deepcopy`` pattern for the second channel
 * ``TI_max`` computed with :func:`tit.calc.envelope_max` on cropped meshes
 * ``TI_normal`` computed with :func:`tit.calc.envelope` along the normals of
   the cortical surface overlays
 
 Output mesh includes the selected ``TI_max``, ``TI_avg``, ``hf_peak``,
 ``hf_sar`` and ``hf_power_density``.
-Per-pair E-field magnitudes are not retained on it; those live on the
+Per-channel E-field magnitudes are not retained on it; those live on the
 ``high_Frequency/`` carrier meshes.
 
 See Also
 --------
 BaseSimulation : Abstract base class providing the ``run`` template.
-mTISimulation : N-pair multi-channel TI variant.
+mTISimulation : N-channel multi-channel TI variant.
 SimulationConfig : Configuration consumed by the simulation.
 run_simulation : Top-level orchestration that dispatches to this class.
 """
@@ -43,7 +43,7 @@ from tit.sim.utils import (
 
 
 class TISimulation(BaseSimulation):
-    """Run a single 2-pair TI simulation.
+    """Run a single two-channel TI simulation.
 
     Pipeline
     --------
@@ -58,7 +58,7 @@ class TISimulation(BaseSimulation):
     See Also
     --------
     BaseSimulation : Parent class with shared setup and template ``run``.
-    mTISimulation : Multi-channel variant for 4+ electrode pairs.
+    mTISimulation : Multi-channel variant for 4 or more channels.
     """
 
     @property
@@ -79,7 +79,7 @@ class TISimulation(BaseSimulation):
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
-        """Build SimNIBS SESSION for 2-pair TI.
+        """Build SimNIBS SESSION for two-channel TI.
 
         Parameters
         ----------

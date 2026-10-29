@@ -11,8 +11,8 @@ central-surface overlays and morphs the requested scalar fields to fsaverage:
 
 * ``TI_max``    -- orientation-maximized TI envelope |E| (central overlay)
 * ``TI_normal`` -- directional TI envelope along the cortical normal
-* ``hf_peak``   -- peak carrier field, max over carrier sign combinations (Cassarà 2025, safety)
-* ``hf_sar``    -- carrier heating driver sum |Ei|^2 (proportional to SAR)
+* ``hf_peak``   -- peak carrier field, max over channel sign combinations (Cassarà 2025, safety)
+* ``hf_sar``    -- sum |E_i|^2 = 2 * ``tit.calc.hf_power``, a heating proxy (proportional to SAR)
 
 This path covers **both** standard TI and mTI. The two differ only in what the
 finished run is called on disk, and each resolver here takes either:
@@ -21,7 +21,7 @@ quantity spelled ``mTI_max`` under ``mTI/mesh/surfaces``, :func:`_ti_normal_over
 searches both mesh directories, and :func:`_carrier_volume_meshes` collects every
 carrier volume mesh under ``high_Frequency/`` -- ``TDCS_1``/``TDCS_2`` for TI, and
 ``TDCS_A``..``TDCS_Z`` for mTI's N channels. ``hf_peak``/``hf_sar`` are then computed
-over all N carriers, not a hardcoded two.
+over all N channel fields, not a hardcoded two.
 
 ``TI_max`` / ``TI_normal`` are read from the pipeline's central-surface overlays;
 ``hf_peak`` / ``hf_sar`` are interpolated from the carrier **volume** meshes (the
@@ -214,7 +214,7 @@ def _compute_fields(
     """Project the requested fields for one (subject, simulation) to fsaverage.
 
     *carrier_only* is the run's recorded mode (:func:`_recorded_carrier_only`): the
-    carriers add coherently in ``hf_peak``/``hf_sar``.
+    channel fields add coherently in ``hf_peak``/``hf_sar``.
     """
     from simnibs.mesh_tools import mesh_io
     from simnibs.utils.file_finder import SubjectFiles

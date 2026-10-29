@@ -95,8 +95,8 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 # ============================================================================
 
 # Field names (SimNIBS convention)
-FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
-FIELD_MTI_MAX = "mTI_max"  # mTI field name in 4-pair simulation meshes
+FIELD_TI_MAX = "TI_max"  # TI field name in 2-channel simulation meshes
+FIELD_MTI_MAX = "mTI_max"  # mTI field name in 4+-channel simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
 FIELD_TI_AVG = "TI_avg"  # envelope averaged over direction (calc.envelope_mean)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
@@ -160,7 +160,7 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         units="V/m",
         description=(
             "Modulation depth (peak-to-trough envelope), maximum over direction "
-            "(4-pair/mTI mesh spelling)."
+            "(mTI mesh spelling, 4 or more channels)."
         ),
     ),
     FieldSpec(
@@ -231,7 +231,7 @@ def get_field_names(kind: str | None = None) -> tuple[str, ...]:
 #: Definition of each selectable output field, as
 #: ``(name, units, definition, equation, reference)``. Equations match the
 #: implementations in :mod:`tit.calc`; ``E_i`` is the
-#: field from electrode pair *i* and ``n`` a unit direction. No route serves
+#: field of channel *i* and ``n`` a unit direction. No route serves
 #: it and the desktop app writes its own help text; it is the cited statement
 #: of each equation that the test suite checks against the registry.
 OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
@@ -240,8 +240,8 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "V/m",
         "Depth of the low-frequency envelope modulation (peak-to-trough), "
         "maximised over direction.",
-        "Two pairs: 2*min(|E1.n|, |E2.n|) at the optimal n, evaluated via a "
-        "closed form. K channels: | |S n| - |D n| | = 4|sum_k a_k*b_k| / "
+        "Two channels: 2*min(|E1.n|, |E2.n|) at the optimal n, evaluated via a "
+        "closed form. K carriers (2K channels): | |S n| - |D n| | = 4|sum_k a_k*b_k| / "
         "(|S n| + |D n|), where a_k = E_ka.n, b_k = E_kb.n and S, D have rows "
         "E_ka + E_kb, E_ka - E_kb; maximised over n by an eigen-branch "
         "root-find.",
@@ -254,8 +254,8 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "The same envelope depth averaged over all directions instead of "
         "maximised, i.e. what an arbitrarily oriented element sees on average.",
         "Mean over all directions of the expression above: exact closed form "
-        "|E1| + |E2| - (|E1+E2| + |E1-E2|)/2 for two pairs, a 4096-direction "
-        "sphere quadrature for K channels.",
+        "|E1| + |E2| - (|E1+E2| + |E1-E2|)/2 for two channels, a 4096-direction "
+        "sphere quadrature for K >= 2 carriers.",
         "Direction-averaged form of Grossman et al. 2017.",
     ),
     (
@@ -330,7 +330,7 @@ CARRIER_OUTPUT_FIELDS: tuple[str, ...] = (
 #: ``FIELD_MTI_MAX`` ("mTI_max"), ``FIELD_TI_AVG`` ("TI_avg") and
 #: ``FIELD_HF_POWER_DENSITY`` ("hf_power_density"). The
 #: central-surface pipeline always emits ``TI_max`` regardless of whether the
-#: simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
+#: simulation was TI (2 channels) or mTI (4+), so there is no separate mTI fsaverage
 #: field; ``TI_avg`` has no central-surface overlay to project (it is only
 #: written as a volume field), so it is excluded too rather than added to
 #: :mod:`tit.source.fsaverage` sight-unseen. ``hf_power_density`` is excluded
@@ -364,8 +364,8 @@ FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 # ----------------------------------------------------------------------------
 # One electrode pair is one current channel. The engine is quasi-static: each
 # FEM field is a phasor amplitude vector, and every channel must be paired with
-# another to form a beat, so the pair count is always **even**. Two pairs is
-# standard TI (one beat); four or more even pairs is mTI (2, 4, 6, 8, 12, 16 …).
+# another to form a beat, so the channel count is always **even**. Two
+# channels is standard TI (one beat); four or more (even) is mTI (2, 4, 6, 8, 12 …).
 # This is the single rule -- the config validators, tit.calc's field-list
 # validation and the montage editors all state it in terms of these constants.
 
