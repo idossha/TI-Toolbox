@@ -253,6 +253,15 @@
 .montage-table tbody tr[data-active="true"] > td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);
 }
+/* The open montage/placement form, when it is what the scene draws: the same accent bar the
+   focused row carries, so exactly one thing on the page says "this is in the scene". The wrapper
+   adds no box of its own (no stray gap when no form is open). */
+.sim-scene-form {
+  display: contents;
+}
+.sim-scene-form[data-scene-focus="true"] > .card {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 
 /* Hover is the usual quiet wash, and loses to the active row. Mixed against --surface rather than
    left transparent, for the same reason: the cell under it is opaque. */

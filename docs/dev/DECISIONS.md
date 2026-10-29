@@ -3598,6 +3598,9 @@ needs the role in a place too narrow for "Ek+ name · Ek- name".
 
 ## 2026-10-28 — The Simulator's scene draws the net the user is looking at, on a head that has it
 
+**Superseded 2026-10-28:** "The Simulator's scene is a pure function of one focus" below replaces
+the which-net rule (`MontagePreview`, the editor's last net); the off-guide head rule stands.
+
 **Decision.** With the New montage form open the scene draws the form's net; otherwise the selected
 job row's net, whether or not the row has a montage (`MontagePreview` with `net` and `name: ""`). A
 new draft starts on the selected row's net. Named montages stay on the packaged guide, except a net
@@ -3615,3 +3618,41 @@ and `desktop/tests/unit/simulator-scene-net.test.ts`.
 net select changes the editor's net without selecting the row, so the two drift again. Packaging
 every warped cap into the guide: a project's own uploaded caps would still be missing. Drawing
 every named montage on the subject: slower first paint for the common, guide-packaged case.
+
+## 2026-10-28 — The Simulator's scene is a pure function of one focus
+
+**Decision.** The Simulator page holds one focus — `{ rowId, form }` in page-session state: the row
+the user last touched, and whether an open form was touched after it — and the scene pane's props
+are `sceneFor(resolveFocus(…), pageData)` (`desktop/src/renderer/pages/simulator/sceneFocus.ts`).
+Interaction handlers are the only writers: a row's pointer-down or focus (any control in it),
+**Add job** (the new row), **Duplicate**, removing the focused row (its neighbour), keyboard ↑/↓,
+the candidate handoff; opening **New montage** / **Edit** / **New placement**, and pointer-down or
+focus inside the open form. The montage draft carries its own `net`; a new draft takes the focused
+row's net or none. A row with no net draws no electrodes. Clicking a row while a form is open
+focuses the row and leaves the form and its draft open (the form loses its accent bar, the row gains
+it); touching the form, or picking an electrode on the head, focuses the form again — a pick never
+replaces an open draft. Removed: `montageNet` and `MontagePreview` page state, the table's
+`netChoice`/`editorNet`, the preview and active-source effects, `previewRowId`/`seenPreviewRow`,
+`draftWasOpen`, `seenDraftShape` and the `switchedNet` ref (the net switch prunes the draft in its
+own handler). ARCHITECTURE §7.2. Tests: `desktop/tests/unit/simulator-scene-focus.test.ts` (focus ×
+data table), `desktop/tests/e2e/simulator-scene-focus.spec.ts` (ten user paths, a–j), which replaces
+`simulator-scene-net-sync.spec.ts`.
+
+**Why.** Maintainer (2026-10-28): a fresh Simulator drew a net no job had chosen; New montage did not
+draw the job's net until the form's net was switched; after Cancel, selecting another job did not
+update the scene. Three stores each held "the net": the table's last-touched `netChoice` (seeded
+with the first net in the catalog), a preview the table pushed up by effect (`null` for a row with
+no net, which fell back to the last net), and the open draft, which won over everything. On the
+base commit the new spec failed 4 of 10 paths (a fresh row drew `EEG10-10_UI_Jurak_2007.csv`; Add job
+did not select the new row; New montage from a row with no net opened on another net; a row clicked
+while drafting was not drawn) [measured, offscreen Electron, mock server, 2026-10-28].
+
+**Alternatives rejected.** Closing the form when a row is clicked: loses a half-written montage for
+a glance at another job. Keeping the form focused until Cancel: the click the user just made would
+not change the scene, which was the complaint. Guards on the existing effects: each guard added a
+state that could disagree with the others. A new job starting with no net: the subject is already
+seeded from the previous row, and its net (shown in its own cell) is the same "add the next like
+it"; it is data on the row, not hidden page state.
+
+**Revisit if.** Two forms need to be open at once, or a page outside the Simulator needs the same
+focus rule (lift `resolveFocus` to `_shared`).

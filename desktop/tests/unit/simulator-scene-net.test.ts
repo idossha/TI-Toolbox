@@ -9,7 +9,7 @@
  * catalog's and the mock's.
  */
 import { describe, expect, it } from "vitest";
-import { subjectForOffGuideNet } from "../../src/renderer/pages/simulator/types";
+import { subjectForOffGuideNet } from "../../src/renderer/pages/simulator/sceneFocus";
 
 const GUIDE = [
   "EEG10-10_Cutini_2011.csv",

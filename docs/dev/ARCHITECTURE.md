@@ -559,6 +559,18 @@ owned by the page): opening a slot's picker aims the next click at it, a pick in
 moves on to the next empty slot, a click on a set electrode clears it, and an electrode set in one
 slot is listed but not pickable in another. Coordinate picking remains constrained by §3.
 
+**The Simulator's scene draws one focus, and nothing else.** The focus is what the user last
+touched — a job row (the row or any control in it), the open New montage form, or the open New
+placement form — and the pane's props are a pure function of it and the page's data
+(`pages/simulator/sceneFocus.ts`: `resolveFocus`, `sceneFor`). A row draws its own net only if it
+has one, and its channels; the montage form draws the net its draft names (it opens on the focused
+row's net, else none) and takes the picks; the placement form draws the placement subject and takes
+the clicks. Opening a form focuses it; clicking a row while a form is open focuses the row and
+leaves the form and its draft open; touching the form, or a scene pick, focuses it again; a closed
+form or a removed row falls back to a row that exists. The form's net lives in its draft. Excluded:
+a "last net touched" or a preview pushed up from the table by an effect — two sources of truth that
+drifted (a fresh page drew a net no row had, a draft hid the row the user clicked).
+
 Optimizer and Analyzer select cortical and subcortical atlas regions on precomputed, packaged
 Ernie reference anatomy, including translucent skin. The scene atlas selector and target form share
 atlas/mode/region state; switching atlas clears incompatible labels. Subcortical targets default to
@@ -566,7 +578,7 @@ atlas/mode/region state; switching atlas clears incompatible labels. Subcortical
 non-subcortical compartments. No subject atlas extraction runs when browsing these guides.
 Only the selected atlas surface and skin are fetched. Guide coordinates never become scientific
 coordinates. Masks, spheres and saved coordinate targets retain explicit native TetraVox inspection.
-Simulator also uses the guide for named montage browsing — the selected job row's net, or the open
+Simulator also uses the guide for named montage browsing — the focused job row's net, or the open
 New montage form's — except for a net the guide does not package (a cap warped onto subjects), which
 is drawn on a subject that has it (`subjectForOffGuideNet`); actual freehand/XYZ placements and snap
 displacements retain subject geometry to preserve their coordinate meaning. Peeling and isolation

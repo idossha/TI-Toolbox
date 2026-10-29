@@ -148,7 +148,7 @@ describe("rendered editors", () => {
         <QueryClientProvider client={queryClient}>
           <PageIdContext.Provider value="simulator">
             <FreehandDraftProvider>
-              <JobsTable subjects={[{ id: "ernie" }]} subjectNets={{ ernie: [NET] }} rows={rows} onRowsChange={onRowsChange} draft={draft} onDraftChange={() => {}} />
+              <JobsTable subjects={[{ id: "ernie" }]} subjectNets={{ ernie: [NET] }} rows={rows} onRowsChange={onRowsChange} draft={draft && { net: NET, ...draft }} onDraftChange={() => {}} />
             </FreehandDraftProvider>
           </PageIdContext.Provider>
         </QueryClientProvider>,

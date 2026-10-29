@@ -5,7 +5,8 @@
  * channel k is electrodes Ek+ and Ek-, never "A"/"B" or "Pair k".
  *
  * What it pins, each against the FORM (the source of truth) rather than the pane's own state:
- *  - opening the form draws the net chosen in its EEG net select, and switching that select redraws;
+ *  - the form opens on the job row's net — none here, so nothing is drawn until the form's EEG net
+ *    select names one — and switching that select redraws;
  *  - four clicks on the head fill E1+, E1-, E2+, E2- in order, and the status line names the slot
  *    the next click sets;
  *  - clicking a set electrode again clears its slot, and the next click refills that slot;
@@ -14,7 +15,7 @@
  *  - "Add 2 channels" moves the cursor to E3+, and the next click on the head fills it;
  *  - switching the net keeps the electrodes both nets have, blanks the rest and moves the cursor
  *    to the first empty slot;
- *  - Cancel returns the pane to the job-row state (no channel legend, no draft).
+ *  - Cancel returns the pane to the job row (no channel legend, no draft, no net).
  *
  * The aiming is arithmetic (the same projection `scene-pane.spec.ts` uses), so a click that lands
  * on a neighbour fails here. Mock server only; reproduce with
@@ -97,7 +98,13 @@ test.afterAll(async () => {
 test("New montage draws the form's net on the head and names the slots Ek+ / Ek-", async () => {
   await active().getByRole("button", { name: "New montage", exact: true }).click();
   await expect(editor()).toBeVisible();
-  const net = (await editor().locator(".field", { hasText: "EEG net" }).getByRole("combobox").innerText()).trim();
+  // The fresh job row has no net, so neither has the form: nothing to pick yet.
+  const netSelect = editor().locator(".field", { hasText: "EEG net" }).getByRole("combobox");
+  await expect(netSelect).toHaveText("Choose a net");
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.markers ?? -1)).toBe(0);
+  const net = "EGI_template";
+  await netSelect.click();
+  await page.getByRole("option", { name: net, exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__scenePane?.net ?? null)).toBe(net);
   await expect.poll(() => page.evaluate(() => window.__scenePane?.markers ?? 0)).toBeGreaterThan(0);
   // The form speaks the convention before anything is picked.
@@ -158,7 +165,7 @@ test("switching the form's EEG net redraws the head's net, keeps the electrodes 
   const before = (await netSelect.innerText()).trim();
   // The mock's nets (`electrodesFor` in tests/mock-server/server.mjs): EGI_template is E1-E256 and
   // GSN-HydroCel-185 is E1-E185, so an electrode above E185 is on the first net only.
-  expect(before, "the form starts on the mock's larger net (the first, sorted)").toBe("EGI_template");
+  expect(before, "the net the first test chose").toBe("EGI_template");
   // E3- from the form: an electrode the other net lacks, so the switch has a slot to blank.
   const onlyHere = ["E256", "E255", "E254"].find((n) => !picked.includes(n))!;
   await slot(5).click();
@@ -188,9 +195,11 @@ test("switching the form's EEG net redraws the head's net, keeps the electrodes 
   await expect(editor().locator(`.electrode-slot[data-slot="${firstEmpty}"]`)).toHaveAttribute("data-active-slot", "true");
 });
 
-test("Cancel returns the pane to the job-row state", async () => {
+test("Cancel returns the pane to the job row", async () => {
   await editor().getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(editor()).toHaveCount(0);
   await expect(active().getByTestId("channel-legend")).toHaveCount(0);
-  await expect(hint()).toHaveText("Click an electrode to start a montage.");
+  // The row still has no net: the form's net went with the form.
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.net ?? null)).toBeNull();
+  await expect(hint()).toHaveText("Choose an EEG net to see its electrodes.");
 });

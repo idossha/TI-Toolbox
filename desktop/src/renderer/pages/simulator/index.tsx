@@ -13,7 +13,7 @@ import { FormSection, PageLayout, PaneHeaderControls, usePaneController } from "
 import { IconButton } from "../../ui/Button";
 import { Popover } from "../../ui/Overlay";
 import { subjectsBlockedReason } from "../_shared/subjects";
-import { getSubjectDetail } from "./api";
+import { getFlexRuns, getSubjectDetail, type FlexRun } from "./api";
 import { JobsTable, emptyDraft, type JobSubject, type MontageDraft } from "./MontageManager";
 import { JobSettingsDialog } from "./JobSettingsDialog";
 import "./simulator-page.css";
@@ -24,11 +24,9 @@ import {
   isRunnableRow,
   settingsFor,
   type JobSettings,
-  type MontagePreview,
-  type MontageSource,
   type SelectedRow,
-  subjectForOffGuideNet,
 } from "./types";
+import { resolveFocus, sceneFor, type FocusState, type SceneView } from "./sceneFocus";
 import { RunPanel, RunWork, jobCountLabel, stepsFor } from "../_shared/run";
 import { candidateMetricsChanged, candidateRow } from "./candidateHandoff";
 import { ScenePane, firstEmptySlot, withSlot } from "../_shared/scene";
@@ -86,7 +84,6 @@ function SimulatorPage() {
   const location = useLocation();
   const [handledCandidate, setHandledCandidate] = useState<string | null>(null);
   const [candidateError, setCandidateError] = useState<string | null>(null);
-  const [candidatePreviewId, setCandidatePreviewId] = useState<string | null>(null);
   const { id: shellSubject, subjects } = useSubject();
   // `usePageSession`, not `useState`, for everything the *user* decided (lane N2): this page
   // unmounts on every navigation, so a plain `useState` meant a step onto Results discarded the
@@ -112,25 +109,17 @@ function SimulatorPage() {
   // editors of ONE draft, which is what makes "click an electrode" and "pick it in the form" the
   // same act rather than two states that can disagree (plan decision S6).
   const [montageDraft, setMontageDraft] = usePageSession<MontageDraft | null>("montageDraft", null);
-  const [montageNet, setMontageNet] = usePageSession<string | undefined>("montageNet", undefined);
   /**
    * The draft's slot the next electrode click sets (E1+, E1-, E2+, … flattened). One cursor for the
    * form and the pane: opening a slot's picker aims the next scene click at it, and a pick in
-   * either moves it on to the next empty slot. A new draft, or one whose channel count changed,
-   * starts on its first empty slot — and so does a draft the page session kept across navigation.
+   * either moves it on to the next empty slot. A draft opens on its first slot, and one whose
+   * channel count changed moves to its first empty slot (the form does both).
    */
   const [draftSlot, setDraftSlot] = useState(() => (montageDraft ? firstEmptySlot(montageDraft.pairs) : 0));
-  const draftShape = montageDraft ? montageDraft.pairs.length : -1;
-  const [seenDraftShape, setSeenDraftShape] = useState(draftShape);
-  if (draftShape !== seenDraftShape) {
-    setSeenDraftShape(draftShape);
-    setDraftSlot(montageDraft ? firstEmptySlot(montageDraft.pairs) : 0);
-  }
-  // Click-to-visualise: the job row the user clicked, drawn on the guide pane as its net's
-  // electrodes plus its own pairs — read-only (no `onPairsChange`), so looking at a chosen montage
-  // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
-  const [montagePreview, setMontagePreview] = useState<MontagePreview | null>(null);
-  const [activeSource, setActiveSource] = useState<MontageSource | null>(null);
+  /** What the scene draws: the row or the form the user last touched (`sceneFocus.ts`). */
+  const [focusState, setFocusState] = usePageSession<FocusState>("sceneFocus", { rowId: null, form: false });
+  const focusRow = (rowId: string | null) => setFocusState({ rowId, form: false });
+  const focusForm = () => setFocusState((state) => (state.form ? state : { ...state, form: true }));
   const candidateState = location.state as { optimizationCandidate?: unknown } | null;
   // A router handoff becomes local draft state once, including when this page was retained.
   if (candidateState?.optimizationCandidate && handledCandidate !== location.key) {
@@ -140,9 +129,7 @@ function SimulatorPage() {
       // Subject URL synchronization can replace the router key; the request ID stays stable.
       row.id = `candidate-${row.candidate?.requestId ?? location.key}`;
       setRows((previous) => previous.some((existing) => existing.id === row.id) ? previous : [...previous, row]);
-      setMontagePreview({ name: row.name, subject: row.subjectId, net: row.eegNet, pairs: row.pairs, positions: row.xyzPairs?.flat().map(([x, y, z]) => ({ x, y, z })) });
-      setActiveSource(row.source);
-      setCandidatePreviewId(row.id);
+      focusRow(row.id);
       setCandidateError(null);
     } catch (error) { setCandidateError(error instanceof Error ? error.message : String(error)); }
   }
@@ -166,9 +153,15 @@ function SimulatorPage() {
   });
   // Derived every render, not memoized: `useQueries` hands back a fresh array each render, so a
   // `useMemo` over it could only be keyed on a serialisation (see `RunControls.tsx`'s `useSimPlan`).
+  // The same queries the Jobs table makes (one cache): a snapped flex row's optimised origins.
+  const flexRunQueries = useQueries({
+    queries: usable.map((id) => ({ queryKey: ["flex-runs", id], queryFn: () => getFlexRuns(id), staleTime: 60_000 })),
+  });
   const subjectNets: Record<string, string[]> = {};
+  const flexRuns: Record<string, FlexRun[]> = {};
   usable.forEach((id, i) => {
     subjectNets[id] = subjectDetailQueries[i]?.data?.eeg_nets ?? [];
+    flexRuns[id] = flexRunQueries[i]?.data ?? [];
   });
 
   // The page starts with one empty job row seeded on the shell's primary subject: a table whose
@@ -206,7 +199,7 @@ function SimulatorPage() {
     snapshot: () => rows,
     load: (step) => {
       setRows(simStepRows(step));
-      setMontagePreview(null);
+      focusRow(null);
     },
     restore: setRows,
   });
@@ -217,40 +210,54 @@ function SimulatorPage() {
   function setDraftPairs(pairs: [string, string][]): void {
     setMontageDraft((draft) => (draft ? { ...draft, pairs } : { ...emptyDraft(), pairs }));
   }
-  /** A pick with no montage open starts one, with that electrode already in E1+ —
-   *  otherwise the first click on the pane would do nothing and the gesture would be undiscoverable. */
-  function startDraftFromScene(electrode: string): void {
-    const fresh = emptyDraft();
-    setMontageDraft({ ...fresh, pairs: withSlot(fresh.pairs, 0, electrode) });
-  }
-  /** The net the pane draws: the open draft's, else the previewed row's, else the editor's. */
-  const sceneNet = (montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null;
   // The pane's own manifest query (same key), so this costs no request.
   const guideNets = useGuideManifest().data?.nets.map((entry) => entry.name);
-  // Named montage choices use the packaged guide — unless the guide lacks the net, which is then
-  // drawn on a subject that has it. Actual XYZ placement and snap displacements must retain their
-  // subject geometry; guide coordinates cannot run a simulation.
-  const sceneSubject = freehand.open
-    ? (freehand.subject ?? usable[0] ?? null)
-    : montagePreview?.positions || montagePreview?.originalPositions
-      ? (montagePreview.subject ?? null)
-      : subjectForOffGuideNet(sceneNet, guideNets, [montagePreview?.subject, shellSubject, ...usable], subjectNets);
+  const focus = resolveFocus(focusState, rows, !!montageDraft, freehand.open);
+  // Serialised and parsed back so the pane gets the same arrays until the scene really changes:
+  // `sceneFor` is pure, but its inputs (query maps, rows) are fresh objects on most renders.
+  const viewJson = JSON.stringify(
+    sceneFor(focus, {
+      rows,
+      draft: montageDraft,
+      placementSubject: freehand.subject ?? usable[0] ?? null,
+      flexRuns,
+      guideNets,
+      subjectNets,
+      subjects: [shellSubject, ...usable],
+    }),
+  );
+  const view = useMemo(() => JSON.parse(viewJson) as SceneView, [viewJson]);
+  const placing = view.edits === "placement";
+  const drafting = view.edits === "montage";
 
-  /** The dots: the rows being placed, or the saved set the previewed job row runs. */
+  /** A pick on the pane with no montage open starts one on the drawn net, with that electrode in
+   *  E1+ — otherwise the first click would do nothing and the gesture would be undiscoverable.
+   *  With one already open (a row has the scene) the pick hands the scene back to that draft
+   *  rather than replacing it. */
+  function startDraftFromScene(electrode: string): void {
+    if (montageDraft) return focusForm();
+    const pairs = withSlot(emptyDraft().pairs, 0, electrode);
+    freehand.setOpen(false);
+    setMontageDraft({ ...emptyDraft(), net: view.net ?? undefined, pairs });
+    setDraftSlot(firstEmptySlot(pairs));
+    focusForm();
+  }
+
+  /** The dots: the rows being placed, or the saved set the focused job row runs. */
   const placedDots = useMemo(
-    () => (freehand.open ? placementMarkers(freehand.positions) : montagePreview?.positions ? savedMarkers(montagePreview.positions) : undefined),
-    [freehand.open, freehand.positions, montagePreview],
+    () => (placing ? placementMarkers(freehand.positions) : view.positions ? savedMarkers(view.positions) : undefined),
+    [placing, freehand.positions, view.positions],
   );
 
   /**
    * The two ends of "which electrode is this". A row index is NOT a dot index — a blank row draws
    * no dot — so both directions go through `freehandPlacement`'s pair of converters.
    */
-  const hoveredDot = freehand.open && freehand.hovered !== null ? markerIndexOfRow(freehand.positions, freehand.hovered) : -1;
+  const hoveredDot = placing && freehand.hovered !== null ? markerIndexOfRow(freehand.positions, freehand.hovered) : -1;
   // Hover lights a dot; SELECTION rings and enlarges one. Two different signals, because they
   // answer two different questions ("which row is my cursor on" and "which electrode does the next
   // click move"), and they are frequently both true of different rows at once.
-  const selectedDot = freehand.open && freehand.active !== null ? markerIndexOfRow(freehand.positions, freehand.active) : -1;
+  const selectedDot = placing && freehand.active !== null ? markerIndexOfRow(freehand.positions, freehand.active) : -1;
   const highlightMarkers = useMemo(() => (hoveredDot >= 0 ? [hoveredDot] : undefined), [hoveredDot]);
   const selectedMarkers = useMemo(() => (selectedDot >= 0 ? [selectedDot] : undefined), [selectedDot]);
 
@@ -273,13 +280,13 @@ function SimulatorPage() {
 
   /**
    * The electrode size the scene draws a montage's electrodes at: the settings being edited right
-   * now, else the previewed row's own, else — for a montage being drawn in the pane, which belongs
+   * now, else the focused row's own, else — for a montage being drawn in the pane, which belongs
    * to no row yet — the settings the user last configured (what a new job starts from), else the
    * page defaults. Rubber thickness has no control on
    * this page, so it is `SimulationConfig`'s default, as in the job it builds.
    */
-  const previewRow = rows.find((r) => r.id === montagePreview?.rowId);
-  const padSettings = (settingsRowId ? liveSettings : null) ?? (previewRow ? settingsFor(previewRow, params) : (seedSettings ?? params));
+  const focusedRow = rows.find((r) => r.id === view.rowId);
+  const padSettings = (settingsRowId ? liveSettings : null) ?? (focusedRow ? settingsFor(focusedRow, params) : (seedSettings ?? params));
   const scenePad = useMemo(
     () =>
       electrodePad({
@@ -290,8 +297,6 @@ function SimulatorPage() {
       }),
     [padSettings.electrodeShape, padSettings.dimensions, padSettings.gelThickness],
   );
-
-  const previewIsMontage = activeSource === null || activeSource === "montage" || (activeSource === "flex" && !!montagePreview?.net);
 
   return (
     <>
@@ -314,39 +319,25 @@ function SimulatorPage() {
                 /* The subject's own scalp, so a click on it is a millimetre in the head the job
                    runs on (maintainer, 2026-09-06). The guide remains the fallback and remains
                    what the Optimizer and the Analyzer draw. */
-                subject={sceneSubject}
-                onPlace={freehand.open ? freehand.place : undefined}
-                onPlacedPick={freehand.open ? (index) => freehand.setActive(rowOfMarkerIndex(freehand.positions, index)) : undefined}
+                subject={view.subject}
+                onPlace={placing ? freehand.place : undefined}
+                onPlacedPick={placing ? (index) => freehand.setActive(rowOfMarkerIndex(freehand.positions, index)) : undefined}
                 onPlacedHover={
-                  freehand.open ? (index) => freehand.setHovered(index === null ? null : rowOfMarkerIndex(freehand.positions, index)) : undefined
+                  placing ? (index) => freehand.setHovered(index === null ? null : rowOfMarkerIndex(freehand.positions, index)) : undefined
                 }
                 highlightMarkers={highlightMarkers}
                 selectedMarkers={selectedMarkers}
                 placedMarkers={placedDots}
-                originalPositions={!montageDraft && !freehand.open ? montagePreview?.originalPositions : undefined}
-                net={sceneNet}
-                pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}
+                originalPositions={view.originalPositions}
+                net={view.net}
+                pairs={view.pairs}
                 electrodePad={scenePad}
-                showing={
-                  !montageDraft && montagePreview
-                    ? montagePreview.positions
-                      ? /* A free-hand set has no net; say what it IS, so the chip never reads
-                           "Showing: my_set · undefined". */
-                        { montage: montagePreview.name, net: `${montagePreview.positions.length} placed positions` }
-                      : previewIsMontage && montagePreview.net && montagePreview.name
-                        ? { montage: montagePreview.name, net: montagePreview.net }
-                        : null
-                    : null
-                }
-                onPairsChange={montageDraft ? setDraftPairs : undefined}
-                slot={montageDraft ? draftSlot : undefined}
-                onSlotChange={montageDraft ? setDraftSlot : undefined}
+                showing={view.showing}
+                onPairsChange={drafting ? setDraftPairs : undefined}
+                slot={drafting ? draftSlot : undefined}
+                onSlotChange={drafting ? setDraftSlot : undefined}
                 onRequestPairs={startDraftFromScene}
-                note={
-                  freehand.open || previewIsMontage || montagePreview?.positions
-                    ? undefined
-                    : "Flex jobs carry their own electrode positions — the preview shows the net, not the run."
-                }
+                note={view.note}
               />
             }
           />
@@ -408,15 +399,14 @@ function SimulatorPage() {
                     subjects={jobSubjects}
                     subjectNets={subjectNets}
                     rows={rows}
-                    previewRowId={candidatePreviewId}
                     onRowsChange={setRows}
                     draft={montageDraft}
                     onDraftChange={setMontageDraft}
                     draftSlot={draftSlot}
                     onDraftSlotChange={setDraftSlot}
-                    onNetChange={setMontageNet}
-                    onPreviewChange={setMontagePreview}
-                    onActiveSourceChange={setActiveSource}
+                    focus={focus}
+                    onFocusRow={focusRow}
+                    onFocusForm={focusForm}
                   />
                 )}
               </div>

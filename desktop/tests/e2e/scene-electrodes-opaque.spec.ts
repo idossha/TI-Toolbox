@@ -17,7 +17,7 @@
  * The second test is the **Actual size** switch: off, an electrode in a pair is the small cap
  * marker in its channel colour and the rest of the net is drawn; on, each montage electrode is drawn
  * at the job's electrode width (the rest of the net stays as cap markers while the montage is being
- * written, as it is here), following the Simulator's **Job settings ▸
+ * written, and is hidden once the montage is a job row's), following that row's **Job settings ▸
  * Electrode width** live — measured against the CPU projection of the configured millimetres, and
  * as a ratio between two widths.
  *
@@ -31,6 +31,7 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { waitForScene } from "./_runPane";
+import { jobRows, setJobMontage } from "./_jobs";
 import { cameraBasis, projectToCanvas, type OrbitCamera, type Vec3 } from "../../src/renderer/scene/camera";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -158,12 +159,11 @@ test("Actual size draws only the montage, each electrode at the configured width
   });
   const camera = state.camera as OrbitCamera;
   const { widthCss, heightCss } = state.canvas;
-  const { eye, right } = cameraBasis(camera);
-  const project = (p: Vec3) => projectToCanvas(camera, p, widthCss, heightCss);
+  const { eye } = cameraBasis(camera);
   // The electrode nearest the eye, well inside the canvas: face-on, so its footprint's on-screen
   // width is the configured width at that depth.
   const ranked = state.markers
-    .map((m) => ({ m, q: project(m.world as Vec3), d: Math.hypot(...[0, 1, 2].map((i) => (m.world as Vec3)[i]! - eye[i]!)) }))
+    .map((m) => ({ m, q: projectToCanvas(camera, m.world as Vec3, widthCss, heightCss), d: Math.hypot(...[0, 1, 2].map((i) => (m.world as Vec3)[i]! - eye[i]!)) }))
     .filter(({ q }) => q.inFront && q.x > 80 && q.y > 80 && q.x < widthCss - 80 && q.y < heightCss - 80)
     .sort((a, b) => a.d - b.d);
   const target = ranked[0];
@@ -180,13 +180,19 @@ test("Actual size draws only the montage, each electrode at the configured width
     .toBe(0);
   await page.mouse.move(0, 0);
 
+
+  /** Where an electrode is on the canvas now — the pane's layout (and so the camera's fit) moves
+   *  when the job row's "Showing:" line appears. */
+  const onCanvas = (m: { world: unknown }) =>
+    page.evaluate((w) => window.__scene!.project(w as [number, number, number]), m.world);
   /** The run of pad-coloured pixels (channel 0 is the Okabe-Ito blue: blue far above red) along
    *  the screen row through the electrode, which neither the grey cap markers, the pale gel nor the
    *  skin can be. */
   const padWidthPx = async (): Promise<number> => {
     await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
-    const xs = Array.from({ length: 241 }, (_, k) => target.q.x - 120 + k);
-    const read = await page.evaluate((pts) => window.__scene?.samplePixels(pts, true) ?? null, xs.map((x) => [x, target.q.y] as [number, number]));
+    const q = await onCanvas(target.m);
+    const xs = Array.from({ length: 241 }, (_, k) => q.x - 120 + k);
+    const read = await page.evaluate((pts) => window.__scene?.samplePixels(pts, true) ?? null, xs.map((x) => [x, q.y] as [number, number]));
     if (!read) throw new Error("samplePixels returned null");
     const pad = read.map((rgba) => rgba[2]! - rgba[0]! > 60);
     let lo = 120;
@@ -196,33 +202,55 @@ test("Actual size draws only the montage, each electrode at the configured width
     while (hi < pad.length - 1 && pad[hi + 1]) hi += 1;
     return hi - lo + 1;
   };
-  const expectedPx = (mm: number) => {
-    const p = target.m.world as Vec3;
-    const a = project([p[0] - right[0] * (mm / 2), p[1] - right[1] * (mm / 2), p[2] - right[2] * (mm / 2)]);
-    const b = project([p[0] + right[0] * (mm / 2), p[1] + right[1] * (mm / 2), p[2] + right[2] * (mm / 2)]);
-    return Math.hypot(b.x - a.x, b.y - a.y);
-  };
 
   /** What the marker pass adds at the bystander's own position: 0 when it is not drawn. */
   const bystanderDrawn = async (): Promise<boolean> => {
-    const pt: [number, number][] = [[bystander.q.x, bystander.q.y]];
+    await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+    const q = await onCanvas(bystander.m);
+    const pt: [number, number][] = [[q.x, q.y]];
     const a = await page.evaluate((pts) => window.__scene?.samplePixels(pts, true) ?? null, pt);
     const b = await page.evaluate((pts) => window.__scene?.samplePixels(pts, false) ?? null, pt);
     return Math.max(...[0, 1, 2].map((c) => Math.abs(a![0]![c]! - b![0]![c]!))) > 0;
   };
   const sizeSwitch = page.locator('[data-page-active="true"]').getByTestId("scene-actual-size-toggle").getByRole("switch", { name: "Actual size" });
 
-  // Off (the default): the cap marker, 6 mm, and the whole net.
+  // The click opened a montage draft, and a montage being written is still picked off the whole
+  // net: with Actual size on, the unassigned electrodes stay as small cap markers (DECISIONS
+  // 2026-10-28). Only a shown montage — a job row's — hides them (`markersFromElectrodes`).
   await expect(sizeSwitch).toHaveAttribute("data-state", "unchecked");
+  await sizeSwitch.click();
+  await page.mouse.move(0, 0);
+  await expect(sizeSwitch).toHaveAttribute("data-state", "checked");
+  expect(await bystanderDrawn(), "while a montage is being written the rest of the net stays pickable").toBe(true);
+  await sizeSwitch.click();
+  await expect(sizeSwitch).toHaveAttribute("data-state", "unchecked");
+
+  // A job row shows ITS montage at ITS electrode size (the scene draws what was touched last,
+  // ARCHITECTURE §7.2): finish the draft around the target (E1+), save it, choose it in the row.
+  const form = page.locator('[data-page-active="true"]').locator(".card", { hasText: "Montage name" });
+  const others = state.markers.map((m) => m.id).filter((id) => id !== target.m.id && id !== bystander.m.id).slice(0, 3);
+  await form.getByPlaceholder("e.g. F3_F4").fill("opaque_check");
+  for (const [i, electrode] of others.entries()) {
+    const slot = i + 1;
+    await form.locator(`.electrode-slot[data-slot="${slot}"]`).getByRole("combobox").click();
+    await page.getByRole("dialog").getByPlaceholder("Filter electrodes…").fill(electrode);
+    await page.getByTestId(`pair-${Math.floor(slot / 2)}-${slot % 2 === 0 ? "a" : "b"}-row-${electrode}`).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
+  }
+  await form.getByRole("button", { name: "Save montage", exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await setJobMontage(page, jobRows(page).first(), "opaque_check · TI");
+  await expect(page.locator('[data-page-active="true"]').getByTestId("scene-pane-showing")).toBeVisible();
+  await page.mouse.move(0, 0);
+
+  // Off (the default): the cap marker, 6 mm, and the whole net.
   const asCap = await padWidthPx();
   expect(await bystanderDrawn(), "with Actual size off the whole net is drawn").toBe(true);
   await sizeSwitch.click();
   await page.mouse.move(0, 0);
   await expect(sizeSwitch).toHaveAttribute("data-state", "checked");
-  // The click opened a montage draft, and a montage being written is still picked off the whole
-  // net: the unassigned electrodes stay as small cap markers (DECISIONS 2026-10-28). Only a shown
-  // montage — a job row's — hides them (`markersFromElectrodes`, unit-tested).
-  expect(await bystanderDrawn(), "while a montage is being written the rest of the net stays pickable").toBe(true);
+  // On: only the montage, at the job's size.
+  await expect.poll(bystanderDrawn, { timeout: 5000 }).toBe(false);
   const atDefault = await padWidthPx(); // the toolbox default, 8 mm
   await page.locator("tr[data-montage-row]").first().locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
   const dialog = page.getByRole("dialog");
@@ -236,6 +264,16 @@ test("Actual size draws only the montage, each electrode at the configured width
   // Cancel drops the unsaved size: back to the default.
   await expect.poll(padWidthPx, { timeout: 5000 }).toBe(atDefault);
 
+  // The expected widths at the camera the job row is drawn with.
+  const shown = await page.evaluate(() => ({ camera: window.__scene!.camera, canvas: window.__scene!.canvas }));
+  const { right } = cameraBasis(shown.camera as OrbitCamera);
+  const project = (p: Vec3) => projectToCanvas(shown.camera as OrbitCamera, p, shown.canvas.widthCss, shown.canvas.heightCss);
+  const expectedPx = (mm: number) => {
+    const p = target.m.world as Vec3;
+    const a = project([p[0] - right[0] * (mm / 2), p[1] - right[1] * (mm / 2), p[2] - right[2] * (mm / 2)]);
+    const b = project([p[0] + right[0] * (mm / 2), p[1] + right[1] * (mm / 2), p[2] + right[2] * (mm / 2)]);
+    return Math.hypot(b.x - a.x, b.y - a.y);
+  };
   console.log(
     `SCENE-PAD-WIDTH cap=${asCap}px (expected ${expectedPx(6).toFixed(1)}) default=${atDefault}px (expected ${expectedPx(8).toFixed(1)}) wide=${atWide}px (expected ${expectedPx(24).toFixed(1)}) ratio=${(atWide / atDefault).toFixed(2)}`,
   );
@@ -252,6 +290,7 @@ test("Actual size draws only the montage, each electrode at the configured width
   await expect.poll(bystanderDrawn, { timeout: 5000 }).toBe(true);
   await expect.poll(padWidthPx, { timeout: 5000 }).toBe(asCap);
 });
+
 
 test("a name shows only on an electrode the frame drew, and the two switches share one row", async () => {
   const active = page.locator('[data-page-active="true"]');
