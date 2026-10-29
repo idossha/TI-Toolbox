@@ -234,7 +234,7 @@ channel fields. "Before" is `tit/` of `3767f476` exported with `git archive`; "a
 
 Per 16,384 elements, sign enumeration against the zonotope vertices: 0.4 vs 9.1 ms at 3 fields,
 1.0 vs 20 ms at 4, 24 vs 160 ms at 8, 107 vs 310 ms at 10, 506 vs 575 ms at 12; `hf_peak`
-enumerates up to 8 fields, where its `(patterns, chunk, 3)` work array stays near 50 MB.
+enumerates up to 8 fields, where its `(patterns, chunk, 3)` work arrays stay under ~80 MB (70 MB measured at 8 fields per 16,384-element chunk).
 
 End to end, `ExSearchEngine.compute_ti_fields` (one split) and `MExSearchEngine.compute_mti_field`
 on a synthetic float32 leadfield (20 electrodes, 200,000 elements all in GM, ROI 2,000), with

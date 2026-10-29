@@ -541,7 +541,7 @@ def hf_peak(
 
 # Up to 8 fields, trying all 2^(F-1) sign patterns is 4-20x faster than the zonotope
 # vertices (16384 elements: 1.0 vs 20 ms at 4 fields, 24 vs 160 ms at 8) and its
-# (patterns, chunk, 3) work array stays under ~50 MB.
+# (patterns, chunk, 3) work arrays stay under ~80 MB (70 MB measured at 8 fields, 16384 elements).
 _SIGN_ENUMERATION_MAX = 8
 
 

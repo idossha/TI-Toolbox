@@ -383,9 +383,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         )
     total, step = cfg.get("total_current_mA", 0), cfg.get("current_step_mA", 0)
     limit = cfg.get("channel_limit_mA")
-    if (
-        limit is None
-    ):  # runs before 2026-10-24 recorded no limit and swept up to total - step
+    if limit is None:  # runs before 2026-10-24 recorded no limit and swept up to total - step
         limit = round(total - step, 9)
     dose = [
         ("Electrodes", electrodes),
