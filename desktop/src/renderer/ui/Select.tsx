@@ -35,7 +35,9 @@ export function Select({
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
   return (
-    <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled} open={active && open} onOpenChange={setOpen}>
+    // Always controlled: `undefined` would make Radix uncontrolled, keeping the last label shown
+    // (and ignoring a re-pick of it) after the value was cleared. `""` shows the placeholder.
+    <SelectPrimitive.Root value={value ?? ""} onValueChange={onValueChange} disabled={disabled} open={active && open} onOpenChange={setOpen}>
       <SelectPrimitive.Trigger
         id={id}
         className={cn("select-trigger", invalid && "control-error")}
