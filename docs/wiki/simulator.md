@@ -8,8 +8,8 @@ The Simulator computes the full FEM temporal interference field. It sits between
 
 ## In the application
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: one row per simulation job, with the selected job's montage drawn in the Scene pane" style="width: 100%; max-width: 1000px;">
-<em>The Simulator (⌘3). One row is one job. The pane draws the active row's montage, or its free-hand or optimised (XYZ) placement, on that job's subject's own head.</em>
+<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: one job row on subject ernie, with net GSN-HydroCel-185 and montage F3_F4, beside the Scene pane, which draws the job's electrodes on ernie's head under two channel chips (E1+ E24 · E1- E124 and E2+ E36 · E2- E104) and the Electrode names and Actual size switches" style="width: 100%; max-width: 1000px;">
+<em>The Simulator (⌘3). One row is one job; here subject ernie on GSN-HydroCel-185 with montage F3_F4, a TI montage of two channels. The pane draws the active row's montage, or its free-hand or optimised (XYZ) placement, on that job's subject's own head; the channel chips above it name each channel's electrodes (E1+ E24 · E1- E124) and the Electrode names and Actual size switches sit side by side under the head.</em>
 
 - **Jobs**: one row per simulation, each with its own **Subject** and **Source**: `Montage`, `Flex result` or `Free-hand` (see [Montage Sources](#montage-sources)). Line 2 of a row lists its channels, each named by its two electrodes (`E1+ F3 · E1- F4`: channel k runs from electrode Ek+ to Ek-) with its own current field in mA. **Add job** adds a row; the copy button duplicates one.
 - **TI or mTI**: not a control. It is read off the number of channels: 2 channels run standard TI, 4, 6, 8 … run mTI (see [How the Toolbox Detects mTI](#how-the-toolbox-detects-mti)).
